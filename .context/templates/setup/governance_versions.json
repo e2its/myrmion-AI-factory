@@ -1282,15 +1282,6 @@
       "changelog": [
         "1.0.0: feat: concurrency lock acquisition — prevents parallel Claude sessions on same branch (EVOL-011)"
       ]
-    },
-    "hooks/release-concurrency-lock.sh": {
-      "version": "1.0.0",
-      "type": "hook",
-      "path": ".claude/hooks/release-concurrency-lock.sh",
-      "role": "Stop hook — releases the per-branch session lock at end of each Claude Code turn.",
-      "changelog": [
-        "1.0.0: feat: concurrency lock release on Stop event (EVOL-011)"
-      ]
     }
   }
 }
