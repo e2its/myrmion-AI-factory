@@ -23,16 +23,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/release-concurrency-lock.sh"
-          }
-        ]
-      }
     ]
   }
 }

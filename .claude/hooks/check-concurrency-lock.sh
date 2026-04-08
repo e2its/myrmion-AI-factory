@@ -13,7 +13,7 @@
 #   - If lock exists with different live PID: block with error.
 # ============================================================================
 
-set -uo pipefail
+set -euo pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo '')
 if [ -z "$REPO_ROOT" ]; then
@@ -52,6 +52,9 @@ if [ -f "$LOCK_FILE" ]; then
 fi
 
 # Acquire or refresh lock
-printf '%s\n%s\n' "$SESSION_PID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LOCK_FILE"
+if ! printf '%s\n%s\n' "$SESSION_PID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LOCK_FILE"; then
+  echo "BLOCKED: Failed to acquire lock at '$LOCK_FILE' (permission error or disk full)."
+  exit 1
+fi
 
 exit 0

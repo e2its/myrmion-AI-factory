@@ -53,7 +53,7 @@ if ! $HAS_TERMINAL; then
 fi
 
 # Count unchecked items
-UNCHECKED=$(echo "$CONTENT" | grep -c '^\s*- \[ \]' 2>/dev/null || echo 0)
+UNCHECKED=$(echo "$CONTENT" | grep -c '^\s*- \[ \]' 2>/dev/null || true)
 
 if [ "$UNCHECKED" -gt 0 ]; then
   echo "BLOCKED: Completion gate failed for '$BASENAME'."
