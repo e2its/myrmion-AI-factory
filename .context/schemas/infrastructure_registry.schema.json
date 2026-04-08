@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Infrastructure Registry",
+  "description": "Tracks all infrastructure resources across features, enabling scope classification (system vs feature-exclusive), contribution tracking, and promotion decisions. Managed by DEVOPS agent, consumed by QA and IMPLEMENT for regression/validation.",
+  "type": "object",
+  "required": ["version", "resources"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version for migration compatibility",
+      "const": "1.0.0"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last registry update"
+    },
+    "resources": {
+      "type": "array",
+      "description": "All infrastructure resources managed across the project",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "scope", "created_by", "iac_module", "data_bearing"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique resource identifier (e.g., 'users-db', 'auth-cache', 'event-bus')",
+            "pattern": "^[a-z][a-z0-9-]+$"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["database", "cache", "queue", "storage", "compute", "function", "cdn", "api-gateway", "search", "networking", "other"],
+            "description": "Resource category. 'function' = serverless function (Lambda, Cloud Function, Azure Function)"
+          },
+          "engine": {
+            "type": "string",
+            "description": "Specific technology (e.g., 'PostgreSQL 16', 'Redis 7', 'RabbitMQ', 'AWS Lambda Node.js 20')"
+          },
+          "handler": {
+            "type": "string",
+            "description": "Entry point for serverless functions (e.g., 'src/handlers/auth.handler'). Required when type=function."
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Function runtime (e.g., 'nodejs20.x', 'python3.12', 'go1.x'). Required when type=function."
+          },
+          "memory_mb": {
+            "type": "integer",
+            "description": "Function memory in MB (e.g., 128, 256, 512). Only for type=function.",
+            "minimum": 128,
+            "maximum": 10240
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "description": "Function timeout in seconds (e.g., 30, 60, 900). Only for type=function.",
+            "minimum": 1,
+            "maximum": 900
+          },
+          "trigger": {
+            "type": "string",
+            "enum": ["api-gateway", "queue", "schedule", "event-bus", "storage", "stream", "direct"],
+            "description": "Event source that invokes this function. Only for type=function."
+          },
+          "contract_slug": {
+            "type": "string",
+            "description": "CONTRACT_SLUG from contracts/ directory this function implements. Links function to its OpenAPI contract. Only for type=function with trigger=api-gateway.",
+            "pattern": "^[a-z][a-z0-9-]+$"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["feature", "system"],
+            "description": "feature = used by single feature only; system = shared across 2+ features"
+          },
+          "created_by": {
+            "type": "string",
+            "description": "Feature ID that originally created this resource (e.g., 'USR-001')"
+          },
+          "data_bearing": {
+            "type": "boolean",
+            "description": "true = stores persistent data (requires backup, encryption, deletion protection)"
+          },
+          "iac_module": {
+            "type": "string",
+            "description": "Relative path to the IaC module/config (e.g., 'infra/features/USR-001/database.tf' or 'infra/modules/database/')"
+          },
+          "consumers": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of Feature IDs that use this resource. When length >= 2, scope should be 'system'",
+            "default": []
+          },
+          "contributions": {
+            "type": "array",
+            "description": "History of modifications to this resource by features",
+            "items": {
+              "type": "object",
+              "required": ["feature_id", "action", "date"],
+              "properties": {
+                "feature_id": {
+                  "type": "string",
+                  "description": "Feature ID that made the contribution"
+                },
+                "action": {
+                  "type": "string",
+                  "enum": ["created", "modified", "extended", "promoted"],
+                  "description": "Type of contribution"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "What was changed (e.g., 'Added sessions table', 'Increased connection pool')"
+                },
+                "date": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "Date of contribution"
+                }
+              }
+            },
+            "default": []
+          },
+          "environments": {
+            "type": "object",
+            "description": "Per-environment status and configuration overrides",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": ["not_provisioned", "active", "suspended", "destroyed"]
+                },
+                "engine_override": {
+                  "type": "string",
+                  "description": "Environment-specific engine (e.g., 'sqlite' for dev, 'PostgreSQL' for prod)"
+                },
+                "sizing": {
+                  "type": "string",
+                  "description": "Environment-specific sizing"
+                }
+              }
+            }
+          },
+          "promoted_at": {
+            "type": "string",
+            "format": "date",
+            "description": "Date when resource was promoted from feature to system scope"
+          },
+          "promoted_reason": {
+            "type": "string",
+            "description": "Reason for promotion (e.g., 'Second consumer: FEAT-042')"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "type": { "const": "function" } },
+              "required": ["type"]
+            },
+            "then": {
+              "required": ["handler", "runtime", "memory_mb", "timeout_seconds", "trigger"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": { "const": "function" },
+                "trigger": { "const": "api-gateway" }
+              },
+              "required": ["type", "trigger"]
+            },
+            "then": {
+              "required": ["contract_slug"]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

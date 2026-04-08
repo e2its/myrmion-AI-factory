@@ -1,0 +1,189 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "Worklog JSON schema for agentic SDLC workflow tracking. v2.0: entries are stored in per-feature JSONL files (docs/project_log/features/*.log.jsonl). The index file (workflow_log.json) contains only metadata. The entries array is optional (present only in v1.x legacy or aggregated exports).",
+  "required": ["metadata"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "description": "Metadata header with project info and ID counters",
+      "required": ["project_name", "created_at", "version", "statistics"],
+      "properties": {
+        "project_name": {
+          "type": "string",
+          "description": "Project name (from constitution.md or setup.md)",
+          "example": "mi-AI-Factory"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when worklog was created (ISO 8601)",
+          "example": "2026-02-04T00:00:00Z"
+        },
+        "migrated_from_markdown": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when migrated from .md format (if applicable)",
+          "example": "2026-02-10T14:30:00Z"
+        },
+        "migrated_to_per_feature": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when entries were migrated to per-feature JSONL files (v2.0)",
+          "example": "2026-02-16T10:00:00Z"
+        },
+        "version": {
+          "type": "string",
+          "description": "Schema version (1.0.0 = monolithic, 2.0.0 = per-feature JSONL)",
+          "example": "2.0.0",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "id_counters": {
+          "type": "object",
+          "description": "Dynamic counter for each feature ID prefix used in this project. Prefixes are auto-discovered from feature_id values in entries. No predefined prefixes - users define their own naming scheme.",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "example": {
+            "SETUP": 1,
+            "AUDIT": 1,
+            "EPICA": 5,
+            "TASK": 3,
+            "HOTFIX": 1
+          }
+        },
+        "statistics": {
+          "type": "object",
+          "description": "Aggregate statistics",
+          "properties": {
+            "total_entries": {
+              "type": "integer",
+              "description": "Total number of log entries",
+              "example": 32
+            },
+            "last_updated": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Last update timestamp (auto-sync)",
+              "example": "2026-02-10T16:45:00Z"
+            },
+            "entries_by_agent": {
+              "type": "object",
+              "description": "Entry count per agent (auto-computed)",
+              "additionalProperties": { "type": "integer" },
+              "example": {
+                "DEV": 8,
+                "ARCH": 5,
+                "PO": 3,
+                "QA": 2,
+                "USER": 14
+              }
+            },
+            "entries_by_result": {
+              "type": "object",
+              "description": "Entry count per result type (auto-computed)",
+              "additionalProperties": { "type": "integer" },
+              "example": {
+                "COMPLETED": 24,
+                "IN_PROGRESS": 1,
+                "BLOCKED": 2,
+                "APPROVED": 3,
+                "FAILED": 0,
+                "FIXED": 2
+              }
+            }
+          },
+          "required": ["total_entries", "last_updated"]
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "description": "Array of worklog entries. In v2.0, entries live in per-feature JSONL files (docs/project_log/features/*.log.jsonl). This array is OPTIONAL in the index file — present only in v1.x legacy projects or aggregated exports via view-worklog.sh --export-aggregate.",
+      "items": {
+        "type": "object",
+        "required": ["timestamp", "fase", "usuario_agente", "accion", "resultado", "feature_id"],
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date",
+            "description": "Entry date (YYYY-MM-DD)",
+            "example": "2026-02-10"
+          },
+          "fase": {
+            "type": "string",
+            "description": "Workflow phase",
+            "enum": [
+              "AUDIT",
+              "Discovery",
+              "Materialization",
+              "Co-Creation",
+              "Blueprint",
+              "Spec",
+              "Design",
+              "UX Design",
+              "QA",
+              "Dev",
+              "Review",
+              "Security",
+              "Correction",
+              "General"
+            ],
+            "example": "Dev"
+          },
+          "usuario_agente": {
+            "type": "string",
+            "description": "Agent name if from command (PO, ARCH, DEV, etc.), USER constant, or actual username if initiated by user",
+            "anyOf": [
+              {
+                "enum": ["AUDIT", "SETUP", "CODESIGN", "BLUEPRINT", "PO", "ARCH", "UX", "QA", "DEV", "REVIEW", "SEC", "IMPLEMENT", "DEVOPS", "BACKLOG", "FACTORY", "USER", "SYSTEM"]
+              },
+              {
+                "pattern": "^[a-zA-Z0-9._\\-]{1,64}$",
+                "description": "Username or user identifier (alphanumeric + dots, underscores, hyphens)"
+              }
+            ],
+            "example": "DEV"
+          },
+          "accion": {
+            "type": "string",
+            "description": "Action description or command executed",
+            "minLength": 1,
+            "example": "Ejecutar `/DEV --implement USR-001`"
+          },
+          "resultado": {
+            "type": "string",
+            "description": "Result status",
+            "enum": [
+              "COMPLETED",
+              "IN_PROGRESS",
+              "FAILED",
+              "BLOCKED",
+              "APPROVED",
+              "REJECTED",
+              "FIXED",
+              "CORRECTED",
+              "ROLLBACK",
+              "SKIPPED",
+              "UPDATED"
+            ],
+            "example": "COMPLETED"
+          },
+          "feature_id": {
+            "type": ["string", "null"],
+            "description": "Feature identifier in project's naming scheme (user-defined format). Examples: SETUP-001, USR-042, EPICA.01.1, PROJ-SEC-ITEM, or null if not applicable. No specific format validation - projects define their own naming policy.",
+            "example": "EPICA.01.1"
+          },
+          "observaciones": {
+            "type": ["string", "null"],
+            "description": "Additional context, notes, or error details",
+            "example": "85% coverage, todos tests pasan"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

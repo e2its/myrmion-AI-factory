@@ -1,0 +1,1029 @@
+---
+description: "Factory BLUEPRINT technical design — architecture, API contracts, test plan, OpenAPI/GraphQL/gRPC/AsyncAPI generation. Use when: BLUEPRINT --start or --refine execution."
+---
+
+# BLUEPRINT Agent — Design & Artifact Generation (Phases 0-2)
+
+## Purpose
+This instruction file defines the **Pre-Flight, Analysis, and Artifact Generation** protocols for the BLUEPRINT agent (🏗️ ARCH Hat + 🧪 QA Hat co-design). BLUEPRINT produces the technical design and test plan simultaneously, with cross-pollination: ARCH contracts inform QA test cases, QA edge cases refine ARCH error handling.
+
+---
+
+## Hat-Switching Rules
+
+| Topic | Hat |
+|-------|-----|
+| Patterns, layers, contracts, C4, ADRs | 🏗️ ARCH |
+| Testing strategy, edge cases, coverage, WCAG | 🧪 QA |
+| Schemas, contract-to-test mapping, integration | Both |
+
+---
+
+## Required Inputs (12 Sources)
+
+| Source | Status | Purpose |
+|--------|--------|---------|
+| `spec.feature` | APPROVED (mandatory) | Gherkin scenarios for design |
+| `user_journey.md` | APPROVED (mandatory) | Data Schemas (source of truth for contracts) |
+| `mock.html` | APPROVED (mandatory) | Visual reference for component architecture |
+| Global UX Vision (`docs/ux/vision/`) | APPROVED (if frontend) | App shell, style guide, components, nav map |
+| External Design System (`docs/ux/design-system/`) | If exists | DS tokens, component library |
+| `design_ux.md` (legacy) | If exists | Legacy UX decisions |
+| Governance rules (20+ files from `docs/rules/`) | All applicable | Architecture, security, testing constraints |
+| Protected code (`protected-paths.json`) | If exists | RED ZONE boundaries |
+| `system_resources.json` | If exists | External integrations reference |
+| `ux_decisions_log.md` | If exists | Cross-feature UX decisions |
+| @workspace | Always | Existing code patterns |
+| `codebase_inventory.json` | If exists | DRY enforcement |
+
+---
+
+## Generated Outputs (8 Artifact Types)
+
+1. **`design.md`** — Technical design (contracts, C4, component inventory, infra needs)
+2. **`test_plan.md`** — Test strategy (acceptance, edge cases, integration, WCAG)
+3. **`adr/`** — Architecture Decision Records for significant decisions
+4. **OpenAPI 3.1 YAML** — `contracts/openapi/{SLUG}/v1.yaml` (REST APIs)
+5. **GraphQL SDL** — `contracts/graphql/{SLUG}/schema.graphql` (GraphQL)
+6. **AsyncAPI 2.6+** — `contracts/asyncapi/{SLUG}/asyncapi.yaml` (Event-based)
+7. **gRPC Proto3** — `contracts/grpc/{SLUG}/service.proto` (gRPC)
+8. **`feature_map.md`** — Cross-reference CONTRACT_SLUG → Feature ID → spec
+
+**Contract Slug Convention:** `{domain}-{capability}` in kebab-case. Stored as `x-feature-id` in contract metadata.
+
+---
+
+## Governance Context Loading (Steps 0-5)
+
+### Step 0: Governance Snapshot Recovery (summarization-safe)
+- READ `.context/governance_snapshot.md` (file-based, survives summarization)
+- Compare `constitution_hash` in snapshot vs MD5 of `docs/constitution.md`
+- If snapshot valid → governance loaded (1 file read). If stale/missing → full reload Steps 1-4 + regenerate snapshot
+- See `governance-loading.md` Step 0 for full protocol
+
+### Step 1: Load Constitution & Governance Index
+- Parse stack (backend.runtime, frontend.framework, architecture, topology)
+- Parse `<!-- METADATA -->` comments for rule applicability
+- If Governance Index missing or PLACEHOLDER → BLOCK
+
+### Step 2: Feature Context
+- Detect feature language, stack from current files
+- NOT used for rule filtering (project-level rules apply to ALL features)
+
+### Step 3: Query Applicable Rules
+- Technology-specific: load ONLY if file exists (file existence = stack match)
+- All other rules: load unconditionally
+
+### Step 4: Load Validation Templates
+- Check `.context/validation_templatesBLUEPRINT_VALIDATION_TEMPLATE.md`
+- Merge with applicable rules
+
+### Step 5: Script-Based Validation Registry
+- Mandatory scripts: `dependency-allowlist.sh`, `security-scan.sh`
+- Conditional scripts based on stack (e.g., `validate-iac.sh` if iac_tool != None)
+
+---
+
+## Execution Guardrails
+
+### CANCELLED Verification
+- If `design.md` or `test_plan.md` has `status: CANCELLED` → HARD BLOCK
+
+### Feature Concurrency Prevention
+- Lock: `.context/locks/feature-{{FEATURE_ID}}.lock`
+- BLOCK if lock exists (another agent working on this feature)
+
+### Mandatory Branching
+- Must be on `feature/{{FEATURE_ID}}-*` branch. BLOCK if on protected branch.
+
+### Downstream Iteration Detection (v10.0.0 Dual-Source)
+```yaml
+# Source A: Pull-based comparison
+pull_gap = (spec.iteration > design.based_on_iteration)
+
+# Source B: Push-based cascade
+push_gap = (design.pending_iteration IS NOT NULL AND design.pending_iteration > design.based_on_iteration)
+
+has_gap = pull_gap OR push_gap
+
+IF has_gap:
+  PROMPT: Iteration gap detected. Options: DELTA / FULL / SKIP
+  IF DELTA or FULL: Clear pending_iteration after sync. Execute CASCADE_PENDING_ITERATION to downstream.
+```
+
+### UX Artifacts Enrichment (5-Step Protocol — Before Design)
+1. **Mock Visual Baseline**: Extract component tree, interaction points, data bindings from mock.html
+2. **Global UX Vision**: Load app_shell.html, style_guide.html, page_templates.html, component_library.html, navigation_map.md
+3. **External Design System**: Load DS tokens from `docs/ux/design-system/`
+4. **Legacy UX Artifacts**: Load `design_ux.md` if exists (backward compatibility)
+5. **Cross-Feature UX Decisions**: Load `ux_decisions_log.md` for precedent
+
+---
+
+## Command `--start {{ID}}` — Phase 0: Pre-Flight
+
+### Architecture Context Loading
+- Read `docs/constitution.md` for topology (B1-B12), patterns, stack
+- Read all applicable rules from `docs/rules/`
+- Detect project type: greenfield vs brownfield, monolith vs distributed
+
+### Review Configuration
+- Load review criteria from constitution.md
+- Set up ARCH + QA validation checklists
+
+### Immutability Validation
+- Check `docs/rules/immutability_policy.instructions.md`
+- Validate no changes attempted on frozen artifacts
+
+### Parent Version Detection
+- If spec.feature references a parent feature (e.g., `parent: AUTH-001`)
+- Load parent's design.md for architectural context continuity
+
+---
+
+## Command `--start {{ID}}` — Phase 1: Analysis & Clarification
+
+### ARCH Context Analysis (🏗️ hat)
+- Analyze spec.feature scenarios for architectural implications
+- Map scenarios to component architecture
+- Identify integration points (external systems, cross-domain deps)
+- Assess complexity and propose patterns
+
+### QA Critical Analysis (🧪 hat)
+- Analyze spec.feature for testability  
+- Identify edge cases not covered by scenarios
+- Assess security testing needs
+- Plan acceptance test structure
+
+### BLUEPRINT Clarification Protocol ("The Loop")
+- If ambiguities found in spec/journey/mock: ask 1-to-1 RDR questions
+- Each question: Recommendation → Decision → Ratification → Save → Next
+- Maximum 5 clarification questions before proceeding
+
+---
+
+## Command `--start {{ID}}` — Phase 2: Artifact Generation
+
+### Step -2: CIP Codebase Artifact Inventory Scan (MANDATORY)
+
+**Sub-step -2a: Load Inventory & Topology**
+```yaml
+inventory = READ("config/codebase_inventory.json")
+IF NOT EXISTS:
+  ⚠️ WARN: "Codebase inventory not found. Reuse analysis skipped."
+  LOG CIP_SKIPPED in worklog
+  IF docs/setup.md has materialization_complete: true:
+    ⚠️ ADVISORY: "Inventory should exist. Consider: SETUP --reconcile-inventory"
+  SKIP to Phase 2 artifact generation (no reuse analysis possible)
+topology = READ(constitution.md, "architecture.topology")
+```
+
+**Sub-step -2b: Extract Planned Artifacts**
+- From spec.feature scenarios: services, controllers, repositories
+- From user_journey.md schemas: domain entities, DTOs
+- From mock.html: UI components
+- Each artifact: name, type, module, projected_path, responsibility
+
+**Sub-step -2c: Domain-Aware Reuse Analysis**
+For each planned artifact:
+```yaml
+reuse_category = classify_artifact_reuse_category(type, module, topology)
+  # SHARED: ui_component, utility, middleware, guard, pipe, hook → cross-domain OK
+  # DOMAIN_INTERNAL: service, entity, repository, adapter → DDD isolation
+  # MODULE: controller, module → depends on architecture
+
+# Domain Isolation Gate
+IF both planned + existing are DOMAIN_INTERNAL AND different_module:
+  → NOT a DRY violation (DDD boundary)
+  → Only flag if identical name (CROSS_DOMAIN_COLLISION)
+
+# 4-Criteria Matching (O(1) JSON lookup, no file scanning)
+candidates = find_inventory_matches(planned_artifact, topology):
+  1. EXACT_MATCH: name + type identical (confidence: 1.0)
+  2. SAME_DOMAIN: same module + same type (confidence: 0.8)
+  3. NEAR_DUPLICATE: >60% responsibility overlap (confidence: overlap score)
+  4. NAME_SIMILAR: Levenshtein distance <3, same type (confidence: 0.5)
+```
+
+**Sub-step -2d: RDR per Reuse Candidate (1-to-1, NEVER batch)**
+- For SHARED / same-domain matches: REUSE / EXTEND / CREATE_NEW (with mandatory ADR)
+- For CROSS_DOMAIN_COLLISION: RENAME / SHARED_KERNEL (with ADR) / KEEP_BOTH (with ADR)
+
+**Sub-step -2e: Summary**
+- Log all decisions in `design.md Section 0: "Reuse Analysis"`
+
+### Step -1: Existing Endpoint Inventory Scan (MANDATORY)
+
+**Sub-step -1a: Full Contract Scan**
+- Scan 100% of existing contracts across ALL directories:
+  - `contracts/openapi/` → REST endpoints
+  - `contracts/graphql/` → GraphQL operations
+  - `contracts/grpc/` → gRPC services
+  - `contracts/asyncapi/` → Event channels
+- Build complete endpoint inventory
+
+**Sub-step -1b: Reuse Analysis**
+- Compare needed capabilities (from spec.feature scenarios) against existing endpoints
+- Match by: path pattern, operation semantics, data schema overlap
+- For each needed capability: REUSE / EXTEND / NEW_ENDPOINT assessment
+
+**Sub-step -1c: Reuse Decision (RDR per candidate)**
+- Each candidate gets individual RDR decision
+- Document in design.md
+
+**Sub-step -1d: Inventory Summary**
+- Summary of endpoints to REUSE, EXTEND, and CREATE
+
+### Step -0.5: Inter-Domain Dependency Analysis (MANDATORY)
+
+**Step A**: Extract ALL cross-domain/module dependencies from spec.feature and user_journey.md
+**Step B**: Classify each as sync (REST/GraphQL/gRPC), async (AsyncAPI), or webhook (inbound/outbound) based on topology + communication_style + webhooks setting from constitution.md
+**Step C**: Verify contract existence per dependency (scan contracts/ directory, including contracts/webhooks/)
+**Step D**: Generate `design.md Section 4: "Cross-Domain Dependencies"` table with: dependency, type (sync/async/webhook-in/webhook-out), contract_ref, status (EXISTS/MISSING/PENDING)
+
+### Contract Generation (MANDATORY)
+
+**Step 0**: Determine required formats from constitution.md:
+- `backend.communication_style` → REST → OpenAPI, GraphQL → SDL, gRPC → Proto3
+- If topology is event-based (B3, B6, B7, B11) → ALSO generate AsyncAPI
+- If `backend.webhooks` != None → ALSO generate webhook contracts:
+  - Inbound → OpenAPI 3.1 `paths:` in `contracts/webhooks/inbound/{SLUG}/v1.yaml`
+  - Outbound → OpenAPI 3.1 `webhooks:` section in `contracts/webhooks/outbound/{SLUG}/v1.yaml`
+
+**Step 2pre**: Derive CONTRACT_SLUG per `contract-first-policy.instructions.md`:
+- Format: `{domain}-{capability}` in kebab-case
+- Example: `auth-login`, `order-management`, `notification-email`
+
+**Step 2a**: CREATE contract file(s) following spec + rules:
+- OpenAPI 3.1: paths, schemas, responses, error codes
+- GraphQL SDL: types, queries, mutations, subscriptions
+- AsyncAPI 2.6+: channels, messages, schemas
+- gRPC Proto3: service definitions, message types
+- Webhook inbound: OpenAPI 3.1 paths with payload schemas + signature security scheme
+- Webhook outbound: OpenAPI 3.1 `webhooks:` section with event payload schemas
+
+**Step 2b**: Inline metadata in each contract:
+- `x-feature-id: {{FEATURE_ID}}`
+- `x-contract-slug: {{SLUG}}`
+- `x-generated-by: BLUEPRINT`
+
+**Step 2c**: Update `contracts/feature_map.md`:
+- Add row: SLUG → Feature ID → contract path → spec reference
+
+**Step 2d**: Reference contracts in design.md Section 3
+
+### Schema Derivation Policy
+- **Source of truth**: `user_journey.md` Data Schemas
+- **Technical fields FREE**: id, created_at, updated_at, version, audit fields → ARCH adds freely
+- **Business fields LOCKED**: Any field from journey schemas → ARCH formalizes but does NOT invent
+- **If ARCH needs a business field not in journey** → RDR explaining why → If approved, update journey schemas
+- **Cross-Layer Type Mapping Table**: MANDATORY in design.md — maps journey types → API types → DB types → UI types
+
+### Infrastructure Needs Declaration (design.md Section 5)
+```yaml
+infrastructure_needs:
+  resources:
+    - name: "resource_name"
+      type: "database | cache | queue | storage | function | service | static_site"
+      engine: "resource-type-specific; derived from constitution and ARCH decisions"
+      scope: "feature | shared"
+      data_bearing: true | false
+      sizing:
+        min: "description"
+        recommended: "description"
+  
+  # For static_site resources (frontend SPA/SSR/SSG):
+  # framework, build_command, output_dir, base_path, ssr (true|false)
+  
+  # For B9 (Serverless) projects, function resources include:
+  # handler, runtime, memory, timeout, trigger, contract_slug, endpoints
+  
+  external_integrations:
+    - name: "integration_name"
+      direction: "inbound | outbound | bidirectional"
+      protocol: "REST | GraphQL | gRPC | WebSocket | SMTP"
+      contract_ref: "contracts/openapi/slug/v1.yaml"
+  
+  constraints:
+    - "description of infrastructure constraint"
+  
+  # Frontend Hosting Declaration (for projects with frontend.framework != None)
+  # ARCH MUST declare a static_site resource when the constitution specifies a frontend framework.
+  # Without this declaration, DEVOPS has no vocabulary to provision frontend hosting.
+  # See: Frontend Hosting Auto-Declaration section below for the auto-generation protocol.
+  # Additional fields for static_site: framework, build_command, output_dir, base_path, ssr
+  # All values derived from constitution or asked via RDR — never hardcoded.
+
+  # Synthetic Data Declaration (for staging/preview environments)
+  # ARCH must declare if this feature requires seeded data for non-production.
+  # This feeds IMPLEMENT C.5 (Synthetic Data Protocol) and DEVOPS (Seed Pipeline).
+  staging_data:
+    required: true | false
+    entities:
+      - name: "{entity_name}"
+        owns: true | false           # true = this feature creates the seed fixture
+        consumes_from: "{FEATURE_ID or _shared}"  # if owns: false
+        estimated_count: N            # records needed for realistic staging
+        fk_dependencies: ["{parent_entity_1}", "{parent_entity_2}"]
+    notes: "Any special considerations (offline sync states, temporal data, etc.)"
+```
+
+### Extension Strategy Sections (Brownfield Projects)
+
+**E0 (Native Extension)**: Governance overlay alongside existing code. No adapter layer.
+
+**E1 (Preserve + Wrapper)**: ACL/Facade patterns. Design includes:
+- Wrapper interface definitions
+- Data transformation mappings (legacy ↔ new)
+- Adapter component specifications
+
+**E2 (Strangler Fig)**: Progressive replacement. Design includes:
+- Router configuration (which routes go to legacy vs new)
+- Dual-write patterns for data consistency
+- Feature toggle specifications
+- Migration sequence (which modules first)
+
+### Integration ACL Strategy (Distributed Backends)
+- BackendAggregatorACL: single API gateway aggregating multiple backend services
+- Per-service client definitions
+- Circuit breaker configuration
+- Fallback behavior specifications
+
+### External System Adapters
+For each external system identified in `user_journey.md Section 5`:
+- Adapter interface definition
+- Error handling strategy (timeout, retry, circuit breaker)
+- Data transformation (external format ↔ internal format)
+- Mock/stub specification for testing
+
+### Frontend Hosting Auto-Declaration (MANDATORY when frontend.framework != None)
+
+```yaml
+# RULE: If frontend.framework != None, BLUEPRINT MUST auto-declare a static_site resource in design.md Section 5.
+
+FUNCTION auto_declare_frontend_resource():
+  frontend_framework = READ constitution.md → frontend.framework
+  IF frontend_framework == None OR frontend_framework == "None":
+    RETURN  # No frontend → no resource needed
+
+  # Check if a static_site resource already exists in resources[]
+  existing = resources[].find(r => r.type == "static_site")
+  IF existing:
+    RETURN  # Already declared (e.g., by explicit ARCH decision)
+
+  # Read available constitution fields (all populated by SETUP discovery + materialization)
+  cloud_provider = READ constitution.md → infrastructure.cloud_provider
+  iac_tool = READ constitution.md → infrastructure.iac_tool
+  frontend_pattern = READ constitution.md → frontend.pattern
+  meta_framework = READ constitution.md → frontend.meta_framework
+
+  # Derive rendering mode from frontend.pattern (discovered in SETUP Q11)
+  # F1=SPA, F2=SSR+hydration, F3=SSR pure, F4=ISR, F9=PWA, F10=Component-Driven → all derivable
+  ssr = frontend_pattern IN ["F2", "F3", "F4"]  # SSR-capable patterns
+
+  # ARCH proposes hosting engine via RDR based on constitution fields.
+  # There are NO hardcoded engine mappings — the agent uses cloud_provider,
+  # iac_tool, frontend_pattern, and meta_framework as context to recommend.
+  ASK via RDR:
+    R: "Your project uses {frontend_framework} (pattern {frontend_pattern}) on {cloud_provider}.
+        I recommend a frontend hosting setup appropriate for {'SSR' IF ssr ELSE 'SPA/static'} delivery.
+        What hosting engine should I declare?"
+    D: Wait for user decision → engine
+    R: Save engine to resource declaration
+
+  ASK via RDR:
+    R: "What is the build command for your frontend? (default: npm run build)"
+    D: Wait for user decision → build_command (default: "npm run build")
+
+  ASK via RDR:
+    R: "What is the build output directory? (default: dist)"
+    D: Wait for user decision → output_dir (default: "dist")
+
+  APPEND to resources[]:
+    name: "frontend_app"
+    type: "static_site"
+    engine: {engine}
+    scope: "shared"
+    data_bearing: false
+    framework: {frontend_framework}
+    build_command: {build_command}
+    output_dir: {output_dir}
+    base_path: "/"
+    ssr: {ssr}
+    sizing:
+      min: "Single-origin hosting"
+      recommended: "CDN-backed hosting with CI/CD pipeline"
+```
+
+### QA Test Plan Generation (🧪 hat)
+
+**Level 1: Business/Acceptance Tests**
+- One test case per spec.feature scenario
+- Test ID format: `TC-{SCENARIO_NUMBER}` (e.g., TC-001, TC-002)
+- Maps: Scenario → Preconditions → Steps → Expected Result
+
+**Level 2: Technical Tests**
+- Negative tests (invalid inputs, boundary values)
+- Security tests (injection, XSS, CSRF, auth bypass)
+- Performance tests (load, stress if applicable)
+- Concurrency tests (if applicable)
+
+**Section 2.1: API Integration Tests**
+- Test ID format: `TC-API-{NUMBER}`
+- Per contract endpoint: happy path + error paths
+- Request/response validation against contract schemas
+- Authentication/authorization test coverage
+
+**Section 3: Accessibility Tests**
+- WCAG 2.1 AA compliance tests per mock.html page
+- Keyboard navigation tests
+- Screen reader compatibility
+- Color contrast verification
+
+### Cross-Pollination (MANDATORY)
+- ARCH contracts → QA generates contract tests
+- QA edge cases → ARCH adds error handling to design
+- ARCH patterns → QA generates pattern compliance tests
+- QA security concerns → ARCH adds security architecture sections
+
+### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY — v2.3.0)
+
+> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for DEV + REVIEW + SEC — reliably, with zero duplication.
+
+**When to generate:** After completing Section 5 (Infrastructure Needs), before finalizing `design.md`.  
+**Format:** Inline markdown table + YAML blocks. NEVER prose. Machine-readable IDs for each constraint.
+
+```yaml
+FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, governance_context):
+  # Uses already-loaded governance from Steps 0-5 — no additional file reads
+  
+  WRITE design.md "## Section 7: Governance Constraints Digest"
+  WRITE design.md "> Auto-generated by BLUEPRINT --start. Read by IMPLEMENT as single-file governance fast-path."
+  WRITE design.md "> Constraint IDs are referenced by REVIEW hat checks (e.g., [GOV-ARCH-001])."
+  
+  # 7.1 Architecture Constraints (→ REVIEW Check #1: ARCH)
+  EXTRACT from constitution.md:
+    topology_code: "B{N}"  # e.g., B2, B5, B8
+    topology_name: "{name}"  # e.g., Modular Monolith, Event-Driven Microservices
+    layer_ordering: "{presentation → application → domain → infrastructure}"
+    module_boundary_rules:  # per topology: which imports are ALLOWED vs FORBIDDEN
+      FOR EACH module_pair:
+        - source: "{module_A}" → target: "{module_B}": ALLOWED|FORBIDDEN
+    extension_strategy: "E{N} — {name}"  # E0=Native, E1=Wrapper, E2=Strangler, E3=Rewrite
+    protect_legacy: true|false  # E1/E2 only
+  
+  WRITE design.md "### 7.1 Architecture Constraints → REVIEW [ARCH]"
+  WRITE design.md:
+    topology: "{B_code} {name}"
+    extension_strategy: "{E_code} {name}"
+    layer_rule: "{ordering}"
+    module_boundaries_table: | 
+      | From | To | Rule |
+      |------|----|------|
+      | {module} | {module} | ALLOWED\|FORBIDDEN |
+    forbidden_patterns:
+      - "Direct cross-domain imports — use contract HTTP call"
+      - "Domain entity in presentation layer"
+      - "Infrastructure leak into domain"
+  
+  # 7.2 Governance Rules Index (→ REVIEW Check #2: GOV)
+  # Compact extraction: only the actionable constraints, not full rule prose.
+  # MUST cover ALL rule files in docs/rules/ — not just a subset.
+  # Missing rules cause IMPLEMENT to operate without constraints → quality gaps.
+  EXTRACT key constraints from each applicable rule:
+    GOV-ARCH:   architecture.instructions.md → naming conventions, file organization rules, layer ordering
+    GOV-SEC:    security_policy.instructions.md → auth requirements, CORS, headers, session rules
+    GOV-TEST:   testing.instructions.md → coverage threshold (%), required frameworks, file patterns
+    GOV-API:    api-standards.instructions.md → versioning, status codes, pagination, error format
+    GOV-DB:     database.instructions.md → migration policy, index requirements, FK rules (if DB exists)
+    GOV-OBS:    observability.instructions.md → required log fields, trace headers, metrics
+    GOV-PERF:   performance.instructions.md → SLA targets, caching rules, query limits
+    GOV-PRIV:   privacy.instructions.md → PII field handling, data retention, masking requirements
+    GOV-STACK:  {stack-specific rule e.g. node.instructions.md, python.instructions.md} → key naming/lint rules
+    GOV-REVIEW: review-policy.instructions.md → review criteria, approval policies, review checklist scope
+    GOV-STATE:  stateless.instructions.md → state management constraints, session handling, caching rules
+    GOV-IMMUT:  immutability_policy.instructions.md → frozen artifacts, protected code block rules
+    GOV-CFP:    contract-first-policy.instructions.md → contract-first enforcement, cross-domain import policy
+    GOV-IAC:    iac.instructions.md → IaC naming, module structure, least privilege, tags (if infra exists)
+    GOV-FRONT:  frontend_architecture_compatibility.instructions.md → frontend arch compatibility rules (if frontend)
+    GOV-HTML:   html-css.instructions.md → HTML/CSS coding standards, semantic markup rules (if frontend)
+  
+  FOR EACH rule WITH stack_conditional:
+    IF stack_conditional != match(stack_context): SKIP rule, add to "not_applicable" list
+  
+  WRITE design.md "### 7.2 Governance Rules Index → REVIEW [GOV]"
+  WRITE design.md:
+    applicable_rules:
+      - id: "GOV-ARCH"
+        source: "docs/rules/architecture.instructions.md"
+        constraints: ["{compact rule 1}", "{compact rule 2}"]
+      - id: "GOV-SEC"
+        source: "docs/rules/security_policy.instructions.md"
+        constraints: ["{constraint 1}", "{constraint 2}"]
+      - id: "GOV-TEST"
+        source: "docs/rules/testing.instructions.md"
+        coverage_threshold: "{N}%"
+        test_framework: "{framework}"
+        test_file_pattern: "{pattern}"
+      - id: "GOV-REVIEW"
+        source: "docs/rules/review-policy.instructions.md"
+        constraints: ["{review criteria}", "{approval count}", "{review scope rules}"]
+      - id: "GOV-STATE"
+        source: "docs/rules/stateless.instructions.md"
+        constraints: ["{session rule}", "{caching rule}", "{state constraint}"]
+      - id: "GOV-IMMUT"
+        source: "docs/rules/immutability_policy.instructions.md"
+        constraints: ["{frozen artifacts}", "{protected code block rules}"]
+      - id: "GOV-CFP"
+        source: "docs/rules/contract-first-policy.instructions.md"
+        constraints: ["{cross-domain import policy}", "{contract-first enforcement}"]
+      - id: "GOV-IAC"
+        source: "docs/rules/iac.instructions.md"
+        constraints: ["{IaC naming}", "{module structure}", "{least privilege}"]
+        stack_conditional: "iac_tool != None"
+      - id: "GOV-FRONT"
+        source: "docs/rules/frontend_architecture_compatibility.instructions.md"
+        constraints: ["{frontend arch rules}"]
+        stack_conditional: "frontend.framework != None"
+      - id: "GOV-HTML"
+        source: "docs/rules/html-css.instructions.md"
+        constraints: ["{semantic markup}", "{CSS standards}", "{responsive rules}"]
+        stack_conditional: "frontend.framework != None"
+      # ... (one entry per applicable rule)
+    not_applicable: ["{rule_name}: {reason — e.g., no database in stack}"]
+  
+  # 7.3 SAST Patterns (→ SEC Hat) — stack-specific ONLY
+  # Pre-compiles the exact patterns for THIS stack. SEC hat does not re-derive.
+  # Source: security_policy.instructions.md + stack-specific rules (already loaded in Steps 0-5).
+  # OWASP Top 10 coverage derived from the project's attack surface (API, frontend, data layer).
+  DERIVE from governance rules already in memory:
+    FOR backend.runtime: select applicable patterns (Python | TypeScript/JS | Java | Go)
+    FOR frontend.framework (if exists): select frontend patterns
+    ALWAYS include: Common patterns (hardcoded secrets, disabled TLS)
+  
+  WRITE design.md "### 7.3 SAST Patterns → SEC Hat"
+  WRITE design.md:
+    backend_runtime: "{runtime}"
+    frontend_framework: "{framework | None}"
+    patterns:
+      - id: "SAST-INJ-01"
+        description: "{pattern description}"
+        detection: "{code pattern or AST pattern}"
+        cwe: "CWE-{N}"
+        severity: "CRITICAL|HIGH|MEDIUM|LOW"
+        owasp: "A{N}"
+      # ... (only patterns applicable to this stack)
+    common_patterns:
+      - id: "SAST-SEC-01"
+        description: "Hardcoded secrets"
+        detection: "password|api_key|secret.*=.*['\"][^$\n]{8,}"
+        severity: "CRITICAL"
+        owasp: "A02"
+    applicable_owasp:
+      - "A01 (Broken Access Control): {applicable check}"
+      - "A02 (Cryptographic Failures): {applicable check}"
+      - "A03 (Injection): {applicable check}"
+      # ... only OWASP items relevant to this feature's surface area
+  
+  # 7.4 Schema Constraints (→ REVIEW Check #5: SCHEMA)
+  EXTRACT from user_journey.md Data Schemas:
+    FOR EACH entity IN data_schemas:
+      business_fields: [field_name, type, required|optional]  # LOCKED
+      # (Technical fields exempt: id, created_at, updated_at, version, audit fields)
+  
+  WRITE design.md "### 7.4 Schema Constraints → REVIEW [SCHEMA]"
+  WRITE design.md:
+    schemas_version: "{user_journey.schemas_version}"
+    entities:
+      - name: "{EntityName}"
+        locked_fields:
+          - field: "{name}" | type: "{type}" | format: "{format}" | required: true|false
+        note: "Business fields LOCKED — deviation requires CODESIGN RDR"
+    exempt_technical_fields: [id, created_at, updated_at, deleted_at, version, audit_fields]
+    # Type Format Registry (for test data compliance)
+    # Preserves domain type precision lost when normalizing to language primitives.
+    # Source: user_journey.md Data Schemas + OpenAPI/contract format fields.
+    # Consumed by: IMPLEMENT TDD (mock data generation), REVIEW Check #5 [SCHEMA-TEST].
+    type_format_registry:
+      - field_pattern: "*_id" | format: "uuid" | example: "550e8400-e29b-41d4-a716-446655440000"
+      - field_pattern: "*email*" | format: "email" | example: "user@example.com"
+      - field_pattern: "*_at" | format: "iso-datetime" | example: "2026-01-15T10:30:00Z"
+      - field_pattern: "*_date" | format: "iso-date" | example: "2026-01-15"
+      - field_pattern: "*url*" | format: "uri" | example: "https://example.com/resource"
+      - field_pattern: "*uri*" | format: "uri" | example: "https://example.com/resource"
+      - field_pattern: "*phone*" | format: "phone" | example: "+1-555-0100"
+      # Entity-specific overrides (from user_journey.md):
+      #   FOR EACH entity IN data_schemas:
+      #     FOR EACH field WHERE field.type has domain precision (UUID, Email, URL, etc.):
+      #       - field_pattern: "{entity.name}.{field.field}" | format: "{domain_format}" | example: "{valid_example}"
+  
+  # 7.5 Contract-First Constraints (→ REVIEW Check #10: CFP)
+  EXTRACT from Section 3 (Contracts) of design.md already generated:
+    contract_files: [{type, path}]
+    forbidden_direct_imports: ["{module_A}", "{module_B}"]  # cross-domain
+  
+  WRITE design.md "### 7.5 Contract-First Rules → REVIEW [CFP]"
+  WRITE design.md:
+    contracts:
+      - type: "OpenAPI|GraphQL|AsyncAPI|gRPC"
+        path: "{contracts/...}"
+        slug: "{slug}"
+    cross_domain_import_forbidden_from: ["{module_name}"]
+    all_cross_domain_calls_via: "HTTP client generated from contract file"
+  
+  # 7.6 UX Vision Digest (UXD) (→ REVIEW Check #7: UX + IMPLEMENT Phase B — frontend only)
+  # PURPOSE: BLUEPRINT has already loaded ALL 5 vision HTML/MD artifacts in Step 0 (UX Artifacts
+  # Enrichment). Instead of IMPLEMENT re-loading 5 large HTML files (2500+ tokens total) that
+  # get lost to context summarization before Phase B, BLUEPRINT pre-digests the essential
+  # structural data into this compact section. IMPLEMENT reads ONE section and gets everything
+  # it needs for shell composition, styling, component reuse, and navigation — reliably.
+  # This follows the SAME pattern as GCD (Section 7.1-7.5): pre-digest upstream → one read downstream.
+  IF frontend.framework != "None":
+    # 7.6.1 Shell Composition (from app_shell.html)
+    EXTRACT from app_shell.html:
+      shell_layout: "{layout_type — e.g., sidebar-left, top-nav, minimal, dashboard}"
+      shell_regions:
+        header: { exists: true|false, contains: ["{logo|nav|user-menu|search|...}"], height: "{value}" }
+        sidebar: { exists: true|false, position: "left|right", width: "{value}", collapsible: true|false, contains: ["{nav-links|icons|...}"] }
+        footer: { exists: true|false, contains: ["{copyright|links|...}"] }
+        main: { container: "{class or structure}", padding: "{value}" }
+      shell_css_classes: ["{class_1}", "{class_2}"]  # CSS classes used by the shell
+      shell_landmarks: { banner: "{selector}", navigation: "{selector}", main: "{selector}", contentinfo: "{selector}" }
+    
+    # 7.6.2 Design Tokens (from style_guide.html)
+    EXTRACT from style_guide.html → ALL CSS custom properties / design tokens:
+      color_palette:
+        primary: "{value}"         # --color-primary
+        secondary: "{value}"       # --color-secondary
+        accent: "{value}"          # --color-accent
+        background: "{value}"      # --color-bg
+        surface: "{value}"         # --color-surface
+        text_primary: "{value}"    # --color-text
+        text_secondary: "{value}"  # --color-text-secondary
+        error: "{value}"           # --color-error
+        warning: "{value}"         # --color-warning
+        success: "{value}"         # --color-success
+        # ... all color tokens from the style guide
+      typography:
+        font_family_primary: "{value}"
+        font_family_mono: "{value}"
+        scale: [  # font-size / line-height / weight per role
+          { role: "h1", size: "{value}", line_height: "{value}", weight: "{value}" },
+          { role: "h2", size: "{value}", line_height: "{value}", weight: "{value}" },
+          { role: "body", size: "{value}", line_height: "{value}", weight: "{value}" },
+          { role: "small", size: "{value}", line_height: "{value}", weight: "{value}" },
+          # ... all typography roles
+        ]
+      spacing_scale:
+        xs: "{value}"    # --spacing-xs
+        sm: "{value}"    # --spacing-sm
+        md: "{value}"    # --spacing-md
+        lg: "{value}"    # --spacing-lg
+        xl: "{value}"    # --spacing-xl
+        2xl: "{value}"   # --spacing-2xl
+      borders:
+        radius_sm: "{value}"
+        radius_md: "{value}"
+        radius_lg: "{value}"
+        radius_full: "{value}"
+      shadows: ["{shadow_1}", "{shadow_2}", "{shadow_3}"]
+      transitions: { default: "{value}", fast: "{value}", slow: "{value}" }
+      breakpoints:
+        sm: "{value}"    # mobile
+        md: "{value}"    # tablet
+        lg: "{value}"    # desktop
+        xl: "{value}"    # wide
+      css_custom_property_prefix: "{prefix — e.g., --app-, --ds-}"  # or empty if no prefix
+    
+    # 7.6.3 Page Templates (from page_templates.html)
+    EXTRACT from page_templates.html:
+      available_templates:
+        - type: "{dashboard|list|detail|form|error|auth|landing|settings}"
+          layout: "{grid|flex|single-column|multi-column}"
+          regions: ["{page-header|filters|content-area|action-bar|pagination}"]
+          css_classes: ["{class_1}", "{class_2}"]
+        # ... one entry per template archetype
+      feature_template_type: "{which template THIS feature should use based on spec.feature}"
+    
+    # 7.6.4 Component Library Inventory (from component_library.html)
+    EXTRACT from component_library.html:
+      reusable_components:
+        - name: "{component_name — e.g., Button, Card, Modal, Table, TextInput, Select}"
+          variants: ["{primary|secondary|outline|ghost}"]
+          props: ["{size|disabled|loading|icon|...}"]
+          css_class: "{class_name}"
+          usage_notes: "{when to use this component}"
+        # ... one entry per reusable component
+      total_available: {count}
+    
+    # 7.6.5 Navigation Map (from navigation_map.md)
+    EXTRACT from navigation_map.md:
+      nav_structure:
+        - label: "{section_label}"
+          path: "{route}"
+          icon: "{icon_name|null}"
+          children:
+            - label: "{child_label}"
+              path: "{route}"
+        # ... full navigation tree
+      feature_placement:
+        nav_entry: "{where this feature appears in navigation}"
+        parent_section: "{parent nav section}"
+        route_pattern: "{/feature-path/:id}"
+      breadcrumb_chain: ["{Home}", "{Section}", "{Feature}"]
+    
+    # 7.6.6 Feature-to-Vision Cross-Reference
+    # Map THIS feature's mock.html components against the component library
+    mock_component_analysis:
+      - mock_component: "{component from mock.html}"
+        classification: "VISION_REUSE|FEATURE_NEW"
+        library_match: "{component_library entry name|null}"
+        notes: "{adaptation needed|direct reuse|new component required}"
+      # ... one entry per component in mock.html
+    
+    WRITE design.md "### 7.6 UX Vision Digest (UXD) → REVIEW [UX] + IMPLEMENT Phase B"
+    WRITE design.md:
+      uxd_version: "1.0.0"
+      vision_status: APPROVED
+      vision_artifacts_source: [app_shell.html, style_guide.html, page_templates.html, component_library.html, navigation_map.md]
+      # Shell
+      shell_composition: {shell_layout, shell_regions, shell_css_classes, shell_landmarks}
+      # Tokens
+      design_tokens: {color_palette, typography, spacing_scale, borders, shadows, transitions, breakpoints, css_custom_property_prefix}
+      # Templates
+      page_templates: {available_templates, feature_template_type}
+      # Components
+      component_library: {reusable_components, total_available}
+      # Navigation
+      navigation: {nav_structure, feature_placement, breadcrumb_chain}
+      # Feature-Level
+      mock_component_analysis: {mock_component_analysis}
+      # Constraints
+      touch_target_minimum: "44×44px"
+      wcag_level: "AA"
+      blocker_violations:
+        - "Duplicating a component that exists in vision library (use VISION_REUSE classification)"
+        - "Hardcoding colors/fonts/spacing when design tokens exist (use css_custom_property_prefix + token names)"
+        - "Shell structure deviation (header/sidebar/footer must match shell_composition)"
+      note: >
+        This UXD is the SINGLE SOURCE for IMPLEMENT Phase B.
+        IMPLEMENT reads this section ONCE — it does NOT need to load any vision HTML files.
+        design_tokens are translated to stack-native config during B.0 (Frontend Foundation).
+        shell_composition is the binding reference for shell fidelity verification.
+        component_library is the binding reference for component reuse classification.
+  ELSE:
+    WRITE design.md "### 7.6 UX Vision Digest (UXD) → N/A (no frontend in stack)"
+  
+  # 7.7 Coding Standards (→ DEV Hat)
+  EXTRACT from stack-specific rule + constitution.md:
+    naming_convention: "{camelCase|snake_case|PascalCase} per role"
+    module_structure: "{directory layout}"
+    test_file_pattern: "{e.g., *.spec.ts, test_*.py}"
+    test_framework: "{jest|pytest|go test}"
+    key_lint_rules: ["{rule_1}", "{rule_2}"]
+  
+  WRITE design.md "### 7.7 Coding Standards → DEV Hat"
+  WRITE design.md:
+    language: "{runtime/language}"
+    naming:
+      files: "{pattern}"
+      classes: "{pattern}"
+      functions: "{pattern}"
+      constants: "{pattern}"
+    module_structure: "{layout description}"
+    test_file_pattern: "{pattern}"
+    key_lint_rules: ["{rule}"]
+  
+  # 7.8 Mandatory Architectural Patterns + ADR Bindings (→ REVIEW Check #14: DESIGN + DEV Hat)
+  # PURPOSE: Constitution and ADRs define mandatory implementation patterns (e.g., BaseRepository
+  # with auto tenant filter, middleware tenant_id injection, global error handler, audit logging).
+  # These are NOT rules (docs/rules/) — they are DESIGN DECISIONS that dictate HOW code must be
+  # structured. Without this section, IMPLEMENT satisfies constraints superficially (e.g., manual
+  # tenant filtering in each query instead of the prescribed BaseRepository auto-filter).
+  #
+  # This section captures:
+  #   A) Constitutional architectural patterns (mandatory shared components, middleware chain,
+  #      data access patterns, cross-cutting concerns)
+  #   B) ADR binding decisions from docs/spec/{FEATURE_ID}/adr/ that mandate specific approaches
+  #   C) Setup decisions that affect implementation (e.g., multitenancy strategy, auth mechanism)
+  
+  EXTRACT from constitution.md → architecture section:
+    # Scan for mandatory patterns: middleware requirements, base classes, shared services,
+    # data access strategies, security enforcement patterns, cross-cutting concerns.
+    # These are typically defined under architecture.patterns, architecture.middleware,
+    # architecture.data_access, architecture.security, or similar constitution sections.
+    mandatory_patterns = []
+    
+    FOR EACH pattern IN constitution.architecture.patterns (or equivalent sections):
+      mandatory_patterns.APPEND({
+        id: "PAT-{sequential}",
+        name: "{pattern_name}",  # e.g., "BaseRepository", "TenantMiddleware", "GlobalErrorHandler"
+        type: "{middleware|base_class|shared_service|guard|interceptor|adapter|factory}",
+        scope: "{shared|per_module}",
+        description: "{what it does}",
+        enforcement: "{how it's enforced — e.g., all repositories MUST extend BaseRepository}",
+        constitution_ref: "{section reference in constitution.md}",
+        affects_feature: true|false  # whether this feature uses/needs this pattern
+      })
+    
+    # Multitenancy patterns (if constitution defines multitenancy)
+    IF constitution.architecture.multitenancy EXISTS:
+      EXTRACT:
+        isolation_strategy: "{row_level|schema|database}"
+        tenant_source: "{middleware|header|jwt_claim|subdomain}"
+        enforcement_mechanism: "{base_repository_filter|middleware_injection|db_policy|rls}"
+        mandatory_components:
+          - name: "{e.g., TenantMiddleware}"
+            responsibility: "{e.g., extract tenant_id from JWT, inject into request context}"
+          - name: "{e.g., BaseRepository}"
+            responsibility: "{e.g., auto-add WHERE tenant_id = $1 on all queries}"
+    
+    # Auth/security patterns
+    IF constitution.architecture.auth EXISTS:
+      EXTRACT:
+        auth_mechanism: "{jwt|session|oauth2|api_key}"
+        mandatory_middleware: ["{auth_middleware}", "{rbac_guard}", ...]
+        token_propagation: "{how auth context flows through layers}"
+    
+    # Cross-cutting concerns (error handling, logging, audit)
+    IF constitution.architecture.cross_cutting EXISTS:
+      EXTRACT:
+        error_handling: "{global_handler|per_module|middleware}"
+        logging: "{structured|middleware_injected|decorator}"
+        audit: "{audit_trail_middleware|event_sourcing|db_trigger}"
+  
+  # Load feature-relevant ADRs
+  adr_bindings = []
+  adr_dir = "docs/spec/{FEATURE_ID}/adr/"
+  IF DIRECTORY_EXISTS(adr_dir):
+    FOR EACH adr_file IN adr_dir:
+      adr = READ(adr_file)
+      IF adr.status == "accepted" OR adr.status == "approved":
+        adr_bindings.APPEND({
+          id: adr.id,  # e.g., "ADR-003"
+          title: adr.title,
+          decision: "{the specific implementation decision}",
+          consequences: ["{implementation constraint 1}", "{implementation constraint 2}"],
+          mandatory_components: ["{component names this ADR mandates}"]
+        })
+  
+  # Also check project-level ADRs (docs/adr/) for cross-feature patterns
+  project_adr_dir = "docs/adr/"
+  IF DIRECTORY_EXISTS(project_adr_dir):
+    FOR EACH adr_file IN project_adr_dir:
+      adr = READ(adr_file)
+      IF (adr.status == "accepted" OR adr.status == "approved") AND (adr.affects_features CONTAINS FEATURE_ID OR adr.scope == "global"):
+        adr_bindings.APPEND({
+          id: adr.id,
+          title: adr.title,
+          decision: "{decision}",
+          consequences: ["{constraints}"],
+          mandatory_components: ["{components}"]
+        })
+  
+  # Load setup decisions that affect implementation patterns
+  setup_patterns = []
+  IF FILE_EXISTS(".context/governance_snapshot.md"):
+    EXTRACT from snapshot → Setup Configuration:
+      IF synthetic_data.enabled: setup_patterns.APPEND("synthetic_data_seeding")
+      # Other setup decisions that affect code patterns
+  
+  WRITE design.md "### 7.8 Mandatory Architectural Patterns + ADR Bindings → REVIEW [DESIGN] + DEV Hat"
+  WRITE design.md:
+    mandatory_patterns:
+      - id: "PAT-{N}"
+        name: "{pattern_name}"
+        type: "{type}"
+        scope: "{shared|per_module}"
+        description: "{what it does}"
+        enforcement: "{how — e.g., all repos MUST extend BaseRepository}"
+        constitution_ref: "{section}"
+        affects_feature: true|false
+    
+    multitenancy: # (if applicable)
+      isolation_strategy: "{strategy}"
+      tenant_source: "{source}"
+      enforcement_mechanism: "{mechanism}"
+      mandatory_components:
+        - name: "{component}" | responsibility: "{what it must do}"
+    
+    auth_patterns: # (if applicable)
+      mechanism: "{auth_mechanism}"
+      mandatory_middleware: ["{middleware_list}"]
+      token_propagation: "{flow description}"
+    
+    cross_cutting: # (if applicable)
+      error_handling: "{pattern}"
+      logging: "{pattern}"
+      audit: "{pattern}"
+    
+    adr_bindings:
+      - id: "{ADR-NNN}"
+        title: "{title}"
+        decision: "{the binding decision}"
+        mandatory_components: ["{components this ADR requires}"]
+        consequences: ["{implementation constraints}"]
+    
+    implementation_invariants:
+      - "All repositories MUST extend/use {BaseRepository} — never implement tenant filtering manually"
+      - "Tenant context MUST flow via middleware injection — never extract directly from JWT in handlers"
+      - "Cross-cutting concerns MUST use prescribed middleware chain — never implement ad-hoc"
+      # (generated from patterns + ADRs — feature-specific invariants)
+    
+    note: >
+      DEV Hat: mandatory_patterns and implementation_invariants are BINDING.
+      Every shared component listed here MUST be created (or verified existing) before
+      feature-specific code that depends on it. REVIEW Check #14 [DESIGN] validates
+      materialization fidelity — bypassing prescribed patterns is a BLOCKER.
+  
+  # Finalize and SAVE Section 7 atomically
+  # Compute GCD hash from the dual-hash identity used by governance_snapshot (GCRP compliant).
+  # constitution_hash is the primary governance identity; we take the first 8 chars as a fingerprint.
+  gcd_hash = governance_snapshot.frontmatter.constitution_hash[:8]
+  
+  UPDATE design.md frontmatter:
+    _progress.completed_sections: APPEND("section_7_gcd")
+    governance_digest_generated: true
+    governance_digest_version: "{gcd_hash}"  # constitution_hash[:8] — matches GCRP dual-hash validation
+  SAVE design.md  # IPP section-atomic save
+  LOG: "GCD generated: design.md Section 7 (7.1 ARCH + 7.2 GOV + 7.3 SAST + 7.4 SCHEMA + 7.5 CFP + 7.6 UX + 7.7 CODING + 7.8 PATTERNS) — hash: {gcd_hash}"
+```
+
+**Reliability guarantees:**
+- **Same-source:** The GCD uses the SAME governance context already loaded by BLUEPRINT (Steps 0-5). It does not re-read any files — it re-structures what is already in memory.
+- **Hash-validated:** The `governance_digest_version` field stores `constitution_hash[:8]` from the governance snapshot. IMPLEMENT Step 0b compares this against the current snapshot's `constitution_hash` — if they diverge, IMPLEMENT falls back to direct governance loading and emits an advisory to re-run `BLUEPRINT --refine`.
+- **Graceful degradation:** If Section 7 is absent (pre-v2.3.0 BLUEPRINT) or stale, IMPLEMENT loads governance from raw files. No workflow breakage.
+
+### Incremental Persistence (IPP-compliant — MANDATORY)
+
+> **Implements:** Incremental Persistence Protocol (`.github/skills/Factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
+
+**Pillar 1 — Skeleton-First Write (before content generation):**
+```yaml
+FUNCTION blueprint_skeleton_first(FEATURE_ID):
+  base_path = "docs/spec/{FEATURE_ID}"
+  
+  FOR EACH artifact IN [design.md, test_plan.md]:
+    path = "{base_path}/{artifact}"
+    IF NOT FILE_EXISTS(path):
+      WRITE_SKELETON(path):
+        frontmatter:
+          status: DRAFT
+          feature_id: "{FEATURE_ID}"
+          created_at: "{ISO_8601}"
+          updated_at: "{ISO_8601}"
+          _progress:
+            current_phase: "skeleton"
+            completed_sections: []
+            pending_sections: [ARTIFACT_SECTIONS(artifact)]
+            decisions: []
+            last_agent: "BLUEPRINT"
+            last_command: "--start {FEATURE_ID}"
+            resumable: true
+        body: SECTION_HEADERS_WITH_PENDING_MARKERS(artifact)
+      SAVE(path)  # IMMEDIATE
+  LOG: "Skeletons created for BLUEPRINT {FEATURE_ID}: design.md + test_plan.md"
+```
+
+**Pillar 2 — Section-Atomic Saves (during generation):**
+```yaml
+# Sections saved individually for IPP resilience
+
+FOR EACH section IN artifact.sections:
+  content = GENERATE(section)  # ARCH or QA hat co-creates
+  REPLACE_SECTION(artifact_path, section.id, content)
+  UPDATE_FRONTMATTER(artifact_path):
+    _progress.completed_sections: APPEND(section.id)
+    _progress.pending_sections: REMOVE(section.id)
+    _progress.current_phase: "{next_section}"
+    updated_at: "{ISO_8601}"
+  SAVE(artifact_path)  # IMMEDIATE — no batching
+  # Rule: NEVER continue to next section until current is on disk
+```
+
+**Pillar 3 — Resume-on-Entry (on --start or --refine):**
+```yaml
+FUNCTION blueprint_resume_check(FEATURE_ID, command):
+  base_path = "docs/spec/{FEATURE_ID}"
+  
+  FOR EACH artifact IN [design.md, test_plan.md]:
+    path = "{base_path}/{artifact}"
+    IF FILE_EXISTS(path):
+      fm = READ_FRONTMATTER(path)
+      IF fm._progress IS NOT NULL AND fm._progress.pending_sections.length > 0:
+        LOG: "RESUME: {artifact} — {fm._progress.completed_sections.length} done, {fm._progress.pending_sections.length} pending"
+        RECOVER_DECISIONS(fm._progress.decisions)
+        RESUME_FROM(fm._progress.pending_sections[0])
+        RETURN "RESUMED"
+  
+  RETURN "FRESH"
+```
+
+**Finalization (on --approve):**
+```yaml
+FOR EACH artifact IN [design.md, test_plan.md]:
+  UPDATE_FRONTMATTER(artifact_path):
+    status: APPROVED
+    _progress: null  # REMOVE — no resume needed
+  SAVE(artifact_path)
+```

@@ -1,0 +1,62 @@
+# ============================================================================
+# Governance Check — CI Gate for Pull Requests
+# ============================================================================
+# Validates governance manifest consistency on every PR to main.
+# Blocks merge if framework_core files changed without manifest update.
+#
+# Checks:
+#   1. Drift: core files changed but manifest not updated
+#   2. Orphan: new agent/instruction files not tracked
+#   3. Stale: manifest entries pointing to deleted files
+#   4. Version: MAJOR bump requires BREAKING CHANGE commit
+# ============================================================================
+
+name: Governance Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/agents/**'
+      - '.github/instructions/**'
+      - '.github/copilot-instructions.md'
+      - '.github/workflow_sequence_v2.md'
+      - '.context/templates/setup/governance_versions.json'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  governance-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Run governance validation
+        run: |
+          chmod +x scripts/validate-governance.sh
+          bash scripts/validate-governance.sh --base "${{ github.base_ref }}"
+
+      - name: Post violation comment on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "## 🛑 Governance Check Failed
+
+          Framework core files were modified but \`governance_versions.json\` was not updated.
+
+          **To fix:**
+          1. Update \`.context/templates/setup/governance_versions.json\`
+          2. Bump \`framework_version\` appropriately (MAJOR for breaking, MINOR for features, PATCH for fixes)
+          3. Update \`framework_core\` entries for all modified files
+          4. If MAJOR bump: ensure at least one commit has \`BREAKING CHANGE:\` in body or \`feat!:\` prefix
+
+          Run locally to verify: \`./scripts/validate-governance.sh --base main\`"

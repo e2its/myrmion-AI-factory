@@ -1,0 +1,1317 @@
+{
+  "$schema": "governance_versions_v1",
+  "manifest_version": "2.0.0",
+  "framework_version": "9.19.10",
+  "last_updated": "2026-04-07",
+  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects.",
+  "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
+  "content_types": {
+    "universal": "No placeholders. New structural additions are merged additively.",
+    "stack_configured": "Contains {{PLACEHOLDER}} tokens. New sections/fields are added, placeholders resolved via Smart Discovery + RDR.",
+    "project_data": "Project-specific values. New fields/sections added with defaults, existing values never modified."
+  },
+  "templates": {
+    "rules/observability.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/observability.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/performance.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/performance.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/privacy.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/privacy.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/protected-code.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/protected-code.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/ai_budget_governance.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/ai_budget_governance.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/ai_budget_tracker.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/ai_budget_tracker.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/allowlist.json": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/allowlist.json",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/frontend_architecture_compatibility.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/frontend_architecture_compatibility.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/html-css.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/html-css.instructions.md",
+      "stack_conditional": "frontend exists",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/python.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/python.instructions.md",
+      "stack_conditional": "backend.runtime == Python",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/React.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/React.instructions.md",
+      "stack_conditional": "frontend.framework == React OR frontend.framework == Next.js",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/node.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/node.instructions.md",
+      "stack_conditional": "backend.runtime == Node.js",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/csharp.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/csharp.instructions.md",
+      "stack_conditional": "backend.runtime == C#",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/java.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/java.instructions.md",
+      "stack_conditional": "backend.runtime == Java",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/architecture.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/architecture.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/branching.md": {
+      "version": "2.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/branching.instructions.md",
+      "changelog": [
+        "2.0.0: PR validation mode, approval count, merge method configurable via SETUP Q22.1",
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/security_policy.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/security_policy.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/testing.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/testing.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/ci-cd.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/ci-cd.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/database.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/database.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/api-standards.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/api-standards.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/stateless.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/stateless.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/ux-constitution.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/ux-constitution.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/contract-first-policy.md": {
+      "version": "3.2.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/contract-first-policy.instructions.md",
+      "changelog": [
+        "3.2.0: feat: webhook communication support — contracts/webhooks/ directory (inbound/outbound), format selection matrix, OpenAPI 3.1 webhook examples, webhook vs AsyncAPI guidance",
+        "3.1.0: Conditional contract directory creation — only create directories matching project stack (comm_style + topology). Additional types enabled via ADR.",
+        "3.0.0: HTTP API everywhere — All architectures (including monoliths B1-B4) use OpenAPI contracts. No TypeScript internal contracts. AsyncAPI for event-based (B3, B6, B7, B11). gRPC support. Full 12-topology coverage.",
+        "2.1.0: Serverless bridge — x-serverless-* OpenAPI extensions, Contract→IaC derivation rules, Spectral validation for B9, CRUD template with operationId + handler comments.",
+        "2.0.0: CONTRACT_SLUG convention ({domain}-{capability}) replaces Feature ID in directory names. Cross-feature endpoint collision detection. feature_map.md gains Contract Slug column. CRUD template ownership moved from SETUP to BLUEPRINT.",
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/immutability_policy.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/immutability_policy.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/review-policy.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/review-policy.instructions.md",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "rules/protected-paths.json": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/protected-paths.json",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "constitution/constitution_template.md": {
+      "version": "2.0.1",
+      "content_type": "project_data",
+      "target": "docs/constitution.md",
+      "changelog": [
+        "2.0.1: Governance cache strategy updated — file-based snapshot (.context/governance_snapshot.md) replaces in-memory session cache. Summarization-safe (#112)",
+        "2.0.0: Added Project Mode & Brownfield Extension Strategy section (E0/E1/E2/E3) with per-strategy rules",
+        "1.0.0: Initial template"
+      ]
+    },
+    "config/codebase_inventory.json": {
+      "version": "1.0.0",
+      "content_type": "project_data",
+      "target": "config/codebase_inventory.json",
+      "changelog": [
+        "1.0.0: CIP v1.0.0 — Persistent codebase inventory registry for cross-agent DRY enforcement. Greenfield: empty scaffold. Brownfield: bootstrapped via workspace scan. Consumed by CODESIGN, BLUEPRINT, IMPLEMENT."
+      ]
+    },
+    "backlog/project-config.json": {
+      "version": "1.0.0",
+      "content_type": "project_data",
+      "target": "docs/backlog/project-config.json",
+      "stack_conditional": "project_tracking.tool != \"None\"",
+      "changelog": [
+        "1.0.0: feat: GitHub Project config template — node IDs, field IDs, option IDs populated by BACKLOG --init-board (#124)"
+      ]
+    },
+    "backlog/state.md": {
+      "version": "1.0.1",
+      "content_type": "project_data",
+      "target": "docs/backlog/state.md",
+      "stack_conditional": "project_tracking.tool == \"None\"",
+      "changelog": [
+        "1.0.1: fix: SSOT v1.0.0 — state.md only scaffolded in local mode (tool == None); updated schema with local ID tracking and Board table format",
+        "1.0.0: feat: Backlog state tracking template — feature issue registry, next action (#124)"
+      ]
+    },
+    "scripts/check-integrations.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/check-integrations.sh",
+      "changelog": [
+        "1.0.0: Initial template"
+      ]
+    },
+    "scripts/validate-gitignore.sh": {
+      "version": "2.0.0",
+      "content_type": "universal",
+      "target": "scripts/validate-gitignore.sh",
+      "changelog": [
+        "1.0.0: Initial template",
+        "2.0.0: Enhanced with section headers, detailed messages, and .env.example tracking"
+      ]
+    },
+    "scripts/validate-iac.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/validate-iac.sh",
+      "stack_conditional": "iac_tool != None",
+      "changelog": [
+        "1.0.0: Initial template — IaC governance validator"
+      ]
+    },
+    "scripts/validate-migrations.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/validate-migrations.sh",
+      "stack_conditional": "database exists",
+      "changelog": [
+        "1.0.0: Initial template — Migration safety validator"
+      ]
+    },
+    "scripts/check-structure.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/check-structure.sh",
+      "changelog": [
+        "1.0.0: Initial template — Project structure validator"
+      ]
+    },
+    "scripts/convert-worklog-md-to-json.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/convert-worklog-md-to-json.sh",
+      "changelog": [
+        "1.0.0: Initial template — Worklog MD to JSON converter"
+      ]
+    },
+    "scripts/dependency-allowlist.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/dependency-allowlist.sh",
+      "changelog": [
+        "1.0.0: Initial template — Dependency allowlist validator"
+      ]
+    },
+    "scripts/lint-format.sh": {
+      "version": "1.0.2",
+      "content_type": "stack_configured",
+      "target": "scripts/lint-format.sh",
+      "changelog": [
+        "1.0.2: fix: security — replace grep -qwE with exact-match loop to prevent partial-word matches and support non-word characters in tech names (e.g., html-css)",
+        "1.0.1: fix: stack-agnostic tech validation — dynamic discovery from docs/rules/ instead of hardcoded whitelist, expanded static fallback with Go/Rust/Ruby/PHP/Elixir",
+        "1.0.0: Initial template — Lint and format runner"
+      ]
+    },
+    "scripts/security-scan.sh": {
+      "version": "2.1.0",
+      "content_type": "universal",
+      "target": "scripts/security-scan.sh",
+      "changelog": [
+        "2.1.0: feat: webhook contract validation — spectral lint for contracts/webhooks/, outbound webhooks: section presence check",
+        "2.0.0: Multi-format contract validation — gRPC (buf lint), AsyncAPI (asyncapi validate), OpenAPI (spectral/swagger-cli). Replaces TypeScript contract checks.",
+        "1.0.0: Initial template — Security scanner with drift check"
+      ]
+    },
+    "scripts/test.sh": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "scripts/test.sh",
+      "changelog": [
+        "1.0.0: Initial template — Test runner scaffold"
+      ]
+    },
+    "scripts/ux-validation.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/ux-validation.sh",
+      "stack_conditional": "frontend exists",
+      "changelog": [
+        "1.0.0: Initial template — UX/WCAG validation"
+      ]
+    },
+    "scripts/validate-template-references.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/validate-template-references.sh",
+      "changelog": [
+        "1.0.0: Initial template — Template reference validator"
+      ]
+    },
+    "scripts/validate-upgrade-integrity.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/validate-upgrade-integrity.sh",
+      "changelog": [
+        "1.0.0: Initial template — Post-upgrade integrity validator"
+      ]
+    },
+    "scripts/validate-worklog-json.sh": {
+      "version": "2.1.0",
+      "content_type": "universal",
+      "target": "scripts/validate-worklog-json.sh",
+      "changelog": [
+        "1.0.0: Initial template",
+        "2.0.0: Rewritten for per-feature JSONL worklog v2.0",
+        "2.1.0: Added BACKLOG and FACTORY to VALID_AGENTS enum"
+      ]
+    },
+    "scripts/view-worklog.sh": {
+      "version": "2.0.0",
+      "content_type": "universal",
+      "target": "scripts/view-worklog.sh",
+      "changelog": [
+        "1.0.0: Initial template",
+        "2.0.0: Rewritten for per-feature JSONL with --reconcile support"
+      ]
+    },
+    "scripts/worklog-dashboard.html": {
+      "version": "2.0.0",
+      "content_type": "universal",
+      "target": "scripts/worklog-dashboard.html",
+      "changelog": [
+        "1.0.0: Initial template",
+        "2.0.0: Updated for aggregate JSONL data loading"
+      ]
+    },
+    "scripts/project_summarization.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/project_summarization.py",
+      "changelog": [
+        "1.0.0: Initial template — Project summarization utility"
+      ]
+    },
+    "scripts/README.md": {
+      "version": "1.1.0",
+      "content_type": "universal",
+      "target": "scripts/README.md",
+      "changelog": [
+        "1.1.0: feat: add git hooks and install-hooks.sh to script listing",
+        "1.0.0: Initial template — Scripts directory documentation"
+      ]
+    },
+    "scripts/auto-tag.sh": {
+      "version": "2.0.0",
+      "content_type": "universal",
+      "target": "scripts/auto-tag.sh",
+      "changelog": [
+        "2.0.0: Governance-aware override — reads framework_version from manifest to prevent silent under-bumping (GOV-001)",
+        "1.0.0: Initial template — SemVer auto-tagging from conventional commits (--apply, --ci, --no-push)"
+      ]
+    },
+    "scripts/validate-governance.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/validate-governance.sh",
+      "changelog": [
+        "1.0.0: Initial template — Governance drift detection: framework_core change tracking, orphan/stale detection, version consistency (GOV-001)"
+      ]
+    },
+    "workflows/governance-check.github-actions.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".github/workflows/governance-check.yml",
+      "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
+      "changelog": [
+        "1.0.0: Initial template — CI gate on PRs: blocks merge if framework_core files changed without manifest update (GOV-001)"
+      ]
+    },
+    "workflows/auto-tag.github-actions.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".github/workflows/auto-tag.yml",
+      "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
+      "changelog": [
+        "1.0.0: Initial template — GitHub Actions auto-tag & release on PR merge"
+      ]
+    },
+    "workflows/auto-tag.gitlab-ci.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".gitlab-ci-auto-tag.yml",
+      "stack_conditional": "ci_cd_platform == \"GitLab CI\"",
+      "changelog": [
+        "1.0.0: Initial template — GitLab CI auto-tag & release on merge to main"
+      ]
+    },
+    "workflows/auto-tag.azure-devops.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "azure-pipelines-auto-tag.yml",
+      "stack_conditional": "ci_cd_platform == \"Azure DevOps\"",
+      "changelog": [
+        "1.0.0: Initial template — Azure DevOps auto-tag pipeline on Merged PR"
+      ]
+    },
+    "workflows/auto-tag.bitbucket.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "bitbucket-pipelines.yml",
+      "stack_conditional": "ci_cd_platform == \"Bitbucket Pipelines\"",
+      "changelog": [
+        "1.0.0: Initial template — Bitbucket Pipelines auto-tag on merge to main"
+      ]
+    },
+    "workflows/auto-tag.jenkins.groovy": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "Jenkinsfile.auto-tag",
+      "stack_conditional": "ci_cd_platform == \"Jenkins\"",
+      "changelog": [
+        "1.0.0: Initial template — Jenkins declarative pipeline auto-tag on merge"
+      ]
+    },
+    "workflows/auto-tag.aws-codebuild.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "buildspec-auto-tag.yml",
+      "stack_conditional": "ci_cd_platform == \"AWS CodePipeline\"",
+      "changelog": [
+        "1.0.0: Initial template — AWS CodeBuild buildspec auto-tag on merge"
+      ]
+    },
+    "workflows/auto-tag.gcp-cloudbuild.yaml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "cloudbuild-auto-tag.yaml",
+      "stack_conditional": "ci_cd_platform == \"GCP Cloud Build\"",
+      "changelog": [
+        "1.0.0: Initial template — GCP Cloud Build auto-tag on push to main"
+      ]
+    },
+    "scripts/install-hooks.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Git hooks installer — symlinks hooks from scripts/hooks/ into .git/hooks/.",
+      "changelog": [
+        "1.0.0: feat: initial git hooks installation script"
+      ]
+    },
+    "scripts/hooks/commit-msg": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Git hook — validates conventional commit message format.",
+      "changelog": [
+        "1.0.0: feat: conventional commit format validation hook"
+      ]
+    },
+    "scripts/hooks/pre-commit": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Git hook — protected branch guard, secret detection, governance validation.",
+      "changelog": [
+        "1.0.0: feat: pre-commit hook with branch guard and secret scan"
+      ]
+    },
+    "scripts/hooks/pre-push": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Git hook — force-push protection, full governance validation.",
+      "changelog": [
+        "1.0.0: feat: pre-push hook with force-push guard and governance check"
+      ]
+    }
+  },
+  "framework_core": {
+    "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
+    "_architecture": "Custom Agents (v9.0.0) — Hub-and-spoke: Factory (visible orchestrator, strict dispatcher) + 8 invisible specialist workers via handoffs. Agent definitions in .github/agents/, detailed instructions as .instructions.md in .github/instructions/, cross-cutting protocols as Skills in .github/skills/. Materialized rules as .instructions.md with applyTo in docs/rules/.",
+    "agents/factory.agent.md": {
+      "version": "2.6.1",
+      "path": ".github/agents/factory.agent.md",
+      "role": "Visible orchestrator (strict dispatcher + BA mediator) — sole user-invokable agent. Routes intent to specialists via handoffs. Mediates BIP interactivity. NEVER performs sub-agent work.",
+      "changelog": [
+        "2.6.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.6.0: feat: rename 'domain cluster' → 'epic' in MAP_COMMAND_TO_ARTIFACTS comment (Agile-standard terminology)",
+        "2.5.2: fix: CVP auto-invoke in PMO Validation step 3.5 — advisory coherence check after every artifact-modifying command, non-blocking",
+        "2.5.1: fix: Governance Guard pre-flight uses full Step -1 protocol with explicit variable capture instead of simplified protected-branch check",
+        "2.5.0: feat: MAP_COMMAND_TO_ARTIFACTS — add BACKLOG --plan-execution, --update-execution, --sync-execution with execution-plan.md artifact",
+        "2.4.3: fix: model priority changed from Sonnet-first to Opus-first (#130)",
+        "2.4.2: fix: verify_deliverable_completeness now evaluates condition field — skips artifacts whose SSOT mode doesn't match current backlog_mode",
+        "2.4.1: fix: SSOT v1.0.0 — BACKLOG MAP_COMMAND_TO_ARTIFACTS now mode-conditional (external_mode/local_mode conditions on artifact paths)",
+        "2.4.0: feat: add backlog agent to agents[] list and MAP_COMMAND_TO_ARTIFACTS (#124)",
+        "2.3.1: fix: add GIT_DESTRUCTIVE sub-type to SCM operations — confirmation + backup + branch protection for destructive git ops",
+        "2.3.0: feat: UX protocols (onboarding, explanation levels, dashboard, humanized blocking, session resumption, roadmap) + i18n session.language with bilingual maps (es/en) and t() translation function",
+        "2.2.0: feat: BIP Disruption-Triggered Re-Harvest — pivotal override detection in mediation loop triggers partial agent re-harvest",
+        "2.1.0: feat: BIP BA Mediation Protocol — Factory as Business Analyst for prolonged interactivity commands, docs/.bip/* context depth exception",
+        "1.5.2: Fix stale 9/9→12/12 auto-approval references in MAP_COMMAND_TO_ARTIFACTS and Smart Redirect (#112)",
+        "1.5.1: IPP Key Reference — add Incremental Persistence Protocol row to Key References table (#112)",
+        "1.5.0: Remove deprecated command references — CODESIGN/DEVOPS/QA --approve from MAP_COMMAND_TO_ARTIFACTS and IOP Quick Reference (v8.2.0 cleanup)",
+        "1.4.0: UCT Protocol v1.0 — 3-channel handoff separation (Command, User Context Envelope, Factory Context BLOCKED). Fix --refine expected_artifacts to [dev_plan.md] only",
+        "1.3.9: Context reduction — consolidate Dispatcher Self-Check + Context Depth Limiter + Handoff sections, reduce from 1156 to 1011 lines to prevent sub-agent token overflow",
+        "1.3.8: Factory delegation hardening — Identity Anchor (summarization-safe), Context Depth Limiter (frontmatter-only reads), expanded Dispatcher Self-Check with analysis overreach patterns, Handoff Transparency Display (mandatory diagnostic visualization), Smart Redirect identity reminder, fix Unicode replacement char in heading (#110)",
+        "1.3.7: PR review fixes — goal_terminus as state predicate, expected_artifacts as structured objects with expected_status (#108)",
+        "1.3.6: Coherence fix — remove stale CODESIGN --approve from Smart Redirect suggestion + update goal_terminus to state-based (#108)",
+        "1.3.5: Deliverable Completeness Gate (GAP-4), MAP_COMMAND_TO_ARTIFACTS auto-approval annotations, Smart Redirect skip eliminated --approve commands (#108)",
+        "1.3.4: Procedural gates — Dispatcher Self-Check Gate (H-01), Handoff Content Verification Gate (H-02), Worklog Attribution Verification Gate (M-01) (#108)",
+        "1.3.3: PM→PMO rename, Smart Redirect sync — devops_plan_stale computed field + PHASE 0 staleness check, devops_plan iteration tracking in state snapshot (#108)",
+        "1.3.2: PR review fixes — state capture in PM Validation, MAP_COMMAND_TO_ARTIFACTS completeness (16 commands), entry_agent/MAP_SCOPE_TO_AGENT definition, AMBIGUOUS flow fix, L2 cascade loop guard (PR #107)",
+        "1.3.1: ACP Return Briefing in PM Validation + ACP Key Reference (#106)",
+        "1.3.0: Strict Dispatcher Discipline, Minimal Context Injection, Session Preferences, PM Validation, Scope Impact Classifier (L1-L4), Worklog Attribution (#106)",
+        "1.2.0: Embed full Smart Redirect decision tree — artifact state snapshot + compute_next_actions inline (FIX-001)",
+        "1.1.0: Fix tool IDs — use category/toolName format with all VS Code built-in tools (PR #104)",
+        "1.0.0: Initial Custom Agent — migrated from monolithic copilot-instructions.md orchestrator. Hub-and-spoke architecture with 7 handoffs (PR #101)",
+        "2.0.0: BREAKING — Update instruction file references to .instructions.md format (EVOL-001)"
+      ]
+    },
+    "agents/audit.agent.md": {
+      "version": "2.0.2",
+      "path": ".github/agents/audit.agent.md",
+      "role": "Technical Due Diligence — independent of SDLC workflow.",
+      "changelog": [
+        "2.0.2: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
+        "2.0.1: fix: model priority changed from Sonnet-first to Opus-first (#130)",
+        "1.1.3: IPP directive — Incremental Persistence Protocol reference in Rules section (#112)",
+        "1.1.2: ACP User Communication directive (#106)",
+        "1.1.1: Worklog attribution rule — user_agent: AUDIT (#106)",
+        "1.1.0: Fix tool IDs — use category/toolName format with all VS Code built-in tools (PR #104)",
+        "1.0.0: Migrated from .context/agents/AUDIT.AGENT.MD. Tools: read, search, edit (PR #101)",
+        "0.2.0: E0 brownfield strategy (#97)",
+        "0.1.0: Initial monolithic agent",
+        "2.0.0: BREAKING — Update instruction file references to .instructions.md format (EVOL-001)"
+      ]
+    },
+    "agents/setup.agent.md": {
+      "version": "2.2.1",
+      "path": ".github/agents/setup.agent.md",
+      "role": "Project scaffolding, governance materialization, upgrades, and inventory reconciliation.",
+      "changelog": [
+        "2.2.1: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
+        "2.2.0: feat: BIP pivotal question marking for disruption-triggered re-harvest",
+        "2.1.0: feat: BIP batch interaction style replaces one-question-at-a-time for --init",
+        "1.1.4: IPP directive — Incremental Persistence Protocol reference in Governance Rules section (#112)",
+        "1.1.3: ACP User Communication directive (#106)",
+        "1.1.2: Add --reconcile-inventory command for CIP reconciliation (#106)",
+        "1.1.1: Worklog attribution rule — user_agent: SETUP (#106)",
+        "1.1.0: Fix tool IDs — use category/toolName format with all VS Code built-in tools (PR #104)",
+        "1.0.0: Migrated from .context/agents/SETUP.AGENT.md. Tools: read, search, edit, execute (PR #101)",
+        "0.2.0: CIP bootstrap + E0 gate (#97, #98)",
+        "0.1.0: Initial monolithic agent",
+        "2.0.0: BREAKING — Update instruction file references to .instructions.md format (EVOL-001)"
+      ]
+    },
+    "agents/codesign.agent.md": {
+      "version": "2.1.1",
+      "path": ".github/agents/codesign.agent.md",
+      "role": "PO ↔ UX co-creation — specs, mocks, user journeys, vision.",
+      "changelog": [
+        "2.1.1: fix: replace Branch Strategy with Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
+        "2.1.0: feat: BIP mode annotations for --vision and --start commands",
+        "1.3.2: Fix stale 9/9→12/12 auto-approval reference in feature co-creation description (#112)",
+        "1.3.1: IPP directive — Incremental Persistence Protocol reference in Key Principles (#112)",
+        "1.3.0: Remove deprecated --approve command — auto-approval on 9/9 validations is the only path (v8.2.0 cleanup)",
+        "1.2.2: ACP User Communication directive (#106)",
+        "1.2.1: Add explicit CIP/DRY reference in Key Principles — consistency with instruction files (#106)",
+        "1.2.0: Iteration Changelog format for --refine, worklog attribution rule (#106)",
+        "1.1.0: Fix tool IDs — use category/toolName format with all VS Code built-in tools (PR #104)",
+        "1.0.0: Migrated from .context/agents/CODESIGN.AGENT.MD. Tools: read, search, edit (PR #101)",
+        "0.2.0: CIP + E0 (#97, #98)",
+        "0.1.0: Initial monolithic agent",
+        "2.0.0: BREAKING — Update instruction file references to .instructions.md format (EVOL-001)"
+      ]
+    },
+    "agents/blueprint.agent.md": {
+      "version": "2.0.1",
+      "path": ".github/agents/blueprint.agent.md",
+      "role": "ARCH ↔ QA co-design — architecture, contracts, test plans.",
+      "changelog": [
+        "2.0.1: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
+        "1.2.3: IPP directive — Incremental Persistence Protocol reference in Key Principles (#112)",
+        "1.2.2: ACP User Communication directive (#106)",
+        "1.2.1: Add explicit CIP/DRY reference in Key Principles — consistency with instruction files (#106)",
+        "1.2.0: Iteration Changelog format for --refine, worklog attribution rule (#106)",
+        "1.1.0: Fix tool IDs — use category/toolName format with all VS Code built-in tools (PR #104)",
+        "1.0.0: Migrated from .context/agents/BLUEPRINT.AGENT.MD. Tools: read, search, edit, fetch (PR #101)",
+        "0.2.0: CIP DRY enforcement + E0 (#97, #98)",
+        "0.1.0: Initial monolithic agent",
+        "2.0.0: BREAKING — Update instruction file references to .instructions.md format (EVOL-001)"
+      ]
+    },
+    "agents/implement.agent.md": {
+      "version": "2.0.1",
+      "path": ".github/agents/implement.agent.md",
+      "role": "DEV ↔ REVIEW ↔ SEC triple-hat — code, tests, review, security.",
+      "changelog": [
+        "2.0.1: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
+        "1.3.2: IPP directive — Incremental Persistence Protocol reference in Key Principles (#112)",
+        "1.3.1: --fix sets qa_report to INVALIDATED after completion — breaks QA→FIX infinite loop in Smart Redirect",
+        "1.3.0: Checkbox-Driven Execution model — 4 task types (original [A/B/C.N], delta [D.N], adjustment [ADJ-N], fix [FIX-N]), Completion Gate with all types, removed hardcoded Smart Redirect hints",
+        "1.2.1: ACP User Communication directive (#106)",
+        "1.2.0: Completion Gate on --build, upstream validation on --refine, changelog requirement, worklog attribution (#106)",
+        "1.1.0: Fix tool IDs — use category/toolName format with all VS Code built-in tools (PR #104)",
+        "1.0.0: Migrated from .context/agents/IMPLEMENT.AGENT.MD. Tools: read, search, edit, execute, fetch (PR #101)",
+        "0.2.0: CIP DRY Gate + E0 (#97, #98)",
+        "0.1.0: Initial monolithic agent",
+        "2.0.0: BREAKING — Update instruction file references to .instructions.md format (EVOL-001)"
+      ]
+    },
+    "agents/devops.agent.md": {
+      "version": "2.0.1",
+      "path": ".github/agents/devops.agent.md",
+      "role": "Infrastructure & deployment — IaC, provision, deploy, rollback.",
+      "changelog": [
+        "2.0.1: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
+        "1.2.1: IPP directive — Incremental Persistence Protocol reference in Key Principles (#112)",
+        "1.2.0: Remove deprecated --approve command section — auto-approval on 7/7 checks is the only path (v8.2.0 cleanup)",
+        "1.1.2: ACP User Communication directive (#106)",
+        "1.1.1: Worklog attribution rule — user_agent: DEVOPS (#106)",
+        "1.1.0: Fix tool IDs — use category/toolName format with all VS Code built-in tools (PR #104)",
+        "1.0.0: Migrated from embedded DEVOPS in copilot-instructions.md. Tools: read, search, edit, execute, fetch (PR #101)",
+        "0.1.0: Initial embedded agent",
+        "2.0.0: BREAKING — Update instruction file references to .instructions.md format (EVOL-001)"
+      ]
+    },
+    "agents/qa.agent.md": {
+      "version": "2.0.2",
+      "path": ".github/agents/qa.agent.md",
+      "role": "Post-staging verification — verify, reject, e2e.",
+      "changelog": [
+        "2.0.2: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
+        "2.0.1: fix: model priority changed from Sonnet-first to Opus-first (#130)",
+        "1.3.1: IPP directive — Incremental Persistence Protocol reference in Key Principles (#112)",
+        "1.3.0: Remove deprecated --approve section and QA --plan/--refine warning — auto-approval via --verify is the only path (v8.2.0 cleanup)",
+        "1.2.0: Checkbox-driven --verify/--reject — QA↔FIX Loop principle, --reject generates [FIX-N] remediation items, removed hardcoded Smart Redirect hint",
+        "1.1.2: ACP User Communication directive (#106)",
+        "1.1.1: Worklog attribution rule — user_agent: QA (#106)",
+        "1.1.0: Fix tool IDs — use category/toolName format with all VS Code built-in tools (PR #104)",
+        "1.0.0: Migrated from embedded QA in copilot-instructions.md. Tools: read, search, edit, execute (PR #101)",
+        "0.1.0: Initial embedded agent",
+        "2.0.0: BREAKING — Update instruction file references to .instructions.md format (EVOL-001)"
+      ]
+    },
+    "agents/backlog.agent.md": {
+      "version": "1.2.0",
+      "path": ".github/agents/backlog.agent.md",
+      "role": "Project tracking & issue lifecycle management — board creation, feature issue planning, execution plan generation, board operations. Tool-agnostic via CLI/MCP adapter. Memory cache via /memories/repo/.",
+      "changelog": [
+        "1.2.0: feat: rename 'domain cluster' → 'epic' in Protocol 8 + add slice subdivision step (form slices by Aggregate Root, ≤3 features per slice)",
+        "1.1.0: feat: execution plan protocol — --plan-execution, --update-execution, --sync-execution commands; domain cluster dependency analysis; /memories/repo/ write-through cache; --plan-feature integration with execution plan issue references",
+        "1.0.6: fix: model priority Opus-first, behavioral directives (paranoid-verify), verification protocol (tool-adapter verify_issue/verify_board_placement), rollback protocol (close_issue), operational safeguards (#130)",
+        "1.0.5: fix: Protocol 0.5 now delegates to § 6.0.2 full 3-step Preflight Check (binary/MCP + auth + permissions) instead of single verify_command",
+        "1.0.4: fix: Protocol 0.5 Preflight Check — mandatory pre-operation gate verifies CLI/MCP install, auth, and permissions before any external mode command",
+        "1.0.3: fix: tool-agnostic refactor — remove hardcoded tool names (GitHub/Jira/Linear), mode detection uses tool != None, CLI/MCP-only integration (zero credentials), tool-adapter protocol reference",
+        "1.0.2: fix: SSOT v1.0.0 — dual operating mode (external/local), mode detection protocol, eliminate dual source of truth for backlog state",
+        "1.0.1: fix: PR review — read project_tracking from governance snapshot (summarization-safe) with setup.md fallback, clarify preset string expansion for feature phases (#124)",
+        "1.0.0: feat: initial Backlog Manager agent — --init-board, --plan-feature, --create-issue, --move, --status. Deliverables under docs/backlog/ (#124)"
+      ]
+    },
+    "instructions/Factory-audit-checklist.instructions.md": {
+      "version": "2.0.0",
+      "path": ".github/instructions/Factory-audit-checklist.instructions.md",
+      "changelog": [
+        "1.0.0: Extracted from AUDIT.AGENT.MD — execution phases A-D, master checklist (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-audit-complexity.instructions.md": {
+      "version": "2.0.0",
+      "path": ".github/instructions/Factory-audit-complexity.instructions.md",
+      "changelog": [
+        "1.0.0: Extracted from AUDIT.AGENT.MD — COMP1 complexity analysis protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-blueprint-design.instructions.md": {
+      "version": "2.3.8",
+      "path": ".github/instructions/Factory-blueprint-design.instructions.md",
+      "changelog": [
+        "2.3.8: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
+        "2.3.7: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.3.6: fix: UX Vision Digest (UXD) v1.0.0 — expand Section 7.6 from shallow file list into full pre-digested vision data. Extracts shell composition (7.6.1), design tokens with full color/typography/spacing/breakpoint values (7.6.2), page templates (7.6.3), component library inventory with variants/props (7.6.4), navigation map with feature placement and breadcrumbs (7.6.5), and feature-to-vision cross-reference (7.6.6). IMPLEMENT reads ONE section instead of loading 5 large HTML files that get lost to context summarization.",
+        "2.3.5: fix: Frontend deploy resource gap — extend resource.type enum to include static_site, add Frontend Hosting Auto-Declaration rule (auto-generates static_site resource when frontend.framework != None, derives engine/build_command/output_dir/ssr from constitution — fully agnostic, no hardcoded cloud or framework mappings).",
+        "2.3.4: fix: PR review — split ambiguous *url*|*uri* pattern into separate entries, fix entity override key from field→field_pattern for consumer consistency.",
+        "2.3.3: fix: GCD Section 7.4 — add type_format_registry with format metadata (uuid, email, iso-datetime, iso-date, uri, phone) and per-entity field format overrides. Enables IMPLEMENT type-aware test data generation and REVIEW [SCHEMA-TEST] validation.",
+        "2.3.2: fix: GCD Section 7.8 — Mandatory Architectural Patterns + ADR Bindings. Extracts constitutional patterns (BaseRepository, TenantMiddleware, cross-cutting concerns), multitenancy enforcement, auth patterns, feature-relevant ADRs, setup decisions, and implementation invariants. Closes governance injection gap where IMPLEMENT satisfied constraints superficially.",
+        "2.3.1: fix: GCD Section 7.2 completeness — add 7 missing governance rule IDs (GOV-REVIEW, GOV-STATE, GOV-IMMUT, GOV-CFP, GOV-IAC, GOV-FRONT, GOV-HTML) to Governance Rules Index. IMPLEMENT now receives all 16 rule categories instead of 9.",
+        "2.3.0: feat: Governance Constraints Digest (GCD) v1.0.0 — BLUEPRINT emits Section 7 into design.md (7.1 ARCH + 7.2 GOV + 7.3 SAST + 7.4 SCHEMA + 7.5 CFP + 7.6 UX + 7.7 CODING). Pre-digests 20+ governance rule files into single-read artifact. GCRP-compliant hash validation (constitution_hash[:8]). IMPLEMENT reads Section 7 instead of reloading governance stack.",
+        "2.2.0: feat: staging_data declaration in Infrastructure Needs (Section 5) — ARCH declares owned/consumed entities, FK dependencies, estimated counts for Synthetic Data Protocol (#124)",
+        "2.1.0: feat: webhook classification in dependency analysis + contract generation — inbound/outbound webhook contracts via OpenAPI 3.1",
+        "1.1.2: Step 0 updated — governance snapshot recovery replaces old MD5 cache mechanism (#112)",
+        "1.1.0: CIP Step -2 missing inventory fallback — WARN + CIP_SKIPPED + staleness advisory (#106)",
+        "1.0.0: Extracted from BLUEPRINT.AGENT.MD — design & artifact generation phases 0-2 (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-blueprint-validation.instructions.md": {
+      "version": "2.0.1",
+      "path": ".github/instructions/Factory-blueprint-validation.instructions.md",
+      "changelog": [
+        "2.0.1: fix: add Phase 3.8 CVP coherence gate — validates CODESIGN↔BLUEPRINT artifact alignment before approval",
+        "1.0.5: IPP reference — evolve Law 6 Atomic Persistence to reference IPP protocol (#112)",
+        "1.0.4: Add Refine Execution Sequence with cip_refine_artifact_recheck() call site, incorporate reuse_category into candidate matching and BLOCK/WARN messages (#110)",
+        "1.0.3: CIP Artifact Re-Check gate on --refine — fires when iteration introduces NEW technical artifacts (services, components) to prevent DRY violations",
+        "1.0.2: Procedural gates — Endpoint Re-Scan Gate (H-13), Iteration Changelog Gate (M-03), CIP Update Gate (M-04) (#108)",
+        "1.0.1: Structured APPEND_TO_WORKLOG for --refine/--approve, Iteration Changelog format, explicit CASCADE_PENDING_ITERATION frontmatter updates (#108)",
+        "1.0.0: Extracted from BLUEPRINT.AGENT.MD — approval & validation phases 3-4 (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-codesign-feature.instructions.md": {
+      "version": "2.3.1",
+      "path": ".github/instructions/Factory-codesign-feature.instructions.md",
+      "changelog": [
+        "2.3.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.3.0: feat: Interactive Mock Protocol (IMP v1.0.0) — stack-agnostic state toggles + journey-step navigation in mock.html, zero dependencies, data-state management, IMP engine as PROTECTED CODE; PR review fixes: navigate() fallback, CSS design tokens, auto-approval validation naming",
+        "2.2.0: feat: Business Language Translation Protocol with bilingual BUSINESS_LANGUAGE map (es/en) + i18n presentation rules",
+        "2.1.0: feat: BIP batch Event Storming proposal, internal PO↔UX iteration, tier-based execution flow",
+        "1.2.5: PR review fix — update Tripartite Alignment Protocol trigger wording from 'before --approve' to 'before auto-approval on --start/--refine' (#113)",
+        "1.2.4: Fix stale 9→12 references in auto-approval comments — logic was correct (FOR EACH [1..12]) but comments said 9 (#112)",
+        "1.2.3: Tripartite Alignment Protocol v2 — expanded from 6+3 checks to 10 enumerated checks with sub-items. New: ACTION→COMMAND alignment, NAVIGATION→EXITS, ERROR-FULL-CHAIN (domain+validation+external+auth), EMPTY-LOADING-FULL-CHAIN. Auto-approval gate expanded 9→12 validations. Alignment summary table with BLOCKER/WARNING severity (#112)",
+        "1.2.2: Tripartite Alignment Canary (M-08) — re-reads upstream artifact data from disk before writing downstream artifacts. Prevents cross-artifact drift after mid-command summarization. codesign_write_with_alignment() integrates IPP canary + alignment canary + atomic save (#112)",
+        "1.2.1: IPP integration — evolve M-07 to full IPP-compliant implementation with 3 pillars + decision persistence + finalization (#112)",
+        "1.2.0: Remove deprecated --approve LEGACY FALLBACK section — auto-approval is the only path, update failure message to suggest re-run (v8.2.0 cleanup)",
+        "1.1.8: Add explicit Refine Execution Sequence with cip_refine_recheck() call site — gate was defined but never invoked (#110)",
+        "1.1.7: CIP Domain Concept Re-Check gate on --refine — fires when iteration introduces NEW domain concepts (entities, events, services) to prevent DRY violations",
+        "1.1.6: PR review fixes — CIP gate truly BLOCKING when materialization_complete, degraded only pre-materialization (#108)",
+        "1.1.5: Coherence fix — update Cross-Agent Integration table to reflect auto-approval path (#108)",
+        "1.1.4: Trim legacy --approve section to compact reference — reduces context token overhead (#108)",
+        "1.1.3: Auto-Approval Protocol (v8.2.0) — --start/--refine auto-approve when 9/9 validations pass, --approve marked as legacy fallback (#108)",
+        "1.1.2: Procedural gates — CASCADE Verification Gate (H-06), Data Schema Authority Gate (H-15), Atomic Persistence Gate (M-07), One Question at a Time Gate (L-03) (#108)",
+        "1.1.1: Structured APPEND_TO_WORKLOG for --start/--refine/--approve, Iteration Changelog format, explicit CASCADE_PENDING_ITERATION frontmatter function, CIP Phase 0.5 as BLOCKING GATE with code block (#108)",
+        "1.1.0: CIP Phase 0.5 missing inventory fallback — WARN + CIP_SKIPPED + advisory for --reconcile-inventory (#106)",
+        "1.0.0: Extracted from CODESIGN.AGENT.MD — feature co-creation protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-codesign-vision.instructions.md": {
+      "version": "2.2.0",
+      "path": ".github/instructions/Factory-codesign-vision.instructions.md",
+      "changelog": [
+        "2.2.0: feat: BIP pivotal question marking for Visual DNA Decision Batch",
+        "2.1.0: feat: BIP Decision Batch for Visual DNA in Phase V.1",
+        "1.0.0: Extracted from CODESIGN.AGENT.MD — UX vision creation protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-devops-configure.instructions.md": {
+      "version": "2.0.2",
+      "path": ".github/instructions/Factory-devops-configure.instructions.md",
+      "changelog": [
+        "2.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.0.1: fix: Frontend Resource Verification Gate — extract static_site fields from design.md Section 5, WARN when constitution declares frontend.framework but no static_site resource exists.",
+        "1.1.3: PR review fix — remove stale --approve reference in Finalization block, tie to auto-approval within --configure/--refine flow (#113)",
+        "1.1.2: Governance snapshot recovery — Step 0 reads .context/governance_snapshot.md before Guardrail 0 constitution load (INVARIANT 5 compliance) (#112)",
+        "1.1.1: IPP integration — evolve Persistence Loop + Resumability to IPP-compliant with skeleton-first, section-atomic, resume-on-entry (#112)",
+        "1.1.0: Remove deprecated --approve LEGACY FALLBACK section — auto-approval on 7/7 checks is the only path (v8.2.0 cleanup)",
+        "1.0.5: PR review fixes — APPEND_TO_WORKLOG entries as YAML block scalars for valid syntax (#108)",
+        "1.0.4: Trim legacy --approve section to compact reference — reduces context token overhead (#108)",
+        "1.0.3: Auto-Approval Protocol (v8.2.0) — --configure auto-approves when 7/7 checks pass, --approve marked as legacy fallback (#108)",
+        "1.0.2: Procedural gates — Secrets Security Gate (H-14), Environment Names Validation Gate (M-06) (#108)",
+        "1.0.1: Structured APPEND_TO_WORKLOG for --configure/--approve/--refine — replace bare APPEND_TO_WORKLOG with JSON format (#108)",
+        "1.0.0: Extracted from DEVOPS sections in copilot-instructions.md — configure/approve/refine (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-devops-provision-deploy.instructions.md": {
+      "version": "2.2.1",
+      "path": ".github/instructions/Factory-devops-provision-deploy.instructions.md",
+      "changelog": [
+        "2.2.1: fix: Frontend deploy support — add Static Site / Frontend Resources IaC generation protocol (SPA + SSR variants, engine-driven via iac_descriptor — no hardcoded cloud mappings), include static_site in Tier 3 provisioning, add frontend build step to deploy Phase 3.",
+        "2.2.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md — summarization-safe (INVARIANT 5) (#124)",
+        "2.1.0: feat: Seed Pipeline Protocol — post-deploy synthetic data seeding with topological ordering, idempotent upsert, cross-domain FK validation, deployment report extension (#124)",
+        "1.1.2: PR review fixes — (1) config/infrastructure_registry.json canonical path, (2) null FEATURE_ID production QA gate with env-scoped fallback, (3) CI/tag-safe branch validation using merge-base ancestry instead of git branch --show-current (#113)",
+        "1.1.1: Pre-Deploy Status Gate (BLOCKING) — formal verify_deploy_prerequisites() with explicit status checks: dev_plan.md IMPLEMENTED_AND_VERIFIED, devops_plan.md APPROVED, environment ACTIVE, production QA+MERGE gate (#112)",
+        "1.1.0: Remove deprecated --approve from FEATURE-SCOPED commands and Command Summary table (v8.2.0 cleanup)",
+        "1.0.2: Coherence fix — update production prerequisites from 'QA --approve' to 'QA APPROVED (via --verify auto-approval)' (#108)",
+        "1.0.1: Deployment Report Template — full structured template for deployment_report_{ts}.md with frontmatter, execution log, smoke tests, metrics, rollback info (#108)",
+        "1.0.0: Extracted from DEVOPS sections — provision, deploy, rollback, teardown, status (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-implement-build.instructions.md": {
+      "version": "2.2.9",
+      "path": ".github/instructions/Factory-implement-build.instructions.md",
+      "changelog": [
+        "2.2.9: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
+        "2.2.8: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.2.7: fix: UXD fast-path integration — Step 0c loads UX Vision Digest from design.md Section 7.6 instead of 5 raw HTML files (survives summarization). CSS Foundation Gate uses ux_context.design_tokens + shell_ref. Mock Extraction Protocol (7-Section) references UXD data for shell validation, component classification, styling contract, and navigation verification. Graceful fallback to raw HTML when UXD absent.",
+        "2.2.6: fix: CSS Foundation Gate (v12.1.0) — BLOCKING gate at start of Phase B verifies CSS framework installed, design tokens translated to stack-native config, and build pipeline configured before any component generation. Auto-fix capability for missing deps/config. Prevents components with default/empty styles instead of design system tokens.",
+        "2.2.5: fix: PR review — fix type_registry[field]→field_name variable consistency, add FORMAT_NORMALIZATION map (date-time→iso-datetime), add resolve_test_data_format() with deterministic precedence (exact→qualified→glob), entity_name extraction in RULE block.",
+        "2.2.4: fix: Type-Aware Test Data Protocol — TDD RED phase loads type_format_registry from GCD 7.4 + contract schemas. Mock/stub/fixture values must conform to declared domain types (UUID, email, ISO datetime, etc.). Anti-pattern examples and format-compliant value table. Fallback heuristics for naming convention inference.",
+        "2.2.3: fix: GCD Section 7.8 extraction in Step 0b — loads mandatory_patterns (constitutional arch patterns + ADR bindings) into governance_context. Step 3b loads ADR files with fallback when GCD 7.8 absent. Passes mandatory_patterns to Phase Loop for REVIEW Check #14. Updates check count 13→14.",
+        "2.2.2: fix: Phase Loop REVIEW/SEC comments updated — document that REVIEW now includes review_verification_loop() (coverage, lint, typecheck via BVL) and SEC includes sec_verification_loop() (dependency_audit, secret_scan via BVL). Fix loop re-runs real tools on re-execution.",
+        "2.2.1: fix: GCD fast-path — separate frontmatter read from section read for unambiguous hash access, explicit snapshot-absent handling (fallback instead of silent skip)",
+        "2.2.0: feat: GCD fast-path in Step 0b — reads design.md Section 7 (Governance Constraints Digest) as single-file substitute for 20+ governance rule files. GCRP-compliant hash validation (constitution_hash[:8]). Returns governance_context + gcd_loaded to Phase Loop (REVIEW/SEC hats receive context — no double-parse). Step 1 SAST loading conditional on GCD. Graceful fallback includes full rule file loading.",
+        "2.1.0: feat: Build Verification Loop (BVL) integration — task_verification_loop in TDD Cycle, phase_verification post-DEV, full_verification_gate before IMPLEMENTED_AND_VERIFIED (#124)",
+        "1.2.3: Governance snapshot recovery in Step 0b — attempt .context/governance_snapshot.md before direct constitution.md read (INVARIANT 5 compliance) (#112)",
+        "1.2.2: IPP integration — Law 12 with task-atomic saves, resume-on-entry from first unchecked task, delta/fix task persistence (#112)",
+        "1.2.1: Fix QA→FIX infinite loop — execute_fix_tasks() now sets qa_report.status to INVALIDATED after completion gate passes (QA_REJECTION source only)",
+        "1.2.0: Checkbox-Driven Execution — MODE 1 ADJ-N tasks (--refine feedback), MODE 2 D.N tasks (--refine upstream delta), Fix Task Generation Protocol (generate_fix_tasks + execute_fix_tasks), verify_completion_gate with 4 task type regex, removed Smart Redirect hints",
+        "1.1.4: PR review fixes — CIP gate truly BLOCKING when materialization_complete, APPEND_TO_WORKLOG as YAML block scalars (#108)",
+        "1.1.3: Procedural gates — Phased Verification Gate (H-09), Contract-First Gate (H-10), Schema Adherence Gate (H-11), Inter-Domain Contract Gate (H-12), Fix Scope Guard Gate (M-10), Iteration Staleness Gate (M-11), Traceability Comment Gate (L-02), Strict TDD Gate (#108)",
+        "1.1.2: Structured APPEND_TO_WORKLOG for --build/--refine, DRY Reuse Gate (CIP) enforcement with BLOCKING behavior and logging (#108)",
+        "1.1.1: PR review fixes — @skip justification check before gate, iteration-based design/test_plan detection (replace timestamp), explicit validate_upstream_artifacts call in --refine flow, tp_based_on_iteration detection (PR #107)",
+        "1.1.0: Completion Verification Gate, Upstream Artifact Validation, Iteration Changelog, Mandatory Law #11 (#106)",
+        "1.0.0: Extracted from IMPLEMENT.AGENT.MD — build & fix execution protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-implement-plan.instructions.md": {
+      "version": "2.3.6",
+      "path": ".github/instructions/Factory-implement-plan.instructions.md",
+      "changelog": [
+        "2.3.6: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
+        "2.3.5: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.3.4: fix: UXD fast-path integration — V.1-V.6 loads vision context from design.md Section 7.6 UXD instead of 5 raw HTML files. B.0.2 extracts tokens from UXD. B.2/B.3/B.6 reference UXD component_library, page_templates, shell_composition. Vision Fidelity Rule references UXD fields. Graceful fallback to raw HTML when UXD absent (pre-v12.1.0 BLUEPRINT).",
+        "2.3.3: fix: Phase B.0 Frontend Foundation — mandatory CSS/design token scaffolding tasks (B.0.1–B.0.5) as prerequisite before component implementation. Extracts design tokens from style_guide.html into stack-native format (Tailwind config, globals.css, CSS variables). Ensures styling infrastructure exists before B.1+ tasks. B.4 updated to reference B.0 translated config instead of raw style_guide.html.",
+        "2.3.2: fix: Mandatory Architectural Pattern Loading — load_mandatory_patterns() extracts GCD Section 7.8 (or fallback constitution+ADRs), cross-references design.md Component Inventory, generates Phase A.0.N prerequisite tasks for shared components (BaseRepository, TenantMiddleware, etc.). Shared components created/integrated BEFORE feature-specific tasks.",
+        "2.3.1: fix: add Step 0.5 CVP coherence gate — validates CODESIGN↔BLUEPRINT↔IMPLEMENT chain before task decomposition",
+        "2.3.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md — summarization-safe (INVARIANT 5) (#124)",
+        "2.2.0: feat: Shared Seed Registry Protocol — cross-domain referential integrity via config/seed_registry.json, topological sort, FK validation, entity registration (C.5.5) (#124)",
+        "2.1.0: feat: Synthetic Data Protocol — C.5 conditional task for staging environments with idempotency, reset, referential coherence, schema alignment, and production guard requirements (#124)",
+        "1.0.5: Governance snapshot recovery — attempt .context/governance_snapshot.md before constitution.md reads (INVARIANT 5 compliance) (#112)",
+        "1.0.4: IPP integration — skeleton-first dev_plan.md, phase-atomic saves, resume-on-entry (#112)",
+        "1.0.3: Remove deprecated SMART_REDIRECT block — replace with RETURN_TO_FACTORY(FEATURE_ID) (v8.2.0 cleanup)",
+        "1.0.2: PR review fixes — APPEND_TO_WORKLOG as YAML block scalar for valid syntax (#108)",
+        "1.0.1: Structured APPEND_TO_WORKLOG replacing bare LOG workflow_log (#108)",
+        "1.0.0: Extracted from IMPLEMENT.AGENT.MD — dev plan creation protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-implement-review-checks.instructions.md": {
+      "version": "2.1.6",
+      "path": ".github/instructions/Factory-implement-review-checks.instructions.md",
+      "changelog": [
+        "2.1.6: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.1.5: fix: PR review — add FORMAT_NORMALIZATION map, lookup_expected_format() with glob precedence, LAST_PATH_SEGMENT normalization for qualified field names, negative test exemption (@schema-test-exempt annotation + invalid_ prefix convention).",
+        "2.1.4: fix: Check #5 [SCHEMA-TEST] sub-check — Test Data Type Compliance. Scans test files for mock/fixture/stub values and validates against type_format_registry from GCD 7.4 + contract format fields. BLOCKER for identifier fields (tenant_id, user_id) using non-UUID literals; WARNING for other typed fields (email, dates, URIs). Regex-based format validation.",
+        "2.1.3: fix: Check #14 [DESIGN-XX] Design Materialization Fidelity — 4 sub-checks: [DESIGN-COMP] Component Inventory materialization (shared components created AND used), [DESIGN-PATTERN] Mandatory Pattern Compliance (base_class extension, middleware chain registration, tenant context flow), [DESIGN-ADR] ADR Binding Compliance, [DESIGN-INVARIANT] Implementation Invariant Verification. Closes gap where IMPLEMENT bypassed prescribed patterns. Check count 13→14. Pre-finalization checklist 15→16 items.",
+        "2.1.2: fix: REVIEW + SEC hats now execute real tools via BVL — REVIEW adds review_verification_loop() (coverage threshold, lint, typecheck, test suite re-run), SEC adds sec_verification_loop() (dependency audit via npm audit/pip-audit/cargo audit, secret scanning via gitleaks/trufflehog with regex fallback). Static findings merge with execution findings for verdict. GCD context binding expanded with 7 new rule IDs.",
+        "2.1.1: fix: fallback path binds equivalent fields (same interface as GCD path), gov_rules_index accessed via indexed map (rules_by_id), schema_constraints accessed via entities_by_name map from list",
+        "2.1.0: feat: GCD context binding Step R.0 — REVIEW and SEC hats receive governance_context from Phase Loop caller (no re-read of design.md Section 7). Named constraint IDs (GOV-*/ARCH-*/SAST-*) make findings precise and auditable. SEC Hat uses pre-compiled SAST patterns from governance_context. Checks #1/#2/#3/#5/#7/#10 reference GCD sub-sections. Graceful fallback when gcd_loaded == false.",
+        "1.0.1: Remove deprecated SMART_REDIRECT block — replace with RETURN_TO_FACTORY(FEATURE_ID) (v8.2.0 cleanup)",
+        "1.0.0: Extracted from IMPLEMENT.AGENT.MD — peer review + security audit protocols (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-qa-verify.instructions.md": {
+      "version": "2.3.2",
+      "path": ".github/instructions/Factory-qa-verify.instructions.md",
+      "changelog": [
+        "2.3.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.3.1: fix: add Full-Chain CVP gate — validates end-to-end traceability CODESIGN→BLUEPRINT→IMPLEMENT→QA before verification",
+        "2.3.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md — summarization-safe (INVARIANT 5) (#124)",
+        "2.2.0: feat: [QA-PRE-DATA] extended with cross-domain validation — seed registry existence, dependency graph resolution, cross-feature FK orphan check, topological sort validity (#124)",
+        "2.1.0: feat: [QA-PRE-DATA] checkpoint — synthetic data verification for staging environments (idempotency, reset, referential coherence, schema alignment, production guard) (#124)",
+        "1.1.2: sec_audit.md added to Required Inputs (item 8 enrichment) + governance snapshot recovery note before QA-Scoped rule loading (INVARIANT 5 compliance) (#112)",
+        "1.1.1: IPP integration — skeleton-first qa_report, per-check atomic saves, resume-on-entry (#112)",
+        "1.1.0: Remove deprecated --approve LEGACY FALLBACK section — auto-approval via --verify is the only path (v8.2.0 cleanup)",
+        "1.0.4: Trim legacy --approve section to compact reference — reduces context token overhead (#108)",
+        "1.0.3: QA Report Template (GAP-1), DAST Report Template (GAP-3), Auto-Approval Protocol (v8.2.0) — --verify auto-approves when verdict APPROVED, --approve marked as legacy fallback (#108)",
+        "1.0.2: Procedural gates — Iteration Detection Gate (M-05), Prerequisites Gate (M-08), Scope Boundary (M-09) (#108)",
+        "1.0.1: Structured APPEND_TO_WORKLOG for --verify/--approve/--reject (#108)",
+        "1.0.0: Extracted from QA sections — verify, approve, reject, e2e (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-backlog-operations.instructions.md": {
+      "version": "1.2.0",
+      "path": ".github/instructions/Factory-backlog-operations.instructions.md",
+      "changelog": [
+        "1.2.0: feat: rename 'Domain Clusters' → 'Epics' + add slice-sequential description in § 10 Execution Plan cross-reference",
+        "1.0.7: fix: tech-agnostic verification/rollback (verify_issue, verify_board_placement, close_issue), --move step reorder (board_field_mapping before move_to_column), Final Verification Gate § 6.4 (#130)",
+        "1.0.6: fix: integration field as strict enum (cli|mcp) with concrete example, § 6.0.2 preflight bifurcates CLI vs MCP paths (which vs MCP server check)",
+        "1.0.5: fix: Preflight Check (§ 6.0.2) — mandatory 3-step gate (binary exists, authenticated, permissions) before any external operation, blocks and guides user on failure",
+        "1.0.4: fix: Error Resolution Protocol (§ 6.0.1) — classified error handling for CLI/MCP failures with diagnostic steps, user-facing resolution instructions, and retry flow",
+        "1.0.3: fix: tool-agnostic refactor — replace gh CLI/GraphQL commands with tool-adapter protocol, zero-credentials security invariant, CLI/MCP-only integration, agnostic project-config.json schema",
+        "1.0.2: fix: SSOT v1.0.0 — Section 0 SSOT invariant, mode-conditional protocols (external/local) for issue creation, board ops, state tracking, body files",
+        "1.0.1: fix: PR review — clarify feature_phases as preset string persisted by SETUP, expanded by BACKLOG at runtime. Read from governance snapshot. Expansion example added (#124)",
+        "1.0.0: feat: initial Backlog operations reference — SETUP-driven config, issue naming, body templates, board management. Phases: codesign→blueprint→devops→implement→qa. Deliverables under docs/backlog/ (#124)"
+      ]
+    },
+    "instructions/Factory-backlog-execution-plan.instructions.md": {
+      "version": "1.2.1",
+      "path": ".github/instructions/Factory-backlog-execution-plan.instructions.md",
+      "changelog": [
+        "1.2.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "1.2.0: feat: aggregate-scoped Slices — subdivide epics with >3 features into Slices (≤3) grouped by shared Aggregate Root; form_slices() algorithm; slice-sequential pipeline; plan template with slice sections; cache tracks active_slice; guardrails 7-9 (slice size cap, ordering, completeness)",
+        "1.1.0: feat: rename 'Domain Cluster' → 'Epic' (Agile-standard terminology); EPIC-{N} identifiers; epic-scoped branch reference in plan template; form_epics() replaces form_clusters(); epic-phase-sequential ordering",
+        "1.0.0: feat: initial execution plan protocol — dependency analysis (entity/BC/explicit), domain cluster formation, cluster-phase-sequential ordering, /memories/repo/ write-through cache, --plan-execution, --update-execution, --sync-execution commands, --plan-feature integration, next-task resolver cache fast path"
+      ]
+    },
+    "instructions/Factory-backlog-next-task.instructions.md": {
+      "version": "1.2.0",
+      "path": ".github/instructions/Factory-backlog-next-task.instructions.md",
+      "changelog": [
+        "1.2.0: feat: rename 'cluster' → 'epic' + add 'slice' field in Step 1.4 extraction — Agile-standard terminology with aggregate-scoped slices",
+        "1.1.2: fix: enforce Step 1.4.5 on cache fast path, align SSOT precedence (execution-plan for ordering; issue body for command/details), local mode body_path resolution via docs/backlog/state.md, and adapter-based ISSUE_READ resolution from docs/backlog/tool-adapter.md",
+        "1.1.1: fix: Step 1.4.5 — mandatory issue content fetch via configured tool (not hardcoded GitHub); tool-agnostic routing (cli_command from project-config.json or local issue-bodies/); discrepancy detection between plan and issue body; issue body beats execution-plan summary (SSOT)",
+        "1.1.0: feat: memory cache fast path — Step 0 reads /memories/repo/execution-plan-cache.md before disk, Step 1.5 refreshes cache after resolution",
+        "1.0.0: feat: initial next-task guidance — deterministic parsing of execution-plan.md, prerequisite gate, execution tuple extraction, blocking rules"
+      ]
+    },
+    "instructions/Factory-setup-discovery.instructions.md": {
+      "version": "2.6.4",
+      "path": ".github/instructions/Factory-setup-discovery.instructions.md",
+      "changelog": [
+        "2.6.4: fix: VVP resolution method renamed from fetch_webpage to web/fetch (actual agent tool name) + curl fallback",
+        "2.6.3: fix: Q26 deny list split into contextual categories (crypto-universal, dynamic-eval, frontend-js) instead of universal list that assumed all runtimes have eval/jQuery",
+        "2.6.2: fix: VVP § 4.1.3.1 — Version Verification Protocol in Discovery Finalization, runtime registry queries to pin latest stable/LTS versions instead of stale LLM knowledge",
+        "2.6.1: fix: Q27 tool-agnostic — change from closed single-select to open text with suggestions, any tool name accepted, CLI/MCP integration model note",
+        "2.6.0: feat: Q28 Synthetic Data Protocol toggle + Q28.1 Seed ID Strategy — conditional unlock, persists synthetic_data.enabled and synthetic_data.id_strategy (#124)",
+        "2.5.0: feat: Q27-Q27.4 Project Tracking questions — tool selection, board columns, feature phases (codesign→blueprint→devops→implement→qa), milestone strategy, naming convention (#124)",
+        "2.4.0: feat: Q8.1 Webhook Support — new conditional question for inbound/outbound webhook configuration, complementary to communication_style",
+        "2.3.0: feat: simplified field guidance + i18n — simplified must match session.language with es/en examples",
+        "2.2.0: feat: BIP pivotal question marking for disruption-triggered re-harvest",
+        "2.1.0: feat: BIP tiered discovery — 3 dependency tiers replace sequential Q&A, BIP sub-commands, tier-aware resumability",
+        "1.0.0: Extracted from SETUP.AGENT.md — discovery phase with Smart Discovery + RDR (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-setup-materialization.instructions.md": {
+      "version": "2.4.7",
+      "path": ".github/instructions/Factory-setup-materialization.instructions.md",
+      "changelog": [
+        "2.4.7: fix: tool-adapter abstract ops list — add verify_issue, verify_board_placement, close_issue for verification/rollback support (#130)",
+        "2.4.6: fix: stack-agnostic scaffolding — Step 2 (Backend) and Step 3 (Frontend) now have explicit conditional guards (skip if backend.runtime/frontend.framework == None)",
+        "2.4.5: fix: VVP materialization gate — § 4.2.1.1 Version Freshness Gate (re-verify if >7 days old) + § 4.2.1.2 Version Pinning table for generated artifacts (package.json, Dockerfile, pyproject.toml, CI/CD, etc.)",
+        "2.4.4: fix: tool-adapter § Troubleshooting section — SETUP generates error resolution guidance per error category (install, auth, permissions, network, common errors)",
+        "2.4.3: fix: Step 6 tool-adapter generation — external mode now materializes docs/backlog/tool-adapter.md with CLI/MCP commands, prerequisites, and zero-credentials security",
+        "2.4.2: fix: SSOT v1.0.0 — Step 6 backlog scaffolding now mode-conditional: external mode → project-config.json only; local mode → state.md + issue-bodies/ only",
+        "2.4.1: fix: PR review — Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
+        "2.4.0: feat: ## Verification Commands section in governance snapshot — auto-derived from stack config via BVL resolve_verification_commands() (#124)",
+        "2.3.0: feat: setup.md in governance snapshot — setup_hash dual validation, ## Setup Configuration section (synthetic_data, project_tracking, ai_budget), Step 6.5 Seed Registry scaffolding (#124)",
+        "2.2.0: feat: backlog scaffolding Step 6 — create docs/backlog/ directory from templates when project_tracking.tool != None (#124)",
+        "2.1.1: fix: auto-install git hooks during SETUP --generate finalization",
+        "2.1.0: feat: webhook support in governance snapshot — backend.webhooks field in stack config + Constitutional Boundaries",
+        "1.0.3: PR review fix — change project_mode from options placeholder {E0|E1|E2|E3} to variable reference {project_mode} in snapshot template (#113)",
+        "1.0.2: Checkpoint 3.1 — governance snapshot generation (summarization-safe cache for all agents) (#112)",
+        "1.0.0: Extracted from SETUP.AGENT.md — generate/resume materialization (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-setup-upgrade.instructions.md": {
+      "version": "2.0.0",
+      "path": ".github/instructions/Factory-setup-upgrade.instructions.md",
+      "changelog": [
+        "1.0.1: Governance snapshot regeneration — Step 4 Finalization generates .context/governance_snapshot.md after upgrade (#112)",
+        "1.0.0: Extracted from SETUP.AGENT.md — upgrade, rollback, migrate-legacy (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-protocol-smart-redirect.instructions.md": {
+      "version": "2.2.2",
+      "path": ".github/instructions/Factory-protocol-smart-redirect.instructions.md",
+      "changelog": [
+        "2.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.2.1: fix: clarify internal cache protocol naming to FMCP (Factory Memory Cache Protocol) to avoid confusion with external MCP standard references",
+        "2.2.0: feat: Step 0 Feature State Cache fast path via /memories/repo/feature-state-cache.md (MCP v1.0.0), write-through after compute_feature_state()",
+        "2.1.0: feat: progress context (progress bar + phase label) + humanized action labels + i18n next_steps label",
+        "1.0.7: Fix stale 9/9→12/12 auto-approval reference in PHASE 1 CODESIGN --refine suggestion (#112)",
+        "1.0.6: Exempt PHASE 0 cascade results from generic 'max 3 actions' cap — render ALL cascade_actions for full plan visibility (#110)",
+        "1.0.5: PHASE 0 cascade fix — compute FULL cascade plan (all stale artifacts + projected follow-up actions) instead of early-return per check; add IMPLEMENT --build after --refine when dev_plan was BUILDING/IMPLEMENTED_AND_VERIFIED; add QA --verify when qa_report is INVALIDATED",
+        "1.0.4: PR review fixes — verify_redirect_not_hardcoded uses action objects not strings, env validation on pre-render actions (#108)",
+        "1.0.3: Coherence fix — remove stale CODESIGN --approve suggestion from PHASE 1 DRAFT/NEEDS_INFO state (#108)",
+        "1.0.2: Auto-approval flow simplification — skip QA --approve, DEVOPS --approve, CODESIGN --approve suggestions in compute_next_actions (v8.2.0) (#108)",
+        "1.0.1: Procedural gates — Hardcoded Redirect Prevention Gate (H-03), Integration Checkpoint Gate (H-04) (#108)",
+        "1.0.0: Extracted from copilot-instructions.md — frontmatter-driven navigation protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "instructions/Factory-protocol-iop-intent-map.instructions.md": {
+      "version": "2.5.1",
+      "path": ".github/instructions/Factory-protocol-iop-intent-map.instructions.md",
+      "changelog": [
+        "2.5.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.5.0: feat: add 'epic' patterns to execution plan intent regex — backward-compatible with 'cluster' patterns",
+        "2.4.1: fix: CVP on-demand intent patterns (coherence/consistency/traceability) + cvp_on_demand() routing function",
+        "2.4.0: feat: BACKLOG execution plan intent patterns — plan-ejecución, update-execution, sync-execution (es/en multilingual)",
+        "2.3.0: feat: BACKLOG intent patterns — init-board, plan-feature, create-issue, move, status (#124)",
+        "2.2.1: fix: add GIT_DESTRUCTIVE protocol + intent patterns for filter-repo, reset --hard, push --force",
+        "2.2.0: feat: experience intent patterns — onboarding, status/progress, session resumption, roadmap (multilingual regex)",
+        "2.1.0: feat: BIP detection in Category A FRAMEWORK_COMMAND routing",
+        "1.1.0: Remove deprecated CODESIGN --approve and QA --approve intent mappings (v8.2.0 cleanup)",
+        "1.0.2: PR review fixes — goal_terminus as state predicate, plan loop uses action.result_state SATISFIES (#108)",
+        "1.0.1: Coherence fix — update goal_terminus from CODESIGN --approve to state-based CODESIGN APPROVED (#108)",
+        "1.0.0: Extracted from copilot-instructions.md — IOP v1.0.0 intent classification (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
+      ]
+    },
+    "copilot-instructions.md": {
+      "version": "9.11.2",
+      "path": ".github/copilot-instructions.md",
+      "changelog": [
+        "9.11.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "9.11.1: fix: BACKLOG Execution Plan description reflects parallel slice exception from guardrail 9",
+        "9.11.0: feat: rename 'Domain Cluster' → 'Epic', add aggregate-scoped Slices (≤3 features) in BACKLOG section and Execution Plan protocol reference",
+        "9.10.3: fix: CVP v1.0.0 added to shared protocol references table — cross-artifact traceability and completeness validation",
+        "9.10.2: fix: shared protocol table renames internal Memory Cache acronym from MCP to FMCP to avoid ambiguity with external Model Context Protocol",
+        "9.10.1: fix: PRE_ACTION_GATE v2.0.0 — full Step -1 Auto-Branch Checkout Protocol for direct agent invocations (Phase 1-5 with mismatch detection, dependency checks, concurrency lock)",
+        "9.10.0: feat: CIP v1.2.0 reference updated with Memory Cache fast path, Memory Cache Protocol (MCP v1.0.0) added to shared protocol references table",
+        "9.9.0: feat: BACKLOG execution plan commands (--plan-execution, --update-execution, --sync-execution), memory cache protocol, Execution Plan added to shared protocol references table",
+        "9.8.2: fix: BACKLOG section tool-agnostic — replace 'GitHub Project board' with 'configured external tool or local files'",
+        "9.8.1: fix: SSOT v1.0.0 — BACKLOG section updated: prereq relaxed to project_tracking section (not tool != None), mode-dependent output artifacts (external vs local)",
+        "9.8.0: feat: CODESIGN output description updated with IMP v1.0.0 interactive mock reference (#127)",
+        "9.7.0: feat: BVL v1.0.0 — Build Verification Loop added to protocol table (#124)",
+        "9.6.0: feat: INVARIANT 5 expanded — setup_hash dual validation, setup.md fields in snapshot, agents MUST read synthetic_data/project_tracking/ai_budget from snapshot (#124)",
+        "9.5.0: feat: BACKLOG agent routing summary + command dispatcher independence declaration (#124)",
+        "9.4.1: fix: add MANDATORY PRE-ACTION GATE — branch protection + commit conventions for all agents including default",
+        "9.4.0: feat: Humanized Blocking as Mandatory Law #4 — business-language error messages with auto-action offers",
+        "9.3.0: feat: BIP v1.1.0 reference — Disruption-Triggered Re-Harvest for pivotal overrides",
+        "9.2.0: feat: BIP protocol reference, SETUP/CODESIGN BIP annotations, INVARIANT 2 BA exception for docs/.bip/*",
+        "9.1.0: feat: extract branching, commit-prompt, worklog to skills — reduce from 542 to 224 lines",
+        "8.4.5: SDLC audit fixes — INVARIANT 5 scope includes CODESIGN, DRY Enforcement standard scoped to CIP agents (DEVOPS/QA exempt), CIP protocol version reference updated (#112)",
+        "8.4.4: CODESIGN auto-approval expanded 9→12 validations — action→command, navigation→exits, error full-chain, empty/loading full-chain (#112)",
+        "8.4.3: CIP Canary reference — DRY Enforcement standard strengthened with cip_canary_gate() requirement. Protocol table updated: CIP v1.1.2, IPP v1.0.1 (#112)",
+        "8.4.2: INVARIANT 5 — Governance Context Recovery (summarization-safe). File-based snapshot replaces in-memory cache. Pre-Routing Step 0 updated (#112)",
+        "8.4.0: Remove deprecated command references — CODESIGN/DEVOPS/QA --approve and QA --plan/--refine from Agent Routing, Command Dispatcher, and Auto-Approval note (v8.2.0 cleanup)",
+        "8.3.0: IMPLEMENT and QA Agent Routing Summaries — Checkbox-Driven Execution with 4 task types, Checkbox-Driven Verification with checklist gate, --reject generates [FIX-N]",
+        "8.2.6: INVARIANT 2 strengthened — expanded behavioral violation examples (reading past line 20, computing changes, modifying artifact bodies, extracting schemas) (#110)",
+        "8.2.5: PR review fixes — fix Unicode replacement chars in headings, reorder classify_change patterns so feature/SETUP-*/AUDIT-* match before generic feature/* (#108)",
+        "8.2.4: Auto-Approval simplification (v8.2.0) — CODESIGN/DEVOPS/QA auto-approve, BLUEPRINT --approve only mandatory checkpoint, Agent Routing Summary updated, Command Dispatcher sequence updated (#108)",
+        "8.2.3: Context Preservation Invariants section (summarization-safe) + Generation Standard #7 enhanced with mandatory CLASSIFY FIRST sequence and 7-step governance version tracking (#108)",
+        "8.2.2: Generation Standard #7 — mandatory governance_versions.json tracking for framework file changes (#106)",
+        "8.2.1: Add ACP protocol reference to shared protocol table (#106)",
+        "8.2.0: Worklog user_agent attribution rule — actual executing agent must be recorded (#106)",
+        "8.1.0: Fix merged branch reuse — restore full Step -1.2b filtering logic with git branch --merged checks (FIX-001)",
+        "8.0.0: BREAKING — Slim cross-cutting governance only (~420 lines). All agent logic, protocols, and instructions extracted to Custom Agents architecture (PR #101)",
+        "7.0.0: CIP v1.0.0, IOP v1.0.0, E0 brownfield (#97, #98, #99)",
+        "6.1.0: Previous baseline",
+        "9.0.0: Breaking — protocol references, instruction model and skills restructured (EVOL-001)"
+      ]
+    },
+    "workflow_sequence_v2.md": {
+      "version": "3.1.1",
+      "path": ".github/workflow_sequence_v2.md",
+      "status": "REMOVED",
+      "changelog": [
+        "3.1.1: REMOVED — content superseded by copilot-instructions.md + agent files",
+        "3.1.1: Fix stale 9/9→12/12 auto-approval references in key rules, Agent Handoff table, and Key Decision Points (#112)",
+        "3.1.0: Remove deprecated legacy rows (CODESIGN/DEVOPS/QA --approve) from Agent Handoff table and Key Decisions (v8.2.0 cleanup)",
+        "3.0.1: Auto-Approval v8.2.0 — update sequence, Agent Handoff table, Key Decision Points, DEVOPS paths, CODESIGN key rules (#108)",
+        "3.0.0: Re-registered after Custom Agents migration — file at .github/workflow_sequence_v2.md, internal version v8.2.0 (PR #101)",
+        "2.0.0: IOP v1.0.0 summary table with 5-category governance routing (#99)",
+        "1.0.0: Initial workflow sequence"
+      ]
+    },
+    "utils/migrate_legacy_setup.py": {
+      "version": "2.0.0",
+      "path": ".github/utils/migrate_legacy_setup.py",
+      "status": "REMOVED",
+      "changelog": [
+        "2.0.0: Confirmed REMOVED during v9.0.0 migration audit — entry retained for historical traceability",
+        "1.1.0: REMOVED — file no longer exists, entry kept for historical traceability",
+        "1.0.0: Initial utility"
+      ]
+    },
+    "skills/Factory-governance-loading/SKILL.md": {
+      "version": "2.2.2",
+      "type": "skill",
+      "changelog": [
+        "2.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.2.1: fix: PR review — Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
+        "2.2.0: feat: ## Verification Commands section in snapshot generation — BVL test/lint/typecheck/build commands auto-derived from stack config (#124)",
+        "2.1.0: feat: setup.md dual-hash validation — setup_hash alongside constitution_hash, ## Setup Configuration in snapshot generation, stale-source diagnostics (#124)",
+        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "1.0.0: Initial governance-loading protocol"
+      ]
+    },
+    "skills/Factory-incremental-persistence/SKILL.md": {
+      "version": "2.0.1",
+      "type": "skill",
+      "changelog": [
+        "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "1.0.0: Initial incremental-persistence protocol"
+      ]
+    },
+    "skills/Factory-agent-communication/SKILL.md": {
+      "version": "2.0.0",
+      "type": "skill",
+      "changelog": [
+        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "1.0.0: Initial agent-communication protocol"
+      ]
+    },
+    "skills/Factory-codebase-inventory/SKILL.md": {
+      "version": "2.1.1",
+      "type": "skill",
+      "changelog": [
+        "2.1.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.1.0: feat: CIP Consultation Gate Step 0 — inventory cache fast path via /memories/repo/codebase-inventory-cache.md (MCP v1.0.0), write-through on cache miss",
+        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "1.0.0: Initial codebase-inventory protocol"
+      ]
+    },
+    "skills/Factory-iteration-model/SKILL.md": {
+      "version": "2.0.1",
+      "type": "skill",
+      "changelog": [
+        "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "1.0.0: Initial iteration-model protocol"
+      ]
+    },
+    "review_retry_tracking.md": {
+      "version": "2.0.0",
+      "path": ".github/review_retry_tracking.md",
+      "status": "REMOVED",
+      "changelog": [
+        "2.0.0: REMOVED — retry mechanism integrated directly into implement.agent.md, standalone file unused",
+        "2.0.0: Registered in governance during v9.0.0 migration audit (previously untracked)",
+        "1.0.0: Initial creation (v5.0.0 IMPLEMENT phase)"
+      ]
+    },
+    "skills/Factory-branching-strategy/SKILL.md": {
+      "version": "1.2.2",
+      "type": "skill",
+      "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse.",
+      "changelog": [
+        "1.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "1.2.1: fix: Step -1.4 comment uses {base_branch} instead of hardcoded 'main', lock lifecycle selects lockfile based on epic vs feature scope",
+        "1.2.0: feat: epic-scoped branch reuse — Step -1.1c resolves epic from execution-plan.md, searches/creates epic/{EPIC-N}-{slug} branches, shared by all features in the epic. Merged epic branches are discarded (never reworked). Epic lock scope added.",
+        "1.1.0: fix: cross-branch mismatch detection with exact ID parsing (Step -1.2c), cross-feature dependency detection with local+remote search (Step -1.3.5), branch creation from base_branch instead of HEAD (Step -1.4), consistent base_branch derivation (Step -1.1b), git stash -u for untracked files",
+        "1.0.1: fix: add Pre-SETUP Governance Baseline — minimum branch/commit/merge rules before constitution exists",
+        "1.0.0: feat: extracted from copilot-instructions.md — branching, merge enforcement, concurrency lock"
+      ]
+    },
+    "skills/Factory-commit-prompt/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "Post-command commit prompt — conventional commit message generation after file modifications.",
+      "changelog": [
+        "1.0.0: feat: extracted from copilot-instructions.md — commit prompt protocol"
+      ]
+    },
+    "skills/Factory-worklog/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "Worklog v2.0.0 — per-feature JSONL audit trail, action registration, phase mapping, dispatcher enforcement.",
+      "changelog": [
+        "1.0.0: feat: extracted from copilot-instructions.md — worklog enforcement protocol"
+      ]
+    },
+    "skills/Factory-batch-interactivity/SKILL.md": {
+      "version": "1.2.1",
+      "type": "skill",
+      "role": "BIP v1.2.0 — Batch Interactivity Protocol. Replaces one-at-a-time Q&A with tiered proposal→review→converge. Disruption-Triggered Re-Harvest for pivotal overrides.",
+      "changelog": [
+        "1.2.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "1.2.0: feat: simplified field in decision struct + go-back navigation + i18n bilingual RDR labels and go-back messages (es/en)",
+        "1.1.0: feat: Disruption-Triggered Re-Harvest — agent marks pivotal questions, Factory detects override and invokes partial re-harvest. Replaces pre-computed recommend rules (combinatorial explosion). New --harvest --partial sub-command.",
+        "1.0.0: feat: initial BIP protocol — Harvest→Mediate→Resolve→Converge cycle, dependency tiers, Factory BA mediation"
+      ]
+    },
+    "skills/Factory-build-verification/SKILL.md": {
+      "version": "1.1.2",
+      "type": "skill",
+      "role": "BVL v1.1.1 — Build Verification Loop. Closed-loop test execution, error parsing, auto-fix cycle (max 3 attempts), full verification gate (tests + lint + typecheck + build). Extended: coverage, dependency_audit, secret_scan commands for REVIEW/SEC hats.",
+      "changelog": [
+        "1.1.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "1.1.1: fix: extend resolve_verification_commands() with coverage (REVIEW hat), dependency_audit (SEC hat — npm audit/pip-audit/cargo audit/govulncheck), and secret_scan (SEC hat — gitleaks/trufflehog detection). Token budget updated with new timeouts. Integration points table expanded to include REVIEW and SEC hats. Governance snapshot section extended with 3 new command fields.",
+        "1.1.0: feat: resolve_verification_commands() Step 0 — BVL commands cache fast path via /memories/repo/bvl-commands-cache.md (MCP v1.0.0), write-through after derivation",
+        "1.0.1: fix: PR review — standardize resolve_verification_commands() to parse ## sections, derive_commands_from_stack() with testing framework auto-detection from config files, FILE_EXISTS pseudo-code replaced with implementable expressions, snapshot field naming aligned to ## Verification Commands section (#124)",
+        "1.0.0: feat: initial BVL protocol — task_verification_loop, phase_verification, full_verification_gate, resolve_verification_commands from stack config (#124)"
+      ]
+    },
+    "skills/Factory-memory-cache/SKILL.md": {
+      "version": "1.0.3",
+      "type": "skill",
+      "role": "FMCP v1.0.2 — Unified /memories/repo/ caching layer. Feature State, BVL Commands, CIP Inventory, Execution Plan caches. Write-through, hash-validated, graceful degradation.",
+      "changelog": [
+        "1.0.3: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "1.0.2: fix: complete FMCP terminology consistency in internal references (FMCP architecture/caches) while preserving MCP mention only for external Model Context Protocol",
+        "1.0.1: fix: rename internal acronym to FMCP (Factory Memory Cache Protocol) and add explicit note distinguishing it from external MCP standard",
+        "1.0.0: feat: initial Memory Cache Protocol — unified cache architecture, 4 cache types (feature-state, bvl-commands, codebase-inventory, execution-plan), standard lifecycle, guardrails"
+      ]
+    },
+    "skills/Factory-coherence-validation/SKILL.md": {
+      "version": "1.0.2",
+      "type": "skill",
+      "role": "CVP v1.0.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
+      "changelog": [
+        "1.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
+        "1.0.1: fix: resolve_scope_checks for includes expansion, add missing task_completion_to_qa check (12 checks), fix contract endpoint source to read contracts/ not design.md, fix build_coherence_matrix scope parameter, fix remediation_actions grouping by artifact source",
+        "1.0.0: fix: initial Coherence Validation Protocol — 11 cross-artifact checks, 3 scope levels (CODESIGN_BLUEPRINT, CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN), 3 invocation modes (GATE, AUTO, ON_DEMAND), auto-scope detection, Factory post-command integration"
+      ]
+    },
+    "skills/Factory-backlog-next-task/SKILL.md": {
+      "version": "1.2.0",
+      "type": "skill",
+      "role": "Next Task Resolver — computes next executable backlog step from execution plan, with mandatory adapter-based issue fetch and discrepancy detection.",
+      "changelog": [
+        "1.2.0: feat: add 'epic' and 'slice' fields to output contract (EPIC-{N} identifier + EPIC-{N}.{M} slice); 'cluster' retained as backward-compatible alias; example updated",
+        "1.1.2: fix: cache fast path explicitly preserves mandatory Step 5 issue fetch; replace hardcoded CLI shape with adapter-resolved ISSUE_READ operation; local mode now resolves body_path via docs/backlog/state.md; remove unused execute_mode input contract",
+        "1.1.1: fix: STEP 5 is now MANDATORY when issue reference exists — tool-agnostic fetch via cli_command from project-config.json (not hardcoded gh); local mode reads issue-bodies/; discrepancy detection (issue body beats execution-plan summary); SSOT clarified",
+        "1.1.0: feat: cache fast path via /memories/repo/execution-plan-cache.md, integration with execution plan protocol",
+        "1.0.0: feat: initial next-task resolver skill — step-by-step resolution from board state"
+      ]
+    },
+    "prompts/create-feature.prompt.md": {
+      "version": "1.0.0",
+      "type": "prompt",
+      "role": "Reusable prompt workflow — full feature creation pipeline (CODESIGN → BLUEPRINT → IMPLEMENT).",
+      "changelog": [
+        "1.0.0: feat: initial create-feature prompt workflow"
+      ]
+    },
+    "prompts/review-pr.prompt.md": {
+      "version": "1.0.0",
+      "type": "prompt",
+      "role": "Reusable prompt workflow — PR review against framework conventions and quality standards.",
+      "changelog": [
+        "1.0.0: feat: initial review-pr prompt workflow"
+      ]
+    },
+    "prompts/setup-project.prompt.md": {
+      "version": "1.0.0",
+      "type": "prompt",
+      "role": "Reusable prompt workflow — project initialization (discovery + materialization).",
+      "changelog": [
+        "1.0.0: feat: initial setup-project prompt workflow"
+      ]
+    },
+    "scripts/factory-sync.sh": {
+      "version": "1.1.0",
+      "path": "scripts/factory-sync.sh",
+      "type": "utility",
+      "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, agents, prompts, base scripts, templates, copilot-instructions) to target projects without leaving framework traces in project git history.",
+      "changelog": [
+        "1.1.0: fix: empty-file guard, orphan counter consistency, sync standalone .github/ files, add explicit path, templates as 7th category",
+        "1.0.0: feat: initial factory-sync.sh — 6-category sync (instructions, skills, agents, prompts, copilot-instructions, base scripts), dry-run/verbose/force modes, orphan detection, version comparison"
+      ]
+    }
+  }
+}

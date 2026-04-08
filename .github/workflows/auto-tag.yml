@@ -1,0 +1,147 @@
+# ============================================================================
+# Auto-Tag & Release on Merge to Main
+# ============================================================================
+# Triggered when a PR is merged to main.
+# Delegates to scripts/auto-tag.sh for SemVer version calculation, then
+# creates a GitHub Release with categorized release notes.
+#
+# Commit types that trigger version bumps:
+#   - BREAKING CHANGE: or feat!:  → MAJOR bump
+#   - feat:                       → MINOR bump
+#   - fix:, docs:, refactor:, perf:, chore:, ci:, test: → PATCH bump
+#
+# If no conventional commits are found, defaults to PATCH bump.
+# ============================================================================
+
+name: Auto-Tag & Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: auto-tag-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  auto-tag:
+    # Only run on merge commits (skip direct pushes if branch protection bypassed)
+    if: >-
+      github.event_name == 'push' &&
+      (startsWith(github.event.head_commit.message, 'Merge pull request') ||
+       contains(github.event.head_commit.message, '(#'))
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run auto-tag script
+        id: autotag
+        run: |
+          # Configure git for tagging
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          chmod +x scripts/auto-tag.sh
+          OUTPUT=$(bash scripts/auto-tag.sh --apply --ci 2>&1)
+          echo "$OUTPUT"
+
+          # Parse machine-readable output from --ci mode
+          NEW_TAG=$(echo "$OUTPUT" | awk -F= '/^TAG=/{print $2; exit}')
+          BUMP=$(echo "$OUTPUT" | awk -F= '/^BUMP=/{print $2; exit}')
+          PREVIOUS=$(echo "$OUTPUT" | awk -F= '/^PREVIOUS=/{print $2; exit}')
+
+          if [ -z "$NEW_TAG" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No new tag created. Skipping release."
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        id: notes
+        if: steps.autotag.outputs.skip != 'true'
+        run: |
+          NEW_TAG="${{ steps.autotag.outputs.new_tag }}"
+          PREVIOUS="${{ steps.autotag.outputs.previous }}"
+
+          # Get commits for release notes
+          if [ "$PREVIOUS" = "v0.0.0" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" 2>/dev/null || echo "")
+          else
+            COMMITS=$(git log "${PREVIOUS}..${NEW_TAG}" --pretty=format:"- %s (%h)" 2>/dev/null || echo "")
+          fi
+
+          # Categorize commits
+          BREAKING=$(echo "$COMMITS" | grep -iE "^- feat!:|BREAKING CHANGE:" || true)
+          FEATURES=$(echo "$COMMITS" | grep -iE "^- feat(\(.*\))?:" | grep -viE "^- feat!:" || true)
+          FIXES=$(echo "$COMMITS" | grep -iE "^- fix(\(.*\))?:" || true)
+          CHORES=$(echo "$COMMITS" | grep -iE "^- (chore|ci|docs|refactor|perf|test|style)(\(.*\))?:" || true)
+          MERGES=$(echo "$COMMITS" | grep -iE "^- Merge" || true)
+
+          # Build release notes
+          {
+            echo "notes<<RELEASE_NOTES_EOF"
+            echo "## ${NEW_TAG}"
+            echo ""
+
+            if [ -n "$BREAKING" ]; then
+              echo "### 🚨 Breaking Changes"
+              echo "$BREAKING"
+              echo ""
+            fi
+
+            if [ -n "$FEATURES" ]; then
+              echo "### ✨ Features"
+              echo "$FEATURES"
+              echo ""
+            fi
+
+            if [ -n "$FIXES" ]; then
+              echo "### 🐛 Bug Fixes"
+              echo "$FIXES"
+              echo ""
+            fi
+
+            if [ -n "$CHORES" ]; then
+              echo "### 🔧 Maintenance"
+              echo "$CHORES"
+              echo ""
+            fi
+
+            if [ -n "$MERGES" ]; then
+              echo "### 🔀 Merges"
+              echo "$MERGES"
+              echo ""
+            fi
+
+            echo "---"
+            echo "*Auto-generated from conventional commits.*"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: steps.autotag.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_TAG: ${{ steps.autotag.outputs.new_tag }}
+          NOTES: ${{ steps.notes.outputs.notes }}
+        run: |
+          # Create GitHub Release (tag already created by auto-tag.sh)
+          gh release create "$NEW_TAG" \
+            --title "Release $NEW_TAG" \
+            --notes "$NOTES" \
+            --latest
+
+          echo "✅ GitHub Release $NEW_TAG created"

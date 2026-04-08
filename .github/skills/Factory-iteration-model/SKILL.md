@@ -1,0 +1,480 @@
+---
+name: Factory-iteration-model
+description: "Factory Iteration Model — domain-driven incremental development, change classification, version vs iteration, cascade invalidation. Use when: handling upstream spec changes, delta iterations, or version bumps."
+---
+
+# ITERATION MODEL (Domain-Driven Incremental Development)
+
+> **Shared Protocol** — Referenced by: Factory, CODESIGN, BLUEPRINT, IMPLEMENT, DEVOPS, QA agents.
+> Feature IDs represent domains, bounded contexts, or logical components — NOT individual use cases. Features evolve iteratively through additive refinements (iterations) or structural changes (versions).
+
+---
+
+## Iteration vs Version
+
+| Aspect | Iteration (`CODESIGN --refine` → DELTA/FORCE_DELTA) | Version (new Feature ID) |
+|---------|-----------------------------------------------|-------------------------|
+| **Trigger** | Add/improve/extend use cases | Fundamental redesign or breaking-only |
+| **Feature ID** | Same (e.g., AUTH-001) | New (e.g., AUTH-001-v2) |
+| **Artifacts** | Evolve cumulatively (delta) | Copied as fresh start |
+| **Downstream** | Delta updates (only affected) | Full regeneration |
+| **Example** | Add OAuth to Auth domain | Rewrite Auth from scratch |
+| **iteration: N** | Incremented in spec.feature frontmatter | N/A (new feature) |
+
+---
+
+## Change Classification Protocol (Executed by CODESIGN Agent)
+
+When `CODESIGN --refine` receives feedback on an APPROVED spec with downstream work, it classifies each proposed change:
+
+### Level 1: Structural Classification (Deterministic)
+
+```yaml
+DELTA (additive - does not break existing downstream):
+  - New Scenario: added to spec.feature
+  - New NFR in initial.md
+  - New API endpoint (without modifying existing ones)
+  - New OPTIONAL entity/field
+
+BREAKING_CANDIDATE (potentially breaks downstream):
+  - New Given/When/Then step at the END of existing scenario
+  - Modify Given/When/Then of existing scenario
+  - Change business rule in existing scenario
+  - Add REQUIRED field to existing entity
+
+BREAKING (always breaks downstream):
+  - Delete complete Scenario
+  - Modify existing API contract (remove field, change type)
+  - Change field type of existing entity
+  - Rename core entity
+```
+
+### Level 2: Cross-Reference Downstream (for BREAKING_CANDIDATE)
+
+```yaml
+FOR EACH modified_scenario IN proposed_changes WHERE type == "BREAKING_CANDIDATE":
+  scenario_id = modified_scenario.name
+  
+  test_mapped   = GREP(test_plan.md, scenario_id)
+  design_mapped = GREP(design.md, scenario_id)
+  dev_mapped    = GREP(dev_plan.md, scenario_id)
+  code_search_roots = [${BACKEND_BASE_PATH}, ${FRONTEND_BASE_PATH}, ${TESTS_BASE_PATH}]
+  code_mapped       = GREP(code_search_roots, scenario_id)
+  
+  IF test_mapped OR design_mapped OR dev_mapped OR code_mapped:
+    → BREAKING CHANGE CONFIRMED (affected: [list])
+  ELSE:
+    → PROMOTE TO DELTA (scenario not consumed downstream)
+```
+
+### Level 3: Decision (Executed by CODESIGN Agent)
+
+```yaml
+breaking_count = COUNT(confirmed_breaking)
+delta_count    = COUNT(delta_changes)
+
+IF breaking_count == 0:
+  MODE: ITERATION → Open new iteration automatically
+
+ELIF breaking_count > 0 AND delta_count > 0:
+  MODE: HYBRID → Offer options:
+    1. SPLIT: Delta as iteration + Breaking as auto-scaffold new FEATURE_ID
+    2. ALL_REVISE: All as new version with new Feature ID
+    3. FORCE_DELTA: Accept impact, propagate as iteration with selective invalidation
+
+ELIF breaking_count > 0 AND delta_count == 0:
+  MODE: REVISE → New Feature ID (pure breaking)
+```
+
+---
+
+## Downstream Iteration Detection Protocol (MANDATORY - ALL AGENTS)
+
+**Applies to:** `BLUEPRINT`, `QA`, `IMPLEMENT`, `DEVOPS`
+
+### Iteration Detection Gate (BLOCKING — runs BEFORE any command that reads upstream artifacts)
+
+```yaml
+FUNCTION iteration_detection_gate(FEATURE_ID, current_agent, command):
+  # This gate MUST be the FIRST operation in any command that reads feature artifacts.
+  # It BLOCKS execution if upstream artifacts have been modified since this agent's
+  # last sync, preventing stale-data processing.
+
+  # Commands that require this gate:
+  GATED_COMMANDS = [
+    "BLUEPRINT --start", "BLUEPRINT --refine", "BLUEPRINT --approve",
+    "IMPLEMENT --plan", "IMPLEMENT --build", "IMPLEMENT --refine", "IMPLEMENT --fix",
+    "DEVOPS --configure", "DEVOPS --deploy", "DEVOPS --provision",
+    "QA --verify"
+  ]
+
+  IF command NOT IN GATED_COMMANDS:
+    ✅ SKIP gate — command does not read upstream artifacts
+    RETURN
+
+  # Execute Steps 0-4 below
+  # If gap detected → PROMPT user (DELTA/FULL/SKIP)
+  # If Upstream Sync Gate fails (Step 4) → ❌ BLOCK with specific redirect
+  # Only after all steps pass → ✅ PROCEED with command execution
+```
+
+**Execute BEFORE any command that reads upstream artifacts:**
+
+```yaml
+Step 0: Legacy-Safe Defaults
+  # For artifacts created before the iteration model, fields may be missing.
+  #   - spec.iteration: default = 1 if missing
+  #   - artifact.based_on_iteration: default = 1 if missing
+  #   - artifact.pending_iteration: default = NULL if missing
+  #   - last_iteration_scope: default = "Initial version" if missing
+
+Step 1: Read upstream spec.feature frontmatter
+  Extract: iteration (default = 1 if missing)
+  Extract: last_iteration_scope (default = "Initial version" if missing)
+
+Step 1b: Read upstream user_journey.md frontmatter (if exists)
+  Extract: schemas_version (default = 1 if missing)
+
+Step 2: Read OWN artifact frontmatter
+  Extract: based_on_iteration (default = 1 if missing)
+  Extract: based_on_schemas_version (default = 1 if missing)
+  Extract: pending_iteration (default = NULL if missing)
+  Extract: pending_schemas_version (default = NULL if missing)
+  Extract: invalidated_sections (default = [] if missing)
+
+Step 3: Detect iteration gap (TWO sources)
+  
+  # Source A: Pull-based comparison
+  pull_gap = (spec.iteration > artifact.based_on_iteration)
+  
+  # Source B: Push-based cascade
+  push_gap = (artifact.pending_iteration IS NOT NULL AND artifact.pending_iteration > artifact.based_on_iteration)
+  
+  has_iteration_gap = pull_gap OR push_gap
+  
+  IF has_iteration_gap:
+    target_iteration = MAX(spec.iteration, artifact.pending_iteration OR 0)
+    iteration_gap = target_iteration - artifact.based_on_iteration
+    
+    PROMPT: |
+      🔄 **ITERATION GAP DETECTED** (gap: {{iteration_gap}})
+      
+      spec.feature is at iteration {{spec.iteration}}, but your 
+      {{ARTIFACT_NAME}} was built against iteration {{artifact.based_on_iteration}}.
+      {{IF push_gap: "⚡ Upstream agent flagged this artifact as stale."}}
+      
+      Changes since your last sync:
+      {{FOR EACH iter FROM artifact.based_on_iteration+1 TO target_iteration:}}
+        Iteration {{iter}}: {{iter.scope_summary}}
+      {{END FOR}}
+      
+      {{IF invalidated_sections.length > 0:}}
+      ⚠️ Specifically invalidated sections: {{invalidated_sections}}
+      {{END IF}}
+      
+      Options:
+      1. DELTA: Update only affected sections (recommended for additive changes)
+      2. FULL: Re-generate entire artifact from scratch
+      3. SKIP: Proceed without sync (⚠️ traceability gap)
+    
+    WAIT_FOR_USER_CHOICE()
+    
+    IF choice == DELTA:
+      UPDATE artifact frontmatter:
+        based_on_iteration = target_iteration
+        based_on_schemas_version = user_journey.schemas_version
+        pending_iteration = NULL
+        pending_schemas_version = NULL
+        invalidated_sections = []
+      # MANDATORY: Execute CASCADE_PENDING_ITERATION for own downstream
+    
+    IF choice == FULL:
+      UPDATE artifact frontmatter: (same as DELTA)
+      # MANDATORY: Execute CASCADE_PENDING_ITERATION for own downstream
+    
+    IF choice == SKIP:
+      LOG: "⚠️ Traceability gap: {{ARTIFACT}} not synced with iteration {{target_iteration}}"
+  
+  ELSE:
+    ✅ PROCEED normally
+
+Step 4: Upstream Sync Gate (MANDATORY for IMPLEMENT and DEVOPS)
+  IF current_agent IN [IMPLEMENT, DEVOPS]:
+    Read: design.md frontmatter → pending_iteration, based_on_iteration
+    Read: test_plan.md frontmatter → pending_iteration, based_on_iteration
+    
+    blueprint_stale = (design.md.pending_iteration IS NOT NULL AND design.md.pending_iteration > design.md.based_on_iteration)
+                   OR (test_plan.md.pending_iteration IS NOT NULL AND test_plan.md.pending_iteration > test_plan.md.based_on_iteration)
+                   OR (spec.iteration > design.md.based_on_iteration)
+                   OR (spec.iteration > test_plan.md.based_on_iteration)
+    
+    IF blueprint_stale:
+      ❌ BLOCK: "🛑 UPSTREAM NOT SYNCED — Run `BLUEPRINT --refine {{ID}}` first"
+      STOP
+```
+
+---
+
+## Downstream Cascade Invalidation Protocol (MANDATORY — v10.0.0)
+
+When an upstream agent opens a new iteration or syncs its artifacts via DELTA/FULL, it MUST **push** `pending_iteration` to ALL existing downstream artifacts. This converts the pull-based model into a **push+pull hybrid**.
+
+**Why:** Without push-based invalidation, downstream artifacts retain `status: APPROVED` after upstream changes. Smart Redirect sees these statuses and suggests progressing instead of re-syncing.
+
+**Applies to:** ALL agents that perform `--refine` on APPROVED artifacts or sync via Downstream Iteration Detection.
+
+### Cascade Completion Verification Gate (BLOCKING — runs AFTER every cascade execution)
+
+```yaml
+FUNCTION verify_cascade_completion(FEATURE_ID, target_iteration, current_agent):
+  # This gate MUST execute AFTER CASCADE_PENDING_ITERATION and BEFORE
+  # the agent emits its Completion Summary. Verifies no downstream artifact
+  # was missed by the cascade.
+
+  base_path = "docs/spec/{FEATURE_ID}"
+  expected_targets = DETERMINE_DOWNSTREAM(current_agent)
+  missed_targets = []
+
+  FOR EACH artifact_name IN expected_targets:
+    IF artifact_name == "qa_report":
+      latest = LATEST("{base_path}/qa/qa_report_final_*.md")
+      IF latest AND READ_FRONTMATTER(latest, "status") == "APPROVED":
+        ❌ missed_targets.push("qa_report (should be INVALIDATED)")
+      CONTINUE
+
+    path = "{base_path}/{artifact_name}"
+    IF FILE_EXISTS(path):
+      fm = READ_FRONTMATTER(path)
+      IF fm.status NOT IN ["DRAFT", "NEEDS_INFO"]:  # Only check non-draft
+        IF fm.pending_iteration IS NULL OR fm.pending_iteration < target_iteration:
+          missed_targets.push(artifact_name)
+
+  IF missed_targets.length > 0:
+    ❌ BLOCK: "CASCADE INCOMPLETE — {missed_targets.length} downstream artifacts missed:"
+    FOR EACH t IN missed_targets:
+      SHOW: "  - {t}: pending_iteration not set to {target_iteration}"
+    EXECUTE: CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, ...)  # Auto-fix
+    LOG: "CASCADE auto-corrected: re-pushed to {missed_targets}"
+
+  ✅ Cascade verified — all downstream artifacts received pending_iteration
+```
+
+```yaml
+FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_version, affected_scopes):
+  base_path = "docs/spec/{{FEATURE_ID}}"
+  
+  # Determine downstream artifacts based on current agent
+  downstream_artifacts = DETERMINE_DOWNSTREAM(current_agent):
+    
+    IF current_agent == "CODESIGN":
+      targets = []
+      IF FILE_EXISTS("{{base_path}}/design.md"): targets.push("design.md")
+      IF FILE_EXISTS("{{base_path}}/test_plan.md"): targets.push("test_plan.md")
+      IF FILE_EXISTS("{{base_path}}/dev_plan.md"): targets.push("dev_plan.md")
+      IF FILE_EXISTS("{{base_path}}/devops_plan.md"): targets.push("devops_plan.md")
+      RETURN targets
+    
+    IF current_agent == "BLUEPRINT":
+      targets = []
+      IF FILE_EXISTS("{{base_path}}/dev_plan.md"): targets.push("dev_plan.md")
+      IF FILE_EXISTS("{{base_path}}/devops_plan.md") AND "infra_change" IN affected_scopes:
+        targets.push("devops_plan.md")
+      IF GLOB_EXISTS("{{base_path}}/qa/qa_report_final_*.md"):
+        targets.push("qa_report")
+      RETURN targets
+    
+    IF current_agent == "IMPLEMENT":
+      targets = []
+      IF GLOB_EXISTS("{{base_path}}/qa/qa_report_final_*.md"):
+        targets.push("qa_report")
+      RETURN targets
+    
+    IF current_agent == "DEVOPS":
+      RETURN []  # No direct downstream cascade
+
+  # Push pending_iteration to each downstream artifact
+  FOR EACH artifact_name IN downstream_artifacts:
+    
+    IF artifact_name == "qa_report":
+      # QA reports: mark as INVALIDATED instead of pending_iteration
+      latest_report = LATEST("{{base_path}}/qa/qa_report_final_*.md")
+      IF latest_report AND READ_FRONTMATTER(latest_report, "status") == "APPROVED":
+        UPDATE_FRONTMATTER(latest_report, {
+          status: "INVALIDATED",
+          invalidated_by_iteration: target_iteration,
+          invalidated_reason: "Upstream artifacts changed: {{affected_scopes}}"
+        })
+      CONTINUE
+    
+    artifact_path = "{{base_path}}/{{artifact_name}}"
+    current_frontmatter = READ_FRONTMATTER(artifact_path)
+    
+    # Skip if already in-progress
+    IF current_frontmatter.status IN ["DRAFT", "NEEDS_INFO"]:
+      CONTINUE
+    
+    # Guard: don't overwrite higher pending_iteration
+    IF current_frontmatter.pending_iteration IS NOT NULL AND current_frontmatter.pending_iteration >= target_iteration:
+      CONTINUE
+    
+    UPDATE_FRONTMATTER(artifact_path, {
+      pending_iteration: target_iteration,
+      pending_schemas_version: target_schemas_version,
+      invalidated_sections: COMPUTE_AFFECTED_SECTIONS(artifact_name, affected_scopes),
+      cascade_source: "{{current_agent}}",
+      cascade_timestamp: "{{ISO_8601_TIMESTAMP}}",
+      cascade_scope: affected_scopes
+    })
+
+  RETURN downstream_artifacts
+
+
+FUNCTION COMPUTE_AFFECTED_SECTIONS(artifact_name, affected_scopes):
+  IF artifact_name == "design.md":
+    sections = []
+    IF "new_scenario" IN affected_scopes OR "schema_change" IN affected_scopes:
+      sections.push("contracts", "data_model", "api_endpoints")
+    IF "ui_restyling" IN affected_scopes:
+      sections.push("component_architecture", "frontend_contracts")
+    IF "infra_change" IN affected_scopes:
+      sections.push("infrastructure_needs")
+    IF "policy_change" IN affected_scopes:
+      sections.push("business_rules", "error_handling")
+    RETURN sections
+  
+  IF artifact_name == "test_plan.md":
+    sections = []
+    IF "new_scenario" IN affected_scopes: sections.push("acceptance_tests", "integration_tests")
+    IF "schema_change" IN affected_scopes: sections.push("contract_tests", "data_validation_tests")
+    IF "ui_restyling" IN affected_scopes: sections.push("visual_regression_tests", "accessibility_tests", "component_tests")
+    IF "policy_change" IN affected_scopes: sections.push("business_rule_tests", "edge_case_tests")
+    RETURN sections
+  
+  IF artifact_name == "dev_plan.md":
+    sections = []
+    IF "new_scenario" IN affected_scopes: sections.push("new_tasks_required")
+    IF "schema_change" IN affected_scopes: sections.push("data_layer_tasks", "contract_tasks")
+    IF "ui_restyling" IN affected_scopes: sections.push("frontend_tasks", "component_tasks", "style_tasks")
+    IF "contract_change" IN affected_scopes: sections.push("api_tasks", "integration_tasks")
+    IF "infra_change" IN affected_scopes: sections.push("infra_tasks", "config_tasks")
+    IF "policy_change" IN affected_scopes: sections.push("business_logic_tasks", "validation_tasks")
+    RETURN sections
+  
+  IF artifact_name == "devops_plan.md":
+    sections = []
+    IF "infra_change" IN affected_scopes: sections.push("resource_definitions", "sizing", "networking")
+    IF "new_scenario" IN affected_scopes AND "infra_change" IN affected_scopes:
+      sections.push("scaling_config")
+    RETURN sections
+  
+  RETURN []
+```
+
+### Cascade Trigger Points
+
+```yaml
+CASCADE_TRIGGERS:
+
+  # 1. CODESIGN --refine (Iteration Mode on APPROVED spec)
+  ON_CODESIGN_REFINE_ITERATION:
+    new_iteration = spec.feature.iteration
+    new_schemas_version = user_journey.schemas_version
+    affected_scopes = CLASSIFY_CHANGE_SCOPES(codesign_changes)
+    CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, new_schemas_version, affected_scopes)
+
+  # 2. BLUEPRINT --refine (Syncing design.md + test_plan.md)
+  ON_BLUEPRINT_SYNC_COMPLETE:
+    affected_scopes = CLASSIFY_BLUEPRINT_CHANGES(blueprint_changes)
+    CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
+
+  # 3. IMPLEMENT --refine (Syncing dev_plan.md via Delta Iteration)
+  ON_IMPLEMENT_SYNC_COMPLETE:
+    affected_scopes = ["implementation_changed"]
+    CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
+
+
+FUNCTION CLASSIFY_CHANGE_SCOPES(changes):
+  scopes = []
+  IF changes affect Gherkin scenarios: scopes.push("new_scenario")
+  IF changes affect user_journey.md Data Schemas: scopes.push("schema_change")
+  IF changes affect mock.html visual structure: scopes.push("ui_restyling")
+  IF changes affect business rules/policies: scopes.push("policy_change")
+  IF changes imply new infrastructure needs: scopes.push("infra_change")
+  IF changes affect API contracts or data flow: scopes.push("contract_change")
+  # Even purely visual changes must cascade (affect frontend tasks, visual regression, etc.)
+  IF scopes.length == 0: scopes.push("minor_update")
+  RETURN scopes
+```
+
+---
+
+## Scenario-Level Supersession (Granular Immutability)
+
+When a HYBRID SPLIT or FORCE_DELTA modifies existing scenarios, supersession applies **per-scenario**, not per-feature:
+
+```gherkin
+# In spec.feature of AUTH-001 (after AUTH-002 takes over modified scenarios)
+
+@superseded_by(AUTH-002, scenario="User validates credentials with OAuth")
+@superseded_at(2026-02-06)
+Scenario: User validates credentials
+  Given ...
+  When ...
+  Then ...
+
+# This scenario remains ACTIVE in AUTH-001
+Scenario: User logs out
+  Given ...
+```
+
+**Rules:**
+- Superseded scenarios are READ-ONLY (no agent can modify them)
+- Active scenarios continue evolving through iterations
+- Downstream agents SKIP superseded scenarios during DELTA sync
+
+---
+
+## Iteration Frontmatter Extension
+
+```yaml
+# spec.feature frontmatter (UPSTREAM — source of truth)
+iteration: 3
+iteration_history:
+  - iteration: 1
+    date: 2026-02-01
+    scope: "Initial: Login, Logout, Session"
+  - iteration: 2 
+    date: 2026-02-04
+    scope: "Added OAuth login scenario"
+  - iteration: 3
+    date: 2026-02-06  
+    scope: "Added MFA scenario, extended Session with refresh token"
+last_iteration_scope: "Added MFA scenario, extended Session with refresh token"
+
+# user_journey.md frontmatter (UPSTREAM — data contract source of truth)
+schemas_version: 2
+
+# Downstream artifacts (design.md, test_plan.md, dev_plan.md, devops_plan.md)
+# Sync tracking fields (MANDATORY)
+based_on_iteration: 2
+based_on_schemas_version: 1
+# Push-based cascade fields
+pending_iteration: 3                  # NULL when synced
+pending_schemas_version: 2            # NULL when synced
+invalidated_sections: ["TC-003"]
+cascade_source: "CODESIGN"
+cascade_timestamp: "2026-02-06T10:30:00Z"
+cascade_scope:
+  - "ui_restyling"
+  - "schema_change"
+
+# Lifecycle rules:
+# pending_iteration WRITTEN BY: CODESIGNBLUEPRINTIMPLEMENT --refine (cascade)
+# pending_iteration READ BY: Downstream Detection, Smart Redirect, agent guardrails
+# pending_iteration CLEARED BY: downstream agent after DELTA or FULL sync
+
+# QA report special handling:
+status: "INVALIDATED"
+invalidated_by_iteration: 3
+invalidated_reason: "Upstream artifacts changed: [ui_restyling, schema_change]"
+```

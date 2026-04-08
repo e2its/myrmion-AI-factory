@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "generated_by": "/SETUP --generate",
+    "updated_via": "/BLUEPRINT --refine + ADR",
+    "policy": "semver-ranges-bloqueados",
+    "notes": "Rellenar con rangos derivados de .context/setup.md"
+  },
+  "runtimes": [
+    { "name": "python", "version": ">=3.10,<3.13" },
+    { "name": "node", "version": ">=20,<21" },
+    { "name": "java", "version": ">=17,<22" },
+    { "name": ".net", "version": ">=8,<9" },
+    { "name": "go", "version": ">=1.21,<1.22" }
+  ],
+  "backend": [
+    { "name": "fastapi", "version": ">=0.110,<0.115" },
+    { "name": "flask", "version": ">=2.3,<3" },
+    { "name": "express", "version": ">=4.18,<5" },
+    { "name": "fastify", "version": ">=4,<5" },
+    { "name": "nestjs", "version": ">=10,<11" },
+    { "name": "sqlalchemy", "version": ">=2.0,<2.2" },
+    { "name": "prisma", "version": ">=5,<6" },
+    { "name": "typeorm", "version": ">=0.3,<0.4" },
+    { "name": "drizzle", "version": ">=0.30,<0.31" }
+  ],
+  "backend_denied": [
+    { "name": "django", "version": "*", "reason": "No para nuevos proyectos" }
+  ],
+  "frontend": [
+    { "name": "react", "version": ">=18.2,<19" },
+    { "name": "nextjs", "version": ">=14,<15" },
+    { "name": "tailwind", "version": ">=3.4,<4" },
+    { "name": "tanstack-query", "version": ">=5,<6" },
+    { "name": "react-hook-form", "version": ">=7,<8" },
+    { "name": "zod", "version": ">=3,<4" }
+  ],
+  "frontend_denied": [
+    { "name": "jquery", "version": "*", "reason": "Obsoleto" },
+    { "name": "moment", "version": "*", "reason": "Deprecado" }
+  ],
+  "testing": [
+    { "name": "pytest", "version": ">=7,<8" },
+    { "name": "pytest-asyncio", "version": ">=0.23,<0.24" },
+    { "name": "jest", "version": ">=29,<30" },
+    { "name": "vitest", "version": ">=1,<2" },
+    { "name": "testing-library", "version": ">=14,<15" }
+  ],
+  "validation": [
+    { "name": "pydantic", "version": ">=2,<3" },
+    { "name": "zod", "version": ">=3,<4" }
+  ],
+  "security_denied": [
+    { "name": "md5", "version": "*", "reason": "Weak crypto" },
+    { "name": "sha1", "version": "*", "reason": "Weak crypto" },
+    { "name": "eval", "version": "*", "reason": "Dynamic execution" },
+    { "name": "exec", "version": "*", "reason": "Dynamic execution" },
+    { "name": "Math.random", "version": "*", "reason": "Not secure for cryptography" },
+    { "name": "random.random", "version": "*", "reason": "Not secure for cryptography" }
+  ]
+}

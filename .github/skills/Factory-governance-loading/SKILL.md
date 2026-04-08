@@ -1,0 +1,357 @@
+---
+name: Factory-governance-loading
+description: "Factory Governance Loading Protocol (GCRP) — Zero Trust context recovery, governance snapshot, summarization-safe state reload. Use when: loading governance context at agent command start or recovering from summarization."
+---
+
+# GOVERNANCE LOADING & VALIDATION PROTOCOL
+
+> **Shared Protocol** — Referenced by: CODESIGN, BLUEPRINT, QA, IMPLEMENT, DEVOPS agents (NOT SETUP or AUDIT).
+> Guarantees project integrity through Strict Governance model with Zero Trust context loading.
+> **Summarization-safe:** Uses file-based governance snapshot — NO in-memory cache assumptions.
+> **Dual-hash validation:** Snapshot tracks both `constitution_hash` and `setup_hash` — invalidated if either source changes.
+> **CODESIGN note:** Minimal governance needs (frontend.framework for Vision Gate, ux-constitution). Snapshot covers these fields — full rule loading not required.
+
+---
+
+## ⚠️ CRITICAL: WHY FILE-BASED GOVERNANCE (Summarization Problem)
+
+LLM context windows are finite (128K in Copilot). When conversation history is summarized:
+1. **All governance context loaded in previous turns is EVICTED** — constitution content, rule details, stack config
+2. **The LLM doesn't receive a signal** that summarization occurred — it simply lacks context it had before
+3. **In-memory caches are destroyed** — any "cached Governance Index" ceases to exist
+4. **The agent CANNOT know** whether it has governance context or not — it must ALWAYS reload
+
+**Solution:** Governance context lives in a **file-based snapshot** (`.context/governance_snapshot.md`). Agents read THIS FILE at the start of every command. Reading 1 file (~50-80 lines) is cheap. Assuming context from memory is dangerous.
+
+---
+
+## UNIVERSAL GOVERNANCE LOADING PROTOCOL (MANDATORY)
+
+**Applies to:** `CODESIGN`, `BLUEPRINT`, `QA`, `IMPLEMENT`, `DEVOPS` (NOT `SETUP` or `AUDIT`)
+
+**Execute BEFORE any validation, design, implementation, or audit operation:**
+
+> **RULE: NEVER assume governance context from conversation memory.** Always read from files.
+> After summarization, everything you "knew" about the project's stack, rules, and constraints is GONE.
+
+### Step 0: Governance Snapshot Recovery (FILE-BASED — summarization-safe)
+
+```yaml
+# This step replaces the previous in-memory MD5 cache mechanism.
+# The snapshot is a file on disk — it SURVIVES summarization.
+
+FUNCTION load_governance_context():
+  snapshot_path = ".context/governance_snapshot.md"
+  
+  IF FILE_EXISTS(snapshot_path):
+    snapshot = READ(snapshot_path)  # ~60-100 lines, cheap
+    constitution_hash = snapshot.frontmatter.constitution_hash
+    setup_hash = snapshot.frontmatter.setup_hash  # may be absent in legacy snapshots
+    current_constitution_hash = MD5(docs/constitution.md)
+    current_setup_hash = MD5(docs/setup.md) IF FILE_EXISTS(docs/setup.md) ELSE NULL
+    
+    constitution_valid = (constitution_hash == current_constitution_hash)
+    setup_valid = (setup_hash == current_setup_hash) OR (setup_hash IS NULL AND current_setup_hash IS NULL)
+    
+    IF constitution_valid AND setup_valid:
+      ✅ Snapshot VALID
+      # Snapshot contains: stack config, rules manifest, protected paths, env names,
+      #   AND setup.md operational fields (synthetic_data, project_tracking, ai_budget)
+      # This is the COMPLETE governance + setup index — no further loading needed
+      GOVERNANCE_CONTEXT = PARSE(snapshot)
+      LOG: "Governance loaded from snapshot (const: {constitution_hash}, setup: {setup_hash})"
+      PROCEED to Step 2  # Skip Step 1 — snapshot has everything
+    
+    ELSE:
+      ⚠️ Snapshot STALE — constitution.md or setup.md changed since snapshot was generated
+      stale_sources = []
+      IF NOT constitution_valid: stale_sources.append("constitution.md")
+      IF NOT setup_valid: stale_sources.append("setup.md")
+      LOG: "Snapshot stale ({stale_sources}). Full reload required."
+      PROCEED to Step 1  # Full reload + regenerate snapshot
+  
+  ELSE:
+    ⚠️ No snapshot — first run or pre-snapshot project
+    LOG: "No governance snapshot found. Full reload."
+    PROCEED to Step 1  # Full reload + generate snapshot
+```
+
+### Step 1: Load Constitution & Governance Index
+
+```yaml
+Read: docs/constitution.md
+Locate section: "## 📚 Governance Index (Auto-Generated)"
+
+IF section missing OR status: PLACEHOLDER:
+  ❌ BLOCK: "Run `SETUP --generate` first"
+  STOP: Do not proceed with agent command
+
+Parse Governance Index:
+  - Extract stack configuration (backend.runtime, frontend.framework, etc.)
+  - Parse all <!-- METADATA --> comments:
+      type: narrative|structured_config
+      validation_method: semantic|script
+      applies_when: [stack conditions]
+      severity: CRITICAL|HIGH|MEDIUM
+      agents: [DEV, ARCH, REVIEW, QA, SEC]
+      validation_sections: [code sections to check]
+      validation_script: [script path if script-based]
+
+# After parsing, PERSIST to governance snapshot (see POST-LOAD below)
+# DO NOT rely on session memory — summarization destroys it
+```
+
+> **POST-LOAD: Snapshot Generation** — After a full load (Steps 1-3), generate/update the governance snapshot file so future loads (including post-summarization) can use the fast path (Step 0):
+
+```yaml
+FUNCTION generate_governance_snapshot(governance_context):
+  snapshot_path = ".context/governance_snapshot.md"
+  constitution_hash = MD5(docs/constitution.md)
+  setup_hash = MD5(docs/setup.md) IF FILE_EXISTS(docs/setup.md) ELSE NULL
+  setup_config = EXTRACT_SETUP_CONFIG(docs/setup.md) IF FILE_EXISTS(docs/setup.md) ELSE {}
+  
+  WRITE(snapshot_path):
+    ---
+    constitution_hash: "{constitution_hash}"
+    setup_hash: "{setup_hash}"
+    generated_at: "{ISO_8601}"
+    generated_by: "{AGENT} --{COMMAND}"
+    framework_version: "{from_governance_versions.json}"
+    ---
+    
+    # Governance Snapshot (Auto-Generated — DO NOT EDIT MANUALLY)
+    > Re-generated when constitution.md or setup.md changes. Read by agents at every command start.
+    > Source of truth: docs/constitution.md + docs/rules/ + docs/setup.md
+    
+    ## Stack Configuration
+    {EXTRACT from constitution.md: backend.runtime, backend.framework, frontend.framework,
+     architecture.pattern, architecture.topology, database.type, ci_cd.platform,
+     iac.tool, cloud.provider, testing.framework, deployment.strategy}
+    
+    ## Rules Manifest
+    | Rule File | Severity | Validation | Applies When |
+    |-----------|----------|------------|--------------|
+    {FOR EACH rule IN governance_index:
+      | {rule.file} | {rule.severity} | {rule.validation_method} | {rule.applies_when} |
+    }
+    
+    ## Protected Paths
+    {EXTRACT from docs/rules/protected-paths.json: red_zones[], yellow_zones[]}
+    
+    ## Environments
+    {EXTRACT from docs/rules/ci-cd.instructions.md: environments[]}
+    
+    ## Constitutional Boundaries
+    - Pattern: {architecture.pattern}
+    - Topology: {architecture.topology}
+    - Comm Style: {architecture.comm_style}
+    - Project Mode: {project.mode}
+    
+    ## Key Constraints (from constitution)
+    {EXTRACT: any explicit prohibitions, mandatory patterns, technology boundaries}
+    
+    ## Setup Configuration
+    > Source: docs/setup.md — operational flags read by downstream agents.
+    > Included in snapshot so they survive context summarization.
+    > If docs/setup.md does not exist yet, this section is omitted.
+    project_mode: {setup_config.project_mode}
+    ai_budget:
+      tier: {setup_config.ai_budget.tier}
+    project_tracking:
+      tool: {setup_config.project_tracking.tool}
+      feature_phases: {setup_config.project_tracking.feature_phases}
+      milestone_strategy: {setup_config.project_tracking.milestone_strategy}
+    synthetic_data:
+      enabled: {setup_config.synthetic_data.enabled}
+      id_strategy: {setup_config.synthetic_data.id_strategy}
+    
+    ## Verification Commands
+    > Auto-derived from Stack Configuration via BVL derive_commands_from_stack(stack_config).
+    > Used by IMPLEMENT --build (Build Verification Loop). Override manually if non-standard tooling.
+    > See: Factory-build-verification/SKILL.md
+    test_single: {derive_commands_from_stack(stack_config).test_single}
+    test_suite: {derive_commands_from_stack(stack_config).test_suite}
+    lint: {derive_commands_from_stack(stack_config).lint}
+    typecheck: {derive_commands_from_stack(stack_config).typecheck}
+    build: {derive_commands_from_stack(stack_config).build}
+  
+  SAVE(snapshot_path)
+  LOG: "Governance snapshot generated at {snapshot_path} (const: {constitution_hash}, setup: {setup_hash})"
+```
+
+### Step 2: Determine Feature Context
+
+```yaml
+Analyze current command and feature files:
+  - feature.language: Detect .py, .ts, .java files in implementation
+  - feature.stack: Parse from docs/constitution.md (backend.runtime, frontend.framework)
+
+# NOTE: Do NOT use feature context for filtering rules
+# Feature characteristics (has_ui, modifies_db, etc.) are NOT used for rule selection
+# All generated rules apply to ALL features
+```
+
+### Step 3: Query Applicable Rules (Simplified Logic)
+
+```yaml
+applicable_rules = []
+
+# LOAD ALL GENERATED RULES (Critical + Technology-Specific that were materialized)
+FOR EACH rule IN governance_index:
+
+  # Technology-Specific Rules: ONLY load if file exists (was generated during materialization)
+  IF rule.type == "technology_specific":
+    IF file_exists(rule.file_path):
+      applicable_rules.push(rule) # Stack match confirmed by file existence
+
+  # ALL OTHER RULES: Load unconditionally
+  ELSE:
+    applicable_rules.push(rule)
+
+# NO feature-level filtering: if rule was generated during SETUP, it applies to ALL features.
+
+RESULT: All project-level rules enforced consistently across all features
+```
+
+### Step 4: Load Dynamic Validation Templates (IF applicable)
+
+```yaml
+Check: .context/validation_templates/{{AGENT}}_VALIDATION_TEMPLATE.md exists
+
+IF exists:
+  Verify constitution_hash matches governance_snapshot.constitution_hash
+  IF hash matches:
+    Load template with constitution-based validations
+    Merge with applicable_rules from Governance Index
+  ELSE:
+    ⚠️ Templates outdated: "Constitution changed. Run `SETUP --regenerate-templates`"
+    Continue with Governance Index rules only (degraded mode)
+ELSE:
+  Continue with Governance Index rules only
+```
+
+### Step 5: On-Demand Rule Content Loading (Token-Efficient)
+
+> **Design principle:** The governance snapshot provides rule NAMES, SEVERITY, and APPLICABILITY.
+> Full rule CONTENT is loaded ONLY when the agent needs to check a specific rule's compliance criteria.
+> This keeps governance overhead to ~60-100 lines per command start (snapshot) instead of loading
+> all rules upfront (which could be 500+ lines, consuming precious context window).
+
+```yaml
+FUNCTION load_rule_content(rule_file):
+  # Called ONLY when agent needs to check compliance against a specific rule
+  # NOT called during governance loading — snapshot is sufficient for context
+  
+  path = "docs/rules/{rule_file}"
+  IF FILE_EXISTS(path):
+    content = READ(path)
+    RETURN content
+  ELSE:
+    ⚠️ WARN: "Rule file {rule_file} missing. Skip or re-materialize?"
+    RETURN NULL
+
+# Usage example in validation:
+# snapshot says security_policy.instructions.md applies → agent calls load_rule_content("security_policy.instructions.md")
+# ONLY when actually validating security compliance
+```
+
+---
+
+## MANDATORY GOVERNANCE VALIDATION CHECKPOINT
+
+**Applies to:** Approval/Verification commands (`--approve`, `--verify`, `--request`, `--audit`)
+
+**Execute BEFORE marking any artifact as approved/verified:**
+
+### Phase 1: Protected Path Check (BLOCKING)
+
+```yaml
+Load: docs/rules/protected-paths.json
+Check: git diff main...current_branch --name-only
+
+FOR EACH modified_file:
+  IF file_path IN protected-paths.json.red_zones:
+    Check: docs/spec/{{FEATURE_ID}}/adr/ for RED_ZONE_MODIFICATION_*.md
+
+    IF ADR missing OR doesn't mention file:
+      ❌ BLOCK: "RED ZONE violation - ADR approval required"
+      Output YAML violation report
+      STOP: Do not proceed to Phase 2
+```
+
+### Phase 2: Semantic Validations (LLM-based)
+
+```yaml
+FOR EACH rule IN applicable_rules WHERE validation_method == "semantic":
+
+  IF rule.language matches feature.language:
+    Check code for patterns defined in rule.validation_sections:
+      # Example for Python:
+      - Search for: pickle.loads, eval(), exec()
+      - Check: SQL string concatenation
+
+      # Example for React:
+      - Search for: dangerouslySetInnerHTML
+      - Check: Touch targets <44px
+      - Verify: WCAG color contrast
+
+  IF violations found:
+    violations.push({
+      rule: rule.file,
+      severity: rule.severity,
+      issue: "Pattern detected",
+      line: line_number,
+      fix: "Suggested remediation"
+    })
+```
+
+### Phase 3: Script-Based Validations (Deterministic)
+
+```yaml
+FOR EACH rule IN applicable_rules WHERE validation_method == "script":
+
+  Execute: rule.validation_script
+  # Examples:
+  # - scripts/dependency-allowlist.sh --strict
+  # - scripts/check-integrations.sh --strict
+  # - scripts/security-scan.sh --drift-check
+
+  IF exit_code != 0:
+    ❌ BLOCK: "Script validation failed: {error_message}"
+    violations.push({
+      rule: rule.file,
+      severity: CRITICAL,
+      script: rule.validation_script,
+      exit_code: exit_code,
+      output: stderr
+    })
+```
+
+### Phase 4: Violation Resolution
+
+````yaml
+IF violations.length > 0:
+  Group by severity: CRITICAL, HIGH, MEDIUM
+
+  IF any CRITICAL OR HIGH:
+    ❌ BLOCK approval/verification
+    Output structured YAML report:
+      ```yaml
+      status: BLOCKED
+      blocking_violations:
+        - rule: {{RULE_FILE}}
+          severity: {{CRITICAL|HIGH}}
+          location: {{FILE}}:{{LINE}}
+          issue: {{DESCRIPTION}}
+          fix: {{REMEDIATION}}
+      ```
+    STOP: Return to previous agent for correction
+
+  ELSE IF only MEDIUM:
+    ⚠️ WARN but allow approval with documentation requirement
+    Require justification in artifact (design.md, dev_plan.md, etc.)
+
+ELSE:
+  ✅ PASS: All validations successful
+  Proceed with approval/verification
+````

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worklog Dashboard - MI-AI-Factory</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .worklog-entry {
+            border-left: 4px solid;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 0.25rem;
+            background: white;
+            display: none;
+        }
+        .worklog-entry.visible {
+            display: block;
+        }
+        .entry-completed { border-left-color: #10b981; }
+        .entry-blocked { border-left-color: #ef4444; }
+        .entry-in-progress { border-left-color: #f59e0b; }
+        .entry-approved { border-left-color: #3b82f6; }
+        .entry-fixed { border-left-color: #8b5cf6; }
+        .entry-other { border-left-color: #6b7280; }
+
+        .badge-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .badge-completed { background: #d1fae5; color: #065f46; }
+        .badge-blocked { background: #fee2e2; color: #7f1d1d; }
+        .badge-in-progress { background: #fef3c7; color: #78350f; }
+        .badge-approved { background: #dbeafe; color: #1e3a8a; }
+        .badge-fixed { background: #ede9fe; color: #4c1d95; }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 1rem 0;
+        }
+
+        .tab-active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-6 max-w-7xl">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold text-gray-900">📋 Worklog Dashboard</h1>
+                <div class="text-sm text-gray-500">
+                    <span id="last-updated">Cargando...</span>
+                </div>
+            </div>
+            <p class="text-gray-600">Interactive visualization of the agentic SDLC workflow activity log</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <p class="text-gray-600 text-sm mb-2">Total Entries</p>
+                <p class="text-3xl font-bold text-gray-900" id="stat-total">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <p class="text-gray-600 text-sm mb-2">Features</p>
+                <p class="text-3xl font-bold text-blue-600" id="stat-features">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <p class="text-gray-600 text-sm mb-2">Completed</p>
+                <p class="text-3xl font-bold text-green-600" id="stat-completed">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <p class="text-gray-600 text-sm mb-2">Blocked</p>
+                <p class="text-3xl font-bold text-red-600" id="stat-blocked">-</p>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="flex border-b">
+                <button class="tab-active flex-1 py-4 px-6 text-center font-medium" data-tab="timeline">📊 Timeline</button>
+                <button class="flex-1 py-4 px-6 text-center font-medium hover:bg-gray-50" data-tab="stats">📈 Statistics</button>
+                <button class="flex-1 py-4 px-6 text-center font-medium hover:bg-gray-50" data-tab="entries">📝 Entries</button>
+            </div>
+
+            <!-- TAB: Timeline -->
+            <div id="timeline" class="tab-content p-6">
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="chart-container">
+                        <canvas id="chart-by-agent"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-by-result"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-by-phase"></canvas>
+                </div>
+            </div>
+
+            <!-- TAB: Statistics -->
+            <div id="stats" class="tab-content p-6 hidden">
+                <div class="grid grid-cols-3 gap-6">
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">👤 By Agent</h3>
+                        <div id="stats-agent"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">✅ By Result</h3>
+                        <div id="stats-result"></div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">🏗️ By Phase</h3>
+                        <div id="stats-phase"></div>
+                    </div>
+                </div>
+
+                <hr class="my-6">
+
+                <div>
+                    <h3 class="font-bold text-lg mb-4">🔧 Features by Status</h3>
+                    <div id="stats-features-status"></div>
+                </div>
+            </div>
+
+            <!-- TAB: Entries -->
+            <div id="entries" class="tab-content p-6 hidden">
+                <div class="flex gap-4 mb-6 flex-wrap">
+                    <input type="text" id="search-input" placeholder="🔍 Search..." class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="filter-agent" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Agents</option>
+                    </select>
+                    <select id="filter-phase" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Phases</option>
+                    </select>
+                    <select id="filter-result" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Results</option>
+                    </select>
+                    <select id="filter-feature" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Features</option>
+                    </select>
+                    <button id="btn-export" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">📥 Export CSV</button>
+                    <button id="btn-reset" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">↺ Reset</button>
+                </div>
+
+                <div id="entries-list" class="space-y-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let worklogData = null;
+        let charts = {};
+
+        // Load JSON
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        async function loadWorklog() {
+            // v2.0: Try aggregate file first (generated by: scripts/view-worklog.sh --export-aggregate)
+            // v1.x fallback: monolithic workflow_log.json
+            const paths = [
+                '../docs/project_log/workflow_log_aggregate.json',
+                '../../docs/project_log/workflow_log_aggregate.json',
+                '../docs/project_log/workflow_log.json',
+                '../../docs/project_log/workflow_log.json'
+            ];
+
+            for (const path of paths) {
+                try {
+                    const response = await fetch(path);
+                    if (!response.ok) continue;
+                    worklogData = await response.json();
+                    // Ensure entries array exists (v2.0 index may not have it)
+                    if (!worklogData.entries || worklogData.entries.length === 0) {
+                        console.warn('Loaded index without entries. Run: scripts/view-worklog.sh --export-aggregate');
+                        continue;
+                    }
+                    return true;
+                } catch (e) {
+                    continue;
+                }
+            }
+
+            console.error('Unable to load worklog data. Generate aggregate first:\n  scripts/view-worklog.sh --export-aggregate');
+            document.getElementById('last-updated').innerText = '❌ Run: scripts/view-worklog.sh --export-aggregate';
+            return false;
+        }
+
+        // Initialize
+        async function init() {
+            if (!await loadWorklog()) return;
+
+            updateStats();
+            renderTimeline();
+            renderStatistics();
+            setupFilters();
+            renderEntries();
+            setupTabs();
+
+            document.getElementById('last-updated').innerText = 
+                `Last updated: ${new Date(worklogData.metadata.statistics.last_updated).toLocaleString()}`;
+        }
+
+        // Update stats cards
+        function updateStats() {
+            const entries = worklogData.entries;
+            const features = new Set(entries.filter(e => e.feature_id).map(e => e.feature_id));
+            const completed = entries.filter(e => e.resultado === 'COMPLETED').length;
+            const blocked = entries.filter(e => e.resultado === 'BLOCKED').length;
+
+            document.getElementById('stat-total').innerText = entries.length;
+            document.getElementById('stat-features').innerText = features.size;
+            document.getElementById('stat-completed').innerText = completed;
+            document.getElementById('stat-blocked').innerText = blocked;
+        }
+
+        // Timeline (Charts)
+        function renderTimeline() {
+            const entries = worklogData.entries;
+            
+            // By Agent
+            const byAgent = {};
+            entries.forEach(e => {
+                byAgent[e.usuario_agente] = (byAgent[e.usuario_agente] || 0) + 1;
+            });
+            
+            const ctx1 = document.getElementById('chart-by-agent').getContext('2d');
+            charts.agent = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(byAgent).sort((a, b) => byAgent[b] - byAgent[a]),
+                    datasets: [{
+                        label: 'Entries',
+                        data: Object.keys(byAgent).sort((a, b) => byAgent[b] - byAgent[a]).map(k => byAgent[k]),
+                        backgroundColor: '#3b82f6'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // By Result
+            const byResult = {};
+            entries.forEach(e => {
+                byResult[e.resultado] = (byResult[e.resultado] || 0) + 1;
+            });
+            
+            const ctx2 = document.getElementById('chart-by-result').getContext('2d');
+            charts.result = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(byResult),
+                    datasets: [{
+                        data: Object.values(byResult),
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#6b7280']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // By Phase
+            const byPhase = {};
+            entries.forEach(e => {
+                byPhase[e.fase] = (byPhase[e.fase] || 0) + 1;
+            });
+            
+            const ctx3 = document.getElementById('chart-by-phase').getContext('2d');
+            charts.phase = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(byPhase).sort((a, b) => byPhase[b] - byPhase[a]),
+                    datasets: [{
+                        label: 'Entries',
+                        data: Object.keys(byPhase).sort((a, b) => byPhase[b] - byPhase[a]).map(k => byPhase[k]),
+                        backgroundColor: '#8b5cf6'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // Statistics
+        function renderStatistics() {
+            const entries = worklogData.entries;
+
+            // By Agent
+            const byAgent = {};
+            entries.forEach(e => {
+                byAgent[e.usuario_agente] = (byAgent[e.usuario_agente] || 0) + 1;
+            });
+            document.getElementById('stats-agent').innerHTML = 
+                Object.entries(byAgent).sort((a, b) => b[1] - a[1]).map(([agent, count]) => 
+                    `<div class="flex justify-between p-2 bg-gray-50 rounded mb-2"><span>${agent}</span><strong>${count}</strong></div>`
+                ).join('');
+
+            // By Result
+            const byResult = {};
+            entries.forEach(e => {
+                byResult[e.resultado] = (byResult[e.resultado] || 0) + 1;
+            });
+            document.getElementById('stats-result').innerHTML = 
+                Object.entries(byResult).sort((a, b) => b[1] - a[1]).map(([result, count]) => 
+                    `<div class="flex justify-between p-2 bg-gray-50 rounded mb-2"><span>${result}</span><strong>${count}</strong></div>`
+                ).join('');
+
+            // By Phase
+            const byPhase = {};
+            entries.forEach(e => {
+                byPhase[e.fase] = (byPhase[e.fase] || 0) + 1;
+            });
+            document.getElementById('stats-phase').innerHTML = 
+                Object.entries(byPhase).sort((a, b) => b[1] - a[1]).map(([phase, count]) => 
+                    `<div class="flex justify-between p-2 bg-gray-50 rounded mb-2"><span>${phase}</span><strong>${count}</strong></div>`
+                ).join('');
+
+            // Features by status
+            const features = {};
+            entries.forEach(e => {
+                if (e.feature_id) {
+                    if (!features[e.feature_id]) features[e.feature_id] = {};
+                    features[e.feature_id][e.resultado] = (features[e.feature_id][e.resultado] || 0) + 1;
+                }
+            });
+            document.getElementById('stats-features-status').innerHTML = 
+                Object.entries(features).map(([fid, statuses]) => {
+                    const results = Object.entries(statuses).map(([r, c]) => `<span class="text-xs px-2 py-1 bg-gray-100 rounded">${r}: ${c}</span>`).join(' ');
+                    return `<div class="p-3 bg-gray-50 rounded mb-3"><strong>${fid}</strong><div class="mt-2 space-x-1">${results}</div></div>`;
+                }).join('');
+        }
+
+        // Setup filters
+        function setupFilters() {
+            const agents = new Set(worklogData.entries.map(e => e.usuario_agente));
+            const phases = new Set(worklogData.entries.map(e => e.fase));
+            const results = new Set(worklogData.entries.map(e => e.resultado));
+            const features = new Set(worklogData.entries.filter(e => e.feature_id).map(e => e.feature_id));
+
+            document.getElementById('filter-agent').innerHTML += 
+                Array.from(agents).sort().map(a => `<option value="${a}">${a}</option>`).join('');
+            
+            document.getElementById('filter-phase').innerHTML += 
+                Array.from(phases).sort().map(p => `<option value="${p}">${p}</option>`).join('');
+            
+            document.getElementById('filter-result').innerHTML += 
+                Array.from(results).sort().map(r => `<option value="${r}">${r}</option>`).join('');
+            
+            document.getElementById('filter-feature').innerHTML += 
+                Array.from(features).sort().map(f => `<option value="${f}">${f}</option>`).join('');
+
+            // Add event listeners
+            ['filter-agent', 'filter-phase', 'filter-result', 'filter-feature', 'search-input'].forEach(id => {
+                document.getElementById(id).addEventListener('change', renderEntries);
+                if (id === 'search-input') {
+                    document.getElementById(id).addEventListener('input', renderEntries);
+                }
+            });
+
+            // Export
+            document.getElementById('btn-export').addEventListener('click', exportCSV);
+            
+            // Reset
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                document.getElementById('filter-agent').value = '';
+                document.getElementById('filter-phase').value = '';
+                document.getElementById('filter-result').value = '';
+                document.getElementById('filter-feature').value = '';
+                document.getElementById('search-input').value = '';
+                renderEntries();
+            });
+        }
+
+        // Render entries list
+        function renderEntries() {
+            let entries = worklogData.entries;
+
+            // Apply filters
+            const agentFilter = document.getElementById('filter-agent').value;
+            const phaseFilter = document.getElementById('filter-phase').value;
+            const resultFilter = document.getElementById('filter-result').value;
+            const featureFilter = document.getElementById('filter-feature').value;
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+
+            if (agentFilter) entries = entries.filter(e => e.usuario_agente === agentFilter);
+            if (phaseFilter) entries = entries.filter(e => e.fase === phaseFilter);
+            if (resultFilter) entries = entries.filter(e => e.resultado === resultFilter);
+            if (featureFilter) entries = entries.filter(e => e.feature_id === featureFilter);
+            if (searchText) {
+                entries = entries.filter(e => 
+                    e.accion.toLowerCase().includes(searchText) ||
+                    (e.observaciones && e.observaciones.toLowerCase().includes(searchText))
+                );
+            }
+
+            // Render
+            const html = entries.slice().reverse().map(e => {
+                const badgeClass = {
+                    'COMPLETED': 'badge-completed',
+                    'BLOCKED': 'badge-blocked',
+                    'IN_PROGRESS': 'badge-in-progress',
+                    'APPROVED': 'badge-approved',
+                    'FIXED': 'badge-fixed'
+                }[e.resultado] || '';
+
+                return `
+                    <div class="worklog-entry entry-${e.resultado.toLowerCase().replace(/_/g, '-')} visible">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <div class="font-semibold text-gray-900">${escapeHtml(e.accion)}</div>
+                                <div class="text-sm text-gray-500">${escapeHtml(e.timestamp)}</div>
+                            </div>
+                            <span class="badge-status ${badgeClass}">${escapeHtml(e.resultado)}</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-2 text-sm">
+                            <div><strong>Agent:</strong> ${escapeHtml(e.usuario_agente)}</div>
+                            <div><strong>Phase:</strong> ${escapeHtml(e.fase)}</div>
+                            <div><strong>Feature:</strong> ${escapeHtml(e.feature_id || '—')}</div>
+                            <div><strong>Date:</strong> ${escapeHtml(e.timestamp)}</div>
+                        </div>
+                        ${e.observaciones ? `<div class="mt-3 p-3 bg-gray-50 rounded text-sm"><strong>Notes:</strong> ${escapeHtml(e.observaciones)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('entries-list').innerHTML = html || '<p class="text-gray-500 text-center py-8">No entries match filters</p>';
+        }
+
+        // Export CSV
+        function exportCSV() {
+            const entries = worklogData.entries;
+            let csv = 'timestamp,fase,usuario_agente,accion,resultado,feature_id,observaciones\n';
+            
+            entries.forEach(e => {
+                csv += `"${e.timestamp}","${e.fase}","${e.usuario_agente}","${e.accion.replace(/"/g, '""')}","${e.resultado}","${e.feature_id || ''}","${(e.observaciones || '').replace(/"/g, '""')}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `worklog-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+
+        // Tab switching
+        function setupTabs() {
+            document.querySelectorAll('[data-tab]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tab = btn.dataset.tab;
+                    
+                    // Update buttons
+                    document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('tab-active'));
+                    btn.classList.add('tab-active');
+
+                    // Update content
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                    document.getElementById(tab).classList.remove('hidden');
+
+                    // Redraw charts if switching to stats
+                    if (tab === 'timeline' && charts.agent) {
+                        Object.values(charts).forEach(c => c.resize());
+                    }
+                });
+            });
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

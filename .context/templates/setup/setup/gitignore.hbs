@@ -1,0 +1,294 @@
+# ================================================
+# SECRETS & ENVIRONMENT (MANDATORY - SECURITY)
+# ================================================
+# NEVER commit actual secrets. Use .env.example templates.
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.example.*
+config/secrets/*
+!config/secrets/.keep
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ================================================
+# ⚠️ SDLC FRAMEWORK — DO NOT COMMIT (IP PROTECTION)
+# ================================================
+# These files contain agentic workflows, governance logic, and internal tooling.
+# They are synced from the framework via factory-sync.sh and must NOT be
+# committed to project repositories.
+# Copilot agent definitions, instructions, skills, prompts
+.github/agents/
+.github/instructions/
+.github/skills/
+.github/prompts/
+.github/copilot-instructions.md
+.github/workflow_sequence_v2.md
+.github/review_retry_tracking.md
+# Framework context (templates, schemas, utils, governance snapshot)
+.context/
+# Framework sync tool (lives in framework, not in project)
+scripts/factory-sync.sh
+
+# ================================================
+# DEPENDENCIES (DO NOT COMMIT - FRAMEWORK CODE)
+# ================================================
+{{#if STACK_INCLUDES_PYTHON}}
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+{{/if}}
+
+{{#if STACK_INCLUDES_NODE}}
+# Node.js / JavaScript / TypeScript
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+dist/
+build/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+.eslintcache
+.parcel-cache/
+.cache/
+{{/if}}
+
+{{#if STACK_INCLUDES_JAVA}}
+# Java
+target/
+*.class
+.mvn/
+*.jar
+*.war
+*.ear
+hs_err_pid*
+{{/if}}
+
+{{#if STACK_INCLUDES_CSHARP}}
+# C# / .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+[Dd]ebug/
+[Rr]elease/
+{{/if}}
+
+{{#if STACK_INCLUDES_GO}}
+# Go
+vendor/
+*.exe
+*.test
+*.out
+coverage.out
+{{/if}}
+
+{{#if STACK_INCLUDES_RUST}}
+# Rust
+target/
+Cargo.lock  # For binaries, comment this line for libraries
+{{/if}}
+
+# ================================================
+# BUILD OUTPUTS & COMPILED ARTIFACTS
+# ================================================
+dist/
+build/
+*.o
+*.obj
+*.dll
+*.exe
+*.app
+*.dSYM/
+
+# ================================================
+# LOGS & MONITORING
+# ================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ================================================
+# TESTING & COVERAGE
+# ================================================
+coverage/
+.coverage*
+.nyc_output/
+junit.xml
+test-results/
+*.cover
+*.lcov
+
+# ================================================
+# E2E TESTING ARTIFACTS (PLAYWRIGHT)
+# ================================================
+{{#if E2E_TESTING == "Playwright"}}
+# Playwright test results
+playwright-report/
+*.trace.zip
+tests/e2e/specs/__snapshots__/
+{{/if}}
+
+# ================================================
+# DAST ARTIFACTS (OWASP ZAP)
+# ================================================
+{{#if DAST_TOOLS == "OWASP ZAP"}}
+# OWASP ZAP scanning artifacts
+security/dast/reports/
+*.zap
+zap-session-*
+security/dast/.zap/
+{{/if}}
+
+# ================================================
+# FEATURE WORKFLOW ARTIFACTS (AGENTIC SDLC)
+# ================================================
+# QA reports are timestamped logs, not source-controlled
+docs/spec/**/qa/qa_report_*.md
+# Security audits are timestamped logs, not source-controlled
+docs/spec/**/sec/sec_audit_*.md
+# Temporary dev plans and execution logs
+docs/spec/**/dev/execution_log_*.md
+
+# ================================================
+# CONTRACT DEVELOPMENT (MOCK ARTIFACTS)
+# ================================================
+contracts/mocks/.cache/
+.spectral-cache/
+contracts/**/*.backup
+contracts/**/.generated/
+
+# ================================================
+# OS SPECIFIC FILES
+# ================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ================================================
+# IDE & EDITOR SPECIFIC (CONDITIONAL)
+# ================================================
+{{#if IDE_PREFERENCE == "VSCode"}}
+# VSCode - Team preference
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+{{/if}}
+
+{{#if IDE_PREFERENCE == "IntelliJ" || IDE_PREFERENCE == "PyCharm"}}
+# IntelliJ IDEA / PyCharm
+.idea/
+*.iml
+.idea_modules/
+{{/if}}
+
+# ================================================
+# BROWNFIELD LEGACY PROTECTION (AUTO-DETECTED)
+# ================================================
+{{#if BROWNFIELD}}
+{{#each LEGACY_PATHS}}
+# Legacy path: {{this.path}}
+{{this.path}}/build/
+{{this.path}}/dist/
+{{this.path}}/*.log
+{{this.path}}/temp/
+{{/each}}
+{{/if}}
+
+# ================================================
+# SECURITY SCANNING ARTIFACTS
+# ================================================
+.gitleaks-cache/
+.semgrep_cache/
+.trivy-cache/
+security-reports/
+
+# ================================================
+# BACKUP & TEMPORARY FILES
+# ================================================
+*.backup
+*.bak
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.#*
+\#*\#
+
+# ================================================
+# ARCHIVES & COMPRESSED FILES
+# ================================================
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ================================================
+# TERRAFORM (INFRASTRUCTURE AS CODE)
+# ================================================
+{{#if INCLUDES_TERRAFORM}}
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+{{/if}}
+
+# ================================================
+# CRASH LOGS & DUMPS
+# ================================================
+hs_err_pid*
+replay_pid*
+core.*
+*.dump
+
+# ================================================
+# PACKAGE MANAGER LOCK FILES (OPTIONAL)
+# ================================================
+# Uncomment if your team uses a different lock file strategy
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+# Pipfile.lock

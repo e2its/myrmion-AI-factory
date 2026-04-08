@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "project_name": "{{PROJECT_NAME}}",
+    "created_at": "{{GENERATED_DATE}}",
+    "version": "2.0.0",
+    "id_counters": {
+      "SETUP": 0,
+      "AUDIT": 0,
+      "USR": 0,
+      "BUG": 0,
+      "FEAT": 0,
+      "HOTFIX": 0,
+      "TASK": 0
+    },
+    "statistics": {
+      "total_entries": 0,
+      "last_updated": "{{GENERATED_DATE}}",
+      "entries_by_agent": {},
+      "entries_by_result": {}
+    }
+  }
+}

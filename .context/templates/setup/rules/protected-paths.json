@@ -1,0 +1,28 @@
+{
+  "red_zones": [
+    ".context/**",
+    "node_modules/**",
+    "venv/**",
+    "vendor/**",
+    "**/PROTECTED-CODE START**",
+    {{#if BROWNFIELD}}
+    {{#each LEGACY_PATHS}}
+    "{{this}}/**",
+    {{/each}}
+    {{/if}}
+    "**/framework/**"
+  ],
+  "yellow_zones": [
+    "src/adapters/**",
+    "src/decorators/**",
+    "src/middleware/**"
+  ],
+  "green_zones": [
+    "src/**",
+    "apps/**"
+  ],
+  "enforcement": {
+    "drift_check_script": "scripts/security-scan.sh --drift-check",
+    "requires_adr_for_red": true
+  }
+}

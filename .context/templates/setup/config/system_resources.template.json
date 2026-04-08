@@ -1,0 +1,243 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-22",
+  "resources": [
+    {
+      "_comment": "Example: External API Integration",
+      "id": "stripe-payment-api",
+      "type": "integration",
+      "name": "Stripe Payment Gateway",
+      "purpose": "Process credit card payments and manage subscriptions",
+      "protocol": "https",
+      "authentication": "api-key",
+      "documentationUrl": "https://stripe.com/docs/api",
+      "envVars": [
+        "STRIPE_API_KEY",
+        "STRIPE_WEBHOOK_SECRET"
+      ],
+      "owner": "payments-team@example.com",
+      "version": "2023-10-16",
+      "lastReviewed": "2026-01-15",
+      "status": "active",
+      "config": {
+        "baseUrl": "https://api.stripe.com",
+        "apiVersion": "2023-10-16",
+        "timeout": 30000,
+        "retries": 3,
+        "webhookPath": "/webhooks/stripe"
+      }
+    },
+    {
+      "_comment": "Example: Internal Microservice Endpoint",
+      "id": "user-service-internal",
+      "type": "internal_endpoint",
+      "name": "User Service API",
+      "purpose": "Internal microservice for user management and authentication",
+      "protocol": "https",
+      "authentication": "jwt",
+      "documentationUrl": "docs/services/user-service/api-spec.md",
+      "envVars": [
+        "USER_SERVICE_BASE_URL",
+        "USER_SERVICE_JWT_SECRET"
+      ],
+      "owner": "auth-team@example.com",
+      "version": "1.2.0",
+      "lastReviewed": "2026-01-20",
+      "status": "active",
+      "config": {
+        "baseUrl": "https://user-service.internal",
+        "healthCheckPath": "/health",
+        "timeout": 5000,
+        "retries": 2,
+        "endpoints": {
+          "createUser": "POST /api/v1/users",
+          "getUser": "GET /api/v1/users/:id",
+          "updateUser": "PUT /api/v1/users/:id",
+          "deleteUser": "DELETE /api/v1/users/:id"
+        }
+      }
+    },
+    {
+      "_comment": "Example: Primary Database",
+      "id": "pg-primary-db",
+      "type": "database",
+      "name": "PostgreSQL Primary Database",
+      "purpose": "Main relational database for application data",
+      "protocol": "postgres",
+      "authentication": "basic",
+      "documentationUrl": "docs/infrastructure/database-schema.md",
+      "envVars": [
+        "DB_PRIMARY_HOST",
+        "DB_PRIMARY_PORT",
+        "DB_PRIMARY_NAME",
+        "DB_PRIMARY_USER",
+        "DB_PRIMARY_PASSWORD"
+      ],
+      "owner": "infra-team@example.com",
+      "version": "15.2",
+      "lastReviewed": "2026-01-10",
+      "status": "active",
+      "config": {
+        "host": "db.primary.internal",
+        "port": 5432,
+        "database": "app_production",
+        "poolSize": 20,
+        "sslMode": "require",
+        "connectionTimeout": 10000
+      }
+    },
+    {
+      "_comment": "Example: Message Queue",
+      "id": "rabbitmq-main",
+      "type": "queue",
+      "name": "RabbitMQ Main Cluster",
+      "purpose": "Message broker for async task processing and event distribution",
+      "protocol": "amqp",
+      "authentication": "basic",
+      "documentationUrl": "docs/infrastructure/message-queue.md",
+      "envVars": [
+        "RABBITMQ_HOST",
+        "RABBITMQ_PORT",
+        "RABBITMQ_USER",
+        "RABBITMQ_PASSWORD",
+        "RABBITMQ_VHOST"
+      ],
+      "owner": "infra-team@example.com",
+      "version": "3.12",
+      "lastReviewed": "2026-01-12",
+      "status": "active",
+      "config": {
+        "host": "rabbitmq.internal",
+        "port": 5672,
+        "vhost": "/production",
+        "prefetchCount": 10,
+        "exchanges": {
+          "events": {
+            "type": "topic",
+            "durable": true
+          }
+        },
+        "queues": {
+          "user-events": {
+            "durable": true,
+            "routingKey": "user.*"
+          },
+          "order-events": {
+            "durable": true,
+            "routingKey": "order.*"
+          }
+        }
+      }
+    },
+    {
+      "_comment": "Example: Object Storage",
+      "id": "s3-user-uploads",
+      "type": "storage",
+      "name": "AWS S3 User Uploads Bucket",
+      "purpose": "Store user-uploaded files and media",
+      "protocol": "s3",
+      "authentication": "api-key",
+      "documentationUrl": "https://docs.aws.amazon.com/s3/",
+      "envVars": [
+        "AWS_S3_BUCKET_NAME",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_REGION"
+      ],
+      "owner": "storage-team@example.com",
+      "version": "1.0.0",
+      "lastReviewed": "2026-01-18",
+      "status": "active",
+      "config": {
+        "bucket": "app-user-uploads-prod",
+        "region": "us-east-1",
+        "storageClass": "STANDARD",
+        "publicRead": false,
+        "maxFileSize": 10485760,
+        "allowedMimeTypes": [
+          "image/jpeg",
+          "image/png",
+          "application/pdf"
+        ]
+      }
+    },
+    {
+      "_comment": "Example: Cache",
+      "id": "redis-session-cache",
+      "type": "cache",
+      "name": "Redis Session Cache",
+      "purpose": "Store user sessions and temporary data",
+      "protocol": "redis",
+      "authentication": "basic",
+      "documentationUrl": "docs/infrastructure/redis-cluster.md",
+      "envVars": [
+        "REDIS_HOST",
+        "REDIS_PORT",
+        "REDIS_PASSWORD"
+      ],
+      "owner": "infra-team@example.com",
+      "version": "7.2",
+      "lastReviewed": "2026-01-14",
+      "status": "active",
+      "config": {
+        "host": "redis.internal",
+        "port": 6379,
+        "db": 0,
+        "ttl": 3600,
+        "maxConnections": 50,
+        "keyPrefix": "session:"
+      }
+    },
+    {
+      "_comment": "Example: CDN",
+      "id": "cloudflare-cdn",
+      "type": "cdn",
+      "name": "Cloudflare CDN",
+      "purpose": "Serve static assets and cache API responses globally",
+      "protocol": "https",
+      "authentication": "api-key",
+      "documentationUrl": "https://developers.cloudflare.com/api/",
+      "envVars": [
+        "CLOUDFLARE_API_KEY",
+        "CLOUDFLARE_ZONE_ID"
+      ],
+      "owner": "infra-team@example.com",
+      "version": "1.0.0",
+      "lastReviewed": "2026-01-16",
+      "status": "active",
+      "config": {
+        "zone": "example.com",
+        "cacheTtl": 86400,
+        "purgeOnDeploy": true,
+        "assetPaths": [
+          "/assets/*",
+          "/images/*",
+          "/css/*",
+          "/js/*"
+        ]
+      }
+    },
+    {
+      "_comment": "Example: Deprecated Integration",
+      "id": "legacy-payment-api",
+      "type": "integration",
+      "name": "Legacy Payment Gateway (Deprecated)",
+      "purpose": "Old payment processor - being phased out in favor of Stripe",
+      "protocol": "https",
+      "authentication": "api-key",
+      "documentationUrl": "docs/deprecated/legacy-payment-api.md",
+      "envVars": [
+        "LEGACY_PAYMENT_API_KEY"
+      ],
+      "owner": "payments-team@example.com",
+      "version": "1.0.0",
+      "lastReviewed": "2026-01-05",
+      "status": "deprecated",
+      "config": {
+        "baseUrl": "https://legacy.payment.com/api",
+        "deprecationDate": "2026-03-01",
+        "replacedBy": "stripe-payment-api"
+      }
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+# ================================================
+# SECRETS & ENVIRONMENT (MANDATORY - SECURITY)
+# ================================================
+# NEVER commit actual secrets. Use .env.example templates.
+.env
+.env.*
+!.env.example
+!.env.example.*
+*.env
+config/env/*
+!config/env/.keep
+config/secrets/*
+!config/secrets/.keep
+*.pem
+*.key
+*.p12
+*.pfx
+
+
+# Node/JS/TS
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+.npm/
+.pnpm-store/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage*
+coverage/
+
+# Java
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+target/
+.mvn/
+
+# C#/.NET
+bin/
+obj/
+.vs/
+
+# Logs
+*.log
+logs/
+
+# ================================================
+# FEATURE WORKFLOW ARTIFACTS (AGENTIC SDLC)
+# ================================================
+# QA reports are timestamped logs, not source-controlled
+docs/spec/**/qa/qa_report_*.md
+# Security audits are timestamped logs, not source-controlled
+docs/spec/**/sec/sec_audit_*.md
+# Temporary dev plans and execution logs
+docs/spec/**/dev/execution_log_*.md
+
+# ================================================
+# CONTRACT DEVELOPMENT (MOCK ARTIFACTS)
+# ================================================
+contracts/mocks/.cache/
+.spectral-cache/
+contracts/**/*.backup
+contracts/**/.generated/
+
+# ================================================
+# SECURITY SCANNING ARTIFACTS
+# ================================================
+.gitleaks-cache/
+.semgrep_cache/
+.trivy-cache/
+security-reports/
+
+# ================================================
+# E2E TESTING ARTIFACTS (PLAYWRIGHT)
+# ================================================
+test-results/
+playwright-report/
+*.trace.zip
+tests/e2e/specs/__snapshots__/
+
+# ================================================
+# DAST ARTIFACTS (OWASP ZAP)
+# ================================================
+security/dast/reports/
+*.zap
+zap-session-*
+security/dast/.zap/
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Crash logs
+hs_err_pid*
+replay_pid*
+
+# ================================================
+# BACKUP & TEMPORARY FILES
+# ================================================
+# Backup extensions
+*.bak
+*.backup
+*.bck
+*.old
+*.orig
+*.save
+
+# Backup directories
+**/bck/
+
+# Editor temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.*.sw?
+tmp/
+
+# Version control patches
+*.patch
+*.diff
+*.rej
