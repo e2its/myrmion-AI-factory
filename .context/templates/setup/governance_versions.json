@@ -560,7 +560,7 @@
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in docs/rules/.",
     "agents/factory.agent.md": {
       "version": "2.6.1",
-      "path": ".claude/commands/ (orchestration via CLAUDE.md)",
+      "path": "CLAUDE.md",
       "role": "Visible orchestrator (strict dispatcher + BA mediator) — sole user-invokable agent. Routes intent to specialists via handoffs. Mediates BIP interactivity. NEVER performs sub-agent work.",
       "changelog": [
         "2.6.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -1112,30 +1112,6 @@
         "9.0.0: Breaking — protocol references, instruction model and skills restructured (EVOL-001)"
       ]
     },
-    "workflow_sequence_v2.md": {
-      "version": "3.1.1",
-      "path": ".github/workflow_sequence_v2.md",
-      "status": "REMOVED",
-      "changelog": [
-        "3.1.1: REMOVED — content superseded by copilot-instructions.md + agent files",
-        "3.1.1: Fix stale 9/9→12/12 auto-approval references in key rules, Agent Handoff table, and Key Decision Points (#112)",
-        "3.1.0: Remove deprecated legacy rows (CODESIGN/DEVOPS/QA --approve) from Agent Handoff table and Key Decisions (v8.2.0 cleanup)",
-        "3.0.1: Auto-Approval v8.2.0 — update sequence, Agent Handoff table, Key Decision Points, DEVOPS paths, CODESIGN key rules (#108)",
-        "3.0.0: Re-registered after Custom Agents migration — file at .github/workflow_sequence_v2.md, internal version v8.2.0 (PR #101)",
-        "2.0.0: IOP v1.0.0 summary table with 5-category governance routing (#99)",
-        "1.0.0: Initial workflow sequence"
-      ]
-    },
-    "utils/migrate_legacy_setup.py": {
-      "version": "2.0.0",
-      "path": ".github/utils/migrate_legacy_setup.py",
-      "status": "REMOVED",
-      "changelog": [
-        "2.0.0: Confirmed REMOVED during v9.0.0 migration audit — entry retained for historical traceability",
-        "1.1.0: REMOVED — file no longer exists, entry kept for historical traceability",
-        "1.0.0: Initial utility"
-      ]
-    },
     "skills/Factory-governance-loading/SKILL.md": {
       "version": "2.2.2",
       "type": "skill",
@@ -1146,7 +1122,8 @@
         "2.1.0: feat: setup.md dual-hash validation — setup_hash alongside constitution_hash, ## Setup Configuration in snapshot generation, stale-source diagnostics (#124)",
         "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial governance-loading protocol"
-      ]
+      ],
+      "path": ".claude/skills/Factory-governance-loading/SKILL.md"
     },
     "skills/Factory-incremental-persistence/SKILL.md": {
       "version": "2.0.1",
@@ -1155,7 +1132,8 @@
         "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial incremental-persistence protocol"
-      ]
+      ],
+      "path": ".claude/skills/Factory-incremental-persistence/SKILL.md"
     },
     "skills/Factory-agent-communication/SKILL.md": {
       "version": "2.0.0",
@@ -1163,7 +1141,8 @@
       "changelog": [
         "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial agent-communication protocol"
-      ]
+      ],
+      "path": ".claude/skills/Factory-agent-communication/SKILL.md"
     },
     "skills/Factory-codebase-inventory/SKILL.md": {
       "version": "2.1.1",
@@ -1173,7 +1152,8 @@
         "2.1.0: feat: CIP Consultation Gate Step 0 — inventory cache fast path via /memories/repo/codebase-inventory-cache.md (MCP v1.0.0), write-through on cache miss",
         "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial codebase-inventory protocol"
-      ]
+      ],
+      "path": ".claude/skills/Factory-codebase-inventory/SKILL.md"
     },
     "skills/Factory-iteration-model/SKILL.md": {
       "version": "2.0.1",
@@ -1182,17 +1162,8 @@
         "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial iteration-model protocol"
-      ]
-    },
-    "review_retry_tracking.md": {
-      "version": "2.0.0",
-      "path": ".github/review_retry_tracking.md",
-      "status": "REMOVED",
-      "changelog": [
-        "2.0.0: REMOVED — retry mechanism integrated directly into implement.agent.md, standalone file unused",
-        "2.0.0: Registered in governance during v9.0.0 migration audit (previously untracked)",
-        "1.0.0: Initial creation (v5.0.0 IMPLEMENT phase)"
-      ]
+      ],
+      "path": ".claude/skills/Factory-iteration-model/SKILL.md"
     },
     "skills/Factory-branching-strategy/SKILL.md": {
       "version": "1.2.2",
@@ -1205,7 +1176,8 @@
         "1.1.0: fix: cross-branch mismatch detection with exact ID parsing (Step -1.2c), cross-feature dependency detection with local+remote search (Step -1.3.5), branch creation from base_branch instead of HEAD (Step -1.4), consistent base_branch derivation (Step -1.1b), git stash -u for untracked files",
         "1.0.1: fix: add Pre-SETUP Governance Baseline — minimum branch/commit/merge rules before constitution exists",
         "1.0.0: feat: extracted from copilot-instructions.md — branching, merge enforcement, concurrency lock"
-      ]
+      ],
+      "path": ".claude/skills/Factory-branching-strategy/SKILL.md"
     },
     "skills/Factory-commit-prompt/SKILL.md": {
       "version": "1.0.0",
@@ -1213,7 +1185,8 @@
       "role": "Post-command commit prompt — conventional commit message generation after file modifications.",
       "changelog": [
         "1.0.0: feat: extracted from copilot-instructions.md — commit prompt protocol"
-      ]
+      ],
+      "path": ".claude/skills/Factory-commit-prompt/SKILL.md"
     },
     "skills/Factory-worklog/SKILL.md": {
       "version": "1.0.0",
@@ -1221,18 +1194,8 @@
       "role": "Worklog v2.0.0 — per-feature JSONL audit trail, action registration, phase mapping, dispatcher enforcement.",
       "changelog": [
         "1.0.0: feat: extracted from copilot-instructions.md — worklog enforcement protocol"
-      ]
-    },
-    "skills/Factory-batch-interactivity/SKILL.md": {
-      "version": "1.2.1",
-      "type": "skill",
-      "role": "BIP v1.2.0 — Batch Interactivity Protocol. Replaces one-at-a-time Q&A with tiered proposal→review→converge. Disruption-Triggered Re-Harvest for pivotal overrides.",
-      "changelog": [
-        "1.2.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "1.2.0: feat: simplified field in decision struct + go-back navigation + i18n bilingual RDR labels and go-back messages (es/en)",
-        "1.1.0: feat: Disruption-Triggered Re-Harvest — agent marks pivotal questions, Factory detects override and invokes partial re-harvest. Replaces pre-computed recommend rules (combinatorial explosion). New --harvest --partial sub-command.",
-        "1.0.0: feat: initial BIP protocol — Harvest→Mediate→Resolve→Converge cycle, dependency tiers, Factory BA mediation"
-      ]
+      ],
+      "path": ".claude/skills/Factory-worklog/SKILL.md"
     },
     "skills/Factory-build-verification/SKILL.md": {
       "version": "1.1.2",
@@ -1244,7 +1207,8 @@
         "1.1.0: feat: resolve_verification_commands() Step 0 — BVL commands cache fast path via /memories/repo/bvl-commands-cache.md (MCP v1.0.0), write-through after derivation",
         "1.0.1: fix: PR review — standardize resolve_verification_commands() to parse ## sections, derive_commands_from_stack() with testing framework auto-detection from config files, FILE_EXISTS pseudo-code replaced with implementable expressions, snapshot field naming aligned to ## Verification Commands section (#124)",
         "1.0.0: feat: initial BVL protocol — task_verification_loop, phase_verification, full_verification_gate, resolve_verification_commands from stack config (#124)"
-      ]
+      ],
+      "path": ".claude/skills/Factory-build-verification/SKILL.md"
     },
     "skills/Factory-memory-cache/SKILL.md": {
       "version": "1.0.3",
@@ -1255,7 +1219,8 @@
         "1.0.2: fix: complete FMCP terminology consistency in internal references (FMCP architecture/caches) while preserving MCP mention only for external Model Context Protocol",
         "1.0.1: fix: rename internal acronym to FMCP (Factory Memory Cache Protocol) and add explicit note distinguishing it from external MCP standard",
         "1.0.0: feat: initial Memory Cache Protocol — unified cache architecture, 4 cache types (feature-state, bvl-commands, codebase-inventory, execution-plan), standard lifecycle, guardrails"
-      ]
+      ],
+      "path": ".claude/skills/Factory-memory-cache/SKILL.md"
     },
     "skills/Factory-coherence-validation/SKILL.md": {
       "version": "1.0.2",
@@ -1265,7 +1230,8 @@
         "1.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.0.1: fix: resolve_scope_checks for includes expansion, add missing task_completion_to_qa check (12 checks), fix contract endpoint source to read contracts/ not design.md, fix build_coherence_matrix scope parameter, fix remediation_actions grouping by artifact source",
         "1.0.0: fix: initial Coherence Validation Protocol — 11 cross-artifact checks, 3 scope levels (CODESIGN_BLUEPRINT, CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN), 3 invocation modes (GATE, AUTO, ON_DEMAND), auto-scope detection, Factory post-command integration"
-      ]
+      ],
+      "path": ".claude/skills/Factory-coherence-validation/SKILL.md"
     },
     "skills/Factory-backlog-next-task/SKILL.md": {
       "version": "1.2.0",
@@ -1277,31 +1243,8 @@
         "1.1.1: fix: STEP 5 is now MANDATORY when issue reference exists — tool-agnostic fetch via cli_command from project-config.json (not hardcoded gh); local mode reads issue-bodies/; discrepancy detection (issue body beats execution-plan summary); SSOT clarified",
         "1.1.0: feat: cache fast path via /memories/repo/execution-plan-cache.md, integration with execution plan protocol",
         "1.0.0: feat: initial next-task resolver skill — step-by-step resolution from board state"
-      ]
-    },
-    "prompts/create-feature.prompt.md": {
-      "version": "1.0.0",
-      "type": "prompt",
-      "role": "Reusable prompt workflow — full feature creation pipeline (CODESIGN → BLUEPRINT → IMPLEMENT).",
-      "changelog": [
-        "1.0.0: feat: initial create-feature prompt workflow"
-      ]
-    },
-    "prompts/review-pr.prompt.md": {
-      "version": "1.0.0",
-      "type": "prompt",
-      "role": "Reusable prompt workflow — PR review against framework conventions and quality standards.",
-      "changelog": [
-        "1.0.0: feat: initial review-pr prompt workflow"
-      ]
-    },
-    "prompts/setup-project.prompt.md": {
-      "version": "1.0.0",
-      "type": "prompt",
-      "role": "Reusable prompt workflow — project initialization (discovery + materialization).",
-      "changelog": [
-        "1.0.0: feat: initial setup-project prompt workflow"
-      ]
+      ],
+      "path": ".claude/skills/Factory-backlog-next-task/SKILL.md"
     },
     "scripts/factory-sync.sh": {
       "version": "1.1.0",
@@ -1311,6 +1254,42 @@
       "changelog": [
         "1.1.0: fix: empty-file guard, orphan counter consistency, sync standalone .github/ files, add explicit path, templates as 7th category",
         "1.0.0: feat: initial factory-sync.sh — 6-category sync (instructions, skills, agents, prompts, copilot-instructions, base scripts), dry-run/verbose/force modes, orphan detection, version comparison"
+      ]
+    },
+    "hooks/check-branch-protection.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/check-branch-protection.sh",
+      "role": "PreToolUse hook — blocks Edit/Write on protected branches (main/master/develop/release/hotfix) before tool execution.",
+      "changelog": [
+        "1.0.0: feat: extracted from inline settings.json command — branch protection as external script (EVOL-011)"
+      ]
+    },
+    "hooks/check-completion-gate.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/check-completion-gate.sh",
+      "role": "PreToolUse hook (Write) — blocks terminal status (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) in dev_plan.md or qa_report*.md when unchecked items remain.",
+      "changelog": [
+        "1.0.0: feat: completion gate enforcement — zero unchecked [ ] required before terminal status (EVOL-011)"
+      ]
+    },
+    "hooks/check-concurrency-lock.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/check-concurrency-lock.sh",
+      "role": "PreToolUse hook (Edit/Write) — acquires per-branch session lock at .context/locks/{branch}.lock; blocks if another live session holds the lock.",
+      "changelog": [
+        "1.0.0: feat: concurrency lock acquisition — prevents parallel Claude sessions on same branch (EVOL-011)"
+      ]
+    },
+    "hooks/release-concurrency-lock.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/release-concurrency-lock.sh",
+      "role": "Stop hook — releases the per-branch session lock at end of each Claude Code turn.",
+      "changelog": [
+        "1.0.0: feat: concurrency lock release on Stop event (EVOL-011)"
       ]
     }
   }
