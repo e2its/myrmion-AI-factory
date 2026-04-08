@@ -96,7 +96,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 ### Mandatory Branching
 - Must be on `feature/{{FEATURE_ID}}-*` branch. BLOCK if on protected branch.
 
-### Downstream Iteration Detection (v10.0.0 Dual-Source)
+### Downstream Iteration Detection (v1.0.0 Dual-Source)
 ```yaml
 # Source A: Pull-based comparison
 pull_gap = (spec.iteration > design.based_on_iteration)

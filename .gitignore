@@ -57,6 +57,14 @@ obj/
 logs/
 
 # ================================================
+# CLAUDE CODE RUNTIME ARTIFACTS
+# ================================================
+# Session concurrency lock files (per-branch, transient)
+.context/locks/
+# Machine-local permission overrides (auto-written by Claude Code, never commit)
+.claude/settings.local.json
+
+# ================================================
 # FEATURE WORKFLOW ARTIFACTS (AGENTIC SDLC)
 # ================================================
 # QA reports are timestamped logs, not source-controlled

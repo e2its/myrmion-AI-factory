@@ -38,7 +38,7 @@ NC='\033[0m'
 
 # ── Config ──
 MANIFEST=".context/templates/setup/governance_versions.json"
-TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" "CLAUDE.md")
+TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" ".claude/hooks" "CLAUDE.md")
 DIFF_ONLY=false
 BASE_BRANCH="main"
 VIOLATIONS=0
@@ -124,8 +124,8 @@ for key, val in core.items():
     if isinstance(val, dict) and 'path' in val:
         print(val['path'])
     elif isinstance(val, dict):
-        # Legacy entries without explicit path — derive from key
-        print('.github/' + key if not key.startswith('.') else key)
+        # Entries without explicit path — derive from key using Claude Code prefix
+        print('.claude/' + key if not key.startswith('.') else key)
 ")
 
 # ── Extract current and base framework_version ──
@@ -201,7 +201,7 @@ for dir in "${TRACKED_DIRS[@]}"; do
         ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
       fi
     fi
-  done < <(find "$dir" -type f -name "*.md" -o -name "*.json" 2>/dev/null)
+  done < <(find "$dir" -type f \( -name "*.md" -o -name "*.json" -o -name "*.sh" \) 2>/dev/null)
 done
 
 if [ "$ORPHAN_COUNT" -eq 0 ]; then

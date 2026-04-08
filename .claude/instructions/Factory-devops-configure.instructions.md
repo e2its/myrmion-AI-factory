@@ -203,7 +203,7 @@ FUNCTION validate_environment_name(env_name):
   ✅ Environment '{env_name}' validated against ci-cd.instructions.md
 ```
 
-## Guardrail 6: Downstream Iteration Detection (v10.0.0)
+## Guardrail 6: Downstream Iteration Detection (v1.0.0)
 
 ```yaml
 BEFORE any command that reads feature artifacts:
@@ -553,7 +553,7 @@ feature_id: "{FEATURE_ID}"
 created_at: "{ISO_8601}"
 updated_at: "{ISO_8601}"
 approved_at: null
-# Iteration tracking (v10.0.0)
+# Iteration tracking (v1.0.0)
 based_on_iteration: 1
 based_on_schemas_version: 1
 pending_iteration: null
