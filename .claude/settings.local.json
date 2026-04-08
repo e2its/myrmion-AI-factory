@@ -8,7 +8,10 @@
       "Bash(find . -name \".claude/settings.json\" -exec cat {} \\\\;)",
       "Bash(wc -l /home/e2its/dev/e2its/mi-AI-Factory-for-Claude/.claude/instructions/*.md)",
       "Bash(wc -l /home/e2its/dev/e2its/mi-AI-Factory-for-Claude/.claude/skills/*/SKILL.md)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
     ]
   }
 }
