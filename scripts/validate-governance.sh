@@ -38,7 +38,7 @@ NC='\033[0m'
 
 # ── Config ──
 MANIFEST=".context/templates/setup/governance_versions.json"
-TRACKED_DIRS=(".github/agents" ".github/instructions" ".github/copilot-instructions.md" ".github/workflow_sequence_v2.md")
+TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" "CLAUDE.md")
 DIFF_ONLY=false
 BASE_BRANCH="main"
 VIOLATIONS=0

@@ -684,7 +684,7 @@ security:
   - If hash matches → snapshot valid (1 file read = full governance context)
   - If stale/missing → full reload from this index + regenerate snapshot
   - This mechanism is SUMMARIZATION-SAFE: file-based cache survives LLM context eviction
-  - See: .github/instructions/protocols/governance-loading.md Step 0
+  - See: .claude/skills/Factory-governance-loading/SKILL.md Step 0
 -->
 
 ### Core Governance Documents

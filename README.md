@@ -1,20 +1,20 @@
-# mi AI Factory
+# mi AI Factory for Claude
 
 [![License: EULA](https://img.shields.io/badge/License-EULA-blue.svg)](./EULA.md)
-[![GitHub Copilot](https://img.shields.io/badge/GitHub-Copilot-blue)](https://github.com/features/copilot)
+[![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai/claude-code)
 
-> **Governed Agentic SDLC System**: Custom AI agents orchestrate the complete Software Development Life Cycle with built-in governance, security, and quality gates.
+> **Governed Agentic SDLC System**: A single Claude Code agent orchestrates the complete Software Development Life Cycle with built-in governance, security, and quality gates via slash commands.
 
 ---
 
 ## Overview
 
-This system transforms GitHub Copilot into a **multi-agent SDLC orchestrator** using VS Code Custom Agents (`.agent.md`). A single visible orchestrator (`@Factory`) routes user intent to 8 specialized invisible worker agents — 6 covering the main SDLC phases plus 2 independent operational agents (AUDIT and BACKLOG) — supported by 10 cross-agent skills, 18 contextual instructions, and 3 reusable prompt workflows.
+This system transforms Claude Code into a **governed SDLC orchestrator** using slash commands (`.claude/commands/`). A single agent assumes specialized roles — 6 covering the main SDLC phases plus 2 independent operational commands (AUDIT and BACKLOG) — supported by 12 cross-cutting skill protocols and 20 contextual instruction files.
 
 ### Key Features
 
-- **Custom Agents Architecture**: Hub-and-spoke model — 1 visible orchestrator + 8 invisible workers + 10 cross-agent skills
-- **Natural Language + Commands**: Say what you need or use explicit commands — Factory routes everything
+- **Single Agent + Slash Commands**: 8 specialized commands invoked via `/command --args` — no multi-agent coordination overhead
+- **Natural Language + Commands**: Say what you need or use explicit slash commands — Claude routes everything
 - **Constitution-Driven**: All decisions validated against `docs/constitution.md` (generated during setup)
 - **Contract-First Development**: API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI, Webhooks) defined and linted before implementation
 - **Build Verification Loop (BVL)**: Tests executed in terminal, errors parsed and auto-fixed (max 3 attempts). Full Verification Gate (tests + lint + typecheck + build) before completion
@@ -22,14 +22,14 @@ This system transforms GitHub Copilot into a **multi-agent SDLC orchestrator** u
 - **TDD Enforcement**: Red-Green-Refactor-**Verify** cycle mandatory for all code (BVL closes the loop)
 - **Immutable Specifications**: Version-controlled requirements with full audit trail
 - **Anti-Drift Protection**: RED ZONES prevent modification of framework/third-party code
-- **Project Tracking**: Integrated backlog management with GitHub Projects
+- **Project Tracking**: Integrated backlog management with external tools or local files
 
 ---
 
 ## Prerequisites
 
-- **VS Code** 1.99+ with **GitHub Copilot** (Agent Mode enabled)
-- **Model**: Claude Opus 4.5+ (configured automatically — see [instructions.md](instructions.md#configuración-del-modelo-llm))
+- **Claude Code** — CLI, VS Code extension, JetBrains extension, or Desktop app
+- **Model**: Claude Opus 4.6 (required for complex framework reasoning)
 - **Git** repository (initialized)
 - **Bash-compatible shell** (Linux / macOS / WSL on Windows)
 
@@ -40,20 +40,24 @@ This system transforms GitHub Copilot into a **multi-agent SDLC orchestrator** u
 ### 1. Install
 
 ```bash
-git clone https://github.com/e2its/mi-AI-Factory.git
-cd mi-AI-Factory && code .
+git clone https://github.com/e2its/mi-AI-Factory-for-Claude.git
+cd mi-AI-Factory-for-Claude
+
+# CLI
+claude
+
+# Or open in VS Code / JetBrains with Claude Code extension installed
 ```
 
-Agents are auto-detected by VS Code. Open Copilot Chat → type `@` → **Factory** should appear.
+Claude Code auto-detects `CLAUDE.md` and registers slash commands from `.claude/commands/`.
 
 ### 2. Setup Project Governance
 
 ```bash
-# In Copilot Chat:
-@Factory SETUP --init
+/setup --init
 # Interactive: selects language, framework, architecture, CI/CD, security tools
 
-@Factory SETUP --generate
+/setup --generate
 # Materializes: constitution, rules, scaffolding, CI/CD pipelines
 ```
 
@@ -62,8 +66,8 @@ Agents are auto-detected by VS Code. Open Copilot Chat → type `@` → **Factor
 For **Brownfield projects** (existing codebases), run an audit at any time:
 
 ```bash
-@Factory AUDIT --audit
-@Factory AUDIT --approve
+/audit --audit
+/audit --approve
 # Generates GO / GO_WITH_CONDITIONS / NO_GO verdict
 ```
 
@@ -73,29 +77,29 @@ AUDIT is fully independent — never blocks the main workflow.
 
 ```bash
 # (Optional) Initialize project board and plan feature issues
-@Factory BACKLOG --init-board
-@Factory BACKLOG --plan-feature USR-001 "Users can reset password via email"
+/backlog --init-board
+/backlog --plan-feature USR-001 "Users can reset password via email"
 
 # Co-create spec + mockup + user journey (auto-approves when 12/12 validations pass)
-@Factory CODESIGN --start USR-001 "Users can reset password via email"
+/codesign --start USR-001 "Users can reset password via email"
 
 # Co-design architecture + test strategy (only mandatory manual checkpoint)
-@Factory BLUEPRINT --start USR-001
-@Factory BLUEPRINT --approve USR-001
+/blueprint --start USR-001
+/blueprint --approve USR-001
 
 # Plan and implement with TDD + BVL (real test execution) + Review + SAST
-@Factory IMPLEMENT --plan USR-001
-@Factory IMPLEMENT --build USR-001
+/implement --plan USR-001
+/implement --build USR-001
 
 # Deploy, verify (auto-approves when verdict APPROVED), ship
-@Factory DEVOPS --deploy USR-001 --env staging
-@Factory QA --verify USR-001
-# PR → merge to main → @Factory DEVOPS --deploy USR-001 --env prod
+/devops --deploy USR-001 --env staging
+/qa --verify USR-001
+# PR → merge to main → /devops --deploy USR-001 --env prod
 ```
 
 > **Auto-Approval (v8.2.0):** CODESIGN, DEVOPS `--configure`, and QA `--verify` auto-approve when all checks pass. Only `BLUEPRINT --approve` requires explicit manual approval.
 
-> **Build Verification Loop (BVL v1.0.0):** During `IMPLEMENT --build`, tests are executed in the terminal after each task. If a test fails, the agent parses the error, applies a fix, and retries (max 3 attempts). Before marking a feature as complete, a Full Verification Gate runs the entire test suite + lint + typecheck + build. Supports Node.js, Python, Java, Go, C#, and Rust.
+> **Build Verification Loop (BVL v1.0.0):** During `/implement --build`, tests are executed in the terminal after each task. If a test fails, the agent parses the error, applies a fix, and retries (max 3 attempts). Before marking a feature as complete, a Full Verification Gate runs the entire test suite + lint + typecheck + build. Supports Node.js, Python, Java, Go, C#, and Rust.
 
 For complete command reference, state machines, and governance details, see **[instructions.md](instructions.md)**.
 
@@ -103,19 +107,18 @@ For complete command reference, state machines, and governance details, see **[i
 
 ## Architecture
 
-### Agent Model
+### Command Model
 
-| Agent | Role | Visibility |
-|-------|------|-----------|
-| **Factory** | Orchestrator — classifies intent, routes, enforces governance | Visible (`@Factory`) |
-| **audit** | Technical Due Diligence (optional, independent) | Invisible (via handoff) |
-| **setup** | Setup & Governance | Invisible (via handoff) |
-| **codesign** | Co-Creation: PO ↔ UX (spec + mock + journey) | Invisible (via handoff) |
-| **blueprint** | Co-Design: ARCH ↔ QA (design + test plan) | Invisible (via handoff) |
-| **implement** | Implementation: DEV ↔ REVIEW ↔ SEC (TDD + BVL per phase) | Invisible (via handoff) |
-| **devops** | Infrastructure & Deployment | Invisible (via handoff) |
-| **qa** | Post-Staging Verification (includes DAST) | Invisible (via handoff) |
-| **backlog** | Project Tracking & Issue Management | Invisible (via handoff) |
+| Command | Role |
+|---------|------|
+| `/audit` | Technical Due Diligence (optional, independent) |
+| `/setup` | Setup & Governance |
+| `/codesign` | Co-Creation: PO ↔ UX (spec + mock + journey) |
+| `/blueprint` | Co-Design: ARCH ↔ QA (design + test plan) |
+| `/implement` | Implementation: DEV ↔ REVIEW ↔ SEC (TDD + BVL per phase) |
+| `/devops` | Infrastructure & Deployment |
+| `/qa` | Post-Staging Verification (includes DAST) |
+| `/backlog` | Project Tracking & Issue Management |
 
 ### Workflow Sequence
 
@@ -129,56 +132,61 @@ SETUP (one-time) → CODESIGN → BLUEPRINT → IMPLEMENT → DEVOPS (pre-prod) 
 
 > **Auto-Approval (v8.2.0):** CODESIGN, DEVOPS `--configure`, and QA `--verify` auto-approve when all validations pass. `BLUEPRINT --approve` is the only mandatory manual checkpoint.
 
-### Cross-Agent Skills (Protocols)
+### Cross-Cutting Skills (Protocols)
 
 | Skill | Purpose |
 |-------|---------|
 | **Build Verification Loop (BVL)** | Real test execution in terminal, error parsing, auto-fix (max 3 attempts), Full Verification Gate |
-| **Batch Interactivity (BIP)** | Tier-based batch decisions instead of one-question-at-a-time |
 | **Incremental Persistence (IPP)** | Skeleton-first write, section-atomic saves, survives context summarization |
 | **Codebase Inventory (CIP)** | DRY enforcement via codebase_inventory.json + CIP Canary gate |
 | **Governance Loading (GCRP)** | Zero Trust context recovery via file-based snapshot (summarization-safe) |
 | **Iteration Model** | Domain-driven incremental dev, cascading invalidation on spec changes |
 | **Branching Strategy (SCM)** | Branch enforcement, merge policy, concurrency locks |
-| **Agent Communication (ACP)** | Controlled verbosity: entry → milestones → completion → Factory return |
+| **Agent Communication (ACP)** | Controlled verbosity: entry → milestones → completion |
 | **Commit Prompt** | Auto-generated conventional commit messages after file modifications |
 | **Worklog** | Per-feature JSONL audit trail with action registration and phase mapping |
+| **Memory Cache (MCP)** | Acceleration layer via /memories/repo/ for cross-command state |
+| **Coherence Validation (CVP)** | Cross-artifact traceability and completeness validation |
+| **Backlog Next-Task** | Determines next executable step from execution plan |
 
 ---
 
 ## Directory Structure
 
-### Agent System (`.github/`)
+### Framework System
 
 ```
-.github/
-├── copilot-instructions.md         # Cross-cutting governance (always loaded)
-├── agents/                         # 9 Custom Agent definitions
-│   ├── factory.agent.md            # Visible orchestrator
-│   ├── audit.agent.md              # Worker agents
-│   ├── setup.agent.md              #   (invisible —
-│   ├── codesign.agent.md           #    invoked via
-│   ├── blueprint.agent.md          #    Factory
-│   ├── implement.agent.md          #    handoffs
-│   ├── devops.agent.md             #    only)
-│   ├── qa.agent.md
-│   └── backlog.agent.md
-├── instructions/                   # 18 contextual instruction files
-├── skills/                         # 10 cross-agent skill protocols
-│   ├── Factory-build-verification/  # BVL: test execution + auto-fix
-│   ├── Factory-batch-interactivity/ # BIP: batch decisions
+CLAUDE.md                               # Root governance (always loaded by Claude Code)
+.claude/
+├── commands/                           # 8 Slash Commands (one per SDLC phase)
+│   ├── audit.md                        # /audit
+│   ├── setup.md                        # /setup
+│   ├── codesign.md                     # /codesign
+│   ├── blueprint.md                    # /blueprint
+│   ├── implement.md                    # /implement
+│   ├── devops.md                       # /devops
+│   ├── qa.md                           # /qa
+│   └── backlog.md                      # /backlog
+├── instructions/                       # 20 contextual instruction files
+├── skills/                             # 12 cross-cutting skill protocols
+│   ├── Factory-build-verification/     # BVL: test execution + auto-fix
 │   ├── Factory-incremental-persistence/ # IPP: atomic saves
-│   ├── Factory-codebase-inventory/ # CIP: DRY enforcement
-│   ├── Factory-governance-loading/ # Zero Trust recovery
-│   ├── Factory-iteration-model/    # Cascading invalidation
-│   ├── Factory-branching-strategy/ # SCM enforcement
-│   ├── Factory-agent-communication/ # ACP verbosity
-│   ├── Factory-commit-prompt/      # Conventional commits
-│   └── Factory-worklog/            # JSONL audit trail
-└── prompts/                        # 3 reusable prompt workflows
+│   ├── Factory-codebase-inventory/     # CIP: DRY enforcement
+│   ├── Factory-governance-loading/     # Zero Trust recovery
+│   ├── Factory-iteration-model/        # Cascading invalidation
+│   ├── Factory-branching-strategy/     # SCM enforcement
+│   ├── Factory-agent-communication/    # ACP verbosity
+│   ├── Factory-commit-prompt/          # Conventional commits
+│   ├── Factory-worklog/                # JSONL audit trail
+│   ├── Factory-memory-cache/           # MCP acceleration layer
+│   ├── Factory-coherence-validation/   # CVP cross-artifact checks
+│   └── Factory-backlog-next-task/      # Next-task resolver
+└── settings.json                       # Permission configuration
+.context/
+└── templates/                          # Materialization templates (SETUP --generate)
 ```
 
-### Project Structure (after `SETUP --generate`)
+### Project Structure (after `/setup --generate`)
 
 ```
 docs/
@@ -196,9 +204,9 @@ docs/
 │   ├── devops_plan.md              #   Infrastructure plan (DEVOPS)
 │   ├── adr/                        #   Architecture Decision Records
 │   └── qa/                         #   QA verification reports
-├── backlog/                        # Project tracking (BACKLOG agent — SSOT mode-dependent)
-│   ├── project-config.json         #   External mode: non-sensitive tool connection identifiers / field mappings (no tokens, no issue registry)
-│   ├── state.md                    #   Local mode: Feature issue registry + Kanban board
+├── backlog/                        # Project tracking (BACKLOG — SSOT mode-dependent)
+│   ├── project-config.json         #   External mode: non-sensitive connection params
+│   ├── state.md                    #   Local mode: Feature issue registry + Kanban
 │   └── issue-bodies/               #   Local mode: Issue body markdown files
 ├── ux/vision/                      # Global UX vision artifacts
 └── project_log/                    # Worklog, migration reports
@@ -212,9 +220,9 @@ tests/                              # Test infrastructure (config only — tests
 
 ### Scaffolding Philosophy
 
-**What `SETUP --generate` creates:** directory structure, configuration files (100% functional), type definitions, documentation, CI/CD pipelines, declarative schemas.
+**What `/setup --generate` creates:** directory structure, configuration files (100% functional), type definitions, documentation, CI/CD pipelines, declarative schemas.
 
-**What it does NOT create:** source code, components, test files, business logic, API routes — all generated by `IMPLEMENT --build` during TDD cycle.
+**What it does NOT create:** source code, components, test files, business logic, API routes — all generated by `/implement --build` during TDD cycle.
 
 This ensures CI/CD pipelines pass from day 1 (no stub code = no lint/compile errors).
 
@@ -229,7 +237,7 @@ All code must comply with `docs/constitution.md`:
 - **Security Policies**: OWASP Top 10, secret management, SAST/DAST
 - **Protected Code Zones**: RED ZONES prevent modification of framework/legacy code (requires ADR)
 
-Enforcement is **hybrid**: semantic validation (LLM-based pattern detection) + deterministic scripts (`dependency-allowlist.sh`, `security-scan.sh`, etc.). Mandatory checkpoints at `BLUEPRINT --approve`, `IMPLEMENT --build`, and `QA --verify`.
+Enforcement is **hybrid**: semantic validation (LLM-based pattern detection) + deterministic scripts (`dependency-allowlist.sh`, `security-scan.sh`, etc.). Mandatory checkpoints at `/blueprint --approve`, `/implement --build`, and `/qa --verify`.
 
 See [instructions.md - Governance](instructions.md#10-sistema-de-gobernanza-dinámica) for the complete validation system.
 
@@ -239,10 +247,10 @@ See [instructions.md - Governance](instructions.md#10-sistema-de-gobernanza-din�
 
 | Control | Tool | When |
 |---------|------|------|
-| **SAST** | Semgrep, custom patterns | `IMPLEMENT --build` (per phase, inline) |
-| **Secret scanning** | Gitleaks, regex patterns | `IMPLEMENT --build` + `QA --verify` |
-| **DAST** | OWASP ZAP | `QA --verify` (post-staging) |
-| **Dependency audit** | `dependency-allowlist.sh` | `QA --verify` (BLOCKING) |
+| **SAST** | Semgrep, custom patterns | `/implement --build` (per phase, inline) |
+| **Secret scanning** | Gitleaks, regex patterns | `/implement --build` + `/qa --verify` |
+| **DAST** | OWASP ZAP | `/qa --verify` (post-staging) |
+| **Dependency audit** | `dependency-allowlist.sh` | `/qa --verify` (BLOCKING) |
 | **Secret management** | `.env` (local) + Vault/cloud (prod) | Always — hardcoded secrets = BLOCK |
 
 ---
@@ -252,7 +260,7 @@ See [instructions.md - Governance](instructions.md#10-sistema-de-gobernanza-din�
 | Document | Purpose |
 |----------|---------|
 | **[instructions.md](instructions.md)** | Complete reference: installation, commands, state machines, governance, workflows |
-| **[.github/copilot-instructions.md](.github/copilot-instructions.md)** | Cross-cutting governance rules (loaded by all agents) |
+| **[CLAUDE.md](CLAUDE.md)** | Root governance rules (loaded by Claude Code in every conversation) |
 | **[docs/constitution.md](docs/constitution.md)** | Project constitution (generated by SETUP) |
 | **[EULA.md](EULA.md)** | License terms |
 
@@ -260,20 +268,17 @@ See [instructions.md - Governance](instructions.md#10-sistema-de-gobernanza-din�
 
 ## Troubleshooting
 
-**Agent not appearing in Copilot Chat?**
-- Verify VS Code 1.99+ with Copilot extension active
-- Check `.github/agents/factory.agent.md` exists
-- Restart VS Code (Ctrl+Shift+P → "Reload Window")
+**Slash commands not appearing?**
+- Verify Claude Code is installed and active (CLI: `claude`, or IDE extension)
+- Check `CLAUDE.md` exists in the repository root
+- Check `.claude/commands/` contains the command `.md` files
 
-**Agent stuck in `NEEDS_INFO`?**
+**Command stuck in `NEEDS_INFO`?**
 - Check the artifact frontmatter for pending questions
-- Use `@Factory [AGENT] --refine {ID} "Your answer"` to unblock
+- Use `/command --refine {ID} "Your answer"` to unblock
 
 **RED ZONE violation blocking build?**
-- Create an ADR: `@Factory BLUEPRINT --adr {ID} "Justification for protected code change"`
-
-**Rate limiting on Claude Opus 4.6?**
-- Automatic fallback to Claude Opus 4.5 (configured in agent model preferences)
+- Create an ADR: `/blueprint --adr {ID} "Justification for protected code change"`
 
 ---
 

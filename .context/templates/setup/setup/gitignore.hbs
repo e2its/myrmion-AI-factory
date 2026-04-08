@@ -20,14 +20,10 @@ config/secrets/*
 # These files contain agentic workflows, governance logic, and internal tooling.
 # They are synced from the framework via factory-sync.sh and must NOT be
 # committed to project repositories.
-# Copilot agent definitions, instructions, skills, prompts
-.github/agents/
-.github/instructions/
-.github/skills/
-.github/prompts/
-.github/copilot-instructions.md
-.github/workflow_sequence_v2.md
-.github/review_retry_tracking.md
+# Claude Code command definitions and framework context
+.claude/commands/
+.claude/settings.json
+CLAUDE.md
 # Framework context (templates, schemas, utils, governance snapshot)
 .context/
 # Framework sync tool (lives in framework, not in project)

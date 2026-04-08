@@ -594,4 +594,4 @@ No, maximum 1 active version at a time. Complete or cancel one before creating a
 - **Versioning Commands:** See `instructions.md` section "Agent Commands"
 - **Frontmatter Schema:** See templates in `.context/specs/`
 - **Workflow Log:** See `docs/project_log/workflow_log.json`
-- **Agent Implementation:** See agent definitions in `.github/agents/`
+- **Command Definitions:** See slash commands in `.claude/commands/`

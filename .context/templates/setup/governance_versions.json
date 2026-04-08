@@ -557,10 +557,10 @@
   },
   "framework_core": {
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
-    "_architecture": "Custom Agents (v9.0.0) — Hub-and-spoke: Factory (visible orchestrator, strict dispatcher) + 8 invisible specialist workers via handoffs. Agent definitions in .github/agents/, detailed instructions as .instructions.md in .github/instructions/, cross-cutting protocols as Skills in .github/skills/. Materialized rules as .instructions.md with applyTo in docs/rules/.",
+    "_architecture": "Claude Code (v10.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in docs/rules/.",
     "agents/factory.agent.md": {
       "version": "2.6.1",
-      "path": ".github/agents/factory.agent.md",
+      "path": ".claude/commands/ (orchestration via CLAUDE.md)",
       "role": "Visible orchestrator (strict dispatcher + BA mediator) — sole user-invokable agent. Routes intent to specialists via handoffs. Mediates BIP interactivity. NEVER performs sub-agent work.",
       "changelog": [
         "2.6.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -598,7 +598,7 @@
     },
     "agents/audit.agent.md": {
       "version": "2.0.2",
-      "path": ".github/agents/audit.agent.md",
+      "path": ".claude/commands/audit.md",
       "role": "Technical Due Diligence — independent of SDLC workflow.",
       "changelog": [
         "2.0.2: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
@@ -615,7 +615,7 @@
     },
     "agents/setup.agent.md": {
       "version": "2.2.1",
-      "path": ".github/agents/setup.agent.md",
+      "path": ".claude/commands/setup.md",
       "role": "Project scaffolding, governance materialization, upgrades, and inventory reconciliation.",
       "changelog": [
         "2.2.1: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
@@ -634,7 +634,7 @@
     },
     "agents/codesign.agent.md": {
       "version": "2.1.1",
-      "path": ".github/agents/codesign.agent.md",
+      "path": ".claude/commands/codesign.md",
       "role": "PO ↔ UX co-creation — specs, mocks, user journeys, vision.",
       "changelog": [
         "2.1.1: fix: replace Branch Strategy with Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
@@ -654,7 +654,7 @@
     },
     "agents/blueprint.agent.md": {
       "version": "2.0.1",
-      "path": ".github/agents/blueprint.agent.md",
+      "path": ".claude/commands/blueprint.md",
       "role": "ARCH ↔ QA co-design — architecture, contracts, test plans.",
       "changelog": [
         "2.0.1: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
@@ -671,7 +671,7 @@
     },
     "agents/implement.agent.md": {
       "version": "2.0.1",
-      "path": ".github/agents/implement.agent.md",
+      "path": ".claude/commands/implement.md",
       "role": "DEV ↔ REVIEW ↔ SEC triple-hat — code, tests, review, security.",
       "changelog": [
         "2.0.1: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
@@ -689,7 +689,7 @@
     },
     "agents/devops.agent.md": {
       "version": "2.0.1",
-      "path": ".github/agents/devops.agent.md",
+      "path": ".claude/commands/devops.md",
       "role": "Infrastructure & deployment — IaC, provision, deploy, rollback.",
       "changelog": [
         "2.0.1: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
@@ -705,7 +705,7 @@
     },
     "agents/qa.agent.md": {
       "version": "2.0.2",
-      "path": ".github/agents/qa.agent.md",
+      "path": ".claude/commands/qa.md",
       "role": "Post-staging verification — verify, reject, e2e.",
       "changelog": [
         "2.0.2: fix: add Pre-Command Protocol — Step -1 branching enforcement for direct invocations",
@@ -723,7 +723,7 @@
     },
     "agents/backlog.agent.md": {
       "version": "1.2.0",
-      "path": ".github/agents/backlog.agent.md",
+      "path": ".claude/commands/backlog.md",
       "role": "Project tracking & issue lifecycle management — board creation, feature issue planning, execution plan generation, board operations. Tool-agnostic via CLI/MCP adapter. Memory cache via /memories/repo/.",
       "changelog": [
         "1.2.0: feat: rename 'domain cluster' → 'epic' in Protocol 8 + add slice subdivision step (form slices by Aggregate Root, ≤3 features per slice)",
@@ -739,7 +739,7 @@
     },
     "instructions/Factory-audit-checklist.instructions.md": {
       "version": "2.0.0",
-      "path": ".github/instructions/Factory-audit-checklist.instructions.md",
+      "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
       "changelog": [
         "1.0.0: Extracted from AUDIT.AGENT.MD — execution phases A-D, master checklist (PR #101)",
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
@@ -747,7 +747,7 @@
     },
     "instructions/Factory-audit-complexity.instructions.md": {
       "version": "2.0.0",
-      "path": ".github/instructions/Factory-audit-complexity.instructions.md",
+      "path": ".claude/instructions/Factory-audit-complexity.instructions.md",
       "changelog": [
         "1.0.0: Extracted from AUDIT.AGENT.MD — COMP1 complexity analysis protocol (PR #101)",
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
@@ -755,7 +755,7 @@
     },
     "instructions/Factory-blueprint-design.instructions.md": {
       "version": "2.3.8",
-      "path": ".github/instructions/Factory-blueprint-design.instructions.md",
+      "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
         "2.3.8: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
         "2.3.7: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -776,7 +776,7 @@
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
       "version": "2.0.1",
-      "path": ".github/instructions/Factory-blueprint-validation.instructions.md",
+      "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
         "2.0.1: fix: add Phase 3.8 CVP coherence gate — validates CODESIGN↔BLUEPRINT artifact alignment before approval",
         "1.0.5: IPP reference — evolve Law 6 Atomic Persistence to reference IPP protocol (#112)",
@@ -790,7 +790,7 @@
     },
     "instructions/Factory-codesign-feature.instructions.md": {
       "version": "2.3.1",
-      "path": ".github/instructions/Factory-codesign-feature.instructions.md",
+      "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
         "2.3.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.3.0: feat: Interactive Mock Protocol (IMP v1.0.0) — stack-agnostic state toggles + journey-step navigation in mock.html, zero dependencies, data-state management, IMP engine as PROTECTED CODE; PR review fixes: navigate() fallback, CSS design tokens, auto-approval validation naming",
@@ -817,7 +817,7 @@
     },
     "instructions/Factory-codesign-vision.instructions.md": {
       "version": "2.2.0",
-      "path": ".github/instructions/Factory-codesign-vision.instructions.md",
+      "path": ".claude/instructions/Factory-codesign-vision.instructions.md",
       "changelog": [
         "2.2.0: feat: BIP pivotal question marking for Visual DNA Decision Batch",
         "2.1.0: feat: BIP Decision Batch for Visual DNA in Phase V.1",
@@ -827,7 +827,7 @@
     },
     "instructions/Factory-devops-configure.instructions.md": {
       "version": "2.0.2",
-      "path": ".github/instructions/Factory-devops-configure.instructions.md",
+      "path": ".claude/instructions/Factory-devops-configure.instructions.md",
       "changelog": [
         "2.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.0.1: fix: Frontend Resource Verification Gate — extract static_site fields from design.md Section 5, WARN when constitution declares frontend.framework but no static_site resource exists.",
@@ -846,7 +846,7 @@
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
       "version": "2.2.1",
-      "path": ".github/instructions/Factory-devops-provision-deploy.instructions.md",
+      "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
         "2.2.1: fix: Frontend deploy support — add Static Site / Frontend Resources IaC generation protocol (SPA + SSR variants, engine-driven via iac_descriptor — no hardcoded cloud mappings), include static_site in Tier 3 provisioning, add frontend build step to deploy Phase 3.",
         "2.2.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md — summarization-safe (INVARIANT 5) (#124)",
@@ -862,7 +862,7 @@
     },
     "instructions/Factory-implement-build.instructions.md": {
       "version": "2.2.9",
-      "path": ".github/instructions/Factory-implement-build.instructions.md",
+      "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
         "2.2.9: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
         "2.2.8: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -890,7 +890,7 @@
     },
     "instructions/Factory-implement-plan.instructions.md": {
       "version": "2.3.6",
-      "path": ".github/instructions/Factory-implement-plan.instructions.md",
+      "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
         "2.3.6: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
         "2.3.5: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -912,7 +912,7 @@
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
       "version": "2.1.6",
-      "path": ".github/instructions/Factory-implement-review-checks.instructions.md",
+      "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
         "2.1.6: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.1.5: fix: PR review — add FORMAT_NORMALIZATION map, lookup_expected_format() with glob precedence, LAST_PATH_SEGMENT normalization for qualified field names, negative test exemption (@schema-test-exempt annotation + invalid_ prefix convention).",
@@ -928,7 +928,7 @@
     },
     "instructions/Factory-qa-verify.instructions.md": {
       "version": "2.3.2",
-      "path": ".github/instructions/Factory-qa-verify.instructions.md",
+      "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
         "2.3.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.3.1: fix: add Full-Chain CVP gate — validates end-to-end traceability CODESIGN→BLUEPRINT→IMPLEMENT→QA before verification",
@@ -948,7 +948,7 @@
     },
     "instructions/Factory-backlog-operations.instructions.md": {
       "version": "1.2.0",
-      "path": ".github/instructions/Factory-backlog-operations.instructions.md",
+      "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
         "1.2.0: feat: rename 'Domain Clusters' → 'Epics' + add slice-sequential description in § 10 Execution Plan cross-reference",
         "1.0.7: fix: tech-agnostic verification/rollback (verify_issue, verify_board_placement, close_issue), --move step reorder (board_field_mapping before move_to_column), Final Verification Gate § 6.4 (#130)",
@@ -963,7 +963,7 @@
     },
     "instructions/Factory-backlog-execution-plan.instructions.md": {
       "version": "1.2.1",
-      "path": ".github/instructions/Factory-backlog-execution-plan.instructions.md",
+      "path": ".claude/instructions/Factory-backlog-execution-plan.instructions.md",
       "changelog": [
         "1.2.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.2.0: feat: aggregate-scoped Slices — subdivide epics with >3 features into Slices (≤3) grouped by shared Aggregate Root; form_slices() algorithm; slice-sequential pipeline; plan template with slice sections; cache tracks active_slice; guardrails 7-9 (slice size cap, ordering, completeness)",
@@ -973,7 +973,7 @@
     },
     "instructions/Factory-backlog-next-task.instructions.md": {
       "version": "1.2.0",
-      "path": ".github/instructions/Factory-backlog-next-task.instructions.md",
+      "path": ".claude/instructions/Factory-backlog-next-task.instructions.md",
       "changelog": [
         "1.2.0: feat: rename 'cluster' → 'epic' + add 'slice' field in Step 1.4 extraction — Agile-standard terminology with aggregate-scoped slices",
         "1.1.2: fix: enforce Step 1.4.5 on cache fast path, align SSOT precedence (execution-plan for ordering; issue body for command/details), local mode body_path resolution via docs/backlog/state.md, and adapter-based ISSUE_READ resolution from docs/backlog/tool-adapter.md",
@@ -984,7 +984,7 @@
     },
     "instructions/Factory-setup-discovery.instructions.md": {
       "version": "2.6.4",
-      "path": ".github/instructions/Factory-setup-discovery.instructions.md",
+      "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
         "2.6.4: fix: VVP resolution method renamed from fetch_webpage to web/fetch (actual agent tool name) + curl fallback",
         "2.6.3: fix: Q26 deny list split into contextual categories (crypto-universal, dynamic-eval, frontend-js) instead of universal list that assumed all runtimes have eval/jQuery",
@@ -1002,7 +1002,7 @@
     },
     "instructions/Factory-setup-materialization.instructions.md": {
       "version": "2.4.7",
-      "path": ".github/instructions/Factory-setup-materialization.instructions.md",
+      "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
         "2.4.7: fix: tool-adapter abstract ops list — add verify_issue, verify_board_placement, close_issue for verification/rollback support (#130)",
         "2.4.6: fix: stack-agnostic scaffolding — Step 2 (Backend) and Step 3 (Frontend) now have explicit conditional guards (skip if backend.runtime/frontend.framework == None)",
@@ -1024,7 +1024,7 @@
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
       "version": "2.0.0",
-      "path": ".github/instructions/Factory-setup-upgrade.instructions.md",
+      "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
         "1.0.1: Governance snapshot regeneration — Step 4 Finalization generates .context/governance_snapshot.md after upgrade (#112)",
         "1.0.0: Extracted from SETUP.AGENT.md — upgrade, rollback, migrate-legacy (PR #101)",
@@ -1033,7 +1033,7 @@
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
       "version": "2.2.2",
-      "path": ".github/instructions/Factory-protocol-smart-redirect.instructions.md",
+      "path": ".claude/instructions/Factory-protocol-smart-redirect.instructions.md",
       "changelog": [
         "2.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.2.1: fix: clarify internal cache protocol naming to FMCP (Factory Memory Cache Protocol) to avoid confusion with external MCP standard references",
@@ -1052,7 +1052,7 @@
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
       "version": "2.5.1",
-      "path": ".github/instructions/Factory-protocol-iop-intent-map.instructions.md",
+      "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md",
       "changelog": [
         "2.5.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.5.0: feat: add 'epic' patterns to execution plan intent regex — backward-compatible with 'cluster' patterns",
@@ -1069,9 +1069,9 @@
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
       ]
     },
-    "copilot-instructions.md": {
-      "version": "9.11.2",
-      "path": ".github/copilot-instructions.md",
+    "CLAUDE.md": {
+      "version": "10.0.0",
+      "path": "CLAUDE.md",
       "changelog": [
         "9.11.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "9.11.1: fix: BACKLOG Execution Plan description reflects parallel slice exception from guardrail 9",
@@ -1144,7 +1144,7 @@
         "2.2.1: fix: PR review — Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
         "2.2.0: feat: ## Verification Commands section in snapshot generation — BVL test/lint/typecheck/build commands auto-derived from stack config (#124)",
         "2.1.0: feat: setup.md dual-hash validation — setup_hash alongside constitution_hash, ## Setup Configuration in snapshot generation, stale-source diagnostics (#124)",
-        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial governance-loading protocol"
       ]
     },
@@ -1153,7 +1153,7 @@
       "type": "skill",
       "changelog": [
         "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial incremental-persistence protocol"
       ]
     },
@@ -1161,7 +1161,7 @@
       "version": "2.0.0",
       "type": "skill",
       "changelog": [
-        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial agent-communication protocol"
       ]
     },
@@ -1171,7 +1171,7 @@
       "changelog": [
         "2.1.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.1.0: feat: CIP Consultation Gate Step 0 — inventory cache fast path via /memories/repo/codebase-inventory-cache.md (MCP v1.0.0), write-through on cache miss",
-        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial codebase-inventory protocol"
       ]
     },
@@ -1180,7 +1180,7 @@
       "type": "skill",
       "changelog": [
         "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.0.0: BREAKING — migrated from .instructions.md to .github/skills/ format",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial iteration-model protocol"
       ]
     },

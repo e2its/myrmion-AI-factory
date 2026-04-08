@@ -17,10 +17,10 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - '.github/agents/**'
-      - '.github/instructions/**'
-      - '.github/copilot-instructions.md'
-      - '.github/workflow_sequence_v2.md'
+      - '.claude/commands/**'
+      - '.claude/instructions/**'
+      - '.claude/skills/**'
+      - 'CLAUDE.md'
       - '.context/templates/setup/governance_versions.json'
 
 permissions:
