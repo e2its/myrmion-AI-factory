@@ -25,6 +25,8 @@ SETUP (one-time) → CODESIGN (PO↔UX) → BLUEPRINT (ARCH↔QA) → IMPLEMENT 
 
 ## Pre-Action Gate
 
+**Enforced deterministically** via `.claude/settings.json` PreToolUse hook — blocks `Edit`/`Write` on protected branches before any tool call executes.
+
 BEFORE any file modification:
 1. Ensure you're on a feature branch (BLOCK if on main/master/develop/release/hotfix).
 2. Branch naming: `{type}/{ID}-{slug}` (feature, bugfix, hotfix, docs).
