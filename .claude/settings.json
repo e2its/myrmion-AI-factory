@@ -6,7 +6,30 @@
         "hooks": [
           {
             "type": "command",
-            "command": "branch=$(git branch --show-current 2>/dev/null || echo ''); if [ -z \"$branch\" ]; then exit 0; fi; if echo \"$branch\" | grep -qE '^(main|master|develop|release/|hotfix)'; then echo \"BLOCKED: on protected branch '$branch'. Create a feature branch first:\"; echo \"  git checkout -b feature/ID-slug\"; exit 1; fi"
+            "command": "bash .claude/hooks/check-branch-protection.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-concurrency-lock.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-completion-gate.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/release-concurrency-lock.sh"
           }
         ]
       }

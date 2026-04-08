@@ -57,6 +57,12 @@ obj/
 logs/
 
 # ================================================
+# CLAUDE CODE RUNTIME ARTIFACTS
+# ================================================
+# Session concurrency lock files (per-branch, transient)
+.context/locks/
+
+# ================================================
 # FEATURE WORKFLOW ARTIFACTS (AGENTIC SDLC)
 # ================================================
 # QA reports are timestamped logs, not source-controlled
