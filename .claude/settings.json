@@ -11,6 +11,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-concurrency-lock.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-governance-drift.sh"
           }
         ]
       },
