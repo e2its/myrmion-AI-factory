@@ -61,7 +61,7 @@ Verify from **artifacts** (branch name, files, git state) — NEVER from convers
 
 Read the referenced SKILL.md file when executing each protocol. The protocol files contain the detailed steps.
 
-## Governance Rules
+## Living Governance Catalogs
 
 Beyond `docs/rules/*.instructions.md` (materialized by SETUP), the following living catalogs are governance artifacts:
 - **Defect Prevention Catalog** (`docs/rules/defect-prevention.md`): Runtime defect patterns invisible to static gates. Materialized by SETUP with stack-specific starter DCs. Extended via Discovery Protocol during development. Consumed by DEV hat (pre-write check) and REVIEW hat (Check #2d).

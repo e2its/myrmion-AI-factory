@@ -23,12 +23,12 @@ The goal is **continuous process improvement**: every runtime defect discovered 
 
 ## The Defect Prevention Catalog
 
-Each entry follows the format: **Pattern | Why it breaks | Prevention Check (DEV Hat)**. The authoritative detailed search methodology lives in `.claude/skills/Factory-preventive-sweep/SKILL.md`.
+Each entry includes: **Name, Applicable When** (scope condition), **Review Severity** (BLOCKER or WARNING for REVIEW hat Check #2d), and **Prevention Check** (what DEV hat verifies before writing code). The authoritative detailed search methodology lives in `.claude/skills/Factory-preventive-sweep/SKILL.md`.
 
 > **SETUP materialization note:** The starter DCs below were selected based on the project's stack configuration. Extend this catalog with project-specific discoveries using the Discovery Protocol (Section 3).
 
-| DC | Name | Applicable When | Prevention Check (DEV Hat) |
-|----|------|-----------------|---------------------------|
+| DC | Name | Applicable When | Review Severity | Prevention Check (DEV Hat) |
+|----|------|-----------------|-----------------|---------------------------|
 {{DC_ENTRIES}}
 
 ---

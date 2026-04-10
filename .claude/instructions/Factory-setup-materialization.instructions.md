@@ -425,8 +425,9 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     }
 
   # Materialize: render DC entries into the template table format
+  # Table columns MUST match the catalog schema: DC | Name | Applicable When | Review Severity | Prevention Check
   FOR EACH dc IN dc_entries:
-    RENDER as: "| DC-{dc_number} | {dc.name} | {dc.applicable_when} | {dc.prevention} |"
+    RENDER as: "| DC-{dc_number} | {dc.name} | {dc.applicable_when} | {dc.review_severity} | {dc.prevention} |"
     dc_number += 1
   REPLACE {{DC_ENTRIES}} with rendered rows
   WRITE to docs/rules/defect-prevention.md (NOT .instructions.md — this is a catalog, not a rule file)

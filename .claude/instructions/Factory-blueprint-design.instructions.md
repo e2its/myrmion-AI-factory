@@ -339,7 +339,7 @@ infrastructure_needs:
 FUNCTION generate_frontend_ui_contract(FEATURE_ID, mock_html, vision_artifacts):
   # Produces design.md Section 6 with 6 sub-sections.
   # The contract maps mock.html visual design → implementation-ready specifications.
-  # IMPLEMENT Phase A.0 materializes the CSS foundation from this contract.
+  # IMPLEMENT Phase B.0 / Step 0c.1 materializes the CSS foundation from this contract.
   # IMPLEMENT Phase B builds components using this contract's mapping tables.
 ```
 

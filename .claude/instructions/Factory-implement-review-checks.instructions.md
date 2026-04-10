@@ -151,8 +151,13 @@ CONSTRAINT_IDS: [GOV-SHARED-{MISSING|INLINE|UNREG}-{N}]
 
 VERIFY:
   # Sub-check 1: seed schema alignment guardrail passes
-  seed_test_cmd = resolve_seed_alignment_test_command(commands)
-  IF seed_test_cmd IS NOT NULL:
+  # Resolve seed alignment tests from the project's test suite via BVL commands.
+  # Uses GLOB to find test files matching seed alignment naming convention,
+  # then runs them via BVL's resolve_verification_commands().test_single.
+  seed_alignment_tests = GLOB("tests/**/test_seed_*alignment*")
+  IF seed_alignment_tests.length > 0:
+    commands = resolve_verification_commands()  # From BVL
+    seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_alignment_tests})
     RUN seed_test_cmd
     IF exit_code != 0:
       BLOCKER [GOV-SEED-ALIGNMENT-SCHEMA]:
@@ -160,8 +165,9 @@ VERIFY:
          migration schemas. See test output for specific defects."
 
   # Sub-check 2: deployment isolation guardrail passes
-  isolation_test_cmd = resolve_seed_isolation_test_command(commands)
-  IF isolation_test_cmd IS NOT NULL:
+  seed_isolation_tests = GLOB("tests/**/test_seed_*isolation*")
+  IF seed_isolation_tests.length > 0:
+    isolation_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_isolation_tests})
     RUN isolation_test_cmd
     IF exit_code != 0:
       BLOCKER [GOV-SEED-ALIGNMENT-DEPLOY]:
@@ -197,22 +203,23 @@ VERIFY:
     SKIP  # Project doesn't use DPC (pre-SETUP or opted out)
 
   READ docs/rules/defect-prevention.md → dc_catalog
+  # Catalog columns: DC | Name | Applicable When | Review Severity | Prevention Check
 
   FOR EACH modified_file IN phase_files:
     FOR EACH dc IN dc_catalog:
       IF modified_file SCOPE INTERSECTS dc.applicable_when:
-        # Check if the DC pattern is present in the modified file
-        IF dc.pattern DETECTED in modified_file:
+        # Verify modified code satisfies the documented prevention check
+        IF NOT CHANGE_SATISFIES(dc.prevention_check, modified_file):
           IF dc.review_severity == "BLOCKER":
             BLOCKER [GOV-DC-{dc.number}]:
-              "Known defect pattern DC-{dc.number} ({dc.name}) detected in {file}:{line}.
-               Prevention: {dc.prevention_check}.
+              "Defect prevention check DC-{dc.number} ({dc.name}) not satisfied in {file}:{line}.
+               Required prevention: {dc.prevention_check}.
                Reference: docs/rules/defect-prevention.md"
           ELSE:
             WARNING [GOV-DC-{dc.number}]:
-              "Potential defect pattern DC-{dc.number} ({dc.name}) in {file}:{line}. Verify."
+              "Potential defect pattern DC-{dc.number} ({dc.name}) in {file}:{line}. Verify prevention: {dc.prevention_check}."
 
-SEVERITY: per-DC (BLOCKER or WARNING as defined in catalog)
+SEVERITY: per-DC (BLOCKER or WARNING as defined in catalog Review Severity column)
 CONSTRAINT_IDS: [GOV-DC-{N}]
 REFERENCE: docs/rules/defect-prevention.md
 ```

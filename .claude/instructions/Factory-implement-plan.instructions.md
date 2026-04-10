@@ -383,7 +383,9 @@ TASKS:
     - Type generation from OpenAPI/GraphQL schemas
   
   B.2: Shared UI Primitives (from design.md Section 6.4 shared_primitives)
-    # SOURCE: design.md Section 6.4 build_order_contract → Phase B.2 = shared primitives
+    # SOURCE: design.md Section 6.4 build_order_contract → Blueprint Phase B.1 = shared primitives
+    # NOTE: In this IMPLEMENT plan, shared primitives are Phase B.2 because B.1 is
+    # reserved for the Contract Consumption Gate prerequisite.
     - For each primitive (Button, Input, Alert, Card, etc.):
       a. READ Section 6.3 mapping table for EXACT CSS framework classes
       b. READ component_library.html for API reference (props, variants)

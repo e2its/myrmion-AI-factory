@@ -401,7 +401,13 @@ IF frontend.framework != "None":
     # AUTO-FIX: Materialize missing foundation from style_guide.html + design.md Section 6
     FOR EACH file IN missing:
       MATERIALIZE_CSS_FOUNDATION(file, style_guide.html)
-    LOG: "CSS Foundation auto-materialized"
+
+    # Re-verify after auto-materialization
+    still_missing = RECHECK(REQUIRED_FILES)
+    IF still_missing.length > 0:
+      BLOCK: "CSS Foundation could not be materialized — {still_missing.length} file(s) still missing. Cannot proceed to Phase B."
+      STOP
+    LOG: "CSS Foundation auto-materialized successfully"
   ELSE:
     LOG: "CSS Foundation Gate: All foundation files verified"
 
@@ -480,13 +486,14 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks:
   FOR EACH task IN phase.unchecked_tasks:
     # DEFECT PREVENTION CHECK (per-task, MANDATORY)
     # DEV Hat consults the Defect Prevention Catalog BEFORE writing code.
+    # Catalog columns: DC | Name | Applicable When | Review Severity | Prevention Check
     IF FILE_EXISTS("docs/rules/defect-prevention.md"):
       dc_catalog = READ("docs/rules/defect-prevention.md")
       FOR EACH dc IN dc_catalog:
         IF task.scope INTERSECTS dc.applicable_when:
-          VERIFY planned code does NOT introduce dc.pattern
-          IF pattern detected:
-            REWRITE to use documented prevention approach
+          VERIFY planned code satisfies dc.prevention_check
+          IF prevention check NOT satisfied:
+            REWRITE to follow the documented prevention approach
             LOG: "DC-{dc.number} prevented: {dc.name}"
     
     EXECUTE DEV_HAT_PROTOCOL(task)

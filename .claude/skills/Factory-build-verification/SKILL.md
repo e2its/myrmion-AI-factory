@@ -29,7 +29,7 @@ FUNCTION defect_discovery_hook(errors, task, attempt):
       pattern_signature = CLASSIFY_ERROR_PATTERN(errors)
 
       FOR EACH dc IN existing_dcs:
-        IF pattern_signature MATCHES dc.pattern:
+        IF pattern_signature SEMANTICALLY_MATCHES dc.applicable_when AND dc.prevention_check:
           LOG: "Known DC-{dc.number} ({dc.name}) — already cataloged"
           RETURN  # Already known, no action needed
 
@@ -506,10 +506,15 @@ FUNCTION full_verification_gate(FEATURE_ID):
       RETURN BLOCKED
 
   # 6. Seed alignment check (v1.3.0 — conditional)
+  # Seed alignment tests are resolved from the project's test suite via commands.test_single.
+  # The resolver scans for test files matching the seed alignment naming convention
+  # (e.g., test_seed_schema_alignment, test_seed_deployment_isolation) under the project's
+  # integration test directory. Stack-agnostic: uses BVL's test runner (pytest, jest, go test, etc.)
   feature_files = COLLECT_ALL_SOURCE_FILES(FEATURE_ID)
   IF feature_files MATCHES seed_script_pattern OR feature_files MATCHES migration_pattern:
-    seed_test_cmd = resolve_seed_alignment_test_command(commands)
-    IF seed_test_cmd IS NOT NULL:
+    seed_test_files = GLOB("tests/**/test_seed_*" OR "tests/**/*seed*alignment*")
+    seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_test_files})
+    IF seed_test_cmd IS NOT NULL AND seed_test_files.length > 0:
       result = RUN_IN_TERMINAL(seed_test_cmd, timeout: 60000)
       results.seed_alignment = {status: result.exit_code == 0 ? "ALIGNED" : "DRIFT"}
       IF result.exit_code != 0:
