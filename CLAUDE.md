@@ -46,16 +46,25 @@ Verify from **artifacts** (branch name, files, git state) — NEVER from convers
 | Protocol | Reference | Purpose |
 |----------|-----------|---------|
 | Incremental Persistence (IPP) | `.claude/skills/Factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
-| Build Verification (BVL) | `.claude/skills/Factory-build-verification/SKILL.md` | Test execution, error parsing, auto-fix (max 3), Full Verification Gate |
+| Build Verification (BVL) | `.claude/skills/Factory-build-verification/SKILL.md` | Test execution, error parsing, auto-fix (max 3), Full Verification Gate, Defect Discovery Hook |
 | Codebase Inventory (CIP) | `.claude/skills/Factory-codebase-inventory/SKILL.md` | DRY enforcement via inventory, 4-criteria matching |
 | Iteration Model | `.claude/skills/Factory-iteration-model/SKILL.md` | Cascade invalidation on upstream changes |
-| Coherence Validation (CVP) | `.claude/skills/Factory-coherence-validation/SKILL.md` | Cross-artifact traceability checks |
+| Coherence Validation (CVP) | `.claude/skills/Factory-coherence-validation/SKILL.md` | Cross-artifact traceability checks, 3 modes (GATE/AUTO/ON_DEMAND) |
+| Preventive Sweep | `.claude/skills/Factory-preventive-sweep/SKILL.md` | Post-deploy runtime defect sweep, 4-agent parallel search |
 | Branching & SCM | `.claude/skills/Factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
 | Commit Prompt | `.claude/skills/Factory-commit-prompt/SKILL.md` | Conventional commit generation |
 | Worklog | `.claude/skills/Factory-worklog/SKILL.md` | Per-feature JSONL audit trail |
 | Next-Task Resolver | `.claude/skills/Factory-backlog-next-task/SKILL.md` | Execution plan sequencing |
+| Governance Loading (GCRP) | `.claude/skills/Factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |
+| Memory Cache (FMCP) | `.claude/skills/Factory-memory-cache/SKILL.md` | Cross-command performance caching |
+| Agent Communication (ACP) | `.claude/skills/Factory-agent-communication/SKILL.md` | Inter-agent output structuring |
 
 Read the referenced SKILL.md file when executing each protocol. The protocol files contain the detailed steps.
+
+## Governance Rules
+
+Beyond `docs/rules/*.instructions.md` (materialized by SETUP), the following living catalogs are governance artifacts:
+- **Defect Prevention Catalog** (`docs/rules/defect-prevention.md`): Runtime defect patterns invisible to static gates. Materialized by SETUP with stack-specific starter DCs. Extended via Discovery Protocol during development. Consumed by DEV hat (pre-write check) and REVIEW hat (Check #2d).
 
 ## Post-Action
 

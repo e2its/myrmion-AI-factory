@@ -404,6 +404,16 @@ Phase 5: Post-Deploy Verification
   IF verification passes:
     GENERATE docs/spec/{FEATURE_ID}/devops/deployment_report_{timestamp}.md
     NOTIFY: "Deployment successful to {ENV}"
+    
+    # Preventive Sweep Advisory (first deploy detection)
+    # If this is the FIRST deployment of the feature to ANY environment,
+    # flag the deployment report with sweep_recommended: true.
+    # QA --verify checks this flag to trigger the Preventive Sweep.
+    # See: .claude/skills/Factory-preventive-sweep/SKILL.md
+    previous_deploys = GLOB("docs/spec/{FEATURE_ID}/devops/deployment_report_*.md")
+    IF previous_deploys.count <= 1:  # This is the first (or only) report
+      SET deployment_report.sweep_recommended: true
+      LOG: "First deploy detected — preventive sweep recommended before QA --verify"
 
 ### Deployment Report Template (`deployment_report_{{timestamp}}.md`)
 

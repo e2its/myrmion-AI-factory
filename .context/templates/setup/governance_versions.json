@@ -1246,6 +1246,23 @@
       ],
       "path": ".claude/skills/Factory-backlog-next-task/SKILL.md"
     },
+    "skills/Factory-preventive-sweep/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "Preventive Defect Sweep — post-deploy runtime validation with 4 parallel agents, searches all cataloged defect classes invisible to static gates.",
+      "changelog": [
+        "1.0.0: feat: initial — 4-agent parallel strategy, consolidation protocol, report template, governance integration with defect-prevention.md"
+      ],
+      "path": ".claude/skills/Factory-preventive-sweep/SKILL.md"
+    },
+    "rules/defect-prevention.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/defect-prevention.md",
+      "changelog": [
+        "1.0.0: feat: initial — Defect Prevention Catalog template with {{DC_ENTRIES}} placeholder. SETUP materializes stack-specific starter DCs. Process: DEV pre-write check, REVIEW Check #2d, Discovery Protocol."
+      ]
+    },
     "scripts/factory-sync.sh": {
       "version": "1.1.0",
       "path": "scripts/factory-sync.sh",

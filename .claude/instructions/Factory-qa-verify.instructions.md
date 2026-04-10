@@ -240,6 +240,18 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   checklist.push("- [ ] [QA-REG-2]: Integration test suite execution")
   checklist.push("- [ ] [QA-REG-3]: Contract test suite execution")
 
+  # Static analysis tools (defense in depth — v2.2.0)
+  # QA independently re-executes lint/typecheck/SAST even though IMPLEMENT SEC hat
+  # already ran them. This catches regressions introduced between IMPLEMENT and QA,
+  # and eliminates trust dependency on upstream agent execution.
+  commands = resolve_verification_commands()  # From BVL
+  IF commands.lint IS NOT NULL:
+    checklist.push("- [ ] [QA-STATIC-1]: Lint verification (independent re-execution)")
+  IF commands.typecheck IS NOT NULL:
+    checklist.push("- [ ] [QA-STATIC-2]: Type check verification (independent re-execution)")
+  IF commands.sast IS NOT NULL:
+    checklist.push("- [ ] [QA-STATIC-3]: SAST tool verification (independent re-execution)")
+
   # DAST checks (conditional)
   IF DAST_TOOLS != "Skip":
     checklist.push("- [ ] [QA-DAST-1]: DAST baseline scan execution")
@@ -299,7 +311,50 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
 - Classify failures: DIRECT_FAILURE, INDIRECT_REGRESSION, FLAKY, REGRESSION
 - Direct or indirect failures → REJECT | Flaky only → WARN | All pass → MARK `[QA-REG-1]`, `[QA-REG-2]`, `[QA-REG-3]` [x]
 
-**5b-5g. DAST Phase (🛡️ SEC hat, v8.0.0):**
+**5b. Static Analysis Tools (Defense in Depth — v2.2.0):**
+
+QA independently re-executes lint, typecheck, and SAST tools. This is NOT redundant — it catches:
+- Code changes made after IMPLEMENT (manual edits, formatter runs)
+- SAST false negatives from IMPLEMENT SEC hat (different tool versions, config drift)
+- Regressions introduced by merge conflicts or cherry-picks
+
+```yaml
+commands = resolve_verification_commands()  # From BVL (Factory-build-verification/SKILL.md)
+
+# Lint
+IF commands.lint IS NOT NULL:
+  lint_result = RUN_IN_TERMINAL(commands.lint, timeout: 30000)
+  IF lint_result.exit_code == 0:
+    MARK [QA-STATIC-1] [x]
+  ELSE:
+    MARK [QA-STATIC-1] [!] FAILED
+    # Non-blocking for verdict (WARN) — but documented
+
+# Type check
+IF commands.typecheck IS NOT NULL:
+  type_result = RUN_IN_TERMINAL(commands.typecheck, timeout: 60000)
+  IF type_result.exit_code == 0:
+    MARK [QA-STATIC-2] [x]
+  ELSE:
+    MARK [QA-STATIC-2] [!] FAILED
+    # BLOCKING — type errors indicate broken code
+    ADD_BLOCKER: "Type check failed: {type_result.summary}"
+
+# SAST
+IF commands.sast IS NOT NULL:
+  sast_result = RUN_IN_TERMINAL(commands.sast, timeout: 120000)
+  sast_findings = parse_sast_results(sast_result.output, commands)  # From BVL
+
+  IF sast_findings.critical > 0 OR sast_findings.high > 0:
+    MARK [QA-STATIC-3] [!] FAILED
+    ADD_BLOCKER: "SAST found {sast_findings.critical} CRITICAL + {sast_findings.high} HIGH"
+  ELIF sast_findings.medium > 0:
+    MARK [QA-STATIC-3] [x]  # Non-blocking — documented
+  ELSE:
+    MARK [QA-STATIC-3] [x]
+```
+
+**5c-5h. DAST Phase (SEC hat, v8.0.0):**
 - Switch to SEC personality (paranoid, Zero Trust)
 - Pre-scan: Verify TARGET_URL, Docker, ZAP config
 - Execute: `scripts/security-scan.sh --dast` (baseline), `--dast-full`, or `--dast-api`

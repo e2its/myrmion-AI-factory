@@ -370,6 +370,49 @@ IF frontend.framework != "None":
   # ux_context (or raw HTML content) is available to Phase B (DEV Hat + REVIEW Hat)
 ```
 
+#### Step 0c.1: CSS Foundation Gate (v12.1.0 — BLOCKING for Phase B)
+
+```yaml
+# PURPOSE: Verify that the CSS toolchain and design tokens are materialized
+# BEFORE entering Phase B. If missing, Phase B components render unstyled.
+# This gate makes the Phase B.0 plan tasks actionable at build time.
+
+IF frontend.framework != "None":
+  # 1. Detect CSS framework from style_guide.html or constitution.md
+  css_framework = DETECT_CSS_FRAMEWORK():
+    IF style_guide.html OR constitution.md defines css_framework: USE that
+    ELSE: infer from project config files (postcss, tailwind, etc.)
+
+  # 2. Verify CSS foundation files exist
+  frontend_root = DETECT_FRONTEND_ROOT()
+  REQUIRED_FILES = COMPUTE_REQUIRED_FILES(css_framework):
+    # Each CSS framework has its own required file set
+    # Derived from the detected framework — not hardcoded per technology
+
+  missing = []
+  FOR EACH required_file IN REQUIRED_FILES:
+    IF NOT FILE_EXISTS(required_file.path):
+      missing.push(required_file)
+    ELIF required_file.contains_check AND NOT FILE_CONTAINS(required_file.path, required_file.contains_check):
+      missing.push(required_file)
+
+  IF missing.length > 0:
+    WARN: "CSS Foundation incomplete — {missing.length} file(s) missing or misconfigured"
+    # AUTO-FIX: Materialize missing foundation from style_guide.html + design.md Section 6
+    FOR EACH file IN missing:
+      MATERIALIZE_CSS_FOUNDATION(file, style_guide.html)
+    LOG: "CSS Foundation auto-materialized"
+  ELSE:
+    LOG: "CSS Foundation Gate: All foundation files verified"
+
+  # 3. Verify design tokens are present
+  globals = READ("{frontend_root}/*/globals.css" OR equivalent)
+  IF NOT globals CONTAINS design token entries:
+    WARN: "CSS entry point exists but has no design tokens"
+    EXTRACT tokens from style_guide.html OR design.md Section 6.1
+    INJECT tokens into CSS entry point
+```
+
 #### Step 0d: DRY Reuse Gate (CIP v1.0.0 — MANDATORY, DO NOT SKIP)
 ```yaml
 # CIP GATE — Execute BEFORE any code generation. This prevents duplicating existing components.
@@ -433,8 +476,19 @@ IF dev_plan.md has delta_mode: true:
 ```yaml
 FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks:
   
-  # DEV Hat: Implement
+  # DEV Hat: Implement (with Defect Prevention Check v1.2.0)
   FOR EACH task IN phase.unchecked_tasks:
+    # DEFECT PREVENTION CHECK (per-task, MANDATORY)
+    # DEV Hat consults the Defect Prevention Catalog BEFORE writing code.
+    IF FILE_EXISTS("docs/rules/defect-prevention.md"):
+      dc_catalog = READ("docs/rules/defect-prevention.md")
+      FOR EACH dc IN dc_catalog:
+        IF task.scope INTERSECTS dc.applicable_when:
+          VERIFY planned code does NOT introduce dc.pattern
+          IF pattern detected:
+            REWRITE to use documented prevention approach
+            LOG: "DC-{dc.number} prevented: {dc.name}"
+    
     EXECUTE DEV_HAT_PROTOCOL(task)
     # BVL: task_verification_loop runs inside TDD Cycle step 4 (VERIFY)
     # Task marked [x] only if BVL returns GREEN or SKIPPED
@@ -1471,4 +1525,50 @@ FUNCTION persist_new_tasks(dev_plan_path, new_tasks, task_type):
     updated_at: "{ISO_8601}"
   SAVE(dev_plan_path)
   LOG: "Persisted {new_tasks.length} [{task_type}.*] tasks to dev_plan.md"
+```
+
+---
+
+## DEFECT DISCOVERY PROTOCOL (v1.3.0 — AUTOMATIC)
+
+> When IMPLEMENT detects a runtime defect NOT in the Defect Prevention Catalog, the agent MUST propose cataloging it. This closes the improvement loop: discover→catalog→prevent.
+> Works with BVL v1.4.0 Defect Discovery Hook.
+
+```yaml
+FUNCTION defect_discovery_check(error, context):
+  # Triggered when:
+  # 1. BVL task_verification_loop returns FLAGGED with a recurring pattern
+  # 2. A fix reveals a defect class that appears in 2+ files
+  # 3. A runtime error during deploy/visual testing doesn't match any DC
+
+  IF NOT FILE_EXISTS("docs/rules/defect-prevention.md"):
+    RETURN  # No catalog yet — project may not use DPC
+
+  catalog = READ("docs/rules/defect-prevention.md")
+  existing_dcs = PARSE_DC_TABLE(catalog)
+
+  # Check if error pattern matches any existing DC
+  FOR EACH dc IN existing_dcs:
+    IF error.pattern SEMANTICALLY_MATCHES dc.prevention_check:
+      LOG: "Known DC-{dc.number} ({dc.name}) — already cataloged"
+      RETURN
+
+  # Novel pattern — propose to user
+  next_dc_number = existing_dcs.length + 1
+  PROPOSE_TO_USER:
+    "Recurring defect pattern detected that is NOT in the Defect Prevention Catalog.
+     Pattern: {error.summary}
+     Affected files: {error.files}
+     Suggested DC-{next_dc_number}: {suggested_name}
+     Suggested prevention: {suggested_prevention_check}
+
+     Catalog this as a new DC? (yes/no)"
+
+  IF user_approves:
+    # Follow Discovery Protocol from defect-prevention.md Section 3:
+    # 1. Add entry to docs/rules/defect-prevention.md
+    # 2. Add search methodology to Factory-preventive-sweep/SKILL.md
+    # 3. Bump version in governance_versions.json
+    # 4. Save feedback memory for cross-session awareness
+    EXECUTE_DISCOVERY_PROTOCOL(next_dc_number, suggested_name, error)
 ```

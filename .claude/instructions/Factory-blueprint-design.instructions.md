@@ -328,6 +328,169 @@ infrastructure_needs:
     notes: "Any special considerations (offline sync states, temporal data, etc.)"
 ```
 
+### Section 6: Frontend UI Contract (MANDATORY — if frontend.framework != "None") (v2.4.0)
+
+> **Purpose:** Bridge the gap between UX Vision artifacts (mock.html, style_guide.html, component_library.html) and IMPLEMENT Phase B. Without this section, developers build components with generic utility classes instead of reproducing the mock's precise visual design. This section produces an actionable, machine-readable contract that Phase B MUST follow.
+>
+> **Prerequisites:** UX Vision APPROVED, mock.html APPROVED, component_library.html loaded.
+> **When to generate:** After completing Section 5 (Infrastructure Needs), before Section 7 (GCD).
+
+```yaml
+FUNCTION generate_frontend_ui_contract(FEATURE_ID, mock_html, vision_artifacts):
+  # Produces design.md Section 6 with 6 sub-sections.
+  # The contract maps mock.html visual design → implementation-ready specifications.
+  # IMPLEMENT Phase A.0 materializes the CSS foundation from this contract.
+  # IMPLEMENT Phase B builds components using this contract's mapping tables.
+```
+
+#### 6.1 Design Token Catalog
+
+Read the `:root {}` block from `mock.html` and classify every CSS custom property:
+
+```yaml
+token_categories:
+  SCALE_TOKEN: color palette values (e.g., --primary-950..100, --accent-*)
+  SEMANTIC_TOKEN: purpose-named aliases (e.g., --bg-page, --bg-card, --border, --color-primary)
+  TYPOGRAPHY_TOKEN: font families, sizes (e.g., --font-sans, --font-size-xs..2xl)
+  SPACING_TOKEN: spacing, radii (e.g., --spacing-xs..xl, --radius-sm..full)
+  EFFECT_TOKEN: shadows, glows (e.g., --shadow-sm..lg, --shadow-glow)
+
+OUTPUT:
+  token_mapping_table: | Mock Token | Value | CSS Framework Key | Usage |
+  semantic_alias_table: | Semantic Purpose | Mock Variable | Framework Class | Value Source |
+```
+
+#### 6.2 Layout Contracts
+
+Extract the DOM structure and CSS classes for each layout type used by the feature:
+
+```yaml
+FOR EACH layout_type IN mock_html (auth_layout, app_layout, dashboard, etc.):
+  EXTRACT:
+    dom_contract: root → child nesting chain with CSS classes
+    css_mapping: each CSS class → equivalent framework utility classes
+    responsive_contract: breakpoint-specific overrides
+  OUTPUT as structured table per layout type
+```
+
+#### 6.3 Component Class → CSS Framework Mapping
+
+The **core** of the UI Contract. For every CSS class in `mock.html`:
+
+```yaml
+FOR EACH css_class IN mock_html (excluding implementation-prefixed classes):
+  PRODUCE: | Mock CSS Class | Framework Equivalent | Notes |
+  # The framework equivalent is the EXACT set of utility classes that reproduce the visual.
+  # IMPLEMENT Phase B MUST use these mappings, not generic alternatives.
+  # REVIEW BLOCKER if Phase B uses generic utility guesses instead of this mapping.
+```
+
+#### 6.4 Shared UI Components
+
+Cross-reference `mock.html` CSS classes against `component_library.html`:
+
+```yaml
+FOR EACH component:
+  CLASSIFY: VISION_REUSE (from component_library.html) | FEATURE_ONLY
+  DEFINE build_order_contract:
+    Phase B.1: Shared primitives (Button, Input, Alert, Card, etc.)
+    Phase B.2: Auth/feature-specific compositions
+    Phase B.3: App shell compositions (Layout, Sidebar, Header)
+    Phase B.4: Feature pages (composed from B.1-B.3 components)
+  FOR EACH shared primitive:
+    LIST: variants, props, mock_classes reference
+```
+
+#### 6.5 Page Composition Contracts
+
+For each page/step in the mock:
+
+```yaml
+FOR EACH page_section IN mock_html:
+  DEFINE:
+    composition_tree: which shared components compose this page
+    states: [default, loading, error, empty, + feature-specific states]
+    state_rendering_pattern: conditional rendering order
+```
+
+#### 6.6 Required CSS Additions
+
+Identify CSS property sets from `mock.html` that are NOT expressible as single utility classes:
+
+```yaml
+OUTPUT: list of @layer components entries needed in globals.css
+  # These bridge mock.html CSS → framework-aware CSS
+  # ADDITIVE: Phase A.0 MUST merge into globals.css without removing existing tokens
+```
+
+---
+
+### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY — v2.3.0)
+
+> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for DEV + REVIEW + SEC hats.
+>
+> **When to generate:** After completing Section 6, before finalizing `design.md`.
+> **Format:** Inline markdown table + YAML blocks. NEVER prose. Machine-readable IDs for each constraint.
+
+```yaml
+FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, governance_context):
+  # Reads the SAME governance context already loaded by BLUEPRINT (Steps 0-5).
+  # Produces design.md Section 7 with 7 sub-sections.
+  # No additional file reads — reuses what's already in memory.
+```
+
+#### 7.1 Architecture Constraints → REVIEW [ARCH]
+
+Extract from `constitution.md`: topology code, layer ordering, module boundary rules, extension strategy. Produce `module_boundaries_table` and `forbidden_patterns` list.
+
+#### 7.2 Governance Rules Index → REVIEW [GOV]
+
+Compact extraction of actionable constraints from each applicable governance rule file. Each entry: Rule ID, Source file, Key constraints. Stack-conditional rules that don't match are listed under `not_applicable`.
+
+#### 7.2b Shared Cross-Cutting Components → REVIEW [GOV-SHARED]
+
+When a governance rule mandates a shared mechanism (middleware, base class, interceptor), extract it as an explicit implementation requirement. Each entry: id, rule_source, component_type, name, location, responsibility, enforcement level.
+
+**Governance mechanism rule:** Satisfying a constraint by inlining logic in each module is a REVIEW BLOCKER `[GOV-SHARED-INLINE]`.
+
+#### 7.3 SAST Patterns → SEC Hat
+
+Pre-compile stack-specific SAST patterns so SEC hat does not re-derive them. Each pattern: id, description, detection pattern, CWE, severity, OWASP category.
+
+#### 7.4 Schema Constraints → REVIEW [SCHEMA]
+
+Extract from `user_journey.md` Data Schemas. Business fields are LOCKED. Technical fields (id, timestamps, audit) are exempt.
+
+#### 7.5 Contract-First Rules → REVIEW [CFP]
+
+Extract from design.md Section 3 (Contracts). Contract paths, forbidden direct cross-module imports.
+
+#### 7.6 UX Constraints → REVIEW [UX]
+
+Conditional on `frontend.framework != "None"`. Vision artifact requirements, touch target minimums, WCAG level, component reuse mandate, feature nav placement.
+
+#### 7.7 Coding Standards → DEV Hat
+
+Extract from stack-specific rule + constitution: naming patterns, module structure, test file patterns, key lint rules.
+
+#### GCD Finalization
+
+```yaml
+AFTER generating all sub-sections:
+  gcd_hash = governance_snapshot.frontmatter.constitution_hash[:8]
+  UPDATE design.md frontmatter:
+    governance_digest_generated: true
+    governance_digest_version: "{gcd_hash}"
+  SAVE via IPP section-atomic save
+
+RELIABILITY:
+  - Same-source: GCD reuses governance context already loaded by BLUEPRINT (Steps 0-5)
+  - Hash-validated: IMPLEMENT Step 0b compares digest hash against current snapshot
+  - Graceful degradation: If Section 7 absent, IMPLEMENT loads governance from raw files
+```
+
+---
+
 ### Extension Strategy Sections (Brownfield Projects)
 
 **E0 (Native Extension)**: Governance overlay alongside existing code. No adapter layer.

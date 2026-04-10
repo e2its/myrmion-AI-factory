@@ -304,12 +304,142 @@ For each detected technology (backend.runtime, frontend.framework):
      Naming conventions, file organization, error handling, logging, testing, security, performance, dependency management, documentation, versioning, deployment, monitoring
 4. Apply technology-specific deny lists and mandatory patterns
 
+**Phase B.1 — Defect Prevention Catalog (Stack-Aware Materialization):**
+
+The `defect-prevention.md` template uses a `{{DC_ENTRIES}}` placeholder that MUST be populated with starter defect classes based on the project's stack. These are defects that **pass all static gates** but **break at runtime** — the gap between static verification and deployed behavior.
+
+```yaml
+FUNCTION materialize_defect_prevention(setup_md, constitution_md):
+  dc_entries = []
+  dc_number = 1
+
+  # --- Field reference: setup_md fields come from docs/setup.md (SETUP --init Q answers) ---
+  # backend.topology: Q7 → B1..B12
+  # backend.runtime: Q5 → Node.js, Python, Java, Go, etc.
+  # frontend.framework: Q9 → React, Vue.js, Angular, Svelte, Solid, None
+  # frontend.pattern: Q11 → F1..F10
+  # auth.strategy: Q18 → "JWT (stateless)", "Session-based", "OAuth2/OIDC (external provider)", etc.
+
+  # DC: Async handler in serverless entry point
+  # Q7 backend.topology == "B9" (Serverless)
+  IF setup_md.backend.topology == "B9":
+    ADD DC: {
+      name: "Async handler in serverless entry point",
+      applicable_when: "Writing a serverless function handler",
+      prevention: "Verify handler signature matches the serverless runtime contract. Some runtimes do not auto-await async handlers — use sync wrapper + async runtime.",
+      review_severity: "BLOCKER"
+    }
+
+  # DC: Missing frontend context providers
+  # Q9 frontend.framework != "None"
+  IF setup_md.frontend.framework != "None":
+    ADD DC: {
+      name: "Missing frontend context providers",
+      applicable_when: "Using a context-based hook in a component",
+      prevention: "Before using a context-based hook, verify its Provider exists in the component tree (root layout or parent). Missing Provider = silent null or runtime crash.",
+      review_severity: "BLOCKER"
+    }
+
+  # DC: Post-action navigation gaps
+  # Q9 frontend.framework != "None" AND Q11 frontend.pattern uses client-side routing (F1, F2, F4, F8, F9)
+  IF setup_md.frontend.framework != "None" AND setup_md.frontend.pattern IN ["F1", "F2", "F4", "F8", "F9"]:
+    ADD DC: {
+      name: "Post-action navigation gaps",
+      applicable_when: "Writing form onSubmit/onSuccess handlers",
+      prevention: "Every form submission success MUST include navigation (router.push/replace/redirect). Without it, user sees stale form.",
+      review_severity: "WARNING"
+    }
+
+  # DC: Session/state rehydration on mount
+  # Q11 frontend.pattern uses SSR/hydration (F2 = SSR+hydration, F4 = ISR)
+  IF setup_md.frontend.pattern IN ["F2", "F4"]:
+    ADD DC: {
+      name: "Session/state rehydration on mount",
+      applicable_when: "Writing auth hooks or session state initialization",
+      prevention: "Auth/session hooks MUST check for existing sessions on mount. Initial loading state MUST be true (assume loading until proven otherwise).",
+      review_severity: "WARNING"
+    }
+
+  # DC: Responsive design / mobile gaps
+  # Q9 frontend.framework != "None"
+  IF setup_md.frontend.framework != "None":
+    ADD DC: {
+      name: "Responsive design / mobile gaps",
+      applicable_when: "Writing dashboard layouts, data tables, or navigation",
+      prevention: "Layouts MUST include a mobile toggle. Tables MUST have horizontal scroll wrapper. No fixed widths without responsive breakpoints.",
+      review_severity: "WARNING"
+    }
+
+  # DC: Frontend env var injection mismatch
+  # Q9 frontend.framework != "None" AND Q7 backend.topology == "B9" (serverless IaC manages env vars)
+  IF setup_md.frontend.framework != "None" AND setup_md.backend.topology == "B9":
+    ADD DC: {
+      name: "Frontend env var injection mismatch",
+      applicable_when: "Reading environment variables in frontend code",
+      prevention: "When reading a frontend env var in code, verify it is declared AND injected by the IaC/deployment configuration. Missing injection = undefined at runtime.",
+      review_severity: "BLOCKER"
+    }
+
+  # DC: Hooks ordering violation
+  # Q9 frontend.framework IN ["React", "Vue.js", "Solid"] — frameworks with hook/composition model
+  # Note: Angular uses decorators (no hook ordering issue), Svelte uses stores (no hook ordering issue)
+  IF setup_md.frontend.framework IN ["React", "Vue.js", "Solid"]:
+    ADD DC: {
+      name: "Hooks ordering violation",
+      applicable_when: "Writing components with hooks/composables",
+      prevention: "ALL hook/composable calls MUST be placed BEFORE any conditional return. Hooks after conditional returns cause runtime errors (different call order between renders).",
+      review_severity: "BLOCKER"
+    }
+
+  # DC: Backend-frontend contract mismatch
+  # Applies when project has BOTH backend AND frontend AND uses contract-first policy
+  # Contract-first policy is always materialized as docs/rules/contract-first-policy.instructions.md
+  # when both backend and frontend exist (Phase A standard rules)
+  IF setup_md.frontend.framework != "None" AND setup_md.backend.runtime != "None":
+    ADD DC: {
+      name: "Backend-frontend contract mismatch",
+      applicable_when: "Writing API client calls (frontend) or route handlers (backend)",
+      prevention: "Every frontend API call MUST match the backend route: same path, same method, same field names. Cross-reference against the contract file.",
+      review_severity: "BLOCKER"
+    }
+
+  # DC: External identity ID != internal DB primary key
+  # Q18 auth.strategy == "OAuth2/OIDC (external provider)" — external provider manages identity
+  # Also applies when auth.strategy == "JWT (stateless)" AND an external IdP is configured (Q18 follow-up)
+  IF setup_md.auth.strategy == "OAuth2/OIDC (external provider)":
+    ADD DC: {
+      name: "External identity ID != internal DB primary key",
+      applicable_when: "Writing use cases/services that receive identity claims from auth tokens",
+      prevention: "When receiving an identity claim (sub, oid, uid) from an external auth provider, ALWAYS use a dedicated lookup method (e.g., get_by_external_id). NEVER pass the external ID to a get_by_id() that queries the internal DB primary key.",
+      review_severity: "BLOCKER"
+    }
+
+  # DC: Cross-module direct data access
+  # Q7 backend.topology NOT IN ["B1", "B12"] — any architecture with module boundaries
+  IF setup_md.backend.topology NOT IN ["B1", "B12", "None"]:
+    ADD DC: {
+      name: "Cross-module direct data access",
+      applicable_when: "Writing data access code (SQL, ORM queries, repository methods)",
+      prevention: "A module MUST NOT access another module's tables/collections directly. Use ports/interfaces + adapters, API calls, or domain events. Enforced by contract-first policy.",
+      review_severity: "BLOCKER"
+    }
+
+  # Materialize: render DC entries into the template table format
+  FOR EACH dc IN dc_entries:
+    RENDER as: "| DC-{dc_number} | {dc.name} | {dc.applicable_when} | {dc.prevention} |"
+    dc_number += 1
+  REPLACE {{DC_ENTRIES}} with rendered rows
+  WRITE to docs/rules/defect-prevention.md (NOT .instructions.md — this is a catalog, not a rule file)
+```
+
+> **Note:** `defect-prevention.md` is written WITHOUT the `.instructions.md` extension because it is a living catalog managed by the Discovery Protocol, not a static governance rule. It does NOT require `applyTo:` and is exempt from the Phase C extension check.
+
 **Phase C — Global Validation:**
 After all rules generated, validate:
-- All materialized files in `docs/rules/` have `.instructions.md` extension
+- All materialized files in `docs/rules/` have `.instructions.md` extension (except `defect-prevention.md`, `protected-paths.json`, `allowlist.json`)
 - All materialized files contain YAML frontmatter with `description:` field
 - All **technology-specific** rules (Phase A language rules + Phase B) contain `applyTo:` with a valid glob pattern
-- Cross-cutting rules (architecture, security_policy, branching, etc.) are NOT required to have `applyTo`
+- Cross-cutting rules (architecture, security_policy, branching, defect-prevention, etc.) are NOT required to have `applyTo`
 - No cross-rule contradictions
 - All referenced tools/frameworks match `docs/setup.md` selections
 - Technology-specific rules don't conflict with architecture rules
