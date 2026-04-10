@@ -34,11 +34,26 @@ LLM context windows are finite (128K in Copilot). When conversation history is s
 > **RULE: NEVER assume governance context from conversation memory.** Always read from files.
 > After summarization, everything you "knew" about the project's stack, rules, and constraints is GONE.
 
+### Deterministic Drift Detection (PreToolUse Hook — EVOL-013)
+
+> **Hook:** `.claude/hooks/check-governance-drift.sh` — registered as PreToolUse on `Edit|Write`.
+> Computes MD5 of `docs/constitution.md` and `docs/setup.md`, compares against snapshot frontmatter hashes.
+> **Non-blocking** (exit 0): emits WARNING so the agent can act. Blocking would create a circular dependency
+> (agent can't write the regenerated snapshot if edits are blocked).
+>
+> This hook ensures drift is **always visible** regardless of whether the agent remembers to execute Step 0.
+> Before EVOL-013, Step 0 was purely instructional — agents could skip it after context summarization.
+>
+> **On WARNING:** The agent MUST execute Step 1 → POST-LOAD (`generate_governance_snapshot()`) inline.
+> This does **NOT** require running `SETUP --generate`. Any agent can regenerate the snapshot directly
+> by reading `docs/constitution.md` + `docs/rules/` + `docs/setup.md` and writing `.context/governance_snapshot.md`.
+
 ### Step 0: Governance Snapshot Recovery (FILE-BASED — summarization-safe)
 
 ```yaml
 # This step replaces the previous in-memory MD5 cache mechanism.
 # The snapshot is a file on disk — it SURVIVES summarization.
+# ENFORCEMENT: check-governance-drift.sh hook emits WARNING on every Edit/Write if drift exists.
 
 FUNCTION load_governance_context():
   snapshot_path = ".context/governance_snapshot.md"
@@ -64,6 +79,8 @@ FUNCTION load_governance_context():
     
     ELSE:
       ⚠️ Snapshot STALE — constitution.md or setup.md changed since snapshot was generated
+      # NOTE: check-governance-drift.sh (EVOL-013) also detects this condition on every
+      # Edit/Write via PreToolUse hook. If you see a WARNING from that hook, this is why.
       stale_sources = []
       IF NOT constitution_valid: stale_sources.append("constitution.md")
       IF NOT setup_valid: stale_sources.append("setup.md")
