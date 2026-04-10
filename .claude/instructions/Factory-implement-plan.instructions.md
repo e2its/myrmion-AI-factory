@@ -342,47 +342,70 @@ TASKS:
   # instead of the project's design system tokens.
   # Priority: PREREQUISITE — must complete before B.1+ tasks.
   
-  B.0: Frontend Foundation (CSS / Design Token Scaffolding)
-    - B.0.1: Install CSS framework dependencies per constitution.md
-      (e.g., tailwindcss, postcss, autoprefixer — as declared in stack config)
-    - B.0.2: Extract design tokens from UXD and translate to stack-native format
-      READ design.md Section 7.6 UXD → design_tokens:
-        - Color palette (uxd.design_tokens.color_palette → all --color-* tokens)
-        - Typography scale (uxd.design_tokens.typography → font families, sizes, weights)
-        - Spacing scale (uxd.design_tokens.spacing_scale → --spacing-xs through --spacing-2xl)
-        - Borders, shadows, transitions (uxd.design_tokens.borders/shadows/transitions)
-        - Breakpoints (uxd.design_tokens.breakpoints → responsive design)
-      TRANSLATE tokens into the CSS framework's config format:
-        - Tailwind: extend tailwind.config.{js|ts} theme with extracted tokens
-        - Vanilla CSS: create globals.css with :root { --token: value } declarations
-        - Other frameworks: map to framework-specific theming mechanism
-      FALLBACK (no UXD): READ style_guide.html directly for token extraction
-    - B.0.3: Create globals.css (or equivalent) with base styles, resets, and token imports
-    - B.0.4: Configure build pipeline for CSS (postcss.config, CSS module support, etc.)
-    - B.0.5: Smoke test — verify CSS framework compiles and tokens are accessible in a test component
-    - Source: design.md Section 7.6 UXD (design_tokens) + constitution.md (stack config)
+  B.0: Frontend Foundation (CSS / Design Token Materialization)
+    # PURPOSE: Materialize the COMPLETE CSS foundation so Phase B components
+    # render with EXACT visual fidelity to mock.html. This is NOT just
+    # "install framework" — it produces the full design token set, component
+    # classes, and layout utilities that mock.html's CSS defines.
+    # Without this, Phase B components render with generic utility guesses.
+    # SOURCE OF TRUTH: design.md Section 6 (Frontend UI Contract).
+    - B.0.1: CSS Toolchain Setup
+      - Install CSS framework dependencies per constitution.md (stack config)
+      - Configure build pipeline (postcss, preprocessors, etc.)
+      - Verify framework compiles with empty config
+    - B.0.2: Design Token Materialization (from design.md Section 6.1)
+      - READ Section 6.1 token_mapping_table + semantic_alias_table
+      - MATERIALIZE ALL tokens into the project's CSS entry point (globals.css or equivalent)
+      - Include: scale tokens (full color palette), semantic aliases, typography, spacing, radii, effects
+      - TRANSLATE tokens into the CSS framework's native format (varies per stack)
+      - FALLBACK (no Section 6): READ style_guide.html directly for token extraction
+    - B.0.3: Component Class Materialization (from design.md Section 6.6)
+      - READ Section 6.6 (Required CSS Additions)
+      - APPEND component-level classes to CSS entry point
+      - These classes bridge mock.html CSS → framework-aware CSS
+      - CRITICAL: Without component classes, each element requires composing 15+ utility classes — error-prone
+    - B.0.4: Shared UI Component Scaffolding (from design.md Section 6.4)
+      - READ Section 6.4 (Shared UI Components) → build_order_contract
+      - CREATE shared component directory
+      - CREATE utility helper (class merge function)
+      - SCAFFOLD empty component files per build_order_contract
+    - B.0.5: Foundation Verification Gate (BLOCKING)
+      - BUILD frontend (verify no CSS import errors)
+      - VERIFY: CSS entry point has tokens + component classes
+      - VERIFY: root layout imports CSS entry point
+      - VERIFY: shared component directory exists with stubs
+      - IF any check fails → FIX immediately, do NOT proceed to B.1
+    - Source: design.md Section 6 (Frontend UI Contract) + constitution.md (stack config)
     - CIP: Check codebase_inventory for existing CSS config / design token files
 
   B.1: Contract Consumption Gate
     - Verify API client generation from contracts
     - Type generation from OpenAPI/GraphQL schemas
   
-  B.2: Component Architecture (from Mock Extraction Protocol)
-    - Extract UI Implementation Contract from mock.html
-    - Map components against UXD component_library (uxd.component_library)
-    - Pre-classify using UXD mock_component_analysis (uxd.mock_component_analysis)
-    - Classify: VISION_REUSE (from component_library) vs FEATURE_NEW
+  B.2: Shared UI Primitives (from design.md Section 6.4 shared_primitives)
+    # SOURCE: design.md Section 6.4 build_order_contract → Blueprint Phase B.1 = shared primitives
+    # NOTE: In this IMPLEMENT plan, shared primitives are Phase B.2 because B.1 is
+    # reserved for the Contract Consumption Gate prerequisite.
+    - For each primitive (Button, Input, Alert, Card, etc.):
+      a. READ Section 6.3 mapping table for EXACT CSS framework classes
+      b. READ component_library.html for API reference (props, variants)
+      c. IMPLEMENT using the Section 6.3 mapping — NOT generic utility guesses
+      d. Support ALL variants listed in Section 6.4
+      e. Include all ARIA attributes from mock.html
+    - REVIEW BLOCKER: using generic utility classes instead of Section 6.3 mapping
   
-  B.3: Page / View Implementation
-    - Layout following UXD page_templates (uxd.page_templates.feature_template_type)
-    - Component composition following mock.html structure
-    - Shell structure following UXD shell_composition (uxd.shell_composition.shell_regions)
+  B.3: Layout Compositions + Feature Pages
+    # SOURCE: design.md Section 6.2 (Layout Contracts) + Section 6.5 (Page Compositions)
+    - Implement layouts per Section 6.2 dom_contract (DOM nesting MUST match)
+    - Implement pages by composing B.0 + B.2 shared components per Section 6.5
+    - IMPLEMENT ALL states (default, loading, error, empty, + feature-specific)
+    - Wire form validations to user_journey.md data schemas
     - State management per design.md
   
-  B.4: Styling / Theming
-    - Apply design tokens configured in B.0 (NOT raw style_guide.html — use translated config)
-    - Responsive design per ux-constitution.instructions.md breakpoints from B.0.2
-    - WCAG AA compliance
+  B.4: Styling Verification + Responsive
+    - VERIFY: all components use Section 6.3 mapping (NOT raw style_guide.html)
+    - Responsive design per Section 6.2 responsive_contract
+    - WCAG AA compliance per ux-constitution
   
   B.5: Frontend Tests
     - Component unit tests
@@ -415,10 +438,24 @@ TASKS:
     - CI/CD pipeline configuration (if needed)
   
   C.5: Synthetic Data for Staging (conditional — see Synthetic Data Protocol below)
-    - Seed script with idempotent upsert logic (check-before-insert)
-    - Reset command (teardown + clean re-seed)
-    - Deterministic relational data (consistent FK references across entities)
-    - Shared Seed Registry integration (cross-domain referential coherence)
+    # Minimum tasks (applies to ALL modules when C.5 is REQUIRED):
+    - [ ] C.5.1: Read migration/schema files for target tables and build a column manifest
+           (prevention step — know the schema BEFORE writing seed generators)
+    - [ ] C.5.2: Create seed data factory/generator with schema-aligned record shapes
+           (every key matches a real column, every NOT NULL column is provided)
+    - [ ] C.5.3: Implement INSERTs with schema-qualified table names + named parameters
+           (no positional placeholders — prevents silent corruption from reordering)
+    - [ ] C.5.4: Implement idempotent upsert logic (ON CONFLICT DO NOTHING / DO UPDATE)
+    - [ ] C.5.5: Honor UNIQUE constraints across the generated row set
+    - [ ] C.5.6: Honor CHECK constraints (enum values match the schema)
+    - [ ] C.5.7: Implement reset command (teardown + re-seed in FK-reverse order)
+    - [ ] C.5.8: Add fail-secure environment guard (refuse to run when env is unset/ambiguous)
+    - [ ] C.5.9: Register in config/seed_registry.json (owned + consumed entities)
+    - [ ] C.5.10: Add seed generator to guardrail test registration
+    - [ ] C.5.11: Run seed alignment test suite locally and verify exit 0
+           (BLOCKING — task cannot be marked [x] if guardrail fails)
+    - [ ] C.5.12: Wire seed/reset to the dev/staging deployment pipeline
+           (NEVER prod — enforced by both packaging exclusion + runtime guard)
 ```
 
 ### Synthetic Data Protocol (Staging / Preview Environments)

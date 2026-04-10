@@ -402,7 +402,17 @@ Phase 5: Post-Deploy Verification
     OFFER: Auto-rollback, Manual investigation, Retry deploy
   
   IF verification passes:
+    # Preventive Sweep Advisory (first deploy detection)
+    # Compute BEFORE generating the report so the flag is in the frontmatter.
+    # See: .claude/skills/Factory-preventive-sweep/SKILL.md
+    previous_deploys = GLOB("docs/spec/{FEATURE_ID}/devops/deployment_report_*.md")
+    sweep_recommended = (previous_deploys.count == 0)  # No prior reports = first deploy
+    IF sweep_recommended:
+      LOG: "First deploy detected — sweep_recommended: true in deployment report"
+
     GENERATE docs/spec/{FEATURE_ID}/devops/deployment_report_{timestamp}.md
+      # Include sweep_recommended in frontmatter (see Deployment Report Template below)
+      frontmatter.sweep_recommended = sweep_recommended
     NOTIFY: "Deployment successful to {ENV}"
 
 ### Deployment Report Template (`deployment_report_{{timestamp}}.md`)
@@ -418,6 +428,7 @@ branch: "{{BRANCH_NAME}}"
 deployed_at: "{{ISO_8601}}"
 deployed_by: DEVOPS
 duration_seconds: N
+sweep_recommended: true | false
 ---
 
 ## Deployment Summary

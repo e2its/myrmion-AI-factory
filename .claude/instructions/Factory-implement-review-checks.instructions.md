@@ -101,6 +101,129 @@ SEVERITY: BLOCKER for CRITICAL rules, WARNING for MEDIUM
 CONSTRAINT_IDS: [GOV-{rule_id}-{N}] — cite from Section 7.2
 ```
 
+### Check #2b: [GOV-SHARED-XX] Shared Cross-Cutting Component Enforcement
+
+```yaml
+# Source: design.md Section 7.2b (if GCD loaded) → shared_components[]
+# Fallback: constitution.md governance rules that prescribe mechanisms
+# PURPOSE: Verify governance-mandated shared mechanisms (middleware, base classes)
+# were implemented as SHARED components, not inlined per-module.
+
+IF governance_context.shared_components EXISTS AND LENGTH > 0:
+  FOR EACH component IN governance_context.shared_components:
+
+    # Sub-check 1: Shared component exists at prescribed location
+    IF NOT FILE_EXISTS(component.location):
+      BLOCKER [GOV-SHARED-MISSING-{N}]:
+        "Governance rule {component.rule_source} mandates shared component
+         '{component.name}' at {component.location} — file not found."
+
+    # Sub-check 2: Domain modules consume the shared component (not inline)
+    IF component.component_type == "base_class":
+      SCAN domain modules for classes of same type
+      FOR EACH domain_class:
+        IF NOT inherits_from(domain_class, component.name):
+          BLOCKER [GOV-SHARED-INLINE-{N}]:
+            "{domain_class} reimplements {component.responsibility} inline
+             instead of inheriting from {component.name}."
+
+    IF component.component_type == "middleware":
+      SCAN app entrypoints for middleware registration
+      IF component.name NOT registered:
+        BLOCKER [GOV-SHARED-UNREG-{N}]:
+          "Middleware '{component.name}' prescribed by {component.rule_source}
+           is not registered in the application middleware stack."
+
+SEVERITY: BLOCKER — shared mechanism violations are architectural drift
+CONSTRAINT_IDS: [GOV-SHARED-{MISSING|INLINE|UNREG}-{N}]
+```
+
+### Check #2c: [GOV-SEED-ALIGNMENT] Synthetic Data Schema & Isolation
+
+```yaml
+# Triggers when the feature touches seed/synthetic data scripts OR migration/schema files.
+# Verifies seed data alignment + deployment isolation using BVL-resolved test commands.
+#
+# Triggered by ANY of:
+#   - feature_files INCLUDES seed script pattern (modified or new)
+#   - feature_files INCLUDES migration/schema files (modified or new)
+#   - feature_files INCLUDES packaging config that could loosen deployment scope
+
+VERIFY:
+  # Sub-check 1: seed schema alignment guardrail passes
+  # Resolve seed alignment tests from the project's test suite via BVL commands.
+  # Uses GLOB to find test files matching seed alignment naming convention,
+  # then runs them via BVL's resolve_verification_commands().test_single.
+  seed_alignment_tests = GLOB("tests/**/test_seed_*alignment*")
+  IF seed_alignment_tests.length > 0:
+    commands = resolve_verification_commands()  # From BVL
+    seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_alignment_tests})
+    RUN seed_test_cmd
+    IF exit_code != 0:
+      BLOCKER [GOV-SEED-ALIGNMENT-SCHEMA]:
+        "Seed schema alignment test failed. Seed scripts drift from
+         migration schemas. See test output for specific defects."
+
+  # Sub-check 2: deployment isolation guardrail passes
+  seed_isolation_tests = GLOB("tests/**/test_seed_*isolation*")
+  IF seed_isolation_tests.length > 0:
+    isolation_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_isolation_tests})
+    RUN isolation_test_cmd
+    IF exit_code != 0:
+      BLOCKER [GOV-SEED-ALIGNMENT-DEPLOY]:
+        "Seed deployment isolation test failed. Either packaging scope
+         was loosened, or a seed file lost its fail-secure runtime guard."
+
+  # Sub-check 3: every new seed script is registered in seed_registry.json
+  FOR EACH new_seed IN feature_files MATCHING seed_script_pattern:
+    READ config/seed_registry.json
+    IF new_seed NOT REFERENCED in dependency_graph:
+      BLOCKER [GOV-SEED-ALIGNMENT-REGISTRY]:
+        "{new_seed} is not registered in config/seed_registry.json."
+
+SEVERITY: BLOCKER — synthetic data integrity is a project-wide guarantee
+CONSTRAINT_IDS: [GOV-SEED-ALIGNMENT-{SCHEMA|DEPLOY|REGISTRY}-{N}]
+```
+
+### Check #2d: [GOV-DEFECT-PREVENTION] Known Defect Pattern Scan
+
+```yaml
+# Scans modified files for known runtime defect patterns from the Defect
+# Prevention Catalog. These patterns are invisible to static gates and
+# were discovered empirically during deployment testing.
+#
+# This check runs EVERY phase, not conditionally. The catalog is small
+# and the checks are fast (grep-level).
+#
+# Reference: docs/rules/defect-prevention.md
+# Detailed patterns: .claude/skills/Factory-preventive-sweep/SKILL.md
+
+VERIFY:
+  IF NOT FILE_EXISTS("docs/rules/defect-prevention.md"):
+    SKIP  # Project doesn't use DPC (pre-SETUP or opted out)
+
+  READ docs/rules/defect-prevention.md → dc_catalog
+  # Catalog columns: DC | Name | Applicable When | Review Severity | Prevention Check
+
+  FOR EACH modified_file IN phase_files:
+    FOR EACH dc IN dc_catalog:
+      IF modified_file SCOPE INTERSECTS dc.applicable_when:
+        # Verify modified code satisfies the documented prevention check
+        IF NOT CHANGE_SATISFIES(dc.prevention_check, modified_file):
+          IF dc.review_severity == "BLOCKER":
+            BLOCKER [GOV-DC-{dc.number}]:
+              "Defect prevention check DC-{dc.number} ({dc.name}) not satisfied in {file}:{line}.
+               Required prevention: {dc.prevention_check}.
+               Reference: docs/rules/defect-prevention.md"
+          ELSE:
+            WARNING [GOV-DC-{dc.number}]:
+              "Potential defect pattern DC-{dc.number} ({dc.name}) in {file}:{line}. Verify prevention: {dc.prevention_check}."
+
+SEVERITY: per-DC (BLOCKER or WARNING as defined in catalog Review Severity column)
+CONSTRAINT_IDS: [GOV-DC-{N}]
+REFERENCE: docs/rules/defect-prevention.md
+```
+
 ### Check #3: [SEC-XX] Security Patterns
 ```yaml
 # Source: sast_patterns from GCD 7.3 (or fallback SAST library). Full scan in SEC Hat below.

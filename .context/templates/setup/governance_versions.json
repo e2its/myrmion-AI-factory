@@ -1198,10 +1198,14 @@
       "path": ".claude/skills/Factory-worklog/SKILL.md"
     },
     "skills/Factory-build-verification/SKILL.md": {
-      "version": "1.1.2",
+      "version": "1.4.0",
       "type": "skill",
-      "role": "BVL v1.1.1 — Build Verification Loop. Closed-loop test execution, error parsing, auto-fix cycle (max 3 attempts), full verification gate (tests + lint + typecheck + build). Extended: coverage, dependency_audit, secret_scan commands for REVIEW/SEC hats.",
+      "role": "BVL v1.4.0 — Build Verification Loop. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate, SAST output parser, format gate, seed alignment gate, defect discovery hook.",
       "changelog": [
+        "1.4.0: feat: Defect Discovery Hook — BVL proposes cataloging recurring test failure patterns into defect-prevention.md",
+        "1.3.0: feat: Seed/Synthetic Data Alignment Gate — full_verification_gate runs seed schema tests when feature touches seed/migration files",
+        "1.2.0: feat: Full Feature Scope Mandate — delta_mode/cascade_source forces full module scope verification, not just changed files",
+        "1.1.3: feat: Format gate (Prettier/ruff format) between lint and typecheck, SAST Output Parser (parse_sast_results) for structured finding extraction",
         "1.1.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.1.1: fix: extend resolve_verification_commands() with coverage (REVIEW hat), dependency_audit (SEC hat — npm audit/pip-audit/cargo audit/govulncheck), and secret_scan (SEC hat — gitleaks/trufflehog detection). Token budget updated with new timeouts. Integration points table expanded to include REVIEW and SEC hats. Governance snapshot section extended with 3 new command fields.",
         "1.1.0: feat: resolve_verification_commands() Step 0 — BVL commands cache fast path via /memories/repo/bvl-commands-cache.md (MCP v1.0.0), write-through after derivation",
@@ -1245,6 +1249,23 @@
         "1.0.0: feat: initial next-task resolver skill — step-by-step resolution from board state"
       ],
       "path": ".claude/skills/Factory-backlog-next-task/SKILL.md"
+    },
+    "skills/Factory-preventive-sweep/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "Preventive Defect Sweep — post-deploy runtime validation with 4 parallel agents, searches all cataloged defect classes invisible to static gates.",
+      "changelog": [
+        "1.0.0: feat: initial — 4-agent parallel strategy, consolidation protocol, report template, governance integration with defect-prevention.md"
+      ],
+      "path": ".claude/skills/Factory-preventive-sweep/SKILL.md"
+    },
+    "rules/defect-prevention.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "docs/rules/defect-prevention.md",
+      "changelog": [
+        "1.0.0: feat: initial — Defect Prevention Catalog template with {{DC_ENTRIES}} placeholder. SETUP materializes stack-specific starter DCs. Process: DEV pre-write check, REVIEW Check #2d, Discovery Protocol."
+      ]
     },
     "scripts/factory-sync.sh": {
       "version": "1.1.0",

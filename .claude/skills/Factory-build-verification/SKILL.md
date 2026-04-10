@@ -3,14 +3,82 @@ name: Factory-build-verification
 description: "Factory Build Verification Loop (BVL) — automated test execution, error parsing, auto-fix cycle, and full verification gate. Use when: IMPLEMENT --build executes tasks with TDD cycle requiring real test execution."
 ---
 
-# BUILD VERIFICATION LOOP (BVL v1.1.1)
+# BUILD VERIFICATION LOOP (BVL v1.4.0)
 
 > **Shared Protocol** — Referenced by: IMPLEMENT agent (--build, --fix commands), REVIEW hat (coverage + lint verification), SEC hat (dependency audit + secret scan).
 > Closes the TDD feedback loop by executing tests in the terminal, parsing errors, and auto-fixing.
-> **v1.1.1:** Extended with REVIEW and SEC verification commands (coverage, dependency_audit, secret_scan).
 > **Prerequisite:** The IMPLEMENT agent has `execute/runInTerminal` and `execute/getTerminalOutput` tools.
 
 **Core Principle:** Code that isn't executed isn't verified. Writing tests is necessary but insufficient — they must be run, results parsed, and failures fixed in a closed loop before marking a task complete.
+
+## v1.4.0 — Defect Discovery Hook
+
+> When BVL detects a test failure caused by a **recurring pattern** (not a one-off bug), the agent MUST check `docs/rules/defect-prevention.md` and propose cataloging if the pattern is novel. This closes the improvement loop: discover→catalog→prevent→never again.
+
+```yaml
+FUNCTION defect_discovery_hook(errors, task, attempt):
+  # Triggered when task_verification_loop returns FLAGGED (max attempts exhausted)
+  # or when a fix reveals a systemic pattern (same error class in 2+ files)
+
+  IF errors.recurrence_count >= 2 OR attempt == MAX_ATTEMPTS:
+    # Check if this pattern is already cataloged
+    catalog = READ("docs/rules/defect-prevention.md")
+
+    IF catalog EXISTS:
+      existing_dcs = PARSE_DC_TABLE(catalog)
+      pattern_signature = CLASSIFY_ERROR_PATTERN(errors)
+
+      FOR EACH dc IN existing_dcs:
+        IF pattern_signature SEMANTICALLY_MATCHES dc.applicable_when AND dc.prevention_check:
+          LOG: "Known DC-{dc.number} ({dc.name}) — already cataloged"
+          RETURN  # Already known, no action needed
+
+      # Novel pattern — propose cataloging
+      PROPOSE_TO_USER:
+        "Recurring defect pattern detected: {errors.summary}
+         This pattern is NOT in the Defect Prevention Catalog.
+         Propose cataloging as DC-{next_dc_number}?
+         Pattern: {pattern_signature}
+         Prevention: {suggested_prevention}"
+      # If user approves → Discovery Protocol in defect-prevention.md Section 3
+```
+
+## v1.3.0 — Seed/Synthetic Data Alignment Gate
+
+> When a feature touches seed/synthetic data scripts OR migration/schema files, `full_verification_gate()` MUST run the project's seed alignment test suite. This catches schema drift between migration definitions and seed data generators.
+
+**Rule:** When `IMPLEMENT --build` runs `full_verification_gate(FEATURE_ID)` AND the feature touches files matching the project's seed script pattern OR schema/migration files, the gate MUST run the **Seed Alignment Tests** (resolved via `resolve_verification_commands()`).
+
+The test suite verifies:
+- Every column written by seed scripts exists in the target schema
+- Every NOT NULL column is provided by the seed generator
+- UNIQUE constraints are not violated by the generated row set
+- CHECK constraints (enum-like) are honored
+- INSERT statements use schema-qualified table names
+
+**Also runs Seed Deployment Isolation verification:**
+- Seed scripts are physically excluded from the production deployment artifact
+- Every seed script calls a fail-secure environment guard
+- Guard uses an allowlist pattern (refuses to run when environment is unset/ambiguous)
+
+**Failure is BLOCKING for `IMPLEMENTED_AND_VERIFIED` status.**
+
+**Cross-feature applicability:** This gate applies to ALL modules. When a new module introduces its own seed file, the test discovers it automatically.
+
+## v1.2.0 — Full Feature Scope Mandate (MANDATORY)
+
+> When a feature is in `delta_mode: true` OR has a `cascade_source` annotation in `dev_plan.md` frontmatter, the gate MUST run the **full module scope**, not just changed files.
+
+**Rule:** `full_verification_gate(FEATURE_ID)` runs against:
+- **Backend:** every source file under each module the feature touches PLUS the matching test trees
+- **Frontend:** every source file under the feature's frontend slice plus shared components if touched PLUS matching test files
+- **All gates:** lint, format, typecheck, tests, SAST — for BOTH layers — even if only one layer was edited in the delta
+
+The `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` resolver MUST consult `design.md` Section 1 (module/bounded context) and `dev_plan.md` frontmatter to compute scope, NOT a git diff.
+
+**REVIEW hat compliance:** REVIEW hat MUST NOT issue `verdict: APPROVED` until `full_verification_gate(FEATURE_ID)` returns PASSED.
+
+**SEC hat compliance:** SEC hat MUST NOT issue `verdict: PASS` until SAST tools run against the FULL module scope.
 
 ---
 
@@ -317,24 +385,33 @@ FUNCTION phase_verification(phase, all_test_files):
     lint_result = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
     
     IF lint_result.exit_code != 0:
-      LOG: "🔧 BVL Phase {phase}: Lint issues — auto-fixing"
-      # Attempt auto-fix
-      autofix_cmd = MATCH commands.lint:
-        CONTAINS "eslint" → lint_cmd + " --fix"
-        CONTAINS "ruff"   → REPLACE("ruff check", "ruff check --fix")
-        CONTAINS "clippy"  → NULL  # No auto-fix
-        DEFAULT            → NULL
+      LOG: "BVL Phase {phase}: Lint issues — auto-fixing"
+      autofix_cmd = derive_autofix_command(commands.lint)
       
       IF autofix_cmd IS NOT NULL:
         RUN_IN_TERMINAL(autofix_cmd, timeout: 30000)
-        # Re-run lint to verify
         recheck = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
         IF recheck.exit_code != 0:
           RETURN LINT_ISSUES(recheck.output)
       ELSE:
         RETURN LINT_ISSUES(lint_result.output)
   
-  LOG: "✅ BVL Phase {phase}: Suite GREEN + Lint clean"
+  # Format check (v1.1.0 — between lint and typecheck)
+  IF commands.format IS NOT NULL:
+    format_result = RUN_IN_TERMINAL(commands.format, timeout: 30000)
+    IF format_result.exit_code != 0:
+      LOG: "BVL Phase {phase}: Format issues — auto-fixing"
+      # Derive format-fix command from format-check command
+      format_fix_cmd = derive_format_fix_command(commands.format)
+      IF format_fix_cmd IS NOT NULL:
+        RUN_IN_TERMINAL(format_fix_cmd, timeout: 30000)
+        recheck = RUN_IN_TERMINAL(commands.format, timeout: 30000)
+        IF recheck.exit_code != 0:
+          RETURN FORMAT_ISSUES(recheck.output)
+      ELSE:
+        RETURN FORMAT_ISSUES(format_result.output)
+  
+  LOG: "BVL Phase {phase}: Suite GREEN + Lint clean + Format clean"
   RETURN GREEN
 ```
 
@@ -399,10 +476,104 @@ FUNCTION full_verification_gate(FEATURE_ID):
       SHOW: parse_test_output(result.output, commands).summary
       RETURN BLOCKED
   
+  # 4a. Format check (v1.1.0)
+  IF commands.format IS NOT NULL:
+    result = RUN_IN_TERMINAL(commands.format, timeout: 30000)
+    results.format = {status: result.exit_code == 0 ? "CLEAN" : "ISSUES"}
+    IF result.exit_code != 0:
+      format_fix_cmd = derive_format_fix_command(commands.format)
+      IF format_fix_cmd:
+        RUN_IN_TERMINAL(format_fix_cmd, timeout: 30000)
+        recheck = RUN_IN_TERMINAL(commands.format, timeout: 30000)
+        IF recheck.exit_code != 0:
+          BLOCK: "Format issues remain after auto-fix."
+          RETURN BLOCKED
+        results.format.status = "CLEAN (auto-fixed)"
+      ELSE:
+        BLOCK: "Format issues detected. Fix manually."
+        RETURN BLOCKED
+
+  # 5. SAST check (v1.1.0)
+  IF commands.sast IS NOT NULL:
+    result = RUN_IN_TERMINAL(commands.sast, timeout: 120000)
+    sast_findings = parse_sast_results(result.output, commands)
+    results.sast = {
+      status: sast_findings.critical == 0 AND sast_findings.high == 0 ? "CLEAN" : "FINDINGS",
+      summary: sast_findings.summary
+    }
+    IF sast_findings.critical > 0 OR sast_findings.high > 0:
+      BLOCK: "SAST found {sast_findings.critical} CRITICAL + {sast_findings.high} HIGH"
+      RETURN BLOCKED
+
+  # 6. Seed alignment check (v1.3.0 — conditional)
+  # Seed alignment tests are resolved from the project's test suite via commands.test_single.
+  # The resolver scans for test files matching the seed alignment naming convention
+  # (e.g., test_seed_schema_alignment, test_seed_deployment_isolation) under the project's
+  # integration test directory. Stack-agnostic: uses BVL's test runner (pytest, jest, go test, etc.)
+  feature_files = COLLECT_ALL_SOURCE_FILES(FEATURE_ID)
+  IF feature_files MATCHES seed_script_pattern OR feature_files MATCHES migration_pattern:
+    seed_test_files = GLOB("tests/**/test_seed_*" OR "tests/**/*seed*alignment*")
+    seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_test_files})
+    IF seed_test_cmd IS NOT NULL AND seed_test_files.length > 0:
+      result = RUN_IN_TERMINAL(seed_test_cmd, timeout: 60000)
+      results.seed_alignment = {status: result.exit_code == 0 ? "ALIGNED" : "DRIFT"}
+      IF result.exit_code != 0:
+        BLOCK: "Seed schema alignment failed. Seed data drifted from migration schemas."
+        RETURN BLOCKED
+
   # All checks passed
-  LOG: "✅ BVL Full Gate: tests={results.tests.status}, lint={results.lint.status}, types={results.typecheck.status}, build={results.build.status}"
+  LOG: "BVL Full Gate: tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}"
   
   RETURN PASSED(results)
+```
+
+---
+
+## SAST OUTPUT PARSER (v1.1.0)
+
+```yaml
+FUNCTION parse_sast_results(raw_output, commands):
+  # Parses SAST tool output into structured findings.
+  # Supports JSON output format (preferred) and plain text fallback.
+
+  findings = []
+
+  # Step 1: Detect output format
+  IF raw_output STARTS_WITH "{" OR raw_output STARTS_WITH "[":
+    # JSON format (common for bandit -f json, gosec -fmt json, etc.)
+    parsed = JSON_PARSE(raw_output)
+
+    # Normalize from tool-specific JSON format:
+    IF parsed.results IS NOT NULL:  # bandit-style
+      FOR EACH result IN parsed.results:
+        findings.push({
+          test_id: result.test_id,
+          file: result.filename,
+          line: result.line_number,
+          description: result.issue_text,
+          severity: result.issue_severity,
+          confidence: result.issue_confidence,
+          cwe: result.issue_cwe.id OR NULL,
+          code: result.code
+        })
+    ELIF parsed IS ARRAY:  # gosec/generic array style
+      FOR EACH item IN parsed:
+        findings.push(NORMALIZE_FINDING(item))
+  ELSE:
+    # Plain text fallback: grep for severity markers
+    FOR EACH line IN raw_output.lines:
+      IF line MATCHES severity pattern (HIGH, MEDIUM, LOW, CRITICAL):
+        findings.push(EXTRACT_FINDING_FROM_LINE(line))
+
+  # Step 2: Classify
+  critical = findings.filter(f => f.severity == "CRITICAL").length
+  high = findings.filter(f => f.severity == "HIGH").length
+  medium = findings.filter(f => f.severity == "MEDIUM").length
+  low = findings.filter(f => f.severity == "LOW").length
+
+  summary = "{critical} critical, {high} high, {medium} medium, {low} low"
+
+  RETURN { findings, critical, high, medium, low, summary }
 ```
 
 ---

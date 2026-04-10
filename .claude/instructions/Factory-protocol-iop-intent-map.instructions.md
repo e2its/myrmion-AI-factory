@@ -63,12 +63,7 @@ FUNCTION route_by_category(classification):
     ANNOUNCE: "🎯 [INFERRED]: `{{inferred_command}}`"
     Execute PRE-ROUTING PROTOCOL (branching + lock + governance)
     
-    # BIP Detection: commands with prolonged interactivity use BA Mediation
-    IF is_bip_command(inferred_command):
-      Execute BIP BA MEDIATION PROTOCOL (Factory-batch-interactivity/SKILL.md)
-      # Agent generates batch per tier → Factory walks user through RDR one-by-one → resolve
-    ELSE:
-      Execute corresponding slash command logic
+    Execute corresponding slash command logic
     
     Execute POST-COMMAND protocols (worklog + commit prompt + Smart Redirect)
 
@@ -168,6 +163,15 @@ INTENT_MAP:
   "(artefactos|artifacts|entregables|deliverables).*(coherentes|consistent|alineados|aligned).*{ID}":
     category: FRAMEWORK_COMMAND
     action: cvp_on_demand({ID})
+
+  # Preventive Sweep Intents
+  # Triggers the 4-agent parallel defect sweep (Factory-preventive-sweep/SKILL.md)
+  "(sweep|preventive.*sweep|defect.*sweep|runtime.*scan|buscar.*defectos|sweep.*preventivo).*{ID}":
+    category: FRAMEWORK_COMMAND
+    action: preventive_sweep({ID})
+  "(scan.*defect|check.*runtime.*defect|buscar.*patrones.*defecto).*{ID}":
+    category: FRAMEWORK_COMMAND
+    action: preventive_sweep({ID})
 
   # QA Intents
   "(verify|validate|qa|quality|test.*staging).*{ID}":
