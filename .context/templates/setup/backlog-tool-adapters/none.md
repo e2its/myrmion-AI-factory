@@ -78,6 +78,9 @@ Rewrite the `Status` column of the matching row in `state.md`. Preserve all othe
 #### `close_issue`
 Move to column `Done` (or the last column in `{{BOARD_COLUMNS}}`), then append a `<!-- closed: <ISO date> -->` inline comment to the row.
 
+#### `add_label`
+Rewrite the `Labels` column of the matching row in `state.md`: read the current comma-joined label list, append the new label if not already present, write back. Update `last_updated` timestamp in frontmatter. Idempotent.
+
 #### `add_sub_issue`
 **No-op.** Local mode has no native sub-issue concept. Gate issues are materialised as standalone siblings with a cross-reference line in the body: `> Parent: {parent_local_id}`. The `--next-task` resolver reads this line to reconstruct the parent relationship.
 
@@ -138,6 +141,7 @@ required_ops:
   add_to_board:          no-op     # create_issue already adds to state.md
   move_to_column:        native
   close_issue:           native
+  add_label:             native    # rewrites Labels column of the matching row in state.md (idempotent)
   query_board:           native
   get_item_id:           native
   read_issue:            native

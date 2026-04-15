@@ -10,17 +10,32 @@ description: "Factory BACKLOG next-task guidance — determines the next executa
 
 ---
 
-## 0. Source Of Truth (Strict Order)
+## 0. Source Of Truth (Dual-Mode — EVOL-014)
+
+> The resolver branches on `project_tracking.tool` (from Q27). Both modes are parallel — the resolver itself is mode-agnostic in its code path and always delegates to the tool-adapter. See [Factory-backlog-execution-plan.instructions.md § 0.3](Factory-backlog-execution-plan.instructions.md) for the full dual-mode contract.
+
+### File mode (`project_tracking.tool == "None"`)
 
 1. `/memories/repo/execution-plan-cache.md` (fast path — cache, checked first)
 2. `docs/backlog/execution-plan.md` (primary source of truth for ordering/dependencies)
-3. Configured tracking issue body (`project_tracking.tool`) (authoritative source for task details/command)
+3. `docs/backlog/state.md` (authoritative for issue metadata and body refs — resolved via tool-adapter rendered from `none.md`)
 4. `/memories/repo/*` (other caches — never override source files)
 
-If sources disagree:
+If sources disagree in file mode:
 - ordering/dependencies precedence: `execution-plan.md`
-- task details/command precedence: issue body from configured tracking tool
+- task details/command precedence: body file at `docs/backlog/issue-bodies/{local_id}.md`
 - always report mismatch explicitly.
+
+### Board mode (`project_tracking.tool != "None"`)
+
+1. `/memories/repo/project-board-cache.md` (fast path — cache, checked first)
+2. The configured external board, read via tool-adapter `query_board` (primary source of truth for ordering/dependencies AND issue metadata in board mode — the board IS the plan; `execution-plan.md` does NOT exist on disk in this mode)
+3. Issue body fetched via tool-adapter `read_issue` (authoritative source for task details / "Factory command" field)
+4. `/memories/repo/*` (other caches — never override the board)
+
+If sources disagree in board mode:
+- the board (via `query_board`) is ALWAYS authoritative; cache mismatches trigger a refresh, never a fallback
+- always report drift explicitly.
 
 ---
 

@@ -48,24 +48,30 @@ IF issue.status != "Done":
     CONTRACT-FREEZE issue to Done, then re-run IMPLEMENT --plan.
   STOP
 
-# 2. Verify the frozen-contract artefacts exist on disk and have status == APPROVED
+# 2. Verify the frozen-contract directory exists and is non-empty
 contracts_dir = "docs/spec/{FEATURE_ID}/contracts/"
 IF NOT DIR_EXISTS(contracts_dir) OR DIR_IS_EMPTY(contracts_dir):
   ❌ BLOCK: "CONTRACT-FREEZE issue is Done but {contracts_dir} is missing or empty."
   SUGGEST: "Governance drift detected. Re-run the contract-freeze step to produce the frozen contract set."
   STOP
 
-FOR EACH contract_file IN contracts_dir:
-  fm = READ_FRONTMATTER(contract_file)
-  IF fm.status == "INVALIDATED":
-    ❌ BLOCK: "Frozen contract {contract_file} is INVALIDATED (upstream changed after freeze)."
-    SUGGEST: "Run BLUEPRINT --refine {FEATURE_ID} to re-sync, then re-freeze the contract."
-    STOP
+# 3. Check the gate issue for the stale-after-cascade label (placed by iteration-model cascade
+#    when an upstream change re-invalidated the contracts — see Factory-iteration-model/SKILL.md
+#    § CASCADE_PENDING_ITERATION → contracts_freeze branch).
+#    Contract files themselves (OpenAPI YAML, TypeScript interface, GraphQL SDL, Protobuf, etc.)
+#    are the DSL native format and carry NO markdown frontmatter — the CONTRACT-FREEZE gate issue
+#    is the single source of truth for their "frozen" status, NOT a per-file frontmatter read.
+IF "stale-after-cascade" IN gate_issue.labels:
+  ❌ BLOCK: "CONTRACT-FREEZE gate was marked stale by an upstream cascade (label: stale-after-cascade)."
+  SUGGEST: "Run BLUEPRINT --refine {FEATURE_ID} to re-sync the contracts, then reopen and re-close the CONTRACT-FREEZE issue (removing the stale label) to re-freeze."
+  STOP
 
-✅ PROCEED — contract-freeze artefacts are present and synced
+✅ PROCEED — contract-freeze issue is Done, contracts present, not stale
 ```
 
-> **Rationale.** Without this gate, `IMPLEMENT --plan` reads `design.md` for contract references but the concrete contract files may be absent, outdated, or out of sync with the design. MASS retrospective recorded six cases of contract drift (class DC-6) where implementation proceeded against a stale or inferred contract and the bug surfaced only at QA. The gate eliminates that class entirely by making the frozen contract a hard prerequisite.
+> **Rationale.** Without this gate, `IMPLEMENT --plan` reads `design.md` for contract references but the concrete contract files may be absent, outdated, or out of sync with the design. The MASS production retrospective recorded six cases of contract drift (class DC-6) where implementation proceeded against a stale or inferred contract and the bug surfaced only at QA. The gate eliminates that class entirely by making the frozen contract a hard prerequisite.
+
+> **Trust model.** Contract files (OpenAPI YAML, TypeScript interface files, GraphQL SDL, Protobuf, etc.) live in their respective DSL formats without markdown frontmatter — there is no `status` field to read on a `.yaml` or `.ts` file. The CONTRACT-FREEZE gate issue being `Done` (and NOT carrying the `stale-after-cascade` label) IS the source of truth that the contracts under `docs/spec/{FEATURE_ID}/contracts/` are frozen and valid. Upstream changes that would invalidate the contracts trigger a cascade that relabels the gate issue and moves it back to Todo via the tool-adapter (see `Factory-iteration-model/SKILL.md` § CASCADE_PENDING_ITERATION → contracts_freeze branch). This gives a single, tool-agnostic, frontmatter-free validation point.
 
 ### UX Vision Gate (v12.0.0)
 ```yaml

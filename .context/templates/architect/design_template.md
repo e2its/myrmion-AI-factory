@@ -5,12 +5,24 @@ You must use this exact structure for the design file, ensuring section 0 contai
 ```markdown
 ---
 id: {{FEATURE_ID}}
-status: DRAFT
+status: DRAFT   # DRAFT | NEEDS_INFO | APPROVED | BLOCKED | REJECTED | INVALIDATED
 date: [DATE]
 approver: PENDING
 based_on_iteration: 1
 based_on_schemas_version: 1
 based_on_journey: false
+
+# Iteration model — push-based cascade fields (EVOL-014)
+# Set by the upstream agent via CASCADE_PENDING_ITERATION when this artifact is stale.
+# Cleared by this agent's --refine after a DELTA or FULL sync.
+pending_iteration: null
+pending_schemas_version: null
+invalidated_sections: []
+invalidated_by_iteration: null
+invalidated_reason: null
+cascade_source: null
+cascade_timestamp: null
+cascade_scope: []
 ---
 
 # Technical Design: {{FEATURE_ID}}

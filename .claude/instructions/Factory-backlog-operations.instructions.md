@@ -175,6 +175,80 @@ Slice- and epic-level gate issues are created by `--plan-execution` alongside th
 
 > **Why no `lessons_learned.md` per epic.** The framework deliberately keeps a single source of truth for "what we learned": the living catalog at `docs/rules/defect-prevention.md`. A separate per-epic markdown would duplicate narrative that nobody re-reads, while fragmenting the actionable DC entries across files. Narrative history lives on the tracker (issue body + closure date); actionable prevention lives in the rule file.
 
+#### 3.4.1 Retrospective → Defect Prevention Catalog write-back procedure (EVOL-014)
+
+Closing an `[EPIC-{N}] RETROSPECTIVE` gate issue is NOT a single "move to Done" operation. It is a structured two-step write:
+
+**Step 1 — Narrative (issue body).** The BACKLOG agent, assisted by the user, populates the RETROSPECTIVE issue body with:
+
+1. **What happened** — one paragraph per slice in the epic describing what shipped, what slipped, what surprised.
+2. **What was learned** — bullet list of novel runtime / governance / architectural patterns observed during the epic that the existing Defect Prevention Catalog did NOT already cover.
+3. **Candidate DC entries** — for each learning that meets the Discovery Protocol threshold (runtime-observable, reproducible, preventable by a concrete check), draft a new DC entry inline in the issue body using this block:
+
+   ```markdown
+   ### Candidate DC
+
+   - **Name:** {short title}
+   - **Applicable When:** {scope condition}
+   - **Applicable To:** [{enum list from CODESIGN | BLUEPRINT | IMPLEMENT | REVIEW | DEVOPS | QA | AUDIT}]
+   - **Severity:** {BLOCKER | WARNING}
+   - **Check:** {what the prevention step verifies}
+   - **Evidence:** {link to the feature / commit / issue where this pattern surfaced}
+   ```
+
+4. **Non-catalog learnings** — observations that are NOT DC-worthy (team dynamics, scheduling issues, dependency choices) stay in the narrative section only. They do not become rule entries.
+
+**Step 2 — Write-back to `docs/rules/defect-prevention.md`.** For each `### Candidate DC` block in the issue body:
+
+```yaml
+FUNCTION retrospective_writeback(retrospective_issue, epic_id):
+  # This is the canonical mechanism that closes the producer side of the DC loop.
+  # Without it, the narrative in the issue body is dead prose and the catalog never grows.
+
+  body = ADAPTER.read_issue(retrospective_issue) → .body
+  candidates = parse_candidate_dc_blocks(body)
+
+  IF candidates is empty:
+    LOG: "Epic {epic_id} retrospective closed with zero new DC candidates — acceptable"
+    RETURN
+
+  READ docs/rules/defect-prevention.md → existing_catalog
+  next_dc_number = max(existing_catalog.dc_numbers) + 1
+
+  FOR EACH candidate IN candidates:
+    # Dedup: skip candidates that overlap an existing DC by name similarity
+    IF candidate is substantially covered by an existing DC:
+      ADD comment to retrospective body: "Candidate merged into DC-{N}"
+      CONTINUE
+
+    # Materialise the entry
+    APPEND to docs/rules/defect-prevention.md § The Defect Prevention Catalog (table):
+      | DC-{next_dc_number} | {name} | {applicable_when} | {applicable_to} | {severity} | {check} |
+    APPEND to § Project Discoveries section:
+      ### DC-{next_dc_number} — {name}
+      {full body: evidence link, when discovered, epic retrospective reference, worked example}
+
+    next_dc_number += 1
+
+  # Governance bump — see Generation Standards §7
+  UPDATE docs/project_log/governance_versions.json → defect-prevention.md entry:
+    version: bump minor (e.g. 2.0.0 → 2.1.0)
+    changelog.append: "{YYYY-MM-DD}: EPIC-{N} retrospective added {count} DC entries ({dc_numbers})"
+
+  # Worklog
+  APPEND_TO_WORKLOG: {phase: "RETROSPECTIVE", action: "writeback", added_dcs: [...]}
+
+  # Now the gate issue can move to Done
+  ADAPTER.move_to_column(retrospective_issue, column="Done")
+```
+
+**Invariants:**
+
+1. **The gate does NOT close without running the write-back.** Moving the RETROSPECTIVE issue to Done manually (without invoking the write-back procedure) is a governance violation, because the "zero candidates" branch is still a valid and explicit decision — it must be logged, not implied.
+2. **Zero candidates is a valid outcome.** An epic that produced no novel patterns closes the gate cleanly with a narrative-only issue body and the explicit "no new DC candidates" log line.
+3. **Write-back is additive and tool-agnostic.** It only appends to `docs/rules/defect-prevention.md` and bumps `governance_versions.json`. It does NOT touch per-feature artefacts, does NOT invoke any tool-adapter operation beyond `read_issue` + `move_to_column`, and does NOT trigger cascade invalidation (cataloging a new pattern is forward-only — it does not retroactively invalidate past work).
+4. **Discovery Protocol alignment.** Write-back is the canonical execution of the Discovery Protocol documented in `docs/rules/defect-prevention.md` § 8. Agents that discover novel patterns during development (IMPLEMENT --fix, BVL failure, preventive sweep finding a pattern not in the catalog) SHOULD still add them immediately, not wait for the retrospective — but they MUST also mirror the addition into the current epic's retrospective issue body so the closing write-back is idempotent.
+
 ---
 
 ## 4. LABEL AND MILESTONE SCHEMA
@@ -298,6 +372,52 @@ Milestone naming follows `milestone_strategy` from Q27.3:
 - [ ] Tests updated
 ```
 
+### Body File Template — Gate Issue (CONTRACT-FREEZE / PREVENTIVE-SWEEP / SMOKE-E2E / INTEGRATION-TEST / RETROSPECTIVE)
+
+> **Gate issues are not phase commands.** They represent validation work that must be completed before a downstream command may run. The body template below makes that explicit via a `Gate type` line and a `Blocks` line — the BACKLOG `--next-task` resolver looks for these two lines when deciding whether to return a gate issue as "next task to complete" vs treating it as a runtime blocker against a different command.
+
+```markdown
+## Gate type
+
+{contract-freeze | preventive-sweep | smoke-e2e | integration-test | retrospective}
+
+## Blocks
+
+{name of the downstream Factory command that cannot run until this gate closes}
+
+Examples:
+- contract-freeze → blocks `IMPLEMENT --plan {ID}`
+- preventive-sweep → blocks `DEVOPS --deploy --env dev {ID}`
+- smoke-e2e → blocks `QA --verify {ID}` auto-approval
+- integration-test → blocks first `CODESIGN --start` of next slice in the epic
+- retrospective → blocks first `CODESIGN --start` of the next epic
+
+## What this gate validates
+
+{One paragraph explaining what evidence must exist for the gate to close, in plain business terms.}
+
+## Definition of Done
+
+Gate-specific checklist — every item must be `[x]` before moving the issue to Done:
+
+- [ ] {Artifact produced at expected path with expected frontmatter status (e.g., `docs/spec/{ID}/preventive_sweep_report.md` — status: APPROVED)}
+- [ ] {Validation check 1 specific to this gate type}
+- [ ] {Validation check 2}
+- [ ] Zero open `stale-after-cascade` / `stale-after-slice-peer-iterated` labels on this issue (iteration-model cascade invariant)
+
+## Resolution command
+
+> Gate issues do NOT have a direct Factory slash-command to run. The work is performed via the tool, the skill, or the user action listed here. When complete, move the issue to Done via `BACKLOG --update-execution {step_ref}` or the equivalent tracker UI action.
+
+{Literal instructions: "Run Factory-preventive-sweep skill against FEATURE_ID", "Execute the numbered smoke blocks on dev deploy", "Produce OpenAPI + contract harness", "Run retrospective write-back procedure (Factory-backlog-operations.instructions.md § 3.4.1)".}
+
+## Cascade behaviour
+
+When the iteration-model cascade reopens this gate (applying the `stale-after-cascade` label), the artifact the gate produced is marked `status: INVALIDATED` and the gate's DoD checklist must be re-validated in full — partial delta updates are NOT supported for gate artefacts.
+```
+
+> **How `--next-task` resolves a gate issue.** The resolver parses the issue body looking for the `## Gate type` and `## Blocks` lines. If a candidate command matches a `Blocks` target and the matching gate issue is not Done (or carries a `stale-after-*` label), the resolver returns the gate issue itself with `why_now = "gate blocks {candidate.command}"`. The resolver surfaces the `Resolution command` field as the concrete next action for the user, instead of a Factory slash-command (which gates intentionally lack).
+
 ---
 
 ## 6. ISSUE CREATION PROTOCOL
@@ -325,13 +445,14 @@ The tool-adapter defines commands for these abstract operations:
 | `create_label` | ✅ | Create a label with name and (optional) color. Used to materialize the full label taxonomy (§ 4.1) at init time |
 | `create_milestone` | ⚠️ optional | Create a milestone/fix-version/cycle with a name. Skipped when `milestone_strategy == "none"` or when the tool has no native milestone concept |
 
-**Issue lifecycle operations** (called by `--plan-feature`, `--create-issue`, `--update-execution`):
+**Issue lifecycle operations** (called by `--plan-feature`, `--create-issue`, `--update-execution`, and by cascade invalidation):
 | Operation | Required | Description |
 | --- | --- | --- |
 | `create_issue` | ✅ | Create an issue with title, body, labels, milestone, assignee |
 | `add_to_board` | ✅ | Add an issue to the project board |
 | `move_to_column` | ✅ | Move an issue to a specific board column |
 | `close_issue` | ✅ | Close or delete an issue (used for rollback). Accepts issue number/ID |
+| `add_label` | ✅ | Apply an existing label to an existing issue (e.g., `stale-after-cascade`, `stale-after-slice-peer-iterated`). Used by [Factory-iteration-model/SKILL.md](Factory-iteration-model/SKILL.md) § CASCADE_PENDING_ITERATION to mark gate issues as stale after an upstream cascade reopens them. Distinct from `create_label` (which creates the label definition at `--init-board`). Tools MUST either implement this natively or provide a composed fallback (e.g., fetching the existing labels, appending, and issuing a full update) |
 | `add_sub_issue` | ⚠️ optional | Nest a child issue under a parent issue. Used when a preset declares sub-issue nesting (e.g. gate phases nested under IMPLEMENT). Tools without native sub-issue support SHOULD implement a fallback (e.g. Jira sub-tasks, Linear parent-child, or a prominent cross-link in the body) — or declare the operation as a no-op, in which case the gates become standalone siblings |
 
 **Query and verification operations** (called by `--next-task`, `--status`, Final Verification Gate § 6.4):

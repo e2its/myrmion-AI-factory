@@ -120,6 +120,13 @@ mcp: linear__updateIssue({id: <issue_id>, stateId: <target_state_id>})
 #### `close_issue` — **STUB**
 Set state to `{{STATE_ID_DONE}}`. Linear auto-handles "completed" semantics.
 
+#### `add_label` — **STUB**
+Linear labels are referenced by ID (UUID). Resolve the label name to its ID via `linear__listIssueLabels`, fetch the issue's current `labelIds`, append the new ID if missing, and update:
+```
+mcp: linear__updateIssue({id: <issue_id>, labelIds: [<existing_ids>..., <new_label_id>]})
+```
+Used by the iteration-model cascade. Must be idempotent — skip the update if the label is already on the issue.
+
 #### `add_sub_issue` — **STUB (native)**
 Linear supports sub-issues natively via `parentId`. Two strategies:
 - **At creation time:** pass `parentId` in `create_issue` directly
@@ -187,6 +194,7 @@ required_ops:
   add_to_board:          no-op     # implicit
   move_to_column:        TODO
   close_issue:           TODO
+  add_label:             TODO      # fetch labelIds + append + updateIssue (idempotent)
   query_board:           TODO
   get_item_id:           TODO
   read_issue:            TODO

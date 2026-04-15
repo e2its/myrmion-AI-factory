@@ -187,6 +187,13 @@ gh project item-edit \
 gh issue close <issue_number> --repo {{REPO_SLUG}} --reason "<completed|not_planned>"
 ```
 
+#### `add_label`
+```bash
+gh issue edit <issue_number> --repo {{REPO_SLUG}} --add-label "<label_name>"
+```
+
+Used by the iteration-model cascade to mark gate issues as stale. The label must already exist (created at `--init-board` via `create_label` or on-demand via `gh label create`). Safe to call on an issue that already has the label — GitHub ignores duplicates.
+
 #### `add_sub_issue` (optional — REQUIRED for `full-sdlc` with gate sub-issue nesting)
 GitHub Projects supports sub-issues via the `addSubIssue` GraphQL mutation. Both parent and child must be referenced by node ID (captured post-`create_issue`).
 
@@ -284,6 +291,7 @@ required_ops:
   add_to_board:          native
   move_to_column:        native
   close_issue:           native
+  add_label:             native     # gh issue edit --add-label
   query_board:           native
   get_item_id:           native
   read_issue:            native

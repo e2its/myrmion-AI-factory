@@ -1261,11 +1261,12 @@
       "path": ".claude/skills/Factory-preventive-sweep/SKILL.md"
     },
     "rules/defect-prevention.md": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "content_type": "stack_configured",
       "target": "docs/rules/defect-prevention.md",
       "changelog": [
-        "1.0.0: feat: initial — Defect Prevention Catalog template with {{DC_ENTRIES}} placeholder. SETUP materializes stack-specific starter DCs. Process: DEV pre-write check, REVIEW Check #2d, Discovery Protocol."
+        "1.0.0: feat: initial — Defect Prevention Catalog template with {{DC_ENTRIES}} placeholder. SETUP materializes stack-specific starter DCs. Process: DEV pre-write check, REVIEW Check #2d, Discovery Protocol.",
+        "2.0.0: feat(EVOL-014): universal consumption — added applicable_to enum field to every DC entry (CODESIGN/BLUEPRINT/IMPLEMENT/REVIEW/DEVOPS/QA/AUDIT). Canonical consult_defect_catalog() function documented. Eight per-agent integration sections replace previous DEV+REVIEW-only wording. Render pipeline emits the applicable_to column alongside existing columns. Relationship table expanded to list every consumer instructions file."
       ]
     },
     "scripts/factory-sync.sh": {
