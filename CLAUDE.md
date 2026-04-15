@@ -77,7 +77,7 @@ Gates ONLY ship when the feature uses the `full-sdlc` preset (Q27.2). Prototypes
    | **CODESIGN** (PO ↔ UX) | `.context/templates/{po,ux,codesign}/*.md` |
    | **BLUEPRINT** (ARCH ↔ QA) | `.context/templates/architect/*.md` (design, ADR, technical gaps) + `.context/templates/qa/test_plan_template.md` |
    | **IMPLEMENT** (DEV ↔ REVIEW ↔ SEC) | `.context/templates/develop/*.md` (dev plan, api/e2e/page object tests, blockers report) + `.context/templates/peer_review/review_template.md` + `.context/templates/security/{remedy,sec_audit}_template.md` |
-   | **QA** | `.context/templates/qa/{qa_report,test_gaps_proposals}.md` |
+   | **QA** | `.context/templates/qa/qa_report_template.md` + `.context/templates/qa/test_gaps_proposals.md` + `.context/templates/qa/smoke_e2e_report_template.md` |
    | **AUDIT** | `.context/templates/security/sec_audit_template.md` |
    | **DEVOPS** | Embedded inside `.claude/instructions/Factory-devops-*.instructions.md` (search `## ... Template` sections) — no dedicated templates dir |
    | **SETUP** | The whole `.context/templates/setup/**/*.md` tree (constitution, rules, ADRs, snippets, workflows, policies) — materialised by `SETUP --generate` |

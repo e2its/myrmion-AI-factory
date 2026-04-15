@@ -54,7 +54,7 @@ Update `state.md` frontmatter `board_columns` to `{{BOARD_COLUMNS}}`. No-op if a
 **No-op.** Labels in local mode are string tags stored per row in `state.md`. They are not pre-declared; the label column is free-form. The BACKLOG agent still follows the § 4.1 taxonomy for consistency.
 
 #### `create_milestone`
-**No-op.** Milestones are not materialised in local mode. The `milestone` column in `state.md` remains a free-form string (e.g., `EPIC-1: Foundation`).
+**No-op.** Milestones are not materialised in local mode. The `Milestone` column in `state.md` remains a free-form string (e.g., `EPIC-1: Foundation`). Applied directly by `create_issue` when the caller supplies a milestone value.
 
 ---
 
@@ -63,7 +63,12 @@ Update `state.md` frontmatter `board_columns` to `{{BOARD_COLUMNS}}`. No-op if a
 #### `create_issue`
 1. Allocate next local ID from `state.md` frontmatter `next_local_id` (e.g., `L-001`)
 2. Write body to `docs/backlog/issue-bodies/<local_id>.md`
-3. Append a new row to the `## Board` table in `state.md` with: local ID, feature ID, title, status (initial column), body file path, labels (comma-joined), milestone
+3. Append a new row to the `## Board` table in `state.md` with all 8 columns:
+   `Local ID | Feature | Title | Status | Labels | Milestone | Parent | Body File`
+   — `Labels` = comma-joined (may be empty if no labels at creation);
+   — `Milestone` = free-form string or blank;
+   — `Parent` = parent local ID when `parent_ref` is supplied to `create_issue` (used by `add_sub_issue` for gate nesting), blank otherwise;
+   — `Body File` = relative path `issue-bodies/<local_id>.md`.
 4. Increment `next_local_id` in frontmatter
 5. Update `last_updated` timestamp in frontmatter
 
@@ -82,7 +87,7 @@ Move to column `Done` (or the last column in `{{BOARD_COLUMNS}}`), then append a
 Rewrite the `Labels` column of the matching row in `state.md`: read the current comma-joined label list, append the new label if not already present, write back. Update `last_updated` timestamp in frontmatter. Idempotent.
 
 #### `add_sub_issue`
-**No-op.** Local mode has no native sub-issue concept. Gate issues are materialised as standalone siblings with a cross-reference line in the body: `> Parent: {parent_local_id}`. The `--next-task` resolver reads this line to reconstruct the parent relationship.
+**Native.** Rewrite the `Parent` column of the child row in `state.md` with the parent's local ID. Idempotent — if the parent is already set to the same value, no-op. Used when a preset declares sub-issue nesting (e.g., the 3 gate phases nested under IMPLEMENT). Update `last_updated` timestamp in frontmatter.
 
 ---
 
@@ -91,7 +96,7 @@ Rewrite the `Labels` column of the matching row in `state.md`: read the current 
 #### `query_board`
 1. READ `docs/backlog/state.md`
 2. Parse the `## Board` table into structured rows
-3. Return `[{local_id, feature_id, title, status, body_path, labels, milestone}, ...]`
+3. Return `[{local_id, feature_id, title, status, labels, milestone, parent, body_path}, ...]` — one entry per 8-column row, with labels parsed from comma-joined string to array.
 
 #### `get_item_id`
 Search `state.md` for the row matching the given feature_id + phase; return its `local_id`. Returns null if not found.
@@ -99,7 +104,7 @@ Search `state.md` for the row matching the given feature_id + phase; return its 
 #### `read_issue`
 1. READ `state.md` row by `local_id`
 2. READ `docs/backlog/issue-bodies/<local_id>.md` for the body
-3. Return merged `{local_id, title, body, labels, milestone, status}`
+3. Return merged `{local_id, feature_id, title, body, labels, milestone, parent, status}`
 
 #### `verify_issue`
 Run `read_issue` and compare to expected values. Return `{ok, mismatches}`.
@@ -136,7 +141,7 @@ No post-init placeholders. Local mode has no runtime identifiers to capture.
 required_ops:
   create_project:        native
   configure_board:       native
-  create_label:          no-op     # labels are free-form strings in state.md
+  create_label:          no-op     # labels are free-form strings in the Labels column — no label registry
   create_issue:          native
   add_to_board:          no-op     # create_issue already adds to state.md
   move_to_column:        native
@@ -149,8 +154,8 @@ required_ops:
   verify_board_placement: native    # placement == status column
 
 optional_ops:
-  create_milestone:      no-op     # milestone is a free-form string
-  add_sub_issue:         no-op     # gates materialise as standalone siblings with > Parent: cross-ref
+  create_milestone:      no-op     # milestone is a free-form string in the Milestone column — no milestone registry
+  add_sub_issue:         native    # rewrites Parent column of the child row in state.md (idempotent)
 ```
 
-When `add_sub_issue` is `no-op`, slice/epic gate enforcement still works — the `--next-task` resolver reads the `> Parent:` body cross-reference to reconstruct the implicit hierarchy.
+File mode supports sub-issue nesting natively via the `Parent` column of the 8-column board schema. Gate issues are materialised as rows whose `Parent` field points to their IMPLEMENT parent's local ID. The `--next-task` resolver reads the `Parent` column directly — no body cross-references required.

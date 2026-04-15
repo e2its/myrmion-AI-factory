@@ -230,7 +230,9 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 
     next_dc_number += 1
 
-  # Governance bump — see Generation Standards §7
+  # Governance bump — the canonical framework rule is enforced by the governance-check CI
+  # workflow (.github/workflows/governance-check.yml). Every change to a tracked rule file
+  # MUST bump its entry in governance_versions.json.
   UPDATE docs/project_log/governance_versions.json → defect-prevention.md entry:
     version: bump minor (e.g. 2.0.0 → 2.1.0)
     changelog.append: "{YYYY-MM-DD}: EPIC-{N} retrospective added {count} DC entries ({dc_numbers})"
