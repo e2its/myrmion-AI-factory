@@ -710,185 +710,6 @@
   "framework_core": {
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects \u2014 used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) \u2014 Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in docs/rules/.",
-    "agents/factory.agent.md": {
-      "version": "2.6.1",
-      "path": "CLAUDE.md",
-      "role": "Visible orchestrator (strict dispatcher + BA mediator) \u2014 sole user-invokable agent. Routes intent to specialists via handoffs. Mediates BIP interactivity. NEVER performs sub-agent work.",
-      "changelog": [
-        "2.6.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.6.0: feat: rename 'domain cluster' \u2192 'epic' in MAP_COMMAND_TO_ARTIFACTS comment (Agile-standard terminology)",
-        "2.5.2: fix: CVP auto-invoke in PMO Validation step 3.5 \u2014 advisory coherence check after every artifact-modifying command, non-blocking",
-        "2.5.1: fix: Governance Guard pre-flight uses full Step -1 protocol with explicit variable capture instead of simplified protected-branch check",
-        "2.5.0: feat: MAP_COMMAND_TO_ARTIFACTS \u2014 add BACKLOG --plan-execution, --update-execution, --sync-execution with execution-plan.md artifact",
-        "2.4.3: fix: model priority changed from Sonnet-first to Opus-first (#130)",
-        "2.4.2: fix: verify_deliverable_completeness now evaluates condition field \u2014 skips artifacts whose SSOT mode doesn't match current backlog_mode",
-        "2.4.1: fix: SSOT v1.0.0 \u2014 BACKLOG MAP_COMMAND_TO_ARTIFACTS now mode-conditional (external_mode/local_mode conditions on artifact paths)",
-        "2.4.0: feat: add backlog agent to agents[] list and MAP_COMMAND_TO_ARTIFACTS (#124)",
-        "2.3.1: fix: add GIT_DESTRUCTIVE sub-type to SCM operations \u2014 confirmation + backup + branch protection for destructive git ops",
-        "2.3.0: feat: UX protocols (onboarding, explanation levels, dashboard, humanized blocking, session resumption, roadmap) + i18n session.language with bilingual maps (es/en) and t() translation function",
-        "2.2.0: feat: BIP Disruption-Triggered Re-Harvest \u2014 pivotal override detection in mediation loop triggers partial agent re-harvest",
-        "2.1.0: feat: BIP BA Mediation Protocol \u2014 Factory as Business Analyst for prolonged interactivity commands, docs/.bip/* context depth exception",
-        "1.5.2: Fix stale 9/9\u219212/12 auto-approval references in MAP_COMMAND_TO_ARTIFACTS and Smart Redirect (#112)",
-        "1.5.1: IPP Key Reference \u2014 add Incremental Persistence Protocol row to Key References table (#112)",
-        "1.5.0: Remove deprecated command references \u2014 CODESIGN/DEVOPS/QA --approve from MAP_COMMAND_TO_ARTIFACTS and IOP Quick Reference (v8.2.0 cleanup)",
-        "1.4.0: UCT Protocol v1.0 \u2014 3-channel handoff separation (Command, User Context Envelope, Factory Context BLOCKED). Fix --refine expected_artifacts to [dev_plan.md] only",
-        "1.3.9: Context reduction \u2014 consolidate Dispatcher Self-Check + Context Depth Limiter + Handoff sections, reduce from 1156 to 1011 lines to prevent sub-agent token overflow",
-        "1.3.8: Factory delegation hardening \u2014 Identity Anchor (summarization-safe), Context Depth Limiter (frontmatter-only reads), expanded Dispatcher Self-Check with analysis overreach patterns, Handoff Transparency Display (mandatory diagnostic visualization), Smart Redirect identity reminder, fix Unicode replacement char in heading (#110)",
-        "1.3.7: PR review fixes \u2014 goal_terminus as state predicate, expected_artifacts as structured objects with expected_status (#108)",
-        "1.3.6: Coherence fix \u2014 remove stale CODESIGN --approve from Smart Redirect suggestion + update goal_terminus to state-based (#108)",
-        "1.3.5: Deliverable Completeness Gate (GAP-4), MAP_COMMAND_TO_ARTIFACTS auto-approval annotations, Smart Redirect skip eliminated --approve commands (#108)",
-        "1.3.4: Procedural gates \u2014 Dispatcher Self-Check Gate (H-01), Handoff Content Verification Gate (H-02), Worklog Attribution Verification Gate (M-01) (#108)",
-        "1.3.3: PM\u2192PMO rename, Smart Redirect sync \u2014 devops_plan_stale computed field + PHASE 0 staleness check, devops_plan iteration tracking in state snapshot (#108)",
-        "1.3.2: PR review fixes \u2014 state capture in PM Validation, MAP_COMMAND_TO_ARTIFACTS completeness (16 commands), entry_agent/MAP_SCOPE_TO_AGENT definition, AMBIGUOUS flow fix, L2 cascade loop guard (PR #107)",
-        "1.3.1: ACP Return Briefing in PM Validation + ACP Key Reference (#106)",
-        "1.3.0: Strict Dispatcher Discipline, Minimal Context Injection, Session Preferences, PM Validation, Scope Impact Classifier (L1-L4), Worklog Attribution (#106)",
-        "1.2.0: Embed full Smart Redirect decision tree \u2014 artifact state snapshot + compute_next_actions inline (FIX-001)",
-        "1.1.0: Fix tool IDs \u2014 use category/toolName format with all VS Code built-in tools (PR #104)",
-        "1.0.0: Initial Custom Agent \u2014 migrated from monolithic copilot-instructions.md orchestrator. Hub-and-spoke architecture with 7 handoffs (PR #101)",
-        "2.0.0: BREAKING \u2014 Update instruction file references to .instructions.md format (EVOL-001)"
-      ]
-    },
-    "agents/audit.agent.md": {
-      "version": "2.0.2",
-      "path": ".claude/commands/audit.md",
-      "role": "Technical Due Diligence \u2014 independent of SDLC workflow.",
-      "changelog": [
-        "2.0.2: fix: add Pre-Command Protocol \u2014 Step -1 branching enforcement for direct invocations",
-        "2.0.1: fix: model priority changed from Sonnet-first to Opus-first (#130)",
-        "1.1.3: IPP directive \u2014 Incremental Persistence Protocol reference in Rules section (#112)",
-        "1.1.2: ACP User Communication directive (#106)",
-        "1.1.1: Worklog attribution rule \u2014 user_agent: AUDIT (#106)",
-        "1.1.0: Fix tool IDs \u2014 use category/toolName format with all VS Code built-in tools (PR #104)",
-        "1.0.0: Migrated from .context/agents/AUDIT.AGENT.MD. Tools: read, search, edit (PR #101)",
-        "0.2.0: E0 brownfield strategy (#97)",
-        "0.1.0: Initial monolithic agent",
-        "2.0.0: BREAKING \u2014 Update instruction file references to .instructions.md format (EVOL-001)"
-      ]
-    },
-    "agents/setup.agent.md": {
-      "version": "2.2.1",
-      "path": ".claude/commands/setup.md",
-      "role": "Project scaffolding, governance materialization, upgrades, and inventory reconciliation.",
-      "changelog": [
-        "2.2.1: fix: add Pre-Command Protocol \u2014 Step -1 branching enforcement for direct invocations",
-        "2.2.0: feat: BIP pivotal question marking for disruption-triggered re-harvest",
-        "2.1.0: feat: BIP batch interaction style replaces one-question-at-a-time for --init",
-        "1.1.4: IPP directive \u2014 Incremental Persistence Protocol reference in Governance Rules section (#112)",
-        "1.1.3: ACP User Communication directive (#106)",
-        "1.1.2: Add --reconcile-inventory command for CIP reconciliation (#106)",
-        "1.1.1: Worklog attribution rule \u2014 user_agent: SETUP (#106)",
-        "1.1.0: Fix tool IDs \u2014 use category/toolName format with all VS Code built-in tools (PR #104)",
-        "1.0.0: Migrated from .context/agents/SETUP.AGENT.md. Tools: read, search, edit, execute (PR #101)",
-        "0.2.0: CIP bootstrap + E0 gate (#97, #98)",
-        "0.1.0: Initial monolithic agent",
-        "2.0.0: BREAKING \u2014 Update instruction file references to .instructions.md format (EVOL-001)"
-      ]
-    },
-    "agents/codesign.agent.md": {
-      "version": "2.1.1",
-      "path": ".claude/commands/codesign.md",
-      "role": "PO \u2194 UX co-creation \u2014 specs, mocks, user journeys, vision.",
-      "changelog": [
-        "2.1.1: fix: replace Branch Strategy with Pre-Command Protocol \u2014 Step -1 branching enforcement for direct invocations",
-        "2.1.0: feat: BIP mode annotations for --vision and --start commands",
-        "1.3.2: Fix stale 9/9\u219212/12 auto-approval reference in feature co-creation description (#112)",
-        "1.3.1: IPP directive \u2014 Incremental Persistence Protocol reference in Key Principles (#112)",
-        "1.3.0: Remove deprecated --approve command \u2014 auto-approval on 9/9 validations is the only path (v8.2.0 cleanup)",
-        "1.2.2: ACP User Communication directive (#106)",
-        "1.2.1: Add explicit CIP/DRY reference in Key Principles \u2014 consistency with instruction files (#106)",
-        "1.2.0: Iteration Changelog format for --refine, worklog attribution rule (#106)",
-        "1.1.0: Fix tool IDs \u2014 use category/toolName format with all VS Code built-in tools (PR #104)",
-        "1.0.0: Migrated from .context/agents/CODESIGN.AGENT.MD. Tools: read, search, edit (PR #101)",
-        "0.2.0: CIP + E0 (#97, #98)",
-        "0.1.0: Initial monolithic agent",
-        "2.0.0: BREAKING \u2014 Update instruction file references to .instructions.md format (EVOL-001)"
-      ]
-    },
-    "agents/blueprint.agent.md": {
-      "version": "2.0.1",
-      "path": ".claude/commands/blueprint.md",
-      "role": "ARCH \u2194 QA co-design \u2014 architecture, contracts, test plans.",
-      "changelog": [
-        "2.0.1: fix: add Pre-Command Protocol \u2014 Step -1 branching enforcement for direct invocations",
-        "1.2.3: IPP directive \u2014 Incremental Persistence Protocol reference in Key Principles (#112)",
-        "1.2.2: ACP User Communication directive (#106)",
-        "1.2.1: Add explicit CIP/DRY reference in Key Principles \u2014 consistency with instruction files (#106)",
-        "1.2.0: Iteration Changelog format for --refine, worklog attribution rule (#106)",
-        "1.1.0: Fix tool IDs \u2014 use category/toolName format with all VS Code built-in tools (PR #104)",
-        "1.0.0: Migrated from .context/agents/BLUEPRINT.AGENT.MD. Tools: read, search, edit, fetch (PR #101)",
-        "0.2.0: CIP DRY enforcement + E0 (#97, #98)",
-        "0.1.0: Initial monolithic agent",
-        "2.0.0: BREAKING \u2014 Update instruction file references to .instructions.md format (EVOL-001)"
-      ]
-    },
-    "agents/implement.agent.md": {
-      "version": "2.0.1",
-      "path": ".claude/commands/implement.md",
-      "role": "DEV \u2194 REVIEW \u2194 SEC triple-hat \u2014 code, tests, review, security.",
-      "changelog": [
-        "2.0.1: fix: add Pre-Command Protocol \u2014 Step -1 branching enforcement for direct invocations",
-        "1.3.2: IPP directive \u2014 Incremental Persistence Protocol reference in Key Principles (#112)",
-        "1.3.1: --fix sets qa_report to INVALIDATED after completion \u2014 breaks QA\u2192FIX infinite loop in Smart Redirect",
-        "1.3.0: Checkbox-Driven Execution model \u2014 4 task types (original [A/B/C.N], delta [D.N], adjustment [ADJ-N], fix [FIX-N]), Completion Gate with all types, removed hardcoded Smart Redirect hints",
-        "1.2.1: ACP User Communication directive (#106)",
-        "1.2.0: Completion Gate on --build, upstream validation on --refine, changelog requirement, worklog attribution (#106)",
-        "1.1.0: Fix tool IDs \u2014 use category/toolName format with all VS Code built-in tools (PR #104)",
-        "1.0.0: Migrated from .context/agents/IMPLEMENT.AGENT.MD. Tools: read, search, edit, execute, fetch (PR #101)",
-        "0.2.0: CIP DRY Gate + E0 (#97, #98)",
-        "0.1.0: Initial monolithic agent",
-        "2.0.0: BREAKING \u2014 Update instruction file references to .instructions.md format (EVOL-001)"
-      ]
-    },
-    "agents/devops.agent.md": {
-      "version": "2.0.1",
-      "path": ".claude/commands/devops.md",
-      "role": "Infrastructure & deployment \u2014 IaC, provision, deploy, rollback.",
-      "changelog": [
-        "2.0.1: fix: add Pre-Command Protocol \u2014 Step -1 branching enforcement for direct invocations",
-        "1.2.1: IPP directive \u2014 Incremental Persistence Protocol reference in Key Principles (#112)",
-        "1.2.0: Remove deprecated --approve command section \u2014 auto-approval on 7/7 checks is the only path (v8.2.0 cleanup)",
-        "1.1.2: ACP User Communication directive (#106)",
-        "1.1.1: Worklog attribution rule \u2014 user_agent: DEVOPS (#106)",
-        "1.1.0: Fix tool IDs \u2014 use category/toolName format with all VS Code built-in tools (PR #104)",
-        "1.0.0: Migrated from embedded DEVOPS in copilot-instructions.md. Tools: read, search, edit, execute, fetch (PR #101)",
-        "0.1.0: Initial embedded agent",
-        "2.0.0: BREAKING \u2014 Update instruction file references to .instructions.md format (EVOL-001)"
-      ]
-    },
-    "agents/qa.agent.md": {
-      "version": "2.0.2",
-      "path": ".claude/commands/qa.md",
-      "role": "Post-staging verification \u2014 verify, reject, e2e.",
-      "changelog": [
-        "2.0.2: fix: add Pre-Command Protocol \u2014 Step -1 branching enforcement for direct invocations",
-        "2.0.1: fix: model priority changed from Sonnet-first to Opus-first (#130)",
-        "1.3.1: IPP directive \u2014 Incremental Persistence Protocol reference in Key Principles (#112)",
-        "1.3.0: Remove deprecated --approve section and QA --plan/--refine warning \u2014 auto-approval via --verify is the only path (v8.2.0 cleanup)",
-        "1.2.0: Checkbox-driven --verify/--reject \u2014 QA\u2194FIX Loop principle, --reject generates [FIX-N] remediation items, removed hardcoded Smart Redirect hint",
-        "1.1.2: ACP User Communication directive (#106)",
-        "1.1.1: Worklog attribution rule \u2014 user_agent: QA (#106)",
-        "1.1.0: Fix tool IDs \u2014 use category/toolName format with all VS Code built-in tools (PR #104)",
-        "1.0.0: Migrated from embedded QA in copilot-instructions.md. Tools: read, search, edit, execute (PR #101)",
-        "0.1.0: Initial embedded agent",
-        "2.0.0: BREAKING \u2014 Update instruction file references to .instructions.md format (EVOL-001)"
-      ]
-    },
-    "agents/backlog.agent.md": {
-      "version": "1.2.0",
-      "path": ".claude/commands/backlog.md",
-      "role": "Project tracking & issue lifecycle management \u2014 board creation, feature issue planning, execution plan generation, board operations. Tool-agnostic via CLI/MCP adapter. Memory cache via /memories/repo/.",
-      "changelog": [
-        "1.2.0: feat: rename 'domain cluster' \u2192 'epic' in Protocol 8 + add slice subdivision step (form slices by Aggregate Root, \u22643 features per slice)",
-        "1.1.0: feat: execution plan protocol \u2014 --plan-execution, --update-execution, --sync-execution commands; domain cluster dependency analysis; /memories/repo/ write-through cache; --plan-feature integration with execution plan issue references",
-        "1.0.6: fix: model priority Opus-first, behavioral directives (paranoid-verify), verification protocol (tool-adapter verify_issue/verify_board_placement), rollback protocol (close_issue), operational safeguards (#130)",
-        "1.0.5: fix: Protocol 0.5 now delegates to \u00a7 6.0.2 full 3-step Preflight Check (binary/MCP + auth + permissions) instead of single verify_command",
-        "1.0.4: fix: Protocol 0.5 Preflight Check \u2014 mandatory pre-operation gate verifies CLI/MCP install, auth, and permissions before any external mode command",
-        "1.0.3: fix: tool-agnostic refactor \u2014 remove hardcoded tool names (GitHub/Jira/Linear), mode detection uses tool != None, CLI/MCP-only integration (zero credentials), tool-adapter protocol reference",
-        "1.0.2: fix: SSOT v1.0.0 \u2014 dual operating mode (external/local), mode detection protocol, eliminate dual source of truth for backlog state",
-        "1.0.1: fix: PR review \u2014 read project_tracking from governance snapshot (summarization-safe) with setup.md fallback, clarify preset string expansion for feature phases (#124)",
-        "1.0.0: feat: initial Backlog Manager agent \u2014 --init-board, --plan-feature, --create-issue, --move, --status. Deliverables under docs/backlog/ (#124)"
-      ]
-    },
     "instructions/Factory-audit-checklist.instructions.md": {
       "version": "2.1.0",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
@@ -1483,6 +1304,24 @@
       "role": "PreToolUse hook (Edit/Write) \u2014 compares MD5 of constitution.md and setup.md against governance snapshot hashes; warns on drift so agents regenerate stale snapshots.",
       "changelog": [
         "1.0.0: feat: governance snapshot drift detection \u2014 non-blocking WARNING when snapshot hashes diverge from source files (EVOL-013)"
+      ]
+    },
+    "workflows/governance-check.yml": {
+      "version": "1.0.0",
+      "path": ".github/workflows/governance-check.yml",
+      "type": "ci",
+      "role": "Governance Check CI gate \u2014 validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
+      "changelog": [
+        "1.0.0: feat: initial registration in manifest (EVOL-014 follow-up) \u2014 existing workflow tracks framework_version bumps and orphan/stale entries."
+      ]
+    },
+    "workflows/auto-tag.yml": {
+      "version": "1.0.0",
+      "path": ".github/workflows/auto-tag.yml",
+      "type": "ci",
+      "role": "Auto-Tag & Release on merge to main \u2014 calculates SemVer bump from conventional commits and creates GitHub Release with categorized notes.",
+      "changelog": [
+        "1.0.0: feat: initial registration in manifest (EVOL-014 follow-up) \u2014 existing workflow triggers on push to main."
       ]
     }
   }

@@ -383,7 +383,7 @@ Read side above. Write side here.
 
 **Tracked files.** `.context/templates/setup/governance_versions.json` has two sections:
 
-- `framework_core` — used by the LLM, not materialised. `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `.github/agents/**`, `scripts/factory-*.sh`.
+- `framework_core` — used by the LLM, not materialised. `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`. (The framework is Claude Code — single agent with slash commands. Legacy `agents/*.agent.md` entries in the manifest point to a pre-Claude-Code multi-agent layout and are not in scope for new work.)
 - `templates` — materialised into target projects by `SETUP --generate`. `.context/templates/setup/**`, `.context/templates/{architect,codesign,develop,peer_review,po,qa,security,ux}/*`.
 
 **Bump kind (semver).**
