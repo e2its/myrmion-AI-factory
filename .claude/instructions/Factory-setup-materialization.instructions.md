@@ -482,35 +482,51 @@ If `ai.training`, `ai.inference`, or `ai.agentic` enabled:
 
 **Step 6 — Backlog Scaffolding (conditional on project_tracking.tool — SSOT v1.0.0):**
 
-The scaffolded artifacts depend on the SSOT mode:
+The scaffolded artifacts depend on the SSOT mode and, in every mode, include a **tool-adapter** rendered from the canonical per-tool templates in `.context/templates/setup/backlog-tool-adapters/`.
+
+### Step 6.1 — Adapter Template Selection (MANDATORY — all modes)
+
+Read `project_tracking.tool` from `docs/setup.md` (Q27) and pick exactly one template using case-insensitive regex matching:
+
+| `project_tracking.tool` pattern | Template source | Integration |
+| --- | --- | --- |
+| `/github/i` (e.g. "GitHub Projects", "GitHub") | `.context/templates/setup/backlog-tool-adapters/github-project.md` | `cli` (`gh`) |
+| `/jira/i` | `.context/templates/setup/backlog-tool-adapters/jira.md` | `cli` (`jira`) — **stub** |
+| `/linear/i` | `.context/templates/setup/backlog-tool-adapters/linear.md` | `mcp` — **stub** |
+| `"None"` (exact, case-sensitive) | `.context/templates/setup/backlog-tool-adapters/none.md` | `file` |
+| Any other value (fallback) | `.context/templates/setup/backlog-tool-adapters/none.md` | `file` |
+
+> **Fallback behaviour.** When the user answered Q27 with a tool name that has no dedicated adapter (e.g. "Azure Boards", "Shortcut", "Notion"), SETUP materialises the `none.md` template as a safe default and emits a WARN-level diagnostic: `Q27 tool "{tool}" has no dedicated adapter — materialising local file mode. To add native integration, author an adapter based on .context/templates/setup/backlog-tool-adapters/jira.md and register it in README.md § Selection.` The user keeps a working backlog (local mode) and the warning stays in the setup worklog until an adapter lands.
+
+### Step 6.2 — Placeholder Resolution at Materialisation
+
+The selected template contains `{{PLACEHOLDER}}` tokens. SETUP resolves the subset that are known at materialisation time and leaves the rest untouched for `--init-board` to capture on first run.
+
+**Resolvable at materialisation (always substitute):**
+
+| Placeholder | Source |
+| --- | --- |
+| `{{PROJECT_NAME}}` | `docs/setup.md` Q1 `project_name` |
+| `{{REPO_SLUG}}` | `git remote get-url origin` parsed to `owner/repo`; if no remote, prompt the user |
+| `{{ORG_OR_USER}}` | First segment of `{{REPO_SLUG}}` |
+| `{{BOARD_COLUMNS}}` | `project_tracking.board_columns` from Q27.1 — rendered as a JSON array |
+| `{{MILESTONE_STRATEGY}}` | `project_tracking.milestone_strategy` from Q27.3 |
+| `{{NAMING_CONVENTION}}` | `project_tracking.naming_convention` from Q27.4 |
+| `{{CLI_BINARY}}` | Inferred from the adapter frontmatter `cli_binary` field |
+
+**Captured post-init (leave `{{…}}` verbatim):**
+
+Placeholders such as `{{PROJECT_NUMBER}}`, `{{PROJECT_NODE_ID}}`, `{{STATUS_FIELD_ID}}`, option IDs, `{{JIRA_PROJECT_KEY}}`, `{{LINEAR_TEAM_ID}}`, etc. are resolved during the first `BACKLOG --init-board` run and persisted into `docs/backlog/project-config.json`. Any `{{…}}` token not listed in the "resolvable at materialisation" table above MUST remain unchanged in the materialised `tool-adapter.md`.
+
+### Step 6.3 — Artifact Layout
 
 **If `project_tracking.tool != "None"` (External mode):**
 ```
 docs/backlog/
 docs/backlog/project-config.json    # from .context/templates/setup/backlog/project-config.json
-docs/backlog/tool-adapter.md         # GENERATED — tool-specific CLI/MCP commands (see below)
+docs/backlog/tool-adapter.md         # RENDERED from selected adapter template (§ 6.1 + § 6.2)
 ```
 > No `state.md` or `issue-bodies/` — the external tool is the single source of truth.
-
-**Tool-Adapter Generation (External mode only):**
-SETUP generates `docs/backlog/tool-adapter.md` with tool-specific content based on `project_tracking.tool`. The adapter contains:
-
-1. **`## Prerequisites`** — Instructions for the user to install and authenticate the CLI tool or MCP server. MUST include:
-   - Install command (e.g., `brew install gh`, `npm install -g @linear/cli`)
-   - Authentication command (e.g., `gh auth login`, MCP server config)
-   - Verification command to check readiness (e.g., `gh auth status`)
-   - Required permissions/scopes (e.g., `project`, `repo`, `read:org` for GitHub)
-2. **`## Commands`** — Concrete CLI/MCP commands for each abstract operation (`create_issue`, `add_to_board`, `move_to_column`, `create_project`, `configure_board`, `query_board`, `get_item_id`, `verify_issue`, `verify_board_placement`, `close_issue`). Placeholders use `{{variable}}` syntax referencing `project-config.json` fields.
-3. **`## project-config.json Schema`** — Documents the exact fields that `--init-board` will populate inside `project_ids` and `board_field_mapping` for this specific tool.
-4. **`## Manual Steps`** — Any steps that cannot be automated via CLI/MCP (e.g., "Board view must be created manually in GitHub UI").
-5. **`## Troubleshooting`** — Error resolution guidance organized by error category. MUST include:
-   - **Not installed**: Full install instructions per OS (macOS/Linux/Windows)
-   - **Not authenticated**: Step-by-step auth flow with the exact commands
-   - **Insufficient permissions**: Which scopes/permissions are needed and how to update them
-   - **Network issues**: Proxy/VPN/firewall guidance
-   - **Common errors**: Tool-specific known issues and their fixes
-
-> **🔒 SECURITY:** The tool-adapter MUST NOT contain credentials, tokens, or secrets. Authentication is the user's responsibility via CLI login or MCP server configuration. The adapter only references the CLI binary name and non-sensitive identifiers.
 
 **If `project_tracking.tool == "None"` (Local mode):**
 ```
@@ -518,8 +534,16 @@ docs/backlog/
 docs/backlog/issue-bodies/
 docs/backlog/issue-bodies/.gitkeep   # keep directory tracked until BACKLOG creates body files
 docs/backlog/state.md               # from .context/templates/setup/backlog/state.md
+docs/backlog/tool-adapter.md         # RENDERED from none.md adapter (§ 6.1 + § 6.2)
 ```
-> No `project-config.json` — no external API to connect to.
+> No `project-config.json` — no external API to connect to. The `tool-adapter.md` is still emitted so the BACKLOG agent has a uniform lookup surface across both modes.
+
+### Step 6.4 — Invariants
+
+1. **`docs/backlog/tool-adapter.md` is always rendered.** Both modes emit it. The adapter is the single lookup surface the BACKLOG agent uses for every operation, including file-mode operations in local mode.
+2. **Never copy a stub without a WARN.** If the selected template has `stub: true` in its frontmatter (currently `jira.md` and `linear.md`), SETUP MUST emit a WARN diagnostic and leave the STUB banner intact in the rendered file so the user knows the adapter needs contributor validation before use.
+3. **Never embed credentials.** The rendered `tool-adapter.md` MUST NOT contain API tokens, passwords, or secrets. Authentication is handled entirely by the user via CLI login or MCP server configuration. The adapter references only the CLI binary name and non-sensitive identifiers.
+4. **Never hand-write adapter commands.** If the user requests a tool with no adapter template, always fall back to `none.md` with the warning above — do NOT inline-generate a new adapter on the fly. New adapters must live as committed template files so they survive across projects.
 
 **Step 6.5 — Seed Registry Scaffolding (conditional: synthetic_data.enabled == true):**
 Create Shared Seed Registry and fixture directories:
