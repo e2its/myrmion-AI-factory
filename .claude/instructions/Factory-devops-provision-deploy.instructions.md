@@ -304,7 +304,44 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
       ❌ BLOCK: "devops_plan.md status is '{devops_status}', expected 'APPROVED'. Run DEVOPS --configure {FEATURE_ID} first."
       STOP
 
-  # 4. Production requires MERGE + QA APPROVED
+  # 4. PREVENTIVE-SWEEP gate (v14.0.0 — EVOL-014, full-sdlc preset only)
+  #    Applies to dev and any non-production environment. Production is already gated by QA APPROVED below.
+  IF FEATURE_ID IS NOT NULL AND ENV != production_env:
+    feature_phases = READ docs/setup.md → project_tracking.feature_phases
+    IF feature_phases == "full-sdlc":
+      ADAPTER = READ docs/backlog/tool-adapter.md
+      sweep_issue = ADAPTER.query_board() → find item WHERE labels CONTAINS "phase:preventive-sweep" AND title CONTAINS FEATURE_ID
+
+      IF sweep_issue IS NULL:
+        ❌ BLOCK: "PREVENTIVE-SWEEP gate issue missing for {FEATURE_ID}."
+        SUGGEST: "Run BACKLOG --plan-feature {FEATURE_ID} to materialise the 8-phase preset."
+        STOP
+
+      IF sweep_issue.status != "Done":
+        ❌ BLOCK: "PREVENTIVE-SWEEP gate not passed for {FEATURE_ID} (current: {sweep_issue.status})."
+        SUGGEST: |
+          The 4-agent Factory-preventive-sweep SKILL must run against the feature's code and
+          return zero open C-severity findings before DEVOPS --deploy dev. Run it now:
+            Invoke .claude/skills/Factory-preventive-sweep/SKILL.md against FEATURE_ID
+            Resolve every C-severity finding
+            Move the PREVENTIVE-SWEEP issue to Done
+            Re-run DEVOPS --deploy --env {ENV} {FEATURE_ID}
+        STOP
+
+      # Verify the sweep report exists on disk and is still valid (not INVALIDATED by cascade)
+      sweep_report = "docs/spec/{FEATURE_ID}/preventive_sweep_report.md"
+      IF FILE_EXISTS(sweep_report):
+        fm = READ_FRONTMATTER(sweep_report)
+        IF fm.status == "INVALIDATED":
+          ❌ BLOCK: "Preventive sweep report is INVALIDATED — code changed after the last sweep."
+          SUGGEST: "Re-run Factory-preventive-sweep against FEATURE_ID and re-freeze the report."
+          STOP
+      ELSE:
+        ❌ BLOCK: "PREVENTIVE-SWEEP issue is Done but {sweep_report} is missing — governance drift."
+        SUGGEST: "Re-run the preventive sweep to regenerate the report."
+        STOP
+
+  # 5. Production requires MERGE + QA APPROVED
   IF ENV == production_env:  # from ci-cd.instructions.md environments[]
     # QA gate: feature-scoped lookup when FEATURE_ID present, env-scoped when null
     IF FEATURE_ID IS NOT NULL:

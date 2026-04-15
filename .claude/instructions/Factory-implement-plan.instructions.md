@@ -19,6 +19,54 @@ IF test_plan.md missing OR status != APPROVED:
   ❌ BLOCK: "Test plan not approved. Run BLUEPRINT --approve first."
 ```
 
+### CONTRACT-FREEZE Gate (v14.0.0 — EVOL-014, full-sdlc preset only)
+
+Enforces the CONTRACT-FREEZE hard gate from the 8-phase `full-sdlc` preset (see [Factory-backlog-operations.instructions.md](Factory-backlog-operations.instructions.md) § 1.1). Blocks `IMPLEMENT --plan` until the feature's API contracts are frozen and the contract test harness exists.
+
+```yaml
+READ docs/setup.md → project_tracking.feature_phases
+IF feature_phases != "full-sdlc":
+  ✅ SKIP gate — simplified/single presets do not ship CONTRACT-FREEZE
+  RETURN
+
+# 1. Verify the contract-freeze backlog issue exists and is Done
+ADAPTER = READ docs/backlog/tool-adapter.md
+issue = ADAPTER.query_board() → find item WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS FEATURE_ID
+
+IF issue IS NULL:
+  ❌ BLOCK: "CONTRACT-FREEZE gate issue missing for {FEATURE_ID}."
+  SUGGEST: "Run BACKLOG --plan-feature {FEATURE_ID} to materialise the 8-phase preset."
+  STOP
+
+IF issue.status != "Done":
+  ❌ BLOCK: "CONTRACT-FREEZE gate not passed for {FEATURE_ID} (current: {issue.status})."
+  SUGGEST: |
+    The feature's API contracts must be frozen before IMPLEMENT starts. Required artefacts
+    under docs/spec/{FEATURE_ID}/contracts/ (exact filenames depend on the stack chosen at
+    SETUP — OpenAPI YAML, TypeScript interface files, GraphQL SDL, Protobuf, etc.) plus the
+    contract test harness under tests/contract/{FEATURE_ID}/. Complete them, move the
+    CONTRACT-FREEZE issue to Done, then re-run IMPLEMENT --plan.
+  STOP
+
+# 2. Verify the frozen-contract artefacts exist on disk and have status == APPROVED
+contracts_dir = "docs/spec/{FEATURE_ID}/contracts/"
+IF NOT DIR_EXISTS(contracts_dir) OR DIR_IS_EMPTY(contracts_dir):
+  ❌ BLOCK: "CONTRACT-FREEZE issue is Done but {contracts_dir} is missing or empty."
+  SUGGEST: "Governance drift detected. Re-run the contract-freeze step to produce the frozen contract set."
+  STOP
+
+FOR EACH contract_file IN contracts_dir:
+  fm = READ_FRONTMATTER(contract_file)
+  IF fm.status == "INVALIDATED":
+    ❌ BLOCK: "Frozen contract {contract_file} is INVALIDATED (upstream changed after freeze)."
+    SUGGEST: "Run BLUEPRINT --refine {FEATURE_ID} to re-sync, then re-freeze the contract."
+    STOP
+
+✅ PROCEED — contract-freeze artefacts are present and synced
+```
+
+> **Rationale.** Without this gate, `IMPLEMENT --plan` reads `design.md` for contract references but the concrete contract files may be absent, outdated, or out of sync with the design. MASS retrospective recorded six cases of contract drift (class DC-6) where implementation proceeded against a stale or inferred contract and the bug surfaced only at QA. The gate eliminates that class entirely by making the frozen contract a hard prerequisite.
+
 ### UX Vision Gate (v12.0.0)
 ```yaml
 READ docs/setup.md → frontend.framework

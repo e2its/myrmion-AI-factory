@@ -47,21 +47,38 @@ project_tracking:
 
 SETUP Q27.2 persists a **preset string** in `project_tracking.feature_phases`. The BACKLOG agent expands this into the structured phase object list at runtime:
 
-| Preset | Phases | Issue Count |
-| --- | --- | --- |
-| **full-sdlc** | codesign → blueprint → devops → implement → qa | 5 |
-| **simplified** | spec → implement → qa | 3 |
-| **single** | one issue per feature | 1 |
+| Preset | Phases | Issue Count | Gates |
+| --- | --- | --- | --- |
+| **full-sdlc** | codesign → blueprint → contract-freeze → devops → implement → preventive-sweep → qa → smoke-e2e | **8** | CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E |
+| **simplified** | spec → implement → qa | 3 | — |
+| **single** | one issue per feature | 1 | — |
+
+> **Production default.** `full-sdlc` is the default preset for production features. The three extra phases (contract-freeze at suffix 3, preventive-sweep at suffix 6, smoke-e2e at suffix 8) act as hard gates enforced by downstream command instructions — they do NOT ship in `simplified` or `single` presets, which are reserved for prototypes and spikes where gate overhead is not justified.
 
 **Expansion example (`full-sdlc`):**
 ```yaml
 # Runtime expansion performed by BACKLOG agent — NOT stored in setup.md
-- { suffix: 1, label: "codesign",  title_pattern: "[{ID}] CODESIGN: Spec BDD + UX Mock — {name}" }
-- { suffix: 2, label: "blueprint", title_pattern: "[{ID}] BLUEPRINT: Architecture + Test Plan — {name}" }
-- { suffix: 3, label: "devops",    title_pattern: "[{ID}] DEVOPS: Infrastructure — {name}" }
-- { suffix: 4, label: "implement", title_pattern: "[{ID}] IMPLEMENT: Code + Tests — {name}" }
-- { suffix: 5, label: "qa",        title_pattern: "[{ID}] QA: Verification — {name}" }
+- { suffix: 1, label: "codesign",         title_pattern: "[{ID}] CODESIGN: Spec BDD + UX Mock — {name}" }
+- { suffix: 2, label: "blueprint",        title_pattern: "[{ID}] BLUEPRINT: Architecture + Test Plan — {name}" }
+- { suffix: 3, label: "contract-freeze",  title_pattern: "[{ID}] CONTRACT-FREEZE: API contracts + test harness — {name}", gate: true, sub_issue_of: 5 }
+- { suffix: 4, label: "devops",           title_pattern: "[{ID}] DEVOPS: Infrastructure — {name}" }
+- { suffix: 5, label: "implement",        title_pattern: "[{ID}] IMPLEMENT: Code + Tests — {name}" }
+- { suffix: 6, label: "preventive-sweep", title_pattern: "[{ID}] PREVENTIVE-SWEEP: Runtime defect scan — {name}",           gate: true, sub_issue_of: 5 }
+- { suffix: 7, label: "qa",               title_pattern: "[{ID}] QA: Verification — {name}" }
+- { suffix: 8, label: "smoke-e2e",        title_pattern: "[{ID}] SMOKE-E2E: Numbered smoke blocks on dev deploy — {name}",  gate: true, sub_issue_of: 5 }
 ```
+
+**Gate semantics.** Phases marked `gate: true` are **hard blockers** enforced by upstream command instructions. Each gate issue must be Done before the downstream phase may start:
+
+| Gate phase | Enforced by | Blocks |
+| --- | --- | --- |
+| CONTRACT-FREEZE (suffix 3) | [Factory-implement-plan.instructions.md](Factory-implement-plan.instructions.md) § Upstream Artifact Validation | `IMPLEMENT --plan` start — the feature's API contracts (OpenAPI / TS interfaces / GraphQL schema / whatever the stack uses) MUST be frozen and the contract test harness MUST exist |
+| PREVENTIVE-SWEEP (suffix 6) | [Factory-devops-provision-deploy.instructions.md](Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | `DEVOPS --deploy dev` — the 4-agent Factory-preventive-sweep SKILL must have run against the feature's code and returned zero open C-severity findings |
+| SMOKE-E2E (suffix 8) | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — numbered manual smoke blocks derived from `user_journey.md` BDD scenarios must all pass on the dev-deployed build |
+
+**Sub-issue nesting.** The three gate phases are logically **sub-issues of IMPLEMENT** (suffix 5). Adapters that declare `add_sub_issue: native` (e.g. `github-project.md`) materialise them as real sub-issues so holistic progress tracking on the board reflects feature completion. Adapters that declare `add_sub_issue: no-op` (e.g. `none.md`) materialise them as standalone siblings with a `> Parent: IMPLEMENT issue` cross-reference line in the body — the `--next-task` resolver reads the cross-reference to reconstruct the hierarchy.
+
+**Iteration of the preset.** The 8-phase expansion was introduced by EVOL-014 (derived from the production experience of the first materialised product after months of real use: contract drift killed six features, fifteen runtime defects slipped past static gates into dev, and unstructured smoke testing produced inconsistent Done criteria). Projects materialised before EVOL-014 with the legacy 5-phase expansion keep their existing issue sets — gate issues are backfilled manually by `--plan-feature {ID}` when run on a pre-EVOL-014 feature.
 
 ---
 
@@ -148,6 +165,15 @@ Slice- and epic-level gate issues are created by `--plan-execution` alongside th
 - Epic retrospective: `phase:retrospective` + no slice label (epic-scoped, not slice-scoped)
 
 > **Gate semantics.** These issues are **hard gates** — the BACKLOG `--next-task` resolver refuses to return features from slice `{N.(M+1)}` until the `[SLICE-{N.M}] INTEGRATION-TEST` issue is Done, and refuses to return features from epic `{N+1}` until the `[EPIC-{N}] RETROSPECTIVE` issue is Done. The gates are standalone issues, not sub-issues.
+
+**Deliverables per gate:**
+
+| Gate | File deliverable | Board deliverable |
+| --- | --- | --- |
+| `[SLICE-{N.M}] INTEGRATION-TEST` | `docs/spec/SLICE-{N.M}/integration_test.md` (cross-feature test spec + results) + integration test code under `tests/integration/slice-{N.M}/` (stack-specific path) | Issue body contains scope, member features, Definition of Done checklist. Issue status = Done when all blocks pass. |
+| `[EPIC-{N}] RETROSPECTIVE` | **No new file.** The gate's deliverable is 0+ new or updated entries in `docs/rules/defect-prevention.md` (the living defect catalog, consulted by DEV pre-write check and REVIEW Check #2d). If the epic revealed no new patterns, the count is zero and the gate still closes. | Issue body is the retrospective narrative itself (what happened, what was learned, links to any DC entries added). The issue body + its closure timestamp on the tracker serve as the historical record — no separate `lessons_learned.md` file is created. |
+
+> **Why no `lessons_learned.md` per epic.** The framework deliberately keeps a single source of truth for "what we learned": the living catalog at `docs/rules/defect-prevention.md`. A separate per-epic markdown would duplicate narrative that nobody re-reads, while fragmenting the actionable DC entries across files. Narrative history lives on the tracker (issue body + closure date); actionable prevention lives in the rule file.
 
 ---
 

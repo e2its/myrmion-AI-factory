@@ -182,8 +182,46 @@ FUNCTION verify_prerequisites(FEATURE_ID):
       ❌ BLOCK: "QA report already APPROVED. No re-verification needed."
       STOP
 
+  # Gate 4: SMOKE-E2E gate (v14.0.0 — EVOL-014, full-sdlc preset only)
+  feature_phases = READ "docs/setup.md" → project_tracking.feature_phases
+  IF feature_phases == "full-sdlc":
+    ADAPTER = READ "docs/backlog/tool-adapter.md"
+    smoke_issue = ADAPTER.query_board() → find item WHERE labels CONTAINS "phase:smoke-e2e" AND title CONTAINS FEATURE_ID
+
+    IF smoke_issue IS NULL:
+      ❌ BLOCK: "SMOKE-E2E gate issue missing for {FEATURE_ID}."
+      REDIRECT: "Run BACKLOG --plan-feature {FEATURE_ID} to materialise the 8-phase preset."
+      STOP
+
+    IF smoke_issue.status != "Done":
+      ❌ BLOCK: "SMOKE-E2E gate not passed for {FEATURE_ID} (current: {smoke_issue.status})."
+      REDIRECT: |
+        Numbered manual smoke blocks derived from docs/spec/{FEATURE_ID}/user_journey.md
+        BDD scenarios must all pass on the dev-deployed build before --verify. Steps:
+          1. Ensure DEVOPS --deploy --env dev {FEATURE_ID} ran successfully
+          2. Execute each numbered smoke block against the dev deployment
+          3. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
+          4. Move the SMOKE-E2E issue to Done
+          5. Re-run QA --verify {FEATURE_ID}
+      STOP
+
+    # Verify the smoke report exists on disk and is still valid
+    smoke_report = "docs/spec/{FEATURE_ID}/smoke_e2e_report.md"
+    IF FILE_EXISTS(smoke_report):
+      fm = READ_FRONTMATTER(smoke_report)
+      IF fm.status == "INVALIDATED":
+        ❌ BLOCK: "Smoke E2E report is INVALIDATED — dev build changed after the last smoke run."
+        REDIRECT: "Re-deploy to dev and re-run the smoke blocks to refresh the report."
+        STOP
+    ELSE:
+      ❌ BLOCK: "SMOKE-E2E issue is Done but {smoke_report} is missing — governance drift."
+      REDIRECT: "Re-run the smoke blocks to regenerate the report."
+      STOP
+
   ✅ Prerequisites passed — proceed with verification
 ```
+
+> **Rationale for Gate 4.** Before EVOL-014, QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: the user_journey.md BDD scenarios are numbered into explicit blocks, each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the pre-EVOL-014 flow.
 
 ### Scope Boundary (M-09)
 ```yaml

@@ -382,16 +382,16 @@ Questions are organized in dependency order within tiers. Some questions are con
 
 #### Q27.2: Feature Issue Structure (conditional: Q27 != "None")
 - **Type:** Single-select (preset that expands into a structured phase list)
-- **Options:** `full-sdlc` (5 issues: codesign → blueprint → devops → implement → qa) | `simplified` (3 issues: spec → implement → qa) | `single` (1 issue per feature)
+- **Options:** `full-sdlc` (**8 issues**: codesign → blueprint → contract-freeze → devops → implement → preventive-sweep → qa → smoke-e2e — includes three hard gates: CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E) | `simplified` (3 issues: spec → implement → qa, no gates) | `single` (1 issue per feature, no gates)
 - **Simplified:** es: "¿Cuántos issues crear por cada feature?" / en: "How many issues to create per feature?"
-- **RDR Recommendation:** full-sdlc — one issue per Factory agent phase, enables granular progress tracking
-- **Persist:** `project_tracking.feature_phases` — preset string stored, expanded by BACKLOG agent into phase object list (suffix, label, title_pattern) per Factory-backlog-operations.instructions.md
+- **RDR Recommendation:** `full-sdlc` — production default. One issue per Factory agent phase plus three hard gates that block downstream progression until the corresponding validation is Done. Use `simplified` only for prototypes and `single` only for spikes / experiments where the gate overhead is not justified.
+- **Persist:** `project_tracking.feature_phases` — preset string stored, expanded by BACKLOG agent into phase object list (suffix, label, title_pattern, gate, sub_issue_of) per `Factory-backlog-operations.instructions.md` § 1.1
 
 #### Q27.3: Milestone Strategy (conditional: Q27 != "None")
 - **Type:** Single-select
-- **Options:** `phase-based` (Phase 1: MVP, Phase 2: Scale...) | `sprint-based` (Sprint 1, Sprint 2...) | `none`
+- **Options:** `epic-based` (`EPIC-{N}: {Name}` — one milestone per epic computed by `BACKLOG --plan-execution`, all feature and gate issues in the epic share it) | `phase-based` (`Phase 1: MVP`, `Phase 2: Scale…` — user-defined product roadmap phases) | `sprint-based` (`Sprint 1`, `Sprint 2…` — fixed-cadence time boxes) | `none` (no milestone grouping)
 - **Simplified:** es: "¿Cómo quieres agrupar los issues en hitos?" / en: "How do you want to group issues into milestones?"
-- **RDR Recommendation:** phase-based — aligns with natural product roadmap increments
+- **RDR Recommendation:** `epic-based` when Q27.2 is `full-sdlc` — epics are the natural grouping of features that share an Aggregate Root / Bounded Context, and the milestone automatically tracks the full epic completion (features + gates + retrospective). `phase-based` when the project has a strong roadmap narrative. `sprint-based` for fixed-cadence teams. `none` only for single-feature prototypes.
 - **Persist:** `project_tracking.milestone_strategy`
 
 #### Q27.4: Feature Naming Prefix (conditional: Q27 != "None")

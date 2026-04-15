@@ -272,6 +272,12 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       IF FILE_EXISTS("{{base_path}}/test_plan.md"): targets.push("test_plan.md")
       IF FILE_EXISTS("{{base_path}}/dev_plan.md"): targets.push("dev_plan.md")
       IF FILE_EXISTS("{{base_path}}/devops_plan.md"): targets.push("devops_plan.md")
+      # EVOL-014: frozen contracts invalidate on scenario/schema/contract changes
+      IF DIR_EXISTS("{{base_path}}/contracts/") AND ("new_scenario" IN affected_scopes OR "schema_change" IN affected_scopes OR "contract_change" IN affected_scopes):
+        targets.push("contracts_freeze")
+      # EVOL-014: runtime reports invalidate on anything upstream of IMPLEMENT
+      IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
+      IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
     
     IF current_agent == "BLUEPRINT":
@@ -281,16 +287,29 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
         targets.push("devops_plan.md")
       IF GLOB_EXISTS("{{base_path}}/qa/qa_report_final_*.md"):
         targets.push("qa_report")
+      # EVOL-014: BLUEPRINT owns the frozen contract set; any contract-relevant change invalidates it
+      IF DIR_EXISTS("{{base_path}}/contracts/") AND ("schema_change" IN affected_scopes OR "contract_change" IN affected_scopes OR "new_scenario" IN affected_scopes):
+        targets.push("contracts_freeze")
+      # EVOL-014: runtime reports invalidate on any blueprint change that reaches code
+      IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
+      IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
     
     IF current_agent == "IMPLEMENT":
       targets = []
       IF GLOB_EXISTS("{{base_path}}/qa/qa_report_final_*.md"):
         targets.push("qa_report")
+      # EVOL-014: every code change invalidates runtime scans and smoke blocks
+      IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
+      IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
     
     IF current_agent == "DEVOPS":
-      RETURN []  # No direct downstream cascade
+      targets = []
+      # EVOL-014: re-deploy to dev invalidates the smoke blocks captured against the previous build
+      IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md") AND "redeploy_dev" IN affected_scopes:
+        targets.push("smoke_e2e_report")
+      RETURN targets
 
   # Push pending_iteration to each downstream artifact
   FOR EACH artifact_name IN downstream_artifacts:
@@ -305,7 +324,47 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
           invalidated_reason: "Upstream artifacts changed: {{affected_scopes}}"
         })
       CONTINUE
-    
+
+    IF artifact_name == "contracts_freeze":
+      # EVOL-014: frozen contracts cannot be patched — the entire frozen set is marked
+      # INVALIDATED and the CONTRACT-FREEZE gate issue must re-run to produce a new freeze.
+      # Also flag the backlog issue itself so --next-task sees the gate as re-open.
+      FOR EACH contract_file IN LIST_FILES("{{base_path}}/contracts/"):
+        fm = READ_FRONTMATTER(contract_file)
+        IF fm.status == "APPROVED":
+          UPDATE_FRONTMATTER(contract_file, {
+            status: "INVALIDATED",
+            invalidated_by_iteration: target_iteration,
+            invalidated_reason: "Upstream changed: {{affected_scopes}}"
+          })
+      # Reopen the CONTRACT-FREEZE gate issue on the backlog via tool-adapter
+      ADAPTER = READ "docs/backlog/tool-adapter.md"
+      gate_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS FEATURE_ID
+      IF gate_issue AND gate_issue.status == "Done":
+        ADAPTER.move_to_column(gate_issue, column="Todo")
+        ADAPTER.add_label(gate_issue, "stale-after-cascade")
+      CONTINUE
+
+    IF artifact_name IN ["preventive_sweep_report", "smoke_e2e_report"]:
+      # EVOL-014: runtime reports are point-in-time artefacts; any upstream change makes them
+      # untrustworthy. Mark INVALIDATED and reopen the corresponding gate issue on the board.
+      report_path = "{{base_path}}/{{artifact_name}}.md"
+      IF FILE_EXISTS(report_path):
+        fm = READ_FRONTMATTER(report_path)
+        IF fm.status == "APPROVED":
+          UPDATE_FRONTMATTER(report_path, {
+            status: "INVALIDATED",
+            invalidated_by_iteration: target_iteration,
+            invalidated_reason: "Upstream changed: {{affected_scopes}}"
+          })
+      gate_label = "phase:preventive-sweep" IF artifact_name == "preventive_sweep_report" ELSE "phase:smoke-e2e"
+      ADAPTER = READ "docs/backlog/tool-adapter.md"
+      gate_issue = ADAPTER.query_board() → find WHERE labels CONTAINS gate_label AND title CONTAINS FEATURE_ID
+      IF gate_issue AND gate_issue.status == "Done":
+        ADAPTER.move_to_column(gate_issue, column="Todo")
+        ADAPTER.add_label(gate_issue, "stale-after-cascade")
+      CONTINUE
+
     artifact_path = "{{base_path}}/{{artifact_name}}"
     current_frontmatter = READ_FRONTMATTER(artifact_path)
     
@@ -366,7 +425,12 @@ FUNCTION COMPUTE_AFFECTED_SECTIONS(artifact_name, affected_scopes):
     IF "new_scenario" IN affected_scopes AND "infra_change" IN affected_scopes:
       sections.push("scaling_config")
     RETURN sections
-  
+
+  # EVOL-014: frozen / point-in-time artefacts have no section-level granularity.
+  # They are fully regenerated when any upstream scope invalidates them.
+  IF artifact_name IN ["contracts_freeze", "preventive_sweep_report", "smoke_e2e_report"]:
+    RETURN ["entire_artifact"]
+
   RETURN []
 ```
 
@@ -381,16 +445,69 @@ CASCADE_TRIGGERS:
     new_schemas_version = user_journey.schemas_version
     affected_scopes = CLASSIFY_CHANGE_SCOPES(codesign_changes)
     CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, new_schemas_version, affected_scopes)
+    # EVOL-014: slice peers depend on cross-feature integration tests
+    CASCADE_SLICE_PEERS(FEATURE_ID, new_iteration, affected_scopes)
 
   # 2. BLUEPRINT --refine (Syncing design.md + test_plan.md)
   ON_BLUEPRINT_SYNC_COMPLETE:
     affected_scopes = CLASSIFY_BLUEPRINT_CHANGES(blueprint_changes)
     CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
+    CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
 
   # 3. IMPLEMENT --refine (Syncing dev_plan.md via Delta Iteration)
   ON_IMPLEMENT_SYNC_COMPLETE:
     affected_scopes = ["implementation_changed"]
     CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
+    CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
+
+  # 4. IMPLEMENT --build / --fix complete (EVOL-014)
+  #    Code changed — runtime-dependent reports are now stale regardless of spec/design drift.
+  ON_IMPLEMENT_BUILD_COMPLETE:
+    affected_scopes = ["code_changed"]
+    CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
+    CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
+
+  # 5. DEVOPS --deploy --env dev complete (EVOL-014)
+  #    A new dev build replaces the one the smoke blocks were captured against.
+  ON_DEVOPS_REDEPLOY_DEV:
+    affected_scopes = ["redeploy_dev"]
+    CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
+    # Slice integration tests are smoke-dependent when multiple slice peers share a dev env
+    CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
+
+
+# EVOL-014 — Horizontal cascade within a slice
+FUNCTION CASCADE_SLICE_PEERS(FEATURE_ID, target_iteration, affected_scopes):
+  # Slice-level cascade: when a feature that belongs to a slice iterates, the slice's
+  # cross-feature integration test is stale because the feature's contract/behaviour may have
+  # shifted. This is NOT a "downstream-within-the-same-feature" cascade — it is a horizontal
+  # cascade across slice peers that share an integration suite.
+
+  # 1. Resolve the slice that contains this feature (label-driven, tool-agnostic)
+  ADAPTER = READ "docs/backlog/tool-adapter.md"
+  feature_issue = ADAPTER.query_board() → find WHERE title CONTAINS FEATURE_ID AND labels CONTAINS "phase:implement"
+  IF feature_issue IS NULL: RETURN   # feature not yet in backlog — nothing to cascade
+  slice_label = FIRST(feature_issue.labels) MATCHING /^slice:EPIC-\d+\.\d+$/
+  IF slice_label IS NULL: RETURN    # feature not in a slice — nothing to cascade
+
+  # 2. Locate the slice integration-test artefact and its gate issue
+  slice_ref = slice_label.replace("slice:EPIC-", "SLICE-")  # e.g. SLICE-1.2
+  integration_spec = "docs/spec/{{slice_ref}}/integration_test.md"
+
+  IF FILE_EXISTS(integration_spec):
+    fm = READ_FRONTMATTER(integration_spec)
+    IF fm.status == "APPROVED":
+      UPDATE_FRONTMATTER(integration_spec, {
+        status: "INVALIDATED",
+        invalidated_by_iteration: target_iteration,
+        invalidated_reason: "Slice peer {{FEATURE_ID}} iterated: {{affected_scopes}}"
+      })
+
+  # 3. Reopen the slice integration-test gate issue on the board
+  gate_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:integration-test" AND title CONTAINS slice_ref
+  IF gate_issue AND gate_issue.status == "Done":
+    ADAPTER.move_to_column(gate_issue, column="Todo")
+    ADAPTER.add_label(gate_issue, "stale-after-slice-peer-iterated")
 
 
 FUNCTION CLASSIFY_CHANGE_SCOPES(changes):
