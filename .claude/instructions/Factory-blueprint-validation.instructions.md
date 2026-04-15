@@ -310,6 +310,30 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, affected_sections)
 - Test preconditions match design constraints
 - No conflicting assumptions between design and test plan
 
+**Part 4: Defect Prevention Catalog Gate (BLOCKING — v2.0.0 EVOL-014)**
+
+```yaml
+applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, stack: setup_md.stack})
+
+FOR EACH dc IN applicable_dcs:
+  IF dc.severity == "BLOCKER":
+    # Every BLOCKER-severity DC applicable to BLUEPRINT must be explicitly addressed
+    IF "DC-{dc.number}" NOT present in design.md § Constraints (or § Section 7 GCD — Defect Prevention Constraints sub-section):
+      ❌ BLOCK: "Blueprint missing required DC-{dc.number} ({dc.name}) constraint."
+      REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC reference to design.md § Constraints."
+      STOP
+    IF "DC-{dc.number}" NOT present in test_plan.md § Edge Cases:
+      ❌ BLOCK: "Test plan missing required DC-{dc.number} ({dc.name}) edge case."
+      REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC edge case to test_plan.md."
+      STOP
+
+# WARNING-severity DCs are projected during --start / --refine (advisory).
+# --approve does NOT block on WARNING-severity DCs.
+LOG: "DC Gate passed: {blocker_dc_count} BLOCKER DCs explicitly addressed"
+```
+
+See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical protocol.
+
 ### Freezing
 - Set `design.md` frontmatter: `status: APPROVED`
 - Set `test_plan.md` frontmatter: `status: APPROVED`

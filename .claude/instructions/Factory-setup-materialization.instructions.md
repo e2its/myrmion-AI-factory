@@ -308,6 +308,8 @@ For each detected technology (backend.runtime, frontend.framework):
 
 The `defect-prevention.md` template uses a `{{DC_ENTRIES}}` placeholder that MUST be populated with starter defect classes based on the project's stack. These are defects that **pass all static gates** but **break at runtime** — the gap between static verification and deployed behavior.
 
+**Schema note (v2.0.0 — EVOL-014):** each DC entry includes an `applicable_to` field — an enum list of the SDLC agents that MUST consult this entry. Valid values: `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`. An entry can be consumed by multiple agents. Most entries end up with `[IMPLEMENT, REVIEW]` (classic code patterns); UX/accessibility patterns add `CODESIGN`; architectural patterns add `BLUEPRINT`; infra patterns add `DEVOPS`; test-surface patterns add `QA`; and any enduring pattern should add `AUDIT` so external audits pick it up. The starter DCs below use sensible defaults — projects may extend them via the Discovery Protocol.
+
 ```yaml
 FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   dc_entries = []
@@ -326,6 +328,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Async handler in serverless entry point",
       applicable_when: "Writing a serverless function handler",
+      applicable_to: ["IMPLEMENT", "REVIEW", "DEVOPS", "AUDIT"],
       prevention: "Verify handler signature matches the serverless runtime contract. Some runtimes do not auto-await async handlers — use sync wrapper + async runtime.",
       review_severity: "BLOCKER"
     }
@@ -336,6 +339,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Missing frontend context providers",
       applicable_when: "Using a context-based hook in a component",
+      applicable_to: ["IMPLEMENT", "REVIEW"],
       prevention: "Before using a context-based hook, verify its Provider exists in the component tree (root layout or parent). Missing Provider = silent null or runtime crash.",
       review_severity: "BLOCKER"
     }
@@ -346,6 +350,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Post-action navigation gaps",
       applicable_when: "Writing form onSubmit/onSuccess handlers",
+      applicable_to: ["CODESIGN", "IMPLEMENT", "REVIEW", "QA"],
       prevention: "Every form submission success MUST include navigation (router.push/replace/redirect). Without it, user sees stale form.",
       review_severity: "WARNING"
     }
@@ -356,6 +361,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Session/state rehydration on mount",
       applicable_when: "Writing auth hooks or session state initialization",
+      applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW"],
       prevention: "Auth/session hooks MUST check for existing sessions on mount. Initial loading state MUST be true (assume loading until proven otherwise).",
       review_severity: "WARNING"
     }
@@ -366,6 +372,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Responsive design / mobile gaps",
       applicable_when: "Writing dashboard layouts, data tables, or navigation",
+      applicable_to: ["CODESIGN", "IMPLEMENT", "REVIEW", "QA"],
       prevention: "Layouts MUST include a mobile toggle. Tables MUST have horizontal scroll wrapper. No fixed widths without responsive breakpoints.",
       review_severity: "WARNING"
     }
@@ -376,6 +383,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Frontend env var injection mismatch",
       applicable_when: "Reading environment variables in frontend code",
+      applicable_to: ["IMPLEMENT", "REVIEW", "DEVOPS"],
       prevention: "When reading a frontend env var in code, verify it is declared AND injected by the IaC/deployment configuration. Missing injection = undefined at runtime.",
       review_severity: "BLOCKER"
     }
@@ -387,6 +395,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Hooks ordering violation",
       applicable_when: "Writing components with hooks/composables",
+      applicable_to: ["IMPLEMENT", "REVIEW"],
       prevention: "ALL hook/composable calls MUST be placed BEFORE any conditional return. Hooks after conditional returns cause runtime errors (different call order between renders).",
       review_severity: "BLOCKER"
     }
@@ -399,6 +408,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Backend-frontend contract mismatch",
       applicable_when: "Writing API client calls (frontend) or route handlers (backend)",
+      applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "QA", "AUDIT"],
       prevention: "Every frontend API call MUST match the backend route: same path, same method, same field names. Cross-reference against the contract file.",
       review_severity: "BLOCKER"
     }
@@ -410,6 +420,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "External identity ID != internal DB primary key",
       applicable_when: "Writing use cases/services that receive identity claims from auth tokens",
+      applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "AUDIT"],
       prevention: "When receiving an identity claim (sub, oid, uid) from an external auth provider, ALWAYS use a dedicated lookup method (e.g., get_by_external_id). NEVER pass the external ID to a get_by_id() that queries the internal DB primary key.",
       review_severity: "BLOCKER"
     }
@@ -420,14 +431,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     ADD DC: {
       name: "Cross-module direct data access",
       applicable_when: "Writing data access code (SQL, ORM queries, repository methods)",
+      applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "AUDIT"],
       prevention: "A module MUST NOT access another module's tables/collections directly. Use ports/interfaces + adapters, API calls, or domain events. Enforced by contract-first policy.",
       review_severity: "BLOCKER"
     }
 
   # Materialize: render DC entries into the template table format
-  # Table columns MUST match the catalog schema: DC | Name | Applicable When | Review Severity | Prevention Check
+  # Table columns MUST match the catalog schema (v2.0.0):
+  #   DC | Name | Applicable When | Applicable To | Severity | Check
   FOR EACH dc IN dc_entries:
-    RENDER as: "| DC-{dc_number} | {dc.name} | {dc.applicable_when} | {dc.review_severity} | {dc.prevention} |"
+    applicable_to_rendered = "[" + join(dc.applicable_to, ", ") + "]"
+    RENDER as: "| DC-{dc_number} | {dc.name} | {dc.applicable_when} | {applicable_to_rendered} | {dc.review_severity} | {dc.prevention} |"
     dc_number += 1
   REPLACE {{DC_ENTRIES}} with rendered rows
   WRITE to docs/rules/defect-prevention.md (NOT .instructions.md — this is a catalog, not a rule file)

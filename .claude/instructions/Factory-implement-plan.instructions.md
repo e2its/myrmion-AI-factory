@@ -115,6 +115,26 @@ IF dev_plan.md EXISTS:
       SKIP: Proceed without sync (⚠️ traceability gap)
 ```
 
+### Defect Prevention Consultation (v2.0.0 — EVOL-014)
+
+```yaml
+# Consult the Defect Prevention Catalog filtered to this agent, project applicable DCs
+# as mandatory tasks in dev_plan.md § DC Compliance.
+applicable_dcs = consult_defect_catalog("IMPLEMENT", {feature_id: FEATURE_ID, stack: setup_md.stack})
+
+IF applicable_dcs is not empty:
+  ADD SECTION to dev_plan.md § DC Compliance (created if absent):
+    FOR EACH dc IN applicable_dcs:
+      ADD task:
+        "- [ ] [DC-{dc.number}] Verify {dc.name}: {dc.check}"
+        # Every DC becomes an explicit dev_plan task tracked by the BVL loop.
+        # DEV hat pre-write check (Factory-implement-build) also reads the same catalog.
+
+LOG: "IMPLEMENT DC consult: {applicable_dcs.length} entries projected into dev_plan § DC Compliance"
+```
+
+See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 3 for the canonical consultation protocol.
+
 ### Upstream Coherence Validation (CVP — Step 0.5)
 
 Cross-artifact coherence validation across the CODESIGN↔BLUEPRINT↔IMPLEMENT chain. See `.claude/skills/Factory-coherence-validation/SKILL.md` for full protocol.

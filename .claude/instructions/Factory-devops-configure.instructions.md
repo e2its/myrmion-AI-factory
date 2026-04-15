@@ -343,6 +343,13 @@ LOAD design.md Section 5: Infrastructure Needs
 LOAD infrastructure_registry.json: Cross-reference existing resources
   DETERMINE new vs existing vs extend for each resource
 
+# Defect Prevention Consultation (v2.0.0 — EVOL-014)
+# Pull DCs applicable to DEVOPS — typical infra-class DCs: missing health checks, wrong probe
+# timing, env-var drift, missing SIGTERM handling, observability gaps.
+applicable_dcs = consult_defect_catalog("DEVOPS", {feature_id: FEATURE_ID, resources: resources})
+STORE applicable_dcs IN context FOR Phase 4 (observability) and devops_plan.md § Reliability Checks generation
+LOG: "DEVOPS DC consult: {applicable_dcs.length} infra-class entries applicable"
+
 # Frontend Resource Verification Gate (NON-BLOCKING)
 # If frontend.framework != None but no static_site resource in design.md Section 5, warn.
 frontend_framework = READ constitution.md → frontend.framework (via governance snapshot)

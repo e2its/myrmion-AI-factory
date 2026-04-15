@@ -320,7 +320,7 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
       IF sweep_issue.status != "Done":
         ❌ BLOCK: "PREVENTIVE-SWEEP gate not passed for {FEATURE_ID} (current: {sweep_issue.status})."
         SUGGEST: |
-          The 4-agent Factory-preventive-sweep SKILL must run against the feature's code and
+          The Factory-preventive-sweep SKILL must run against the feature's code and
           return zero open C-severity findings before DEVOPS --deploy dev. Run it now:
             Invoke .claude/skills/Factory-preventive-sweep/SKILL.md against FEATURE_ID
             Resolve every C-severity finding

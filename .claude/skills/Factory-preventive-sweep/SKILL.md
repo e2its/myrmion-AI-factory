@@ -1,6 +1,6 @@
 ---
 name: Factory-preventive-sweep
-description: "Preventive Defect Sweep — post-deployment runtime validation that catches defects invisible to static gates. Searches all cataloged defect classes using 4 parallel agents. Use when: first deploy of a feature, after major architectural changes, or on user request."
+description: "Preventive Defect Sweep — post-deployment runtime validation that catches defects invisible to static gates. Searches all cataloged defect classes in parallel, one sub-agent per non-overlapping scope derived from the DC catalog. Use when: first deploy of a feature, after major architectural changes, or on user request."
 ---
 
 # PREVENTIVE DEFECT SWEEP (v1.0.0)
@@ -65,50 +65,64 @@ FUNCTION build_search_plan(dc_catalog):
 
 ---
 
-## 4-AGENT PARALLEL STRATEGY
+## PARALLEL SCOPE STRATEGY
 
-Spawn 4 Explore agents in parallel with non-overlapping scopes. Each agent searches ALL DCs within its scope.
+> **No fixed concurrency.** The number of sub-agents spawned is **derived dynamically** from the DC catalog at sweep time. A project with only backend DCs may spawn a single sub-agent; a full-stack project may spawn several. Never hardcode a count.
 
-### Agent 1: Backend Modules
+### Scope derivation
 
-**Scope:** Backend source code (all modules/bounded contexts for the feature)
-**Primary DCs:** Those with backend scope (handlers, services, use cases, data access)
-**Searches:**
-- Every entry point handler for runtime contract compliance
-- Every service/use case for identity field confusion
-- Every data access layer for cross-module boundary violations
-- Every route definition against contract specifications
+```yaml
+FUNCTION derive_sweep_scopes(applicable_dcs):
+  # Each DC's applicable_when field is classified into one of a small set of scopes.
+  # The scope vocabulary is OPEN-ENDED — add new scopes as the DC catalog grows.
+  scopes = {}
+  FOR EACH dc IN applicable_dcs:
+    scope_key = classify_scope(dc.applicable_when)
+    # Canonical starter scopes:
+    #   backend        — handler, service, use case, data access
+    #   frontend       — component, hook, form, layout
+    #   infra          — env var, IaC, deployment, provider, observability
+    #   cross-cutting  — API call, contract, shared identifiers
+    #   data           — migrations, seed data, schema evolution
+    #   security       — authN/authZ wiring, secret handling
+    #   (extensible)
+    scopes[scope_key] ||= { scope: scope_key, dcs: [] }
+    scopes[scope_key].dcs.push(dc)
+  RETURN scopes.values()  # one entry per non-empty scope
+```
 
-### Agent 2: Frontend Feature
+### Parallel execution
 
-**Scope:** Frontend source code (feature components, pages, hooks)
-**Primary DCs:** Those with frontend scope (providers, hooks, forms, layouts)
-**Searches:**
-- Every hook import → verify Provider in component tree
-- Every form handler → verify post-action navigation
-- Auth/session state initialization patterns
-- Hook ordering relative to conditional returns
-- Mobile responsiveness in page layouts
+```yaml
+FUNCTION run_sweep(applicable_dcs):
+  scopes = derive_sweep_scopes(applicable_dcs)
+  IF scopes is empty:
+    LOG: "No DCs applicable to this feature — sweep completes CLEAN by vacuity"
+    RETURN empty_report
+  # Spawn ONE Explore sub-agent per scope, in parallel.
+  # The runtime decides actual concurrency; this skill never asserts a number.
+  reports = PARALLEL_MAP(scopes, LAMBDA(scope):
+    spawn_explore_agent(
+      scope = scope.scope,
+      dcs = scope.dcs,
+      search_roots = resolve_search_roots(scope.scope)
+    )
+  )
+  RETURN consolidate(reports)
+```
 
-### Agent 3: Infrastructure Wiring
+### Canonical starter scopes
 
-**Scope:** IaC config, root layouts, provider chains, deployment config
-**Primary DCs:** Those with infra scope (env vars, providers, deployment)
-**Searches:**
-- All frontend env var reads vs IaC/deployment injection
-- Provider chain completeness in root layout
-- Auth/session configuration call locations
-- Error boundary existence
+The starter scopes below map MASS's original 4 buckets onto the new dynamic model. They are **guidance**, not a fixed partition. When a new DC introduces a scope that none of these cover, add a new scope to the vocabulary — do not force-fit into one of these.
 
-### Agent 4: Contract Alignment
+| Scope | Typical search roots | Example DCs |
+| --- | --- | --- |
+| **backend** | `${BACKEND_BASE_PATH}/**/*.{py,ts,go,java,rb,rs}` | Handler signature mismatches, identity field confusion, cross-module data access |
+| **frontend** | `${FRONTEND_BASE_PATH}/**/*.{tsx,vue,svelte,jsx}` | Missing providers, hook ordering, responsive gaps, post-action navigation |
+| **infra** | `${IAC_PATH}/**`, root layouts, provider chains, deployment manifests | Env var injection mismatch, missing error boundary, observability gaps |
+| **cross-cutting** | Contract files + both frontend and backend HTTP surfaces | Frontend-backend contract mismatches, shared identifier consistency |
 
-**Scope:** Cross-cutting — contract files, frontend API clients, backend route definitions
-**Primary DCs:** Those with cross-cutting scope (contract mismatches)
-**Searches:**
-- Every frontend fetch URL vs backend route path
-- Every frontend request interface vs backend request model
-- Every frontend response type vs backend response shape
-- Identity field naming consistency across layers
+Projects MAY define additional scopes by extending this table in their materialised copy of `SKILL.md` (via the Discovery Protocol documented in `docs/rules/defect-prevention.md`). The sweep machinery does NOT need to be updated — `classify_scope` is a string-keyed dispatch.
 
 ---
 
@@ -133,7 +147,7 @@ Each agent reports findings in this format:
 
 ## CONSOLIDATION PROTOCOL
 
-After all 4 agents complete:
+After all scope sub-agents complete:
 
 1. **Merge** all findings into a single severity-ordered table
 2. **Deduplicate** — if Agent 2 and Agent 4 both report the same DC finding, keep only one
@@ -158,7 +172,7 @@ feature_ids: ["{{FEATURE_ID}}"]
 title: "Preventive Defect Sweep — {{Feature Name}}"
 sweep_date: "YYYY-MM-DD"
 trigger: "{{why the sweep was triggered}}"
-methodology: "4 parallel Explore agents searching N defect classes"
+methodology: "Parallel Explore sub-agents — one per non-overlapping scope derived from applicable DC catalog"
 analyst: "IMPLEMENT (REVIEW hat + SEC hat)"
 total_findings: N
 critical: N

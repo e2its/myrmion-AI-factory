@@ -1251,11 +1251,12 @@
       "path": ".claude/skills/Factory-backlog-next-task/SKILL.md"
     },
     "skills/Factory-preventive-sweep/SKILL.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "skill",
-      "role": "Preventive Defect Sweep — post-deploy runtime validation with 4 parallel agents, searches all cataloged defect classes invisible to static gates.",
+      "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
-        "1.0.0: feat: initial — 4-agent parallel strategy, consolidation protocol, report template, governance integration with defect-prevention.md"
+        "1.0.0: feat: initial — 4-agent parallel strategy, consolidation protocol, report template, governance integration with defect-prevention.md",
+        "1.1.0: refactor(EVOL-014): replace hardcoded 4-agent split with dynamic scope derivation — number of sub-agents computed from unique scopes present in applicable DC set; scope vocabulary is open-ended and extensible via Discovery Protocol"
       ],
       "path": ".claude/skills/Factory-preventive-sweep/SKILL.md"
     },

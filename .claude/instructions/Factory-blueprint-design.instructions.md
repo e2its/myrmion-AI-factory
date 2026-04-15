@@ -82,6 +82,20 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 - Mandatory scripts: `dependency-allowlist.sh`, `security-scan.sh`
 - Conditional scripts based on stack (e.g., `validate-iac.sh` if iac_tool != None)
 
+### Step 6: Defect Prevention Consultation (v2.0.0 — EVOL-014)
+
+```yaml
+# Consult the Defect Prevention Catalog filtered to this agent
+applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, stack: setup_md.stack})
+STORE applicable_dcs IN context FOR use by Section 7 (GCD) and Section 4 (test_plan Edge Cases)
+
+# Advisory projection: every applicable DC becomes an explicit design constraint
+# and an explicit test-plan edge case. Blocking enforcement happens at --approve.
+LOG: "BLUEPRINT DC consult: {applicable_dcs.length} entries applicable to this feature"
+```
+
+See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical consultation protocol. The list is consumed during Section 7 (GCD) generation and the QA test plan (§ QA Test Plan Generation — Edge Cases section) and is enforced at `--approve` time (see the `--approve` gate below).
+
 ---
 
 ## Execution Guardrails

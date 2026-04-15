@@ -165,7 +165,7 @@ INTENT_MAP:
     action: cvp_on_demand({ID})
 
   # Preventive Sweep Intents
-  # Triggers the 4-agent parallel defect sweep (Factory-preventive-sweep/SKILL.md)
+  # Triggers the preventive defect sweep (Factory-preventive-sweep/SKILL.md — parallel scope sub-agents)
   "(sweep|preventive.*sweep|defect.*sweep|runtime.*scan|buscar.*defectos|sweep.*preventivo).*{ID}":
     category: FRAMEWORK_COMMAND
     action: preventive_sweep({ID})

@@ -133,6 +133,42 @@ Step 5: NEXT
 - Each section saved atomically after completion
 - If interrupted, resumes from `last_completed_section + 1`
 
+### Defect Prevention Catalog Signal (v2.0.0 — EVOL-014)
+
+When auditing a codebase that ALREADY has `docs/rules/defect-prevention.md` materialised (i.e. the target project went through Factory SETUP previously), AUDIT adds a dedicated evidence signal to its findings.
+
+```yaml
+# Runs once, after all sections are scanned, as part of the final maturity synthesis.
+IF FILE_EXISTS("docs/rules/defect-prevention.md"):
+  applicable_dcs = consult_defect_catalog("AUDIT", {project: project_context})
+  IF applicable_dcs is not empty:
+    dc_signals = []
+    FOR EACH dc IN applicable_dcs:
+      # Search the codebase for evidence of the DC pattern.
+      # Positive evidence = the pattern is present = governance debt.
+      occurrences = grep_search(dc.pattern_signature, scope=code_search_roots)
+      dc_signals.push({
+        dc_number: dc.number,
+        name: dc.name,
+        severity: dc.severity,
+        occurrences: occurrences.length,
+        sample_locations: occurrences[:3]  # first 3 for the audit narrative
+      })
+
+    # Add the evidence to the audit report under a dedicated dimension
+    ADD to technical_due.md § Defect Prevention Maturity (new sub-section):
+      - Catalog size: {applicable_dcs.length} entries applicable to AUDIT
+      - Total pattern occurrences in current codebase: {sum(dc_signals.occurrences)}
+      - Per-DC breakdown with sample locations
+    CONTRIBUTE score: inverse_of(total_occurrences) → feeds into overall maturity_score
+  ELSE:
+    NOTE: "Defect Prevention Catalog exists but no AUDIT-applicable entries. Not a signal."
+ELSE:
+  NOTE: "Project has no Defect Prevention Catalog. Signal absent (project predates SETUP or never materialised the catalog)."
+```
+
+See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 7 for the canonical consultation protocol. This signal is **advisory** — a high occurrence count does not automatically fail the audit; it feeds the maturity score and informs the `Short Term` / `Long Term` recommendations in § 5.
+
 ---
 
 ## Command: `--refine {{SECTION_ID}}`

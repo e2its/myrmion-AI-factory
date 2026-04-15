@@ -484,12 +484,26 @@ If `frontend.framework != "None"`:
 ### Execution Flow (BIP — Batch Interactivity Protocol)
 1. Validate prerequisites (constitution, ux-constitution, vision gate if UI)
 2. Phase 0.5: CIP Domain Concept Check
-3. **BIP Tier PROPOSAL:** Generate complete Event Storming proposal (all 7 phases in one agent invocation) based on feature description + user context. Write to `docs/.bip/{FEATURE_ID}_tier_proposal.md`. Return to Factory for RDR mediation with user.
-4. **BIP Tier ARTIFACTS:** After proposal accepted, generate all 3 artifacts (spec.feature, mock.html, user_journey.md) in one pass. Enter PO↔UX internal iteration cycle for alignment.
-5. Run Phase 3 completeness check (all DataIn/DataOut have defined schemas)
-6. Save all artifacts with `status: DRAFT`
-7. **BIP Tier ALIGNMENT:** Run 12-point Tripartite Alignment check. Present gaps to user via RDR for resolution.
-8. Run Auto-Approval Protocol (below)
+3. **Phase 0.6: Defect Prevention Consultation (Advisory — v2.0.0 EVOL-014)**
+   ```yaml
+   # Consult the Defect Prevention Catalog filtered to this agent
+   applicable_dcs = consult_defect_catalog("CODESIGN", {feature_id: FEATURE_ID, has_ui: frontend.framework != "None"})
+   IF applicable_dcs is not empty:
+     # Advisory only — no blocking
+     SHOW user: "ℹ️ {count} DC entries apply to this CODESIGN scope. They will be projected into spec.feature § Defect-Prevention Notes as drafting hints."
+     FOR EACH dc IN applicable_dcs:
+       ADD to spec.feature § Defect-Prevention Notes (created if absent):
+         "- DC-{N} ({dc.name}) — {dc.check}"
+   ELSE:
+     LOG: "No CODESIGN-applicable DCs in catalog"
+   ```
+   See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 1 for the canonical consultation protocol.
+4. **BIP Tier PROPOSAL:** Generate complete Event Storming proposal (all 7 phases in one agent invocation) based on feature description + user context. Write to `docs/.bip/{FEATURE_ID}_tier_proposal.md`. Return to Factory for RDR mediation with user.
+5. **BIP Tier ARTIFACTS:** After proposal accepted, generate all 3 artifacts (spec.feature, mock.html, user_journey.md) in one pass. Enter PO↔UX internal iteration cycle for alignment. Re-apply the Phase 0.6 DC hints to the generated `spec.feature` if they were not preserved.
+6. Run Phase 3 completeness check (all DataIn/DataOut have defined schemas)
+7. Save all artifacts with `status: DRAFT`
+8. **BIP Tier ALIGNMENT:** Run 12-point Tripartite Alignment check. Present gaps to user via RDR for resolution.
+9. Run Auto-Approval Protocol (below)
 
 ### Auto-Approval Protocol (v8.2.0 — eliminates separate --approve command)
 

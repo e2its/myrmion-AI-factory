@@ -298,11 +298,27 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
     IF API_CONTRACTS_EXIST:
       checklist.push("- [ ] [QA-DAST-3]: DAST API scan execution")
 
+  # Defect Prevention Catalog items (v2.0.0 — EVOL-014)
+  # One [QA-DC-N] checklist item per DC entry applicable to QA for this feature/stack.
+  # Each QA-DC item must be marked [x] before auto-approval can complete.
+  applicable_dcs = consult_defect_catalog("QA", {feature_id: FEATURE_ID, stack: setup_md.stack})
+  FOR EACH dc IN applicable_dcs:
+    checklist.push("- [ ] [QA-DC-{dc.number}]: {dc.name} — {dc.check}")
+    checklist[-1].metadata = {
+      source: "defect-prevention.md",
+      dc_number: dc.number,
+      severity: dc.severity,
+      category: "defect_prevention"
+    }
+  LOG: "QA DC consult: {applicable_dcs.length} DC checklist items added"
+
   # Write checklist to qa_report
   WRITE checklist to qa_report_final_{ts}.md under "## Verification Checklist"
   LOG: "Generated {checklist.count} verification checkboxes in qa_report"
   RETURN checklist
 ```
+
+> **Auto-approval impact (EVOL-014).** `[QA-DC-N]` items are first-class checklist entries. The auto-approval verdict requires ALL checklist items (including all `[QA-DC-*]`) to be `[x]` — a single unchecked DC item blocks `APPROVED` just like an unchecked test case. See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 6 for the canonical protocol.
 
 **Pre-Audit Blocking Checks (Steps 0-0c):**
 

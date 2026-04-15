@@ -30,7 +30,7 @@ Each `full-sdlc` feature expands into **8 phase issues** on the backlog. Three o
 | Gate | Between | Enforced by | What it freezes or scans |
 | --- | --- | --- | --- |
 | **CONTRACT-FREEZE** | BLUEPRINT → IMPLEMENT | [Factory-implement-plan.instructions.md](.claude/instructions/Factory-implement-plan.instructions.md) § Upstream Artifact Validation | API contracts (OpenAPI, TS interfaces, GraphQL schema — stack-specific, resolved from discovery answers) plus the contract test harness. Kills contract drift between design and code. |
-| **PREVENTIVE-SWEEP** | IMPLEMENT → DEVOPS `--deploy dev` | [Factory-devops-provision-deploy.instructions.md](.claude/instructions/Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | Runtime defect scan via the 4-agent [Factory-preventive-sweep](.claude/skills/Factory-preventive-sweep/SKILL.md) SKILL. Catches the class of defects invisible to static gates (unused imports, missing null checks, broken teardown, env-var drift). Zero open C-severity findings required to pass. |
+| **PREVENTIVE-SWEEP** | IMPLEMENT → DEVOPS `--deploy dev` | [Factory-devops-provision-deploy.instructions.md](.claude/instructions/Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | Runtime defect scan via the [Factory-preventive-sweep](.claude/skills/Factory-preventive-sweep/SKILL.md) SKILL — parallel Explore sub-agents, one per DC scope derived at sweep time. Catches the class of defects invisible to static gates (unused imports, missing null checks, broken teardown, env-var drift). Zero open C-severity findings required to pass. |
 | **SMOKE-E2E** | DEVOPS `--deploy dev` → QA `--verify` pass | [Factory-qa-verify.instructions.md](.claude/instructions/Factory-qa-verify.instructions.md) § Verify Preconditions | Numbered manual smoke blocks derived from `user_journey.md` BDD scenarios executed on the dev-deployed build. Replaces ad-hoc smoke with a reproducible DoD artefact. |
 
 Each gate is materialised as a **backlog issue** (phase labels: `phase:contract-freeze`, `phase:preventive-sweep`, `phase:smoke-e2e`) and, on adapters that support sub-issues natively, nested under the IMPLEMENT issue so board progress tracks feature completion holistically. See [Factory-backlog-operations.instructions.md](.claude/instructions/Factory-backlog-operations.instructions.md) § 1.1 for the 8-phase preset expansion.
@@ -74,7 +74,7 @@ Verify from **artifacts** (branch name, files, git state) — NEVER from convers
 | Codebase Inventory (CIP) | `.claude/skills/Factory-codebase-inventory/SKILL.md` | DRY enforcement via inventory, 4-criteria matching |
 | Iteration Model | `.claude/skills/Factory-iteration-model/SKILL.md` | Cascade invalidation on upstream changes |
 | Coherence Validation (CVP) | `.claude/skills/Factory-coherence-validation/SKILL.md` | Cross-artifact traceability checks, 3 modes (GATE/AUTO/ON_DEMAND) |
-| Preventive Sweep | `.claude/skills/Factory-preventive-sweep/SKILL.md` | Post-deploy runtime defect sweep, 4-agent parallel search |
+| Preventive Sweep | `.claude/skills/Factory-preventive-sweep/SKILL.md` | Post-deploy runtime defect sweep, parallel scope search (one sub-agent per non-overlapping DC scope) |
 | Branching & SCM | `.claude/skills/Factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
 | Commit Prompt | `.claude/skills/Factory-commit-prompt/SKILL.md` | Conventional commit generation |
 | Worklog | `.claude/skills/Factory-worklog/SKILL.md` | Per-feature JSONL audit trail |
@@ -88,7 +88,25 @@ Read the referenced SKILL.md file when executing each protocol. The protocol fil
 ## Living Governance Catalogs
 
 Beyond `docs/rules/*.instructions.md` (materialized by SETUP), the following living catalogs are governance artifacts:
-- **Defect Prevention Catalog** (`docs/rules/defect-prevention.md`): Runtime defect patterns invisible to static gates. Materialized by SETUP with stack-specific starter DCs. Extended via Discovery Protocol during development. Consumed by DEV hat (pre-write check) and REVIEW hat (Check #2d).
+
+- **Defect Prevention Catalog** (`docs/rules/defect-prevention.md`, v2.0.0+): Runtime defect patterns invisible to static gates. Materialized by SETUP with stack-specific starter DCs. Extended via the Discovery Protocol during development, ultimately written-back through the `[EPIC-{N}] RETROSPECTIVE` gate.
+
+  **Universal consumption** (v2.0.0 — EVOL-014). Every entry carries an `applicable_to` field — an enum list of the SDLC agents that MUST consult it. Each consumer filters the catalog by checking whether its own name appears in that list:
+
+  | Agent | When it reads the catalog | Mode | What it produces |
+  | --- | --- | --- | --- |
+  | CODESIGN | `--start` / `--refine`, before drafting Gherkin | Advisory | `spec.feature § Defect-Prevention Notes` |
+  | BLUEPRINT | `--start` / `--refine`, during design; blocking at `--approve` | Advisory + Blocking | `design.md § Constraints`, `test_plan.md § Edge Cases` |
+  | IMPLEMENT `--plan` | Before generating `dev_plan.md` | Mandatory task generation | `dev_plan.md § DC Compliance` |
+  | IMPLEMENT `--build` (DEV hat) | Pre-write check | Blocking | Refactors code in-flight to avoid the pattern |
+  | IMPLEMENT `--fix` | Fix classification | Advisory | Labels each `[FIX-N]` with `dc-compliance: DC-N` or proposes Discovery |
+  | REVIEW hat | Check #2d | Blocking | `peer_review_*.md § Check #2d` findings |
+  | DEVOPS `--configure` | Before generating `devops_plan.md` | Advisory | `devops_plan.md § Reliability Checks` |
+  | QA `--verify` | Checklist generation | Blocking | `[QA-DC-N]` items in `qa_report_final_*.md` |
+  | AUDIT `--audit` | During codebase scan | Evidence | "Defect Prevention" dimension in the audit report |
+  | BACKLOG RETROSPECTIVE | `[EPIC-{N}] RETROSPECTIVE` closes | Write | New or updated DC entries in `docs/rules/defect-prevention.md` |
+
+  SETUP itself is never a consumer — it materializes the catalog and never reads it back during a feature lifecycle. The canonical consultation protocol (filter by `applicable_to` + `applicable_when`) and all per-agent outputs are documented in the catalog's own `## Mandatory Process Integration` section.
 
 ## Post-Action
 
