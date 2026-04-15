@@ -113,7 +113,7 @@ IF command_modifies_files:
   IF FILE_EXISTS("docs/backlog/execution-plan.md"):
     execution_plan = READ("docs/backlog/execution-plan.md")
     epic_match = FIND_EPIC_CONTAINING(feature_id, execution_plan)
-    # Parses "## Épica {N} — {Name} (`EPIC-{N}`)" sections to find which epic contains feature_id
+    # Parses "## Epic {N} — {Name} (`EPIC-{N}`)" sections to find which epic contains feature_id
     IF epic_match IS NOT NULL:
       epic_id = epic_match.id          # e.g., "EPIC-1"
       epic_slug = epic_match.slug      # e.g., "foundation-auth-org" (derived from epic name)

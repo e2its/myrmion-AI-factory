@@ -113,8 +113,8 @@ Title pattern from `feature_phases[N].title_pattern` with variables:
 Append sequential suffix to phase label:
 
 ```
-[{ID}] CODESIGN-R1: Refinamiento — {description}
-[{ID}] BLUEPRINT-R1: Extensión — {description}
+[{ID}] CODESIGN-R1: Refinement — {description}
+[{ID}] BLUEPRINT-R1: Extension — {description}
 ```
 
 Labels: same phase label + `enhancement`.
@@ -156,24 +156,24 @@ Generated from `feature_phases[N].label`: e.g., `codesign`, `blueprint`, `devops
 ### Body File Template — Feature Issue
 
 ```markdown
-## ¿Qué se necesita?
+## What is needed?
 
 {One paragraph describing what this phase needs to deliver for this feature.}
 
-## Contexto visual y UX
+## Visual context and UX
 
 {Only for codesign issues. Reference design system, pages, mobile-first, WCAG.}
 
-## Guardrails de stack
+## Stack guardrails
 
 - **{Key}**: {Constraint} — {rationale}
   {List 3-5 key technical constraints from constitution.md and rules/}
 
-## Comando Factory
+## Factory command
 
 `{AGENT} --{command} {ID}`
 
-## Prerequisitos
+## Prerequisites
 
 - {List prior issues that must be complete}
 
@@ -187,33 +187,33 @@ Generated from `feature_phases[N].label`: e.g., `codesign`, `blueprint`, `devops
 ### Body File Template — Refinement Issue
 
 ```markdown
-## ¿Qué se refina?
+## What is being refined?
 
 {Feature and bounded context being refined. Reference original issues.}
 
-## Cambios solicitados
+## Requested changes
 
 1. {Change 1}
 2. {Change 2}
 
-## Impacto en artefactos existentes
+## Impact on existing artifacts
 
 - `docs/spec/{ID}/spec.feature` — {what changes}
 - `docs/spec/{ID}/design.md` — {what changes}
 
-## Comando Factory
+## Factory command
 
 `{AGENT} --refine {ID} "{feedback summary}"`
 
-## Prerequisitos
+## Prerequisites
 
-- Original issue #{N} completada
+- Original issue #{N} completed
 
 ## Definition of Done
 
-- [ ] Artefactos actualizados según cambios
-- [ ] Cascade a downstream verificado
-- [ ] Tests actualizados
+- [ ] Artifacts updated to reflect the changes
+- [ ] Downstream cascade verified
+- [ ] Tests updated
 ```
 
 ---

@@ -263,38 +263,38 @@ FUNCTION form_slices(epic, graph):
 The generated `docs/backlog/execution-plan.md` follows this template:
 
 ```markdown
-# Plan de Ejecución por Épicas
+# Execution Plan by Epics
 
-> **Principio:** Minimizar retrabajo entre features y dominios.
-> Cada épica se subdivide en **Slices** (≤3 features) agrupados por Aggregate Root compartido.
-> Cada slice pasa por el ciclo completo CODESIGN → BLUEPRINT → IMPLEMENT → QA antes de avanzar al siguiente.
-> Esto limita el alcance del agente a máximo 3 features simultáneas.
+> **Principle:** Minimize rework across features and domains.
+> Each epic is subdivided into **Slices** (≤3 features) grouped by shared Aggregate Root.
+> Each slice goes through the full CODESIGN → BLUEPRINT → IMPLEMENT → QA cycle before advancing to the next.
+> This caps the agent's scope at a maximum of 3 concurrent features.
 >
-> **Uso:** El agente Backlog consulta este fichero para determinar el orden de ejecución.
-> Cada checkbox `[x]` marca un paso completado. Las issues se referencian para trazabilidad.
+> **Usage:** The Backlog agent consults this file to determine execution order.
+> Each `[x]` checkbox marks a completed step. Issues are referenced for traceability.
 >
-> **Branching:** Cada épica tiene una rama compartida (`epic/EPIC-{N}-{slug}`). Todas las
-> features de la épica (todos los slices) se trabajan en esa rama, evitando merges continuos a main.
+> **Branching:** Each epic has a shared branch (`epic/EPIC-{N}-{slug}`). All features in the epic
+> (across all slices) are worked on that branch, avoiding continuous merges to main.
 
 ---
 
-## Épica 0 — UX Vision (pre-requisito UI)
+## Epic 0 — UX Vision (UI prerequisite)
 
-- [ ] `CODESIGN --vision` — UX Vision global
+- [ ] `CODESIGN --vision` — Global UX Vision
 
-## Épica {N} — {Epic Name} (`EPIC-{N}`)
+## Epic {N} — {Epic Name} (`EPIC-{N}`)
 
 > **BCs:** {list of bounded contexts}
-> **Razón:** {rationale for grouping}
-> **Dependencias:** {upstream epic dependencies}
-> **Rama:** `epic/EPIC-{N}-{slug}`
+> **Rationale:** {rationale for grouping}
+> **Dependencies:** {upstream epic dependencies}
+> **Branch:** `epic/EPIC-{N}-{slug}`
 > **Slices:** {count} ({total features} features)
 
 ### Slice {N}.1 — {Aggregate/Focus} ({FEAT-IDs})
 
 > **Aggregate Root:** {primary aggregate}
-> **Acoplamiento:** {why these features are in the same slice}
-> **Dependencias internas:** ninguna (slice fundacional)
+> **Coupling:** {why these features are in the same slice}
+> **Internal dependencies:** none (foundational slice)
 
 #### CODESIGN
 
@@ -318,8 +318,8 @@ The generated `docs/backlog/execution-plan.md` follows this template:
 ### Slice {N}.2 — {Aggregate/Focus} ({FEAT-IDs})
 
 > **Aggregate Root:** {primary aggregate}
-> **Acoplamiento:** {why these features are in the same slice}
-> **Dependencias internas:** Slice {N}.1 (consume contratos de {aggregate})
+> **Coupling:** {why these features are in the same slice}
+> **Internal dependencies:** Slice {N}.1 (consumes contracts of {aggregate})
 
 #### CODESIGN
 ...
@@ -334,16 +334,16 @@ The generated `docs/backlog/execution-plan.md` follows this template:
 
 {repeat for each epic}
 
-## Issues ad-hoc (sin épica)
+## Ad-hoc issues (no epic)
 
 {Infrastructure, bug, and standalone issues not tied to an epic}
 
 ---
 
-## Resumen de progreso
+## Progress summary
 
-| Épica | Slice | Total pasos | Completados | Estado |
-|-------|-------|------------|-------------|--------|
+| Epic | Slice | Total steps | Completed | Status |
+|------|-------|-------------|-----------|--------|
 | EPIC-{N} — {Name} | {N}.1 — {Focus} | {total} | {completed} | {emoji status} |
 | | {N}.2 — {Focus} | {total} | {completed} | {emoji status} |
 | **Total** | | **{sum}** | **{sum}** | |
