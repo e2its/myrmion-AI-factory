@@ -383,7 +383,7 @@ Read side above. Write side here.
 
 **Tracked files.** `.context/templates/setup/governance_versions.json` has two sections:
 
-- `framework_core` — used by the LLM, not materialised. `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`. (The framework is Claude Code — single agent with slash commands. Legacy `agents/*.agent.md` entries in the manifest point to a pre-Claude-Code multi-agent layout and are not in scope for new work.)
+- `framework_core` — used by the LLM or enforced by CI, not materialised into downstream projects. `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, `.github/workflows/governance-check.yml`, `.github/workflows/auto-tag.yml`. The framework is Claude Code — single agent + slash commands. Legacy `agents/*.agent.md` entries were pre-Claude-Code residue and were removed from the manifest in EVOL-014.
 - `templates` — materialised into target projects by `SETUP --generate`. `.context/templates/setup/**`, `.context/templates/{architect,codesign,develop,peer_review,po,qa,security,ux}/*`.
 
 **Bump kind (semver).**

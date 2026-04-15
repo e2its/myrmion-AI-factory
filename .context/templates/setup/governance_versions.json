@@ -1312,16 +1312,16 @@
       "type": "ci",
       "role": "Governance Check CI gate \u2014 validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
-        "1.0.0: feat: initial registration in manifest (EVOL-014 follow-up) \u2014 existing workflow tracks framework_version bumps and orphan/stale entries."
+        "1.0.0: feat: initial registration in manifest (EVOL-014) \u2014 existing workflow enforces GWP via scripts/validate-governance.sh and blocks PRs that touch framework core without bumping entries."
       ]
     },
     "workflows/auto-tag.yml": {
       "version": "1.0.0",
       "path": ".github/workflows/auto-tag.yml",
       "type": "ci",
-      "role": "Auto-Tag & Release on merge to main \u2014 calculates SemVer bump from conventional commits and creates GitHub Release with categorized notes.",
+      "role": "Auto-Tag & Release on merge to main \u2014 calculates SemVer bump from conventional commits (feat!/feat/fix/chore/etc.) and creates a GitHub Release with categorized release notes.",
       "changelog": [
-        "1.0.0: feat: initial registration in manifest (EVOL-014 follow-up) \u2014 existing workflow triggers on push to main."
+        "1.0.0: feat: initial registration in manifest (EVOL-014) \u2014 existing workflow drives the framework_version release cadence."
       ]
     }
   }
