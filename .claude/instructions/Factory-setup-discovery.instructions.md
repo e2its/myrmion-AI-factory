@@ -422,9 +422,9 @@ Questions are organized in dependency order within tiers. Some questions are con
 ### Discovery Finalization (4.1.3)
 
 1. **Set phase:** Update `docs/setup.md` → `phase: COMPLETED`
-2. **Budget validation:** Sum all selected component costs. If exceeds tier limit, present 5 alternatives (downgrade topology, remove monitoring, use free state management, etc.)
-3. **Version Verification Protocol (VVP) — § 4.1.3.1:** Resolve and pin latest stable/LTS versions for all selected stack components. See below.
-4. **Display complete summary:** General Info + Tripartite Architecture + Tooling + Databases + DevOps + AI + Project Tracking + **Pinned Versions** + Costs
+2. **Version Verification Protocol (VVP) — § 4.1.3.1:** Resolve and pin latest stable/LTS versions for all selected stack components. See below.
+3. **Cost Estimation Protocol (CEP) — § 4.1.3.2:** Estimate monthly costs for every stack component and agent-runtime line item, persist to `docs/setup.md § costs:`, check against tier limit. See below.
+4. **Display complete summary:** General Info + Tripartite Architecture + Tooling + Databases + DevOps + AI + Project Tracking + **Pinned Versions** + **Costs (resolved)**
 5. **Generate ADR-0000:** Create `docs/project_log/adr/ADR-0000-setup-decisions.md` with ~60 variable mappings including derived fields:
    - `SECRETS_CICD` from `ci_cd.platform`
    - `CLOUD_PROVIDER` from `hosting.provider`
@@ -433,6 +433,7 @@ Questions are organized in dependency order within tiers. Some questions are con
    - `SECURITY` defaults from compliance+hosting
    - Per-environment configurations
    - `STACK_VERSIONS` — pinned versions resolved by VVP
+   - `COST_BREAKDOWN` — per-category and total monthly costs resolved by CEP (see § 4.1.3.2). Exposed as 20 template variables: `BACKEND_COST`, `FRONTEND_COST`, `INTEGRATION_COST`, `DATABASE_COST`, `HOSTING_COST`, `IAC_COST`, `OBSERVABILITY_COST`, `CICD_COST`, `AI_COMPONENTS_COST`, `MAINTENANCE_COST`, `PO_COST`, `ARCH_COST`, `DEV_COST`, `QA_COST`, `REVIEW_COST`, `SEC_COST`, `INFRA_TOTAL`, `TOTAL_COST`, `BUDGET_PERCENTAGE`, `BUDGET_STATUS`.
 6. **Worklog entry:** Log discovery completion via `APPEND_TO_WORKLOG`
 7. **Next step message:** "Ready for `/setup --generate`"
 
@@ -545,6 +546,161 @@ Display a clear table in the finalization summary:
 > Rows are populated dynamically from the components selected during discovery. No hardcoded stack names.
 
 The user can override any version before finalizing.
+
+---
+
+### § 4.1.3.2 — Cost Estimation Protocol (CEP — EVOL-014)
+
+> **Problem.** Before EVOL-014, `docs/setup.md` had no canonical `costs:` section. Discovery finalization said "Sum all selected component costs" but defined neither the schema, the inputs, nor the output. Downstream templates (`ADR-0000-setup-decisions.md`, `MATERIALIZATION_REPORT.md`) referenced 20 cost placeholders (`{{BACKEND_COST}}`, `{{TOTAL_COST}}`, `{{BUDGET_PERCENTAGE}}`, …) that had no producer — they materialised as literal `{{…}}` strings in generated artifacts.
+
+> **Solution.** CEP is the canonical producer. Runs AFTER VVP during Discovery Finalization. Estimates monthly cost for every cost-bearing discovery answer using the agent's ecosystem knowledge, persists the full breakdown to `docs/setup.md § costs:`, and the materialization pass reads from that section to resolve every `{{*_COST}}` placeholder. **No hardcoded price tables** — the agent uses its knowledge of typical monthly pricing for each component at each tier level, and invokes RDR when pricing is ambiguous.
+
+**INVARIANT:** After CEP completes, `docs/setup.md § costs:` has a value (possibly 0) for every cost field documented below. Any downstream `{{*_COST}}` placeholder that survives materialization as a literal string is a governance drift.
+
+#### Step 1 — Build the cost manifest
+
+From the persisted discovery answers, identify every cost-bearing component. Group into two top-level categories:
+
+**A. Infrastructure costs** (cloud + services, monthly USD):
+
+| Field | Input answers | Notes |
+| --- | --- | --- |
+| `backend` | Q5 runtime, Q7 topology, Q20 hosting | Cost of the backend runtime tier for the chosen topology on the chosen hosting provider (e.g., Node.js monolith on Vercel Pro, Python microservices on AWS Fargate) |
+| `frontend` | Q9 framework, Q11 pattern, Q20 hosting | Frontend hosting cost — static sites are usually cheap/free; SSR/ISR has runtime costs |
+| `integration` | Q8 communication style, detected ACL count | ~$50/ACL baseline for managed integrations (Kafka, RabbitMQ, event bus); 0 for local/in-process |
+| `databases` | Q15 primary, Q16 secondary, Q17 cache | Managed DB tier cost sum (Postgres + Redis, MongoDB Atlas, etc.) |
+| `hosting` | Q20 hosting, Q20.2 secrets manager | Platform base fee beyond the per-service costs already counted above |
+| `iac` | Q20.1 iac_tool | Typically free (Terraform OSS); paid tiers only for enterprise Terraform Cloud, Pulumi Business |
+| `observability` | Q25 logging + monitoring + error tracking + tracing | Sum of the 4 observability sub-answers per their tier mapping (Starter/Professional/Enterprise) |
+| `cicd` | Q21 CI/CD platform, Q21.1 tier | Usually free for OSS/public repos, $4-20/user for private |
+| `ai_components` | Q24a training, Q24b inference, Q24c agentic | Rough estimate — training is project-bursty, inference is per-request × volume, agentic is token spend |
+| `maintenance` | Derived | ~10-20% of `infra_total` as a maintenance reserve |
+
+**B. Agent runtime costs** (LLM token spend for each Factory persona, monthly USD):
+
+| Field | Typical driver |
+| --- | --- |
+| `po` | CODESIGN PO hat token spend — depends on feature volume (Q4 tier sets the cap) |
+| `arch` | BLUEPRINT ARCH hat |
+| `dev` | IMPLEMENT DEV hat — the biggest spender, scales with LOC produced per month |
+| `qa` | IMPLEMENT QA hat + QA --verify |
+| `review` | IMPLEMENT REVIEW hat |
+| `sec` | IMPLEMENT SEC hat + AUDIT |
+
+Use Q4 `ai_budget.tier` (Starter / Professional / Enterprise) as the ceiling. For each agent, estimate the share of the ceiling that persona consumes given the project's expected feature cadence — defaults are DEV 40%, ARCH 15%, PO 10%, QA 15%, REVIEW 10%, SEC 10%. Override per project via RDR if the user signals an unusual mix (e.g., heavy security scope → SEC 25%).
+
+#### Step 2 — Estimate each value
+
+For each field in the cost manifest, the agent writes a concrete monthly USD value using its knowledge of the ecosystem. Rules:
+
+1. **When pricing is obvious** (e.g., GitHub Actions is free on public repos, Vercel Hobby is free, Supabase Free tier is $0), write the value and move on.
+2. **When pricing is tiered but obvious** (e.g., Vercel Pro is $20/user/month, Supabase Pro is $25/month), pick the tier that matches Q4 `ai_budget.tier` ceiling and use that value.
+3. **When pricing is ambiguous or usage-based** (e.g., AWS Fargate depends on vCPU-hours × requests × data-out; managed Kafka scales with throughput), invoke **RDR**:
+   - Present the agent's estimate for the expected volume of a project at this tier.
+   - Offer 2-3 alternatives ("Assume 1k req/day → ~$40/mo", "Assume 10k req/day → ~$120/mo", "Assume 100k req/day → ~$500/mo").
+   - The user's pick becomes the persisted value.
+4. **When pricing cannot be estimated** (e.g., a proprietary vendor the agent doesn't know), mark the field with value `0` and the comment `# needs manual pricing` so finalization surfaces the gap — the user resolves it before SETUP --generate proceeds.
+
+#### Step 3 — Compute totals and budget status
+
+```yaml
+infra_total        = sum(all infrastructure fields A)
+agent_tokens_total = sum(all agent runtime fields B)
+total_monthly      = infra_total + agent_tokens_total
+
+tier_limit = ai_budget.monthly_limit from Q4
+budget_percentage = round(total_monthly / tier_limit * 100, 1)
+
+IF total_monthly <= tier_limit * 0.90:
+  status = "WITHIN_BUDGET"
+  risk = "Low"
+ELIF total_monthly <= tier_limit:
+  status = "AT_LIMIT"
+  risk = "Medium"
+  risk_mitigation = "{short text: which component to watch}"
+ELSE:
+  status = "EXCEEDS_BUDGET"
+  risk = "High"
+  risk_mitigation = "{short text: which component to cut}"
+  # Present 5 downgrade alternatives (A-E) before accepting the breach
+```
+
+#### Step 4 — Persist to `docs/setup.md`
+
+Write the full breakdown under a new top-level `costs:` key:
+
+```yaml
+# docs/setup.md — added by CEP during Discovery Finalization
+costs:
+  currency: "USD"
+  period: "monthly"
+  infrastructure:
+    backend:        {value}
+    frontend:       {value}
+    integration:    {value}
+    databases:      {value}
+    hosting:        {value}
+    iac:            {value}
+    observability:  {value}
+    cicd:           {value}
+    ai_components:  {value}
+    maintenance:    {value}
+  agent_tokens:
+    po:     {value}
+    arch:   {value}
+    dev:    {value}
+    qa:     {value}
+    review: {value}
+    sec:    {value}
+  totals:
+    infra_total:        {value}
+    agent_tokens_total: {value}
+    total_monthly:      {value}
+    tier_limit:         {value}
+    budget_percentage:  {value}
+    status:             "WITHIN_BUDGET | AT_LIMIT | EXCEEDS_BUDGET"
+    risk:               "Low | Medium | High"
+    risk_mitigation:    "{text or empty}"
+  notes:
+    - "{field}: {rationale or pricing assumption — captured during RDR}"
+```
+
+#### Step 5 — Downstream substitution map
+
+Materialization (`Factory-setup-materialization.instructions.md` § 4.2.7) reads `setup_md.costs` and exposes the values as template variables. The following placeholder → field map is canonical:
+
+| Placeholder | Maps to |
+| --- | --- |
+| `{{BACKEND_COST}}` | `costs.infrastructure.backend` |
+| `{{FRONTEND_COST}}` | `costs.infrastructure.frontend` |
+| `{{INTEGRATION_COST}}` | `costs.infrastructure.integration` |
+| `{{DATABASE_COST}}` | `costs.infrastructure.databases` |
+| `{{HOSTING_COST}}` | `costs.infrastructure.hosting` |
+| `{{IAC_COST}}` | `costs.infrastructure.iac` |
+| `{{OBSERVABILITY_COST}}` | `costs.infrastructure.observability` |
+| `{{CICD_COST}}` | `costs.infrastructure.cicd` |
+| `{{AI_COMPONENTS_COST}}` | `costs.infrastructure.ai_components` |
+| `{{MAINTENANCE_COST}}` | `costs.infrastructure.maintenance` |
+| `{{INFRA_TOTAL}}` | `costs.totals.infra_total` |
+| `{{PO_COST}}` | `costs.agent_tokens.po` |
+| `{{ARCH_COST}}` | `costs.agent_tokens.arch` |
+| `{{DEV_COST}}` | `costs.agent_tokens.dev` |
+| `{{QA_COST}}` | `costs.agent_tokens.qa` |
+| `{{REVIEW_COST}}` | `costs.agent_tokens.review` |
+| `{{SEC_COST}}` | `costs.agent_tokens.sec` |
+| `{{TOTAL_COST}}` | `costs.totals.total_monthly` |
+| `{{ESTIMATED_MONTHLY_COST}}` | `costs.totals.total_monthly` (alias for legacy templates) |
+| `{{BUDGET_PERCENTAGE}}` | `costs.totals.budget_percentage` |
+| `{{BUDGET_STATUS}}` | `costs.totals.status` |
+| `{{BUDGET_RISK}}` | `costs.totals.risk` |
+| `{{BUDGET_RISK_MITIGATION}}` | `costs.totals.risk_mitigation` |
+| `{{BUDGET_ALIGNMENT}}` | `"verified"` when status != "EXCEEDS_BUDGET"; `"override pending"` otherwise |
+
+> **Governance.** This is a **template-variable surface**, not a hardcoded price table. The framework never commits dollar values to a rule file. The values live in `docs/setup.md` (per-project, editable) and flow into generated artifacts through the substitution pass. Adding a new cost category (e.g., a new CDN line item) requires:
+> 1. Adding a field under `costs.infrastructure.*` in this protocol
+> 2. Adding its row to the placeholder substitution map
+> 3. Adding it to step 1 (input answers)
+> No rule files, templates, or adapter code need to touch hardcoded prices.
 
 ---
 

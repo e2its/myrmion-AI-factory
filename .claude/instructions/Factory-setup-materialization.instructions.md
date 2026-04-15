@@ -462,8 +462,58 @@ After all rules generated, validate:
 ### 4.2.4 Tripartite Scaffolding
 Additive tree algorithm — builds directory structure from composable fragments:
 
-**Step 0 — Dynamic Path Derivation:**
-Read `backend.runtime`, `backend.framework`, `frontend.framework` to derive base paths. Never hardcode `src/` — derive from framework conventions.
+**Step 0 — Dynamic Path Derivation (EVOL-014):**
+
+Resolve every base-path placeholder used downstream into a concrete project-relative path, and **persist the result into `docs/setup.md` under a new `paths:` section** so every subsequent consumer reads from a single source of truth instead of each re-deriving the path.
+
+**Instructions (no lookup table — the agent uses standard ecosystem conventions for the selected stack):**
+
+1. **For each of the following placeholders, resolve a concrete path** — derived from the discovery answers using well-known conventions of the selected runtime/framework/topology/pattern. The agent MUST use its knowledge of the target ecosystem's idiomatic layout (e.g., Java uses `src/main/java`, Angular uses `src/`, Next.js App Router uses `app/`, Go uses `cmd/` + `internal/`, microservices use a flat `services/` tree, serverless uses `functions/`, etc.). Do not hardcode `src/` for everything.
+
+   | Placeholder | Driven primarily by | Typical when ambiguous |
+   | --- | --- | --- |
+   | `{{BACKEND_BASE_PATH}}` | Q5 runtime + Q7 topology | Monolith → runtime's idiomatic root; distributed → `services/`; serverless → `functions/` |
+   | `{{BACKEND_MODULES_PATH}}` | Q7 topology | Modular topologies → `{backend_base}/modules`; pure monolith → `{backend_base}` |
+   | `{{FRONTEND_BASE_PATH}}` | Q9 framework + Q10 meta-framework + Q11 pattern | Framework's idiomatic root; micro-frontend patterns → `apps/` |
+   | `{{INTEGRATION_BASE_PATH}}` | Q7 topology | Monolith → `{backend_base}/shared`; distributed → top-level `integration/` |
+   | `{{AI_BASE_PATH}}` | Q24a/b/c AI capabilities | Under `{backend_base}/ai` when any AI capability is enabled; null otherwise |
+   | `{{ML_BASE_PATH}}` | Q24a training | Top-level `ml/` when training is enabled; null otherwise |
+   | `{{CONTRACTS_BASE_PATH}}` | Fixed | Always `contracts/` (cross-stack) |
+   | `{{CONFIG_BASE_PATH}}` | Fixed | Always `config/` |
+   | `{{SCRIPTS_BASE_PATH}}` | Fixed | Always `scripts/` |
+   | `{{INFRA_BASE_PATH}}` | Q20 hosting + Q20.1 iac_tool | Always `infra/` (dir exists even without IaC) |
+   | `{{MONOREPO_APPS_PATH}}` | Project structure (detected or declared) | `apps/` when monorepo; null otherwise |
+   | `{{TESTS_BASE_PATH}}` | Q5 runtime | Runtime's idiomatic test root (e.g., Java's `src/test/java`, Go's inline `_test.go` → null, Ruby's `spec/` or `test/`, etc.) |
+
+2. **When the convention is ambiguous** (e.g., Python can use either `src/` or `app/` depending on the framework; Ruby can use `spec/` for RSpec or `test/` for Minitest; the user may have a non-standard preference), **invoke RDR** (Recommendation → Decision → Ratification):
+   - Present the agent's recommendation with justification ("Next.js App Router defaults to `app/` since v13; classic `pages/` is legacy").
+   - Offer 2-3 alternatives.
+   - Persist the chosen path as an ADR entry under `docs/project_log/adr/ADR-0000-setup-decisions.md § Path Decisions`.
+
+3. **Brownfield override** (Q3 == `After`). Paths for existing projects MUST be discovered from the current workspace via the AUDIT scan or Q3.3 Protected Code Paths answer. The user's existing layout wins over any convention. Log each override as an ADR entry.
+
+4. **Persist the resolved map** to `docs/setup.md`:
+
+   ```yaml
+   # docs/setup.md — added by SETUP --generate Step 0
+   paths:
+     backend_base:       "{resolved value}"
+     backend_modules:    "{resolved value}"
+     frontend_base:      "{resolved value or null}"
+     integration_base:   "{resolved value}"
+     ai_base:            "{resolved value or null}"
+     ml_base:            "{resolved value or null}"
+     contracts_base:     "contracts"
+     config_base:        "config"
+     scripts_base:       "scripts"
+     infra_base:         "infra"
+     monorepo_apps:      "{resolved value or null}"
+     tests_base:         "{resolved value or null}"
+   ```
+
+5. **Substitute downstream placeholders.** With `setup_md.paths` populated, every downstream consumer template that contains `{{*_BASE_PATH}}` gets rendered with the concrete value from `setup_md.paths` in the same placeholder resolution pass that handles stack-specific placeholders (§ 4.2.1.2 Version Pinning and § 6.2 Adapter Placeholder Resolution). Any `{{*_BASE_PATH}}` that remains literal after this pass is a governance drift — BLOCK with a "dangling base path" diagnostic.
+
+> **Rationale.** Before EVOL-014 this step was a 2-line stub ("Never hardcode `src/`") with no concrete wiring. The setup_master_template.md § C.2 listed the placeholder names but their resolution was left to each downstream consumer, which meant either silent drift (different files assuming different paths) or outright dangling placeholders in materialized output. Persisting the derived map in `setup.md` closes the loop: one source of truth, one derivation point, every consumer reads the same value. The framework is tech-agnostic by design — the derivation uses the agent's ecosystem knowledge rather than a hardcoded lookup table, so adding support for a new runtime/framework doesn't require editing this instruction file.
 
 **Step 1 — Base Tree:**
 Create common directories with `.gitkeep`:
@@ -634,19 +684,71 @@ Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/`:
 
 **E2E Config:** Only configuration files (playwright.config.ts, etc.), NO test files.
 
-### 4.2.7 Budget Calculation
-Sum 9 cost categories:
-1. Backend hosting (from topology)
-2. Frontend hosting (from pattern)
-3. Database costs
-4. Cache costs
-5. State management costs
-6. CI/CD costs
-7. Monitoring/Observability costs
-8. AI capabilities costs
-9. Tool/service costs
+### 4.2.7 Budget Calculation and Cost Placeholder Resolution (EVOL-014)
 
-If total exceeds tier limit, present 5 alternatives (A-E) with specific downgrade suggestions.
+**Input.** `docs/setup.md § costs:` — populated by the Cost Estimation Protocol (CEP) during Discovery Finalization. See `Factory-setup-discovery.instructions.md` § 4.1.3.2 for the producer logic.
+
+**Invariant.** Materialization does NOT re-estimate costs. It consumes the `costs:` block from `setup.md` as a single source of truth. If `costs:` is missing or any field is `null`, materialization BLOCKS with diagnostic `Cost Estimation Protocol did not run or produced an incomplete breakdown. Re-run SETUP --init and complete Discovery Finalization before --generate.`
+
+**Resolution pass.** Every downstream template that contains a `{{*_COST}}` or `{{BUDGET_*}}` placeholder gets rendered with the concrete value from `setup_md.costs`. The canonical placeholder → field map lives in `Factory-setup-discovery.instructions.md` § 4.1.3.2 Step 5. Materialization applies the same map here:
+
+```yaml
+FUNCTION resolve_cost_placeholders(template_content, setup_md):
+  costs = setup_md.costs  # produced by CEP
+
+  IF costs IS NULL OR costs.totals.total_monthly IS NULL:
+    ❌ BLOCK: "CEP did not run. Re-run SETUP --init Discovery Finalization."
+    STOP
+
+  substitutions = {
+    "{{BACKEND_COST}}":        costs.infrastructure.backend,
+    "{{FRONTEND_COST}}":       costs.infrastructure.frontend,
+    "{{INTEGRATION_COST}}":    costs.infrastructure.integration,
+    "{{DATABASE_COST}}":       costs.infrastructure.databases,
+    "{{HOSTING_COST}}":        costs.infrastructure.hosting,
+    "{{IAC_COST}}":            costs.infrastructure.iac,
+    "{{OBSERVABILITY_COST}}":  costs.infrastructure.observability,
+    "{{CICD_COST}}":           costs.infrastructure.cicd,
+    "{{AI_COMPONENTS_COST}}":  costs.infrastructure.ai_components,
+    "{{MAINTENANCE_COST}}":    costs.infrastructure.maintenance,
+    "{{INFRA_TOTAL}}":         costs.totals.infra_total,
+    "{{PO_COST}}":             costs.agent_tokens.po,
+    "{{ARCH_COST}}":           costs.agent_tokens.arch,
+    "{{DEV_COST}}":            costs.agent_tokens.dev,
+    "{{QA_COST}}":             costs.agent_tokens.qa,
+    "{{REVIEW_COST}}":         costs.agent_tokens.review,
+    "{{SEC_COST}}":            costs.agent_tokens.sec,
+    "{{TOTAL_COST}}":          costs.totals.total_monthly,
+    "{{ESTIMATED_MONTHLY_COST}}": costs.totals.total_monthly,   # legacy alias
+    "{{BUDGET_PERCENTAGE}}":   costs.totals.budget_percentage,
+    "{{BUDGET_STATUS}}":       costs.totals.status,
+    "{{BUDGET_RISK}}":         costs.totals.risk,
+    "{{BUDGET_RISK_MITIGATION}}": costs.totals.risk_mitigation,
+    "{{BUDGET_ALIGNMENT}}":    "verified" IF costs.totals.status != "EXCEEDS_BUDGET" ELSE "override pending"
+  }
+
+  rendered = template_content
+  FOR placeholder, value IN substitutions:
+    rendered = rendered.replace(placeholder, str(value))
+
+  # Dangling check — any {{*_COST}} or {{BUDGET_*}} that survives is a governance drift
+  IF rendered matches /\{\{[A-Z_]*(COST|BUDGET[A-Z_]*)\}\}/:
+    ❌ BLOCK: "Dangling cost placeholder in rendered template: {match}. Missing from CEP substitution map."
+    STOP
+
+  RETURN rendered
+```
+
+**Application scope.** The resolution pass runs during materialization of every template that contains cost placeholders. At the time of writing, those are:
+
+- `.context/templates/setup/adr/adr_setup_template.md` — rendered into `docs/project_log/adr/ADR-0000-setup-decisions.md` (§ Cost Analysis block)
+- `.context/templates/setup/setup/MATERIALIZATION_REPORT_TEMPLATE.md` — rendered into `MATERIALIZATION_REPORT.md` at the repo root (§ Cost Breakdown + § Agent Costs + § Budget Summary)
+
+Any future template that adopts a `{{*_COST}}` or `{{BUDGET_*}}` placeholder is automatically covered by this pass — no additional wiring needed.
+
+**Budget breach handling.** If `costs.totals.status == "EXCEEDS_BUDGET"`, materialization does NOT block — the user already accepted the breach during Discovery Finalization and the 5-alternative dialog happened there. Materialization simply renders the `status: EXCEEDS_BUDGET` value into templates so the generated `MATERIALIZATION_REPORT.md` displays a prominent warning block, and logs an ADR entry under `ADR-0000-setup-decisions.md § Budget Override`.
+
+> **Rationale.** Before EVOL-014, § 4.2.7 was a 12-line stub listing 9 cost categories without specifying where the values came from or how they reached the generated artifacts. The 20+ `{{*_COST}}` placeholders in `adr_setup_template.md` and `MATERIALIZATION_REPORT_TEMPLATE.md` were dangling — they would materialise as literal `{{…}}` strings in production artifacts. CEP (new producer in discovery) + this resolution pass (new consumer in materialization) close the loop. The substitution map is a single-responsibility template-variable surface; dollar values live per-project in `docs/setup.md`, never in a committed rule file.
 
 ### 4.2.8 .context Preservation
 **NEVER clean up** `.context/` directory during materialization. It contains:

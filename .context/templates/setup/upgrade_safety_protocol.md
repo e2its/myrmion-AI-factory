@@ -1,5 +1,7 @@
 # Upgrade Safety Protocol v3.0.0
 
+> **Notation convention.** This file describes an algorithm using pseudo-code and log format strings. Tokens like `{{target_path}}`, `{{feature_id}}`, `{{template_path}}`, `{{error}}` appearing in lowercase inside `LOG:` statements or pseudo-code blocks are **runtime interpolation variables** — they are filled in by the agent at log-write time with the value from its current execution context. They are NOT `SETUP --generate` materialization placeholders and they do NOT need a producer in `Factory-setup-discovery.instructions.md` or `Factory-setup-materialization.instructions.md`. The repo-wide `{{SCREAMING_SNAKE}}` convention applies ONLY to top-level materialization placeholders (e.g. `{{PROJECT_NAME}}`, `{{BACKEND_RUNTIME}}`). Loop iteration variables in Handlebars-style `{{#each ...}}` blocks and log/pseudo-code locals are correctly lowercase.
+
 ## 1. Core Principles
 
 - **Zero-TODO Policy:** Every placeholder, decision, and value MUST be resolved inline during upgrade. No TODOs, no FIXMEs, no "TBD" markers left in output files. If a value cannot be discovered or decided, the upgrade for that file BLOCKS until resolved.
