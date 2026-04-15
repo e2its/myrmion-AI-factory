@@ -372,3 +372,43 @@ ELSE:
   ✅ PASS: All validations successful
   Proceed with approval/verification
 ````
+
+---
+
+## GOVERNANCE WRITE PROTOCOL (GWP)
+
+Read side above. Write side here.
+
+**Rule:** touch a tracked file → bump its manifest entry + add changelog line, same commit. No exceptions.
+
+**Tracked files.** `.context/templates/setup/governance_versions.json` has two sections:
+
+- `framework_core` — used by the LLM or enforced by CI, not materialised into downstream projects. `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, `.github/workflows/governance-check.yml`, `.github/workflows/auto-tag.yml`. The framework is Claude Code — single agent + slash commands. Legacy `agents/*.agent.md` entries were pre-Claude-Code residue and were removed from the manifest in EVOL-014.
+- `templates` — materialised into target projects by `SETUP --generate`. `.context/templates/setup/**`, `.context/templates/{architect,codesign,develop,peer_review,po,qa,security,ux}/*`.
+
+**Bump kind (semver).**
+
+- PATCH — typo, doc clarification, trivial refactor.
+- MINOR — new feature, new section, new pseudocode, new template entry.
+- MAJOR — breaking contract (rename required op, remove frontmatter field, non-additive preset change).
+
+**Procedure.**
+
+```yaml
+FOR EACH file IN modified_files:
+  entry = lookup(manifest, file)
+  IF entry IS NULL AND file IS framework_core or templates:
+    manifest.add(file, version="1.0.0", changelog=["1.0.0: added"])
+  ELSE IF entry EXISTS:
+    kind = PATCH | MINOR | MAJOR from commit prefix (fix:/chore: → PATCH, feat: → MINOR, feat!:/BREAKING → MAJOR)
+    entry.version = semver_bump(entry.version, kind)
+    entry.changelog.append("{new_version}: {kind}: {one-liner}")
+manifest.last_updated = TODAY
+WRITE manifest
+```
+
+**Applies.** Every commit touching a tracked file. Docs-only fast-lane commits too — fast-lane bypasses CI workflows, NOT this rule.
+
+**Does not apply.** Untracked files (`/memories/**`, worklog JSONL, test fixtures, `.gitignore`). Pure `git mv` within same dir if manifest key unchanged.
+
+**Safety net.** `.github/workflows/governance-check.yml` runs `scripts/validate-governance.sh` on every PR to main and blocks missing bumps. GWP prevents drift at commit time; CI catches drift at PR time.

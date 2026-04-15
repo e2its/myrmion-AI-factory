@@ -1,5 +1,5 @@
 ---
-status: DRAFT
+status: DRAFT   # DRAFT | APPROVED | CHANGES_REQUESTED | INVALIDATED
 feature_id: 
 verdict: PENDING
 review_date: 
@@ -9,6 +9,20 @@ blocker_count: 0
 warning_count: 0
 nitpick_count: 0
 override_justification: null
+
+# Iteration model tracking (EVOL-014)
+based_on_iteration: 1
+based_on_schemas_version: 1
+
+# Push-based cascade fields — set by upstream --refine when downstream code changes invalidate the review
+pending_iteration: null
+pending_schemas_version: null
+invalidated_sections: []
+invalidated_by_iteration: null
+invalidated_reason: null
+cascade_source: null
+cascade_timestamp: null
+cascade_scope: []
 ---
 
 # Peer Review Report: {{FEATURE_ID}}

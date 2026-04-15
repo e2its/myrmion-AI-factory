@@ -37,7 +37,7 @@ Each entry has the following schema:
 
 The authoritative detailed search methodology for the runtime sweep lives in `.claude/skills/Factory-preventive-sweep/SKILL.md`.
 
-> **SETUP materialization note:** The starter DCs below were selected based on the project's stack configuration. Extend this catalog with project-specific discoveries using the Discovery Protocol (§ 3).
+> **SETUP materialization note:** The starter DCs below were selected based on the project's stack configuration. Extend this catalog with project-specific discoveries using the Discovery Protocol (§ 8).
 
 | DC | Name | Applicable When | Applicable To | Severity | Check |
 |----|------|-----------------|---------------|----------|-------|
@@ -148,7 +148,7 @@ FOR EACH fix_task:
   IF fix addresses an existing DC:
     LABEL fix_task with "dc-compliance: DC-{N}"
   ELSE IF fix pattern is novel and recurring:
-    TRIGGER Discovery Protocol (§ 3) — propose new DC entry
+    TRIGGER Discovery Protocol (§ 8) — propose new DC entry
 ```
 
 **Output artefact:** `dev_plan.md § DC Compliance` is populated. BVL tracks each DC task as a mandatory item.
@@ -276,6 +276,6 @@ WHEN a runtime defect is discovered during any phase:
 
 ## Project Discoveries
 
-> This section is populated during development as new defect patterns are discovered via the Discovery Protocol (§ 3.8). Each entry follows the same schema as the starter DCs above.
+> This section is populated during development as new defect patterns are discovered via the Discovery Protocol (§ 8). Each entry follows the same schema as the starter DCs above.
 
 <!-- New DC entries discovered during development go here -->

@@ -133,6 +133,14 @@ Move to `Done` status and optionally resolve:
 jira issue move <issue_key> "Done"
 ```
 
+#### `add_label` — **STUB**
+Jira labels are free-form strings. Add a label to an existing issue:
+```bash
+# TODO: validate — Jira CLI may require a fetch-modify-update cycle instead of a direct add flag
+jira issue edit <issue_key> --label "<label_name>"
+```
+Used by the iteration-model cascade (e.g., `stale-after-cascade`). Must be idempotent — if the label already exists on the issue, calling this is a no-op.
+
 #### `add_sub_issue` — **STUB**
 Jira has **Sub-tasks** (native sub-issue equivalent). Create the child as a sub-task of the parent:
 ```bash
@@ -211,6 +219,7 @@ required_ops:
   add_to_board:          no-op     # implicit
   move_to_column:        TODO
   close_issue:           TODO
+  add_label:             TODO      # jira issue edit --label — validate idempotency
   query_board:           TODO
   get_item_id:           native    # issue key
   read_issue:            TODO

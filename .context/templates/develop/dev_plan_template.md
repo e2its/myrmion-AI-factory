@@ -3,10 +3,24 @@
 ```markdown
 ---
 id: {{FEATURE_ID}}
-status: IN_PROGRESS
+status: DRAFT   # DRAFT | READY | NEEDS_INFO | BUILDING | IMPLEMENTED_AND_VERIFIED | BLOCKED | REJECTED | INVALIDATED
 last_update: [DATE]
 e2e_required: [true | false]
 api_test_required: [true | false]
+
+# Iteration model tracking (EVOL-014)
+based_on_iteration: 1
+based_on_schemas_version: 1
+
+# Push-based cascade fields — set by upstream --refine, cleared by IMPLEMENT --refine (delta) sync
+pending_iteration: null
+pending_schemas_version: null
+invalidated_sections: []
+invalidated_by_iteration: null
+invalidated_reason: null
+cascade_source: null
+cascade_timestamp: null
+cascade_scope: []
 ---
 
 # Implementation Plan: {{FEATURE_ID}}

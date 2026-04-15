@@ -12,6 +12,7 @@ changelog:
 > **Purpose:** Define the NON-NEGOTIABLE architectural and governance rules of the project  
 > **Modification:** Only via `/BLUEPRINT --refine` with justified ADR  
 > **Language:** All technical instructions must be in **ENGLISH**
+> **Placeholder notation:** Top-level materialization placeholders use `{{SCREAMING_SNAKE}}` (e.g. `{{PROJECT_NAME}}`, `{{BACKEND_RUNTIME}}`). Handlebars-style `{{#each COLLECTION}}...{{field_name}}...{{/each}}` loops use lowercase iteration variables — these are NOT materialization placeholders and must not be forced to uppercase. SETUP --generate populates the collection; the template engine renders one row per item with field-level substitution.
 
 ---
 
