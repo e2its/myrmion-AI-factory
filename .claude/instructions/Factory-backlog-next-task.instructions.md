@@ -54,6 +54,70 @@ Select the first pending item in natural plan order.
 Confirm upstream required steps in the same dependency chain are complete.
 If not complete, return blocker instead of skipping ahead.
 
+### Step 1.3.5: Hard-gate enforcement (v14.0.0 — EVOL-014, full-sdlc preset only)
+
+> Applies only when `project_tracking.feature_phases == "full-sdlc"`. `simplified` and `single` presets skip this step.
+
+Before returning the candidate step, check whether the candidate command is one of the four downstream commands that an EVOL-014 hard gate blocks:
+
+| Candidate command | Blocking gate issue | Resolver action if gate not Done |
+| --- | --- | --- |
+| `IMPLEMENT --plan {ID}` | `[{ID}] CONTRACT-FREEZE: …` (phase label `phase:contract-freeze`) | Return CONTRACT-FREEZE as the next task instead |
+| `DEVOPS --deploy --env dev {ID}` | `[{ID}] PREVENTIVE-SWEEP: …` (phase label `phase:preventive-sweep`) | Return PREVENTIVE-SWEEP as the next task instead |
+| `QA --verify {ID}` | `[{ID}] SMOKE-E2E: …` (phase label `phase:smoke-e2e`) | Return SMOKE-E2E as the next task instead |
+| First `CODESIGN --start` of slice `{N}.{M+1}` within epic `{N}` | `[SLICE-{N}.{M}] INTEGRATION-TEST: …` (phase label `phase:integration-test`) | Return INTEGRATION-TEST as the next task instead |
+| First `CODESIGN --start` of epic `{N+1}` | `[EPIC-{N}] RETROSPECTIVE: …` (phase label `phase:retrospective`) | Return RETROSPECTIVE as the next task instead |
+
+```yaml
+# Tool-agnostic gate lookup via the adapter — NEVER hardcode CLI queries here.
+ADAPTER = READ docs/backlog/tool-adapter.md  # or in local mode the state.md-backed equivalent
+
+FUNCTION find_gate_issue(phase_label, scope_token):
+  # scope_token is the feature ID, slice ref (SLICE-1.2) or epic ref (EPIC-1) found in title
+  items = ADAPTER.query_board()
+  RETURN first item WHERE labels CONTAINS phase_label AND title CONTAINS scope_token
+
+# 1. Per-feature gates
+IF candidate.command matches "IMPLEMENT --plan {ID}":
+  gate = find_gate_issue("phase:contract-freeze", candidate.feature_id)
+  IF gate IS NULL OR gate.status != "Done":
+    RETURN blocker = {
+      next_task: gate.title if gate else "CONTRACT-FREEZE issue missing",
+      agent: "BACKLOG",
+      command: gate ? "Complete contract freeze for {candidate.feature_id}" : "BACKLOG --plan-feature {candidate.feature_id}",
+      why_now: "CONTRACT-FREEZE gate must be Done before IMPLEMENT --plan can start (full-sdlc preset)",
+      if_blocked: "none — gate is the work itself"
+    }
+
+IF candidate.command matches "DEVOPS --deploy --env dev {ID}":
+  gate = find_gate_issue("phase:preventive-sweep", candidate.feature_id)
+  IF gate IS NULL OR gate.status != "Done":
+    RETURN blocker = { ...same shape, pointing to PREVENTIVE-SWEEP... }
+
+IF candidate.command matches "QA --verify {ID}":
+  gate = find_gate_issue("phase:smoke-e2e", candidate.feature_id)
+  IF gate IS NULL OR gate.status != "Done":
+    RETURN blocker = { ...same shape, pointing to SMOKE-E2E... }
+
+# 2. Slice integration-test gate
+IF candidate is the first phase issue of a feature in slice {N}.{M+1}:
+  prev_slice_ref = "SLICE-{N}.{M}"
+  gate = find_gate_issue("phase:integration-test", prev_slice_ref)
+  IF gate AND gate.status != "Done":
+    RETURN blocker pointing to the SLICE integration-test issue
+
+# 3. Epic retrospective gate
+IF candidate is the first phase issue of a feature in epic {N+1}:
+  prev_epic_ref = "EPIC-{N}"
+  gate = find_gate_issue("phase:retrospective", prev_epic_ref)
+  IF gate AND gate.status != "Done":
+    RETURN blocker pointing to the EPIC retrospective issue
+```
+
+> **Tool-agnostic invariant.** The resolver NEVER runs `gh` / `jira` / `linear` / `state.md` queries directly. All board reads go through `query_board` on the tool-adapter, which materialisation picks per project per Q27 answer (see `Factory-setup-materialization.instructions.md` § 6.1).
+
+> **Stale-after-cascade tag handling.** When a gate issue carries the label `stale-after-cascade` or `stale-after-slice-peer-iterated` (placed by the iteration model — see `Factory-iteration-model/SKILL.md` § CASCADE_PENDING_ITERATION), the resolver treats the gate as NOT Done regardless of the board's status field. The label takes precedence until the gate is re-run and the label removed.
+
 ### Step 1.4: Extract execution tuple
 
 From the selected line, extract:
