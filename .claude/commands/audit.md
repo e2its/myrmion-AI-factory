@@ -17,17 +17,36 @@ Execute complete technical audit:
 
 See `.claude/instructions/Factory-audit-checklist.instructions.md` for the full checklist and `.claude/instructions/Factory-audit-complexity.instructions.md` for complexity scoring.
 
+### `--software`
+Execute a **software-only audit** — narrower scope focused exclusively on the repository/codebase. Skips all HR, organizational, and infrastructure sections.
+
+- **Scan-First Protocol**: same as `--audit`.
+- **Scope**: Phase 0 (Language Detection), Phase B (S1–S4 Architecture/Software), selected Phase D sections (SEC1 IAM patterns at code level, SEC3 Data Protection at code level, SEC4 Vulnerability Management / SAST / dependencies). Excludes Phase A (G1–G3), Phase C (I1–I4), SEC2 (network/infra), SEC5 (compliance frameworks).
+- **Artifact**: `docs/software_audit.md` (separate from `docs/technical_due.md` — both can coexist).
+- **Verdict**: same tripartite `GO` / `NO_GO` / `GO_WITH_CONDITIONS` with thresholds adjusted to the reduced dimension set.
+- **Setup mapping**: populates only software-relevant fields (stack, topology, patterns) — leaves HR/infra fields null.
+
+Use case: rapid repository health check without demanding organizational access (team sizing, billing, cloud topology). Ideal for M&A of a single codebase, OSS project evaluation, or a contributor-level read of an unknown repo.
+
+See `.claude/instructions/Factory-audit-checklist.instructions.md` § Command: `--software` for the full section list and scope rules.
+
 ### `--refine {SECTION_ID}`
-Refine a specific section (P0, G1-G3, S1-S4, I1-I4, SEC1-SEC5).
+Refine a specific section. Valid IDs depend on which mode produced the artifact:
+- After `--audit`: `P0`, `G1`–`G3`, `S1`–`S4`, `I1`–`I4`, `SEC1`–`SEC5`, `COMP1`.
+- After `--software`: `P0`, `S1`–`S4`, `SEC1`, `SEC3`, `SEC4`, `COMP1`.
+
+The instruction file auto-detects which artifact exists (`docs/technical_due.md` vs `docs/software_audit.md`) and scopes refinement accordingly. If both exist, the user must pass `--refine {SECTION_ID} --scope {audit|software}` to disambiguate.
 
 ### `--approve`
 Close audit with verdict: `GO` | `NO_GO` | `GO_WITH_CONDITIONS`.
 - Calculate `risk_score` (0-100) weighted by severity
 - Generate Short/Long Term recommendations
 - Consolidate `setup_mapping` to feed `SETUP --init`
+- Auto-detects which artifact to close (`docs/technical_due.md` vs `docs/software_audit.md`); if both are DRAFT, require `--scope {audit|software}` to disambiguate.
 
 ## Output
-- `docs/technical_due.md` with frontmatter: `status`, `risk_score`, `verdict`, `setup_mapping`
+- `docs/technical_due.md` (after `--audit`) with frontmatter: `status`, `risk_score`, `verdict`, `setup_mapping`.
+- `docs/software_audit.md` (after `--software`) with the same frontmatter schema but only software-relevant fields populated in `setup_mapping`.
 
 ## Rules
 - Read-only — NEVER modify existing project files

@@ -721,9 +721,10 @@
       ]
     },
     "commands/audit.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": ".claude/commands/audit.md",
       "changelog": [
+        "1.1.0: feat(EVOL-015): --software command added \u2014 narrow software-only audit variant (P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1; excludes G1-G3, I1-I4, SEC2, SEC5). Produces docs/software_audit.md, coexists with docs/technical_due.md. Disambiguation via --scope {audit|software} when both artifacts are open. Use cases: M&A of a single codebase, OSS evaluation, contributor-level read.",
         "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Per CLAUDE.md \u00a7 Generation Standards rule 2, every framework-core touch requires a version bump; commands were excluded from the manifest by oversight. Content unchanged at this commit \u2014 this entry registers the file and seeds its changelog."
       ]
     },
@@ -778,9 +779,10 @@
       ]
     },
     "instructions/Factory-audit-checklist.instructions.md": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
       "changelog": [
+        "2.2.0: feat(EVOL-015): Command: --software added \u2014 narrow software-only audit variant. New artifact docs/software_audit.md with same schema as technical_due.md. Section list P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1. Excluded: G1-G3 (HR), I1-I4 (infra), SEC2 (network), SEC5 (compliance). Verdict thresholds scaled down (risk_score < 25 / 25-49 / >= 50 for GO / GO_WITH_CONDITIONS / NO_GO) because section count is halved \u2014 same density = lower absolute. --refine and --approve auto-detect artifact; require --scope {audit|software} when both open. Branch pattern feature/AUDIT-XXX-software for the new mode.",
         "2.1.0: feat(EVOL-014): Defect Prevention Catalog Signal \u2014 AUDIT grep-searches for DC patterns, adds 'Defect Prevention Maturity' dimension to report",
         "1.0.0: Extracted from AUDIT.AGENT.MD \u2014 execution phases A-D, master checklist (PR #101)",
         "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)"
