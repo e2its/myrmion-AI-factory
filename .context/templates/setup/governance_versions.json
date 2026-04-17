@@ -216,10 +216,11 @@
       ]
     },
     "rules/immutability_policy.md": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "stack_configured",
       "target": "docs/rules/immutability_policy.instructions.md",
       "changelog": [
+        "1.0.1: fix(EVOL-015): References section no longer points to the deleted root instructions.md; redirects to the framework README § Command Reference on GitHub",
         "1.0.0: Initial template"
       ]
     },

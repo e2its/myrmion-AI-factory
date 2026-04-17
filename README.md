@@ -855,4 +855,4 @@ This software is provided under a custom End User License Agreement (EULA). See 
 
 - **Issues**: GitHub Issues.
 - **Discussions**: GitHub Discussions.
-- **Core docs**: [CLAUDE.md](CLAUDE.md), [docs/constitution.md](docs/constitution.md), [EULA.md](EULA.md).
+- **Core docs**: [CLAUDE.md](CLAUDE.md), [EULA.md](EULA.md). The project constitution is materialised per target project at `docs/constitution.md` by `/setup --generate` — it does not exist in this framework repository.

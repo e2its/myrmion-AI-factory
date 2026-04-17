@@ -35,14 +35,14 @@ Refine a specific section. Valid IDs depend on which mode produced the artifact:
 - After `--audit`: `P0`, `G1`–`G3`, `S1`–`S4`, `I1`–`I4`, `SEC1`–`SEC5`, `COMP1`.
 - After `--software`: `P0`, `S1`–`S4`, `SEC1`, `SEC3`, `SEC4`, `COMP1`.
 
-The instruction file auto-detects which artifact exists (`docs/technical_due.md` vs `docs/software_audit.md`) and scopes refinement accordingly. If both exist, the user must pass `--refine {SECTION_ID} --scope {audit|software}` to disambiguate.
+The instruction file auto-detects which artifact exists (`docs/technical_due.md` vs `docs/software_audit.md`) and scopes refinement accordingly. If both artifacts are **open** (any non-terminal status — `DRAFT` or `NEEDS_INFO`), the user must pass `--refine {SECTION_ID} --scope {audit|software}` to disambiguate. An artifact in `APPROVED` or `CANCELLED` is terminal and does not count toward the ambiguity check.
 
 ### `--approve`
 Close audit with verdict: `GO` | `NO_GO` | `GO_WITH_CONDITIONS`.
 - Calculate `risk_score` (0-100) weighted by severity
 - Generate Short/Long Term recommendations
 - Consolidate `setup_mapping` to feed `SETUP --init`
-- Auto-detects which artifact to close (`docs/technical_due.md` vs `docs/software_audit.md`); if both are DRAFT, require `--scope {audit|software}` to disambiguate.
+- Auto-detects which artifact to close (`docs/technical_due.md` vs `docs/software_audit.md`). If both artifacts are **open** (any non-terminal status — `DRAFT` or `NEEDS_INFO`), require `--scope {audit|software}` to disambiguate. Same rule applies to `--refine`. An artifact in `APPROVED` or `CANCELLED` is terminal and does not trigger the disambiguation prompt.
 
 ## Output
 - `docs/technical_due.md` (after `--audit`) with frontmatter: `status`, `risk_score`, `verdict`, `setup_mapping`.

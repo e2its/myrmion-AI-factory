@@ -83,11 +83,16 @@ blocked_by_labels = [l for l in candidate_labels if l starts with "blocked-by:#"
 IF blocked_by_labels is not empty:
   unresolved_deps = []
   FOR EACH label IN blocked_by_labels:
-    dep_ref = label.strip_prefix("blocked-by:#")   # e.g. "42" → "#42"
+    # Emit the dep reference in the canonical "#<N>" form used across the resolver (Step 1.4.5 accepts "#13" and "L-001").
+    dep_ref = "#" + label.strip_prefix("blocked-by:#")
     dep_issue = ADAPTER.read_issue(dep_ref)
     IF dep_issue is NULL:
-      # Dangling label — dep was deleted. Surface explicitly; do NOT silently ignore.
-      unresolved_deps.append({ref: dep_ref, status: "MISSING"})
+      # Every unresolved_deps entry MUST carry a `title` — the blocker shape below renders `unresolved_deps[0].title`.
+      unresolved_deps.append({
+        ref:    dep_ref,
+        status: "MISSING",
+        title:  "Resolve dangling blocked-by label (references missing issue " + dep_ref + ")"
+      })
     ELIF dep_issue.status != "Done":
       unresolved_deps.append({ref: dep_ref, status: dep_issue.status, title: dep_issue.title})
 
@@ -130,15 +135,11 @@ FUNCTION find_gate_issue(phase_label, scope_token):
   RETURN first item WHERE labels CONTAINS phase_label AND title CONTAINS scope_token
 
 FUNCTION resolve_gate_mode(gate_issue, governance_snapshot):
-  # EVOL-015 Q27.5 — three-level fallback for gate mode resolution.
-  # Precedence: issue-level `## Mode` section > adapter-level default > governance snapshot.
+  # Precedence: issue `## Mode` section > adapter `## Gate Enforcement Mode` default > snapshot `project_tracking.gate_enforcement_mode`.
   IF gate_issue IS NOT NULL:
     body = ADAPTER.read_issue(gate_issue.ref).body
-    # Parse the value of the "## Mode" markdown section defined in
-    # Factory-backlog-operations.instructions.md § 5 (Gate Issue Body Template).
-    # The section body is a single line containing exactly one of enforce|warn|off
-    # (optionally surrounded by whitespace); ignore any trailing explanatory prose.
-    issue_mode = parse_section_value(body, "## Mode")    # null when absent / invalid
+    # `## Mode` section body: a single token (enforce|warn|off), optionally with surrounding whitespace; trailing prose after the token is ignored. Section defined in Factory-backlog-operations.instructions.md § 5 (Gate Issue Body Template).
+    issue_mode = parse_section_value(body, "## Mode")
     IF issue_mode IN ["enforce", "warn", "off"]:
       RETURN issue_mode
   # Fall through: adapter default, then snapshot default
