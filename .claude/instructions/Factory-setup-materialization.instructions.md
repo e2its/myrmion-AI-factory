@@ -711,7 +711,7 @@ Modes:
 - `warn` — gate does NOT block; the `--next-task` resolver emits a WARN line and returns the downstream command anyway. Used during Brownfield migration while features that predate the gate flow through the board. Flip to `enforce` once the first new feature produces the gate artefact in main.
 - `off` — gate is disabled. Do NOT use as global default. Reserved for per-gate overrides declared in an ADR (e.g. a legacy codepath that will never have the gate artefact).
 
-**Per-gate override.** Individual gate issues can override the default by adding the body frontmatter line `gate_mode: enforce | warn | off`. When present, the resolver uses the issue-level value; otherwise it falls back to this adapter-level default.
+**Per-gate override.** Individual gate issues can override the default by populating the `## Mode` section inside the gate issue body with a single token `enforce`, `warn`, or `off`. The gate body template in `Factory-backlog-operations.instructions.md` § 5 defines this section. When the value is present and valid, the resolver (`Factory-backlog-next-task.instructions.md` § 1.3.5) uses the issue-level value; otherwise it falls back to this adapter-level default.
 
 **Flip procedure (warn → enforce).** After the first feature under the framework merges to main with the gate artefact complete:
 1. Update `docs/setup.md` → `project_tracking.gate_enforcement_mode: enforce`

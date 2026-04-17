@@ -671,7 +671,7 @@
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/github-project.md",
       "changelog": [
-        "1.1.0: feat(EVOL-015): create_label section extended \u2014 kind:follow-up always created; appetite:{small,medium,big} conditional on {{APPETITE_SIZING_ENABLED}}==true; blocked-by:#{N} created on-demand with --force idempotency note",
+        "1.1.0: feat(EVOL-015): create_label section extended \u2014 kind:follow-up always created; appetite:{small,medium,big} conditional on {{APPETITE_SIZING_ENABLED}}==true; blocked-by:#{N} usage documented \u2014 labels are NOT created at init (per-issue value), MUST be created explicitly via `gh label create \u2026 --force` before the first `add_label` invocation (GitHub rejects --add-label on unknown labels); --force keeps the create idempotent",
         "1.0.0: feat(EVOL-014): new adapter \u2014 fully functional github-project adapter with native gh CLI commands for all abstract ops (create_project, create_label, create_issue, move_to_column, add_sub_issue via addSubIssue GraphQL mutation, add_label, query_board, etc.); placeholder set for SETUP --generate resolution"
       ]
     },

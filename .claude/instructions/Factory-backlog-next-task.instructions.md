@@ -3,7 +3,7 @@ applyTo: "backlog"
 description: "Factory BACKLOG next-task guidance — determines the next executable step from execution plan and returns agent + command + evidence. Use when: user asks what to do next in the project."
 ---
 
-# Backlog Next Task Guidance (v1.4.0)
+# Backlog Next Task Guidance
 
 > Loaded by the `backlog` mode to answer sequencing questions with a deterministic protocol.
 > Goal: always return the next executable task, with exact agent and command.
@@ -106,7 +106,7 @@ resolver must treat it as hard regardless of phase ordering, slice grouping, or 
 mode. A `MISSING` dep (label references a deleted issue) surfaces as a blocker rather
 than being silently dropped — dangling labels are governance drift.
 
-### Step 1.3.5: Hard-gate enforcement (v14.0.0 — EVOL-014, full-sdlc preset only)
+### Step 1.3.5: Hard-gate enforcement (full-sdlc preset only)
 
 > Applies only when `project_tracking.feature_phases == "full-sdlc"`. `simplified` and `single` presets skip this step.
 
@@ -131,10 +131,14 @@ FUNCTION find_gate_issue(phase_label, scope_token):
 
 FUNCTION resolve_gate_mode(gate_issue, governance_snapshot):
   # EVOL-015 Q27.5 — three-level fallback for gate mode resolution.
-  # Precedence: issue-level body frontmatter > adapter-level default > governance snapshot.
+  # Precedence: issue-level `## Mode` section > adapter-level default > governance snapshot.
   IF gate_issue IS NOT NULL:
     body = ADAPTER.read_issue(gate_issue.ref).body
-    issue_mode = parse_frontmatter_line(body, "## Mode")    # null when absent
+    # Parse the value of the "## Mode" markdown section defined in
+    # Factory-backlog-operations.instructions.md § 5 (Gate Issue Body Template).
+    # The section body is a single line containing exactly one of enforce|warn|off
+    # (optionally surrounded by whitespace); ignore any trailing explanatory prose.
+    issue_mode = parse_section_value(body, "## Mode")    # null when absent / invalid
     IF issue_mode IN ["enforce", "warn", "off"]:
       RETURN issue_mode
   # Fall through: adapter default, then snapshot default
@@ -206,7 +210,7 @@ IF candidate is the first phase issue of a feature in epic {N+1}:
   IF blocker IS NOT NULL: RETURN blocker
 ```
 
-> **EVOL-015 — gate enforcement modes.** The resolver reads a three-level fallback chain for each gate: the gate issue's own `## Mode` frontmatter line (per-gate ADR-documented override) → the adapter's `## Gate Enforcement Mode` section (project-level default written by SETUP materialisation from Q27.5) → the governance snapshot's `project_tracking.gate_enforcement_mode` field (last-resort fallback). Unknown or missing values bottom out at `enforce` — the safest default. `warn` attaches a warn line to the response envelope (§ 2) and returns the downstream candidate; `off` skips the gate silently with a log entry; `enforce` produces the hard block documented above.
+> **EVOL-015 — gate enforcement modes.** The resolver reads a three-level fallback chain for each gate: the gate issue's own `## Mode` section body (per-gate ADR-documented override; a single `enforce`/`warn`/`off` token inside the section) → the adapter's `## Gate Enforcement Mode` section (project-level default written by SETUP materialisation from Q27.5) → the governance snapshot's `project_tracking.gate_enforcement_mode` field (last-resort fallback). Unknown or missing values bottom out at `enforce` — the safest default. `warn` attaches a warn line to the response envelope (§ 2) and returns the downstream candidate; `off` skips the gate silently with a log entry; `enforce` produces the hard block documented above.
 
 > **Tool-agnostic invariant.** The resolver NEVER runs `gh` / `jira` / `linear` / `state.md` queries directly. All board reads go through `query_board` on the tool-adapter, which materialisation picks per project per Q27 answer (see `Factory-setup-materialization.instructions.md` § 6.1).
 

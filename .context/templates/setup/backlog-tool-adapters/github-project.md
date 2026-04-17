@@ -152,7 +152,13 @@ fi
 
 Slice labels (`slice:EPIC-{N}.{M}`) and cluster labels (`cluster:{id}`) are created on-demand by `--plan-execution`, not at init time.
 
-`blocked-by:#{N}` labels (EVOL-015) are created on-demand the first time they are applied via `add_label` — `gh label create` is idempotent with `--force`, so the adapter calls it right before `gh issue edit --add-label` when applying a new `blocked-by:#{N}` value for the first time. The label persists for reuse on later issues.
+`blocked-by:#{N}` labels are not created at `--init-board` time — the value `#{N}` is per-issue and not known until a cross-issue dependency is declared. Before applying one with `add_label` (which maps to `gh issue edit --add-label`), the label MUST already exist in the repo; GitHub rejects `--add-label` for unknown labels. Create the label explicitly:
+
+```bash
+gh label create "blocked-by:#<N>" --repo {{REPO_SLUG}} --color "cfd3d7" --force
+```
+
+`gh label create --force` is idempotent, so it is safe to call every time before the first `add_label` invocation with that value. Once created, the label persists for reuse on later issues. Automation layers that apply `blocked-by:#{N}` labels at scale should wrap the two commands into a single helper that always runs `gh label create … --force` first.
 
 #### `create_milestone` (optional — used when `milestone_strategy != "none"`)
 ```bash
