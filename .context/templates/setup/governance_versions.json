@@ -711,6 +711,15 @@
   "framework_core": {
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects \u2014 used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) \u2014 Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in docs/rules/.",
+    "README.md": {
+      "version": "2.0.0",
+      "path": "README.md",
+      "changelog": [
+        "2.0.0: BREAKING docs(EVOL-015): instructions.md fused into README.md \u2014 single English user-facing doc. Ports 10 Spanish sections from the deleted instructions.md (full Command Reference, Recommended Pipeline, Complete Workflow Diagram, Exception Routes, State Transition Matrices, State Glossary, Dynamic Governance System, Memory Cache Architecture, Immutability & Versioning). instructions.md deleted at the same commit. Rationale: eliminate two-sources-of-truth drift between README.md and instructions.md that was observed during EVOL-014 \u2192 EVOL-015. All framework version tags scrubbed from user-facing copy (versions live only in governance_versions.json). Workflow sequence presents the full-sdlc 8-phase expansion + 3 hard gates (CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E) + 2 epic/slice gates (SLICE-INTEGRATION-TEST, EPIC-RETROSPECTIVE) + enforcement modes blurb.",
+        "1.1.0: docs(EVOL-015): workflow sequence updated with full-sdlc 8-phase expansion + 3 hard gates; gate enforcement modes blurb added; framework version tags scrubbed from user-facing copy",
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the root README.md tracking gap that pre-dated EVOL-015."
+      ]
+    },
     "commands/audit.md": {
       "version": "1.0.0",
       "path": ".claude/commands/audit.md",
