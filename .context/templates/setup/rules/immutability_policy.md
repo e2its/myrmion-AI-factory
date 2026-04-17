@@ -591,7 +591,7 @@ No, maximum 1 active version at a time. Complete or cancel one before creating a
 
 ## References
 
-- **Versioning Commands:** See `instructions.md` section "Agent Commands"
+- **Versioning Commands:** See the framework README § "Command Reference" for the full command catalogue — [github.com/e2its/mi-AI-Factory-for-Claude](https://github.com/e2its/mi-AI-Factory-for-Claude#command-reference)
 - **Frontmatter Schema:** See templates in `.context/specs/`
 - **Workflow Log:** See `docs/project_log/workflow_log.json`
 - **Command Definitions:** See slash commands in `.claude/commands/`

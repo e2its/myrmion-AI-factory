@@ -139,6 +139,8 @@ FUNCTION generate_governance_snapshot():
       tool: {setup_config.project_tracking.tool}
       feature_phases: {setup_config.project_tracking.feature_phases}
       milestone_strategy: {setup_config.project_tracking.milestone_strategy}
+      gate_enforcement_mode: {setup_config.project_tracking.gate_enforcement_mode}   # EVOL-015 Q27.5 — enforce | warn | off (default per Q3/Q27.2 recommendation; null when preset != full-sdlc)
+      appetite_sizing_enabled: {setup_config.project_tracking.appetite_sizing_enabled}  # EVOL-015 Q27.6 — boolean; materialises appetite label/field when true
     synthetic_data:
       enabled: {setup_config.synthetic_data.enabled}
       id_strategy: {setup_config.synthetic_data.id_strategy}
@@ -321,6 +323,92 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # frontend.framework: Q9 → React, Vue.js, Angular, Svelte, Solid, None
   # frontend.pattern: Q11 → F1..F10
   # auth.strategy: Q18 → "JWT (stateless)", "Session-based", "OAuth2/OIDC (external provider)", etc.
+
+  # ============================================================================
+  # UNIVERSAL META-PATTERNS (EVOL-015) — shipped on every project regardless of stack
+  # ============================================================================
+  # Derived from empirical post-deploy defect clusters across multiple stacks.
+  # Each entry describes a PATTERN (stack-neutral) with stack-specific
+  # manifestations listed inside the prevention text. The `applicable_when`
+  # scope condition still gates which concrete projects consume the entry at
+  # runtime — a pure library project with no CI won't trigger DC-PIPE, etc.
+
+  # DC: Pipeline short-circuit silently skips downstream gates
+  # Universal — applies to any CI/build/BVL script that chains commands via pipes
+  # Example manifestations: bash `find … | grep -q` under `set -o pipefail` (SIGPIPE
+  # kills producer, gate silently passes); PowerShell pipelines with
+  # $ErrorActionPreference = "Stop"; Python subprocess pipes with check=True;
+  # Make rules with `$(shell … | …)`; Jenkins `sh` steps; GitLab script blocks.
+  ADD DC: {
+    name: "Pipeline short-circuit silently skips downstream gates",
+    applicable_when: "Authoring CI / build / verification scripts that chain producers and consumers via shell pipes, Make recipes, or platform script blocks",
+    applicable_to: ["IMPLEMENT", "REVIEW", "DEVOPS", "AUDIT"],
+    prevention: "Never gate on a raw `producer | consumer -q` idiom. Under shell pipefail (and equivalents) the consumer can close the pipe early, the producer dies with SIGPIPE and the gate silently passes while its precondition is unmet. Use explicit boolean tests on captured output (e.g. `[ -n \"$(producer -print -quit)\" ]`), a named helper, or the ecosystem's idiomatic `set_check` primitive. Dry-run every gate with a precondition that should fail and verify the gate actually fails.",
+    review_severity: "BLOCKER"
+  }
+
+  # DC: Identity-argument no-op transforms
+  # Universal — applies to string transforms, template rendering, DOM assertions
+  # Example manifestations: JS `padEnd("")`/`padStart("")`/`replace(empty, …)` returning input;
+  # Python `str.format("")`; Java `String.format("")`; CSS class concat with empty string;
+  # i18n fallback `""`; test-side: asserting only the label wrapper while children render empty.
+  ADD DC: {
+    name: "Identity-argument no-op in string / DOM transforms",
+    applicable_when: "Calling padding, trimming, replacement, formatting, template, or class-concat functions with a parameter that may legitimately be empty, null, or zero",
+    applicable_to: ["IMPLEMENT", "REVIEW", "QA"],
+    prevention: "Many ecosystems return the input unchanged when the transform parameter is an identity value (empty string, zero-length array, null delimiter). The call looks correct and type-checks cleanly. Guard the parameter OR assert a post-condition on the output (expected length, substring presence, rendered element count) — never trust the call itself. For UI component tests, every rendered element MUST be asserted in the DOM, not just the wrapper label: a zero-input render passes label-only assertions while delivering a blank surface to the user.",
+    review_severity: "BLOCKER"
+  }
+
+  # DC: Framework-layer validation errors invisible to application logs
+  # Universal — applies to any layered system with validation ahead of handler
+  # Example manifestations: FastAPI/Pydantic 422 responses invisible to app logs;
+  # Express middleware Zod/Joi rejections; Spring @Valid pre-controller errors;
+  # ASP.NET Core model binding failures; GraphQL schema validation; gRPC reflection;
+  # API Gateway request validation (AWS/Kong/Nginx/Apigee); WAF rules; ModSecurity.
+  ADD DC: {
+    name: "Framework-layer validation errors invisible to application logs",
+    applicable_when: "Any system with schema, DTO, or request validation performed by a middleware, gateway, WAF, or framework layer ahead of the application handler",
+    applicable_to: ["BLUEPRINT", "IMPLEMENT", "DEVOPS", "QA", "AUDIT"],
+    prevention: "A 4xx spike with NO corresponding ERROR line in application logs is almost always a contract / DTO / schema mismatch between client and server — not a bug in the use case code. Diagnosis playbook: (1) diff the request payload against the declared schema; (2) only enter use case code after that has been ruled out. Prevention: configure the validation layer (middleware, gateway, framework error handler) to emit a structured log entry with the validation detail before returning the 4xx, so application observability sees the event. Document which error classes are filtered at the gateway vs reaching the handler.",
+    review_severity: "WARNING"
+  }
+
+  # DC: Mutation APIs with replace semantics reset omitted fields
+  # Universal — applies to shared-state mutation against cloud, directory, ERP, REST, K8s, etc.
+  # Example manifestations: AWS `update-function-configuration` resetting env vars not passed;
+  # Azure ARM PUT replacing whole resource; GCP `resource.update` default replace;
+  # Kubernetes `kubectl apply` vs `patch` semantics; Terraform replace triggers;
+  # LDAP / Active Directory `Set-ADUser` clearing array attributes; SAP BAPIs;
+  # REST PUT on aggregate roots; GraphQL mutations without input defaults.
+  ADD DC: {
+    name: "Mutation APIs with replace semantics reset omitted fields",
+    applicable_when: "Any code path that mutates shared external state via an update / PUT / replace endpoint — cloud control planes, directory services, ERP / CRM objects, Kubernetes resources, REST PUT endpoints, GraphQL mutations, IaC providers",
+    applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS", "AUDIT"],
+    prevention: "Never call a mutation endpoint with a partial payload while assuming omitted fields are preserved. Many endpoints are replace-whole-state, not patch-delta — the omitted fields get reset to defaults or removed. Mandatory pattern: read-current-state → merge delta → submit merged payload. Document each integration's semantics (replace vs patch) in the adapter / integration doc. Where the ecosystem offers both (e.g. K8s `apply` vs `patch`), codify which one is allowed and why.",
+    review_severity: "BLOCKER"
+  }
+
+  # DC: Composite network symptoms require layered root-cause triage
+  # Universal — applies to any project with a network boundary
+  # Example manifestations: browser "blocked by CORS policy" has 4+ causes
+  # (missing Access-Control-Allow-Origin; authorizer short-circuit returning before
+  # CORS middleware; redirect stripping CORS headers; method not in allowMethods);
+  # TLS handshake failures (cert, SNI, cipher, protocol version); 502/504 (upstream
+  # down, timeout, DNS, routing); connection refused (port, firewall, bind, service
+  # down); auth fails (token expired, audience mismatch, clock skew, bad signature);
+  # Kerberos (7+ distinct causes); mTLS handshake.
+  ADD DC: {
+    name: "Composite network symptoms require layered root-cause triage",
+    applicable_when: "Debugging a single network-layer symptom reported by the client, browser, or upstream service",
+    applicable_to: ["BLUEPRINT", "IMPLEMENT", "DEVOPS", "QA"],
+    prevention: "A single symptom class (CORS blocked, 502 Bad Gateway, connection refused, auth fail, TLS handshake) typically has 3+ distinct root causes spread across application / middleware / infrastructure / client configuration. Random edits in the application layer cannot fix middleware or infrastructure causes. For each symptom class, maintain a decision tree that captures raw evidence first (e.g. `curl -i -X OPTIONS …` for CORS; `openssl s_client -connect …` for TLS; platform access logs for 502; packet capture when needed), then disambiguates the layer before code changes. Document the tree per symptom in `docs/rules/` or runbook — add entries as new symptom classes surface.",
+    review_severity: "WARNING"
+  }
+
+  # ============================================================================
+  # STACK-CONDITIONAL DCS — only materialize when the project matches the scope
+  # ============================================================================
 
   # DC: Async handler in serverless entry point
   # Q7 backend.topology == "B9" (Serverless)
@@ -576,7 +664,62 @@ The selected template contains `{{PLACEHOLDER}}` tokens. SETUP resolves the subs
 | `{{BOARD_COLUMNS}}` | `project_tracking.board_columns` from Q27.1 — rendered as a JSON array |
 | `{{MILESTONE_STRATEGY}}` | `project_tracking.milestone_strategy` from Q27.3 |
 | `{{NAMING_CONVENTION}}` | `project_tracking.naming_convention` from Q27.4 |
+| `{{GATE_ENFORCEMENT_MODE}}` | `project_tracking.gate_enforcement_mode` from Q27.5 — `enforce` / `warn` / `off`; emitted as a comment inside the adapter so users can see the active mode without re-reading `setup.md`. When Q27.2 != `full-sdlc` the field is `null` and the adapter renders `# gate_enforcement_mode: n/a (preset has no gates)` |
+| `{{APPETITE_SIZING_ENABLED}}` | `project_tracking.appetite_sizing_enabled` from Q27.6 — boolean; drives § Step 6.2.1 (appetite label/field materialisation) |
 | `{{CLI_BINARY}}` | Inferred from the adapter frontmatter `cli_binary` field |
+
+### Step 6.2.1 — Appetite Field Materialisation (conditional: Q27.6 == true)
+
+When `project_tracking.appetite_sizing_enabled == true`, the BACKLOG agent must have an appetite label/field available on the tracker at `--init-board` time. SETUP materialisation does NOT create the label in the external tool (that happens at `--init-board` via `create_label`) — it only records the requirement so BACKLOG emits it.
+
+Render the following fragment inside the materialised `docs/backlog/tool-adapter.md` under a new `## Appetite` section (append after the existing adapter body, before any `## Troubleshooting` section):
+
+```markdown
+## Appetite (EVOL-015 Q27.6 = true)
+
+This project uses appetite sizing as feature metadata. Three hand-curated values:
+
+- `appetite:small` — ≤ 4h budget, one session
+- `appetite:medium` — 2–4 day budget, supervised
+- `appetite:big` — 5+ day budget, complex feature
+
+Values are metadata (human-set, not framework-computed). Use for priority calls, batch
+planning, and — if Shape Up-lite cultural overlay is later adopted — cycle composition.
+Enabling does NOT force Shape Up.
+
+BACKLOG --init-board MUST register the three labels via `create_label` (or the tool's
+native equivalent) alongside the phase / status labels. The feature issue body template
+adds an `Appetite:` line (blank by default — fill when the value is known).
+```
+
+When `appetite_sizing_enabled == false`, SKIP this section entirely — the rendered adapter contains no Appetite block.
+
+### Step 6.2.2 — Gate Enforcement Mode Materialisation (conditional: Q27.2 == "full-sdlc")
+
+When `project_tracking.feature_phases == "full-sdlc"`, render the following fragment inside `docs/backlog/tool-adapter.md` under a new `## Gate Enforcement Mode` section:
+
+```markdown
+## Gate Enforcement Mode (EVOL-015 Q27.5)
+
+**Default mode for EVOL-014 gates:** `{{GATE_ENFORCEMENT_MODE}}`
+
+Scope: `contract-freeze`, `preventive-sweep`, `smoke-e2e`, `integration-test`, `retrospective`.
+Classic phase completions (blueprint `--approve`, qa `--verify`) are unaffected — they are always hard.
+
+Modes:
+- `enforce` — gate BLOCKS its downstream command until the gate issue is Done. Production default for greenfield.
+- `warn` — gate does NOT block; the `--next-task` resolver emits a WARN line and returns the downstream command anyway. Used during Brownfield migration while features that predate the gate flow through the board. Flip to `enforce` once the first new feature produces the gate artefact in main.
+- `off` — gate is disabled. Do NOT use as global default. Reserved for per-gate overrides declared in an ADR (e.g. a legacy codepath that will never have the gate artefact).
+
+**Per-gate override.** Individual gate issues can override the default by populating the `## Mode` section inside the gate issue body with a single token `enforce`, `warn`, or `off`. The gate body template in `Factory-backlog-operations.instructions.md` § 5 defines this section. When the value is present and valid, the resolver (`Factory-backlog-next-task.instructions.md` § 1.3.5) uses the issue-level value; otherwise it falls back to this adapter-level default.
+
+**Flip procedure (warn → enforce).** After the first feature under the framework merges to main with the gate artefact complete:
+1. Update `docs/setup.md` → `project_tracking.gate_enforcement_mode: enforce`
+2. Re-run `SETUP --upgrade` to regenerate the governance snapshot and this adapter section
+3. Commit with `chore(governance): flip gate enforcement mode warn → enforce`
+```
+
+When `feature_phases != "full-sdlc"`, SKIP this section — the rendered adapter omits the `## Gate Enforcement Mode` block because simplified / single presets have no gates.
 
 **Captured post-init (leave `{{…}}` verbatim):**
 

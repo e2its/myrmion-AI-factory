@@ -134,9 +134,31 @@ gh label create "blocked"     --repo {{REPO_SLUG}} --color "b60205" --force
 gh label create "enhancement" --repo {{REPO_SLUG}} --color "a2eeef" --force
 gh label create "bug"         --repo {{REPO_SLUG}} --color "d73a4a" --force
 gh label create "needs-rework-after-codesign" --repo {{REPO_SLUG}} --color "fbca04" --force
+
+# Kind labels (EVOL-015 — always created)
+gh label create "kind:follow-up" --repo {{REPO_SLUG}} --color "c5def5" --force \
+  --description "Deferred work spun out of a parent feature or retrospective (vs. accidental incomplete)"
+
+# Appetite labels (EVOL-015 — created ONLY when {{APPETITE_SIZING_ENABLED}} == true)
+if [ "{{APPETITE_SIZING_ENABLED}}" = "true" ]; then
+  gh label create "appetite:small"  --repo {{REPO_SLUG}} --color "bfdadc" --force \
+    --description "Budget cap ≤ 4h, one session"
+  gh label create "appetite:medium" --repo {{REPO_SLUG}} --color "7057ff" --force \
+    --description "Budget cap 2–4 days supervised"
+  gh label create "appetite:big"    --repo {{REPO_SLUG}} --color "5319e7" --force \
+    --description "Budget cap 5+ days or complex feature — re-shape if overrun"
+fi
 ```
 
 Slice labels (`slice:EPIC-{N}.{M}`) and cluster labels (`cluster:{id}`) are created on-demand by `--plan-execution`, not at init time.
+
+`blocked-by:#{N}` labels are not created at `--init-board` time — the value `#{N}` is per-issue and not known until a cross-issue dependency is declared. Before applying one with `add_label` (which maps to `gh issue edit --add-label`), the label MUST already exist in the repo; GitHub rejects `--add-label` for unknown labels. Create the label explicitly:
+
+```bash
+gh label create "blocked-by:#<N>" --repo {{REPO_SLUG}} --color "cfd3d7" --force
+```
+
+`gh label create --force` is idempotent, so it is safe to call every time before the first `add_label` invocation with that value. Once created, the label persists for reuse on later issues. Automation layers that apply `blocked-by:#{N}` labels at scale should wrap the two commands into a single helper that always runs `gh label create … --force` first.
 
 #### `create_milestone` (optional — used when `milestone_strategy != "none"`)
 ```bash

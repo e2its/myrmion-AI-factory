@@ -58,14 +58,18 @@ SETUP Q27.2 persists a **preset string** in `project_tracking.feature_phases`. T
 **Expansion example (`full-sdlc`):**
 ```yaml
 # Runtime expansion performed by BACKLOG agent — NOT stored in setup.md
+# mode field (EVOL-015 Q27.5): overrides project_tracking.gate_enforcement_mode per gate issue
+# when present in the issue body frontmatter. When absent, the resolver uses the adapter-level
+# default. Only gate phases carry a mode field — non-gate phases (codesign/blueprint/devops/
+# implement/qa) are always hard by their command's own approval logic.
 - { suffix: 1, label: "codesign",         title_pattern: "[{ID}] CODESIGN: Spec BDD + UX Mock — {name}" }
 - { suffix: 2, label: "blueprint",        title_pattern: "[{ID}] BLUEPRINT: Architecture + Test Plan — {name}" }
-- { suffix: 3, label: "contract-freeze",  title_pattern: "[{ID}] CONTRACT-FREEZE: API contracts + test harness — {name}", gate: true, sub_issue_of: 5 }
+- { suffix: 3, label: "contract-freeze",  title_pattern: "[{ID}] CONTRACT-FREEZE: API contracts + test harness — {name}", gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}" }
 - { suffix: 4, label: "devops",           title_pattern: "[{ID}] DEVOPS: Infrastructure — {name}" }
 - { suffix: 5, label: "implement",        title_pattern: "[{ID}] IMPLEMENT: Code + Tests — {name}" }
-- { suffix: 6, label: "preventive-sweep", title_pattern: "[{ID}] PREVENTIVE-SWEEP: Runtime defect scan — {name}",           gate: true, sub_issue_of: 5 }
+- { suffix: 6, label: "preventive-sweep", title_pattern: "[{ID}] PREVENTIVE-SWEEP: Runtime defect scan — {name}",           gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}" }
 - { suffix: 7, label: "qa",               title_pattern: "[{ID}] QA: Verification — {name}" }
-- { suffix: 8, label: "smoke-e2e",        title_pattern: "[{ID}] SMOKE-E2E: Numbered smoke blocks on dev deploy — {name}",  gate: true, sub_issue_of: 5 }
+- { suffix: 8, label: "smoke-e2e",        title_pattern: "[{ID}] SMOKE-E2E: Numbered smoke blocks on dev deploy — {name}",  gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}" }
 ```
 
 **Gate semantics.** Phases marked `gate: true` are **hard blockers** enforced by upstream command instructions. Each gate issue must be Done before the downstream phase may start:
@@ -266,18 +270,27 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 | **Cluster** | `cluster:{id}` | Set manually on grouped hotfix issues | `cluster:CLUSTER-001` |
 | **Milestone strategy** | See § 4.2 | `milestone_strategy` from Q27.3 | — |
 | **Status** | `blocked`, `enhancement`, `bug`, `needs-rework-after-codesign` | Auto-created at `--init-board`; `needs-rework-after-codesign` applied manually when a downstream task lands before the upstream CODESIGN is finalized | — |
+| **Kind** *(EVOL-015)* | `kind:follow-up` | Set manually on issues that capture deferred work spun out from a parent feature or retrospective. Signals "known deferred, not accidental incomplete". | `kind:follow-up` |
+| **Blocked-by** *(EVOL-015)* | `blocked-by:#{N}` | Set manually (or by `--plan-execution` when an explicit cross-feature dependency is declared) on issues that MUST NOT be picked up until the referenced issue is Done. Consumed by the `--next-task` resolver as a hard filter. Multiple `blocked-by:#N` labels on the same issue are AND-ed: all referenced issues must be Done. | `blocked-by:#42`, `blocked-by:#101` |
+| **Appetite** *(EVOL-015, conditional on Q27.6 == true)* | `appetite:{small\|medium\|big}` | Hand-curated by the human on feature issues. Metadata only — never computed. When Q27.6 == false the labels are not materialised. | `appetite:small`, `appetite:medium`, `appetite:big` |
 
 **Which labels apply to which issue class:**
 
-| Issue class | `phase:*` | `slice:*` | Status label |
-| --- | --- | --- | --- |
-| Feature phase | ✅ (one) | ✅ (one) | ➕ optional |
-| Feature refinement/extension | ✅ (same as parent) | ✅ (same as parent) | `enhancement` |
-| Slice integration-test | `phase:integration-test` | ✅ (one) | ➕ optional |
-| Epic retrospective | `phase:retrospective` | ❌ (epic-scoped, not slice) | ➕ optional |
-| Infrastructure | `infra` | ❌ | ➕ optional |
-| Test data | `test-data` | ❌ | ➕ optional |
-| Cluster fix | `cluster:{id}` + phase of affected work | ➕ optional | `bug` |
+| Issue class | `phase:*` | `slice:*` | Status label | `kind:follow-up` | `blocked-by:#N` | `appetite:*` |
+| --- | --- | --- | --- | --- | --- | --- |
+| Feature phase | ✅ (one) | ✅ (one) | ➕ optional | ➕ optional | ➕ optional | ➕ optional (feature-scoped; typically on CODESIGN issue) |
+| Feature refinement/extension | ✅ (same as parent) | ✅ (same as parent) | `enhancement` | ➕ optional | ➕ optional | ❌ (inherits from parent) |
+| Slice integration-test | `phase:integration-test` | ✅ (one) | ➕ optional | ❌ | ➕ optional | ❌ |
+| Epic retrospective | `phase:retrospective` | ❌ (epic-scoped, not slice) | ➕ optional | ❌ | ➕ optional | ❌ |
+| Infrastructure | `infra` | ❌ | ➕ optional | ➕ optional | ➕ optional | ➕ optional |
+| Test data | `test-data` | ❌ | ➕ optional | ➕ optional | ➕ optional | ❌ |
+| Cluster fix | `cluster:{id}` + phase of affected work | ➕ optional | `bug` | ➕ optional | ➕ optional | ❌ |
+
+> **Appetite label materialisation.** The three `appetite:*` labels are created at `--init-board` via `create_label` ONLY when `project_tracking.appetite_sizing_enabled == true` (Q27.6). The adapter `## Appetite` section rendered by SETUP materialisation (Factory-setup-materialization.instructions.md § Step 6.2.1) documents this. When Q27.6 == false, omit the labels entirely — do not create them with zero usage.
+>
+> **Blocked-by label creation.** The `blocked-by:#{N}` label is NOT pre-created at `--init-board` because the value `#{N}` is per-issue. **`add_label` does NOT auto-create missing labels** — on GitHub, `gh issue edit --add-label` rejects unknown labels; Jira and Linear behave similarly (unknown labels are rejected by their create/apply calls). The BACKLOG agent (or any automation wrapping it) MUST explicitly call `create_label` for `blocked-by:#{N}` **before** the first `add_label` invocation with that value. `create_label` is idempotent on every supported adapter (GitHub via `gh label create … --force`; other tools via their native upsert). Once created, the label persists for reuse on later issues.
+>
+> **`kind:follow-up` vs `enhancement`.** `enhancement` flags that an issue is an incremental addition to an already-delivered feature. `kind:follow-up` flags that an issue was intentionally spun out of a larger scope to defer the work (typical source: RETROSPECTIVE gate splitting an oversized bucket, or a scope-carve-out during CODESIGN). An issue can carry both labels simultaneously.
 
 ### 4.2 Milestone Schema
 
@@ -340,6 +353,15 @@ Milestone naming follows `milestone_strategy` from Q27.3:
 - [ ] {Artifact 1 with path}
 - [ ] {Artifact 2 with path}
 - [ ] {Validation criteria}
+
+{Render the next section ONLY when `project_tracking.appetite_sizing_enabled == true` (EVOL-015 Q27.6). Feature-scoped — typically filled on the CODESIGN phase issue. Refinement / extension / gate issues inherit from the parent feature and do NOT include this section.}
+
+## Appetite
+
+- **Bucket:** {small | medium | big — or blank until decided}
+- **Rationale:** {one line: why this bucket — complexity, risk, or scope cap}
+
+> Appetite is a BUDGET, not an estimate. `small` ≤ 4h; `medium` 2–4 days supervised; `big` 5+ days or complex feature. Overruns stop work — re-shape or split.
 ```
 
 ### Body File Template — Refinement Issue
@@ -382,6 +404,14 @@ Milestone naming follows `milestone_strategy` from Q27.3:
 ## Gate type
 
 {contract-freeze | preventive-sweep | smoke-e2e | integration-test | retrospective}
+
+## Mode
+
+{enforce | warn | off}
+
+> EVOL-015 Q27.5. Optional per-gate override. When absent, the resolver falls back to
+> `project_tracking.gate_enforcement_mode` (adapter-level default). `enforce` = hard
+> block; `warn` = log and proceed; `off` = disabled (ADR-documented exception only).
 
 ## Blocks
 

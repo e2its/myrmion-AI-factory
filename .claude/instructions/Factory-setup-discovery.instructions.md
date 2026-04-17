@@ -69,7 +69,7 @@ TIER_1_STACK:
 
 TIER_2_INFRASTRUCTURE:
   name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q28, Q28.1]
+  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1]
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
@@ -77,7 +77,8 @@ TIER_2_INFRASTRUCTURE:
     - Q24a == true → [Q24a_details]
     - Q24b == true → [Q24b_details]
     - Q24c == true → [Q24c_details]
-    - Q27 != "None" → [Q27.1, Q27.2, Q27.3, Q27.4]
+    - Q27 != "None" → [Q27.1, Q27.2, Q27.3, Q27.4, Q27.6]
+    - Q27 != "None" AND Q27.2 == "full-sdlc" → [Q27.5]
     - Q28 == true → [Q28.1]
 
 TIER_FINAL:
@@ -400,6 +401,26 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Simplified:** es: "¿Qué prefijo usar para identificar features?" / en: "What prefix to use for feature IDs?"
 - **RDR Recommendation:** FEAT-NNN — standard, unambiguous, aligns with Factory spec directory structure
 - **Persist:** `project_tracking.naming_convention`
+
+#### Q27.5: Gate Enforcement Mode Default (conditional: Q27 != "None" AND Q27.2 == "full-sdlc")
+- **Type:** Single-select
+- **Options:** `enforce` (greenfield — gates hard-block downstream from day 1) | `warn` (legacy migration — gates log findings, downstream proceeds, flip to `enforce` when first new feature validates the gate in main) | `off` (gate disabled — use only for explicit, documented exceptions)
+- **Simplified:** es: "¿Los gates nuevos deben bloquear (greenfield) o solo avisar (proyecto legacy)?" / en: "Should new gates hard-block (greenfield) or only warn (legacy migration)?"
+- **RDR Recommendation:** `enforce` for greenfield (Q3 == "Greenfield"). `warn` for Brownfield (Q3 == "Brownfield") — features that predate EVOL-014 lack CONTRACT-FREEZE / PREVENTIVE-SWEEP / SMOKE-E2E artefacts; warn lets the backlog flow without drowning in artificial blockers while the team migrates. Do NOT pick `off` globally — reserve `off` for per-gate overrides declared via ADR.
+- **Tier-filtered:** ALL tiers.
+- **Scope:** Applies to the EVOL-014 hard gates (`contract-freeze`, `preventive-sweep`, `smoke-e2e`) and the slice/epic gates (`integration-test`, `retrospective`). Classic phase completions (blueprint `--approve`, qa `--verify`) are always hard — mode does NOT affect them.
+- **Persist:** `project_tracking.gate_enforcement_mode` (global default, one string value). Per-gate overrides persist later as frontmatter on individual gate issues (handled by BACKLOG, not SETUP).
+- **Soft-landing principle:** Gates shipped by EVOL-014 default to `warn` for Brownfield projects so the backlog does not trip on features that never had the gate's artefact. When a new feature completes the gate cleanly in main (first valid CONTRACT-FREEZE artefact merged, first PREVENTIVE-SWEEP zero-C report merged, etc.), the maintainer flips the default to `enforce` via `SETUP --upgrade` or a manual edit of `docs/setup.md`. Greenfield projects skip this ramp — they start with `enforce` because every feature shipped with the framework already produces the gate artefact.
+
+#### Q27.6: Appetite Sizing (conditional: Q27 != "None")
+- **Type:** Boolean
+- **Options:** `true` (enable appetite custom field / label on the tracker with values `small` / `medium` / `big`) | `false` (no appetite field)
+- **Simplified:** es: "¿Usar appetite sizing (small/medium/big) como metadata de features?" / en: "Use appetite sizing (small/medium/big) as feature metadata?"
+- **RDR Recommendation:** `true`. Zero runtime cost if unused and it unlocks batch planning, priority calls, and (later) Shape Up-lite cycles if that overlay is ever adopted. Pick `false` only when the team is certain it will never use sizing and wants the tracker surface minimal.
+- **Concept.** Appetite is a budget, not an estimate. Instead of predicting "this takes 3 days" you commit a cap: `small` (≤ 4h, one session), `medium` (2–4 days supervised), `big` (5+ days or complex feature). Values are **metadata**, hand-curated by the human — the framework never computes them. Uses: (a) priority calls in backlog review, (b) batch planning (cluster smalls into a week, reserve bigs), (c) input for future Shape Up-lite cycles. Enabling here does NOT force Shape Up — it materializes the field so it is available if needed.
+- **When work exceeds appetite → STOP and re-shape.** Overrun is a signal that either the appetite was wrong or the scope grew; both need an explicit call, not silent extension.
+- **Tier-filtered:** ALL tiers.
+- **Persist:** `project_tracking.appetite_sizing_enabled` (boolean). When `true`, SETUP materialization adds the field to the tool-adapter's label/field preset and extends the feature issue body template with an `Appetite:` line left blank by default.
 
 #### Q28: Synthetic Data for Staging
 - **Type:** Boolean

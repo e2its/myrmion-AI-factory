@@ -56,9 +56,11 @@ The BACKLOG agent operates in one of two modes, determined by `project_tracking.
 | `--create-issue "{title}"` | Create a single custom issue. **External:** via API. **Local:** entry in `state.md` + body file |
 | `--move {ISSUE_NUMS} --to {STATUS}` | Move issues to a Kanban column. **External:** API call. **Local:** update `state.md` |
 | `--status` | Show board summary. **External:** query API. **Local:** read `state.md` |
-| `--plan-execution` | Analyze feature dependencies, form epics, generate `docs/backlog/execution-plan.md` |
-| `--update-execution {step}` | Mark a step complete in execution-plan.md |
-| `--sync-execution` | Reconcile execution-plan.md with board state |
+| `--plan-execution` | Analyze feature dependencies, form epics. **External mode (`tool != "None"`):** project the plan onto the board as milestones + labels + ordered issue set (board IS the plan — no `execution-plan.md` file). **Local mode (`tool == "None"`):** generate `docs/backlog/execution-plan.md`. |
+| `--update-execution {step}` | Mark a step complete. **External mode:** move the referenced issue's status + update parent gate progress on the board. **Local mode:** update the checklist line in `docs/backlog/execution-plan.md`. |
+| `--sync-execution` | Reconcile plan with SSOT. **External mode:** rebuild `/memories/repo/project-board-cache.md` from `query_board`; report drift only — no file writes under `docs/backlog/`. **Local mode:** reconcile `execution-plan.md` with `state.md` and refresh `/memories/repo/execution-plan-cache.md`. |
+| `--next-task` | **Push mode.** Return the single next executable step chosen by the framework (agent + command + evidence). Used by Smart Redirect and automations. See [Factory-backlog-next-task.instructions.md](../instructions/Factory-backlog-next-task.instructions.md) §§ 1–4. |
+| `--eligible [--limit N]` *(EVOL-015)* | **Pull mode.** Return the full set of items the human could pick up right now — every pending item that would NOT be rejected by the `--next-task` filter chain. Default cap `--limit 20`; pass `--limit unlimited` for the full pool. READ-ONLY: no labels, no persisted state, no cache writes. Dual-mode via SSOT (board in external mode, `execution-plan.md` in local mode). See [Factory-backlog-next-task.instructions.md](../instructions/Factory-backlog-next-task.instructions.md) § 5. |
 
 ---
 
@@ -152,6 +154,17 @@ When a multi-step operation fails partway, clean up all completed items in rever
 
 ### Protocol 10: Execution Plan Sync (--sync-execution)
 1. Read plan from disk → cross-reference board → report discrepancies
+
+### Protocol 11: Pull-Mode Eligible Pool (--eligible) — EVOL-015
+
+> **Full specification**: [Factory-backlog-next-task.instructions.md](../instructions/Factory-backlog-next-task.instructions.md) § 5.
+
+1. **Detect mode** (Protocol 0): file mode reads `execution-plan.md`; board mode queries `ADAPTER.query_board()` — `execution-plan.md` does NOT exist on disk in board mode.
+2. **Enumerate pending candidates** from SSOT.
+3. **Apply the `--next-task` filter chain to each candidate** (intra-feature prerequisite + `blocked-by:#{N}` + hard-gate enforcement with mode fallback). Items gated by `warn` are eligible with a flag; items gated by `enforce` are excluded; items gated by `off` are eligible silently.
+4. **Cap at `--limit N`** (default 20). Stop evaluating once the cap is reached.
+5. **Print the pool** in the minimal template (§ 5.5 of the instruction file). Drill-down is `--next-task` on a specific feature ID or `ADAPTER.read_issue` on a specific ref.
+6. **READ-ONLY.** No labels, no persisted state, no cache writes. Read-through caches MAY be consulted as fast paths; they are never authoritative.
 
 ---
 

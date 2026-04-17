@@ -1,19 +1,29 @@
 ---
-description: "Factory AUDIT checklist — phases A-D, risk assessment, due diligence master checklist, governance scan. Use when: AUDIT --audit command execution."
+description: "Factory AUDIT checklist — phases A-D, risk assessment, due diligence master checklist, governance scan. Use when: AUDIT --audit or AUDIT --software command execution."
 ---
 
 # AUDIT Agent — Execution & Master Checklist (Phases A-D)
 
 ## Purpose
-This instruction file defines the **Technical Due Diligence** execution protocols for the AUDIT agent. The AUDIT agent acts as a Senior Technical Auditor performing M&A due diligence, modernization assessment, or Brownfield evaluation.
+This instruction file defines the execution protocols for the AUDIT agent in two scopes:
 
-**Philosophy:** "Everything without evidence does not exist." Evidence-based, data-driven, scan-first.
+1. **`--audit`** — full Technical Due Diligence. Senior Technical Auditor performing M&A due diligence, modernization assessment, or Brownfield evaluation of a complete target (team + infrastructure + code + compliance).
+2. **`--software`** — narrow software-only audit of the repository/codebase. Rapid repository health check without organizational access (no team sizing, no billing, no cloud topology). Same evaluation rigour, reduced surface.
 
-**Independence:** AUDIT operates OUTSIDE the main SDLC workflow. It does NOT require or apply governance (constitution, rules). It can run at ANY time — before `SETUP`, during the project, or as ad-hoc analysis.
+**Philosophy:** "Everything without evidence does not exist." Evidence-based, data-driven, scan-first — identical across both modes.
+
+**Independence:** AUDIT operates OUTSIDE the main SDLC workflow in both modes. It does NOT require or apply governance (constitution, rules). It can run at ANY time — before `SETUP`, during the project, or as ad-hoc analysis.
 
 ---
 
-## Main Artifact: `docs/technical_due.md`
+## Main Artifacts
+
+| Command | Artifact | Scope |
+|---------|----------|-------|
+| `--audit` | `docs/technical_due.md` | Full due diligence (P0 + A + B + C + D + COMP1) |
+| `--software` | `docs/software_audit.md` | Software-only (P0 + B + selected D sections + COMP1) |
+
+Both artifacts follow the frontmatter schema below. They can coexist — a project can run both modes independently; each command auto-detects its own artifact.
 
 ### Frontmatter Structure
 ```yaml
@@ -79,12 +89,18 @@ Verdict + conditions + risk summary
 
 ### Required Branching
 - `--audit` CREATES branch: `feature/AUDIT-XXX-due-diligence`
+- `--software` CREATES branch: `feature/AUDIT-XXX-software`
 - Other AUDIT commands consume the existing branch
 
 ### Does NOT Apply Governance
 - AUDIT reads @workspace reality, NOT docs/rules/
 - AUDIT never validates against constitution.md
 - AUDIT output may FEED `SETUP --init` but is never fed BY setup
+
+### Artifact Selection (mode disambiguation)
+- `--audit` / `--refine` / `--approve` default to `docs/technical_due.md` when only that artifact exists.
+- `--software` / `--refine` / `--approve` default to `docs/software_audit.md` when only that artifact exists.
+- When BOTH artifacts exist in DRAFT/NEEDS_INFO state, `--refine` and `--approve` require an explicit `--scope {audit|software}` flag; otherwise BLOCK with the message: `"Both audit artifacts are open. Re-run with --scope audit or --scope software."`. This keeps the command tool-agnostic and prevents silent cross-contamination.
 
 ---
 
@@ -168,6 +184,100 @@ ELSE:
 ```
 
 See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 7 for the canonical consultation protocol. This signal is **advisory** — a high occurrence count does not automatically fail the audit; it feeds the maturity score and informs the `Short Term` / `Long Term` recommendations in § 5.
+
+---
+
+## Command: `--software`
+
+### Scope
+
+A narrow, software-only variant of `--audit` focused exclusively on the repository and its code. Produces `docs/software_audit.md` with the same schema as `docs/technical_due.md` but with HR / organizational / infrastructure sections **excluded by design**.
+
+### Included sections
+
+| Section ID | Name | Rationale for inclusion |
+|------------|------|------------------------|
+| **P0** | Report Language | Required to render the report in the user's language. One question only. |
+| **S1** | Architecture Diagrams (HLD) | Code-level — existence and freshness of HLD artefacts in the repo. |
+| **S2** | Design Patterns & Topology | Code-level — module boundaries, patterns, coupling. |
+| **S3** | Stack & Obsolescence | Code-level — manifest files, version lag, EOL signals. |
+| **S4** | IP & Licenses | Code-level — LICENSE, dependency license compatibility. |
+| **SEC1** | Identity & Access Management | Scoped to **code-level auth patterns** — how auth is implemented in the codebase (JWT handling, password storage, session code). Out of scope: organizational RBAC, SSO provider, MFA at the org level. |
+| **SEC3** | Data Protection | Scoped to **code-level data handling** — encryption libraries used, PII processing code, key management code, hardcoded secrets. Out of scope: key-rotation policies, data-retention SLAs. |
+| **SEC4** | Vulnerability Management | Code-level — SAST results, dependency vulnerabilities, CVE exposure in manifests. Out of scope: organizational patch cadence SLA. |
+| **COMP1** | Complexity Analysis | Software complexity applies directly to code (optional). |
+
+### Explicitly excluded sections
+
+| Section ID | Name | Why excluded |
+|------------|------|-------------|
+| **G1** | Technical Organization | Requires team interviews. |
+| **G2** | Strategy & Roadmap | Requires business context. |
+| **G3** | Budget | Requires billing access. |
+| **I1** | Hosting & Cloud | Requires cloud access. |
+| **I2** | CI/CD & Release | Skipped in software-only scope (pipeline files exist in the repo but their operational status requires organizational access). |
+| **I3** | Observability | Primarily infrastructure/operational. |
+| **I4** | Business Continuity (BCP/DRP) | Organizational / policy scope. |
+| **SEC2** | Network Security | Primarily infrastructure (WAF, firewalls). Code-level HTTPS enforcement is folded into SEC3's data-protection scan when relevant. |
+| **SEC5** | Compliance (GDPR/PII) | Policy / legal scope. |
+
+### Execution order
+
+```
+P0 → S1 → S2 → S3 → S4 → SEC1 (code-level) → SEC3 (code-level) → SEC4 → COMP1 → --approve
+```
+
+Same Scan-First Protocol, same one-section-per-turn persistence, same RDR protocol as `--audit`. Resume logic reads `last_completed_section` from `docs/software_audit.md`; valid values are `P0, S1–S4, SEC1, SEC3, SEC4, COMP1`.
+
+### State machine logic
+
+```yaml
+IF software_audit.md NOT EXISTS:
+  CREATE with status: DRAFT, start from P0
+ELIF status == NEEDS_INFO AND last_completed_section != null:
+  RESUME from the next section in the included list (skip excluded IDs)
+ELIF status == APPROVED:
+  BLOCK: "Software audit already completed. Use --refine --scope software to update sections."
+ELIF status == CANCELLED:
+  BLOCK: "Software audit cancelled. Cannot resume."
+```
+
+### Risk score adjustment
+
+Per-section risk weights remain identical to `--audit`. The cap at 100 also remains. Because the section count is smaller (9 sections vs 18 in full audit), the same absolute risk_score indicates a **higher density** of findings — adjust verdict thresholds accordingly:
+
+```yaml
+NO_GO (software):
+  - >1 Critical SEC finding (SEC1/SEC3/SEC4)
+  - Serious license violation (GPL in proprietary, no license at all)
+  - complexity_score ≥ 2.5 AND risk_score ≥ 50
+
+GO_WITH_CONDITIONS (software):
+  - risk_score 25–49
+  - complexity_score ≥ 2.0
+  - Obsolete but stable stack
+
+GO (software):
+  - risk_score < 25
+  - complexity_score < 2.0
+  - Scalable + mature architecture
+```
+
+### Setup mapping
+
+`--software` populates only the software-relevant keys in `setup_mapping`:
+
+- `backend_runtime`, `frontend_framework`, `architecture_topology`, `stack_versions`, `license_model` — populated.
+- `project_mode`, `team_size`, `budget_tier`, `hosting_provider`, `ci_cd_platform`, `compliance_frameworks` — left `null` (require full `--audit`).
+
+Downstream `SETUP --init` consumes whichever keys are non-null and asks the user interactively for the rest.
+
+### Use cases
+
+1. **M&A of a single codebase** without access to the selling org's team / billing / infra (seller provides repo only).
+2. **OSS project evaluation** before adopting as a dependency or forking.
+3. **Contributor-level read** of an unknown repo (new hire onboarding, third-party review).
+4. **Pre-flight check** before committing to a full `--audit` — `--software` surfaces the red flags that are cheap to find in code.
 
 ---
 

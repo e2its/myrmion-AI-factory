@@ -3,7 +3,7 @@ applyTo: "backlog"
 description: "Factory BACKLOG next-task guidance — determines the next executable step from execution plan and returns agent + command + evidence. Use when: user asks what to do next in the project."
 ---
 
-# Backlog Next Task Guidance (v1.2.0)
+# Backlog Next Task Guidance
 
 > Loaded by the `backlog` mode to answer sequencing questions with a deterministic protocol.
 > Goal: always return the next executable task, with exact agent and command.
@@ -69,7 +69,49 @@ Select the first pending item in natural plan order.
 Confirm upstream required steps in the same dependency chain are complete.
 If not complete, return blocker instead of skipping ahead.
 
-### Step 1.3.5: Hard-gate enforcement (v14.0.0 — EVOL-014, full-sdlc preset only)
+### Step 1.3.4: `blocked-by:#{N}` label filter (EVOL-015 — all presets)
+
+Before any gate enforcement, check whether the candidate issue carries one or more
+`blocked-by:#{N}` labels (§ 4.1 of Factory-backlog-operations.instructions.md). Each
+label declares a hard dependency on another issue that MUST be Done before the
+candidate can be picked up.
+
+```yaml
+candidate_labels = ADAPTER.read_issue(candidate.issue_ref).labels
+blocked_by_labels = [l for l in candidate_labels if l starts with "blocked-by:#"]
+
+IF blocked_by_labels is not empty:
+  unresolved_deps = []
+  FOR EACH label IN blocked_by_labels:
+    # Emit the dep reference in the canonical "#<N>" form used across the resolver (Step 1.4.5 accepts "#13" and "L-001").
+    dep_ref = "#" + label.strip_prefix("blocked-by:#")
+    dep_issue = ADAPTER.read_issue(dep_ref)
+    IF dep_issue is NULL:
+      # Every unresolved_deps entry MUST carry a `title` — the blocker shape below renders `unresolved_deps[0].title`.
+      unresolved_deps.append({
+        ref:    dep_ref,
+        status: "MISSING",
+        title:  "Resolve dangling blocked-by label (references missing issue " + dep_ref + ")"
+      })
+    ELIF dep_issue.status != "Done":
+      unresolved_deps.append({ref: dep_ref, status: dep_issue.status, title: dep_issue.title})
+
+  IF unresolved_deps is not empty:
+    RETURN blocker = {
+      next_task: first unresolved_deps[0].title,
+      agent: "BACKLOG",
+      command: "Complete {unresolved_deps[0].ref} before returning to {candidate.feature_id}",
+      why_now: "Candidate issue carries blocked-by:#{N} labels with {len(unresolved_deps)} unresolved dependencies",
+      if_blocked: "Resolve each blocked-by dependency in its own phase flow"
+    }
+```
+
+**Rationale.** `blocked-by:#{N}` is the explicit cross-issue dependency signal. The
+resolver must treat it as hard regardless of phase ordering, slice grouping, or gate
+mode. A `MISSING` dep (label references a deleted issue) surfaces as a blocker rather
+than being silently dropped — dangling labels are governance drift.
+
+### Step 1.3.5: Hard-gate enforcement (full-sdlc preset only)
 
 > Applies only when `project_tracking.feature_phases == "full-sdlc"`. `simplified` and `single` presets skip this step.
 
@@ -92,42 +134,84 @@ FUNCTION find_gate_issue(phase_label, scope_token):
   items = ADAPTER.query_board()
   RETURN first item WHERE labels CONTAINS phase_label AND title CONTAINS scope_token
 
+FUNCTION resolve_gate_mode(gate_issue, governance_snapshot):
+  # Precedence: issue `## Mode` section > adapter `## Gate Enforcement Mode` default > snapshot `project_tracking.gate_enforcement_mode`.
+  IF gate_issue IS NOT NULL:
+    body = ADAPTER.read_issue(gate_issue.ref).body
+    # `## Mode` section body: a single token (enforce|warn|off), optionally with surrounding whitespace; trailing prose after the token is ignored. Section defined in Factory-backlog-operations.instructions.md § 5 (Gate Issue Body Template).
+    issue_mode = parse_section_value(body, "## Mode")
+    IF issue_mode IN ["enforce", "warn", "off"]:
+      RETURN issue_mode
+  # Fall through: adapter default, then snapshot default
+  adapter_mode = READ docs/backlog/tool-adapter.md → § Gate Enforcement Mode default
+  IF adapter_mode IN ["enforce", "warn", "off"]:
+    RETURN adapter_mode
+  snapshot_mode = governance_snapshot.setup_configuration.project_tracking.gate_enforcement_mode
+  RETURN snapshot_mode if snapshot_mode IN ["enforce", "warn", "off"] else "enforce"
+  # Final safety: unknown value falls back to enforce (safest default).
+
+FUNCTION handle_gate(gate_name, gate, candidate, blocker_shape):
+  # Returns either a blocker (to hand back to the caller) or null (proceed with candidate).
+  # `warn` emits a line on the returned envelope without blocking.
+  # `off` skips the check entirely — silent.
+  mode = resolve_gate_mode(gate, governance_snapshot)
+
+  IF mode == "off":
+    LOG: "Gate {gate_name} SKIPPED (mode=off) for {candidate.feature_id} — governance override active"
+    RETURN null   # proceed with candidate unchanged
+
+  IF gate IS NULL OR gate.status != "Done":
+    IF mode == "warn":
+      # Emit warn line on the response envelope; do NOT block.
+      ATTACH warn = {
+        gate: gate_name,
+        status: gate.status if gate else "MISSING",
+        message: "Gate {gate_name} not Done (mode=warn). Downstream proceeds but the gate's artefact is pending."
+      }
+      RETURN null
+    # mode == "enforce"
+    RETURN blocker = blocker_shape   # existing hard-block behaviour
+
+  RETURN null   # gate Done — proceed
+
 # 1. Per-feature gates
 IF candidate.command matches "IMPLEMENT --plan {ID}":
   gate = find_gate_issue("phase:contract-freeze", candidate.feature_id)
-  IF gate IS NULL OR gate.status != "Done":
-    RETURN blocker = {
-      next_task: gate.title if gate else "CONTRACT-FREEZE issue missing",
-      agent: "BACKLOG",
-      command: gate ? "Complete contract freeze for {candidate.feature_id}" : "BACKLOG --plan-feature {candidate.feature_id}",
-      why_now: "CONTRACT-FREEZE gate must be Done before IMPLEMENT --plan can start (full-sdlc preset)",
-      if_blocked: "none — gate is the work itself"
-    }
+  blocker = handle_gate("CONTRACT-FREEZE", gate, candidate, {
+    next_task: gate.title if gate else "CONTRACT-FREEZE issue missing",
+    agent: "BACKLOG",
+    command: gate ? "Complete contract freeze for {candidate.feature_id}" : "BACKLOG --plan-feature {candidate.feature_id}",
+    why_now: "CONTRACT-FREEZE gate must be Done before IMPLEMENT --plan can start (full-sdlc preset)",
+    if_blocked: "none — gate is the work itself"
+  })
+  IF blocker IS NOT NULL: RETURN blocker
 
 IF candidate.command matches "DEVOPS --deploy --env dev {ID}":
   gate = find_gate_issue("phase:preventive-sweep", candidate.feature_id)
-  IF gate IS NULL OR gate.status != "Done":
-    RETURN blocker = { ...same shape, pointing to PREVENTIVE-SWEEP... }
+  blocker = handle_gate("PREVENTIVE-SWEEP", gate, candidate, { ...same shape, pointing to PREVENTIVE-SWEEP... })
+  IF blocker IS NOT NULL: RETURN blocker
 
 IF candidate.command matches "QA --verify {ID}":
   gate = find_gate_issue("phase:smoke-e2e", candidate.feature_id)
-  IF gate IS NULL OR gate.status != "Done":
-    RETURN blocker = { ...same shape, pointing to SMOKE-E2E... }
+  blocker = handle_gate("SMOKE-E2E", gate, candidate, { ...same shape, pointing to SMOKE-E2E... })
+  IF blocker IS NOT NULL: RETURN blocker
 
 # 2. Slice integration-test gate
 IF candidate is the first phase issue of a feature in slice {N}.{M+1}:
   prev_slice_ref = "SLICE-{N}.{M}"
   gate = find_gate_issue("phase:integration-test", prev_slice_ref)
-  IF gate AND gate.status != "Done":
-    RETURN blocker pointing to the SLICE integration-test issue
+  blocker = handle_gate("SLICE-INTEGRATION-TEST", gate, candidate, { ...blocker pointing to the SLICE integration-test issue... })
+  IF blocker IS NOT NULL: RETURN blocker
 
 # 3. Epic retrospective gate
 IF candidate is the first phase issue of a feature in epic {N+1}:
   prev_epic_ref = "EPIC-{N}"
   gate = find_gate_issue("phase:retrospective", prev_epic_ref)
-  IF gate AND gate.status != "Done":
-    RETURN blocker pointing to the EPIC retrospective issue
+  blocker = handle_gate("EPIC-RETROSPECTIVE", gate, candidate, { ...blocker pointing to the EPIC retrospective issue... })
+  IF blocker IS NOT NULL: RETURN blocker
 ```
+
+> **EVOL-015 — gate enforcement modes.** The resolver reads a three-level fallback chain for each gate: the gate issue's own `## Mode` section body (per-gate ADR-documented override; a single `enforce`/`warn`/`off` token inside the section) → the adapter's `## Gate Enforcement Mode` section (project-level default written by SETUP materialisation from Q27.5) → the governance snapshot's `project_tracking.gate_enforcement_mode` field (last-resort fallback). Unknown or missing values bottom out at `enforce` — the safest default. `warn` attaches a warn line to the response envelope (§ 2) and returns the downstream candidate; `off` skips the gate silently with a log entry; `enforce` produces the hard block documented above.
 
 > **Tool-agnostic invariant.** The resolver NEVER runs `gh` / `jira` / `linear` / `state.md` queries directly. All board reads go through `query_board` on the tool-adapter, which materialisation picks per project per Q27 answer (see `Factory-setup-materialization.instructions.md` § 6.1).
 
@@ -207,6 +291,7 @@ Always return this structure:
 - `if_blocked`: unblock command if prerequisites are missing
 - `issue_context`: key acceptance criteria / DoD excerpt from issue body; `null` if not fetched
 - `discrepancy`: description if plan command ≠ issue command; `none` otherwise
+- `warns`: list of warn entries (EVOL-015). Empty list when all gates are `enforce` and pass or when mode is `off`. Each entry: `{gate, status, message}`. Populated by `handle_gate` in Step 1.3.5 when a gate is not Done and its resolved mode is `warn` — the resolver still returns the downstream task but surfaces the pending gate to the caller.
 
 ---
 
@@ -235,7 +320,147 @@ Reason: {why_now}
 Blocker: {if_blocked_or_none}
 Issue context: {acceptance_criteria_excerpt_or_n/a}
 Plan↔issue mismatch: {discrepancy_or_none}
+Pending gates (warn): {rendered_warns_or_none}
 ```
 
 
-> **Note:** Always include `Issue context` and `Plan↔issue mismatch` fields. If issue content is not available, use `N/A` for context and `none` for mismatch.
+> **Note:** Always include `Issue context`, `Plan↔issue mismatch`, and `Pending gates (warn)` fields. If issue content is not available, use `N/A` for context, `none` for mismatch, and `none` for warns. Render the `warns` list as `GATE=status` pairs joined by `, ` (e.g. `CONTRACT-FREEZE=Todo, PREVENTIVE-SWEEP=MISSING`); the user sees a one-line summary of every gate the resolver walked past in `warn` mode.
+
+---
+
+## 5. Pull Mode — `--eligible` Resolver (EVOL-015)
+
+> **Coexistence with push mode.** `--next-task` (push) returns ONE next step chosen by the framework — used by Smart Redirect post-command, CI automations, and any flow where a deterministic single answer is required. `--eligible` (pull) returns the FULL SET of items the human could pick up right now — used in backlog review, planning rituals, or any moment where the human wants to choose based on appetite / context / energy. Both read the same SSOT and apply the same filter chain. They differ only in cardinality (one vs many) and in who decides (framework vs human).
+
+### 5.1 Invariants (all presets, both modes)
+
+1. **READ-ONLY.** `--eligible` MUST NOT write to the board, MUST NOT persist an eligible set, MUST NOT label items with `eligible:*`. Every invocation is a fresh compute.
+2. **Cache is optimization, never state.** Read-through caches (`/memories/repo/execution-plan-cache.md` in file mode, `/memories/repo/project-board-cache.md` in board mode) MAY be consulted as fast paths but NEVER treated as authoritative. Cache mismatches refresh from SSOT; they never override it.
+3. **Same filter chain as `--next-task`.** Eligibility = the item would NOT be rejected by any of: intra-feature prerequisite gate (§ 1.3), `blocked-by:#{N}` filter (§ 1.3.4), hard-gate enforcement with mode fallback (§ 1.3.5). Items gated by `warn` mode are ELIGIBLE but flagged; items gated by `enforce` are INELIGIBLE; items gated by `off` are ELIGIBLE with no flag.
+4. **Dual-mode source of truth** (same as `--next-task` § 0):
+   - File mode (`tool == "None"`): enumerate pending checklist items from `docs/backlog/execution-plan.md`.
+   - Board mode (`tool != "None"`): enumerate pending items from `ADAPTER.query_board()`; `execution-plan.md` does NOT exist on disk — do not read or write it.
+
+### 5.2 Algorithm
+
+```yaml
+FUNCTION compute_eligible_pool(limit=20):
+  # Step 1 — Enumerate pending candidates from SSOT (mode-aware)
+  mode = resolve_mode_from_snapshot()
+  IF mode == "file":
+    plan = READ docs/backlog/execution-plan.md
+    candidates = [line for line in plan if line.starts_with("- [ ]")]
+  ELSE:  # board mode
+    items = ADAPTER.query_board()
+    candidates = [i for i in items if i.status NOT IN terminal_statuses()]
+    # terminal_statuses() derived from project_tracking.board_columns — last column
+    # (typically "Done") plus any user-customised closed column. Tool-agnostic.
+
+  # Step 2 — Apply the SAME filter chain as --next-task, per candidate
+  eligible = []
+  FOR EACH candidate IN candidates:
+    verdict = apply_filter_chain(candidate)  # reuses §§ 1.3, 1.3.4, 1.3.5 logic
+    IF verdict.status == "blocked_hard":
+      CONTINUE    # intra-feature prereq or blocked-by or enforce-gate → exclude
+    IF verdict.status == "blocked_gate_warn":
+      candidate.warns = verdict.warns
+      eligible.append(candidate)    # warn gates don't block pull mode
+    IF verdict.status == "open":
+      eligible.append(candidate)
+
+    IF len(eligible) >= limit:
+      BREAK   # cap reached — remaining candidates NOT evaluated to save adapter calls
+
+  # Step 3 — Return the pool (READ-ONLY — never persisted)
+  RETURN {
+    pool: eligible,
+    mode: mode,
+    total_pending: len(candidates),
+    shown: len(eligible),
+    capped: len(candidates) > limit
+  }
+```
+
+### 5.3 Filter Chain Factoring
+
+The per-candidate logic lives in a single function reused by both resolvers:
+
+```yaml
+FUNCTION apply_filter_chain(candidate):
+  # 1. Intra-feature prerequisite (§ 1.3)
+  IF candidate has upstream phase pending in same feature:
+    RETURN {status: "blocked_hard", reason: "phase-order"}
+
+  # 2. blocked-by:#{N} labels (§ 1.3.4)
+  unresolved_deps = check_blocked_by_labels(candidate)
+  IF unresolved_deps is not empty:
+    RETURN {status: "blocked_hard", reason: "blocked-by", deps: unresolved_deps}
+
+  # 3. Hard-gate enforcement with mode fallback (§ 1.3.5)
+  warns = []
+  FOR EACH gate IN applicable_gates(candidate):
+    mode = resolve_gate_mode(gate, governance_snapshot)
+    IF mode == "off":
+      CONTINUE
+    IF gate IS NULL OR gate.status != "Done":
+      IF mode == "warn":
+        warns.append({gate: gate_name, status: gate.status if gate else "MISSING"})
+      ELSE:   # enforce
+        RETURN {status: "blocked_hard", reason: "gate:{gate_name}"}
+
+  IF warns is not empty:
+    RETURN {status: "blocked_gate_warn", warns: warns}
+  RETURN {status: "open"}
+```
+
+`--next-task` reuses `apply_filter_chain` for its single candidate; `--eligible` calls it once per pending candidate.
+
+### 5.4 Response Contract
+
+```yaml
+{
+  mode: "file" | "board",
+  total_pending: N,      # total pending items in SSOT before filtering
+  shown: M,              # items in `pool` (always <= limit)
+  capped: bool,          # true when total_pending > limit
+  pool: [
+    {
+      ref: "#42"  |  "L-007",
+      feature_id: "FEAT-013",
+      phase: "implement",
+      slice: "EPIC-2.1"  |  null,
+      title: "[FEAT-013] IMPLEMENT: Code + Tests — Auth gateway",
+      labels: ["phase:implement", "slice:EPIC-2.1", "appetite:medium"],
+      appetite: "medium"  |  null,        # parsed from labels when Q27.6 == true
+      warns: [{gate: "CONTRACT-FREEZE", status: "Todo"}]  |  []
+    },
+    ...
+  ]
+}
+```
+
+### 5.5 Minimal Answer Template
+
+```text
+Eligible pool ({shown} of {total_pending}{capped_note}, mode={mode}):
+
+  {ref:>8}  {phase:<18}  {appetite_tag_or_blank:>9}  {title}{warn_suffix}
+  {ref:>8}  {phase:<18}  {appetite_tag_or_blank:>9}  {title}{warn_suffix}
+  ...
+
+{if capped: "Showing first {limit}. Use --limit N to expand or narrow the pool."}
+{if any warns: "* items marked (warn:GATE) pass because gate mode=warn; the artefact is still pending."}
+```
+
+- `appetite_tag_or_blank`: `(small)` / `(medium)` / `(big)` when `project_tracking.appetite_sizing_enabled == true` and the issue carries an `appetite:*` label; blank otherwise.
+- `warn_suffix`: ` (warn:CONTRACT-FREEZE,SMOKE-E2E)` when the item has one or more warn gates; empty otherwise.
+- `capped_note`: ` capped` when `capped == true`; empty otherwise.
+
+Drill-down for details on any single item: run `--next-task` passing the item's `feature_id` or invoke `ADAPTER.read_issue(ref)` directly.
+
+### 5.6 Blocking Rules (pull-specific)
+
+- If SSOT is missing (file mode: `execution-plan.md` absent; board mode: `query_board` fails) → block with clear action. Do NOT fall back to cache as authoritative.
+- If `--limit` receives a non-integer or value < 1 → reject with usage message.
+- `--limit 0` is not allowed; interpret as "user wants full pool" by requiring the explicit `--limit unlimited` token or flag alias. This guards against accidental unbounded output.
+- Never persist the computed pool — no labels, no cache writes, no new files. The output is ephemeral.
