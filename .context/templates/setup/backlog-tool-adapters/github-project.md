@@ -134,9 +134,25 @@ gh label create "blocked"     --repo {{REPO_SLUG}} --color "b60205" --force
 gh label create "enhancement" --repo {{REPO_SLUG}} --color "a2eeef" --force
 gh label create "bug"         --repo {{REPO_SLUG}} --color "d73a4a" --force
 gh label create "needs-rework-after-codesign" --repo {{REPO_SLUG}} --color "fbca04" --force
+
+# Kind labels (EVOL-015 — always created)
+gh label create "kind:follow-up" --repo {{REPO_SLUG}} --color "c5def5" --force \
+  --description "Deferred work spun out of a parent feature or retrospective (vs. accidental incomplete)"
+
+# Appetite labels (EVOL-015 — created ONLY when {{APPETITE_SIZING_ENABLED}} == true)
+if [ "{{APPETITE_SIZING_ENABLED}}" = "true" ]; then
+  gh label create "appetite:small"  --repo {{REPO_SLUG}} --color "bfdadc" --force \
+    --description "Budget cap ≤ 4h, one session"
+  gh label create "appetite:medium" --repo {{REPO_SLUG}} --color "7057ff" --force \
+    --description "Budget cap 2–4 days supervised"
+  gh label create "appetite:big"    --repo {{REPO_SLUG}} --color "5319e7" --force \
+    --description "Budget cap 5+ days or complex feature — re-shape if overrun"
+fi
 ```
 
 Slice labels (`slice:EPIC-{N}.{M}`) and cluster labels (`cluster:{id}`) are created on-demand by `--plan-execution`, not at init time.
+
+`blocked-by:#{N}` labels (EVOL-015) are created on-demand the first time they are applied via `add_label` — `gh label create` is idempotent with `--force`, so the adapter calls it right before `gh issue edit --add-label` when applying a new `blocked-by:#{N}` value for the first time. The label persists for reuse on later issues.
 
 #### `create_milestone` (optional — used when `milestone_strategy != "none"`)
 ```bash

@@ -667,10 +667,11 @@
       ]
     },
     "backlog-tool-adapters/github-project.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/github-project.md",
       "changelog": [
+        "1.1.0: feat(EVOL-015): create_label section extended \u2014 kind:follow-up always created; appetite:{small,medium,big} conditional on {{APPETITE_SIZING_ENABLED}}==true; blocked-by:#{N} created on-demand with --force idempotency note",
         "1.0.0: feat(EVOL-014): new adapter \u2014 fully functional github-project adapter with native gh CLI commands for all abstract ops (create_project, create_label, create_issue, move_to_column, add_sub_issue via addSubIssue GraphQL mutation, add_label, query_board, etc.); placeholder set for SETUP --generate resolution"
       ]
     },
@@ -710,6 +711,63 @@
   "framework_core": {
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects \u2014 used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) \u2014 Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in docs/rules/.",
+    "commands/audit.md": {
+      "version": "1.0.0",
+      "path": ".claude/commands/audit.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Per CLAUDE.md \u00a7 Generation Standards rule 2, every framework-core touch requires a version bump; commands were excluded from the manifest by oversight. Content unchanged at this commit \u2014 this entry registers the file and seeds its changelog."
+      ]
+    },
+    "commands/backlog.md": {
+      "version": "1.1.0",
+      "path": ".claude/commands/backlog.md",
+      "changelog": [
+        "1.1.0: feat(EVOL-015): --eligible pull-mode command added to the command table; Protocol 11 references Factory-backlog-next-task \u00a7 5 for pool computation (dual-mode, READ-ONLY, no persisted state)",
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015"
+      ]
+    },
+    "commands/blueprint.md": {
+      "version": "1.0.0",
+      "path": ".claude/commands/blueprint.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+      ]
+    },
+    "commands/codesign.md": {
+      "version": "1.0.0",
+      "path": ".claude/commands/codesign.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+      ]
+    },
+    "commands/devops.md": {
+      "version": "1.0.0",
+      "path": ".claude/commands/devops.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+      ]
+    },
+    "commands/implement.md": {
+      "version": "1.0.0",
+      "path": ".claude/commands/implement.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+      ]
+    },
+    "commands/qa.md": {
+      "version": "1.0.0",
+      "path": ".claude/commands/qa.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+      ]
+    },
+    "commands/setup.md": {
+      "version": "1.0.0",
+      "path": ".claude/commands/setup.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+      ]
+    },
     "instructions/Factory-audit-checklist.instructions.md": {
       "version": "2.1.0",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
@@ -928,9 +986,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.4.0: feat(EVOL-015): label taxonomy extended with kind:follow-up, blocked-by:#{N}, and appetite:{small,medium,big} (conditional on Q27.6); gate preset phases carry mode_default placeholder bound to Q27.5; gate issue body template gains ## Mode frontmatter line for per-gate override; feature issue body template gains conditional ## Appetite section (rendered only when Q27.6==true)",
         "1.3.0: feat(EVOL-014): tool-agnostic issue/label/milestone schema (\u00a73.0 title patterns, \u00a74.1 label taxonomy, \u00a74.2 milestone schema), full-sdlc 5\u21928 phase preset with 3 hard gates, adapter contract extended (add_label/add_sub_issue/read_issue/create_milestone/create_label) with required/optional split, \u00a73.4.1 retrospective\u2192DC catalog write-back procedure, gate issue body template, Spanish leakage removed",
         "1.2.0: feat: rename 'Domain Clusters' \u2192 'Epics' + add slice-sequential description in \u00a7 10 Execution Plan cross-reference",
         "1.0.7: fix: tech-agnostic verification/rollback (verify_issue, verify_board_placement, close_issue), --move step reorder (board_field_mapping before move_to_column), Final Verification Gate \u00a7 6.4 (#130)",
@@ -955,9 +1014,11 @@
       ]
     },
     "instructions/Factory-backlog-next-task.instructions.md": {
-      "version": "1.3.0",
+      "version": "1.5.0",
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md",
       "changelog": [
+        "1.5.0: feat(EVOL-015 B1): \u00a7 5 Pull Mode Resolver \u2014 `--eligible` pull-mode command. READ-ONLY pool computation reusing the per-candidate filter chain (\u00a71.3 prereq + \u00a71.3.4 blocked-by + \u00a71.3.5 gate mode) via factored apply_filter_chain() function. Dual-mode SSOT: file mode reads execution-plan.md, board mode queries ADAPTER.query_board() (no execution-plan.md on disk in board mode). Default cap --limit 20; --limit unlimited allowed. Warn-gated items appear in the pool with a warn suffix; enforce-gated excluded; off-gated silent. Response contract, minimal template, blocking rules.",
+        "1.4.0: feat(EVOL-015): \u00a7 1.3.4 blocked-by:#{N} label filter \u2014 hard dependency gate for cross-issue blockers, runs before hard-gate enforcement; \u00a7 1.3.5 gate mode resolution via three-level fallback (issue body frontmatter > adapter default > governance snapshot) with enforce/warn/off semantics; response contract gains `warns` field + minimal template gains `Pending gates (warn)` line",
         "1.3.0: feat(EVOL-014): \u00a7 1.3.5 Hard-gate enforcement \u2014 5 gate classes (CONTRACT-FREEZE/PREVENTIVE-SWEEP/SMOKE-E2E/INTEGRATION-TEST/RETROSPECTIVE) block their downstream commands via tool-adapter query; dual-mode \u00a7 0 Source Of Truth",
         "1.2.0: feat: rename 'cluster' \u2192 'epic' + add 'slice' field in Step 1.4 extraction \u2014 Agile-standard terminology with aggregate-scoped slices",
         "1.1.2: fix: enforce Step 1.4.5 on cache fast path, align SSOT precedence (execution-plan for ordering; issue body for command/details), local mode body_path resolution via docs/backlog/state.md, and adapter-based ISSUE_READ resolution from docs/backlog/tool-adapter.md",
@@ -967,9 +1028,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.8.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.8.0: feat(EVOL-015): Q27 Project Tracking block extended with Q27.5 Gate Enforcement Mode Default (enforce|warn|off, conditional on Q27.2==full-sdlc, RDR = enforce greenfield / warn brownfield) and Q27.6 Appetite Sizing (boolean, conditional on Q27!=None, RDR = true, materialises appetite:{small,medium,big} labels via SETUP). Questions sit inside the Q27 block to preserve narrative coherence \u2014 tool \u2192 columns \u2192 phases \u2192 milestones \u2192 naming \u2192 gate mode \u2192 appetite \u2192 (exit block)",
         "2.7.0: feat(EVOL-014): Cost Estimation Protocol (CEP) added as \u00a7 4.1.3.2 \u2014 canonical producer for all {{*_COST}} / {{BUDGET_*}} template variables. Closes the pre-existing cost pipeline gap where 20+ cost placeholders had no producer. Instructions-only (no hardcoded price tables), uses agent ecosystem knowledge + RDR for ambiguous pricing. Persists full breakdown to docs/setup.md \u00a7 costs:. Canonical placeholder substitution map. Discovery Finalization order updated to run VVP \u2192 CEP \u2192 summary \u2192 ADR-0000 generation (includes new COST_BREAKDOWN variable category).",
         "2.6.4: fix: VVP resolution method renamed from fetch_webpage to web/fetch (actual agent tool name) + curl fallback",
         "2.6.3: fix: Q26 deny list split into contextual categories (crypto-universal, dynamic-eval, frontend-js) instead of universal list that assumed all runtimes have eval/jQuery",
@@ -986,9 +1048,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "2.6.0: feat(EVOL-015): \u00a7 4.2.3 Phase B.1 gains 5 universal meta-pattern DCs (pipeline short-circuit, identity-argument no-op, framework-layer validation errors invisible to app logs, mutation APIs with replace semantics, composite network symptoms) added unconditionally to every project regardless of stack \u2014 each scoped by applicable_when filter; stack-specific DCs remain conditional. \u00a7 Checkpoint 3.1 governance snapshot extended with project_tracking.gate_enforcement_mode (Q27.5) + project_tracking.appetite_sizing_enabled (Q27.6). \u00a7 Step 6.2.1 Appetite Field Materialisation + \u00a7 Step 6.2.2 Gate Enforcement Mode Materialisation write the corresponding sections into docs/backlog/tool-adapter.md when Q27.6/Q27.2 match.",
         "2.5.0: feat(EVOL-014): \u00a7 4.2.4 Step 0 Dynamic Path Derivation rewritten from 2-line stub to full derivation protocol (instructions-only, no hardcoded lookup table) \u2014 persists setup_md.paths section as SSOT for all {{*_BASE_PATH}} placeholders + \u00a7 4.2.7 Budget Calculation rewritten as Cost Placeholder Resolution pass \u2014 reads setup_md.costs from CEP, applies canonical substitution map for 20+ {{*_COST}}/{{BUDGET_*}} placeholders, dangling check blocks materialization on any surviving literal. Closes pre-existing cost pipeline gap and base-path derivation gap.",
         "2.4.7: fix: tool-adapter abstract ops list \u2014 add verify_issue, verify_board_placement, close_issue for verification/rollback support (#130)",
         "2.4.6: fix: stack-agnostic scaffolding \u2014 Step 2 (Backend) and Step 3 (Frontend) now have explicit conditional guards (skip if backend.runtime/frontend.framework == None)",
