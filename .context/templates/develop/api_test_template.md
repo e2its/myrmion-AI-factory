@@ -190,14 +190,14 @@ func TestGetResource_NotFound_404(t *testing.T) {
 3. **Test data** from `user_journey.md` DataIn/DataOut schemas or `contracts/` request/response schemas.
 4. **Happy paths** from `spec.feature` scenarios → mapped to HTTP verbs + status codes.
 5. **Edge/error cases** from `test_plan.md` Section 2 (Edge, Security, Negative rows with HTTP status codes).
-6. **Status codes** from `contracts/` OpenAPI responses or `docs/rules/api-standards.instructions.md`.
+6. **Status codes** from `contracts/` OpenAPI responses or `.claude/rules/api-standards.instructions.md`.
 7. **Auth headers** if feature requires authentication (detect from `design.md` security section).
 8. **File location:** `tests/api/` directory (stack-agnostic; `tests/` root from `constitution.md`).
 9. **Runner command:** `./scripts/test.sh api --apply` or direct runner (`npx jest tests/api/`, `pytest tests/api/`, `go test ./tests/api/`).
 
 ## Contract Validation (Optional — Advanced)
 
-If `docs/rules/contract-first-policy.instructions.md` exists and `contracts/openapi/` contains OpenAPI specs:
+If `.claude/rules/contract-first-policy.instructions.md` exists and `contracts/openapi/` contains OpenAPI specs:
 - Use schema validation library (ajv for Node.js, jsonschema for Python) to validate response bodies match OpenAPI response schemas.
 - This ensures runtime responses stay in sync with declared contracts.
 

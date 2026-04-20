@@ -284,7 +284,7 @@ FUNCTION load_governance_context(FEATURE_ID):
         - iac_descriptor (for serverless)
     
     # Load applicable rule files for REVIEW + SEC hats (covers all 14 checks)
-    READ docs/rules/ (all applicable rules):
+    READ .claude/rules/ (all applicable rules):
       - architecture.instructions.md → arch constraints
       - security_policy.instructions.md → security rules
       - testing.instructions.md → coverage thresholds
@@ -487,8 +487,8 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks:
     # DEFECT PREVENTION CHECK (per-task, MANDATORY)
     # DEV Hat consults the Defect Prevention Catalog BEFORE writing code.
     # Catalog columns: DC | Name | Applicable When | Review Severity | Prevention Check
-    IF FILE_EXISTS("docs/rules/defect-prevention.md"):
-      dc_catalog = READ("docs/rules/defect-prevention.md")
+    IF FILE_EXISTS(".claude/rules/defect-prevention.md"):
+      dc_catalog = READ(".claude/rules/defect-prevention.md")
       FOR EACH dc IN dc_catalog:
         IF task.scope INTERSECTS dc.applicable_when:
           VERIFY planned code satisfies dc.prevention_check
@@ -1548,10 +1548,10 @@ FUNCTION defect_discovery_check(error, context):
   # 2. A fix reveals a defect class that appears in 2+ files
   # 3. A runtime error during deploy/visual testing doesn't match any DC
 
-  IF NOT FILE_EXISTS("docs/rules/defect-prevention.md"):
+  IF NOT FILE_EXISTS(".claude/rules/defect-prevention.md"):
     RETURN  # No catalog yet — project may not use DPC
 
-  catalog = READ("docs/rules/defect-prevention.md")
+  catalog = READ(".claude/rules/defect-prevention.md")
   existing_dcs = PARSE_DC_TABLE(catalog)
 
   # Check if error pattern matches any existing DC
@@ -1573,7 +1573,7 @@ FUNCTION defect_discovery_check(error, context):
 
   IF user_approves:
     # Follow Discovery Protocol from defect-prevention.md Section 3:
-    # 1. Add entry to docs/rules/defect-prevention.md
+    # 1. Add entry to .claude/rules/defect-prevention.md
     # 2. Add search methodology to Factory-preventive-sweep/SKILL.md
     # 3. Bump version in governance_versions.json
     # 4. Save feedback memory for cross-session awareness

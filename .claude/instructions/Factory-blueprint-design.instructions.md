@@ -29,7 +29,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 | Global UX Vision (`docs/ux/vision/`) | APPROVED (if frontend) | App shell, style guide, components, nav map |
 | External Design System (`docs/ux/design-system/`) | If exists | DS tokens, component library |
 | `design_ux.md` (legacy) | If exists | Legacy UX decisions |
-| Governance rules (20+ files from `docs/rules/`) | All applicable | Architecture, security, testing constraints |
+| Governance rules (20+ files from `.claude/rules/`) | All applicable | Architecture, security, testing constraints |
 | Protected code (`protected-paths.json`) | If exists | RED ZONE boundaries |
 | `system_resources.json` | If exists | External integrations reference |
 | `ux_decisions_log.md` | If exists | Cross-feature UX decisions |
@@ -94,7 +94,7 @@ STORE applicable_dcs IN context FOR use by Section 7 (GCD) and Section 4 (test_p
 LOG: "BLUEPRINT DC consult: {applicable_dcs.length} entries applicable to this feature"
 ```
 
-See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical consultation protocol. The list is consumed during Section 7 (GCD) generation and the QA test plan (§ QA Test Plan Generation — Edge Cases section) and is enforced at `--approve` time (see the `--approve` gate below).
+See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical consultation protocol. The list is consumed during Section 7 (GCD) generation and the QA test plan (§ QA Test Plan Generation — Edge Cases section) and is enforced at `--approve` time (see the `--approve` gate below).
 
 ---
 
@@ -138,7 +138,7 @@ IF has_gap:
 
 ### Architecture Context Loading
 - Read `docs/constitution.md` for topology (B1-B12), patterns, stack
-- Read all applicable rules from `docs/rules/`
+- Read all applicable rules from `.claude/rules/`
 - Detect project type: greenfield vs brownfield, monolith vs distributed
 
 ### Review Configuration
@@ -146,7 +146,7 @@ IF has_gap:
 - Set up ARCH + QA validation checklists
 
 ### Immutability Validation
-- Check `docs/rules/immutability_policy.instructions.md`
+- Check `.claude/rules/immutability_policy.instructions.md`
 - Validate no changes attempted on frozen artifacts
 
 ### Parent Version Detection
@@ -665,7 +665,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   
   # 7.2 Governance Rules Index (→ REVIEW Check #2: GOV)
   # Compact extraction: only the actionable constraints, not full rule prose.
-  # MUST cover ALL rule files in docs/rules/ — not just a subset.
+  # MUST cover ALL rule files in .claude/rules/ — not just a subset.
   # Missing rules cause IMPLEMENT to operate without constraints → quality gaps.
   EXTRACT key constraints from each applicable rule:
     GOV-ARCH:   architecture.instructions.md → naming conventions, file organization rules, layer ordering
@@ -692,38 +692,38 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   WRITE design.md:
     applicable_rules:
       - id: "GOV-ARCH"
-        source: "docs/rules/architecture.instructions.md"
+        source: ".claude/rules/architecture.instructions.md"
         constraints: ["{compact rule 1}", "{compact rule 2}"]
       - id: "GOV-SEC"
-        source: "docs/rules/security_policy.instructions.md"
+        source: ".claude/rules/security_policy.instructions.md"
         constraints: ["{constraint 1}", "{constraint 2}"]
       - id: "GOV-TEST"
-        source: "docs/rules/testing.instructions.md"
+        source: ".claude/rules/testing.instructions.md"
         coverage_threshold: "{N}%"
         test_framework: "{framework}"
         test_file_pattern: "{pattern}"
       - id: "GOV-REVIEW"
-        source: "docs/rules/review-policy.instructions.md"
+        source: ".claude/rules/review-policy.instructions.md"
         constraints: ["{review criteria}", "{approval count}", "{review scope rules}"]
       - id: "GOV-STATE"
-        source: "docs/rules/stateless.instructions.md"
+        source: ".claude/rules/stateless.instructions.md"
         constraints: ["{session rule}", "{caching rule}", "{state constraint}"]
       - id: "GOV-IMMUT"
-        source: "docs/rules/immutability_policy.instructions.md"
+        source: ".claude/rules/immutability_policy.instructions.md"
         constraints: ["{frozen artifacts}", "{protected code block rules}"]
       - id: "GOV-CFP"
-        source: "docs/rules/contract-first-policy.instructions.md"
+        source: ".claude/rules/contract-first-policy.instructions.md"
         constraints: ["{cross-domain import policy}", "{contract-first enforcement}"]
       - id: "GOV-IAC"
-        source: "docs/rules/iac.instructions.md"
+        source: ".claude/rules/iac.instructions.md"
         constraints: ["{IaC naming}", "{module structure}", "{least privilege}"]
         stack_conditional: "iac_tool != None"
       - id: "GOV-FRONT"
-        source: "docs/rules/frontend_architecture_compatibility.instructions.md"
+        source: ".claude/rules/frontend_architecture_compatibility.instructions.md"
         constraints: ["{frontend arch rules}"]
         stack_conditional: "frontend.framework != None"
       - id: "GOV-HTML"
-        source: "docs/rules/html-css.instructions.md"
+        source: ".claude/rules/html-css.instructions.md"
         constraints: ["{semantic markup}", "{CSS standards}", "{responsive rules}"]
         stack_conditional: "frontend.framework != None"
       # ... (one entry per applicable rule)
@@ -974,7 +974,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   # 7.8 Mandatory Architectural Patterns + ADR Bindings (→ REVIEW Check #14: DESIGN + DEV Hat)
   # PURPOSE: Constitution and ADRs define mandatory implementation patterns (e.g., BaseRepository
   # with auto tenant filter, middleware tenant_id injection, global error handler, audit logging).
-  # These are NOT rules (docs/rules/) — they are DESIGN DECISIONS that dictate HOW code must be
+  # These are NOT rules (.claude/rules/) — they are DESIGN DECISIONS that dictate HOW code must be
   # structured. Without this section, IMPLEMENT satisfies constraints superficially (e.g., manual
   # tenant filtering in each query instead of the prescribed BaseRepository auto-filter).
   #

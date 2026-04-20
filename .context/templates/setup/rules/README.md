@@ -26,7 +26,7 @@
 ## Usage
 
 ### During `/SETUP --generate`
-Templates are materialized into `docs/rules/*.instructions.md` with variable substitution:
+Templates are materialized into `.claude/rules/*.instructions.md` with variable substitution:
 
 **Variables Format:** `{{VAR_NAME}}`
 
@@ -35,7 +35,7 @@ Templates are materialized into `docs/rules/*.instructions.md` with variable sub
 # Template: branching.instructions.md
 **Strategy Selected:** {{BRANCHING_STRATEGY}}
 
-# Materialized: docs/rules/branching.instructions.md
+# Materialized: .claude/rules/branching.instructions.md
 **Strategy Selected:** GitHub Flow
 ```
 

@@ -9,18 +9,35 @@ description: "Factory SETUP upgrade — framework version upgrade, rollback, leg
 
 ---
 
-## Migration Path Mapping (v9.0.0)
+## Migration Path Mapping
 
-When upgrading projects from framework < 9.0.0 to >= 9.0.0, the following
-instruction file paths changed. The upgrade mechanism must handle these renames
-transparently in any path references within materialized project artifacts.
+### v9.0.0 — filename rename
 
 | Pre-9.0.0 Path | Post-9.0.0 Path |
 |---|---|
 | .claude/instructions/agents/*.md | .claude/instructions/Factory-*.instructions.md |
 | .claude/instructions/protocols/*.md | .claude/instructions/Factory-protocol-*.instructions.md |
 | .claude/instructions/protocols/{5 cross-cutting}.md | .claude/skills/Factory-{name}/SKILL.md |
-| docs/rules/*.md | docs/rules/*.instructions.md |
+| docs/rules/*.md | .claude/rules/*.instructions.md |
+
+### EVOL-016 — rules / config split (NOT auto-applied)
+
+| Pre-EVOL-016 | Post-EVOL-016 |
+|---|---|
+| docs/rules/*.instructions.md | .claude/rules/*.instructions.md |
+| docs/rules/defect-prevention.md | .claude/rules/defect-prevention.md |
+| docs/rules/protected-paths.json | config/protected-paths.json |
+| docs/rules/allowlist.json | config/allowlist.json |
+
+Manual migration (run once, gated by `test -d docs/rules && ! test -d .claude/rules`):
+
+```bash
+git mv docs/rules .claude/rules
+[ -f .claude/rules/protected-paths.json ] && git mv .claude/rules/protected-paths.json config/protected-paths.json
+[ -f .claude/rules/allowlist.json ] && git mv .claude/rules/allowlist.json config/allowlist.json
+```
+
+Then regenerate governance snapshot and re-run `--upgrade`.
 
 ---
 
@@ -45,7 +62,7 @@ Upgrades project governance artifacts to match the latest framework templates. U
 Verify `governance_versions.json` structure, all referenced files exist on disk, no orphan entries.
 
 **Phase 2 — Phantom File Detection:**
-Scan `docs/rules/`, `scripts/`, `config/` for files not tracked in registry. For each phantom:
+Scan `.claude/rules/`, `config/`, `scripts/` for files not tracked in registry. For each phantom:
 - (a) Register in snapshot (was created manually)
 - (b) Delete (accidental/obsolete)
 - (c) Skip (handle later)

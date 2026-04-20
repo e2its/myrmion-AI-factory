@@ -177,7 +177,7 @@ fontFamily:\s*["'][^"']+["']
 
 If a hardcoded value is necessary (e.g., third-party library override):
 1. Document in code comment: `// BRAND-EXCEPTION: [reason]`
-2. Add to `docs/rules/brand-exceptions.instructions.md`
+2. Add to `.claude/rules/brand-exceptions.instructions.md`
 3. Get approval in PR review
 
 ---
@@ -1182,7 +1182,7 @@ QA Verification Checklist MUST include:
 **Policy:** Brand token changes >20% from constitution REQUIRE architectural decision record.
 
 **Detection Method:**
-1. **Baseline:** Load brand tokens from `docs/constitution.md` and `docs/rules/ux-constitution.instructions.md`
+1. **Baseline:** Load brand tokens from `docs/constitution.md` and `.claude/rules/ux-constitution.instructions.md`
 2. **Comparison:** During WCAG auto-repair, check if color/typography adjustments exceed threshold:
    - **Colors:** Hue shift >30°, Saturation change >25%, Lightness change >20%
    - **Typography:** Font family change, size change >2 steps (e.g., `text-base` → `text-xl`)

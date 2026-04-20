@@ -123,7 +123,7 @@ All provisioned resources MUST include these tags:
 ## Cost Governance
 
 - Estimated costs MUST be documented in `devops_plan.md` per environment
-- Cost alerts at thresholds defined in `docs/rules/ci-cd.instructions.md`
+- Cost alerts at thresholds defined in `.claude/rules/ci-cd.instructions.md`
 - Ephemeral environments auto-destroyed after `auto_destroy_hours`
 - Persistent non-prod environments auto-suspended after `auto_sleep_minutes`
 - Production environments exempt from auto-suspension

@@ -34,7 +34,7 @@ FUNCTION verify_redirect_not_hardcoded(suggested_actions, FEATURE_ID):
     # Gate 2: Environment name validation
     IF action.cmd CONTAINS "--env":
       env_name = EXTRACT_ENV(action.cmd)
-      valid_envs = READ("docs/rules/ci-cd.instructions.md", "environments[]")
+      valid_envs = READ(".claude/rules/ci-cd.instructions.md", "environments[]")
       IF env_name NOT IN valid_envs:
         ❌ STRIP: Remove action from suggested_actions
         LOG: "Redirect stripped: '{action.cmd}' — env '{env_name}' not in ci-cd.instructions.md"
@@ -220,7 +220,7 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
   actions = []  # Ordered list: first = most relevant
   
   # Load project environments from governance
-  project_envs = READ_ENVIRONMENTS_FROM("docs/rules/ci-cd.instructions.md")
+  project_envs = READ_ENVIRONMENTS_FROM(".claude/rules/ci-cd.instructions.md")
   prod_env = project_envs.last  # Last is always production per invariant
   pre_prod_envs = project_envs.filter(env => env != prod_env)
 
@@ -561,7 +561,7 @@ SAFEGUARDS:
     EXCEPTION: IMPLEMENT --fix (hotfix flow)
   
   # 3. ENVIRONMENT AWARENESS
-  RULE: ALL environment references MUST come from docs/rules/ci-cd.instructions.md
+  RULE: ALL environment references MUST come from .claude/rules/ci-cd.instructions.md
     NEVER write "staging" literally — use project_envs[N] or env variable name
   
   # 4. STATUS STALENESS

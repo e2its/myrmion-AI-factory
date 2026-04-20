@@ -245,7 +245,7 @@ The COMP1 section includes:
 - **When**: risk_score < 25 AND complexity_score < 1.0
 - **What**: Active project with coherent architecture — extend natively
 - **Pattern**: Zero disruption. Add governance overlay alongside existing code
-- **Scaffolding**: Add `docs/rules/`, `contracts/`, `scripts/`, `config/` alongside existing code
+- **Scaffolding**: Add `.claude/rules/`, `contracts/`, `scripts/`, `config/` alongside existing code
 - **Effort**: 1-2 weeks setup
 - **Risk**: Lowest — no changes to existing code
 - **Anti-pattern**: Forcing E0 on projects with deep coupling or obsolete stacks

@@ -228,7 +228,7 @@ Presets `simplified` (3 issues: spec → implement → qa, no gates) and `single
 
 > **Gate Enforcement Modes:** each gate has a mode (`enforce` / `warn` / `off`) configured at SETUP. Greenfield projects start in `enforce` from day 1. Brownfield projects can start in `warn` and flip to `enforce` once the first new feature validates the gate artefact in main.
 
-> **Dynamic Environments:** environments are read from `docs/rules/ci-cd.instructions.md` `environments[]`. A project may have `dev → prod` or `dev → staging → UAT → prod`. The invariant: **MERGE always occurs BEFORE the production deploy**.
+> **Dynamic Environments:** environments are read from `.claude/rules/ci-cd.instructions.md` `environments[]`. A project may have `dev → prod` or `dev → staging → UAT → prod`. The invariant: **MERGE always occurs BEFORE the production deploy**.
 
 ---
 
@@ -261,7 +261,7 @@ Role: Architect / Governance. Defines constitution, rules, and initial scaffoldi
 | `/setup --upgrade` | — | Upgrades governance artifacts to the latest framework version. 6 safety layers. Smart Additive Merge. |
 | `/setup --rollback-upgrade {TIMESTAMP}` | Backup timestamp | Recovers the project from a failed upgrade. |
 
-Artifacts: `docs/setup.md`, `docs/constitution.md`, `docs/rules/*`, `MATERIALIZATION_REPORT.md`.
+Artifacts: `docs/setup.md`, `docs/constitution.md`, `.claude/rules/*`, `MATERIALIZATION_REPORT.md`.
 
 ### 1. CODESIGN (Co-Creation: PO ↔ UX)
 
@@ -689,7 +689,7 @@ The framework ships protocols reusable by every command:
 
 **Tech-Specific (only when the stack matches):** `python.md`, `React.md`, `java.md`, `node.md`, `csharp.md`, …
 
-> **Philosophy:** if a rule file exists in `docs/rules/` → it applies to EVERY feature (project-level, not feature-level).
+> **Philosophy:** if a rule file exists in `.claude/rules/` → it applies to EVERY feature (project-level, not feature-level).
 
 ### Hybrid Validation
 
@@ -764,7 +764,7 @@ Hotfix:       USR-001-v2.1 (security emergencies only)
 - Downstream artifact inheritance (test_plan, design) available.
 - Maximum one active version (forced linearity).
 
-See `docs/rules/immutability_policy.md` for the full rules.
+See `.claude/rules/immutability_policy.md` for the full rules.
 
 ---
 

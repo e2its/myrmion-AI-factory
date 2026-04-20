@@ -27,7 +27,7 @@ This instruction file defines the **Global UX Vision** protocols for the CODESIG
 All vision artifacts MUST comply with these directives. They define the difference between "functional" and "professional" UI.
 
 ### D0: Visual DNA Loading
-- Load `docs/rules/ux-constitution.instructions.md` for project-level UX rules
+- Load `.claude/rules/ux-constitution.instructions.md` for project-level UX rules
 - Load External Design System from `docs/ux/design-system/` if it exists
 - Extract color palette, typography scale, spacing rhythm, border-radius tokens, shadow tokens
 - If no DS exists, derive from `ux-constitution.instructions.md` or propose defaults with RDR
@@ -95,7 +95,7 @@ All vision artifacts MUST comply with these directives. They define the differen
 
 ### Prerequisites
 - `docs/setup.md` with `phase: COMPLETED`
-- `docs/rules/ux-constitution.instructions.md` materialized
+- `.claude/rules/ux-constitution.instructions.md` materialized
 - `frontend.framework != "None"` in `docs/setup.md`
 
 ### Input Mode Detection (MANDATORY)

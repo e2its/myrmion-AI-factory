@@ -128,7 +128,7 @@ changelog:
 - ❌ **Legacy core is READ-ONLY.** All extensions via `src/adapters/legacy/`.
 - ✅ Anti-Corruption Layer (ACL) for all legacy integrations.
 - ✅ New features in modern technology that wrap the legacy.
-- Protected legacy paths registered in `docs/rules/protected-paths.json`.
+- Protected legacy paths registered in `config/protected-paths.json`.
 
 #### E2: Strangler Fig Rules (IF Strategy == E2)
 - ⚠️ **Legacy shrinks over time.** Routing layer decides legacy vs modern per request.
@@ -356,7 +356,7 @@ changelog:
 - **Testing:** Include snapshot tests with RTL locales
 
 ### Enforcement
-- i18n libraries must be in `docs/rules/allowlist.json`
+- i18n libraries must be in `config/allowlist.json`
 - Hardcoding UI strings is **PROHIBITED** (except technical logs)
 - Code review must verify use of translation functions (`t()`, `$t`, `formatMessage`)
 
@@ -645,7 +645,7 @@ security:
   - `infra/features/{FEATURE_ID}/` — Feature-exclusive IaC (single consumer)
 - **State Management:** {{IAC_STATE_MANAGEMENT}} (remote state, never local in CI)
 - **Change Process:** Plan → Review → Apply (never manual console changes)
-- **Governance:** See `docs/rules/iac.instructions.md` for naming, security, tagging, and module policies
+- **Governance:** See `.claude/rules/iac.instructions.md` for naming, security, tagging, and module policies
 - **Registry:** `config/infrastructure_registry.json` tracks all provisioned resources with scope (feature/system) and consumer tracking
 
 #### Drift Detection
@@ -695,7 +695,7 @@ security:
 - #file:docs/setup.md - Setup decisions and architecture blueprint
 - #file:docs/project_log/adr/ADR-0000-setup-decisions.md - Setup phase architectural decisions
 
-### Rules Inventory (@workspace on the content of docs/rules/)
+### Rules Inventory (@workspace on the content of .claude/rules/)
 
 > **Note:** This index is automatically populated during `/SETUP --generate` materialization and kept updated by `/BLUEPRINT --refine` when governance artifacts are modified.
 
@@ -703,7 +703,7 @@ security:
 
 > **Definition:** Rules that apply UNIVERSALLY and are ALWAYS enforced, regardless of feature type or context. Generated during `/SETUP --generate` based on project needs.
 
-> **Philosophy:** If a rule file is generated in `docs/rules/`, it MUST be enforced in ALL features. No smart filtering by feature characteristics (has_ui, modifies_db, etc.). A project either needs a rule (generates it) or doesn't need it (omits it during materialization).
+> **Philosophy:** If a rule file is generated in `.claude/rules/`, it MUST be enforced in ALL features. No smart filtering by feature characteristics (has_ui, modifies_db, etc.). A project either needs a rule (generates it) or doesn't need it (omits it during materialization).
 
 > **Examples:** architecture.instructions.md, stateless.instructions.md, security_policy.instructions.md, protected-code.instructions.md, contract-first-policy.instructions.md, immutability_policy.instructions.md, testing.instructions.md, review-policy.instructions.md, ci-cd.instructions.md, ux-constitution.instructions.md (IF project has UI at all), database.instructions.md (IF project uses databases), api-standards.instructions.md (IF project has APIs)
 
@@ -728,7 +728,7 @@ security:
 
 > **Definition:** Rules that apply ONLY when specific technologies are present in the project stack. NOT generated during materialization if technology is not selected in `/SETUP --init`.
 
-> **Philosophy:** These are the ONLY rules subject to conditional loading. If file exists in `docs/rules/`, it means the technology IS part of the stack and the rule MUST be enforced.
+> **Philosophy:** These are the ONLY rules subject to conditional loading. If file exists in `.claude/rules/`, it means the technology IS part of the stack and the rule MUST be enforced.
 
 > **Examples:** python.instructions.md (ONLY IF backend.runtime == Python), React.instructions.md (ONLY IF frontend.framework == React/Next.js), java.instructions.md (ONLY IF backend.runtime == Java), node.instructions.md (ONLY IF backend.runtime == Node.js), csharp.instructions.md (ONLY IF backend.runtime == C#/.NET)
 
@@ -796,14 +796,14 @@ security:
 
 **WHEN governance is updated:**
 1. **During Materialization** (`/SETUP --generate`):
-   - All files in `docs/rules/`, `docs/policies/`, `config/` are created from templates
+   - All files in `.claude/rules/`, `docs/policies/`, `config/` are created from templates
    - This Governance Index section is populated with actual file paths and metadata
    - `{{GOVERNANCE_INDEX_STATUS}}` changes from PLACEHOLDER to COMPLETE
    - `{{GOVERNANCE_INDEX_LAST_UPDATE}}` set to materialization timestamp
 
 2. **During Blueprint Refinement** (`/BLUEPRINT --refine {{FEATURE_ID}}`):
    - IF refinement decision affects governance (new framework, pattern change, policy modification):
-     - Architect Agent creates/updates relevant files in `docs/rules/`
+     - Architect Agent creates/updates relevant files in `.claude/rules/`
      - Constitution sections updated if architectural principles change
      - Governance Index automatically refreshed with new/modified files
      - ADR generated documenting governance change

@@ -13,7 +13,7 @@ description: "Factory Build Verification Loop (BVL) — automated test execution
 
 ## v1.4.0 — Defect Discovery Hook
 
-> When BVL detects a test failure caused by a **recurring pattern** (not a one-off bug), the agent MUST check `docs/rules/defect-prevention.md` and propose cataloging if the pattern is novel. This closes the improvement loop: discover→catalog→prevent→never again.
+> When BVL detects a test failure caused by a **recurring pattern** (not a one-off bug), the agent MUST check `.claude/rules/defect-prevention.md` and propose cataloging if the pattern is novel. This closes the improvement loop: discover→catalog→prevent→never again.
 
 ```yaml
 FUNCTION defect_discovery_hook(errors, task, attempt):
@@ -22,7 +22,7 @@ FUNCTION defect_discovery_hook(errors, task, attempt):
 
   IF errors.recurrence_count >= 2 OR attempt == MAX_ATTEMPTS:
     # Check if this pattern is already cataloged
-    catalog = READ("docs/rules/defect-prevention.md")
+    catalog = READ(".claude/rules/defect-prevention.md")
 
     IF catalog EXISTS:
       existing_dcs = PARSE_DC_TABLE(catalog)

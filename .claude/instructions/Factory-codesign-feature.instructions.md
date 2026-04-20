@@ -497,7 +497,7 @@ If `frontend.framework != "None"`:
    ELSE:
      LOG: "No CODESIGN-applicable DCs in catalog"
    ```
-   See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 1 for the canonical consultation protocol.
+   See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 1 for the canonical consultation protocol.
 4. **BIP Tier PROPOSAL:** Generate complete Event Storming proposal (all 7 phases in one agent invocation) based on feature description + user context. Write to `docs/.bip/{FEATURE_ID}_tier_proposal.md`. Return to Factory for RDR mediation with user.
 5. **BIP Tier ARTIFACTS:** After proposal accepted, generate all 3 artifacts (spec.feature, mock.html, user_journey.md) in one pass. Enter PO↔UX internal iteration cycle for alignment. Re-apply the Phase 0.6 DC hints to the generated `spec.feature` if they were not preserved.
 6. Run Phase 3 completeness check (all DataIn/DataOut have defined schemas)
@@ -845,9 +845,9 @@ Scenario: Original scenario name
 
 ## Mandatory Laws (Procedural Gates)
 
-1. **Protected Blocks**: NEVER modify code between `PROTECTED-CODE START` and `PROTECTED-CODE END` or paths in `docs/rules/protected-paths.json`
+1. **Protected Blocks**: NEVER modify code between `PROTECTED-CODE START` and `PROTECTED-CODE END` or paths in `config/protected-paths.json`
 2. **Constitutional Supremacy**: The stack in `docs/constitution.md` is LAW
-3. **Regulatory Compliance**: Follow styles/guidelines in docs/rules/ (specifically: ux-constitution.instructions.md, branching.instructions.md, privacy.instructions.md, immutability_policy.instructions.md, ai_budget_tracker.instructions.md, frontend_architecture_compatibility.instructions.md, html-css.instructions.md)
+3. **Regulatory Compliance**: Follow styles/guidelines in .claude/rules/ (specifically: ux-constitution.instructions.md, branching.instructions.md, privacy.instructions.md, immutability_policy.instructions.md, ai_budget_tracker.instructions.md, frontend_architecture_compatibility.instructions.md, html-css.instructions.md)
 
 ### Data Schema Authority Gate (BLOCKING — H-15)
 ```yaml

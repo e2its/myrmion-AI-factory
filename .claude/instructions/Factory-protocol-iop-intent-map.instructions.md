@@ -83,7 +83,7 @@ FUNCTION route_by_category(classification):
   IF category == "READ_ONLY":
     Answer directly. No governance enforcement needed.
     IF FILE_EXISTS("docs/constitution.md"):
-      Use constitution.md + docs/rules/ as context for governance-aware answers.
+      Use constitution.md + .claude/rules/ as context for governance-aware answers.
 
   # AMBIGUOUS → Clarify
   IF category == "AMBIGUOUS":
@@ -97,7 +97,7 @@ FUNCTION route_by_category(classification):
 
 ```yaml
 # Patterns evaluated in order of specificity. First confident match wins.
-# {ID} = Feature ID extracted from context. {ENV} = from docs/rules/ci-cd.instructions.md.
+# {ID} = Feature ID extracted from context. {ENV} = from .claude/rules/ci-cd.instructions.md.
 # {ISSUES} = Comma-separated issue numbers. {STATUS} = Target Kanban column name.
 
 INTENT_MAP:

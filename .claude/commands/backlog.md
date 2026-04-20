@@ -109,7 +109,7 @@ project_tracking:
 1. **Detect mode**: Execute Protocol 0
 2. **Read setup decisions**: Load `project_tracking.feature_phases` preset string
 3. **Expand preset**: Resolve preset string (`full-sdlc` | `simplified` | `single`) into phase object list
-4. **Read governance**: Check `docs/constitution.md` for stack constraints and `docs/rules/` for applicable rules
+4. **Read governance**: Check `docs/constitution.md` for stack constraints and `.claude/rules/` for applicable rules
 5. **Initialize progress tracker**: Create an in-memory checklist of all N phases (used for rollback)
 6. **Create issues per mode** (sequential, tracked):
    - **External mode**: For EACH phase: generate body → tool-adapter `create_issue` → `add_to_board` → `move_to_column` → **verify** → mark complete
@@ -189,7 +189,7 @@ When a multi-step operation fails partway, clean up all completed items in rever
 ## GOVERNANCE ALIGNMENT
 
 - **Constitution**: `docs/constitution.md` — stack constraints
-- **Rules**: `docs/rules/*` — specific regulations per area
+- **Rules**: `.claude/rules/*` — specific regulations per area
 - **Naming**: ALL naming conventions from SETUP decisions — never invented by the agent
 
 ### Worklog & Communication

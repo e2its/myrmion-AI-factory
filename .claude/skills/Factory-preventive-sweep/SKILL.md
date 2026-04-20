@@ -11,7 +11,7 @@ description: "Preventive Defect Sweep — post-deployment runtime validation tha
 
 **Core Principle:** Static gates (lint + typecheck + SAST + unit tests) form a strong build verification loop, but they **cannot catch defects that only appear under real infrastructure execution** — real auth providers, real databases, real CDNs, real browsers. This sweep closes that gap.
 
-**Governance integration:** The Defect Prevention Catalog at `docs/rules/defect-prevention.md` is the authoritative list of known defect patterns. This skill provides the search methodology; the rule provides the mandatory process hooks (DEV pre-write check, REVIEW Check #2d). When this sweep discovers a new DC, it MUST be added to BOTH the governance rule AND this skill's search table.
+**Governance integration:** The Defect Prevention Catalog at `.claude/rules/defect-prevention.md` is the authoritative list of known defect patterns. This skill provides the search methodology; the rule provides the mandatory process hooks (DEV pre-write check, REVIEW Check #2d). When this sweep discovers a new DC, it MUST be added to BOTH the governance rule AND this skill's search table.
 
 ---
 
@@ -30,17 +30,17 @@ description: "Preventive Defect Sweep — post-deployment runtime validation tha
 
 ## DEFECT CLASSES — SEARCH METHODOLOGY
 
-> **Source of truth:** `docs/rules/defect-prevention.md` — the authoritative catalog of all DC patterns, prevention checks, and the mandatory Discovery Protocol.
+> **Source of truth:** `.claude/rules/defect-prevention.md` — the authoritative catalog of all DC patterns, prevention checks, and the mandatory Discovery Protocol.
 > This skill defines HOW to search for each DC during a sweep. The rule defines WHAT each DC is and WHEN to check.
 
-Every sweep MUST search for ALL DCs listed in `docs/rules/defect-prevention.md`. Never skip a class — even if a previous sweep marked it CLEAN.
+Every sweep MUST search for ALL DCs listed in `.claude/rules/defect-prevention.md`. Never skip a class — even if a previous sweep marked it CLEAN.
 
 ### Search Strategy per DC
 
 ```yaml
 FUNCTION build_search_plan(dc_catalog):
   # Read the materialized DC catalog — contents vary per project (SETUP-generated)
-  READ docs/rules/defect-prevention.md → dc_entries[]
+  READ .claude/rules/defect-prevention.md → dc_entries[]
 
   FOR EACH dc IN dc_entries:
     # Derive search command from the DC's applicable_when and prevention_check fields
@@ -122,7 +122,7 @@ The starter scopes below map MASS's original 4 buckets onto the new dynamic mode
 | **infra** | `${IAC_PATH}/**`, root layouts, provider chains, deployment manifests | Env var injection mismatch, missing error boundary, observability gaps |
 | **cross-cutting** | Contract files + both frontend and backend HTTP surfaces | Frontend-backend contract mismatches, shared identifier consistency |
 
-Projects MAY define additional scopes by extending this table in their materialised copy of `SKILL.md` (via the Discovery Protocol documented in `docs/rules/defect-prevention.md`). The sweep machinery does NOT need to be updated — `classify_scope` is a string-keyed dispatch.
+Projects MAY define additional scopes by extending this table in their materialised copy of `SKILL.md` (via the Discovery Protocol documented in `.claude/rules/defect-prevention.md`). The sweep machinery does NOT need to be updated — `classify_scope` is a string-keyed dispatch.
 
 ---
 
@@ -217,7 +217,7 @@ all_resolved_in_commit: true | false
 
 When a sweep discovers a new defect pattern that doesn't fit existing DCs:
 1. Assign it the next DC number (DC-{last+1})
-2. Document it in `docs/rules/defect-prevention.md` with: Name, Applicable When, Prevention Check, Review Severity
+2. Document it in `.claude/rules/defect-prevention.md` with: Name, Applicable When, Prevention Check, Review Severity
 3. Add its search methodology to this skill's search strategy
 4. Bump the rule version in `governance_versions.json`
 5. Save a feedback memory so future sessions are aware

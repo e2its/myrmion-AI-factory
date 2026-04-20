@@ -35,7 +35,7 @@ Before processing commands, read:
 7. `docs/spec/{{FEATURE_ID}}/review/peer_review_*.md` (**MANDATORY** — latest must have `status: APPROVED`)
 8. `docs/spec/{{FEATURE_ID}}/review/sec_audit.md` (enrichment — static security findings from IMPLEMENT SEC hat, cross-reference with DAST)
 9. Governance rules (19 specific rules — see loading protocol below)
-10. `config/system_resources.json`, `docs/rules/protected-paths.json`, `docs/constitution.md`
+10. `config/system_resources.json`, `config/protected-paths.json`, `docs/constitution.md`
 
 ### Governance Context Loading (QA-Scoped)
 
@@ -318,7 +318,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   RETURN checklist
 ```
 
-> **Auto-approval impact (EVOL-014).** `[QA-DC-N]` items are first-class checklist entries. The auto-approval verdict requires ALL checklist items (including all `[QA-DC-*]`) to be `[x]` — a single unchecked DC item blocks `APPROVED` just like an unchecked test case. See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 6 for the canonical protocol.
+> **Auto-approval impact (EVOL-014).** `[QA-DC-N]` items are first-class checklist entries. The auto-approval verdict requires ALL checklist items (including all `[QA-DC-*]`) to be `[x]` — a single unchecked DC item blocks `APPROVED` just like an unchecked test case. See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 6 for the canonical protocol.
 
 **Pre-Audit Blocking Checks (Steps 0-0c):**
 

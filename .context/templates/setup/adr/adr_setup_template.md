@@ -126,7 +126,7 @@ scope: global  # project-wide setup decisions
 - **Related ADRs:** None (this is the foundational architecture decision)
 - **Impacts:**
   - `docs/constitution.md` (architecture section)
-  - `docs/rules/architecture.instructions.md`
+  - `.claude/rules/architecture.instructions.md`
   - All code generated in scaffolding phase
 - **Status:** {{STATUS}} (accepted/pending/deprecated)
 - **Last Updated:** {{LAST_UPDATED}}

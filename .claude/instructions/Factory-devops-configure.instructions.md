@@ -65,18 +65,18 @@ READ docs/constitution.md:
 ### Step 2: Load Governance Files
 ```yaml
 LOAD (ALL required):
-  docs/rules/ci-cd.instructions.md → ci_cd_platform, environments_config, cost_limits
-  docs/rules/iac.instructions.md → IaC standards, module structure
-  docs/rules/stateless.instructions.md → Stateless service rules
-  docs/rules/security_policy.instructions.md → Security standards
-  docs/rules/branching.instructions.md → Branch/deploy coordination
-  docs/rules/contract-first-policy.instructions.md → API contract compliance
-  docs/rules/database.instructions.md → Database naming, migration standards
-  docs/rules/observability.instructions.md → Logging, monitoring, alerting
-  docs/rules/performance.instructions.md → Performance budgets
-  docs/rules/immutability_policy.instructions.md → Immutable deployments
-  docs/rules/ai_budget_tracker.instructions.md → Budget tracking
-  docs/rules/ai_budget_governance.instructions.md → Budget governance
+  .claude/rules/ci-cd.instructions.md → ci_cd_platform, environments_config, cost_limits
+  .claude/rules/iac.instructions.md → IaC standards, module structure
+  .claude/rules/stateless.instructions.md → Stateless service rules
+  .claude/rules/security_policy.instructions.md → Security standards
+  .claude/rules/branching.instructions.md → Branch/deploy coordination
+  .claude/rules/contract-first-policy.instructions.md → API contract compliance
+  .claude/rules/database.instructions.md → Database naming, migration standards
+  .claude/rules/observability.instructions.md → Logging, monitoring, alerting
+  .claude/rules/performance.instructions.md → Performance budgets
+  .claude/rules/immutability_policy.instructions.md → Immutable deployments
+  .claude/rules/ai_budget_tracker.instructions.md → Budget tracking
+  .claude/rules/ai_budget_governance.instructions.md → Budget governance
   config/infrastructure_registry.json → Current infrastructure state
   
 LOAD (from feature):
@@ -182,16 +182,16 @@ IF feature marked CRITICAL in design.md:
 ```yaml
 FUNCTION validate_environment_name(env_name):
   # This gate MUST execute on EVERY --env parameter and EVERY environment reference.
-  # ALL environment names come from docs/rules/ci-cd.instructions.md environments[].
+  # ALL environment names come from .claude/rules/ci-cd.instructions.md environments[].
   # NEVER hardcode dev/staging/prod.
 
-  valid_envs = READ("docs/rules/ci-cd.instructions.md", "environments[]")
+  valid_envs = READ(".claude/rules/ci-cd.instructions.md", "environments[]")
   IF valid_envs IS NULL OR valid_envs.length == 0:
-    ❌ BLOCK: "Cannot read environments from docs/rules/ci-cd.instructions.md — file missing or malformed"
+    ❌ BLOCK: "Cannot read environments from .claude/rules/ci-cd.instructions.md — file missing or malformed"
     STOP
 
   IF env_name NOT IN valid_envs:
-    ❌ BLOCK: "Environment '{env_name}' not configured in docs/rules/ci-cd.instructions.md"
+    ❌ BLOCK: "Environment '{env_name}' not configured in .claude/rules/ci-cd.instructions.md"
     SHOW: "Valid environments: {valid_envs.join(', ')}"
     STOP
 

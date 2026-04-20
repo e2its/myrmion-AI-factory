@@ -5,7 +5,7 @@ DRY_RUN=${DRY_RUN:-1}
 
 usage() {
   echo "Usage: $0 <tech> [--apply]" >&2
-  echo "  <tech>: Technology identifier matching a rule file in docs/rules/ (e.g., python, node, java, go)" >&2
+  echo "  <tech>: Technology identifier matching a rule file in .claude/rules/ (e.g., python, node, java, go)" >&2
 }
 
 while [ $# -gt 0 ]; do
@@ -46,7 +46,7 @@ if [ -n "$absolute_path_violations" ]; then
   echo "❌ [lint-format] BLOCKED: Absolute paths detected in source code"
   echo ""
   echo "🚫 CRITICAL POLICY VIOLATION: Absolute Path References"
-  echo "Reference: docs/rules/testing.md - Path References Policy (Universal)"
+  echo "Reference: .claude/rules/testing.md - Path References Policy (Universal)"
   echo ""
   echo "Found violations:"
   echo "$absolute_path_violations"
@@ -72,8 +72,8 @@ echo "✅ [lint-format] No absolute paths detected in source code"
 # Validate TECH against known values to prevent command injection.
 # Discover valid techs dynamically from materialized rules if available,
 # otherwise fall back to a static allowlist covering common runtimes.
-if [ -d "docs/rules" ]; then
-  VALID_TECHS=$(find docs/rules -maxdepth 1 -name '*.md' -exec basename {} .md \; | tr '\n' '|' | sed 's/|$//')
+if [ -d ".claude/rules" ]; then
+  VALID_TECHS=$(find .claude/rules -maxdepth 1 -name '*.md' -exec basename {} .md \; | tr '\n' '|' | sed 's/|$//')
 fi
 
 # If dynamic discovery produced no techs, fall back to the static allowlist
