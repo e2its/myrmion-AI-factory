@@ -54,8 +54,8 @@ changelog:
 - Run smoke tests post-deploy in each environment
 
 ## Framework References
-- Language-specific standards live in `.context/rules/{language}.md`
-- Contract validation referenced by `.context/rules/contract-first-policy.md`
+- Language-specific standards live in `.claude/rules/{language}.instructions.md`
+- Contract validation referenced by `.claude/rules/contract-first-policy.instructions.md`
 
 ## Further Reading
 - TDD by Example (Kent Beck)

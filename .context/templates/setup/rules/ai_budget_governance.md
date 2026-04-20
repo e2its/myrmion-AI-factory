@@ -161,7 +161,7 @@ adjusted_monthly_cost = monthly_cost * provider_multiplier
 
 The budget is tracked **monthly** by accumulating all features:
 
-**Archivo:** `.context/rules/ai_budget_tracker.md`
+**Archivo:** `.claude/rules/ai_budget_tracker.instructions.md`
 
 | Feature ID | Cost (USD) | Tokens Consumed | Timestamp | Status |
 |------------|-----------|-----------------|-----------|--------|
@@ -182,7 +182,7 @@ IF consumed >= (budget * 0.8):
 
 **Day 1 of each month:**
 1. Archive current tracker: `docs/project_log/ai_budget_history/YYYY-MM.md`
-2. Reset `.context/rules/ai_budget_tracker.md` with empty header
+2. Reset `.claude/rules/ai_budget_tracker.instructions.md` with empty header
 3. Preserve annual cumulative total in history file
 
 **Archivo de Historia Mensual:**
@@ -265,7 +265,7 @@ Each agent reports estimated consumption upon completing its phase:
 
 **Auto-update tracker:**
 ```bash
-echo "| ${FEATURE_ID} | $${COST} | ${TOKENS} | $(date) | ${STATUS} |" >> .context/rules/ai_budget_tracker.md
+echo "| ${FEATURE_ID} | $${COST} | ${TOKENS} | $(date) | ${STATUS} |" >> .claude/rules/ai_budget_tracker.instructions.md
 ```
 
 ---
@@ -322,8 +322,8 @@ Which option do you prefer? [A/B/C/Custom]
     "ai_budget": {
       "tier": "professional",
       "monthly_limit": 2000,
-      "tracking_file": ".context/rules/ai_budget_tracker.md",
-      "policy": ".context/rules/ai_budget_governance.md"
+      "tracking_file": ".claude/rules/ai_budget_tracker.instructions.md",
+      "policy": ".claude/rules/ai_budget_governance.instructions.md"
     }
   }
 }

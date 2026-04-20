@@ -18,7 +18,7 @@ description: "Factory SETUP upgrade — framework version upgrade, rollback, leg
 | .claude/instructions/agents/*.md | .claude/instructions/Factory-*.instructions.md |
 | .claude/instructions/protocols/*.md | .claude/instructions/Factory-protocol-*.instructions.md |
 | .claude/instructions/protocols/{5 cross-cutting}.md | .claude/skills/Factory-{name}/SKILL.md |
-| docs/rules/*.md | .claude/rules/*.instructions.md |
+| docs/rules/*.md | docs/rules/*.instructions.md |
 
 ### EVOL-016 — rules / config split (NOT auto-applied)
 

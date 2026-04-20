@@ -410,7 +410,7 @@ Budget Required: Professional+ tier
     "framework": "Next.js 14",
     "internal_pattern": "FSD + Atomic + Headless",
     "state_management": "Redux",
-    "compatibility_policy": ".context/rules/frontend_architecture_compatibility.md",
+    "compatibility_policy": ".claude/rules/frontend_architecture_compatibility.instructions.md",
     "rationale_adr": "docs/adr/ADR-002-frontend-architecture.md"
   }
 }

@@ -190,7 +190,7 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
   # Prefer materialized governance location, fall back to legacy .context path
   PROTECTED_PATHS_FILE="config/protected-paths.json"
   if [ ! -f "$PROTECTED_PATHS_FILE" ]; then
-    LEGACY_PROTECTED_PATHS_FILE=".context/rules/protected-paths.json"
+    LEGACY_PROTECTED_PATHS_FILE="docs/rules/protected-paths.json"
     if [ -f "$LEGACY_PROTECTED_PATHS_FILE" ]; then
       PROTECTED_PATHS_FILE="$LEGACY_PROTECTED_PATHS_FILE"
     else
@@ -261,7 +261,7 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
     echo -e "$VIOLATIONS"
     echo ""
     echo "🛡️  Policy: RED ZONES are immutable (frameworks, dependencies, governance)"
-    echo "📋 See: .context/rules/protected-code.md"
+    echo "📋 See: .claude/rules/protected-code.instructions.md"
     echo ""
     echo "⚠️  NO BYPASS ALLOWED. To request modification approval:"
     echo "  1. Stop implementation immediately"

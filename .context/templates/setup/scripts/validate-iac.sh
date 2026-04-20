@@ -2,7 +2,7 @@
 # ================================================================
 # validate-iac.sh — IaC Governance Validator (Tool-Agnostic)
 # ================================================================
-# Validates IaC files against governance rules defined in .claude/rules/iac.md
+# Validates IaC files against governance rules defined in .claude/rules/iac.instructions.md
 # Uses the IaC Tool Descriptor from constitution.md for tool-specific operations
 #
 # Usage:

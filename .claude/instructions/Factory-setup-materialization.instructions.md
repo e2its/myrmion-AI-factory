@@ -266,7 +266,7 @@ Scan `.context/templates/setup/rules/` for all `.md` templates. For each templat
 2. Resolve placeholders from `docs/setup.md` + `docs/constitution.md`
 3. Write to `.claude/rules/{rule_name}.instructions.md`
 
-Standard rules include: `architecture.instructions.md`, `security_policy.instructions.md`, `testing.instructions.md`, `branching.instructions.md`, `ci-cd.instructions.md`, `database.instructions.md`, `observability.instructions.md`, `performance.instructions.md`, `ux-constitution.instructions.md`, `contract-first-policy.instructions.md`, `immutability_policy.instructions.md`, `ai_budget_tracker.instructions.md`, `ai_budget_governance.instructions.md`, `stateless.instructions.md`, `privacy.instructions.md`, `protected-paths.json`, `frontend_architecture_compatibility.instructions.md`, `html-css.instructions.md`
+Standard rules materialized to `.claude/rules/`: `architecture.instructions.md`, `security_policy.instructions.md`, `testing.instructions.md`, `branching.instructions.md`, `ci-cd.instructions.md`, `database.instructions.md`, `observability.instructions.md`, `performance.instructions.md`, `ux-constitution.instructions.md`, `contract-first-policy.instructions.md`, `immutability_policy.instructions.md`, `ai_budget_tracker.instructions.md`, `ai_budget_governance.instructions.md`, `stateless.instructions.md`, `privacy.instructions.md`, `frontend_architecture_compatibility.instructions.md`, `html-css.instructions.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`.
 
 **Phase B — Technology-Specific Best Practices:**
 For each detected technology (backend.runtime, frontend.framework):
@@ -539,7 +539,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
 **Phase C — Global Validation:**
 After all rules generated, validate:
-- All materialized files in `.claude/rules/` have `.instructions.md` extension (except `defect-prevention.md`, `protected-paths.json`, `allowlist.json`)
+- All materialized files in `.claude/rules/` have `.instructions.md` extension (except `defect-prevention.md`)
 - All materialized files contain YAML frontmatter with `description:` field
 - All **technology-specific** rules (Phase A language rules + Phase B) contain `applyTo:` with a valid glob pattern
 - Cross-cutting rules (architecture, security_policy, branching, defect-prevention, etc.) are NOT required to have `applyTo`

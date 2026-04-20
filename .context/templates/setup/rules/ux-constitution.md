@@ -574,7 +574,7 @@ inset-inline-start: 0;      /* ✅ Instead of left: 0 */
 2. **By Label/Text:** `getByLabelText('Email')` or `getByText('Welcome')`.
 3. **By Test ID (The Escape Hatch):** `getByTestId('user-settings-card')` — Only when semantic selection is impossible.
 
-**Alignment:** Reinforces existing policy in `.context/rules/frontend.md`.
+**Alignment:** Reinforces existing policy in `.claude/rules/frontend_architecture_compatibility.instructions.md`.
 
 ---
 
@@ -1440,9 +1440,9 @@ PROPAGATION_RULES:
 
 ## 🔗 Related Policies
 
-- `.context/rules/frontend.md` — React/Next.js patterns
-- `.context/rules/html-css.md` — Semantic HTML, CSS best practices
-- `.context/rules/contract-first-policy.md` — API contracts
+- `.claude/rules/frontend_architecture_compatibility.instructions.md` — compatibility constraints
+- `.claude/rules/html-css.instructions.md` — Semantic HTML, CSS best practices
+- `.claude/rules/contract-first-policy.instructions.md` — API contracts
 - `.context/constitution.md` — Technology governance
 - `.context/agents/ARCHITECT.AGENT.MD` — Design validation
 - `.context/agents/QA.AGENT.MD` — Testing standards

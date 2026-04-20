@@ -397,8 +397,8 @@ changelog:
 ## 📦 Dependency Management and Allowlist
 > **Mandate:** Only approved technologies are permitted; prohibited ones require ADR and Architecture approval.
 
-- **Live source (machine-readable):** `.context/rules/allowlist.json` (allow/deny by categories and stack).
-- **Detail by stack:** `.context/rules/{language}.md` complements with specific guidelines.
+- **Live source (machine-readable):** `config/allowlist.json` (allow/deny by categories and stack).
+- **Detail by stack:** `.claude/rules/{language}.instructions.md` complements with specific guidelines.
 - **Validation:** `scripts/dependency-allowlist.sh` must use that file; exceptions are documented via ADR.
 - **Licenses:** Prefer MIT/Apache2/BSD; avoid GPL in the core.
 
@@ -493,7 +493,7 @@ Ref: USR-001
 - **Backport:** May require manual backport to release branches (if applicable)
 
 ### CI/CD Integration
-> **Complete pipeline details:** See `.context/rules/ci-cd.md`
+> **Complete pipeline details:** See `.claude/rules/ci-cd.instructions.md`
 
 #### Pre-Merge Checks (Required)
 - ✅ Lint & Format: `scripts/lint-format.sh --apply`

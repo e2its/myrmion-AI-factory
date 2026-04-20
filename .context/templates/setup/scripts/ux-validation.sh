@@ -39,9 +39,9 @@ done
 
 # Load Brand Enforcement Level from constitution if exists
 BRAND_ENFORCEMENT="WARNING"
-if [ -f ".claude/rules/ux-constitution.md" ]; then
+if [ -f ".claude/rules/ux-constitution.instructions.md" ]; then
   # Try to extract enforcement level (simplified grep)
-  EXTRACTED=$(grep -oP 'BRAND_ENFORCEMENT_LEVEL.*?:\s*\K(BLOCKER|WARNING|MIXED)' .claude/rules/ux-constitution.md 2>/dev/null || echo "WARNING")
+  EXTRACTED=$(grep -oP 'BRAND_ENFORCEMENT_LEVEL.*?:\s*\K(BLOCKER|WARNING|MIXED)' .claude/rules/ux-constitution.instructions.md 2>/dev/null || echo "WARNING")
   BRAND_ENFORCEMENT=${EXTRACTED:-"WARNING"}
 fi
 echo "📋 Brand Enforcement Level: $BRAND_ENFORCEMENT"

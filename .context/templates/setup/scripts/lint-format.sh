@@ -46,7 +46,7 @@ if [ -n "$absolute_path_violations" ]; then
   echo "❌ [lint-format] BLOCKED: Absolute paths detected in source code"
   echo ""
   echo "🚫 CRITICAL POLICY VIOLATION: Absolute Path References"
-  echo "Reference: .claude/rules/testing.md - Path References Policy (Universal)"
+  echo "Reference: .claude/rules/testing.instructions.md - Path References Policy (Universal)"
   echo ""
   echo "Found violations:"
   echo "$absolute_path_violations"
@@ -73,7 +73,7 @@ echo "✅ [lint-format] No absolute paths detected in source code"
 # Discover valid techs dynamically from materialized rules if available,
 # otherwise fall back to a static allowlist covering common runtimes.
 if [ -d ".claude/rules" ]; then
-  VALID_TECHS=$(find .claude/rules -maxdepth 1 -name '*.md' -exec basename {} .md \; | tr '\n' '|' | sed 's/|$//')
+  VALID_TECHS=$(find .claude/rules -maxdepth 1 -name '*.instructions.md' -exec basename {} .instructions.md \; | tr '\n' '|' | sed 's/|$//')
 fi
 
 # If dynamic discovery produced no techs, fall back to the static allowlist

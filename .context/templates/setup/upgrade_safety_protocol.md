@@ -182,7 +182,7 @@ Step 6.2: Parse ADRs for governance file references
     adr_content = READ full content
     
     # Find references to .claude/rules/ files
-    referenced_files = GREP(adr_content, ".claude/rules/[a-z-]+\.instructions\.md")
+    referenced_files = GREP(adr_content, "\.claude/rules/[a-z-]+\.instructions\.md")
     
     # Check if ADR documents a CUSTOMIZATION
     IF adr_content CONTAINS:
