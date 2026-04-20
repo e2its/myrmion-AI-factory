@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 
-TRACKER_FILE = Path('.context/rules/ai_budget_tracker.md')
+TRACKER_FILE = Path('.claude/rules/ai_budget_tracker.instructions.md')
 
 
 def ensure_tracker_exists():

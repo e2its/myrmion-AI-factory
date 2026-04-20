@@ -80,7 +80,7 @@ CONSTRAINT_IDS: [ARCH-{topology_code}-{N}] — cite from Section 7.1
 ### Check #2: [GOV-XX] Governance Rules
 ```yaml
 # Source: design.md Section 7.2 (if GCD loaded) → gov_rules_index
-# Fallback: docs/rules/ files (all applicable)
+# Fallback: .claude/rules/ files (all applicable)
 VERIFY:
   FOR EACH rule IN gov_rules_index.applicable_rules:
     VERIFY each constraint listed under rule.constraints
@@ -195,14 +195,14 @@ CONSTRAINT_IDS: [GOV-SEED-ALIGNMENT-{SCHEMA|DEPLOY|REGISTRY}-{N}]
 # This check runs EVERY phase, not conditionally. The catalog is small
 # and the checks are fast (grep-level).
 #
-# Reference: docs/rules/defect-prevention.md
+# Reference: .claude/rules/defect-prevention.md
 # Detailed patterns: .claude/skills/Factory-preventive-sweep/SKILL.md
 
 VERIFY:
-  IF NOT FILE_EXISTS("docs/rules/defect-prevention.md"):
+  IF NOT FILE_EXISTS(".claude/rules/defect-prevention.md"):
     SKIP  # Project doesn't use DPC (pre-SETUP or opted out)
 
-  READ docs/rules/defect-prevention.md → dc_catalog
+  READ .claude/rules/defect-prevention.md → dc_catalog
   # Catalog columns: DC | Name | Applicable When | Review Severity | Prevention Check
 
   FOR EACH modified_file IN phase_files:
@@ -214,14 +214,14 @@ VERIFY:
             BLOCKER [GOV-DC-{dc.number}]:
               "Defect prevention check DC-{dc.number} ({dc.name}) not satisfied in {file}:{line}.
                Required prevention: {dc.prevention_check}.
-               Reference: docs/rules/defect-prevention.md"
+               Reference: .claude/rules/defect-prevention.md"
           ELSE:
             WARNING [GOV-DC-{dc.number}]:
               "Potential defect pattern DC-{dc.number} ({dc.name}) in {file}:{line}. Verify prevention: {dc.prevention_check}."
 
 SEVERITY: per-DC (BLOCKER or WARNING as defined in catalog Review Severity column)
 CONSTRAINT_IDS: [GOV-DC-{N}]
-REFERENCE: docs/rules/defect-prevention.md
+REFERENCE: .claude/rules/defect-prevention.md
 ```
 
 ### Check #3: [SEC-XX] Security Patterns
@@ -241,7 +241,7 @@ CONSTRAINT_IDS: [SAST-{category}-{N}] — cite from Section 7.3
 
 ### Check #4: [PATH-XX] Protected Paths
 ```yaml
-READ docs/rules/protected-paths.json:
+READ config/protected-paths.json:
   FOR EACH modified_file:
     IF file IN red_zones:
       CHECK for ADR approving modification
@@ -517,7 +517,7 @@ IF implementation includes database migrations:
 ### Check #9: [IAC-XX] Infrastructure Compliance
 ```yaml
 IF implementation modifies infrastructure files (infra/):
-  VERIFY against docs/rules/iac.instructions.md:
+  VERIFY against .claude/rules/iac.instructions.md:
     - Naming conventions followed
     - Modules properly structured
     - Security groups/IAM follow least privilege

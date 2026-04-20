@@ -59,7 +59,7 @@ generate_base_structure() {
   mkdir -p src/integration/acl/
   mkdir -p contracts/
   mkdir -p flags/
-  mkdir -p .context/rules/
+  mkdir -p .claude/rules/
   
   echo "✅ Base structure created"
 }
@@ -186,7 +186,7 @@ generate_preserve_wrapper_scaffolding() {
   mkdir -p src/wrappers/ui/
   
   # Generate extension patterns documentation
-  cat > .context/rules/extension_patterns.md <<'EOF'
+  cat > .claude/rules/extension_patterns.instructions.md <<'EOF'
 # Extension Patterns (Preserve+Wrapper Strategy)
 
 ## Backend Extensions

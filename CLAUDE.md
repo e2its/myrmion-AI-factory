@@ -18,7 +18,7 @@ This rule applies to every session turn — not just inside slash commands. Tone
 
 ## Governance Scope — MANDATORY
 
-All files and paths listed in the **Core Protocols** and **Living Governance Catalogs** sections below apply to **every session turn**, not only to slash commands. Any file modification, any code suggestion, any design decision made in a free-form chat is bound by the same rules that `/implement` and `/blueprint` enforce. Constitutional supremacy, protected code blocks, DRY enforcement, zero-secrets, and every rule materialised in `docs/rules/` are always active — there is no "ad-hoc" mode where they stop mattering.
+All files and paths listed in the **Core Protocols** and **Living Governance Catalogs** sections below apply to **every session turn**, not only to slash commands. Any file modification, any code suggestion, any design decision made in a free-form chat is bound by the same rules that `/implement` and `/blueprint` enforce. Constitutional supremacy, protected code blocks, DRY enforcement, zero-secrets, and every rule materialised in `.claude/rules/` are always active — there is no "ad-hoc" mode where they stop mattering.
 
 Before touching any code on a materialised project, the BACKLOG tool-adapter (if present), the Defect Prevention Catalog, and the Pre-Action Gate (branch protocol) are binding regardless of whether the request came via a slash command or via a casual chat. When in doubt, treat the interaction as if it were `/implement --build`.
 
@@ -43,7 +43,7 @@ Each `full-sdlc` feature expands into **8 phase issues** on the backlog. Three o
 - **AUDIT** and **BACKLOG** are independent — run any time.
 - **Auto-Approval**: CODESIGN, DEVOPS `--configure`, QA `--verify` auto-approve when all validations pass. Auto-approval does NOT bypass the hard gates — a gate's own issue must be Done before the downstream command can start.
 - **BLUEPRINT `--approve`** is the only mandatory manual checkpoint for the classic phases.
-- Environments are dynamic — read from `docs/rules/ci-cd.instructions.md`. MERGE always before production deploy.
+- Environments are dynamic — read from `.claude/rules/ci-cd.instructions.md`. MERGE always before production deploy.
 
 ### Hard Gates
 
@@ -59,8 +59,8 @@ Gates ONLY ship when the feature uses the `full-sdlc` preset (Q27.2). Prototypes
 
 ## Governance Rules
 
-1. **Constitutional Supremacy**: `docs/constitution.md` is LAW (except during SETUP/AUDIT). `docs/rules/` has detailed regulations; constitution wins on conflict.
-2. **Protected Code**: NEVER modify code between `PROTECTED-CODE START/END` markers or paths in `docs/rules/protected-paths.json`.
+1. **Constitutional Supremacy**: `docs/constitution.md` is LAW (except during SETUP/AUDIT). `.claude/rules/` has detailed regulations; constitution wins on conflict.
+2. **Protected Code**: NEVER modify code between `PROTECTED-CODE START/END` markers or paths in `config/protected-paths.json`.
 3. **DRY Enforcement**: Consult `config/codebase_inventory.json` before creating code artifacts. See `.claude/skills/Factory-codebase-inventory/SKILL.md`.
 4. **Security**: Zero secrets in code. Use env vars or vault SDK. Check OWASP Top 10.
 5. **Testing**: 1 Logic = 1 Unit Test. TDD: Red → Green → Refactor → Verify.
@@ -117,7 +117,7 @@ BEFORE any file modification:
 Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER from conversation memory:
 
 1. **INVARIANT 1 — Change Classification**: Derive from branch name. `fix/*` | `bugfix/*` | `hotfix/*` → PATCH. `feature/*` | `feat/*` → MINOR. `breaking/*` → MAJOR. Command: `git branch --show-current`.
-2. **INVARIANT 2 — Governance context**: Load `.context/governance_snapshot.md` every command. If `constitution_hash` + `setup_hash` match → governance is loaded (1 file read). Stale or missing → reload from `docs/constitution.md` + `docs/rules/` + `docs/setup.md` and regenerate the snapshot. Rule content is loaded on-demand, only when checking specific compliance.
+2. **INVARIANT 2 — Governance context**: Load `.context/governance_snapshot.md` every command. If `constitution_hash` + `setup_hash` match → governance is loaded (1 file read). Stale or missing → reload from `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and regenerate the snapshot. Rule content is loaded on-demand, only when checking specific compliance.
 3. **INVARIANT 3 — Current date**: Derive from the system clock. NEVER reuse a date seen earlier in the conversation.
 4. **INVARIANT 4 — Current version**: Read from `docs/project_log/governance_versions.json` before any bump. NEVER guess.
 5. **INVARIANT 5 — Feature state**: Read the `status` field from the artifact file's frontmatter. NEVER assume a feature is APPROVED / BUILDING / IMPLEMENTED_AND_VERIFIED from what was said earlier in the chat — re-read the frontmatter of `spec.feature`, `design.md`, `test_plan.md`, `dev_plan.md`, or the latest `qa_report_final_*.md` depending on which phase is in question. Summarization-safe by construction: if the frontmatter says DRAFT, the feature is DRAFT regardless of how confident the conversation feels about it.
@@ -144,9 +144,9 @@ Read the referenced SKILL.md file when executing each protocol. The protocol fil
 
 ## Living Governance Catalogs
 
-Beyond `docs/rules/*.instructions.md` (materialized by SETUP), the following living catalogs are governance artifacts:
+Beyond `.claude/rules/*.instructions.md` (materialized by SETUP), the following living catalogs are governance artifacts:
 
-- **Defect Prevention Catalog** (`docs/rules/defect-prevention.md`, v2.0.0+): Runtime defect patterns invisible to static gates. Materialized by SETUP with stack-specific starter DCs. Extended via the Discovery Protocol during development, ultimately written-back through the `[EPIC-{N}] RETROSPECTIVE` gate.
+- **Defect Prevention Catalog** (`.claude/rules/defect-prevention.md`, v2.0.0+): Runtime defect patterns invisible to static gates. Materialized by SETUP with stack-specific starter DCs. Extended via the Discovery Protocol during development, ultimately written-back through the `[EPIC-{N}] RETROSPECTIVE` gate.
 
   **Universal consumption** (v2.0.0 — EVOL-014). Every entry carries an `applicable_to` field — an enum list of the SDLC agents that MUST consult it. Each consumer filters the catalog by checking whether its own name appears in that list:
 
@@ -161,7 +161,7 @@ Beyond `docs/rules/*.instructions.md` (materialized by SETUP), the following liv
   | DEVOPS `--configure` | Before generating `devops_plan.md` | Advisory | `devops_plan.md § Reliability Checks` |
   | QA `--verify` | Checklist generation | Blocking | `[QA-DC-N]` items in `qa_report_final_*.md` |
   | AUDIT `--audit` | During codebase scan | Evidence | "Defect Prevention" dimension in the audit report |
-  | BACKLOG RETROSPECTIVE | `[EPIC-{N}] RETROSPECTIVE` closes | Write | New or updated DC entries in `docs/rules/defect-prevention.md` |
+  | BACKLOG RETROSPECTIVE | `[EPIC-{N}] RETROSPECTIVE` closes | Write | New or updated DC entries in `.claude/rules/defect-prevention.md` |
 
   SETUP itself is never a consumer — it materializes the catalog and never reads it back during a feature lifecycle. The canonical consultation protocol (filter by `applicable_to` + `applicable_when`) and all per-agent outputs are documented in the catalog's own `## Mandatory Process Integration` section.
 

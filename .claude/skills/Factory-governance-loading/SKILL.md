@@ -46,7 +46,7 @@ LLM context windows are finite (128K in Copilot). When conversation history is s
 >
 > **On WARNING:** The agent MUST execute Step 1 → POST-LOAD (`generate_governance_snapshot()`) inline.
 > This does **NOT** require running `SETUP --generate`. Any agent can regenerate the snapshot directly
-> by reading `docs/constitution.md` + `docs/rules/` + `docs/setup.md` and writing `.context/governance_snapshot.md`.
+> by reading `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and writing `.context/governance_snapshot.md`.
 
 ### Step 0: Governance Snapshot Recovery (FILE-BASED — summarization-safe)
 
@@ -138,7 +138,7 @@ FUNCTION generate_governance_snapshot(governance_context):
     
     # Governance Snapshot (Auto-Generated — DO NOT EDIT MANUALLY)
     > Re-generated when constitution.md or setup.md changes. Read by agents at every command start.
-    > Source of truth: docs/constitution.md + docs/rules/ + docs/setup.md
+    > Source of truth: docs/constitution.md + .claude/rules/ + docs/setup.md
     
     ## Stack Configuration
     {EXTRACT from constitution.md: backend.runtime, backend.framework, frontend.framework,
@@ -153,10 +153,10 @@ FUNCTION generate_governance_snapshot(governance_context):
     }
     
     ## Protected Paths
-    {EXTRACT from docs/rules/protected-paths.json: red_zones[], yellow_zones[]}
+    {EXTRACT from config/protected-paths.json: red_zones[], yellow_zones[]}
     
     ## Environments
-    {EXTRACT from docs/rules/ci-cd.instructions.md: environments[]}
+    {EXTRACT from .claude/rules/ci-cd.instructions.md: environments[]}
     
     ## Constitutional Boundaries
     - Pattern: {architecture.pattern}
@@ -259,7 +259,7 @@ FUNCTION load_rule_content(rule_file):
   # Called ONLY when agent needs to check compliance against a specific rule
   # NOT called during governance loading — snapshot is sufficient for context
   
-  path = "docs/rules/{rule_file}"
+  path = ".claude/rules/{rule_file}"
   IF FILE_EXISTS(path):
     content = READ(path)
     RETURN content
@@ -283,7 +283,7 @@ FUNCTION load_rule_content(rule_file):
 ### Phase 1: Protected Path Check (BLOCKING)
 
 ```yaml
-Load: docs/rules/protected-paths.json
+Load: config/protected-paths.json
 Check: git diff main...current_branch --name-only
 
 FOR EACH modified_file:

@@ -88,4 +88,4 @@ BREAKING CHANGE: {description if applicable}
 
 ## See Also
 - `.context/constitution.md` § Branching Strategy
-- `.context/rules/ci-cd.md` for pipeline details
+- `.claude/rules/ci-cd.instructions.md` for pipeline details

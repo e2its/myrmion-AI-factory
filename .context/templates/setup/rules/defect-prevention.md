@@ -51,11 +51,11 @@ Every consumer (CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT) imple
 
 ```yaml
 FUNCTION consult_defect_catalog(current_agent, feature_context):
-  IF NOT FILE_EXISTS("docs/rules/defect-prevention.md"):
+  IF NOT FILE_EXISTS(".claude/rules/defect-prevention.md"):
     ⚠️ WARN: "Defect Prevention Catalog not found — SETUP may not have materialised it."
     RETURN []  # Non-blocking: missing catalog is a SETUP problem, not a feature problem
 
-  catalog = READ "docs/rules/defect-prevention.md" → parse DC entries
+  catalog = READ ".claude/rules/defect-prevention.md" → parse DC entries
   applicable = []
   FOR EACH dc IN catalog:
     # Filter 1: Is this agent in the DC's applicable_to list?
@@ -169,7 +169,7 @@ FOR EACH modified_file in phase:
         FAIL [GOV-DC-{N}]:
           "Known defect pattern DC-{N} ({dc.name}) detected in {file}:{line}.
            Prevention: {dc.check}.
-           Reference: docs/rules/defect-prevention.md"
+           Reference: .claude/rules/defect-prevention.md"
       ELSE:
         WARN [GOV-DC-{N}]:
           "Potential defect pattern DC-{N} ({dc.name}) in {file}:{line}. Verify."

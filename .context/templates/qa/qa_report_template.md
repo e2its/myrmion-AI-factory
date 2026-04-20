@@ -81,7 +81,7 @@ Results of the independent re-execution of unit/integration/contract test suites
 (Only when DAST is configured.) HIGH/BLOCKER findings block the verdict; LOW/INFO are recorded but do not block.
 
 ## 4. Defect Prevention Findings
-Occurrences of cataloged DC patterns found during QA review. Each finding links to the DC entry in `docs/rules/defect-prevention.md` and, if actionable, a follow-up task in the backlog.
+Occurrences of cataloged DC patterns found during QA review. Each finding links to the DC entry in `.claude/rules/defect-prevention.md` and, if actionable, a follow-up task in the backlog.
 
 ## 5. Final Verdict
 

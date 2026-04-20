@@ -139,7 +139,7 @@ IF applicable_dcs is not empty:
 LOG: "IMPLEMENT DC consult: {applicable_dcs.length} entries projected into dev_plan § DC Compliance"
 ```
 
-See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 3 for the canonical consultation protocol.
+See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 3 for the canonical consultation protocol.
 
 ### Upstream Coherence Validation (CVP — Step 0.5)
 
@@ -349,7 +349,7 @@ FOR EACH task in generated plan:
 
 ### Protected Path Conflict Detection
 ```yaml
-READ docs/rules/protected-paths.json
+READ config/protected-paths.json
 FROM design.md: EXTRACT target_file_paths[]
 
 FOR EACH path IN target_file_paths:

@@ -642,7 +642,7 @@ This prevents accidental tagging on direct pushes (which should be blocked by br
 
 ## See Also
 - `constitution.md` § Deployment & Environment Strategy
-- `docs/rules/branching.instructions.md` for commit format and SemVer rules
+- `.claude/rules/branching.instructions.md` for commit format and SemVer rules
 {{#if CI_CD_PLATFORM == "GitHub Actions"}}
 - `.github/workflows/auto-tag.yml` for the workflow implementation
 {{/if}}

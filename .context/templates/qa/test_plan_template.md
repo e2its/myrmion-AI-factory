@@ -68,7 +68,7 @@ cascade_scope: []
 > The `TC-API-XX` IDs are referenced by `/DEV --plan` and `/IMPLEMENT --build` to generate executable tests.
 
 ## 3. UX & Accessibility Testing (Required for UI Features)
-> **Objective:** Validate compliance with UX Constitution (.context/rules/ux-constitution.md).
+> **Objective:** Validate compliance with UX Constitution (.claude/rules/ux-constitution.instructions.md).
 > **Reference:** WCAG 2.1 AA + responsive + design tokens.
 
 | ID | Test Case | Tool | Expected Result |
@@ -82,7 +82,7 @@ cascade_scope: []
 
 ## 4. Brand & Layout Compliance (Required for UI Features)
 > **Objective:** Validate brand identity consistency and layout architecture.
-> **Reference:** #file:docs/rules/ux-constitution.instructions.md Section I (Brand Identity & Layout Constitution)
+> **Reference:** #file:.claude/rules/ux-constitution.instructions.md Section I (Brand Identity & Layout Constitution)
 
 | ID | Test Case | Tool | Expected Result |
 |:---|:---|:---|:---|

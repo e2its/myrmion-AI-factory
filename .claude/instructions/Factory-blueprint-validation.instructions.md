@@ -41,7 +41,7 @@ paths_match(pathA, pathB):
 ```
 
 ### 3.3 UX Constitution Validation
-- If `docs/rules/ux-constitution.instructions.md` exists:
+- If `.claude/rules/ux-constitution.instructions.md` exists:
   - Verify design.md component architecture references style_guide tokens
   - Verify mock-referenced components exist in vision component_library
   - Verify navigation integration with navigation_map.md
@@ -52,7 +52,7 @@ paths_match(pathA, pathB):
   - Verify integration protocols match system_resources entries
 
 ### 3.5 Protected Code Compliance
-- If `docs/rules/protected-paths.json` exists:
+- If `config/protected-paths.json` exists:
   - Verify design.md does NOT plan modifications to RED ZONE paths
   - If modifications needed: trigger RED ZONE Modification Protocol
 
@@ -332,7 +332,7 @@ FOR EACH dc IN applicable_dcs:
 LOG: "DC Gate passed: {blocker_dc_count} BLOCKER DCs explicitly addressed"
 ```
 
-See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical protocol.
+See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical protocol.
 
 ### Freezing
 - Set `design.md` frontmatter: `status: APPROVED`
@@ -547,9 +547,9 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 
 ## Mandatory Laws
 
-1. **Protected Blocks**: NEVER modify code between `PROTECTED-CODE START` and `PROTECTED-CODE END` or paths in `docs/rules/protected-paths.json`
+1. **Protected Blocks**: NEVER modify code between `PROTECTED-CODE START` and `PROTECTED-CODE END` or paths in `config/protected-paths.json`
 2. **Constitutional Supremacy**: The stack in `docs/constitution.md` is LAW
-3. **Regulatory Compliance**: Follow styles/guidelines in ALL loaded docs/rules/ files (BLUEPRINT loads 20+ rules — explicitly listed in agent's Governance Context Loading Step 3)
+3. **Regulatory Compliance**: Follow styles/guidelines in ALL loaded .claude/rules/ files (BLUEPRINT loads 20+ rules — explicitly listed in agent's Governance Context Loading Step 3)
 4. **Contract-First**: API contracts are generated BEFORE implementation. No implementation without contract.
 5. **Schema Authority**: user_journey.md Data Schemas are source of truth. Business fields locked — technical fields free.
 6. **Incremental Persistence (IPP)**: Follow `.claude/skills/Factory-incremental-persistence/SKILL.md` — skeleton-first write, section-atomic saves, resume-on-entry. See `blueprint-design.md` for BLUEPRINT-specific IPP implementation.

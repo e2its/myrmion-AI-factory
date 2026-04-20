@@ -175,9 +175,9 @@ Slice- and epic-level gate issues are created by `--plan-execution` alongside th
 | Gate | File deliverable | Board deliverable |
 | --- | --- | --- |
 | `[SLICE-{N.M}] INTEGRATION-TEST` | `docs/spec/SLICE-{N.M}/integration_test.md` (cross-feature test spec + results) + integration test code under `tests/integration/slice-{N.M}/` (stack-specific path) | Issue body contains scope, member features, Definition of Done checklist. Issue status = Done when all blocks pass. |
-| `[EPIC-{N}] RETROSPECTIVE` | **No new file.** The gate's deliverable is 0+ new or updated entries in `docs/rules/defect-prevention.md` (the living defect catalog, consulted by DEV pre-write check and REVIEW Check #2d). If the epic revealed no new patterns, the count is zero and the gate still closes. | Issue body is the retrospective narrative itself (what happened, what was learned, links to any DC entries added). The issue body + its closure timestamp on the tracker serve as the historical record — no separate `lessons_learned.md` file is created. |
+| `[EPIC-{N}] RETROSPECTIVE` | **No new file.** The gate's deliverable is 0+ new or updated entries in `.claude/rules/defect-prevention.md` (the living defect catalog, consulted by DEV pre-write check and REVIEW Check #2d). If the epic revealed no new patterns, the count is zero and the gate still closes. | Issue body is the retrospective narrative itself (what happened, what was learned, links to any DC entries added). The issue body + its closure timestamp on the tracker serve as the historical record — no separate `lessons_learned.md` file is created. |
 
-> **Why no `lessons_learned.md` per epic.** The framework deliberately keeps a single source of truth for "what we learned": the living catalog at `docs/rules/defect-prevention.md`. A separate per-epic markdown would duplicate narrative that nobody re-reads, while fragmenting the actionable DC entries across files. Narrative history lives on the tracker (issue body + closure date); actionable prevention lives in the rule file.
+> **Why no `lessons_learned.md` per epic.** The framework deliberately keeps a single source of truth for "what we learned": the living catalog at `.claude/rules/defect-prevention.md`. A separate per-epic markdown would duplicate narrative that nobody re-reads, while fragmenting the actionable DC entries across files. Narrative history lives on the tracker (issue body + closure date); actionable prevention lives in the rule file.
 
 #### 3.4.1 Retrospective → Defect Prevention Catalog write-back procedure (EVOL-014)
 
@@ -202,7 +202,7 @@ Closing an `[EPIC-{N}] RETROSPECTIVE` gate issue is NOT a single "move to Done" 
 
 4. **Non-catalog learnings** — observations that are NOT DC-worthy (team dynamics, scheduling issues, dependency choices) stay in the narrative section only. They do not become rule entries.
 
-**Step 2 — Write-back to `docs/rules/defect-prevention.md`.** For each `### Candidate DC` block in the issue body:
+**Step 2 — Write-back to `.claude/rules/defect-prevention.md`.** For each `### Candidate DC` block in the issue body:
 
 ```yaml
 FUNCTION retrospective_writeback(retrospective_issue, epic_id):
@@ -216,7 +216,7 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
     LOG: "Epic {epic_id} retrospective closed with zero new DC candidates — acceptable"
     RETURN
 
-  READ docs/rules/defect-prevention.md → existing_catalog
+  READ .claude/rules/defect-prevention.md → existing_catalog
   next_dc_number = max(existing_catalog.dc_numbers) + 1
 
   FOR EACH candidate IN candidates:
@@ -226,7 +226,7 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
       CONTINUE
 
     # Materialise the entry
-    APPEND to docs/rules/defect-prevention.md § The Defect Prevention Catalog (table):
+    APPEND to .claude/rules/defect-prevention.md § The Defect Prevention Catalog (table):
       | DC-{next_dc_number} | {name} | {applicable_when} | {applicable_to} | {severity} | {check} |
     APPEND to § Project Discoveries section:
       ### DC-{next_dc_number} — {name}
@@ -252,8 +252,8 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 
 1. **The gate does NOT close without running the write-back.** Moving the RETROSPECTIVE issue to Done manually (without invoking the write-back procedure) is a governance violation, because the "zero candidates" branch is still a valid and explicit decision — it must be logged, not implied.
 2. **Zero candidates is a valid outcome.** An epic that produced no novel patterns closes the gate cleanly with a narrative-only issue body and the explicit "no new DC candidates" log line.
-3. **Write-back is additive and tool-agnostic.** It only appends to `docs/rules/defect-prevention.md` and bumps `governance_versions.json`. It does NOT touch per-feature artefacts, does NOT invoke any tool-adapter operation beyond `read_issue` + `move_to_column`, and does NOT trigger cascade invalidation (cataloging a new pattern is forward-only — it does not retroactively invalidate past work).
-4. **Discovery Protocol alignment.** Write-back is the canonical execution of the Discovery Protocol documented in `docs/rules/defect-prevention.md` § 8. Agents that discover novel patterns during development (IMPLEMENT --fix, BVL failure, preventive sweep finding a pattern not in the catalog) SHOULD still add them immediately, not wait for the retrospective — but they MUST also mirror the addition into the current epic's retrospective issue body so the closing write-back is idempotent.
+3. **Write-back is additive and tool-agnostic.** It only appends to `.claude/rules/defect-prevention.md` and bumps `governance_versions.json`. It does NOT touch per-feature artefacts, does NOT invoke any tool-adapter operation beyond `read_issue` + `move_to_column`, and does NOT trigger cascade invalidation (cataloging a new pattern is forward-only — it does not retroactively invalidate past work).
+4. **Discovery Protocol alignment.** Write-back is the canonical execution of the Discovery Protocol documented in `.claude/rules/defect-prevention.md` § 8. Agents that discover novel patterns during development (IMPLEMENT --fix, BVL failure, preventive sweep finding a pattern not in the catalog) SHOULD still add them immediately, not wait for the retrospective — but they MUST also mirror the addition into the current epic's retrospective issue body so the closing write-back is idempotent.
 
 ---
 
@@ -786,7 +786,7 @@ This agent respects the Factory governance framework:
 
 - **SSOT Invariant**: Exactly one source of truth per § 0 — external tool XOR local files, never both
 - **Constitution**: `docs/constitution.md` — stack constraints
-- **Rules**: `docs/rules/*` — specific regulations per area
+- **Rules**: `.claude/rules/*` — specific regulations per area
 - **Spec structure**: `docs/spec/{FEAT-ID}/` — per-feature artifacts
 - **Feature map**: `contracts/feature_map.md` — BC↔contract mapping
 

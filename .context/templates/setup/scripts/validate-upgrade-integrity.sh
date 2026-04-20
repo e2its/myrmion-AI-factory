@@ -110,9 +110,9 @@ detect_phantom_files() {
   
   local phantom_count=0
   
-  # Find all files in docs/rules that might not be registered
-  if [ -d "docs/rules" ]; then
-    find docs/rules -type f \( -name "*.md" -o -name "*.json" \) 2>/dev/null | while read -r file; do
+  # Find all files in .claude/rules that might not be registered
+  if [ -d ".claude/rules" ]; then
+    find .claude/rules -type f \( -name "*.md" -o -name "*.json" \) 2>/dev/null | while read -r file; do
       if ! jq -e ".files | has(\"$file\")" "$PROJECT_SNAPSHOT" > /dev/null 2>/dev/null; then
         # Check if it's a backup or temporary file
         if [[ "$file" != *.bak && "$file" != *.tmp && "$file" != *DEPRECATED* ]]; then
@@ -209,7 +209,7 @@ check_dependencies() {
         
         # Make relative path absolute if needed
         if [[ "$ref_file" != /* ]]; then
-          ref_file="docs/rules/$ref_file"
+          ref_file=".claude/rules/$ref_file"
         fi
         
         if [ ! -f "$ref_file" ]; then
@@ -239,15 +239,15 @@ check_git_status() {
     return 0
   fi
   
-  local untracked=$(git status --short docs/rules/ 2>/dev/null | grep "^??" | wc -l || echo 0)
-  local modified=$(git status --short docs/rules/ 2>/dev/null | grep "^ M" | wc -l || echo 0)
+  local untracked=$(git status --short .claude/rules/ 2>/dev/null | grep "^??" | wc -l || echo 0)
+  local modified=$(git status --short .claude/rules/ 2>/dev/null | grep "^ M" | wc -l || echo 0)
   
   if [ $untracked -gt 0 ]; then
-    print_warn "Found $untracked untracked file(s) in docs/rules/"
+    print_warn "Found $untracked untracked file(s) in .claude/rules/"
   fi
   
   if [ $modified -gt 0 ]; then
-    print_info "Found $modified modified file(s) in docs/rules/"
+    print_info "Found $modified modified file(s) in .claude/rules/"
   fi
   
   if [ $untracked -eq 0 ] && [ $modified -eq 0 ]; then

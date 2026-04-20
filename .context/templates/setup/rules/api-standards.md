@@ -93,4 +93,4 @@ changelog:
 ## Further Reading
 - RESTful API Best Practices
 - GraphQL Best Practices
-- `.context/rules/contract-first-policy.md`
+- `.claude/rules/contract-first-policy.instructions.md`

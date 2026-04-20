@@ -3,7 +3,7 @@
 # validate-migrations.sh — Migration Safety Validator
 # ================================================================
 # Scans database migration files for forbidden destructive operations
-# as defined in docs/rules/database.md Migration Safety Policy.
+# as defined in .claude/rules/database.instructions.md Migration Safety Policy.
 #
 # Usage:
 #   ./scripts/validate-migrations.sh [--strict] [--path <dir>]
@@ -135,7 +135,7 @@ done
 
 if [[ $TOTAL_VIOLATIONS -gt 0 ]]; then
   fail "${TOTAL_VIOLATIONS} forbidden destructive operation(s) detected!"
-  fail "Policy: Destructive operations require ADR exception (docs/rules/database.md)"
+  fail "Policy: Destructive operations require ADR exception (.claude/rules/database.instructions.md)"
   EXIT_CODE=1
 else
   pass "No forbidden destructive operations found"
@@ -223,7 +223,7 @@ else
   echo -e "  ${RED}Migration safety violations detected (exit code: $EXIT_CODE).${NC}"
   echo ""
   echo "  Remediation:"
-  echo "  - Forbidden ops: Use safe alternatives (see docs/rules/database.md)"
+  echo "  - Forbidden ops: Use safe alternatives (see .claude/rules/database.instructions.md)"
   echo "  - Exceptions: Require ADR via /BLUEPRINT --adr {FEATURE_ID}"
   echo "  - Suspicious: Review and document justification"
 fi

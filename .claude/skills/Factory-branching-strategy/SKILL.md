@@ -55,7 +55,7 @@ release_lock(FEATURE_ID, epic_id=NULL):
 
 ### Pre-SETUP Governance Baseline
 
-Even before `SETUP --init` materializes `docs/constitution.md` and `docs/rules/`, these **minimum governance invariants** apply unconditionally:
+Even before `SETUP --init` materializes `docs/constitution.md` and `.claude/rules/`, these **minimum governance invariants** apply unconditionally:
 
 ```yaml
 PRE_SETUP_GOVERNANCE:
@@ -102,7 +102,7 @@ IF command_modifies_files:
       STOP
 
   # Step -1.1b: Derive base branch ONCE (used consistently in all sub-steps)
-  base_branch = READ_BASE_BRANCH_FROM("docs/rules/branching.instructions.md") OR "main"
+  base_branch = READ_BASE_BRANCH_FROM(".claude/rules/branching.instructions.md") OR "main"
 
   # Step -1.1c: Epic-Scoped Branch Resolution (MANDATORY — CHECK BEFORE FEATURE BRANCH)
   # If the feature belongs to an epic (from execution-plan.md), the branch scope is
@@ -285,7 +285,7 @@ IF command_modifies_files:
 
 ```yaml
 IF docs/constitution.md exists:
-  Read docs/rules/branching.instructions.md → parse strategy, naming conventions, commit format
+  Read .claude/rules/branching.instructions.md → parse strategy, naming conventions, commit format
 ELSE:
   Use DEFAULT: GitHub Flow (feature/{FEATURE_ID}-{slug} from main)
 ```
@@ -302,7 +302,7 @@ IF current_branch IN [main, master, develop, release/*, hotfix/*]:
 ### Step 2: Branch Naming Validation
 
 ```yaml
-IF docs/rules/branching.instructions.md exists:
+IF .claude/rules/branching.instructions.md exists:
   Validate against configured pattern
 ELSE:
   Default: ^(feature|bugfix|hotfix|docs)/[A-Z]+-[0-9]+-[a-z0-9-]+$
@@ -339,7 +339,7 @@ EPIC BRANCH LIFECYCLE:
 ### Governance-Driven PR Policy
 
 ```yaml
-PR_POLICY = LOAD_FROM(docs/rules/branching.instructions.md OR docs/setup.md):
+PR_POLICY = LOAD_FROM(.claude/rules/branching.instructions.md OR docs/setup.md):
   pr_validation_mode: manual | ci_automated | hybrid
   pr_approval_count: 0-4
   pr_merge_method: merge_commit | squash | rebase
@@ -364,7 +364,7 @@ IF user_input contains "git merge" on protected branch:
 ### PR Lifecycle Rules
 1. **Draft PR** at end of `IMPLEMENT --build` (capture CI feedback early)
 2. **Ready for Review** after build completes (resolve pending RDRs first)
-3. **Merge method** from `docs/rules/branching.instructions.md` (`pr_merge_method`)
+3. **Merge method** from `.claude/rules/branching.instructions.md` (`pr_merge_method`)
 4. **Validation** per `pr_validation_mode`:
    - `manual`: Human approvals only, no CI gates
    - `ci_automated`: CI checks MUST pass + human approvals

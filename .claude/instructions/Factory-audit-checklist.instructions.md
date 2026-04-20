@@ -93,7 +93,7 @@ Verdict + conditions + risk summary
 - Other AUDIT commands consume the existing branch
 
 ### Does NOT Apply Governance
-- AUDIT reads @workspace reality, NOT docs/rules/
+- AUDIT reads @workspace reality, NOT .claude/rules/
 - AUDIT never validates against constitution.md
 - AUDIT output may FEED `SETUP --init` but is never fed BY setup
 
@@ -151,11 +151,11 @@ Step 5: NEXT
 
 ### Defect Prevention Catalog Signal (v2.0.0 — EVOL-014)
 
-When auditing a codebase that ALREADY has `docs/rules/defect-prevention.md` materialised (i.e. the target project went through Factory SETUP previously), AUDIT adds a dedicated evidence signal to its findings.
+When auditing a codebase that ALREADY has `.claude/rules/defect-prevention.md` materialised (i.e. the target project went through Factory SETUP previously), AUDIT adds a dedicated evidence signal to its findings.
 
 ```yaml
 # Runs once, after all sections are scanned, as part of the final maturity synthesis.
-IF FILE_EXISTS("docs/rules/defect-prevention.md"):
+IF FILE_EXISTS(".claude/rules/defect-prevention.md"):
   applicable_dcs = consult_defect_catalog("AUDIT", {project: project_context})
   IF applicable_dcs is not empty:
     dc_signals = []
@@ -183,7 +183,7 @@ ELSE:
   NOTE: "Project has no Defect Prevention Catalog. Signal absent (project predates SETUP or never materialised the catalog)."
 ```
 
-See `docs/rules/defect-prevention.md` § Mandatory Process Integration § 7 for the canonical consultation protocol. This signal is **advisory** — a high occurrence count does not automatically fail the audit; it feeds the maturity score and informs the `Short Term` / `Long Term` recommendations in § 5.
+See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 7 for the canonical consultation protocol. This signal is **advisory** — a high occurrence count does not automatically fail the audit; it feeds the maturity score and informs the `Short Term` / `Long Term` recommendations in § 5.
 
 ---
 

@@ -35,15 +35,15 @@ Parse: template registry with checksums
 
 ### Phase 2: Phantom File Detection
 
-Detect files in `docs/rules/` that are NOT in the framework manifest:
+Detect files in `.claude/rules/` that are NOT in the framework manifest:
 
 ```yaml
-FOR EACH file IN docs/rules/:
+FOR EACH file IN .claude/rules/:
   IF file NOT IN governance_versions.json.templates:
     ⚠️ WARN: "Phantom file detected: {{file}}"
     
     ACTION: Check git history
-      git log --oneline -- docs/rules/{{file}} | head -5
+      git log --oneline -- .claude/rules/{{file}} | head -5
     
     IF file created by user (NOT in template ancestry):
       PROMPT: "Keep custom file? (Y/N)"
@@ -52,7 +52,7 @@ FOR EACH file IN docs/rules/:
     
     IF file was in old template version:
       PROMPT: "File removed in upgrade. Keep backup? (Y/N)"
-      IF Y: File → docs/rules/DEPRECATED/{{file}}
+      IF Y: File → .claude/rules/DEPRECATED/{{file}}
       IF N: Schedule deletion
 ```
 
@@ -181,8 +181,8 @@ Step 6.2: Parse ADRs for governance file references
     adr_title = READ header
     adr_content = READ full content
     
-    # Find references to docs/rules/ files
-    referenced_files = GREP(adr_content, "docs/rules/[a-z-]+\.instructions\.md")
+    # Find references to .claude/rules/ files
+    referenced_files = GREP(adr_content, "\.claude/rules/[a-z-]+\.instructions\.md")
     
     # Check if ADR documents a CUSTOMIZATION
     IF adr_content CONTAINS:
@@ -288,7 +288,7 @@ Step 4: SEARCH ADRs (TERTIARY SOURCE)
       RETURN { source: adr, value: value, confidence: "MEDIUM" }
 
 Step 5: SEARCH existing materialized rules (QUATERNARY SOURCE)
-  FOR EACH rule IN docs/rules/*.instructions.md:
+  FOR EACH rule IN .claude/rules/*.instructions.md:
     value = SEARCH_CONTENT(rule, search_keys)
     IF value != NULL:
       RETURN { source: rule, value: value, confidence: "LOW" }
@@ -618,7 +618,7 @@ Enables: /SETUP --analyze-upgrade {{TIMESTAMP}} for post-mortem
   "setup_md_checksum": "abc123...",
   "constitution_md_checksum": "def456...",
   "files": {
-    "docs/rules/architecture.instructions.md": {
+    ".claude/rules/architecture.instructions.md": {
       "template_source": "rules/architecture.md",
       "template_version": "1.2.3",
       "content_type": "stack_configured",
@@ -644,8 +644,8 @@ Enables: /SETUP --analyze-upgrade {{TIMESTAMP}} for post-mortem
     }
   },
   "dependencies": {
-    "docs/rules/architecture.instructions.md": [
-      "docs/rules/api-standards.instructions.md",
+    ".claude/rules/architecture.instructions.md": [
+      ".claude/rules/api-standards.instructions.md",
       "docs/constitution.md"
     ]
   },
@@ -674,7 +674,7 @@ Interactive Pre-Flight:
   IF NOT: "⚠️  {{N}} registered files missing. Regenerate? (Auto-fix)"
 
 ☐ No phantom files?
-  IF NOT: "⚠️  {{N}} unregistered files in docs/rules/. Ignore or remove?"
+  IF NOT: "⚠️  {{N}} unregistered files in .claude/rules/. Ignore or remove?"
 
 ☐ Templates have correct checksums?
   IF NOT: "🚨 Template drift detected. Run 'git restore' or 'reregister'?"
@@ -744,7 +744,7 @@ jq -r '.files | keys[]' "$PROJECT_SNAPSHOT" | while read -r file; do
 done
 
 # Verify no phantom files
-find docs/rules -type f | while read -r file; do
+find .claude/rules -type f | while read -r file; do
   file_key=$(echo "$file" | sed 's|docs/||')
   if ! jq -e ".files | has(\"$file_key\")" "$PROJECT_SNAPSHOT" > /dev/null; then
     echo "⚠️  Phantom file detected: $file"
@@ -753,7 +753,7 @@ done
 
 # Zero-TODO check: no unresolved markers in output files
 echo "Checking for unresolved markers..."
-find docs/rules -name '*.md' -exec grep -Hn -E '\{\{[A-Z_]+\}\}|TODO:|FIXME:|TBD|CHANGE_ME|\[PENDIENTE\]' {} \;
+find .claude/rules -name '*.md' -exec grep -Hn -E '\{\{[A-Z_]+\}\}|TODO:|FIXME:|TBD|CHANGE_ME|\[PENDIENTE\]' {} \;
 if [ $? -eq 0 ]; then
   echo "❌ Unresolved markers found in governance files"
   exit 1
@@ -789,7 +789,7 @@ upgrade_settings:
 | Term | Definition |
 |------|-----------|
 | **Dual-Write** | Template and metadata updated together atomically |
-| **Phantom File** | File in docs/rules/ not registered in governance_versions.json |
+| **Phantom File** | File in .claude/rules/ not registered in governance_versions.json |
 | **Template Drift** | Checksum mismatch in .context/templates/setup/ (external modification) |
 | **Checkpoint** | Saved state at transaction boundary |
 | **Smart Additive Merge** | Unified upgrade strategy for ALL files: structural diff → add new content → preserve existing → resolve placeholders |

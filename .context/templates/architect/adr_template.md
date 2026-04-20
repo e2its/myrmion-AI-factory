@@ -39,8 +39,8 @@ status: accepted
 ## Compliance
 > Verification of governance alignment
 
-- ✅ Complies with `.context/constitution.md`: {{JUSTIFICACION}}
-- ✅ Complies with `.context/rules/{{REGLA}}.md`: {{JUSTIFICACION}}
+- ✅ Complies with `docs/constitution.md`: {{JUSTIFICACION}}
+- ✅ Complies with `.claude/rules/{{REGLA}}.instructions.md`: {{JUSTIFICACION}}
 
 ## Traceability
 - **Origin feature:** {{FEATURE_ID}}

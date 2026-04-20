@@ -2,8 +2,8 @@
 set -euo pipefail
 DRY_RUN=${DRY_RUN:-1}
 RULES_FILE="docs/constitution.md"
-ALLOWLIST_FILE="docs/rules/allowlist.json"
-LANGUAGE_RULES_DIR="docs/rules"
+ALLOWLIST_FILE="config/allowlist.json"
+LANGUAGE_RULES_DIR=".claude/rules"
 while [ $# -gt 0 ]; do
   case "$1" in
     --apply) DRY_RUN=0 ;;
