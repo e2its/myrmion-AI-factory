@@ -343,24 +343,74 @@ LOAD design.md Section 5: Infrastructure Needs
 LOAD infrastructure_registry.json: Cross-reference existing resources
   DETERMINE new vs existing vs extend for each resource
 
-# Defect Prevention Consultation (v2.0.0 — EVOL-014)
-# Pull DCs applicable to DEVOPS — typical infra-class DCs: missing health checks, wrong probe
-# timing, env-var drift, missing SIGTERM handling, observability gaps.
-applicable_dcs = consult_defect_catalog("DEVOPS", {feature_id: FEATURE_ID, resources: resources})
-STORE applicable_dcs IN context FOR Phase 4 (observability) and devops_plan.md § Reliability Checks generation
-LOG: "DEVOPS DC consult: {applicable_dcs.length} infra-class entries applicable"
+# EVOL-019 Phase 3 — Scope-aware deployment target derivation
+# Read feature.scope from spec.feature frontmatter to drive target_runtime defaults for each resource.
+feature_scope = READ "docs/spec/{FEATURE_ID}/spec.feature" → frontmatter.scope OR "full-stack"
 
-# Frontend Resource Verification Gate (NON-BLOCKING)
-# If frontend.framework != None but no static_site resource in design.md Section 5, warn.
-frontend_framework = READ constitution.md → frontend.framework (via governance snapshot)
-IF frontend_framework != None AND frontend_framework != "None":
-  has_static_site = resources[].find(r => r.type == "static_site") != null
-  IF NOT has_static_site:
-    ⚠️ WARN: "Constitution declares frontend.framework={frontend_framework} but design.md Section 5 has no static_site resource. Frontend will NOT be deployed. Consider running BLUEPRINT --refine to auto-declare it."
+FUNCTION derive_target_runtime(resource, feature_scope, hosting_provider):
+  # Resource-type-first; scope provides the typical pattern when the resource leaves the choice open.
+  # Explicit design.md overrides ALWAYS win — this helper only fills in the default when design.md did not pin a runtime.
+  IF resource.target_runtime IS ALREADY SET (from design.md Section 5): RETURN resource.target_runtime
+
+  IF resource.type == "static_site":
+    RETURN "static-hosting+cdn"   # S3+CloudFront / Cloudflare Pages / Netlify / Vercel / GCS+CDN — derived from hosting_provider
+  IF resource.type == "function":
+    # Serverless handlers — scope narrows it but hosting dictates the runtime family
+    RETURN "serverless"            # Lambda / Cloud Functions / Azure Functions / Cloudflare Workers
+  IF resource.type == "database" OR resource.type == "cache" OR resource.type == "queue":
+    RETURN "managed-service"       # RDS / Cloud SQL / ElastiCache / SQS — not scope-dependent
+  IF resource.type == "compute":
+    # Long-running compute — scope DOES narrow the typical pattern
+    CASE feature_scope:
+      "frontend-only":        RETURN "static-hosting+cdn"   # frontend-only shouldn't own compute; WARN separately
+      "backend-only":         RETURN "container" if resource.trigger == "api-gateway" else "worker"     # API → container, queue/cron → worker
+      "integration":          RETURN "worker"               # integrations typically process queues / events / webhooks inbound
+      "full-stack":           RETURN "container"            # bundled service
+      default:                RETURN "container"
+  IF resource.type == "cron" OR resource.trigger == "schedule":
+    RETURN "scheduler"              # EventBridge rule → Lambda, Cloud Scheduler → Cloud Run Job, K8s CronJob
+  # Fallback: let the caller's hosting provider decide
+  RETURN "platform-default"
+
+FOR EACH resource IN resources:
+  resource.target_runtime = derive_target_runtime(resource, feature_scope, setup_md.hosting.provider)
+  LOG: "DEVOPS derive_target: {resource.name} ({resource.type}) → target_runtime={resource.target_runtime} (scope={feature_scope})"
+
+# Scope-wide deployment shape summary (for humanised reporting)
+deployment_shape = CASE feature_scope:
+  "frontend-only": "Static site + CDN only — no backend deploy artefacts. CI/CD pipeline produces a build artefact and uploads it to the static-hosting target."
+  "backend-only":  "Backend services / workers / cron — no browser artefact. CI/CD pipeline builds container images or serverless bundles and deploys to API gateway / worker pool / scheduler."
+  "integration":   "Worker / consumer / webhook handler — typically serverless or container-on-queue. No browser artefact. Pipeline also verifies DLQ + circuit-breaker + retry config are applied at deploy time."
+  "full-stack":    "Hybrid — frontend static site + CDN PLUS backend services. Pipeline has separate publish paths: frontend → static-hosting, backend → container/serverless."
+LOG: "DEVOPS scope shape: {deployment_shape}"
+
+# Defect Prevention Consultation (v2.0.0 — EVOL-014; scope-aware since v2.2.0 EVOL-019 Phase 2)
+# Pull DCs applicable to DEVOPS — typical infra-class DCs: missing health checks, wrong probe
+# timing, env-var drift, missing SIGTERM handling, observability gaps. EVOL-019 adds scope filter
+# so only scope-relevant DCs (e.g. graceful shutdown, DLQ for integration) are projected.
+applicable_dcs = consult_defect_catalog("DEVOPS", {feature_id: FEATURE_ID, feature_scope: feature_scope, resources: resources})
+STORE applicable_dcs IN context FOR Phase 4 (observability) and devops_plan.md § Reliability Checks generation
+LOG: "DEVOPS DC consult: {applicable_dcs.length} infra-class entries applicable (scope-filtered)"
+
+# Frontend Resource Verification Gate (NON-BLOCKING; scope-aware EVOL-019)
+# Verify only when scope includes frontend.
+IF feature_scope IN ["full-stack", "frontend-only"]:
+  frontend_framework = READ constitution.md → frontend.framework (via governance snapshot)
+  IF frontend_framework != None AND frontend_framework != "None":
+    has_static_site = resources[].find(r => r.type == "static_site") != null
+    IF NOT has_static_site:
+      ⚠️ WARN: "Constitution declares frontend.framework={frontend_framework} and feature.scope={feature_scope} but design.md Section 5 has no static_site resource. Frontend will NOT be deployed. Consider running BLUEPRINT --refine to auto-declare it."
+ELSE:
+  # scope in [backend-only, integration] — static_site resource would be a scope error
+  has_unexpected_static_site = resources[].find(r => r.type == "static_site") != null
+  IF has_unexpected_static_site:
+    ⚠️ WARN: "design.md Section 5 declares a static_site resource but feature.scope={feature_scope} excludes frontend. Remove the resource or re-check the scope assignment."
 
 GENERATE devops_plan.md with:
   governance: {read-only section from constitution + ci-cd.instructions.md}
-  resources: {from design.md Section 5}
+  resources: {from design.md Section 5 + derived target_runtime per resource}
+  feature_scope: feature_scope
+  deployment_shape: deployment_shape
   status: DRAFT
   questions: {total: N, answered: 0, next_question: "env_sizing_1"}
 ```

@@ -156,7 +156,13 @@ When auditing a codebase that ALREADY has `.claude/rules/defect-prevention.md` m
 ```yaml
 # Runs once, after all sections are scanned, as part of the final maturity synthesis.
 IF FILE_EXISTS(".claude/rules/defect-prevention.md"):
-  applicable_dcs = consult_defect_catalog("AUDIT", {project: project_context})
+  # EVOL-019 Phase 2+3 — AUDIT runs at project level (no single feature_id); fall back to project_scope
+  # from the governance snapshot so DPC Filter 2 only considers DCs compatible with the project's scope.
+  # A backend-only project won't get frontend-specific DCs flagged as audit evidence.
+  # Read from setup_configuration section (matches codebase convention; snapshot writes project_scope
+  # into both setup_configuration and stack_configuration — see Factory-setup-materialization § Checkpoint 3.1).
+  project_scope = READ(".context/governance_snapshot.md").setup_configuration.project_scope OR READ(".context/governance_snapshot.md").stack_configuration.project_scope OR "full-stack"
+  applicable_dcs = consult_defect_catalog("AUDIT", {project: project_context, feature_scope: project_scope})
   IF applicable_dcs is not empty:
     dc_signals = []
     FOR EACH dc IN applicable_dcs:

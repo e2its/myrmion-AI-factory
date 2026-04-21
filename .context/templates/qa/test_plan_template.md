@@ -4,6 +4,7 @@
 ---
 id: {{FEATURE_ID}}
 status: DRAFT   # DRAFT | NEEDS_INFO | APPROVED | BLOCKED | REJECTED | INVALIDATED
+scope: full-stack  # EVOL-019 — inherited from spec.feature.scope; full-stack | backend-only | frontend-only | integration
 date: [DATE]
 approver: PENDING
 
@@ -67,7 +68,31 @@ cascade_scope: []
 > Map happy paths from `spec.feature` scenarios + error/edge cases from Section 2 general.
 > The `TC-API-XX` IDs are referenced by `/DEV --plan` and `/IMPLEMENT --build` to generate executable tests.
 
-## 3. UX & Accessibility Testing (Required for UI Features)
+### 2.2 Reliability Testing (EVOL-019 — applicable_when scope in [backend-only, integration])
+<!-- applicable_when: scope in [backend-only, integration] -->
+> **Objective:** Validate runtime robustness under adverse conditions. For UI-less features (no browser QA), reliability testing replaces visual regression as the primary quality surface.
+> **Source of truth:** `user_journey.integration.md` § 6 Reliability Contract (idempotency keys, retry policy, circuit breaker, DLQ, timeouts, graceful shutdown, observability).
+> **Skipping rule:** When `scope in [full-stack, frontend-only]` this section is **N/A** — replace body with `N/A (scope={value})`. When `scope in [backend-only, integration]`, every subsection below is MANDATORY (BLUEPRINT --approve BLOCKS on missing rows).
+
+| ID | Type | Scenario | Given Conditions | Expected Result |
+|:---|:---|:---|:---|:---|
+| REL-IDEMP-01 | Idempotency Replay | Same idempotency_key sent twice | Request A completed; Request B identical | Second request returns cached result, no duplicate side-effects; dedupe store hit logged |
+| REL-IDEMP-02 | Idempotency Key Missing | Request without required idempotency_key | Required field per Reliability Contract | 400/422 validation error with clear message (`idempotency_key required`) |
+| REL-RETRY-01 | Exponential Backoff | Downstream returns 503 on first 3 attempts, 200 on 4th | Retry policy: exponential(base=2s, max=5, jitter=true) | Request succeeds after 4 attempts; total latency ≤ sum(2,4,8,16)s + jitter; retry_count metric = 3 |
+| REL-RETRY-02 | Retry Exhaustion | Downstream returns 503 persistently | Retry policy max=5 | Request fails after 5 attempts; emits `retry_exhausted` event; payload moves to DLQ (see REL-DLQ-01) |
+| REL-CB-01 | Circuit Breaker Trip | N consecutive failures against downstream | Circuit breaker threshold: e.g. 5 failures in 30s window | Breaker opens; subsequent requests fail fast (no downstream call); emits `circuit_opened` metric |
+| REL-CB-02 | Circuit Breaker Half-Open Probe | Breaker open; time window elapses | Half-open probe interval configured | Single probe request sent; on success breaker closes, on failure it re-opens for another window |
+| REL-DLQ-01 | Dead-Letter Handling | Message fails max_retries | DLQ destination configured | Message lands in DLQ with full context (original payload + retry history + last error); does NOT block main queue |
+| REL-DLQ-02 | DLQ Replay | Operator triggers DLQ replay | DLQ replay tooling exists | Replayed message processed successfully (or returns to DLQ if still failing); idempotency prevents double-effect |
+| REL-TIMEOUT-01 | Downstream Timeout | Downstream hangs past configured timeout | Per-hop timeout set | Our service times out (does not hang indefinitely); emits `downstream_timeout` metric; returns 504 or enqueues retry per policy |
+| REL-SHUTDOWN-01 | Graceful Shutdown | SIGTERM received mid-request | Drain window configured (e.g. 30s) | In-flight requests complete; no new requests accepted; health check goes unhealthy; process exits 0 within drain window |
+| REL-SHUTDOWN-02 | Forceful Shutdown | SIGKILL or drain timeout exceeded | Drain exceeded | In-flight work checkpointed or marked recoverable (no silent data loss) |
+| REL-OBS-01 | Trace Correlation | Request traversing 3 hops | Trace propagation configured (W3C traceparent / B3) | All 3 hops log the same `trace_id`; structured log fields match observability contract; metric `latency_p95` reported per hop |
+| REL-OBS-02 | Structured Logs on Error | Downstream returns 4xx with validation detail | Framework-layer validation visible in app logs (DC — framework-layer validation invisibility) | Log line has `error_code`, `correlation_id`, `upstream_request_id` — not a generic "request failed" |
+
+> **Chaos / fault-injection notes:** for integration features interacting with paid services, prefer contract-test doubles + recorded-interaction replays over real chaos. For internal downstreams, consider toxiproxy / chaos-mesh / Gremlin in staging. Never run chaos in prod without blast-radius controls — document the controls in § 2.2.X rows if adopted.
+
+## 3. UX & Accessibility Testing (Required for UI Features — EVOL-019: applicable_when scope in [full-stack, frontend-only])
 > **Objective:** Validate compliance with UX Constitution (.claude/rules/ux-constitution.instructions.md).
 > **Reference:** WCAG 2.1 AA + responsive + design tokens.
 
@@ -80,7 +105,7 @@ cascade_scope: []
 | A11Y-03 | Keyboard Navigation | Manual | All interactions accessible via Tab/Enter/Space |
 | A11Y-04 | Screen Reader Compatibility | Manual (NVDA/VoiceOver) | All content announced correctly with semantic landmarks |
 
-## 4. Brand & Layout Compliance (Required for UI Features)
+## 4. Brand & Layout Compliance (Required for UI Features — EVOL-019: applicable_when scope in [full-stack, frontend-only])
 > **Objective:** Validate brand identity consistency and layout architecture.
 > **Reference:** #file:.claude/rules/ux-constitution.instructions.md Section I (Brand Identity & Layout Constitution)
 

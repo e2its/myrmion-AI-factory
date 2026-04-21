@@ -111,6 +111,101 @@ resolver must treat it as hard regardless of phase ordering, slice grouping, or 
 mode. A `MISSING` dep (label references a deleted issue) surfaces as a blocker rather
 than being silently dropped — dangling labels are governance drift.
 
+### Step 1.3.4.5: `consumes_contract` cross-feature freeze filter (EVOL-019 Phase 3 — all presets)
+
+Before hard-gate enforcement, check whether the candidate is a feature phase issue whose
+`spec.feature.consumes_contract` list references an upstream FEAT-XXX whose own
+CONTRACT-FREEZE gate is not yet Done. When the candidate is from a downstream feature
+consuming a not-yet-frozen upstream contract, the resolver redirects the user to close
+the upstream's CONTRACT-FREEZE first — the same hard dependency that the BLUEPRINT
+`--start` Consumes-Contract Resolution Gate (Phase 1) and IMPLEMENT `--plan`
+Consumes-Contract Upstream Freeze Gate (Phase 2) enforce at their respective moments.
+
+This filter applies to both `--next-task` (push mode: single candidate) and `--eligible`
+(pull mode: whole pool). In pull mode, every candidate whose upstream is not frozen is
+removed from the eligible pool (or surfaced with a scope-aware warn line when
+`gate_enforcement_mode=warn`).
+
+```yaml
+IF candidate is a feature phase issue:
+  spec_path = "docs/spec/{candidate.feature_id}/spec.feature"
+  consumes  = READ_IF_EXISTS(spec_path).frontmatter.consumes_contract OR []
+  IF consumes IS EMPTY:
+    # no cross-feature contract dependency — skip this filter
+    PROCEED
+
+  unresolved_upstreams = []
+  FOR EACH upstream_id IN consumes:
+    # (a) upstream design.md must be APPROVED (or later) — otherwise the contract isn't even drafted
+    upstream_design = READ_IF_EXISTS("docs/spec/{upstream_id}/design.md")
+    IF upstream_design IS NULL OR upstream_design.frontmatter.status NOT IN ["APPROVED", "IMPLEMENTED_AND_VERIFIED"]:
+      unresolved_upstreams.append({
+        ref: upstream_id,
+        reason: "design.md missing or not APPROVED",
+        status: upstream_design.frontmatter.status OR "MISSING"
+      })
+      CONTINUE
+
+    # (b) upstream cannot be scope=frontend-only (frontend-only has no own contract to consume)
+    upstream_scope = READ_IF_EXISTS("docs/spec/{upstream_id}/spec.feature").frontmatter.scope OR "full-stack"
+    IF upstream_scope == "frontend-only":
+      unresolved_upstreams.append({
+        ref: upstream_id,
+        reason: "upstream scope=frontend-only — has no contract to consume (scope mismatch)",
+        status: "SCOPE_MISMATCH"
+      })
+      CONTINUE
+
+    # (c) for full-sdlc preset, upstream CONTRACT-FREEZE gate must be Done + not stale
+    IF project_tracking.feature_phases == "full-sdlc":
+      upstream_cf = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS upstream_id
+      IF upstream_cf IS NULL:
+        unresolved_upstreams.append({ ref: upstream_id, reason: "CONTRACT-FREEZE issue missing", status: "MISSING" })
+        CONTINUE
+      IF upstream_cf.status != "Done":
+        unresolved_upstreams.append({ ref: upstream_id, reason: "CONTRACT-FREEZE not Done", status: upstream_cf.status, issue_ref: upstream_cf.ref })
+        CONTINUE
+      IF "stale-after-cascade" IN upstream_cf.labels:
+        unresolved_upstreams.append({ ref: upstream_id, reason: "CONTRACT-FREEZE stale-after-cascade (upstream contract iterated — re-close needed)", status: "STALE", issue_ref: upstream_cf.ref })
+        CONTINUE
+
+  IF unresolved_upstreams IS NOT EMPTY:
+    # honour gate_enforcement_mode — warn-mode projects still emit the candidate
+    mode = governance_snapshot.setup_configuration.project_tracking.gate_enforcement_mode OR "enforce"
+    first = unresolved_upstreams[0]
+    IF mode == "off":
+      LOG: "consumes_contract filter SKIPPED (mode=off) — downstream {candidate.feature_id} proceeds despite upstream {first.ref} ({first.reason})"
+      PROCEED
+    IF mode == "warn":
+      ATTACH warn = {
+        gate: "consumes_contract_upstream_freeze",
+        status: first.status,
+        message: "Downstream {candidate.feature_id} consumes contract from {len(unresolved_upstreams)} upstream(s) that are NOT frozen — first unresolved: {first.ref} ({first.reason}). Proceeding under gate_enforcement_mode=warn."
+      }
+      PROCEED
+    # mode == "enforce" → block
+    RETURN blocker = {
+      next_task: first.issue_ref ? ADAPTER.read_issue(first.issue_ref).title : "Close CONTRACT-FREEZE for {first.ref}",
+      agent: "BACKLOG",
+      command: first.issue_ref ? "Complete {first.issue_ref} (CONTRACT-FREEZE for {first.ref})" : "BACKLOG --plan-feature {first.ref} then close its CONTRACT-FREEZE issue",
+      why_now: "Candidate {candidate.feature_id} declares {first.ref} in spec.feature.consumes_contract but upstream CONTRACT-FREEZE is not yet frozen ({first.reason}). Downstream cannot safely bind to a pre-freeze contract.",
+      if_blocked: "Complete CONTRACT-FREEZE for every upstream in consumes_contract. For stale-after-cascade upstreams, run BLUEPRINT --refine {first.ref} then re-close the CONTRACT-FREEZE issue."
+    }
+```
+
+**Pull-mode adaptation (`--eligible`).** In pull mode, the filter is applied per-candidate
+in the pool. Candidates with unresolved upstreams are:
+- `mode=enforce` → removed from the pool (same as blocked-by filter)
+- `mode=warn` → kept in the pool with a `Pending upstream contract (warn)` suffix and the
+  unresolved upstream list attached to the candidate's envelope
+- `mode=off` → kept silently
+
+**Ordering vs gate enforcement (Step 1.3.5).** This Step 1.3.4.5 runs BEFORE Step 1.3.5
+because consumes_contract is a pre-condition for the candidate's OWN
+CONTRACT-FREEZE — if the upstream isn't frozen, the downstream's CONTRACT-FREEZE
+gate cannot close (it would cascade stale as soon as the upstream resolves). Blocking
+early saves a round-trip.
+
 ### Step 1.3.5: Hard-gate enforcement (full-sdlc preset only)
 
 > Applies only when `project_tracking.feature_phases == "full-sdlc"`. `simplified` and `single` presets skip this step.

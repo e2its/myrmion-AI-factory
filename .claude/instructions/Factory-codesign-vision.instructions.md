@@ -97,6 +97,30 @@ All vision artifacts MUST comply with these directives. They define the differen
 - `docs/setup.md` with `phase: COMPLETED`
 - `.claude/rules/ux-constitution.instructions.md` materialized
 - `frontend.framework != "None"` in `docs/setup.md`
+- **`project_scope IN [full-stack, frontend-only]`** (EVOL-019 — `docs/setup.md` `project_scope` field, mirrored in `.context/governance_snapshot.md § Stack Configuration`)
+
+### Scope Guard (BLOCKING — EVOL-019)
+
+```yaml
+FUNCTION vision_scope_guard():
+  # Read from setup_configuration section (matches the codebase convention in
+  # blueprint-design / coherence-validation; see Factory-setup-materialization § Checkpoint 3.1
+  # generate_governance_snapshot where the snapshot writes project_scope into both
+  # setup_configuration and stack_configuration sections). Stack_configuration fallback kept
+  # for defense-in-depth.
+  project_scope = READ(".context/governance_snapshot.md").setup_configuration.project_scope OR READ(".context/governance_snapshot.md").stack_configuration.project_scope OR "full-stack"
+
+  IF project_scope IN ["backend-only", "integration"]:
+    ❌ BLOCK (humanised): "CODESIGN --vision is not applicable for project_scope=`{project_scope}`.
+      Global UX Vision defines the visual identity for first-party UI. Projects with scope `backend-only` or `integration` have no first-party UI — individual features run on per-feature scope `backend-only`/`integration` and skip mock.html.
+      Resolution:
+        • If this project genuinely needs UI, revisit `/setup --init` and widen project_scope to `full-stack` or `frontend-only`.
+        • If a single feature needs UI inside an otherwise backend-only project, that is NOT supported by the compatibility matrix (see Project Scope & Feature Scope Taxonomy in CLAUDE.md). Split the feature into a frontend-only project that consumes the backend via contract."
+    APPEND_TO_WORKLOG: {action: "--vision", result: "BLOCKED", reason: "scope_incompatible", project_scope}
+    STOP
+```
+
+The guard runs immediately after the Prerequisites check and BEFORE any input-mode detection or artifact generation.
 
 ### Input Mode Detection (MANDATORY)
 

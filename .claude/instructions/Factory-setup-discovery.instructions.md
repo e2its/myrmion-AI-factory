@@ -50,7 +50,7 @@ Instead of asking questions one-by-one, operate in **3 dependency tiers** + fina
 ```yaml
 TIER_0_FOUNDATIONAL:
   name: "Project Foundation"
-  questions: [Q1, Q2, Q3, Q4]
+  questions: [Q1, Q2, Q3, Q4, Q4.5]
   dependencies: none
   mode: --harvest --tier 0
   conditional_unlocks:
@@ -62,6 +62,8 @@ TIER_1_STACK:
   dependencies: [TIER_0]
   mode: --harvest --tier 1
   conditional_unlocks:
+    - Q4.5 in ["backend-only", "integration"] → skip [Q9, Q10, Q11, Q12, Q13, Q14]
+    - Q4.5 == "frontend-only" → skip [Q5, Q6, Q7, Q8, Q8.1]
     - Q5 == "None" → skip [Q6, Q7, Q8, Q8.1]
     - Q9 == "None" → skip [Q10, Q11, Q12, Q13, Q14]
     - Q7 in [B5..B11] → include Q8
@@ -164,6 +166,20 @@ Questions are organized in dependency order within tiers. Some questions are con
   - **Unlimited** ($5,000+): Any architecture, custom everything
 - **Persist:** `ai_budget.tier`, `ai_budget.monthly_limit`
 - **After:** Set `tier_filter` — all subsequent architecture/tooling options filtered by tier
+
+#### Q4.5: Project Scope (Dual-Axis — EVOL-019)
+- **Type:** Single-select
+- **Options:**
+  - `full-stack`: Backend services + frontend UI. Requires both Q5 (Backend Runtime) and Q9 (Frontend Framework).
+  - `backend-only`: Backend services only, no UX. Serverless / workers / APIs / cron / consumers. Skips all frontend discovery.
+  - `frontend-only`: UI only (SPA / SSG / MFE), no first-party backend. Consumes third-party APIs or BaaS. Skips all backend discovery.
+  - `integration`: Semantic alias of `backend-only` emphasising third-party adapters (webhooks, payment gateways, SaaS connectors). Same conditionals; downstream agents may render integration-specific templates.
+- **Simplified:** es: "¿Qué partes tiene el proyecto? (backend, frontend, ambos, o integraciones)" / en: "What parts does the project include? (backend, frontend, both, or integrations)"
+- **RDR Recommendation:** `full-stack` when the product delivers both a user interface and its own backend services. `backend-only` for API-only platforms, data pipelines, batch jobs, CLI tools, or infrastructure services. `frontend-only` for marketing sites, dashboards over third-party APIs, or consumer apps on BaaS. `integration` when the project is primarily a set of adapters/webhooks/connectors — downstream `/codesign`, `/blueprint`, `/qa` will render integration-specific templates.
+- **Persist:** `project_scope`
+- **After:** Drives `TIER_1_STACK` conditional unlocks — `backend-only` / `integration` skips Q9-Q14; `frontend-only` skips Q5-Q8.1. Also drives per-feature `feature.scope` compatibility (see CODESIGN `--start` § Scope Compatibility Gate).
+- **Inference from audit:** If `docs/technical_due.md` is APPROVED and declares backend-only architecture → auto-resolve `project_scope=backend-only`, skip Q4.5. Same for frontend-only audits.
+- **Tier-filtered:** ALL tiers.
 
 #### Q5: Backend Runtime
 - **Options (tier-filtered):** Node.js | Python | Java | Go | .NET | Ruby | PHP | Rust | Elixir | None

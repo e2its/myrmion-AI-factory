@@ -475,6 +475,70 @@ CASCADE_TRIGGERS:
     # Slice integration tests are smoke-dependent when multiple slice peers share a dev env
     CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
 
+  # 6. BLUEPRINT --approve on an UPDATED contract (EVOL-019 Phase 3)
+  #    When an upstream feature re-freezes its contract (contract signature / schema / semantics
+  #    changed), every downstream feature that declares the upstream in spec.feature.consumes_contract
+  #    is now binding to a superseded contract. Cascade across the dependency graph.
+  ON_BLUEPRINT_CONTRACT_CHANGE:
+    # Trigger firing conditions:
+    #   (a) BLUEPRINT --approve emits a CONTRACT_CHANGED signal when the upstream's contracts/**
+    #       content hash differs from the previous CONTRACT-FREEZE snapshot, OR
+    #   (b) operator re-opens an upstream's CONTRACT-FREEZE issue with the stale-after-cascade
+    #       label (manual contract-change attestation).
+    # upstream_feature_id is the feature whose contract just changed.
+    CASCADE_CONSUMERS(upstream_feature_id, spec.iteration, schemas_version, ["contract_change"])
+
+
+# EVOL-019 Phase 3 — Cross-feature cascade via consumes_contract
+FUNCTION CASCADE_CONSUMERS(upstream_feature_id, target_iteration, schemas_version, affected_scopes):
+  # Cross-feature cascade: when feature A's contract changes, every downstream feature B whose
+  # spec.feature.consumes_contract list contains A must be marked CASCADE_PENDING_ITERATION.
+  # This is NOT a slice-peer cascade (CASCADE_SLICE_PEERS) — it is a contract-consumer cascade
+  # that spans slices, epics, and time. A consumer declared three months ago still gets the
+  # cascade today if the frontmatter still references the upstream.
+
+  # 1. Find all downstream consumers — scan every spec.feature in docs/spec/
+  downstream_consumers = []
+  FOR EACH spec_path IN GLOB("docs/spec/*/spec.feature"):
+    downstream_id = EXTRACT_FEATURE_ID(spec_path)
+    IF downstream_id == upstream_feature_id: CONTINUE   # don't cascade to self
+    consumes = READ_FRONTMATTER(spec_path).consumes_contract OR []
+    IF upstream_feature_id IN consumes:
+      downstream_consumers.push(downstream_id)
+
+  IF downstream_consumers IS EMPTY:
+    LOG: "CASCADE_CONSUMERS: no downstream features declare {upstream_feature_id} in consumes_contract — no cascade"
+    RETURN
+
+  LOG: "CASCADE_CONSUMERS: upstream={upstream_feature_id} has {len(downstream_consumers)} downstream consumers: {downstream_consumers}"
+
+  # 2. For each downstream consumer, push the cascade through its own downstream artefacts +
+  #    re-open its CONTRACT-FREEZE gate (downstream's contract may need to re-freeze against
+  #    the new upstream shape). Affected scope "contract_change" signals that BLUEPRINT --refine
+  #    MUST re-sync design.md, test_plan.md, and the contract test harness — dev_plan.md task
+  #    hashes will likely need touching too because integration points changed.
+  FOR EACH consumer_id IN downstream_consumers:
+    # Reuse the existing per-feature cascade machinery — pending_iteration on the consumer's
+    # design.md / test_plan.md / dev_plan.md / smoke_e2e_report / qa_report triggers DELTA or
+    # FULL sync at the next command touch on that feature.
+    CASCADE_PENDING_ITERATION(consumer_id, target_iteration, schemas_version, affected_scopes)
+
+    # 3. Re-open the consumer's CONTRACT-FREEZE gate so the Consumes-Contract Upstream Freeze
+    #    Gate (Factory-implement-plan.instructions.md § EVOL-019 Phase 2) blocks IMPLEMENT --plan
+    #    on the consumer until the consumer's own contract re-freezes against the new upstream.
+    ADAPTER = READ "docs/backlog/tool-adapter.md"
+    consumer_cf_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS consumer_id
+    IF consumer_cf_issue AND consumer_cf_issue.status == "Done":
+      ADAPTER.move_to_column(consumer_cf_issue, column="Todo")
+      ADAPTER.add_label(consumer_cf_issue, "stale-after-cascade")
+      LOG: "CASCADE_CONSUMERS: re-opened CONTRACT-FREEZE for consumer {consumer_id} (stale-after-cascade applied)"
+
+    # 4. If the upstream was a slice peer, the slice integration test is also stale — but that is
+    #    already handled by CASCADE_SLICE_PEERS called from the original cascade trigger. Do not
+    #    double-trigger here.
+
+  LOG: "CASCADE_CONSUMERS complete: {len(downstream_consumers)} downstream features cascaded due to {upstream_feature_id} contract change"
+
 
 # EVOL-014 — Horizontal cascade within a slice
 FUNCTION CASCADE_SLICE_PEERS(FEATURE_ID, target_iteration, affected_scopes):

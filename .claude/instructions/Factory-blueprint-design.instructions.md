@@ -19,22 +19,23 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 ---
 
-## Required Inputs (12 Sources)
+## Required Inputs (13 Sources — EVOL-019)
 
 | Source | Status | Purpose |
 |--------|--------|---------|
-| `spec.feature` | APPROVED (mandatory) | Gherkin scenarios for design |
-| `user_journey.md` | APPROVED (mandatory) | Data Schemas (source of truth for contracts) |
-| `mock.html` | APPROVED (mandatory) | Visual reference for component architecture |
-| Global UX Vision (`docs/ux/vision/`) | APPROVED (if frontend) | App shell, style guide, components, nav map |
-| External Design System (`docs/ux/design-system/`) | If exists | DS tokens, component library |
-| `design_ux.md` (legacy) | If exists | Legacy UX decisions |
+| `spec.feature` | APPROVED (mandatory) | Gherkin scenarios for design; `scope` and `consumes_contract` frontmatter |
+| `user_journey.md` (or `user_journey.integration.md` for scope in [backend-only, integration]) | APPROVED (mandatory) | Data Schemas (source of truth for contracts); integration variant adds § 5 External Systems contract_slug backfill + § 6 Reliability Contract |
+| `mock.html` | APPROVED (mandatory for scope in [full-stack, frontend-only]; N/A for backend-only/integration) | Visual reference for component architecture |
+| Global UX Vision (`docs/ux/vision/`) | APPROVED (if scope in [full-stack, frontend-only]) | App shell, style guide, components, nav map |
+| External Design System (`docs/ux/design-system/`) | If exists AND scope in [full-stack, frontend-only] | DS tokens, component library |
+| `design_ux.md` (legacy) | If exists AND scope in [full-stack, frontend-only] | Legacy UX decisions |
 | Governance rules (20+ files from `.claude/rules/`) | All applicable | Architecture, security, testing constraints |
 | Protected code (`protected-paths.json`) | If exists | RED ZONE boundaries |
 | `system_resources.json` | If exists | External integrations reference |
-| `ux_decisions_log.md` | If exists | Cross-feature UX decisions |
+| `ux_decisions_log.md` | If exists AND scope in [full-stack, frontend-only] | Cross-feature UX decisions |
 | @workspace | Always | Existing code patterns |
 | `codebase_inventory.json` | If exists | DRY enforcement |
+| **Upstream frozen contracts** (EVOL-019) | Mandatory when `spec.feature.consumes_contract` is non-empty | For each `FEAT-XXX` in `consumes_contract`: load the frozen contract file (OpenAPI / AsyncAPI / GraphQL / gRPC) from `contracts/*/FEAT-XXX/**`; this design MUST NOT redefine or extend those contracts. Resolution step below BLOCKS if any referenced upstream is not frozen. |
 
 ---
 
@@ -86,7 +87,8 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 ```yaml
 # Consult the Defect Prevention Catalog filtered to this agent
-applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, stack: setup_md.stack})
+feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # EVOL-019 Phase 2+3 — pass to DPC Filter 2
+applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
 STORE applicable_dcs IN context FOR use by Section 7 (GCD) and Section 4 (test_plan Edge Cases)
 
 # Advisory projection: every applicable DC becomes an explicit design constraint
@@ -136,9 +138,102 @@ IF has_gap:
 
 ## Command `--start {{ID}}` — Phase 0: Pre-Flight
 
+### Consumes-Contract Resolution Gate (EVOL-019 — BLOCKING, runs FIRST in pre-flight)
+
+```yaml
+FUNCTION consumes_contract_resolution_gate(FEATURE_ID):
+  spec = READ("docs/spec/{FEATURE_ID}/spec.feature")
+  upstream_features = spec.frontmatter.consumes_contract OR []
+
+  IF upstream_features IS EMPTY:
+    LOG: "No upstream contract dependencies declared"
+    RETURN { resolved: [] }
+
+  # Gate-mode resolution — same precedence as IMPLEMENT --plan Consumes-Contract Upstream Freeze Gate
+  # and Next-Task Resolver Step 1.3.4.5: enforce (hard block) | warn (log + proceed) | off (skip).
+  # Source: governance_snapshot.setup_configuration.project_tracking.gate_enforcement_mode.
+  project_tracking = READ(".context/governance_snapshot.md").setup_configuration.project_tracking OR {}
+  mode = project_tracking.gate_enforcement_mode OR "enforce"
+
+  resolved = []
+  FOR EACH upstream_id IN upstream_features:
+    # Step 1 — upstream feature must exist and be in a post-BLUEPRINT state
+    upstream_design = READ_IF_EXISTS("docs/spec/{upstream_id}/design.md")
+    IF NOT EXISTS upstream_design:
+      ❌ BLOCK (humanised): "consumes_contract references {upstream_id} but docs/spec/{upstream_id}/design.md does not exist.
+        Resolution: either create the upstream feature first (`/codesign --start {upstream_id}` → `/blueprint --start {upstream_id} --approve`) or remove {upstream_id} from spec.feature.consumes_contract."
+      STOP
+    IF upstream_design.frontmatter.status NOT IN ["APPROVED", "IMPLEMENTED_AND_VERIFIED"]:
+      ❌ BLOCK (humanised): "consumes_contract references {upstream_id} but its design.md is in status `{upstream_design.status}`, not APPROVED.
+        Contract freeze requires upstream to be at least APPROVED. Resolution: wait for `/blueprint --approve {upstream_id}` or drop the dependency."
+      STOP
+
+    # Step 2 — upstream scope cannot be frontend-only (frontend-only has no own contract to consume)
+    #         Symmetric with IMPLEMENT --plan Consumes-Contract Upstream Freeze Gate Step 2
+    #         and Next-Task Resolver Step 1.3.4.5 check (b).
+    upstream_scope = READ_IF_EXISTS("docs/spec/{upstream_id}/spec.feature").frontmatter.scope OR "full-stack"
+    IF upstream_scope == "frontend-only":
+      ❌ BLOCK (humanised): "consumes_contract references {upstream_id} but its scope is `frontend-only` — frontend-only features have no own contract to consume.
+        Resolution: point consumes_contract at the backend feature that owns the contract (trace upstream → backend dependency), or remove this entry."
+      STOP
+
+    # Step 3 — locate frozen contract files
+    contract_files = GLOB("contracts/{openapi,graphql,grpc,asyncapi,webhooks}/**/{upstream_id}*/**/*.{yaml,yml,graphql,proto}")
+    contract_files += GLOB("contracts/{openapi,graphql,grpc,asyncapi,webhooks}/**/{CONTRACT_SLUG_OF(upstream_id)}/**/*.{yaml,yml,graphql,proto}")
+    contract_files += GLOB("docs/spec/{upstream_id}/contracts/**/*.{yaml,yml,graphql,proto}")
+    IF contract_files IS EMPTY:
+      ❌ BLOCK (humanised): "consumes_contract references {upstream_id} (status: APPROVED, scope: {upstream_scope}) but no frozen contract files found.
+        Expected at least one file under contracts/{openapi|graphql|grpc|asyncapi|webhooks}/<slug-of-{upstream_id}>/ or docs/spec/{upstream_id}/contracts/.
+        Resolution: verify the upstream BLUEPRINT produced contract artefacts."
+      STOP
+
+    # Step 4 — CONTRACT-FREEZE gate closed + not stale (full-sdlc preset only)
+    #         Symmetric with IMPLEMENT --plan Consumes-Contract Upstream Freeze Gate Step 3
+    #         and Next-Task Resolver Step 1.3.4.5 checks (c-e). Honours gate_enforcement_mode.
+    IF project_tracking.feature_phases == "full-sdlc":
+      ADAPTER = READ "docs/backlog/tool-adapter.md"
+      freeze_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS upstream_id
+
+      IF freeze_issue IS NULL:
+        IF mode == "enforce":
+          ❌ BLOCK (humanised): "Upstream {upstream_id} has no CONTRACT-FREEZE issue on the board (full-sdlc preset expects one).
+            Resolution: run `BACKLOG --plan-feature {upstream_id}` to materialise the 8-phase preset, then close its CONTRACT-FREEZE issue."
+          STOP
+        ELSE IF mode == "warn":
+          ⚠️ WARN: "Upstream {upstream_id} has no CONTRACT-FREEZE issue (mode=warn). Proceeding under soft-landing; downstream cascade risk accepted."
+        # mode == "off": silent
+      ELSE IF freeze_issue.status != "Done":
+        IF mode == "enforce":
+          ❌ BLOCK (humanised): "Upstream {upstream_id} CONTRACT-FREEZE issue is not Done (status: {freeze_issue.status}).
+            Downstream design cannot safely bind to a not-yet-frozen upstream contract.
+            Resolution: complete `BLUEPRINT --approve {upstream_id}` and move its CONTRACT-FREEZE issue to Done, then re-run `BLUEPRINT --start {FEATURE_ID}`."
+          STOP
+        ELSE IF mode == "warn":
+          ⚠️ WARN: "CONTRACT-FREEZE issue for {upstream_id} is not Done (status: {freeze_issue.status}). Proceeding under mode=warn — upstream contract may still change before freeze."
+        # mode == "off": silent
+      ELSE IF "stale-after-cascade" IN freeze_issue.labels:
+        IF mode == "enforce":
+          ❌ BLOCK (humanised): "Upstream {upstream_id} CONTRACT-FREEZE is stale (label: stale-after-cascade) — an upstream iteration invalidated the contract.
+            Resolution: run `BLUEPRINT --refine {upstream_id}` to re-sync its contracts, then re-close the CONTRACT-FREEZE issue (removing the stale label)."
+          STOP
+        ELSE IF mode == "warn":
+          ⚠️ WARN: "Upstream {upstream_id} CONTRACT-FREEZE is stale-after-cascade (mode=warn). Proceeding on superseded contract — CASCADE_PENDING_ITERATION will fire downstream."
+        # mode == "off": silent
+
+    resolved.push({ upstream_id, contract_files, upstream_scope })
+
+  # Persist resolved contracts as read-only references into design.md § 7 (Governance Constraints Digest)
+  RETURN { resolved: resolved }
+```
+
+**Three-point enforcement symmetry (EVOL-019).** This gate, the IMPLEMENT `--plan` Consumes-Contract Upstream Freeze Gate (Phase 2), and the Next-Task Resolver Step 1.3.4.5 filter (Phase 3) all check the SAME conditions (a-e) with the SAME gate-mode semantics (enforce/warn/off). A downstream feature that passes BLUEPRINT `--start` here will also pass IMPLEMENT `--plan`'s gate and will be returned as eligible by Next-Task — no redo-loop surprise caused by divergent checks between the three enforcement points.
+
+The gate runs **before** Governance Context Loading (Steps 0-5) so that resolved contracts are available as read-only inputs when ARCH starts designing. It fails LOUDLY with humanised messaging per CLAUDE.md § Governance Rule 8.
+
 ### Architecture Context Loading
 - Read `docs/constitution.md` for topology (B1-B12), patterns, stack
 - Read all applicable rules from `.claude/rules/`
+- Read `feature_scope` from `spec.feature` frontmatter (EVOL-019) — drives section applicability in design.md + test_plan.md and decides whether the UX Artifacts Enrichment 5-step protocol runs
 - Detect project type: greenfield vs brownfield, monolith vs distributed
 
 ### Review Configuration

@@ -4,9 +4,11 @@
 ---
 id: {{FEATURE_ID}}
 status: DRAFT   # DRAFT | READY | NEEDS_INFO | BUILDING | IMPLEMENTED_AND_VERIFIED | BLOCKED | REJECTED | INVALIDATED
+scope: full-stack  # EVOL-019 — inherited from spec.feature.scope
 last_update: [DATE]
-e2e_required: [true | false]
+e2e_required: [true | false]             # recommended false when scope in [backend-only, integration]
 api_test_required: [true | false]
+reliability_test_required: [true | false]  # EVOL-019 — auto-true when scope in [backend-only, integration]
 
 # Iteration model tracking (EVOL-014)
 based_on_iteration: 1
@@ -78,6 +80,34 @@ cascade_scope: []
 - [ ] [A.N] Execute API tests: `./scripts/test.sh api --apply`
 - [ ] [A.N] Verify all API tests PASS (GREEN)
 
+### Reliability Tests (EVOL-019 — applicable_when scope in [backend-only, integration], reliability_test_required: true)
+<!-- applicable_when: scope in [backend-only, integration] -->
+> **Ref:** `test_plan.md § 2.2 Reliability Testing` + `user_journey.integration.md § 6 Reliability Contract`
+> **Template:** `.context/templates/develop/api_test_template.md` (reuse the harness — reliability tests are API-level with fault injection)
+> **Skipping rule:** When scope in [full-stack, frontend-only], replace this block with `N/A (scope={value})`. When scope in [backend-only, integration], every item below is MANDATORY.
+- [ ] [A.N] Create idempotency replay test (RED): `tests/reliability/idempotency.test.ts`
+    - *Ref: test_plan.md → REL-IDEMP-01, REL-IDEMP-02*
+    - *Given: same idempotency_key sent twice; Then: second call is a cached no-op side-effect-wise*
+- [ ] [A.N] Create retry/backoff test (RED): `tests/reliability/retry.test.ts`
+    - *Ref: test_plan.md → REL-RETRY-01, REL-RETRY-02*
+    - *Given: downstream returns 503 for N attempts; Then: exponential backoff honoured; retry_exhausted emits after max*
+- [ ] [A.N] Create circuit breaker test (RED): `tests/reliability/circuit-breaker.test.ts`
+    - *Ref: test_plan.md → REL-CB-01, REL-CB-02*
+    - *Given: threshold failures within window; Then: breaker opens, fails fast; half-open probe closes on success*
+- [ ] [A.N] Create DLQ + replay test (RED): `tests/reliability/dlq.test.ts`
+    - *Ref: test_plan.md → REL-DLQ-01, REL-DLQ-02*
+    - *Given: message exceeds max_retries; Then: lands in DLQ with context; replay succeeds or loops back*
+- [ ] [A.N] Create timeout test (RED): `tests/reliability/timeout.test.ts`
+    - *Ref: test_plan.md → REL-TIMEOUT-01*
+- [ ] [A.N] Create graceful shutdown test (RED): `tests/reliability/shutdown.test.ts`
+    - *Ref: test_plan.md → REL-SHUTDOWN-01, REL-SHUTDOWN-02*
+    - *Given: SIGTERM during in-flight request; Then: drain completes, process exits 0*
+- [ ] [A.N] Create observability contract test (RED): `tests/reliability/observability.test.ts`
+    - *Ref: test_plan.md → REL-OBS-01, REL-OBS-02*
+    - *Given: request traverses N hops; Then: same trace_id propagated; structured log fields present*
+- [ ] [A.N] Execute reliability tests: `./scripts/test.sh reliability --apply`
+- [ ] [A.N] Verify all reliability tests PASS (GREEN)
+
 ### Domain Layer
 - [x] Create Entity `User`
 - [ ] Define Port `IUserRepository`
@@ -97,4 +127,11 @@ cascade_scope: []
 - [ ] Execute API integration tests: `./scripts/test.sh api --apply`
 - [ ] Verify all API tests PASS (GREEN)
 - [ ] Verify responses match contracts/ schemas (if contract-first-policy.instructions.md applies)
+
+### Reliability Validation (Final Check — EVOL-019, applicable_when scope in [backend-only, integration])
+<!-- applicable_when: scope in [backend-only, integration] -->
+- [ ] Execute reliability suite: `./scripts/test.sh reliability --apply`
+- [ ] Verify all reliability tests PASS (GREEN)
+- [ ] Verify observability contract: `trace_id` propagated end-to-end, structured log fields per test_plan § REL-OBS-01/02
+- [ ] Verify graceful shutdown on staging: `kill -TERM <pid>` mid-request drains within configured window
 ```

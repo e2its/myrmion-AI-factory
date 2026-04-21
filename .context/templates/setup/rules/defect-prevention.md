@@ -1,10 +1,12 @@
 ---
-description: "Defect Prevention Catalog (DPC) — living catalog of runtime defect patterns invisible to static gates. Consulted by every SDLC agent filtered by each entry's applicable_to field. Managed by the discover-catalog-prevent loop across all agents."
-version: 2.0.0
+description: "Defect Prevention Catalog (DPC) — living catalog of runtime defect patterns invisible to static gates. Consulted by every SDLC agent filtered by each entry's applicable_to + feature_scope fields. Managed by the discover-catalog-prevent loop across all agents."
+version: 2.2.0
 date: {{TIMESTAMP}}
 changelog:
   - "1.0.0: Initial — starter defect classes materialized from SETUP stack detection. Process integration: DEV pre-write check, REVIEW Check #2d, Discovery Protocol."
   - "2.0.0: Universal consumption — every SDLC agent consults the catalog filtered by applicable_to. Added applicable_to schema field, 8 consumer sections, expanded relationship table."
+  - "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/."
+  - "2.2.0: feat(EVOL-019): feature_scope schema field added — entries can restrict to scope IN [full-stack, backend-only, frontend-only, integration]. consult_defect_catalog() gains a feature_context.feature_scope filter. Enables the 7 starter integration DCs shipped by EVOL-019 Phase 2."
 ---
 
 # Defect Prevention Catalog (DPC)
@@ -30,8 +32,9 @@ Each entry has the following schema:
 | --- | --- |
 | **DC** | Unique sequential id (DC-1, DC-2, …) |
 | **Name** | Short descriptive title |
-| **Applicable When** | Scope condition (which stacks, topologies, or feature types this pattern applies to) |
-| **Applicable To** | **[NEW in v2.0.0]** Enum list of SDLC agents that MUST consult this entry. Values: `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`. (SETUP is never a consumer — it materializes the catalog, does not consume it.) An entry can list multiple agents. |
+| **Applicable When** | Scope condition (which stacks, topologies, or feature types this pattern applies to). Uses free-form prose for human readability; the canonical filter is `Applicable To` + `Feature Scope` + per-entry stack conditionals evaluated at materialisation time. |
+| **Applicable To** | **[v2.0.0]** Enum list of SDLC agents that MUST consult this entry. Values: `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`. (SETUP is never a consumer — it materializes the catalog, does not consume it.) An entry can list multiple agents. |
+| **Feature Scope** | **[NEW in v2.2.0 — EVOL-019]** Optional enum list from `[full-stack, backend-only, frontend-only, integration]`. When omitted OR empty → entry applies to ALL scopes (backward-compatible). When present → entry is consulted ONLY when the feature's `scope` is in the list. Enables scope-aware DCs: integration patterns (idempotency, retry, DLQ, graceful shutdown) filter to `[backend-only, integration]`; UI patterns (WCAG, hook ordering, responsive gaps) filter to `[full-stack, frontend-only]`; universal patterns (mutation semantics, CORS, pipeline short-circuit) omit the field. |
 | **Severity** | `BLOCKER` or `WARNING` when the entry is violated by a consumer |
 | **Check (per consumer)** | What each listed consumer verifies. May be a single check when one agent owns it, or a table mapping agent→check when multiple consume |
 
@@ -39,8 +42,8 @@ The authoritative detailed search methodology for the runtime sweep lives in `.c
 
 > **SETUP materialization note:** The starter DCs below were selected based on the project's stack configuration. Extend this catalog with project-specific discoveries using the Discovery Protocol (§ 8).
 
-| DC | Name | Applicable When | Applicable To | Severity | Check |
-|----|------|-----------------|---------------|----------|-------|
+| DC | Name | Applicable When | Applicable To | Feature Scope | Severity | Check |
+|----|------|-----------------|---------------|---------------|----------|-------|
 {{DC_ENTRIES}}
 
 ---
@@ -61,13 +64,21 @@ FUNCTION consult_defect_catalog(current_agent, feature_context):
     # Filter 1: Is this agent in the DC's applicable_to list?
     IF current_agent NOT IN dc.applicable_to:
       CONTINUE
-    # Filter 2: Does the feature's context match "Applicable When"?
+    # Filter 2 (EVOL-019 — v2.2.0): Feature scope match?
+    # When dc.feature_scope is omitted or empty → entry applies to ALL scopes (backward-compatible).
+    # When present → entry is consulted ONLY when feature_context.feature_scope is in the list.
+    IF dc.feature_scope IS NOT NULL AND dc.feature_scope IS NOT EMPTY:
+      IF feature_context.feature_scope NOT IN dc.feature_scope:
+        CONTINUE
+    # Filter 3: Does the feature's context match "Applicable When"? (free-form — stack conditions)
     IF evaluate_scope_condition(dc.applicable_when, feature_context) == false:
       CONTINUE
     applicable.append(dc)
 
   RETURN applicable
 ```
+
+**Caller contract (EVOL-019).** Every consumer MUST pass `feature_context.feature_scope` read from `docs/spec/{ID}/spec.feature` frontmatter — OR fall back to `project_scope` from the governance snapshot when invoked pre-feature (e.g. AUDIT at project level). Consumers that pre-date EVOL-019 (no feature_scope in feature_context) degrade gracefully: Filter 2 skips when `feature_scope` is undefined, matching the pre-EVOL-019 behaviour.
 
 **Outputs** (what the agent does with the filtered list) are agent-specific and documented in the per-agent sections below.
 

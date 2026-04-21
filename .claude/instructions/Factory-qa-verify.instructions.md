@@ -182,27 +182,51 @@ FUNCTION verify_prerequisites(FEATURE_ID):
       ❌ BLOCK: "QA report already APPROVED. No re-verification needed."
       STOP
 
-  # Gate 4: SMOKE-E2E gate (v14.0.0 — EVOL-014, full-sdlc preset only)
+  # Gate 4: SMOKE-E2E gate (v14.0.0 — EVOL-014, full-sdlc preset only; scope-aware EVOL-019 Phase 3)
   feature_phases = READ "docs/setup.md" → project_tracking.feature_phases
   IF feature_phases == "full-sdlc":
     ADAPTER = READ "docs/backlog/tool-adapter.md"
-    smoke_issue = ADAPTER.query_board() → find item WHERE labels CONTAINS "phase:smoke-e2e" AND title CONTAINS FEATURE_ID
+
+    # EVOL-019 Phase 3: scope-aware phase-label resolution.
+    # Derive every scope-dependent variable ONCE here — used across all branches below
+    # (missing issue, not-Done, Done + mismatched report, Done + missing report).
+    feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
+    has_ui = feature_scope IN ["full-stack", "frontend-only"]
+    expected_phase_label = CASE feature_scope:
+      "full-stack"    → "phase:smoke-e2e-hybrid"      # browser + API smoke combined
+      "frontend-only" → "phase:smoke-e2e-browser"     # browser-only smoke
+      "backend-only"  → "phase:smoke-e2e-integration" # caller-harness + downstream-state + observability smoke
+      "integration"   → "phase:smoke-e2e-integration" # same as backend-only
+      default         → "phase:smoke-e2e"             # legacy, pre-EVOL-019 projects (BACKLOG ships unscoped label)
+    smoke_template = CASE feature_scope:
+      "full-stack"    → ".context/templates/qa/smoke_e2e_report_template.md (browser + API hybrid)"
+      "frontend-only" → ".context/templates/qa/smoke_e2e_report_template.md (browser-centric)"
+      "backend-only"  → ".context/templates/qa/smoke_e2e_integration_template.md (caller-harness + state + observability)"
+      "integration"   → ".context/templates/qa/smoke_e2e_integration_template.md (includes SMOKE-REL-* idempotency/retry/DLQ/shutdown blocks)"
+      default         → ".context/templates/qa/smoke_e2e_report_template.md"
+    journey_source = has_ui ? "docs/spec/{FEATURE_ID}/user_journey.md" : "docs/spec/{FEATURE_ID}/user_journey.integration.md"
+
+    # Accept either the scope-aware label OR the legacy unscoped label for backward compatibility
+    smoke_issue = ADAPTER.query_board() → find item WHERE (labels CONTAINS expected_phase_label OR labels CONTAINS "phase:smoke-e2e") AND title CONTAINS FEATURE_ID
 
     IF smoke_issue IS NULL:
-      ❌ BLOCK: "SMOKE-E2E gate issue missing for {FEATURE_ID}."
+      ❌ BLOCK: "SMOKE-E2E gate issue missing for {FEATURE_ID} (expected phase label: {expected_phase_label} OR legacy phase:smoke-e2e)."
       REDIRECT: "Run BACKLOG --plan-feature {FEATURE_ID} to materialise the 8-phase preset."
       STOP
 
     IF smoke_issue.status != "Done":
-      ❌ BLOCK: "SMOKE-E2E gate not passed for {FEATURE_ID} (current: {smoke_issue.status})."
+      # Scope-aware REDIRECT messaging — per EVOL-019 Phase 3 § Template Selector.
+      # smoke_template + journey_source + has_ui are available from the hoist above.
+
+      ❌ BLOCK: "SMOKE-E2E gate not passed for {FEATURE_ID} (scope: {feature_scope}, current status: {smoke_issue.status})."
       REDIRECT: |
-        Numbered manual smoke blocks derived from docs/spec/{FEATURE_ID}/user_journey.md
-        BDD scenarios must all pass on the dev-deployed build before --verify. Steps:
+        Smoke blocks derived from {journey_source} must all pass on the dev-deployed build before --verify. Scope=`{feature_scope}` uses the {smoke_template} template. Steps:
           1. Ensure DEVOPS --deploy --env dev {FEATURE_ID} ran successfully
-          2. Execute each numbered smoke block against the dev deployment
-          3. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
-          4. Move the SMOKE-E2E issue to Done
-          5. Re-run QA --verify {FEATURE_ID}
+          2. Execute each numbered smoke block against the dev deployment (browser steps for UI scope; caller-harness + state + observability for backend-only/integration; HYBRID combines both for full-stack)
+          3. For scope=integration: additionally execute SMOKE-REL-IDEMP, SMOKE-REL-RETRY, SMOKE-REL-DLQ, SMOKE-REL-SHUTDOWN blocks (reliability contract from user_journey.integration.md § 6)
+          4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
+          5. Move the SMOKE-E2E issue to Done
+          6. Re-run QA --verify {FEATURE_ID}
       STOP
 
     # Verify the smoke report exists on disk and is still valid
@@ -213,9 +237,13 @@ FUNCTION verify_prerequisites(FEATURE_ID):
         ❌ BLOCK: "Smoke E2E report is INVALIDATED — dev build changed after the last smoke run."
         REDIRECT: "Re-deploy to dev and re-run the smoke blocks to refresh the report."
         STOP
+      # EVOL-019 Phase 3: scope-consistency check on the report
+      IF fm.scope AND fm.scope != feature_scope:
+        ❌ BLOCK: "Smoke report scope=`{fm.scope}` does not match spec.feature.scope=`{feature_scope}`. Regenerate the report using the correct template ({smoke_template})."
+        STOP
     ELSE:
       ❌ BLOCK: "SMOKE-E2E issue is Done but {smoke_report} is missing — governance drift."
-      REDIRECT: "Re-run the smoke blocks to regenerate the report."
+      REDIRECT: "Re-run the smoke blocks to regenerate the report using {smoke_template}."
       STOP
 
   ✅ Prerequisites passed — proceed with verification
@@ -278,6 +306,28 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   checklist.push("- [ ] [QA-REG-2]: Integration test suite execution")
   checklist.push("- [ ] [QA-REG-3]: Contract test suite execution")
 
+  # EVOL-019 Phase 2+3 — load feature_scope ONCE here; used by QA-REL block below AND by DPC Filter 2 in QA-DC section further down.
+  feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
+
+  # Reliability verification (EVOL-019 Phase 3 — applicable_when scope in [backend-only, integration])
+  IF feature_scope IN ["backend-only", "integration"]:
+    # Mandatory reliability checks sourced from test_plan.md § 2.2 Reliability Testing
+    # and the reliability integration DCs (idempotency, retry, circuit breaker, DLQ,
+    # graceful shutdown, structured logging, API versioning — see defect-prevention.md).
+    checklist.push("- [ ] [QA-REL-1]: Idempotency replay — repeated requests with same idempotency_key return cached response; no duplicate side-effects; dedupe store hit logged (test_plan § REL-IDEMP-01)")
+    checklist.push("- [ ] [QA-REL-2]: Retry/backoff — downstream 503 triggers exponential backoff with jitter; retry_count metric emitted; latency within sum(base × factor^N + jitter) (test_plan § REL-RETRY-01, REL-RETRY-02)")
+    checklist.push("- [ ] [QA-REL-3]: Circuit breaker — threshold failures open breaker; subsequent requests fail fast; half-open probe re-closes on downstream recovery (test_plan § REL-CB-01, REL-CB-02)")
+    checklist.push("- [ ] [QA-REL-4]: Dead-letter handling — messages exceeding max_retries land in DLQ with full context (payload + retry history + last error); DLQ replay re-processes successfully or loops back (test_plan § REL-DLQ-01, REL-DLQ-02)")
+    checklist.push("- [ ] [QA-REL-5]: Timeout handling — downstream hang past configured timeout returns 504 or enqueues retry; no indefinite hang; downstream_timeout metric emitted (test_plan § REL-TIMEOUT-01)")
+    checklist.push("- [ ] [QA-REL-6]: Graceful shutdown — SIGTERM during in-flight request drains within configured window; health endpoint goes unhealthy; process exits 0 or 143 (test_plan § REL-SHUTDOWN-01, REL-SHUTDOWN-02)")
+    checklist.push("- [ ] [QA-REL-7]: Observability contract — trace_id propagated across all hops; structured log fields present (trace_id, correlation_id, feature_id, error_code); metrics latency_p95 within SLA (test_plan § REL-OBS-01, REL-OBS-02)")
+    # Integration scope adds contract versioning verification
+    IF feature_scope == "integration":
+      checklist.push("- [ ] [QA-REL-8]: Contract versioning strategy — no breaking changes without major version bump; deprecation window honoured; @deprecated or sunset dates documented (test_plan § REL-API-VER equivalent + defect-prevention DC for API versioning)")
+    LOG: "QA reliability checklist: {feature_scope == 'integration' ? 8 : 7} QA-REL items added"
+  ELSE:
+    LOG: "QA reliability checklist: N/A (scope={feature_scope}) — no QA-REL items"
+
   # Static analysis tools (defense in depth — v2.2.0)
   # QA independently re-executes lint/typecheck/SAST even though IMPLEMENT SEC hat
   # already ran them. This catches regressions introduced between IMPLEMENT and QA,
@@ -301,7 +351,10 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   # Defect Prevention Catalog items (v2.0.0 — EVOL-014)
   # One [QA-DC-N] checklist item per DC entry applicable to QA for this feature/stack.
   # Each QA-DC item must be marked [x] before auto-approval can complete.
-  applicable_dcs = consult_defect_catalog("QA", {feature_id: FEATURE_ID, stack: setup_md.stack})
+  # EVOL-019 Phase 2+3 — pass feature_scope to DPC Filter 2 so the QA-DC checklist only contains
+  # scope-relevant items (backend/integration reliability DCs won't materialise for frontend-only features).
+  # feature_scope already loaded above (before QA-REL block).
+  applicable_dcs = consult_defect_catalog("QA", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
   FOR EACH dc IN applicable_dcs:
     checklist.push("- [ ] [QA-DC-{dc.number}]: {dc.name} — {dc.check}")
     checklist[-1].metadata = {
