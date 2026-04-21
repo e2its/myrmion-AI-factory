@@ -10,6 +10,11 @@
 #   - Gitignored (.claude/state/ is ignored entirely)
 #   - Session-scoped so parallel Claude sessions on the same repo don't
 #     collide on each other's post-compact replays.
+#
+# JSON field extraction uses a jq → python3 → awk cascade so session-scoping
+# stays reliable even in minimal environments that lack python3. When all
+# three parsers fail, the script emits a warning to stderr and falls back to
+# an unscoped marker (best-effort Tier-3) rather than failing the hook.
 # ============================================================================
 set -euo pipefail
 
@@ -27,16 +32,54 @@ if [ ! -t 0 ]; then
   PAYLOAD=$(cat || true)
 fi
 
-SESSION_ID=""
-if command -v python3 >/dev/null 2>&1; then
-  SESSION_ID=$(printf '%s' "$PAYLOAD" | python3 -c '
+json_field() {
+  local field="$1"
+  local result=""
+  [ -n "$PAYLOAD" ] || { echo ""; return 0; }
+
+  if command -v jq >/dev/null 2>&1; then
+    result=$(printf '%s' "$PAYLOAD" | jq -r ".${field} // empty" 2>/dev/null || true)
+    if [ -n "$result" ]; then
+      printf '%s' "$result"
+      return 0
+    fi
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    result=$(printf '%s' "$PAYLOAD" | python3 -c '
 import json, sys
 try:
     data = json.load(sys.stdin)
-    print(data.get("session_id", ""), end="")
+    value = data.get(sys.argv[1], "")
+    if value is None:
+        value = ""
+    print(value, end="")
 except Exception:
     pass
-' 2>/dev/null || true)
+' "$field" 2>/dev/null || true)
+    if [ -n "$result" ]; then
+      printf '%s' "$result"
+      return 0
+    fi
+  fi
+
+  printf '%s' "$PAYLOAD" | tr '\n' ' ' | awk -v f="$field" '
+    {
+      pat = "\"" f "\"[[:space:]]*:[[:space:]]*\"[^\"]*\""
+      if (match($0, pat)) {
+        v = substr($0, RSTART, RLENGTH)
+        sub("\"" f "\"[[:space:]]*:[[:space:]]*\"", "", v)
+        sub("\"$", "", v)
+        print v
+      }
+    }
+  '
+}
+
+SESSION_ID=$(json_field session_id)
+
+if [ -n "$PAYLOAD" ] && [ -z "$SESSION_ID" ] && ! command -v jq >/dev/null 2>&1 && ! command -v python3 >/dev/null 2>&1; then
+  echo "governance-oncompact: neither jq nor python3 available and awk fallback could not extract session_id; falling back to unscoped marker (Tier-3 session isolation degraded). Install jq or python3." >&2
 fi
 
 SESSION_ID_SAFE=$(printf '%s' "$SESSION_ID" | tr -cd 'A-Za-z0-9_-')

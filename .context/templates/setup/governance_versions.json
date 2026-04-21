@@ -491,18 +491,20 @@
       ]
     },
     "scripts/governance-onprompt.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/governance-onprompt.sh",
       "changelog": [
+        "1.1.0: fix(EVOL-017) Copilot PR #7 round 2: jq \u2192 python3 \u2192 awk parser cascade replaces python3-only dependency. Session-scoped marker and /setup livelock carve-out now work in minimal environments without python3. Fall-through on empty result so stubbed/broken parsers transparently yield to the next option.",
         "1.0.0: feat(EVOL-017): initial template \u2014 UserPromptSubmit hook. Post-compact re-inject of governance snapshot via session-scoped marker; freshness gate delegation; /setup* livelock carve-out."
       ]
     },
     "scripts/governance-oncompact.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/governance-oncompact.sh",
       "changelog": [
+        "1.1.0: fix(EVOL-017) Copilot PR #7 round 2: jq \u2192 python3 \u2192 awk parser cascade replaces python3-only dependency. Session-scoped marker and /setup livelock carve-out now work in minimal environments without python3. Fall-through on empty result so stubbed/broken parsers transparently yield to the next option.",
         "1.0.0: feat(EVOL-017): initial template \u2014 PreCompact hook. Writes .claude/state/governance-reload-{session_id}.marker so the next UserPromptSubmit re-injects the snapshot as additional context."
       ]
     },
@@ -617,6 +619,38 @@
       "upgrade_strategy": "merge-preserve",
       "changelog": [
         "1.0.0: feat(EVOL-017/EVOL-018): initial template \u2014 Claude Code hooks canonical block (SessionStart banner, UserPromptSubmit freshness gate, PreCompact marker, PreToolUse branch/lock/governance-drift/completion-gate). Merge-preserve upgrade: adds missing hook entries without overwriting user-added permissions or other blocks."
+      ]
+    },
+    "claude/hooks/check-branch-protection.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-branch-protection.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse hook blocks Edit/Write on protected branches (main/master/develop/release/hotfix). Previously lived only in framework_core at .claude/hooks/; fresh SETUP --generate left .claude/settings.json pointing at a non-existent path."
+      ]
+    },
+    "claude/hooks/check-completion-gate.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-completion-gate.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Write hook blocks terminal status in dev_plan.md or qa_report*.md when unchecked items remain."
+      ]
+    },
+    "claude/hooks/check-concurrency-lock.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-concurrency-lock.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Edit/Write hook acquires per-branch lock, prevents parallel sessions on same branch."
+      ]
+    },
+    "claude/hooks/check-governance-drift.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-governance-drift.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Edit/Write hook warns (non-blocking) when constitution.md/setup.md hashes diverge from governance snapshot. Pairs with UserPromptSubmit freshness gate (blocking)."
       ]
     },
     "claude/CLAUDE.md": {
@@ -1153,9 +1187,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "2.9.0: fix(EVOL-017) Copilot PR #7 round 2: Claude Code Materialization block extended with step 3 \u2014 .context/templates/setup/claude/hooks/*.sh \u2192 .claude/hooks/*.sh. Closes the gap where fresh SETUP --generate produced a settings.json pointing at hook scripts that never existed in the materialized target. Includes post-materialization invariant check (every hook referenced from settings.json must exist).",
         "2.8.0: feat(EVOL-018): \u00a7 Claude Code Materialization block added in \u00a7 4.2.6 \u2014 CLAUDE.md and .claude/settings.json are now owned by SETUP (smart-additive-merge and merge-preserve strategies respectively). Closes the gap where downstream projects received framework scripts but no hooks, and where they inherited the framework-repo CLAUDE.md (meta-maintenance variant) instead of the project-focused variant.",
         "2.6.0: feat(EVOL-015): \u00a7 4.2.3 Phase B.1 gains 5 universal meta-pattern DCs (pipeline short-circuit, identity-argument no-op, framework-layer validation errors invisible to app logs, mutation APIs with replace semantics, composite network symptoms) added unconditionally to every project regardless of stack \u2014 each scoped by applicable_when filter; stack-specific DCs remain conditional. \u00a7 Checkpoint 3.1 governance snapshot extended with project_tracking.gate_enforcement_mode (Q27.5) + project_tracking.appetite_sizing_enabled (Q27.6). \u00a7 Step 6.2.1 Appetite Field Materialisation + \u00a7 Step 6.2.2 Gate Enforcement Mode Materialisation write the corresponding sections into docs/backlog/tool-adapter.md when Q27.6/Q27.2 match.",
         "2.5.0: feat(EVOL-014): \u00a7 4.2.4 Step 0 Dynamic Path Derivation rewritten from 2-line stub to full derivation protocol (instructions-only, no hardcoded lookup table) \u2014 persists setup_md.paths section as SSOT for all {{*_BASE_PATH}} placeholders + \u00a7 4.2.7 Budget Calculation rewritten as Cost Placeholder Resolution pass \u2014 reads setup_md.costs from CEP, applies canonical substitution map for 20+ {{*_COST}}/{{BUDGET_*}} placeholders, dangling check blocks materialization on any surviving literal. Closes pre-existing cost pipeline gap and base-path derivation gap.",
