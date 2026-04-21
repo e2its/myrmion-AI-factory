@@ -329,7 +329,8 @@ The Part 1-4 checks below are gated by these flags. Checks whose applicability m
 **Part 4: Defect Prevention Catalog Gate (BLOCKING — v2.0.0 EVOL-014)**
 
 ```yaml
-applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, stack: setup_md.stack})
+feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # EVOL-019 Phase 2+3 — pass to DPC Filter 2 so --approve evaluates only scope-relevant BLOCKER DCs
+applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
 
 FOR EACH dc IN applicable_dcs:
   IF dc.severity == "BLOCKER":

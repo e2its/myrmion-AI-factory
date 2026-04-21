@@ -205,7 +205,8 @@ IF dev_plan.md EXISTS:
 ```yaml
 # Consult the Defect Prevention Catalog filtered to this agent, project applicable DCs
 # as mandatory tasks in dev_plan.md § DC Compliance.
-applicable_dcs = consult_defect_catalog("IMPLEMENT", {feature_id: FEATURE_ID, stack: setup_md.stack})
+feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # EVOL-019 Phase 2+3 — pass to DPC Filter 2 so dev_plan § DC Compliance only contains scope-relevant tasks
+applicable_dcs = consult_defect_catalog("IMPLEMENT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
 
 IF applicable_dcs is not empty:
   ADD SECTION to dev_plan.md § DC Compliance (created if absent):

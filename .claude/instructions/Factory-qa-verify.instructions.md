@@ -303,8 +303,10 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   checklist.push("- [ ] [QA-REG-2]: Integration test suite execution")
   checklist.push("- [ ] [QA-REG-3]: Contract test suite execution")
 
-  # Reliability verification (EVOL-019 Phase 3 — applicable_when scope in [backend-only, integration])
+  # EVOL-019 Phase 2+3 — load feature_scope ONCE here; used by QA-REL block below AND by DPC Filter 2 in QA-DC section further down.
   feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
+
+  # Reliability verification (EVOL-019 Phase 3 — applicable_when scope in [backend-only, integration])
   IF feature_scope IN ["backend-only", "integration"]:
     # Mandatory reliability checks sourced from test_plan.md § 2.2 Reliability Testing
     # and the reliability integration DCs (idempotency, retry, circuit breaker, DLQ,
@@ -346,7 +348,10 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   # Defect Prevention Catalog items (v2.0.0 — EVOL-014)
   # One [QA-DC-N] checklist item per DC entry applicable to QA for this feature/stack.
   # Each QA-DC item must be marked [x] before auto-approval can complete.
-  applicable_dcs = consult_defect_catalog("QA", {feature_id: FEATURE_ID, stack: setup_md.stack})
+  # EVOL-019 Phase 2+3 — pass feature_scope to DPC Filter 2 so the QA-DC checklist only contains
+  # scope-relevant items (backend/integration reliability DCs won't materialise for frontend-only features).
+  # feature_scope already loaded above (before QA-REL block).
+  applicable_dcs = consult_defect_catalog("QA", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
   FOR EACH dc IN applicable_dcs:
     checklist.push("- [ ] [QA-DC-{dc.number}]: {dc.name} — {dc.check}")
     checklist[-1].metadata = {
