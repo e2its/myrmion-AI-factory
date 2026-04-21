@@ -83,6 +83,7 @@ FUNCTION generate_governance_snapshot():
     > Source of truth: docs/constitution.md + .claude/rules/
     
     ## Stack Configuration
+    project_scope: {stack_config.project_scope}      # EVOL-019 — full-stack | backend-only | frontend-only | integration
     backend:
       runtime: {stack_config.backend.runtime}
       framework: {stack_config.backend.framework}
@@ -120,6 +121,7 @@ FUNCTION generate_governance_snapshot():
     {FOR EACH env IN environments: - {env.name}: {env.url_pattern}}
     
     ## Constitutional Boundaries
+    - Project scope: {stack_config.project_scope}      # EVOL-019 — drives feature.scope compatibility + conditional materialisation
     - Architecture pattern: {stack_config.architecture.pattern}
     - Topology: {stack_config.architecture.topology}
     - Communication: {stack_config.architecture.comm_style}
@@ -133,6 +135,7 @@ FUNCTION generate_governance_snapshot():
     > Source: docs/setup.md — operational flags read by downstream agents.
     > Included in snapshot so they survive context summarization.
     project_mode: {setup_config.project_mode}
+    project_scope: {setup_config.project_scope}   # EVOL-019 — mirrors Stack Configuration for scope-aware agents
     ai_budget:
       tier: {setup_config.ai_budget.tier}
     project_tracking:
@@ -616,14 +619,16 @@ contracts/
 ```
 
 **Step 2 — Backend Fragments (CONDITIONAL — by topology B1-B12):**
-IF `backend.runtime != "None"` (Q5):
+IF `project_scope in [full-stack, backend-only, integration]` (Q4.5) AND `backend.runtime != "None"` (Q5):
   Add topology-specific directories matching the reference structures from discovery (see setup-discovery.md for B1-B12 directory maps).
-ELSE: SKIP — project has no backend.
+ELSE: SKIP — project_scope excludes backend or runtime is None.
 
 **Step 3 — Frontend Fragments (CONDITIONAL — by pattern F1-F10):**
-IF `frontend.framework != "None"` (Q9):
+IF `project_scope in [full-stack, frontend-only]` (Q4.5) AND `frontend.framework != "None"` (Q9):
   Add pattern-specific directories. For micro-frontends (F5-F7): create per-app subdirectories.
-ELSE: SKIP — project has no frontend.
+ELSE: SKIP — project_scope excludes frontend or framework is None.
+
+> **Scope-keyed conditional materialisation (EVOL-019).** `project_scope` is the primary guard; the stack answers (Q5/Q9) are the secondary consistency check. Discovery enforces the compatibility (e.g. `project_scope=backend-only` cannot coexist with `frontend.framework != "None"`), so in practice both checks agree — the double-guard exists to make the intent explicit at materialisation time and to fail loudly if a hand-edited `docs/setup.md` diverges.
 
 **Step 4 — Integration Layer (ACL):**
 Add `src/shared/` or equivalent anti-corruption layer directories based on topology.
@@ -941,11 +946,13 @@ validation_sections: [code sections to check]
 validation_script: [script path if script-based]
 ```
 
-**Special Integration — UX Constitution:**
-If `frontend.framework != "None"`, populate `.claude/rules/ux-constitution.instructions.md` with:
+**Special Integration — UX Constitution (scope-aware — EVOL-019):**
+If `project_scope in [full-stack, frontend-only]` AND `frontend.framework != "None"`, populate `.claude/rules/ux-constitution.instructions.md` with:
 - Brand Identity from Visual DNA (Q13)
 - Layout preferences (border radius, shadows, animations)
 - Pixel-level mapping of Visual DNA to CSS variables
+
+When `project_scope in [backend-only, integration]`, SKIP ux-constitution materialisation entirely — no `ux-constitution.instructions.md`, no Visual DNA processing, no design-system merge. Downstream CODESIGN `--vision` is blocked by `Factory-codesign-vision.instructions.md § Prerequisites` (scope guard).
 
 **Special Integration — External Design System:**
 If `frontend.external_design_system.exists == true`:

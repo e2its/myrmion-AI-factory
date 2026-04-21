@@ -19,22 +19,23 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 ---
 
-## Required Inputs (12 Sources)
+## Required Inputs (13 Sources — EVOL-019)
 
 | Source | Status | Purpose |
 |--------|--------|---------|
-| `spec.feature` | APPROVED (mandatory) | Gherkin scenarios for design |
-| `user_journey.md` | APPROVED (mandatory) | Data Schemas (source of truth for contracts) |
-| `mock.html` | APPROVED (mandatory) | Visual reference for component architecture |
-| Global UX Vision (`docs/ux/vision/`) | APPROVED (if frontend) | App shell, style guide, components, nav map |
-| External Design System (`docs/ux/design-system/`) | If exists | DS tokens, component library |
-| `design_ux.md` (legacy) | If exists | Legacy UX decisions |
+| `spec.feature` | APPROVED (mandatory) | Gherkin scenarios for design; `scope` and `consumes_contract` frontmatter |
+| `user_journey.md` (or `user_journey.integration.md` for scope in [backend-only, integration]) | APPROVED (mandatory) | Data Schemas (source of truth for contracts); integration variant adds § 5 External Systems contract_slug backfill + § 6 Reliability Contract |
+| `mock.html` | APPROVED (mandatory for scope in [full-stack, frontend-only]; N/A for backend-only/integration) | Visual reference for component architecture |
+| Global UX Vision (`docs/ux/vision/`) | APPROVED (if scope in [full-stack, frontend-only]) | App shell, style guide, components, nav map |
+| External Design System (`docs/ux/design-system/`) | If exists AND scope in [full-stack, frontend-only] | DS tokens, component library |
+| `design_ux.md` (legacy) | If exists AND scope in [full-stack, frontend-only] | Legacy UX decisions |
 | Governance rules (20+ files from `.claude/rules/`) | All applicable | Architecture, security, testing constraints |
 | Protected code (`protected-paths.json`) | If exists | RED ZONE boundaries |
 | `system_resources.json` | If exists | External integrations reference |
-| `ux_decisions_log.md` | If exists | Cross-feature UX decisions |
+| `ux_decisions_log.md` | If exists AND scope in [full-stack, frontend-only] | Cross-feature UX decisions |
 | @workspace | Always | Existing code patterns |
 | `codebase_inventory.json` | If exists | DRY enforcement |
+| **Upstream frozen contracts** (EVOL-019) | Mandatory when `spec.feature.consumes_contract` is non-empty | For each `FEAT-XXX` in `consumes_contract`: load the frozen contract file (OpenAPI / AsyncAPI / GraphQL / gRPC) from `contracts/*/FEAT-XXX/**`; this design MUST NOT redefine or extend those contracts. Resolution step below BLOCKS if any referenced upstream is not frozen. |
 
 ---
 
@@ -136,9 +137,57 @@ IF has_gap:
 
 ## Command `--start {{ID}}` — Phase 0: Pre-Flight
 
+### Consumes-Contract Resolution Gate (EVOL-019 — BLOCKING, runs FIRST in pre-flight)
+
+```yaml
+FUNCTION consumes_contract_resolution_gate(FEATURE_ID):
+  spec = READ("docs/spec/{FEATURE_ID}/spec.feature")
+  upstream_features = spec.frontmatter.consumes_contract OR []
+
+  IF upstream_features IS EMPTY:
+    LOG: "No upstream contract dependencies declared"
+    RETURN { resolved: [] }
+
+  resolved = []
+  FOR EACH upstream_id IN upstream_features:
+    # Step 1 — upstream feature must exist and be in a post-BLUEPRINT state
+    upstream_design = READ_IF_EXISTS("docs/spec/{upstream_id}/design.md")
+    IF NOT EXISTS upstream_design:
+      ❌ BLOCK (humanised): "consumes_contract references {upstream_id} but docs/spec/{upstream_id}/design.md does not exist.
+        Resolution: either create the upstream feature first (`/codesign --start {upstream_id}` → `/blueprint --start {upstream_id} --approve`) or remove {upstream_id} from spec.feature.consumes_contract."
+      STOP
+    IF upstream_design.frontmatter.status NOT IN ["APPROVED", "IMPLEMENTED_AND_VERIFIED"]:
+      ❌ BLOCK (humanised): "consumes_contract references {upstream_id} but its design.md is in status `{upstream_design.status}`, not APPROVED.
+        Contract freeze requires upstream to be at least APPROVED. Resolution: wait for `/blueprint --approve {upstream_id}` or drop the dependency."
+      STOP
+
+    # Step 2 — locate frozen contract files
+    contract_files = GLOB("contracts/{openapi,graphql,grpc,asyncapi,webhooks}/**/{upstream_id}*/**/*.{yaml,yml,graphql,proto}")
+    contract_files += GLOB("contracts/{openapi,graphql,grpc,asyncapi,webhooks}/**/{CONTRACT_SLUG_OF(upstream_id)}/**/*.{yaml,yml,graphql,proto}")
+    IF contract_files IS EMPTY:
+      ❌ BLOCK (humanised): "consumes_contract references {upstream_id} (status: APPROVED) but no frozen contract files found under contracts/**.
+        Expected at least one file under contracts/{openapi|graphql|grpc|asyncapi|webhooks}/<slug-of-{upstream_id}>/.
+        Resolution: verify the upstream BLUEPRINT produced contract artefacts. If the upstream is UI-only (scope=frontend-only) it cannot be a consumes_contract target — it has no contract to consume."
+      STOP
+
+    # Step 3 — contract freeze check (CONTRACT-FREEZE gate must have closed for this upstream)
+    freeze_issue = BACKLOG_QUERY(label: "phase:contract-freeze", refers_to: upstream_id, state: "Done")
+    IF freeze_issue IS NULL AND project_tracking.feature_phases == "full-sdlc":
+      ⚠️ WARN (non-blocking for soft-landing projects with gate_enforcement_mode=warn; BLOCK otherwise):
+        "CONTRACT-FREEZE issue for {upstream_id} is not Done. Upstream contract is APPROVED but not frozen. Consuming design risks downstream cascade if freeze adds constraints."
+
+    resolved.push({ upstream_id, contract_files })
+
+  # Persist resolved contracts as read-only references into design.md § 7 (Governance Constraints Digest)
+  RETURN { resolved: resolved }
+```
+
+The gate runs **before** Governance Context Loading (Steps 0-5) so that resolved contracts are available as read-only inputs when ARCH starts designing. It fails LOUDLY with humanised messaging per CLAUDE.md § Governance Rule 8.
+
 ### Architecture Context Loading
 - Read `docs/constitution.md` for topology (B1-B12), patterns, stack
 - Read all applicable rules from `.claude/rules/`
+- Read `feature_scope` from `spec.feature` frontmatter (EVOL-019) — drives section applicability in design.md + test_plan.md and decides whether the UX Artifacts Enrichment 5-step protocol runs
 - Detect project type: greenfield vs brownfield, monolith vs distributed
 
 ### Review Configuration

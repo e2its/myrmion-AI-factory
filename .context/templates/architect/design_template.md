@@ -6,11 +6,13 @@ You must use this exact structure for the design file, ensuring section 0 contai
 ---
 id: {{FEATURE_ID}}
 status: DRAFT   # DRAFT | NEEDS_INFO | APPROVED | BLOCKED | REJECTED | INVALIDATED
+scope: full-stack  # EVOL-019 dual-axis — inherited from spec.feature.scope; full-stack | backend-only | frontend-only | integration
 date: [DATE]
 approver: PENDING
 based_on_iteration: 1
 based_on_schemas_version: 1
 based_on_journey: false
+consumes_contract: []  # EVOL-019 — inherited from spec.feature; upstream FEAT-XXX whose frozen contracts this design depends on
 
 # Iteration model — push-based cascade fields (EVOL-014)
 # Set by the upstream agent via CASCADE_PENDING_ITERATION when this artifact is stale.
@@ -24,6 +26,12 @@ cascade_source: null
 cascade_timestamp: null
 cascade_scope: []
 ---
+
+<!-- Scope-aware section applicability (EVOL-019):
+     Sections tagged `applicable_when: scope in [...]` render only for matching scopes.
+     When a section is N/A for the feature's scope, replace its body with: "N/A (scope={value})".
+     Sections WITHOUT an `applicable_when` annotation apply to ALL scopes. -->
+
 
 # Technical Design: {{FEATURE_ID}}
 
@@ -62,7 +70,8 @@ cascade_scope: []
 > **Journey Schema Ref:** For features co-created with `/CODESIGN`, reference the Data Schemas from `user_journey.md` Section 3 that each file consumes or produces. Technical fields (id, timestamps, audit) are free for ARCH. Business fields must match the journey (RDR if they differ). For legacy features without `user_journey.md`, leave "—".
 
 ## 3.1 Cross-Layer Type Mapping (CODESIGN features)
-> **MANDATORY** for features with `user_journey.md`. Declares the concrete representation of each field per layer to avoid mismatches in integration (e.g., `string(32)` in frontend vs `UUID` with hyphens in backend). For legacy features without `user_journey.md`, omit this section.
+<!-- applicable_when: scope in [full-stack] -->
+> **MANDATORY** for `full-stack` features with `user_journey.md` (the Frontend column is required). **N/A** for `frontend-only` (no backend/DB columns), `backend-only` and `integration` (no Frontend column — replace this section with § 3.2 Wire-Format Mapping below). For legacy features without `user_journey.md`, omit this section.
 
 ### {{SchemaName}} (ej. LoginCredentials)
 | Journey Field | Semantic Type | Frontend | Backend | DB | API (wire) |
@@ -83,6 +92,31 @@ cascade_scope: []
 > - If a layer does not apply (e.g., no DB for frontend-only schema), write "N/A"
 > - If types are incompatible between layers (e.g., `number` JS vs `BIGINT` DB overflow), document WARNING in Section 0
 > - REVIEW agent validates that the implementation matches these declared types
+
+## 3.2 Wire-Format Mapping (backend-only / integration features)
+<!-- applicable_when: scope in [backend-only, integration] -->
+> **MANDATORY** for `backend-only` and `integration` features. Declares the wire-format (JSON / Protobuf / Avro / XML), header requirements, and on-disk representation for each business field in the integration contract. There is no Frontend column because no first-party UI consumes these schemas.
+
+### {{SchemaName}} (ej. ProcessPaymentCommand)
+| Journey Field | Semantic Type | Wire Format (JSON/Proto/Avro) | Backend | DB | Header / Metadata Requirement |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| idempotency_key | string (UUID) | `string` (JSON) / `string` (proto3) | `str` / `UUID` | `UUID` (PK on dedupe table) | also sent as HTTP header `Idempotency-Key` |
+| amount | number (decimal(18,2)) | `string` (JSON, to avoid float rounding) / `sint64` minor-units (proto3) | `Decimal` / `Money` | `NUMERIC(18,2)` | — |
+| currency | string (ISO 4217) | `string` (JSON) | `str` | `CHAR(3)` | — |
+
+### {{SchemaName}} (ej. PaymentProcessedEvent)
+| Journey Field | Semantic Type | Wire Format | Backend | DB / Store | Header / Metadata Requirement |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| idempotency_key | string (UUID) | `string` | `str` | referenced FK on dedupe table | propagated as `correlation_id` in trace |
+| transaction_id | string (gateway-assigned) | `string` | `str` | `VARCHAR(64)` indexed | — |
+| status | enum[SETTLED, DECLINED, PENDING] | `string` (JSON) / `enum` (proto3) | `PaymentStatus` (enum type) | `VARCHAR(16)` | — |
+
+> **Rules (integration variant):**
+> - Each business field from the integration journey MUST appear in the table.
+> - Wire Format column documents the literal over-the-wire representation (and any divergence from native DB/language type).
+> - Header / Metadata column flags fields that ALSO travel outside the payload (HTTP headers, message attributes, gRPC metadata, trace context).
+> - Any lossy conversion (e.g. `decimal` → `float64`) MUST be documented as WARNING in Section 0 and have an ADR.
+> - REVIEW agent validates that client/server serialisation honours this table exactly.
 
 ## 4. Decision History (ADR)
 > Immutable record of architecture changes (Evolutionary).

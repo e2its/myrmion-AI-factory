@@ -5,10 +5,12 @@
 ---
 status: DRAFT  # or NEEDS_INFO
 feature_id: {{FEATURE_ID}}
+scope: full-stack  # EVOL-019 dual-axis — full-stack | backend-only | frontend-only | integration; must be compatible with project_scope from governance snapshot
+consumes_contract: []  # EVOL-019 — list of upstream FEAT-XXX whose frozen contract this feature depends on; resolved at BLUEPRINT --start
 last_update: [DATE]
 co_creation_round: 0
 po_sign_off: false
-ux_sign_off: false
+ux_sign_off: false  # N/A when scope in [backend-only, integration]
 schemas_version: 1
 iteration: 1
 iteration_history: []

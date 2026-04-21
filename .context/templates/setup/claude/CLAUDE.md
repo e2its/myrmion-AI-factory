@@ -96,6 +96,30 @@ Gates ONLY ship when the feature uses the `full-sdlc` preset (Q27.2). Prototypes
 7. **SETUP scaffolding**: NEVER generate source code or test files during `SETUP --generate`. Only directories + config.
 8. **Humanized Blocking**: NEVER show raw tool errors, stack traces or CLI failure dumps when blocking a user action. Explain the block in plain business language (what is blocked, why, which artefact or gate is responsible) and offer a resolution path (exact next command or file to touch). Raw errors belong in worklog / debug context only.
 
+## Project Scope & Feature Scope Taxonomy (EVOL-019 — dual-axis)
+
+Two orthogonal scope axes govern what artefacts apply to what work:
+
+| Axis | Lives in | Set at | Drives |
+|------|----------|--------|--------|
+| **Project scope** | `docs/setup.md` (`project_scope` field) + governance snapshot | `/setup --init` (once per project) | Materialisation conditionals, discovery questions, template tree availability, CODESIGN `--vision` guard |
+| **Feature scope** | `spec.feature` frontmatter (`scope` field) per feature | `/codesign --start --scope=...` (per feature; defaults to project scope) | Per-feature agent behaviour, auto-approval N/A paths, DC filtering, template selection (mock.html vs user_journey.integration.md) |
+
+Enum: `full-stack | backend-only | frontend-only | integration`. `integration` is the semantic alias of `backend-only` emphasising third-party adapters (webhooks, payment gateways, SaaS connectors).
+
+**Compatibility matrix** (enforced by `Factory-codesign-feature.instructions.md § Scope Compatibility Gate`):
+
+| project_scope \ feature.scope | full-stack | backend-only | frontend-only | integration |
+|---|---|---|---|---|
+| `full-stack`    | ✅ | ✅ | ✅ | ✅ |
+| `backend-only`  | ❌ | ✅ | ❌ | ✅ |
+| `frontend-only` | ❌ | ❌ | ✅ | ❌ |
+| `integration`   | ❌ | ✅ | ❌ | ✅ |
+
+**Cross-feature contracts.** `spec.feature.consumes_contract: [FEAT-XXX, ...]` declares upstream frozen-contract dependencies. BLUEPRINT `--start` runs a Consumes-Contract Resolution Gate that BLOCKS when any referenced upstream is not at least APPROVED with a contract file under `contracts/**`. Iteration Model adds the upstream→downstream cascade on upstream contract change (CASCADE_PENDING_ITERATION propagates to every feature that consumes the contract).
+
+**Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is replaced by `user_journey.integration.md` (reliability contract + caller-side actors + idempotency keys). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks 6 of 12 CHECKs as N/A.
+
 ## Generation Standards
 
 1. **Template lookup (on-demand, NOT session-start load)** — Before creating any new artefact in a templated family (design doc, dev plan, test plan, ADR, QA report, peer review, security audit, user journey, blockers report, etc.), read the canonical template first and copy its frontmatter + section structure. Never invent schemas or copy from sibling documents (siblings inherit drift). Template locations by command persona:
@@ -149,7 +173,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 2. **INVARIANT 2 — Governance context**: Load `.context/governance_snapshot.md` every command. If `constitution_hash` + `setup_hash` match → governance is loaded (1 file read). Stale or missing → reload from `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and regenerate the snapshot. Rule content is loaded on-demand, only when checking specific compliance.
 3. **INVARIANT 3 — Current date**: Derive from the system clock. NEVER reuse a date seen earlier in the conversation.
 4. **INVARIANT 4 — Current version**: Read from `docs/project_log/governance_versions.json` before any bump. NEVER guess.
-5. **INVARIANT 5 — Feature state**: Read the `status` field from the artifact file's frontmatter. NEVER assume a feature is APPROVED / BUILDING / IMPLEMENTED_AND_VERIFIED from what was said earlier in the chat — re-read the frontmatter of `spec.feature`, `design.md`, `test_plan.md`, `dev_plan.md`, or the latest `qa_report_final_*.md` depending on which phase is in question. Summarization-safe by construction: if the frontmatter says DRAFT, the feature is DRAFT regardless of how confident the conversation feels about it.
+5. **INVARIANT 5 — Feature state + scope**: Read the `status` field from the artifact file's frontmatter. NEVER assume a feature is APPROVED / BUILDING / IMPLEMENTED_AND_VERIFIED from what was said earlier in the chat — re-read the frontmatter of `spec.feature`, `design.md`, `test_plan.md`, `dev_plan.md`, or the latest `qa_report_final_*.md` depending on which phase is in question. Summarization-safe by construction: if the frontmatter says DRAFT, the feature is DRAFT regardless of how confident the conversation feels about it. **Scope (EVOL-019):** also re-read the `scope` field from `spec.feature` frontmatter (`full-stack | backend-only | frontend-only | integration`) and cross-check against `project_scope` in the governance snapshot. If `scope` is incompatible with `project_scope` (compatibility matrix in § Project Scope & Feature Scope Taxonomy), BLOCK the command and surface the conflict. `scope` is immutable after APPROVED — changing it requires a fresh `CODESIGN --start` on a new FEAT-ID.
 
 ## Core Protocols
 

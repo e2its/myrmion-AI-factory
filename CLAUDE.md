@@ -59,6 +59,18 @@ Canonical classifier: [Factory-protocol-iop-intent-map.instructions.md](.claude/
 7. **Framework-shipped templates**: NEVER embed project data, secrets, or machine-specific paths inside files under `.context/templates/**`. Templates may contain `{{PLACEHOLDER}}` tokens resolved at materialisation time.
 8. **Humanized Blocking**: NEVER show raw tool errors, stack traces or CLI failure dumps when blocking a user action. Explain the block in plain business language and offer a resolution path.
 
+## Project Scope & Feature Scope Taxonomy (EVOL-019 — framework authorship view)
+
+The framework **ships** the dual-axis scope model; it does not consume it. Downstream materialised projects use the full taxonomy (see `.context/templates/setup/claude/CLAUDE.md § Project Scope & Feature Scope Taxonomy` for the authoritative table + compatibility matrix + artefact-impact description).
+
+When editing framework files that touch the scope model, keep these invariants intact:
+
+- **Enum.** `full-stack | backend-only | frontend-only | integration` — four literal values, hyphenated, lowercase. `integration` is the semantic alias of `backend-only`; downstream template selectors MAY branch on the alias, agents MUST treat them as equivalent for compatibility checks.
+- **Axis separation.** `project_scope` lives in `docs/setup.md` + governance snapshot (per-project, set at `/setup --init`). `feature.scope` lives in `spec.feature` frontmatter (per-feature, set at `/codesign --start`). Never conflate them in agent code — the compatibility matrix exists specifically to cross-check them.
+- **Compatibility matrix.** `full-stack` projects accept every feature.scope. `backend-only` and `integration` projects accept only `backend-only` and `integration` features. `frontend-only` projects accept only `frontend-only` features. The matrix is enforced by `Factory-codesign-feature.instructions.md § Scope Compatibility Gate` — changes here MUST update that gate in lock-step.
+- **Cross-feature contracts.** `spec.feature.consumes_contract: [FEAT-XXX]` is the cross-feature dependency primitive. Consuming design BLOCKS at `BLUEPRINT --start` when the upstream is not APPROVED or has no contract file. When editing Iteration Model (Phase 3 work), the cascade on upstream contract change keys off this field.
+- **Artefact impact (materialised-project concerns, surfaced here only for traceability).** `mock.html` + UX Vision are N/A for backend-only/integration. `user_journey.integration.md` replaces `user_journey.md` for those scopes. `design.md § 3.1` (Cross-Layer Type Mapping) is UI-specific; `§ 3.2` (Wire-Format Mapping) is its integration-flavour counterpart. Tripartite Alignment degrades to 2 checks when mock.html is N/A. Auto-approval marks 6 of 12 CHECKs as N/A for non-UI scopes.
+
 ## Generation Standards
 
 1. **Template lookup (on-demand)** — Framework edits rarely create artefacts from templates; when they do (e.g. drafting a new rule template, adding a Factory-* instruction, adding a new SKILL), read an existing sibling of the same family to match frontmatter + section structure, THEN adapt. Never invent schemas.
@@ -94,7 +106,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 2. **INVARIANT 2 — Governance context**: Load `.context/governance_snapshot.md` every command. If `constitution_hash` + `setup_hash` match → governance is loaded (1 file read). Stale or missing → reload from `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and regenerate the snapshot.
 3. **INVARIANT 3 — Current date**: Derive from the system clock. NEVER reuse a date seen earlier in the conversation.
 4. **INVARIANT 4 — Current version**: Read the framework version from `.context/templates/setup/governance_versions.json` (`framework_version` field) before any bump. NEVER guess.
-5. **INVARIANT 5 — Feature state**: In the framework repo, "feature" means an `EVOL-*` branch — state lives in the PR (open / merged) and git history, not in a spec artifact file.
+5. **INVARIANT 5 — Feature state + scope (framework repo)**: In the framework repo, "feature" means an `EVOL-*` branch — state lives in the PR (open / merged) and git history, not in a spec artifact file. The `scope` axis from EVOL-019 does NOT apply here (the framework repo has no `project_scope` — it ships the taxonomy, it does not use it). When editing `.context/templates/**` that reference the scope taxonomy (setup_master_template.md, spec.feature frontmatter, design.md, user_journey.*), preserve the enum `full-stack | backend-only | frontend-only | integration` exactly — downstream projects rely on the literal values.
 
 ## Core Protocols
 

@@ -1,13 +1,15 @@
 ---
-version: 2.0.0
-date: 2026-01-26
+version: 2.1.0
+date: 2026-04-21
 changelog:
+  - "2.1.0: feat(EVOL-019): project_scope field added (dual-axis scope model) — full-stack | backend-only | frontend-only | integration"
   - "2.0.0: Tripartite architecture support"
   - "1.0.0: Initial template"
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
 retry_count: 0
 mode: GREENFIELD | BROWNFIELD
+project_scope: full-stack | backend-only | frontend-only | integration
 language: EN | ES
 last_update: [TIMESTAMP]
 ---
@@ -29,6 +31,15 @@ last_update: [TIMESTAMP]
 - **AI Budget Tier:** [Starter: <$500/month | Professional: $500-$2K/month | Enterprise: $2K-$10K/month | Unlimited: >$10K/month]
 - **Monthly Budget Limit:** [$X USD/month]
 - **Budget Tracking:** Enabled (cross-feature accumulation, 80% warning threshold, monthly reset with history archive)
+
+### 0.1 Project Scope (EVOL-019 — dual-axis scope model)
+- **Project Scope:** [full-stack | backend-only | frontend-only | integration]
+- **Compatibility with feature.scope:**
+  - `full-stack` → any feature.scope (full-stack | backend-only | frontend-only | integration)
+  - `backend-only` → feature.scope in [backend-only, integration] only
+  - `frontend-only` → feature.scope in [frontend-only] only
+  - `integration` → feature.scope in [backend-only, integration] only
+- **Materialization impact:** When `project_scope in [backend-only, integration]`, SETUP skips frontend directory scaffolding, UX rules (`ux-constitution`, `frontend_architecture_compatibility`), vision artifacts, and frontend-specific CI jobs. When `frontend-only`, SETUP skips backend directory scaffolding, backend rules, and backend-specific CI jobs. See `Factory-setup-materialization.instructions.md § 4.2.6 Scope-Keyed Conditional Materialization`.
 
 ### A. Backend Architecture
 - **Macro Topology (Backend):** 
