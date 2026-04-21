@@ -682,6 +682,116 @@ The governance snapshot covers the "what is loaded" question, but it is a passiv
 
 See [scripts/validate-governance.sh](scripts/validate-governance.sh), [scripts/governance-onprompt.sh](scripts/governance-onprompt.sh), [scripts/governance-oncompact.sh](scripts/governance-oncompact.sh), and [.claude/settings.json](.claude/settings.json).
 
+### Scope model — project scope + feature scope (EVOL-019)
+
+The framework governs two orthogonal scope axes:
+
+| Axis | Lives in | Set at | Drives |
+|------|----------|--------|--------|
+| **Project scope** | `docs/setup.md` `project_scope` field + governance snapshot | `/setup --init` (once per project) | Materialisation conditionals (frontend vs backend scaffolding, UX Constitution), discovery-question unlocks, CODESIGN `--vision` availability |
+| **Feature scope** | `spec.feature` frontmatter `scope` field | `/codesign --start --scope=…` (per feature; defaults to project_scope) | Per-feature agent behaviour (Scope Compatibility Gate, Template Selector, Tripartite Alignment), auto-approval N/A paths, DC filtering, REVIEW check filtering, QA smoke template variant, DEVOPS target derivation, Preventive Sweep DC filter, backlog `scope:*` label + smoke-e2e-* phase variant |
+
+**Enum:** `full-stack | backend-only | frontend-only | integration`. `integration` is the semantic alias of `backend-only` emphasising third-party adapters (webhooks, payment gateways, SaaS connectors, cron jobs, queue consumers).
+
+**Compatibility matrix** (enforced at CODESIGN `--start` by the Scope Compatibility Gate):
+
+| project_scope \ feature.scope | full-stack | backend-only | frontend-only | integration |
+|---|---|---|---|---|
+| `full-stack`    | ✅ | ✅ | ✅ | ✅ |
+| `backend-only`  | ❌ | ✅ | ❌ | ✅ |
+| `frontend-only` | ❌ | ❌ | ✅ | ❌ |
+| `integration`   | ❌ | ✅ | ❌ | ✅ |
+
+**Cross-feature contracts:** `spec.feature.consumes_contract: [FEAT-XXX]` declares upstream-frozen-contract dependencies. Enforced at three points — BLUEPRINT `--start` Consumes-Contract Resolution Gate, IMPLEMENT `--plan` Consumes-Contract Upstream Freeze Gate, and the Next-Task Resolver cross-feature filter. Iteration Model cascade (`ON_BLUEPRINT_CONTRACT_CHANGE` → `CASCADE_CONSUMERS`) re-opens every downstream consumer's CONTRACT-FREEZE when an upstream contract iterates.
+
+#### Example — backend-only integration feature inside a full-stack project
+
+```
+# Setup (one-time, sets project_scope)
+/setup --init
+   # Q4.5: project_scope = full-stack  (project also has a UI for other features)
+
+# Create a backend-only integration feature (e.g. Stripe webhook handler)
+/codesign --start FEAT-039 --scope=backend-only
+   # Scope Compatibility Gate: full-stack project accepts backend-only feature ✅
+   # Template Selector:
+   #   spec.feature             → gherkin_master_template.feature
+   #   user_journey.integration → user_journey.integration.md (caller-side flows, reliability contract)
+   #   mock.html                → N/A (skipped; no UI)
+   # Auto-approval: 12-check gate degrades to ~6 applicable checks (UX checks N/A)
+
+/blueprint --start FEAT-039
+   # Reads feature.scope=backend-only from spec.feature frontmatter
+   # Produces: design.md (contract-first, § 3.2 Wire-Format Mapping replaces § 3.1 Cross-Layer Type Mapping)
+   #           test_plan.md (includes § 2.2 Reliability Testing: REL-IDEMP, REL-RETRY, REL-CB, REL-DLQ, REL-SHUTDOWN, REL-OBS)
+   #           OpenAPI 3.1 webhook contract in contracts/webhooks/inbound/stripe/v1.yaml
+
+/blueprint --approve FEAT-039
+   # Part 1 ARCH elevates contract-completeness (backend-only has no UI surface to fall back on)
+   # Part 2 QA: visual-consistency tests N/A; reliability tests BLOCKER if missing
+
+# CONTRACT-FREEZE issue Done → IMPLEMENT gate unlocks
+
+/backlog --plan-feature FEAT-039
+   # Materialises 8 phase issues; suffix 8 gets phase:smoke-e2e-integration label (scope=backend-only → integration variant)
+   # All 8 issues also get scope:backend-only label
+
+/devops --configure FEAT-039
+   # Scope-aware target derivation: function → serverless (Lambda); compute → worker
+   # Reliability DCs consulted: idempotency, retry, DLQ, graceful shutdown all projected into devops_plan.md § Reliability Checks
+
+/implement --plan FEAT-039
+   # CONTRACT-FREEZE gate + Consumes-Contract Upstream Freeze Gate pass
+   # dev_plan.md includes § Reliability Tests (7 RED-phase tasks)
+   # REVIEW dispatcher filters UX checks to N/A; contract/DRY/security/reliability all active
+
+/implement --build FEAT-039
+   # REVIEW Check #7 [UX-*] reports "N/A — skipped under scope=backend-only" in peer_review § 3.7
+
+# PREVENTIVE-SWEEP sub-agents filter DCs by scope → only backend + cross-cutting + infra scopes swept
+
+/qa --verify FEAT-039
+   # SMOKE-E2E gate: scope-aware smoke template selected (smoke_e2e_integration_template.md)
+   # SMOKE-REL-* blocks MANDATORY (for scope=integration); test_plan § 2.2 rows verified
+   # Verification checklist includes QA-REL-1..7 reliability items
+```
+
+#### Example — frontend-only feature consuming the backend-only feature's frozen contract
+
+```
+/codesign --start FEAT-042 --scope=frontend-only --consumes-contract=FEAT-039
+   # Scope Compatibility Gate: full-stack project accepts frontend-only feature ✅
+   # Declares upstream dependency on FEAT-039 (the backend integration)
+
+/blueprint --start FEAT-042
+   # Consumes-Contract Resolution Gate: verifies FEAT-039 design.md APPROVED + contracts/** non-empty ✅
+   # Loads FEAT-039 frozen contract, surfaces read-only into design.md § 7 GCD
+   # Produces UI components against the real endpoint shape — no invented fields
+
+# If FEAT-039 contract changes later (upstream re-approval):
+#   Iteration Model ON_BLUEPRINT_CONTRACT_CHANGE → CASCADE_CONSUMERS finds FEAT-042 in consumes_contract
+#   → FEAT-042 design.md / test_plan.md / dev_plan.md marked CASCADE_PENDING_ITERATION
+#   → FEAT-042 CONTRACT-FREEZE issue re-opened with stale-after-cascade label
+#   → BLUEPRINT --refine FEAT-042 required before IMPLEMENT can continue
+```
+
+#### Example — backend-only PROJECT (no UI anywhere)
+
+```
+/setup --init
+   # Q9: frontend.framework = None → Q4.5 inference: project_scope auto-resolves to backend-only
+   # SETUP skips: ux-constitution materialization, frontend rules, frontend directory scaffolding, frontend discovery Q10-Q14
+
+/codesign --start FEAT-001
+   # Scope Compatibility Gate: project_scope=backend-only rejects --scope=full-stack / --scope=frontend-only
+   # Default feature.scope = backend-only (inherited from project)
+   # --scope=integration also accepted (semantic alias)
+
+# CODESIGN --vision is BLOCKED by the Scope Guard (backend-only projects have no UI surface)
+
+# ... rest of lifecycle identical to the backend-only feature flow above (every feature gets phase:smoke-e2e-integration)
+```
+
 ### SDLC-first triage (MANDATORY)
 
 Complements governance always-on with a **behavioural** rule: every user request — slash command or free-form chat — must first be classified against the SDLC command catalogue. If the request maps to a command, the agent announces the routing in one line and executes the command instead of the raw action; if it does not map, the agent articulates in one line why it does not map before acting directly. Silence is a governance-scope violation.

@@ -3,8 +3,8 @@
   "manifest_version": "2.0.0",
   "framework_version": "2.0.0",
   "last_updated": "2026-04-21",
-  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release \u2014 full platform migration from GitHub Copilot multi-agent architecture.",
-  "upgrade_strategy": "Smart Additive Merge \u2014 ALL files use the same unified strategy: format-aware structural diff \u2192 add new content only \u2192 resolve placeholders in additions \u2192 preserve all existing content. No separate Cat A/B/C upgrade paths.",
+  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release — full platform migration from GitHub Copilot multi-agent architecture.",
+  "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
     "stack_configured": "Contains {{PLACEHOLDER}} tokens. New sections/fields are added, placeholders resolved via Smart Discovery + RDR.",
@@ -230,10 +230,10 @@
       "content_type": "stack_configured",
       "target": ".claude/rules/contract-first-policy.instructions.md",
       "changelog": [
-        "3.2.0: feat: webhook communication support \u2014 contracts/webhooks/ directory (inbound/outbound), format selection matrix, OpenAPI 3.1 webhook examples, webhook vs AsyncAPI guidance",
-        "3.1.0: Conditional contract directory creation \u2014 only create directories matching project stack (comm_style + topology). Additional types enabled via ADR.",
-        "3.0.0: HTTP API everywhere \u2014 All architectures (including monoliths B1-B4) use OpenAPI contracts. No TypeScript internal contracts. AsyncAPI for event-based (B3, B6, B7, B11). gRPC support. Full 12-topology coverage.",
-        "2.1.0: Serverless bridge \u2014 x-serverless-* OpenAPI extensions, Contract\u2192IaC derivation rules, Spectral validation for B9, CRUD template with operationId + handler comments.",
+        "3.2.0: feat: webhook communication support — contracts/webhooks/ directory (inbound/outbound), format selection matrix, OpenAPI 3.1 webhook examples, webhook vs AsyncAPI guidance",
+        "3.1.0: Conditional contract directory creation — only create directories matching project stack (comm_style + topology). Additional types enabled via ADR.",
+        "3.0.0: HTTP API everywhere — All architectures (including monoliths B1-B4) use OpenAPI contracts. No TypeScript internal contracts. AsyncAPI for event-based (B3, B6, B7, B11). gRPC support. Full 12-topology coverage.",
+        "2.1.0: Serverless bridge — x-serverless-* OpenAPI extensions, Contract→IaC derivation rules, Spectral validation for B9, CRUD template with operationId + handler comments.",
         "2.0.0: CONTRACT_SLUG convention ({domain}-{capability}) replaces Feature ID in directory names. Cross-feature endpoint collision detection. feature_map.md gains Contract Slug column. CRUD template ownership moved from SETUP to BLUEPRINT.",
         "1.0.0: Initial template",
         "3.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
@@ -272,8 +272,8 @@
       "content_type": "project_data",
       "target": "docs/constitution.md",
       "changelog": [
-        "2.0.2: docs(EVOL-014): placeholder notation convention block added to header \u2014 clarifies SCREAMING_SNAKE (top-level materialization placeholders) vs lowercase Handlebars iteration variables (inside {{#each COLLECTION}}...{{field}}...{{/each}} loops). Prevents false-positive case-drift audits.",
-        "2.0.1: Governance cache strategy updated \u2014 file-based snapshot (.context/governance_snapshot.md) replaces in-memory session cache. Summarization-safe (#112)",
+        "2.0.2: docs(EVOL-014): placeholder notation convention block added to header — clarifies SCREAMING_SNAKE (top-level materialization placeholders) vs lowercase Handlebars iteration variables (inside {{#each COLLECTION}}...{{field}}...{{/each}} loops). Prevents false-positive case-drift audits.",
+        "2.0.1: Governance cache strategy updated — file-based snapshot (.context/governance_snapshot.md) replaces in-memory session cache. Summarization-safe (#112)",
         "2.0.0: Added Project Mode & Brownfield Extension Strategy section (E0/E1/E2/E3) with per-strategy rules",
         "1.0.0: Initial template",
         "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
@@ -284,7 +284,7 @@
       "content_type": "project_data",
       "target": "config/codebase_inventory.json",
       "changelog": [
-        "1.0.0: CIP v1.0.0 \u2014 Persistent codebase inventory registry for cross-agent DRY enforcement. Greenfield: empty scaffold. Brownfield: bootstrapped via workspace scan. Consumed by CODESIGN, BLUEPRINT, IMPLEMENT."
+        "1.0.0: CIP v1.0.0 — Persistent codebase inventory registry for cross-agent DRY enforcement. Greenfield: empty scaffold. Brownfield: bootstrapped via workspace scan. Consumed by CODESIGN, BLUEPRINT, IMPLEMENT."
       ]
     },
     "backlog/project-config.json": {
@@ -293,7 +293,7 @@
       "target": "docs/backlog/project-config.json",
       "stack_conditional": "project_tracking.tool != \"None\"",
       "changelog": [
-        "1.0.0: feat: GitHub Project config template \u2014 node IDs, field IDs, option IDs populated by BACKLOG --init-board (#124)"
+        "1.0.0: feat: GitHub Project config template — node IDs, field IDs, option IDs populated by BACKLOG --init-board (#124)"
       ]
     },
     "backlog/state.md": {
@@ -302,9 +302,9 @@
       "target": "docs/backlog/state.md",
       "stack_conditional": "project_tracking.tool == \"None\"",
       "changelog": [
-        "1.1.0: feat(EVOL-014): 8-column schema (Local ID, Feature, Title, Status, Labels, Milestone, Parent, Body File) with inline column-semantics block \u2014 Labels is first-class, enables add_label cascade invalidation in file mode; Parent enables native add_sub_issue for gate nesting",
-        "1.0.1: fix: SSOT v1.0.0 \u2014 state.md only scaffolded in local mode (tool == None); updated schema with local ID tracking and Board table format",
-        "1.0.0: feat: Backlog state tracking template \u2014 feature issue registry, next action (#124)"
+        "1.1.0: feat(EVOL-014): 8-column schema (Local ID, Feature, Title, Status, Labels, Milestone, Parent, Body File) with inline column-semantics block — Labels is first-class, enables add_label cascade invalidation in file mode; Parent enables native add_sub_issue for gate nesting",
+        "1.0.1: fix: SSOT v1.0.0 — state.md only scaffolded in local mode (tool == None); updated schema with local ID tracking and Board table format",
+        "1.0.0: feat: Backlog state tracking template — feature issue registry, next action (#124)"
       ]
     },
     "scripts/check-integrations.sh": {
@@ -330,7 +330,7 @@
       "target": "scripts/validate-iac.sh",
       "stack_conditional": "iac_tool != None",
       "changelog": [
-        "1.0.0: Initial template \u2014 IaC governance validator",
+        "1.0.0: Initial template — IaC governance validator",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -340,7 +340,7 @@
       "target": "scripts/validate-migrations.sh",
       "stack_conditional": "database exists",
       "changelog": [
-        "1.0.0: Initial template \u2014 Migration safety validator",
+        "1.0.0: Initial template — Migration safety validator",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -349,7 +349,7 @@
       "content_type": "universal",
       "target": "scripts/check-structure.sh",
       "changelog": [
-        "1.0.0: Initial template \u2014 Project structure validator"
+        "1.0.0: Initial template — Project structure validator"
       ]
     },
     "scripts/convert-worklog-md-to-json.sh": {
@@ -357,7 +357,7 @@
       "content_type": "universal",
       "target": "scripts/convert-worklog-md-to-json.sh",
       "changelog": [
-        "1.0.0: Initial template \u2014 Worklog MD to JSON converter"
+        "1.0.0: Initial template — Worklog MD to JSON converter"
       ]
     },
     "scripts/dependency-allowlist.sh": {
@@ -365,7 +365,7 @@
       "content_type": "universal",
       "target": "scripts/dependency-allowlist.sh",
       "changelog": [
-        "1.0.0: Initial template \u2014 Dependency allowlist validator",
+        "1.0.0: Initial template — Dependency allowlist validator",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -374,9 +374,9 @@
       "content_type": "stack_configured",
       "target": "scripts/lint-format.sh",
       "changelog": [
-        "1.0.2: fix: security \u2014 replace grep -qwE with exact-match loop to prevent partial-word matches and support non-word characters in tech names (e.g., html-css)",
-        "1.0.1: fix: stack-agnostic tech validation \u2014 dynamic discovery from docs/rules/ instead of hardcoded whitelist, expanded static fallback with Go/Rust/Ruby/PHP/Elixir",
-        "1.0.0: Initial template \u2014 Lint and format runner",
+        "1.0.2: fix: security — replace grep -qwE with exact-match loop to prevent partial-word matches and support non-word characters in tech names (e.g., html-css)",
+        "1.0.1: fix: stack-agnostic tech validation — dynamic discovery from docs/rules/ instead of hardcoded whitelist, expanded static fallback with Go/Rust/Ruby/PHP/Elixir",
+        "1.0.0: Initial template — Lint and format runner",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -385,9 +385,9 @@
       "content_type": "universal",
       "target": "scripts/security-scan.sh",
       "changelog": [
-        "2.1.0: feat: webhook contract validation \u2014 spectral lint for contracts/webhooks/, outbound webhooks: section presence check",
-        "2.0.0: Multi-format contract validation \u2014 gRPC (buf lint), AsyncAPI (asyncapi validate), OpenAPI (spectral/swagger-cli). Replaces TypeScript contract checks.",
-        "1.0.0: Initial template \u2014 Security scanner with drift check",
+        "2.1.0: feat: webhook contract validation — spectral lint for contracts/webhooks/, outbound webhooks: section presence check",
+        "2.0.0: Multi-format contract validation — gRPC (buf lint), AsyncAPI (asyncapi validate), OpenAPI (spectral/swagger-cli). Replaces TypeScript contract checks.",
+        "1.0.0: Initial template — Security scanner with drift check",
         "2.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -396,7 +396,7 @@
       "content_type": "stack_configured",
       "target": "scripts/test.sh",
       "changelog": [
-        "1.0.0: Initial template \u2014 Test runner scaffold"
+        "1.0.0: Initial template — Test runner scaffold"
       ]
     },
     "scripts/ux-validation.sh": {
@@ -405,7 +405,7 @@
       "target": "scripts/ux-validation.sh",
       "stack_conditional": "frontend exists",
       "changelog": [
-        "1.0.0: Initial template \u2014 UX/WCAG validation",
+        "1.0.0: Initial template — UX/WCAG validation",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -414,7 +414,7 @@
       "content_type": "universal",
       "target": "scripts/validate-template-references.sh",
       "changelog": [
-        "1.0.0: Initial template \u2014 Template reference validator"
+        "1.0.0: Initial template — Template reference validator"
       ]
     },
     "scripts/validate-upgrade-integrity.sh": {
@@ -422,7 +422,7 @@
       "content_type": "universal",
       "target": "scripts/validate-upgrade-integrity.sh",
       "changelog": [
-        "1.0.0: Initial template \u2014 Post-upgrade integrity validator",
+        "1.0.0: Initial template — Post-upgrade integrity validator",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -459,7 +459,7 @@
       "content_type": "universal",
       "target": "scripts/project_summarization.py",
       "changelog": [
-        "1.0.0: Initial template \u2014 Project summarization utility"
+        "1.0.0: Initial template — Project summarization utility"
       ]
     },
     "scripts/README.md": {
@@ -468,7 +468,7 @@
       "target": "scripts/README.md",
       "changelog": [
         "1.1.0: feat: add git hooks and install-hooks.sh to script listing",
-        "1.0.0: Initial template \u2014 Scripts directory documentation"
+        "1.0.0: Initial template — Scripts directory documentation"
       ]
     },
     "scripts/auto-tag.sh": {
@@ -476,8 +476,8 @@
       "content_type": "universal",
       "target": "scripts/auto-tag.sh",
       "changelog": [
-        "2.0.0: Governance-aware override \u2014 reads framework_version from manifest to prevent silent under-bumping (GOV-001)",
-        "1.0.0: Initial template \u2014 SemVer auto-tagging from conventional commits (--apply, --ci, --no-push)"
+        "2.0.0: Governance-aware override — reads framework_version from manifest to prevent silent under-bumping (GOV-001)",
+        "1.0.0: Initial template — SemVer auto-tagging from conventional commits (--apply, --ci, --no-push)"
       ]
     },
     "scripts/validate-governance.sh": {
@@ -485,8 +485,8 @@
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
-        "1.1.1: fix(EVOL-017): Copilot PR #7 review \u2014 freshness gate hardening. Empty/missing constitution_hash in snapshot frontmatter now exits 2 (was silently passing). Absent md5sum/md5/openssl now exits 2 with install guidance (was silently passing). gov_compute_md5 hardened against set -euo pipefail aborts when tools fail. --banner fallback rewritten with explicit if/then (fragile || / && precedence replaced).",
-        "1.0.0: Initial template \u2014 Governance drift detection: framework_core change tracking, orphan/stale detection, version consistency (GOV-001)",
+        "1.1.1: fix(EVOL-017): Copilot PR #7 review — freshness gate hardening. Empty/missing constitution_hash in snapshot frontmatter now exits 2 (was silently passing). Absent md5sum/md5/openssl now exits 2 with install guidance (was silently passing). gov_compute_md5 hardened against set -euo pipefail aborts when tools fail. --banner fallback rewritten with explicit if/then (fragile || / && precedence replaced).",
+        "1.0.0: Initial template — Governance drift detection: framework_core change tracking, orphan/stale detection, version consistency (GOV-001)",
         "1.1.0: feat(EVOL-017): --banner and --snapshot-freshness modes for governance always-on enforcement (3-tier). Reads $CLAUDE_PROJECT_DIR for cwd anchoring; portable md5 + awk frontmatter parsing; exit 2 on stale snapshot."
       ]
     },
@@ -495,8 +495,8 @@
       "content_type": "universal",
       "target": "scripts/governance-onprompt.sh",
       "changelog": [
-        "1.1.0: fix(EVOL-017) Copilot PR #7 round 2: jq \u2192 python3 \u2192 awk parser cascade replaces python3-only dependency. Session-scoped marker and /setup livelock carve-out now work in minimal environments without python3. Fall-through on empty result so stubbed/broken parsers transparently yield to the next option.",
-        "1.0.0: feat(EVOL-017): initial template \u2014 UserPromptSubmit hook. Post-compact re-inject of governance snapshot via session-scoped marker; freshness gate delegation; /setup* livelock carve-out."
+        "1.1.0: fix(EVOL-017) Copilot PR #7 round 2: jq → python3 → awk parser cascade replaces python3-only dependency. Session-scoped marker and /setup livelock carve-out now work in minimal environments without python3. Fall-through on empty result so stubbed/broken parsers transparently yield to the next option.",
+        "1.0.0: feat(EVOL-017): initial template — UserPromptSubmit hook. Post-compact re-inject of governance snapshot via session-scoped marker; freshness gate delegation; /setup* livelock carve-out."
       ]
     },
     "scripts/governance-oncompact.sh": {
@@ -504,8 +504,8 @@
       "content_type": "universal",
       "target": "scripts/governance-oncompact.sh",
       "changelog": [
-        "1.1.0: fix(EVOL-017) Copilot PR #7 round 2: jq \u2192 python3 \u2192 awk parser cascade replaces python3-only dependency. Session-scoped marker and /setup livelock carve-out now work in minimal environments without python3. Fall-through on empty result so stubbed/broken parsers transparently yield to the next option.",
-        "1.0.0: feat(EVOL-017): initial template \u2014 PreCompact hook. Writes .claude/state/governance-reload-{session_id}.marker so the next UserPromptSubmit re-injects the snapshot as additional context."
+        "1.1.0: fix(EVOL-017) Copilot PR #7 round 2: jq → python3 → awk parser cascade replaces python3-only dependency. Session-scoped marker and /setup livelock carve-out now work in minimal environments without python3. Fall-through on empty result so stubbed/broken parsers transparently yield to the next option.",
+        "1.0.0: feat(EVOL-017): initial template — PreCompact hook. Writes .claude/state/governance-reload-{session_id}.marker so the next UserPromptSubmit re-injects the snapshot as additional context."
       ]
     },
     "workflows/governance-check.github-actions.yml": {
@@ -514,7 +514,7 @@
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
-        "1.0.0: Initial template \u2014 CI gate on PRs: blocks merge if framework_core files changed without manifest update (GOV-001)"
+        "1.0.0: Initial template — CI gate on PRs: blocks merge if framework_core files changed without manifest update (GOV-001)"
       ]
     },
     "workflows/auto-tag.github-actions.yml": {
@@ -523,7 +523,7 @@
       "target": ".github/workflows/auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
-        "1.0.0: Initial template \u2014 GitHub Actions auto-tag & release on PR merge"
+        "1.0.0: Initial template — GitHub Actions auto-tag & release on PR merge"
       ]
     },
     "workflows/auto-tag.gitlab-ci.yml": {
@@ -532,7 +532,7 @@
       "target": ".gitlab-ci-auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"GitLab CI\"",
       "changelog": [
-        "1.0.0: Initial template \u2014 GitLab CI auto-tag & release on merge to main"
+        "1.0.0: Initial template — GitLab CI auto-tag & release on merge to main"
       ]
     },
     "workflows/auto-tag.azure-devops.yml": {
@@ -541,7 +541,7 @@
       "target": "azure-pipelines-auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"Azure DevOps\"",
       "changelog": [
-        "1.0.0: Initial template \u2014 Azure DevOps auto-tag pipeline on Merged PR"
+        "1.0.0: Initial template — Azure DevOps auto-tag pipeline on Merged PR"
       ]
     },
     "workflows/auto-tag.bitbucket.yml": {
@@ -550,7 +550,7 @@
       "target": "bitbucket-pipelines.yml",
       "stack_conditional": "ci_cd_platform == \"Bitbucket Pipelines\"",
       "changelog": [
-        "1.0.0: Initial template \u2014 Bitbucket Pipelines auto-tag on merge to main"
+        "1.0.0: Initial template — Bitbucket Pipelines auto-tag on merge to main"
       ]
     },
     "workflows/auto-tag.jenkins.groovy": {
@@ -559,7 +559,7 @@
       "target": "Jenkinsfile.auto-tag",
       "stack_conditional": "ci_cd_platform == \"Jenkins\"",
       "changelog": [
-        "1.0.0: Initial template \u2014 Jenkins declarative pipeline auto-tag on merge"
+        "1.0.0: Initial template — Jenkins declarative pipeline auto-tag on merge"
       ]
     },
     "workflows/auto-tag.aws-codebuild.yml": {
@@ -568,7 +568,7 @@
       "target": "buildspec-auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"AWS CodePipeline\"",
       "changelog": [
-        "1.0.0: Initial template \u2014 AWS CodeBuild buildspec auto-tag on merge"
+        "1.0.0: Initial template — AWS CodeBuild buildspec auto-tag on merge"
       ]
     },
     "workflows/auto-tag.gcp-cloudbuild.yaml": {
@@ -577,13 +577,13 @@
       "target": "cloudbuild-auto-tag.yaml",
       "stack_conditional": "ci_cd_platform == \"GCP Cloud Build\"",
       "changelog": [
-        "1.0.0: Initial template \u2014 GCP Cloud Build auto-tag on push to main"
+        "1.0.0: Initial template — GCP Cloud Build auto-tag on push to main"
       ]
     },
     "scripts/install-hooks.sh": {
       "version": "1.0.0",
       "type": "script",
-      "role": "Git hooks installer \u2014 symlinks hooks from scripts/hooks/ into .git/hooks/.",
+      "role": "Git hooks installer — symlinks hooks from scripts/hooks/ into .git/hooks/.",
       "changelog": [
         "1.0.0: feat: initial git hooks installation script"
       ]
@@ -591,7 +591,7 @@
     "scripts/hooks/commit-msg": {
       "version": "1.0.0",
       "type": "script",
-      "role": "Git hook \u2014 validates conventional commit message format.",
+      "role": "Git hook — validates conventional commit message format.",
       "changelog": [
         "1.0.0: feat: conventional commit format validation hook"
       ]
@@ -599,7 +599,7 @@
     "scripts/hooks/pre-commit": {
       "version": "1.0.0",
       "type": "script",
-      "role": "Git hook \u2014 protected branch guard, secret detection, governance validation.",
+      "role": "Git hook — protected branch guard, secret detection, governance validation.",
       "changelog": [
         "1.0.0: feat: pre-commit hook with branch guard and secret scan"
       ]
@@ -607,7 +607,7 @@
     "scripts/hooks/pre-push": {
       "version": "1.0.0",
       "type": "script",
-      "role": "Git hook \u2014 force-push protection, full governance validation.",
+      "role": "Git hook — force-push protection, full governance validation.",
       "changelog": [
         "1.0.0: feat: pre-push hook with force-push guard and governance check"
       ]
@@ -618,7 +618,7 @@
       "target": ".claude/settings.json",
       "upgrade_strategy": "merge-preserve",
       "changelog": [
-        "1.0.0: feat(EVOL-017/EVOL-018): initial template \u2014 Claude Code hooks canonical block (SessionStart banner, UserPromptSubmit freshness gate, PreCompact marker, PreToolUse branch/lock/governance-drift/completion-gate). Merge-preserve upgrade: adds missing hook entries without overwriting user-added permissions or other blocks."
+        "1.0.0: feat(EVOL-017/EVOL-018): initial template — Claude Code hooks canonical block (SessionStart banner, UserPromptSubmit freshness gate, PreCompact marker, PreToolUse branch/lock/governance-drift/completion-gate). Merge-preserve upgrade: adds missing hook entries without overwriting user-added permissions or other blocks."
       ]
     },
     "claude/hooks/check-branch-protection.sh": {
@@ -626,7 +626,7 @@
       "content_type": "universal",
       "target": ".claude/hooks/check-branch-protection.sh",
       "changelog": [
-        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse hook blocks Edit/Write on protected branches (main/master/develop/release/hotfix). Previously lived only in framework_core at .claude/hooks/; fresh SETUP --generate left .claude/settings.json pointing at a non-existent path."
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse hook blocks Edit/Write on protected branches (main/master/develop/release/hotfix). Previously lived only in framework_core at .claude/hooks/; fresh SETUP --generate left .claude/settings.json pointing at a non-existent path."
       ]
     },
     "claude/hooks/check-completion-gate.sh": {
@@ -634,7 +634,7 @@
       "content_type": "universal",
       "target": ".claude/hooks/check-completion-gate.sh",
       "changelog": [
-        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Write hook blocks terminal status in dev_plan.md or qa_report*.md when unchecked items remain."
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse Write hook blocks terminal status in dev_plan.md or qa_report*.md when unchecked items remain."
       ]
     },
     "claude/hooks/check-concurrency-lock.sh": {
@@ -642,7 +642,7 @@
       "content_type": "universal",
       "target": ".claude/hooks/check-concurrency-lock.sh",
       "changelog": [
-        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Edit/Write hook acquires per-branch lock, prevents parallel sessions on same branch."
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse Edit/Write hook acquires per-branch lock, prevents parallel sessions on same branch."
       ]
     },
     "claude/hooks/check-governance-drift.sh": {
@@ -650,7 +650,7 @@
       "content_type": "universal",
       "target": ".claude/hooks/check-governance-drift.sh",
       "changelog": [
-        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Edit/Write hook warns (non-blocking) when constitution.md/setup.md hashes diverge from governance snapshot. Pairs with UserPromptSubmit freshness gate (blocking)."
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse Edit/Write hook warns (non-blocking) when constitution.md/setup.md hashes diverge from governance snapshot. Pairs with UserPromptSubmit freshness gate (blocking)."
       ]
     },
     "claude/CLAUDE.md": {
@@ -660,7 +660,7 @@
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
         "1.1.0: feat(EVOL-019) phase 1: § Project Scope & Feature Scope Taxonomy (EVOL-019 — dual-axis) — enum, compatibility matrix, artefact impact; INVARIANT 5 extended with scope cross-check against governance snapshot + immutability note after APPROVED.",
-        "1.0.0: feat(EVOL-018): initial template \u2014 materialized-project CLAUDE.md variant. SDLC-first triage as DEFAULT, Workflow + Hard Gates + Living Governance Catalogs present, INVARIANT 4 and Generation Standards \u00a72 reference docs/project_log/governance_versions.json (project manifest), not the framework manifest. Complements the framework-repo CLAUDE.md (meta-maintenance variant) at the source repo root."
+        "1.0.0: feat(EVOL-018): initial template — materialized-project CLAUDE.md variant. SDLC-first triage as DEFAULT, Workflow + Hard Gates + Living Governance Catalogs present, INVARIANT 4 and Generation Standards §2 reference docs/project_log/governance_versions.json (project manifest), not the framework manifest. Complements the framework-repo CLAUDE.md (meta-maintenance variant) at the source repo root."
       ]
     },
     "architect/design_template.md": {
@@ -669,7 +669,7 @@
       "target": "docs/architect/design_template.md",
       "changelog": [
         "1.1.0: feat(EVOL-019) phase 1: scope + consumes_contract frontmatter fields; scope-aware section annotations (applicable_when comment convention); § 3.1 Cross-Layer Type Mapping marked applicable_when scope in [full-stack]; new § 3.2 Wire-Format Mapping for scope in [backend-only, integration].",
-        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization \u2014 added pending_iteration, pending_schemas_version, invalidated_*, cascade_* fields; status enum extended with INVALIDATED"
+        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added pending_iteration, pending_schemas_version, invalidated_*, cascade_* fields; status enum extended with INVALIDATED"
       ]
     },
     "architect/technical_gaps_proposals.md": {
@@ -728,14 +728,14 @@
       "target": "docs/develop/dev_plan_template.md",
       "changelog": [
         "1.1.0: feat(EVOL-019) phase 2: scope + reliability_test_required frontmatter fields; new conditional § Reliability Tests (applicable_when scope in [backend-only, integration]) with 7 RED-phase test task templates (idempotency, retry, circuit breaker, DLQ, timeout, graceful shutdown, observability); § Reliability Validation final-check block.",
-        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization \u2014 full 10-field cascade kit + based_on_iteration + status enum extended with IMPLEMENTED_AND_VERIFIED/INVALIDATED"
+        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — full 10-field cascade kit + based_on_iteration + status enum extended with IMPLEMENTED_AND_VERIFIED/INVALIDATED"
       ]
     },
     "develop/preventive_sweep_report_template.md": {
       "version": "1.1.0",
       "content_type": "project_data",
       "changelog": [
-        "1.0.0: feat(EVOL-014): new template for PREVENTIVE-SWEEP gate artefact (docs/spec/{{FEATURE_ID}}/preventive_sweep_report.md) \u2014 full YAML frontmatter with iteration-model fields, findings by DC, cascade invalidation note",
+        "1.0.0: feat(EVOL-014): new template for PREVENTIVE-SWEEP gate artefact (docs/spec/{{FEATURE_ID}}/preventive_sweep_report.md) — full YAML frontmatter with iteration-model fields, findings by DC, cascade invalidation note",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -745,7 +745,7 @@
       "target": "docs/peer_review/review_template.md",
       "changelog": [
         "1.1.0: feat(EVOL-019) phase 2: scope + na_count frontmatter fields; Executive Summary table gains Applicable When column; new conditional sections § 3.6 Cross-Layer Type Mapping (full-stack), § 3.7 UX & Frontend Compliance (full-stack/frontend-only) with 11 UX sub-checks, § 3.8 Reliability & Integration Compliance (backend-only/integration) with 8 reliability sub-checks, § 3.9 Cross-Module Contract Consumption (consumes_contract non-empty).",
-        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization \u2014 added the 10 cascade fields + status enum extended with INVALIDATED"
+        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added the 10 cascade fields + status enum extended with INVALIDATED"
       ]
     },
     "po/questions_and_proposals.md": {
@@ -761,15 +761,16 @@
       "content_type": "stack_configured",
       "target": "docs/qa/qa_report_template.md",
       "changelog": [
-        "1.0.0: feat(EVOL-014): full rewrite \u2014 proper YAML frontmatter, checkbox-driven body matching Factory-qa-verify.instructions.md \u00a7 Verification Checklist Generation (QA-PRE/QA-GOV/QA-TC/QA-REG/QA-STATIC/QA-DAST/QA-DC sections); iteration-model cascade fields; residual Spanish line killed",
+        "1.0.0: feat(EVOL-014): full rewrite — proper YAML frontmatter, checkbox-driven body matching Factory-qa-verify.instructions.md § Verification Checklist Generation (QA-PRE/QA-GOV/QA-TC/QA-REG/QA-STATIC/QA-DAST/QA-DC sections); iteration-model cascade fields; residual Spanish line killed",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "qa/smoke_e2e_report_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "project_data",
       "changelog": [
-        "1.0.0: feat(EVOL-014): new template for SMOKE-E2E gate artefact (docs/spec/{{FEATURE_ID}}/smoke_e2e_report.md) \u2014 numbered smoke blocks from user_journey.md BDD scenarios, per-block pass/fail, cascade invalidation note"
+        "1.0.0: feat(EVOL-014): new template for SMOKE-E2E gate artefact (docs/spec/{{FEATURE_ID}}/smoke_e2e_report.md) — numbered smoke blocks from user_journey.md BDD scenarios, per-block pass/fail, cascade invalidation note",
+        "1.1.0: feat(EVOL-019) phase 3: scope frontmatter field added; template explicitly retitled as browser/full-stack variant. Companion integration variant created at qa/smoke_e2e_integration_template.md for scope in [backend-only, integration]."
       ]
     },
     "qa/test_gaps_proposals.md": {
@@ -786,7 +787,7 @@
       "target": "docs/qa/test_plan_template.md",
       "changelog": [
         "1.2.0: feat(EVOL-019) phase 2: scope frontmatter field; new conditional § 2.2 Reliability Testing (applicable_when scope in [backend-only, integration]) with 13 REL-* test case templates (idempotency replay, retry storm, circuit breaker trip + half-open, dead-letter handling + replay, timeout, graceful shutdown + forceful, trace correlation, structured error logs); § 3 UX & Accessibility and § 4 Brand & Layout marked applicable_when scope in [full-stack, frontend-only].",
-        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization \u2014 added the 10 cascade fields + based_on_iteration + based_on_schemas_version + status enum extended with INVALIDATED",
+        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added the 10 cascade fields + based_on_iteration + based_on_schemas_version + status enum extended with INVALIDATED",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -813,7 +814,7 @@
       "content_type": "universal",
       "target": "docs/backlog-tool-adapters/README.md",
       "changelog": [
-        "1.0.0: feat(EVOL-014): new directory index \u2014 Q27 tool-adapter selection table (github-project/jira/linear/none), contract overview, placeholder conventions, authoring guide"
+        "1.0.0: feat(EVOL-014): new directory index — Q27 tool-adapter selection table (github-project/jira/linear/none), contract overview, placeholder conventions, authoring guide"
       ]
     },
     "backlog-tool-adapters/github-project.md": {
@@ -821,8 +822,8 @@
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/github-project.md",
       "changelog": [
-        "1.1.0: feat(EVOL-015): create_label section extended \u2014 kind:follow-up always created; appetite:{small,medium,big} conditional on {{APPETITE_SIZING_ENABLED}}==true; blocked-by:#{N} usage documented \u2014 labels are NOT created at init (per-issue value), MUST be created explicitly via `gh label create \u2026 --force` before the first `add_label` invocation (GitHub rejects --add-label on unknown labels); --force keeps the create idempotent",
-        "1.0.0: feat(EVOL-014): new adapter \u2014 fully functional github-project adapter with native gh CLI commands for all abstract ops (create_project, create_label, create_issue, move_to_column, add_sub_issue via addSubIssue GraphQL mutation, add_label, query_board, etc.); placeholder set for SETUP --generate resolution"
+        "1.1.0: feat(EVOL-015): create_label section extended — kind:follow-up always created; appetite:{small,medium,big} conditional on {{APPETITE_SIZING_ENABLED}}==true; blocked-by:#{N} usage documented — labels are NOT created at init (per-issue value), MUST be created explicitly via `gh label create … --force` before the first `add_label` invocation (GitHub rejects --add-label on unknown labels); --force keeps the create idempotent",
+        "1.0.0: feat(EVOL-014): new adapter — fully functional github-project adapter with native gh CLI commands for all abstract ops (create_project, create_label, create_issue, move_to_column, add_sub_issue via addSubIssue GraphQL mutation, add_label, query_board, etc.); placeholder set for SETUP --generate resolution"
       ]
     },
     "backlog-tool-adapters/none.md": {
@@ -830,7 +831,7 @@
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/none.md",
       "changelog": [
-        "1.0.0: feat(EVOL-014): new adapter \u2014 file-mode (Q27 == None) backlog adapter reading/writing 8-column state.md schema; add_label and add_sub_issue are native via Labels and Parent columns"
+        "1.0.0: feat(EVOL-014): new adapter — file-mode (Q27 == None) backlog adapter reading/writing 8-column state.md schema; add_label and add_sub_issue are native via Labels and Parent columns"
       ]
     },
     "backlog-tool-adapters/jira.md": {
@@ -838,7 +839,7 @@
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/jira.md",
       "changelog": [
-        "1.0.0: feat(EVOL-014): new stub adapter for Jira \u2014 ankitpokhrel/jira-cli based; every abstract op documented with candidate commands marked TODO for contributor validation; stub: true frontmatter flag"
+        "1.0.0: feat(EVOL-014): new stub adapter for Jira — ankitpokhrel/jira-cli based; every abstract op documented with candidate commands marked TODO for contributor validation; stub: true frontmatter flag"
       ]
     },
     "backlog-tool-adapters/linear.md": {
@@ -846,7 +847,7 @@
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/linear.md",
       "changelog": [
-        "1.0.0: feat(EVOL-014): new stub adapter for Linear \u2014 MCP server integration (no first-party CLI); workflow states replace columns; every abstract op documented as TODO; stub: true frontmatter flag"
+        "1.0.0: feat(EVOL-014): new stub adapter for Linear — MCP server integration (no first-party CLI); workflow states replace columns; every abstract op documented as TODO; stub: true frontmatter flag"
       ]
     },
     "upgrade_safety_protocol.md": {
@@ -854,40 +855,49 @@
       "content_type": "universal",
       "target": "docs/upgrade_safety_protocol.md",
       "changelog": [
-        "1.0.0: chore(EVOL-014): placeholder notation convention block added to header \u2014 distinguishes SCREAMING_SNAKE materialization placeholders from lowercase pseudo-code/log-format locals",
+        "1.0.0: chore(EVOL-014): placeholder notation convention block added to header — distinguishes SCREAMING_SNAKE materialization placeholders from lowercase pseudo-code/log-format locals",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+      ]
+    },
+    "qa/smoke_e2e_integration_template.md": {
+      "version": "1.0.0",
+      "content_type": "project_data",
+      "target": "docs/qa/smoke_e2e_integration_template.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-019) phase 3: initial template — caller-harness smoke blocks for scope in [backend-only, integration]. Triple-verification per block (caller request + downstream state + observability), SMOKE-REL-IDEMP/RETRY/DLQ/SHUTDOWN reliability blocks MANDATORY for scope=integration. Selected by BACKLOG --plan-feature when scope resolves to phase:smoke-e2e-integration."
       ]
     }
   },
   "framework_core": {
-    "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects \u2014 used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
-    "_architecture": "Claude Code (v1.0.0) \u2014 Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
+    "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
+    "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.2.1",
+      "version": "2.3.0",
       "path": "README.md",
       "changelog": [
         "2.2.1: fix(EVOL-018) Copilot PR #7: SDLC-first triage link was pointing to CLAUDE.md#sdlc-first-triage--mandatory anchor, which no longer exists after the framework/project split (framework CLAUDE.md was renamed to Meta-Framework Triage). Link now disambiguates the two variants and references the canonical IOP classifier.",
-        "2.2.0: feat(EVOL-017): \u00a7 Governance always-on enforcement (3-tier) \u2014 tier table, marker scoping note, smoke-test checklist. \u00a7 SDLC-first triage (MANDATORY) cross-ref.",
-        "2.0.0: BREAKING docs(EVOL-015): instructions.md fused into README.md \u2014 single English user-facing doc. Ports 10 Spanish sections from the deleted instructions.md (full Command Reference, Recommended Pipeline, Complete Workflow Diagram, Exception Routes, State Transition Matrices, State Glossary, Dynamic Governance System, Memory Cache Architecture, Immutability & Versioning). instructions.md deleted at the same commit. Rationale: eliminate two-sources-of-truth drift between README.md and instructions.md that was observed during EVOL-014 \u2192 EVOL-015. All framework version tags scrubbed from user-facing copy (versions live only in governance_versions.json). Workflow sequence presents the full-sdlc 8-phase expansion + 3 hard gates (CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E) + 2 epic/slice gates (SLICE-INTEGRATION-TEST, EPIC-RETROSPECTIVE) + enforcement modes blurb.",
+        "2.2.0: feat(EVOL-017): § Governance always-on enforcement (3-tier) — tier table, marker scoping note, smoke-test checklist. § SDLC-first triage (MANDATORY) cross-ref.",
+        "2.0.0: BREAKING docs(EVOL-015): instructions.md fused into README.md — single English user-facing doc. Ports 10 Spanish sections from the deleted instructions.md (full Command Reference, Recommended Pipeline, Complete Workflow Diagram, Exception Routes, State Transition Matrices, State Glossary, Dynamic Governance System, Memory Cache Architecture, Immutability & Versioning). instructions.md deleted at the same commit. Rationale: eliminate two-sources-of-truth drift between README.md and instructions.md that was observed during EVOL-014 → EVOL-015. All framework version tags scrubbed from user-facing copy (versions live only in governance_versions.json). Workflow sequence presents the full-sdlc 8-phase expansion + 3 hard gates (CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E) + 2 epic/slice gates (SLICE-INTEGRATION-TEST, EPIC-RETROSPECTIVE) + enforcement modes blurb.",
         "1.1.0: docs(EVOL-015): workflow sequence updated with full-sdlc 8-phase expansion + 3 hard gates; gate enforcement modes blurb added; framework version tags scrubbed from user-facing copy",
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the root README.md tracking gap that pre-dated EVOL-015.",
-        "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the root README.md tracking gap that pre-dated EVOL-015.",
+        "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "2.3.0: feat(EVOL-019) phase 3: new § Scope model — project scope + feature scope section inserted between § Governance always-on enforcement and § SDLC-first triage. Covers axis separation, compatibility matrix, consumes_contract enforcement points, and three worked flow examples (backend-only feature in full-stack project, frontend-only consumer of backend contract with cascade, backend-only project)."
       ]
     },
     "commands/audit.md": {
       "version": "1.1.0",
       "path": ".claude/commands/audit.md",
       "changelog": [
-        "1.1.0: feat(EVOL-015): --software command added \u2014 narrow software-only audit variant (P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1; excludes G1-G3, I1-I4, SEC2, SEC5). Produces docs/software_audit.md, coexists with docs/technical_due.md. Disambiguation via --scope {audit|software} when both artifacts are open. Use cases: M&A of a single codebase, OSS evaluation, contributor-level read.",
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Per CLAUDE.md \u00a7 Generation Standards rule 2, every framework-core touch requires a version bump; commands were excluded from the manifest by oversight. Content unchanged at this commit \u2014 this entry registers the file and seeds its changelog."
+        "1.1.0: feat(EVOL-015): --software command added — narrow software-only audit variant (P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1; excludes G1-G3, I1-I4, SEC2, SEC5). Produces docs/software_audit.md, coexists with docs/technical_due.md. Disambiguation via --scope {audit|software} when both artifacts are open. Use cases: M&A of a single codebase, OSS evaluation, contributor-level read.",
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Per CLAUDE.md § Generation Standards rule 2, every framework-core touch requires a version bump; commands were excluded from the manifest by oversight. Content unchanged at this commit — this entry registers the file and seeds its changelog."
       ]
     },
     "commands/backlog.md": {
       "version": "1.2.0",
       "path": ".claude/commands/backlog.md",
       "changelog": [
-        "1.1.0: feat(EVOL-015): --eligible pull-mode command added to the command table; Protocol 11 references Factory-backlog-next-task \u00a7 5 for pool computation (dual-mode, READ-ONLY, no persisted state)",
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015",
+        "1.1.0: feat(EVOL-015): --eligible pull-mode command added to the command table; Protocol 11 references Factory-backlog-next-task § 5 for pool computation (dual-mode, READ-ONLY, no persisted state)",
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015",
         "1.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -895,21 +905,21 @@
       "version": "1.0.0",
       "path": ".claude/commands/blueprint.md",
       "changelog": [
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "commands/codesign.md": {
       "version": "1.0.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "commands/devops.md": {
       "version": "1.1.0",
       "path": ".claude/commands/devops.md",
       "changelog": [
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit.",
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit.",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -917,31 +927,31 @@
       "version": "1.0.0",
       "path": ".claude/commands/implement.md",
       "changelog": [
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "commands/qa.md": {
       "version": "1.0.0",
       "path": ".claude/commands/qa.md",
       "changelog": [
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "commands/setup.md": {
       "version": "1.0.0",
       "path": ".claude/commands/setup.md",
       "changelog": [
-        "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
+        "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "instructions/Factory-audit-checklist.instructions.md": {
       "version": "2.3.0",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
       "changelog": [
-        "2.2.0: feat(EVOL-015): Command: --software added \u2014 narrow software-only audit variant. New artifact docs/software_audit.md with same schema as technical_due.md. Section list P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1. Excluded: G1-G3 (HR), I1-I4 (infra), SEC2 (network), SEC5 (compliance). Verdict thresholds scaled down (risk_score < 25 / 25-49 / >= 50 for GO / GO_WITH_CONDITIONS / NO_GO) because section count is halved \u2014 same density = lower absolute. --refine and --approve auto-detect artifact; require --scope {audit|software} when both open. Branch pattern feature/AUDIT-XXX-software for the new mode.",
-        "2.1.0: feat(EVOL-014): Defect Prevention Catalog Signal \u2014 AUDIT grep-searches for DC patterns, adds 'Defect Prevention Maturity' dimension to report",
-        "1.0.0: Extracted from AUDIT.AGENT.MD \u2014 execution phases A-D, master checklist (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "2.2.0: feat(EVOL-015): Command: --software added — narrow software-only audit variant. New artifact docs/software_audit.md with same schema as technical_due.md. Section list P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1. Excluded: G1-G3 (HR), I1-I4 (infra), SEC2 (network), SEC5 (compliance). Verdict thresholds scaled down (risk_score < 25 / 25-49 / >= 50 for GO / GO_WITH_CONDITIONS / NO_GO) because section count is halved — same density = lower absolute. --refine and --approve auto-detect artifact; require --scope {audit|software} when both open. Branch pattern feature/AUDIT-XXX-software for the new mode.",
+        "2.1.0: feat(EVOL-014): Defect Prevention Catalog Signal — AUDIT grep-searches for DC patterns, adds 'Defect Prevention Maturity' dimension to report",
+        "1.0.0: Extracted from AUDIT.AGENT.MD — execution phases A-D, master checklist (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -949,8 +959,8 @@
       "version": "2.1.0",
       "path": ".claude/instructions/Factory-audit-complexity.instructions.md",
       "changelog": [
-        "1.0.0: Extracted from AUDIT.AGENT.MD \u2014 COMP1 complexity analysis protocol (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.0.0: Extracted from AUDIT.AGENT.MD — COMP1 complexity analysis protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -959,22 +969,22 @@
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
         "2.6.0: feat(EVOL-019) phase 1: Consumes-Contract Resolution Gate added to --start pre-flight (BLOCKS when upstream FEAT-XXX referenced in spec.feature.consumes_contract is not APPROVED or has no frozen contract file); Required Inputs extended from 12 to 13 sources (scope-aware applicability; upstream frozen contracts as new mandatory source when consumes_contract is non-empty); feature_scope read into Architecture Context Loading.",
-        "2.4.0: feat(EVOL-014): Step 6 Defect Prevention Consultation \u2014 BLUEPRINT consults DC catalog, stores applicable DCs for Section 7 GCD and test_plan edge case generation",
+        "2.4.0: feat(EVOL-014): Step 6 Defect Prevention Consultation — BLUEPRINT consults DC catalog, stores applicable DCs for Section 7 GCD and test_plan edge case generation",
         "2.3.8: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
         "2.3.7: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.3.6: fix: UX Vision Digest (UXD) v1.0.0 \u2014 expand Section 7.6 from shallow file list into full pre-digested vision data. Extracts shell composition (7.6.1), design tokens with full color/typography/spacing/breakpoint values (7.6.2), page templates (7.6.3), component library inventory with variants/props (7.6.4), navigation map with feature placement and breadcrumbs (7.6.5), and feature-to-vision cross-reference (7.6.6). IMPLEMENT reads ONE section instead of loading 5 large HTML files that get lost to context summarization.",
-        "2.3.5: fix: Frontend deploy resource gap \u2014 extend resource.type enum to include static_site, add Frontend Hosting Auto-Declaration rule (auto-generates static_site resource when frontend.framework != None, derives engine/build_command/output_dir/ssr from constitution \u2014 fully agnostic, no hardcoded cloud or framework mappings).",
-        "2.3.4: fix: PR review \u2014 split ambiguous *url*|*uri* pattern into separate entries, fix entity override key from field\u2192field_pattern for consumer consistency.",
-        "2.3.3: fix: GCD Section 7.4 \u2014 add type_format_registry with format metadata (uuid, email, iso-datetime, iso-date, uri, phone) and per-entity field format overrides. Enables IMPLEMENT type-aware test data generation and REVIEW [SCHEMA-TEST] validation.",
-        "2.3.2: fix: GCD Section 7.8 \u2014 Mandatory Architectural Patterns + ADR Bindings. Extracts constitutional patterns (BaseRepository, TenantMiddleware, cross-cutting concerns), multitenancy enforcement, auth patterns, feature-relevant ADRs, setup decisions, and implementation invariants. Closes governance injection gap where IMPLEMENT satisfied constraints superficially.",
-        "2.3.1: fix: GCD Section 7.2 completeness \u2014 add 7 missing governance rule IDs (GOV-REVIEW, GOV-STATE, GOV-IMMUT, GOV-CFP, GOV-IAC, GOV-FRONT, GOV-HTML) to Governance Rules Index. IMPLEMENT now receives all 16 rule categories instead of 9.",
-        "2.3.0: feat: Governance Constraints Digest (GCD) v1.0.0 \u2014 BLUEPRINT emits Section 7 into design.md (7.1 ARCH + 7.2 GOV + 7.3 SAST + 7.4 SCHEMA + 7.5 CFP + 7.6 UX + 7.7 CODING). Pre-digests 20+ governance rule files into single-read artifact. GCRP-compliant hash validation (constitution_hash[:8]). IMPLEMENT reads Section 7 instead of reloading governance stack.",
-        "2.2.0: feat: staging_data declaration in Infrastructure Needs (Section 5) \u2014 ARCH declares owned/consumed entities, FK dependencies, estimated counts for Synthetic Data Protocol (#124)",
-        "2.1.0: feat: webhook classification in dependency analysis + contract generation \u2014 inbound/outbound webhook contracts via OpenAPI 3.1",
-        "1.1.2: Step 0 updated \u2014 governance snapshot recovery replaces old MD5 cache mechanism (#112)",
-        "1.1.0: CIP Step -2 missing inventory fallback \u2014 WARN + CIP_SKIPPED + staleness advisory (#106)",
-        "1.0.0: Extracted from BLUEPRINT.AGENT.MD \u2014 design & artifact generation phases 0-2 (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "2.3.6: fix: UX Vision Digest (UXD) v1.0.0 — expand Section 7.6 from shallow file list into full pre-digested vision data. Extracts shell composition (7.6.1), design tokens with full color/typography/spacing/breakpoint values (7.6.2), page templates (7.6.3), component library inventory with variants/props (7.6.4), navigation map with feature placement and breadcrumbs (7.6.5), and feature-to-vision cross-reference (7.6.6). IMPLEMENT reads ONE section instead of loading 5 large HTML files that get lost to context summarization.",
+        "2.3.5: fix: Frontend deploy resource gap — extend resource.type enum to include static_site, add Frontend Hosting Auto-Declaration rule (auto-generates static_site resource when frontend.framework != None, derives engine/build_command/output_dir/ssr from constitution — fully agnostic, no hardcoded cloud or framework mappings).",
+        "2.3.4: fix: PR review — split ambiguous *url*|*uri* pattern into separate entries, fix entity override key from field→field_pattern for consumer consistency.",
+        "2.3.3: fix: GCD Section 7.4 — add type_format_registry with format metadata (uuid, email, iso-datetime, iso-date, uri, phone) and per-entity field format overrides. Enables IMPLEMENT type-aware test data generation and REVIEW [SCHEMA-TEST] validation.",
+        "2.3.2: fix: GCD Section 7.8 — Mandatory Architectural Patterns + ADR Bindings. Extracts constitutional patterns (BaseRepository, TenantMiddleware, cross-cutting concerns), multitenancy enforcement, auth patterns, feature-relevant ADRs, setup decisions, and implementation invariants. Closes governance injection gap where IMPLEMENT satisfied constraints superficially.",
+        "2.3.1: fix: GCD Section 7.2 completeness — add 7 missing governance rule IDs (GOV-REVIEW, GOV-STATE, GOV-IMMUT, GOV-CFP, GOV-IAC, GOV-FRONT, GOV-HTML) to Governance Rules Index. IMPLEMENT now receives all 16 rule categories instead of 9.",
+        "2.3.0: feat: Governance Constraints Digest (GCD) v1.0.0 — BLUEPRINT emits Section 7 into design.md (7.1 ARCH + 7.2 GOV + 7.3 SAST + 7.4 SCHEMA + 7.5 CFP + 7.6 UX + 7.7 CODING). Pre-digests 20+ governance rule files into single-read artifact. GCRP-compliant hash validation (constitution_hash[:8]). IMPLEMENT reads Section 7 instead of reloading governance stack.",
+        "2.2.0: feat: staging_data declaration in Infrastructure Needs (Section 5) — ARCH declares owned/consumed entities, FK dependencies, estimated counts for Synthetic Data Protocol (#124)",
+        "2.1.0: feat: webhook classification in dependency analysis + contract generation — inbound/outbound webhook contracts via OpenAPI 3.1",
+        "1.1.2: Step 0 updated — governance snapshot recovery replaces old MD5 cache mechanism (#112)",
+        "1.1.0: CIP Step -2 missing inventory fallback — WARN + CIP_SKIPPED + staleness advisory (#106)",
+        "1.0.0: Extracted from BLUEPRINT.AGENT.MD — design & artifact generation phases 0-2 (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -983,15 +993,15 @@
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
         "2.3.0: feat(EVOL-019) phase 2: --approve 4-Part validation made scope-aware. New § Scope Context Loading runs first (reads feature_scope + consumes_contract). Part 1 ARCH elevates contract completeness when scope in [backend-only, integration]; adds Consumes-Contract Integrity check; marks § 3.1 Cross-Layer Type Mapping as applicable_when scope=full-stack; adds § 3.2 Wire-Format Mapping as applicable_when scope in [backend-only, integration]. Part 2 QA adds Reliability test cases (scope in [backend-only, integration], BLOCKER); marks Accessibility + Visual-consistency applicable_when scope in [full-stack, frontend-only]; elevates per-endpoint coverage when scope has backend surface. Part 3 Cross-Validation adds Scope-consistency check across spec/design/test_plan frontmatter.",
-        "2.1.0: feat(EVOL-014): Part 4 Defect Prevention Catalog Gate at --approve \u2014 blocks when any BLOCKER-severity DC applicable to BLUEPRINT is missing from design.md \u00a7 Constraints or test_plan.md \u00a7 Edge Cases",
-        "2.0.1: fix: add Phase 3.8 CVP coherence gate \u2014 validates CODESIGN\u2194BLUEPRINT artifact alignment before approval",
-        "1.0.5: IPP reference \u2014 evolve Law 6 Atomic Persistence to reference IPP protocol (#112)",
+        "2.1.0: feat(EVOL-014): Part 4 Defect Prevention Catalog Gate at --approve — blocks when any BLOCKER-severity DC applicable to BLUEPRINT is missing from design.md § Constraints or test_plan.md § Edge Cases",
+        "2.0.1: fix: add Phase 3.8 CVP coherence gate — validates CODESIGN↔BLUEPRINT artifact alignment before approval",
+        "1.0.5: IPP reference — evolve Law 6 Atomic Persistence to reference IPP protocol (#112)",
         "1.0.4: Add Refine Execution Sequence with cip_refine_artifact_recheck() call site, incorporate reuse_category into candidate matching and BLOCK/WARN messages (#110)",
-        "1.0.3: CIP Artifact Re-Check gate on --refine \u2014 fires when iteration introduces NEW technical artifacts (services, components) to prevent DRY violations",
-        "1.0.2: Procedural gates \u2014 Endpoint Re-Scan Gate (H-13), Iteration Changelog Gate (M-03), CIP Update Gate (M-04) (#108)",
+        "1.0.3: CIP Artifact Re-Check gate on --refine — fires when iteration introduces NEW technical artifacts (services, components) to prevent DRY violations",
+        "1.0.2: Procedural gates — Endpoint Re-Scan Gate (H-13), Iteration Changelog Gate (M-03), CIP Update Gate (M-04) (#108)",
         "1.0.1: Structured APPEND_TO_WORKLOG for --refine/--approve, Iteration Changelog format, explicit CASCADE_PENDING_ITERATION frontmatter updates (#108)",
-        "1.0.0: Extracted from BLUEPRINT.AGENT.MD \u2014 approval & validation phases 3-4 (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.0.0: Extracted from BLUEPRINT.AGENT.MD — approval & validation phases 3-4 (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1000,28 +1010,28 @@
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
         "2.6.0: feat(EVOL-019) phase 1: dual-axis scope model — shared frontmatter `scope` field, spec.feature `consumes_contract` field, Scope Compatibility Gate (Phase 0.3, BLOCKING), Vision Gate scope-awareness, Template Selector (mock.html N/A for backend-only/integration; user_journey.integration.md replaces user_journey.md), Auto-Approval CHECK 0 scope gate + N/A path for CHECKs 2/5/6/8/10/11, Tripartite Alignment scope matrix (6 checks full-stack/frontend-only → 2 checks backend-only/integration), IMP N/A path extended to EVOL-019 per-feature/per-project scope checks.",
-        "2.4.0: feat(EVOL-014): Phase 0.6 Defect Prevention Consultation (advisory) \u2014 projects applicable DCs into spec.feature \u00a7 Defect-Prevention Notes as drafting hints",
+        "2.4.0: feat(EVOL-014): Phase 0.6 Defect Prevention Consultation (advisory) — projects applicable DCs into spec.feature § Defect-Prevention Notes as drafting hints",
         "2.3.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.3.0: feat: Interactive Mock Protocol (IMP v1.0.0) \u2014 stack-agnostic state toggles + journey-step navigation in mock.html, zero dependencies, data-state management, IMP engine as PROTECTED CODE; PR review fixes: navigate() fallback, CSS design tokens, auto-approval validation naming",
+        "2.3.0: feat: Interactive Mock Protocol (IMP v1.0.0) — stack-agnostic state toggles + journey-step navigation in mock.html, zero dependencies, data-state management, IMP engine as PROTECTED CODE; PR review fixes: navigate() fallback, CSS design tokens, auto-approval validation naming",
         "2.2.0: feat: Business Language Translation Protocol with bilingual BUSINESS_LANGUAGE map (es/en) + i18n presentation rules",
-        "2.1.0: feat: BIP batch Event Storming proposal, internal PO\u2194UX iteration, tier-based execution flow",
-        "1.2.5: PR review fix \u2014 update Tripartite Alignment Protocol trigger wording from 'before --approve' to 'before auto-approval on --start/--refine' (#113)",
-        "1.2.4: Fix stale 9\u219212 references in auto-approval comments \u2014 logic was correct (FOR EACH [1..12]) but comments said 9 (#112)",
-        "1.2.3: Tripartite Alignment Protocol v2 \u2014 expanded from 6+3 checks to 10 enumerated checks with sub-items. New: ACTION\u2192COMMAND alignment, NAVIGATION\u2192EXITS, ERROR-FULL-CHAIN (domain+validation+external+auth), EMPTY-LOADING-FULL-CHAIN. Auto-approval gate expanded 9\u219212 validations. Alignment summary table with BLOCKER/WARNING severity (#112)",
-        "1.2.2: Tripartite Alignment Canary (M-08) \u2014 re-reads upstream artifact data from disk before writing downstream artifacts. Prevents cross-artifact drift after mid-command summarization. codesign_write_with_alignment() integrates IPP canary + alignment canary + atomic save (#112)",
-        "1.2.1: IPP integration \u2014 evolve M-07 to full IPP-compliant implementation with 3 pillars + decision persistence + finalization (#112)",
-        "1.2.0: Remove deprecated --approve LEGACY FALLBACK section \u2014 auto-approval is the only path, update failure message to suggest re-run (v8.2.0 cleanup)",
-        "1.1.8: Add explicit Refine Execution Sequence with cip_refine_recheck() call site \u2014 gate was defined but never invoked (#110)",
-        "1.1.7: CIP Domain Concept Re-Check gate on --refine \u2014 fires when iteration introduces NEW domain concepts (entities, events, services) to prevent DRY violations",
-        "1.1.6: PR review fixes \u2014 CIP gate truly BLOCKING when materialization_complete, degraded only pre-materialization (#108)",
-        "1.1.5: Coherence fix \u2014 update Cross-Agent Integration table to reflect auto-approval path (#108)",
-        "1.1.4: Trim legacy --approve section to compact reference \u2014 reduces context token overhead (#108)",
-        "1.1.3: Auto-Approval Protocol (v8.2.0) \u2014 --start/--refine auto-approve when 9/9 validations pass, --approve marked as legacy fallback (#108)",
-        "1.1.2: Procedural gates \u2014 CASCADE Verification Gate (H-06), Data Schema Authority Gate (H-15), Atomic Persistence Gate (M-07), One Question at a Time Gate (L-03) (#108)",
+        "2.1.0: feat: BIP batch Event Storming proposal, internal PO↔UX iteration, tier-based execution flow",
+        "1.2.5: PR review fix — update Tripartite Alignment Protocol trigger wording from 'before --approve' to 'before auto-approval on --start/--refine' (#113)",
+        "1.2.4: Fix stale 9→12 references in auto-approval comments — logic was correct (FOR EACH [1..12]) but comments said 9 (#112)",
+        "1.2.3: Tripartite Alignment Protocol v2 — expanded from 6+3 checks to 10 enumerated checks with sub-items. New: ACTION→COMMAND alignment, NAVIGATION→EXITS, ERROR-FULL-CHAIN (domain+validation+external+auth), EMPTY-LOADING-FULL-CHAIN. Auto-approval gate expanded 9→12 validations. Alignment summary table with BLOCKER/WARNING severity (#112)",
+        "1.2.2: Tripartite Alignment Canary (M-08) — re-reads upstream artifact data from disk before writing downstream artifacts. Prevents cross-artifact drift after mid-command summarization. codesign_write_with_alignment() integrates IPP canary + alignment canary + atomic save (#112)",
+        "1.2.1: IPP integration — evolve M-07 to full IPP-compliant implementation with 3 pillars + decision persistence + finalization (#112)",
+        "1.2.0: Remove deprecated --approve LEGACY FALLBACK section — auto-approval is the only path, update failure message to suggest re-run (v8.2.0 cleanup)",
+        "1.1.8: Add explicit Refine Execution Sequence with cip_refine_recheck() call site — gate was defined but never invoked (#110)",
+        "1.1.7: CIP Domain Concept Re-Check gate on --refine — fires when iteration introduces NEW domain concepts (entities, events, services) to prevent DRY violations",
+        "1.1.6: PR review fixes — CIP gate truly BLOCKING when materialization_complete, degraded only pre-materialization (#108)",
+        "1.1.5: Coherence fix — update Cross-Agent Integration table to reflect auto-approval path (#108)",
+        "1.1.4: Trim legacy --approve section to compact reference — reduces context token overhead (#108)",
+        "1.1.3: Auto-Approval Protocol (v8.2.0) — --start/--refine auto-approve when 9/9 validations pass, --approve marked as legacy fallback (#108)",
+        "1.1.2: Procedural gates — CASCADE Verification Gate (H-06), Data Schema Authority Gate (H-15), Atomic Persistence Gate (M-07), One Question at a Time Gate (L-03) (#108)",
         "1.1.1: Structured APPEND_TO_WORKLOG for --start/--refine/--approve, Iteration Changelog format, explicit CASCADE_PENDING_ITERATION frontmatter function, CIP Phase 0.5 as BLOCKING GATE with code block (#108)",
-        "1.1.0: CIP Phase 0.5 missing inventory fallback \u2014 WARN + CIP_SKIPPED + advisory for --reconcile-inventory (#106)",
-        "1.0.0: Extracted from CODESIGN.AGENT.MD \u2014 feature co-creation protocol (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.1.0: CIP Phase 0.5 missing inventory fallback — WARN + CIP_SKIPPED + advisory for --reconcile-inventory (#106)",
+        "1.0.0: Extracted from CODESIGN.AGENT.MD — feature co-creation protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1032,29 +1042,30 @@
         "2.4.0: feat(EVOL-019) phase 1: Scope Guard (BLOCKING) — CODESIGN --vision now rejects project_scope IN [backend-only, integration] with humanised message pointing to Project Scope & Feature Scope Taxonomy in CLAUDE.md; Prerequisites list gained project_scope IN [full-stack, frontend-only] requirement.",
         "2.2.0: feat: BIP pivotal question marking for Visual DNA Decision Batch",
         "2.1.0: feat: BIP Decision Batch for Visual DNA in Phase V.1",
-        "1.0.0: Extracted from CODESIGN.AGENT.MD \u2014 UX vision creation protocol (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.0.0: Extracted from CODESIGN.AGENT.MD — UX vision creation protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "instructions/Factory-devops-configure.instructions.md": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "path": ".claude/instructions/Factory-devops-configure.instructions.md",
       "changelog": [
-        "2.1.0: feat(EVOL-014): Phase 1 Defect Prevention Consultation \u2014 DEVOPS reads DCs with applicable_to:DEVOPS for devops_plan \u00a7 Reliability Checks generation",
+        "2.3.0: feat(EVOL-019) phase 3: Phase 1 Governance Validation gains scope-aware deployment-target derivation. Reads feature.scope from spec.feature; new derive_target_runtime(resource, feature_scope, hosting) helper fills in target_runtime defaults when design.md Section 5 did not pin one — serverless/container/worker/scheduler/static-hosting+cdn per resource.type × feature_scope matrix (design.md overrides always win). Emits a deployment_shape summary (static-site vs container vs worker vs hybrid) per feature_scope. Frontend Resource Verification Gate is now scope-aware: only warns about missing static_site when scope includes frontend; also warns about unexpected static_site resources in backend-only/integration scopes. DC consultation passes feature_scope for filtered DC set.",
+        "2.1.0: feat(EVOL-014): Phase 1 Defect Prevention Consultation — DEVOPS reads DCs with applicable_to:DEVOPS for devops_plan § Reliability Checks generation",
         "2.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.0.1: fix: Frontend Resource Verification Gate \u2014 extract static_site fields from design.md Section 5, WARN when constitution declares frontend.framework but no static_site resource exists.",
-        "1.1.3: PR review fix \u2014 remove stale --approve reference in Finalization block, tie to auto-approval within --configure/--refine flow (#113)",
-        "1.1.2: Governance snapshot recovery \u2014 Step 0 reads .context/governance_snapshot.md before Guardrail 0 constitution load (INVARIANT 5 compliance) (#112)",
-        "1.1.1: IPP integration \u2014 evolve Persistence Loop + Resumability to IPP-compliant with skeleton-first, section-atomic, resume-on-entry (#112)",
-        "1.1.0: Remove deprecated --approve LEGACY FALLBACK section \u2014 auto-approval on 7/7 checks is the only path (v8.2.0 cleanup)",
-        "1.0.5: PR review fixes \u2014 APPEND_TO_WORKLOG entries as YAML block scalars for valid syntax (#108)",
-        "1.0.4: Trim legacy --approve section to compact reference \u2014 reduces context token overhead (#108)",
-        "1.0.3: Auto-Approval Protocol (v8.2.0) \u2014 --configure auto-approves when 7/7 checks pass, --approve marked as legacy fallback (#108)",
-        "1.0.2: Procedural gates \u2014 Secrets Security Gate (H-14), Environment Names Validation Gate (M-06) (#108)",
-        "1.0.1: Structured APPEND_TO_WORKLOG for --configure/--approve/--refine \u2014 replace bare APPEND_TO_WORKLOG with JSON format (#108)",
-        "1.0.0: Extracted from DEVOPS sections in copilot-instructions.md \u2014 configure/approve/refine (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "2.0.1: fix: Frontend Resource Verification Gate — extract static_site fields from design.md Section 5, WARN when constitution declares frontend.framework but no static_site resource exists.",
+        "1.1.3: PR review fix — remove stale --approve reference in Finalization block, tie to auto-approval within --configure/--refine flow (#113)",
+        "1.1.2: Governance snapshot recovery — Step 0 reads .context/governance_snapshot.md before Guardrail 0 constitution load (INVARIANT 5 compliance) (#112)",
+        "1.1.1: IPP integration — evolve Persistence Loop + Resumability to IPP-compliant with skeleton-first, section-atomic, resume-on-entry (#112)",
+        "1.1.0: Remove deprecated --approve LEGACY FALLBACK section — auto-approval on 7/7 checks is the only path (v8.2.0 cleanup)",
+        "1.0.5: PR review fixes — APPEND_TO_WORKLOG entries as YAML block scalars for valid syntax (#108)",
+        "1.0.4: Trim legacy --approve section to compact reference — reduces context token overhead (#108)",
+        "1.0.3: Auto-Approval Protocol (v8.2.0) — --configure auto-approves when 7/7 checks pass, --approve marked as legacy fallback (#108)",
+        "1.0.2: Procedural gates — Secrets Security Gate (H-14), Environment Names Validation Gate (M-06) (#108)",
+        "1.0.1: Structured APPEND_TO_WORKLOG for --configure/--approve/--refine — replace bare APPEND_TO_WORKLOG with JSON format (#108)",
+        "1.0.0: Extracted from DEVOPS sections in copilot-instructions.md — configure/approve/refine (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1062,17 +1073,17 @@
       "version": "2.3.0",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
-        "2.3.0: feat(EVOL-014): Gate 4 PREVENTIVE-SWEEP in Pre-Deploy Status Gate \u2014 blocks DEVOPS --deploy --env dev until the PREVENTIVE-SWEEP gate issue is Done and preventive_sweep_report.md is not INVALIDATED",
-        "2.2.1: fix: Frontend deploy support \u2014 add Static Site / Frontend Resources IaC generation protocol (SPA + SSR variants, engine-driven via iac_descriptor \u2014 no hardcoded cloud mappings), include static_site in Tier 3 provisioning, add frontend build step to deploy Phase 3.",
-        "2.2.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md \u2014 summarization-safe (INVARIANT 5) (#124)",
-        "2.1.0: feat: Seed Pipeline Protocol \u2014 post-deploy synthetic data seeding with topological ordering, idempotent upsert, cross-domain FK validation, deployment report extension (#124)",
-        "1.1.2: PR review fixes \u2014 (1) config/infrastructure_registry.json canonical path, (2) null FEATURE_ID production QA gate with env-scoped fallback, (3) CI/tag-safe branch validation using merge-base ancestry instead of git branch --show-current (#113)",
-        "1.1.1: Pre-Deploy Status Gate (BLOCKING) \u2014 formal verify_deploy_prerequisites() with explicit status checks: dev_plan.md IMPLEMENTED_AND_VERIFIED, devops_plan.md APPROVED, environment ACTIVE, production QA+MERGE gate (#112)",
+        "2.3.0: feat(EVOL-014): Gate 4 PREVENTIVE-SWEEP in Pre-Deploy Status Gate — blocks DEVOPS --deploy --env dev until the PREVENTIVE-SWEEP gate issue is Done and preventive_sweep_report.md is not INVALIDATED",
+        "2.2.1: fix: Frontend deploy support — add Static Site / Frontend Resources IaC generation protocol (SPA + SSR variants, engine-driven via iac_descriptor — no hardcoded cloud mappings), include static_site in Tier 3 provisioning, add frontend build step to deploy Phase 3.",
+        "2.2.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md — summarization-safe (INVARIANT 5) (#124)",
+        "2.1.0: feat: Seed Pipeline Protocol — post-deploy synthetic data seeding with topological ordering, idempotent upsert, cross-domain FK validation, deployment report extension (#124)",
+        "1.1.2: PR review fixes — (1) config/infrastructure_registry.json canonical path, (2) null FEATURE_ID production QA gate with env-scoped fallback, (3) CI/tag-safe branch validation using merge-base ancestry instead of git branch --show-current (#113)",
+        "1.1.1: Pre-Deploy Status Gate (BLOCKING) — formal verify_deploy_prerequisites() with explicit status checks: dev_plan.md IMPLEMENTED_AND_VERIFIED, devops_plan.md APPROVED, environment ACTIVE, production QA+MERGE gate (#112)",
         "1.1.0: Remove deprecated --approve from FEATURE-SCOPED commands and Command Summary table (v8.2.0 cleanup)",
-        "1.0.2: Coherence fix \u2014 update production prerequisites from 'QA --approve' to 'QA APPROVED (via --verify auto-approval)' (#108)",
-        "1.0.1: Deployment Report Template \u2014 full structured template for deployment_report_{ts}.md with frontmatter, execution log, smoke tests, metrics, rollback info (#108)",
-        "1.0.0: Extracted from DEVOPS sections \u2014 provision, deploy, rollback, teardown, status (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)"
+        "1.0.2: Coherence fix — update production prerequisites from 'QA --approve' to 'QA APPROVED (via --verify auto-approval)' (#108)",
+        "1.0.1: Deployment Report Template — full structured template for deployment_report_{ts}.md with frontmatter, execution log, smoke tests, metrics, rollback info (#108)",
+        "1.0.0: Extracted from DEVOPS sections — provision, deploy, rollback, teardown, status (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)"
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
@@ -1081,26 +1092,26 @@
       "changelog": [
         "2.2.9: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
         "2.2.8: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.2.7: fix: UXD fast-path integration \u2014 Step 0c loads UX Vision Digest from design.md Section 7.6 instead of 5 raw HTML files (survives summarization). CSS Foundation Gate uses ux_context.design_tokens + shell_ref. Mock Extraction Protocol (7-Section) references UXD data for shell validation, component classification, styling contract, and navigation verification. Graceful fallback to raw HTML when UXD absent.",
-        "2.2.6: fix: CSS Foundation Gate (v12.1.0) \u2014 BLOCKING gate at start of Phase B verifies CSS framework installed, design tokens translated to stack-native config, and build pipeline configured before any component generation. Auto-fix capability for missing deps/config. Prevents components with default/empty styles instead of design system tokens.",
-        "2.2.5: fix: PR review \u2014 fix type_registry[field]\u2192field_name variable consistency, add FORMAT_NORMALIZATION map (date-time\u2192iso-datetime), add resolve_test_data_format() with deterministic precedence (exact\u2192qualified\u2192glob), entity_name extraction in RULE block.",
-        "2.2.4: fix: Type-Aware Test Data Protocol \u2014 TDD RED phase loads type_format_registry from GCD 7.4 + contract schemas. Mock/stub/fixture values must conform to declared domain types (UUID, email, ISO datetime, etc.). Anti-pattern examples and format-compliant value table. Fallback heuristics for naming convention inference.",
-        "2.2.3: fix: GCD Section 7.8 extraction in Step 0b \u2014 loads mandatory_patterns (constitutional arch patterns + ADR bindings) into governance_context. Step 3b loads ADR files with fallback when GCD 7.8 absent. Passes mandatory_patterns to Phase Loop for REVIEW Check #14. Updates check count 13\u219214.",
-        "2.2.2: fix: Phase Loop REVIEW/SEC comments updated \u2014 document that REVIEW now includes review_verification_loop() (coverage, lint, typecheck via BVL) and SEC includes sec_verification_loop() (dependency_audit, secret_scan via BVL). Fix loop re-runs real tools on re-execution.",
-        "2.2.1: fix: GCD fast-path \u2014 separate frontmatter read from section read for unambiguous hash access, explicit snapshot-absent handling (fallback instead of silent skip)",
-        "2.2.0: feat: GCD fast-path in Step 0b \u2014 reads design.md Section 7 (Governance Constraints Digest) as single-file substitute for 20+ governance rule files. GCRP-compliant hash validation (constitution_hash[:8]). Returns governance_context + gcd_loaded to Phase Loop (REVIEW/SEC hats receive context \u2014 no double-parse). Step 1 SAST loading conditional on GCD. Graceful fallback includes full rule file loading.",
-        "2.1.0: feat: Build Verification Loop (BVL) integration \u2014 task_verification_loop in TDD Cycle, phase_verification post-DEV, full_verification_gate before IMPLEMENTED_AND_VERIFIED (#124)",
-        "1.2.3: Governance snapshot recovery in Step 0b \u2014 attempt .context/governance_snapshot.md before direct constitution.md read (INVARIANT 5 compliance) (#112)",
-        "1.2.2: IPP integration \u2014 Law 12 with task-atomic saves, resume-on-entry from first unchecked task, delta/fix task persistence (#112)",
-        "1.2.1: Fix QA\u2192FIX infinite loop \u2014 execute_fix_tasks() now sets qa_report.status to INVALIDATED after completion gate passes (QA_REJECTION source only)",
-        "1.2.0: Checkbox-Driven Execution \u2014 MODE 1 ADJ-N tasks (--refine feedback), MODE 2 D.N tasks (--refine upstream delta), Fix Task Generation Protocol (generate_fix_tasks + execute_fix_tasks), verify_completion_gate with 4 task type regex, removed Smart Redirect hints",
-        "1.1.4: PR review fixes \u2014 CIP gate truly BLOCKING when materialization_complete, APPEND_TO_WORKLOG as YAML block scalars (#108)",
-        "1.1.3: Procedural gates \u2014 Phased Verification Gate (H-09), Contract-First Gate (H-10), Schema Adherence Gate (H-11), Inter-Domain Contract Gate (H-12), Fix Scope Guard Gate (M-10), Iteration Staleness Gate (M-11), Traceability Comment Gate (L-02), Strict TDD Gate (#108)",
+        "2.2.7: fix: UXD fast-path integration — Step 0c loads UX Vision Digest from design.md Section 7.6 instead of 5 raw HTML files (survives summarization). CSS Foundation Gate uses ux_context.design_tokens + shell_ref. Mock Extraction Protocol (7-Section) references UXD data for shell validation, component classification, styling contract, and navigation verification. Graceful fallback to raw HTML when UXD absent.",
+        "2.2.6: fix: CSS Foundation Gate (v12.1.0) — BLOCKING gate at start of Phase B verifies CSS framework installed, design tokens translated to stack-native config, and build pipeline configured before any component generation. Auto-fix capability for missing deps/config. Prevents components with default/empty styles instead of design system tokens.",
+        "2.2.5: fix: PR review — fix type_registry[field]→field_name variable consistency, add FORMAT_NORMALIZATION map (date-time→iso-datetime), add resolve_test_data_format() with deterministic precedence (exact→qualified→glob), entity_name extraction in RULE block.",
+        "2.2.4: fix: Type-Aware Test Data Protocol — TDD RED phase loads type_format_registry from GCD 7.4 + contract schemas. Mock/stub/fixture values must conform to declared domain types (UUID, email, ISO datetime, etc.). Anti-pattern examples and format-compliant value table. Fallback heuristics for naming convention inference.",
+        "2.2.3: fix: GCD Section 7.8 extraction in Step 0b — loads mandatory_patterns (constitutional arch patterns + ADR bindings) into governance_context. Step 3b loads ADR files with fallback when GCD 7.8 absent. Passes mandatory_patterns to Phase Loop for REVIEW Check #14. Updates check count 13→14.",
+        "2.2.2: fix: Phase Loop REVIEW/SEC comments updated — document that REVIEW now includes review_verification_loop() (coverage, lint, typecheck via BVL) and SEC includes sec_verification_loop() (dependency_audit, secret_scan via BVL). Fix loop re-runs real tools on re-execution.",
+        "2.2.1: fix: GCD fast-path — separate frontmatter read from section read for unambiguous hash access, explicit snapshot-absent handling (fallback instead of silent skip)",
+        "2.2.0: feat: GCD fast-path in Step 0b — reads design.md Section 7 (Governance Constraints Digest) as single-file substitute for 20+ governance rule files. GCRP-compliant hash validation (constitution_hash[:8]). Returns governance_context + gcd_loaded to Phase Loop (REVIEW/SEC hats receive context — no double-parse). Step 1 SAST loading conditional on GCD. Graceful fallback includes full rule file loading.",
+        "2.1.0: feat: Build Verification Loop (BVL) integration — task_verification_loop in TDD Cycle, phase_verification post-DEV, full_verification_gate before IMPLEMENTED_AND_VERIFIED (#124)",
+        "1.2.3: Governance snapshot recovery in Step 0b — attempt .context/governance_snapshot.md before direct constitution.md read (INVARIANT 5 compliance) (#112)",
+        "1.2.2: IPP integration — Law 12 with task-atomic saves, resume-on-entry from first unchecked task, delta/fix task persistence (#112)",
+        "1.2.1: Fix QA→FIX infinite loop — execute_fix_tasks() now sets qa_report.status to INVALIDATED after completion gate passes (QA_REJECTION source only)",
+        "1.2.0: Checkbox-Driven Execution — MODE 1 ADJ-N tasks (--refine feedback), MODE 2 D.N tasks (--refine upstream delta), Fix Task Generation Protocol (generate_fix_tasks + execute_fix_tasks), verify_completion_gate with 4 task type regex, removed Smart Redirect hints",
+        "1.1.4: PR review fixes — CIP gate truly BLOCKING when materialization_complete, APPEND_TO_WORKLOG as YAML block scalars (#108)",
+        "1.1.3: Procedural gates — Phased Verification Gate (H-09), Contract-First Gate (H-10), Schema Adherence Gate (H-11), Inter-Domain Contract Gate (H-12), Fix Scope Guard Gate (M-10), Iteration Staleness Gate (M-11), Traceability Comment Gate (L-02), Strict TDD Gate (#108)",
         "1.1.2: Structured APPEND_TO_WORKLOG for --build/--refine, DRY Reuse Gate (CIP) enforcement with BLOCKING behavior and logging (#108)",
-        "1.1.1: PR review fixes \u2014 @skip justification check before gate, iteration-based design/test_plan detection (replace timestamp), explicit validate_upstream_artifacts call in --refine flow, tp_based_on_iteration detection (PR #107)",
+        "1.1.1: PR review fixes — @skip justification check before gate, iteration-based design/test_plan detection (replace timestamp), explicit validate_upstream_artifacts call in --refine flow, tp_based_on_iteration detection (PR #107)",
         "1.1.0: Completion Verification Gate, Upstream Artifact Validation, Iteration Changelog, Mandatory Law #11 (#106)",
-        "1.0.0: Extracted from IMPLEMENT.AGENT.MD \u2014 build & fix execution protocol (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.0.0: Extracted from IMPLEMENT.AGENT.MD — build & fix execution protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1109,23 +1120,23 @@
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
         "2.6.0: feat(EVOL-019) phase 2: CONTRACT-FREEZE Gate reframed as scope-aware — for scope in [backend-only, integration] the gate is THE primary design output (elevated block messaging + mandatory contracts/** non-empty); for scope=frontend-only the contracts/** non-empty check is relaxed (feature consumes upstreams, has no own contract). NEW Consumes-Contract Upstream Freeze Gate (runs after CONTRACT-FREEZE): iterates spec.feature.consumes_contract, verifies each upstream design.md is APPROVED, contracts/ non-empty, CONTRACT-FREEZE issue Done, no stale-after-cascade label. Pairs with the BLUEPRINT-side Consumes-Contract Resolution Gate (Phase 1) — two enforcement points make consumes_contract a load-bearing primitive.",
-        "2.4.0: feat(EVOL-014): CONTRACT-FREEZE Gate in Prerequisites + Defect Prevention Consultation step (dev_plan \u00a7 DC Compliance tasks). Gate uses trust-model (gate issue + stale-after-cascade label) not per-file frontmatter \u2014 contract files are DSL-native",
+        "2.4.0: feat(EVOL-014): CONTRACT-FREEZE Gate in Prerequisites + Defect Prevention Consultation step (dev_plan § DC Compliance tasks). Gate uses trust-model (gate issue + stale-after-cascade label) not per-file frontmatter — contract files are DSL-native",
         "2.3.6: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
         "2.3.5: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.3.4: fix: UXD fast-path integration \u2014 V.1-V.6 loads vision context from design.md Section 7.6 UXD instead of 5 raw HTML files. B.0.2 extracts tokens from UXD. B.2/B.3/B.6 reference UXD component_library, page_templates, shell_composition. Vision Fidelity Rule references UXD fields. Graceful fallback to raw HTML when UXD absent (pre-v12.1.0 BLUEPRINT).",
-        "2.3.3: fix: Phase B.0 Frontend Foundation \u2014 mandatory CSS/design token scaffolding tasks (B.0.1\u2013B.0.5) as prerequisite before component implementation. Extracts design tokens from style_guide.html into stack-native format (Tailwind config, globals.css, CSS variables). Ensures styling infrastructure exists before B.1+ tasks. B.4 updated to reference B.0 translated config instead of raw style_guide.html.",
-        "2.3.2: fix: Mandatory Architectural Pattern Loading \u2014 load_mandatory_patterns() extracts GCD Section 7.8 (or fallback constitution+ADRs), cross-references design.md Component Inventory, generates Phase A.0.N prerequisite tasks for shared components (BaseRepository, TenantMiddleware, etc.). Shared components created/integrated BEFORE feature-specific tasks.",
-        "2.3.1: fix: add Step 0.5 CVP coherence gate \u2014 validates CODESIGN\u2194BLUEPRINT\u2194IMPLEMENT chain before task decomposition",
-        "2.3.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md \u2014 summarization-safe (INVARIANT 5) (#124)",
-        "2.2.0: feat: Shared Seed Registry Protocol \u2014 cross-domain referential integrity via config/seed_registry.json, topological sort, FK validation, entity registration (C.5.5) (#124)",
-        "2.1.0: feat: Synthetic Data Protocol \u2014 C.5 conditional task for staging environments with idempotency, reset, referential coherence, schema alignment, and production guard requirements (#124)",
-        "1.0.5: Governance snapshot recovery \u2014 attempt .context/governance_snapshot.md before constitution.md reads (INVARIANT 5 compliance) (#112)",
-        "1.0.4: IPP integration \u2014 skeleton-first dev_plan.md, phase-atomic saves, resume-on-entry (#112)",
-        "1.0.3: Remove deprecated SMART_REDIRECT block \u2014 replace with RETURN_TO_FACTORY(FEATURE_ID) (v8.2.0 cleanup)",
-        "1.0.2: PR review fixes \u2014 APPEND_TO_WORKLOG as YAML block scalar for valid syntax (#108)",
+        "2.3.4: fix: UXD fast-path integration — V.1-V.6 loads vision context from design.md Section 7.6 UXD instead of 5 raw HTML files. B.0.2 extracts tokens from UXD. B.2/B.3/B.6 reference UXD component_library, page_templates, shell_composition. Vision Fidelity Rule references UXD fields. Graceful fallback to raw HTML when UXD absent (pre-v12.1.0 BLUEPRINT).",
+        "2.3.3: fix: Phase B.0 Frontend Foundation — mandatory CSS/design token scaffolding tasks (B.0.1–B.0.5) as prerequisite before component implementation. Extracts design tokens from style_guide.html into stack-native format (Tailwind config, globals.css, CSS variables). Ensures styling infrastructure exists before B.1+ tasks. B.4 updated to reference B.0 translated config instead of raw style_guide.html.",
+        "2.3.2: fix: Mandatory Architectural Pattern Loading — load_mandatory_patterns() extracts GCD Section 7.8 (or fallback constitution+ADRs), cross-references design.md Component Inventory, generates Phase A.0.N prerequisite tasks for shared components (BaseRepository, TenantMiddleware, etc.). Shared components created/integrated BEFORE feature-specific tasks.",
+        "2.3.1: fix: add Step 0.5 CVP coherence gate — validates CODESIGN↔BLUEPRINT↔IMPLEMENT chain before task decomposition",
+        "2.3.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md — summarization-safe (INVARIANT 5) (#124)",
+        "2.2.0: feat: Shared Seed Registry Protocol — cross-domain referential integrity via config/seed_registry.json, topological sort, FK validation, entity registration (C.5.5) (#124)",
+        "2.1.0: feat: Synthetic Data Protocol — C.5 conditional task for staging environments with idempotency, reset, referential coherence, schema alignment, and production guard requirements (#124)",
+        "1.0.5: Governance snapshot recovery — attempt .context/governance_snapshot.md before constitution.md reads (INVARIANT 5 compliance) (#112)",
+        "1.0.4: IPP integration — skeleton-first dev_plan.md, phase-atomic saves, resume-on-entry (#112)",
+        "1.0.3: Remove deprecated SMART_REDIRECT block — replace with RETURN_TO_FACTORY(FEATURE_ID) (v8.2.0 cleanup)",
+        "1.0.2: PR review fixes — APPEND_TO_WORKLOG as YAML block scalar for valid syntax (#108)",
         "1.0.1: Structured APPEND_TO_WORKLOG replacing bare LOG workflow_log (#108)",
-        "1.0.0: Extracted from IMPLEMENT.AGENT.MD \u2014 dev plan creation protocol (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.0.0: Extracted from IMPLEMENT.AGENT.MD — dev plan creation protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1135,55 +1146,57 @@
       "changelog": [
         "2.3.0: feat(EVOL-019) phase 2: REVIEW Hat Protocol gains § Scope Dispatch (runs BEFORE Step R.0) — reads feature_scope from spec.feature, builds check_applicability matrix filtering 14 checks per scope (e.g. #6 TYPE-* only full-stack; #7 UX-* only [full-stack, frontend-only]; #8 MIGRATION-*, #10 CFP-*, #12 ACL-EXT only scopes with backend surface). Scope-excluded checks render as `N/A — skipped under scope={value}` in peer_review report (not silent). applicable_when HTML comments annotate checks #6, #7, #8, #10, #12 headers.",
         "2.1.6: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.1.5: fix: PR review \u2014 add FORMAT_NORMALIZATION map, lookup_expected_format() with glob precedence, LAST_PATH_SEGMENT normalization for qualified field names, negative test exemption (@schema-test-exempt annotation + invalid_ prefix convention).",
-        "2.1.4: fix: Check #5 [SCHEMA-TEST] sub-check \u2014 Test Data Type Compliance. Scans test files for mock/fixture/stub values and validates against type_format_registry from GCD 7.4 + contract format fields. BLOCKER for identifier fields (tenant_id, user_id) using non-UUID literals; WARNING for other typed fields (email, dates, URIs). Regex-based format validation.",
-        "2.1.3: fix: Check #14 [DESIGN-XX] Design Materialization Fidelity \u2014 4 sub-checks: [DESIGN-COMP] Component Inventory materialization (shared components created AND used), [DESIGN-PATTERN] Mandatory Pattern Compliance (base_class extension, middleware chain registration, tenant context flow), [DESIGN-ADR] ADR Binding Compliance, [DESIGN-INVARIANT] Implementation Invariant Verification. Closes gap where IMPLEMENT bypassed prescribed patterns. Check count 13\u219214. Pre-finalization checklist 15\u219216 items.",
-        "2.1.2: fix: REVIEW + SEC hats now execute real tools via BVL \u2014 REVIEW adds review_verification_loop() (coverage threshold, lint, typecheck, test suite re-run), SEC adds sec_verification_loop() (dependency audit via npm audit/pip-audit/cargo audit, secret scanning via gitleaks/trufflehog with regex fallback). Static findings merge with execution findings for verdict. GCD context binding expanded with 7 new rule IDs.",
+        "2.1.5: fix: PR review — add FORMAT_NORMALIZATION map, lookup_expected_format() with glob precedence, LAST_PATH_SEGMENT normalization for qualified field names, negative test exemption (@schema-test-exempt annotation + invalid_ prefix convention).",
+        "2.1.4: fix: Check #5 [SCHEMA-TEST] sub-check — Test Data Type Compliance. Scans test files for mock/fixture/stub values and validates against type_format_registry from GCD 7.4 + contract format fields. BLOCKER for identifier fields (tenant_id, user_id) using non-UUID literals; WARNING for other typed fields (email, dates, URIs). Regex-based format validation.",
+        "2.1.3: fix: Check #14 [DESIGN-XX] Design Materialization Fidelity — 4 sub-checks: [DESIGN-COMP] Component Inventory materialization (shared components created AND used), [DESIGN-PATTERN] Mandatory Pattern Compliance (base_class extension, middleware chain registration, tenant context flow), [DESIGN-ADR] ADR Binding Compliance, [DESIGN-INVARIANT] Implementation Invariant Verification. Closes gap where IMPLEMENT bypassed prescribed patterns. Check count 13→14. Pre-finalization checklist 15→16 items.",
+        "2.1.2: fix: REVIEW + SEC hats now execute real tools via BVL — REVIEW adds review_verification_loop() (coverage threshold, lint, typecheck, test suite re-run), SEC adds sec_verification_loop() (dependency audit via npm audit/pip-audit/cargo audit, secret scanning via gitleaks/trufflehog with regex fallback). Static findings merge with execution findings for verdict. GCD context binding expanded with 7 new rule IDs.",
         "2.1.1: fix: fallback path binds equivalent fields (same interface as GCD path), gov_rules_index accessed via indexed map (rules_by_id), schema_constraints accessed via entities_by_name map from list",
-        "2.1.0: feat: GCD context binding Step R.0 \u2014 REVIEW and SEC hats receive governance_context from Phase Loop caller (no re-read of design.md Section 7). Named constraint IDs (GOV-*/ARCH-*/SAST-*) make findings precise and auditable. SEC Hat uses pre-compiled SAST patterns from governance_context. Checks #1/#2/#3/#5/#7/#10 reference GCD sub-sections. Graceful fallback when gcd_loaded == false.",
-        "1.0.1: Remove deprecated SMART_REDIRECT block \u2014 replace with RETURN_TO_FACTORY(FEATURE_ID) (v8.2.0 cleanup)",
-        "1.0.0: Extracted from IMPLEMENT.AGENT.MD \u2014 peer review + security audit protocols (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "2.1.0: feat: GCD context binding Step R.0 — REVIEW and SEC hats receive governance_context from Phase Loop caller (no re-read of design.md Section 7). Named constraint IDs (GOV-*/ARCH-*/SAST-*) make findings precise and auditable. SEC Hat uses pre-compiled SAST patterns from governance_context. Checks #1/#2/#3/#5/#7/#10 reference GCD sub-sections. Graceful fallback when gcd_loaded == false.",
+        "1.0.1: Remove deprecated SMART_REDIRECT block — replace with RETURN_TO_FACTORY(FEATURE_ID) (v8.2.0 cleanup)",
+        "1.0.0: Extracted from IMPLEMENT.AGENT.MD — peer review + security audit protocols (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "2.6.0: feat(EVOL-019) phase 3: Gate 4 SMOKE-E2E is now scope-aware — resolves expected phase label by feature_scope (smoke-e2e-browser / smoke-e2e-integration / smoke-e2e-hybrid; legacy smoke-e2e still honoured), picks the right template (smoke_e2e_report_template vs smoke_e2e_integration_template), and enforces scope consistency on the report. Verification checklist gains 7 new QA-REL-* reliability items (idempotency replay, retry/backoff, circuit breaker, DLQ, timeout, graceful shutdown, observability) applicable_when scope in [backend-only, integration]; QA-REL-8 (API versioning) added for scope=integration only.",
         "2.4.0: feat(EVOL-014): Gate 4 SMOKE-E2E in Prerequisites Gate (blocks QA --verify pass until gate Done + smoke_e2e_report not INVALIDATED); verification checklist generator adds [QA-DC-N] items (one per DC applicable to QA, auto-approval requires all [x])",
         "2.3.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.3.1: fix: add Full-Chain CVP gate \u2014 validates end-to-end traceability CODESIGN\u2192BLUEPRINT\u2192IMPLEMENT\u2192QA before verification",
-        "2.3.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md \u2014 summarization-safe (INVARIANT 5) (#124)",
-        "2.2.0: feat: [QA-PRE-DATA] extended with cross-domain validation \u2014 seed registry existence, dependency graph resolution, cross-feature FK orphan check, topological sort validity (#124)",
-        "2.1.0: feat: [QA-PRE-DATA] checkpoint \u2014 synthetic data verification for staging environments (idempotency, reset, referential coherence, schema alignment, production guard) (#124)",
+        "2.3.1: fix: add Full-Chain CVP gate — validates end-to-end traceability CODESIGN→BLUEPRINT→IMPLEMENT→QA before verification",
+        "2.3.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md — summarization-safe (INVARIANT 5) (#124)",
+        "2.2.0: feat: [QA-PRE-DATA] extended with cross-domain validation — seed registry existence, dependency graph resolution, cross-feature FK orphan check, topological sort validity (#124)",
+        "2.1.0: feat: [QA-PRE-DATA] checkpoint — synthetic data verification for staging environments (idempotency, reset, referential coherence, schema alignment, production guard) (#124)",
         "1.1.2: sec_audit.md added to Required Inputs (item 8 enrichment) + governance snapshot recovery note before QA-Scoped rule loading (INVARIANT 5 compliance) (#112)",
-        "1.1.1: IPP integration \u2014 skeleton-first qa_report, per-check atomic saves, resume-on-entry (#112)",
-        "1.1.0: Remove deprecated --approve LEGACY FALLBACK section \u2014 auto-approval via --verify is the only path (v8.2.0 cleanup)",
-        "1.0.4: Trim legacy --approve section to compact reference \u2014 reduces context token overhead (#108)",
-        "1.0.3: QA Report Template (GAP-1), DAST Report Template (GAP-3), Auto-Approval Protocol (v8.2.0) \u2014 --verify auto-approves when verdict APPROVED, --approve marked as legacy fallback (#108)",
-        "1.0.2: Procedural gates \u2014 Iteration Detection Gate (M-05), Prerequisites Gate (M-08), Scope Boundary (M-09) (#108)",
+        "1.1.1: IPP integration — skeleton-first qa_report, per-check atomic saves, resume-on-entry (#112)",
+        "1.1.0: Remove deprecated --approve LEGACY FALLBACK section — auto-approval via --verify is the only path (v8.2.0 cleanup)",
+        "1.0.4: Trim legacy --approve section to compact reference — reduces context token overhead (#108)",
+        "1.0.3: QA Report Template (GAP-1), DAST Report Template (GAP-3), Auto-Approval Protocol (v8.2.0) — --verify auto-approves when verdict APPROVED, --approve marked as legacy fallback (#108)",
+        "1.0.2: Procedural gates — Iteration Detection Gate (M-05), Prerequisites Gate (M-08), Scope Boundary (M-09) (#108)",
         "1.0.1: Structured APPEND_TO_WORKLOG for --verify/--approve/--reject (#108)",
-        "1.0.0: Extracted from QA sections \u2014 verify, approve, reject, e2e (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.0.0: Extracted from QA sections — verify, approve, reject, e2e (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.6.0: feat(EVOL-019) phase 3: full-sdlc preset suffix 8 scope-aware — three phase label variants materialised by --plan-feature based on spec.feature.scope: phase:smoke-e2e-browser (frontend-only), phase:smoke-e2e-integration (backend-only/integration), phase:smoke-e2e-hybrid (full-stack). Exactly ONE variant emitted per feature; legacy phase:smoke-e2e accepted for backward compatibility. New label category `scope:{full-stack|backend-only|frontend-only|integration}` applied at --plan-feature time (inherits spec.feature.scope), uniform across all phase issues of the feature. Gate Issue Body Template gains scope-aware DoD variants for the three smoke-e2e-* phase labels.",
         "1.4.0: feat(EVOL-015): label taxonomy extended with kind:follow-up, blocked-by:#{N}, and appetite:{small,medium,big} (conditional on Q27.6); gate preset phases carry mode_default placeholder bound to Q27.5; gate issue body template gains ## Mode frontmatter line for per-gate override; feature issue body template gains conditional ## Appetite section (rendered only when Q27.6==true)",
-        "1.3.0: feat(EVOL-014): tool-agnostic issue/label/milestone schema (\u00a73.0 title patterns, \u00a74.1 label taxonomy, \u00a74.2 milestone schema), full-sdlc 5\u21928 phase preset with 3 hard gates, adapter contract extended (add_label/add_sub_issue/read_issue/create_milestone/create_label) with required/optional split, \u00a73.4.1 retrospective\u2192DC catalog write-back procedure, gate issue body template, Spanish leakage removed",
-        "1.2.0: feat: rename 'Domain Clusters' \u2192 'Epics' + add slice-sequential description in \u00a7 10 Execution Plan cross-reference",
-        "1.0.7: fix: tech-agnostic verification/rollback (verify_issue, verify_board_placement, close_issue), --move step reorder (board_field_mapping before move_to_column), Final Verification Gate \u00a7 6.4 (#130)",
-        "1.0.6: fix: integration field as strict enum (cli|mcp) with concrete example, \u00a7 6.0.2 preflight bifurcates CLI vs MCP paths (which vs MCP server check)",
-        "1.0.5: fix: Preflight Check (\u00a7 6.0.2) \u2014 mandatory 3-step gate (binary exists, authenticated, permissions) before any external operation, blocks and guides user on failure",
-        "1.0.4: fix: Error Resolution Protocol (\u00a7 6.0.1) \u2014 classified error handling for CLI/MCP failures with diagnostic steps, user-facing resolution instructions, and retry flow",
-        "1.0.3: fix: tool-agnostic refactor \u2014 replace gh CLI/GraphQL commands with tool-adapter protocol, zero-credentials security invariant, CLI/MCP-only integration, agnostic project-config.json schema",
-        "1.0.2: fix: SSOT v1.0.0 \u2014 Section 0 SSOT invariant, mode-conditional protocols (external/local) for issue creation, board ops, state tracking, body files",
-        "1.0.1: fix: PR review \u2014 clarify feature_phases as preset string persisted by SETUP, expanded by BACKLOG at runtime. Read from governance snapshot. Expansion example added (#124)",
-        "1.0.0: feat: initial Backlog operations reference \u2014 SETUP-driven config, issue naming, body templates, board management. Phases: codesign\u2192blueprint\u2192devops\u2192implement\u2192qa. Deliverables under docs/backlog/ (#124)",
+        "1.3.0: feat(EVOL-014): tool-agnostic issue/label/milestone schema (§3.0 title patterns, §4.1 label taxonomy, §4.2 milestone schema), full-sdlc 5→8 phase preset with 3 hard gates, adapter contract extended (add_label/add_sub_issue/read_issue/create_milestone/create_label) with required/optional split, §3.4.1 retrospective→DC catalog write-back procedure, gate issue body template, Spanish leakage removed",
+        "1.2.0: feat: rename 'Domain Clusters' → 'Epics' + add slice-sequential description in § 10 Execution Plan cross-reference",
+        "1.0.7: fix: tech-agnostic verification/rollback (verify_issue, verify_board_placement, close_issue), --move step reorder (board_field_mapping before move_to_column), Final Verification Gate § 6.4 (#130)",
+        "1.0.6: fix: integration field as strict enum (cli|mcp) with concrete example, § 6.0.2 preflight bifurcates CLI vs MCP paths (which vs MCP server check)",
+        "1.0.5: fix: Preflight Check (§ 6.0.2) — mandatory 3-step gate (binary exists, authenticated, permissions) before any external operation, blocks and guides user on failure",
+        "1.0.4: fix: Error Resolution Protocol (§ 6.0.1) — classified error handling for CLI/MCP failures with diagnostic steps, user-facing resolution instructions, and retry flow",
+        "1.0.3: fix: tool-agnostic refactor — replace gh CLI/GraphQL commands with tool-adapter protocol, zero-credentials security invariant, CLI/MCP-only integration, agnostic project-config.json schema",
+        "1.0.2: fix: SSOT v1.0.0 — Section 0 SSOT invariant, mode-conditional protocols (external/local) for issue creation, board ops, state tracking, body files",
+        "1.0.1: fix: PR review — clarify feature_phases as preset string persisted by SETUP, expanded by BACKLOG at runtime. Read from governance snapshot. Expansion example added (#124)",
+        "1.0.0: feat: initial Backlog operations reference — SETUP-driven config, issue naming, body templates, board management. Phases: codesign→blueprint→devops→implement→qa. Deliverables under docs/backlog/ (#124)",
         "1.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1191,25 +1204,26 @@
       "version": "1.3.0",
       "path": ".claude/instructions/Factory-backlog-execution-plan.instructions.md",
       "changelog": [
-        "1.3.0: feat(EVOL-014): dual-mode SSOT cleanup (file vs board), mode-scoping notes on \u00a73/\u00a74, guardrails 8-11 (slice/epic completeness, gate enforcement is resolver's job), 8-phase slice completeness",
+        "1.3.0: feat(EVOL-014): dual-mode SSOT cleanup (file vs board), mode-scoping notes on §3/§4, guardrails 8-11 (slice/epic completeness, gate enforcement is resolver's job), 8-phase slice completeness",
         "1.2.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "1.2.0: feat: aggregate-scoped Slices \u2014 subdivide epics with >3 features into Slices (\u22643) grouped by shared Aggregate Root; form_slices() algorithm; slice-sequential pipeline; plan template with slice sections; cache tracks active_slice; guardrails 7-9 (slice size cap, ordering, completeness)",
-        "1.1.0: feat: rename 'Domain Cluster' \u2192 'Epic' (Agile-standard terminology); EPIC-{N} identifiers; epic-scoped branch reference in plan template; form_epics() replaces form_clusters(); epic-phase-sequential ordering",
-        "1.0.0: feat: initial execution plan protocol \u2014 dependency analysis (entity/BC/explicit), domain cluster formation, cluster-phase-sequential ordering, /memories/repo/ write-through cache, --plan-execution, --update-execution, --sync-execution commands, --plan-feature integration, next-task resolver cache fast path"
+        "1.2.0: feat: aggregate-scoped Slices — subdivide epics with >3 features into Slices (≤3) grouped by shared Aggregate Root; form_slices() algorithm; slice-sequential pipeline; plan template with slice sections; cache tracks active_slice; guardrails 7-9 (slice size cap, ordering, completeness)",
+        "1.1.0: feat: rename 'Domain Cluster' → 'Epic' (Agile-standard terminology); EPIC-{N} identifiers; epic-scoped branch reference in plan template; form_epics() replaces form_clusters(); epic-phase-sequential ordering",
+        "1.0.0: feat: initial execution plan protocol — dependency analysis (entity/BC/explicit), domain cluster formation, cluster-phase-sequential ordering, /memories/repo/ write-through cache, --plan-execution, --update-execution, --sync-execution commands, --plan-feature integration, next-task resolver cache fast path"
       ]
     },
     "instructions/Factory-backlog-next-task.instructions.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md",
       "changelog": [
-        "1.5.0: feat(EVOL-015 B1): \u00a7 5 Pull Mode Resolver \u2014 `--eligible` pull-mode command. READ-ONLY pool computation reusing the per-candidate filter chain (\u00a71.3 prereq + \u00a71.3.4 blocked-by + \u00a71.3.5 gate mode) via factored apply_filter_chain() function. Dual-mode SSOT: file mode reads execution-plan.md, board mode queries ADAPTER.query_board() (no execution-plan.md on disk in board mode). Default cap --limit 20; --limit unlimited allowed. Warn-gated items appear in the pool with a warn suffix; enforce-gated excluded; off-gated silent. Response contract, minimal template, blocking rules.",
-        "1.4.0: feat(EVOL-015): \u00a7 1.3.4 blocked-by:#{N} label filter \u2014 hard dependency gate for cross-issue blockers, runs before hard-gate enforcement; \u00a7 1.3.5 gate mode resolution via three-level fallback (issue body frontmatter > adapter default > governance snapshot) with enforce/warn/off semantics; response contract gains `warns` field + minimal template gains `Pending gates (warn)` line",
-        "1.3.0: feat(EVOL-014): \u00a7 1.3.5 Hard-gate enforcement \u2014 5 gate classes (CONTRACT-FREEZE/PREVENTIVE-SWEEP/SMOKE-E2E/INTEGRATION-TEST/RETROSPECTIVE) block their downstream commands via tool-adapter query; dual-mode \u00a7 0 Source Of Truth",
-        "1.2.0: feat: rename 'cluster' \u2192 'epic' + add 'slice' field in Step 1.4 extraction \u2014 Agile-standard terminology with aggregate-scoped slices",
+        "1.6.0: feat(EVOL-019) phase 3: new Step 1.3.4.5 — consumes_contract cross-feature freeze filter. Runs BEFORE hard-gate enforcement (Step 1.3.5). For any feature-phase candidate, iterates spec.feature.consumes_contract; for each upstream verifies design.md APPROVED, scope != frontend-only, and (full-sdlc only) CONTRACT-FREEZE issue Done + not stale-after-cascade. Unresolved upstreams block under gate_enforcement_mode=enforce (blocker points at upstream CONTRACT-FREEZE), warn under mode=warn (candidate kept in pool with suffix), silent under mode=off. Pull-mode --eligible adapted.",
+        "1.5.0: feat(EVOL-015 B1): § 5 Pull Mode Resolver — `--eligible` pull-mode command. READ-ONLY pool computation reusing the per-candidate filter chain (§1.3 prereq + §1.3.4 blocked-by + §1.3.5 gate mode) via factored apply_filter_chain() function. Dual-mode SSOT: file mode reads execution-plan.md, board mode queries ADAPTER.query_board() (no execution-plan.md on disk in board mode). Default cap --limit 20; --limit unlimited allowed. Warn-gated items appear in the pool with a warn suffix; enforce-gated excluded; off-gated silent. Response contract, minimal template, blocking rules.",
+        "1.4.0: feat(EVOL-015): § 1.3.4 blocked-by:#{N} label filter — hard dependency gate for cross-issue blockers, runs before hard-gate enforcement; § 1.3.5 gate mode resolution via three-level fallback (issue body frontmatter > adapter default > governance snapshot) with enforce/warn/off semantics; response contract gains `warns` field + minimal template gains `Pending gates (warn)` line",
+        "1.3.0: feat(EVOL-014): § 1.3.5 Hard-gate enforcement — 5 gate classes (CONTRACT-FREEZE/PREVENTIVE-SWEEP/SMOKE-E2E/INTEGRATION-TEST/RETROSPECTIVE) block their downstream commands via tool-adapter query; dual-mode § 0 Source Of Truth",
+        "1.2.0: feat: rename 'cluster' → 'epic' + add 'slice' field in Step 1.4 extraction — Agile-standard terminology with aggregate-scoped slices",
         "1.1.2: fix: enforce Step 1.4.5 on cache fast path, align SSOT precedence (execution-plan for ordering; issue body for command/details), local mode body_path resolution via docs/backlog/state.md, and adapter-based ISSUE_READ resolution from docs/backlog/tool-adapter.md",
-        "1.1.1: fix: Step 1.4.5 \u2014 mandatory issue content fetch via configured tool (not hardcoded GitHub); tool-agnostic routing (cli_command from project-config.json or local issue-bodies/); discrepancy detection between plan and issue body; issue body beats execution-plan summary (SSOT)",
-        "1.1.0: feat: memory cache fast path \u2014 Step 0 reads /memories/repo/execution-plan-cache.md before disk, Step 1.5 refreshes cache after resolution",
-        "1.0.0: feat: initial next-task guidance \u2014 deterministic parsing of execution-plan.md, prerequisite gate, execution tuple extraction, blocking rules"
+        "1.1.1: fix: Step 1.4.5 — mandatory issue content fetch via configured tool (not hardcoded GitHub); tool-agnostic routing (cli_command from project-config.json or local issue-bodies/); discrepancy detection between plan and issue body; issue body beats execution-plan summary (SSOT)",
+        "1.1.0: feat: memory cache fast path — Step 0 reads /memories/repo/execution-plan-cache.md before disk, Step 1.5 refreshes cache after resolution",
+        "1.0.0: feat: initial next-task guidance — deterministic parsing of execution-plan.md, prerequisite gate, execution tuple extraction, blocking rules"
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
@@ -1217,20 +1231,20 @@
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
         "2.10.0: feat(EVOL-019) phase 1: Q4.5 Project Scope (full-stack | backend-only | frontend-only | integration) — single-select with RDR, audit inference hook, tier-agnostic; TIER_0 adds Q4.5, TIER_1 gains scope-driven conditional unlocks that skip Q9-Q14 for backend-only/integration and skip Q5-Q8.1 for frontend-only.",
-        "2.8.0: feat(EVOL-015): Q27 Project Tracking block extended with Q27.5 Gate Enforcement Mode Default (enforce|warn|off, conditional on Q27.2==full-sdlc, RDR = enforce greenfield / warn brownfield) and Q27.6 Appetite Sizing (boolean, conditional on Q27!=None, RDR = true, materialises appetite:{small,medium,big} labels via SETUP). Questions sit inside the Q27 block to preserve narrative coherence \u2014 tool \u2192 columns \u2192 phases \u2192 milestones \u2192 naming \u2192 gate mode \u2192 appetite \u2192 (exit block)",
-        "2.7.0: feat(EVOL-014): Cost Estimation Protocol (CEP) added as \u00a7 4.1.3.2 \u2014 canonical producer for all {{*_COST}} / {{BUDGET_*}} template variables. Closes the pre-existing cost pipeline gap where 20+ cost placeholders had no producer. Instructions-only (no hardcoded price tables), uses agent ecosystem knowledge + RDR for ambiguous pricing. Persists full breakdown to docs/setup.md \u00a7 costs:. Canonical placeholder substitution map. Discovery Finalization order updated to run VVP \u2192 CEP \u2192 summary \u2192 ADR-0000 generation (includes new COST_BREAKDOWN variable category).",
+        "2.8.0: feat(EVOL-015): Q27 Project Tracking block extended with Q27.5 Gate Enforcement Mode Default (enforce|warn|off, conditional on Q27.2==full-sdlc, RDR = enforce greenfield / warn brownfield) and Q27.6 Appetite Sizing (boolean, conditional on Q27!=None, RDR = true, materialises appetite:{small,medium,big} labels via SETUP). Questions sit inside the Q27 block to preserve narrative coherence — tool → columns → phases → milestones → naming → gate mode → appetite → (exit block)",
+        "2.7.0: feat(EVOL-014): Cost Estimation Protocol (CEP) added as § 4.1.3.2 — canonical producer for all {{*_COST}} / {{BUDGET_*}} template variables. Closes the pre-existing cost pipeline gap where 20+ cost placeholders had no producer. Instructions-only (no hardcoded price tables), uses agent ecosystem knowledge + RDR for ambiguous pricing. Persists full breakdown to docs/setup.md § costs:. Canonical placeholder substitution map. Discovery Finalization order updated to run VVP → CEP → summary → ADR-0000 generation (includes new COST_BREAKDOWN variable category).",
         "2.6.4: fix: VVP resolution method renamed from fetch_webpage to web/fetch (actual agent tool name) + curl fallback",
         "2.6.3: fix: Q26 deny list split into contextual categories (crypto-universal, dynamic-eval, frontend-js) instead of universal list that assumed all runtimes have eval/jQuery",
-        "2.6.2: fix: VVP \u00a7 4.1.3.1 \u2014 Version Verification Protocol in Discovery Finalization, runtime registry queries to pin latest stable/LTS versions instead of stale LLM knowledge",
-        "2.6.1: fix: Q27 tool-agnostic \u2014 change from closed single-select to open text with suggestions, any tool name accepted, CLI/MCP integration model note",
-        "2.6.0: feat: Q28 Synthetic Data Protocol toggle + Q28.1 Seed ID Strategy \u2014 conditional unlock, persists synthetic_data.enabled and synthetic_data.id_strategy (#124)",
-        "2.5.0: feat: Q27-Q27.4 Project Tracking questions \u2014 tool selection, board columns, feature phases (codesign\u2192blueprint\u2192devops\u2192implement\u2192qa), milestone strategy, naming convention (#124)",
-        "2.4.0: feat: Q8.1 Webhook Support \u2014 new conditional question for inbound/outbound webhook configuration, complementary to communication_style",
-        "2.3.0: feat: simplified field guidance + i18n \u2014 simplified must match session.language with es/en examples",
+        "2.6.2: fix: VVP § 4.1.3.1 — Version Verification Protocol in Discovery Finalization, runtime registry queries to pin latest stable/LTS versions instead of stale LLM knowledge",
+        "2.6.1: fix: Q27 tool-agnostic — change from closed single-select to open text with suggestions, any tool name accepted, CLI/MCP integration model note",
+        "2.6.0: feat: Q28 Synthetic Data Protocol toggle + Q28.1 Seed ID Strategy — conditional unlock, persists synthetic_data.enabled and synthetic_data.id_strategy (#124)",
+        "2.5.0: feat: Q27-Q27.4 Project Tracking questions — tool selection, board columns, feature phases (codesign→blueprint→devops→implement→qa), milestone strategy, naming convention (#124)",
+        "2.4.0: feat: Q8.1 Webhook Support — new conditional question for inbound/outbound webhook configuration, complementary to communication_style",
+        "2.3.0: feat: simplified field guidance + i18n — simplified must match session.language with es/en examples",
         "2.2.0: feat: BIP pivotal question marking for disruption-triggered re-harvest",
-        "2.1.0: feat: BIP tiered discovery \u2014 3 dependency tiers replace sequential Q&A, BIP sub-commands, tier-aware resumability",
-        "1.0.0: Extracted from SETUP.AGENT.md \u2014 discovery phase with Smart Discovery + RDR (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "2.1.0: feat: BIP tiered discovery — 3 dependency tiers replace sequential Q&A, BIP sub-commands, tier-aware resumability",
+        "1.0.0: Extracted from SETUP.AGENT.md — discovery phase with Smart Discovery + RDR (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.9.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1240,26 +1254,26 @@
       "changelog": [
         "2.11.0: feat(EVOL-019) phase 2: § 4.2.3 Phase B.1 adds 7 starter INTEGRATION / BACKEND-ONLY DCs guarded by project_scope IN [full-stack, backend-only, integration] — idempotency keys on mutations (BLOCKER), retry/backoff+jitter (BLOCKER), circuit breaker on unreliable downstreams (BLOCKER), structured logging + trace propagation (WARNING), API contract versioning + backward-compat strategy (BLOCKER), dead-letter queue handling (BLOCKER, backend-only/integration only), graceful shutdown (SIGTERM/drain) (BLOCKER). All entries carry the new feature_scope field (v2.1.0 DPC schema) restricting to [backend-only, integration, full-stack].",
         "2.10.0: feat(EVOL-019) phase 1: governance snapshot § Stack Configuration / § Constitutional Boundaries / § Setup Configuration gain project_scope field; Step 2/3 tripartite scaffolding now double-guards backend/frontend fragments with project_scope (primary) + runtime/framework (secondary); § 4.2.9 Special Integration — UX Constitution is skipped entirely when project_scope IN [backend-only, integration].",
-        "2.9.0: fix(EVOL-017) Copilot PR #7 round 2: Claude Code Materialization block extended with step 3 \u2014 .context/templates/setup/claude/hooks/*.sh \u2192 .claude/hooks/*.sh. Closes the gap where fresh SETUP --generate produced a settings.json pointing at hook scripts that never existed in the materialized target. Includes post-materialization invariant check (every hook referenced from settings.json must exist).",
-        "2.8.0: feat(EVOL-018): \u00a7 Claude Code Materialization block added in \u00a7 4.2.6 \u2014 CLAUDE.md and .claude/settings.json are now owned by SETUP (smart-additive-merge and merge-preserve strategies respectively). Closes the gap where downstream projects received framework scripts but no hooks, and where they inherited the framework-repo CLAUDE.md (meta-maintenance variant) instead of the project-focused variant.",
-        "2.6.0: feat(EVOL-015): \u00a7 4.2.3 Phase B.1 gains 5 universal meta-pattern DCs (pipeline short-circuit, identity-argument no-op, framework-layer validation errors invisible to app logs, mutation APIs with replace semantics, composite network symptoms) added unconditionally to every project regardless of stack \u2014 each scoped by applicable_when filter; stack-specific DCs remain conditional. \u00a7 Checkpoint 3.1 governance snapshot extended with project_tracking.gate_enforcement_mode (Q27.5) + project_tracking.appetite_sizing_enabled (Q27.6). \u00a7 Step 6.2.1 Appetite Field Materialisation + \u00a7 Step 6.2.2 Gate Enforcement Mode Materialisation write the corresponding sections into docs/backlog/tool-adapter.md when Q27.6/Q27.2 match.",
-        "2.5.0: feat(EVOL-014): \u00a7 4.2.4 Step 0 Dynamic Path Derivation rewritten from 2-line stub to full derivation protocol (instructions-only, no hardcoded lookup table) \u2014 persists setup_md.paths section as SSOT for all {{*_BASE_PATH}} placeholders + \u00a7 4.2.7 Budget Calculation rewritten as Cost Placeholder Resolution pass \u2014 reads setup_md.costs from CEP, applies canonical substitution map for 20+ {{*_COST}}/{{BUDGET_*}} placeholders, dangling check blocks materialization on any surviving literal. Closes pre-existing cost pipeline gap and base-path derivation gap.",
-        "2.4.7: fix: tool-adapter abstract ops list \u2014 add verify_issue, verify_board_placement, close_issue for verification/rollback support (#130)",
-        "2.4.6: fix: stack-agnostic scaffolding \u2014 Step 2 (Backend) and Step 3 (Frontend) now have explicit conditional guards (skip if backend.runtime/frontend.framework == None)",
-        "2.4.5: fix: VVP materialization gate \u2014 \u00a7 4.2.1.1 Version Freshness Gate (re-verify if >7 days old) + \u00a7 4.2.1.2 Version Pinning table for generated artifacts (package.json, Dockerfile, pyproject.toml, CI/CD, etc.)",
-        "2.4.4: fix: tool-adapter \u00a7 Troubleshooting section \u2014 SETUP generates error resolution guidance per error category (install, auth, permissions, network, common errors)",
-        "2.4.3: fix: Step 6 tool-adapter generation \u2014 external mode now materializes docs/backlog/tool-adapter.md with CLI/MCP commands, prerequisites, and zero-credentials security",
-        "2.4.2: fix: SSOT v1.0.0 \u2014 Step 6 backlog scaffolding now mode-conditional: external mode \u2192 project-config.json only; local mode \u2192 state.md + issue-bodies/ only",
-        "2.4.1: fix: PR review \u2014 Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
-        "2.4.0: feat: ## Verification Commands section in governance snapshot \u2014 auto-derived from stack config via BVL resolve_verification_commands() (#124)",
-        "2.3.0: feat: setup.md in governance snapshot \u2014 setup_hash dual validation, ## Setup Configuration section (synthetic_data, project_tracking, ai_budget), Step 6.5 Seed Registry scaffolding (#124)",
-        "2.2.0: feat: backlog scaffolding Step 6 \u2014 create docs/backlog/ directory from templates when project_tracking.tool != None (#124)",
+        "2.9.0: fix(EVOL-017) Copilot PR #7 round 2: Claude Code Materialization block extended with step 3 — .context/templates/setup/claude/hooks/*.sh → .claude/hooks/*.sh. Closes the gap where fresh SETUP --generate produced a settings.json pointing at hook scripts that never existed in the materialized target. Includes post-materialization invariant check (every hook referenced from settings.json must exist).",
+        "2.8.0: feat(EVOL-018): § Claude Code Materialization block added in § 4.2.6 — CLAUDE.md and .claude/settings.json are now owned by SETUP (smart-additive-merge and merge-preserve strategies respectively). Closes the gap where downstream projects received framework scripts but no hooks, and where they inherited the framework-repo CLAUDE.md (meta-maintenance variant) instead of the project-focused variant.",
+        "2.6.0: feat(EVOL-015): § 4.2.3 Phase B.1 gains 5 universal meta-pattern DCs (pipeline short-circuit, identity-argument no-op, framework-layer validation errors invisible to app logs, mutation APIs with replace semantics, composite network symptoms) added unconditionally to every project regardless of stack — each scoped by applicable_when filter; stack-specific DCs remain conditional. § Checkpoint 3.1 governance snapshot extended with project_tracking.gate_enforcement_mode (Q27.5) + project_tracking.appetite_sizing_enabled (Q27.6). § Step 6.2.1 Appetite Field Materialisation + § Step 6.2.2 Gate Enforcement Mode Materialisation write the corresponding sections into docs/backlog/tool-adapter.md when Q27.6/Q27.2 match.",
+        "2.5.0: feat(EVOL-014): § 4.2.4 Step 0 Dynamic Path Derivation rewritten from 2-line stub to full derivation protocol (instructions-only, no hardcoded lookup table) — persists setup_md.paths section as SSOT for all {{*_BASE_PATH}} placeholders + § 4.2.7 Budget Calculation rewritten as Cost Placeholder Resolution pass — reads setup_md.costs from CEP, applies canonical substitution map for 20+ {{*_COST}}/{{BUDGET_*}} placeholders, dangling check blocks materialization on any surviving literal. Closes pre-existing cost pipeline gap and base-path derivation gap.",
+        "2.4.7: fix: tool-adapter abstract ops list — add verify_issue, verify_board_placement, close_issue for verification/rollback support (#130)",
+        "2.4.6: fix: stack-agnostic scaffolding — Step 2 (Backend) and Step 3 (Frontend) now have explicit conditional guards (skip if backend.runtime/frontend.framework == None)",
+        "2.4.5: fix: VVP materialization gate — § 4.2.1.1 Version Freshness Gate (re-verify if >7 days old) + § 4.2.1.2 Version Pinning table for generated artifacts (package.json, Dockerfile, pyproject.toml, CI/CD, etc.)",
+        "2.4.4: fix: tool-adapter § Troubleshooting section — SETUP generates error resolution guidance per error category (install, auth, permissions, network, common errors)",
+        "2.4.3: fix: Step 6 tool-adapter generation — external mode now materializes docs/backlog/tool-adapter.md with CLI/MCP commands, prerequisites, and zero-credentials security",
+        "2.4.2: fix: SSOT v1.0.0 — Step 6 backlog scaffolding now mode-conditional: external mode → project-config.json only; local mode → state.md + issue-bodies/ only",
+        "2.4.1: fix: PR review — Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
+        "2.4.0: feat: ## Verification Commands section in governance snapshot — auto-derived from stack config via BVL resolve_verification_commands() (#124)",
+        "2.3.0: feat: setup.md in governance snapshot — setup_hash dual validation, ## Setup Configuration section (synthetic_data, project_tracking, ai_budget), Step 6.5 Seed Registry scaffolding (#124)",
+        "2.2.0: feat: backlog scaffolding Step 6 — create docs/backlog/ directory from templates when project_tracking.tool != None (#124)",
         "2.1.1: fix: auto-install git hooks during SETUP --generate finalization",
-        "2.1.0: feat: webhook support in governance snapshot \u2014 backend.webhooks field in stack config + Constitutional Boundaries",
-        "1.0.3: PR review fix \u2014 change project_mode from options placeholder {E0|E1|E2|E3} to variable reference {project_mode} in snapshot template (#113)",
-        "1.0.2: Checkpoint 3.1 \u2014 governance snapshot generation (summarization-safe cache for all agents) (#112)",
-        "1.0.0: Extracted from SETUP.AGENT.md \u2014 generate/resume materialization (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "2.1.0: feat: webhook support in governance snapshot — backend.webhooks field in stack config + Constitutional Boundaries",
+        "1.0.3: PR review fix — change project_mode from options placeholder {E0|E1|E2|E3} to variable reference {project_mode} in snapshot template (#113)",
+        "1.0.2: Checkpoint 3.1 — governance snapshot generation (summarization-safe cache for all agents) (#112)",
+        "1.0.0: Extracted from SETUP.AGENT.md — generate/resume materialization (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.7.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1267,10 +1281,10 @@
       "version": "2.2.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
-        "2.2.0: feat(EVOL-018): Step 3 Special case block added for claude/CLAUDE.md + claude/settings.json. CLAUDE.md uses smart-additive-merge with explicit confirmation when the existing file still has framework-repo-specific sections (meta-maintenance relics); settings.json uses a conservative merge-preserve that never touches user permissions/model/env and never overwrites existing hook entries \u2014 only adds missing ones.",
-        "1.0.1: Governance snapshot regeneration \u2014 Step 4 Finalization generates .context/governance_snapshot.md after upgrade (#112)",
-        "1.0.0: Extracted from SETUP.AGENT.md \u2014 upgrade, rollback, migrate-legacy (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "2.2.0: feat(EVOL-018): Step 3 Special case block added for claude/CLAUDE.md + claude/settings.json. CLAUDE.md uses smart-additive-merge with explicit confirmation when the existing file still has framework-repo-specific sections (meta-maintenance relics); settings.json uses a conservative merge-preserve that never touches user permissions/model/env and never overwrites existing hook entries — only adds missing ones.",
+        "1.0.1: Governance snapshot regeneration — Step 4 Finalization generates .context/governance_snapshot.md after upgrade (#112)",
+        "1.0.0: Extracted from SETUP.AGENT.md — upgrade, rollback, migrate-legacy (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1282,15 +1296,15 @@
         "2.2.1: fix: clarify internal cache protocol naming to FMCP (Factory Memory Cache Protocol) to avoid confusion with external MCP standard references",
         "2.2.0: feat: Step 0 Feature State Cache fast path via /memories/repo/feature-state-cache.md (MCP v1.0.0), write-through after compute_feature_state()",
         "2.1.0: feat: progress context (progress bar + phase label) + humanized action labels + i18n next_steps label",
-        "1.0.7: Fix stale 9/9\u219212/12 auto-approval reference in PHASE 1 CODESIGN --refine suggestion (#112)",
-        "1.0.6: Exempt PHASE 0 cascade results from generic 'max 3 actions' cap \u2014 render ALL cascade_actions for full plan visibility (#110)",
-        "1.0.5: PHASE 0 cascade fix \u2014 compute FULL cascade plan (all stale artifacts + projected follow-up actions) instead of early-return per check; add IMPLEMENT --build after --refine when dev_plan was BUILDING/IMPLEMENTED_AND_VERIFIED; add QA --verify when qa_report is INVALIDATED",
-        "1.0.4: PR review fixes \u2014 verify_redirect_not_hardcoded uses action objects not strings, env validation on pre-render actions (#108)",
-        "1.0.3: Coherence fix \u2014 remove stale CODESIGN --approve suggestion from PHASE 1 DRAFT/NEEDS_INFO state (#108)",
-        "1.0.2: Auto-approval flow simplification \u2014 skip QA --approve, DEVOPS --approve, CODESIGN --approve suggestions in compute_next_actions (v8.2.0) (#108)",
-        "1.0.1: Procedural gates \u2014 Hardcoded Redirect Prevention Gate (H-03), Integration Checkpoint Gate (H-04) (#108)",
-        "1.0.0: Extracted from copilot-instructions.md \u2014 frontmatter-driven navigation protocol (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.0.7: Fix stale 9/9→12/12 auto-approval reference in PHASE 1 CODESIGN --refine suggestion (#112)",
+        "1.0.6: Exempt PHASE 0 cascade results from generic 'max 3 actions' cap — render ALL cascade_actions for full plan visibility (#110)",
+        "1.0.5: PHASE 0 cascade fix — compute FULL cascade plan (all stale artifacts + projected follow-up actions) instead of early-return per check; add IMPLEMENT --build after --refine when dev_plan was BUILDING/IMPLEMENTED_AND_VERIFIED; add QA --verify when qa_report is INVALIDATED",
+        "1.0.4: PR review fixes — verify_redirect_not_hardcoded uses action objects not strings, env validation on pre-render actions (#108)",
+        "1.0.3: Coherence fix — remove stale CODESIGN --approve suggestion from PHASE 1 DRAFT/NEEDS_INFO state (#108)",
+        "1.0.2: Auto-approval flow simplification — skip QA --approve, DEVOPS --approve, CODESIGN --approve suggestions in compute_next_actions (v8.2.0) (#108)",
+        "1.0.1: Procedural gates — Hardcoded Redirect Prevention Gate (H-03), Integration Checkpoint Gate (H-04) (#108)",
+        "1.0.0: Extracted from copilot-instructions.md — frontmatter-driven navigation protocol (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1298,21 +1312,21 @@
       "version": "2.7.0",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md",
       "changelog": [
-        "2.7.0: feat(EVOL-017): IOP v1.0.0 \u2192 v1.1.0 \u2014 Bias & Announcement MANDATORY section. Default bias = SDLC on borderline classifications. One-line classification call-out required on every turn (Routing / Direct + reason). Silence is a governance-scope violation. Paired with CLAUDE.md \u00a7 SDLC-First Triage.",
-        "2.5.2: chore(EVOL-014): preventive-sweep comment refresh \u2014 remove hardcoded 4-agent language, use parallel-scope phrasing",
+        "2.7.0: feat(EVOL-017): IOP v1.0.0 → v1.1.0 — Bias & Announcement MANDATORY section. Default bias = SDLC on borderline classifications. One-line classification call-out required on every turn (Routing / Direct + reason). Silence is a governance-scope violation. Paired with CLAUDE.md § SDLC-First Triage.",
+        "2.5.2: chore(EVOL-014): preventive-sweep comment refresh — remove hardcoded 4-agent language, use parallel-scope phrasing",
         "2.5.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.5.0: feat: add 'epic' patterns to execution plan intent regex \u2014 backward-compatible with 'cluster' patterns",
+        "2.5.0: feat: add 'epic' patterns to execution plan intent regex — backward-compatible with 'cluster' patterns",
         "2.4.1: fix: CVP on-demand intent patterns (coherence/consistency/traceability) + cvp_on_demand() routing function",
-        "2.4.0: feat: BACKLOG execution plan intent patterns \u2014 plan-ejecuci\u00f3n, update-execution, sync-execution (es/en multilingual)",
-        "2.3.0: feat: BACKLOG intent patterns \u2014 init-board, plan-feature, create-issue, move, status (#124)",
+        "2.4.0: feat: BACKLOG execution plan intent patterns — plan-ejecución, update-execution, sync-execution (es/en multilingual)",
+        "2.3.0: feat: BACKLOG intent patterns — init-board, plan-feature, create-issue, move, status (#124)",
         "2.2.1: fix: add GIT_DESTRUCTIVE protocol + intent patterns for filter-repo, reset --hard, push --force",
-        "2.2.0: feat: experience intent patterns \u2014 onboarding, status/progress, session resumption, roadmap (multilingual regex)",
+        "2.2.0: feat: experience intent patterns — onboarding, status/progress, session resumption, roadmap (multilingual regex)",
         "2.1.0: feat: BIP detection in Category A FRAMEWORK_COMMAND routing",
         "1.1.0: Remove deprecated CODESIGN --approve and QA --approve intent mappings (v8.2.0 cleanup)",
-        "1.0.2: PR review fixes \u2014 goal_terminus as state predicate, plan loop uses action.result_state SATISFIES (#108)",
-        "1.0.1: Coherence fix \u2014 update goal_terminus from CODESIGN --approve to state-based CODESIGN APPROVED (#108)",
-        "1.0.0: Extracted from copilot-instructions.md \u2014 IOP v1.0.0 intent classification (PR #101)",
-        "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
+        "1.0.2: PR review fixes — goal_terminus as state predicate, plan loop uses action.result_state SATISFIES (#108)",
+        "1.0.1: Coherence fix — update goal_terminus from CODESIGN --approve to state-based CODESIGN APPROVED (#108)",
+        "1.0.0: Extracted from copilot-instructions.md — IOP v1.0.0 intent classification (PR #101)",
+        "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.6.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1321,46 +1335,46 @@
       "path": "CLAUDE.md",
       "changelog": [
         "11.1.0: feat(EVOL-019) phase 1: § Project Scope & Feature Scope Taxonomy (framework authorship view) added — enum, axis separation, compatibility matrix summary, consumes_contract semantics; INVARIANT 5 reframed to note scope axis does NOT apply in framework repo but literal enum values must be preserved in .context/templates/** edits.",
-        "11.0.0: BREAKING feat(EVOL-018): framework-vs-project split. This CLAUDE.md is now the META-MAINTENANCE variant for the framework repo only \u2014 title retitled \u201cmi AI Factory \u2014 Framework Repository (Meta)\u201d, meta-framework triage replaces SDLC-first as the default, Workflow + Hard Gates + Living Governance Catalogs sections REMOVED (those ship to downstream via the new project template), Generation Standards \u00a72 explicitly names the framework manifest path, INVARIANT 4 reads framework_version from the framework manifest, INVARIANT 5 reframed for EVOL-*/fix-*/PR lifecycle. The materialized-project variant lives at .context/templates/setup/claude/CLAUDE.md (new template claude/CLAUDE.md in this manifest). factory-sync.sh no longer copies CLAUDE.md to downstream projects \u2014 SETUP --generate/--upgrade now owns it.",
-        "10.3.0: feat(EVOL-017): \u00a7 Governance Scope \u2014 Session-start confirmation paragraph (banner + freshness-gate contract); new \u00a7 SDLC-First Triage MANDATORY section \u2014 per-turn classification announcement (Routing / Direct + reason), carve-out list (read-only, meta-framework, docs-only fast-lane, trivial), links to IOP classifier and README 3-tier.",
-        "10.1.0: feat(EVOL-014): Communication Style MANDATORY + Governance Scope MANDATORY sections (apply every turn, not only slash commands); Humanized Blocking law (Rule 8); Generation Standards \u00a71 Template lookup table, \u00a72 Governance version bump rule, \u00a73 Docs-only fast-lane; numbered INVARIANT 1-5 (feature state from frontmatter new); 8-phase workflow diagram with 3 hard gates + Hard Gates table; Living Catalogs universal DC consumption table (10 consumers)",
+        "11.0.0: BREAKING feat(EVOL-018): framework-vs-project split. This CLAUDE.md is now the META-MAINTENANCE variant for the framework repo only — title retitled “mi AI Factory — Framework Repository (Meta)”, meta-framework triage replaces SDLC-first as the default, Workflow + Hard Gates + Living Governance Catalogs sections REMOVED (those ship to downstream via the new project template), Generation Standards §2 explicitly names the framework manifest path, INVARIANT 4 reads framework_version from the framework manifest, INVARIANT 5 reframed for EVOL-*/fix-*/PR lifecycle. The materialized-project variant lives at .context/templates/setup/claude/CLAUDE.md (new template claude/CLAUDE.md in this manifest). factory-sync.sh no longer copies CLAUDE.md to downstream projects — SETUP --generate/--upgrade now owns it.",
+        "10.3.0: feat(EVOL-017): § Governance Scope — Session-start confirmation paragraph (banner + freshness-gate contract); new § SDLC-First Triage MANDATORY section — per-turn classification announcement (Routing / Direct + reason), carve-out list (read-only, meta-framework, docs-only fast-lane, trivial), links to IOP classifier and README 3-tier.",
+        "10.1.0: feat(EVOL-014): Communication Style MANDATORY + Governance Scope MANDATORY sections (apply every turn, not only slash commands); Humanized Blocking law (Rule 8); Generation Standards §1 Template lookup table, §2 Governance version bump rule, §3 Docs-only fast-lane; numbered INVARIANT 1-5 (feature state from frontmatter new); 8-phase workflow diagram with 3 hard gates + Hard Gates table; Living Catalogs universal DC consumption table (10 consumers)",
         "9.11.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "9.11.1: fix: BACKLOG Execution Plan description reflects parallel slice exception from guardrail 9",
-        "9.11.0: feat: rename 'Domain Cluster' \u2192 'Epic', add aggregate-scoped Slices (\u22643 features) in BACKLOG section and Execution Plan protocol reference",
-        "9.10.3: fix: CVP v1.0.0 added to shared protocol references table \u2014 cross-artifact traceability and completeness validation",
+        "9.11.0: feat: rename 'Domain Cluster' → 'Epic', add aggregate-scoped Slices (≤3 features) in BACKLOG section and Execution Plan protocol reference",
+        "9.10.3: fix: CVP v1.0.0 added to shared protocol references table — cross-artifact traceability and completeness validation",
         "9.10.2: fix: shared protocol table renames internal Memory Cache acronym from MCP to FMCP to avoid ambiguity with external Model Context Protocol",
-        "9.10.1: fix: PRE_ACTION_GATE v2.0.0 \u2014 full Step -1 Auto-Branch Checkout Protocol for direct agent invocations (Phase 1-5 with mismatch detection, dependency checks, concurrency lock)",
+        "9.10.1: fix: PRE_ACTION_GATE v2.0.0 — full Step -1 Auto-Branch Checkout Protocol for direct agent invocations (Phase 1-5 with mismatch detection, dependency checks, concurrency lock)",
         "9.10.0: feat: CIP v1.2.0 reference updated with Memory Cache fast path, Memory Cache Protocol (MCP v1.0.0) added to shared protocol references table",
         "9.9.0: feat: BACKLOG execution plan commands (--plan-execution, --update-execution, --sync-execution), memory cache protocol, Execution Plan added to shared protocol references table",
-        "9.8.2: fix: BACKLOG section tool-agnostic \u2014 replace 'GitHub Project board' with 'configured external tool or local files'",
-        "9.8.1: fix: SSOT v1.0.0 \u2014 BACKLOG section updated: prereq relaxed to project_tracking section (not tool != None), mode-dependent output artifacts (external vs local)",
+        "9.8.2: fix: BACKLOG section tool-agnostic — replace 'GitHub Project board' with 'configured external tool or local files'",
+        "9.8.1: fix: SSOT v1.0.0 — BACKLOG section updated: prereq relaxed to project_tracking section (not tool != None), mode-dependent output artifacts (external vs local)",
         "9.8.0: feat: CODESIGN output description updated with IMP v1.0.0 interactive mock reference (#127)",
-        "9.7.0: feat: BVL v1.0.0 \u2014 Build Verification Loop added to protocol table (#124)",
-        "9.6.0: feat: INVARIANT 5 expanded \u2014 setup_hash dual validation, setup.md fields in snapshot, agents MUST read synthetic_data/project_tracking/ai_budget from snapshot (#124)",
+        "9.7.0: feat: BVL v1.0.0 — Build Verification Loop added to protocol table (#124)",
+        "9.6.0: feat: INVARIANT 5 expanded — setup_hash dual validation, setup.md fields in snapshot, agents MUST read synthetic_data/project_tracking/ai_budget from snapshot (#124)",
         "9.5.0: feat: BACKLOG agent routing summary + command dispatcher independence declaration (#124)",
-        "9.4.1: fix: add MANDATORY PRE-ACTION GATE \u2014 branch protection + commit conventions for all agents including default",
-        "9.4.0: feat: Humanized Blocking as Mandatory Law #4 \u2014 business-language error messages with auto-action offers",
-        "9.3.0: feat: BIP v1.1.0 reference \u2014 Disruption-Triggered Re-Harvest for pivotal overrides",
+        "9.4.1: fix: add MANDATORY PRE-ACTION GATE — branch protection + commit conventions for all agents including default",
+        "9.4.0: feat: Humanized Blocking as Mandatory Law #4 — business-language error messages with auto-action offers",
+        "9.3.0: feat: BIP v1.1.0 reference — Disruption-Triggered Re-Harvest for pivotal overrides",
         "9.2.0: feat: BIP protocol reference, SETUP/CODESIGN BIP annotations, INVARIANT 2 BA exception for docs/.bip/*",
-        "9.1.0: feat: extract branching, commit-prompt, worklog to skills \u2014 reduce from 542 to 224 lines",
-        "8.4.5: SDLC audit fixes \u2014 INVARIANT 5 scope includes CODESIGN, DRY Enforcement standard scoped to CIP agents (DEVOPS/QA exempt), CIP protocol version reference updated (#112)",
-        "8.4.4: CODESIGN auto-approval expanded 9\u219212 validations \u2014 action\u2192command, navigation\u2192exits, error full-chain, empty/loading full-chain (#112)",
-        "8.4.3: CIP Canary reference \u2014 DRY Enforcement standard strengthened with cip_canary_gate() requirement. Protocol table updated: CIP v1.1.2, IPP v1.0.1 (#112)",
-        "8.4.2: INVARIANT 5 \u2014 Governance Context Recovery (summarization-safe). File-based snapshot replaces in-memory cache. Pre-Routing Step 0 updated (#112)",
-        "8.4.0: Remove deprecated command references \u2014 CODESIGN/DEVOPS/QA --approve and QA --plan/--refine from Agent Routing, Command Dispatcher, and Auto-Approval note (v8.2.0 cleanup)",
-        "8.3.0: IMPLEMENT and QA Agent Routing Summaries \u2014 Checkbox-Driven Execution with 4 task types, Checkbox-Driven Verification with checklist gate, --reject generates [FIX-N]",
-        "8.2.6: INVARIANT 2 strengthened \u2014 expanded behavioral violation examples (reading past line 20, computing changes, modifying artifact bodies, extracting schemas) (#110)",
-        "8.2.5: PR review fixes \u2014 fix Unicode replacement chars in headings, reorder classify_change patterns so feature/SETUP-*/AUDIT-* match before generic feature/* (#108)",
-        "8.2.4: Auto-Approval simplification (v8.2.0) \u2014 CODESIGN/DEVOPS/QA auto-approve, BLUEPRINT --approve only mandatory checkpoint, Agent Routing Summary updated, Command Dispatcher sequence updated (#108)",
+        "9.1.0: feat: extract branching, commit-prompt, worklog to skills — reduce from 542 to 224 lines",
+        "8.4.5: SDLC audit fixes — INVARIANT 5 scope includes CODESIGN, DRY Enforcement standard scoped to CIP agents (DEVOPS/QA exempt), CIP protocol version reference updated (#112)",
+        "8.4.4: CODESIGN auto-approval expanded 9→12 validations — action→command, navigation→exits, error full-chain, empty/loading full-chain (#112)",
+        "8.4.3: CIP Canary reference — DRY Enforcement standard strengthened with cip_canary_gate() requirement. Protocol table updated: CIP v1.1.2, IPP v1.0.1 (#112)",
+        "8.4.2: INVARIANT 5 — Governance Context Recovery (summarization-safe). File-based snapshot replaces in-memory cache. Pre-Routing Step 0 updated (#112)",
+        "8.4.0: Remove deprecated command references — CODESIGN/DEVOPS/QA --approve and QA --plan/--refine from Agent Routing, Command Dispatcher, and Auto-Approval note (v8.2.0 cleanup)",
+        "8.3.0: IMPLEMENT and QA Agent Routing Summaries — Checkbox-Driven Execution with 4 task types, Checkbox-Driven Verification with checklist gate, --reject generates [FIX-N]",
+        "8.2.6: INVARIANT 2 strengthened — expanded behavioral violation examples (reading past line 20, computing changes, modifying artifact bodies, extracting schemas) (#110)",
+        "8.2.5: PR review fixes — fix Unicode replacement chars in headings, reorder classify_change patterns so feature/SETUP-*/AUDIT-* match before generic feature/* (#108)",
+        "8.2.4: Auto-Approval simplification (v8.2.0) — CODESIGN/DEVOPS/QA auto-approve, BLUEPRINT --approve only mandatory checkpoint, Agent Routing Summary updated, Command Dispatcher sequence updated (#108)",
         "8.2.3: Context Preservation Invariants section (summarization-safe) + Generation Standard #7 enhanced with mandatory CLASSIFY FIRST sequence and 7-step governance version tracking (#108)",
-        "8.2.2: Generation Standard #7 \u2014 mandatory governance_versions.json tracking for framework file changes (#106)",
+        "8.2.2: Generation Standard #7 — mandatory governance_versions.json tracking for framework file changes (#106)",
         "8.2.1: Add ACP protocol reference to shared protocol table (#106)",
-        "8.2.0: Worklog user_agent attribution rule \u2014 actual executing agent must be recorded (#106)",
-        "8.1.0: Fix merged branch reuse \u2014 restore full Step -1.2b filtering logic with git branch --merged checks (FIX-001)",
-        "8.0.0: BREAKING \u2014 Slim cross-cutting governance only (~420 lines). All agent logic, protocols, and instructions extracted to Custom Agents architecture (PR #101)",
+        "8.2.0: Worklog user_agent attribution rule — actual executing agent must be recorded (#106)",
+        "8.1.0: Fix merged branch reuse — restore full Step -1.2b filtering logic with git branch --merged checks (FIX-001)",
+        "8.0.0: BREAKING — Slim cross-cutting governance only (~420 lines). All agent logic, protocols, and instructions extracted to Custom Agents architecture (PR #101)",
         "7.0.0: CIP v1.0.0, IOP v1.0.0, E0 brownfield (#97, #98, #99)",
         "6.1.0: Previous baseline",
-        "9.0.0: Breaking \u2014 protocol references, instruction model and skills restructured (EVOL-001)",
+        "9.0.0: Breaking — protocol references, instruction model and skills restructured (EVOL-001)",
         "10.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1368,13 +1382,13 @@
       "version": "2.5.0",
       "type": "skill",
       "changelog": [
-        "2.5.0: feat(EVOL-017): \u00a7 Always-On Enforcement (3-Tier Hooks) added \u2014 documents the SessionStart banner / UserPromptSubmit freshness gate / PreCompact marker handshake that complement the EVOL-013 PreToolUse drift warning. Includes marker scoping (.claude/state/, session_id suffix), carve-outs (/setup*, project-not-initialized), and smoke tests. Closes Copilot PR #7 review finding on stale template CLAUDE.md pointer.",
-        "2.3.0: feat(EVOL-014): Governance Write Protocol (GWP) added as write-side counterpart of GCRP \u2014 canonical procedure for bumping governance_versions.json on every framework-core touch; caveman-style terse",
+        "2.5.0: feat(EVOL-017): § Always-On Enforcement (3-Tier Hooks) added — documents the SessionStart banner / UserPromptSubmit freshness gate / PreCompact marker handshake that complement the EVOL-013 PreToolUse drift warning. Includes marker scoping (.claude/state/, session_id suffix), carve-outs (/setup*, project-not-initialized), and smoke tests. Closes Copilot PR #7 review finding on stale template CLAUDE.md pointer.",
+        "2.3.0: feat(EVOL-014): Governance Write Protocol (GWP) added as write-side counterpart of GCRP — canonical procedure for bumping governance_versions.json on every framework-core touch; caveman-style terse",
         "2.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.2.1: fix: PR review \u2014 Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
-        "2.2.0: feat: ## Verification Commands section in snapshot generation \u2014 BVL test/lint/typecheck/build commands auto-derived from stack config (#124)",
-        "2.1.0: feat: setup.md dual-hash validation \u2014 setup_hash alongside constitution_hash, ## Setup Configuration in snapshot generation, stale-source diagnostics (#124)",
-        "2.0.0: BREAKING \u2014 migrated from .instructions.md to .claude/skills/ format",
+        "2.2.1: fix: PR review — Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
+        "2.2.0: feat: ## Verification Commands section in snapshot generation — BVL test/lint/typecheck/build commands auto-derived from stack config (#124)",
+        "2.1.0: feat: setup.md dual-hash validation — setup_hash alongside constitution_hash, ## Setup Configuration in snapshot generation, stale-source diagnostics (#124)",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial governance-loading protocol",
         "2.4.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ],
@@ -1385,7 +1399,7 @@
       "type": "skill",
       "changelog": [
         "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.0.0: BREAKING \u2014 migrated from .instructions.md to .claude/skills/ format",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial incremental-persistence protocol"
       ],
       "path": ".claude/skills/Factory-incremental-persistence/SKILL.md"
@@ -1394,7 +1408,7 @@
       "version": "2.0.0",
       "type": "skill",
       "changelog": [
-        "2.0.0: BREAKING \u2014 migrated from .instructions.md to .claude/skills/ format",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial agent-communication protocol"
       ],
       "path": ".claude/skills/Factory-agent-communication/SKILL.md"
@@ -1404,19 +1418,20 @@
       "type": "skill",
       "changelog": [
         "2.1.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.1.0: feat: CIP Consultation Gate Step 0 \u2014 inventory cache fast path via /memories/repo/codebase-inventory-cache.md (MCP v1.0.0), write-through on cache miss",
-        "2.0.0: BREAKING \u2014 migrated from .instructions.md to .claude/skills/ format",
+        "2.1.0: feat: CIP Consultation Gate Step 0 — inventory cache fast path via /memories/repo/codebase-inventory-cache.md (MCP v1.0.0), write-through on cache miss",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial codebase-inventory protocol"
       ],
       "path": ".claude/skills/Factory-codebase-inventory/SKILL.md"
     },
     "skills/Factory-iteration-model/SKILL.md": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "type": "skill",
       "changelog": [
+        "2.2.0: feat(EVOL-019) phase 3: new CASCADE_TRIGGER ON_BLUEPRINT_CONTRACT_CHANGE + new function CASCADE_CONSUMERS(upstream_feature_id, ...). When an upstream contract re-freezes (signature/schema/semantics change), scans every docs/spec/*/spec.feature for consumes_contract references, marks each downstream feature's design.md/test_plan.md/dev_plan.md/smoke_e2e_report/qa_report as CASCADE_PENDING_ITERATION, and re-opens each downstream's CONTRACT-FREEZE issue with stale-after-cascade label. Makes consumes_contract a load-bearing cross-feature dependency primitive.",
         "2.1.0: feat(EVOL-014): cascade invalidation extended for 3 frozen artefact classes (contracts_freeze, preventive_sweep_report, smoke_e2e_report) with INVALIDATED semantics; DETERMINE_DOWNSTREAM per-agent targets extended; new triggers ON_IMPLEMENT_BUILD_COMPLETE and ON_DEVOPS_REDEPLOY_DEV; new CASCADE_SLICE_PEERS function (horizontal slice cascade); stale-after-cascade and stale-after-slice-peer-iterated labels applied via tool-adapter add_label",
         "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "2.0.0: BREAKING \u2014 migrated from .instructions.md to .claude/skills/ format",
+        "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial iteration-model protocol"
       ],
       "path": ".claude/skills/Factory-iteration-model/SKILL.md"
@@ -1424,15 +1439,15 @@
     "skills/Factory-branching-strategy/SKILL.md": {
       "version": "1.3.0",
       "type": "skill",
-      "role": "SCM protocol \u2014 branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse.",
+      "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse.",
       "changelog": [
-        "1.2.3: chore(EVOL-014): epic-branch parser comment aligned with English '## Epic {N}' header (was '## \u00c9pica' before Spanish cleanup)",
+        "1.2.3: chore(EVOL-014): epic-branch parser comment aligned with English '## Epic {N}' header (was '## Épica' before Spanish cleanup)",
         "1.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.2.1: fix: Step -1.4 comment uses {base_branch} instead of hardcoded 'main', lock lifecycle selects lockfile based on epic vs feature scope",
-        "1.2.0: feat: epic-scoped branch reuse \u2014 Step -1.1c resolves epic from execution-plan.md, searches/creates epic/{EPIC-N}-{slug} branches, shared by all features in the epic. Merged epic branches are discarded (never reworked). Epic lock scope added.",
+        "1.2.0: feat: epic-scoped branch reuse — Step -1.1c resolves epic from execution-plan.md, searches/creates epic/{EPIC-N}-{slug} branches, shared by all features in the epic. Merged epic branches are discarded (never reworked). Epic lock scope added.",
         "1.1.0: fix: cross-branch mismatch detection with exact ID parsing (Step -1.2c), cross-feature dependency detection with local+remote search (Step -1.3.5), branch creation from base_branch instead of HEAD (Step -1.4), consistent base_branch derivation (Step -1.1b), git stash -u for untracked files",
-        "1.0.1: fix: add Pre-SETUP Governance Baseline \u2014 minimum branch/commit/merge rules before constitution exists",
-        "1.0.0: feat: extracted from copilot-instructions.md \u2014 branching, merge enforcement, concurrency lock",
+        "1.0.1: fix: add Pre-SETUP Governance Baseline — minimum branch/commit/merge rules before constitution exists",
+        "1.0.0: feat: extracted from copilot-instructions.md — branching, merge enforcement, concurrency lock",
         "1.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ],
       "path": ".claude/skills/Factory-branching-strategy/SKILL.md"
@@ -1440,35 +1455,35 @@
     "skills/Factory-commit-prompt/SKILL.md": {
       "version": "1.0.0",
       "type": "skill",
-      "role": "Post-command commit prompt \u2014 conventional commit message generation after file modifications.",
+      "role": "Post-command commit prompt — conventional commit message generation after file modifications.",
       "changelog": [
-        "1.0.0: feat: extracted from copilot-instructions.md \u2014 commit prompt protocol"
+        "1.0.0: feat: extracted from copilot-instructions.md — commit prompt protocol"
       ],
       "path": ".claude/skills/Factory-commit-prompt/SKILL.md"
     },
     "skills/Factory-worklog/SKILL.md": {
       "version": "1.0.0",
       "type": "skill",
-      "role": "Worklog v2.0.0 \u2014 per-feature JSONL audit trail, action registration, phase mapping, dispatcher enforcement.",
+      "role": "Worklog v2.0.0 — per-feature JSONL audit trail, action registration, phase mapping, dispatcher enforcement.",
       "changelog": [
-        "1.0.0: feat: extracted from copilot-instructions.md \u2014 worklog enforcement protocol"
+        "1.0.0: feat: extracted from copilot-instructions.md — worklog enforcement protocol"
       ],
       "path": ".claude/skills/Factory-worklog/SKILL.md"
     },
     "skills/Factory-build-verification/SKILL.md": {
       "version": "1.5.0",
       "type": "skill",
-      "role": "BVL v1.4.0 \u2014 Build Verification Loop. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate, SAST output parser, format gate, seed alignment gate, defect discovery hook.",
+      "role": "BVL v1.4.0 — Build Verification Loop. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate, SAST output parser, format gate, seed alignment gate, defect discovery hook.",
       "changelog": [
-        "1.4.0: feat: Defect Discovery Hook \u2014 BVL proposes cataloging recurring test failure patterns into defect-prevention.md",
-        "1.3.0: feat: Seed/Synthetic Data Alignment Gate \u2014 full_verification_gate runs seed schema tests when feature touches seed/migration files",
-        "1.2.0: feat: Full Feature Scope Mandate \u2014 delta_mode/cascade_source forces full module scope verification, not just changed files",
+        "1.4.0: feat: Defect Discovery Hook — BVL proposes cataloging recurring test failure patterns into defect-prevention.md",
+        "1.3.0: feat: Seed/Synthetic Data Alignment Gate — full_verification_gate runs seed schema tests when feature touches seed/migration files",
+        "1.2.0: feat: Full Feature Scope Mandate — delta_mode/cascade_source forces full module scope verification, not just changed files",
         "1.1.3: feat: Format gate (Prettier/ruff format) between lint and typecheck, SAST Output Parser (parse_sast_results) for structured finding extraction",
         "1.1.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
-        "1.1.1: fix: extend resolve_verification_commands() with coverage (REVIEW hat), dependency_audit (SEC hat \u2014 npm audit/pip-audit/cargo audit/govulncheck), and secret_scan (SEC hat \u2014 gitleaks/trufflehog detection). Token budget updated with new timeouts. Integration points table expanded to include REVIEW and SEC hats. Governance snapshot section extended with 3 new command fields.",
-        "1.1.0: feat: resolve_verification_commands() Step 0 \u2014 BVL commands cache fast path via /memories/repo/bvl-commands-cache.md (MCP v1.0.0), write-through after derivation",
-        "1.0.1: fix: PR review \u2014 standardize resolve_verification_commands() to parse ## sections, derive_commands_from_stack() with testing framework auto-detection from config files, FILE_EXISTS pseudo-code replaced with implementable expressions, snapshot field naming aligned to ## Verification Commands section (#124)",
-        "1.0.0: feat: initial BVL protocol \u2014 task_verification_loop, phase_verification, full_verification_gate, resolve_verification_commands from stack config (#124)",
+        "1.1.1: fix: extend resolve_verification_commands() with coverage (REVIEW hat), dependency_audit (SEC hat — npm audit/pip-audit/cargo audit/govulncheck), and secret_scan (SEC hat — gitleaks/trufflehog detection). Token budget updated with new timeouts. Integration points table expanded to include REVIEW and SEC hats. Governance snapshot section extended with 3 new command fields.",
+        "1.1.0: feat: resolve_verification_commands() Step 0 — BVL commands cache fast path via /memories/repo/bvl-commands-cache.md (MCP v1.0.0), write-through after derivation",
+        "1.0.1: fix: PR review — standardize resolve_verification_commands() to parse ## sections, derive_commands_from_stack() with testing framework auto-detection from config files, FILE_EXISTS pseudo-code replaced with implementable expressions, snapshot field naming aligned to ## Verification Commands section (#124)",
+        "1.0.0: feat: initial BVL protocol — task_verification_loop, phase_verification, full_verification_gate, resolve_verification_commands from stack config (#124)",
         "1.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ],
       "path": ".claude/skills/Factory-build-verification/SKILL.md"
@@ -1476,47 +1491,50 @@
     "skills/Factory-memory-cache/SKILL.md": {
       "version": "1.0.3",
       "type": "skill",
-      "role": "FMCP v1.0.2 \u2014 Unified /memories/repo/ caching layer. Feature State, BVL Commands, CIP Inventory, Execution Plan caches. Write-through, hash-validated, graceful degradation.",
+      "role": "FMCP v1.0.2 — Unified /memories/repo/ caching layer. Feature State, BVL Commands, CIP Inventory, Execution Plan caches. Write-through, hash-validated, graceful degradation.",
       "changelog": [
         "1.0.3: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.0.2: fix: complete FMCP terminology consistency in internal references (FMCP architecture/caches) while preserving MCP mention only for external Model Context Protocol",
         "1.0.1: fix: rename internal acronym to FMCP (Factory Memory Cache Protocol) and add explicit note distinguishing it from external MCP standard",
-        "1.0.0: feat: initial Memory Cache Protocol \u2014 unified cache architecture, 4 cache types (feature-state, bvl-commands, codebase-inventory, execution-plan), standard lifecycle, guardrails"
+        "1.0.0: feat: initial Memory Cache Protocol — unified cache architecture, 4 cache types (feature-state, bvl-commands, codebase-inventory, execution-plan), standard lifecycle, guardrails"
       ],
       "path": ".claude/skills/Factory-memory-cache/SKILL.md"
     },
     "skills/Factory-coherence-validation/SKILL.md": {
-      "version": "1.0.2",
+      "version": "1.1.0",
       "type": "skill",
-      "role": "CVP v1.0.1 \u2014 Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
+      "role": "CVP v1.1.0 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "changelog": [
         "1.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.0.1: fix: resolve_scope_checks for includes expansion, add missing task_completion_to_qa check (12 checks), fix contract endpoint source to read contracts/ not design.md, fix build_coherence_matrix scope parameter, fix remediation_actions grouping by artifact source",
-        "1.0.0: fix: initial Coherence Validation Protocol \u2014 11 cross-artifact checks, 3 scope levels (CODESIGN_BLUEPRINT, CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN), 3 invocation modes (GATE, AUTO, ON_DEMAND), auto-scope detection, Factory post-command integration"
+        "1.0.0: fix: initial Coherence Validation Protocol — 11 cross-artifact checks, 3 scope levels (CODESIGN_BLUEPRINT, CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN), 3 invocation modes (GATE, AUTO, ON_DEMAND), auto-scope detection, Factory post-command integration",
+        "1.1.0: feat(EVOL-019) phase 3: two new CVP checks in CODESIGN_BLUEPRINT scope. Check 0a scope_consistency_across_artifacts (CRITICAL) verifies spec.feature.scope matches design.md/test_plan.md/dev_plan.md; missing fields in pre-EVOL-019 artefacts degrade to WARNING. Check 0b consumes_contract_resolution (CRITICAL) for every FEAT-XXX in spec.feature.consumes_contract verifies upstream design.md APPROVED, upstream scope != frontend-only, contract files present under contracts/** or docs/spec/{upstream}/contracts/, and (full-sdlc only) CONTRACT-FREEZE issue Done + not stale-after-cascade. Pairs with BLUEPRINT --start Consumes-Contract Resolution Gate + IMPLEMENT --plan Consumes-Contract Upstream Freeze Gate as a third enforcement point. New IMPLEMENT-scope check reliability_test_to_task added (applicable_when scope in [backend-only, integration])."
       ],
       "path": ".claude/skills/Factory-coherence-validation/SKILL.md"
     },
     "skills/Factory-backlog-next-task/SKILL.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "skill",
-      "role": "Next Task Resolver \u2014 computes next executable backlog step from execution plan, with mandatory adapter-based issue fetch and discrepancy detection.",
+      "role": "Next Task Resolver — computes next executable backlog step from execution plan, with mandatory adapter-based issue fetch and discrepancy detection.",
       "changelog": [
         "1.2.0: feat: add 'epic' and 'slice' fields to output contract (EPIC-{N} identifier + EPIC-{N}.{M} slice); 'cluster' retained as backward-compatible alias; example updated",
         "1.1.2: fix: cache fast path explicitly preserves mandatory Step 5 issue fetch; replace hardcoded CLI shape with adapter-resolved ISSUE_READ operation; local mode now resolves body_path via docs/backlog/state.md; remove unused execute_mode input contract",
-        "1.1.1: fix: STEP 5 is now MANDATORY when issue reference exists \u2014 tool-agnostic fetch via cli_command from project-config.json (not hardcoded gh); local mode reads issue-bodies/; discrepancy detection (issue body beats execution-plan summary); SSOT clarified",
+        "1.1.1: fix: STEP 5 is now MANDATORY when issue reference exists — tool-agnostic fetch via cli_command from project-config.json (not hardcoded gh); local mode reads issue-bodies/; discrepancy detection (issue body beats execution-plan summary); SSOT clarified",
         "1.1.0: feat: cache fast path via /memories/repo/execution-plan-cache.md, integration with execution plan protocol",
-        "1.0.0: feat: initial next-task resolver skill \u2014 step-by-step resolution from board state"
+        "1.0.0: feat: initial next-task resolver skill — step-by-step resolution from board state",
+        "1.3.0: feat(EVOL-019) phase 3: mirrors Factory-backlog-next-task.instructions.md v1.6.0 — skill now documents Step 1.3.4.5 consumes_contract cross-feature freeze filter that runs before hard-gate enforcement. Unresolved upstreams (design.md not APPROVED, upstream scope=frontend-only, CONTRACT-FREEZE not Done or stale-after-cascade) block under mode=enforce, warn under mode=warn, silent under mode=off. Pull-mode --eligible removes blocked candidates from pool (enforce) or keeps with suffix (warn)."
       ],
       "path": ".claude/skills/Factory-backlog-next-task/SKILL.md"
     },
     "skills/Factory-preventive-sweep/SKILL.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "skill",
-      "role": "Preventive Defect Sweep \u2014 post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
+      "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
-        "1.0.0: feat: initial \u2014 4-agent parallel strategy, consolidation protocol, report template, governance integration with defect-prevention.md",
-        "1.1.0: refactor(EVOL-014): replace hardcoded 4-agent split with dynamic scope derivation \u2014 number of sub-agents computed from unique scopes present in applicable DC set; scope vocabulary is open-ended and extensible via Discovery Protocol",
-        "1.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "1.0.0: feat: initial — 4-agent parallel strategy, consolidation protocol, report template, governance integration with defect-prevention.md",
+        "1.1.0: refactor(EVOL-014): replace hardcoded 4-agent split with dynamic scope derivation — number of sub-agents computed from unique scopes present in applicable DC set; scope vocabulary is open-ended and extensible via Discovery Protocol",
+        "1.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "1.3.0: feat(EVOL-019) phase 3: new filter_dcs_by_feature_scope(applicable_dcs, feature_scope) helper runs BEFORE derive_sweep_scopes. run_sweep() signature gains feature_id; reads feature.scope from spec.feature frontmatter and applies sweep-scope bucket filter: scope=frontend-only drops backend sweep scope; scope=backend-only drops frontend sweep scope; scope=integration drops frontend (keeps backend/cross-cutting/infra/data/security); scope=full-stack and legacy/unknown keep all. Complementary to per-DC feature_scope filter in DPC v2.2.0 consult_defect_catalog() Filter 2."
       ],
       "path": ".claude/skills/Factory-preventive-sweep/SKILL.md"
     },
@@ -1526,8 +1544,8 @@
       "target": ".claude/rules/defect-prevention.md",
       "changelog": [
         "2.2.0: feat(EVOL-019) phase 2: feature_scope schema column added (enum list of [full-stack, backend-only, frontend-only, integration]; omitted/empty = applies to ALL scopes, backward-compatible). consult_defect_catalog() gains Filter 2 that checks feature_context.feature_scope against dc.feature_scope list. Enables scope-aware DC consultation — 7 starter integration DCs now ship filtered to [backend-only, integration, full-stack].",
-        "1.0.0: feat: initial \u2014 Defect Prevention Catalog template with {{DC_ENTRIES}} placeholder. SETUP materializes stack-specific starter DCs. Process: DEV pre-write check, REVIEW Check #2d, Discovery Protocol.",
-        "2.0.0: feat(EVOL-014): universal consumption \u2014 added applicable_to enum field to every DC entry (CODESIGN/BLUEPRINT/IMPLEMENT/REVIEW/DEVOPS/QA/AUDIT). Canonical consult_defect_catalog() function documented. Eight per-agent integration sections replace previous DEV+REVIEW-only wording. Render pipeline emits the applicable_to column alongside existing columns. Relationship table expanded to list every consumer instructions file.",
+        "1.0.0: feat: initial — Defect Prevention Catalog template with {{DC_ENTRIES}} placeholder. SETUP materializes stack-specific starter DCs. Process: DEV pre-write check, REVIEW Check #2d, Discovery Protocol.",
+        "2.0.0: feat(EVOL-014): universal consumption — added applicable_to enum field to every DC entry (CODESIGN/BLUEPRINT/IMPLEMENT/REVIEW/DEVOPS/QA/AUDIT). Canonical consult_defect_catalog() function documented. Eight per-agent integration sections replace previous DEV+REVIEW-only wording. Render pipeline emits the applicable_to column alongside existing columns. Relationship table expanded to list every consumer instructions file.",
         "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
@@ -1535,67 +1553,67 @@
       "version": "1.4.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
-      "role": "Framework governance sync tool \u2014 copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history.",
+      "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history.",
       "changelog": [
-        "1.4.0: fix(EVOL-017) Copilot PR #7: new category [5/7] Claude Code Hooks (.claude/hooks/*.sh) \u2014 previously these hook scripts were referenced by .claude/settings.json (PreToolUse chain) but never synced to downstream projects; fresh materialized projects would have a settings.json pointing at non-existent hook files. Categories renumbered to /7.",
-        "1.3.0: feat(EVOL-018): remove CLAUDE.md from sync list \u2014 materialized-project CLAUDE.md is now owned by SETUP --generate/--upgrade (template: .context/templates/setup/claude/CLAUDE.md). factory-sync continues to sync commands, instructions, skills, scripts, and templates.",
+        "1.4.0: fix(EVOL-017) Copilot PR #7: new category [5/7] Claude Code Hooks (.claude/hooks/*.sh) — previously these hook scripts were referenced by .claude/settings.json (PreToolUse chain) but never synced to downstream projects; fresh materialized projects would have a settings.json pointing at non-existent hook files. Categories renumbered to /7.",
+        "1.3.0: feat(EVOL-018): remove CLAUDE.md from sync list — materialized-project CLAUDE.md is now owned by SETUP --generate/--upgrade (template: .context/templates/setup/claude/CLAUDE.md). factory-sync continues to sync commands, instructions, skills, scripts, and templates.",
         "1.2.0: feat(EVOL-017): sync scripts/governance-onprompt.sh + scripts/governance-oncompact.sh into Base Scripts category so downstream projects receive governance always-on hook scripts via factory-sync",
         "1.1.0: fix: empty-file guard, orphan counter consistency, sync standalone .github/ files, add explicit path, templates as 7th category",
-        "1.0.0: feat: initial factory-sync.sh \u2014 6-category sync (instructions, skills, agents, prompts, copilot-instructions, base scripts), dry-run/verbose/force modes, orphan detection, version comparison"
+        "1.0.0: feat: initial factory-sync.sh — 6-category sync (instructions, skills, agents, prompts, copilot-instructions, base scripts), dry-run/verbose/force modes, orphan detection, version comparison"
       ]
     },
     "hooks/check-branch-protection.sh": {
       "version": "1.0.0",
       "type": "hook",
       "path": ".claude/hooks/check-branch-protection.sh",
-      "role": "PreToolUse hook \u2014 blocks Edit/Write on protected branches (main/master/develop/release/hotfix) before tool execution.",
+      "role": "PreToolUse hook — blocks Edit/Write on protected branches (main/master/develop/release/hotfix) before tool execution.",
       "changelog": [
-        "1.0.0: feat: extracted from inline settings.json command \u2014 branch protection as external script (EVOL-011)"
+        "1.0.0: feat: extracted from inline settings.json command — branch protection as external script (EVOL-011)"
       ]
     },
     "hooks/check-completion-gate.sh": {
       "version": "1.0.0",
       "type": "hook",
       "path": ".claude/hooks/check-completion-gate.sh",
-      "role": "PreToolUse hook (Write) \u2014 blocks terminal status (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) in dev_plan.md or qa_report*.md when unchecked items remain.",
+      "role": "PreToolUse hook (Write) — blocks terminal status (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) in dev_plan.md or qa_report*.md when unchecked items remain.",
       "changelog": [
-        "1.0.0: feat: completion gate enforcement \u2014 zero unchecked [ ] required before terminal status (EVOL-011)"
+        "1.0.0: feat: completion gate enforcement — zero unchecked [ ] required before terminal status (EVOL-011)"
       ]
     },
     "hooks/check-concurrency-lock.sh": {
       "version": "1.0.0",
       "type": "hook",
       "path": ".claude/hooks/check-concurrency-lock.sh",
-      "role": "PreToolUse hook (Edit/Write) \u2014 acquires per-branch session lock at .context/locks/{branch}.lock; blocks if another live session holds the lock.",
+      "role": "PreToolUse hook (Edit/Write) — acquires per-branch session lock at .context/locks/{branch}.lock; blocks if another live session holds the lock.",
       "changelog": [
-        "1.0.0: feat: concurrency lock acquisition \u2014 prevents parallel Claude sessions on same branch (EVOL-011)"
+        "1.0.0: feat: concurrency lock acquisition — prevents parallel Claude sessions on same branch (EVOL-011)"
       ]
     },
     "hooks/check-governance-drift.sh": {
       "version": "1.0.0",
       "type": "hook",
       "path": ".claude/hooks/check-governance-drift.sh",
-      "role": "PreToolUse hook (Edit/Write) \u2014 compares MD5 of constitution.md and setup.md against governance snapshot hashes; warns on drift so agents regenerate stale snapshots.",
+      "role": "PreToolUse hook (Edit/Write) — compares MD5 of constitution.md and setup.md against governance snapshot hashes; warns on drift so agents regenerate stale snapshots.",
       "changelog": [
-        "1.0.0: feat: governance snapshot drift detection \u2014 non-blocking WARNING when snapshot hashes diverge from source files (EVOL-013)"
+        "1.0.0: feat: governance snapshot drift detection — non-blocking WARNING when snapshot hashes diverge from source files (EVOL-013)"
       ]
     },
     "workflows/governance-check.yml": {
       "version": "1.0.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
-      "role": "Governance Check CI gate \u2014 validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
+      "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
-        "1.0.0: feat: initial registration in manifest (EVOL-014) \u2014 existing workflow enforces GWP via scripts/validate-governance.sh and blocks PRs that touch framework core without bumping entries."
+        "1.0.0: feat: initial registration in manifest (EVOL-014) — existing workflow enforces GWP via scripts/validate-governance.sh and blocks PRs that touch framework core without bumping entries."
       ]
     },
     "workflows/auto-tag.yml": {
       "version": "1.0.0",
       "path": ".github/workflows/auto-tag.yml",
       "type": "ci",
-      "role": "Auto-Tag & Release on merge to main \u2014 calculates SemVer bump from conventional commits (feat!/feat/fix/chore/etc.) and creates a GitHub Release with categorized release notes.",
+      "role": "Auto-Tag & Release on merge to main — calculates SemVer bump from conventional commits (feat!/feat/fix/chore/etc.) and creates a GitHub Release with categorized release notes.",
       "changelog": [
-        "1.0.0: feat: initial registration in manifest (EVOL-014) \u2014 existing workflow drives the framework_version release cadence."
+        "1.0.0: feat: initial registration in manifest (EVOL-014) — existing workflow drives the framework_version release cadence."
       ]
     }
   }

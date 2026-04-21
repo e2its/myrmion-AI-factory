@@ -36,10 +36,12 @@ CVP_SCOPES:
     # Invoked by: BLUEPRINT --approve (Phase 3.8)
     # Validates: CODESIGN artifacts ↔ BLUEPRINT artifacts
     checks:
+      - scope_consistency_across_artifacts   # EVOL-019 Phase 3 — scope field matches across spec.feature/design.md/test_plan.md/dev_plan.md
+      - consumes_contract_resolution         # EVOL-019 Phase 3 — every FEAT-XXX in spec.feature.consumes_contract resolves to an APPROVED upstream with frozen contract files
       - scenario_to_component        # spec.feature scenarios → design.md components
       - data_schema_to_data_model    # user_journey.md schemas → design.md data model
-      - ui_component_to_inventory    # mock.html components → design.md Component Inventory
-      - journey_step_to_endpoint     # user_journey.md steps → contract endpoints
+      - ui_component_to_inventory    # mock.html components → design.md Component Inventory (applicable_when scope in [full-stack, frontend-only])
+      - journey_step_to_endpoint     # user_journey.md (OR user_journey.integration.md when scope in [backend-only, integration]) steps → contract endpoints
       - scenario_to_test_coverage    # spec.feature scenarios → test_plan.md test cases
       - contract_to_test_coverage    # contract endpoints → test_plan.md integration tests
 
@@ -50,8 +52,9 @@ CVP_SCOPES:
     checks:
       - contract_to_task             # contract endpoints → dev_plan.md tasks
       - test_case_to_task            # test_plan.md test cases → dev_plan.md test tasks
-      - ui_component_to_task         # design.md UI components → dev_plan.md frontend tasks
+      - ui_component_to_task         # design.md UI components → dev_plan.md frontend tasks (applicable_when scope in [full-stack, frontend-only])
       - data_model_to_task           # design.md entities → dev_plan.md Phase A tasks
+      - reliability_test_to_task     # EVOL-019 Phase 3 — test_plan.md § 2.2 Reliability Testing rows → dev_plan.md § Reliability Tests tasks (applicable_when scope in [backend-only, integration])
 
   FULL_CHAIN:
     # Invoked by: QA --verify (Pre-Verification Gate)
@@ -149,6 +152,127 @@ FUNCTION cvp_coherence_gate(FEATURE_ID, scope, invoking_agent):
 ---
 
 ## CHECK DEFINITIONS
+
+### Check 0a: `scope_consistency_across_artifacts` (CRITICAL — EVOL-019 Phase 3)
+
+The `scope` frontmatter field must match across every downstream artefact of the feature. Drift (e.g. spec.feature says `backend-only` but design.md says `full-stack`) is silent corruption — a downstream agent may run scope-aware logic against the wrong scope.
+
+```yaml
+FUNCTION check_scope_consistency_across_artifacts(elements):
+  # Read scope from every available artefact. Legacy pre-EVOL-019 artefacts without the field
+  # degrade gracefully: missing scope is treated as "unknown" and surfaces as a WARNING-severity
+  # recommendation to add the field, not a CRITICAL blocker.
+  scopes = {}
+  IF elements.spec_feature IS PRESENT:
+    scopes.spec = elements.spec_feature.frontmatter.scope OR "unknown"
+  IF elements.design IS PRESENT:
+    scopes.design = elements.design.frontmatter.scope OR "unknown"
+  IF elements.test_plan IS PRESENT:
+    scopes.test_plan = elements.test_plan.frontmatter.scope OR "unknown"
+  IF elements.dev_plan IS PRESENT:
+    scopes.dev_plan = elements.dev_plan.frontmatter.scope OR "unknown"
+
+  # The authoritative scope is spec.feature.scope. All others must match it.
+  authoritative = scopes.spec OR "unknown"
+
+  FOR EACH (artefact, value) IN scopes:
+    IF artefact == "spec": CONTINUE
+    IF value == "unknown":
+      YIELD { check: "scope_consistency_across_artifacts", severity: WARNING,
+              source: "{artefact}.frontmatter.scope",
+              gap: "Missing scope field (pre-EVOL-019 artefact)",
+              remediation: "Re-run the generating agent to refresh frontmatter with scope field; or add scope manually inheriting from spec.feature.scope ({authoritative})" }
+      CONTINUE
+    IF value != authoritative:
+      YIELD { check: "scope_consistency_across_artifacts", severity: CRITICAL,
+              source: "{artefact}.frontmatter.scope = '{value}'",
+              gap: "Scope mismatch: spec.feature says '{authoritative}', {artefact} says '{value}'",
+              remediation: "Re-sync via the responsible agent's --refine (BLUEPRINT --refine {ID} for design.md/test_plan.md; IMPLEMENT --refine {ID} for dev_plan.md). Scope is IMMUTABLE after CODESIGN auto-approval — mismatch indicates a hand-edit or a stale artefact needing cascade sync." }
+    ELSE:
+      YIELD { check: "scope_consistency_across_artifacts", severity: PASS,
+              source: artefact, target: "scope={value} matches spec.feature" }
+```
+
+### Check 0b: `consumes_contract_resolution` (CRITICAL — EVOL-019 Phase 3)
+
+Every `FEAT-XXX` declared in `spec.feature.consumes_contract` must resolve to an upstream feature whose design.md is at least APPROVED and whose contract artefacts exist under `contracts/**` (OpenAPI / AsyncAPI / GraphQL SDL / Protobuf). Missing upstreams or not-yet-frozen contracts are silent failures that only surface at IMPLEMENT time via the Consumes-Contract Upstream Freeze Gate — CVP catches them earlier at BLUEPRINT --approve.
+
+This check is complementary to the BLUEPRINT `--start` Consumes-Contract Resolution Gate (EVOL-019 Phase 1) and the IMPLEMENT `--plan` Consumes-Contract Upstream Freeze Gate (Phase 2). Those two gates BLOCK; this CVP check flags the same gaps with traceability matrix output so they appear on the coherence report.
+
+```yaml
+FUNCTION check_consumes_contract_resolution(elements):
+  spec = elements.spec_feature
+  IF spec IS NULL: RETURN
+  upstream_features = spec.frontmatter.consumes_contract OR []
+
+  IF upstream_features IS EMPTY:
+    YIELD { check: "consumes_contract_resolution", severity: PASS,
+            source: "spec.feature.consumes_contract",
+            target: "no upstream dependencies declared" }
+    RETURN
+
+  FOR EACH upstream_id IN upstream_features:
+    # Step 1 — upstream feature must exist with APPROVED design.md
+    upstream_design_path = "docs/spec/{upstream_id}/design.md"
+    upstream_design = READ_IF_EXISTS(upstream_design_path)
+    IF upstream_design IS NULL:
+      YIELD { check: "consumes_contract_resolution", severity: CRITICAL,
+              source: "spec.feature.consumes_contract[{upstream_id}]",
+              gap: "Upstream feature {upstream_id} has no design.md at {upstream_design_path}",
+              remediation: "Produce the upstream feature first (CODESIGN --start {upstream_id} → BLUEPRINT --approve {upstream_id}), or remove {upstream_id} from consumes_contract" }
+      CONTINUE
+    upstream_status = upstream_design.frontmatter.status
+    IF upstream_status NOT IN ["APPROVED", "IMPLEMENTED_AND_VERIFIED"]:
+      YIELD { check: "consumes_contract_resolution", severity: CRITICAL,
+              source: "spec.feature.consumes_contract[{upstream_id}]",
+              gap: "Upstream {upstream_id} design.md status is '{upstream_status}', not APPROVED — downstream cannot safely bind to a draft schema",
+              remediation: "Wait for BLUEPRINT --approve {upstream_id}, or drop the dependency" }
+      CONTINUE
+
+    # Step 2 — upstream must have frozen contract files (scope-aware)
+    upstream_scope = READ_IF_EXISTS("docs/spec/{upstream_id}/spec.feature").frontmatter.scope OR "full-stack"
+    IF upstream_scope == "frontend-only":
+      YIELD { check: "consumes_contract_resolution", severity: CRITICAL,
+              source: "spec.feature.consumes_contract[{upstream_id}]",
+              gap: "Upstream {upstream_id} has scope=frontend-only — frontend-only features own no contract to consume; this is a scope mismatch",
+              remediation: "Point consumes_contract at the backend feature that owns the contract, or remove the entry" }
+      CONTINUE
+    upstream_contracts_dir = "docs/spec/{upstream_id}/contracts/"
+    contract_files_root = GLOB("contracts/{openapi,graphql,grpc,asyncapi,webhooks}/**/{upstream_id}*/**/*.{yaml,yml,graphql,proto}")
+    contract_files_per_feature = GLOB("{upstream_contracts_dir}**/*.{yaml,yml,graphql,proto}") IF DIR_EXISTS(upstream_contracts_dir) ELSE []
+    contract_files = contract_files_root ∪ contract_files_per_feature
+    IF contract_files IS EMPTY:
+      YIELD { check: "consumes_contract_resolution", severity: CRITICAL,
+              source: "spec.feature.consumes_contract[{upstream_id}]",
+              gap: "Upstream {upstream_id} is APPROVED (scope={upstream_scope}) but has no frozen contract files under contracts/** or {upstream_contracts_dir}",
+              remediation: "Verify upstream BLUEPRINT --approve produced contract artefacts. If contract-first-policy layout is at repo root, at least one file must match the upstream feature slug." }
+      CONTINUE
+
+    # Step 3 — optional, full-sdlc only — CONTRACT-FREEZE issue Done, not stale
+    project_tracking = READ_IF_EXISTS(".context/governance_snapshot.md").setup_configuration.project_tracking OR {}
+    IF project_tracking.feature_phases == "full-sdlc":
+      ADAPTER = READ "docs/backlog/tool-adapter.md"
+      upstream_cf_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS upstream_id
+      IF upstream_cf_issue IS NULL:
+        YIELD { check: "consumes_contract_resolution", severity: WARNING,
+                source: "spec.feature.consumes_contract[{upstream_id}]",
+                gap: "Upstream {upstream_id} has no CONTRACT-FREEZE issue on the board (full-sdlc preset would expect one)",
+                remediation: "Run BACKLOG --plan-feature {upstream_id} to materialise the 8-phase preset with the gate" }
+      ELSE IF upstream_cf_issue.status != "Done":
+        YIELD { check: "consumes_contract_resolution", severity: CRITICAL,
+                source: "spec.feature.consumes_contract[{upstream_id}]",
+                gap: "Upstream {upstream_id} CONTRACT-FREEZE is not Done (status={upstream_cf_issue.status})",
+                remediation: "Close upstream CONTRACT-FREEZE first" }
+      ELSE IF "stale-after-cascade" IN upstream_cf_issue.labels:
+        YIELD { check: "consumes_contract_resolution", severity: CRITICAL,
+                source: "spec.feature.consumes_contract[{upstream_id}]",
+                gap: "Upstream {upstream_id} CONTRACT-FREEZE is stale (label: stale-after-cascade)",
+                remediation: "Run BLUEPRINT --refine {upstream_id} to re-sync contracts, then re-close its CONTRACT-FREEZE issue (removing the stale label). This feature's dev_plan.md may need a CASCADE_PENDING_ITERATION sync as well (see Factory-iteration-model/SKILL.md § CASCADE_CONSUMERS)." }
+
+    YIELD { check: "consumes_contract_resolution", severity: PASS,
+            source: "spec.feature.consumes_contract[{upstream_id}]",
+            target: "upstream APPROVED, contracts present, gate Done + current" }
+```
 
 ### Check 1: `scenario_to_component` (CRITICAL)
 

@@ -1,7 +1,8 @@
 ---
 status: DRAFT   # DRAFT | IN_PROGRESS | APPROVED | INVALIDATED | REJECTED
 feature_id: "{{FEATURE_ID}}"
-title: "Smoke E2E Report — {{FEATURE_NAME}}"
+title: "Smoke E2E Report (Browser / Full-Stack) — {{FEATURE_NAME}}"
+scope: full-stack  # EVOL-019 — this template is applicable_when scope in [full-stack, frontend-only]; for backend-only / integration use smoke_e2e_integration_template.md
 dev_environment: "{ENV name from devops_plan, typically 'dev'}"
 deploy_build_sha: "{git sha of the dev-deployed build being smoked}"
 execution_date: "YYYY-MM-DDThh:mm:ssZ"
