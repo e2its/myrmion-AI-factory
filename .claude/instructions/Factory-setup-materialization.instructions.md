@@ -823,6 +823,19 @@ Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/`:
 - `stack_configured` scripts resolve placeholders
 - `chmod +x` for all `.sh` files
 
+**Claude Code Materialization (`.context/templates/setup/claude/` → project root + `.claude/`):**
+
+1. `.context/templates/setup/claude/CLAUDE.md` → `CLAUDE.md` (project root)
+   - `smart-additive-merge` upgrade strategy: if `CLAUDE.md` already exists at the target, merge new structural additions (new sections, new bullet points) into it without overwriting user edits. On fresh `--generate`, target will not exist → write the template as-is.
+   - This is the **materialized-project variant** of `CLAUDE.md`. The framework repo itself uses a different `CLAUDE.md` (meta-maintenance variant) that is NOT synced to downstream projects.
+
+2. `.context/templates/setup/claude/settings.json` → `.claude/settings.json`
+   - `merge-preserve` upgrade strategy: target file holds user-owned content (e.g. `permissions`, `model`, `env`). Merge the framework-owned `hooks` block (SessionStart, UserPromptSubmit, PreCompact, PreToolUse) into the existing file without touching other keys.
+   - Fresh `--generate`: write the template as-is.
+   - Idempotent: re-materialisation only adds missing hook entries; never removes user-added matchers or commands.
+
+Rationale: `.claude/settings.json` was previously untouched by `factory-sync.sh` ("project-owned"), leaving downstream projects with no governance-always-on hooks unless the user added them manually. Templating `settings.json` closes that gap; templating `CLAUDE.md` avoids shipping framework-specific guidance (meta-maintenance mode, EVOL-* workflow) to project users who should see SDLC-first guidance instead.
+
 **.gitignore:** Generate from template, add framework-specific entries.
 
 **E2E Config:** Only configuration files (playwright.config.ts, etc.), NO test files.

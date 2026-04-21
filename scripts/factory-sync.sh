@@ -6,11 +6,11 @@
 # scripts, templates, CLAUDE.md) from the framework source to a target project.
 #
 # WHAT IT SYNCS (framework-owned, overwritten):
-#   CLAUDE.md
 #   .claude/commands/*.md
 #   .claude/instructions/Factory-*.instructions.md
 #   .claude/skills/Factory-*/SKILL.md
 #   scripts/{auto-tag,install-hooks,security-scan,validate-governance}.sh
+#   scripts/{governance-onprompt,governance-oncompact}.sh
 #   scripts/hooks/{commit-msg,pre-commit,pre-push}
 #   scripts/project_summarization.py
 #   .context/templates/ (full tree — used by SETUP --upgrade)
@@ -85,9 +85,9 @@ fi
 TARGET_PROJECT="$(cd "$TARGET_PROJECT" && pwd)"
 
 # ── Validate paths ──
-if [[ ! -f "$FRAMEWORK_ROOT/CLAUDE.md" ]]; then
+if [[ ! -f "$FRAMEWORK_ROOT/CLAUDE.md" ]] || [[ ! -d "$FRAMEWORK_ROOT/.context/templates/setup" ]]; then
   echo -e "${RED}ERROR: Framework root not found at: $FRAMEWORK_ROOT${NC}"
-  echo "Expected CLAUDE.md in framework directory."
+  echo "Expected CLAUDE.md + .context/templates/setup/ in framework directory."
   exit 1
 fi
 
@@ -278,8 +278,9 @@ fi
 # SYNC CATEGORIES
 # ═══════════════════════════════════════════════════════════════════════════════
 
-echo -e "${BOLD}[1/6] CLAUDE.md (Root Governance)${NC}"
-sync_file "$FRAMEWORK_ROOT/CLAUDE.md" "$TARGET_PROJECT/CLAUDE.md"
+echo -e "${BOLD}[1/6] CLAUDE.md (Root Governance — SKIPPED by factory-sync)${NC}"
+echo -e "  ${CYAN}ℹ Materialized-project CLAUDE.md is managed by SETUP --generate / --upgrade"
+echo -e "    from .context/templates/setup/claude/CLAUDE.md (EVOL-018).${NC}"
 echo ""
 
 echo -e "${BOLD}[2/6] Commands (.claude/commands/)${NC}"
@@ -310,7 +311,7 @@ echo ""
 
 echo -e "${BOLD}[5/6] Base Scripts (scripts/)${NC}"
 # Framework-owned scripts only
-for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh factory-sync.sh project_summarization.py; do
+for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh governance-onprompt.sh governance-oncompact.sh factory-sync.sh project_summarization.py; do
   sync_file "$FRAMEWORK_ROOT/scripts/$script" "$TARGET_PROJECT/scripts/$script"
 done
 # Hooks

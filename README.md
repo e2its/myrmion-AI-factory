@@ -660,6 +660,32 @@ Central auto-generated registry during `/setup --generate`:
 - Governance snapshot: `.context/governance_snapshot.md` — file-based cache, summarization-safe (see `Factory-governance-loading/SKILL.md`).
 - Verification commands: auto-derived from the stack config for BVL (test, lint, typecheck, build).
 
+### Governance always-on enforcement (3-tier)
+
+The governance snapshot covers the "what is loaded" question, but it is a passive artifact — it can go stale silently and it evaporates from context across compaction cycles. Three Claude Code hooks make governance demonstrably always-on in any session turn:
+
+| Tier | Trigger | Hook | What it does | Failure mode |
+|------|---------|------|--------------|--------------|
+| **1 — Visible** | `SessionStart` | `scripts/validate-governance.sh --banner` | Prints `Governance loaded: constitution {hash8}, setup {hash8} \| SDLC-first triage: ON` on session open. If the snapshot is missing, prints a remediation hint instead. | Non-blocking (informational). |
+| **2 — Blocking** | `UserPromptSubmit` | `scripts/governance-onprompt.sh` → `validate-governance.sh --snapshot-freshness` | Per prompt: recomputes MD5 of `docs/constitution.md` + `docs/setup.md`, compares to the snapshot frontmatter. Exit 2 on drift → the prompt is rejected with `Governance snapshot stale — run /setup --upgrade`. | Blocks the prompt. Carve-out: prompts starting with `/setup*` bypass the gate to avoid livelock on the recovery path. Also silent no-op when the project is not yet initialized (no `docs/constitution.md`). |
+| **3 — Resilient** | `PreCompact` → `UserPromptSubmit` | `scripts/governance-oncompact.sh` writes `.claude/state/governance-reload-{session_id}.marker`; the next `scripts/governance-onprompt.sh` emits the snapshot wrapped in `<governance-reload>...</governance-reload>` on stdout, which Claude Code appends to the next turn as additional context, then consumes the marker. | Post-compaction re-injection is lossy if `PreCompact` never fires (some IDE harnesses). Tiers 1 + 2 still operate. |
+
+**Why 3 tiers (and not 1):** tier 1 makes governance visible so the user can spot when it fails to load. Tier 2 converts passive drift into a hard stop — the user cannot continue operating on stale context. Tier 3 survives summarization — without it, the snapshot would evaporate from the LLM's window after compaction even while the snapshot file on disk is still valid.
+
+**Marker scoping.** The post-compact marker lives at `.claude/state/governance-reload-{session_id}.marker` — inside the Claude Code hook namespace, gitignored, and suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replay.
+
+**Smoke tests** (project-local):
+
+1. Open a fresh session → the banner line is printed.
+2. Edit `docs/constitution.md` without regenerating the snapshot → the next prompt is rejected with `Governance snapshot stale — …`.
+3. Force a conversation long enough to trigger `PreCompact` → the following turn contains `<governance-reload>…</governance-reload>` with the full snapshot in context.
+
+See [scripts/validate-governance.sh](scripts/validate-governance.sh), [scripts/governance-onprompt.sh](scripts/governance-onprompt.sh), [scripts/governance-oncompact.sh](scripts/governance-oncompact.sh), and [.claude/settings.json](.claude/settings.json).
+
+### SDLC-first triage (MANDATORY)
+
+Complements governance always-on with a **behavioural** rule: every user request — slash command or free-form chat — must first be classified against the SDLC command catalogue. If the request maps to a command, the agent announces the routing in one line and executes the command instead of the raw action; if it does not map, the agent articulates in one line why it does not map before acting directly. Silence is a governance-scope violation. See [CLAUDE.md § SDLC-First Triage](CLAUDE.md#sdlc-first-triage--mandatory) for the full rule and carve-out list, and [Factory-protocol-iop-intent-map.instructions.md](.claude/instructions/Factory-protocol-iop-intent-map.instructions.md) for the technical classifier.
+
 ### Cross-Cutting Skills (Protocols)
 
 The framework ships protocols reusable by every command:
