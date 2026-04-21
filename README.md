@@ -684,7 +684,13 @@ See [scripts/validate-governance.sh](scripts/validate-governance.sh), [scripts/g
 
 ### SDLC-first triage (MANDATORY)
 
-Complements governance always-on with a **behavioural** rule: every user request — slash command or free-form chat — must first be classified against the SDLC command catalogue. If the request maps to a command, the agent announces the routing in one line and executes the command instead of the raw action; if it does not map, the agent articulates in one line why it does not map before acting directly. Silence is a governance-scope violation. See [CLAUDE.md § SDLC-First Triage](CLAUDE.md#sdlc-first-triage--mandatory) for the full rule and carve-out list, and [Factory-protocol-iop-intent-map.instructions.md](.claude/instructions/Factory-protocol-iop-intent-map.instructions.md) for the technical classifier.
+Complements governance always-on with a **behavioural** rule: every user request — slash command or free-form chat — must first be classified against the SDLC command catalogue. If the request maps to a command, the agent announces the routing in one line and executes the command instead of the raw action; if it does not map, the agent articulates in one line why it does not map before acting directly. Silence is a governance-scope violation.
+
+The rule lives in two places depending on context (EVOL-018 framework/project split):
+
+- [.context/templates/setup/claude/CLAUDE.md § SDLC-First Triage](.context/templates/setup/claude/CLAUDE.md) — the materialized-project variant (SDLC-first is the default; carve-outs for read-only, docs-only fast-lane, trivial edits).
+- [CLAUDE.md § Meta-Framework Triage](CLAUDE.md) — the framework-repo variant (meta-maintenance is the default; SDLC routing is the rare exception).
+- [.claude/instructions/Factory-protocol-iop-intent-map.instructions.md](.claude/instructions/Factory-protocol-iop-intent-map.instructions.md) — the canonical technical classifier (IOP v1.1.0) that both variants point at.
 
 ### Cross-Cutting Skills (Protocols)
 

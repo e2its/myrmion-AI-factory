@@ -9,6 +9,7 @@
 #   .claude/commands/*.md
 #   .claude/instructions/Factory-*.instructions.md
 #   .claude/skills/Factory-*/SKILL.md
+#   .claude/hooks/*.sh
 #   scripts/{auto-tag,install-hooks,security-scan,validate-governance}.sh
 #   scripts/{governance-onprompt,governance-oncompact}.sh
 #   scripts/hooks/{commit-msg,pre-commit,pre-push}
@@ -278,21 +279,21 @@ fi
 # SYNC CATEGORIES
 # ═══════════════════════════════════════════════════════════════════════════════
 
-echo -e "${BOLD}[1/6] CLAUDE.md (Root Governance — SKIPPED by factory-sync)${NC}"
+echo -e "${BOLD}[1/7] CLAUDE.md (Root Governance — SKIPPED by factory-sync)${NC}"
 echo -e "  ${CYAN}ℹ Materialized-project CLAUDE.md is managed by SETUP --generate / --upgrade"
 echo -e "    from .context/templates/setup/claude/CLAUDE.md (EVOL-018).${NC}"
 echo ""
 
-echo -e "${BOLD}[2/6] Commands (.claude/commands/)${NC}"
+echo -e "${BOLD}[2/7] Commands (.claude/commands/)${NC}"
 sync_dir "$FRAMEWORK_ROOT/.claude/commands" "$TARGET_PROJECT/.claude/commands" "*.md"
 echo ""
 
-echo -e "${BOLD}[3/6] Instructions (.claude/instructions/)${NC}"
+echo -e "${BOLD}[3/7] Instructions (.claude/instructions/)${NC}"
 sync_dir "$FRAMEWORK_ROOT/.claude/instructions" "$TARGET_PROJECT/.claude/instructions" "Factory-*.instructions.md"
 detect_orphans "$FRAMEWORK_ROOT/.claude/instructions" "$TARGET_PROJECT/.claude/instructions" "Factory-*.instructions.md" "Factory-"
 echo ""
 
-echo -e "${BOLD}[4/6] Skills (.claude/skills/)${NC}"
+echo -e "${BOLD}[4/7] Skills (.claude/skills/)${NC}"
 sync_skills "$FRAMEWORK_ROOT/.claude/skills" "$TARGET_PROJECT/.claude/skills"
 # Check for orphan skill directories
 HAS_SKILL_ORPHANS=false
@@ -309,7 +310,12 @@ if [[ -d "$TARGET_PROJECT/.claude/skills" ]]; then
 fi
 echo ""
 
-echo -e "${BOLD}[5/6] Base Scripts (scripts/)${NC}"
+echo -e "${BOLD}[5/7] Claude Code Hooks (.claude/hooks/)${NC}"
+sync_dir "$FRAMEWORK_ROOT/.claude/hooks" "$TARGET_PROJECT/.claude/hooks" "*.sh"
+detect_orphans "$FRAMEWORK_ROOT/.claude/hooks" "$TARGET_PROJECT/.claude/hooks" "*.sh" "check-"
+echo ""
+
+echo -e "${BOLD}[6/7] Base Scripts (scripts/)${NC}"
 # Framework-owned scripts only
 for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh governance-onprompt.sh governance-oncompact.sh factory-sync.sh project_summarization.py; do
   sync_file "$FRAMEWORK_ROOT/scripts/$script" "$TARGET_PROJECT/scripts/$script"
@@ -320,7 +326,7 @@ for hook in commit-msg pre-commit pre-push; do
 done
 echo ""
 
-echo -e "${BOLD}[6/6] Templates (.context/templates/)${NC}"
+echo -e "${BOLD}[7/7] Templates (.context/templates/)${NC}"
 sync_tree "$FRAMEWORK_ROOT/.context/templates" "$TARGET_PROJECT/.context/templates"
 detect_tree_orphans "$FRAMEWORK_ROOT/.context/templates" "$TARGET_PROJECT/.context/templates"
 echo ""

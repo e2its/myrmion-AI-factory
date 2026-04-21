@@ -33,16 +33,21 @@ SETUP_FILE="docs/setup.md"
 
 gov_compute_md5() {
   local file="$1"
-  [ -f "$file" ] || { echo ""; return; }
-  if command -v md5sum >/dev/null 2>&1; then
-    md5sum "$file" 2>/dev/null | cut -d' ' -f1
-  elif command -v md5 >/dev/null 2>&1; then
-    md5 -q "$file" 2>/dev/null
-  elif command -v openssl >/dev/null 2>&1; then
-    openssl md5 "$file" 2>/dev/null | awk '{print $NF}'
-  else
-    echo ""
+  local hash=""
+  if [ -f "$file" ]; then
+    # Each branch tolerates tool failure — empty output is the "cannot verify"
+    # signal used by --snapshot-freshness. Guarded so that set -euo pipefail in
+    # the caller is not tripped by a stubbed or missing md5 binary.
+    if command -v md5sum >/dev/null 2>&1; then
+      hash=$({ md5sum "$file" 2>/dev/null || true; } | cut -d' ' -f1)
+    elif command -v md5 >/dev/null 2>&1; then
+      hash=$(md5 -q "$file" 2>/dev/null || true)
+    elif command -v openssl >/dev/null 2>&1; then
+      hash=$({ openssl md5 "$file" 2>/dev/null || true; } | awk '{print $NF}')
+    fi
   fi
+  printf '%s' "$hash"
+  return 0
 }
 
 gov_snapshot_value() {
@@ -78,8 +83,12 @@ if [ "${1:-}" = "--banner" ]; then
   snap_setup=$(gov_snapshot_value setup_hash)
   snap_const8="${snap_const:0:8}"
   snap_setup8="${snap_setup:0:8}"
-  [ -z "$snap_const8" ] && snap_const8="unknown"
-  [ -z "$snap_setup8" ] || [ "$snap_setup8" = "null" ] && snap_setup8="n/a"
+  if [ -z "$snap_const8" ]; then
+    snap_const8="unknown"
+  fi
+  if [ -z "$snap_setup8" ] || [ "$snap_setup8" = "null" ]; then
+    snap_setup8="n/a"
+  fi
   echo "Governance loaded: constitution ${snap_const8}, setup ${snap_setup8} | SDLC-first triage: ON"
   exit 0
 fi
@@ -99,17 +108,23 @@ if [ "${1:-}" = "--snapshot-freshness" ]; then
 
   snap_const=$(gov_snapshot_value constitution_hash)
   snap_setup=$(gov_snapshot_value setup_hash)
+
+  if [ -z "$snap_const" ]; then
+    echo "Governance snapshot malformed — frontmatter missing 'constitution_hash'. Run /setup --upgrade to regenerate." >&2
+    exit 2
+  fi
+
   live_const=$(gov_compute_md5 "$CONSTITUTION_FILE")
   live_setup=""
   [ -f "$SETUP_FILE" ] && live_setup=$(gov_compute_md5 "$SETUP_FILE")
 
   if [ -z "$live_const" ]; then
-    # No md5 tool available — cannot verify, fall through silently.
-    exit 0
+    echo "Governance snapshot cannot be verified — no md5 tool available (need md5sum, md5, or openssl). Install one before proceeding; freshness gate blocks by default." >&2
+    exit 2
   fi
 
   drift=()
-  [ -n "$snap_const" ] && [ "$snap_const" != "$live_const" ] && drift+=("constitution.md")
+  [ "$snap_const" != "$live_const" ] && drift+=("constitution.md")
   if [ -n "$snap_setup" ] && [ "$snap_setup" != "null" ]; then
     [ "$snap_setup" != "$live_setup" ] && drift+=("setup.md")
   fi

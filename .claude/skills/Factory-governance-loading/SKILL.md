@@ -48,6 +48,26 @@ LLM context windows are finite (128K in Copilot). When conversation history is s
 > This does **NOT** require running `SETUP --generate`. Any agent can regenerate the snapshot directly
 > by reading `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and writing `.context/governance_snapshot.md`.
 
+### Always-On Enforcement (3-Tier Hooks — EVOL-017)
+
+The PreToolUse drift hook above catches edits in progress, but agents can *read* governance for an entire session without ever triggering an Edit/Write — and the snapshot can go stale silently across context compaction. The 3-tier enforcement closes those gaps:
+
+| Tier | Trigger | Script | What it does | Failure mode |
+|------|---------|--------|--------------|--------------|
+| **1 — Visible** | `SessionStart` | `scripts/validate-governance.sh --banner` | Prints `Governance loaded: constitution {hash8}, setup {hash8} \| SDLC-first triage: ON` on session open. If the snapshot is missing, prints a fresh-install hint instead. | Non-blocking (informational). |
+| **2 — Blocking** | `UserPromptSubmit` | `scripts/governance-onprompt.sh` → `validate-governance.sh --snapshot-freshness` | Per prompt: recomputes MD5 of `docs/constitution.md` + `docs/setup.md`, compares against the snapshot frontmatter. Exit 2 on drift → the prompt is rejected with `Governance snapshot stale — run /setup --upgrade`. Also exits 2 if `constitution_hash` is missing from the snapshot (malformed) or no `md5sum`/`md5`/`openssl` is available (cannot verify). | Blocks the prompt. Carve-out: prompts starting with `/setup*` bypass the gate so the recovery path stays reachable. Silent no-op when the project is not yet initialized (no `docs/constitution.md`). |
+| **3 — Resilient** | `PreCompact` → `UserPromptSubmit` | `scripts/governance-oncompact.sh` writes `.claude/state/governance-reload-{session_id}.marker`; the next `scripts/governance-onprompt.sh` emits the snapshot wrapped in `<governance-reload>...</governance-reload>` on stdout, which Claude Code appends to the next turn as additional context, then consumes the marker. | Post-compaction re-injection is lossy if `PreCompact` never fires (some IDE harnesses). Tiers 1 + 2 still operate. |
+
+**Hook wiring** lives in `.claude/settings.json` (materialized by `SETUP --generate` from `.context/templates/setup/claude/settings.json`). The 3-tier is additive to the EVOL-013 PreToolUse drift hook — they coexist at different severity levels: tier 2 blocks the prompt loudly, the drift hook warns silently during edits.
+
+**Marker scoping.** The post-compact marker lives at `.claude/state/governance-reload-{session_id}.marker` — inside the Claude Code hook namespace, gitignored, suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replay.
+
+**Smoke tests** (run in any repo that has `docs/constitution.md` + `.context/governance_snapshot.md`):
+
+1. Open a fresh session → the banner line is printed.
+2. Edit `docs/constitution.md` without regenerating the snapshot → the next prompt is rejected with `Governance snapshot stale — …`.
+3. Force a conversation long enough to trigger `PreCompact` → the following turn contains `<governance-reload>…</governance-reload>` with the full snapshot in context.
+
 ### Step 0: Governance Snapshot Recovery (FILE-BASED — summarization-safe)
 
 ```yaml

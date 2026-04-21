@@ -481,10 +481,11 @@
       ]
     },
     "scripts/validate-governance.sh": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
+        "1.1.1: fix(EVOL-017): Copilot PR #7 review \u2014 freshness gate hardening. Empty/missing constitution_hash in snapshot frontmatter now exits 2 (was silently passing). Absent md5sum/md5/openssl now exits 2 with install guidance (was silently passing). gov_compute_md5 hardened against set -euo pipefail aborts when tools fail. --banner fallback rewritten with explicit if/then (fragile || / && precedence replaced).",
         "1.0.0: Initial template \u2014 Governance drift detection: framework_core change tracking, orphan/stale detection, version consistency (GOV-001)",
         "1.1.0: feat(EVOL-017): --banner and --snapshot-freshness modes for governance always-on enforcement (3-tier). Reads $CLAUDE_PROJECT_DIR for cwd anchoring; portable md5 + awk frontmatter parsing; exit 2 on stale snapshot."
       ]
@@ -787,9 +788,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects \u2014 used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) \u2014 Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.2.0",
+      "version": "2.2.1",
       "path": "README.md",
       "changelog": [
+        "2.2.1: fix(EVOL-018) Copilot PR #7: SDLC-first triage link was pointing to CLAUDE.md#sdlc-first-triage--mandatory anchor, which no longer exists after the framework/project split (framework CLAUDE.md was renamed to Meta-Framework Triage). Link now disambiguates the two variants and references the canonical IOP classifier.",
         "2.2.0: feat(EVOL-017): \u00a7 Governance always-on enforcement (3-tier) \u2014 tier table, marker scoping note, smoke-test checklist. \u00a7 SDLC-first triage (MANDATORY) cross-ref.",
         "2.0.0: BREAKING docs(EVOL-015): instructions.md fused into README.md \u2014 single English user-facing doc. Ports 10 Spanish sections from the deleted instructions.md (full Command Reference, Recommended Pipeline, Complete Workflow Diagram, Exception Routes, State Transition Matrices, State Glossary, Dynamic Governance System, Memory Cache Architecture, Immutability & Versioning). instructions.md deleted at the same commit. Rationale: eliminate two-sources-of-truth drift between README.md and instructions.md that was observed during EVOL-014 \u2192 EVOL-015. All framework version tags scrubbed from user-facing copy (versions live only in governance_versions.json). Workflow sequence presents the full-sdlc 8-phase expansion + 3 hard gates (CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E) + 2 epic/slice gates (SLICE-INTEGRATION-TEST, EPIC-RETROSPECTIVE) + enforcement modes blurb.",
         "1.1.0: docs(EVOL-015): workflow sequence updated with full-sdlc 8-phase expansion + 3 hard gates; gate enforcement modes blurb added; framework version tags scrubbed from user-facing copy",
@@ -1277,9 +1279,10 @@
       ]
     },
     "skills/Factory-governance-loading/SKILL.md": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "type": "skill",
       "changelog": [
+        "2.5.0: feat(EVOL-017): \u00a7 Always-On Enforcement (3-Tier Hooks) added \u2014 documents the SessionStart banner / UserPromptSubmit freshness gate / PreCompact marker handshake that complement the EVOL-013 PreToolUse drift warning. Includes marker scoping (.claude/state/, session_id suffix), carve-outs (/setup*, project-not-initialized), and smoke tests. Closes Copilot PR #7 review finding on stale template CLAUDE.md pointer.",
         "2.3.0: feat(EVOL-014): Governance Write Protocol (GWP) added as write-side counterpart of GCRP \u2014 canonical procedure for bumping governance_versions.json on every framework-core touch; caveman-style terse",
         "2.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.2.1: fix: PR review \u2014 Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
@@ -1442,11 +1445,12 @@
       ]
     },
     "scripts/factory-sync.sh": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
-      "role": "Framework governance sync tool \u2014 copies framework-owned files (instructions, skills, agents, prompts, base scripts, templates, copilot-instructions) to target projects without leaving framework traces in project git history.",
+      "role": "Framework governance sync tool \u2014 copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history.",
       "changelog": [
+        "1.4.0: fix(EVOL-017) Copilot PR #7: new category [5/7] Claude Code Hooks (.claude/hooks/*.sh) \u2014 previously these hook scripts were referenced by .claude/settings.json (PreToolUse chain) but never synced to downstream projects; fresh materialized projects would have a settings.json pointing at non-existent hook files. Categories renumbered to /7.",
         "1.3.0: feat(EVOL-018): remove CLAUDE.md from sync list \u2014 materialized-project CLAUDE.md is now owned by SETUP --generate/--upgrade (template: .context/templates/setup/claude/CLAUDE.md). factory-sync continues to sync commands, instructions, skills, scripts, and templates.",
         "1.2.0: feat(EVOL-017): sync scripts/governance-onprompt.sh + scripts/governance-oncompact.sh into Base Scripts category so downstream projects receive governance always-on hook scripts via factory-sync",
         "1.1.0: fix: empty-file guard, orphan counter consistency, sync standalone .github/ files, add explicit path, templates as 7th category",
