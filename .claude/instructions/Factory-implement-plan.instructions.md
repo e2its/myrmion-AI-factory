@@ -19,15 +19,21 @@ IF test_plan.md missing OR status != APPROVED:
   ❌ BLOCK: "Test plan not approved. Run BLUEPRINT --approve first."
 ```
 
-### CONTRACT-FREEZE Gate (v14.0.0 — EVOL-014, full-sdlc preset only)
+### CONTRACT-FREEZE Gate (v14.0.0 — EVOL-014, full-sdlc preset only; scope-aware EVOL-019)
 
 Enforces the CONTRACT-FREEZE hard gate from the 8-phase `full-sdlc` preset (see [Factory-backlog-operations.instructions.md](Factory-backlog-operations.instructions.md) § 1.1). Blocks `IMPLEMENT --plan` until the feature's API contracts are frozen and the contract test harness exists.
+
+**EVOL-019 framing.** This gate is the **primary design output** for features with `scope IN [backend-only, integration]` — those features are *entirely defined* by the frozen contract surface (no UI, no mock.html to verify). For `scope=frontend-only` features there is typically **no own contract to freeze** (the feature consumes upstream contracts via `consumes_contract` — see the Consumes-Contract Upstream Freeze Gate below); the gate still runs but the "contract directory non-empty" check is relaxed to allow client-side type declarations only. For `scope=full-stack` the gate behaves as it did pre-EVOL-019.
 
 ```yaml
 READ docs/setup.md → project_tracking.feature_phases
 IF feature_phases != "full-sdlc":
   ✅ SKIP gate — simplified/single presets do not ship CONTRACT-FREEZE
   RETURN
+
+# EVOL-019: load feature scope for scope-aware checks
+feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
+has_backend_surface = feature_scope IN ["full-stack", "backend-only", "integration"]
 
 # 1. Verify the contract-freeze backlog issue exists and is Done
 ADAPTER = READ docs/backlog/tool-adapter.md
@@ -39,21 +45,30 @@ IF issue IS NULL:
   STOP
 
 IF issue.status != "Done":
-  ❌ BLOCK: "CONTRACT-FREEZE gate not passed for {FEATURE_ID} (current: {issue.status})."
-  SUGGEST: |
-    The feature's API contracts must be frozen before IMPLEMENT starts. Required artefacts
-    under docs/spec/{FEATURE_ID}/contracts/ (exact filenames depend on the stack chosen at
-    SETUP — OpenAPI YAML, TypeScript interface files, GraphQL SDL, Protobuf, etc.) plus the
-    contract test harness under tests/contract/{FEATURE_ID}/. Complete them, move the
-    CONTRACT-FREEZE issue to Done, then re-run IMPLEMENT --plan.
+  IF has_backend_surface:
+    ❌ BLOCK (humanised, backend-authoritative): "CONTRACT-FREEZE gate not passed for {FEATURE_ID} (current: {issue.status}).
+      For scope=`{feature_scope}` this gate is the PRIMARY design output — the feature is defined by its frozen contract surface.
+      Required artefacts under docs/spec/{FEATURE_ID}/contracts/ (filenames depend on SETUP stack — OpenAPI YAML, TypeScript interface files, GraphQL SDL, Protobuf, AsyncAPI event schemas) plus the contract test harness under tests/contract/{FEATURE_ID}/. Complete them, move the CONTRACT-FREEZE issue to Done, then re-run IMPLEMENT --plan."
+  ELSE:
+    # feature_scope == "frontend-only"
+    ❌ BLOCK (humanised, consumer-view): "CONTRACT-FREEZE gate not passed for {FEATURE_ID} (current: {issue.status}).
+      For scope=frontend-only, this gate validates that upstream contracts consumed by this feature are frozen AND that any client-side type declarations (generated from OpenAPI / SDL) are committed. Complete the gate issue, then re-run IMPLEMENT --plan.
+      Note: the Consumes-Contract Upstream Freeze Gate (below) is the primary check for frontend-only features — this gate is the gate-of-record."
   STOP
 
-# 2. Verify the frozen-contract directory exists and is non-empty
+# 2. Verify the frozen-contract directory exists and is non-empty (scope-adapted threshold)
 contracts_dir = "docs/spec/{FEATURE_ID}/contracts/"
-IF NOT DIR_EXISTS(contracts_dir) OR DIR_IS_EMPTY(contracts_dir):
-  ❌ BLOCK: "CONTRACT-FREEZE issue is Done but {contracts_dir} is missing or empty."
-  SUGGEST: "Governance drift detected. Re-run the contract-freeze step to produce the frozen contract set."
-  STOP
+IF has_backend_surface:
+  IF NOT DIR_EXISTS(contracts_dir) OR DIR_IS_EMPTY(contracts_dir):
+    ❌ BLOCK: "CONTRACT-FREEZE issue is Done but {contracts_dir} is missing or empty — yet scope=`{feature_scope}` REQUIRES a frozen contract surface."
+    SUGGEST: "Governance drift detected. Re-run the contract-freeze step to produce the frozen contract set."
+    STOP
+ELSE:
+  # frontend-only: empty contracts/ is permitted (feature has no own contract; it consumes upstreams)
+  IF DIR_EXISTS(contracts_dir) AND NOT DIR_IS_EMPTY(contracts_dir):
+    LOG: "frontend-only feature ships client-side types under {contracts_dir}"
+  ELSE:
+    LOG: "frontend-only feature has no own contracts — relies on Consumes-Contract Upstream Freeze Gate"
 
 # 3. Check the gate issue for the stale-after-cascade label (placed by iteration-model cascade
 #    when an upstream change re-invalidated the contracts — see Factory-iteration-model/SKILL.md
@@ -66,12 +81,76 @@ IF "stale-after-cascade" IN gate_issue.labels:
   SUGGEST: "Run BLUEPRINT --refine {FEATURE_ID} to re-sync the contracts, then reopen and re-close the CONTRACT-FREEZE issue (removing the stale label) to re-freeze."
   STOP
 
-✅ PROCEED — contract-freeze issue is Done, contracts present, not stale
+✅ PROCEED — contract-freeze issue is Done, contracts appropriate for scope, not stale
 ```
 
 > **Rationale.** Without this gate, `IMPLEMENT --plan` reads `design.md` for contract references but the concrete contract files may be absent, outdated, or out of sync with the design. The MASS production retrospective recorded six cases of contract drift (class DC-6) where implementation proceeded against a stale or inferred contract and the bug surfaced only at QA. The gate eliminates that class entirely by making the frozen contract a hard prerequisite.
 
 > **Trust model.** Contract files (OpenAPI YAML, TypeScript interface files, GraphQL SDL, Protobuf, etc.) live in their respective DSL formats without markdown frontmatter — there is no `status` field to read on a `.yaml` or `.ts` file. The CONTRACT-FREEZE gate issue being `Done` (and NOT carrying the `stale-after-cascade` label) IS the source of truth that the contracts under `docs/spec/{FEATURE_ID}/contracts/` are frozen and valid. Upstream changes that would invalidate the contracts trigger a cascade that relabels the gate issue and moves it back to Todo via the tool-adapter (see `Factory-iteration-model/SKILL.md` § CASCADE_PENDING_ITERATION → contracts_freeze branch). This gives a single, tool-agnostic, frontmatter-free validation point.
+
+### Consumes-Contract Upstream Freeze Gate (EVOL-019 — BLOCKING, runs AFTER CONTRACT-FREEZE)
+
+Validates that every upstream feature listed in `spec.feature.consumes_contract` has a frozen contract before this feature's implementation plan is generated. Without this gate, a downstream feature can implement against an APPROVED-but-not-yet-frozen upstream design, and the resulting code silently binds to a pre-freeze schema that the upstream may still change.
+
+```yaml
+FUNCTION consumes_contract_upstream_freeze_gate(FEATURE_ID):
+  spec = READ("docs/spec/{FEATURE_ID}/spec.feature")
+  upstream_features = spec.frontmatter.consumes_contract OR []
+
+  IF upstream_features IS EMPTY:
+    ✅ SKIP — feature has no upstream contract dependencies
+    RETURN
+
+  ADAPTER = READ("docs/backlog/tool-adapter.md")
+  project_tracking = READ("docs/setup.md").project_tracking
+
+  FOR EACH upstream_id IN upstream_features:
+    # Step 1 — upstream design.md must be APPROVED (or later)
+    upstream_design = READ_IF_EXISTS("docs/spec/{upstream_id}/design.md")
+    IF NOT EXISTS upstream_design:
+      ❌ BLOCK: "consumes_contract references {upstream_id} but docs/spec/{upstream_id}/design.md does not exist.
+        Resolution: produce the upstream feature first (`/codesign --start {upstream_id}` → `/blueprint --start {upstream_id}` → `/blueprint --approve {upstream_id}`) or remove {upstream_id} from spec.feature.consumes_contract."
+      STOP
+    IF upstream_design.frontmatter.status NOT IN ["APPROVED", "IMPLEMENTED_AND_VERIFIED"]:
+      ❌ BLOCK: "consumes_contract references {upstream_id} but its design.md is in status `{upstream_design.status}`, not APPROVED.
+        Downstream implementation against a non-APPROVED upstream design risks binding to a draft schema. Resolution: wait for `/blueprint --approve {upstream_id}` or drop the dependency."
+      STOP
+
+    # Step 2 — upstream contract directory is non-empty (scope-aware)
+    upstream_scope = READ("docs/spec/{upstream_id}/spec.feature").frontmatter.scope OR "full-stack"
+    IF upstream_scope == "frontend-only":
+      ❌ BLOCK: "consumes_contract references {upstream_id} but its scope is `frontend-only` — frontend-only features have no own contract to consume.
+        Resolution: point consumes_contract at the backend feature that owns the contract (trace upstream → backend dependency), or remove this entry."
+      STOP
+    upstream_contracts_dir = "docs/spec/{upstream_id}/contracts/"
+    IF NOT DIR_EXISTS(upstream_contracts_dir) OR DIR_IS_EMPTY(upstream_contracts_dir):
+      ❌ BLOCK: "consumes_contract references {upstream_id} (status: APPROVED, scope: {upstream_scope}) but no frozen contract files found under {upstream_contracts_dir}.
+        Resolution: verify upstream BLUEPRINT --approve produced contract artefacts. If the artefacts live under contracts/** at repo root instead (per contract-first-policy layout), the resolver is still expected to find at least one file matching the upstream feature slug — otherwise contract-first-policy drift."
+      STOP
+
+    # Step 3 — upstream CONTRACT-FREEZE issue is Done + not stale (full-sdlc preset only)
+    IF project_tracking.feature_phases == "full-sdlc":
+      upstream_issue = ADAPTER.query_board() → find item WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS upstream_id
+      IF upstream_issue IS NULL:
+        ⚠️ WARN (gate_enforcement_mode=warn): "Upstream {upstream_id} has no CONTRACT-FREEZE issue — proceeding under soft-landing."
+        # fallthrough — enforce-mode projects treat this as a BLOCK
+        IF project_tracking.gate_enforcement_mode == "enforce":
+          ❌ BLOCK: "Upstream {upstream_id} has no CONTRACT-FREEZE issue and gate_enforcement_mode=enforce."
+          STOP
+      ELSE:
+        IF upstream_issue.status != "Done":
+          ❌ BLOCK (gate_enforcement_mode=enforce): "Upstream {upstream_id} CONTRACT-FREEZE issue is not Done (current: {upstream_issue.status}).
+            Downstream cannot safely bind to a contract that is not frozen upstream. Complete `/blueprint --approve {upstream_id}` and move its CONTRACT-FREEZE issue to Done, then re-run IMPLEMENT --plan {FEATURE_ID}."
+          STOP
+        IF "stale-after-cascade" IN upstream_issue.labels:
+          ❌ BLOCK: "Upstream {upstream_id} CONTRACT-FREEZE is stale (label: stale-after-cascade) — an upstream iteration invalidated the contract.
+            Resolution: run `/blueprint --refine {upstream_id}` to re-sync, then re-close the CONTRACT-FREEZE issue (removing the stale label). After that, this feature's dev_plan.md will need a CASCADE_PENDING_ITERATION sync too (see Factory-iteration-model/SKILL.md)."
+          STOP
+
+  ✅ All consumed upstream contracts are frozen and current — proceed
+```
+
+**Pair with the BLUEPRINT-side gate.** The same `consumes_contract` list is validated at `BLUEPRINT --start` by the Consumes-Contract Resolution Gate (Phase 1, EVOL-019) — that one runs before the downstream design is even drafted. This IMPLEMENT-side gate is the second enforcement point: the upstream must still be APPROVED + frozen + current at implementation time (a regression would be caught by the cascade labelling). Together they make consumes_contract a load-bearing primitive, not just a documentation field.
 
 ### UX Vision Gate (v12.0.0)
 ```yaml

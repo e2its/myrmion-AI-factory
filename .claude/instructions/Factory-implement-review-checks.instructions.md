@@ -8,7 +8,44 @@ description: "Factory IMPLEMENT peer review and security audit — code review c
 
 ## REVIEW Hat Protocol (🔍)
 
-Execute AFTER DEV Hat completes each phase. All 14 checks run per phase.
+Execute AFTER DEV Hat completes each phase. All 14 checks run per phase, filtered by feature scope (EVOL-019).
+
+### Scope Dispatch (EVOL-019 — runs BEFORE Step R.0)
+
+```yaml
+FUNCTION review_scope_dispatch():
+  # Read feature scope from the authoritative artefact — spec.feature frontmatter
+  feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
+  has_ui             = feature_scope IN ["full-stack", "frontend-only"]
+  has_backend_surface = feature_scope IN ["full-stack", "backend-only", "integration"]
+
+  # applicable_when matrix (per check)
+  check_applicability = {
+    "#1  [ARCH-*]":       ALL scopes,
+    "#2  [GOV-*]":        ALL scopes,
+    "#2b [GOV-SHARED-*]": ALL scopes,
+    "#2c [GOV-SEED-*]":   ALL scopes,
+    "#2d [GOV-DC-*]":     ALL scopes (DC catalog is filtered per-DC by feature_scope — see Gap 18),
+    "#3  [SEC-*]":        ALL scopes,
+    "#4  [PATH-*]":       ALL scopes,
+    "#5  [SCHEMA-*]":     ALL scopes,
+    "#6  [TYPE-*]":       scope IN [full-stack]   # cross-layer mapping — requires FE + BE present
+    "#7  [UX-*]":         scope IN [full-stack, frontend-only]   # all 11 sub-checks gated
+    "#8  [MIGRATION-*]":  has_backend_surface     # migrations only apply when a backend + DB is in play
+    "#9  [IAC-*]":        ALL scopes (infra may apply to any scope),
+    "#10 [CFP-*]":        has_backend_surface     # contract-first-policy only meaningful when backend contracts exist (frontend-only features consume via #10 upstream resolver instead)
+    "#11 [EXT-STRATEGY]": ALL scopes (brownfield-gated, orthogonal to scope),
+    "#12 [ACL-EXT]":      has_backend_surface     # external system ACL only exists when there IS a service-to-service boundary
+    "#13 [POLICY-*]":     ALL scopes,
+    "#14 [DESIGN-*]":     ALL scopes,
+  }
+
+  # Scope-excluded checks are reported as "N/A (scope={value})" in peer_review report —
+  # they are NOT silently skipped; REVIEW records the skip to the report so auditors see the dispatch.
+  RETURN { feature_scope, has_ui, has_backend_surface, check_applicability }
+```
+
+When a check resolves as **N/A**, the report's § 3.X entry reads: `N/A — skipped under scope={feature_scope}` and contributes zero findings (0 blocker, 0 warning, 0 nitpick). Skipping is not silent — auditors reading the peer_review report see exactly which checks ran and why others did not.
 
 ### Step R.0: Governance Context Binding (GCD v2.2.0 — MANDATORY FIRST STEP)
 ```yaml
@@ -367,6 +404,8 @@ CONSTRAINT_IDS: [SCHEMA-TEST-{N}]
 ```
 
 ### Check #6: [TYPE-XX] Cross-Layer Type Mapping
+<!-- applicable_when: scope in [full-stack] — requires both frontend and backend layers; scope=frontend-only + scope=backend-only + scope=integration resolve this check as N/A. -->
+
 ```yaml
 VERIFY type consistency across layers:
   API contract types ↔ Service layer types ↔ Database schema types ↔ Frontend types
@@ -380,6 +419,9 @@ SEVERITY: BLOCKER for type mismatch causing data loss
 ```
 
 ### Check #7: [UX-*] UX Compliance (11 Sub-Checks)
+<!-- applicable_when: scope in [full-stack, frontend-only] — entire block (all 11 sub-checks) resolves as N/A when scope in [backend-only, integration]. -->
+
+> **EVOL-019 scope gate.** All 11 UX sub-checks below presuppose a UI surface (mock.html + app_shell + component_library). When `feature_scope IN [backend-only, integration]`, skip the entire Check #7 block, record one `N/A — skipped under scope={value}` line in peer_review § 3.7, and move to Check #8. The scope dispatcher (top of this instruction file) already performs this filter — individual sub-checks below do not re-validate scope.
 
 #### [UX-STRUCT] Structure Compliance
 ```yaml
@@ -502,6 +544,8 @@ SEVERITY: BLOCKER for shell duplication, token hardcoding, component duplication
 ```
 
 ### Check #8: [MIGRATION-XX] Migration Safety
+<!-- applicable_when: scope in [full-stack, backend-only, integration] — frontend-only features have no DB migrations to audit. -->
+
 ```yaml
 IF implementation includes database migrations:
   VERIFY:
@@ -526,6 +570,8 @@ IF implementation modifies infrastructure files (infra/):
 ```
 
 ### Check #10: [CFP-XX] Contract-First Policy (4 Sub-Checks)
+<!-- applicable_when: scope in [full-stack, backend-only, integration] — contract-first-policy governs backend-owned contracts; frontend-only features are consumers (validated via BLUEPRINT Consumes-Contract Resolution Gate + IMPLEMENT Consumes-Contract Upstream Freeze Gate instead). -->
+
 
 #### [CFP-IMPORT] Cross-Domain Import Detection
 ```yaml
@@ -595,6 +641,8 @@ IF strategy IN [E1, E2]:
 ```
 
 ### Check #12: [ACL-EXT] External System ACL Compliance (3 Sub-Checks)
+<!-- applicable_when: scope in [full-stack, backend-only, integration] — ACL audits are specific to service-to-service boundaries, which frontend-only features do not create (they consume APIs via client-side fetch, not via ACL adapters). -->
+
 
 #### [ACL-IMPORT] External System Import Control
 ```yaml

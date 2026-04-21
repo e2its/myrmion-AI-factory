@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "1.2.0",
+  "framework_version": "1.3.0",
   "last_updated": "2026-04-21",
   "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release \u2014 full platform migration from GitHub Copilot multi-agent architecture.",
   "upgrade_strategy": "Smart Additive Merge \u2014 ALL files use the same unified strategy: format-aware structural diff \u2192 add new content only \u2192 resolve placeholders in additions \u2192 preserve all existing content. No separate Cat A/B/C upgrade paths.",
@@ -723,10 +723,11 @@
       ]
     },
     "develop/dev_plan_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "docs/develop/dev_plan_template.md",
       "changelog": [
+        "1.1.0: feat(EVOL-019) phase 2: scope + reliability_test_required frontmatter fields; new conditional § Reliability Tests (applicable_when scope in [backend-only, integration]) with 7 RED-phase test task templates (idempotency, retry, circuit breaker, DLQ, timeout, graceful shutdown, observability); § Reliability Validation final-check block.",
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization \u2014 full 10-field cascade kit + based_on_iteration + status enum extended with IMPLEMENTED_AND_VERIFIED/INVALIDATED"
       ]
     },
@@ -739,10 +740,11 @@
       ]
     },
     "peer_review/review_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "docs/peer_review/review_template.md",
       "changelog": [
+        "1.1.0: feat(EVOL-019) phase 2: scope + na_count frontmatter fields; Executive Summary table gains Applicable When column; new conditional sections § 3.6 Cross-Layer Type Mapping (full-stack), § 3.7 UX & Frontend Compliance (full-stack/frontend-only) with 11 UX sub-checks, § 3.8 Reliability & Integration Compliance (backend-only/integration) with 8 reliability sub-checks, § 3.9 Cross-Module Contract Consumption (consumes_contract non-empty).",
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization \u2014 added the 10 cascade fields + status enum extended with INVALIDATED"
       ]
     },
@@ -779,10 +781,11 @@
       ]
     },
     "qa/test_plan_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "docs/qa/test_plan_template.md",
       "changelog": [
+        "1.2.0: feat(EVOL-019) phase 2: scope frontmatter field; new conditional § 2.2 Reliability Testing (applicable_when scope in [backend-only, integration]) with 13 REL-* test case templates (idempotency replay, retry storm, circuit breaker trip + half-open, dead-letter handling + replay, timeout, graceful shutdown + forceful, trace correlation, structured error logs); § 3 UX & Accessibility and § 4 Brand & Layout marked applicable_when scope in [full-stack, frontend-only].",
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization \u2014 added the 10 cascade fields + based_on_iteration + based_on_schemas_version + status enum extended with INVALIDATED",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
@@ -976,9 +979,10 @@
       ]
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
+        "2.3.0: feat(EVOL-019) phase 2: --approve 4-Part validation made scope-aware. New § Scope Context Loading runs first (reads feature_scope + consumes_contract). Part 1 ARCH elevates contract completeness when scope in [backend-only, integration]; adds Consumes-Contract Integrity check; marks § 3.1 Cross-Layer Type Mapping as applicable_when scope=full-stack; adds § 3.2 Wire-Format Mapping as applicable_when scope in [backend-only, integration]. Part 2 QA adds Reliability test cases (scope in [backend-only, integration], BLOCKER); marks Accessibility + Visual-consistency applicable_when scope in [full-stack, frontend-only]; elevates per-endpoint coverage when scope has backend surface. Part 3 Cross-Validation adds Scope-consistency check across spec/design/test_plan frontmatter.",
         "2.1.0: feat(EVOL-014): Part 4 Defect Prevention Catalog Gate at --approve \u2014 blocks when any BLOCKER-severity DC applicable to BLUEPRINT is missing from design.md \u00a7 Constraints or test_plan.md \u00a7 Edge Cases",
         "2.0.1: fix: add Phase 3.8 CVP coherence gate \u2014 validates CODESIGN\u2194BLUEPRINT artifact alignment before approval",
         "1.0.5: IPP reference \u2014 evolve Law 6 Atomic Persistence to reference IPP protocol (#112)",
@@ -1101,9 +1105,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.6.0: feat(EVOL-019) phase 2: CONTRACT-FREEZE Gate reframed as scope-aware — for scope in [backend-only, integration] the gate is THE primary design output (elevated block messaging + mandatory contracts/** non-empty); for scope=frontend-only the contracts/** non-empty check is relaxed (feature consumes upstreams, has no own contract). NEW Consumes-Contract Upstream Freeze Gate (runs after CONTRACT-FREEZE): iterates spec.feature.consumes_contract, verifies each upstream design.md is APPROVED, contracts/ non-empty, CONTRACT-FREEZE issue Done, no stale-after-cascade label. Pairs with the BLUEPRINT-side Consumes-Contract Resolution Gate (Phase 1) — two enforcement points make consumes_contract a load-bearing primitive.",
         "2.4.0: feat(EVOL-014): CONTRACT-FREEZE Gate in Prerequisites + Defect Prevention Consultation step (dev_plan \u00a7 DC Compliance tasks). Gate uses trust-model (gate issue + stale-after-cascade label) not per-file frontmatter \u2014 contract files are DSL-native",
         "2.3.6: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
         "2.3.5: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -1125,9 +1130,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.3.0: feat(EVOL-019) phase 2: REVIEW Hat Protocol gains § Scope Dispatch (runs BEFORE Step R.0) — reads feature_scope from spec.feature, builds check_applicability matrix filtering 14 checks per scope (e.g. #6 TYPE-* only full-stack; #7 UX-* only [full-stack, frontend-only]; #8 MIGRATION-*, #10 CFP-*, #12 ACL-EXT only scopes with backend surface). Scope-excluded checks render as `N/A — skipped under scope={value}` in peer_review report (not silent). applicable_when HTML comments annotate checks #6, #7, #8, #10, #12 headers.",
         "2.1.6: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.1.5: fix: PR review \u2014 add FORMAT_NORMALIZATION map, lookup_expected_format() with glob precedence, LAST_PATH_SEGMENT normalization for qualified field names, negative test exemption (@schema-test-exempt annotation + invalid_ prefix convention).",
         "2.1.4: fix: Check #5 [SCHEMA-TEST] sub-check \u2014 Test Data Type Compliance. Scans test files for mock/fixture/stub values and validates against type_format_registry from GCD 7.4 + contract format fields. BLOCKER for identifier fields (tenant_id, user_id) using non-UUID literals; WARNING for other typed fields (email, dates, URIs). Regex-based format validation.",
@@ -1229,9 +1235,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "2.10.0",
+      "version": "2.11.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "2.11.0: feat(EVOL-019) phase 2: § 4.2.3 Phase B.1 adds 7 starter INTEGRATION / BACKEND-ONLY DCs guarded by project_scope IN [full-stack, backend-only, integration] — idempotency keys on mutations (BLOCKER), retry/backoff+jitter (BLOCKER), circuit breaker on unreliable downstreams (BLOCKER), structured logging + trace propagation (WARNING), API contract versioning + backward-compat strategy (BLOCKER), dead-letter queue handling (BLOCKER, backend-only/integration only), graceful shutdown (SIGTERM/drain) (BLOCKER). All entries carry the new feature_scope field (v2.1.0 DPC schema) restricting to [backend-only, integration, full-stack].",
         "2.10.0: feat(EVOL-019) phase 1: governance snapshot § Stack Configuration / § Constitutional Boundaries / § Setup Configuration gain project_scope field; Step 2/3 tripartite scaffolding now double-guards backend/frontend fragments with project_scope (primary) + runtime/framework (secondary); § 4.2.9 Special Integration — UX Constitution is skipped entirely when project_scope IN [backend-only, integration].",
         "2.9.0: fix(EVOL-017) Copilot PR #7 round 2: Claude Code Materialization block extended with step 3 \u2014 .context/templates/setup/claude/hooks/*.sh \u2192 .claude/hooks/*.sh. Closes the gap where fresh SETUP --generate produced a settings.json pointing at hook scripts that never existed in the materialized target. Includes post-materialization invariant check (every hook referenced from settings.json must exist).",
         "2.8.0: feat(EVOL-018): \u00a7 Claude Code Materialization block added in \u00a7 4.2.6 \u2014 CLAUDE.md and .claude/settings.json are now owned by SETUP (smart-additive-merge and merge-preserve strategies respectively). Closes the gap where downstream projects received framework scripts but no hooks, and where they inherited the framework-repo CLAUDE.md (meta-maintenance variant) instead of the project-focused variant.",
@@ -1514,10 +1521,11 @@
       "path": ".claude/skills/Factory-preventive-sweep/SKILL.md"
     },
     "rules/defect-prevention.md": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/defect-prevention.md",
       "changelog": [
+        "2.2.0: feat(EVOL-019) phase 2: feature_scope schema column added (enum list of [full-stack, backend-only, frontend-only, integration]; omitted/empty = applies to ALL scopes, backward-compatible). consult_defect_catalog() gains Filter 2 that checks feature_context.feature_scope against dc.feature_scope list. Enables scope-aware DC consultation — 7 starter integration DCs now ship filtered to [backend-only, integration, full-stack].",
         "1.0.0: feat: initial \u2014 Defect Prevention Catalog template with {{DC_ENTRIES}} placeholder. SETUP materializes stack-specific starter DCs. Process: DEV pre-write check, REVIEW Check #2d, Discovery Protocol.",
         "2.0.0: feat(EVOL-014): universal consumption \u2014 added applicable_to enum field to every DC entry (CODESIGN/BLUEPRINT/IMPLEMENT/REVIEW/DEVOPS/QA/AUDIT). Canonical consult_defect_catalog() function documented. Eight per-agent integration sections replace previous DEV+REVIEW-only wording. Render pipeline emits the applicable_to column alongside existing columns. Relationship table expanded to list every consumer instructions file.",
         "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"

@@ -1,6 +1,7 @@
 ---
 status: DRAFT   # DRAFT | APPROVED | CHANGES_REQUESTED | INVALIDATED
 feature_id: 
+scope: full-stack  # EVOL-019 — inherited from spec.feature.scope; drives which Section 3.X subsections run vs N/A
 verdict: PENDING
 review_date: 
 review_level: STANDARD
@@ -8,6 +9,7 @@ attempt_number: 1
 blocker_count: 0
 warning_count: 0
 nitpick_count: 0
+na_count: 0                       # EVOL-019 — count of checks marked N/A under scope dispatch
 override_justification: null
 
 # Iteration model tracking (EVOL-014)
@@ -36,14 +38,19 @@ cascade_scope: []
 
 ## 1. Executive Summary
 
-| Metric | Status |
-|---------|--------|
-| **Architecture Compliance** | ⏳ PENDING |
-| **Governance (Protected Code)** | ⏳ PENDING |
-| **Configuration Security** | ⏳ PENDING |
-| **Traceability** | ⏳ PENDING |
-| **Code Quality** | ⏳ PENDING |
-| **Test Coverage** | ⏳ PENDING |
+**Feature Scope (EVOL-019):** `{{FEATURE_SCOPE}}` — drives which dimensions below are in-scope vs N/A.
+
+| Metric | Status | Applicable When |
+|--------|--------|----------------|
+| **Architecture Compliance** | ⏳ PENDING | ALL scopes |
+| **Governance (Protected Code)** | ⏳ PENDING | ALL scopes |
+| **Configuration Security** | ⏳ PENDING | ALL scopes |
+| **Traceability** | ⏳ PENDING | ALL scopes |
+| **Code Quality** | ⏳ PENDING | ALL scopes |
+| **Test Coverage** | ⏳ PENDING | ALL scopes |
+| **UX & Frontend Compliance** | ⏳ PENDING / N/A | scope in [full-stack, frontend-only] |
+| **Reliability & Integration Compliance** | ⏳ PENDING / N/A | scope in [backend-only, integration] |
+| **Cross-Layer Type Mapping** | ⏳ PENDING / N/A | scope in [full-stack] |
 
 **Final Verdict:** ⏳ PENDING
 
@@ -126,6 +133,75 @@ cascade_scope: []
 **Coverage:**
 - Files with tests: 
 - Missing tests: 
+
+---
+
+### 3.6 Cross-Layer Type Mapping (EVOL-019 — applicable_when scope in [full-stack])
+<!-- applicable_when: scope in [full-stack] -->
+**Source:** design.md § 3.1 Cross-Layer Type Mapping
+**Applies when:** scope == `full-stack` (feature has both frontend and backend layers requiring type-round-trip verification)
+**Skip message when N/A:** `N/A — skipped under scope={{feature_scope}}`
+
+**Findings:**
+- Business fields round-trip BE ↔ FE without lossy conversion: ⏳
+- Technical fields (id, timestamps, audit) free on ARCH side: ⏳
+- Incompatible type mappings flagged as WARNING in design.md § 0: ⏳
+
+---
+
+### 3.7 UX & Frontend Compliance (EVOL-019 — applicable_when scope in [full-stack, frontend-only])
+<!-- applicable_when: scope in [full-stack, frontend-only] -->
+**Source:** Factory-implement-review-checks.instructions.md Check #7 (11 UX sub-checks)
+**Applies when:** scope IN [full-stack, frontend-only]
+**Skip message when N/A:** `N/A — skipped under scope={{feature_scope}}`
+
+**Sub-checks and status:**
+| Sub-check | Status | Notes |
+|-----------|--------|-------|
+| [UX-STRUCT] Structure Compliance | ⏳ | Semantic HTML tags, nesting, component decomposition match mock |
+| [UX-ARIA] Accessibility Attributes | ⏳ | ARIA roles, labels, live regions, focus management |
+| [UX-CSS] Styling Compliance | ⏳ | Vision tokens, not hardcoded values |
+| [UX-TOUCH] Touch Target Compliance | ⏳ | ≥ 44×44px per touch_target_minimum |
+| [UX-TEST] Frontend Test Coverage | ⏳ | Component + E2E + accessibility tests |
+| [UX-REUSE] Component Reuse | ⏳ | Vision component_library consulted first |
+| [UX-DRY] UI Component DRY | ⏳ | No duplicated UI components across features |
+| [UX-RESP] Responsive Design | ⏳ | Mobile, tablet, desktop breakpoints |
+| [UX-BRAND] Brand Consistency | ⏳ | Logo, colors, typography per vision style_guide |
+| [UX-LAYOUT] Layout Compliance | ⏳ | page_templates.html template respected |
+| [UX-VISION] Vision Fidelity | ⏳ | Shell + tokens + components + navigation per vision |
+
+---
+
+### 3.8 Reliability & Integration Compliance (EVOL-019 — applicable_when scope in [backend-only, integration])
+<!-- applicable_when: scope in [backend-only, integration] -->
+**Source:** test_plan.md § 2.2 Reliability Testing + defect-prevention.md integration DCs (idempotency, retry, circuit breaker, DLQ, graceful shutdown, structured logging, API versioning)
+**Applies when:** scope IN [backend-only, integration]
+**Skip message when N/A:** `N/A — skipped under scope={{feature_scope}}`
+
+**Sub-checks and status:**
+| Sub-check | Status | Notes |
+|-----------|--------|-------|
+| [REL-IDEMP] Idempotency keys on mutating operations | ⏳ | Dedupe store + replay returns cached response |
+| [REL-RETRY] Exponential backoff + jitter | ⏳ | Platform retry primitive used, no hand-rolled loops |
+| [REL-CB] Circuit breaker on unreliable downstreams | ⏳ | Failure threshold + open duration + half-open probe |
+| [REL-OBS] Structured logging + trace propagation | ⏳ | trace_id, correlation_id, feature_id, error_code in JSON logs |
+| [REL-API-VER] Contract versioning strategy | ⏳ | URI/package/schema-evolution version discipline |
+| [REL-DLQ] Dead-letter queue handling | ⏳ | Max-retries threshold routes to DLQ with full context |
+| [REL-SHUTDOWN] Graceful shutdown (SIGTERM drain) | ⏳ | Health endpoint flips unhealthy, in-flight work drains, exit 0 |
+| [REL-CONTRACT-COV] Every contract endpoint has ≥1 integration test | ⏳ | Coverage gap → BLOCKER (elevated from STANDARD in backend-only/integration) |
+
+---
+
+### 3.9 Cross-Module Contract Consumption (EVOL-019 — applicable_when consumes_contract is non-empty)
+<!-- applicable_when: spec.feature.consumes_contract IS NOT EMPTY -->
+**Source:** spec.feature.consumes_contract + BLUEPRINT Consumes-Contract Resolution Gate + IMPLEMENT Consumes-Contract Upstream Freeze Gate
+**Applies when:** `spec.feature.consumes_contract` is non-empty (scope-agnostic — consumes_contract is orthogonal to scope)
+
+**Findings per consumed upstream:**
+- Upstream FEAT-XXX contract imported via ACL adapter (not inlined): ⏳
+- Consumer code binds to stable contract fields only (no private implementation details): ⏳
+- Frozen-contract file path documented in design.md § 7 GCD: ⏳
+- Stale-after-cascade label absent on upstream CONTRACT-FREEZE issue: ⏳
 
 ---
 

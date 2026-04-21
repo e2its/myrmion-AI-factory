@@ -286,14 +286,27 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, affected_sections)
 
 ## Command: `--approve {{ID}}`
 
-### 3-Part Validation
+### Scope Context Loading (EVOL-019 — runs FIRST)
+
+```yaml
+feature_scope = READ("docs/spec/{ID}/spec.feature").frontmatter.scope OR "full-stack"  # default when pre-EVOL-019 artefact
+has_ui = feature_scope IN ["full-stack", "frontend-only"]
+has_backend_surface = feature_scope IN ["full-stack", "backend-only", "integration"]
+consumes_contract = READ("docs/spec/{ID}/spec.feature").frontmatter.consumes_contract OR []
+```
+
+The Part 1-4 checks below are gated by these flags. Checks whose applicability matrix excludes the current scope resolve as **N/A** (not pass, not fail — structurally skipped and logged in the worklog as `skipped: scope`).
+
+### 4-Part Validation (scope-aware — EVOL-019)
 
 **Part 1: ARCH Design Validation (🏗️ hat)**
 - All design.md sections complete (no TODO/TBD)
-- Contract files valid (Phase 3.1 passed)
+- Contract files valid (Phase 3.1 passed) — **ELEVATED** when `has_ui == false`: contract completeness is the primary design output for backend-only/integration features; BLOCK if any contract file is missing, incomplete, or declared without `x-feature-id` metadata
 - No endpoint collisions (Phase 3.2 passed)
 - Cross-Domain Dependencies resolved (Phase 3.7 passed)
-- Cross-Layer Type Mapping Table present and complete
+- **Consumes-Contract Integrity (EVOL-019)** — for each upstream `FEAT-XXX` in `spec.feature.consumes_contract`, verify § 7 Governance Constraints Digest contains the frozen contract reference (file path + x-feature-id). BLOCK when `has_ui == false` if any reference is missing (backend-only features are ENTIRELY defined by the contract surface — drift here is invisible to UX QA).
+- Cross-Layer Type Mapping Table present and complete — **N/A** for `scope IN [backend-only, integration]`; use § 3.2 Wire-Format Mapping instead
+- **Wire-Format Mapping Table (EVOL-019, § 3.2)** — applicable_when `scope IN [backend-only, integration]`; BLOCK if absent on those scopes (replaces § 3.1 Cross-Layer Type Mapping)
 - Infrastructure Needs declared (Section 5)
 - Extension Strategy documented (if brownfield)
 
@@ -301,14 +314,17 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, affected_sections)
 - All scenarios covered by test cases
 - Edge cases documented
 - Security test cases present
-- Integration tests reference contract endpoints
-- Accessibility tests present (if UI feature)
+- Integration tests reference contract endpoints — **ELEVATED** when `has_ui == false`: every frozen contract endpoint MUST have ≥1 integration test case; coverage gaps BLOCK on backend-only/integration
+- **Reliability test cases (EVOL-019, test_plan.md § 2.2 Reliability Testing)** — applicable_when `scope IN [backend-only, integration]`; BLOCK if missing idempotency replay, retry-storm, circuit-breaker, or DLQ scenarios. Required entries: idempotency replay verification, retry/backoff validation, circuit breaker trip + half-open probe, dead-letter handling, graceful shutdown drain, structured-log correlation.
+- Accessibility tests present (WCAG 2.1 AA) — **applicable_when `has_ui == true`**; N/A for backend-only/integration
+- Visual-consistency tests (BRAND-*, LAYOUT-*, UX-*) — **applicable_when `has_ui == true`**; N/A for backend-only/integration (no visual surface to verify)
 
 **Part 3: Cross-Validation (Both hats)**
-- Every contract endpoint has ≥1 test case
-- Every error in design.md has test scenario
-- Test preconditions match design constraints
-- No conflicting assumptions between design and test plan
+- Every contract endpoint has ≥1 test case (applies to ALL scopes — universal)
+- Every error in design.md has test scenario (applies to ALL scopes — universal)
+- Test preconditions match design constraints (applies to ALL scopes — universal)
+- No conflicting assumptions between design and test plan (applies to ALL scopes — universal)
+- **Scope-consistency (EVOL-019)** — `spec.feature.scope`, `design.md.scope`, `test_plan.md.scope` (when present) MUST all match. Mismatch BLOCKS with message: "Scope inconsistency between upstream artefacts — re-sync via CODESIGN --refine."
 
 **Part 4: Defect Prevention Catalog Gate (BLOCKING — v2.0.0 EVOL-014)**
 
