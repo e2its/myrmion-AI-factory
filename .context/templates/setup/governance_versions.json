@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "1.3.0",
+  "framework_version": "2.0.0",
   "last_updated": "2026-04-21",
   "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release \u2014 full platform migration from GitHub Copilot multi-agent architecture.",
   "upgrade_strategy": "Smart Additive Merge \u2014 ALL files use the same unified strategy: format-aware structural diff \u2192 add new content only \u2192 resolve placeholders in additions \u2192 preserve all existing content. No separate Cat A/B/C upgrade paths.",
