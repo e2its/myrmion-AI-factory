@@ -766,11 +766,12 @@
       ]
     },
     "qa/smoke_e2e_report_template.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "project_data",
       "changelog": [
         "1.0.0: feat(EVOL-014): new template for SMOKE-E2E gate artefact (docs/spec/{{FEATURE_ID}}/smoke_e2e_report.md) — numbered smoke blocks from user_journey.md BDD scenarios, per-block pass/fail, cascade invalidation note",
-        "1.1.0: feat(EVOL-019) phase 3: scope frontmatter field added; template explicitly retitled as browser/full-stack variant. Companion integration variant created at qa/smoke_e2e_integration_template.md for scope in [backend-only, integration]."
+        "1.1.0: feat(EVOL-019) phase 3: scope frontmatter field added; template explicitly retitled as browser/full-stack variant. Companion integration variant created at qa/smoke_e2e_integration_template.md for scope in [backend-only, integration].",
+        "1.1.1: fix(EVOL-019) Copilot PR #8 review — C5: scope frontmatter is now a {{SCOPE}} placeholder inherited from spec.feature.scope (was hardcoded 'full-stack' — would have broken CVP Check 0a scope_consistency_across_artifacts for frontend-only features). Title retitled to 'Browser / UI' (scope-agnostic across the two UI scopes this template serves)."
       ]
     },
     "qa/test_gaps_proposals.md": {
@@ -860,11 +861,12 @@
       ]
     },
     "qa/smoke_e2e_integration_template.md": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "project_data",
       "target": "docs/qa/smoke_e2e_integration_template.md",
       "changelog": [
-        "1.0.0: feat(EVOL-019) phase 3: initial template — caller-harness smoke blocks for scope in [backend-only, integration]. Triple-verification per block (caller request + downstream state + observability), SMOKE-REL-IDEMP/RETRY/DLQ/SHUTDOWN reliability blocks MANDATORY for scope=integration. Selected by BACKLOG --plan-feature when scope resolves to phase:smoke-e2e-integration."
+        "1.0.0: feat(EVOL-019) phase 3: initial template — caller-harness smoke blocks for scope in [backend-only, integration]. Triple-verification per block (caller request + downstream state + observability), SMOKE-REL-IDEMP/RETRY/DLQ/SHUTDOWN reliability blocks MANDATORY for scope=integration. Selected by BACKLOG --plan-feature when scope resolves to phase:smoke-e2e-integration.",
+        "1.0.1: fix(EVOL-019) Copilot PR #8 review — C5 (mirror): scope frontmatter normalised to {{SCOPE}} placeholder for consistency with smoke_e2e_report_template.md. No behavioural change (this template was always used only for scope in [backend-only, integration])."
       ]
     }
   },
@@ -945,7 +947,7 @@
       ]
     },
     "instructions/Factory-audit-checklist.instructions.md": {
-      "version": "2.4.0",
+      "version": "2.4.1",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
       "changelog": [
         "2.2.0: feat(EVOL-015): Command: --software added — narrow software-only audit variant. New artifact docs/software_audit.md with same schema as technical_due.md. Section list P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1. Excluded: G1-G3 (HR), I1-I4 (infra), SEC2 (network), SEC5 (compliance). Verdict thresholds scaled down (risk_score < 25 / 25-49 / >= 50 for GO / GO_WITH_CONDITIONS / NO_GO) because section count is halved — same density = lower absolute. --refine and --approve auto-detect artifact; require --scope {audit|software} when both open. Branch pattern feature/AUDIT-XXX-software for the new mode.",
@@ -953,7 +955,8 @@
         "1.0.0: Extracted from AUDIT.AGENT.MD — execution phases A-D, master checklist (PR #101)",
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
-        "2.4.0: fix(EVOL-019) pre-PR cross-validation GAP #2: consult_defect_catalog() call in audit finalisation now passes feature_scope (project-level fallback reading project_scope from governance snapshot) so DPC Filter 2 evaluates audit evidence against the project's own scope — a backend-only project won't get frontend DCs flagged as governance debt."
+        "2.4.0: fix(EVOL-019) pre-PR cross-validation GAP #2: consult_defect_catalog() call in audit finalisation now passes feature_scope (project-level fallback reading project_scope from governance snapshot) so DPC Filter 2 evaluates audit evidence against the project's own scope — a backend-only project won't get frontend DCs flagged as governance debt.",
+        "2.4.1: fix(EVOL-019) Copilot PR #8 review — C4: AUDIT DPC consultation now reads project_scope from snapshot.setup_configuration.project_scope (with stack_configuration fallback), matching codebase convention."
       ]
     },
     "instructions/Factory-audit-complexity.instructions.md": {
@@ -1009,7 +1012,7 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "2.6.0",
+      "version": "2.6.1",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
         "2.6.0: feat(EVOL-019) phase 1: dual-axis scope model — shared frontmatter `scope` field, spec.feature `consumes_contract` field, Scope Compatibility Gate (Phase 0.3, BLOCKING), Vision Gate scope-awareness, Template Selector (mock.html N/A for backend-only/integration; user_journey.integration.md replaces user_journey.md), Auto-Approval CHECK 0 scope gate + N/A path for CHECKs 2/5/6/8/10/11, Tripartite Alignment scope matrix (6 checks full-stack/frontend-only → 2 checks backend-only/integration), IMP N/A path extended to EVOL-019 per-feature/per-project scope checks.",
@@ -1035,11 +1038,12 @@
         "1.1.0: CIP Phase 0.5 missing inventory fallback — WARN + CIP_SKIPPED + advisory for --reconcile-inventory (#106)",
         "1.0.0: Extracted from CODESIGN.AGENT.MD — feature co-creation protocol (PR #101)",
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
-        "2.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "2.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "2.6.1: fix(EVOL-019) Copilot PR #8 review — C3: Scope Compatibility Gate now reads project_scope from snapshot.setup_configuration.project_scope (with stack_configuration fallback), matching codebase convention used by blueprint-design + coherence-validation. Previous top-level read could silently miss the value depending on the parser."
       ]
     },
     "instructions/Factory-codesign-vision.instructions.md": {
-      "version": "2.4.0",
+      "version": "2.4.1",
       "path": ".claude/instructions/Factory-codesign-vision.instructions.md",
       "changelog": [
         "2.4.0: feat(EVOL-019) phase 1: Scope Guard (BLOCKING) — CODESIGN --vision now rejects project_scope IN [backend-only, integration] with humanised message pointing to Project Scope & Feature Scope Taxonomy in CLAUDE.md; Prerequisites list gained project_scope IN [full-stack, frontend-only] requirement.",
@@ -1047,7 +1051,8 @@
         "2.1.0: feat: BIP Decision Batch for Visual DNA in Phase V.1",
         "1.0.0: Extracted from CODESIGN.AGENT.MD — UX vision creation protocol (PR #101)",
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
-        "2.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "2.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "2.4.1: fix(EVOL-019) Copilot PR #8 review — C9: Vision Scope Guard now reads project_scope from snapshot.setup_configuration.project_scope (with stack_configuration fallback), matching codebase convention. Without this, the guard could silently pass on backend-only projects if the parser didn't reach the top-level key."
       ]
     },
     "instructions/Factory-devops-configure.instructions.md": {
@@ -1119,7 +1124,7 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
         "2.6.0: feat(EVOL-019) phase 2: CONTRACT-FREEZE Gate reframed as scope-aware — for scope in [backend-only, integration] the gate is THE primary design output (elevated block messaging + mandatory contracts/** non-empty); for scope=frontend-only the contracts/** non-empty check is relaxed (feature consumes upstreams, has no own contract). NEW Consumes-Contract Upstream Freeze Gate (runs after CONTRACT-FREEZE): iterates spec.feature.consumes_contract, verifies each upstream design.md is APPROVED, contracts/ non-empty, CONTRACT-FREEZE issue Done, no stale-after-cascade label. Pairs with the BLUEPRINT-side Consumes-Contract Resolution Gate (Phase 1) — two enforcement points make consumes_contract a load-bearing primitive.",
@@ -1141,7 +1146,8 @@
         "1.0.0: Extracted from IMPLEMENT.AGENT.MD — dev plan creation protocol (PR #101)",
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
-        "2.7.0: fix(EVOL-019) pre-PR cross-validation GAP #2: consult_defect_catalog() call in --plan Defect Prevention Consultation now receives feature_scope so the DC Compliance tasks in dev_plan.md are scope-filtered (no retry/DLQ/shutdown tasks on frontend-only features, no UI hook-ordering tasks on backend-only features)."
+        "2.7.0: fix(EVOL-019) pre-PR cross-validation GAP #2: consult_defect_catalog() call in --plan Defect Prevention Consultation now receives feature_scope so the DC Compliance tasks in dev_plan.md are scope-filtered (no retry/DLQ/shutdown tasks on frontend-only features, no UI hook-ordering tasks on backend-only features).",
+        "2.7.1: fix(EVOL-019) Copilot PR #8 review — C7+C11: (C7) Consumes-Contract Upstream Freeze Gate Step 2 now globs BOTH feature-local (docs/spec/{upstream_id}/contracts/) AND root-level (contracts/{openapi,graphql,grpc,asyncapi,webhooks}/**/{upstream_id}*/) contract layouts — matches BLUEPRINT --start Consumes-Contract Resolution Gate + CVP Check 0b. Without this, BLUEPRINT could pass on root-level contracts while IMPLEMENT blocked on missing feature-local dir, re-introducing the three-point gate asymmetry that e8c9b0f fixed. (C11) Fixed pre-existing typo in CONTRACT-FREEZE gate: 'gate_issue.labels' renamed to 'issue.labels' (the issue variable is named 'issue' two lines above — stale-after-cascade check was undefined-variable as written)."
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
@@ -1163,7 +1169,7 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
         "2.6.0: feat(EVOL-019) phase 3: Gate 4 SMOKE-E2E is now scope-aware — resolves expected phase label by feature_scope (smoke-e2e-browser / smoke-e2e-integration / smoke-e2e-hybrid; legacy smoke-e2e still honoured), picks the right template (smoke_e2e_report_template vs smoke_e2e_integration_template), and enforces scope consistency on the report. Verification checklist gains 7 new QA-REL-* reliability items (idempotency replay, retry/backoff, circuit breaker, DLQ, timeout, graceful shutdown, observability) applicable_when scope in [backend-only, integration]; QA-REL-8 (API versioning) added for scope=integration only.",
@@ -1183,7 +1189,8 @@
         "1.0.0: Extracted from QA sections — verify, approve, reject, e2e (PR #101)",
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
         "2.5.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
-        "2.7.0: fix(EVOL-019) pre-PR cross-validation GAP #2: feature_scope loaded ONCE in generate_verification_checklist (shared between QA-REL block and QA-DC block); consult_defect_catalog() call now passes feature_scope so the [QA-DC-N] items only include scope-relevant DCs. Without this, a frontend-only feature's QA checklist contained integration-DC items that are structurally N/A."
+        "2.7.0: fix(EVOL-019) pre-PR cross-validation GAP #2: feature_scope loaded ONCE in generate_verification_checklist (shared between QA-REL block and QA-DC block); consult_defect_catalog() call now passes feature_scope so the [QA-DC-N] items only include scope-relevant DCs. Without this, a frontend-only feature's QA checklist contained integration-DC items that are structurally N/A.",
+        "2.7.1: fix(EVOL-019) Copilot PR #8 review — C6+C10: SMOKE-E2E Gate 4 now hoists has_ui, smoke_template, journey_source, expected_phase_label above all branches (was: smoke_template defined only inside 'status != Done' branch but referenced in Done-but-mismatched-report AND Done-but-missing-report paths; has_ui referenced but never defined). Single derivation point right after feature_scope is loaded — all downstream branches use the hoisted values."
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
@@ -1254,7 +1261,7 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "2.11.0",
+      "version": "2.11.1",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
         "2.11.0: feat(EVOL-019) phase 2: § 4.2.3 Phase B.1 adds 7 starter INTEGRATION / BACKEND-ONLY DCs guarded by project_scope IN [full-stack, backend-only, integration] — idempotency keys on mutations (BLOCKER), retry/backoff+jitter (BLOCKER), circuit breaker on unreliable downstreams (BLOCKER), structured logging + trace propagation (WARNING), API contract versioning + backward-compat strategy (BLOCKER), dead-letter queue handling (BLOCKER, backend-only/integration only), graceful shutdown (SIGTERM/drain) (BLOCKER). All entries carry the new feature_scope field (v2.1.0 DPC schema) restricting to [backend-only, integration, full-stack].",
@@ -1279,7 +1286,8 @@
         "1.0.2: Checkpoint 3.1 — governance snapshot generation (summarization-safe cache for all agents) (#112)",
         "1.0.0: Extracted from SETUP.AGENT.md — generate/resume materialization (PR #101)",
         "2.0.0: BREAKING — Migrate to .instructions.md format with YAML frontmatter — VS Code on-demand discovery (EVOL-001)",
-        "2.7.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "2.7.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "2.11.1: fix(EVOL-019) Copilot PR #8 review — C1: integration DCs feature_scope narrowed from [backend-only, integration, full-stack] to [backend-only, integration]. Full-stack features with reliability-flavoured concerns should be sliced into dedicated backend-only/integration features per the compatibility matrix — this keeps DC constraints aligned with test_plan § 2.2 Reliability Testing + dev_plan § Reliability Tests + QA-REL checklist, all of which are applicable_when scope in [backend-only, integration] only. DLQ DC (already [backend-only, integration]) unchanged. Block-level project_scope guard unchanged (catalog still ships to full-stack projects for their backend-only/integration features)."
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
@@ -1544,14 +1552,15 @@
       "path": ".claude/skills/Factory-preventive-sweep/SKILL.md"
     },
     "rules/defect-prevention.md": {
-      "version": "2.2.0",
+      "version": "2.2.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/defect-prevention.md",
       "changelog": [
         "2.2.0: feat(EVOL-019) phase 2: feature_scope schema column added (enum list of [full-stack, backend-only, frontend-only, integration]; omitted/empty = applies to ALL scopes, backward-compatible). consult_defect_catalog() gains Filter 2 that checks feature_context.feature_scope against dc.feature_scope list. Enables scope-aware DC consultation — 7 starter integration DCs now ship filtered to [backend-only, integration, full-stack].",
         "1.0.0: feat: initial — Defect Prevention Catalog template with {{DC_ENTRIES}} placeholder. SETUP materializes stack-specific starter DCs. Process: DEV pre-write check, REVIEW Check #2d, Discovery Protocol.",
         "2.0.0: feat(EVOL-014): universal consumption — added applicable_to enum field to every DC entry (CODESIGN/BLUEPRINT/IMPLEMENT/REVIEW/DEVOPS/QA/AUDIT). Canonical consult_defect_catalog() function documented. Eight per-agent integration sections replace previous DEV+REVIEW-only wording. Render pipeline emits the applicable_to column alongside existing columns. Relationship table expanded to list every consumer instructions file.",
-        "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "2.2.1: fix(EVOL-019) Copilot PR #8 review — C2+C8: schema table and consultation protocol annotations updated from 'v2.1.0' to 'v2.2.0' to match actual version history (v2.1.0 was EVOL-016 rules relocation; feature_scope schema field landed in v2.2.0 EVOL-019). No behavioural change."
       ]
     },
     "scripts/factory-sync.sh": {

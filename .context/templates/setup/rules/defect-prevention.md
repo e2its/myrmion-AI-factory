@@ -34,7 +34,7 @@ Each entry has the following schema:
 | **Name** | Short descriptive title |
 | **Applicable When** | Scope condition (which stacks, topologies, or feature types this pattern applies to). Uses free-form prose for human readability; the canonical filter is `Applicable To` + `Feature Scope` + per-entry stack conditionals evaluated at materialisation time. |
 | **Applicable To** | **[v2.0.0]** Enum list of SDLC agents that MUST consult this entry. Values: `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`. (SETUP is never a consumer — it materializes the catalog, does not consume it.) An entry can list multiple agents. |
-| **Feature Scope** | **[NEW in v2.1.0 — EVOL-019]** Optional enum list from `[full-stack, backend-only, frontend-only, integration]`. When omitted OR empty → entry applies to ALL scopes (backward-compatible). When present → entry is consulted ONLY when the feature's `scope` is in the list. Enables scope-aware DCs: integration patterns (idempotency, retry, DLQ, graceful shutdown) filter to `[backend-only, integration]`; UI patterns (WCAG, hook ordering, responsive gaps) filter to `[full-stack, frontend-only]`; universal patterns (mutation semantics, CORS, pipeline short-circuit) omit the field. |
+| **Feature Scope** | **[NEW in v2.2.0 — EVOL-019]** Optional enum list from `[full-stack, backend-only, frontend-only, integration]`. When omitted OR empty → entry applies to ALL scopes (backward-compatible). When present → entry is consulted ONLY when the feature's `scope` is in the list. Enables scope-aware DCs: integration patterns (idempotency, retry, DLQ, graceful shutdown) filter to `[backend-only, integration]`; UI patterns (WCAG, hook ordering, responsive gaps) filter to `[full-stack, frontend-only]`; universal patterns (mutation semantics, CORS, pipeline short-circuit) omit the field. |
 | **Severity** | `BLOCKER` or `WARNING` when the entry is violated by a consumer |
 | **Check (per consumer)** | What each listed consumer verifies. May be a single check when one agent owns it, or a table mapping agent→check when multiple consume |
 
@@ -64,7 +64,7 @@ FUNCTION consult_defect_catalog(current_agent, feature_context):
     # Filter 1: Is this agent in the DC's applicable_to list?
     IF current_agent NOT IN dc.applicable_to:
       CONTINUE
-    # Filter 2 (EVOL-019 — v2.1.0): Feature scope match?
+    # Filter 2 (EVOL-019 — v2.2.0): Feature scope match?
     # When dc.feature_scope is omitted or empty → entry applies to ALL scopes (backward-compatible).
     # When present → entry is consulted ONLY when feature_context.feature_scope is in the list.
     IF dc.feature_scope IS NOT NULL AND dc.feature_scope IS NOT EMPTY:

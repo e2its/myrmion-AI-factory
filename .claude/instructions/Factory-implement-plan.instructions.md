@@ -76,7 +76,7 @@ ELSE:
 #    Contract files themselves (OpenAPI YAML, TypeScript interface, GraphQL SDL, Protobuf, etc.)
 #    are the DSL native format and carry NO markdown frontmatter — the CONTRACT-FREEZE gate issue
 #    is the single source of truth for their "frozen" status, NOT a per-file frontmatter read.
-IF "stale-after-cascade" IN gate_issue.labels:
+IF "stale-after-cascade" IN issue.labels:
   ❌ BLOCK: "CONTRACT-FREEZE gate was marked stale by an upstream cascade (label: stale-after-cascade)."
   SUGGEST: "Run BLUEPRINT --refine {FEATURE_ID} to re-sync the contracts, then reopen and re-close the CONTRACT-FREEZE issue (removing the stale label) to re-freeze."
   STOP
@@ -122,10 +122,20 @@ FUNCTION consumes_contract_upstream_freeze_gate(FEATURE_ID):
       ❌ BLOCK: "consumes_contract references {upstream_id} but its scope is `frontend-only` — frontend-only features have no own contract to consume.
         Resolution: point consumes_contract at the backend feature that owns the contract (trace upstream → backend dependency), or remove this entry."
       STOP
+    # Align with BLUEPRINT Consumes-Contract Resolution Gate + CVP Check 0b — look at BOTH the
+    # feature-local contracts dir AND root-level contracts/** (contract-first-policy layout).
+    # Without this, BLUEPRINT --start could pass by finding contracts at repo root while
+    # IMPLEMENT --plan would block — re-introducing the three-point gate asymmetry that
+    # e8c9b0f fixed. All three enforcement points must search the same locations.
     upstream_contracts_dir = "docs/spec/{upstream_id}/contracts/"
-    IF NOT DIR_EXISTS(upstream_contracts_dir) OR DIR_IS_EMPTY(upstream_contracts_dir):
-      ❌ BLOCK: "consumes_contract references {upstream_id} (status: APPROVED, scope: {upstream_scope}) but no frozen contract files found under {upstream_contracts_dir}.
-        Resolution: verify upstream BLUEPRINT --approve produced contract artefacts. If the artefacts live under contracts/** at repo root instead (per contract-first-policy layout), the resolver is still expected to find at least one file matching the upstream feature slug — otherwise contract-first-policy drift."
+    feature_local_contract_files = []
+    IF DIR_EXISTS(upstream_contracts_dir) AND NOT DIR_IS_EMPTY(upstream_contracts_dir):
+      feature_local_contract_files = GLOB("{upstream_contracts_dir}**/*.{yaml,yml,graphql,proto}")
+    root_level_contract_files = GLOB("contracts/{openapi,graphql,grpc,asyncapi,webhooks}/**/{upstream_id}*/**/*.{yaml,yml,graphql,proto}")
+    root_level_contract_files += GLOB("contracts/{openapi,graphql,grpc,asyncapi,webhooks}/**/{CONTRACT_SLUG_OF(upstream_id)}/**/*.{yaml,yml,graphql,proto}")
+    IF feature_local_contract_files IS EMPTY AND root_level_contract_files IS EMPTY:
+      ❌ BLOCK: "consumes_contract references {upstream_id} (status: APPROVED, scope: {upstream_scope}) but no frozen contract files found under {upstream_contracts_dir} OR contracts/**/{upstream_id}*/.
+        Resolution: verify upstream BLUEPRINT --approve produced contract artefacts. Either location is accepted (feature-local under docs/spec/{upstream_id}/contracts/, or root-level under contracts/{openapi|graphql|grpc|asyncapi|webhooks}/<slug>/). Missing from both indicates contract-first-policy drift."
       STOP
 
     # Step 3 — upstream CONTRACT-FREEZE issue is Done + not stale (full-sdlc preset only)

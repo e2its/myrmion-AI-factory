@@ -103,7 +103,12 @@ All vision artifacts MUST comply with these directives. They define the differen
 
 ```yaml
 FUNCTION vision_scope_guard():
-  project_scope = READ(".context/governance_snapshot.md").project_scope
+  # Read from setup_configuration section (matches the codebase convention in
+  # blueprint-design / coherence-validation; see Factory-setup-materialization § Checkpoint 3.1
+  # generate_governance_snapshot where the snapshot writes project_scope into both
+  # setup_configuration and stack_configuration sections). Stack_configuration fallback kept
+  # for defense-in-depth.
+  project_scope = READ(".context/governance_snapshot.md").setup_configuration.project_scope OR READ(".context/governance_snapshot.md").stack_configuration.project_scope OR "full-stack"
 
   IF project_scope IN ["backend-only", "integration"]:
     ❌ BLOCK (humanised): "CODESIGN --vision is not applicable for project_scope=`{project_scope}`.

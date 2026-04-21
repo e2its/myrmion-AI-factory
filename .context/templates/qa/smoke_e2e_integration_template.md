@@ -2,7 +2,7 @@
 status: DRAFT   # DRAFT | IN_PROGRESS | APPROVED | INVALIDATED | REJECTED
 feature_id: "{{FEATURE_ID}}"
 title: "Smoke E2E Report (Integration / Backend-Only) — {{FEATURE_NAME}}"
-scope: backend-only  # EVOL-019 — must be backend-only or integration; full-stack / frontend-only use smoke_e2e_report_template.md instead
+scope: "{{SCOPE}}"  # EVOL-019 — inherited from spec.feature.scope; must resolve to backend-only or integration; full-stack / frontend-only use smoke_e2e_report_template.md instead
 dev_environment: "{ENV name from devops_plan, typically 'dev'}"
 deploy_build_sha: "{git sha of the dev-deployed build being smoked}"
 execution_date: "YYYY-MM-DDThh:mm:ssZ"

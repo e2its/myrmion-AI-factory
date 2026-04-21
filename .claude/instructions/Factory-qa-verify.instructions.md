@@ -187,14 +187,24 @@ FUNCTION verify_prerequisites(FEATURE_ID):
   IF feature_phases == "full-sdlc":
     ADAPTER = READ "docs/backlog/tool-adapter.md"
 
-    # EVOL-019 Phase 3: scope-aware phase-label resolution
+    # EVOL-019 Phase 3: scope-aware phase-label resolution.
+    # Derive every scope-dependent variable ONCE here — used across all branches below
+    # (missing issue, not-Done, Done + mismatched report, Done + missing report).
     feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
+    has_ui = feature_scope IN ["full-stack", "frontend-only"]
     expected_phase_label = CASE feature_scope:
       "full-stack"    → "phase:smoke-e2e-hybrid"      # browser + API smoke combined
       "frontend-only" → "phase:smoke-e2e-browser"     # browser-only smoke
       "backend-only"  → "phase:smoke-e2e-integration" # caller-harness + downstream-state + observability smoke
       "integration"   → "phase:smoke-e2e-integration" # same as backend-only
       default         → "phase:smoke-e2e"             # legacy, pre-EVOL-019 projects (BACKLOG ships unscoped label)
+    smoke_template = CASE feature_scope:
+      "full-stack"    → ".context/templates/qa/smoke_e2e_report_template.md (browser + API hybrid)"
+      "frontend-only" → ".context/templates/qa/smoke_e2e_report_template.md (browser-centric)"
+      "backend-only"  → ".context/templates/qa/smoke_e2e_integration_template.md (caller-harness + state + observability)"
+      "integration"   → ".context/templates/qa/smoke_e2e_integration_template.md (includes SMOKE-REL-* idempotency/retry/DLQ/shutdown blocks)"
+      default         → ".context/templates/qa/smoke_e2e_report_template.md"
+    journey_source = has_ui ? "docs/spec/{FEATURE_ID}/user_journey.md" : "docs/spec/{FEATURE_ID}/user_journey.integration.md"
 
     # Accept either the scope-aware label OR the legacy unscoped label for backward compatibility
     smoke_issue = ADAPTER.query_board() → find item WHERE (labels CONTAINS expected_phase_label OR labels CONTAINS "phase:smoke-e2e") AND title CONTAINS FEATURE_ID
@@ -205,15 +215,8 @@ FUNCTION verify_prerequisites(FEATURE_ID):
       STOP
 
     IF smoke_issue.status != "Done":
-      # Scope-aware REDIRECT messaging — per EVOL-019 Phase 3 § Template Selector
-      smoke_template = CASE feature_scope:
-        "full-stack"    → ".context/templates/qa/smoke_e2e_report_template.md (browser + API hybrid)"
-        "frontend-only" → ".context/templates/qa/smoke_e2e_report_template.md (browser-centric)"
-        "backend-only"  → ".context/templates/qa/smoke_e2e_integration_template.md (caller-harness + state + observability)"
-        "integration"   → ".context/templates/qa/smoke_e2e_integration_template.md (includes SMOKE-REL-* idempotency/retry/DLQ/shutdown blocks)"
-        default         → ".context/templates/qa/smoke_e2e_report_template.md"
-
-      journey_source = has_ui ? "docs/spec/{FEATURE_ID}/user_journey.md" : "docs/spec/{FEATURE_ID}/user_journey.integration.md"
+      # Scope-aware REDIRECT messaging — per EVOL-019 Phase 3 § Template Selector.
+      # smoke_template + journey_source + has_ui are available from the hoist above.
 
       ❌ BLOCK: "SMOKE-E2E gate not passed for {FEATURE_ID} (scope: {feature_scope}, current status: {smoke_issue.status})."
       REDIRECT: |

@@ -509,7 +509,12 @@ When any check fails:
 
 ```yaml
 FUNCTION scope_compatibility_gate(FEATURE_ID, requested_scope):
-  project_scope = READ(".context/governance_snapshot.md").project_scope
+  # Snapshot writes project_scope into setup_configuration AND stack_configuration sections (see
+  # Factory-setup-materialization § Checkpoint 3.1 generate_governance_snapshot). Read from the
+  # setup_configuration section to match the codebase convention (e.g. project_tracking reads
+  # in blueprint-design / coherence-validation use the same path). Stack_configuration fallback
+  # kept for defense-in-depth if snapshot is partially written.
+  project_scope = READ(".context/governance_snapshot.md").setup_configuration.project_scope OR READ(".context/governance_snapshot.md").stack_configuration.project_scope OR "full-stack"
   feature_scope = requested_scope OR project_scope   # default to project_scope when flag omitted
 
   # Compatibility matrix (plan § Model)

@@ -1,8 +1,8 @@
 ---
 status: DRAFT   # DRAFT | IN_PROGRESS | APPROVED | INVALIDATED | REJECTED
 feature_id: "{{FEATURE_ID}}"
-title: "Smoke E2E Report (Browser / Full-Stack) — {{FEATURE_NAME}}"
-scope: full-stack  # EVOL-019 — this template is applicable_when scope in [full-stack, frontend-only]; for backend-only / integration use smoke_e2e_integration_template.md
+title: "Smoke E2E Report (Browser / UI) — {{FEATURE_NAME}}"
+scope: "{{SCOPE}}"  # EVOL-019 — inherited from spec.feature.scope; this template is applicable_when scope in [full-stack, frontend-only]; for backend-only / integration use smoke_e2e_integration_template.md. QA --verify Gate 4 blocks if the materialised scope does not match spec.feature.scope.
 dev_environment: "{ENV name from devops_plan, typically 'dev'}"
 deploy_build_sha: "{git sha of the dev-deployed build being smoked}"
 execution_date: "YYYY-MM-DDThh:mm:ssZ"

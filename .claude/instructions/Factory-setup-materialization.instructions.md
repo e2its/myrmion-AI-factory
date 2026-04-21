@@ -415,11 +415,20 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # ============================================================================
   # These 7 DCs target the defect cluster specific to features that process
   # requests without a first-party UI (APIs, workers, webhooks, consumers, cron).
-  # Each entry uses the v2.1.0 `feature_scope` filter to restrict consultation
-  # to [backend-only, integration] features — full-stack features also match
-  # because the upstream matrix allows full-stack to host integration features.
-  # Guard the whole block by project_scope: don't materialise any of them into
-  # frontend-only projects.
+  # Each entry uses the v2.2.0 DPC `feature_scope` filter to restrict consultation
+  # to [backend-only, integration] features. Full-stack features are EXCLUDED — a
+  # full-stack feature that needs reliability-flavoured concerns (idempotency,
+  # retry, circuit breaker, DLQ, graceful shutdown) should be sliced into a
+  # dedicated backend-only or integration feature per the compatibility matrix
+  # (the full-stack project still accepts it). This keeps the DC constraint set
+  # aligned with the test_plan § 2.2 Reliability Testing and dev_plan § Reliability
+  # Tests sections, which are themselves applicable_when scope in
+  # [backend-only, integration] — avoiding the mismatch where a full-stack feature
+  # would be gated on DCs but have no reliability test infrastructure.
+  # Guard the whole BLOCK by project_scope (not feature_scope) because SETUP
+  # materialisation runs BEFORE any feature exists — the catalog ships once, per
+  # project. The per-feature filter happens later at consult_defect_catalog time.
+  # Don't materialise any of them into frontend-only projects.
   IF setup_md.project_scope IN ["full-stack", "backend-only", "integration"]:
 
     # DC: Missing idempotency keys on mutating operations
@@ -428,7 +437,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
       name: "Missing idempotency keys on mutating operations",
       applicable_when: "Designing or implementing an inbound endpoint / handler that mutates shared state (payment processing, order creation, resource provisioning, webhook inbound, queue consumer)",
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "QA"],
-      feature_scope: ["backend-only", "integration", "full-stack"],
+      feature_scope: ["backend-only", "integration"],
       prevention: "Every mutating operation that can be retried by the caller MUST accept an idempotency key (HTTP `Idempotency-Key` header, message attribute, or body field). Key format: UUID v4 minimum, or natural composite key (e.g. customer_id + external_ref). Store a short-TTL dedupe record (key → response_hash, response_payload) in the same transactional boundary as the side-effect. Replay returns cached response, never re-executes. BLOCKER when mutation has no dedupe strategy and caller is a retry-enabled client (browser retry, mobile retry, queue at-least-once delivery, webhook retry).",
       review_severity: "BLOCKER"
     }
@@ -438,7 +447,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
       name: "Retries without exponential backoff + jitter",
       applicable_when: "Calling a downstream service, queue broker, or external API that can transiently fail",
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS", "QA"],
-      feature_scope: ["backend-only", "integration", "full-stack"],
+      feature_scope: ["backend-only", "integration"],
       prevention: "Every remote call MUST declare: max attempts (default 5 for idempotent, 0-1 for non-idempotent without idempotency key), base delay (e.g. 2s), exponential factor (e.g. 2x), jitter (random 0-50% of computed delay). No tight-loop retries, no fixed-interval retries — both cause thundering-herd outages when the downstream recovers. Use the platform's native retry primitive (AWS SDK retry strategy, Polly for .NET, tenacity for Python, p-retry for Node) rather than hand-rolling. Emit `retry_count` metric per call.",
       review_severity: "BLOCKER"
     }
@@ -448,7 +457,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
       name: "Missing circuit breaker on unreliable downstreams",
       applicable_when: "Calling a downstream that has a history of outages, rate limits, or SLA breaches (any third-party API, cross-region DB, federated auth provider)",
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS"],
-      feature_scope: ["backend-only", "integration", "full-stack"],
+      feature_scope: ["backend-only", "integration"],
       prevention: "Wrap calls to unreliable downstreams in a circuit breaker with: failure threshold (e.g. 5 failures in 30s window), open duration (e.g. 60s), half-open probe strategy (single request, re-close on success, re-open on failure). Without the breaker, the caller's retry logic turns every downstream outage into a thundering-herd cascade and a cost spike (per-request pricing APIs). Metrics: `circuit_state` gauge (0=closed, 1=half-open, 2=open), `circuit_trips` counter. Use platform primitives (Polly / resilience4j / Hystrix / opossum).",
       review_severity: "BLOCKER"
     }
@@ -458,7 +467,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
       name: "Missing structured logging + trace propagation on integration hops",
       applicable_when: "Implementing any handler that receives OR emits a request spanning service boundaries",
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS", "QA", "AUDIT"],
-      feature_scope: ["backend-only", "integration", "full-stack"],
+      feature_scope: ["backend-only", "integration"],
       prevention: "Every handler MUST: (1) emit structured logs (JSON) with at minimum `trace_id`, `correlation_id`, `feature_id`, `idempotency_key`, `error_code` (when error). (2) Propagate trace context on outbound calls using W3C Trace Context (`traceparent` / `tracestate` headers) OR the ecosystem equivalent (B3 for OpenTracing, X-Amzn-Trace-Id for AWS, X-Cloud-Trace-Context for GCP). (3) Accept inbound trace context and continue the trace rather than starting a new one. Without propagation, a failed integration request spanning 3 services appears as 3 unrelated log entries — root cause analysis costs hours instead of minutes.",
       review_severity: "WARNING"
     }
@@ -468,7 +477,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
       name: "API contract versioning without backward-compat strategy",
       applicable_when: "Publishing a contract (OpenAPI / AsyncAPI / gRPC / GraphQL SDL) that external consumers depend on — any scope=integration feature, or scope=backend-only feature that has at least one external consumer in consumes_contract",
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS"],
-      feature_scope: ["backend-only", "integration", "full-stack"],
+      feature_scope: ["backend-only", "integration"],
       prevention: "Contract versions MUST follow a declared strategy: (a) URI versioning (/v1/, /v2/) for REST, (b) package-level versioning (package myapi.v1) for gRPC, (c) schema-evolution rules (additive fields only; never remove/rename without deprecation) for AsyncAPI/Avro/Protobuf, (d) `@deprecated` + sunset dates for GraphQL. Breaking change WITHOUT a new major version + deprecation window = silent consumer breakage. Document the strategy in design.md § 2 Constraints + ADR. REVIEW blocks on: field removals without deprecation; type narrowing of request fields; type widening of response fields without opt-in.",
       review_severity: "BLOCKER"
     }
@@ -488,7 +497,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
       name: "Missing graceful shutdown (SIGTERM / drain) handling",
       applicable_when: "Implementing a long-running service, worker, queue consumer, or cron job — any process that can be terminated by the orchestrator mid-request",
       applicable_to: ["IMPLEMENT", "REVIEW", "DEVOPS"],
-      feature_scope: ["backend-only", "integration", "full-stack"],
+      feature_scope: ["backend-only", "integration"],
       prevention: "On SIGTERM, the service MUST: (1) stop accepting new requests / messages (close listener or set drain flag). (2) Mark health endpoint as unhealthy (orchestrator stops routing to this instance). (3) Complete or checkpoint in-flight work within the drain window (configurable, default 30s; orchestrator-coordinated: Kubernetes terminationGracePeriodSeconds, AWS ALB deregistration delay). (4) Exit 0 when drained, or 143 on drain timeout (signal-exit convention). Without graceful shutdown: in-flight requests are killed mid-transaction, leaving partial database writes, unacked messages, and 502 responses to callers. Exit behaviour belongs to the runtime entry point (not use-case code) — verify at service boundary.",
       review_severity: "BLOCKER"
     }
