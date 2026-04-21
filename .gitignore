@@ -61,6 +61,8 @@ logs/
 # ================================================
 # Session concurrency lock files (per-branch, transient)
 .context/locks/
+# Claude Code hook runtime state (PreCompact markers, future per-session transient state)
+.claude/state/
 # Machine-local permission overrides (auto-written by Claude Code, never commit)
 .claude/settings.local.json
 

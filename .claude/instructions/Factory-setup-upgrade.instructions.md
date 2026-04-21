@@ -190,6 +190,15 @@ Files that exist in framework but not in project:
 4. Write new file
 5. Register in `governance_versions.json`
 
+**Special case — `claude/CLAUDE.md` and `claude/settings.json` (EVOL-018):**
+
+- `.context/templates/setup/claude/CLAUDE.md` → target `CLAUDE.md` (project root). Uses `smart-additive-merge`. On first upgrade after EVOL-018, the project's existing `CLAUDE.md` is expected to be the old framework-shared variant; the merge keeps all existing sections, adds any new universal sections from the template, and leaves user-added sections untouched. Framework-repo-specific sections in the old file (e.g. "Meta-Framework Triage", paths to `.context/templates/setup/governance_versions.json`) become stale — the upgrade surfaces them as diff candidates for user review. Explicit user confirmation is required before the merge replaces framework-specific guidance with project-specific guidance.
+- `.context/templates/setup/claude/settings.json` → target `.claude/settings.json`. Uses `merge-preserve` (more conservative than smart-additive-merge):
+  - Add the `hooks.SessionStart`, `hooks.UserPromptSubmit`, `hooks.PreCompact` blocks from the template if absent in target.
+  - For `hooks.PreToolUse`, if target has any entry at all, leave it untouched (never overwrite user-configured pre-tool-use hooks).
+  - NEVER touch `permissions`, `model`, `env`, or any other top-level keys.
+  - Idempotent: re-running `--upgrade` after the first run is a no-op.
+
 ### Step 3b: Post-Merge Script Validation (4.4.3b)
 After ALL script files are merged, run 6 validation checks:
 

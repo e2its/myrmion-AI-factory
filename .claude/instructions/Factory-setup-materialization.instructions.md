@@ -823,6 +823,26 @@ Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/`:
 - `stack_configured` scripts resolve placeholders
 - `chmod +x` for all `.sh` files
 
+**Claude Code Materialization (`.context/templates/setup/claude/` → project root + `.claude/`):**
+
+1. `.context/templates/setup/claude/CLAUDE.md` → `CLAUDE.md` (project root)
+   - `smart-additive-merge` upgrade strategy: if `CLAUDE.md` already exists at the target, merge new structural additions (new sections, new bullet points) into it without overwriting user edits. On fresh `--generate`, target will not exist → write the template as-is.
+   - This is the **materialized-project variant** of `CLAUDE.md`. The framework repo itself uses a different `CLAUDE.md` (meta-maintenance variant) that is NOT synced to downstream projects.
+
+2. `.context/templates/setup/claude/settings.json` → `.claude/settings.json`
+   - `merge-preserve` upgrade strategy: target file holds user-owned content (e.g. `permissions`, `model`, `env`). Merge the framework-owned `hooks` block (SessionStart, UserPromptSubmit, PreCompact, PreToolUse) into the existing file without touching other keys.
+   - Fresh `--generate`: write the template as-is.
+   - Idempotent: re-materialisation only adds missing hook entries; never removes user-added matchers or commands.
+
+3. `.context/templates/setup/claude/hooks/*.sh` → `.claude/hooks/*.sh`
+   - Copy ALL `.sh` files from the template directory — auto-scan, no hardcoded list.
+   - `chmod +x` for all copied scripts.
+   - Fresh `--generate`: write as-is.
+   - `--upgrade`: overwrite each script with the template version. These scripts are framework-owned primitives (PreToolUse chain: `check-branch-protection.sh`, `check-concurrency-lock.sh`, `check-governance-drift.sh`, `check-completion-gate.sh`) — the target version is authoritative. No user customisation expected; project-specific branch protocol lives in constitution + ADRs, not in hook scripts.
+   - **Invariant:** every hook referenced from `.claude/settings.json` MUST exist at the target path after this step. Post-materialisation check: for each `bash .claude/hooks/X.sh` command in the merged settings.json, verify the file exists. If any is missing → BLOCK with diagnostic listing the missing scripts.
+
+Rationale: `.claude/settings.json` was previously untouched by `factory-sync.sh` ("project-owned"), leaving downstream projects with no governance-always-on hooks unless the user added them manually. Templating `settings.json` closes that gap; templating `CLAUDE.md` avoids shipping framework-specific guidance (meta-maintenance mode, EVOL-* workflow) to project users who should see SDLC-first guidance instead. Templating the hook scripts under `claude/hooks/` closes the follow-up gap where a fresh `SETUP --generate` would materialise a `settings.json` pointing at hook scripts that never existed in the target repo (Copilot PR #7 review round 2).
+
 **.gitignore:** Generate from template, add framework-specific entries.
 
 **E2E Config:** Only configuration files (playwright.config.ts, etc.), NO test files.

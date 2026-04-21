@@ -1,8 +1,8 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "1.0.0",
-  "last_updated": "2026-04-15",
+  "framework_version": "1.1.0",
+  "last_updated": "2026-04-21",
   "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release \u2014 full platform migration from GitHub Copilot multi-agent architecture.",
   "upgrade_strategy": "Smart Additive Merge \u2014 ALL files use the same unified strategy: format-aware structural diff \u2192 add new content only \u2192 resolve placeholders in additions \u2192 preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
@@ -481,11 +481,31 @@
       ]
     },
     "scripts/validate-governance.sh": {
-      "version": "1.0.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
-        "1.0.0: Initial template \u2014 Governance drift detection: framework_core change tracking, orphan/stale detection, version consistency (GOV-001)"
+        "1.1.1: fix(EVOL-017): Copilot PR #7 review \u2014 freshness gate hardening. Empty/missing constitution_hash in snapshot frontmatter now exits 2 (was silently passing). Absent md5sum/md5/openssl now exits 2 with install guidance (was silently passing). gov_compute_md5 hardened against set -euo pipefail aborts when tools fail. --banner fallback rewritten with explicit if/then (fragile || / && precedence replaced).",
+        "1.0.0: Initial template \u2014 Governance drift detection: framework_core change tracking, orphan/stale detection, version consistency (GOV-001)",
+        "1.1.0: feat(EVOL-017): --banner and --snapshot-freshness modes for governance always-on enforcement (3-tier). Reads $CLAUDE_PROJECT_DIR for cwd anchoring; portable md5 + awk frontmatter parsing; exit 2 on stale snapshot."
+      ]
+    },
+    "scripts/governance-onprompt.sh": {
+      "version": "1.1.0",
+      "content_type": "universal",
+      "target": "scripts/governance-onprompt.sh",
+      "changelog": [
+        "1.1.0: fix(EVOL-017) Copilot PR #7 round 2: jq \u2192 python3 \u2192 awk parser cascade replaces python3-only dependency. Session-scoped marker and /setup livelock carve-out now work in minimal environments without python3. Fall-through on empty result so stubbed/broken parsers transparently yield to the next option.",
+        "1.0.0: feat(EVOL-017): initial template \u2014 UserPromptSubmit hook. Post-compact re-inject of governance snapshot via session-scoped marker; freshness gate delegation; /setup* livelock carve-out."
+      ]
+    },
+    "scripts/governance-oncompact.sh": {
+      "version": "1.1.0",
+      "content_type": "universal",
+      "target": "scripts/governance-oncompact.sh",
+      "changelog": [
+        "1.1.0: fix(EVOL-017) Copilot PR #7 round 2: jq \u2192 python3 \u2192 awk parser cascade replaces python3-only dependency. Session-scoped marker and /setup livelock carve-out now work in minimal environments without python3. Fall-through on empty result so stubbed/broken parsers transparently yield to the next option.",
+        "1.0.0: feat(EVOL-017): initial template \u2014 PreCompact hook. Writes .claude/state/governance-reload-{session_id}.marker so the next UserPromptSubmit re-injects the snapshot as additional context."
       ]
     },
     "workflows/governance-check.github-actions.yml": {
@@ -590,6 +610,56 @@
       "role": "Git hook \u2014 force-push protection, full governance validation.",
       "changelog": [
         "1.0.0: feat: pre-push hook with force-push guard and governance check"
+      ]
+    },
+    "claude/settings.json": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/settings.json",
+      "upgrade_strategy": "merge-preserve",
+      "changelog": [
+        "1.0.0: feat(EVOL-017/EVOL-018): initial template \u2014 Claude Code hooks canonical block (SessionStart banner, UserPromptSubmit freshness gate, PreCompact marker, PreToolUse branch/lock/governance-drift/completion-gate). Merge-preserve upgrade: adds missing hook entries without overwriting user-added permissions or other blocks."
+      ]
+    },
+    "claude/hooks/check-branch-protection.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-branch-protection.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse hook blocks Edit/Write on protected branches (main/master/develop/release/hotfix). Previously lived only in framework_core at .claude/hooks/; fresh SETUP --generate left .claude/settings.json pointing at a non-existent path."
+      ]
+    },
+    "claude/hooks/check-completion-gate.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-completion-gate.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Write hook blocks terminal status in dev_plan.md or qa_report*.md when unchecked items remain."
+      ]
+    },
+    "claude/hooks/check-concurrency-lock.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-concurrency-lock.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Edit/Write hook acquires per-branch lock, prevents parallel sessions on same branch."
+      ]
+    },
+    "claude/hooks/check-governance-drift.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-governance-drift.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template \u2014 PreToolUse Edit/Write hook warns (non-blocking) when constitution.md/setup.md hashes diverge from governance snapshot. Pairs with UserPromptSubmit freshness gate (blocking)."
+      ]
+    },
+    "claude/CLAUDE.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "CLAUDE.md",
+      "upgrade_strategy": "smart-additive-merge",
+      "changelog": [
+        "1.0.0: feat(EVOL-018): initial template \u2014 materialized-project CLAUDE.md variant. SDLC-first triage as DEFAULT, Workflow + Hard Gates + Living Governance Catalogs present, INVARIANT 4 and Generation Standards \u00a72 reference docs/project_log/governance_versions.json (project manifest), not the framework manifest. Complements the framework-repo CLAUDE.md (meta-maintenance variant) at the source repo root."
       ]
     },
     "architect/design_template.md": {
@@ -752,9 +822,11 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects \u2014 used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) \u2014 Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.1.0",
+      "version": "2.2.1",
       "path": "README.md",
       "changelog": [
+        "2.2.1: fix(EVOL-018) Copilot PR #7: SDLC-first triage link was pointing to CLAUDE.md#sdlc-first-triage--mandatory anchor, which no longer exists after the framework/project split (framework CLAUDE.md was renamed to Meta-Framework Triage). Link now disambiguates the two variants and references the canonical IOP classifier.",
+        "2.2.0: feat(EVOL-017): \u00a7 Governance always-on enforcement (3-tier) \u2014 tier table, marker scoping note, smoke-test checklist. \u00a7 SDLC-first triage (MANDATORY) cross-ref.",
         "2.0.0: BREAKING docs(EVOL-015): instructions.md fused into README.md \u2014 single English user-facing doc. Ports 10 Spanish sections from the deleted instructions.md (full Command Reference, Recommended Pipeline, Complete Workflow Diagram, Exception Routes, State Transition Matrices, State Glossary, Dynamic Governance System, Memory Cache Architecture, Immutability & Versioning). instructions.md deleted at the same commit. Rationale: eliminate two-sources-of-truth drift between README.md and instructions.md that was observed during EVOL-014 \u2192 EVOL-015. All framework version tags scrubbed from user-facing copy (versions live only in governance_versions.json). Workflow sequence presents the full-sdlc 8-phase expansion + 3 hard gates (CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E) + 2 epic/slice gates (SLICE-INTEGRATION-TEST, EPIC-RETROSPECTIVE) + enforcement modes blurb.",
         "1.1.0: docs(EVOL-015): workflow sequence updated with full-sdlc 8-phase expansion + 3 hard gates; gate enforcement modes blurb added; framework version tags scrubbed from user-facing copy",
         "1.0.0: feat(EVOL-015): initial governance registration \u2014 closing the root README.md tracking gap that pre-dated EVOL-015.",
@@ -1115,9 +1187,11 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.9.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "2.9.0: fix(EVOL-017) Copilot PR #7 round 2: Claude Code Materialization block extended with step 3 \u2014 .context/templates/setup/claude/hooks/*.sh \u2192 .claude/hooks/*.sh. Closes the gap where fresh SETUP --generate produced a settings.json pointing at hook scripts that never existed in the materialized target. Includes post-materialization invariant check (every hook referenced from settings.json must exist).",
+        "2.8.0: feat(EVOL-018): \u00a7 Claude Code Materialization block added in \u00a7 4.2.6 \u2014 CLAUDE.md and .claude/settings.json are now owned by SETUP (smart-additive-merge and merge-preserve strategies respectively). Closes the gap where downstream projects received framework scripts but no hooks, and where they inherited the framework-repo CLAUDE.md (meta-maintenance variant) instead of the project-focused variant.",
         "2.6.0: feat(EVOL-015): \u00a7 4.2.3 Phase B.1 gains 5 universal meta-pattern DCs (pipeline short-circuit, identity-argument no-op, framework-layer validation errors invisible to app logs, mutation APIs with replace semantics, composite network symptoms) added unconditionally to every project regardless of stack \u2014 each scoped by applicable_when filter; stack-specific DCs remain conditional. \u00a7 Checkpoint 3.1 governance snapshot extended with project_tracking.gate_enforcement_mode (Q27.5) + project_tracking.appetite_sizing_enabled (Q27.6). \u00a7 Step 6.2.1 Appetite Field Materialisation + \u00a7 Step 6.2.2 Gate Enforcement Mode Materialisation write the corresponding sections into docs/backlog/tool-adapter.md when Q27.6/Q27.2 match.",
         "2.5.0: feat(EVOL-014): \u00a7 4.2.4 Step 0 Dynamic Path Derivation rewritten from 2-line stub to full derivation protocol (instructions-only, no hardcoded lookup table) \u2014 persists setup_md.paths section as SSOT for all {{*_BASE_PATH}} placeholders + \u00a7 4.2.7 Budget Calculation rewritten as Cost Placeholder Resolution pass \u2014 reads setup_md.costs from CEP, applies canonical substitution map for 20+ {{*_COST}}/{{BUDGET_*}} placeholders, dangling check blocks materialization on any surviving literal. Closes pre-existing cost pipeline gap and base-path derivation gap.",
         "2.4.7: fix: tool-adapter abstract ops list \u2014 add verify_issue, verify_board_placement, close_issue for verification/rollback support (#130)",
@@ -1140,9 +1214,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.2.0: feat(EVOL-018): Step 3 Special case block added for claude/CLAUDE.md + claude/settings.json. CLAUDE.md uses smart-additive-merge with explicit confirmation when the existing file still has framework-repo-specific sections (meta-maintenance relics); settings.json uses a conservative merge-preserve that never touches user permissions/model/env and never overwrites existing hook entries \u2014 only adds missing ones.",
         "1.0.1: Governance snapshot regeneration \u2014 Step 4 Finalization generates .context/governance_snapshot.md after upgrade (#112)",
         "1.0.0: Extracted from SETUP.AGENT.md \u2014 upgrade, rollback, migrate-legacy (PR #101)",
         "2.0.0: BREAKING \u2014 Migrate to .instructions.md format with YAML frontmatter \u2014 VS Code on-demand discovery (EVOL-001)",
@@ -1170,9 +1245,10 @@
       ]
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md",
       "changelog": [
+        "2.7.0: feat(EVOL-017): IOP v1.0.0 \u2192 v1.1.0 \u2014 Bias & Announcement MANDATORY section. Default bias = SDLC on borderline classifications. One-line classification call-out required on every turn (Routing / Direct + reason). Silence is a governance-scope violation. Paired with CLAUDE.md \u00a7 SDLC-First Triage.",
         "2.5.2: chore(EVOL-014): preventive-sweep comment refresh \u2014 remove hardcoded 4-agent language, use parallel-scope phrasing",
         "2.5.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.5.0: feat: add 'epic' patterns to execution plan intent regex \u2014 backward-compatible with 'cluster' patterns",
@@ -1191,9 +1267,11 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "10.2.0",
+      "version": "11.0.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "11.0.0: BREAKING feat(EVOL-018): framework-vs-project split. This CLAUDE.md is now the META-MAINTENANCE variant for the framework repo only \u2014 title retitled \u201cmi AI Factory \u2014 Framework Repository (Meta)\u201d, meta-framework triage replaces SDLC-first as the default, Workflow + Hard Gates + Living Governance Catalogs sections REMOVED (those ship to downstream via the new project template), Generation Standards \u00a72 explicitly names the framework manifest path, INVARIANT 4 reads framework_version from the framework manifest, INVARIANT 5 reframed for EVOL-*/fix-*/PR lifecycle. The materialized-project variant lives at .context/templates/setup/claude/CLAUDE.md (new template claude/CLAUDE.md in this manifest). factory-sync.sh no longer copies CLAUDE.md to downstream projects \u2014 SETUP --generate/--upgrade now owns it.",
+        "10.3.0: feat(EVOL-017): \u00a7 Governance Scope \u2014 Session-start confirmation paragraph (banner + freshness-gate contract); new \u00a7 SDLC-First Triage MANDATORY section \u2014 per-turn classification announcement (Routing / Direct + reason), carve-out list (read-only, meta-framework, docs-only fast-lane, trivial), links to IOP classifier and README 3-tier.",
         "10.1.0: feat(EVOL-014): Communication Style MANDATORY + Governance Scope MANDATORY sections (apply every turn, not only slash commands); Humanized Blocking law (Rule 8); Generation Standards \u00a71 Template lookup table, \u00a72 Governance version bump rule, \u00a73 Docs-only fast-lane; numbered INVARIANT 1-5 (feature state from frontmatter new); 8-phase workflow diagram with 3 hard gates + Hard Gates table; Living Catalogs universal DC consumption table (10 consumers)",
         "9.11.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "9.11.1: fix: BACKLOG Execution Plan description reflects parallel slice exception from guardrail 9",
@@ -1236,9 +1314,10 @@
       ]
     },
     "skills/Factory-governance-loading/SKILL.md": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "type": "skill",
       "changelog": [
+        "2.5.0: feat(EVOL-017): \u00a7 Always-On Enforcement (3-Tier Hooks) added \u2014 documents the SessionStart banner / UserPromptSubmit freshness gate / PreCompact marker handshake that complement the EVOL-013 PreToolUse drift warning. Includes marker scoping (.claude/state/, session_id suffix), carve-outs (/setup*, project-not-initialized), and smoke tests. Closes Copilot PR #7 review finding on stale template CLAUDE.md pointer.",
         "2.3.0: feat(EVOL-014): Governance Write Protocol (GWP) added as write-side counterpart of GCRP \u2014 canonical procedure for bumping governance_versions.json on every framework-core touch; caveman-style terse",
         "2.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.2.1: fix: PR review \u2014 Verification Commands section uses derive_commands_from_stack(stack_config) consistent with BVL skill API (#124)",
@@ -1401,11 +1480,14 @@
       ]
     },
     "scripts/factory-sync.sh": {
-      "version": "1.1.0",
+      "version": "1.4.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
-      "role": "Framework governance sync tool \u2014 copies framework-owned files (instructions, skills, agents, prompts, base scripts, templates, copilot-instructions) to target projects without leaving framework traces in project git history.",
+      "role": "Framework governance sync tool \u2014 copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history.",
       "changelog": [
+        "1.4.0: fix(EVOL-017) Copilot PR #7: new category [5/7] Claude Code Hooks (.claude/hooks/*.sh) \u2014 previously these hook scripts were referenced by .claude/settings.json (PreToolUse chain) but never synced to downstream projects; fresh materialized projects would have a settings.json pointing at non-existent hook files. Categories renumbered to /7.",
+        "1.3.0: feat(EVOL-018): remove CLAUDE.md from sync list \u2014 materialized-project CLAUDE.md is now owned by SETUP --generate/--upgrade (template: .context/templates/setup/claude/CLAUDE.md). factory-sync continues to sync commands, instructions, skills, scripts, and templates.",
+        "1.2.0: feat(EVOL-017): sync scripts/governance-onprompt.sh + scripts/governance-oncompact.sh into Base Scripts category so downstream projects receive governance always-on hook scripts via factory-sync",
         "1.1.0: fix: empty-file guard, orphan counter consistency, sync standalone .github/ files, add explicit path, templates as 7th category",
         "1.0.0: feat: initial factory-sync.sh \u2014 6-category sync (instructions, skills, agents, prompts, copilot-instructions, base scripts), dry-run/verbose/force modes, orphan detection, version comparison"
       ]

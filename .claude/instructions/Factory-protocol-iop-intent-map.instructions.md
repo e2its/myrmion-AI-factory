@@ -2,12 +2,29 @@
 description: "Factory Intelligent Orchestration Protocol (IOP) — intent classification, natural language to framework command mapping. Use when: Factory classifies user input and routes to agent commands."
 ---
 
-# INTELLIGENT ORCHESTRATION PROTOCOL (IOP v1.0.0)
+# INTELLIGENT ORCHESTRATION PROTOCOL (IOP v1.1.0)
 
 > **Shared Protocol** — Referenced by: Factory orchestrator agent.
 > ALL user interactions — whether explicit commands, natural language requests, or ad-hoc operations — are subject to the same governance standards.
 
 **Applies to:** Every user message that does NOT start with an explicit agent command.
+
+---
+
+## Bias & Announcement — MANDATORY
+
+**Default bias: SDLC-first.** When classification is borderline between `FRAMEWORK_COMMAND`/`FRAMEWORK_SEQUENCE` and `GOVERNANCE_BOUND_OPERATION`, resolve toward the SDLC command. Ad-hoc execution is the exception, not the default.
+
+**Announcement is mandatory on every turn — not only on ambiguity.** The first thing the agent produces in a turn must be a single-line classification call-out, in one of these shapes:
+
+- `Routing: /implement --fix FEAT-123 (GOVERNANCE_BOUND → FRAMEWORK_COMMAND)` — when routing to a command.
+- `Direct: read-only, no routing` — when genuinely read-only (Category E).
+- `Direct: meta-framework — EVOL-* outside SDLC by design` — when working on the framework itself (this repo).
+- `Direct: docs-only fast-lane` — when the diff qualifies under CLAUDE.md § Generation Standards §3.
+- `Direct: trivial edit (typo / config / memory)` — when the change has no SDLC surface.
+- `Direct: <reason>` — any other non-SDLC path must state its reason in one line.
+
+Silence is a governance-scope violation. This parallels CLAUDE.md § SDLC-First Triage — both state the same rule; this file is the technical classifier, CLAUDE.md is the behavioural contract.
 
 ---
 
