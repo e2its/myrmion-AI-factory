@@ -120,6 +120,24 @@ Enum: `full-stack | backend-only | frontend-only | integration`. `integration` i
 
 **Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is replaced by `user_journey.integration.md` (reliability contract + caller-side actors + idempotency keys). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks 6 of 12 CHECKs as N/A.
 
+## Incremental Dev Plan (Vertical Slicing)
+
+Every feature ships as a chain of **vertical increments**. One PR per increment. Each increment, merged in isolation, leaves the product 100% functional and production-deployable. No feature-flag-OFF escape. This binds the whole pipeline — from spec to branching to iteration — so large features decompose into reviewable, rollback-safe units without losing traceability.
+
+**Strategy field.** `spec.feature.slicing_strategy: incremental | monolithic`. Default `incremental`. `monolithic` allowed only when **all** hold: `scenarios_count ≤ 2` AND `contract_operations ≤ 3` AND `scope ≠ full-stack`. BLUEPRINT `--start` enforces this Trivial-Heuristic Gate.
+
+**Artefact.** `docs/spec/{FEATURE_ID}/increment_plan.md` — sidecar of `design.md`. `§ 0` Slicing Rationale, `§ 1` Increments (each declaring `Status`, `scenarios_covered`, `contract_surface`, `depends_on` (DAG), `deployable: production`, acceptance checklist, branch name), `§ 2` Mermaid DAG, `§ 3` Monolithic Escape Declaration (only when monolithic). Generated at `BLUEPRINT --start` via RDR (≥3 slicing alternatives, verbatim ratification).
+
+**Increment lifecycle.** `DRAFT → READY → BUILDING → MERGED` + `→ INVALIDATED` branch from DRAFT/READY only. Transitions are monotonic — no regression. MERGED is terminal for that increment: further change to its scope requires either `CODESIGN --revise` (feature version bump) or a **Follow-up Increment** (additive, non-overlapping scenarios; no bump). See `.claude/rules/immutability_policy.instructions.md § Per-Increment Immutability`.
+
+**Branching.** `feature/{FEATURE_ID}-inc-N-{slug}` per increment, merged as independent PR. One branch open at a time per feature (concurrency lock). Merge hook stamps `Merged at:` and flips status.
+
+**Consumption.** `IMPLEMENT --plan` reads `increment_plan.md`, emits `dev_plan.md` with one `## Increment INC-N` section per increment. Task tags: `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` + `[INC-N.ACC.k]` acceptance. Plan-level `IMPLEMENTED_AND_VERIFIED` only when every target increment closes. Monolithic preserves legacy `[A.M]`/`[B.M]`/`[C.M]` tagging for backward compat.
+
+**Enforcement gates.** CVP at `BLUEPRINT --approve`: `increment_plan_presence`, `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic` (all CRITICAL) + `increment_to_task` (WARNING at IMPLEMENT scope). See `.claude/skills/Factory-coherence-validation/SKILL.md`.
+
+**Iteration cascade.** Upstream changes propagate selectively via `CASCADE_INCREMENT_INTERNAL` — only increments whose scenarios/contracts overlap with the change flip to `INVALIDATED`. MERGED increments never invalidate (they anchor production); BUILDING increments get `pending_iteration` and must `--pause` before resync.
+
 ## Generation Standards
 
 1. **Template lookup (on-demand, NOT session-start load)** — Before creating any new artefact in a templated family (design doc, dev plan, test plan, ADR, QA report, peer review, security audit, user journey, blockers report, etc.), read the canonical template first and copy its frontmatter + section structure. Never invent schemas or copy from sibling documents (siblings inherit drift). Template locations by command persona:
