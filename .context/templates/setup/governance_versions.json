@@ -1392,9 +1392,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "11.4.0",
+      "version": "11.4.1",
       "path": "CLAUDE.md",
       "changelog": [
+        "11.4.1: fix(EVOL-022) followup: INVARIANT 5 renamed from `Feature state` to `Change state` — a change in the framework repo is not always an EVOL-*; it can be fix/*, bugfix/*, hotfix/*, docs/*, chore/*. Enum made explicit to align with INVARIANT 1 and Pre-Action Gate.",
         "11.4.0: feat(EVOL-022) meta CLAUDE.md consolidation — since the framework repo does not self-consume its own SDLC, framework-feature content moves out of the meta and lives only in the downstream template. Removed: § Project Scope & Feature Scope Taxonomy (EVOL-019 framework authorship view), § Incremental Dev Plan (EVOL-021 framework authorship view) — both relocated to the template as `### Framework Editor Invariants (lock-step)` sub-sections reduced to delta content. Simplified: INVARIANT 5 back to feature-state only (scope note removed); Core Protocols RDR row to (Recommendation → Decision) since no spec.feature frontmatter exists here for the Ratification beat. Fixed: Pre-Action Gate wording — bare `hotfix` blocked, `hotfix/{slug}` allowed as working pattern (aligns with hook regex); INVARIANT 1 adds `hotfix/*` → PATCH; restored `## Communication Style` header typo introduced mid-session.",
         "11.3.0: feat(EVOL-021) phase 3: new § Incremental Dev Plan (EVOL-021 — framework authorship view) after § Project Scope Taxonomy and before § Generation Standards. Sister to the downstream template section. Codifies 6 lock-step invariants for framework editors: (1) strategy enum + trivial-heuristic thresholds are load-bearing across 4 files, (2) increment_plan.md placement/lifecycle is immutable, (3) per-increment status enum transitions require synchronized edits in 4 files, (4) task tag regex is a breaking contract, (5) strict deployability policy — do NOT loosen, (6) cascade-function orthogonality (PENDING_ITERATION / SLICE_PEERS / INCREMENT_INTERNAL never merge or reorder).",
         "11.2.0: feat(EVOL-020): Core Protocols table gains RDR row — Recommendation → Decision → Ratification canonical skill at .claude/skills/Factory-rdr/SKILL.md. Mirrors the downstream template update in the same EVOL.",

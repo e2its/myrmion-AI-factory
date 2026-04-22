@@ -94,7 +94,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 2. **INVARIANT 2 — Governance context**: Load `.context/governance_snapshot.md` every command. If `constitution_hash` + `setup_hash` match → governance is loaded (1 file read). Stale or missing → reload from `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and regenerate the snapshot.
 3. **INVARIANT 3 — Current date**: Derive from the system clock. NEVER reuse a date seen earlier in the conversation.
 4. **INVARIANT 4 — Current version**: Read the framework version from `.context/templates/setup/governance_versions.json` (`framework_version` field) before any bump. NEVER guess.
-5. **INVARIANT 5 — Feature state**: In the framework repo, "feature" means an `EVOL-*` branch — state lives in the PR (open / merged) and git history, not in a spec artifact file.
+5. **INVARIANT 5 — Change state**: In the framework repo, a change lives on a working branch (`feature/EVOL-*`, `fix/*`, `bugfix/*`, `hotfix/*`, `docs/*`, `chore/*`) — state lives in the PR (open / merged) and git history, not in a spec artifact file. There is no `spec.feature` / `design.md` / `dev_plan.md` here; do not expect one.
 
 ## Core Protocols
 
