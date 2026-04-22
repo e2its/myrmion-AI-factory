@@ -1,28 +1,45 @@
 # Template B: Master Implementation Plan (`dev_plan.md`)
 
+> **Body structure depends on `slicing_strategy`:**
+> - `monolithic` — flat `## Phase A / B / C` sections with tags `[A.M] / [B.M] / [C.M]`. Body below reflects this case.
+> - `incremental` — one `## Increment INC-N: {title}` section per increment (topologically ordered by `depends_on` from increment_plan.md). Each increment contains `### Phase A / B / C` sub-sections with tags `[INC-N.A.M] / [INC-N.B.M] / [INC-N.C.M]` plus an `### Increment INC-N Acceptance Gate` with `[INC-N.ACC.k]` items. Full generation rules: `.claude/instructions/Factory-implement-plan.instructions.md § Strategy Branch`.
+
 ```markdown
 ---
 id: {{FEATURE_ID}}
 status: DRAFT   # DRAFT | READY | NEEDS_INFO | BUILDING | IMPLEMENTED_AND_VERIFIED | BLOCKED | REJECTED | INVALIDATED
-scope: full-stack  # EVOL-019 — inherited from spec.feature.scope
+scope: full-stack  # inherited from spec.feature.scope
+slicing_strategy: incremental   # incremental | monolithic — inherited from increment_plan.md; drives body layout
 last_update: [DATE]
 e2e_required: [true | false]             # recommended false when scope in [backend-only, integration]
 api_test_required: [true | false]
-reliability_test_required: [true | false]  # EVOL-019 — auto-true when scope in [backend-only, integration]
+reliability_test_required: [true | false]  # auto-true when scope in [backend-only, integration]
 
-# Iteration model tracking (EVOL-014)
+# Iteration model tracking
 based_on_iteration: 1
 based_on_schemas_version: 1
 
 # Push-based cascade fields — set by upstream --refine, cleared by IMPLEMENT --refine (delta) sync
 pending_iteration: null
 pending_schemas_version: null
-invalidated_sections: []
+invalidated_sections: []          # section-level invalidation (legacy, monolithic plans)
+invalidated_increments: []        # increment-level invalidation (incremental plans) — list of INC-N ids flagged by CASCADE_INCREMENT_INTERNAL
 invalidated_by_iteration: null
 invalidated_reason: null
 cascade_source: null
 cascade_timestamp: null
 cascade_scope: []
+
+# Per-increment status mirror (populated when slicing_strategy == incremental; empty list otherwise)
+# Mirrors increment_plan.md § 1 status for increments that have reached READY-or-later.
+# DRAFT increments stay only in increment_plan.md until IMPLEMENT --plan is run against them.
+increments: []
+  # - id: "INC-1"
+  #   status: "READY"                   # READY | BUILDING | IMPLEMENTED_AND_VERIFIED | INVALIDATED
+  #   tasks: { A: N, B: N, C: N, ACC: N }
+  # - id: "INC-2"
+  #   status: "READY"
+  #   tasks: { A: N, B: N, C: N, ACC: N }
 ---
 
 # Implementation Plan: {{FEATURE_ID}}

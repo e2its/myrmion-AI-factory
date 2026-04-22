@@ -38,12 +38,17 @@ CVP_SCOPES:
     checks:
       - scope_consistency_across_artifacts   # EVOL-019 Phase 3 — scope field matches across spec.feature/design.md/test_plan.md/dev_plan.md
       - consumes_contract_resolution         # EVOL-019 Phase 3 — every FEAT-XXX in spec.feature.consumes_contract resolves to an APPROVED upstream with frozen contract files
+      - increment_plan_presence              # increment_plan.md exists with well-formed frontmatter; slicing_strategy inherited from spec.feature
       - scenario_to_component        # spec.feature scenarios → design.md components
       - data_schema_to_data_model    # user_journey.md schemas → design.md data model
       - ui_component_to_inventory    # mock.html components → design.md Component Inventory (applicable_when scope in [full-stack, frontend-only])
       - journey_step_to_endpoint     # user_journey.md (OR user_journey.integration.md when scope in [backend-only, integration]) steps → contract endpoints
       - scenario_to_test_coverage    # spec.feature scenarios → test_plan.md test cases
       - contract_to_test_coverage    # contract endpoints → test_plan.md integration tests
+      - increment_deployability              # each increment declares deployable:production + acceptance checklist + DAG acyclic
+      - increment_to_scenario_coverage       # every spec.feature scenario appears in exactly one increment (no orphan, no duplicate)
+      - increment_to_contract_coverage       # every contract operation appears in exactly one increment (no orphan, no duplicate)
+      - monolithic_heuristic                 # applicable_when slicing_strategy==monolithic — § 3 Escape Declaration present + heuristic satisfied
 
   CODESIGN_BLUEPRINT_IMPLEMENT:
     # Invoked by: IMPLEMENT --plan (Step 0.5)
@@ -55,6 +60,7 @@ CVP_SCOPES:
       - ui_component_to_task         # design.md UI components → dev_plan.md frontend tasks (applicable_when scope in [full-stack, frontend-only])
       - data_model_to_task           # design.md entities → dev_plan.md Phase A tasks
       - reliability_test_to_task     # EVOL-019 Phase 3 — test_plan.md § 2.2 Reliability Testing rows → dev_plan.md § Reliability Tests tasks (applicable_when scope in [backend-only, integration])
+      - increment_to_task            # each increment has ≥1 [INC-N.*.M] task in dev_plan.md (applicable_when slicing_strategy==incremental)
 
   FULL_CHAIN:
     # Invoked by: QA --verify (Pre-Verification Gate)
@@ -103,6 +109,7 @@ FUNCTION cvp_coherence_gate(FEATURE_ID, scope, invoking_agent):
   artifacts.mock_html = READ("{base_path}/mock.html")
   artifacts.design_md = READ("{base_path}/design.md")
   artifacts.test_plan = READ("{base_path}/test_plan.md")
+  artifacts.increment_plan = READ_IF_EXISTS("{base_path}/increment_plan.md")  # may be absent on pre-slicing features
 
   IF scope IN [CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN]:
     artifacts.dev_plan = READ("{base_path}/dev_plan.md")
@@ -272,6 +279,60 @@ FUNCTION check_consumes_contract_resolution(elements):
     YIELD { check: "consumes_contract_resolution", severity: PASS,
             source: "spec.feature.consumes_contract[{upstream_id}]",
             target: "upstream APPROVED, contracts present, gate Done + current" }
+```
+
+### Check 0c: `increment_plan_presence` (CRITICAL)
+
+`increment_plan.md` must exist and be well-formed once `spec.feature` declares `slicing_strategy` (default `incremental`). A missing or malformed plan blocks IMPLEMENT's per-increment consumption downstream. Pre-slicing features (legacy spec.feature without the field) degrade to a single implicit monolithic increment and raise a WARNING to adopt the field.
+
+```yaml
+FUNCTION check_increment_plan_presence(elements):
+  spec = elements.spec_feature
+  IF spec IS NULL:
+    RETURN   # caller already flagged missing spec.feature elsewhere
+
+  slicing = spec.frontmatter.slicing_strategy OR "MISSING"
+  plan = elements.increment_plan   # may be NULL
+
+  IF slicing == "MISSING":
+    YIELD { check: "increment_plan_presence", severity: WARNING,
+            source: "spec.feature.frontmatter.slicing_strategy",
+            gap: "Legacy spec.feature has no slicing_strategy field — treated as implicit monolithic",
+            remediation: "Add slicing_strategy: incremental (default) to spec.feature frontmatter and re-run BLUEPRINT --start to emit increment_plan.md" }
+    RETURN
+
+  IF plan IS NULL:
+    YIELD { check: "increment_plan_presence", severity: CRITICAL,
+            source: "docs/spec/{FEATURE_ID}/increment_plan.md",
+            gap: "slicing_strategy='{slicing}' declared in spec.feature but increment_plan.md is absent",
+            remediation: "Run BLUEPRINT --start {FEATURE_ID} to emit the Increment Plan (Increment Plan Generation sub-phase)" }
+    RETURN
+
+  # Plan exists — frontmatter integrity checks
+  fm = plan.frontmatter
+  required_fields = ["id", "status", "slicing_strategy", "scope", "total_increments", "rdr_alternatives_considered", "rdr_ratified_at"]
+  missing = [f FOR f IN required_fields IF fm.get(f) IS NULL]
+  IF missing NOT EMPTY:
+    YIELD { check: "increment_plan_presence", severity: CRITICAL,
+            source: "increment_plan.md.frontmatter",
+            gap: "Missing required fields: {missing}",
+            remediation: "Re-run BLUEPRINT --refine {FEATURE_ID} — the generator populates these fields automatically" }
+
+  IF fm.slicing_strategy != slicing:
+    YIELD { check: "increment_plan_presence", severity: CRITICAL,
+            source: "increment_plan.md.frontmatter.slicing_strategy='{fm.slicing_strategy}'",
+            gap: "Slicing strategy drift: spec.feature says '{slicing}', increment_plan says '{fm.slicing_strategy}'",
+            remediation: "spec.feature is authoritative. Re-run BLUEPRINT --refine to regenerate increment_plan.md with the correct strategy" }
+
+  IF fm.status == "APPROVED" AND fm.rdr_alternatives_considered < 3 AND fm.slicing_strategy == "incremental":
+    YIELD { check: "increment_plan_presence", severity: CRITICAL,
+            source: "increment_plan.md.frontmatter.rdr_alternatives_considered = {fm.rdr_alternatives_considered}",
+            gap: "Incremental plan approved with <3 RDR alternatives considered — Factory-rdr mandates ≥3",
+            remediation: "Re-run the Increment Slicing RDR via BLUEPRINT --refine {FEATURE_ID}" }
+
+  YIELD { check: "increment_plan_presence", severity: PASS,
+          source: "increment_plan.md",
+          target: "present, {fm.total_increments} increments, slicing_strategy={fm.slicing_strategy}" }
 ```
 
 ### Check 1: `scenario_to_component` (CRITICAL)
@@ -574,6 +635,254 @@ FUNCTION check_task_completion_to_qa(elements):
               source: task.id, target: matched.map(q => q.id) }
 ```
 
+### Check 13: `increment_deployability` (CRITICAL)
+
+Every increment in `increment_plan.md § 1` must declare `deployable: production`, carry a non-empty acceptance checklist, and the cross-increment `depends_on` graph must be acyclic. Feature-flag-OFF merges are not a valid deployability escape — flagged rollouts must be expressed as explicit follow-up increments with their own scenarios.
+
+```yaml
+FUNCTION check_increment_deployability(elements):
+  plan = elements.increment_plan
+  IF plan IS NULL: RETURN   # handled by Check 0c
+
+  increments = elements.increments   # [{id, status, scope, scenarios_covered, contract_surface, depends_on, deployable, acceptance_checklist}]
+
+  IF increments IS EMPTY:
+    YIELD { check: "increment_deployability", severity: CRITICAL,
+            source: "increment_plan.md § 1",
+            gap: "Increment Plan has zero increments declared",
+            remediation: "BLUEPRINT --refine {FEATURE_ID} — at least one INC-1 section required" }
+    RETURN
+
+  # Per-increment field validation
+  FOR EACH inc IN increments:
+    IF inc.deployable != "production":
+      YIELD { check: "increment_deployability", severity: CRITICAL,
+              source: "{inc.id}.deployable = '{inc.deployable}'",
+              gap: "Increment declares deployable != production (found: '{inc.deployable}')",
+              remediation: "Strict policy: every increment must ship serving real traffic. For flagged rollouts, express the flag as a NEW follow-up increment with its own scenarios instead." }
+
+    IF inc.acceptance_checklist IS EMPTY:
+      YIELD { check: "increment_deployability", severity: CRITICAL,
+              source: "{inc.id}.acceptance",
+              gap: "Increment has no acceptance checklist items",
+              remediation: "Populate the acceptance block per the template (E2E / API / Reliability / CVP / no-TODO)" }
+
+    IF inc.scenarios_covered IS EMPTY AND inc.contract_surface IS EMPTY:
+      YIELD { check: "increment_deployability", severity: CRITICAL,
+              source: "{inc.id}",
+              gap: "Increment has neither scenarios nor contract ops — nothing to deploy",
+              remediation: "Either populate scenarios_covered + contract_surface, or remove this increment" }
+
+  # DAG acyclicity (Kahn's algorithm)
+  inc_ids = { inc.id FOR inc IN increments }
+  FOR EACH inc IN increments:
+    FOR EACH dep IN inc.depends_on:
+      IF dep NOT IN inc_ids:
+        YIELD { check: "increment_deployability", severity: CRITICAL,
+                source: "{inc.id}.depends_on",
+                gap: "Depends on non-existent increment '{dep}'",
+                remediation: "Fix dangling reference or add the missing increment" }
+
+  cycle = DETECT_CYCLE_BY_TOPOLOGICAL_SORT(increments, edge=depends_on)
+  IF cycle IS NOT NULL:
+    YIELD { check: "increment_deployability", severity: CRITICAL,
+            source: "increment_plan.md § 2 Dependency Graph",
+            gap: "Cyclic dependency detected: {cycle.path}",
+            remediation: "Break the cycle by removing at least one depends_on edge, or merge the cyclic increments into a single increment" }
+
+  # INC-1 must have no dependencies (root)
+  root_candidates = FILTER(increments, depends_on IS EMPTY)
+  IF root_candidates IS EMPTY:
+    YIELD { check: "increment_deployability", severity: CRITICAL,
+            source: "increment_plan.md § 1",
+            gap: "No root increment (every increment has depends_on — implies a cycle or orphaned subtree)",
+            remediation: "Mark the first increment with depends_on: []" }
+
+  IF all_checks_passed:
+    YIELD { check: "increment_deployability", severity: PASS,
+            source: "increment_plan.md",
+            target: "{increments.length} increments, all deployable:production, DAG acyclic, {root_candidates.length} root(s)" }
+```
+
+### Check 14: `increment_to_scenario_coverage` (CRITICAL)
+
+Every `Scenario:` declared in `spec.feature` must appear in exactly one increment's `scenarios_covered` list. No scenario orphan (undeployed), no scenario duplicated across two increments (ambiguous ownership).
+
+```yaml
+FUNCTION check_increment_to_scenario_coverage(elements):
+  plan = elements.increment_plan
+  IF plan IS NULL: RETURN
+
+  spec_scenarios = { s.name FOR s IN elements.spec_scenarios }   # canonical set from spec.feature
+  increments = elements.increments
+
+  # Build reverse map: scenario_name → [inc_ids that cover it]
+  coverage_map = {}
+  FOR EACH inc IN increments:
+    FOR EACH scenario_name IN inc.scenarios_covered:
+      coverage_map.setdefault(scenario_name, []).append(inc.id)
+
+  # Orphans: in spec but not in any increment
+  orphans = spec_scenarios - coverage_map.keys()
+  FOR EACH orphan IN orphans:
+    YIELD { check: "increment_to_scenario_coverage", severity: CRITICAL,
+            source: "spec.feature: Scenario '{orphan}'",
+            gap: "Scenario not assigned to any increment",
+            remediation: "BLUEPRINT --refine {FEATURE_ID} — assign '{orphan}' to an existing increment or add a new increment for it" }
+
+  # Duplicates: in multiple increments
+  FOR EACH (scenario, inc_ids) IN coverage_map:
+    IF inc_ids.length > 1:
+      YIELD { check: "increment_to_scenario_coverage", severity: CRITICAL,
+              source: "Scenario '{scenario}'",
+              gap: "Covered by multiple increments: {inc_ids}",
+              remediation: "Each scenario must have exactly one owning increment. Remove duplicates from all but one." }
+
+  # Phantoms: in increment but not in spec.feature
+  phantoms = coverage_map.keys() - spec_scenarios
+  FOR EACH phantom IN phantoms:
+    YIELD { check: "increment_to_scenario_coverage", severity: CRITICAL,
+            source: "increment_plan.md: scenarios_covered references '{phantom}'",
+            gap: "Referenced scenario does not exist in spec.feature",
+            remediation: "Fix typo, or remove the phantom reference, or add the scenario to spec.feature" }
+
+  IF orphans IS EMPTY AND all_counts_are_1 AND phantoms IS EMPTY:
+    YIELD { check: "increment_to_scenario_coverage", severity: PASS,
+            source: "spec.feature × increment_plan.md",
+            target: "{spec_scenarios.length} scenarios, each covered by exactly one increment" }
+```
+
+### Check 15: `increment_to_contract_coverage` (CRITICAL)
+
+Every contract operation (OpenAPI operationId, GraphQL root field, gRPC RPC, AsyncAPI message) produced by BLUEPRINT must appear in exactly one increment's `contract_surface`.
+
+```yaml
+FUNCTION check_increment_to_contract_coverage(elements):
+  plan = elements.increment_plan
+  IF plan IS NULL: RETURN
+
+  # Extract canonical contract operations from contracts/**
+  contract_ops = { op.canonical_id FOR op IN elements.contract_endpoints }   # method+path for REST, type.field for GraphQL, service.rpc for gRPC, channel.message for AsyncAPI
+
+  IF contract_ops IS EMPTY:
+    YIELD { check: "increment_to_contract_coverage", severity: PASS,
+            source: "contracts/**",
+            target: "no contract operations — check vacuously satisfied" }
+    RETURN
+
+  increments = elements.increments
+
+  coverage_map = {}
+  FOR EACH inc IN increments:
+    FOR EACH op IN inc.contract_surface:
+      coverage_map.setdefault(op, []).append(inc.id)
+
+  orphans = contract_ops - coverage_map.keys()
+  FOR EACH orphan IN orphans:
+    YIELD { check: "increment_to_contract_coverage", severity: CRITICAL,
+            source: "contracts/**: '{orphan}'",
+            gap: "Contract operation not assigned to any increment",
+            remediation: "BLUEPRINT --refine {FEATURE_ID} — assign '{orphan}' to an existing increment or add a new increment for it" }
+
+  FOR EACH (op, inc_ids) IN coverage_map:
+    IF inc_ids.length > 1:
+      YIELD { check: "increment_to_contract_coverage", severity: CRITICAL,
+              source: "Contract op '{op}'",
+              gap: "Covered by multiple increments: {inc_ids}",
+              remediation: "Each contract op must have exactly one owning increment" }
+
+  phantoms = coverage_map.keys() - contract_ops
+  FOR EACH phantom IN phantoms:
+    YIELD { check: "increment_to_contract_coverage", severity: CRITICAL,
+            source: "increment_plan.md: contract_surface references '{phantom}'",
+            gap: "Referenced contract op does not exist in contracts/**",
+            remediation: "Fix typo or remove the phantom reference" }
+
+  IF orphans IS EMPTY AND all_counts_are_1 AND phantoms IS EMPTY:
+    YIELD { check: "increment_to_contract_coverage", severity: PASS,
+            source: "contracts/** × increment_plan.md",
+            target: "{contract_ops.length} contract operations, each covered by exactly one increment" }
+```
+
+### Check 16: `monolithic_heuristic` (CRITICAL when `slicing_strategy == monolithic`)
+
+When the Increment Plan declares `slicing_strategy: monolithic`, § 3 Monolithic Escape Declaration must be present AND the trivial-heuristic must actually be satisfied (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack). Monolithic escape with heuristic violation is governance drift — the feature should be re-sliced.
+
+```yaml
+FUNCTION check_monolithic_heuristic(elements):
+  plan = elements.increment_plan
+  IF plan IS NULL: RETURN
+  IF plan.frontmatter.slicing_strategy != "monolithic":
+    YIELD { check: "monolithic_heuristic", severity: PASS, note: "slicing_strategy=incremental — check not applicable" }
+    RETURN
+
+  # Must have § 3 Monolithic Escape Declaration
+  IF plan.section_3_monolithic_escape IS NULL:
+    YIELD { check: "monolithic_heuristic", severity: CRITICAL,
+            source: "increment_plan.md § 3",
+            gap: "slicing_strategy=monolithic but § 3 Monolithic Escape Declaration is missing",
+            remediation: "BLUEPRINT --refine {FEATURE_ID} — populate § 3 with the satisfied heuristic metrics" }
+    RETURN
+
+  # Verify heuristic metrics
+  scenarios_count = elements.spec_scenarios.length
+  ops_count = elements.contract_endpoints.length
+  scope = elements.spec_feature.frontmatter.scope
+
+  IF scenarios_count > 2:
+    YIELD { check: "monolithic_heuristic", severity: CRITICAL,
+            source: "spec.feature",
+            gap: "Monolithic escape claimed but spec.feature has {scenarios_count} scenarios (>2 threshold)",
+            remediation: "Switch spec.feature.slicing_strategy to 'incremental' and re-run BLUEPRINT --refine to emit a sliced Increment Plan" }
+
+  IF ops_count > 3:
+    YIELD { check: "monolithic_heuristic", severity: CRITICAL,
+            source: "contracts/**",
+            gap: "Monolithic escape claimed but feature has {ops_count} contract operations (>3 threshold)",
+            remediation: "Switch to incremental slicing — the feature is above the trivial-heuristic threshold" }
+
+  IF scope == "full-stack":
+    YIELD { check: "monolithic_heuristic", severity: CRITICAL,
+            source: "spec.feature.scope",
+            gap: "Monolithic escape is forbidden for full-stack features regardless of size",
+            remediation: "Switch to incremental slicing" }
+
+  IF all_checks_passed:
+    YIELD { check: "monolithic_heuristic", severity: PASS,
+            source: "increment_plan.md § 3",
+            target: "heuristic satisfied: {scenarios_count} scenarios, {ops_count} ops, scope={scope}" }
+```
+
+### Check 17: `increment_to_task` (WARNING — IMPLEMENT scope)
+
+When `slicing_strategy == incremental`, every increment should have at least one `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` task in `dev_plan.md`. An increment with zero tasks is either scaffolding debt (IMPLEMENT `--plan` not yet run) or a stale plan entry.
+
+```yaml
+FUNCTION check_increment_to_task(elements):
+  IF elements.increment_plan IS NULL: RETURN
+  IF elements.increment_plan.frontmatter.slicing_strategy != "incremental": RETURN
+  IF elements.dev_plan_tasks IS NULL: RETURN   # IMPLEMENT --plan not yet run
+
+  increments = elements.increments
+  tasks_by_inc = {}
+  FOR EACH task IN elements.dev_plan_tasks:
+    # Task id format: [INC-N.A.M] / [INC-N.B.M] / [INC-N.C.M]
+    inc_id = EXTRACT_INCREMENT_PREFIX(task.id)
+    IF inc_id IS NOT NULL:
+      tasks_by_inc.setdefault(inc_id, []).append(task)
+
+  FOR EACH inc IN increments:
+    task_count = tasks_by_inc.get(inc.id, []).length
+    IF task_count == 0:
+      YIELD { check: "increment_to_task", severity: WARNING,
+              source: "{inc.id}",
+              gap: "Increment has zero tasks in dev_plan.md",
+              remediation: "Run IMPLEMENT --plan {FEATURE_ID} to generate layer tasks for this increment, or mark the increment INVALIDATED if obsolete" }
+    ELSE:
+      YIELD { check: "increment_to_task", severity: PASS,
+              source: inc.id, target: "{task_count} task(s)" }
+```
+
 ---
 
 ## ELEMENT EXTRACTION
@@ -613,10 +922,33 @@ FUNCTION extract_traceable_elements(artifacts, scope):
   elements.test_plan_cases = PARSE_TEST_CASES(artifacts.test_plan)
   # Each: {id, scenario_ref, type, description, priority}
 
+  # From increment_plan.md (may be NULL on pre-slicing legacy features)
+  IF artifacts.increment_plan IS NOT NULL:
+    elements.increment_plan = artifacts.increment_plan   # keep the raw artefact for frontmatter-level checks
+    elements.increments = PARSE_INCREMENTS(artifacts.increment_plan)
+    # Each increment: {
+    #   id,                     # e.g. "INC-1", "INC-2"
+    #   status,                 # DRAFT | READY | BUILDING | MERGED | INVALIDATED
+    #   scope_description,      # free-text "- **Scope:**" line
+    #   scenarios_covered,      # list of scenario names referenced (must match spec.feature)
+    #   contract_surface,       # list of canonical contract op ids
+    #   depends_on,             # list of other increment IDs
+    #   deployable,             # must be "production" under strict policy
+    #   functional_definition,  # free-text "- **Functional definition:**"
+    #   acceptance_checklist,   # list of {checked: bool, description: str}
+    #   branch,                 # "feature/{FEATURE_ID}-inc-N-{slug}"
+    #   merged_at,              # ISO timestamp or null — set by merge hook
+    #   layer_tasks             # list of [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] task ids declared here (mirror of dev_plan tags)
+    # }
+  ELSE:
+    elements.increment_plan = NULL
+    elements.increments = []
+
   # IMPLEMENT scope additions
   IF scope IN [CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN]:
     elements.dev_plan_tasks = PARSE_DEV_PLAN_TASKS(artifacts.dev_plan)
     # Each: {id, description, phase, checkbox_status, dependencies}
+    # For incremental slicing, id prefix encodes ownership: "[INC-{N}.{layer}.{M}]" where layer ∈ {A,B,C}
 
   # QA scope additions
   IF scope == FULL_CHAIN AND artifacts.qa_report IS NOT NULL:

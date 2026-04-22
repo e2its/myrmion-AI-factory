@@ -61,6 +61,7 @@ rdr_ratified_at: null               # ISO timestamp of user ratification
 
 ### INC-1 — {{increment-title}}
 
+- **Status:** DRAFT   *(DRAFT | READY | BUILDING | MERGED | INVALIDATED — governs immutability, see `immutability_policy.md § Per-Increment Immutability`)*
 - **Scope:** {{one-line user-observable capability delivered by this increment}}
 - **Scenarios covered:** `spec.feature` → [{{Scenario name 1}}, {{Scenario name 2}}]
 - **Contract surface:** [{{POST /api/v1/foo}}, {{GET /api/v1/bar/:id}}] (or GraphQL fields / AsyncAPI topics / gRPC RPCs)
@@ -74,6 +75,7 @@ rdr_ratified_at: null               # ISO timestamp of user ratification
   - [ ] CVP `increment_deployability` gate PASS
   - [ ] No TODO markers left in increment's code paths
 - **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see Factory-branching-strategy)
+- **Merged at:** null   *(ISO timestamp; set by the merge hook when the increment PR lands on main; trigger for status transition READY/BUILDING → MERGED)*
 - **Layer tasks (filled by IMPLEMENT `--plan`):**
   - [A.1] …   *(backend / domain)*
   - [B.1] …   *(frontend)*
@@ -81,6 +83,7 @@ rdr_ratified_at: null               # ISO timestamp of user ratification
 
 ### INC-2 — {{increment-title}}
 
+- **Status:** DRAFT
 - **Scope:** …
 - **Scenarios covered:** …
 - **Contract surface:** …
@@ -89,6 +92,7 @@ rdr_ratified_at: null               # ISO timestamp of user ratification
 - **Functional definition:** "After merging INC-2 (on top of INC-1), the user can additionally {{next capability}}."
 - **Acceptance:** (same checklist as INC-1)
 - **Branch convention:** `feature/{{FEATURE_ID}}-inc-2-{{slug}}`
+- **Merged at:** null
 - **Layer tasks:** …
 
 ### INC-N …
@@ -134,12 +138,27 @@ graph TD
 | `rdr_alternatives_considered` | int | BLUEPRINT RDR | ≥ 3 per Factory-rdr |
 | `rdr_ratified_at` | iso | BLUEPRINT RDR | Set when user ratifies choice |
 
+## Per-Increment Status Lifecycle
+
+Each `### INC-N` section carries its own `**Status:**` field, transitioned by the pipeline and read by `immutability_policy.md` to scope locks at increment granularity:
+
+| Status | Transition trigger | Modifiable via `BLUEPRINT --refine` / `IMPLEMENT --refine` |
+|---|---|---|
+| `DRAFT` | Initial (on `BLUEPRINT --start`) | YES — scope, scenarios, contract surface, depends_on all editable |
+| `READY` | `BLUEPRINT --approve` emits APPROVED increment_plan.md | YES — layer tasks editable; scope/scenarios/contracts FROZEN |
+| `BUILDING` | `IMPLEMENT --plan` opens the increment branch | NO — complete or `--pause` first |
+| `MERGED` | PR lands on `main` (merge hook updates `Merged at:`) | NO — requires `CODESIGN --revise` (new feature version) or a new follow-up increment |
+| `INVALIDATED` | Iteration cascade (`CASCADE_INCREMENT_INTERNAL`) | YES — after resync; cleared when back to DRAFT/READY |
+
+New increments MAY be appended to `increment_plan.md` after earlier increments reach `MERGED`, as long as the Iteration Model classifies the change as DELTA (additive, non-breaking). This is the mechanism for "follow-up increments" — e.g., retrofitting a flag-guarded rollout as its own increment without versioning the feature.
+
 ## Invariants Enforced by CVP
 
 1. **increment_deployability** (CRITICAL) — every increment has non-empty scenarios, `deployable: production`, acceptance checklist complete, DAG acyclic.
 2. **increment_to_scenario_coverage** (CRITICAL) — every scenario in `spec.feature` appears in exactly one increment; no orphan, no duplicate.
 3. **increment_to_contract_coverage** (CRITICAL) — every contract operation in `contracts/**` appears in exactly one increment.
 4. **monolithic_heuristic** (CRITICAL when `slicing_strategy == monolithic`) — § 3 declaration present AND heuristic actually satisfied (≤2 scenarios AND ≤3 endpoints AND scope ≠ full-stack).
+5. **increment_status_monotonic** (CRITICAL) — status transitions follow the lifecycle above; no regression (e.g., `MERGED → BUILDING` is BLOCKED).
 
 ## Consumption Contract (IMPLEMENT `--plan`)
 

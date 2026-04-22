@@ -28,8 +28,8 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 | SDLC Phase | Lock Trigger | Immutable Artifact | Blocked Commands | Allowed Command |
 |------------|--------------|--------------------|-----------------|-----------------|
 | **CODESIGN Approved** | `/CODESIGN --start` / `--refine` (auto-approval) | `spec.feature` | `/CODESIGN --reset` (with downstream), `/CODESIGN --refine` (if downstream APPROVED) | `/CODESIGN --revise` |
-| **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` | `/CODESIGN --reset`, `/CODESIGN --refine`, `/BLUEPRINT --refine` | `/CODESIGN --revise` |
-| **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` | `/CODESIGN --revise` or `/BLUEPRINT --refine` |
+| **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --reset`, `/CODESIGN --refine`, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --revise` |
+| **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` (except per-increment allowance) | `/CODESIGN --revise` or `/BLUEPRINT --refine` (scoped to editable increments) |
 | **IMPLEMENT Approved** | `/IMPLEMENT --build` (all 3 hats pass) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) or `/IMPLEMENT --override` (emergencies) |
 | **QA Verify+DAST Approved** | `/QA --verify` (post-staging auto-approval, includes DAST 🛡️ SEC hat) | Entire chain | All previous + `/IMPLEMENT --override` | Only `/CODESIGN --revise` (creates new feature) |
 | **Merged to main** | Git merge | **FULLY IMMUTABLE** | All commands except hotfix | `/IMPLEMENT --fix` (emergencies) |
@@ -53,9 +53,47 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
   - `spec.feature` → **BLOCKED** for PO (no more `--reset`, no more `--refine`)
   - `test_plan.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
   - `design.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
-- **Versioning:** **MANDATORY** for any change
+  - `increment_plan.md` → **PARTIALLY BLOCKED** — plan-level frontmatter and § 0 Slicing Rationale frozen; § 1 per-increment sections follow Per-Increment Immutability below
+- **Versioning:** **MANDATORY** for any change (except per-increment allowances)
 - **Command:** `/CODESIGN --revise USR-001 "Reason for change"`
 - **Note:** QA verification happens AFTER implementation (Phase 4), not at this phase.
+
+##### Per-Increment Immutability (`slicing_strategy: incremental`)
+
+`increment_plan.md` § 1 is addressable per-increment. Each `### INC-N` section carries a `**Status:**` field (`DRAFT | READY | BUILDING | MERGED | INVALIDATED`) that scopes the lock below the plan level. This lets the pipeline mutate still-DRAFT increments without re-versioning the feature while preserving audit integrity for increments already in production.
+
+**Per-Increment Lock Table:**
+
+| Increment Status | Transition trigger | Fields editable via `BLUEPRINT --refine` | Fields editable via `IMPLEMENT --refine` | Resulting version bump |
+|---|---|---|---|---|
+| `DRAFT` | Initial (emitted by `BLUEPRINT --start`) | scope, scenarios_covered, contract_surface, depends_on, deployable, functional_definition, acceptance checklist | N/A (IMPLEMENT has not started) | None |
+| `READY` | `BLUEPRINT --approve` sets increment_plan.md `status: APPROVED`; no per-increment branch yet | scope/scenarios/contract_surface/depends_on FROZEN. Acceptance checklist may be refined. | Layer tasks `[INC-N.A.M]`, `[INC-N.B.M]`, `[INC-N.C.M]` editable (task decomposition) | None |
+| `BUILDING` | `IMPLEMENT --plan` opens the increment branch `feature/{ID}-inc-N-{slug}` (first task checked) | **BLOCKED** — use `IMPLEMENT --pause INC-N` or complete | **BLOCKED** — same | None (must pause) |
+| `MERGED` | Increment PR merged to `main` (git merge hook updates `Merged at:` timestamp) | **BLOCKED** — increment is in production. Changes require `CODESIGN --revise` (new feature version) OR a new follow-up increment (see below). | **BLOCKED** — same | MANDATORY if change alters scope of merged increment |
+| `INVALIDATED` | Iteration cascade `CASCADE_INCREMENT_INTERNAL` set by upstream `--refine` (only valid on increments in `DRAFT` or `READY` at cascade time; MERGED increments are NEVER invalidated — they cascade to a new follow-up increment instead) | Full resync — scope/scenarios/contracts/tasks all editable until status returns to DRAFT/READY | Same | Delta iteration bump (spec.feature.iteration + increment_plan.based_on_iteration) |
+
+**Follow-up Increment Rule (additive, non-breaking):**
+
+After one or more increments reach `MERGED`, a NEW increment MAY be appended to `increment_plan.md § 1` without bumping the feature version when all of the following hold:
+- New increment is additive: its scenarios_covered and contract_surface do NOT overlap with any merged increment's coverage.
+- New increment's `depends_on` references only existing increments (no cycles).
+- Iteration Model classifies the change as DELTA (see `Factory-iteration-model/SKILL.md`).
+- CVP `increment_deployability` + `increment_to_scenario_coverage` + `increment_to_contract_coverage` PASS under the updated plan.
+
+Common case: retrofitting a flag-guarded rollout as an explicit new increment, rather than pretending the original increment was only "partially deployable".
+
+**Enforcement invariant — status monotonicity:**
+
+Transitions go `DRAFT → READY → BUILDING → MERGED`, with `→ INVALIDATED` permitted from DRAFT/READY only. Regression transitions (`MERGED → BUILDING`, `BUILDING → DRAFT`, etc.) are BLOCKED. Any attempt to edit a status field in violation raises `ImmutabilityViolationError`.
+
+**Enforcement invariant — scope exclusivity on append:**
+
+When `BLUEPRINT --refine` appends a new `### INC-N+1` to a plan with at least one MERGED increment, the refiner MUST validate that no scenario or contract operation from a merged increment is re-assigned. CVP `increment_to_scenario_coverage` + `increment_to_contract_coverage` enforce this automatically at `--approve`.
+
+**Slicing-Strategy Flip:**
+
+- `incremental → monolithic` is permitted ONLY when no increment has reached `BUILDING` (all still `DRAFT`/`READY`) AND the trivial-heuristic passes (`≤2 scenarios AND ≤3 contract ops AND scope ≠ full-stack`). Requires `BLUEPRINT --refine`; no version bump.
+- `monolithic → incremental` is permitted ONLY when no increment has reached `BUILDING`. Requires re-running the Increment Slicing RDR. If the monolithic INC-1 already merged, a version bump (`USR-001 → USR-001-v2`) is MANDATORY — the original monolithic form is preserved as v1's audit record.
 
 #### Phase 3: IMPLEMENT APPROVED (Hard Lock - Code Implemented + Reviewed + SAST)
 - **Trigger:** `/IMPLEMENT --build USR-001` completes all phases (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC per phase)
@@ -502,6 +540,60 @@ def check_immutability(agent, command, feature_id):
                     f"Use `/{agent} --revise {feature_id} 'reason'` to create new version."
                 )
     
+    return True
+
+
+def check_increment_immutability(agent, command, feature_id, target_increment_ids):
+    """
+    Per-Increment lock — applies when agent/command targets specific increments
+    inside increment_plan.md. Runs AFTER check_immutability() has accepted the
+    artifact-level operation (increment_plan.md is in APPROVED status).
+
+    target_increment_ids: list of increment IDs the command intends to mutate
+    (e.g., ["INC-2"] for a --refine scoped to a single increment, or the full
+    list of modified increments for a multi-touch --refine).
+    """
+    plan_path = f"docs/spec/{feature_id}/increment_plan.md"
+    if not os.path.exists(plan_path):
+        return True  # No plan → nothing to enforce
+
+    increments = parse_section_1_increments(plan_path)   # yields {id, status, merged_at, ...}
+    by_id = {inc["id"]: inc for inc in increments}
+
+    for inc_id in target_increment_ids:
+        inc = by_id.get(inc_id)
+        if inc is None:
+            raise BlockedError(f"Increment {inc_id} not found in {plan_path}")
+
+        status = inc["status"]
+
+        if status == "MERGED":
+            raise BlockedError(
+                f"Increment {inc_id} is MERGED (production). "
+                f"Options: (a) `CODESIGN --revise {feature_id}` to create a new feature version, "
+                f"(b) append a NEW follow-up increment via `BLUEPRINT --refine {feature_id}` "
+                f"— additive-only, non-overlapping scenarios/contracts, see Follow-up Increment Rule."
+            )
+
+        if status == "BUILDING":
+            raise BlockedError(
+                f"Increment {inc_id} is BUILDING (branch open, tasks in progress). "
+                f"Complete the increment or run `IMPLEMENT --pause {feature_id} {inc_id}` first."
+            )
+
+        # DRAFT / READY / INVALIDATED → allowed (subject to field-level rules in the
+        # Per-Increment Lock Table — e.g., READY freezes scope/scenarios/contracts
+        # while permitting layer-task edits).
+        enforce_field_level_rules(inc, command, status)
+
+    # Status-transition monotonicity (if command carries a status delta)
+    for inc_id, (before, after) in status_transitions(command).items():
+        if not is_valid_transition(before, after):
+            raise BlockedError(
+                f"Invalid status transition for {inc_id}: {before} → {after}. "
+                f"Allowed: DRAFT → READY → BUILDING → MERGED; {{DRAFT,READY}} → INVALIDATED → DRAFT."
+            )
+
     return True
 ```
 

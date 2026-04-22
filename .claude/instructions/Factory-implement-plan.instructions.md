@@ -210,6 +210,40 @@ IF dev_plan.md EXISTS:
       SKIP: Proceed without sync (⚠️ traceability gap)
 ```
 
+### Increment Plan Gate (BLOCKING)
+
+IMPLEMENT `--plan` consumes `increment_plan.md` as a functional input — it is not merely validated by CVP, it drives the entire plan structure (one section per increment when `slicing_strategy == incremental`). Missing or non-APPROVED plan → BLOCK; per-increment statuses gate which increments are eligible to be planned in this run.
+
+```yaml
+READ spec_slicing = spec.feature.frontmatter.slicing_strategy OR "incremental"
+READ increment_plan_path = "docs/spec/{FEATURE_ID}/increment_plan.md"
+
+IF NOT FILE_EXISTS(increment_plan_path):
+  ❌ BLOCK: "increment_plan.md missing. Run BLUEPRINT --start {FEATURE_ID} (or --refine if design.md is APPROVED)."
+
+READ increment_plan.md → frontmatter (fm_plan) + § 1 increments (list of INC-N with status, scenarios_covered, contract_surface, depends_on, deployable)
+
+IF fm_plan.status != "APPROVED":
+  ❌ BLOCK: "increment_plan.md status='{fm_plan.status}' — BLUEPRINT --approve must complete first."
+
+IF fm_plan.slicing_strategy != spec_slicing:
+  ❌ BLOCK: "slicing_strategy drift: spec.feature says '{spec_slicing}', increment_plan says '{fm_plan.slicing_strategy}'. Re-run BLUEPRINT --refine."
+
+# Determine which increments this --plan run will expand into dev_plan.md tasks
+IF fm_plan.slicing_strategy == "monolithic":
+  target_increments = increments   # single INC-1; preserve backward-compat task tags [A.M]/[B.M]/[C.M]
+ELSE:
+  # Incremental — only increments in DRAFT, READY, or INVALIDATED are eligible for planning
+  # BUILDING → already in progress on a branch; skip (use --refine instead)
+  # MERGED   → locked (see immutability_policy § Per-Increment Immutability)
+  eligible = FILTER(increments, status IN ["DRAFT", "READY", "INVALIDATED"])
+  blocked_by_status = FILTER(increments, status IN ["BUILDING", "MERGED"])
+  IF eligible IS EMPTY:
+    ❌ BLOCK: "No eligible increments to plan. {blocked_by_status.length} are BUILDING/MERGED."
+  target_increments = TOPOLOGICAL_SORT(eligible, edge=depends_on)   # respects DAG
+  LOG: "IMPLEMENT --plan will expand {target_increments.length} increment(s): {[i.id for i in target_increments]}"
+```
+
 ### Defect Prevention Consultation (v2.0.0 — EVOL-014)
 
 ```yaml
@@ -452,6 +486,55 @@ FOR EACH path IN target_file_paths:
 ```
 
 ## Plan Generation (Phase Structure)
+
+### Strategy Branch: Monolithic vs Incremental
+
+Plan generation forks on `fm_plan.slicing_strategy`:
+
+**Monolithic (`slicing_strategy: monolithic`):** single implicit increment INC-1 covers the entire feature. Tasks retain the legacy flat tagging `[A.M]`, `[B.M]`, `[C.M]`. dev_plan.md has one `## Phase A`, one `## Phase B`, one `## Phase C` section. Completion gate trips when ALL Phase-A/B/C checkboxes are `[x]`.
+
+**Incremental (`slicing_strategy: incremental`):** dev_plan.md has one `## Increment INC-N: {title}` section per increment in `target_increments` (ordered topologically by `depends_on`). Each increment section contains Phase A / Phase B / Phase C sub-sections inheriting the task shapes below, but with tags nested as `[INC-N.A.M]`, `[INC-N.B.M]`, `[INC-N.C.M]`. Completion gate is **per-increment** (see `### Per-Increment Completion Gate` below); the plan-level `status: IMPLEMENTED_AND_VERIFIED` is set only when EVERY target increment's gate passes.
+
+```yaml
+FUNCTION generate_dev_plan_body(target_increments, fm_plan):
+  IF fm_plan.slicing_strategy == "monolithic":
+    WRITE "## Phase A: Backend / Core Logic" + EXPAND_PHASE_A_TASKS(full_feature_scope)
+    WRITE "## Phase B: Frontend / UI"         + EXPAND_PHASE_B_TASKS(full_feature_scope) IF frontend.framework != "None"
+    WRITE "## Phase C: Wiring / Integration"  + EXPAND_PHASE_C_TASKS(full_feature_scope)
+    RETURN
+
+  # Incremental — one section per increment, topologically ordered
+  FOR EACH inc IN target_increments:
+    WRITE "## Increment {inc.id}: {inc.title}"
+    WRITE "> **Status:** {inc.status}"
+    WRITE "> **Depends on:** {inc.depends_on}"
+    WRITE "> **Branch:** feature/{FEATURE_ID}-inc-{N}-{slug}"
+    WRITE "> **Deployable target:** production (acceptance from increment_plan.md § 1)"
+    WRITE ""
+    # Restrict task generation to THIS increment's scenario & contract scope
+    inc_scope = {
+      scenarios: inc.scenarios_covered,
+      contract_ops: inc.contract_surface
+    }
+    WRITE "### Phase A: Backend / Core Logic" + EXPAND_PHASE_A_TASKS(inc_scope, tag_prefix="INC-{N}.A")
+    WRITE "### Phase B: Frontend / UI"         + EXPAND_PHASE_B_TASKS(inc_scope, tag_prefix="INC-{N}.B") IF frontend.framework != "None"
+    WRITE "### Phase C: Wiring / Integration"  + EXPAND_PHASE_C_TASKS(inc_scope, tag_prefix="INC-{N}.C")
+    WRITE "### Increment {inc.id} Acceptance Gate"
+    FOR EACH item IN inc.acceptance_checklist:
+      WRITE "- [ ] [INC-{N}.ACC.{k}] {item.description}"
+```
+
+The task templates in Phase A / Phase B / Phase C below are authored as if for monolithic plans (no `INC-N` prefix shown). Under incremental generation, apply `tag_prefix` replacement: every `[A.M]` becomes `[INC-N.A.M]`, every `[B.M]` becomes `[INC-N.B.M]`, every `[C.M]` becomes `[INC-N.C.M]`. All reference paths (`design.md`, `contracts/**`, `test_plan.md`) stay identical — only the scoping filter changes which scenarios / ops each increment expands.
+
+### Per-Increment Completion Gate (`slicing_strategy: incremental`)
+
+Each increment closes independently. When all `[INC-N.*]` checkboxes inside Increment N's section are `[x]` AND the `[INC-N.ACC.*]` items are `[x]`:
+
+1. UPDATE `increment_plan.md` § 1 INC-N frontmatter: `status: READY → BUILDING` at branch open; `BUILDING → MERGED` is set by the git merge hook (not by IMPLEMENT --plan).
+2. UPDATE `dev_plan.md` frontmatter `increments[]` array: `{id: "INC-N", status: "IMPLEMENTED_AND_VERIFIED"}`.
+3. Plan-level `status` transitions to `IMPLEMENTED_AND_VERIFIED` ONLY when every target increment is `IMPLEMENTED_AND_VERIFIED` AND every follow-up increment added later (if any) also closes.
+
+Increment branches (`feature/{FEATURE_ID}-inc-N-{slug}`) are opened by Factory-branching-strategy; one PR per increment. Branch open is the trigger that flips the increment's `status` from `READY → BUILDING`. See `.claude/skills/Factory-branching-strategy/SKILL.md`.
 
 ### Phase A: Backend / Core Logic
 ```yaml
@@ -885,21 +968,30 @@ feature_id: "{FEATURE_ID}"
 created_at: "{ISO_8601}"
 based_on_iteration: {spec.iteration}
 based_on_schemas_version: {user_journey.schemas_version}
+slicing_strategy: "{fm_plan.slicing_strategy}"   # inherited from increment_plan.md — drives plan body structure
 pending_iteration: null
 pending_schemas_version: null
 invalidated_sections: []
+invalidated_increments: []        # list of INC-N ids invalidated by CASCADE_INCREMENT_INTERNAL (incremental only)
 cascade_source: null
 review_status: null
 sec_status: null
-phases:
+phases:                           # populated when slicing_strategy == monolithic
   A: { tasks: N, estimated_complexity: "medium" }
   B: { tasks: N, estimated_complexity: "medium" }
   C: { tasks: N, estimated_complexity: "low" }
+increments:                       # populated when slicing_strategy == incremental; empty list when monolithic
+  - id: "INC-1"
+    status: "READY"               # READY | BUILDING | IMPLEMENTED_AND_VERIFIED | INVALIDATED (mirror of increment_plan.md § 1 INC-N status; READY-or-later only — DRAFT stays in increment_plan.md)
+    tasks: { A: N, B: N, C: N, ACC: N }
+  - id: "INC-2"
+    status: "READY"
+    tasks: { A: N, B: N, C: N, ACC: N }
 total_tasks: N
 ---
 ```
 
-### Task Format
+### Task Format — Monolithic (`slicing_strategy: monolithic`)
 ```markdown
 ## Phase A: Backend / Core Logic
 
@@ -913,6 +1005,47 @@ total_tasks: N
 
 [... etc]
 ```
+
+### Task Format — Incremental (`slicing_strategy: incremental`)
+```markdown
+## Increment INC-1: User can submit a claim
+> **Status:** READY
+> **Depends on:** []
+> **Branch:** feature/{FEATURE_ID}-inc-1-submit-claim
+> **Deployable target:** production (acceptance from increment_plan.md § 1)
+
+### Phase A: Backend / Core Logic
+
+- [ ] [INC-1.A.1] Contract Verification Gate
+  - Contracts: contracts/openapi/claims/v1.yaml → POST /claims
+  - CIP: {REUSE|EXTEND|CREATE_NEW annotation}
+
+- [ ] [INC-1.A.2] Database migration — claims table
+
+### Phase B: Frontend / UI
+- [ ] [INC-1.B.1] ClaimForm component
+  - Ref: design.md § UI Inventory → ClaimForm
+
+### Phase C: Wiring / Integration
+- [ ] [INC-1.C.1] E2E happy path — submit claim
+
+### Increment INC-1 Acceptance Gate
+- [ ] [INC-1.ACC.1] All assigned scenarios pass E2E
+- [ ] [INC-1.ACC.2] CVP increment_deployability PASS
+- [ ] [INC-1.ACC.3] No TODO markers in INC-1 code paths
+
+## Increment INC-2: User can edit a submitted claim
+> **Status:** READY
+> **Depends on:** [INC-1]
+> **Branch:** feature/{FEATURE_ID}-inc-2-edit-claim
+...
+```
+
+**Task Tag Regex (machine-consumable):**
+- Monolithic: `^\[([ABC])\.(\d+)\]`
+- Incremental: `^\[INC-(\d+)\.([ABC]|ACC)\.(\d+)\]`
+
+These regexes are the source of truth for CVP Check 17 (`increment_to_task`), BVL task matching, and QA coverage reporting. All downstream consumers parse task IDs via these patterns.
 
 ## Incremental Persistence (IPP-compliant — MANDATORY)
 
