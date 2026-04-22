@@ -25,6 +25,14 @@ Iterate to produce three co-created artifacts per feature. Auto-approves when 12
 - `mock.html` (pixel-perfect visual mockup)
 - `user_journey.md` (simplified Event Storming with typed Data Schemas)
 
+## Scope & Slicing
+
+Every feature declares two frontmatter fields in `spec.feature` that shape the rest of the pipeline:
+
+- `scope`: `full-stack | backend-only | frontend-only | integration`. Per-feature, defaults to `project_scope` from `docs/setup.md`. **Scope Compatibility Gate** in [Factory-codesign-feature.instructions.md](../instructions/Factory-codesign-feature.instructions.md) BLOCKS when `feature.scope` is incompatible with `project_scope` (matrix: `full-stack` project accepts all; `backend-only`/`integration` accept `backend-only`+`integration`; `frontend-only` accepts only `frontend-only`). `scope` is immutable after APPROVED — changing it requires a fresh `--start` on a new FEAT-ID. Scope drives artefact presence: `mock.html` + Global UX Vision are N/A for backend-only/integration; `user_journey.integration.md` replaces `user_journey.md` for those scopes.
+- `slicing_strategy`: `incremental | monolithic`. Default `incremental`. `monolithic` escape allowed only when the Trivial-Heuristic holds: `scenarios_count ≤ 2` AND `contract_operations ≤ 3` AND `scope ≠ full-stack`. Enforced at `/blueprint --start` (Trivial-Heuristic Gate) and `/blueprint --approve` (CVP Check 16). RDR required when ≥2 viable options exist.
+- `consumes_contract: [FEAT-XXX, ...]` (optional): cross-feature dependency declaration. Triggers Consumes-Contract Resolution Gate at `/blueprint --start` and propagates `CASCADE_PENDING_ITERATION` on upstream contract change.
+
 ## Key Principles
 - DRY: Consult `config/codebase_inventory.json` before creating new domain concepts (CIP Phase 0.5)
 - user_journey.md Data Schemas are the **source of truth** for data contracts — downstream agents formalize but do NOT invent business fields

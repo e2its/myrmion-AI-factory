@@ -120,6 +120,15 @@ Enum: `full-stack | backend-only | frontend-only | integration`. `integration` i
 
 **Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is replaced by `user_journey.integration.md` (reliability contract + caller-side actors + idempotency keys). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks 6 of 12 CHECKs as N/A.
 
+### Framework Editor Invariants (lock-step)
+
+Only relevant if editing the framework repo itself. The enum, matrix, and artefact impact above are load-bearing — breaking any of them requires synchronized edits and a MAJOR bump. Source-of-truth files:
+
+- **Enum literal values** (`full-stack | backend-only | frontend-only | integration`) → `setup_master_template.md § 0.1`, `spec.feature` / `design.md` / `user_journey.integration.md` frontmatter schemas. Keep `integration` as semantic alias of `backend-only` for compatibility checks.
+- **Compatibility matrix logic** → `Factory-codesign-feature.instructions.md § Scope Compatibility Gate`.
+- **`consumes_contract` primitive** → `Factory-blueprint-design.instructions.md § Consumes-Contract Resolution Gate` + `Factory-iteration-model.SKILL.md` cascade on upstream contract change.
+- **Axis separation invariant.** Never conflate `project_scope` and `feature.scope` in agent code — the compatibility matrix exists specifically to cross-check them.
+
 ## Incremental Dev Plan (Vertical Slicing)
 
 Every feature ships as a chain of **vertical increments**. One PR per increment. Each increment, merged in isolation, leaves the product 100% functional and production-deployable. No feature-flag-OFF escape. This binds the whole pipeline — from spec to branching to iteration — so large features decompose into reviewable, rollback-safe units without losing traceability.
@@ -137,6 +146,20 @@ Every feature ships as a chain of **vertical increments**. One PR per increment.
 **Enforcement gates.** CVP at `BLUEPRINT --approve`: Check `0c` `increment_plan_presence`, Check `13` `increment_deployability`, Check `14` `increment_to_scenario_coverage`, Check `15` `increment_to_contract_coverage`, Check `16` `monolithic_heuristic` (all CRITICAL) + Check `17` `increment_to_task` (WARNING at IMPLEMENT scope). See `.claude/skills/Factory-coherence-validation/SKILL.md`.
 
 **Iteration cascade.** Upstream changes propagate selectively via `CASCADE_INCREMENT_INTERNAL` — only increments whose scenarios/contracts overlap with the change flip to `INVALIDATED`. MERGED increments never invalidate (they anchor production); BUILDING increments get `pending_iteration` and must `--pause` before resync.
+
+### Framework Editor Invariants (lock-step)
+
+Only relevant if editing the framework repo itself. The strategy, thresholds, lifecycle, task-tag regex, deployability, cascade scope, and CVP catalogue above are load-bearing — breaking any of them requires synchronized edits and a MAJOR bump. Source-of-truth files:
+
+- **Trivial-Heuristic thresholds** (`scenarios ≤ 2` AND `contract_operations ≤ 3` AND `scope ≠ full-stack`) → (a) `architect/increment_plan_template.md § 3`, (b) `Factory-blueprint-design.instructions.md § Increment Plan Generation § Step A`, (c) `Factory-coherence-validation/SKILL.md` CVP Check 16 `monolithic_heuristic`, (d) `immutability_policy.md § Per-Increment Immutability § Slicing-Strategy Flip`.
+- **Per-increment status enum** (`DRAFT → READY → BUILDING → MERGED` + `{DRAFT,READY} → INVALIDATED → DRAFT`) → (a) `increment_plan_template.md § 1` + § Per-Increment Status Lifecycle, (b) `immutability_policy.md § Per-Increment Lock Table`, (c) `Factory-branching-strategy.SKILL.md § Per-Increment Branching`, (d) `Factory-iteration-model.SKILL.md § CASCADE_INCREMENT_INTERNAL`.
+- **Task-tag regex** (`^\[INC-(\d+)\.([ABC]|ACC)\.(\d+)\]` / `^\[([ABC])\.(\d+)\]`) → `Factory-implement-plan.instructions.md § Output`. Downstream consumers: CVP Check 17, BVL task matching, QA coverage parsing.
+- **CVP catalogue IDs** (`0a, 0c, 13-17` with severities) → `Factory-coherence-validation/SKILL.md`. Renumbering is a breaking contract.
+- **Hard invariants** (never relax without explicit user ratification):
+  - NEVER fold `increment_plan.md` into `design.md` — the sidecar separation is deliberate.
+  - NEVER allow `flagged_off` / `experimental` as deployability values — flagged rollouts go as follow-up increments.
+  - NEVER merge or reorder the cascade functions (`CASCADE_PENDING_ITERATION`, `CASCADE_SLICE_PEERS`, `CASCADE_INCREMENT_INTERNAL` stay orthogonal despite name collisions).
+  - NEVER invalidate a MERGED increment — cascade to a follow-up via the Follow-up Increment Rule.
 
 ## Generation Standards
 
@@ -177,7 +200,7 @@ Every feature ships as a chain of **vertical increments**. One PR per increment.
 **Enforced deterministically** via `.claude/settings.json` PreToolUse hook — blocks `Edit`/`Write` on protected branches before any tool call executes.
 
 BEFORE any file modification:
-1. Ensure you're on a feature branch (BLOCK if on main/master/develop/release/hotfix).
+1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`). Working patterns: `feature/{ID}-{slug}`, `fix/{slug}`, `bugfix/{slug}`, `hotfix/{slug}`, `docs/{slug}`, `chore/{slug}`.
 2. Branch naming: `{type}/{ID}-{slug}` (feature, bugfix, hotfix, docs).
 3. Create from `origin/{base_branch}`, NEVER from HEAD.
 4. All merges to protected branches via Pull Requests only.
