@@ -56,6 +56,17 @@ All under `docs/spec/{ID}/`:
 - `peer_review_{ts}.md` — REVIEW hat findings
 - `sec_audit.md` — SEC hat security analysis
 
+## Incremental Dev Plan Integration
+
+IMPLEMENT is **strategy-aware**. The entry point reads `spec.feature.slicing_strategy`:
+
+- `incremental` (default): `--plan` emits `dev_plan.md` with one `## Increment INC-N` section per entry in `increment_plan.md`. Task tags follow `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` + `[INC-N.ACC.k]` for acceptance. `--build {ID} INC-N` executes one increment at a time; branch per increment is `feature/{FEATURE_ID}-inc-N-{slug}` (one open branch per feature, concurrency lock reused). The plan-level `IMPLEMENTED_AND_VERIFIED` only fires when every target increment closes; individual increments transition through `DRAFT → READY → BUILDING → MERGED` monotonically. MERGED is terminal for that increment — further scope change goes into a Follow-up Increment.
+- `monolithic` (Trivial-Heuristic escape, rare): legacy `[A.M]` / `[B.M]` / `[C.M]` task tagging, single feature branch `feature/{FEATURE_ID}-{slug}`, one PR.
+
+**Increment Plan Gate** at `--plan`: BLOCK if `increment_plan.md` status ≠ APPROVED. `--refine` respects per-increment lifecycle — only `DRAFT` / `READY` may be invalidated by cascade; `MERGED` anchors production and cascades to a Follow-up Increment instead.
+
+Canonical protocol: [Factory-implement-plan.instructions.md](../instructions/Factory-implement-plan.instructions.md) § Increment Plan Gate / § Strategy Branch. Immutability rules: `.claude/rules/immutability_policy.instructions.md § Per-Increment Immutability`.
+
 ## Review Checks
 See `.claude/instructions/Factory-implement-review-checks.instructions.md` for the complete REVIEW + SEC checklist.
 

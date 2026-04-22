@@ -12,9 +12,10 @@ if [ -z "$branch" ]; then
   exit 0
 fi
 
-if echo "$branch" | grep -qE '^(main|master|develop|release(/.+)?|hotfix(/.+)?)$'; then
-  echo "BLOCKED: on protected branch '$branch'. Create a feature branch first:"
-  echo "  git checkout -b feature/ID-slug"
+if echo "$branch" | grep -qE '^(main|master|develop|release(/.+)?|hotfix)$'; then
+  echo "BLOCKED: on protected branch '$branch'. Create a working branch first. Allowed patterns:"
+  echo "  feature/ID-slug   fix/slug   bugfix/slug   hotfix/slug   docs/slug   chore/slug"
+  echo "Example: git checkout -b hotfix/my-fix origin/main"
   exit 1
 fi
 

@@ -59,32 +59,6 @@ Canonical classifier: [Factory-protocol-iop-intent-map.instructions.md](.claude/
 7. **Framework-shipped templates**: NEVER embed project data, secrets, or machine-specific paths inside files under `.context/templates/**`. Templates may contain `{{PLACEHOLDER}}` tokens resolved at materialisation time.
 8. **Humanized Blocking**: NEVER show raw tool errors, stack traces or CLI failure dumps when blocking a user action. Explain the block in plain business language and offer a resolution path.
 
-## Project Scope & Feature Scope Taxonomy (EVOL-019 — framework authorship view)
-
-The framework **ships** the dual-axis scope model; it does not consume it. Downstream materialised projects use the full taxonomy (see `.context/templates/setup/claude/CLAUDE.md § Project Scope & Feature Scope Taxonomy` for the authoritative table + compatibility matrix + artefact-impact description).
-
-When editing framework files that touch the scope model, keep these invariants intact:
-
-- **Enum.** `full-stack | backend-only | frontend-only | integration` — four literal values, hyphenated, lowercase. `integration` is the semantic alias of `backend-only`; downstream template selectors MAY branch on the alias, agents MUST treat them as equivalent for compatibility checks.
-- **Axis separation.** `project_scope` lives in `docs/setup.md` + governance snapshot (per-project, set at `/setup --init`). `feature.scope` lives in `spec.feature` frontmatter (per-feature, set at `/codesign --start`). Never conflate them in agent code — the compatibility matrix exists specifically to cross-check them.
-- **Compatibility matrix.** `full-stack` projects accept every feature.scope. `backend-only` and `integration` projects accept only `backend-only` and `integration` features. `frontend-only` projects accept only `frontend-only` features. The matrix is enforced by `Factory-codesign-feature.instructions.md § Scope Compatibility Gate` — changes here MUST update that gate in lock-step.
-- **Cross-feature contracts.** `spec.feature.consumes_contract: [FEAT-XXX]` is the cross-feature dependency primitive. Consuming design BLOCKS at `BLUEPRINT --start` when the upstream is not APPROVED or has no contract file. When editing Iteration Model (Phase 3 work), the cascade on upstream contract change keys off this field.
-- **Artefact impact (materialised-project concerns, surfaced here only for traceability).** `mock.html` + UX Vision are N/A for backend-only/integration. `user_journey.integration.md` replaces `user_journey.md` for those scopes. `design.md § 3.1` (Cross-Layer Type Mapping) is UI-specific; `§ 3.2` (Wire-Format Mapping) is its integration-flavour counterpart. Tripartite Alignment degrades to 2 checks when mock.html is N/A. Auto-approval marks 6 of 12 CHECKs as N/A for non-UI scopes.
-
-## Incremental Dev Plan (EVOL-021 — framework authorship view)
-
-The framework **ships** the Incremental Dev Plan; it does not consume it (this repo has no features, no `spec.feature`, no `docs/spec/`). Downstream materialised projects use the model end-to-end — see `.context/templates/setup/claude/CLAUDE.md § Incremental Dev Plan (Vertical Slicing)` for the authoritative description consumed there.
-
-When editing framework files that touch the slicing model, keep these invariants intact:
-
-- **Strategy enum.** `spec.feature.slicing_strategy: incremental | monolithic`. Default `incremental`. `monolithic` is an escape hatch gated by the Trivial-Heuristic (`scenarios_count ≤ 2` AND `contract_operations ≤ 3` AND `scope ≠ full-stack`). The thresholds are load-bearing — changing them requires lock-step edits in (a) `.context/templates/architect/increment_plan_template.md § 3`, (b) `Factory-blueprint-design.instructions.md § Increment Plan Generation § Step A`, (c) CVP Check 16 `monolithic_heuristic`, (d) `immutability_policy.md § Per-Increment Immutability § Slicing-Strategy Flip`.
-- **Artefact placement.** `increment_plan.md` is a sidecar of `design.md` at `docs/spec/{FEATURE_ID}/increment_plan.md`. Emitted at `BLUEPRINT --start`, approved at `BLUEPRINT --approve`, consumed at `IMPLEMENT --plan`. NEVER relocate or fold into `design.md` — the separation is deliberate (plan text stays human-editable, machine-consumable frontmatter stays pure).
-- **Per-increment status lifecycle.** `DRAFT → READY → BUILDING → MERGED` + `{DRAFT,READY} → INVALIDATED → DRAFT`. Monotonic — regression transitions are BLOCKED by `check_increment_immutability()`. When editing the status enum, update in lock-step (a) `increment_plan_template.md § 1` + § Per-Increment Status Lifecycle, (b) `immutability_policy.md § Per-Increment Lock Table`, (c) `Factory-branching-strategy.SKILL.md § Per-Increment Branching`, (d) `Factory-iteration-model.SKILL.md § CASCADE_INCREMENT_INTERNAL`.
-- **Task tag regex.** `^\[INC-(\d+)\.([ABC]|ACC)\.(\d+)\]` (incremental) and `^\[([ABC])\.(\d+)\]` (monolithic). Defined in `Factory-implement-plan.instructions.md § Output`. Source of truth for CVP Check 17, BVL task matching, QA coverage parsing. Changing these regexes is a breaking contract — MAJOR bump.
-- **Deployability policy (strict).** Every increment declares `deployable: production`. `flagged_off` or `experimental` values are rejected by CVP Check 13. Flagged rollouts must be expressed as follow-up increments with their own scenarios, not as deployability escapes on half-done slices. Do NOT loosen this policy without explicit user ratification.
-- **Cascade scope.** `CASCADE_INCREMENT_INTERNAL` operates ONLY on `slicing_strategy=incremental` features. MERGED increments are NEVER invalidated — they cascade into a follow-up increment via the Follow-up Increment Rule (additive, non-overlapping scenarios, no version bump). The three cascade functions are orthogonal: `CASCADE_PENDING_ITERATION` (downstream artefacts within a feature), `CASCADE_SLICE_PEERS` (cross-feature within a label-driven slice — **unrelated** to vertical increments despite the name collision), `CASCADE_INCREMENT_INTERNAL` (per-increment within a feature). Never merge or reorder them.
-- **CVP enforcement catalogue.** At `BLUEPRINT --approve`: Check `0c` `increment_plan_presence`, Check `13` `increment_deployability`, Check `14` `increment_to_scenario_coverage`, Check `15` `increment_to_contract_coverage`, Check `16` `monolithic_heuristic` — all CRITICAL. At IMPLEMENT scope: Check `17` `increment_to_task` — WARNING. Check `0a` `scope_consistency_across_artifacts` also reads `increment_plan.md.scope` (inherited from spec.feature). Changing any of these IDs or severities is a breaking contract — MAJOR bump of `Factory-coherence-validation/SKILL.md`.
-
 ## Generation Standards
 
 1. **Template lookup (on-demand)** — Framework edits rarely create artefacts from templates; when they do (e.g. drafting a new rule template, adding a Factory-* instruction, adding a new SKILL), read an existing sibling of the same family to match frontmatter + section structure, THEN adapt. Never invent schemas.
@@ -107,7 +81,7 @@ When editing framework files that touch the slicing model, keep these invariants
 **Enforced deterministically** via `.claude/settings.json` PreToolUse hook — blocks `Edit`/`Write` on protected branches before any tool call executes.
 
 BEFORE any file modification:
-1. Ensure you're on a feature branch (BLOCK if on main/master/develop/release/hotfix). For framework work, valid branch patterns are `feature/EVOL-{NNN}-{slug}` (evolutions), `fix/{slug}` | `bugfix/{slug}` | `hotfix/{slug}` (fixes), `docs/{slug}` (documentation), `chore/{slug}` (tooling).
+1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`). Working patterns for framework work: `feature/EVOL-{NNN}-{slug}` (evolutions), `fix/{slug}` | `bugfix/{slug}` | `hotfix/{slug}` (fixes), `docs/{slug}` (documentation), `chore/{slug}` (tooling).
 2. Create from `origin/main`, NEVER from HEAD.
 3. All merges to `main` via Pull Requests only.
 4. Full protocol: `.claude/skills/Factory-branching-strategy/SKILL.md`
@@ -116,18 +90,18 @@ BEFORE any file modification:
 
 Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER from conversation memory:
 
-1. **INVARIANT 1 — Change Classification**: Derive from branch name. `fix/*` | `bugfix/*` → PATCH. `feature/EVOL-*` | `feature/*` → MINOR. `breaking/*` → MAJOR. Command: `git branch --show-current`.
+1. **INVARIANT 1 — Change Classification**: Derive from branch name. `fix/*` | `bugfix/*` | `hotfix/*` → PATCH. `feature/EVOL-*` | `feature/*` → MINOR. `breaking/*` → MAJOR. Command: `git branch --show-current`.
 2. **INVARIANT 2 — Governance context**: Load `.context/governance_snapshot.md` every command. If `constitution_hash` + `setup_hash` match → governance is loaded (1 file read). Stale or missing → reload from `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and regenerate the snapshot.
 3. **INVARIANT 3 — Current date**: Derive from the system clock. NEVER reuse a date seen earlier in the conversation.
 4. **INVARIANT 4 — Current version**: Read the framework version from `.context/templates/setup/governance_versions.json` (`framework_version` field) before any bump. NEVER guess.
-5. **INVARIANT 5 — Feature state + scope (framework repo)**: In the framework repo, "feature" means an `EVOL-*` branch — state lives in the PR (open / merged) and git history, not in a spec artifact file. The `scope` axis from EVOL-019 does NOT apply here (the framework repo has no `project_scope` — it ships the taxonomy, it does not use it). When editing `.context/templates/**` that reference the scope taxonomy (setup_master_template.md, spec.feature frontmatter, design.md, user_journey.*), preserve the enum `full-stack | backend-only | frontend-only | integration` exactly — downstream projects rely on the literal values.
+5. **INVARIANT 5 — Change state**: In the framework repo, a change lives on a working branch (`feature/EVOL-*`, `fix/*`, `bugfix/*`, `hotfix/*`, `docs/*`, `chore/*`) — state lives in the PR (open / merged) and git history, not in a spec artifact file. There is no `spec.feature` / `design.md` / `dev_plan.md` here; do not expect one.
 
 ## Core Protocols
 
 | Protocol | Reference | Purpose |
 |----------|-----------|---------|
 | Incremental Persistence (IPP) | `.claude/skills/Factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
-| RDR (Recommendation → Decision → Ratification) | `.claude/skills/Factory-rdr/SKILL.md` | Canonical protocol for agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice, immediate ratification (persistence via IPP) |
+| RDR (Recommendation → Decision) | `.claude/skills/Factory-rdr/SKILL.md` | Agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice. In this repo the third-R (Ratification → IPP artefact) does NOT apply — no `_progress` frontmatter or feature-scoped ADR exists; persist the choice in the commit message or a framework-level decision record under `docs/project_log/evolutions/` (the repo's actual ADR-style tree). |
 | Branching & SCM | `.claude/skills/Factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
 | Commit Prompt | `.claude/skills/Factory-commit-prompt/SKILL.md` | Conventional commit generation |
 | Governance Loading (GCRP) | `.claude/skills/Factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |

@@ -34,6 +34,7 @@ Review and resolve conflicts between design artifacts.
 All files under `docs/spec/{ID}/`:
 - `design.md` — Architecture design with component diagrams
 - `test_plan.md` — Comprehensive test strategy with coverage matrix
+- `increment_plan.md` — Vertical-slicing plan. Declares `slicing_strategy` (`incremental` default, `monolithic` escape when Trivial-Heuristic holds), per-increment frontmatter (`scenarios_covered`, `contract_surface`, `depends_on`, `deployable: production`, branch name) and `§ 2` Mermaid DAG. Sidecar of `design.md`, never folded in.
 - Feature ADRs in `docs/spec/{ID}/adr/` (project-level ADRs like ADR-0000 go in `docs/project_log/adr/`)
 - Contract files in `contracts/` (OpenAPI, GraphQL, gRPC, AsyncAPI)
 - `contracts/feature_map.md` — Contract-to-feature tracing
@@ -50,7 +51,7 @@ See `.claude/instructions/Factory-blueprint-validation.instructions.md` for the 
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "BLUEPRINT"` — always the actual agent name.
 - **User Communication:** Follow Agent Communication Protocol (`.claude/skills/Factory-agent-communication/SKILL.md`) — entry announcement, phase milestones, completion summary.
 - `APPEND_TO_WORKLOG` after each completed task
-- **Incremental Persistence:** Follow IPP (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — skeleton-first write, section-atomic saves, resume-on-entry for design.md + test_plan.md.
+- **Incremental Persistence:** Follow IPP (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — skeleton-first write, section-atomic saves, resume-on-entry for design.md + test_plan.md + increment_plan.md (frontmatter + § 0 Slicing Rationale on RDR ratification, each `§ 1` INC-N as its own atomic section, `§ 2` DAG on completion).
 
 ### Changelog Format (for --refine)
 ```markdown
