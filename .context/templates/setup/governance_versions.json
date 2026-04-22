@@ -675,25 +675,28 @@
         "1.2.0: feat(EVOL-020): Core Protocols table gains RDR row — Recommendation → Decision → Ratification canonical skill at .claude/skills/Factory-rdr/SKILL.md. Consolidates previously-scattered RDR references so all agents consume a single source of truth.",
         "1.1.0: feat(EVOL-019) phase 1: § Project Scope & Feature Scope Taxonomy (EVOL-019 — dual-axis) — enum, compatibility matrix, artefact impact; INVARIANT 5 extended with scope cross-check against governance snapshot + immutability note after APPROVED.",
         "1.0.0: feat(EVOL-018): initial template — materialized-project CLAUDE.md variant. SDLC-first triage as DEFAULT, Workflow + Hard Gates + Living Governance Catalogs present, INVARIANT 4 and Generation Standards §2 reference docs/project_log/governance_versions.json (project manifest), not the framework manifest. Complements the framework-repo CLAUDE.md (meta-maintenance variant) at the source repo root.",
-        "1.3.0: feat(EVOL-021) phase 3: new § Incremental Dev Plan (Vertical Slicing) section between § Project Scope Taxonomy and § Generation Standards. Documents the strategy field (slicing_strategy: incremental|monolithic), the increment_plan.md sidecar artefact, increment lifecycle (DRAFT→READY→BUILDING→MERGED + INVALIDATED branch, monotonic), branch naming (feature/{FEATURE_ID}-inc-N-{slug}, one per PR), IMPLEMENT consumption (per-INC sections with [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] tags), CVP enforcement gates (5 CRITICAL + 1 WARNING), and CASCADE_INCREMENT_INTERNAL selective invalidation."
+        "1.3.0: feat(EVOL-021) phase 3: new § Incremental Dev Plan (Vertical Slicing) section between § Project Scope Taxonomy and § Generation Standards. Documents the strategy field (slicing_strategy: incremental|monolithic), the increment_plan.md sidecar artefact, increment lifecycle (DRAFT→READY→BUILDING→MERGED + INVALIDATED branch, monotonic), branch naming (feature/{FEATURE_ID}-inc-N-{slug}, one per PR), IMPLEMENT consumption (per-INC sections with [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] tags), CVP enforcement gates (5 CRITICAL + 1 WARNING), and CASCADE_INCREMENT_INTERNAL selective invalidation.",
+        "1.3.1: fix(EVOL-021) phase 4: § Incremental Dev Plan enforcement gates bullet now cites CVP Check IDs verbatim (Check 0c, 13, 14, 15, 16 CRITICAL + Check 17 WARNING at IMPLEMENT scope). Closes documentation gap from coherence audit."
       ]
     },
     "architect/design_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "docs/architect/design_template.md",
       "changelog": [
         "1.1.0: feat(EVOL-019) phase 1: scope + consumes_contract frontmatter fields; scope-aware section annotations (applicable_when comment convention); § 3.1 Cross-Layer Type Mapping marked applicable_when scope in [full-stack]; new § 3.2 Wire-Format Mapping for scope in [backend-only, integration].",
-        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added pending_iteration, pending_schemas_version, invalidated_*, cascade_* fields; status enum extended with INVALIDATED"
+        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added pending_iteration, pending_schemas_version, invalidated_*, cascade_* fields; status enum extended with INVALIDATED",
+        "1.2.0: feat(EVOL-021) phase 4: intro note clarifies design.md is holistic while increment_plan.md is sequential — both must be edited in lock-step when cross-layer types or contracts change. Closes author-guidance gap identified in coherence audit."
       ]
     },
     "architect/increment_plan_template.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "docs/architect/increment_plan_template.md",
       "changelog": [
         "1.0.0: feat(EVOL-021) phase 1: initial sidecar template for BLUEPRINT's Incremental Dev Plan — emits docs/spec/{FEATURE_ID}/increment_plan.md with § 0 Slicing Rationale, § 1 Increments (each declaring scenarios_covered/contract_surface/depends_on/deployable:production/acceptance-checklist/branch-convention), § 2 Mermaid DAG, § 3 Monolithic Escape Declaration (only when slicing_strategy=monolithic). Consumed by IMPLEMENT --plan to generate dev_plan.md fractioned by increment.",
-        "1.1.0: feat(EVOL-021) phase 2: per-INC Status field added to each § 1 increment (DRAFT|READY|BUILDING|MERGED|INVALIDATED) + Merged at: timestamp field; new Per-Increment Status Lifecycle section documents transition triggers and field-level editability per status; new invariant #5 increment_status_monotonic (CRITICAL, enforced by immutability_policy check_increment_immutability)."
+        "1.1.0: feat(EVOL-021) phase 2: per-INC Status field added to each § 1 increment (DRAFT|READY|BUILDING|MERGED|INVALIDATED) + Merged at: timestamp field; new Per-Increment Status Lifecycle section documents transition triggers and field-level editability per status; new invariant #5 increment_status_monotonic (CRITICAL, enforced by immutability_policy check_increment_immutability).",
+        "1.1.1: fix(EVOL-021) phase 4: plan-level status comment clarified to DRAFT | APPROVED | INVALIDATED (3-value enum — distinct from per-increment 5-value enum; dead `PROPOSED` value removed). § 3 heuristic thresholds unified to 'contract operations' (was 'endpoints'). Invariant #4 wording aligned ('contract operations'). § 3 adds Frontend-only vacuous case note — frontend-only features with 0 ops qualify trivially, which is intentional; teams wanting strict slicing discipline can override via spec.feature.slicing_strategy or project default."
       ]
     },
     "architect/technical_gaps_proposals.md": {
@@ -713,30 +716,33 @@
       ]
     },
     "codesign/gherkin_master_template.feature": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "docs/codesign/gherkin_master_template.feature",
       "changelog": [
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked template. Consumed by CODESIGN --start to produce docs/spec/{FEATURE_ID}/spec.feature with co-creation frontmatter.",
         "1.1.0: feat(EVOL-019) phase 1: scope + consumes_contract frontmatter fields — dual-axis scope model; ux_sign_off marked N/A when scope in [backend-only, integration].",
-        "1.2.0: feat(EVOL-021) phase 1: slicing_strategy frontmatter field (incremental|monolithic, default incremental) — drives BLUEPRINT Increment Plan generation; monolithic permitted only when trivial-heuristic passes (≤2 scenarios AND ≤3 contract ops AND scope ≠ full-stack)."
+        "1.2.0: feat(EVOL-021) phase 1: slicing_strategy frontmatter field (incremental|monolithic, default incremental) — drives BLUEPRINT Increment Plan generation; monolithic permitted only when trivial-heuristic passes (≤2 scenarios AND ≤3 contract ops AND scope ≠ full-stack).",
+        "1.3.0: feat(EVOL-021) phase 4: body-level Incremental-Slicing Note added between Q&A log and Feature declaration — explains that every Scenario: below will be assigned to EXACTLY ONE increment in increment_plan.md § 1 at BLUEPRINT --start (via Increment Slicing RDR). Closes author-guidance gap."
       ]
     },
     "codesign/user_journey_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "docs/codesign/user_journey_template.md",
       "changelog": [
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked template. UI-facing Simplified Event Storming output consumed by BLUEPRINT --start as Data Schema source of truth.",
-        "1.1.0: feat(EVOL-019) phase 1: scope frontmatter field — dual-axis scope model; ux_sign_off marked N/A when scope in [backend-only, integration] (those scopes use codesign/user_journey.integration.md instead)."
+        "1.1.0: feat(EVOL-019) phase 1: scope frontmatter field — dual-axis scope model; ux_sign_off marked N/A when scope in [backend-only, integration] (those scopes use codesign/user_journey.integration.md instead).",
+        "1.2.0: feat(EVOL-021) phase 4: intro Incremental-slicing note explains that under `slicing_strategy: incremental` (default) BLUEPRINT distributes Gherkin scenarios across vertical increments in increment_plan.md § 1 — the journey describes the complete end-state while per-increment UI/flow deltas are documented in increment_plan.md."
       ]
     },
     "codesign/user_journey.integration.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "docs/codesign/user_journey.integration.md",
       "changelog": [
-        "1.0.0: feat(EVOL-019) phase 1: initial template — integration/backend-only variant of user_journey with caller-side actors, integration steps (trigger/action/effect/idempotency/retry), wire-format schemas, § 5 External Systems contract_slug backfill table, § 6 Reliability Contract (idempotency, retry, circuit breaker, DLQ, timeouts, graceful shutdown, observability). Selected by CODESIGN --start when feature_scope IN [backend-only, integration]."
+        "1.0.0: feat(EVOL-019) phase 1: initial template — integration/backend-only variant of user_journey with caller-side actors, integration steps (trigger/action/effect/idempotency/retry), wire-format schemas, § 5 External Systems contract_slug backfill table, § 6 Reliability Contract (idempotency, retry, circuit breaker, DLQ, timeouts, graceful shutdown, observability). Selected by CODESIGN --start when feature_scope IN [backend-only, integration].",
+        "1.1.0: feat(EVOL-021) phase 4: Incremental-slicing note documents that under incremental strategy, 'user-observable capability' for backend-only / integration features means a complete business transaction (order accepted + event emitted + idempotency key persisted), NOT UI visibility — each increment ships as an independent PR with a self-contained transaction boundary."
       ]
     },
     "develop/blockers_report.md": {
@@ -766,12 +772,13 @@
       ]
     },
     "peer_review/review_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "docs/peer_review/review_template.md",
       "changelog": [
         "1.1.0: feat(EVOL-019) phase 2: scope + na_count frontmatter fields; Executive Summary table gains Applicable When column; new conditional sections § 3.6 Cross-Layer Type Mapping (full-stack), § 3.7 UX & Frontend Compliance (full-stack/frontend-only) with 11 UX sub-checks, § 3.8 Reliability & Integration Compliance (backend-only/integration) with 8 reliability sub-checks, § 3.9 Cross-Module Contract Consumption (consumes_contract non-empty).",
-        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added the 10 cascade fields + status enum extended with INVALIDATED"
+        "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added the 10 cascade fields + status enum extended with INVALIDATED",
+        "1.2.0: feat(EVOL-021) phase 4: Incremental-slicing note explains that under incremental strategy this review covers ONE increment PR (feature/{FEATURE_ID}-inc-N-{slug}) — not the whole feature; scope is the delta of the increment's contract_surface + scenarios_covered; subsequent increments open independent PRs and trigger independent reviews; cross-increment concerns surface at the final increment's acceptance gate."
       ]
     },
     "po/questions_and_proposals.md": {
@@ -809,13 +816,14 @@
       ]
     },
     "qa/test_plan_template.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": "docs/qa/test_plan_template.md",
       "changelog": [
         "1.2.0: feat(EVOL-019) phase 2: scope frontmatter field; new conditional § 2.2 Reliability Testing (applicable_when scope in [backend-only, integration]) with 13 REL-* test case templates (idempotency replay, retry storm, circuit breaker trip + half-open, dead-letter handling + replay, timeout, graceful shutdown + forceful, trace correlation, structured error logs); § 3 UX & Accessibility and § 4 Brand & Layout marked applicable_when scope in [full-stack, frontend-only].",
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added the 10 cascade fields + based_on_iteration + based_on_schemas_version + status enum extended with INVALIDATED",
-        "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "1.3.0: feat(EVOL-021) phase 4: Incremental-slicing note explains that under incremental strategy every test case (AC-XX, TC-XX, TC-API-XX, REL-XX) is assigned to exactly one increment in increment_plan.md § 1; each increment's assigned test cases must pass before its PR merges (per-increment acceptance gate + CVP Check 17); the plan is a unified catalogue, increment assignment is orthogonal."
       ]
     },
     "security/remedy_template.md": {
@@ -827,13 +835,14 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked. Canonical template for docs/setup.md; consumed by SETUP --generate to materialise the per-project architecture roadmap & decisions log.",
         "2.0.0: feat(EVOL-019) phase 1: retroactive version bump to match the template's own `version: 2.0.0` frontmatter (Tripartite architecture support pre-existing the EVOL-019 initial registration).",
-        "2.1.0: feat(EVOL-019) phase 1: project_scope frontmatter field (full-stack | backend-only | frontend-only | integration); new § 0.1 Project Scope section documenting the compatibility matrix with feature.scope + materialization impact."
+        "2.1.0: feat(EVOL-019) phase 1: project_scope frontmatter field (full-stack | backend-only | frontend-only | integration); new § 0.1 Project Scope section documenting the compatibility matrix with feature.scope + materialization impact.",
+        "2.2.0: feat(EVOL-021) phase 4: § 0.1 Project Scope gains Default slicing strategy discovery question (`incremental | monolithic`, default incremental) — applies to every new feature unless spec.feature overrides; monolithic default still requires trivial-heuristic at BLUEPRINT --start. Resolution paragraph guides greenfield vs brownfield choice."
       ]
     },
     "backlog-tool-adapters/README.md": {
@@ -1441,12 +1450,13 @@
       "path": ".claude/skills/Factory-governance-loading/SKILL.md"
     },
     "skills/Factory-incremental-persistence/SKILL.md": {
-      "version": "2.0.1",
+      "version": "2.1.0",
       "type": "skill",
       "changelog": [
         "2.0.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
-        "1.0.0: Initial incremental-persistence protocol"
+        "1.0.0: Initial incremental-persistence protocol",
+        "2.1.0: feat(EVOL-021) phase 4: Pillar 2 (Section-Atomic Saves) table extended with two new rows — BLUEPRINT | increment_plan.md (frontmatter + § 0 Slicing Rationale frozen at RDR ratification; each § 1 increment INC-N as own atomic section; § 2 DAG on completion; § 3 Monolithic Escape on completion); IMPLEMENT | dev_plan.md row rewritten (monolithic keeps A/B/C task group; incremental promotes per-INC sections). Makes increment_plan.md a first-class IPP artefact alongside design.md and test_plan.md."
       ],
       "path": ".claude/skills/Factory-incremental-persistence/SKILL.md"
     },
@@ -1484,10 +1494,11 @@
       "path": ".claude/skills/Factory-iteration-model/SKILL.md"
     },
     "skills/Factory-branching-strategy/SKILL.md": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "type": "skill",
       "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse, per-increment branching.",
       "changelog": [
+        "1.4.1: fix(EVOL-021) phase 4: threshold wording unified to 'contract operations' (was 'ops') in Monolithic Escape comment — matches canonical wording across template + immutability_policy + CVP Check 16 + README + CLAUDE.md.",
         "1.4.0: feat(EVOL-021) phase 3: new § Per-Increment Branching (slicing_strategy: incremental). Branch naming feature/{FEATURE_ID}-inc-N-{slug} + regex ^feature/[A-Z]+-[0-9]+-inc-[0-9]+-[a-z0-9-]+$; concurrency lock reused at feature level (one increment branch open per feature at a time); BRANCH OPEN TRIGGER flips increment status READY→BUILDING with depends_on MERGED precondition; BRANCH MERGE HOOK on main parses increment_id, asserts status==BUILDING, flips to MERGED + stamps Merged at: timestamp, calls CHECK_NEXT_INCREMENT_READY to surface unblocked downstream increments; rejected patterns (missing -inc-N- segment, double-inc typo, touching MERGED increment's scope); backward compat preserves legacy feature/{FEATURE_ID}-{slug} for slicing_strategy=monolithic features.",
         "1.2.3: chore(EVOL-014): epic-branch parser comment aligned with English '## Epic {N}' header (was '## Épica' before Spanish cleanup)",
         "1.2.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -1549,10 +1560,11 @@
       "path": ".claude/skills/Factory-memory-cache/SKILL.md"
     },
     "skills/Factory-coherence-validation/SKILL.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "type": "skill",
-      "role": "CVP v1.2.0 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
+      "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "changelog": [
+        "1.2.1: fix(EVOL-021) phase 4: Check 0a scope_consistency_across_artifacts now also reads elements.increment_plan.frontmatter.scope (was missing — allowed silent drift when CASCADE or hand-edit caused increment_plan.scope to diverge from spec.feature.scope). Check 0c required_fields annotated with explanation that cascade/iteration fields (pending_*, invalidated_*, cascade_*, based_on_*, rdr_rationale) are populated opportunistically by BLUEPRINT/CASCADE_INCREMENT_INTERNAL/CASCADE_PENDING_ITERATION — their absence in a fresh plan is expected; validation of these belongs in the cascade layer, not Check 0c.",
         "1.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.0.1: fix: resolve_scope_checks for includes expansion, add missing task_completion_to_qa check (12 checks), fix contract endpoint source to read contracts/ not design.md, fix build_coherence_matrix scope parameter, fix remediation_actions grouping by artifact source",
         "1.0.0: fix: initial Coherence Validation Protocol — 11 cross-artifact checks, 3 scope levels (CODESIGN_BLUEPRINT, CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN), 3 invocation modes (GATE, AUTO, ON_DEMAND), auto-scope detection, Factory post-command integration",
