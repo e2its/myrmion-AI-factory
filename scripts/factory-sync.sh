@@ -13,7 +13,7 @@
 #   .claude/commands/*.md
 #   .claude/instructions/Factory-*.instructions.md
 #   .claude/skills/Factory-*/SKILL.md
-#   .claude/hooks/check-*.sh
+#   .claude/hooks/*.sh
 #   scripts/auto-tag.sh, security-scan.sh, validate-governance.sh
 #   scripts/governance-onprompt.sh, governance-oncompact.sh
 #   scripts/install-hooks.sh, factory-sync.sh, project_summarization.py
@@ -83,7 +83,7 @@ for arg in "$@"; do
 done
 
 if [[ -z "$TARGET_PROJECT" ]]; then
-  echo -e "${RED}Usage: factory-sync.sh <target-project-path> [--dry-run] [--verbose] [--force]${NC}"
+  echo -e "${RED}Usage: factory-sync.sh <target-project-path> [--dry-run] [--verbose] [--force] [--greenfield] [--preserve-local]${NC}"
   exit 1
 fi
 
@@ -103,8 +103,8 @@ if [[ ! -f "$TARGET_PROJECT/docs/setup.md" ]]; then
     IS_GREENFIELD=true
   else
     echo -e "${RED}ERROR: Target has CLAUDE.md or docs/project_log/ but no docs/setup.md${NC}"
-    echo "This looks like a materialised project with a missing setup.md — investigate before sync."
-    echo "Pass --greenfield to force pre-materialisation mode."
+    echo "This looks like a materialized project with a missing setup.md — investigate before sync."
+    echo "Pass --greenfield to force pre-materialization mode."
     exit 1
   fi
 fi
@@ -393,7 +393,12 @@ for dst_file in "$TARGET_PROJECT/.claude/instructions/"*.instructions.md; do
   fi
 done
 
-if ! $HAS_ORPHANS && ! $HAS_SKILL_ORPHANS; then
+# DELETED is the single source of truth: all orphan-detection paths (the
+# manual instructions loop above, detect_orphans() in instructions/hooks, and
+# detect_tree_orphans() in templates) bump DELETED. The per-category flags
+# HAS_ORPHANS / HAS_SKILL_ORPHANS are retained only to suppress per-loop
+# redundant messaging; the summary below keys off DELETED directly.
+if [[ $DELETED -eq 0 ]]; then
   echo -e "  ${GREEN}No orphans detected${NC}"
 fi
 echo ""
