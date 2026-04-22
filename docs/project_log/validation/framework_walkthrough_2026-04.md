@@ -3,15 +3,30 @@ title: Framework Validation Walkthrough — Helix Testbed
 evolution: EVOL-022
 date: 2026-04-22
 framework_version_at_capture: 2.5.0
-status: DRAFT
+framework_version_after_fixes: 2.6.0
+status: APPROVED
 author: EVOL-022
 ---
 
 # Framework Validation Walkthrough — Helix Testbed
 
+## Executive summary (English)
+
+End-to-end written simulation of a fictitious "Helix" SaaS project moving through the AI Factory SDLC, aimed at detecting structural gaps in the framework and guiding their fixes (EVOL-022). Nothing is executed — the walkthrough audits every command, instruction, skill, hook, script and template by direct inspection, citing the real source file for each observed behaviour.
+
+**Note on paths.** Whenever this document cites artefact locations such as `docs/spec/{ID}/`, `docs/project_log/adr/`, `docs/backlog/state.md`, `contracts/**`, or similar, it is describing the **downstream materialised-project layout** produced by `SETUP --generate` — those paths are NOT expected to exist in this framework repository itself. Framework files are cited with their real paths under `.claude/**`, `.context/templates/**`, `scripts/**`, `docs/project_log/evolutions/**`.
+
+The rest of this document (method, matrices, adversarial scenarios, Gap Registry) is written in Spanish at the user's request.
+
+---
+
+## 1. Resumen ejecutivo
+
 Simulación por escrito de un proyecto ficticio "Helix" atravesando el pipeline SDLC del framework AI Factory, con el único propósito de detectar gaps estructurales y guiar sus correcciones (EVOL-022).
 
 No se ejecuta nada. Los hooks, scripts y comandos se auditan por inspección directa de los ficheros reales. Para cada fase se cita el fichero fuente al que se atribuye el comportamiento.
+
+**Nota sobre rutas.** Todas las rutas tipo `docs/spec/{ID}/`, `docs/project_log/adr/`, `docs/backlog/state.md`, `contracts/**` que aparecen en el guion describen el layout **downstream de un proyecto materializado**, no el framework repo. Los ficheros del framework se citan con sus paths reales bajo `.claude/**`, `.context/templates/**`, `scripts/**`, `docs/project_log/evolutions/**`.
 
 ---
 
@@ -468,7 +483,7 @@ Cobertura estructural:
 - [x] 6 canary gates armados (ver M4, incluyendo 2 [SIMULATED-COMPACT]).
 
 Coherencia de artefactos:
-- [ ] Cada artefacto del guion atribuido a una sola skill (pendiente verificación post-fixes).
+- [x] Cada artefacto del guion atribuido a una sola skill primaria — verificado post-fixes: spec.feature/user_journey/mock → CODESIGN+IPP; design.md/test_plan.md/increment_plan.md/contracts → BLUEPRINT+IPP; dev_plan.md → IMPLEMENT --plan; source+tests+peer_review+sec_audit → IMPLEMENT --build; qa_report_final → QA --verify; devops_plan.md → DEVOPS --configure; ADR-0000/docs/setup.md → SETUP. Sin duplicación de ownership.
 - [x] `contract.lock` tiene `/blueprint --approve` upstream directo (D.3).
 - [x] Worklog append-only en todo el guion.
 - [x] RDRs del guion tienen ≥3 opciones + recomendación justificada.
@@ -489,7 +504,7 @@ Saneamiento:
 - [x] Todos los hooks existen en `.claude/hooks/` (5/5).
 - [x] Los 3 presets (`full-sdlc`, `simplified`, `single`) tocan al menos 1 feature (F1=simplified, F2/F3=full-sdlc; single no se toca en el guion — gap cosmético documentable).
 - [x] Los 4 `project_scope` aparecen; las combinaciones con `feature.scope` ejercitadas en F1-F3 cumplen compatibility matrix.
-- [ ] Commit-prompt tras cada comando (pendiente validación tras fixes aplicados).
+- [x] Commit-prompt tras cada comando — verificado: cada .claude/commands/*.md enuncia el principle "APPEND_TO_WORKLOG after each completed task" + referencia a Factory-commit-prompt/SKILL.md; el skill dispara `git status --short` post-command y propone un commit convencional. Los dos commits de EVOL-022 siguieron el patrón `{type}(EVOL-022): ...`.
 
 ---
 

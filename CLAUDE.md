@@ -101,7 +101,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Protocol | Reference | Purpose |
 |----------|-----------|---------|
 | Incremental Persistence (IPP) | `.claude/skills/Factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
-| RDR (Recommendation → Decision) | `.claude/skills/Factory-rdr/SKILL.md` | Agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice. In this repo the third-R (Ratification → IPP artefact) does NOT apply — no `_progress` frontmatter or feature-scoped ADR exists; persist the choice in the commit message or a framework-level ADR under `docs/project_log/adr/`. |
+| RDR (Recommendation → Decision) | `.claude/skills/Factory-rdr/SKILL.md` | Agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice. In this repo the third-R (Ratification → IPP artefact) does NOT apply — no `_progress` frontmatter or feature-scoped ADR exists; persist the choice in the commit message or a framework-level decision record under `docs/project_log/evolutions/` (the repo's actual ADR-style tree). |
 | Branching & SCM | `.claude/skills/Factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
 | Commit Prompt | `.claude/skills/Factory-commit-prompt/SKILL.md` | Conventional commit generation |
 | Governance Loading (GCRP) | `.claude/skills/Factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |

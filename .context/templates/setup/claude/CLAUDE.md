@@ -200,8 +200,11 @@ Only relevant if editing the framework repo itself. The strategy, thresholds, li
 **Enforced deterministically** via `.claude/settings.json` PreToolUse hook — blocks `Edit`/`Write` on protected branches before any tool call executes.
 
 BEFORE any file modification:
-1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`). Working patterns: `feature/{ID}-{slug}`, `fix/{slug}`, `bugfix/{slug}`, `hotfix/{slug}`, `docs/{slug}`, `chore/{slug}`.
-2. Branch naming: `{type}/{ID}-{slug}` (feature, bugfix, hotfix, docs).
+1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`).
+2. Working-branch naming must match one of these patterns exactly:
+   - `feature/{ID}-{slug}` — features tracked by an external ID (e.g. backlog issue, EVOL-*).
+   - `fix/{slug}`, `bugfix/{slug}`, `hotfix/{slug}` — fixes; no ID required.
+   - `docs/{slug}`, `chore/{slug}` — documentation or tooling; no ID required.
 3. Create from `origin/{base_branch}`, NEVER from HEAD.
 4. All merges to protected branches via Pull Requests only.
 5. Full protocol: `.claude/skills/Factory-branching-strategy/SKILL.md`
