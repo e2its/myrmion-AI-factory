@@ -19,6 +19,7 @@ based_on_iteration: 1
 > **Method:** Simplified Event Storming (Brandolini) — integration variant (no UI, no Read Models for display).
 > **Generado por:** CODESIGN Agent | Feature: {{FEATURE_ID}} | Scope: backend-only / integration
 > **Source of Truth for Data Schemas** — ARCH formalizes in contracts (OpenAPI / AsyncAPI / gRPC / Protobuf), DOES NOT invent business fields.
+> **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), BLUEPRINT distributes the scenarios and caller actors across vertical increments declared in `increment_plan.md § 1` — each increment ships as an independent PR that leaves the integration surface 100% callable. Each increment's `contract_surface` lists the exact operations it delivers; consumers binding via `consumes_contract` see cumulative endpoints as increments merge.
 
 ---
 

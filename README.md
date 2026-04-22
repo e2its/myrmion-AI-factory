@@ -285,13 +285,13 @@ Role: Dual personality (🏗️ ARCH hat ↔ 🧪 QA hat). Co-designs architectu
 
 | Command | Arguments | Description |
 | --- | --- | --- |
-| `/blueprint --start {ID}` | — | Co-designs `design.md` + `test_plan.md`. Requires CODESIGN APPROVED. Produces C4, contracts, Section 5 (Infrastructure Needs). |
-| `/blueprint --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement of design and/or tests. |
-| `/blueprint --approve {ID}` | — | Joint ARCH+QA approval. Enables IMPLEMENT. |
+| `/blueprint --start {ID}` | — | Co-designs `design.md` + `test_plan.md` + `increment_plan.md`. Requires CODESIGN APPROVED. Produces C4, contracts, Section 5 (Infrastructure Needs). Emits the Increment Plan via RDR (≥3 slicing alternatives; user ratifies verbatim). |
+| `/blueprint --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement of design, tests and/or the Increment Plan. |
+| `/blueprint --approve {ID}` | — | Joint ARCH+QA approval. Runs CVP Coherence Gate (13 checks in CODESIGN_BLUEPRINT scope, incl. increment_deployability, increment_to_scenario_coverage, increment_to_contract_coverage). Enables IMPLEMENT. |
 | `/blueprint --adr {ID} "[TITLE]" "[DECISION]"` | Title and decision | Generates a standalone ADR. |
 | `/blueprint --review-conflict {ID}` | — | Arbitration when peer review rejects 3+ times. |
 
-Artifacts: `docs/spec/{ID}/design.md`, `test_plan.md`, contracts under `contracts/`.
+Artifacts: `docs/spec/{ID}/design.md`, `test_plan.md`, `increment_plan.md`, contracts under `contracts/`.
 
 ### 3. IMPLEMENT (Implementation: DEV ↔ REVIEW ↔ SEC)
 
@@ -299,7 +299,7 @@ Role: Triple personality (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC). Plans + imp
 
 | Command | Arguments | Description |
 | --- | --- | --- |
-| `/implement --plan {ID}` | — | Generates the implementation checklist (`dev_plan.md`) with `- [ ] [A/B/C.N]` tasks. Requires BLUEPRINT APPROVED. |
+| `/implement --plan {ID}` | — | Generates the implementation checklist (`dev_plan.md`). Requires BLUEPRINT APPROVED. Under `slicing_strategy: incremental` emits one `## Increment INC-N` section per increment with `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` tasks + `[INC-N.ACC.k]` acceptance gate; under `monolithic` preserves legacy `[A/B/C.N]` tags. |
 | `/implement --refine {ID} "[FEEDBACK]"` | Feedback | Plan refinement. Standard Refine produces `[ADJ-N]` tasks; Delta Iteration produces `[D.N]` tasks. |
 | `/implement --build {ID}` | — | Phased implementation: 💻 DEV (TDD + BVL) → 🔍 REVIEW → 🛡️ SEC (SAST). Build Verification Loop: runs tests in terminal, parses errors, auto-corrects (max 3 attempts). Full Verification Gate (tests + lint + typecheck + build) before `IMPLEMENTED_AND_VERIFIED`. Completion Gate: every task must be `[x]` or `@skip` with justification. |
 | `/implement --fix {ID} "[HELP]"` | Help | Generates `[FIX-N]` tasks from QA rejection or blockers. Executes fix → marks `[x]`. |
@@ -367,6 +367,24 @@ Prerequisite: `docs/setup.md` with a `project_tracking` section (configured duri
 
 Artifacts (external mode): `docs/backlog/project-config.json` (non-sensitive connection identifiers and field mapping only — no issue registry, no tokens). Cache: `/memories/repo/project-board-cache.md`.
 Artifacts (local mode): `docs/backlog/state.md`, `docs/backlog/issue-bodies/*.md`, `docs/backlog/execution-plan.md`. Cache: `/memories/repo/execution-plan-cache.md`.
+
+---
+
+## Incremental Dev Plan (Vertical Slicing)
+
+Every feature ships as a sequence of **vertical increments**. Each increment is a single PR that leaves the product 100% functional and production-deployable on merge — no feature-flag-OFF escape, no half-done slices. This replaces the legacy "one big implementation branch per feature" model with a serial chain of small, mergeable, user-observable deliverables.
+
+**Authoring.** `BLUEPRINT --start` emits `docs/spec/{ID}/increment_plan.md` (sidecar to `design.md`). The Increment Plan declares, per increment: `scenarios_covered`, `contract_surface`, `depends_on` (DAG), `deployable: production`, an acceptance checklist, and the branch name. BLUEPRINT runs the **Increment Slicing RDR** — it presents ≥3 alternative slicings (by sub-journey / by entity / by risk tier / happy-path-first / read-then-write / …), recommends one, and the user ratifies verbatim.
+
+**Strategy frontmatter (`spec.feature`).** `slicing_strategy: incremental | monolithic`. Default `incremental`. `monolithic` is permitted ONLY when the **trivial-heuristic** passes: ≤2 scenarios AND ≤3 contract operations AND `scope` ≠ `full-stack`. BLUEPRINT blocks the escape otherwise.
+
+**Consumption.** `IMPLEMENT --plan` reads the Increment Plan and emits `dev_plan.md` with one `## Increment INC-N` section per increment (topologically ordered by `depends_on`). Each section contains layered tasks tagged `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` plus an `### Increment INC-N Acceptance Gate` with `[INC-N.ACC.k]` items.
+
+**Branching.** One branch per increment — `feature/{FEATURE_ID}-inc-N-{slug}` — merged as an independent PR. Only one increment branch per feature is open at a time (existing concurrency lock). Branch open flips the increment's status `READY → BUILDING`; merge hook stamps `Merged at:` and flips `BUILDING → MERGED`.
+
+**Enforcement.** Four CRITICAL CVP checks at `BLUEPRINT --approve`: `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic`. Per-increment immutability (see `.claude/rules/immutability_policy.instructions.md § Per-Increment Immutability`) locks MERGED increments and routes changes through either `CODESIGN --revise` (new feature version) or a **Follow-up Increment** (additive, non-overlapping scenarios — no version bump).
+
+**Iteration cascade.** `CASCADE_INCREMENT_INTERNAL` (see `.claude/skills/Factory-iteration-model/SKILL.md`) propagates upstream changes selectively: only increments whose `scenarios_covered` or `contract_surface` overlap with the change are flagged `INVALIDATED`. MERGED increments are never invalidated — they anchor production history; a follow-up increment carries the change forward.
 
 ---
 

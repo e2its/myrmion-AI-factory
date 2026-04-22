@@ -192,24 +192,28 @@ features_count: 3
 > Source: docs/spec/*/frontmatter
 
 ## USR-001
-spec_feature: APPROVED (iteration: 2)
+spec_feature: APPROVED (iteration: 2, slicing_strategy: incremental)
 mock_html: APPROVED
 user_journey: APPROVED
 design_md: APPROVED (based_on: 2)
 test_plan: APPROVED (based_on: 2)
+increment_plan: APPROVED (3 increments, 3 MERGED)
 dev_plan: IMPLEMENTED_AND_VERIFIED
+increments: [INC-1=MERGED, INC-2=MERGED, INC-3=MERGED]
 devops_plan: APPROVED (envs: dev=active, staging=active)
 qa_report: APPROVED
 pr_state: MERGED
 next_action: DEVOPS --deploy USR-001 --env prod
 
 ## USR-002
-spec_feature: APPROVED (iteration: 1)
+spec_feature: APPROVED (iteration: 1, slicing_strategy: incremental)
 mock_html: APPROVED
 user_journey: APPROVED
 design_md: DRAFT (based_on: 1)
 test_plan: NULL
+increment_plan: NULL
 dev_plan: NULL
+increments: []
 devops_plan: NULL
 qa_report: NULL
 pr_state: NULL

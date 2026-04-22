@@ -475,12 +475,70 @@ IF dev_plan.md has delta_mode: true:
   LOG: "Delta build mode: processing {unchecked_count} remaining tasks"
 ```
 
+### Strategy-Aware Build Entry
+
+Before entering the Phase Loop, determine whether this --build run operates on a single vertical increment (`slicing_strategy: incremental`) or the entire feature (`slicing_strategy: monolithic`). The branch is load-bearing: task tagging, phase filtering, review/sec gating, and completion-gate aggregation all differ.
+
+```yaml
+FUNCTION determine_build_scope(FEATURE_ID):
+  dev_plan = READ("docs/spec/{FEATURE_ID}/dev_plan.md")
+  strategy = dev_plan.frontmatter.slicing_strategy OR "monolithic"
+
+  IF strategy == "monolithic":
+    RETURN {
+      mode: "monolithic",
+      task_regex_original: /^\[([ABC])\.(\d+)\]/,
+      task_regex_delta:    /^\[D\.(\d+)\]/,
+      task_regex_adj:      /^\[ADJ-(\d+)\]/,
+      task_regex_fix:      /^\[FIX-(\d+)\]/,
+      phase_sections: ["## Phase A", "## Phase B", "## Phase C"],
+      target_increment: null,
+      all_tasks_filter: ALL                      # no increment scoping
+    }
+
+  # Incremental — locate the single increment in BUILDING status.
+  # BUILDING is set by Factory-branching-strategy.SKILL.md § Per-Increment Branching
+  # when the increment branch is opened. Only one increment per feature may be BUILDING
+  # at a time (concurrency lock).
+  building = FILTER(dev_plan.frontmatter.increments, inc.status == "BUILDING")
+  IF building.length == 0:
+    ❌ BLOCK: "No increment in BUILDING status. Open the next increment branch (Factory-branching-strategy) before running --build, or run IMPLEMENT --plan to promote DRAFT→READY."
+    STOP
+  IF building.length > 1:
+    ❌ BLOCK: "Concurrency violation — {building.length} increments in BUILDING: {[i.id for i in building]}. Only one may build at a time."
+    STOP
+
+  target = building[0]  # e.g. {id: "INC-2", status: "BUILDING", ...}
+  # Build the per-increment task regex from the full increment id (not a bare index).
+  # target.id has the form "INC-<digits>"; escape the dash for regex literal safety.
+  id_literal = REGEX_ESCAPE(target.id)    # e.g. "INC-2" → "INC\-2"
+  RETURN {
+    mode: "incremental",
+    task_regex_original: BUILD_REGEX("^\\[" + id_literal + "\\.([ABC])\\.(\\d+)\\]"),
+    task_regex_acc:      BUILD_REGEX("^\\[" + id_literal + "\\.ACC\\.(\\d+)\\]"),
+    task_regex_delta:    /^\[D\.(\d+)\]/,       # delta tasks keep legacy tag (feature-level re-sync)
+    task_regex_adj:      /^\[ADJ-(\d+)\]/,
+    task_regex_fix:      /^\[FIX-(\d+)\]/,
+    phase_sections: [
+      "## Increment {target.id}: … → ### Phase A",
+      "## Increment {target.id}: … → ### Phase B",
+      "## Increment {target.id}: … → ### Phase C"
+    ],
+    acceptance_section: "## Increment {target.id}: … → ### Increment {target.id} Acceptance Gate",
+    target_increment: target,
+    all_tasks_filter: tasks WHERE section STARTS_WITH "## Increment {target.id}:"
+  }
+```
+
+`build_scope` is computed ONCE at the top of --build and threaded through the Phase Loop, the task-breakdown log, the REVIEW/SEC phase gate, the completion gate, and the resume logic. Legacy monolithic behaviour is preserved exactly when `mode == "monolithic"`.
+
 ### Phase Loop (Core Build Engine)
 
 > **Variable scope:** `governance_context` and `gcd_loaded` from Step 0b are available throughout the entire Phase Loop. REVIEW Hat (Step R.0 in implement-review-checks.md) and SEC Hat receive these as input — they do NOT re-read design.md Section 7.
+> **Scope filter:** All `phase.unchecked_tasks` references in the loop below are filtered by `build_scope.all_tasks_filter`. Under `incremental`, this restricts the loop to tasks inside `## Increment {target.id}:` — the other increments' sections are invisible to this --build invocation.
 
 ```yaml
-FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks:
+FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
   
   # DEV Hat: Implement (with Defect Prevention Check v1.2.0)
   FOR EACH task IN phase.unchecked_tasks:
@@ -566,12 +624,17 @@ FUNCTION verify_completion_gate(FEATURE_ID):
   total_tasks = unchecked_tasks.count + checked_tasks.count
 
   # Task type breakdown (for traceability)
-  original_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES /^\[[ABC]\.\d+\]/)
-  delta_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES /^\[D\.\d+\]/)
-  adjustment_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES /^\[ADJ-\d+\]/)
-  fix_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES /^\[FIX-\d+\]/)
+  # build_scope.mode selects the regex family — monolithic uses [A/B/C.N], incremental uses [INC-N.A/B/C.M] + [INC-N.ACC.k]
+  original_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES build_scope.task_regex_original)
+  acceptance_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES build_scope.task_regex_acc) IF build_scope.mode == "incremental" ELSE []
+  delta_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES build_scope.task_regex_delta)
+  adjustment_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES build_scope.task_regex_adj)
+  fix_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES build_scope.task_regex_fix)
 
-  LOG: "Task breakdown: {original_tasks.count} original, {delta_tasks.count} delta, {adjustment_tasks.count} adjustment, {fix_tasks.count} fix"
+  IF build_scope.mode == "incremental":
+    LOG: "Task breakdown (increment {build_scope.target_increment.id}): {original_tasks.count} original, {acceptance_tasks.count} acceptance-gate, {delta_tasks.count} delta, {adjustment_tasks.count} adjustment, {fix_tasks.count} fix"
+  ELSE:
+    LOG: "Task breakdown: {original_tasks.count} original, {delta_tasks.count} delta, {adjustment_tasks.count} adjustment, {fix_tasks.count} fix"
 
   # Verify against frontmatter total
   expected_total = READ_FRONTMATTER("total_tasks")
@@ -603,15 +666,39 @@ FUNCTION verify_completion_gate(FEATURE_ID):
       SUGGEST: "Complete remaining tasks, or use @skip with justification"
       STOP — DO NOT update status
 
-  # Verify REVIEW + SEC passed for all phases
-  FOR EACH phase IN [A, B, C]:
-    IF phase has tasks:
-      IF phase.review_status != "PASSED":
-        ❌ BLOCK: "Phase {phase} REVIEW not passed."
+  # Verify REVIEW + SEC passed for all phases in the build scope.
+  # Under incremental: check the target_increment's per-phase status. increments is a LIST in
+  # dev_plan.frontmatter (see Factory-implement-plan.instructions.md § Frontmatter) — locate
+  # the entry whose .id matches target_increment.id before indexing .phases.
+  # Under monolithic: check the plan-level phase status (stored under dev_plan.frontmatter.phases).
+  IF build_scope.mode == "incremental":
+    inc_entry = FIRST(dev_plan.frontmatter.increments, WHERE inc.id == build_scope.target_increment.id)
+    IF inc_entry IS NULL:
+      ❌ BLOCK: "dev_plan.md frontmatter missing entry for {build_scope.target_increment.id}. Re-run IMPLEMENT --plan to repopulate the increments[] mirror."
+      STOP
+    inc_phases = inc_entry.phases
+    FOR EACH phase IN [A, B, C]:
+      IF inc_phases[phase] exists AND inc_phases[phase].has_tasks:
+        IF inc_phases[phase].review_status != "PASSED":
+          ❌ BLOCK: "Increment {build_scope.target_increment.id} Phase {phase} REVIEW not passed."
+          STOP
+        IF inc_phases[phase].sec_status != "PASSED":
+          ❌ BLOCK: "Increment {build_scope.target_increment.id} Phase {phase} SEC scan not passed."
+          STOP
+    # Acceptance Gate: every [INC-N.ACC.k] item must be checked before the increment can close.
+    FOR EACH acc_task IN acceptance_tasks:
+      IF acc_task.status != "[x]":
+        ❌ BLOCK: "Increment {build_scope.target_increment.id} Acceptance Gate incomplete — {acc_task.id} unchecked."
         STOP
-      IF phase.sec_status != "PASSED":
-        ❌ BLOCK: "Phase {phase} SEC scan not passed."
-        STOP
+  ELSE:
+    FOR EACH phase IN [A, B, C]:
+      IF phase has tasks:
+        IF phase.review_status != "PASSED":
+          ❌ BLOCK: "Phase {phase} REVIEW not passed."
+          STOP
+        IF phase.sec_status != "PASSED":
+          ❌ BLOCK: "Phase {phase} SEC scan not passed."
+          STOP
 
   # BVL Full Verification Gate (MANDATORY — tests + lint + typecheck + build)
   # See: Factory-build-verification/SKILL.md → Full Verification Gate
@@ -621,16 +708,49 @@ FUNCTION verify_completion_gate(FEATURE_ID):
     SHOW: bvl_result.details
     STOP — DO NOT update status
 
-  # All gates passed
-  ✅ UPDATE dev_plan.md frontmatter:
-    status: IMPLEMENTED_AND_VERIFIED
-    completed_at: {ISO_8601}
-    tasks_completed: {checked_tasks.count}
-    tasks_skipped: {skipped_tasks.count}
-    tasks_total: {total_tasks}
-    bvl_result: {bvl_result.summary}  # tests, lint, typecheck, build status
+  # All gates passed — apply status transition per build_scope.
+  IF build_scope.mode == "incremental":
+    # Per-Increment Completion Gate — transition ONLY the target increment. Plan-level status flips
+    # to IMPLEMENTED_AND_VERIFIED only when EVERY target increment (per increment_plan.md § 1) has closed.
+    # dev_plan.frontmatter.increments is a LIST of objects — locate the target entry first, then
+    # mutate its fields in place.
+    target_entry = FIRST(dev_plan.frontmatter.increments, WHERE inc.id == build_scope.target_increment.id)
+    IF target_entry IS NULL:
+      ❌ BLOCK: "dev_plan.md frontmatter missing entry for {build_scope.target_increment.id}. Re-run IMPLEMENT --plan to repopulate the increments[] mirror."
+      STOP
+    ✅ UPDATE target_entry in place:
+      target_entry.status: IMPLEMENTED_AND_VERIFIED
+      target_entry.completed_at: {ISO_8601}
+      target_entry.tasks_completed: {checked_tasks.count}
+      target_entry.tasks_skipped: {skipped_tasks.count}
+      target_entry.bvl_result: {bvl_result.summary}
+    SAVE dev_plan.md
+    # Git merge hook (Factory-branching-strategy) will flip BUILDING → MERGED on the increment_plan.md side
+    # when the per-increment PR lands on main — this is NOT done here.
 
-  LOG: "Completion Gate PASSED: {checked_tasks.count}/{total_tasks} tasks done, {skipped_tasks.count} skipped, BVL: {bvl_result.summary}"
+    all_done = ALL(dev_plan.frontmatter.increments, inc.status == "IMPLEMENTED_AND_VERIFIED")
+    IF all_done:
+      ✅ UPDATE dev_plan.md frontmatter:
+        status: IMPLEMENTED_AND_VERIFIED
+        completed_at: {ISO_8601}
+        tasks_completed: {checked_tasks.count across all increments}
+        tasks_skipped: {skipped_tasks.count across all increments}
+        tasks_total: {total_tasks across all increments}
+        bvl_result: {aggregated summary}
+      LOG: "Plan-level Completion Gate PASSED — all {dev_plan.frontmatter.increments.length} increments verified."
+    ELSE:
+      pending = FILTER(dev_plan.frontmatter.increments, inc.status != "IMPLEMENTED_AND_VERIFIED")
+      LOG: "Increment {build_scope.target_increment.id} verified ({checked_tasks.count} tasks). Plan-level status remains {dev_plan.status} — pending: {[i.id for i in pending]}."
+  ELSE:
+    # Monolithic — plan-level transition in a single shot (legacy behaviour preserved)
+    ✅ UPDATE dev_plan.md frontmatter:
+      status: IMPLEMENTED_AND_VERIFIED
+      completed_at: {ISO_8601}
+      tasks_completed: {checked_tasks.count}
+      tasks_skipped: {skipped_tasks.count}
+      tasks_total: {total_tasks}
+      bvl_result: {bvl_result.summary}  # tests, lint, typecheck, build status
+    LOG: "Completion Gate PASSED: {checked_tasks.count}/{total_tasks} tasks done, {skipped_tasks.count} skipped, BVL: {bvl_result.summary}"
 
   APPEND_TO_WORKLOG: |
     {"timestamp":"YYYY-MM-DD","phase":"Dev (Implementation)","user_agent":"IMPLEMENT","action":"--build {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"IMPLEMENTED_AND_VERIFIED — {checked_tasks.count}/{total_tasks} tasks, {skipped_tasks.count} skipped — REVIEW ✅ SEC ✅"}
@@ -1498,15 +1618,28 @@ FUNCTION implement_build_resume(FEATURE_ID, command):
   
   IF unchecked.length > 0 AND checked.length > 0:
     # Partial completion detected — RESUME from first unchecked task
+    # EXTRACT_PHASE must handle both monolithic [A.M]/[B.M]/[C.M] and incremental
+    # [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M]/[INC-N.ACC.k] tag shapes.
     first_unchecked = unchecked[0]
-    phase = EXTRACT_PHASE(first_unchecked.id)  # A, B, or C
-    LOG: "RESUME: dev_plan.md — {checked.length} tasks done, {unchecked.length} pending, resuming from {first_unchecked.id} in Phase {phase}"
+    IF first_unchecked.id MATCHES /^\[INC-(\d+)\.([ABC]|ACC)\.(\d+)\]/:
+      increment_id = "INC-" + $1
+      phase = $2   # A, B, C, or ACC
+      LOG: "RESUME: dev_plan.md — {checked.length} tasks done, {unchecked.length} pending, resuming from {first_unchecked.id} in {increment_id} Phase {phase}"
+    ELIF first_unchecked.id MATCHES /^\[([ABC])\.(\d+)\]/:
+      increment_id = null
+      phase = $1   # A, B, or C (monolithic)
+      LOG: "RESUME: dev_plan.md — {checked.length} tasks done, {unchecked.length} pending, resuming from {first_unchecked.id} in Phase {phase}"
+    ELSE:
+      # Delta/adjustment/fix task — no phase axis; resume from it directly
+      increment_id = null
+      phase = null
+      LOG: "RESUME: dev_plan.md — {checked.length} tasks done, {unchecked.length} pending, resuming from {first_unchecked.id}"
     
     # Recover phase review/sec status from artifact
     FOR EACH completed_phase IN phases_with_all_tasks_checked:
       LOAD: phase.review_status, phase.sec_status from dev_plan.md
     
-    RESUME_FROM(first_unchecked, phase)
+    RESUME_FROM(first_unchecked, phase, increment_id)   # increment_id nullable for monolithic
     RETURN "RESUMED"
   
   ELIF unchecked.length == 0 AND checked.length > 0:

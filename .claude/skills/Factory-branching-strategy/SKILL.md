@@ -330,6 +330,83 @@ EPIC BRANCH LIFECYCLE:
   # ❌ NEVER rework a branch that was already merged to main.
 ```
 
+### Per-Increment Branching (when `slicing_strategy: incremental`)
+
+When a feature's `increment_plan.md` declares `slicing_strategy: incremental`, the feature's implementation branch is **replaced by one branch per increment** — each increment is a standalone, production-deployable unit and therefore ships on its own PR.
+
+```yaml
+BRANCH NAMING (incremental):
+  Pattern: feature/{FEATURE_ID}-inc-{N}-{slug}
+  Examples:
+    feature/USR-001-inc-1-submit-claim
+    feature/USR-001-inc-2-edit-claim
+    feature/USR-001-inc-3-policy-check
+  Parent: main (direct) — NOT a feature/{FEATURE_ID}-* umbrella branch
+  Regex:  ^feature/[A-Z]+-[0-9]+-inc-[0-9]+-[a-z0-9-]+$
+
+CONCURRENCY (reuse of existing LOCK PROTOCOL):
+  # Only ONE increment branch per feature may be open simultaneously. This
+  # preserves the existing concurrency contract (one feature-lock per feature)
+  # while allowing the increments to ship serially. Opening a second branch
+  # while a prior increment branch is unmerged BLOCKS with:
+  #   "Increment {inc.id} branch already open. Merge or --pause it before
+  #    starting the next increment."
+  # Enforced via the same filesystem lock mechanism documented in § CONCURRENCY
+  # LOCK PROTOCOL — key is feature-level, not increment-level.
+
+BRANCH OPEN TRIGGER (READY → BUILDING):
+  # IMPLEMENT begins work on the increment whose depends_on predecessors are all
+  # MERGED. Branch open flips the increment's status field in increment_plan.md
+  # § 1 from READY to BUILDING (see immutability_policy.md § Per-Increment
+  # Immutability).
+  ON_INCREMENT_BRANCH_CREATED(FEATURE_ID, increment_id):
+    VERIFY git branch exists: feature/{FEATURE_ID}-inc-{N}-{slug}
+    READ increment_plan.md § 1 → increment_id
+    REQUIRE status IN [READY, INVALIDATED]  # DRAFT not yet promoted; BUILDING/MERGED rejected
+    REQUIRE all depends_on predecessors have status == MERGED
+    UPDATE_INCREMENT_FIELD(increment_plan.md, increment_id, "status", "BUILDING")
+
+BRANCH MERGE HOOK (BUILDING → MERGED):
+  # When the increment PR merges into main, the merge hook (post-merge on main)
+  # flips the increment's status and stamps its Merged at: timestamp. This is
+  # the ONLY valid path to MERGED — direct edits to the status field are
+  # rejected by the Pre-Action Gate.
+  ON_PR_MERGED_TO_MAIN(pr_branch):
+    IF pr_branch matches ^feature/(.+)-inc-([0-9]+)-(.+)$:
+      FEATURE_ID = group 1
+      increment_N = group 2
+      READ increment_plan.md § 1 → INC-{increment_N}
+      REQUIRE status == BUILDING
+      UPDATE_INCREMENT_FIELD(increment_plan.md, "INC-{increment_N}", "status", "MERGED")
+      UPDATE_INCREMENT_FIELD(increment_plan.md, "INC-{increment_N}", "Merged at", NOW_ISO())
+      # Trigger next-increment readiness check
+      CHECK_NEXT_INCREMENT_READY(FEATURE_ID, merged_id="INC-{increment_N}")
+
+CHECK_NEXT_INCREMENT_READY(FEATURE_ID, merged_id):
+  # After an increment merges, inspect § 1 for increments whose depends_on just
+  # became satisfied (all predecessors now MERGED). Those increments are
+  # eligible for BUILDING on the next IMPLEMENT --plan invocation.
+  plan = READ("docs/spec/{FEATURE_ID}/increment_plan.md")
+  unblocked = FILTER(plan.increments, inc → inc.status IN [DRAFT, READY]
+                                         AND ALL(inc.depends_on, dep → plan.increments[dep].status == MERGED))
+  IF unblocked IS NOT EMPTY:
+    LOG: "Increment(s) unblocked by {merged_id} merge: {unblocked.map(i => i.id)}"
+    # IMPLEMENT --plan / IMPLEMENT --build picks these up on next run.
+
+REJECTED PATTERNS (under slicing_strategy: incremental):
+  - feature/{FEATURE_ID}-{slug}            # missing -inc-{N}- segment → BLOCK with guidance
+  - feature/{FEATURE_ID}-inc-*-inc-*-*     # double-inc (typo) → BLOCK
+  - Any branch that touches files assigned to a MERGED increment's scenario/
+    contract scope (see CVP Check 14/15) → BLOCK with "use --revise or add a
+    follow-up increment"
+
+BACKWARD COMPATIBILITY (slicing_strategy: monolithic):
+  # Features with slicing_strategy=monolithic retain the legacy naming:
+  #   feature/{FEATURE_ID}-{slug}
+  # No per-increment segment. Only valid when the Trivial-Heuristic Gate passes
+  # at BLUEPRINT (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack).
+```
+
 ---
 
 ## 🚫 MERGE ENFORCEMENT (PULL REQUEST MANDATORY)

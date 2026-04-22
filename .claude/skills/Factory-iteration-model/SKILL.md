@@ -444,21 +444,29 @@ CASCADE_TRIGGERS:
     new_iteration = spec.feature.iteration
     new_schemas_version = user_journey.schemas_version
     affected_scopes = CLASSIFY_CHANGE_SCOPES(codesign_changes)
+    affected_scenarios = EXTRACT_AFFECTED_SCENARIOS(codesign_changes)   # list of Scenario names touched
+    affected_contract_ops = []                                          # CODESIGN doesn't alter contracts — contracts change only via BLUEPRINT
     CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, new_schemas_version, affected_scopes)
-    # EVOL-014: slice peers depend on cross-feature integration tests
     CASCADE_SLICE_PEERS(FEATURE_ID, new_iteration, affected_scopes)
+    CASCADE_INCREMENT_INTERNAL(FEATURE_ID, new_iteration, affected_scopes, affected_scenarios, affected_contract_ops)
 
   # 2. BLUEPRINT --refine (Syncing design.md + test_plan.md)
   ON_BLUEPRINT_SYNC_COMPLETE:
     affected_scopes = CLASSIFY_BLUEPRINT_CHANGES(blueprint_changes)
+    affected_scenarios = EXTRACT_AFFECTED_SCENARIOS_FROM_TEST_PLAN(blueprint_changes)
+    affected_contract_ops = EXTRACT_AFFECTED_CONTRACT_OPS(blueprint_changes)   # operations added / removed / signature-changed
     CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
     CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
+    CASCADE_INCREMENT_INTERNAL(FEATURE_ID, spec.iteration, affected_scopes, affected_scenarios, affected_contract_ops)
 
   # 3. IMPLEMENT --refine (Syncing dev_plan.md via Delta Iteration)
   ON_IMPLEMENT_SYNC_COMPLETE:
     affected_scopes = ["implementation_changed"]
     CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
     CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
+    # Implementation-only changes do NOT invalidate increment scope — the plan's § 1 (scenarios /
+    # contracts / depends_on) is untouched. Skip CASCADE_INCREMENT_INTERNAL here; per-increment
+    # dev_plan.md tasks re-sync through the normal DELTA/FULL path.
 
   # 4. IMPLEMENT --build / --fix complete (EVOL-014)
   #    Code changed — runtime-dependent reports are now stale regardless of spec/design drift.
@@ -538,6 +546,102 @@ FUNCTION CASCADE_CONSUMERS(upstream_feature_id, target_iteration, schemas_versio
     #    double-trigger here.
 
   LOG: "CASCADE_CONSUMERS complete: {len(downstream_consumers)} downstream features cascaded due to {upstream_feature_id} contract change"
+
+
+FUNCTION CASCADE_INCREMENT_INTERNAL(FEATURE_ID, target_iteration, affected_scopes, affected_scenarios, affected_contract_ops):
+  # Per-increment cascade. When a feature whose spec or design changes has slicing_strategy=incremental,
+  # the cascade is SELECTIVE: only increments that carry the touched scenarios or contract operations are
+  # invalidated, not the whole plan. This is the mechanism that makes incremental slicing compatible with
+  # the Iteration Model — a 3-increment plan where INC-1 is MERGED and INC-2 is BUILDING must not be
+  # wholesale invalidated when the user refines INC-3's scenarios.
+  #
+  # Lives alongside CASCADE_PENDING_ITERATION (which keeps touching dev_plan.md / test_plan.md / devops_plan.md
+  # globally for implementation-level re-sync) and CASCADE_SLICE_PEERS (which is cross-feature within a slice
+  # — unrelated to the per-increment concept).
+
+  plan_path = "docs/spec/{FEATURE_ID}/increment_plan.md"
+  IF NOT FILE_EXISTS(plan_path): RETURN   # pre-slicing feature — nothing per-increment to touch
+
+  plan_fm = READ_FRONTMATTER(plan_path)
+  IF plan_fm.slicing_strategy != "incremental":
+    RETURN   # monolithic plans cascade through the plan-level pending_iteration path only
+
+  increments = PARSE_INCREMENTS(plan_path)   # § 1 entries with id, status, scenarios_covered, contract_surface
+  invalidated = []
+  warnings = []
+
+  FOR EACH inc IN increments:
+    # Does the change touch this increment?
+    scenario_overlap  = NOT_EMPTY(inc.scenarios_covered ∩ affected_scenarios)
+    contract_overlap  = NOT_EMPTY(inc.contract_surface  ∩ affected_contract_ops)
+    implicit_touch    = (affected_scenarios IS EMPTY AND affected_contract_ops IS EMPTY)
+                        # When CLASSIFY_CHANGE_SCOPES signals change but no specific element can be
+                        # attributed (e.g. broad "policy_change"), fall back to touching every
+                        # non-MERGED increment conservatively.
+
+    IF NOT (scenario_overlap OR contract_overlap OR implicit_touch):
+      CONTINUE   # increment survives this cascade
+
+    # Transition policy per status (see immutability_policy.md § Per-Increment Immutability)
+    IF inc.status == "MERGED":
+      # MERGED increments are NEVER invalidated — their scope is production history, not rework target.
+      # Surface the collision so the operator can propose a follow-up increment (Follow-up Increment Rule).
+      warnings.push({
+        id: inc.id,
+        reason: "MERGED increment overlaps changed scenarios/contracts — add a follow-up increment instead of invalidating",
+        touched_scenarios: inc.scenarios_covered ∩ affected_scenarios,
+        touched_contract_ops: inc.contract_surface ∩ affected_contract_ops
+      })
+      CONTINUE
+
+    IF inc.status == "BUILDING":
+      # A branch is open with tasks in progress. We cannot silently invalidate without losing work.
+      # Mark the increment as needing resync but DO NOT flip status yet — the operator must --pause
+      # the branch first (enforced by immutability_policy).
+      UPDATE_INCREMENT_FIELD(plan_path, inc.id, "pending_iteration", target_iteration)
+      UPDATE_INCREMENT_FIELD(plan_path, inc.id, "pending_reason", "Affected by upstream change — pause branch and run IMPLEMENT --refine {FEATURE_ID} {inc.id}")
+      warnings.push({
+        id: inc.id,
+        reason: "BUILDING increment carries uncommitted work — pause + --refine required",
+        pending_iteration: target_iteration
+      })
+      CONTINUE
+
+    # DRAFT, READY, INVALIDATED → flip to INVALIDATED and record the cascade
+    UPDATE_INCREMENT_FIELD(plan_path, inc.id, "status", "INVALIDATED")
+    UPDATE_INCREMENT_FIELD(plan_path, inc.id, "invalidated_by_iteration", target_iteration)
+    UPDATE_INCREMENT_FIELD(plan_path, inc.id, "invalidated_reason", "Scenarios/contracts changed: {affected_scopes}")
+    invalidated.push(inc.id)
+
+  # Roll up into plan frontmatter
+  UPDATE_FRONTMATTER(plan_path, {
+    pending_iteration: target_iteration,
+    invalidated_increments: UNION(plan_fm.invalidated_increments, invalidated),
+    cascade_source: "CASCADE_INCREMENT_INTERNAL",
+    cascade_timestamp: NOW_ISO(),
+    cascade_scope: affected_scopes
+  })
+
+  # Mirror into dev_plan.md — the IMPLEMENT consumer needs to see the invalidation
+  dev_plan_path = "docs/spec/{FEATURE_ID}/dev_plan.md"
+  IF FILE_EXISTS(dev_plan_path):
+    UPDATE_FRONTMATTER(dev_plan_path, {
+      invalidated_increments: UNION(READ_FRONTMATTER(dev_plan_path).invalidated_increments, invalidated)
+    })
+
+  # Plan-level status: only flip to INVALIDATED if EVERY non-MERGED increment is invalidated
+  non_merged = FILTER(increments, status != "MERGED")
+  IF non_merged IS NOT EMPTY AND ALL(non_merged, inc.id IN (plan_fm.invalidated_increments ∪ invalidated)):
+    UPDATE_FRONTMATTER(plan_path, { status: "INVALIDATED" })
+    LOG: "CASCADE_INCREMENT_INTERNAL: plan-level status flipped to INVALIDATED — all non-MERGED increments invalidated"
+
+  # Emit operator-facing summary
+  IF invalidated IS NOT EMPTY:
+    LOG: "CASCADE_INCREMENT_INTERNAL: invalidated {invalidated.length} increment(s): {invalidated}"
+  FOR EACH w IN warnings:
+    LOG: "CASCADE_INCREMENT_INTERNAL: WARN {w.id} — {w.reason}"
+
+  RETURN { invalidated: invalidated, warnings: warnings }
 
 
 # EVOL-014 — Horizontal cascade within a slice

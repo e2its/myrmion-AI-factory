@@ -41,6 +41,11 @@ last_update: [TIMESTAMP]
   - `integration` → feature.scope in [backend-only, integration] only
 - **Materialization impact:** When `project_scope in [backend-only, integration]`, SETUP skips frontend directory scaffolding, UX rules (`ux-constitution`, `frontend_architecture_compatibility`), vision artifacts, and frontend-specific CI jobs. When `frontend-only`, SETUP skips backend directory scaffolding, backend rules, and backend-specific CI jobs. See `Factory-setup-materialization.instructions.md § 4.2.6 Scope-Keyed Conditional Materialization`.
 
+### 0.2 Default Slicing Strategy (Incremental Dev Plan)
+- **Default slicing strategy:** [incremental | monolithic] — applied to every new feature unless spec.feature overrides. Default `incremental` (recommended). `monolithic` sets the project default but individual features still require trivial-heuristic approval at `BLUEPRINT --start` (`≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack`).
+- **Resolution:** Discovery asks this after Project Scope. Greenfield projects start at `incremental` unless the team explicitly opts out. Brownfield projects may start `monolithic` if the legacy surface is small and then migrate per-feature.
+- **Authoring impact:** Every new `spec.feature` inherits this default into its `slicing_strategy` frontmatter field. Authors can override per-feature at CODESIGN time. BLUEPRINT enforces the trivial-heuristic regardless of the project default.
+
 ### A. Backend Architecture
 - **Macro Topology (Backend):** 
   - [Modular Monolith: Traditional | Modular by Bounded Contexts | Microkernel with Plugins]
