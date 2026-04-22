@@ -153,13 +153,14 @@
       ]
     },
     "rules/branching.md": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.instructions.md",
       "changelog": [
         "2.0.0: PR validation mode, approval count, merge method configurable via SETUP Q22.1",
         "1.0.0: Initial template",
-        "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "2.2.0: feat(EVOL-021) phase 4: new § Per-Increment Branch Naming (when slicing_strategy: incremental). Pattern feature/{FEATURE_ID}-inc-N-{slug} with regex ^feature/[A-Z]+-[0-9]+-inc-[0-9]+-[a-z0-9-]+$; concurrency — only ONE increment branch per feature open at a time; branch-open flips status READY→BUILDING in increment_plan.md, merge hook flips BUILDING→MERGED + stamps Merged at:; monolithic escape preserves legacy feature/{FEATURE_ID}-{slug} naming. Closes downstream-guidance gap identified in Phase 4 global coherence audit."
       ]
     },
     "rules/security_policy.md": {
@@ -240,14 +241,15 @@
       ]
     },
     "rules/immutability_policy.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.instructions.md",
       "changelog": [
         "1.0.1: fix(EVOL-015): References section no longer points to the deleted root instructions.md; redirects to the framework README § Command Reference on GitHub",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
-        "1.2.0: feat(EVOL-021) phase 2: Per-Increment Immutability section — Lock Table Phase 2 row adds increment_plan.md as partially blocked (plan-level frontmatter frozen; § 1 per-increment sections gated by Status); new Per-Increment Lock Table (DRAFT/READY/BUILDING/MERGED/INVALIDATED) with per-status editability and version-bump policy; Follow-up Increment Rule allows additive non-breaking increments post-merge without version bump; slicing-strategy flip rules (incremental↔monolithic) enforce no in-flight increments; new check_increment_immutability() enforcement function scoped to specific increment IDs; status-transition monotonicity invariant (regression transitions BLOCKED)."
+        "1.2.0: feat(EVOL-021) phase 2: Per-Increment Immutability section — Lock Table Phase 2 row adds increment_plan.md as partially blocked (plan-level frontmatter frozen; § 1 per-increment sections gated by Status); new Per-Increment Lock Table (DRAFT/READY/BUILDING/MERGED/INVALIDATED) with per-status editability and version-bump policy; Follow-up Increment Rule allows additive non-breaking increments post-merge without version bump; slicing-strategy flip rules (incremental↔monolithic) enforce no in-flight increments; new check_increment_immutability() enforcement function scoped to specific increment IDs; status-transition monotonicity invariant (regression transitions BLOCKED).",
+        "1.2.1: fix(EVOL-021) phase 4: clarified two edge-case interactions identified by Phase 4 coherence audit. (a) Follow-up Increment Rule now explicitly states the append window closes at Phase 4 QA-verify chain-lock — after QA --verify certifies the chain, new increments require CODESIGN --revise (feature version bump). (b) Phase 3 IMPLEMENT-Plan-Approved lock clarified as artefact-structural — per-increment DRAFT sections remain editable via BLUEPRINT --refine, artefact-level lock prevents whole-plan churn while per-increment lock grants surgical latitude."
       ]
     },
     "rules/review-policy.md": {
@@ -656,15 +658,16 @@
       ]
     },
     "claude/hooks/check-ipp-compliance.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-ipp-compliance.sh",
       "changelog": [
-        "1.0.0: feat(EVOL-020): initial template — PreToolUse Write hook enforces IPP Pillar 1 (Skeleton-First Write) by blocking first-writes of tracked governance artifacts (docs/spec/*/design|test_plan|dev_plan|spec.feature|user_journey*|mock|devops_plan|technical_due.md, docs/setup.md, qa_report*.md) that arrive fully-formed (≥3 H2 sections + 0 <!-- PENDING --> markers + >150 lines) OR claim _progress.completed_sections non-empty on creation. Canonical protocol: .claude/skills/Factory-incremental-persistence/SKILL.md."
+        "1.0.0: feat(EVOL-020): initial template — PreToolUse Write hook enforces IPP Pillar 1 (Skeleton-First Write) by blocking first-writes of tracked governance artifacts (docs/spec/*/design|test_plan|dev_plan|spec.feature|user_journey*|mock|devops_plan|technical_due.md, docs/setup.md, qa_report*.md) that arrive fully-formed (≥3 H2 sections + 0 <!-- PENDING --> markers + >150 lines) OR claim _progress.completed_sections non-empty on creation. Canonical protocol: .claude/skills/Factory-incremental-persistence/SKILL.md.",
+        "1.1.0: feat(EVOL-021) phase 4: tracked-artefact allowlist extended with `*/docs/spec/*/increment_plan.md`. Closes IPP Pillar 1 coverage gap — BLUEPRINT's new sidecar artefact now blocks fully-formed first-writes identically to design.md / test_plan.md / dev_plan.md."
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
