@@ -1,9 +1,9 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "2.1.0",
+  "framework_version": "2.2.0",
   "last_updated": "2026-04-22",
-  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release — full platform migration from GitHub Copilot multi-agent architecture. v2.1.0: feat(EVOL-020) canonical RDR skill + IPP compliance enforcement hook — Factory-rdr/SKILL.md consolidates Recommendation → Decision → Ratification (fixes Registration drift); check-ipp-compliance.sh blocks first-write fully-formed governance artifacts on PreToolUse Write.",
+  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release — full platform migration from GitHub Copilot multi-agent architecture. v2.1.0: feat(EVOL-020) canonical RDR skill + IPP compliance enforcement hook — Factory-rdr/SKILL.md consolidates Recommendation → Decision → Ratification (fixes Registration drift); check-ipp-compliance.sh blocks first-write fully-formed governance artifacts on PreToolUse Write. v2.2.0: feat(EVOL-021) phase 1: Incremental Dev Plan foundations — BLUEPRINT emits new sidecar artifact increment_plan.md declaring vertical increments (each = 1 PR that leaves product 100% functional and production-deployable); new spec.feature frontmatter field slicing_strategy (incremental|monolithic) with default `incremental` and trivial-heuristic escape to `monolithic` (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack); Increment Plan Generation sub-phase added to Factory-blueprint-design after Cross-Pollination, RDR-driven with ≥3 slicing alternatives; feature-flag-OFF merges explicitly disallowed as a deployability escape.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -682,6 +682,14 @@
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added pending_iteration, pending_schemas_version, invalidated_*, cascade_* fields; status enum extended with INVALIDATED"
       ]
     },
+    "architect/increment_plan_template.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/architect/increment_plan_template.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-021) phase 1: initial sidecar template for BLUEPRINT's Incremental Dev Plan — emits docs/spec/{FEATURE_ID}/increment_plan.md with § 0 Slicing Rationale, § 1 Increments (each declaring scenarios_covered/contract_surface/depends_on/deployable:production/acceptance-checklist/branch-convention), § 2 Mermaid DAG, § 3 Monolithic Escape Declaration (only when slicing_strategy=monolithic). Consumed by IMPLEMENT --plan to generate dev_plan.md fractioned by increment."
+      ]
+    },
     "architect/technical_gaps_proposals.md": {
       "version": "1.0.0",
       "content_type": "universal",
@@ -699,12 +707,13 @@
       ]
     },
     "codesign/gherkin_master_template.feature": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "docs/codesign/gherkin_master_template.feature",
       "changelog": [
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked template. Consumed by CODESIGN --start to produce docs/spec/{FEATURE_ID}/spec.feature with co-creation frontmatter.",
-        "1.1.0: feat(EVOL-019) phase 1: scope + consumes_contract frontmatter fields — dual-axis scope model; ux_sign_off marked N/A when scope in [backend-only, integration]."
+        "1.1.0: feat(EVOL-019) phase 1: scope + consumes_contract frontmatter fields — dual-axis scope model; ux_sign_off marked N/A when scope in [backend-only, integration].",
+        "1.2.0: feat(EVOL-021) phase 1: slicing_strategy frontmatter field (incremental|monolithic, default incremental) — drives BLUEPRINT Increment Plan generation; monolithic permitted only when trivial-heuristic passes (≤2 scenarios AND ≤3 contract ops AND scope ≠ full-stack)."
       ]
     },
     "codesign/user_journey_template.md": {
@@ -980,9 +989,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.8.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "2.8.0: feat(EVOL-021) phase 1: Increment Plan Generation sub-phase added after Cross-Pollination (Step A strategy resolution + trivial-heuristic gate for monolithic escape, Step B RDR with ≥3 slicing alternatives, Step C IPP-compliant emission of increment_plan.md, Step D self-check invariants on scenario/contract exclusive coverage + DAG acyclicity + deployable:production mandate, Step E worklog registration). Generated Outputs section extended from 8 to 9 artifact types (adds increment_plan.md). IPP Pillars 1/3 + Finalization loops extended to include increment_plan.md. Feature-flag-OFF merges explicitly disallowed as a deployability escape.",
         "2.6.0: feat(EVOL-019) phase 1: Consumes-Contract Resolution Gate added to --start pre-flight (BLOCKS when upstream FEAT-XXX referenced in spec.feature.consumes_contract is not APPROVED or has no frozen contract file); Required Inputs extended from 12 to 13 sources (scope-aware applicability; upstream frozen contracts as new mandatory source when consumes_contract is non-empty); feature_scope read into Architecture Context Loading.",
         "2.4.0: feat(EVOL-014): Step 6 Defect Prevention Consultation — BLUEPRINT consults DC catalog, stores applicable DCs for Section 7 GCD and test_plan edge case generation",
         "2.3.8: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",

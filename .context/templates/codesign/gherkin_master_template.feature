@@ -7,6 +7,7 @@ status: DRAFT  # or NEEDS_INFO
 feature_id: {{FEATURE_ID}}
 scope: full-stack  # EVOL-019 dual-axis — full-stack | backend-only | frontend-only | integration; must be compatible with project_scope from governance snapshot
 consumes_contract: []  # EVOL-019 — list of upstream FEAT-XXX whose frozen contract this feature depends on; resolved at BLUEPRINT --start
+slicing_strategy: incremental  # incremental | monolithic. Default `incremental` forces BLUEPRINT to emit an increment_plan.md with vertical slices (each = 1 deployable PR). `monolithic` permitted only when feature satisfies the trivial-heuristic (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack); BLUEPRINT enforces the heuristic at --start.
 last_update: [DATE]
 co_creation_round: 0
 po_sign_off: false

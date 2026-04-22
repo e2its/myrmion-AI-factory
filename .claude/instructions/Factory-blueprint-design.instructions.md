@@ -39,7 +39,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 ---
 
-## Generated Outputs (8 Artifact Types)
+## Generated Outputs (9 Artifact Types)
 
 1. **`design.md`** — Technical design (contracts, C4, component inventory, infra needs)
 2. **`test_plan.md`** — Test strategy (acceptance, edge cases, integration, WCAG)
@@ -49,6 +49,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 6. **AsyncAPI 2.6+** — `contracts/asyncapi/{SLUG}/asyncapi.yaml` (Event-based)
 7. **gRPC Proto3** — `contracts/grpc/{SLUG}/service.proto` (gRPC)
 8. **`feature_map.md`** — Cross-reference CONTRACT_SLUG → Feature ID → spec
+9. **`increment_plan.md`** — Sidecar manifest of vertical increments (each = 1 PR that leaves product 100% functional); consumed by IMPLEMENT `--plan`
 
 **Contract Slug Convention:** `{domain}-{capability}` in kebab-case. Stored as `x-feature-id` in contract metadata.
 
@@ -718,6 +719,73 @@ FUNCTION auto_declare_frontend_resource():
 - ARCH patterns → QA generates pattern compliance tests
 - QA security concerns → ARCH adds security architecture sections
 
+### Increment Plan Generation (MANDATORY)
+
+> **Purpose:** BLUEPRINT declares the vertical slicing strategy IMPLEMENT will follow. Each increment = 1 PR that leaves the product 100% functional and production-deployable on merge. Feature-flag-OFF merges are NOT a valid escape.
+> **When:** After Cross-Pollination completes. All upstream artifacts (design.md, test_plan.md, contracts/**) must already be finalized at section-complete granularity.
+> **Output:** `docs/spec/{{FEATURE_ID}}/increment_plan.md` (template: `.context/templates/architect/increment_plan_template.md`).
+
+**Step A — Strategy Resolution:**
+1. READ `spec.feature` frontmatter field `slicing_strategy` (default `incremental`).
+2. IF `slicing_strategy == monolithic`:
+   - Run the **Trivial-Heuristic Gate**:
+     - `scenarios_count` = number of `Scenario:` / `Scenario Outline:` blocks in spec.feature (exclude `Background:`).
+     - `ops_count` = total contract operations across `contracts/**` for this feature (OpenAPI operations + GraphQL root fields + gRPC RPCs + AsyncAPI messages).
+     - `scope` = `spec.feature.scope`.
+     - Gate passes **only if** `scenarios_count ≤ 2` AND `ops_count ≤ 3` AND `scope != "full-stack"`.
+   - IF gate FAILS → BLOCK with humanized message:
+     - "This feature is too large for a monolithic plan (N scenarios, M ops, scope=S). Set `slicing_strategy: incremental` in spec.feature and re-run --start. See `.context/templates/architect/increment_plan_template.md` § 3 for the heuristic."
+   - IF gate PASSES → emit `increment_plan.md` with a single `INC-1` increment + § 3 Monolithic Escape Declaration populated. Skip Step B.
+3. IF `slicing_strategy == incremental` → proceed to Step B (RDR).
+
+**Step B — Increment Slicing RDR (Recommendation → Decision → Ratification):**
+
+Follow `.claude/skills/Factory-rdr/SKILL.md` canonical protocol. Slicing-specific invariants:
+- Present **≥ 3 alternative slicings**. Typical families (pick ≥3, do NOT invent without justification):
+  - `by-user-subjourney` — each increment ships one end-to-end capability of the user journey.
+  - `by-data-entity` — each increment introduces one domain entity + its CRUD surface.
+  - `by-capability-layer` — each increment adds a vertical capability (read → write → edit → delete).
+  - `by-risk-tier` — lowest-risk / highest-observability first, risky/integration-heavy last.
+  - `happy-path-first` — all happy paths across the feature in INC-1, edge cases in INC-N.
+  - `read-then-write` — read-only surface first, mutating surface second, advanced last.
+- Each alternative MUST declare: ordered increments, scenarios per increment, contract ops per increment, estimated PR size (tasks count), and a one-line deployability rationale.
+- BLUEPRINT recommends **one** with a one-line justification (e.g., "alt 2 — each increment ships a self-contained read→write user loop without depending on future flags").
+- User MUST ratify **verbatim** (per Factory-rdr). A recommendation without user ratification is INCOMPLETE — BLOCK.
+- Store ratification record in feature worklog: action `BLUEPRINT.increment_plan.rdr_ratified` with payload `{alternatives_presented: N, user_choice: "alt-k", rdr_ratified_at: iso}`.
+
+**Step C — Increment Plan Emission (IPP-compliant):**
+
+1. READ template `.context/templates/architect/increment_plan_template.md`.
+2. Resolve placeholders:
+   - `{{FEATURE_ID}}`, `{{SCOPE}}`, `[DATE]` from spec.feature + system clock.
+   - `slicing_strategy`, `based_on_iteration`, `based_on_schemas_version` inherited from spec.feature (never recomputed).
+   - § 1 **Increments** populated from ratified RDR choice: title, scenarios_covered, contract_surface, depends_on, functional_definition, acceptance checklist, branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`.
+   - § 2 **Dependency Graph** — emit Mermaid DAG from `depends_on` relations.
+   - § 0 **Slicing Rationale** — populate with chosen strategy justification + summaries of ≥2 rejected alternatives + ratification timestamp.
+   - § 3 **Monolithic Escape Declaration** — emit ONLY when `slicing_strategy == monolithic`; include heuristic metrics.
+   - Frontmatter: `total_increments` = count of § 1 sections; `rdr_alternatives_considered` = number presented (≥3); `rdr_ratified_at` = ratification ISO timestamp; `status: DRAFT`.
+3. Atomic-write `docs/spec/{{FEATURE_ID}}/increment_plan.md` via IPP (skeleton-first + section-atomic; see § Incremental Persistence below for the full loop).
+
+**Step D — Self-Check Invariants (before proceeding to Section 7 GCD):**
+
+BLUEPRINT MUST self-verify before exit:
+
+- **Scenario coverage (exclusive):** every `Scenario:` in `spec.feature` appears in exactly one increment's `scenarios_covered`. No orphan, no duplicate.
+- **Contract coverage (exclusive):** every contract operation in `contracts/**` appears in exactly one increment's `contract_surface`. No orphan, no duplicate.
+- **DAG:** `depends_on` across all increments is acyclic (topological sort succeeds). INC-1 has `depends_on: []`. Every referenced ID exists.
+- **Deployability:** every increment declares `deployable: production`. Any other value (e.g., `flagged_off`, `experimental`) → BLOCK. Feature-flag-OFF merges are NOT a valid escape. If the user argues for a flagged rollout, that MUST be expressed as an explicit follow-up increment with its own scenarios, not as an escape on a half-done slice.
+- **Acceptance checklist shape:** each increment's acceptance block contains the template's standard checklist (E2E / API / Reliability / CVP / no-TODO).
+
+Violations are **BUGS in the RDR output** — loop back to Step B with the specific violation surfaced to the user. Do NOT attempt to auto-correct.
+
+**Step E — Worklog Registration:**
+
+Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, slicing_strategy, total_increments, rdr_alternatives_considered, rdr_ratified_at}`. See `.claude/skills/Factory-worklog/SKILL.md`.
+
+**Output invariants at step end:**
+- `docs/spec/{{FEATURE_ID}}/increment_plan.md` exists with `status: DRAFT`, well-formed frontmatter (all fields populated), § 0/§ 1/§ 2 fully written. § 3 only when `slicing_strategy == monolithic`.
+- CVP gates `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage` run at `--approve` (see `.claude/skills/Factory-coherence-validation/SKILL.md`).
+
 ### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY — v2.3.0)
 
 > **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for DEV + REVIEW + SEC — reliably, with zero duplication.
@@ -1235,7 +1303,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
 FUNCTION blueprint_skeleton_first(FEATURE_ID):
   base_path = "docs/spec/{FEATURE_ID}"
   
-  FOR EACH artifact IN [design.md, test_plan.md]:
+  FOR EACH artifact IN [design.md, test_plan.md, increment_plan.md]:
     path = "{base_path}/{artifact}"
     IF NOT FILE_EXISTS(path):
       WRITE_SKELETON(path):
@@ -1278,7 +1346,7 @@ FOR EACH section IN artifact.sections:
 FUNCTION blueprint_resume_check(FEATURE_ID, command):
   base_path = "docs/spec/{FEATURE_ID}"
   
-  FOR EACH artifact IN [design.md, test_plan.md]:
+  FOR EACH artifact IN [design.md, test_plan.md, increment_plan.md]:
     path = "{base_path}/{artifact}"
     IF FILE_EXISTS(path):
       fm = READ_FRONTMATTER(path)
@@ -1293,7 +1361,7 @@ FUNCTION blueprint_resume_check(FEATURE_ID, command):
 
 **Finalization (on --approve):**
 ```yaml
-FOR EACH artifact IN [design.md, test_plan.md]:
+FOR EACH artifact IN [design.md, test_plan.md, increment_plan.md]:
   UPDATE_FRONTMATTER(artifact_path):
     status: APPROVED
     _progress: null  # REMOVE — no resume needed
