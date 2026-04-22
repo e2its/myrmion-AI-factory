@@ -180,6 +180,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Protocol | Reference | Purpose |
 |----------|-----------|---------|
 | Incremental Persistence (IPP) | `.claude/skills/Factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
+| RDR (Recommendation → Decision → Ratification) | `.claude/skills/Factory-rdr/SKILL.md` | Canonical protocol for agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice, immediate ratification (persistence via IPP) |
 | Build Verification (BVL) | `.claude/skills/Factory-build-verification/SKILL.md` | Test execution, error parsing, auto-fix (max 3), Full Verification Gate, Defect Discovery Hook |
 | Codebase Inventory (CIP) | `.claude/skills/Factory-codebase-inventory/SKILL.md` | DRY enforcement via inventory, 4-criteria matching |
 | Iteration Model | `.claude/skills/Factory-iteration-model/SKILL.md` | Cascade invalidation on upstream changes |

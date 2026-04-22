@@ -1,9 +1,9 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "2.0.0",
-  "last_updated": "2026-04-21",
-  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release — full platform migration from GitHub Copilot multi-agent architecture.",
+  "framework_version": "2.1.0",
+  "last_updated": "2026-04-22",
+  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release — full platform migration from GitHub Copilot multi-agent architecture. v2.1.0: feat(EVOL-020) canonical RDR skill + IPP compliance enforcement hook — Factory-rdr/SKILL.md consolidates Recommendation → Decision → Ratification (fixes Registration drift); check-ipp-compliance.sh blocks first-write fully-formed governance artifacts on PreToolUse Write.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -613,12 +613,13 @@
       ]
     },
     "claude/settings.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/settings.json",
       "upgrade_strategy": "merge-preserve",
       "changelog": [
-        "1.0.0: feat(EVOL-017/EVOL-018): initial template — Claude Code hooks canonical block (SessionStart banner, UserPromptSubmit freshness gate, PreCompact marker, PreToolUse branch/lock/governance-drift/completion-gate). Merge-preserve upgrade: adds missing hook entries without overwriting user-added permissions or other blocks."
+        "1.0.0: feat(EVOL-017/EVOL-018): initial template — Claude Code hooks canonical block (SessionStart banner, UserPromptSubmit freshness gate, PreCompact marker, PreToolUse branch/lock/governance-drift/completion-gate). Merge-preserve upgrade: adds missing hook entries without overwriting user-added permissions or other blocks.",
+        "1.1.0: feat(EVOL-020): PreToolUse Write matcher gains check-ipp-compliance.sh hook entry alongside the existing check-completion-gate.sh. Merge-preserve adds the new entry to downstream settings.json without touching user-added permissions."
       ]
     },
     "claude/hooks/check-branch-protection.sh": {
@@ -653,12 +654,21 @@
         "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse Edit/Write hook warns (non-blocking) when constitution.md/setup.md hashes diverge from governance snapshot. Pairs with UserPromptSubmit freshness gate (blocking)."
       ]
     },
+    "claude/hooks/check-ipp-compliance.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-ipp-compliance.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-020): initial template — PreToolUse Write hook enforces IPP Pillar 1 (Skeleton-First Write) by blocking first-writes of tracked governance artifacts (docs/spec/*/design|test_plan|dev_plan|spec.feature|user_journey*|mock|devops_plan|technical_due.md, docs/setup.md, qa_report*.md) that arrive fully-formed (≥3 H2 sections + 0 <!-- PENDING --> markers + >150 lines) OR claim _progress.completed_sections non-empty on creation. Canonical protocol: .claude/skills/Factory-incremental-persistence/SKILL.md."
+      ]
+    },
     "claude/CLAUDE.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "1.2.0: feat(EVOL-020): Core Protocols table gains RDR row — Recommendation → Decision → Ratification canonical skill at .claude/skills/Factory-rdr/SKILL.md. Consolidates previously-scattered RDR references so all agents consume a single source of truth.",
         "1.1.0: feat(EVOL-019) phase 1: § Project Scope & Feature Scope Taxonomy (EVOL-019 — dual-axis) — enum, compatibility matrix, artefact impact; INVARIANT 5 extended with scope cross-check against governance snapshot + immutability note after APPROVED.",
         "1.0.0: feat(EVOL-018): initial template — materialized-project CLAUDE.md variant. SDLC-first triage as DEFAULT, Workflow + Hard Gates + Living Governance Catalogs present, INVARIANT 4 and Generation Standards §2 reference docs/project_log/governance_versions.json (project manifest), not the framework manifest. Complements the framework-repo CLAUDE.md (meta-maintenance variant) at the source repo root."
       ]
@@ -852,12 +862,13 @@
       ]
     },
     "upgrade_safety_protocol.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "docs/upgrade_safety_protocol.md",
       "changelog": [
         "1.0.0: chore(EVOL-014): placeholder notation convention block added to header — distinguishes SCREAMING_SNAKE materialization placeholders from lowercase pseudo-code/log-format locals",
-        "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
+        "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
+        "1.1.1: fix(EVOL-020): RDR terminology drift — 'Registration' replaced with canonical 'Ratification' in § 3 header, bullet summary, and RATIFICATION pseudo-code block; return struct field renamed registered→ratified; header bullet now points at .claude/skills/Factory-rdr/SKILL.md as canonical source"
       ]
     },
     "qa/smoke_e2e_integration_template.md": {
@@ -1344,9 +1355,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "11.1.0",
+      "version": "11.2.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "11.2.0: feat(EVOL-020): Core Protocols table gains RDR row — Recommendation → Decision → Ratification canonical skill at .claude/skills/Factory-rdr/SKILL.md. Mirrors the downstream template update in the same EVOL.",
         "11.1.0: feat(EVOL-019) phase 1: § Project Scope & Feature Scope Taxonomy (framework authorship view) added — enum, axis separation, compatibility matrix summary, consumes_contract semantics; INVARIANT 5 reframed to note scope axis does NOT apply in framework repo but literal enum values must be preserved in .context/templates/** edits.",
         "11.0.0: BREAKING feat(EVOL-018): framework-vs-project split. This CLAUDE.md is now the META-MAINTENANCE variant for the framework repo only — title retitled “mi AI Factory — Framework Repository (Meta)”, meta-framework triage replaces SDLC-first as the default, Workflow + Hard Gates + Living Governance Catalogs sections REMOVED (those ship to downstream via the new project template), Generation Standards §2 explicitly names the framework manifest path, INVARIANT 4 reads framework_version from the framework manifest, INVARIANT 5 reframed for EVOL-*/fix-*/PR lifecycle. The materialized-project variant lives at .context/templates/setup/claude/CLAUDE.md (new template claude/CLAUDE.md in this manifest). factory-sync.sh no longer copies CLAUDE.md to downstream projects — SETUP --generate/--upgrade now owns it.",
         "10.3.0: feat(EVOL-017): § Governance Scope — Session-start confirmation paragraph (banner + freshness-gate contract); new § SDLC-First Triage MANDATORY section — per-turn classification announcement (Routing / Direct + reason), carve-out list (read-only, meta-framework, docs-only fast-lane, trivial), links to IOP classifier and README 3-tier.",
@@ -1551,6 +1563,15 @@
       ],
       "path": ".claude/skills/Factory-preventive-sweep/SKILL.md"
     },
+    "skills/Factory-rdr/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "RDR v1.0.0 — Recommendation → Decision → Ratification canonical protocol. Single source of truth for agent-posed decisions requiring user ratification. Enforces ≥3 options, justified recommendation, verbatim user choice, immediate persistence via IPP Decision Persistence (two locations: _progress.decisions[] frontmatter + inline RDR-N comment). Covers Sequential (L-03 one-at-a-time) and Batch (BIP tier-atomic) modes. Replaces previously-scattered RDR definitions across SETUP/CODESIGN/BLUEPRINT/AUDIT/DEVOPS instructions and fixes the Registration→Ratification terminology drift from upgrade_safety_protocol.md.",
+      "changelog": [
+        "1.0.0: feat(EVOL-020): initial canonical RDR skill — consolidates RDR semantics previously scattered across Factory-setup-discovery, Factory-blueprint-design, Factory-audit-complexity, Factory-setup-materialization, upgrade_safety_protocol.md § 3.2, and the setup.md command. Anti-patterns section explicitly names the Registration variant as a terminology VIOLATION."
+      ],
+      "path": ".claude/skills/Factory-rdr/SKILL.md"
+    },
     "rules/defect-prevention.md": {
       "version": "2.2.1",
       "content_type": "stack_configured",
@@ -1610,6 +1631,15 @@
       "role": "PreToolUse hook (Edit/Write) — compares MD5 of constitution.md and setup.md against governance snapshot hashes; warns on drift so agents regenerate stale snapshots.",
       "changelog": [
         "1.0.0: feat: governance snapshot drift detection — non-blocking WARNING when snapshot hashes diverge from source files (EVOL-013)"
+      ]
+    },
+    "hooks/check-ipp-compliance.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/check-ipp-compliance.sh",
+      "role": "PreToolUse hook (Write) — IPP Pillar 1 enforcement. Blocks first-writes of tracked governance artifacts that arrive fully-formed (violating skeleton-first) or that claim _progress.completed_sections non-empty on creation. Complements IPP's in-agent Context Canary with a deterministic external gate.",
+      "changelog": [
+        "1.0.0: feat(EVOL-020): initial IPP compliance hook — PreToolUse Write gate for docs/spec/*/design|test_plan|dev_plan|spec.feature|user_journey*|mock|devops_plan|technical_due.md, docs/setup.md, qa_report*.md. Signal 1 inspects frontmatter for completed_sections populated on first write; Signal 2 triggers when ≥3 H2 sections + 0 <!-- PENDING --> markers + >150 lines combine on a file that did not yet exist. Canonical protocol: .claude/skills/Factory-incremental-persistence/SKILL.md."
       ]
     },
     "workflows/governance-check.yml": {

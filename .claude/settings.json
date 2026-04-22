@@ -54,6 +54,10 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/check-completion-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-ipp-compliance.sh"
           }
         ]
       }

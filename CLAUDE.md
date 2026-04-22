@@ -113,6 +113,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Protocol | Reference | Purpose |
 |----------|-----------|---------|
 | Incremental Persistence (IPP) | `.claude/skills/Factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
+| RDR (Recommendation → Decision → Ratification) | `.claude/skills/Factory-rdr/SKILL.md` | Canonical protocol for agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice, immediate ratification (persistence via IPP) |
 | Branching & SCM | `.claude/skills/Factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
 | Commit Prompt | `.claude/skills/Factory-commit-prompt/SKILL.md` | Conventional commit generation |
 | Governance Loading (GCRP) | `.claude/skills/Factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |

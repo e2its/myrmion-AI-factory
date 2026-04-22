@@ -6,7 +6,7 @@
 
 - **Zero-TODO Policy:** Every placeholder, decision, and value MUST be resolved inline during upgrade. No TODOs, no FIXMEs, no "TBD" markers left in output files. If a value cannot be discovered or decided, the upgrade for that file BLOCKS until resolved.
 - **Smart Discovery First:** When a new placeholder `{{VAR}}` is found, the agent MUST exhaust ALL existing documentation sources before asking the user. Never invent, assume, or generate default values.
-- **RDR Protocol for Unknowns:** When Smart Discovery fails, use Recommendation → Decision → Registration (one question at a time, with justified recommendation and alternatives).
+- **RDR Protocol for Unknowns:** When Smart Discovery fails, use Recommendation → Decision → Ratification (one question at a time, with justified recommendation and alternatives). Canonical protocol: `.claude/skills/Factory-rdr/SKILL.md`.
 - **Pre-Flight Validation:** Extensive checks BEFORE any upgrade executes
 - **Atomic Operations:** All-or-nothing per file to prevent partial upgrades
 - **Rollback Tracking:** Track all file states to enable safe rollbacks
@@ -307,7 +307,7 @@ Step 7: DISCOVERY FAILED
   → TRIGGER RDR Protocol (Section 3.2)
 ```
 
-### 3.2 RDR Protocol (Recommendation → Decision → Registration)
+### 3.2 RDR Protocol (Recommendation → Decision → Ratification)
 
 **Triggered ONLY when Smart Discovery finds NO value for a placeholder.**
 
@@ -368,17 +368,17 @@ FOR EACH unresolved_placeholder:
     PROMPT: "Ingresa el valor para `{{placeholder}}`:"
     decided_value = USER_INPUT
   
-  # ═══ REGISTRATION ═══
+  # ═══ RATIFICATION ═══
   # MANDATORY: Persist decision so it's never asked again
-  
+
   # 1. Save to docs/setup.md (canonical source)
   APPEND_TO_SETUP_MD(placeholder, decided_value, section="upgrade_discoveries")
-  
+
   # 2. Log the decision
   LOG: "[TS] | Materialization | SETUP | RDR: {{placeholder}} = {{decided_value}} | COMPLETED | {{feature_id}} | Source: user decision via RDR"
-  
+
   # 3. Return resolved value
-  RETURN { value: decided_value, source: "RDR", registered: true }
+  RETURN { value: decided_value, source: "RDR", ratified: true }
 ```
 
 ### 3.3 Semantic Coherence Check (POST-MERGE, PRE-CONFIRMATION)
