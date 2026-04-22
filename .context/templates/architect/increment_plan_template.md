@@ -76,6 +76,8 @@ rdr_ratified_at: null               # ISO timestamp of user ratification
   - [ ] No TODO markers left in increment's code paths
 - **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see Factory-branching-strategy)
 - **Merged at:** null   *(ISO timestamp; set by the merge hook when the increment PR lands on main; trigger for status transition READY/BUILDING → MERGED)*
+- **Pending iteration:** null   *(non-null when `CASCADE_INCREMENT_INTERNAL` detects upstream change affecting this increment and status is BUILDING — operator must `IMPLEMENT --pause` then `--refine` before status can transition further; cleared by `IMPLEMENT --refine`)*
+- **Pending reason:** null   *(human-readable cascade trigger description, populated alongside `Pending iteration`)*
 - **Layer tasks (filled by IMPLEMENT `--plan`):**
   - [A.1] …   *(backend / domain)*
   - [B.1] …   *(frontend)*
@@ -93,6 +95,8 @@ rdr_ratified_at: null               # ISO timestamp of user ratification
 - **Acceptance:** (same checklist as INC-1)
 - **Branch convention:** `feature/{{FEATURE_ID}}-inc-2-{{slug}}`
 - **Merged at:** null
+- **Pending iteration:** null
+- **Pending reason:** null
 - **Layer tasks:** …
 
 ### INC-N …

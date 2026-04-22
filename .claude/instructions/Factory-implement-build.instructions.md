@@ -508,11 +508,14 @@ FUNCTION determine_build_scope(FEATURE_ID):
     ❌ BLOCK: "Concurrency violation — {building.length} increments in BUILDING: {[i.id for i in building]}. Only one may build at a time."
     STOP
 
-  target = building[0]  # e.g. "INC-2"
+  target = building[0]  # e.g. {id: "INC-2", status: "BUILDING", ...}
+  # Build the per-increment task regex from the full increment id (not a bare index).
+  # target.id has the form "INC-<digits>"; escape the dash for regex literal safety.
+  id_literal = REGEX_ESCAPE(target.id)    # e.g. "INC-2" → "INC\-2"
   RETURN {
     mode: "incremental",
-    task_regex_original: /^\[INC-{target_N}\.([ABC])\.(\d+)\]/,
-    task_regex_acc:      /^\[INC-{target_N}\.ACC\.(\d+)\]/,
+    task_regex_original: BUILD_REGEX("^\\[" + id_literal + "\\.([ABC])\\.(\\d+)\\]"),
+    task_regex_acc:      BUILD_REGEX("^\\[" + id_literal + "\\.ACC\\.(\\d+)\\]"),
     task_regex_delta:    /^\[D\.(\d+)\]/,       # delta tasks keep legacy tag (feature-level re-sync)
     task_regex_adj:      /^\[ADJ-(\d+)\]/,
     task_regex_fix:      /^\[FIX-(\d+)\]/,
@@ -664,11 +667,16 @@ FUNCTION verify_completion_gate(FEATURE_ID):
       STOP — DO NOT update status
 
   # Verify REVIEW + SEC passed for all phases in the build scope.
-  # Under incremental: check the target_increment's per-phase status (phase_A_status, phase_B_status, phase_C_status
-  # are per-increment — stored under dev_plan.frontmatter.increments[target].phases).
+  # Under incremental: check the target_increment's per-phase status. increments is a LIST in
+  # dev_plan.frontmatter (see Factory-implement-plan.instructions.md § Frontmatter) — locate
+  # the entry whose .id matches target_increment.id before indexing .phases.
   # Under monolithic: check the plan-level phase status (stored under dev_plan.frontmatter.phases).
   IF build_scope.mode == "incremental":
-    inc_phases = dev_plan.frontmatter.increments[build_scope.target_increment.id].phases
+    inc_entry = FIRST(dev_plan.frontmatter.increments, WHERE inc.id == build_scope.target_increment.id)
+    IF inc_entry IS NULL:
+      ❌ BLOCK: "dev_plan.md frontmatter missing entry for {build_scope.target_increment.id}. Re-run IMPLEMENT --plan to repopulate the increments[] mirror."
+      STOP
+    inc_phases = inc_entry.phases
     FOR EACH phase IN [A, B, C]:
       IF inc_phases[phase] exists AND inc_phases[phase].has_tasks:
         IF inc_phases[phase].review_status != "PASSED":
@@ -704,12 +712,19 @@ FUNCTION verify_completion_gate(FEATURE_ID):
   IF build_scope.mode == "incremental":
     # Per-Increment Completion Gate — transition ONLY the target increment. Plan-level status flips
     # to IMPLEMENTED_AND_VERIFIED only when EVERY target increment (per increment_plan.md § 1) has closed.
-    ✅ UPDATE dev_plan.md frontmatter:
-      increments[{build_scope.target_increment.id}].status: IMPLEMENTED_AND_VERIFIED
-      increments[{build_scope.target_increment.id}].completed_at: {ISO_8601}
-      increments[{build_scope.target_increment.id}].tasks_completed: {checked_tasks.count}
-      increments[{build_scope.target_increment.id}].tasks_skipped: {skipped_tasks.count}
-      increments[{build_scope.target_increment.id}].bvl_result: {bvl_result.summary}
+    # dev_plan.frontmatter.increments is a LIST of objects — locate the target entry first, then
+    # mutate its fields in place.
+    target_entry = FIRST(dev_plan.frontmatter.increments, WHERE inc.id == build_scope.target_increment.id)
+    IF target_entry IS NULL:
+      ❌ BLOCK: "dev_plan.md frontmatter missing entry for {build_scope.target_increment.id}. Re-run IMPLEMENT --plan to repopulate the increments[] mirror."
+      STOP
+    ✅ UPDATE target_entry in place:
+      target_entry.status: IMPLEMENTED_AND_VERIFIED
+      target_entry.completed_at: {ISO_8601}
+      target_entry.tasks_completed: {checked_tasks.count}
+      target_entry.tasks_skipped: {skipped_tasks.count}
+      target_entry.bvl_result: {bvl_result.summary}
+    SAVE dev_plan.md
     # Git merge hook (Factory-branching-strategy) will flip BUILDING → MERGED on the increment_plan.md side
     # when the per-increment PR lands on main — this is NOT done here.
 

@@ -287,7 +287,7 @@ Role: Dual personality (🏗️ ARCH hat ↔ 🧪 QA hat). Co-designs architectu
 | --- | --- | --- |
 | `/blueprint --start {ID}` | — | Co-designs `design.md` + `test_plan.md` + `increment_plan.md`. Requires CODESIGN APPROVED. Produces C4, contracts, Section 5 (Infrastructure Needs). Emits the Increment Plan via RDR (≥3 slicing alternatives; user ratifies verbatim). |
 | `/blueprint --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement of design, tests and/or the Increment Plan. |
-| `/blueprint --approve {ID}` | — | Joint ARCH+QA approval. Runs CVP Coherence Gate (14 checks incl. increment_deployability, increment_to_scenario_coverage, increment_to_contract_coverage). Enables IMPLEMENT. |
+| `/blueprint --approve {ID}` | — | Joint ARCH+QA approval. Runs CVP Coherence Gate (13 checks in CODESIGN_BLUEPRINT scope, incl. increment_deployability, increment_to_scenario_coverage, increment_to_contract_coverage). Enables IMPLEMENT. |
 | `/blueprint --adr {ID} "[TITLE]" "[DECISION]"` | Title and decision | Generates a standalone ADR. |
 | `/blueprint --review-conflict {ID}` | — | Arbitration when peer review rejects 3+ times. |
 
