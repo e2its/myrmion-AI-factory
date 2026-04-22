@@ -134,7 +134,7 @@ Every feature ships as a chain of **vertical increments**. One PR per increment.
 
 **Consumption.** `IMPLEMENT --plan` reads `increment_plan.md`, emits `dev_plan.md` with one `## Increment INC-N` section per increment. Task tags: `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` + `[INC-N.ACC.k]` acceptance. Plan-level `IMPLEMENTED_AND_VERIFIED` only when every target increment closes. Monolithic preserves legacy `[A.M]`/`[B.M]`/`[C.M]` tagging for backward compat.
 
-**Enforcement gates.** CVP at `BLUEPRINT --approve`: `increment_plan_presence`, `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic` (all CRITICAL) + `increment_to_task` (WARNING at IMPLEMENT scope). See `.claude/skills/Factory-coherence-validation/SKILL.md`.
+**Enforcement gates.** CVP at `BLUEPRINT --approve`: Check `0c` `increment_plan_presence`, Check `13` `increment_deployability`, Check `14` `increment_to_scenario_coverage`, Check `15` `increment_to_contract_coverage`, Check `16` `monolithic_heuristic` (all CRITICAL) + Check `17` `increment_to_task` (WARNING at IMPLEMENT scope). See `.claude/skills/Factory-coherence-validation/SKILL.md`.
 
 **Iteration cascade.** Upstream changes propagate selectively via `CASCADE_INCREMENT_INTERNAL` — only increments whose scenarios/contracts overlap with the change flip to `INVALIDATED`. MERGED increments never invalidate (they anchor production); BUILDING increments get `pending_iteration` and must `--pause` before resync.
 

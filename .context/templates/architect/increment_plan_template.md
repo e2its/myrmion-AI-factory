@@ -7,7 +7,7 @@
 ```markdown
 ---
 id: {{FEATURE_ID}}
-status: DRAFT   # DRAFT | PROPOSED | APPROVED | INVALIDATED
+status: DRAFT   # Plan-level: DRAFT | APPROVED | INVALIDATED (BLUEPRINT emits DRAFT → --approve flips to APPROVED → CASCADE_INCREMENT_INTERNAL may flip to INVALIDATED when every non-MERGED increment is invalidated). Per-increment status lives in § 1 with its own 5-value enum — see § Per-Increment Status Lifecycle below.
 slicing_strategy: incremental   # incremental | monolithic — inherited from spec.feature.slicing_strategy
 scope: {{SCOPE}}                # inherited from spec.feature.scope (full-stack | backend-only | frontend-only | integration)
 last_update: [DATE]
@@ -114,11 +114,12 @@ graph TD
 
 - **Heuristic satisfied:**
   - Scenarios in `spec.feature`: `{{N}}` (≤ 2 required)
-  - Contract endpoints/messages: `{{M}}` (≤ 3 required)
+  - Contract operations: `{{M}}` (≤ 3 required)
   - Scope: `{{scope}}` (must NOT be `full-stack`)
 - **Confirmed by BLUEPRINT gate at:** `{{timestamp}}`
 - **Justification:** feature below the slicing threshold — single PR is acceptable under the heuristic.
 - **Override path:** to force `incremental` on a trivial feature, set `slicing_strategy: incremental` in `spec.feature` manually before `BLUEPRINT --start`.
+- **Frontend-only vacuous case.** Frontend-only features have `ops_count = 0` by construction (no backend API). A frontend-only feature with ≤2 scenarios therefore satisfies the heuristic trivially and may adopt `monolithic`. This is **intentional**: the vertical-slicing mandate primarily benefits features with backend contracts where per-endpoint rollout reduces risk. Teams that prefer strict vertical slicing for all UI features (training value, review discipline) should set `slicing_strategy: incremental` in spec.feature or bump the project default via `docs/setup.md`.
 ```
 
 ---
@@ -157,7 +158,7 @@ New increments MAY be appended to `increment_plan.md` after earlier increments r
 1. **increment_deployability** (CRITICAL) — every increment has non-empty scenarios, `deployable: production`, acceptance checklist complete, DAG acyclic.
 2. **increment_to_scenario_coverage** (CRITICAL) — every scenario in `spec.feature` appears in exactly one increment; no orphan, no duplicate.
 3. **increment_to_contract_coverage** (CRITICAL) — every contract operation in `contracts/**` appears in exactly one increment.
-4. **monolithic_heuristic** (CRITICAL when `slicing_strategy == monolithic`) — § 3 declaration present AND heuristic actually satisfied (≤2 scenarios AND ≤3 endpoints AND scope ≠ full-stack).
+4. **monolithic_heuristic** (CRITICAL when `slicing_strategy == monolithic`) — § 3 declaration present AND heuristic actually satisfied (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack).
 5. **increment_status_monotonic** (CRITICAL) — status transitions follow the lifecycle above; no regression (e.g., `MERGED → BUILDING` is BLOCKED).
 
 ## Consumption Contract (IMPLEMENT `--plan`)

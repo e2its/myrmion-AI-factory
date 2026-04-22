@@ -178,6 +178,8 @@ FUNCTION check_scope_consistency_across_artifacts(elements):
     scopes.test_plan = elements.test_plan.frontmatter.scope OR "unknown"
   IF elements.dev_plan IS PRESENT:
     scopes.dev_plan = elements.dev_plan.frontmatter.scope OR "unknown"
+  IF elements.increment_plan IS PRESENT:
+    scopes.increment_plan = elements.increment_plan.frontmatter.scope OR "unknown"
 
   # The authoritative scope is spec.feature.scope. All others must match it.
   authoritative = scopes.spec OR "unknown"
@@ -308,7 +310,15 @@ FUNCTION check_increment_plan_presence(elements):
             remediation: "Run BLUEPRINT --start {FEATURE_ID} to emit the Increment Plan (Increment Plan Generation sub-phase)" }
     RETURN
 
-  # Plan exists — frontmatter integrity checks
+  # Plan exists — frontmatter integrity checks.
+  # required_fields below are the MINIMAL contract this check enforces. Additional fields in the
+  # template (last_update, based_on_iteration, based_on_schemas_version, pending_iteration,
+  # pending_schemas_version, invalidated_increments, invalidated_by_iteration, invalidated_reason,
+  # cascade_source, cascade_timestamp, rdr_rationale) are populated opportunistically — by BLUEPRINT
+  # initial emission, by CASCADE_INCREMENT_INTERNAL, by CASCADE_PENDING_ITERATION — and SHOULD be
+  # absent or null in a fresh plan. Their presence or absence is validated at iteration cascade
+  # time (see Factory-iteration-model), not here. Keep required_fields minimal to avoid coupling
+  # Check 0c to the cascade lifecycle.
   fm = plan.frontmatter
   required_fields = ["id", "status", "slicing_strategy", "scope", "total_increments", "rdr_alternatives_considered", "rdr_ratified_at"]
   missing = [f FOR f IN required_fields IF fm.get(f) IS NULL]

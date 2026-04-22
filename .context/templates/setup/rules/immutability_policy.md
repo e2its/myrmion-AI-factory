@@ -79,8 +79,11 @@ After one or more increments reach `MERGED`, a NEW increment MAY be appended to 
 - New increment's `depends_on` references only existing increments (no cycles).
 - Iteration Model classifies the change as DELTA (see `Factory-iteration-model/SKILL.md`).
 - CVP `increment_deployability` + `increment_to_scenario_coverage` + `increment_to_contract_coverage` PASS under the updated plan.
+- **The feature has NOT yet reached Phase 4 (QA Verify+DAST Approved).** Once QA --verify has certified the chain, the feature enters the Phase-4 Hard Lock (ENTIRE CHAIN BLOCKED) — new increments are no longer appendable; any scope extension requires `CODESIGN --revise` (new feature version).
 
-Common case: retrofitting a flag-guarded rollout as an explicit new increment, rather than pretending the original increment was only "partially deployable".
+Common case: retrofitting a flag-guarded rollout as an explicit new increment, rather than pretending the original increment was only "partially deployable". Window: between the first increment merge and `QA --verify` certification.
+
+**Interaction with Phase 3 (IMPLEMENT Plan Approved) lock.** Phase 3's "dev_plan.md BLOCKED" lock refers to the **artefact structure** — the plan's overall shape and the per-increment assignment are frozen at `IMPLEMENT --plan`. Per-increment DRAFT sections remain editable via `BLUEPRINT --refine` per the Per-Increment Lock Table above: their scope/scenarios/contracts/depends_on can still change as long as the increment is DRAFT, and BLUEPRINT --refine then re-triggers `IMPLEMENT --plan` for that increment. The two layers are complementary — artefact-level lock prevents whole-plan churn, per-increment lock grants surgical latitude on work not yet started.
 
 **Enforcement invariant — status monotonicity:**
 
@@ -92,7 +95,7 @@ When `BLUEPRINT --refine` appends a new `### INC-N+1` to a plan with at least on
 
 **Slicing-Strategy Flip:**
 
-- `incremental → monolithic` is permitted ONLY when no increment has reached `BUILDING` (all still `DRAFT`/`READY`) AND the trivial-heuristic passes (`≤2 scenarios AND ≤3 contract ops AND scope ≠ full-stack`). Requires `BLUEPRINT --refine`; no version bump.
+- `incremental → monolithic` is permitted ONLY when no increment has reached `BUILDING` (all still `DRAFT`/`READY`) AND the trivial-heuristic passes (`≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack`). Requires `BLUEPRINT --refine`; no version bump.
 - `monolithic → incremental` is permitted ONLY when no increment has reached `BUILDING`. Requires re-running the Increment Slicing RDR. If the monolithic INC-1 already merged, a version bump (`USR-001 → USR-001-v2`) is MANDATORY — the original monolithic form is preserved as v1's audit record.
 
 #### Phase 3: IMPLEMENT APPROVED (Hard Lock - Code Implemented + Reviewed + SAST)

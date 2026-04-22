@@ -105,7 +105,8 @@ FUNCTION save_section(artifact_path, section_id, content):
 | CODESIGN | user_journey.md | Each discovery phase (actors, commands, events, schemas) |
 | BLUEPRINT | design.md | Each design section (0-6) |
 | BLUEPRINT | test_plan.md | Each test category |
-| IMPLEMENT | dev_plan.md | Each phase task group (A, B, C) |
+| BLUEPRINT | increment_plan.md | Frontmatter + § 0 Slicing Rationale frozen at RDR ratification; each § 1 increment (INC-N) as its own atomic section; § 2 DAG on completion; § 3 Monolithic Escape Declaration on completion (when applicable) |
+| IMPLEMENT | dev_plan.md | Each phase task group (A, B, C) under monolithic; each `## Increment INC-N` section under incremental (section per increment, tasks per phase within) |
 | IMPLEMENT | source code | Each task [x] completion (already exists) |
 | DEVOPS | devops_plan.md | Each environment config block |
 | QA | qa_report.md | Each verification category |
@@ -317,9 +318,9 @@ FUNCTION finalize_artifact(artifact_path, final_status):
 ### BLUEPRINT
 | Command | Key Persistence Points |
 |---------|----------------------|
-| `--start {ID}` | Skeleton design.md + test_plan.md → save per design section (0-6) → save per test category → save contract files |
-| `--refine {ID}` | Resume from existing artifacts → save per modified section → persist changelog → CASCADE to downstream |
-| `--approve {ID}` | Finalize: status → APPROVED, _progress → null (design.md + test_plan.md) |
+| `--start {ID}` | Skeleton design.md + test_plan.md + increment_plan.md → save per design section (0-6) → save per test category → save contract files → save increment_plan frontmatter + § 0 at RDR ratification → save each § 1 INC-N → save § 2 DAG |
+| `--refine {ID}` | Resume from existing artifacts → save per modified section → persist changelog → CASCADE to downstream (includes per-increment invalidation via CASCADE_INCREMENT_INTERNAL) |
+| `--approve {ID}` | Finalize: status → APPROVED, _progress → null (design.md + test_plan.md + increment_plan.md) |
 | `--adr {ID}` | Skeleton ADR file → save decision content immediately |
 
 ### IMPLEMENT

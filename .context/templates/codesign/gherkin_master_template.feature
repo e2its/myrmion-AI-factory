@@ -33,6 +33,12 @@ last_iteration_scope: "Initial co-creation"
 # - Proposal: [Suggested solution]
 # =========================================================================
 
+# Incremental-Slicing Note (when slicing_strategy: incremental, which is the default):
+# Every Scenario: below will be assigned to EXACTLY ONE increment in
+# docs/spec/{{FEATURE_ID}}/increment_plan.md § 1 at BLUEPRINT --start (Increment Slicing RDR).
+# Scenarios are distributed so each increment is independently deployable to production.
+# When slicing_strategy: monolithic, all scenarios belong to a single implicit INC-1.
+
 Feature: [Clear Requirement Title]
   As [User Role]
   I want [Action/Desire]

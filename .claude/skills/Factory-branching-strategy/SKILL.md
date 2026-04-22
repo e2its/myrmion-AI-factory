@@ -404,7 +404,7 @@ BACKWARD COMPATIBILITY (slicing_strategy: monolithic):
   # Features with slicing_strategy=monolithic retain the legacy naming:
   #   feature/{FEATURE_ID}-{slug}
   # No per-increment segment. Only valid when the Trivial-Heuristic Gate passes
-  # at BLUEPRINT (≤2 scenarios AND ≤3 ops AND scope ≠ full-stack).
+  # at BLUEPRINT (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack).
 ```
 
 ---

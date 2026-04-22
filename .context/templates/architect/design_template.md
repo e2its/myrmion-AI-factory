@@ -2,6 +2,8 @@
 
 You must use this exact structure for the design file, ensuring section 0 contains the loop history.
 
+> **Companion artefact.** Under `slicing_strategy: incremental` (default), the **increment-scoped delivery plan** lives in the sidecar `increment_plan.md` — which scenarios, which contract operations, which layer tasks ship in each increment. Design is holistic; slicing is sequential. Edit both when cross-layer types or contracts change.
+
 ```markdown
 ---
 id: {{FEATURE_ID}}

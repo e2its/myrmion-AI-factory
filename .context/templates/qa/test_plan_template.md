@@ -26,6 +26,8 @@ cascade_scope: []
 # Test Cases: {{FEATURE_ID}}
 **Base:** `spec_{{FEATURE_ID}}.feature`
 
+> **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), every test case below (AC-XX, TC-XX, TC-API-XX, REL-XX) is assigned to exactly one increment in `increment_plan.md § 1`. Each increment's assigned test cases must pass before its PR merges (per-increment acceptance gate + CVP Check 17). The plan is a unified catalogue; increment assignment is orthogonal — see `increment_plan.md` for the mapping.
+
 ## 0. Resolutions Log (Q&A Log)
 > 📝 **Strategy History:** Why we test what we test (Traceability).
 

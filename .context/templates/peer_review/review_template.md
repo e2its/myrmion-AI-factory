@@ -29,6 +29,8 @@ cascade_scope: []
 
 # Peer Review Report: {{FEATURE_ID}}
 
+> **Incremental-slicing note.** Under `slicing_strategy: incremental`, this review covers **one increment PR** (`feature/{{FEATURE_ID}}-inc-N-{{slug}}`) — NOT the full feature. Subsequent increments open their own PRs and trigger independent reviews. Scope is the delta of this increment's `contract_surface` + `scenarios_covered` (per `increment_plan.md § 1`). Cross-increment concerns surface at the final increment's acceptance gate.
+
 **Reviewer:** AI Peer Review Agent
 **Date:** {{YYYY-MM-DDTHH:mm:ssZ}}
 **Review Level:** {{STRICT | STANDARD | RELAXED}}
