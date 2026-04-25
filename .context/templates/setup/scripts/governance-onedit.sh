@@ -27,6 +27,9 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
   cd "$CLAUDE_PROJECT_DIR"
 elif REPO_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null); then
   cd "$REPO_TOPLEVEL"
+else
+  # No reliable project root → bail rather than littering the caller's CWD.
+  exit 0
 fi
 
 STATE_DIR=".claude/state"

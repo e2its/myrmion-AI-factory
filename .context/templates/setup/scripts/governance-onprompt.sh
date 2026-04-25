@@ -40,6 +40,10 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
   cd "$CLAUDE_PROJECT_DIR"
 elif REPO_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null); then
   cd "$REPO_TOPLEVEL"
+else
+  # No reliable project root → bail rather than reading/writing relative
+  # paths against the caller's CWD (markers, snapshot, validate-governance).
+  exit 0
 fi
 
 SNAPSHOT=".context/governance_snapshot.md"
@@ -150,12 +154,20 @@ fi
 
 EDIT_PATHS_CSV=""
 if [ -n "$EDIT_MARKER" ] && [ -f "$EDIT_MARKER" ]; then
-  EDIT_PATHS_CSV=$(tr '\n' ',' < "$EDIT_MARKER" | sed 's/,$//; s/,/, /g')
-  echo "<governance-source-edited paths=\"${EDIT_PATHS_CSV}\">"
-  echo "Governance source was edited in this session. The snapshot is now stale by definition."
-  echo "Regenerate inline before continuing — Factory-governance-loading SKILL § Step 1 POST-LOAD"
-  echo "(generate_governance_snapshot()). This does NOT require running /setup --upgrade."
-  echo "</governance-source-edited>"
+  # Allowlist filter — `.claude/state/` is user-writable, so a tampered or
+  # legacy marker could carry arbitrary lines (quotes, `>`, newlines) that
+  # would break the `<governance-source-edited paths="...">` tag or inject
+  # content into the model-facing block. Only known governance source paths
+  # are accepted; everything else is dropped silently.
+  EDIT_PATHS_FILTERED=$(awk '$0 == "docs/constitution.md" || $0 == "docs/setup.md"' "$EDIT_MARKER" | sort -u)
+  if [ -n "$EDIT_PATHS_FILTERED" ]; then
+    EDIT_PATHS_CSV=$(printf '%s' "$EDIT_PATHS_FILTERED" | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+    echo "<governance-source-edited paths=\"${EDIT_PATHS_CSV}\">"
+    echo "Governance source was edited in this session. The snapshot is now stale by definition."
+    echo "Regenerate inline before continuing — Factory-governance-loading SKILL § Step 1 POST-LOAD"
+    echo "(generate_governance_snapshot()). This does NOT require running /setup --upgrade."
+    echo "</governance-source-edited>"
+  fi
   rm -f "$EDIT_MARKER"
 fi
 
@@ -168,11 +180,11 @@ case "$trimmed" in
 esac
 
 # ---------------------------------------------------------------------------
-# Freshness gate (always runs, advisory only — never blocks the turn).
-# Stale snapshots are surfaced to the model as a tagged warning block via
-# stdout so Claude can react (inform the user, regenerate when appropriate,
-# avoid stale assumptions about governance) without the turn being blocked.
-# Suppressed when the source-edit marker already attributed the cause.
+# Freshness gate — advisory only, never blocks the turn. Runs by default,
+# suppressed when the source-edit marker already attributed the cause for
+# this prompt. Stale snapshots are surfaced to the model as a tagged warning
+# block via stdout so Claude can react (inform the user, regenerate when
+# appropriate, avoid stale assumptions about governance).
 # ---------------------------------------------------------------------------
 if [ -z "$EDIT_PATHS_CSV" ]; then
   set +e
