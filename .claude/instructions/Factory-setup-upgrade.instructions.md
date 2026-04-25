@@ -20,7 +20,7 @@ description: "Factory SETUP upgrade — framework version upgrade, rollback, leg
 | .claude/instructions/protocols/{5 cross-cutting}.md | .claude/skills/Factory-{name}/SKILL.md |
 | docs/rules/*.md | docs/rules/*.instructions.md |
 
-### EVOL-016 — rules / config split (NOT auto-applied)
+### Rules / config split (NOT auto-applied)
 
 | Pre-EVOL-016 | Post-EVOL-016 |
 |---|---|
@@ -190,7 +190,7 @@ Files that exist in framework but not in project:
 4. Write new file
 5. Register in `governance_versions.json`
 
-**Special case — `claude/CLAUDE.md` and `claude/settings.json` (EVOL-018):**
+**Special case — `claude/CLAUDE.md` and `claude/settings.json`:**
 
 - `.context/templates/setup/claude/CLAUDE.md` → target `CLAUDE.md` (project root). Uses `smart-additive-merge`. On first upgrade after EVOL-018, the project's existing `CLAUDE.md` is expected to be the old framework-shared variant; the merge keeps all existing sections, adds any new universal sections from the template, and leaves user-added sections untouched. Framework-repo-specific sections in the old file (e.g. "Meta-Framework Triage", paths to `.context/templates/setup/governance_versions.json`) become stale — the upgrade surfaces them as diff candidates for user review. Explicit user confirmation is required before the merge replaces framework-specific guidance with project-specific guidance.
 - `.context/templates/setup/claude/settings.json` → target `.claude/settings.json`. Uses `merge-preserve` (more conservative than smart-additive-merge):

@@ -15,7 +15,7 @@ by_severity:
   low: 0
 all_resolved_in_commit: null   # true | false | null (not applicable)
 
-# Iteration model tracking (EVOL-014)
+# Iteration model tracking
 based_on_iteration: 1
 based_on_schemas_version: 1
 pending_iteration: null

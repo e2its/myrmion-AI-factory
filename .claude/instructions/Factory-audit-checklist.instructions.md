@@ -149,14 +149,14 @@ Step 5: NEXT
 - Each section saved atomically after completion
 - If interrupted, resumes from `last_completed_section + 1`
 
-### Defect Prevention Catalog Signal (v2.0.0 — EVOL-014)
+### Defect Prevention Catalog Signal
 
 When auditing a codebase that ALREADY has `.claude/rules/defect-prevention.md` materialised (i.e. the target project went through Factory SETUP previously), AUDIT adds a dedicated evidence signal to its findings.
 
 ```yaml
 # Runs once, after all sections are scanned, as part of the final maturity synthesis.
 IF FILE_EXISTS(".claude/rules/defect-prevention.md"):
-  # EVOL-019 Phase 2+3 — AUDIT runs at project level (no single feature_id); fall back to project_scope
+  # AUDIT runs at project level (no single feature_id); fall back to project_scope
   # from the governance snapshot so DPC Filter 2 only considers DCs compatible with the project's scope.
   # A backend-only project won't get frontend-specific DCs flagged as audit evidence.
   # Read from setup_configuration section (matches codebase convention; snapshot writes project_scope

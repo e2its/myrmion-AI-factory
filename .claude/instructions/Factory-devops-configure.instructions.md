@@ -343,7 +343,7 @@ LOAD design.md Section 5: Infrastructure Needs
 LOAD infrastructure_registry.json: Cross-reference existing resources
   DETERMINE new vs existing vs extend for each resource
 
-# EVOL-019 Phase 3 — Scope-aware deployment target derivation
+# Scope-aware deployment target derivation
 # Read feature.scope from spec.feature frontmatter to drive target_runtime defaults for each resource.
 feature_scope = READ "docs/spec/{FEATURE_ID}/spec.feature" → frontmatter.scope OR "full-stack"
 
@@ -384,15 +384,15 @@ deployment_shape = CASE feature_scope:
   "full-stack":    "Hybrid — frontend static site + CDN PLUS backend services. Pipeline has separate publish paths: frontend → static-hosting, backend → container/serverless."
 LOG: "DEVOPS scope shape: {deployment_shape}"
 
-# Defect Prevention Consultation (v2.0.0 — EVOL-014; scope-aware since v2.2.0 EVOL-019 Phase 2)
+# Defect Prevention Consultation (scope-aware)
 # Pull DCs applicable to DEVOPS — typical infra-class DCs: missing health checks, wrong probe
-# timing, env-var drift, missing SIGTERM handling, observability gaps. EVOL-019 adds scope filter
-# so only scope-relevant DCs (e.g. graceful shutdown, DLQ for integration) are projected.
+# timing, env-var drift, missing SIGTERM handling, observability gaps. Scope filter projects
+# only scope-relevant DCs (e.g. graceful shutdown, DLQ for integration).
 applicable_dcs = consult_defect_catalog("DEVOPS", {feature_id: FEATURE_ID, feature_scope: feature_scope, resources: resources})
 STORE applicable_dcs IN context FOR Phase 4 (observability) and devops_plan.md § Reliability Checks generation
 LOG: "DEVOPS DC consult: {applicable_dcs.length} infra-class entries applicable (scope-filtered)"
 
-# Frontend Resource Verification Gate (NON-BLOCKING; scope-aware EVOL-019)
+# Frontend Resource Verification Gate (NON-BLOCKING; scope-aware)
 # Verify only when scope includes frontend.
 IF feature_scope IN ["full-stack", "frontend-only"]:
   frontend_framework = READ constitution.md → frontend.framework (via governance snapshot)

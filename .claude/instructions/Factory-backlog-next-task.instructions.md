@@ -10,7 +10,7 @@ description: "Factory BACKLOG next-task guidance — determines the next executa
 
 ---
 
-## 0. Source Of Truth (Dual-Mode — EVOL-014)
+## 0. Source Of Truth (Dual-Mode)
 
 > The resolver branches on `project_tracking.tool` (from Q27). Both modes are parallel — the resolver itself is mode-agnostic in its code path and always delegates to the tool-adapter. See [Factory-backlog-execution-plan.instructions.md § 0.3](Factory-backlog-execution-plan.instructions.md) for the full dual-mode contract.
 
@@ -69,7 +69,7 @@ Select the first pending item in natural plan order.
 Confirm upstream required steps in the same dependency chain are complete.
 If not complete, return blocker instead of skipping ahead.
 
-### Step 1.3.4: `blocked-by:#{N}` label filter (EVOL-015 — all presets)
+### Step 1.3.4: `blocked-by:#{N}` label filter (all presets)
 
 Before any gate enforcement, check whether the candidate issue carries one or more
 `blocked-by:#{N}` labels (§ 4.1 of Factory-backlog-operations.instructions.md). Each
@@ -111,7 +111,7 @@ resolver must treat it as hard regardless of phase ordering, slice grouping, or 
 mode. A `MISSING` dep (label references a deleted issue) surfaces as a blocker rather
 than being silently dropped — dangling labels are governance drift.
 
-### Step 1.3.4.5: `consumes_contract` cross-feature freeze filter (EVOL-019 Phase 3 — all presets)
+### Step 1.3.4.5: `consumes_contract` cross-feature freeze filter (all presets)
 
 Before hard-gate enforcement, check whether the candidate is a feature phase issue whose
 `spec.feature.consumes_contract` list references an upstream FEAT-XXX whose own
@@ -210,7 +210,7 @@ early saves a round-trip.
 
 > Applies only when `project_tracking.feature_phases == "full-sdlc"`. `simplified` and `single` presets skip this step.
 
-Before returning the candidate step, check whether the candidate command is one of the four downstream commands that an EVOL-014 hard gate blocks:
+Before returning the candidate step, check whether the candidate command is one of the four downstream commands that a hard gate blocks:
 
 | Candidate command | Blocking gate issue | Resolver action if gate not Done |
 | --- | --- | --- |
@@ -306,7 +306,7 @@ IF candidate is the first phase issue of a feature in epic {N+1}:
   IF blocker IS NOT NULL: RETURN blocker
 ```
 
-> **EVOL-015 — gate enforcement modes.** The resolver reads a three-level fallback chain for each gate: the gate issue's own `## Mode` section body (per-gate ADR-documented override; a single `enforce`/`warn`/`off` token inside the section) → the adapter's `## Gate Enforcement Mode` section (project-level default written by SETUP materialisation from Q27.5) → the governance snapshot's `project_tracking.gate_enforcement_mode` field (last-resort fallback). Unknown or missing values bottom out at `enforce` — the safest default. `warn` attaches a warn line to the response envelope (§ 2) and returns the downstream candidate; `off` skips the gate silently with a log entry; `enforce` produces the hard block documented above.
+> **Gate enforcement modes.** The resolver reads a three-level fallback chain for each gate: the gate issue's own `## Mode` section body (per-gate ADR-documented override; a single `enforce`/`warn`/`off` token inside the section) → the adapter's `## Gate Enforcement Mode` section (project-level default written by SETUP materialisation from Q27.5) → the governance snapshot's `project_tracking.gate_enforcement_mode` field (last-resort fallback). Unknown or missing values bottom out at `enforce` — the safest default. `warn` attaches a warn line to the response envelope (§ 2) and returns the downstream candidate; `off` skips the gate silently with a log entry; `enforce` produces the hard block documented above.
 
 > **Tool-agnostic invariant.** The resolver NEVER runs `gh` / `jira` / `linear` / `state.md` queries directly. All board reads go through `query_board` on the tool-adapter, which materialisation picks per project per Q27 answer (see `Factory-setup-materialization.instructions.md` § 6.1).
 
@@ -386,7 +386,7 @@ Always return this structure:
 - `if_blocked`: unblock command if prerequisites are missing
 - `issue_context`: key acceptance criteria / DoD excerpt from issue body; `null` if not fetched
 - `discrepancy`: description if plan command ≠ issue command; `none` otherwise
-- `warns`: list of warn entries (EVOL-015). Empty list when all gates are `enforce` and pass or when mode is `off`. Each entry: `{gate, status, message}`. Populated by `handle_gate` in Step 1.3.5 when a gate is not Done and its resolved mode is `warn` — the resolver still returns the downstream task but surfaces the pending gate to the caller.
+- `warns`: list of warn entries. Empty list when all gates are `enforce` and pass or when mode is `off`. Each entry: `{gate, status, message}`. Populated by `handle_gate` in Step 1.3.5 when a gate is not Done and its resolved mode is `warn` — the resolver still returns the downstream task but surfaces the pending gate to the caller.
 
 ---
 
@@ -423,7 +423,7 @@ Pending gates (warn): {rendered_warns_or_none}
 
 ---
 
-## 5. Pull Mode — `--eligible` Resolver (EVOL-015)
+## 5. Pull Mode — `--eligible` Resolver
 
 > **Coexistence with push mode.** `--next-task` (push) returns ONE next step chosen by the framework — used by Smart Redirect post-command, CI automations, and any flow where a deterministic single answer is required. `--eligible` (pull) returns the FULL SET of items the human could pick up right now — used in backlog review, planning rituals, or any moment where the human wants to choose based on appetite / context / energy. Both read the same SSOT and apply the same filter chain. They differ only in cardinality (one vs many) and in who decides (framework vs human).
 

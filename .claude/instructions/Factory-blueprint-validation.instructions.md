@@ -286,10 +286,10 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, affected_sections)
 
 ## Command: `--approve {{ID}}`
 
-### Scope Context Loading (EVOL-019 — runs FIRST)
+### Scope Context Loading (runs FIRST)
 
 ```yaml
-feature_scope = READ("docs/spec/{ID}/spec.feature").frontmatter.scope OR "full-stack"  # default when pre-EVOL-019 artefact
+feature_scope = READ("docs/spec/{ID}/spec.feature").frontmatter.scope OR "full-stack"  # default when legacy artefact
 has_ui = feature_scope IN ["full-stack", "frontend-only"]
 has_backend_surface = feature_scope IN ["full-stack", "backend-only", "integration"]
 consumes_contract = READ("docs/spec/{ID}/spec.feature").frontmatter.consumes_contract OR []
@@ -297,16 +297,16 @@ consumes_contract = READ("docs/spec/{ID}/spec.feature").frontmatter.consumes_con
 
 The Part 1-4 checks below are gated by these flags. Checks whose applicability matrix excludes the current scope resolve as **N/A** (not pass, not fail — structurally skipped and logged in the worklog as `skipped: scope`).
 
-### 4-Part Validation (scope-aware — EVOL-019)
+### 4-Part Validation (scope-aware)
 
 **Part 1: ARCH Design Validation (🏗️ hat)**
 - All design.md sections complete (no TODO/TBD)
 - Contract files valid (Phase 3.1 passed) — **ELEVATED** when `has_ui == false`: contract completeness is the primary design output for backend-only/integration features; BLOCK if any contract file is missing, incomplete, or declared without `x-feature-id` metadata
 - No endpoint collisions (Phase 3.2 passed)
 - Cross-Domain Dependencies resolved (Phase 3.7 passed)
-- **Consumes-Contract Integrity (EVOL-019)** — for each upstream `FEAT-XXX` in `spec.feature.consumes_contract`, verify § 7 Governance Constraints Digest contains the frozen contract reference (file path + x-feature-id). BLOCK when `has_ui == false` if any reference is missing (backend-only features are ENTIRELY defined by the contract surface — drift here is invisible to UX QA).
+- **Consumes-Contract Integrity** — for each upstream `FEAT-XXX` in `spec.feature.consumes_contract`, verify § 7 Governance Constraints Digest contains the frozen contract reference (file path + x-feature-id). BLOCK when `has_ui == false` if any reference is missing (backend-only features are ENTIRELY defined by the contract surface — drift here is invisible to UX QA).
 - Cross-Layer Type Mapping Table present and complete — **N/A** for `scope IN [backend-only, integration]`; use § 3.2 Wire-Format Mapping instead
-- **Wire-Format Mapping Table (EVOL-019, § 3.2)** — applicable_when `scope IN [backend-only, integration]`; BLOCK if absent on those scopes (replaces § 3.1 Cross-Layer Type Mapping)
+- **Wire-Format Mapping Table (§ 3.2)** — applicable_when `scope IN [backend-only, integration]`; BLOCK if absent on those scopes (replaces § 3.1 Cross-Layer Type Mapping)
 - Infrastructure Needs declared (Section 5)
 - Extension Strategy documented (if brownfield)
 
@@ -315,7 +315,7 @@ The Part 1-4 checks below are gated by these flags. Checks whose applicability m
 - Edge cases documented
 - Security test cases present
 - Integration tests reference contract endpoints — **ELEVATED** when `has_ui == false`: every frozen contract endpoint MUST have ≥1 integration test case; coverage gaps BLOCK on backend-only/integration
-- **Reliability test cases (EVOL-019, test_plan.md § 2.2 Reliability Testing)** — applicable_when `scope IN [backend-only, integration]`; BLOCK if missing idempotency replay, retry-storm, circuit-breaker, or DLQ scenarios. Required entries: idempotency replay verification, retry/backoff validation, circuit breaker trip + half-open probe, dead-letter handling, graceful shutdown drain, structured-log correlation.
+- **Reliability test cases (test_plan.md § 2.2 Reliability Testing)** — applicable_when `scope IN [backend-only, integration]`; BLOCK if missing idempotency replay, retry-storm, circuit-breaker, or DLQ scenarios. Required entries: idempotency replay verification, retry/backoff validation, circuit breaker trip + half-open probe, dead-letter handling, graceful shutdown drain, structured-log correlation.
 - Accessibility tests present (WCAG 2.1 AA) — **applicable_when `has_ui == true`**; N/A for backend-only/integration
 - Visual-consistency tests (BRAND-*, LAYOUT-*, UX-*) — **applicable_when `has_ui == true`**; N/A for backend-only/integration (no visual surface to verify)
 
@@ -324,12 +324,12 @@ The Part 1-4 checks below are gated by these flags. Checks whose applicability m
 - Every error in design.md has test scenario (applies to ALL scopes — universal)
 - Test preconditions match design constraints (applies to ALL scopes — universal)
 - No conflicting assumptions between design and test plan (applies to ALL scopes — universal)
-- **Scope-consistency (EVOL-019)** — `spec.feature.scope`, `design.md.scope`, `test_plan.md.scope` (when present) MUST all match. Mismatch BLOCKS with message: "Scope inconsistency between upstream artefacts — re-sync via CODESIGN --refine."
+- **Scope-consistency** — `spec.feature.scope`, `design.md.scope`, `test_plan.md.scope` (when present) MUST all match. Mismatch BLOCKS with message: "Scope inconsistency between upstream artefacts — re-sync via CODESIGN --refine."
 
-**Part 4: Defect Prevention Catalog Gate (BLOCKING — v2.0.0 EVOL-014)**
+**Part 4: Defect Prevention Catalog Gate (BLOCKING)**
 
 ```yaml
-feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # EVOL-019 Phase 2+3 — pass to DPC Filter 2 so --approve evaluates only scope-relevant BLOCKER DCs
+feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # pass to DPC Filter 2 so --approve evaluates only scope-relevant BLOCKER DCs
 applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
 
 FOR EACH dc IN applicable_dcs:

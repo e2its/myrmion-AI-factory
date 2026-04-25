@@ -96,7 +96,7 @@ Gates ONLY ship when the feature uses the `full-sdlc` preset (Q27.2). Prototypes
 7. **SETUP scaffolding**: NEVER generate source code or test files during `SETUP --generate`. Only directories + config.
 8. **Humanized Blocking**: NEVER show raw tool errors, stack traces or CLI failure dumps when blocking a user action. Explain the block in plain business language (what is blocked, why, which artefact or gate is responsible) and offer a resolution path (exact next command or file to touch). Raw errors belong in worklog / debug context only.
 
-## Project Scope & Feature Scope Taxonomy (EVOL-019 — dual-axis)
+## Project Scope & Feature Scope Taxonomy (dual-axis)
 
 Two orthogonal scope axes govern what artefacts apply to what work:
 
@@ -217,7 +217,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 2. **INVARIANT 2 — Governance context**: Load `.context/governance_snapshot.md` every command. If `constitution_hash` + `setup_hash` match → governance is loaded (1 file read). Stale or missing → reload from `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and regenerate the snapshot. Rule content is loaded on-demand, only when checking specific compliance.
 3. **INVARIANT 3 — Current date**: Derive from the system clock. NEVER reuse a date seen earlier in the conversation.
 4. **INVARIANT 4 — Current version**: Read from `docs/project_log/governance_versions.json` before any bump. NEVER guess.
-5. **INVARIANT 5 — Feature state + scope**: Read the `status` field from the artifact file's frontmatter. NEVER assume a feature is APPROVED / BUILDING / IMPLEMENTED_AND_VERIFIED from what was said earlier in the chat — re-read the frontmatter of `spec.feature`, `design.md`, `test_plan.md`, `dev_plan.md`, or the latest `qa_report_final_*.md` depending on which phase is in question. Summarization-safe by construction: if the frontmatter says DRAFT, the feature is DRAFT regardless of how confident the conversation feels about it. **Scope (EVOL-019):** also re-read the `scope` field from `spec.feature` frontmatter (`full-stack | backend-only | frontend-only | integration`) and cross-check against `project_scope` in the governance snapshot. If `scope` is incompatible with `project_scope` (compatibility matrix in § Project Scope & Feature Scope Taxonomy), BLOCK the command and surface the conflict. `scope` is immutable after APPROVED — changing it requires a fresh `CODESIGN --start` on a new FEAT-ID.
+5. **INVARIANT 5 — Feature state + scope**: Read the `status` field from the artifact file's frontmatter. NEVER assume a feature is APPROVED / BUILDING / IMPLEMENTED_AND_VERIFIED from what was said earlier in the chat — re-read the frontmatter of `spec.feature`, `design.md`, `test_plan.md`, `dev_plan.md`, or the latest `qa_report_final_*.md` depending on which phase is in question. Summarization-safe by construction: if the frontmatter says DRAFT, the feature is DRAFT regardless of how confident the conversation feels about it. **Scope:** also re-read the `scope` field from `spec.feature` frontmatter (`full-stack | backend-only | frontend-only | integration`) and cross-check against `project_scope` in the governance snapshot. If `scope` is incompatible with `project_scope` (compatibility matrix in § Project Scope & Feature Scope Taxonomy), BLOCK the command and surface the conflict. `scope` is immutable after APPROVED — changing it requires a fresh `CODESIGN --start` on a new FEAT-ID.
 
 ## Core Protocols
 
@@ -246,7 +246,7 @@ Beyond `.claude/rules/*.instructions.md` (materialized by SETUP), the following 
 
 - **Defect Prevention Catalog** (`.claude/rules/defect-prevention.md`, v2.0.0+): Runtime defect patterns invisible to static gates. Materialized by SETUP with stack-specific starter DCs. Extended via the Discovery Protocol during development, ultimately written-back through the `[EPIC-{N}] RETROSPECTIVE` gate.
 
-  **Universal consumption** (v2.0.0 — EVOL-014). Every entry carries an `applicable_to` field — an enum list of the SDLC agents that MUST consult it. Each consumer filters the catalog by checking whether its own name appears in that list:
+  **Universal consumption.** Every entry carries an `applicable_to` field — an enum list of the SDLC agents that MUST consult it. Each consumer filters the catalog by checking whether its own name appears in that list:
 
   | Agent | When it reads the catalog | Mode | What it produces |
   | --- | --- | --- | --- |

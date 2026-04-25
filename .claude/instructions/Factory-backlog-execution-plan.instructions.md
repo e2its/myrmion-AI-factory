@@ -55,7 +55,7 @@ Cross-epic: strict dependency order — an epic's first slice does NOT start unt
 
 ### 0.3 SSOT and Memory Cache (Dual-Mode)
 
-> **EVOL-014 clarification.** This protocol runs in one of two modes determined by the user's Q27 answer at SETUP time. The two modes are **parallel branches** of the same protocol — not an exceptional path layered on a file-mode default. BACKLOG agent code that reads or writes plan state MUST branch on `project_tracking.tool` and call the adapter accordingly.
+> **Clarification.** This protocol runs in one of two modes determined by the user's Q27 answer at SETUP time. The two modes are **parallel branches** of the same protocol — not an exceptional path layered on a file-mode default. BACKLOG agent code that reads or writes plan state MUST branch on `project_tracking.tool` and call the adapter accordingly.
 
 | Mode | Selected when | SSOT for ordering | Local artefact | Cache file |
 | --- | --- | --- | --- | --- |
@@ -281,7 +281,7 @@ FUNCTION form_slices(epic, graph):
 
 ## 3. EXECUTION PLAN GENERATION
 
-> **Mode scoping (EVOL-014).** Sections 3.1–3.3 below describe the **file-mode** rendering of the plan — the markdown document layout and the step reference format. In **board mode** this document structure is used only as an in-memory projection when computing the `project-board-cache.md` entries; nothing is persisted to `docs/backlog/execution-plan.md`. Each file operation in the pseudocode (READ / UPDATE of `execution-plan.md`) has a board-mode counterpart routed through the tool-adapter: `query_board` for reads, `create_issue` / `move_to_column` / `add_sub_issue` for writes. The BACKLOG agent SHOULD NOT branch on the mode in its own code — it delegates to the adapter, which materialises the mode-specific commands.
+> **Mode scoping.** Sections 3.1–3.3 below describe the **file-mode** rendering of the plan — the markdown document layout and the step reference format. In **board mode** this document structure is used only as an in-memory projection when computing the `project-board-cache.md` entries; nothing is persisted to `docs/backlog/execution-plan.md`. Each file operation in the pseudocode (READ / UPDATE of `execution-plan.md`) has a board-mode counterpart routed through the tool-adapter: `query_board` for reads, `create_issue` / `move_to_column` / `add_sub_issue` for writes. The BACKLOG agent SHOULD NOT branch on the mode in its own code — it delegates to the adapter, which materialises the mode-specific commands.
 
 ### 3.1 Plan Structure
 
@@ -395,7 +395,7 @@ The `<!-- {date} -->` comment is appended when the step is marked complete.
 
 ## 4. MEMORY CACHE PROTOCOL
 
-> **Mode scoping (EVOL-014).** Cache location and invalidation rules differ between modes — file mode uses `/memories/repo/execution-plan-cache.md` and invalidates on `execution-plan.md` hash change; board mode uses `/memories/repo/project-board-cache.md` and invalidates on `query_board` snapshot hash change. The cache content schema is the same (see § 4.2). All pseudocode below assumes file mode for concreteness — the board-mode counterpart substitutes `query_board()` where `READ execution-plan.md` appears and `move_to_column()` where `UPDATE execution-plan.md` appears.
+> **Mode scoping.** Cache location and invalidation rules differ between modes — file mode uses `/memories/repo/execution-plan-cache.md` and invalidates on `execution-plan.md` hash change; board mode uses `/memories/repo/project-board-cache.md` and invalidates on `query_board` snapshot hash change. The cache content schema is the same (see § 4.2). All pseudocode below assumes file mode for concreteness — the board-mode counterpart substitutes `query_board()` where `READ execution-plan.md` appears and `move_to_column()` where `UPDATE execution-plan.md` appears.
 
 ### 4.1 Cache Location
 
@@ -608,7 +608,7 @@ ELSE:
 ## 9. GUARDRAILS
 
 1. **DAG Invariant**: The dependency graph MUST be a Directed Acyclic Graph. If circular dependencies are detected, BLOCK and report.
-2. **SSOT (Dual-Mode — EVOL-014)**: Exactly ONE source of truth per project. In **file mode** (Q27 == "None") it is `docs/backlog/execution-plan.md`. In **board mode** (Q27 != "None") it is the configured external board read via the tool-adapter's `query_board`. Memory cache is always an optimisation, never authoritative. See § 0.3.
+2. **SSOT (Dual-Mode)**: Exactly ONE source of truth per project. In **file mode** (Q27 == "None") it is `docs/backlog/execution-plan.md`. In **board mode** (Q27 != "None") it is the configured external board read via the tool-adapter's `query_board`. Memory cache is always an optimisation, never authoritative. See § 0.3.
 3. **Issue-Plan Consistency**: Every feature issue created by `--plan-feature` SHOULD have a corresponding step in the execution plan (file mode) or on the board with the correct phase label (board mode).
 4. **No Phantom Steps**: Do NOT add steps for features that don't exist in setup.md feature list.
 5. **Epic Boundaries**: A feature belongs to exactly one epic. If it spans multiple BCs, assign it to the epic of its primary BC.
@@ -616,5 +616,5 @@ ELSE:
 7. **Slice Size Cap**: A slice MUST contain at most 3 features. If an aggregate has >3 features, split into sequential slices ordered by entity dependency.
 8. **Slice Ordering**: Within an epic, slices are ordered by aggregate dependency (foundational aggregates first). A slice's CODESIGN does NOT start until the preceding slice's BLUEPRINT is APPROVED AND the preceding slice's `[SLICE-{N.M}] INTEGRATION-TEST` gate (full-sdlc preset) is Done.
 9. **Slice Completeness**: A slice MUST complete its full 8-phase `full-sdlc` pipeline (CODESIGN → BLUEPRINT → CONTRACT-FREEZE → DEVOPS → IMPLEMENT → PREVENTIVE-SWEEP → QA → SMOKE-E2E) plus its slice integration-test gate before the next slice starts CODESIGN. Exception: two slices with NO aggregate coupling MAY run in parallel.
-10. **Epic Completeness (EVOL-014)**: An epic is Done when every slice inside it is Done AND the `[EPIC-{N}] RETROSPECTIVE` gate is Done. The next epic's first slice does NOT start CODESIGN until both hold.
+10. **Epic Completeness**: An epic is Done when every slice inside it is Done AND the `[EPIC-{N}] RETROSPECTIVE` gate is Done. The next epic's first slice does NOT start CODESIGN until both hold.
 11. **Gate enforcement is the resolver's job, not this protocol's**: `--plan-execution` materialises the plan including all gate issues; the `--next-task` resolver ([Factory-backlog-next-task.instructions.md](Factory-backlog-next-task.instructions.md) § 1.3.5) enforces the gates at query time. This protocol is a PLAN producer, not a runtime enforcer.

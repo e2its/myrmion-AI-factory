@@ -182,12 +182,12 @@ FUNCTION verify_prerequisites(FEATURE_ID):
       ❌ BLOCK: "QA report already APPROVED. No re-verification needed."
       STOP
 
-  # Gate 4: SMOKE-E2E gate (v14.0.0 — EVOL-014, full-sdlc preset only; scope-aware EVOL-019 Phase 3)
+  # Gate 4: SMOKE-E2E gate (full-sdlc preset only; scope-aware)
   feature_phases = READ "docs/setup.md" → project_tracking.feature_phases
   IF feature_phases == "full-sdlc":
     ADAPTER = READ "docs/backlog/tool-adapter.md"
 
-    # EVOL-019 Phase 3: scope-aware phase-label resolution.
+    # scope-aware phase-label resolution.
     # Derive every scope-dependent variable ONCE here — used across all branches below
     # (missing issue, not-Done, Done + mismatched report, Done + missing report).
     feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
@@ -197,7 +197,7 @@ FUNCTION verify_prerequisites(FEATURE_ID):
       "frontend-only" → "phase:smoke-e2e-browser"     # browser-only smoke
       "backend-only"  → "phase:smoke-e2e-integration" # caller-harness + downstream-state + observability smoke
       "integration"   → "phase:smoke-e2e-integration" # same as backend-only
-      default         → "phase:smoke-e2e"             # legacy, pre-EVOL-019 projects (BACKLOG ships unscoped label)
+      default         → "phase:smoke-e2e"             # legacy projects (BACKLOG ships unscoped label)
     smoke_template = CASE feature_scope:
       "full-stack"    → ".context/templates/qa/smoke_e2e_report_template.md (browser + API hybrid)"
       "frontend-only" → ".context/templates/qa/smoke_e2e_report_template.md (browser-centric)"
@@ -215,7 +215,7 @@ FUNCTION verify_prerequisites(FEATURE_ID):
       STOP
 
     IF smoke_issue.status != "Done":
-      # Scope-aware REDIRECT messaging — per EVOL-019 Phase 3 § Template Selector.
+      # Scope-aware REDIRECT messaging — per § Template Selector.
       # smoke_template + journey_source + has_ui are available from the hoist above.
 
       ❌ BLOCK: "SMOKE-E2E gate not passed for {FEATURE_ID} (scope: {feature_scope}, current status: {smoke_issue.status})."
@@ -237,7 +237,7 @@ FUNCTION verify_prerequisites(FEATURE_ID):
         ❌ BLOCK: "Smoke E2E report is INVALIDATED — dev build changed after the last smoke run."
         REDIRECT: "Re-deploy to dev and re-run the smoke blocks to refresh the report."
         STOP
-      # EVOL-019 Phase 3: scope-consistency check on the report
+      # scope-consistency check on the report
       IF fm.scope AND fm.scope != feature_scope:
         ❌ BLOCK: "Smoke report scope=`{fm.scope}` does not match spec.feature.scope=`{feature_scope}`. Regenerate the report using the correct template ({smoke_template})."
         STOP
@@ -306,10 +306,10 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   checklist.push("- [ ] [QA-REG-2]: Integration test suite execution")
   checklist.push("- [ ] [QA-REG-3]: Contract test suite execution")
 
-  # EVOL-019 Phase 2+3 — load feature_scope ONCE here; used by QA-REL block below AND by DPC Filter 2 in QA-DC section further down.
+  # load feature_scope ONCE here; used by QA-REL block below AND by DPC Filter 2 in QA-DC section further down.
   feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
 
-  # Reliability verification (EVOL-019 Phase 3 — applicable_when scope in [backend-only, integration])
+  # Reliability verification (applicable_when scope in [backend-only, integration])
   IF feature_scope IN ["backend-only", "integration"]:
     # Mandatory reliability checks sourced from test_plan.md § 2.2 Reliability Testing
     # and the reliability integration DCs (idempotency, retry, circuit breaker, DLQ,
@@ -348,10 +348,10 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
     IF API_CONTRACTS_EXIST:
       checklist.push("- [ ] [QA-DAST-3]: DAST API scan execution")
 
-  # Defect Prevention Catalog items (v2.0.0 — EVOL-014)
+  # Defect Prevention Catalog items
   # One [QA-DC-N] checklist item per DC entry applicable to QA for this feature/stack.
   # Each QA-DC item must be marked [x] before auto-approval can complete.
-  # EVOL-019 Phase 2+3 — pass feature_scope to DPC Filter 2 so the QA-DC checklist only contains
+  # pass feature_scope to DPC Filter 2 so the QA-DC checklist only contains
   # scope-relevant items (backend/integration reliability DCs won't materialise for frontend-only features).
   # feature_scope already loaded above (before QA-REL block).
   applicable_dcs = consult_defect_catalog("QA", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
@@ -371,7 +371,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   RETURN checklist
 ```
 
-> **Auto-approval impact (EVOL-014).** `[QA-DC-N]` items are first-class checklist entries. The auto-approval verdict requires ALL checklist items (including all `[QA-DC-*]`) to be `[x]` — a single unchecked DC item blocks `APPROVED` just like an unchecked test case. See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 6 for the canonical protocol.
+> **Auto-approval impact.** `[QA-DC-N]` items are first-class checklist entries. The auto-approval verdict requires ALL checklist items (including all `[QA-DC-*]`) to be `[x]` — a single unchecked DC item blocks `APPROVED` just like an unchecked test case. See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 6 for the canonical protocol.
 
 **Pre-Audit Blocking Checks (Steps 0-0c):**
 

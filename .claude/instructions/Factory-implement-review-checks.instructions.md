@@ -8,9 +8,9 @@ description: "Factory IMPLEMENT peer review and security audit — code review c
 
 ## REVIEW Hat Protocol (🔍)
 
-Execute AFTER DEV Hat completes each phase. All 14 checks run per phase, filtered by feature scope (EVOL-019).
+Execute AFTER DEV Hat completes each phase. All 14 checks run per phase, filtered by feature scope.
 
-### Scope Dispatch (EVOL-019 — runs BEFORE Step R.0)
+### Scope Dispatch (runs BEFORE Step R.0)
 
 ```yaml
 FUNCTION review_scope_dispatch():
@@ -421,7 +421,7 @@ SEVERITY: BLOCKER for type mismatch causing data loss
 ### Check #7: [UX-*] UX Compliance (11 Sub-Checks)
 <!-- applicable_when: scope in [full-stack, frontend-only] — entire block (all 11 sub-checks) resolves as N/A when scope in [backend-only, integration]. -->
 
-> **EVOL-019 scope gate.** All 11 UX sub-checks below presuppose a UI surface (mock.html + app_shell + component_library). When `feature_scope IN [backend-only, integration]`, skip the entire Check #7 block, record one `N/A — skipped under scope={value}` line in peer_review § 3.7, and move to Check #8. The scope dispatcher (top of this instruction file) already performs this filter — individual sub-checks below do not re-validate scope.
+> **Scope gate.** All 11 UX sub-checks below presuppose a UI surface (mock.html + app_shell + component_library). When `feature_scope IN [backend-only, integration]`, skip the entire Check #7 block, record one `N/A — skipped under scope={value}` line in peer_review § 3.7, and move to Check #8. The scope dispatcher (top of this instruction file) already performs this filter — individual sub-checks below do not re-validate scope.
 
 #### [UX-STRUCT] Structure Compliance
 ```yaml

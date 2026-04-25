@@ -135,11 +135,11 @@ gh label create "enhancement" --repo {{REPO_SLUG}} --color "a2eeef" --force
 gh label create "bug"         --repo {{REPO_SLUG}} --color "d73a4a" --force
 gh label create "needs-rework-after-codesign" --repo {{REPO_SLUG}} --color "fbca04" --force
 
-# Kind labels (EVOL-015 — always created)
+# Kind labels (always created)
 gh label create "kind:follow-up" --repo {{REPO_SLUG}} --color "c5def5" --force \
   --description "Deferred work spun out of a parent feature or retrospective (vs. accidental incomplete)"
 
-# Appetite labels (EVOL-015 — created ONLY when {{APPETITE_SIZING_ENABLED}} == true)
+# Appetite labels (created ONLY when {{APPETITE_SIZING_ENABLED}} == true)
 if [ "{{APPETITE_SIZING_ENABLED}}" = "true" ]; then
   gh label create "appetite:small"  --repo {{REPO_SLUG}} --color "bfdadc" --force \
     --description "Budget cap ≤ 4h, one session"

@@ -8,15 +8,15 @@ You must use this exact structure for the design file, ensuring section 0 contai
 ---
 id: {{FEATURE_ID}}
 status: DRAFT   # DRAFT | NEEDS_INFO | APPROVED | BLOCKED | REJECTED | INVALIDATED
-scope: full-stack  # EVOL-019 dual-axis — inherited from spec.feature.scope; full-stack | backend-only | frontend-only | integration
+scope: full-stack  # dual-axis — inherited from spec.feature.scope; full-stack | backend-only | frontend-only | integration
 date: [DATE]
 approver: PENDING
 based_on_iteration: 1
 based_on_schemas_version: 1
 based_on_journey: false
-consumes_contract: []  # EVOL-019 — inherited from spec.feature; upstream FEAT-XXX whose frozen contracts this design depends on
+consumes_contract: []  # inherited from spec.feature; upstream FEAT-XXX whose frozen contracts this design depends on
 
-# Iteration model — push-based cascade fields (EVOL-014)
+# Iteration model — push-based cascade fields
 # Set by the upstream agent via CASCADE_PENDING_ITERATION when this artifact is stale.
 # Cleared by this agent's --refine after a DELTA or FULL sync.
 pending_iteration: null
@@ -29,7 +29,7 @@ cascade_timestamp: null
 cascade_scope: []
 ---
 
-<!-- Scope-aware section applicability (EVOL-019):
+<!-- Scope-aware section applicability:
      Sections tagged `applicable_when: scope in [...]` render only for matching scopes.
      When a section is N/A for the feature's scope, replace its body with: "N/A (scope={value})".
      Sections WITHOUT an `applicable_when` annotation apply to ALL scopes. -->

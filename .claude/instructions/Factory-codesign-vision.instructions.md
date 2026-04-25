@@ -97,9 +97,9 @@ All vision artifacts MUST comply with these directives. They define the differen
 - `docs/setup.md` with `phase: COMPLETED`
 - `.claude/rules/ux-constitution.instructions.md` materialized
 - `frontend.framework != "None"` in `docs/setup.md`
-- **`project_scope IN [full-stack, frontend-only]`** (EVOL-019 — `docs/setup.md` `project_scope` field, mirrored in `.context/governance_snapshot.md § Stack Configuration`)
+- **`project_scope IN [full-stack, frontend-only]`** (`docs/setup.md` `project_scope` field, mirrored in `.context/governance_snapshot.md § Stack Configuration`)
 
-### Scope Guard (BLOCKING — EVOL-019)
+### Scope Guard (BLOCKING)
 
 ```yaml
 FUNCTION vision_scope_guard():

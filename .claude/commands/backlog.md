@@ -60,7 +60,7 @@ The BACKLOG agent operates in one of two modes, determined by `project_tracking.
 | `--update-execution {step}` | Mark a step complete. **External mode:** move the referenced issue's status + update parent gate progress on the board. **Local mode:** update the checklist line in `docs/backlog/execution-plan.md`. |
 | `--sync-execution` | Reconcile plan with SSOT. **External mode:** rebuild `/memories/repo/project-board-cache.md` from `query_board`; report drift only — no file writes under `docs/backlog/`. **Local mode:** reconcile `execution-plan.md` with `state.md` and refresh `/memories/repo/execution-plan-cache.md`. |
 | `--next-task` | **Push mode.** Return the single next executable step chosen by the framework (agent + command + evidence). Used by Smart Redirect and automations. See [Factory-backlog-next-task.instructions.md](../instructions/Factory-backlog-next-task.instructions.md) §§ 1–4. |
-| `--eligible [--limit N]` *(EVOL-015)* | **Pull mode.** Return the full set of items the human could pick up right now — every pending item that would NOT be rejected by the `--next-task` filter chain. Default cap `--limit 20`; pass `--limit unlimited` for the full pool. READ-ONLY: no labels, no persisted state, no cache writes. Dual-mode via SSOT (board in external mode, `execution-plan.md` in local mode). See [Factory-backlog-next-task.instructions.md](../instructions/Factory-backlog-next-task.instructions.md) § 5. |
+| `--eligible [--limit N]` | **Pull mode.** Return the full set of items the human could pick up right now — every pending item that would NOT be rejected by the `--next-task` filter chain. Default cap `--limit 20`; pass `--limit unlimited` for the full pool. READ-ONLY: no labels, no persisted state, no cache writes. Dual-mode via SSOT (board in external mode, `execution-plan.md` in local mode). See [Factory-backlog-next-task.instructions.md](../instructions/Factory-backlog-next-task.instructions.md) § 5. |
 
 ---
 
@@ -155,7 +155,7 @@ When a multi-step operation fails partway, clean up all completed items in rever
 ### Protocol 10: Execution Plan Sync (--sync-execution)
 1. Read plan from disk → cross-reference board → report discrepancies
 
-### Protocol 11: Pull-Mode Eligible Pool (--eligible) — EVOL-015
+### Protocol 11: Pull-Mode Eligible Pool (--eligible)
 
 > **Full specification**: [Factory-backlog-next-task.instructions.md](../instructions/Factory-backlog-next-task.instructions.md) § 5.
 

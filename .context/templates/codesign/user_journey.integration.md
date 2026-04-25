@@ -1,7 +1,7 @@
 ---
 status: DRAFT
 feature_id: "{{FEATURE_ID}}"
-scope: backend-only  # EVOL-019 — must be backend-only or integration; full-stack / frontend-only use user_journey_template.md instead
+scope: backend-only  # must be backend-only or integration; full-stack / frontend-only use user_journey_template.md instead
 co_creation_round: 0
 po_sign_off: false
 ux_sign_off: N/A  # scope excludes UX

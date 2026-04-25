@@ -272,10 +272,10 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       IF FILE_EXISTS("{{base_path}}/test_plan.md"): targets.push("test_plan.md")
       IF FILE_EXISTS("{{base_path}}/dev_plan.md"): targets.push("dev_plan.md")
       IF FILE_EXISTS("{{base_path}}/devops_plan.md"): targets.push("devops_plan.md")
-      # EVOL-014: frozen contracts invalidate on scenario/schema/contract changes
+      # frozen contracts invalidate on scenario/schema/contract changes
       IF DIR_EXISTS("{{base_path}}/contracts/") AND ("new_scenario" IN affected_scopes OR "schema_change" IN affected_scopes OR "contract_change" IN affected_scopes):
         targets.push("contracts_freeze")
-      # EVOL-014: runtime reports invalidate on anything upstream of IMPLEMENT
+      # runtime reports invalidate on anything upstream of IMPLEMENT
       IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
@@ -287,10 +287,10 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
         targets.push("devops_plan.md")
       IF GLOB_EXISTS("{{base_path}}/qa/qa_report_final_*.md"):
         targets.push("qa_report")
-      # EVOL-014: BLUEPRINT owns the frozen contract set; any contract-relevant change invalidates it
+      # BLUEPRINT owns the frozen contract set; any contract-relevant change invalidates it
       IF DIR_EXISTS("{{base_path}}/contracts/") AND ("schema_change" IN affected_scopes OR "contract_change" IN affected_scopes OR "new_scenario" IN affected_scopes):
         targets.push("contracts_freeze")
-      # EVOL-014: runtime reports invalidate on any blueprint change that reaches code
+      # runtime reports invalidate on any blueprint change that reaches code
       IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
@@ -299,14 +299,14 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       targets = []
       IF GLOB_EXISTS("{{base_path}}/qa/qa_report_final_*.md"):
         targets.push("qa_report")
-      # EVOL-014: every code change invalidates runtime scans and smoke blocks
+      # every code change invalidates runtime scans and smoke blocks
       IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
     
     IF current_agent == "DEVOPS":
       targets = []
-      # EVOL-014: re-deploy to dev invalidates the smoke blocks captured against the previous build
+      # re-deploy to dev invalidates the smoke blocks captured against the previous build
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md") AND "redeploy_dev" IN affected_scopes:
         targets.push("smoke_e2e_report")
       RETURN targets
@@ -326,7 +326,7 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       CONTINUE
 
     IF artifact_name == "contracts_freeze":
-      # EVOL-014: frozen contracts cannot be patched — the entire frozen set is marked
+      # frozen contracts cannot be patched — the entire frozen set is marked
       # INVALIDATED and the CONTRACT-FREEZE gate issue must re-run to produce a new freeze.
       # Also flag the backlog issue itself so --next-task sees the gate as re-open.
       FOR EACH contract_file IN LIST_FILES("{{base_path}}/contracts/"):
@@ -346,7 +346,7 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       CONTINUE
 
     IF artifact_name IN ["preventive_sweep_report", "smoke_e2e_report"]:
-      # EVOL-014: runtime reports are point-in-time artefacts; any upstream change makes them
+      # runtime reports are point-in-time artefacts; any upstream change makes them
       # untrustworthy. Mark INVALIDATED and reopen the corresponding gate issue on the board.
       report_path = "{{base_path}}/{{artifact_name}}.md"
       IF FILE_EXISTS(report_path):
@@ -426,7 +426,7 @@ FUNCTION COMPUTE_AFFECTED_SECTIONS(artifact_name, affected_scopes):
       sections.push("scaling_config")
     RETURN sections
 
-  # EVOL-014: frozen / point-in-time artefacts have no section-level granularity.
+  # frozen / point-in-time artefacts have no section-level granularity.
   # They are fully regenerated when any upstream scope invalidates them.
   IF artifact_name IN ["contracts_freeze", "preventive_sweep_report", "smoke_e2e_report"]:
     RETURN ["entire_artifact"]
@@ -468,14 +468,14 @@ CASCADE_TRIGGERS:
     # contracts / depends_on) is untouched. Skip CASCADE_INCREMENT_INTERNAL here; per-increment
     # dev_plan.md tasks re-sync through the normal DELTA/FULL path.
 
-  # 4. IMPLEMENT --build / --fix complete (EVOL-014)
+  # 4. IMPLEMENT --build / --fix complete
   #    Code changed — runtime-dependent reports are now stale regardless of spec/design drift.
   ON_IMPLEMENT_BUILD_COMPLETE:
     affected_scopes = ["code_changed"]
     CASCADE_PENDING_ITERATION(FEATURE_ID, spec.iteration, schemas_version, affected_scopes)
     CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
 
-  # 5. DEVOPS --deploy --env dev complete (EVOL-014)
+  # 5. DEVOPS --deploy --env dev complete
   #    A new dev build replaces the one the smoke blocks were captured against.
   ON_DEVOPS_REDEPLOY_DEV:
     affected_scopes = ["redeploy_dev"]
@@ -483,7 +483,7 @@ CASCADE_TRIGGERS:
     # Slice integration tests are smoke-dependent when multiple slice peers share a dev env
     CASCADE_SLICE_PEERS(FEATURE_ID, spec.iteration, affected_scopes)
 
-  # 6. BLUEPRINT --approve on an UPDATED contract (EVOL-019 Phase 3)
+  # 6. BLUEPRINT --approve on an UPDATED contract
   #    When an upstream feature re-freezes its contract (contract signature / schema / semantics
   #    changed), every downstream feature that declares the upstream in spec.feature.consumes_contract
   #    is now binding to a superseded contract. Cascade across the dependency graph.
@@ -497,7 +497,7 @@ CASCADE_TRIGGERS:
     CASCADE_CONSUMERS(upstream_feature_id, spec.iteration, schemas_version, ["contract_change"])
 
 
-# EVOL-019 Phase 3 — Cross-feature cascade via consumes_contract
+# Cross-feature cascade via consumes_contract
 FUNCTION CASCADE_CONSUMERS(upstream_feature_id, target_iteration, schemas_version, affected_scopes):
   # Cross-feature cascade: when feature A's contract changes, every downstream feature B whose
   # spec.feature.consumes_contract list contains A must be marked CASCADE_PENDING_ITERATION.
@@ -532,7 +532,7 @@ FUNCTION CASCADE_CONSUMERS(upstream_feature_id, target_iteration, schemas_versio
     CASCADE_PENDING_ITERATION(consumer_id, target_iteration, schemas_version, affected_scopes)
 
     # 3. Re-open the consumer's CONTRACT-FREEZE gate so the Consumes-Contract Upstream Freeze
-    #    Gate (Factory-implement-plan.instructions.md § EVOL-019 Phase 2) blocks IMPLEMENT --plan
+    #    Gate (Factory-implement-plan.instructions.md § Consumes-Contract Upstream Freeze Gate) blocks IMPLEMENT --plan
     #    on the consumer until the consumer's own contract re-freezes against the new upstream.
     ADAPTER = READ "docs/backlog/tool-adapter.md"
     consumer_cf_issue = ADAPTER.query_board() → find WHERE labels CONTAINS "phase:contract-freeze" AND title CONTAINS consumer_id
@@ -644,7 +644,7 @@ FUNCTION CASCADE_INCREMENT_INTERNAL(FEATURE_ID, target_iteration, affected_scope
   RETURN { invalidated: invalidated, warnings: warnings }
 
 
-# EVOL-014 — Horizontal cascade within a slice
+# Horizontal cascade within a slice
 FUNCTION CASCADE_SLICE_PEERS(FEATURE_ID, target_iteration, affected_scopes):
   # Slice-level cascade: when a feature that belongs to a slice iterates, the slice's
   # cross-feature integration test is stale because the feature's contract/behaviour may have

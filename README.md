@@ -532,7 +532,7 @@ graph TD
     class ImplBlocked,NoGo blocked
 ```
 
-> The diagram shows the classic loop. The three EVOL-014 hard gates (CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E) and the two epic/slice gates (SLICE-INTEGRATION-TEST, EPIC-RETROSPECTIVE) plug into the sequence as blocking backlog issues between the phases listed in [Workflow Sequence](#workflow-sequence-preset-full-sdlc). They do not appear inline here to keep the diagram focused on the classic phase loop.
+> The diagram shows the classic loop. The three hard gates (CONTRACT-FREEZE, PREVENTIVE-SWEEP, SMOKE-E2E) and the two epic/slice gates (SLICE-INTEGRATION-TEST, EPIC-RETROSPECTIVE) plug into the sequence as blocking backlog issues between the phases listed in [Workflow Sequence](#workflow-sequence-preset-full-sdlc). They do not appear inline here to keep the diagram focused on the classic phase loop.
 
 ---
 
@@ -701,7 +701,7 @@ The governance snapshot covers the "what is loaded" question, but it is a passiv
 
 See [scripts/validate-governance.sh](scripts/validate-governance.sh), [scripts/governance-onprompt.sh](scripts/governance-onprompt.sh), [scripts/governance-onedit.sh](scripts/governance-onedit.sh), [scripts/governance-oncompact.sh](scripts/governance-oncompact.sh), and [.claude/settings.json](.claude/settings.json).
 
-### Scope model — project scope + feature scope (EVOL-019)
+### Scope model — project scope + feature scope
 
 The framework governs two orthogonal scope axes:
 
@@ -815,7 +815,7 @@ The framework governs two orthogonal scope axes:
 
 Complements governance always-on with a **behavioural** rule: every user request — slash command or free-form chat — must first be classified against the SDLC command catalogue. If the request maps to a command, the agent announces the routing in one line and executes the command instead of the raw action; if it does not map, the agent articulates in one line why it does not map before acting directly. Silence is a governance-scope violation.
 
-The rule lives in two places depending on context (EVOL-018 framework/project split):
+The rule lives in two places depending on context (framework/project split):
 
 - [.context/templates/setup/claude/CLAUDE.md § SDLC-First Triage](.context/templates/setup/claude/CLAUDE.md) — the materialized-project variant (SDLC-first is the default; carve-outs for read-only, docs-only fast-lane, trivial edits).
 - [CLAUDE.md § Meta-Framework Triage](CLAUDE.md) — the framework-repo variant (meta-maintenance is the default; SDLC routing is the rare exception).

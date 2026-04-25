@@ -1,7 +1,7 @@
 ---
 status: DRAFT   # DRAFT | APPROVED | CHANGES_REQUESTED | INVALIDATED
 feature_id: 
-scope: full-stack  # EVOL-019 — inherited from spec.feature.scope; drives which Section 3.X subsections run vs N/A
+scope: full-stack  # inherited from spec.feature.scope; drives which Section 3.X subsections run vs N/A
 verdict: PENDING
 review_date: 
 review_level: STANDARD
@@ -9,10 +9,10 @@ attempt_number: 1
 blocker_count: 0
 warning_count: 0
 nitpick_count: 0
-na_count: 0                       # EVOL-019 — count of checks marked N/A under scope dispatch
+na_count: 0                       # count of checks marked N/A under scope dispatch
 override_justification: null
 
-# Iteration model tracking (EVOL-014)
+# Iteration model tracking
 based_on_iteration: 1
 based_on_schemas_version: 1
 
@@ -40,7 +40,7 @@ cascade_scope: []
 
 ## 1. Executive Summary
 
-**Feature Scope (EVOL-019):** `{{FEATURE_SCOPE}}` — drives which dimensions below are in-scope vs N/A.
+**Feature Scope:** `{{FEATURE_SCOPE}}` — drives which dimensions below are in-scope vs N/A.
 
 | Metric | Status | Applicable When |
 |--------|--------|----------------|
@@ -138,7 +138,7 @@ cascade_scope: []
 
 ---
 
-### 3.6 Cross-Layer Type Mapping (EVOL-019 — applicable_when scope in [full-stack])
+### 3.6 Cross-Layer Type Mapping (applicable_when scope in [full-stack])
 <!-- applicable_when: scope in [full-stack] -->
 **Source:** design.md § 3.1 Cross-Layer Type Mapping
 **Applies when:** scope == `full-stack` (feature has both frontend and backend layers requiring type-round-trip verification)
@@ -151,7 +151,7 @@ cascade_scope: []
 
 ---
 
-### 3.7 UX & Frontend Compliance (EVOL-019 — applicable_when scope in [full-stack, frontend-only])
+### 3.7 UX & Frontend Compliance (applicable_when scope in [full-stack, frontend-only])
 <!-- applicable_when: scope in [full-stack, frontend-only] -->
 **Source:** Factory-implement-review-checks.instructions.md Check #7 (11 UX sub-checks)
 **Applies when:** scope IN [full-stack, frontend-only]
@@ -174,7 +174,7 @@ cascade_scope: []
 
 ---
 
-### 3.8 Reliability & Integration Compliance (EVOL-019 — applicable_when scope in [backend-only, integration])
+### 3.8 Reliability & Integration Compliance (applicable_when scope in [backend-only, integration])
 <!-- applicable_when: scope in [backend-only, integration] -->
 **Source:** test_plan.md § 2.2 Reliability Testing + defect-prevention.md integration DCs (idempotency, retry, circuit breaker, DLQ, graceful shutdown, structured logging, API versioning)
 **Applies when:** scope IN [backend-only, integration]
@@ -194,7 +194,7 @@ cascade_scope: []
 
 ---
 
-### 3.9 Cross-Module Contract Consumption (EVOL-019 — applicable_when consumes_contract is non-empty)
+### 3.9 Cross-Module Contract Consumption (applicable_when consumes_contract is non-empty)
 <!-- applicable_when: spec.feature.consumes_contract IS NOT EMPTY -->
 **Source:** spec.feature.consumes_contract + BLUEPRINT Consumes-Contract Resolution Gate + IMPLEMENT Consumes-Contract Upstream Freeze Gate
 **Applies when:** `spec.feature.consumes_contract` is non-empty (scope-agnostic — consumes_contract is orthogonal to scope)

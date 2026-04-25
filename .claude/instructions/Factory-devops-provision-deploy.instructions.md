@@ -275,7 +275,7 @@ Phase 4: Summary
 ```yaml
 BOTH: Environment ACTIVE (not SUSPENDED), IMPLEMENT --build completed
 Pre-prod environments: No extra QA approval required
-Production environment: MERGE to main completed + QA APPROVED (via --verify auto-approval, includes DAST since v8.0.0)
+Production environment: MERGE to main completed + QA APPROVED (via --verify auto-approval, includes DAST)
 ```
 
 ### Pre-Deploy Status Gate (BLOCKING)
@@ -304,7 +304,7 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
       ❌ BLOCK: "devops_plan.md status is '{devops_status}', expected 'APPROVED'. Run DEVOPS --configure {FEATURE_ID} first."
       STOP
 
-  # 4. PREVENTIVE-SWEEP gate (v14.0.0 — EVOL-014, full-sdlc preset only)
+  # 4. PREVENTIVE-SWEEP gate (full-sdlc preset only)
   #    Applies to dev and any non-production environment. Production is already gated by QA APPROVED below.
   IF FEATURE_ID IS NOT NULL AND ENV != production_env:
     feature_phases = READ docs/setup.md → project_tracking.feature_phases

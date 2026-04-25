@@ -97,7 +97,7 @@ increments: []
 - [ ] [A.N] Execute API tests: `./scripts/test.sh api --apply`
 - [ ] [A.N] Verify all API tests PASS (GREEN)
 
-### Reliability Tests (EVOL-019 — applicable_when scope in [backend-only, integration], reliability_test_required: true)
+### Reliability Tests (applicable_when scope in [backend-only, integration], reliability_test_required: true)
 <!-- applicable_when: scope in [backend-only, integration] -->
 > **Ref:** `test_plan.md § 2.2 Reliability Testing` + `user_journey.integration.md § 6 Reliability Contract`
 > **Template:** `.context/templates/develop/api_test_template.md` (reuse the harness — reliability tests are API-level with fault injection)
@@ -145,7 +145,7 @@ increments: []
 - [ ] Verify all API tests PASS (GREEN)
 - [ ] Verify responses match contracts/ schemas (if contract-first-policy.instructions.md applies)
 
-### Reliability Validation (Final Check — EVOL-019, applicable_when scope in [backend-only, integration])
+### Reliability Validation (Final Check — applicable_when scope in [backend-only, integration])
 <!-- applicable_when: scope in [backend-only, integration] -->
 - [ ] Execute reliability suite: `./scripts/test.sh reliability --apply`
 - [ ] Verify all reliability tests PASS (GREEN)

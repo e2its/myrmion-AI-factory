@@ -167,7 +167,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Persist:** `ai_budget.tier`, `ai_budget.monthly_limit`
 - **After:** Set `tier_filter` — all subsequent architecture/tooling options filtered by tier
 
-#### Q4.5: Project Scope (Dual-Axis — EVOL-019)
+#### Q4.5: Project Scope (Dual-Axis)
 - **Type:** Single-select
 - **Options:**
   - `full-stack`: Backend services + frontend UI. Requires both Q5 (Backend Runtime) and Q9 (Frontend Framework).
@@ -422,11 +422,11 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Type:** Single-select
 - **Options:** `enforce` (greenfield — gates hard-block downstream from day 1) | `warn` (legacy migration — gates log findings, downstream proceeds, flip to `enforce` when first new feature validates the gate in main) | `off` (gate disabled — use only for explicit, documented exceptions)
 - **Simplified:** es: "¿Los gates nuevos deben bloquear (greenfield) o solo avisar (proyecto legacy)?" / en: "Should new gates hard-block (greenfield) or only warn (legacy migration)?"
-- **RDR Recommendation:** `enforce` for greenfield (Q3 == "Greenfield"). `warn` for Brownfield (Q3 == "Brownfield") — features that predate EVOL-014 lack CONTRACT-FREEZE / PREVENTIVE-SWEEP / SMOKE-E2E artefacts; warn lets the backlog flow without drowning in artificial blockers while the team migrates. Do NOT pick `off` globally — reserve `off` for per-gate overrides declared via ADR.
+- **RDR Recommendation:** `enforce` for greenfield (Q3 == "Greenfield"). `warn` for Brownfield (Q3 == "Brownfield") — features that lack CONTRACT-FREEZE / PREVENTIVE-SWEEP / SMOKE-E2E artefacts; warn lets the backlog flow without drowning in artificial blockers while the team migrates. Do NOT pick `off` globally — reserve `off` for per-gate overrides declared via ADR.
 - **Tier-filtered:** ALL tiers.
-- **Scope:** Applies to the EVOL-014 hard gates (`contract-freeze`, `preventive-sweep`, `smoke-e2e`) and the slice/epic gates (`integration-test`, `retrospective`). Classic phase completions (blueprint `--approve`, qa `--verify`) are always hard — mode does NOT affect them.
+- **Scope:** Applies to the hard gates (`contract-freeze`, `preventive-sweep`, `smoke-e2e`) and the slice/epic gates (`integration-test`, `retrospective`). Classic phase completions (blueprint `--approve`, qa `--verify`) are always hard — mode does NOT affect them.
 - **Persist:** `project_tracking.gate_enforcement_mode` (global default, one string value). Per-gate overrides persist later as frontmatter on individual gate issues (handled by BACKLOG, not SETUP).
-- **Soft-landing principle:** Gates shipped by EVOL-014 default to `warn` for Brownfield projects so the backlog does not trip on features that never had the gate's artefact. When a new feature completes the gate cleanly in main (first valid CONTRACT-FREEZE artefact merged, first PREVENTIVE-SWEEP zero-C report merged, etc.), the maintainer flips the default to `enforce` via `SETUP --upgrade` or a manual edit of `docs/setup.md`. Greenfield projects skip this ramp — they start with `enforce` because every feature shipped with the framework already produces the gate artefact.
+- **Soft-landing principle:** Gates default to `warn` for Brownfield projects so the backlog does not trip on features that never had the gate's artefact. When a new feature completes the gate cleanly in main (first valid CONTRACT-FREEZE artefact merged, first PREVENTIVE-SWEEP zero-C report merged, etc.), the maintainer flips the default to `enforce` via `SETUP --upgrade` or a manual edit of `docs/setup.md`. Greenfield projects skip this ramp — they start with `enforce` because every feature shipped with the framework already produces the gate artefact.
 
 #### Q27.6: Appetite Sizing (conditional: Q27 != "None")
 - **Type:** Boolean
@@ -586,7 +586,7 @@ The user can override any version before finalizing.
 
 ---
 
-### § 4.1.3.2 — Cost Estimation Protocol (CEP — EVOL-014)
+### § 4.1.3.2 — Cost Estimation Protocol (CEP)
 
 > **Problem.** Before EVOL-014, `docs/setup.md` had no canonical `costs:` section. Discovery finalization said "Sum all selected component costs" but defined neither the schema, the inputs, nor the output. Downstream templates (`ADR-0000-setup-decisions.md`, `MATERIALIZATION_REPORT.md`) referenced 20 cost placeholders (`{{BACKEND_COST}}`, `{{TOTAL_COST}}`, `{{BUDGET_PERCENTAGE}}`, …) that had no producer — they materialised as literal `{{…}}` strings in generated artifacts.
 

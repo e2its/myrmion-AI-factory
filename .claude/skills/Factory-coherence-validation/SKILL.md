@@ -36,8 +36,8 @@ CVP_SCOPES:
     # Invoked by: BLUEPRINT --approve (Phase 3.8)
     # Validates: CODESIGN artifacts ↔ BLUEPRINT artifacts
     checks:
-      - scope_consistency_across_artifacts   # EVOL-019 Phase 3 — scope field matches across spec.feature/design.md/test_plan.md/dev_plan.md
-      - consumes_contract_resolution         # EVOL-019 Phase 3 — every FEAT-XXX in spec.feature.consumes_contract resolves to an APPROVED upstream with frozen contract files
+      - scope_consistency_across_artifacts   # scope field matches across spec.feature/design.md/test_plan.md/dev_plan.md
+      - consumes_contract_resolution         # every FEAT-XXX in spec.feature.consumes_contract resolves to an APPROVED upstream with frozen contract files
       - increment_plan_presence              # increment_plan.md exists with well-formed frontmatter; slicing_strategy inherited from spec.feature
       - scenario_to_component        # spec.feature scenarios → design.md components
       - data_schema_to_data_model    # user_journey.md schemas → design.md data model
@@ -59,7 +59,7 @@ CVP_SCOPES:
       - test_case_to_task            # test_plan.md test cases → dev_plan.md test tasks
       - ui_component_to_task         # design.md UI components → dev_plan.md frontend tasks (applicable_when scope in [full-stack, frontend-only])
       - data_model_to_task           # design.md entities → dev_plan.md Phase A tasks
-      - reliability_test_to_task     # EVOL-019 Phase 3 — test_plan.md § 2.2 Reliability Testing rows → dev_plan.md § Reliability Tests tasks (applicable_when scope in [backend-only, integration])
+      - reliability_test_to_task     # test_plan.md § 2.2 Reliability Testing rows → dev_plan.md § Reliability Tests tasks (applicable_when scope in [backend-only, integration])
       - increment_to_task            # each increment has ≥1 [INC-N.*.M] task in dev_plan.md (applicable_when slicing_strategy==incremental)
 
   FULL_CHAIN:
@@ -160,13 +160,13 @@ FUNCTION cvp_coherence_gate(FEATURE_ID, scope, invoking_agent):
 
 ## CHECK DEFINITIONS
 
-### Check 0a: `scope_consistency_across_artifacts` (CRITICAL — EVOL-019 Phase 3)
+### Check 0a: `scope_consistency_across_artifacts` (CRITICAL)
 
 The `scope` frontmatter field must match across every downstream artefact of the feature. Drift (e.g. spec.feature says `backend-only` but design.md says `full-stack`) is silent corruption — a downstream agent may run scope-aware logic against the wrong scope.
 
 ```yaml
 FUNCTION check_scope_consistency_across_artifacts(elements):
-  # Read scope from every available artefact. Legacy pre-EVOL-019 artefacts without the field
+  # Read scope from every available artefact. Legacy artefacts without the field
   # degrade gracefully: missing scope is treated as "unknown" and surfaces as a WARNING-severity
   # recommendation to add the field, not a CRITICAL blocker.
   scopes = {}
@@ -189,7 +189,7 @@ FUNCTION check_scope_consistency_across_artifacts(elements):
     IF value == "unknown":
       YIELD { check: "scope_consistency_across_artifacts", severity: WARNING,
               source: "{artefact}.frontmatter.scope",
-              gap: "Missing scope field (pre-EVOL-019 artefact)",
+              gap: "Missing scope field (legacy artefact)",
               remediation: "Re-run the generating agent to refresh frontmatter with scope field; or add scope manually inheriting from spec.feature.scope ({authoritative})" }
       CONTINUE
     IF value != authoritative:
@@ -202,11 +202,11 @@ FUNCTION check_scope_consistency_across_artifacts(elements):
               source: artefact, target: "scope={value} matches spec.feature" }
 ```
 
-### Check 0b: `consumes_contract_resolution` (CRITICAL — EVOL-019 Phase 3)
+### Check 0b: `consumes_contract_resolution` (CRITICAL)
 
 Every `FEAT-XXX` declared in `spec.feature.consumes_contract` must resolve to an upstream feature whose design.md is at least APPROVED and whose contract artefacts exist under `contracts/**` (OpenAPI / AsyncAPI / GraphQL SDL / Protobuf). Missing upstreams or not-yet-frozen contracts are silent failures that only surface at IMPLEMENT time via the Consumes-Contract Upstream Freeze Gate — CVP catches them earlier at BLUEPRINT --approve.
 
-This check is complementary to the BLUEPRINT `--start` Consumes-Contract Resolution Gate (EVOL-019 Phase 1) and the IMPLEMENT `--plan` Consumes-Contract Upstream Freeze Gate (Phase 2). Those two gates BLOCK; this CVP check flags the same gaps with traceability matrix output so they appear on the coherence report.
+This check is complementary to the BLUEPRINT `--start` Consumes-Contract Resolution Gate and the IMPLEMENT `--plan` Consumes-Contract Upstream Freeze Gate. Those two gates BLOCK; this CVP check flags the same gaps with traceability matrix output so they appear on the coherence report.
 
 ```yaml
 FUNCTION check_consumes_contract_resolution(elements):
