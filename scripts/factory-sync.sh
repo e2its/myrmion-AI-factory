@@ -15,7 +15,7 @@
 #   .claude/skills/Factory-*/SKILL.md
 #   .claude/hooks/*.sh
 #   scripts/auto-tag.sh, security-scan.sh, validate-governance.sh
-#   scripts/governance-onprompt.sh, governance-oncompact.sh
+#   scripts/governance-onprompt.sh, governance-oncompact.sh, governance-onedit.sh
 #   scripts/install-hooks.sh, factory-sync.sh, project_summarization.py
 #   scripts/hooks/{commit-msg,pre-commit,pre-push}
 #   .context/templates/ (full tree — consumed by SETUP --upgrade)
@@ -356,7 +356,7 @@ resolve_script_src() {
     echo "$meta"
   fi
 }
-for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh governance-onprompt.sh governance-oncompact.sh project_summarization.py; do
+for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh governance-onprompt.sh governance-oncompact.sh governance-onedit.sh project_summarization.py; do
   sync_file "$(resolve_script_src "$script")" "$TARGET_PROJECT/scripts/$script"
 done
 # factory-sync.sh exists only in framework_core (no template variant by design).
