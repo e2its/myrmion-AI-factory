@@ -3,7 +3,7 @@
   "manifest_version": "2.0.0",
   "framework_version": "2.7.3",
   "last_updated": "2026-04-25",
-  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release — full platform migration from GitHub Copilot multi-agent architecture. v2.1.0: feat(EVOL-020) canonical RDR skill + IPP compliance enforcement hook — Factory-rdr/SKILL.md consolidates Recommendation → Decision → Ratification (fixes Registration drift); check-ipp-compliance.sh blocks first-write fully-formed governance artifacts on PreToolUse Write. v2.2.0: feat(EVOL-021) phase 1: Incremental Dev Plan foundations — BLUEPRINT emits new sidecar artifact increment_plan.md declaring vertical increments (each = 1 PR that leaves product 100% functional and production-deployable); new spec.feature frontmatter field slicing_strategy (incremental|monolithic) with default `incremental` and trivial-heuristic escape to `monolithic` (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack); Increment Plan Generation sub-phase added to Factory-blueprint-design after Cross-Pollination, RDR-driven with ≥3 slicing alternatives; feature-flag-OFF merges explicitly disallowed as a deployability escape. v2.3.0: feat(EVOL-021) phase 2: CVP + IMPLEMENT + immutability enforcement — CVP gains 6 checks (0c increment_plan_presence, 13 increment_deployability, 14 increment_to_scenario_coverage, 15 increment_to_contract_coverage, 16 monolithic_heuristic, 17 increment_to_task); IMPLEMENT --plan gains Increment Plan Gate prerequisite + Strategy Branch (monolithic vs incremental body generation with [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] task tagging) + Per-Increment Completion Gate; dev_plan_template.md frontmatter gains slicing_strategy + invalidated_increments + increments[] mirror; immutability_policy.md gains Per-Increment Immutability section with status lifecycle (DRAFT→READY→BUILDING→MERGED + INVALIDATED branch), Follow-up Increment Rule (additive, non-breaking), slicing-strategy flip rules, and check_increment_immutability enforcement function; increment_plan_template.md gains per-INC Status field + Per-Increment Status Lifecycle table + status-monotonicity invariant. v2.4.0: feat(EVOL-021) phase 3: iteration cascade + branching + docs — Factory-iteration-model gains CASCADE_INCREMENT_INTERNAL function (selective per-increment invalidation: only increments whose scenarios_covered/contract_surface intersect the change flip to INVALIDATED; MERGED increments never invalidate — they cascade to a follow-up increment; BUILDING increments get pending_iteration with --pause requirement), wired into CASCADE_TRIGGERS for CODESIGN_REFINE_ITERATION + BLUEPRINT_SYNC_COMPLETE; Factory-branching-strategy gains § Per-Increment Branching with feature/{FEATURE_ID}-inc-N-{slug} naming, concurrency lock reuse (one increment branch per feature at a time), post-merge hook (BUILDING→MERGED + Merged at: stamp + next-increment readiness check), backward compat for monolithic; README.md gains § Incremental Dev Plan (Vertical Slicing) with 7-paragraph authoritative user-facing description + BLUEPRINT/IMPLEMENT command table updates; downstream CLAUDE.md template gains § Incremental Dev Plan (Vertical Slicing); framework-meta CLAUDE.md gains § Incremental Dev Plan (EVOL-021 — framework authorship view) with 6 lock-step invariants for framework editors. v2.5.0: feat(EVOL-021) phase 4: coherence fixes + downstream-consumer alignment + pre-existing drift cleanup — 5 CRITICAL + 4 WARNING + 3 INFO/DOC fixes from the Phase 4 global coherence audit. IMPLEMENT --build gains Strategy-Aware Build Entry (determine_build_scope) + strategy-branching throughout Phase Loop, Completion Gate regex breakdown, REVIEW/SEC per-increment-phase verification, per-increment status transitions with plan-level aggregation, and increment-aware EXTRACT_PHASE in Pillar 3 resume logic. IPP gains increment_plan.md as a first-class tracked artefact (check-ipp-compliance.sh allowlist + Factory-incremental-persistence SKILL Pillar 2 table). CVP Check 0a now reads scope from increment_plan.md (closes cross-artefact drift). CVP Check 0c documents optional cascade/iteration fields to decouple Check 0c from cascade lifecycle. Downstream rules/branching.md gains § Per-Increment Branch Naming with concurrency + lifecycle + monolithic escape. increment_plan_template.md plan-level status enum clarified (DRAFT|APPROVED|INVALIDATED, disambiguated from per-increment 5-value enum) + § 3 documents frontend-only vacuous-pass as intentional. Threshold wording unified to 'contract operations' across template + branching SKILL. immutability_policy.md clarifies Phase 3 × per-increment interaction + Follow-up Increment Rule × Phase 4 QA-verify chain-lock. Template CLAUDE.md cites CVP Check IDs (0c, 13-17) verbatim. Author-guidance notes added to 6 downstream templates (gherkin scenarios, user_journey, user_journey.integration, test_plan, peer_review, design_template). setup_master_template.md gains default_slicing_strategy Discovery question. Stale manifest entry framework_core.rules/defect-prevention.md removed (the canonical entry lives in templates.rules/defect-prevention.md). validate-governance.sh now reports 0 violations AND 0 warnings. v2.6.0: feat(EVOL-022) framework validation by simulation + gap fixes — end-to-end dry-run against the Helix fictional testbed produced a Gap Registry with 1 BLOCKER + 2 HIGH + 3 MEDIUM + 1 LOW, all fixed in one PR. G01 (BLOCKER): check-ipp-compliance.sh meta gained increment_plan.md in allowlist (lock-step with template that had it since v2.5.0 EVOL-021 phase 4). G02 (HIGH): check-branch-protection.sh regex loosened — `hotfix` bare base stays blocked, `hotfix/{slug}` working branches now allowed, aligned with CLAUDE.md wording. G03 (HIGH): backfilled framework_core entries for scripts/validate-governance.sh, governance-onprompt.sh, governance-oncompact.sh, auto-tag.sh (all v1.0.0) — previously untracked despite CLAUDE.md Generation Standards §2 requiring them. G04 (MEDIUM): commands/blueprint.md § Output documents increment_plan.md (EVOL-021). G05 (MEDIUM): commands/implement.md gains § Incremental Dev Plan Integration (slicing_strategy, [INC-N.*.*] task tags, per-increment branching, Increment Plan Gate). G06 (MEDIUM): commands/codesign.md gains § Scope & Slicing (feature.scope enum, Scope Compatibility Gate, slicing_strategy defaults, consumes_contract). G07 (LOW): CLAUDE.md Pre-Action Gate wording clarified — `hotfix/{slug}` is a working pattern, bare `hotfix` is blocked; INVARIANT 1 harmonised to include `hotfix/*` → PATCH. Consolidation (user-driven): framework meta CLAUDE.md no longer carries framework-authorship-view sections (Scope Taxonomy, Incremental Dev Plan) since the meta does not self-consume its own SDLC — lock-step invariants moved to the template as `### Framework Editor Invariants (lock-step)` sub-sections reduced to delta content (file paths + breaking-contract warnings). Meta INVARIANT 5 simplified to feature-state only (scope note removed). Meta Core Protocols table RDR row simplified to (Recommendation → Decision) since the third R (Ratification to IPP artefact) does not apply in a repo without spec.feature frontmatter. v2.7.3: chore: framework-wide cleanup of EVOL/version-history annotations from `.md` files (37 files, 193 line-edits). Per the long-standing 'no narrative metadata in framework .md files' rule (memory feedback `feedback_framework_comments.md`), `EVOL-NNN` references were removed from section headings, purpose lines, invariant bullets, inline descriptions, pseudocode comments, and template body prose; the EVOL anchor either dropped entirely (when it was pure attribution) or replaced with the concept name (`EVOL-019 dual-axis scope` → `dual-axis scope`). Version-history annotations (`since v8.0.0`, `was X before`, `(advisory since v2.0.0)`) and `Decision Dn` shorthands stripped on the same pass. False positives kept untouched: `[FIX-N]` task-ID tokens, `BUG-042` example references, `D0..D9` Aesthetic Quality Directives in codesign-vision (domain catalog). Conscious skips per 'ante la duda no apliques' directive: `> **Rationale.**` narrative paragraphs in setup-materialization (L700, L1012), setup-discovery (L591), qa-verify (L252), backlog-operations (L102 iteration narrative + L326 gap-note), governance-loading (L45 + L407 historical narrative), Factory-implement-plan L26 trailing 'pre-EVOL-019' (ambiguous reword), Factory-setup-upgrade L25 table headers (Pre-EVOL-016 / Post-EVOL-016 — would lose temporal anchor), structured frontmatter `version_changelog` arrays in defect-prevention.md (L8-9) and setup_master_template.md (L5). Net residue after sweep: 13 deliberate skips, all in 'narrative rationale' or 'structured changelog' categories. Per-file PATCH bumps deliberately deferred — the change is purely cosmetic prose, no contract change, no agent-behaviour change; framework_version PATCH captures the sweep. v2.7.2: fix: factory-sync.sh 1.4.2 → 1.4.3 — add governance-onedit.sh to the base-scripts whitelist (lock-step missed in the EVOL-023 v2.7.0 ship). Without this, `factory-sync.sh` skipped the new meta script when propagating to downstream projects, leaving them with the marker reader (governance-onprompt.sh 2.1.1) but no marker writer. Header documentation updated alongside. v2.7.1: fix(EVOL-023) Copilot PR #12 round 1 — three review findings addressed in lock-step on both governance-onprompt.sh and governance-onedit.sh: (a) marker-content allowlist filter — `.claude/state/` is user-writable so a tampered or legacy marker could carry quotes/`>`/newlines that would break the `<governance-source-edited paths=\"...\">` tag or inject arbitrary content into the model-facing block; reader now filters with `awk '$0 == \"docs/constitution.md\" || $0 == \"docs/setup.md\"'` before interpolation, dropping anything unrecognised silently. (b) project-root anchoring guard — both hooks added an explicit `else exit 0` after the CLAUDE_PROJECT_DIR / git rev-parse cascade so the script no-ops when called from a CWD it cannot anchor (was previously falling through and writing markers / reading relative paths against the caller's CWD). (c) docs wording — freshness-gate header comment in onprompt rewritten from \"always runs\" to \"runs by default, suppressed when the source-edit marker already attributed the cause\" to match the actual control flow. Manifest: templates.scripts/governance-onprompt.sh 2.1.0 → 2.1.1, framework_core.scripts/governance-onprompt.sh 2.1.0 → 2.1.1, templates.scripts/governance-onedit.sh 1.0.0 → 1.0.1, framework_core.scripts/governance-onedit.sh 1.0.0 → 1.0.1. v2.7.0: feat(EVOL-023) governance source edit attribution + advisory freshness gate + bug fix. Three intertwined changes shipped together: (1) scripts/governance-onprompt.sh freshness gate switched from blocking (exit 2) to advisory (always exit 0, stdout `<governance-warning reason=\"snapshot-stale\">` on stale) to remove the auto-livelock that occurred whenever an EVOL/ADR legitimately edited docs/constitution.md or docs/setup.md (the /setup carve-out only covered the recovery command itself, not the work that produced the staleness). (2) Fixes the unbound-variable bug introduced in the advisory rewrite: `${SCRIPT_DIR}` was never assigned, so under `set -u` the freshness subshell aborted before running validate-governance.sh, causing an empty warning block on every prompt regardless of actual snapshot state. (3) New PostToolUse hook scripts/governance-onedit.sh detects Edit/Write on docs/constitution.md or docs/setup.md and writes a session-scoped marker .claude/state/governance-source-edited-${session_id}.marker. governance-onprompt.sh, on the next prompt, reads the marker and emits a `<governance-source-edited paths=\"...\">` block naming the edited paths and instructing the agent to regenerate the snapshot inline via Factory-governance-loading SKILL § Step 1 POST-LOAD (does NOT require /setup --upgrade). When the source-edit block fires, the freshness gate is suppressed for that prompt — the agent already knows why the snapshot is stale. Net effect: edits to governance source no longer produce a generic stale-snapshot warning; instead the agent receives cause attribution + explicit regen instruction, breaking the prior livelock with traceable agent-driven regen. Wiring: .claude/settings.json + template gain a PostToolUse Edit|Write block invoking governance-onedit.sh. Manifest entry bumps: templates.scripts/governance-onprompt.sh 1.1.0 → 2.1.0 (2.0.0 advisory + 2.1.0 marker-aware), framework_core.scripts/governance-onprompt.sh 1.0.0 → 2.1.0 (same), templates.claude/settings.json 1.1.0 → 1.2.0 (PostToolUse entry added), new entries templates.scripts/governance-onedit.sh + framework_core.scripts/governance-onedit.sh at 1.0.0. v2.6.3: fix: factory-sync.sh 1.4.1 → 1.4.2 — PR #11 Copilot review. Usage message now lists --greenfield and --preserve-local flags (previously hidden). Orphan summary line keys off the DELETED counter instead of the HAS_ORPHANS flag — detect_orphans()/detect_tree_orphans() in hooks and templates categories increment DELETED but never touched HAS_ORPHANS, so 'No orphans detected' was being printed even when orphans existed. Header 'WHAT IT SYNCS' list realigned to .claude/hooks/*.sh to match the implementation (sync_dir uses `*.sh`, not `check-*.sh`). Spelling unified to 'materialized/materialization' across the error path. v2.6.2: fix: factory-sync.sh 1.4.0 → 1.4.1 — robustness fixes surfaced while syncing a greenfield target (Nexus-Tech-Link). (a) Greenfield targets were rejected because docs/setup.md was a hard prerequisite; now auto-detected when neither CLAUDE.md nor docs/project_log/ exist, or forced with --greenfield. (b) scripts/ category copied from $FRAMEWORK_ROOT/scripts/ directly, which leaked the meta-only auto-tag.sh (with governance-aware override) to downstream projects; now resolves each name to .context/templates/setup/scripts/<name> first, falling back to the meta path only when no template variant exists. (c) new --preserve-local flag that reports (PRESERVED counter) dsts that differ from source instead of overwriting them, for materialised projects with legitimate local modifications. (d) header documentation corrected (CLAUDE.md SKIPPED, factory-sync.sh synced). (e) global variables initialised at top to survive `set -u` regardless of flow path.",
+  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v1.0.0: Inaugural Claude Code release — full platform migration from GitHub Copilot multi-agent architecture. v2.1.0: feat(EVOL-020) canonical RDR skill + IPP compliance enforcement hook — Factory-rdr/SKILL.md consolidates Recommendation → Decision → Ratification (fixes Registration drift); check-ipp-compliance.sh blocks first-write fully-formed governance artifacts on PreToolUse Write. v2.2.0: feat(EVOL-021) phase 1: Incremental Dev Plan foundations — BLUEPRINT emits new sidecar artifact increment_plan.md declaring vertical increments (each = 1 PR that leaves product 100% functional and production-deployable); new spec.feature frontmatter field slicing_strategy (incremental|monolithic) with default `incremental` and trivial-heuristic escape to `monolithic` (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack); Increment Plan Generation sub-phase added to Factory-blueprint-design after Cross-Pollination, RDR-driven with ≥3 slicing alternatives; feature-flag-OFF merges explicitly disallowed as a deployability escape. v2.3.0: feat(EVOL-021) phase 2: CVP + IMPLEMENT + immutability enforcement — CVP gains 6 checks (0c increment_plan_presence, 13 increment_deployability, 14 increment_to_scenario_coverage, 15 increment_to_contract_coverage, 16 monolithic_heuristic, 17 increment_to_task); IMPLEMENT --plan gains Increment Plan Gate prerequisite + Strategy Branch (monolithic vs incremental body generation with [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] task tagging) + Per-Increment Completion Gate; dev_plan_template.md frontmatter gains slicing_strategy + invalidated_increments + increments[] mirror; immutability_policy.md gains Per-Increment Immutability section with status lifecycle (DRAFT→READY→BUILDING→MERGED + INVALIDATED branch), Follow-up Increment Rule (additive, non-breaking), slicing-strategy flip rules, and check_increment_immutability enforcement function; increment_plan_template.md gains per-INC Status field + Per-Increment Status Lifecycle table + status-monotonicity invariant. v2.4.0: feat(EVOL-021) phase 3: iteration cascade + branching + docs — Factory-iteration-model gains CASCADE_INCREMENT_INTERNAL function (selective per-increment invalidation: only increments whose scenarios_covered/contract_surface intersect the change flip to INVALIDATED; MERGED increments never invalidate — they cascade to a follow-up increment; BUILDING increments get pending_iteration with --pause requirement), wired into CASCADE_TRIGGERS for CODESIGN_REFINE_ITERATION + BLUEPRINT_SYNC_COMPLETE; Factory-branching-strategy gains § Per-Increment Branching with feature/{FEATURE_ID}-inc-N-{slug} naming, concurrency lock reuse (one increment branch per feature at a time), post-merge hook (BUILDING→MERGED + Merged at: stamp + next-increment readiness check), backward compat for monolithic; README.md gains § Incremental Dev Plan (Vertical Slicing) with 7-paragraph authoritative user-facing description + BLUEPRINT/IMPLEMENT command table updates; downstream CLAUDE.md template gains § Incremental Dev Plan (Vertical Slicing); framework-meta CLAUDE.md gains § Incremental Dev Plan (EVOL-021 — framework authorship view) with 6 lock-step invariants for framework editors. v2.5.0: feat(EVOL-021) phase 4: coherence fixes + downstream-consumer alignment + pre-existing drift cleanup — 5 CRITICAL + 4 WARNING + 3 INFO/DOC fixes from the Phase 4 global coherence audit. IMPLEMENT --build gains Strategy-Aware Build Entry (determine_build_scope) + strategy-branching throughout Phase Loop, Completion Gate regex breakdown, REVIEW/SEC per-increment-phase verification, per-increment status transitions with plan-level aggregation, and increment-aware EXTRACT_PHASE in Pillar 3 resume logic. IPP gains increment_plan.md as a first-class tracked artefact (check-ipp-compliance.sh allowlist + Factory-incremental-persistence SKILL Pillar 2 table). CVP Check 0a now reads scope from increment_plan.md (closes cross-artefact drift). CVP Check 0c documents optional cascade/iteration fields to decouple Check 0c from cascade lifecycle. Downstream rules/branching.md gains § Per-Increment Branch Naming with concurrency + lifecycle + monolithic escape. increment_plan_template.md plan-level status enum clarified (DRAFT|APPROVED|INVALIDATED, disambiguated from per-increment 5-value enum) + § 3 documents frontend-only vacuous-pass as intentional. Threshold wording unified to 'contract operations' across template + branching SKILL. immutability_policy.md clarifies Phase 3 × per-increment interaction + Follow-up Increment Rule × Phase 4 QA-verify chain-lock. Template CLAUDE.md cites CVP Check IDs (0c, 13-17) verbatim. Author-guidance notes added to 6 downstream templates (gherkin scenarios, user_journey, user_journey.integration, test_plan, peer_review, design_template). setup_master_template.md gains default_slicing_strategy Discovery question. Stale manifest entry framework_core.rules/defect-prevention.md removed (the canonical entry lives in templates.rules/defect-prevention.md). validate-governance.sh now reports 0 violations AND 0 warnings. v2.6.0: feat(EVOL-022) framework validation by simulation + gap fixes — end-to-end dry-run against the Helix fictional testbed produced a Gap Registry with 1 BLOCKER + 2 HIGH + 3 MEDIUM + 1 LOW, all fixed in one PR. G01 (BLOCKER): check-ipp-compliance.sh meta gained increment_plan.md in allowlist (lock-step with template that had it since v2.5.0 EVOL-021 phase 4). G02 (HIGH): check-branch-protection.sh regex loosened — `hotfix` bare base stays blocked, `hotfix/{slug}` working branches now allowed, aligned with CLAUDE.md wording. G03 (HIGH): backfilled framework_core entries for scripts/validate-governance.sh, governance-onprompt.sh, governance-oncompact.sh, auto-tag.sh (all v1.0.0) — previously untracked despite CLAUDE.md Generation Standards §2 requiring them. G04 (MEDIUM): commands/blueprint.md § Output documents increment_plan.md (EVOL-021). G05 (MEDIUM): commands/implement.md gains § Incremental Dev Plan Integration (slicing_strategy, [INC-N.*.*] task tags, per-increment branching, Increment Plan Gate). G06 (MEDIUM): commands/codesign.md gains § Scope & Slicing (feature.scope enum, Scope Compatibility Gate, slicing_strategy defaults, consumes_contract). G07 (LOW): CLAUDE.md Pre-Action Gate wording clarified — `hotfix/{slug}` is a working pattern, bare `hotfix` is blocked; INVARIANT 1 harmonised to include `hotfix/*` → PATCH. Consolidation (user-driven): framework meta CLAUDE.md no longer carries framework-authorship-view sections (Scope Taxonomy, Incremental Dev Plan) since the meta does not self-consume its own SDLC — lock-step invariants moved to the template as `### Framework Editor Invariants (lock-step)` sub-sections reduced to delta content (file paths + breaking-contract warnings). Meta INVARIANT 5 simplified to feature-state only (scope note removed). Meta Core Protocols table RDR row simplified to (Recommendation → Decision) since the third R (Ratification to IPP artefact) does not apply in a repo without spec.feature frontmatter. v2.7.3: chore: framework-wide cleanup of EVOL/version-history annotations from `.md` files (37 files, 193 line-edits). Per the long-standing 'no narrative metadata in framework .md files' rule (memory feedback `feedback_framework_comments.md`), `EVOL-NNN` references were removed from section headings, purpose lines, invariant bullets, inline descriptions, pseudocode comments, and template body prose; the EVOL anchor either dropped entirely (when it was pure attribution) or replaced with the concept name (`EVOL-019 dual-axis scope` → `dual-axis scope`). Version-history annotations (`since v8.0.0`, `was X before`, `(advisory since v2.0.0)`) and `Decision Dn` shorthands stripped on the same pass. False positives kept untouched: `[FIX-N]` task-ID tokens, `BUG-042` example references, `D0..D9` Aesthetic Quality Directives in codesign-vision (domain catalog). Conscious skips per 'ante la duda no apliques' directive: `> **Rationale.**` narrative paragraphs in setup-materialization (L700, L1012), setup-discovery (L591), qa-verify (L252), backlog-operations (L102 iteration narrative + L326 gap-note), governance-loading (L45 + L407 historical narrative), Factory-implement-plan L26 trailing 'pre-EVOL-019' (ambiguous reword), Factory-setup-upgrade L25 table headers (Pre-EVOL-016 / Post-EVOL-016 — would lose temporal anchor), structured frontmatter `version_changelog` arrays in defect-prevention.md (L8-9) and setup_master_template.md (L5). Net residue after sweep: 13 deliberate skips, all in 'narrative rationale' or 'structured changelog' categories. Per-file PATCH bumps applied to all 36 previously-tracked files touched by the sweep (Copilot PR #14 review — Generation Standards §2 enforcement). templates.rules/defect-prevention.md was missing from the manifest entirely (pre-existing gap surfaced during the bump pass) and has been backfilled at 1.0.0 in the same commit. v2.7.2: fix: factory-sync.sh 1.4.2 → 1.4.3 — add governance-onedit.sh to the base-scripts whitelist (lock-step missed in the EVOL-023 v2.7.0 ship). Without this, `factory-sync.sh` skipped the new meta script when propagating to downstream projects, leaving them with the marker reader (governance-onprompt.sh 2.1.1) but no marker writer. Header documentation updated alongside. v2.7.1: fix(EVOL-023) Copilot PR #12 round 1 — three review findings addressed in lock-step on both governance-onprompt.sh and governance-onedit.sh: (a) marker-content allowlist filter — `.claude/state/` is user-writable so a tampered or legacy marker could carry quotes/`>`/newlines that would break the `<governance-source-edited paths=\"...\">` tag or inject arbitrary content into the model-facing block; reader now filters with `awk '$0 == \"docs/constitution.md\" || $0 == \"docs/setup.md\"'` before interpolation, dropping anything unrecognised silently. (b) project-root anchoring guard — both hooks added an explicit `else exit 0` after the CLAUDE_PROJECT_DIR / git rev-parse cascade so the script no-ops when called from a CWD it cannot anchor (was previously falling through and writing markers / reading relative paths against the caller's CWD). (c) docs wording — freshness-gate header comment in onprompt rewritten from \"always runs\" to \"runs by default, suppressed when the source-edit marker already attributed the cause\" to match the actual control flow. Manifest: templates.scripts/governance-onprompt.sh 2.1.0 → 2.1.1, framework_core.scripts/governance-onprompt.sh 2.1.0 → 2.1.1, templates.scripts/governance-onedit.sh 1.0.0 → 1.0.1, framework_core.scripts/governance-onedit.sh 1.0.0 → 1.0.1. v2.7.0: feat(EVOL-023) governance source edit attribution + advisory freshness gate + bug fix. Three intertwined changes shipped together: (1) scripts/governance-onprompt.sh freshness gate switched from blocking (exit 2) to advisory (always exit 0, stdout `<governance-warning reason=\"snapshot-stale\">` on stale) to remove the auto-livelock that occurred whenever an EVOL/ADR legitimately edited docs/constitution.md or docs/setup.md (the /setup carve-out only covered the recovery command itself, not the work that produced the staleness). (2) Fixes the unbound-variable bug introduced in the advisory rewrite: `${SCRIPT_DIR}` was never assigned, so under `set -u` the freshness subshell aborted before running validate-governance.sh, causing an empty warning block on every prompt regardless of actual snapshot state. (3) New PostToolUse hook scripts/governance-onedit.sh detects Edit/Write on docs/constitution.md or docs/setup.md and writes a session-scoped marker .claude/state/governance-source-edited-${session_id}.marker. governance-onprompt.sh, on the next prompt, reads the marker and emits a `<governance-source-edited paths=\"...\">` block naming the edited paths and instructing the agent to regenerate the snapshot inline via Factory-governance-loading SKILL § Step 1 POST-LOAD (does NOT require /setup --upgrade). When the source-edit block fires, the freshness gate is suppressed for that prompt — the agent already knows why the snapshot is stale. Net effect: edits to governance source no longer produce a generic stale-snapshot warning; instead the agent receives cause attribution + explicit regen instruction, breaking the prior livelock with traceable agent-driven regen. Wiring: .claude/settings.json + template gain a PostToolUse Edit|Write block invoking governance-onedit.sh. Manifest entry bumps: templates.scripts/governance-onprompt.sh 1.1.0 → 2.1.0 (2.0.0 advisory + 2.1.0 marker-aware), framework_core.scripts/governance-onprompt.sh 1.0.0 → 2.1.0 (same), templates.claude/settings.json 1.1.0 → 1.2.0 (PostToolUse entry added), new entries templates.scripts/governance-onedit.sh + framework_core.scripts/governance-onedit.sh at 1.0.0. v2.6.3: fix: factory-sync.sh 1.4.1 → 1.4.2 — PR #11 Copilot review. Usage message now lists --greenfield and --preserve-local flags (previously hidden). Orphan summary line keys off the DELETED counter instead of the HAS_ORPHANS flag — detect_orphans()/detect_tree_orphans() in hooks and templates categories increment DELETED but never touched HAS_ORPHANS, so 'No orphans detected' was being printed even when orphans existed. Header 'WHAT IT SYNCS' list realigned to .claude/hooks/*.sh to match the implementation (sync_dir uses `*.sh`, not `check-*.sh`). Spelling unified to 'materialized/materialization' across the error path. v2.6.2: fix: factory-sync.sh 1.4.0 → 1.4.1 — robustness fixes surfaced while syncing a greenfield target (Nexus-Tech-Link). (a) Greenfield targets were rejected because docs/setup.md was a hard prerequisite; now auto-detected when neither CLAUDE.md nor docs/project_log/ exist, or forced with --greenfield. (b) scripts/ category copied from $FRAMEWORK_ROOT/scripts/ directly, which leaked the meta-only auto-tag.sh (with governance-aware override) to downstream projects; now resolves each name to .context/templates/setup/scripts/<name> first, falling back to the meta path only when no template variant exists. (c) new --preserve-local flag that reports (PRESERVED counter) dsts that differ from source instead of overwriting them, for materialised projects with legitimate local modifications. (d) header documentation corrected (CLAUDE.md SKIPPED, factory-sync.sh synced). (e) global variables initialised at top to survive `set -u` regardless of flow path.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -11,6 +11,14 @@
     "project_data": "Project-specific values. New fields/sections added with defaults, existing values never modified."
   },
   "templates": {
+    "rules/defect-prevention.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "docs/rules/defect-prevention.md",
+      "changelog": [
+        "1.0.0: chore: initial manifest registration (backfill — file existed but was untracked). Includes the chore/md-cleanup-evol-version-refs sweep edits (PR #14): version_changelog frontmatter array left untouched (mirror of manifest, intentional), prose annotations cleaned of EVOL/version-history references in body sections (Filter 2 comment, Caller contract paragraph, IMPLEMENT --build line)."
+      ]
+    },
     "rules/observability.md": {
       "version": "1.1.0",
       "content_type": "universal",
@@ -48,10 +56,11 @@
       ]
     },
     "rules/ai_budget_governance.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": ".claude/rules/ai_budget_governance.instructions.md",
       "changelog": [
+        "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
@@ -682,11 +691,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "1.4.1",
+      "version": "1.4.2",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "1.4.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.4.1: fix(EVOL-022) PR #10 review: Pre-Action Gate bullets 1 and 2 harmonised. Bullet 1 kept the blocked-base-branches list; bullet 2 rewritten from a single rigid `{type}/{ID}-{slug}` into a per-type table (feature/{ID}-{slug} — needs ID; fix|bugfix|hotfix|docs|chore/{slug} — no ID required). Closes the internal inconsistency where bullet 1 allowed `fix/{slug}` but bullet 2 demanded an ID for every working branch.",
         "1.4.0: feat(EVOL-022): Pre-Action Gate wording clarified — bare `hotfix` blocked, `hotfix/{slug}` allowed as working pattern (matches hook regex fix v1.0.1). Absorbed the framework-editor invariants that used to live in the meta CLAUDE.md — each of § Project Scope & Feature Scope Taxonomy and § Incremental Dev Plan now carries a concise `### Framework Editor Invariants (lock-step)` sub-section with source-of-truth file paths and breaking-contract warnings (content-delta only, no duplication of the user-facing bullets above).",
         "1.2.0: feat(EVOL-020): Core Protocols table gains RDR row — Recommendation → Decision → Ratification canonical skill at .claude/skills/Factory-rdr/SKILL.md. Consolidates previously-scattered RDR references so all agents consume a single source of truth.",
@@ -697,10 +707,11 @@
       ]
     },
     "architect/design_template.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "stack_configured",
       "target": "docs/architect/design_template.md",
       "changelog": [
+        "1.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.1.0: feat(EVOL-019) phase 1: scope + consumes_contract frontmatter fields; scope-aware section annotations (applicable_when comment convention); § 3.1 Cross-Layer Type Mapping marked applicable_when scope in [full-stack]; new § 3.2 Wire-Format Mapping for scope in [backend-only, integration].",
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added pending_iteration, pending_schemas_version, invalidated_*, cascade_* fields; status enum extended with INVALIDATED",
         "1.2.0: feat(EVOL-021) phase 4: intro note clarifies design.md is holistic while increment_plan.md is sequential — both must be edited in lock-step when cross-layer types or contracts change. Closes author-guidance gap identified in coherence audit."
@@ -745,20 +756,22 @@
       ]
     },
     "codesign/user_journey_template.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": "docs/codesign/user_journey_template.md",
       "changelog": [
+        "1.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked template. UI-facing Simplified Event Storming output consumed by BLUEPRINT --start as Data Schema source of truth.",
         "1.1.0: feat(EVOL-019) phase 1: scope frontmatter field — dual-axis scope model; ux_sign_off marked N/A when scope in [backend-only, integration] (those scopes use codesign/user_journey.integration.md instead).",
         "1.2.0: feat(EVOL-021) phase 4: intro Incremental-slicing note explains that under `slicing_strategy: incremental` (default) BLUEPRINT distributes Gherkin scenarios across vertical increments in increment_plan.md § 1 — the journey describes the complete end-state while per-increment UI/flow deltas are documented in increment_plan.md."
       ]
     },
     "codesign/user_journey.integration.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "docs/codesign/user_journey.integration.md",
       "changelog": [
+        "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-019) phase 1: initial template — integration/backend-only variant of user_journey with caller-side actors, integration steps (trigger/action/effect/idempotency/retry), wire-format schemas, § 5 External Systems contract_slug backfill table, § 6 Reliability Contract (idempotency, retry, circuit breaker, DLQ, timeouts, graceful shutdown, observability). Selected by CODESIGN --start when feature_scope IN [backend-only, integration].",
         "1.1.0: feat(EVOL-021) phase 4: Incremental-slicing note documents that under incremental strategy, 'user-observable capability' for backend-only / integration features means a complete business transaction (order accepted + event emitted + idempotency key persisted), NOT UI visibility — each increment ships as an independent PR with a self-contained transaction boundary."
       ]
@@ -772,28 +785,31 @@
       ]
     },
     "develop/dev_plan_template.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "stack_configured",
       "target": "docs/develop/dev_plan_template.md",
       "changelog": [
+        "1.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.1.0: feat(EVOL-019) phase 2: scope + reliability_test_required frontmatter fields; new conditional § Reliability Tests (applicable_when scope in [backend-only, integration]) with 7 RED-phase test task templates (idempotency, retry, circuit breaker, DLQ, timeout, graceful shutdown, observability); § Reliability Validation final-check block.",
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — full 10-field cascade kit + based_on_iteration + status enum extended with IMPLEMENTED_AND_VERIFIED/INVALIDATED",
         "1.2.0: feat(EVOL-021) phase 2: frontmatter gains slicing_strategy (inherited from increment_plan.md), invalidated_increments[] (list of INC-N ids flagged by CASCADE_INCREMENT_INTERNAL), and increments[] mirror (id, status, tasks.{A,B,C,ACC} per increment — populated when slicing_strategy=incremental). Head note documents body-structure branch (monolithic flat A/B/C vs incremental per-INC sections with [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] tags + [INC-N.ACC.k] Acceptance Gate items)."
       ]
     },
     "develop/preventive_sweep_report_template.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "project_data",
       "changelog": [
+        "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-014): new template for PREVENTIVE-SWEEP gate artefact (docs/spec/{{FEATURE_ID}}/preventive_sweep_report.md) — full YAML frontmatter with iteration-model fields, findings by DC, cascade invalidation note",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "peer_review/review_template.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "stack_configured",
       "target": "docs/peer_review/review_template.md",
       "changelog": [
+        "1.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.1.0: feat(EVOL-019) phase 2: scope + na_count frontmatter fields; Executive Summary table gains Applicable When column; new conditional sections § 3.6 Cross-Layer Type Mapping (full-stack), § 3.7 UX & Frontend Compliance (full-stack/frontend-only) with 11 UX sub-checks, § 3.8 Reliability & Integration Compliance (backend-only/integration) with 8 reliability sub-checks, § 3.9 Cross-Module Contract Consumption (consumes_contract non-empty).",
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added the 10 cascade fields + status enum extended with INVALIDATED",
         "1.2.0: feat(EVOL-021) phase 4: Incremental-slicing note explains that under incremental strategy this review covers ONE increment PR (feature/{FEATURE_ID}-inc-N-{slug}) — not the whole feature; scope is the delta of the increment's contract_surface + scenarios_covered; subsequent increments open independent PRs and trigger independent reviews; cross-increment concerns surface at the final increment's acceptance gate."
@@ -808,18 +824,20 @@
       ]
     },
     "qa/qa_report_template.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "stack_configured",
       "target": "docs/qa/qa_report_template.md",
       "changelog": [
+        "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-014): full rewrite — proper YAML frontmatter, checkbox-driven body matching Factory-qa-verify.instructions.md § Verification Checklist Generation (QA-PRE/QA-GOV/QA-TC/QA-REG/QA-STATIC/QA-DAST/QA-DC sections); iteration-model cascade fields; residual Spanish line killed",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "qa/smoke_e2e_report_template.md": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "content_type": "project_data",
       "changelog": [
+        "1.1.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-014): new template for SMOKE-E2E gate artefact (docs/spec/{{FEATURE_ID}}/smoke_e2e_report.md) — numbered smoke blocks from user_journey.md BDD scenarios, per-block pass/fail, cascade invalidation note",
         "1.1.0: feat(EVOL-019) phase 3: scope frontmatter field added; template explicitly retitled as browser/full-stack variant. Companion integration variant created at qa/smoke_e2e_integration_template.md for scope in [backend-only, integration].",
         "1.1.1: fix(EVOL-019) Copilot PR #8 review — C5: scope frontmatter is now a {{SCOPE}} placeholder inherited from spec.feature.scope (was hardcoded 'full-stack' — would have broken CVP Check 0a scope_consistency_across_artifacts for frontend-only features). Title retitled to 'Browser / UI' (scope-agnostic across the two UI scopes this template serves)."
@@ -834,10 +852,11 @@
       ]
     },
     "qa/test_plan_template.md": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "stack_configured",
       "target": "docs/qa/test_plan_template.md",
       "changelog": [
+        "1.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.2.0: feat(EVOL-019) phase 2: scope frontmatter field; new conditional § 2.2 Reliability Testing (applicable_when scope in [backend-only, integration]) with 13 REL-* test case templates (idempotency replay, retry storm, circuit breaker trip + half-open, dead-letter handling + replay, timeout, graceful shutdown + forceful, trace correlation, structured error logs); § 3 UX & Accessibility and § 4 Brand & Layout marked applicable_when scope in [full-stack, frontend-only].",
         "1.0.0: feat(EVOL-014): iteration-model frontmatter harmonization — added the 10 cascade fields + based_on_iteration + based_on_schemas_version + status enum extended with INVALIDATED",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
@@ -853,10 +872,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.2.0",
+      "version": "2.2.1",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked. Canonical template for docs/setup.md; consumed by SETUP --generate to materialise the per-project architecture roadmap & decisions log.",
         "2.0.0: feat(EVOL-019) phase 1: retroactive version bump to match the template's own `version: 2.0.0` frontmatter (Tripartite architecture support pre-existing the EVOL-019 initial registration).",
         "2.1.0: feat(EVOL-019) phase 1: project_scope frontmatter field (full-stack | backend-only | frontend-only | integration); new § 0.1 Project Scope section documenting the compatibility matrix with feature.scope + materialization impact.",
@@ -872,10 +892,11 @@
       ]
     },
     "backlog-tool-adapters/github-project.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/github-project.md",
       "changelog": [
+        "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.1.0: feat(EVOL-015): create_label section extended — kind:follow-up always created; appetite:{small,medium,big} conditional on {{APPETITE_SIZING_ENABLED}}==true; blocked-by:#{N} usage documented — labels are NOT created at init (per-issue value), MUST be created explicitly via `gh label create … --force` before the first `add_label` invocation (GitHub rejects --add-label on unknown labels); --force keeps the create idempotent",
         "1.0.0: feat(EVOL-014): new adapter — fully functional github-project adapter with native gh CLI commands for all abstract ops (create_project, create_label, create_issue, move_to_column, add_sub_issue via addSubIssue GraphQL mutation, add_label, query_board, etc.); placeholder set for SETUP --generate resolution"
       ]
@@ -915,10 +936,11 @@
       ]
     },
     "qa/smoke_e2e_integration_template.md": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "content_type": "project_data",
       "target": "docs/qa/smoke_e2e_integration_template.md",
       "changelog": [
+        "1.0.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-019) phase 3: initial template — caller-harness smoke blocks for scope in [backend-only, integration]. Triple-verification per block (caller request + downstream state + observability), SMOKE-REL-IDEMP/RETRY/DLQ/SHUTDOWN reliability blocks MANDATORY for scope=integration. Selected by BACKLOG --plan-feature when scope resolves to phase:smoke-e2e-integration.",
         "1.0.1: fix(EVOL-019) Copilot PR #8 review — C5 (mirror): scope frontmatter normalised to {{SCOPE}} placeholder for consistency with smoke_e2e_report_template.md. No behavioural change (this template was always used only for scope in [backend-only, integration])."
       ]
@@ -928,9 +950,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.4.1",
+      "version": "2.4.2",
       "path": "README.md",
       "changelog": [
+        "2.4.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.4.0: feat(EVOL-021) phase 3: new § Incremental Dev Plan (Vertical Slicing) section between § BACKLOG artefacts and § Recommended Pipeline — 7-paragraph authoritative user-facing description (authoring via BLUEPRINT RDR, strategy field + trivial-heuristic, artefact schema, IMPLEMENT consumption, per-increment branching, CVP enforcement, iteration cascade). BLUEPRINT --start/--refine/--approve table rows updated to list increment_plan.md as emitted artefact + CVP gate cross-reference. IMPLEMENT --plan row documents dual task format (monolithic legacy [A/B/C.N] vs incremental [INC-N.A.M] + [INC-N.ACC.k]).",
         "2.2.1: fix(EVOL-018) Copilot PR #7: SDLC-first triage link was pointing to CLAUDE.md#sdlc-first-triage--mandatory anchor, which no longer exists after the framework/project split (framework CLAUDE.md was renamed to Meta-Framework Triage). Link now disambiguates the two variants and references the canonical IOP classifier.",
         "2.2.0: feat(EVOL-017): § Governance always-on enforcement (3-tier) — tier table, marker scoping note, smoke-test checklist. § SDLC-first triage (MANDATORY) cross-ref.",
@@ -951,9 +974,10 @@
       ]
     },
     "commands/backlog.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "path": ".claude/commands/backlog.md",
       "changelog": [
+        "1.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.1.0: feat(EVOL-015): --eligible pull-mode command added to the command table; Protocol 11 references Factory-backlog-next-task § 5 for pool computation (dual-mode, READ-ONLY, no persisted state)",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015",
         "1.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
@@ -1006,9 +1030,10 @@
       ]
     },
     "instructions/Factory-audit-checklist.instructions.md": {
-      "version": "2.4.1",
+      "version": "2.4.2",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
       "changelog": [
+        "2.4.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.2.0: feat(EVOL-015): Command: --software added — narrow software-only audit variant. New artifact docs/software_audit.md with same schema as technical_due.md. Section list P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1. Excluded: G1-G3 (HR), I1-I4 (infra), SEC2 (network), SEC5 (compliance). Verdict thresholds scaled down (risk_score < 25 / 25-49 / >= 50 for GO / GO_WITH_CONDITIONS / NO_GO) because section count is halved — same density = lower absolute. --refine and --approve auto-detect artifact; require --scope {audit|software} when both open. Branch pattern feature/AUDIT-XXX-software for the new mode.",
         "2.1.0: feat(EVOL-014): Defect Prevention Catalog Signal — AUDIT grep-searches for DC patterns, adds 'Defect Prevention Maturity' dimension to report",
         "1.0.0: Extracted from AUDIT.AGENT.MD — execution phases A-D, master checklist (PR #101)",
@@ -1028,9 +1053,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "2.8.0",
+      "version": "2.8.1",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "2.8.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.8.0: feat(EVOL-021) phase 1: Increment Plan Generation sub-phase added after Cross-Pollination (Step A strategy resolution + trivial-heuristic gate for monolithic escape, Step B RDR with ≥3 slicing alternatives, Step C IPP-compliant emission of increment_plan.md, Step D self-check invariants on scenario/contract exclusive coverage + DAG acyclicity + deployable:production mandate, Step E worklog registration). Generated Outputs section extended from 8 to 9 artifact types (adds increment_plan.md). IPP Pillars 1/3 + Finalization loops extended to include increment_plan.md. Feature-flag-OFF merges explicitly disallowed as a deployability escape.",
         "2.6.0: feat(EVOL-019) phase 1: Consumes-Contract Resolution Gate added to --start pre-flight (BLOCKS when upstream FEAT-XXX referenced in spec.feature.consumes_contract is not APPROVED or has no frozen contract file); Required Inputs extended from 12 to 13 sources (scope-aware applicability; upstream frozen contracts as new mandatory source when consumes_contract is non-empty); feature_scope read into Architecture Context Loading.",
         "2.4.0: feat(EVOL-014): Step 6 Defect Prevention Consultation — BLUEPRINT consults DC catalog, stores applicable DCs for Section 7 GCD and test_plan edge case generation",
@@ -1054,9 +1080,10 @@
       ]
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.4.0",
+      "version": "2.4.1",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
+        "2.4.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.3.0: feat(EVOL-019) phase 2: --approve 4-Part validation made scope-aware. New § Scope Context Loading runs first (reads feature_scope + consumes_contract). Part 1 ARCH elevates contract completeness when scope in [backend-only, integration]; adds Consumes-Contract Integrity check; marks § 3.1 Cross-Layer Type Mapping as applicable_when scope=full-stack; adds § 3.2 Wire-Format Mapping as applicable_when scope in [backend-only, integration]. Part 2 QA adds Reliability test cases (scope in [backend-only, integration], BLOCKER); marks Accessibility + Visual-consistency applicable_when scope in [full-stack, frontend-only]; elevates per-endpoint coverage when scope has backend surface. Part 3 Cross-Validation adds Scope-consistency check across spec/design/test_plan frontmatter.",
         "2.1.0: feat(EVOL-014): Part 4 Defect Prevention Catalog Gate at --approve — blocks when any BLOCKER-severity DC applicable to BLUEPRINT is missing from design.md § Constraints or test_plan.md § Edge Cases",
         "2.0.1: fix: add Phase 3.8 CVP coherence gate — validates CODESIGN↔BLUEPRINT artifact alignment before approval",
@@ -1072,9 +1099,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "2.6.1",
+      "version": "2.6.2",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "2.6.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.6.0: feat(EVOL-019) phase 1: dual-axis scope model — shared frontmatter `scope` field, spec.feature `consumes_contract` field, Scope Compatibility Gate (Phase 0.3, BLOCKING), Vision Gate scope-awareness, Template Selector (mock.html N/A for backend-only/integration; user_journey.integration.md replaces user_journey.md), Auto-Approval CHECK 0 scope gate + N/A path for CHECKs 2/5/6/8/10/11, Tripartite Alignment scope matrix (6 checks full-stack/frontend-only → 2 checks backend-only/integration), IMP N/A path extended to EVOL-019 per-feature/per-project scope checks.",
         "2.4.0: feat(EVOL-014): Phase 0.6 Defect Prevention Consultation (advisory) — projects applicable DCs into spec.feature § Defect-Prevention Notes as drafting hints",
         "2.3.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -1103,9 +1131,10 @@
       ]
     },
     "instructions/Factory-codesign-vision.instructions.md": {
-      "version": "2.4.1",
+      "version": "2.4.2",
       "path": ".claude/instructions/Factory-codesign-vision.instructions.md",
       "changelog": [
+        "2.4.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.4.0: feat(EVOL-019) phase 1: Scope Guard (BLOCKING) — CODESIGN --vision now rejects project_scope IN [backend-only, integration] with humanised message pointing to Project Scope & Feature Scope Taxonomy in CLAUDE.md; Prerequisites list gained project_scope IN [full-stack, frontend-only] requirement.",
         "2.2.0: feat: BIP pivotal question marking for Visual DNA Decision Batch",
         "2.1.0: feat: BIP Decision Batch for Visual DNA in Phase V.1",
@@ -1116,9 +1145,10 @@
       ]
     },
     "instructions/Factory-devops-configure.instructions.md": {
-      "version": "2.3.0",
+      "version": "2.3.1",
       "path": ".claude/instructions/Factory-devops-configure.instructions.md",
       "changelog": [
+        "2.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.3.0: feat(EVOL-019) phase 3: Phase 1 Governance Validation gains scope-aware deployment-target derivation. Reads feature.scope from spec.feature; new derive_target_runtime(resource, feature_scope, hosting) helper fills in target_runtime defaults when design.md Section 5 did not pin one — serverless/container/worker/scheduler/static-hosting+cdn per resource.type × feature_scope matrix (design.md overrides always win). Emits a deployment_shape summary (static-site vs container vs worker vs hybrid) per feature_scope. Frontend Resource Verification Gate is now scope-aware: only warns about missing static_site when scope includes frontend; also warns about unexpected static_site resources in backend-only/integration scopes. DC consultation passes feature_scope for filtered DC set.",
         "2.1.0: feat(EVOL-014): Phase 1 Defect Prevention Consultation — DEVOPS reads DCs with applicable_to:DEVOPS for devops_plan § Reliability Checks generation",
         "2.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -1138,9 +1168,10 @@
       ]
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
-      "version": "2.3.0",
+      "version": "2.3.1",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
+        "2.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.3.0: feat(EVOL-014): Gate 4 PREVENTIVE-SWEEP in Pre-Deploy Status Gate — blocks DEVOPS --deploy --env dev until the PREVENTIVE-SWEEP gate issue is Done and preventive_sweep_report.md is not INVALIDATED",
         "2.2.1: fix: Frontend deploy support — add Static Site / Frontend Resources IaC generation protocol (SPA + SSR variants, engine-driven via iac_descriptor — no hardcoded cloud mappings), include static_site in Tier 3 provisioning, add frontend build step to deploy Phase 3.",
         "2.2.0: feat: synthetic_data gate reads from governance snapshot instead of docs/setup.md — summarization-safe (INVARIANT 5) (#124)",
@@ -1186,9 +1217,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.8.0",
+      "version": "2.8.1",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.8.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.8.0: feat(EVOL-021) phase 2: Increment Plan Gate added to Prerequisites (BLOCKING) — reads increment_plan.md, verifies status=APPROVED + slicing_strategy matches spec.feature, computes target_increments by filtering {DRAFT, READY, INVALIDATED} (skips BUILDING/MERGED per immutability) then topological-sorting by depends_on. Plan Generation gains Strategy Branch subsection (monolithic = flat [A.M]/[B.M]/[C.M]; incremental = per-INC sections with [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] tags + [INC-N.ACC.k] Acceptance Gate). Per-Increment Completion Gate: status flips READY→BUILDING at branch open, BUILDING→MERGED by git merge hook, plan-level IMPLEMENTED_AND_VERIFIED only when all target increments close. Output section extended with frontmatter (slicing_strategy, invalidated_increments[], increments[] mirror) + dual Task Format blocks + machine-consumable tag regexes (source of truth for CVP Check 17, BVL, QA).",
         "2.6.0: feat(EVOL-019) phase 2: CONTRACT-FREEZE Gate reframed as scope-aware — for scope in [backend-only, integration] the gate is THE primary design output (elevated block messaging + mandatory contracts/** non-empty); for scope=frontend-only the contracts/** non-empty check is relaxed (feature consumes upstreams, has no own contract). NEW Consumes-Contract Upstream Freeze Gate (runs after CONTRACT-FREEZE): iterates spec.feature.consumes_contract, verifies each upstream design.md is APPROVED, contracts/ non-empty, CONTRACT-FREEZE issue Done, no stale-after-cascade label. Pairs with the BLUEPRINT-side Consumes-Contract Resolution Gate (Phase 1) — two enforcement points make consumes_contract a load-bearing primitive.",
         "2.4.0: feat(EVOL-014): CONTRACT-FREEZE Gate in Prerequisites + Defect Prevention Consultation step (dev_plan § DC Compliance tasks). Gate uses trust-model (gate issue + stale-after-cascade label) not per-file frontmatter — contract files are DSL-native",
@@ -1214,9 +1246,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.3.0",
+      "version": "2.3.1",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.3.0: feat(EVOL-019) phase 2: REVIEW Hat Protocol gains § Scope Dispatch (runs BEFORE Step R.0) — reads feature_scope from spec.feature, builds check_applicability matrix filtering 14 checks per scope (e.g. #6 TYPE-* only full-stack; #7 UX-* only [full-stack, frontend-only]; #8 MIGRATION-*, #10 CFP-*, #12 ACL-EXT only scopes with backend surface). Scope-excluded checks render as `N/A — skipped under scope={value}` in peer_review report (not silent). applicable_when HTML comments annotate checks #6, #7, #8, #10, #12 headers.",
         "2.1.6: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.1.5: fix: PR review — add FORMAT_NORMALIZATION map, lookup_expected_format() with glob precedence, LAST_PATH_SEGMENT normalization for qualified field names, negative test exemption (@schema-test-exempt annotation + invalid_ prefix convention).",
@@ -1232,9 +1265,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "2.7.1",
+      "version": "2.7.2",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "2.7.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.6.0: feat(EVOL-019) phase 3: Gate 4 SMOKE-E2E is now scope-aware — resolves expected phase label by feature_scope (smoke-e2e-browser / smoke-e2e-integration / smoke-e2e-hybrid; legacy smoke-e2e still honoured), picks the right template (smoke_e2e_report_template vs smoke_e2e_integration_template), and enforces scope consistency on the report. Verification checklist gains 7 new QA-REL-* reliability items (idempotency replay, retry/backoff, circuit breaker, DLQ, timeout, graceful shutdown, observability) applicable_when scope in [backend-only, integration]; QA-REL-8 (API versioning) added for scope=integration only.",
         "2.4.0: feat(EVOL-014): Gate 4 SMOKE-E2E in Prerequisites Gate (blocks QA --verify pass until gate Done + smoke_e2e_report not INVALIDATED); verification checklist generator adds [QA-DC-N] items (one per DC applicable to QA, auto-approval requires all [x])",
         "2.3.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -1257,9 +1291,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.6.0",
+      "version": "1.6.1",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.6.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.6.0: feat(EVOL-019) phase 3: full-sdlc preset suffix 8 scope-aware — three phase label variants materialised by --plan-feature based on spec.feature.scope: phase:smoke-e2e-browser (frontend-only), phase:smoke-e2e-integration (backend-only/integration), phase:smoke-e2e-hybrid (full-stack). Exactly ONE variant emitted per feature; legacy phase:smoke-e2e accepted for backward compatibility. New label category `scope:{full-stack|backend-only|frontend-only|integration}` applied at --plan-feature time (inherits spec.feature.scope), uniform across all phase issues of the feature. Gate Issue Body Template gains scope-aware DoD variants for the three smoke-e2e-* phase labels.",
         "1.4.0: feat(EVOL-015): label taxonomy extended with kind:follow-up, blocked-by:#{N}, and appetite:{small,medium,big} (conditional on Q27.6); gate preset phases carry mode_default placeholder bound to Q27.5; gate issue body template gains ## Mode frontmatter line for per-gate override; feature issue body template gains conditional ## Appetite section (rendered only when Q27.6==true)",
         "1.3.0: feat(EVOL-014): tool-agnostic issue/label/milestone schema (§3.0 title patterns, §4.1 label taxonomy, §4.2 milestone schema), full-sdlc 5→8 phase preset with 3 hard gates, adapter contract extended (add_label/add_sub_issue/read_issue/create_milestone/create_label) with required/optional split, §3.4.1 retrospective→DC catalog write-back procedure, gate issue body template, Spanish leakage removed",
@@ -1276,9 +1311,10 @@
       ]
     },
     "instructions/Factory-backlog-execution-plan.instructions.md": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "path": ".claude/instructions/Factory-backlog-execution-plan.instructions.md",
       "changelog": [
+        "1.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.3.0: feat(EVOL-014): dual-mode SSOT cleanup (file vs board), mode-scoping notes on §3/§4, guardrails 8-11 (slice/epic completeness, gate enforcement is resolver's job), 8-phase slice completeness",
         "1.2.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.2.0: feat: aggregate-scoped Slices — subdivide epics with >3 features into Slices (≤3) grouped by shared Aggregate Root; form_slices() algorithm; slice-sequential pipeline; plan template with slice sections; cache tracks active_slice; guardrails 7-9 (slice size cap, ordering, completeness)",
@@ -1287,9 +1323,10 @@
       ]
     },
     "instructions/Factory-backlog-next-task.instructions.md": {
-      "version": "1.6.0",
+      "version": "1.6.1",
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md",
       "changelog": [
+        "1.6.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.6.0: feat(EVOL-019) phase 3: new Step 1.3.4.5 — consumes_contract cross-feature freeze filter. Runs BEFORE hard-gate enforcement (Step 1.3.5). For any feature-phase candidate, iterates spec.feature.consumes_contract; for each upstream verifies design.md APPROVED, scope != frontend-only, and (full-sdlc only) CONTRACT-FREEZE issue Done + not stale-after-cascade. Unresolved upstreams block under gate_enforcement_mode=enforce (blocker points at upstream CONTRACT-FREEZE), warn under mode=warn (candidate kept in pool with suffix), silent under mode=off. Pull-mode --eligible adapted.",
         "1.5.0: feat(EVOL-015 B1): § 5 Pull Mode Resolver — `--eligible` pull-mode command. READ-ONLY pool computation reusing the per-candidate filter chain (§1.3 prereq + §1.3.4 blocked-by + §1.3.5 gate mode) via factored apply_filter_chain() function. Dual-mode SSOT: file mode reads execution-plan.md, board mode queries ADAPTER.query_board() (no execution-plan.md on disk in board mode). Default cap --limit 20; --limit unlimited allowed. Warn-gated items appear in the pool with a warn suffix; enforce-gated excluded; off-gated silent. Response contract, minimal template, blocking rules.",
         "1.4.0: feat(EVOL-015): § 1.3.4 blocked-by:#{N} label filter — hard dependency gate for cross-issue blockers, runs before hard-gate enforcement; § 1.3.5 gate mode resolution via three-level fallback (issue body frontmatter > adapter default > governance snapshot) with enforce/warn/off semantics; response contract gains `warns` field + minimal template gains `Pending gates (warn)` line",
@@ -1302,9 +1339,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.10.0",
+      "version": "2.10.1",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.10.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.10.0: feat(EVOL-019) phase 1: Q4.5 Project Scope (full-stack | backend-only | frontend-only | integration) — single-select with RDR, audit inference hook, tier-agnostic; TIER_0 adds Q4.5, TIER_1 gains scope-driven conditional unlocks that skip Q9-Q14 for backend-only/integration and skip Q5-Q8.1 for frontend-only.",
         "2.8.0: feat(EVOL-015): Q27 Project Tracking block extended with Q27.5 Gate Enforcement Mode Default (enforce|warn|off, conditional on Q27.2==full-sdlc, RDR = enforce greenfield / warn brownfield) and Q27.6 Appetite Sizing (boolean, conditional on Q27!=None, RDR = true, materialises appetite:{small,medium,big} labels via SETUP). Questions sit inside the Q27 block to preserve narrative coherence — tool → columns → phases → milestones → naming → gate mode → appetite → (exit block)",
         "2.7.0: feat(EVOL-014): Cost Estimation Protocol (CEP) added as § 4.1.3.2 — canonical producer for all {{*_COST}} / {{BUDGET_*}} template variables. Closes the pre-existing cost pipeline gap where 20+ cost placeholders had no producer. Instructions-only (no hardcoded price tables), uses agent ecosystem knowledge + RDR for ambiguous pricing. Persists full breakdown to docs/setup.md § costs:. Canonical placeholder substitution map. Discovery Finalization order updated to run VVP → CEP → summary → ADR-0000 generation (includes new COST_BREAKDOWN variable category).",
@@ -1324,9 +1362,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "2.11.1",
+      "version": "2.11.2",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "2.11.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.11.0: feat(EVOL-019) phase 2: § 4.2.3 Phase B.1 adds 7 starter INTEGRATION / BACKEND-ONLY DCs guarded by project_scope IN [full-stack, backend-only, integration] — idempotency keys on mutations (BLOCKER), retry/backoff+jitter (BLOCKER), circuit breaker on unreliable downstreams (BLOCKER), structured logging + trace propagation (WARNING), API contract versioning + backward-compat strategy (BLOCKER), dead-letter queue handling (BLOCKER, backend-only/integration only), graceful shutdown (SIGTERM/drain) (BLOCKER). All entries carry the new feature_scope field (v2.1.0 DPC schema) restricting to [backend-only, integration, full-stack].",
         "2.10.0: feat(EVOL-019) phase 1: governance snapshot § Stack Configuration / § Constitutional Boundaries / § Setup Configuration gain project_scope field; Step 2/3 tripartite scaffolding now double-guards backend/frontend fragments with project_scope (primary) + runtime/framework (secondary); § 4.2.9 Special Integration — UX Constitution is skipped entirely when project_scope IN [backend-only, integration].",
         "2.9.0: fix(EVOL-017) Copilot PR #7 round 2: Claude Code Materialization block extended with step 3 — .context/templates/setup/claude/hooks/*.sh → .claude/hooks/*.sh. Closes the gap where fresh SETUP --generate produced a settings.json pointing at hook scripts that never existed in the materialized target. Includes post-materialization invariant check (every hook referenced from settings.json must exist).",
@@ -1354,9 +1393,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.2.0",
+      "version": "2.2.1",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.2.0: feat(EVOL-018): Step 3 Special case block added for claude/CLAUDE.md + claude/settings.json. CLAUDE.md uses smart-additive-merge with explicit confirmation when the existing file still has framework-repo-specific sections (meta-maintenance relics); settings.json uses a conservative merge-preserve that never touches user permissions/model/env and never overwrites existing hook entries — only adds missing ones.",
         "1.0.1: Governance snapshot regeneration — Step 4 Finalization generates .context/governance_snapshot.md after upgrade (#112)",
         "1.0.0: Extracted from SETUP.AGENT.md — upgrade, rollback, migrate-legacy (PR #101)",
@@ -1460,9 +1500,10 @@
       ]
     },
     "skills/Factory-governance-loading/SKILL.md": {
-      "version": "2.6.0",
+      "version": "2.6.1",
       "type": "skill",
       "changelog": [
+        "2.6.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.6.0: feat(EVOL-023): § Always-On Enforcement promoted from 3-Tier to 4-Tier — tier 2 reframed from blocking to advisory, new tier 3 (Attribution) added documenting the PostToolUse → UserPromptSubmit handshake (governance-onedit.sh marker → governance-onprompt.sh `<governance-source-edited>` block → freshness-gate suppression). Marker scoping note extended to cover both markers (governance-reload, governance-source-edited). Hook wiring paragraph rewritten to drop EVOL refs and explain how the 4 tiers + drift hook coexist by severity.",
         "2.5.0: feat(EVOL-017): § Always-On Enforcement (3-Tier Hooks) added — documents the SessionStart banner / UserPromptSubmit freshness gate / PreCompact marker handshake that complement the EVOL-013 PreToolUse drift warning. Includes marker scoping (.claude/state/, session_id suffix), carve-outs (/setup*, project-not-initialized), and smoke tests. Closes Copilot PR #7 review finding on stale template CLAUDE.md pointer.",
         "2.3.0: feat(EVOL-014): Governance Write Protocol (GWP) added as write-side counterpart of GCRP — canonical procedure for bumping governance_versions.json on every framework-core touch; caveman-style terse",
@@ -1508,9 +1549,10 @@
       "path": ".claude/skills/Factory-codebase-inventory/SKILL.md"
     },
     "skills/Factory-iteration-model/SKILL.md": {
-      "version": "2.3.0",
+      "version": "2.3.1",
       "type": "skill",
       "changelog": [
+        "2.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.3.0: feat(EVOL-021) phase 3: new CASCADE_INCREMENT_INTERNAL function for per-increment selective invalidation. Reads docs/spec/{FEATURE_ID}/increment_plan.md § 1 increments, computes overlap of each increment's scenarios_covered/contract_surface with the change's affected_scenarios/affected_contract_ops, and transitions status per-increment according to immutability policy: MERGED never invalidates (surfaces a follow-up-increment recommendation instead), BUILDING receives pending_iteration + --pause requirement (preserves in-flight work), {DRAFT, READY, INVALIDATED} flip to INVALIDATED with invalidated_by_iteration + invalidated_reason stamps. Plan-level status flips to INVALIDATED only when every non-MERGED increment is invalidated. Mirrors invalidated_increments[] into dev_plan.md frontmatter. Wired into CASCADE_TRIGGERS for ON_CODESIGN_REFINE_ITERATION and ON_BLUEPRINT_SYNC_COMPLETE; ON_IMPLEMENT_SYNC_COMPLETE explicitly SKIPS (implementation-only changes do not invalidate increment scope). Orthogonal to CASCADE_PENDING_ITERATION (plan-level cross-artefact) and CASCADE_SLICE_PEERS (cross-feature within a label-driven slice).",
         "2.2.0: feat(EVOL-019) phase 3: new CASCADE_TRIGGER ON_BLUEPRINT_CONTRACT_CHANGE + new function CASCADE_CONSUMERS(upstream_feature_id, ...). When an upstream contract re-freezes (signature/schema/semantics change), scans every docs/spec/*/spec.feature for consumes_contract references, marks each downstream feature's design.md/test_plan.md/dev_plan.md/smoke_e2e_report/qa_report as CASCADE_PENDING_ITERATION, and re-opens each downstream's CONTRACT-FREEZE issue with stale-after-cascade label. Makes consumes_contract a load-bearing cross-feature dependency primitive.",
         "2.1.0: feat(EVOL-014): cascade invalidation extended for 3 frozen artefact classes (contracts_freeze, preventive_sweep_report, smoke_e2e_report) with INVALIDATED semantics; DETERMINE_DOWNSTREAM per-agent targets extended; new triggers ON_IMPLEMENT_BUILD_COMPLETE and ON_DEVOPS_REDEPLOY_DEV; new CASCADE_SLICE_PEERS function (horizontal slice cascade); stale-after-cascade and stale-after-slice-peer-iterated labels applied via tool-adapter add_label",
@@ -1587,10 +1629,11 @@
       "path": ".claude/skills/Factory-memory-cache/SKILL.md"
     },
     "skills/Factory-coherence-validation/SKILL.md": {
-      "version": "1.2.1",
+      "version": "1.2.2",
       "type": "skill",
       "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "changelog": [
+        "1.2.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.2.1: fix(EVOL-021) phase 4: Check 0a scope_consistency_across_artifacts now also reads elements.increment_plan.frontmatter.scope (was missing — allowed silent drift when CASCADE or hand-edit caused increment_plan.scope to diverge from spec.feature.scope). Check 0c required_fields annotated with explanation that cascade/iteration fields (pending_*, invalidated_*, cascade_*, based_on_*, rdr_rationale) are populated opportunistically by BLUEPRINT/CASCADE_INCREMENT_INTERNAL/CASCADE_PENDING_ITERATION — their absence in a fresh plan is expected; validation of these belongs in the cascade layer, not Check 0c.",
         "1.0.2: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.0.1: fix: resolve_scope_checks for includes expansion, add missing task_completion_to_qa check (12 checks), fix contract endpoint source to read contracts/ not design.md, fix build_coherence_matrix scope parameter, fix remediation_actions grouping by artifact source",
@@ -1615,10 +1658,11 @@
       "path": ".claude/skills/Factory-backlog-next-task/SKILL.md"
     },
     "skills/Factory-preventive-sweep/SKILL.md": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "type": "skill",
       "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
+        "1.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat: initial — 4-agent parallel strategy, consolidation protocol, report template, governance integration with defect-prevention.md",
         "1.1.0: refactor(EVOL-014): replace hardcoded 4-agent split with dynamic scope derivation — number of sub-agents computed from unique scopes present in applicable DC set; scope vocabulary is open-ended and extensible via Discovery Protocol",
         "1.2.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
