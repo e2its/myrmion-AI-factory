@@ -678,27 +678,28 @@ Central auto-generated registry during `/setup --generate`:
 - Governance snapshot: `.context/governance_snapshot.md` — file-based cache, summarization-safe (see `Factory-governance-loading/SKILL.md`).
 - Verification commands: auto-derived from the stack config for BVL (test, lint, typecheck, build).
 
-### Governance always-on enforcement (3-tier)
+### Governance always-on enforcement (4-tier)
 
-The governance snapshot covers the "what is loaded" question, but it is a passive artifact — it can go stale silently and it evaporates from context across compaction cycles. Three Claude Code hooks make governance demonstrably always-on in any session turn:
+The governance snapshot covers the "what is loaded" question, but it is a passive artifact — it can go stale silently and it evaporates from context across compaction cycles. Four Claude Code hooks make governance demonstrably always-on in any session turn:
 
 | Tier | Trigger | Hook | What it does | Failure mode |
 |------|---------|------|--------------|--------------|
 | **1 — Visible** | `SessionStart` | `scripts/validate-governance.sh --banner` | Prints `Governance loaded: constitution {hash8}, setup {hash8} \| SDLC-first triage: ON` on session open. If the snapshot is missing, prints a remediation hint instead. | Non-blocking (informational). |
-| **2 — Blocking** | `UserPromptSubmit` | `scripts/governance-onprompt.sh` → `validate-governance.sh --snapshot-freshness` | Per prompt: recomputes MD5 of `docs/constitution.md` + `docs/setup.md`, compares to the snapshot frontmatter. Exit 2 on drift → the prompt is rejected with `Governance snapshot stale — run /setup --upgrade`. | Blocks the prompt. Carve-out: prompts starting with `/setup*` bypass the gate to avoid livelock on the recovery path. Also silent no-op when the project is not yet initialized (no `docs/constitution.md`). |
-| **3 — Resilient** | `PreCompact` → `UserPromptSubmit` | `scripts/governance-oncompact.sh` writes `.claude/state/governance-reload-{session_id}.marker`; the next `scripts/governance-onprompt.sh` emits the snapshot wrapped in `<governance-reload>...</governance-reload>` on stdout, which Claude Code appends to the next turn as additional context, then consumes the marker. | Post-compaction re-injection is lossy if `PreCompact` never fires (some IDE harnesses). Tiers 1 + 2 still operate. |
+| **2 — Advisory** | `UserPromptSubmit` | `scripts/governance-onprompt.sh` → `validate-governance.sh --snapshot-freshness` | Per prompt: recomputes MD5 of `docs/constitution.md` + `docs/setup.md`, compares to the snapshot frontmatter. On drift, emits `<governance-warning reason="snapshot-stale">…</governance-warning>` on stdout — the agent regenerates inline (Factory-governance-loading SKILL § Step 1 POST-LOAD) or runs `/setup --upgrade`. | Advisory only — never blocks the prompt. Carve-out: prompts starting with `/setup*` bypass the gate. Silent no-op when the project is not yet initialized. |
+| **3 — Attribution** | `PostToolUse Edit\|Write` → `UserPromptSubmit` | `scripts/governance-onedit.sh` writes `.claude/state/governance-source-edited-{session_id}.marker` listing the changed paths; the next `scripts/governance-onprompt.sh` emits `<governance-source-edited paths="...">` with cause attribution + explicit regen instruction, then consumes the marker. Suppresses the tier-2 `<governance-warning>` for that prompt — the agent already knows why the snapshot is stale. | Marker write degrades silently when neither `jq` nor `python3` is available; tier 2 then fires its plain warning instead. |
+| **4 — Resilient** | `PreCompact` → `UserPromptSubmit` | `scripts/governance-oncompact.sh` writes `.claude/state/governance-reload-{session_id}.marker`; the next `scripts/governance-onprompt.sh` emits the snapshot wrapped in `<governance-reload>...</governance-reload>` on stdout, which Claude Code appends to the next turn as additional context, then consumes the marker. | Post-compaction re-injection is lossy if `PreCompact` never fires (some IDE harnesses). Tiers 1 + 2 + 3 still operate. |
 
-**Why 3 tiers (and not 1):** tier 1 makes governance visible so the user can spot when it fails to load. Tier 2 converts passive drift into a hard stop — the user cannot continue operating on stale context. Tier 3 survives summarization — without it, the snapshot would evaporate from the LLM's window after compaction even while the snapshot file on disk is still valid.
+**Why 4 tiers (and not 1):** tier 1 makes governance visible so the user can spot when it fails to load. Tier 2 surfaces drift as an advisory the agent can act on without livelocking on the very session that produced it. Tier 3 attributes the cause when the staleness was self-inflicted (an EVOL/ADR edit) so the agent gets a richer instruction instead of a generic warning. Tier 4 survives summarization — without it, the snapshot would evaporate from the LLM's window after compaction even while the snapshot file on disk is still valid.
 
-**Marker scoping.** The post-compact marker lives at `.claude/state/governance-reload-{session_id}.marker` — inside the Claude Code hook namespace, gitignored, and suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replay.
+**Marker scoping.** Both markers (`governance-reload-{session_id}.marker` and `governance-source-edited-{session_id}.marker`) live under `.claude/state/` — inside the Claude Code hook namespace, gitignored, and suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replays.
 
 **Smoke tests** (project-local):
 
 1. Open a fresh session → the banner line is printed.
-2. Edit `docs/constitution.md` without regenerating the snapshot → the next prompt is rejected with `Governance snapshot stale — …`.
+2. Edit `docs/constitution.md` from inside the agent without regenerating the snapshot → the next prompt receives `<governance-source-edited paths="docs/constitution.md">` with regen instruction (no plain warning). Edit it from outside the agent (manual `vi`) and the next prompt receives the plain `<governance-warning reason="snapshot-stale">` instead — both paths reach the agent, neither blocks.
 3. Force a conversation long enough to trigger `PreCompact` → the following turn contains `<governance-reload>…</governance-reload>` with the full snapshot in context.
 
-See [scripts/validate-governance.sh](scripts/validate-governance.sh), [scripts/governance-onprompt.sh](scripts/governance-onprompt.sh), [scripts/governance-oncompact.sh](scripts/governance-oncompact.sh), and [.claude/settings.json](.claude/settings.json).
+See [scripts/validate-governance.sh](scripts/validate-governance.sh), [scripts/governance-onprompt.sh](scripts/governance-onprompt.sh), [scripts/governance-onedit.sh](scripts/governance-onedit.sh), [scripts/governance-oncompact.sh](scripts/governance-oncompact.sh), and [.claude/settings.json](.claude/settings.json).
 
 ### Scope model — project scope + feature scope (EVOL-019)
 

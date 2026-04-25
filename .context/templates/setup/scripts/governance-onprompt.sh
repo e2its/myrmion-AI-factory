@@ -2,16 +2,29 @@
 # ============================================================================
 # scripts/governance-onprompt.sh — UserPromptSubmit hook (governance always-on)
 # ============================================================================
-# Two jobs per prompt:
+# Three jobs per prompt:
 #   1. Post-compact re-inject: if the sibling PreCompact hook left a session-
 #      scoped marker, emit the governance snapshot wrapped in
 #      <governance-reload>...</governance-reload> so Claude Code appends it to
 #      the next turn as additional context. Then consume the marker.
-#   2. Freshness gate: delegate to validate-governance.sh --snapshot-freshness.
-#      Exit 2 on stale — blocks the prompt.
+#   2. Source-edit attribution: if the sibling PostToolUse hook
+#      (governance-onedit.sh) left a session-scoped marker, emit a
+#      <governance-source-edited paths="..."> block naming the governance
+#      source files (docs/constitution.md / docs/setup.md) edited in this
+#      session and instructing the agent to regenerate the snapshot inline
+#      via Factory-governance-loading/SKILL.md § Step 1 POST-LOAD. When this
+#      block fires the freshness gate (job 3) is suppressed for this prompt:
+#      the agent already knows why the snapshot is stale.
+#   3. Freshness gate (advisory): delegate to validate-governance.sh
+#      --snapshot-freshness. Stale snapshots are surfaced as a
+#      <governance-warning reason="snapshot-stale"> block on stdout. Never
+#      blocks — the hook always exits 0. Rationale: when an EVOL/ADR
+#      legitimately edits governance source, a blocking gate would
+#      auto-livelock the very session trying to resolve the staleness.
 #
-# Carve-outs (freshness gate only — marker replay always runs):
-#   - Prompt starts with /setup → bypass (avoid livelock on recovery path)
+# Carve-outs (freshness gate only — marker replays always run):
+#   - Prompt starts with /setup → bypass (avoid emitting the warning during
+#     the recovery path that would regenerate the snapshot anyway)
 #
 # Marker lives in .claude/state/ (Claude Code hook namespace, gitignored) and
 # is session-scoped (suffixed with session_id) to avoid collisions when
@@ -27,6 +40,10 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
   cd "$CLAUDE_PROJECT_DIR"
 elif REPO_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null); then
   cd "$REPO_TOPLEVEL"
+else
+  # No reliable project root → bail rather than reading/writing relative
+  # paths against the caller's CWD (markers, snapshot, validate-governance).
+  exit 0
 fi
 
 SNAPSHOT=".context/governance_snapshot.md"
@@ -119,7 +136,42 @@ if [ -n "$MARKER" ] && [ -f "$SNAPSHOT" ]; then
   rm -f "$MARKER"
 fi
 
-# ── 2) Livelock carve-out ───────────────────────────────────────────────────
+# ── 2) Source-edit attribution (PostToolUse → onprompt) ─────────────────────
+# governance-onedit.sh writes this marker when Edit/Write touched
+# docs/constitution.md or docs/setup.md. Surface cause + explicit regen
+# instruction so the agent connects the dots; suppresses the freshness gate
+# below for this one prompt (the agent already has the information it needs).
+EDIT_MARKER_SCOPED=""
+[ -n "$SESSION_ID_SAFE" ] && EDIT_MARKER_SCOPED="${STATE_DIR}/governance-source-edited-${SESSION_ID_SAFE}.marker"
+EDIT_MARKER_LEGACY="${STATE_DIR}/governance-source-edited.marker"
+
+EDIT_MARKER=""
+if [ -n "$EDIT_MARKER_SCOPED" ] && [ -f "$EDIT_MARKER_SCOPED" ]; then
+  EDIT_MARKER="$EDIT_MARKER_SCOPED"
+elif [ -f "$EDIT_MARKER_LEGACY" ]; then
+  EDIT_MARKER="$EDIT_MARKER_LEGACY"
+fi
+
+EDIT_PATHS_CSV=""
+if [ -n "$EDIT_MARKER" ] && [ -f "$EDIT_MARKER" ]; then
+  # Allowlist filter — `.claude/state/` is user-writable, so a tampered or
+  # legacy marker could carry arbitrary lines (quotes, `>`, newlines) that
+  # would break the `<governance-source-edited paths="...">` tag or inject
+  # content into the model-facing block. Only known governance source paths
+  # are accepted; everything else is dropped silently.
+  EDIT_PATHS_FILTERED=$(awk '$0 == "docs/constitution.md" || $0 == "docs/setup.md"' "$EDIT_MARKER" | sort -u)
+  if [ -n "$EDIT_PATHS_FILTERED" ]; then
+    EDIT_PATHS_CSV=$(printf '%s' "$EDIT_PATHS_FILTERED" | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+    echo "<governance-source-edited paths=\"${EDIT_PATHS_CSV}\">"
+    echo "Governance source was edited in this session. The snapshot is now stale by definition."
+    echo "Regenerate inline before continuing — Factory-governance-loading SKILL § Step 1 POST-LOAD"
+    echo "(generate_governance_snapshot()). This does NOT require running /setup --upgrade."
+    echo "</governance-source-edited>"
+  fi
+  rm -f "$EDIT_MARKER"
+fi
+
+# ── 3) Livelock carve-out ───────────────────────────────────────────────────
 trimmed=$(printf '%s' "$PROMPT_TEXT" | sed -E 's/^[[:space:]]+//')
 case "$trimmed" in
   /setup*|/loop\ /setup*|/loop\ \"/setup*)
@@ -127,5 +179,24 @@ case "$trimmed" in
     ;;
 esac
 
-# ── 3) Freshness gate ───────────────────────────────────────────────────────
-exec bash scripts/validate-governance.sh --snapshot-freshness
+# ---------------------------------------------------------------------------
+# Freshness gate — advisory only, never blocks the turn. Runs by default,
+# suppressed when the source-edit marker already attributed the cause for
+# this prompt. Stale snapshots are surfaced to the model as a tagged warning
+# block via stdout so Claude can react (inform the user, regenerate when
+# appropriate, avoid stale assumptions about governance).
+# ---------------------------------------------------------------------------
+if [ -z "$EDIT_PATHS_CSV" ]; then
+  set +e
+  FRESHNESS_OUTPUT="$(bash scripts/validate-governance.sh --snapshot-freshness 2>&1)"
+  FRESHNESS_EXIT=$?
+  set -e
+
+  if [ "$FRESHNESS_EXIT" -ne 0 ]; then
+    echo "<governance-warning reason=\"snapshot-stale\">"
+    echo "$FRESHNESS_OUTPUT"
+    echo "</governance-warning>"
+  fi
+fi
+
+exit 0
