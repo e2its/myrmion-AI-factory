@@ -4,11 +4,11 @@
 ---
 id: {{FEATURE_ID}}
 status: DRAFT   # DRAFT | NEEDS_INFO | APPROVED | BLOCKED | REJECTED | INVALIDATED
-scope: full-stack  # EVOL-019 — inherited from spec.feature.scope; full-stack | backend-only | frontend-only | integration
+scope: full-stack  # inherited from spec.feature.scope; full-stack | backend-only | frontend-only | integration
 date: [DATE]
 approver: PENDING
 
-# Iteration model tracking (EVOL-014)
+# Iteration model tracking
 based_on_iteration: 1
 based_on_schemas_version: 1
 
@@ -70,7 +70,7 @@ cascade_scope: []
 > Map happy paths from `spec.feature` scenarios + error/edge cases from Section 2 general.
 > The `TC-API-XX` IDs are referenced by `/DEV --plan` and `/IMPLEMENT --build` to generate executable tests.
 
-### 2.2 Reliability Testing (EVOL-019 — applicable_when scope in [backend-only, integration])
+### 2.2 Reliability Testing (applicable_when scope in [backend-only, integration])
 <!-- applicable_when: scope in [backend-only, integration] -->
 > **Objective:** Validate runtime robustness under adverse conditions. For UI-less features (no browser QA), reliability testing replaces visual regression as the primary quality surface.
 > **Source of truth:** `user_journey.integration.md` § 6 Reliability Contract (idempotency keys, retry policy, circuit breaker, DLQ, timeouts, graceful shutdown, observability).
@@ -94,7 +94,7 @@ cascade_scope: []
 
 > **Chaos / fault-injection notes:** for integration features interacting with paid services, prefer contract-test doubles + recorded-interaction replays over real chaos. For internal downstreams, consider toxiproxy / chaos-mesh / Gremlin in staging. Never run chaos in prod without blast-radius controls — document the controls in § 2.2.X rows if adopted.
 
-## 3. UX & Accessibility Testing (Required for UI Features — EVOL-019: applicable_when scope in [full-stack, frontend-only])
+## 3. UX & Accessibility Testing (Required for UI Features — applicable_when scope in [full-stack, frontend-only])
 > **Objective:** Validate compliance with UX Constitution (.claude/rules/ux-constitution.instructions.md).
 > **Reference:** WCAG 2.1 AA + responsive + design tokens.
 
@@ -107,7 +107,7 @@ cascade_scope: []
 | A11Y-03 | Keyboard Navigation | Manual | All interactions accessible via Tab/Enter/Space |
 | A11Y-04 | Screen Reader Compatibility | Manual (NVDA/VoiceOver) | All content announced correctly with semantic landmarks |
 
-## 4. Brand & Layout Compliance (Required for UI Features — EVOL-019: applicable_when scope in [full-stack, frontend-only])
+## 4. Brand & Layout Compliance (Required for UI Features — applicable_when scope in [full-stack, frontend-only])
 > **Objective:** Validate brand identity consistency and layout architecture.
 > **Reference:** #file:.claude/rules/ux-constitution.instructions.md Section I (Brand Identity & Layout Constitution)
 

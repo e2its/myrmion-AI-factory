@@ -19,7 +19,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 ---
 
-## Required Inputs (13 Sources — EVOL-019)
+## Required Inputs (13 Sources)
 
 | Source | Status | Purpose |
 |--------|--------|---------|
@@ -35,7 +35,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 | `ux_decisions_log.md` | If exists AND scope in [full-stack, frontend-only] | Cross-feature UX decisions |
 | @workspace | Always | Existing code patterns |
 | `codebase_inventory.json` | If exists | DRY enforcement |
-| **Upstream frozen contracts** (EVOL-019) | Mandatory when `spec.feature.consumes_contract` is non-empty | For each `FEAT-XXX` in `consumes_contract`: load the frozen contract file (OpenAPI / AsyncAPI / GraphQL / gRPC) from `contracts/*/FEAT-XXX/**`; this design MUST NOT redefine or extend those contracts. Resolution step below BLOCKS if any referenced upstream is not frozen. |
+| **Upstream frozen contracts** | Mandatory when `spec.feature.consumes_contract` is non-empty | For each `FEAT-XXX` in `consumes_contract`: load the frozen contract file (OpenAPI / AsyncAPI / GraphQL / gRPC) from `contracts/*/FEAT-XXX/**`; this design MUST NOT redefine or extend those contracts. Resolution step below BLOCKS if any referenced upstream is not frozen. |
 
 ---
 
@@ -84,11 +84,11 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 - Mandatory scripts: `dependency-allowlist.sh`, `security-scan.sh`
 - Conditional scripts based on stack (e.g., `validate-iac.sh` if iac_tool != None)
 
-### Step 6: Defect Prevention Consultation (v2.0.0 — EVOL-014)
+### Step 6: Defect Prevention Consultation
 
 ```yaml
 # Consult the Defect Prevention Catalog filtered to this agent
-feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # EVOL-019 Phase 2+3 — pass to DPC Filter 2
+feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # pass to DPC Filter 2
 applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
 STORE applicable_dcs IN context FOR use by Section 7 (GCD) and Section 4 (test_plan Edge Cases)
 
@@ -139,7 +139,7 @@ IF has_gap:
 
 ## Command `--start {{ID}}` — Phase 0: Pre-Flight
 
-### Consumes-Contract Resolution Gate (EVOL-019 — BLOCKING, runs FIRST in pre-flight)
+### Consumes-Contract Resolution Gate (BLOCKING, runs FIRST in pre-flight)
 
 ```yaml
 FUNCTION consumes_contract_resolution_gate(FEATURE_ID):
@@ -227,14 +227,14 @@ FUNCTION consumes_contract_resolution_gate(FEATURE_ID):
   RETURN { resolved: resolved }
 ```
 
-**Three-point enforcement symmetry (EVOL-019).** This gate, the IMPLEMENT `--plan` Consumes-Contract Upstream Freeze Gate (Phase 2), and the Next-Task Resolver Step 1.3.4.5 filter (Phase 3) all check the SAME conditions (a-e) with the SAME gate-mode semantics (enforce/warn/off). A downstream feature that passes BLUEPRINT `--start` here will also pass IMPLEMENT `--plan`'s gate and will be returned as eligible by Next-Task — no redo-loop surprise caused by divergent checks between the three enforcement points.
+**Three-point enforcement symmetry.** This gate, the IMPLEMENT `--plan` Consumes-Contract Upstream Freeze Gate, and the Next-Task Resolver Step 1.3.4.5 filter all check the SAME conditions (a-e) with the SAME gate-mode semantics (enforce/warn/off). A downstream feature that passes BLUEPRINT `--start` here will also pass IMPLEMENT `--plan`'s gate and will be returned as eligible by Next-Task — no redo-loop surprise caused by divergent checks between the three enforcement points.
 
 The gate runs **before** Governance Context Loading (Steps 0-5) so that resolved contracts are available as read-only inputs when ARCH starts designing. It fails LOUDLY with humanised messaging per CLAUDE.md § Governance Rule 8.
 
 ### Architecture Context Loading
 - Read `docs/constitution.md` for topology (B1-B12), patterns, stack
 - Read all applicable rules from `.claude/rules/`
-- Read `feature_scope` from `spec.feature` frontmatter (EVOL-019) — drives section applicability in design.md + test_plan.md and decides whether the UX Artifacts Enrichment 5-step protocol runs
+- Read `feature_scope` from `spec.feature` frontmatter — drives section applicability in design.md + test_plan.md and decides whether the UX Artifacts Enrichment 5-step protocol runs
 - Detect project type: greenfield vs brownfield, monolith vs distributed
 
 ### Review Configuration

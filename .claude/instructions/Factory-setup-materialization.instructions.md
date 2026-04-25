@@ -83,7 +83,7 @@ FUNCTION generate_governance_snapshot():
     > Source of truth: docs/constitution.md + .claude/rules/
     
     ## Stack Configuration
-    project_scope: {stack_config.project_scope}      # EVOL-019 — full-stack | backend-only | frontend-only | integration
+    project_scope: {stack_config.project_scope}      # full-stack | backend-only | frontend-only | integration
     backend:
       runtime: {stack_config.backend.runtime}
       framework: {stack_config.backend.framework}
@@ -121,7 +121,7 @@ FUNCTION generate_governance_snapshot():
     {FOR EACH env IN environments: - {env.name}: {env.url_pattern}}
     
     ## Constitutional Boundaries
-    - Project scope: {stack_config.project_scope}      # EVOL-019 — drives feature.scope compatibility + conditional materialisation
+    - Project scope: {stack_config.project_scope}      # drives feature.scope compatibility + conditional materialisation
     - Architecture pattern: {stack_config.architecture.pattern}
     - Topology: {stack_config.architecture.topology}
     - Communication: {stack_config.architecture.comm_style}
@@ -135,15 +135,15 @@ FUNCTION generate_governance_snapshot():
     > Source: docs/setup.md — operational flags read by downstream agents.
     > Included in snapshot so they survive context summarization.
     project_mode: {setup_config.project_mode}
-    project_scope: {setup_config.project_scope}   # EVOL-019 — mirrors Stack Configuration for scope-aware agents
+    project_scope: {setup_config.project_scope}   # mirrors Stack Configuration for scope-aware agents
     ai_budget:
       tier: {setup_config.ai_budget.tier}
     project_tracking:
       tool: {setup_config.project_tracking.tool}
       feature_phases: {setup_config.project_tracking.feature_phases}
       milestone_strategy: {setup_config.project_tracking.milestone_strategy}
-      gate_enforcement_mode: {setup_config.project_tracking.gate_enforcement_mode}   # EVOL-015 Q27.5 — enforce | warn | off (default per Q3/Q27.2 recommendation; null when preset != full-sdlc)
-      appetite_sizing_enabled: {setup_config.project_tracking.appetite_sizing_enabled}  # EVOL-015 Q27.6 — boolean; materialises appetite label/field when true
+      gate_enforcement_mode: {setup_config.project_tracking.gate_enforcement_mode}   # Q27.5 — enforce | warn | off (default per Q3/Q27.2 recommendation; null when preset != full-sdlc)
+      appetite_sizing_enabled: {setup_config.project_tracking.appetite_sizing_enabled}  # Q27.6 — boolean; materialises appetite label/field when true
     synthetic_data:
       enabled: {setup_config.synthetic_data.enabled}
       id_strategy: {setup_config.synthetic_data.id_strategy}
@@ -313,7 +313,7 @@ For each detected technology (backend.runtime, frontend.framework):
 
 The `defect-prevention.md` template uses a `{{DC_ENTRIES}}` placeholder that MUST be populated with starter defect classes based on the project's stack. These are defects that **pass all static gates** but **break at runtime** — the gap between static verification and deployed behavior.
 
-**Schema note (v2.0.0 — EVOL-014):** each DC entry includes an `applicable_to` field — an enum list of the SDLC agents that MUST consult this entry. Valid values: `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`. An entry can be consumed by multiple agents. Most entries end up with `[IMPLEMENT, REVIEW]` (classic code patterns); UX/accessibility patterns add `CODESIGN`; architectural patterns add `BLUEPRINT`; infra patterns add `DEVOPS`; test-surface patterns add `QA`; and any enduring pattern should add `AUDIT` so external audits pick it up. The starter DCs below use sensible defaults — projects may extend them via the Discovery Protocol.
+**Schema note:** each DC entry includes an `applicable_to` field — an enum list of the SDLC agents that MUST consult this entry. Valid values: `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`. An entry can be consumed by multiple agents. Most entries end up with `[IMPLEMENT, REVIEW]` (classic code patterns); UX/accessibility patterns add `CODESIGN`; architectural patterns add `BLUEPRINT`; infra patterns add `DEVOPS`; test-surface patterns add `QA`; and any enduring pattern should add `AUDIT` so external audits pick it up. The starter DCs below use sensible defaults — projects may extend them via the Discovery Protocol.
 
 ```yaml
 FUNCTION materialize_defect_prevention(setup_md, constitution_md):
@@ -328,7 +328,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # auth.strategy: Q18 → "JWT (stateless)", "Session-based", "OAuth2/OIDC (external provider)", etc.
 
   # ============================================================================
-  # UNIVERSAL META-PATTERNS (EVOL-015) — shipped on every project regardless of stack
+  # UNIVERSAL META-PATTERNS — shipped on every project regardless of stack
   # ============================================================================
   # Derived from empirical post-deploy defect clusters across multiple stacks.
   # Each entry describes a PATTERN (stack-neutral) with stack-specific
@@ -410,7 +410,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   }
 
   # ============================================================================
-  # INTEGRATION / BACKEND-ONLY DCS (EVOL-019 — Phase 2) — shipped when
+  # INTEGRATION / BACKEND-ONLY DCS — shipped when
   # project_scope IN [full-stack, backend-only, integration]
   # ============================================================================
   # These 7 DCs target the defect cluster specific to features that process
@@ -646,7 +646,7 @@ After all rules generated, validate:
 ### 4.2.4 Tripartite Scaffolding
 Additive tree algorithm — builds directory structure from composable fragments:
 
-**Step 0 — Dynamic Path Derivation (EVOL-014):**
+**Step 0 — Dynamic Path Derivation:**
 
 Resolve every base-path placeholder used downstream into a concrete project-relative path, and **persist the result into `docs/setup.md` under a new `paths:` section** so every subsequent consumer reads from a single source of truth instead of each re-deriving the path.
 
@@ -721,7 +721,7 @@ IF `project_scope in [full-stack, frontend-only]` (Q4.5) AND `frontend.framework
   Add pattern-specific directories. For micro-frontends (F5-F7): create per-app subdirectories.
 ELSE: SKIP — project_scope excludes frontend or framework is None.
 
-> **Scope-keyed conditional materialisation (EVOL-019).** `project_scope` is the primary guard; the stack answers (Q5/Q9) are the secondary consistency check. Discovery enforces the compatibility (e.g. `project_scope=backend-only` cannot coexist with `frontend.framework != "None"`), so in practice both checks agree — the double-guard exists to make the intent explicit at materialisation time and to fail loudly if a hand-edited `docs/setup.md` diverges.
+> **Scope-keyed conditional materialisation.** `project_scope` is the primary guard; the stack answers (Q5/Q9) are the secondary consistency check. Discovery enforces the compatibility (e.g. `project_scope=backend-only` cannot coexist with `frontend.framework != "None"`), so in practice both checks agree — the double-guard exists to make the intent explicit at materialisation time and to fail loudly if a hand-edited `docs/setup.md` diverges.
 
 **Step 4 — Integration Layer (ACL):**
 Add `src/shared/` or equivalent anti-corruption layer directories based on topology.
@@ -773,7 +773,7 @@ When `project_tracking.appetite_sizing_enabled == true`, the BACKLOG agent must 
 Render the following fragment inside the materialised `docs/backlog/tool-adapter.md` under a new `## Appetite` section (append after the existing adapter body, before any `## Troubleshooting` section):
 
 ```markdown
-## Appetite (EVOL-015 Q27.6 = true)
+## Appetite (Q27.6 = true)
 
 This project uses appetite sizing as feature metadata. Three hand-curated values:
 
@@ -797,9 +797,9 @@ When `appetite_sizing_enabled == false`, SKIP this section entirely — the rend
 When `project_tracking.feature_phases == "full-sdlc"`, render the following fragment inside `docs/backlog/tool-adapter.md` under a new `## Gate Enforcement Mode` section:
 
 ```markdown
-## Gate Enforcement Mode (EVOL-015 Q27.5)
+## Gate Enforcement Mode (Q27.5)
 
-**Default mode for EVOL-014 gates:** `{{GATE_ENFORCEMENT_MODE}}`
+**Default mode for gates:** `{{GATE_ENFORCEMENT_MODE}}`
 
 Scope: `contract-freeze`, `preventive-sweep`, `smoke-e2e`, `integration-test`, `retrospective`.
 Classic phase completions (blueprint `--approve`, qa `--verify`) are unaffected — they are always hard.
@@ -945,7 +945,7 @@ Rationale: `.claude/settings.json` was previously untouched by `factory-sync.sh`
 
 **E2E Config:** Only configuration files (playwright.config.ts, etc.), NO test files.
 
-### 4.2.7 Budget Calculation and Cost Placeholder Resolution (EVOL-014)
+### 4.2.7 Budget Calculation and Cost Placeholder Resolution
 
 **Input.** `docs/setup.md § costs:` — populated by the Cost Estimation Protocol (CEP) during Discovery Finalization. See `Factory-setup-discovery.instructions.md` § 4.1.3.2 for the producer logic.
 
@@ -1039,7 +1039,7 @@ validation_sections: [code sections to check]
 validation_script: [script path if script-based]
 ```
 
-**Special Integration — UX Constitution (scope-aware — EVOL-019):**
+**Special Integration — UX Constitution (scope-aware):**
 If `project_scope in [full-stack, frontend-only]` AND `frontend.framework != "None"`, populate `.claude/rules/ux-constitution.instructions.md` with:
 - Brand Identity from Visual DNA (Q13)
 - Layout preferences (border radius, shadows, animations)

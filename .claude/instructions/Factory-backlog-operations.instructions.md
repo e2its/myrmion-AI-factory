@@ -58,7 +58,7 @@ SETUP Q27.2 persists a **preset string** in `project_tracking.feature_phases`. T
 **Expansion example (`full-sdlc`):**
 ```yaml
 # Runtime expansion performed by BACKLOG agent — NOT stored in setup.md
-# mode field (EVOL-015 Q27.5): overrides project_tracking.gate_enforcement_mode per gate issue
+# mode field (Q27.5): overrides project_tracking.gate_enforcement_mode per gate issue
 # when present in the issue body frontmatter. When absent, the resolver uses the adapter-level
 # default. Only gate phases carry a mode field — non-gate phases (codesign/blueprint/devops/
 # implement/qa) are always hard by their command's own approval logic.
@@ -69,15 +69,15 @@ SETUP Q27.2 persists a **preset string** in `project_tracking.feature_phases`. T
 - { suffix: 5, label: "implement",        title_pattern: "[{ID}] IMPLEMENT: Code + Tests — {name}" }
 - { suffix: 6, label: "preventive-sweep", title_pattern: "[{ID}] PREVENTIVE-SWEEP: Runtime defect scan — {name}",           gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}" }
 - { suffix: 7, label: "qa",               title_pattern: "[{ID}] QA: Verification — {name}" }
-# suffix 8 is SCOPE-AWARE (EVOL-019 Phase 3) — BACKLOG --plan-feature picks ONE variant based on spec.feature.scope:
+# suffix 8 is SCOPE-AWARE — BACKLOG --plan-feature picks ONE variant based on spec.feature.scope:
 - { suffix: 8, label: "smoke-e2e-browser",     title_pattern: "[{ID}] SMOKE-E2E (Browser): User-journey scenarios on dev deploy — {name}",         gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}", applicable_when: "feature.scope == 'frontend-only'" }
 - { suffix: 8, label: "smoke-e2e-integration", title_pattern: "[{ID}] SMOKE-E2E (Integration): Caller-harness + state + observability — {name}",  gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}", applicable_when: "feature.scope in [backend-only, integration]" }
 - { suffix: 8, label: "smoke-e2e-hybrid",      title_pattern: "[{ID}] SMOKE-E2E (Hybrid): Browser + API smoke on dev deploy — {name}",             gate: true, sub_issue_of: 5, mode_default: "{{GATE_ENFORCEMENT_MODE}}", applicable_when: "feature.scope == 'full-stack'" }
-# Legacy unscoped label (pre-EVOL-019) — not emitted by new --plan-feature, but accepted by QA --verify Gate 4 for backward compatibility with projects materialised before the scope-aware variants:
+# Legacy unscoped label — not emitted by new --plan-feature, but accepted by QA --verify Gate 4 for backward compatibility with projects materialised before the scope-aware variants:
 # - { suffix: 8, label: "smoke-e2e", ... } [DEPRECATED — kept only for legacy project recognition]
 ```
 
-**Scope-aware smoke-e2e selection (EVOL-019 Phase 3).** `BACKLOG --plan-feature {ID}` reads `docs/spec/{ID}/spec.feature` frontmatter `scope` field and materialises EXACTLY ONE suffix-8 variant based on the scope → label mapping:
+**Scope-aware smoke-e2e selection.** `BACKLOG --plan-feature {ID}` reads `docs/spec/{ID}/spec.feature` frontmatter `scope` field and materialises EXACTLY ONE suffix-8 variant based on the scope → label mapping:
 
 | feature.scope | Phase label emitted | Smoke template |
 |---|---|---|
@@ -85,7 +85,7 @@ SETUP Q27.2 persists a **preset string** in `project_tracking.feature_phases`. T
 | `backend-only`  | `phase:smoke-e2e-integration` | `.context/templates/qa/smoke_e2e_integration_template.md` (caller-harness + state + observability) |
 | `integration`   | `phase:smoke-e2e-integration` | same as backend-only (with MANDATORY SMOKE-REL-* reliability blocks) |
 | `full-stack`    | `phase:smoke-e2e-hybrid` | browser template augmented with integration smokes for the backend surface |
-| (missing / pre-EVOL-019) | `phase:smoke-e2e` (legacy) | `smoke_e2e_report_template.md` default |
+| (missing / legacy) | `phase:smoke-e2e` (legacy) | `smoke_e2e_report_template.md` default |
 
 Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missing or unreadable, `BACKLOG --plan-feature` falls back to the legacy `phase:smoke-e2e` label with a WARN and a suggestion to add `scope:` to spec.feature for scope-aware future runs.
 
@@ -95,7 +95,7 @@ Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missi
 | --- | --- | --- |
 | CONTRACT-FREEZE (suffix 3) | [Factory-implement-plan.instructions.md](Factory-implement-plan.instructions.md) § Upstream Artifact Validation | `IMPLEMENT --plan` start — the feature's API contracts (OpenAPI / TS interfaces / GraphQL schema / whatever the stack uses) MUST be frozen and the contract test harness MUST exist |
 | PREVENTIVE-SWEEP (suffix 6) | [Factory-devops-provision-deploy.instructions.md](Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | `DEVOPS --deploy dev` — the Factory-preventive-sweep SKILL must have run against the feature's code (parallel scope sub-agents derived from DC catalog) and returned zero open C-severity findings |
-| SMOKE-E2E (suffix 8 — scope-aware variants EVOL-019 Phase 3: `smoke-e2e-browser` / `smoke-e2e-integration` / `smoke-e2e-hybrid`) | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — scope-appropriate smoke blocks must pass on dev deploy. Frontend-only → browser-centric blocks from `user_journey.md`. Backend-only/integration → caller-harness + downstream-state + observability blocks from `user_journey.integration.md`, plus MANDATORY reliability blocks (SMOKE-REL-IDEMP, SMOKE-REL-RETRY, SMOKE-REL-DLQ, SMOKE-REL-SHUTDOWN) for `integration`. Full-stack → both browser AND integration blocks. |
+| SMOKE-E2E (suffix 8 — scope-aware variants: `smoke-e2e-browser` / `smoke-e2e-integration` / `smoke-e2e-hybrid`) | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — scope-appropriate smoke blocks must pass on dev deploy. Frontend-only → browser-centric blocks from `user_journey.md`. Backend-only/integration → caller-harness + downstream-state + observability blocks from `user_journey.integration.md`, plus MANDATORY reliability blocks (SMOKE-REL-IDEMP, SMOKE-REL-RETRY, SMOKE-REL-DLQ, SMOKE-REL-SHUTDOWN) for `integration`. Full-stack → both browser AND integration blocks. |
 
 **Sub-issue nesting.** The three gate phases are logically **sub-issues of IMPLEMENT** (suffix 5). Adapters that declare `add_sub_issue: native` (e.g. `github-project.md`) materialise them as real sub-issues so holistic progress tracking on the board reflects feature completion. Adapters that declare `add_sub_issue: no-op` (e.g. `none.md`) materialise them as standalone siblings with a `> Parent: IMPLEMENT issue` cross-reference line in the body — the `--next-task` resolver reads the cross-reference to reconstruct the hierarchy.
 
@@ -196,7 +196,7 @@ Slice- and epic-level gate issues are created by `--plan-execution` alongside th
 
 > **Why no `lessons_learned.md` per epic.** The framework deliberately keeps a single source of truth for "what we learned": the living catalog at `.claude/rules/defect-prevention.md`. A separate per-epic markdown would duplicate narrative that nobody re-reads, while fragmenting the actionable DC entries across files. Narrative history lives on the tracker (issue body + closure date); actionable prevention lives in the rule file.
 
-#### 3.4.1 Retrospective → Defect Prevention Catalog write-back procedure (EVOL-014)
+#### 3.4.1 Retrospective → Defect Prevention Catalog write-back procedure
 
 Closing an `[EPIC-{N}] RETROSPECTIVE` gate issue is NOT a single "move to Done" operation. It is a structured two-step write:
 
@@ -282,19 +282,19 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 
 | Category | Pattern | Source | Example |
 | --- | --- | --- | --- |
-| **Phase** | `phase:{label}` | `feature_phases[N].label` — auto-created at `--init-board` from the expanded preset. Scope-aware variants for suffix 8 (EVOL-019 Phase 3): `phase:smoke-e2e-browser`, `phase:smoke-e2e-integration`, `phase:smoke-e2e-hybrid` — exactly ONE variant materialised per feature, selected by `spec.feature.scope`. | `phase:codesign`, `phase:implement`, `phase:integration-test`, `phase:retrospective`, `phase:smoke-e2e-browser` |
-| **Scope** *(EVOL-019 Phase 3)* | `scope:{value}` | Applied at `--plan-feature {ID}` time based on `spec.feature.scope` frontmatter. Exactly ONE scope label per feature, applied uniformly to ALL phase issues of that feature (not per-phase). Enables scope-based board filtering, cross-scope metrics, and `--eligible` pool filtering when a user wants to work only within one scope (e.g. `--eligible --filter=scope:backend-only`). When `spec.feature.scope` is missing or unreadable (pre-EVOL-019 features), the label is NOT applied — legacy features continue without scope classification. | `scope:full-stack`, `scope:backend-only`, `scope:frontend-only`, `scope:integration` |
+| **Phase** | `phase:{label}` | `feature_phases[N].label` — auto-created at `--init-board` from the expanded preset. Scope-aware variants for suffix 8: `phase:smoke-e2e-browser`, `phase:smoke-e2e-integration`, `phase:smoke-e2e-hybrid` — exactly ONE variant materialised per feature, selected by `spec.feature.scope`. | `phase:codesign`, `phase:implement`, `phase:integration-test`, `phase:retrospective`, `phase:smoke-e2e-browser` |
+| **Scope** | `scope:{value}` | Applied at `--plan-feature {ID}` time based on `spec.feature.scope` frontmatter. Exactly ONE scope label per feature, applied uniformly to ALL phase issues of that feature (not per-phase). Enables scope-based board filtering, cross-scope metrics, and `--eligible` pool filtering when a user wants to work only within one scope (e.g. `--eligible --filter=scope:backend-only`). When `spec.feature.scope` is missing or unreadable (legacy features), the label is NOT applied — legacy features continue without scope classification. | `scope:full-stack`, `scope:backend-only`, `scope:frontend-only`, `scope:integration` |
 | **Slice** | `slice:EPIC-{N}.{M}` | Computed by `--plan-execution` from the epic/slice graph | `slice:EPIC-1.1`, `slice:EPIC-1.2` |
 | **Cluster** | `cluster:{id}` | Set manually on grouped hotfix issues | `cluster:CLUSTER-001` |
 | **Milestone strategy** | See § 4.2 | `milestone_strategy` from Q27.3 | — |
 | **Status** | `blocked`, `enhancement`, `bug`, `needs-rework-after-codesign` | Auto-created at `--init-board`; `needs-rework-after-codesign` applied manually when a downstream task lands before the upstream CODESIGN is finalized | — |
-| **Kind** *(EVOL-015)* | `kind:follow-up` | Set manually on issues that capture deferred work spun out from a parent feature or retrospective. Signals "known deferred, not accidental incomplete". | `kind:follow-up` |
-| **Blocked-by** *(EVOL-015)* | `blocked-by:#{N}` | Set manually (or by `--plan-execution` when an explicit cross-feature dependency is declared) on issues that MUST NOT be picked up until the referenced issue is Done. Consumed by the `--next-task` resolver as a hard filter. Multiple `blocked-by:#N` labels on the same issue are AND-ed: all referenced issues must be Done. | `blocked-by:#42`, `blocked-by:#101` |
-| **Appetite** *(EVOL-015, conditional on Q27.6 == true)* | `appetite:{small\|medium\|big}` | Hand-curated by the human on feature issues. Metadata only — never computed. When Q27.6 == false the labels are not materialised. | `appetite:small`, `appetite:medium`, `appetite:big` |
+| **Kind** | `kind:follow-up` | Set manually on issues that capture deferred work spun out from a parent feature or retrospective. Signals "known deferred, not accidental incomplete". | `kind:follow-up` |
+| **Blocked-by** | `blocked-by:#{N}` | Set manually (or by `--plan-execution` when an explicit cross-feature dependency is declared) on issues that MUST NOT be picked up until the referenced issue is Done. Consumed by the `--next-task` resolver as a hard filter. Multiple `blocked-by:#N` labels on the same issue are AND-ed: all referenced issues must be Done. | `blocked-by:#42`, `blocked-by:#101` |
+| **Appetite** *(conditional on Q27.6 == true)* | `appetite:{small\|medium\|big}` | Hand-curated by the human on feature issues. Metadata only — never computed. When Q27.6 == false the labels are not materialised. | `appetite:small`, `appetite:medium`, `appetite:big` |
 
 **Which labels apply to which issue class:**
 
-| Issue class | `phase:*` | `scope:*` *(EVOL-019)* | `slice:*` | Status label | `kind:follow-up` | `blocked-by:#N` | `appetite:*` |
+| Issue class | `phase:*` | `scope:*` | `slice:*` | Status label | `kind:follow-up` | `blocked-by:#N` | `appetite:*` |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Feature phase | ✅ (one) | ✅ (one — mirrors spec.feature.scope) | ✅ (one) | ➕ optional | ➕ optional | ➕ optional | ➕ optional (feature-scoped; typically on CODESIGN issue) |
 | Feature refinement/extension | ✅ (same as parent) | ✅ (same as parent — scope inherited) | ✅ (same as parent) | `enhancement` | ➕ optional | ➕ optional | ❌ (inherits from parent) |
@@ -372,7 +372,7 @@ Milestone naming follows `milestone_strategy` from Q27.3:
 - [ ] {Artifact 2 with path}
 - [ ] {Validation criteria}
 
-{Render the next section ONLY when `project_tracking.appetite_sizing_enabled == true` (EVOL-015 Q27.6). Feature-scoped — typically filled on the CODESIGN phase issue. Refinement / extension / gate issues inherit from the parent feature and do NOT include this section.}
+{Render the next section ONLY when `project_tracking.appetite_sizing_enabled == true` (Q27.6). Feature-scoped — typically filled on the CODESIGN phase issue. Refinement / extension / gate issues inherit from the parent feature and do NOT include this section.}
 
 ## Appetite
 
@@ -427,7 +427,7 @@ Milestone naming follows `milestone_strategy` from Q27.3:
 
 {enforce | warn | off}
 
-> EVOL-015 Q27.5. Optional per-gate override. When absent, the resolver falls back to
+> Q27.5. Optional per-gate override. When absent, the resolver falls back to
 > `project_tracking.gate_enforcement_mode` (adapter-level default). `enforce` = hard
 > block; `warn` = log and proceed; `off` = disabled (ADR-documented exception only).
 
@@ -455,7 +455,7 @@ Gate-specific checklist — every item must be `[x]` before moving the issue to 
 - [ ] {Validation check 2}
 - [ ] Zero open `stale-after-cascade` / `stale-after-slice-peer-iterated` labels on this issue (iteration-model cascade invariant)
 
-### DoD Variants by Gate Type and Scope (EVOL-019 Phase 3)
+### DoD Variants by Gate Type and Scope
 
 For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** — derived from `spec.feature.scope` at `--plan-feature` time:
 
@@ -486,7 +486,7 @@ For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** —
 - [ ] WCAG quick pass on browser-side scenarios
 - [ ] Zero open `stale-after-*` labels on this issue
 
-**phase:smoke-e2e** (legacy, pre-EVOL-019 projects):
+**phase:smoke-e2e** (legacy projects):
 - Uses the generic DoD above (artefact + validation checks + zero stale labels). Projects can opt in to scope-aware DoD by adding `scope` to spec.feature frontmatter, which causes `--plan-feature` on the next feature to emit the scoped variant label.
 
 The other gate types (CONTRACT-FREEZE, PREVENTIVE-SWEEP, INTEGRATION-TEST, RETROSPECTIVE) carry gate-specific DoD lines that are scope-agnostic — they operate on contract / DC / cross-feature-integration / epic-closure concerns that do not change meaning with scope. The `--plan-feature` materialiser renders the generic DoD template above for those gates.

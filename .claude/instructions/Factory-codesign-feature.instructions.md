@@ -27,7 +27,7 @@ All three artifacts share these frontmatter fields:
 ```yaml
 status: DRAFT | NEEDS_INFO | APPROVED | DEPRECATED | CANCELLED | SUPERSEDED
 feature_id: "{{FEATURE_ID}}"
-scope: full-stack | backend-only | frontend-only | integration   # EVOL-019 dual-axis — set at --start, immutable after APPROVED
+scope: full-stack | backend-only | frontend-only | integration   # dual-axis — set at --start, immutable after APPROVED
 iteration: 1              # Incremented on each --refine in Iteration Mode
 last_iteration_scope: ""  # Summary of last iteration changes
 created_at: ISO_8601
@@ -35,11 +35,11 @@ updated_at: ISO_8601
 ```
 
 Additional per-artifact fields:
-- `spec.feature`: `scenarios_count`, `nfr_count`, `consumes_contract: []` (EVOL-019 — upstream FEAT-XXX deps; resolved at BLUEPRINT --start)
+- `spec.feature`: `scenarios_count`, `nfr_count`, `consumes_contract: []` (upstream FEAT-XXX deps; resolved at BLUEPRINT --start)
 - `mock.html`: `pages_count`, `states_count`, `wcag_status` — only generated when `scope in [full-stack, frontend-only]`
 - `user_journey.md`: `schemas_version`, `actors`, `commands`, `events`, `read_models` — for backend-only / integration scopes use `user_journey.integration.md` variant instead
 
-**Scope axis (EVOL-019).** `scope` is set once at `--start` (default inherited from `project_scope` in governance snapshot) and becomes immutable after auto-approval. `--refine` cannot change `scope` — a scope change requires rejecting the feature and restarting with the new scope. See § Scope Compatibility Gate in `--start` for the validator.
+**Scope axis.** `scope` is set once at `--start` (default inherited from `project_scope` in governance snapshot) and becomes immutable after auto-approval. `--refine` cannot change `scope` — a scope change requires rejecting the feature and restarting with the new scope. See § Scope Compatibility Gate in `--start` for the validator.
 
 ---
 
@@ -388,20 +388,20 @@ The Interactive Mock Protocol adds these requirements to the **12-point auto-app
 - **CHECK 10 (No inline styles)**: IMP CSS classes (`imp-*`) are in the `<style>` block. No `style=""` attributes on IMP elements.
 - **CHECK 11 (Empty/loading states)**: Verified automatically — every `imp-step` section MUST have at minimum `default` + `empty` + `loading` + `error` state divs. Missing states = auto-approval BLOCKER.
 
-### IMP for Non-UI Features (scope-aware — EVOL-019)
+### IMP for Non-UI Features (scope-aware)
 
 IMP (Interactive Mock Protocol) is **N/A** and mock.html is NOT generated when ANY of the following holds:
 
-1. `feature_scope IN [backend-only, integration]` (EVOL-019 per-feature axis — authoritative). The compatibility matrix guarantees this can only happen inside full-stack or backend-only/integration projects; the per-feature flag drives the decision.
-2. `project_scope IN [backend-only, integration]` from governance snapshot (EVOL-019 per-project axis). Scope compatibility gate in `--start` prevents any feature from requesting UI here.
-3. `frontend.framework == "None"` (legacy pre-EVOL-019 condition; still honoured for projects that pre-date the scope model).
+1. `feature_scope IN [backend-only, integration]` (per-feature axis — authoritative). The compatibility matrix guarantees this can only happen inside full-stack or backend-only/integration projects; the per-feature flag drives the decision.
+2. `project_scope IN [backend-only, integration]` from governance snapshot (per-project axis). Scope compatibility gate in `--start` prevents any feature from requesting UI here.
+3. `frontend.framework == "None"` (legacy condition; still honoured for projects that pre-date the scope model).
 
 When IMP is N/A:
 - mock.html is not generated (no file created; not DRAFT, not APPROVED — simply absent).
 - Vision Gate is skipped (no `docs/ux/vision/` dependency).
 - Tripartite Alignment degrades to SPEC↔JOURNEY pair only (see § Tripartite Alignment Protocol scope matrix).
 - Auto-approval CHECK 2 / 5 / 6 / 8 / 10 / 11 resolve as N/A and do not count against `failures` (see § Auto-Approval Protocol).
-- The journey artifact is `user_journey.integration.md` (backend-only/integration) or `user_journey.md` (legacy pre-EVOL-019). Both carry the same Data Schema authority.
+- The journey artifact is `user_journey.integration.md` (backend-only/integration) or `user_journey.md` (legacy). Both carry the same Data Schema authority.
 
 The spec.feature and the selected journey variant are sufficient downstream input for BLUEPRINT `--start` on non-UI features.
 
@@ -413,7 +413,7 @@ The spec.feature and the selected journey variant are sufficient downstream inpu
 
 Ensures bidirectional 100% alignment across all applicable artifacts. Zero edge cases or missing representations allowed — downstream agents (BLUEPRINT, IMPLEMENT) depend on this being COMPLETE.
 
-**Scope-aware matrix (EVOL-019):**
+**Scope-aware matrix:**
 
 | feature_scope | Artifacts in play | Applicable checks |
 |---|---|---|
@@ -503,9 +503,9 @@ When any check fails:
 
 **Branch Strategy:** CREATES new feature branch from main. REQUIRES explicit Feature ID from user.
 
-**Scope input (EVOL-019):** Accepts `--scope={full-stack|backend-only|frontend-only|integration}`. When omitted, defaults to `project_scope` from the governance snapshot. The Scope Compatibility Gate below validates the combination before any artifact is generated.
+**Scope input:** Accepts `--scope={full-stack|backend-only|frontend-only|integration}`. When omitted, defaults to `project_scope` from the governance snapshot. The Scope Compatibility Gate below validates the combination before any artifact is generated.
 
-### Scope Compatibility Gate (EVOL-019 — BLOCKING, runs BEFORE Vision Gate)
+### Scope Compatibility Gate (BLOCKING, runs BEFORE Vision Gate)
 
 ```yaml
 FUNCTION scope_compatibility_gate(FEATURE_ID, requested_scope):
@@ -537,14 +537,14 @@ FUNCTION scope_compatibility_gate(FEATURE_ID, requested_scope):
 
 The resolved `feature_scope` is written to `spec.feature`, `user_journey.md` (or `user_journey.integration.md` when scope in [backend-only, integration]), and — after BLUEPRINT `--start` — to `design.md` and `test_plan.md`. It is immutable after auto-approval.
 
-### Vision Gate (UI Features — scope-aware EVOL-019)
+### Vision Gate (UI Features — scope-aware)
 Runs ONLY when `feature_scope IN [full-stack, frontend-only]` AND `frontend.framework != "None"`:
 - **BLOCKS** if `docs/ux/vision/vision.md` does not exist or is not `status: APPROVED`
 - Template composition: `app_shell.html` shell wraps feature's `<main>` content in mock.html
 
 When `feature_scope IN [backend-only, integration]`: Vision Gate is **N/A**. No mock.html is generated, no app_shell composition, no Visual DNA checks. `user_journey.md` is replaced by `user_journey.integration.md` (see template selector below).
 
-### Template Selector (EVOL-019)
+### Template Selector
 
 | feature_scope | spec.feature | mock.html | user_journey variant |
 |---|---|---|---|
@@ -554,13 +554,13 @@ When `feature_scope IN [backend-only, integration]`: Vision Gate is **N/A**. No 
 | `integration` | `codesign/gherkin_master_template.feature` | **N/A — not generated** | `codesign/user_journey.integration.md` |
 
 ### Execution Flow (BIP — Batch Interactivity Protocol)
-1. **Phase 0.3: Scope Compatibility Gate** (EVOL-019 — see above). BLOCK if incompatible. Persist resolved `feature_scope` into `_progress` for downstream phases.
+1. **Phase 0.3: Scope Compatibility Gate** (see above). BLOCK if incompatible. Persist resolved `feature_scope` into `_progress` for downstream phases.
 2. Validate prerequisites (constitution; ux-constitution + vision gate ONLY when `feature_scope IN [full-stack, frontend-only]`)
 3. Phase 0.5: CIP Domain Concept Check
-4. **Phase 0.6: Defect Prevention Consultation (Advisory — v2.0.0 EVOL-014; scope-aware EVOL-019)**
+4. **Phase 0.6: Defect Prevention Consultation (Advisory; scope-aware)**
    ```yaml
    # Consult the Defect Prevention Catalog filtered to this agent
-   has_ui = feature_scope IN ["full-stack", "frontend-only"]   # EVOL-019 — scope is the canonical UI predicate
+   has_ui = feature_scope IN ["full-stack", "frontend-only"]   # scope is the canonical UI predicate
    applicable_dcs = consult_defect_catalog("CODESIGN", {feature_id: FEATURE_ID, has_ui: has_ui, feature_scope: feature_scope})
    IF applicable_dcs is not empty:
      # Advisory only — no blocking
@@ -588,11 +588,11 @@ FUNCTION codesign_auto_approve(FEATURE_ID):
 
   base_path = "docs/spec/{FEATURE_ID}"
   failures = []
-  feature_scope = READ("{base_path}/spec.feature").frontmatter.scope   # EVOL-019
+  feature_scope = READ("{base_path}/spec.feature").frontmatter.scope
   has_ui = feature_scope IN ["full-stack", "frontend-only"]
   journey_file = has_ui ? "user_journey.md" : "user_journey.integration.md"
 
-  # EVOL-019 CHECK 0 — Scope compatibility gate (always-on; re-verify after --refine)
+  # CHECK 0 — Scope compatibility gate (always-on; re-verify after --refine)
   CHECK 0: feature_scope is compatible with project_scope from governance snapshot
            (re-run scope_compatibility_gate; fail here if project_scope was changed after --start,
            which can happen only via a post-hoc edit to docs/setup.md — a governance-scope violation).
@@ -615,7 +615,7 @@ FUNCTION codesign_auto_approve(FEATURE_ID):
   CHECK 11: [has_ui ? "Empty/loading states for critical entities in mock.html (every `imp-step` section has data-state divs for default + empty + loading + error at minimum)" : "N/A (no mock.html)"]
   CHECK 12: All Data Schemas have types and constraints for required fields
 
-  # Integration-scope addendum (EVOL-019 — when feature_scope=integration):
+  # Integration-scope addendum (when feature_scope=integration):
   # CHECK 13 (Phase 2 material): external system contract declared in spec.feature § External Systems + {journey_file} § Section 5.
 
   FOR EACH check IN [0..12]:

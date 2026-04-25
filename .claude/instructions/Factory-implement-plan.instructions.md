@@ -19,11 +19,11 @@ IF test_plan.md missing OR status != APPROVED:
   ❌ BLOCK: "Test plan not approved. Run BLUEPRINT --approve first."
 ```
 
-### CONTRACT-FREEZE Gate (v14.0.0 — EVOL-014, full-sdlc preset only; scope-aware EVOL-019)
+### CONTRACT-FREEZE Gate (full-sdlc preset only; scope-aware)
 
 Enforces the CONTRACT-FREEZE hard gate from the 8-phase `full-sdlc` preset (see [Factory-backlog-operations.instructions.md](Factory-backlog-operations.instructions.md) § 1.1). Blocks `IMPLEMENT --plan` until the feature's API contracts are frozen and the contract test harness exists.
 
-**EVOL-019 framing.** This gate is the **primary design output** for features with `scope IN [backend-only, integration]` — those features are *entirely defined* by the frozen contract surface (no UI, no mock.html to verify). For `scope=frontend-only` features there is typically **no own contract to freeze** (the feature consumes upstream contracts via `consumes_contract` — see the Consumes-Contract Upstream Freeze Gate below); the gate still runs but the "contract directory non-empty" check is relaxed to allow client-side type declarations only. For `scope=full-stack` the gate behaves as it did pre-EVOL-019.
+**Framing.** This gate is the **primary design output** for features with `scope IN [backend-only, integration]` — those features are *entirely defined* by the frozen contract surface (no UI, no mock.html to verify). For `scope=frontend-only` features there is typically **no own contract to freeze** (the feature consumes upstream contracts via `consumes_contract` — see the Consumes-Contract Upstream Freeze Gate below); the gate still runs but the "contract directory non-empty" check is relaxed to allow client-side type declarations only. For `scope=full-stack` the gate behaves as it did pre-EVOL-019.
 
 ```yaml
 READ docs/setup.md → project_tracking.feature_phases
@@ -31,7 +31,7 @@ IF feature_phases != "full-sdlc":
   ✅ SKIP gate — simplified/single presets do not ship CONTRACT-FREEZE
   RETURN
 
-# EVOL-019: load feature scope for scope-aware checks
+# load feature scope for scope-aware checks
 feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
 has_backend_surface = feature_scope IN ["full-stack", "backend-only", "integration"]
 
@@ -88,7 +88,7 @@ IF "stale-after-cascade" IN issue.labels:
 
 > **Trust model.** Contract files (OpenAPI YAML, TypeScript interface files, GraphQL SDL, Protobuf, etc.) live in their respective DSL formats without markdown frontmatter — there is no `status` field to read on a `.yaml` or `.ts` file. The CONTRACT-FREEZE gate issue being `Done` (and NOT carrying the `stale-after-cascade` label) IS the source of truth that the contracts under `docs/spec/{FEATURE_ID}/contracts/` are frozen and valid. Upstream changes that would invalidate the contracts trigger a cascade that relabels the gate issue and moves it back to Todo via the tool-adapter (see `Factory-iteration-model/SKILL.md` § CASCADE_PENDING_ITERATION → contracts_freeze branch). This gives a single, tool-agnostic, frontmatter-free validation point.
 
-### Consumes-Contract Upstream Freeze Gate (EVOL-019 — BLOCKING, runs AFTER CONTRACT-FREEZE)
+### Consumes-Contract Upstream Freeze Gate (BLOCKING, runs AFTER CONTRACT-FREEZE)
 
 Validates that every upstream feature listed in `spec.feature.consumes_contract` has a frozen contract before this feature's implementation plan is generated. Without this gate, a downstream feature can implement against an APPROVED-but-not-yet-frozen upstream design, and the resulting code silently binds to a pre-freeze schema that the upstream may still change.
 
@@ -160,7 +160,7 @@ FUNCTION consumes_contract_upstream_freeze_gate(FEATURE_ID):
   ✅ All consumed upstream contracts are frozen and current — proceed
 ```
 
-**Pair with the BLUEPRINT-side gate.** The same `consumes_contract` list is validated at `BLUEPRINT --start` by the Consumes-Contract Resolution Gate (Phase 1, EVOL-019) — that one runs before the downstream design is even drafted. This IMPLEMENT-side gate is the second enforcement point: the upstream must still be APPROVED + frozen + current at implementation time (a regression would be caught by the cascade labelling). Together they make consumes_contract a load-bearing primitive, not just a documentation field.
+**Pair with the BLUEPRINT-side gate.** The same `consumes_contract` list is validated at `BLUEPRINT --start` by the Consumes-Contract Resolution Gate (Phase 1) — that one runs before the downstream design is even drafted. This IMPLEMENT-side gate is the second enforcement point: the upstream must still be APPROVED + frozen + current at implementation time (a regression would be caught by the cascade labelling). Together they make consumes_contract a load-bearing primitive, not just a documentation field.
 
 ### UX Vision Gate (v12.0.0)
 ```yaml
@@ -244,12 +244,12 @@ ELSE:
   LOG: "IMPLEMENT --plan will expand {target_increments.length} increment(s): {[i.id for i in target_increments]}"
 ```
 
-### Defect Prevention Consultation (v2.0.0 — EVOL-014)
+### Defect Prevention Consultation
 
 ```yaml
 # Consult the Defect Prevention Catalog filtered to this agent, project applicable DCs
 # as mandatory tasks in dev_plan.md § DC Compliance.
-feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # EVOL-019 Phase 2+3 — pass to DPC Filter 2 so dev_plan § DC Compliance only contains scope-relevant tasks
+feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # pass to DPC Filter 2 so dev_plan § DC Compliance only contains scope-relevant tasks
 applicable_dcs = consult_defect_catalog("IMPLEMENT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
 
 IF applicable_dcs is not empty:

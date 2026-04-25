@@ -91,18 +91,18 @@ FUNCTION derive_sweep_scopes(applicable_dcs):
   RETURN scopes.values()  # one entry per non-empty scope
 ```
 
-### Feature-scope filter (EVOL-019 Phase 3 — runs BEFORE derive_sweep_scopes)
+### Feature-scope filter (runs BEFORE derive_sweep_scopes)
 
 ```yaml
 FUNCTION filter_dcs_by_feature_scope(applicable_dcs, feature_scope):
-  # EVOL-019 Phase 3 — filter DCs so only scope-relevant patterns are swept.
+  # filter DCs so only scope-relevant patterns are swept.
   # This complements the per-DC feature_scope field (DPC v2.2.0 — Filter 2 in consult_defect_catalog)
   # by applying a sweep-wide second pass keyed on sweep-scope buckets, not per-DC:
   #   * scope=frontend-only  → drop backend + cross-cutting-API scopes (no backend surface to sweep)
   #   * scope=backend-only   → drop frontend scope (no UI surface to sweep)
   #   * scope=integration    → drop frontend scope; KEEP cross-cutting + infra + backend (integration hits all these)
   #   * scope=full-stack     → keep all (full sweep)
-  #   * scope=unknown/legacy → keep all (pre-EVOL-019 behaviour, backward-compatible)
+  #   * scope=unknown/legacy → keep all (backward-compatible)
   filtered = []
   FOR EACH dc IN applicable_dcs:
     sweep_scope = classify_scope(dc.applicable_when)  # backend | frontend | infra | cross-cutting | data | security | ...
@@ -120,7 +120,7 @@ FUNCTION filter_dcs_by_feature_scope(applicable_dcs, feature_scope):
         # keep everything
         pass
       default:
-        # unknown / legacy pre-EVOL-019 — keep everything
+        # unknown / legacy — keep everything
         pass
     IF keep: filtered.push(dc)
   LOG: "Preventive sweep scope filter: feature_scope={feature_scope} — {len(applicable_dcs)} → {len(filtered)} DCs retained"
@@ -131,7 +131,7 @@ FUNCTION filter_dcs_by_feature_scope(applicable_dcs, feature_scope):
 
 ```yaml
 FUNCTION run_sweep(applicable_dcs, feature_id):
-  # EVOL-019 Phase 3 — read feature.scope from spec.feature frontmatter + filter DCs
+  # read feature.scope from spec.feature frontmatter + filter DCs
   # before deriving sweep scopes. feature_id is the FEAT-XXX being swept — the caller
   # (Factory-devops-provision-deploy or manual invocation) passes it explicitly.
   feature_scope = READ("docs/spec/{feature_id}/spec.feature").frontmatter.scope OR "full-stack"

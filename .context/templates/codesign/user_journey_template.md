@@ -1,7 +1,7 @@
 ---
 status: DRAFT
 feature_id: "{{FEATURE_ID}}"
-scope: full-stack  # EVOL-019 dual-axis — must match scope in spec.feature; when in [backend-only, integration], use user_journey.integration.md variant
+scope: full-stack  # dual-axis — must match scope in spec.feature; when in [backend-only, integration], use user_journey.integration.md variant
 co_creation_round: 0
 po_sign_off: false
 ux_sign_off: false  # N/A when scope in [backend-only, integration]

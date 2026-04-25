@@ -32,7 +32,7 @@ last_update: [TIMESTAMP]
 - **Monthly Budget Limit:** [$X USD/month]
 - **Budget Tracking:** Enabled (cross-feature accumulation, 80% warning threshold, monthly reset with history archive)
 
-### 0.1 Project Scope (EVOL-019 — dual-axis scope model)
+### 0.1 Project Scope (dual-axis scope model)
 - **Project Scope:** [full-stack | backend-only | frontend-only | integration]
 - **Compatibility with feature.scope:**
   - `full-stack` → any feature.scope (full-stack | backend-only | frontend-only | integration)

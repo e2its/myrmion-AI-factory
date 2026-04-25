@@ -11,7 +11,7 @@ date: [DATE]
 auditor: "QA Agent"
 report_kind: "qa_report_final"
 
-# Iteration model tracking (EVOL-014)
+# Iteration model tracking
 based_on_iteration: 1
 based_on_schemas_version: 1
 
@@ -68,7 +68,7 @@ warning_count: 0
 - [ ] [QA-DAST-2] Full scan (if test_plan.dast_scan_type == "full")
 - [ ] [QA-DAST-3] API scan (if API contracts exist)
 
-### Defect Prevention Catalog (v2.0.0 — EVOL-014)
+### Defect Prevention Catalog
 - [ ] [QA-DC-{N}] {DC name}: {DC check} — one row per DC entry with `applicable_to: QA` matching the feature/stack
 
 ## 1. Static Analysis

@@ -34,7 +34,7 @@ LLM context windows are finite (128K in Copilot). When conversation history is s
 > **RULE: NEVER assume governance context from conversation memory.** Always read from files.
 > After summarization, everything you "knew" about the project's stack, rules, and constraints is GONE.
 
-### Deterministic Drift Detection (PreToolUse Hook — EVOL-013)
+### Deterministic Drift Detection (PreToolUse Hook)
 
 > **Hook:** `.claude/hooks/check-governance-drift.sh` — registered as PreToolUse on `Edit|Write`.
 > Computes MD5 of `docs/constitution.md` and `docs/setup.md`, compares against snapshot frontmatter hashes.
@@ -100,7 +100,7 @@ FUNCTION load_governance_context():
     
     ELSE:
       ⚠️ Snapshot STALE — constitution.md or setup.md changed since snapshot was generated
-      # NOTE: check-governance-drift.sh (EVOL-013) also detects this condition on every
+      # NOTE: check-governance-drift.sh also detects this condition on every
       # Edit/Write via PreToolUse hook. If you see a WARNING from that hook, this is why.
       stale_sources = []
       IF NOT constitution_valid: stale_sources.append("constitution.md")
