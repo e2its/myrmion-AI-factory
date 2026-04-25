@@ -30,7 +30,7 @@ Before touching any framework file, the Pre-Action Gate (branch protocol) is bin
 Governance loaded: constitution {hash8}, setup {hash8} | SDLC-first triage: ON
 ```
 
-The banner is produced deterministically by `scripts/validate-governance.sh --banner` wired as a `SessionStart` hook. If it does not appear, governance is not loaded — investigate before proceeding. If the snapshot is missing or the hashes diverge from `docs/constitution.md` + `docs/setup.md`, the `UserPromptSubmit` freshness gate (`scripts/governance-onprompt.sh`) blocks the prompt with a `Governance snapshot stale` message. See [README § Governance always-on enforcement](README.md#governance-always-on-enforcement-3-tier) for the 3-tier design.
+The banner is produced deterministically by `scripts/validate-governance.sh --banner` wired as a `SessionStart` hook. If it does not appear, governance is not loaded — investigate before proceeding. If the snapshot is missing or the hashes diverge from `docs/constitution.md` + `docs/setup.md`, the `UserPromptSubmit` freshness gate (`scripts/governance-onprompt.sh`) emits an advisory `<governance-warning reason="snapshot-stale">` block on stdout. When an Edit/Write touches `docs/constitution.md` or `docs/setup.md` in the same session, the `PostToolUse` hook (`scripts/governance-onedit.sh`) leaves a session-scoped marker; the next prompt receives `<governance-source-edited paths="...">` with regen instruction (Factory-governance-loading SKILL § Step 1 POST-LOAD) and the freshness warning is suppressed. The hook always exits 0. See [README § Governance always-on enforcement](README.md#governance-always-on-enforcement-4-tier).
 
 ## Meta-Framework Triage — MANDATORY
 

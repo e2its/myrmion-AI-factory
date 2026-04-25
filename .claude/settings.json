@@ -61,6 +61,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/governance-onedit.sh"
+          }
+        ]
+      }
     ]
   }
 }
