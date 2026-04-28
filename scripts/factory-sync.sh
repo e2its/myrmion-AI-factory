@@ -12,7 +12,7 @@
 # WHAT IT SYNCS (framework-owned, overwritten unless --preserve-local):
 #   .claude/commands/*.md
 #   .claude/instructions/Factory-*.instructions.md
-#   .claude/skills/Factory-*/SKILL.md
+#   .claude/skills/Factory-*/  (entire tree: SKILL.md + references/ + scripts/ + assets/)
 #   .claude/hooks/*.sh
 #   scripts/auto-tag.sh, security-scan.sh, validate-governance.sh
 #   scripts/governance-onprompt.sh, governance-oncompact.sh, governance-onedit.sh
@@ -215,7 +215,10 @@ sync_dir() {
   done
 }
 
-# Sync skill directories (each has SKILL.md inside)
+# Sync skill directories — copies the FULL tree of each Factory-* skill
+# (SKILL.md + any references/, scripts/, assets/, README.md, etc.).
+# Multi-file skills (e.g. Factory-pr-review) carry runtime artefacts beyond
+# SKILL.md; SKILL-only sync would leave them inert.
 sync_skills() {
   local src_dir="$1"
   local dst_dir="$2"
@@ -224,9 +227,7 @@ sync_skills() {
     [[ -d "$skill_dir" ]] || continue
     local skill_name
     skill_name="$(basename "$skill_dir")"
-    local src_skill="$skill_dir/SKILL.md"
-    local dst_skill="$dst_dir/$skill_name/SKILL.md"
-    sync_file "$src_skill" "$dst_skill"
+    sync_tree "$skill_dir" "$dst_dir/$skill_name"
   done
 }
 
