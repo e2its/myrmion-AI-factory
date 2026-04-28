@@ -60,6 +60,15 @@
             "command": "bash .claude/hooks/check-ipp-compliance.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-push-preflight.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
