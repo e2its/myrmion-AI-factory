@@ -207,6 +207,8 @@ The hook script reads stdin JSON, extracts `tool_input.command`, matches `/(^|\s
 
 The skill is framework code; it ships identical to every project. **Project-specific behaviour comes from project rules and ADRs**, NOT from skill defaults.
 
+> **Scope note.** This skill is the **push gate**. It is NOT the inline 🔍 REVIEW hat that runs during `IMPLEMENT --build` (DEV ↔ REVIEW ↔ SEC). Those are governed by `.claude/rules/review-policy.md` and live inside the BVL cycle. The push gate is a downstream, independent concern: it runs at `git push` time on the cumulative branch diff, regardless of what happened during IMPLEMENT.
+
 ### Hierarchy (highest to lowest, on conflict)
 
 1. **`docs/constitution.md`** — project constitution. The Hard-Gate categories (CIP, CVP, IPP, BVL, GCRP) are constitutional and cannot be disabled.
@@ -216,19 +218,33 @@ The skill is framework code; it ships identical to every project. **Project-spec
 
 If a project rule disagrees with a skill default, the project rule wins. If an ADR documents a deviation from a project rule, the ADR wins. The skill NEVER imposes its own pattern over a project decision.
 
-### Project rule files consumed
+### Project rule files consumed by the push gate
 
-| Block / category | Authoritative rule file | What the skill reads |
+Honest, narrow surface — only files the preflight script actually reads (or that drive a hard block deterministically). Everything else lives in the **NOT consumed** section below to prevent scope creep.
+
+| Block / category | Authoritative file | What the push gate reads |
 |---|---|---|
-| Branch protection (Block 10), base branch | `.claude/rules/branching.instructions.md` | Branch patterns regex, default base branch, merge policy |
-| Review strictness levels, exclusion globs, retry policy, override mechanism | `.claude/rules/review-policy.md` | `review_levels_by_environment`, `review_exclusions[]`, `override` config |
-| Secrets patterns, security gates (Block 3, 4) | `.claude/rules/security_policy.md` | Project-specific secret regexes (extend skill defaults) |
-| Test policy (Block 5) | `.claude/rules/testing.md` | "1 Logic = 1 Unit Test", coverage thresholds, deletion rules |
-| Protected code (Block 12) | `.claude/rules/protected-code.md` + `config/protected-paths.json` | Protected globs, PROTECTED-CODE markers |
-| DRY / CIP (Block 7) | `config/codebase_inventory.json` | Component registry for reuse check |
-| API contract policy (Block 1, 2) | `.claude/rules/contract-first-policy.md` + `.claude/rules/api-standards.md` | Spec location overrides (e.g. `contracts/openapi/v3/main.yaml` instead of repo-root `openapi.yaml`), versioning policy |
-| Architecture compliance | `.claude/rules/architecture.md` | Layer dependency rules, module boundaries |
-| Defect prevention (DC catalog) | `.claude/rules/defect-prevention.md` | Project-specific runtime defect classes |
+| Branch protection (Block 10), base branch | `.claude/rules/branching.instructions.md` | `default_base_branch` field (`origin/{x}`); branch-name regex (when present) for Block 10 validation. |
+| Protected paths (Block 12) | `config/protected-paths.json` | Glob list — every changed path is matched against it; any match → 🔴 Blocker. |
+| Protected code markers | `.claude/rules/protected-code.md` | The `PROTECTED-CODE START/END` marker convention. Push gate scans diff hunks; modifications inside a marker region → 🔴 Blocker. |
+| ADR-driven exemptions | `docs/project_log/adr/*.md` (project-wide) + `docs/spec/{ID}/adr/*.md` (feature-scoped) | `pr_review_overrides:` frontmatter (see § ADR-driven exemptions below). |
+| Governance manifest (meta only) | `.context/templates/setup/governance_versions.json` | Existence + diff-touched-without-update check (Block 11, framework meta only). |
+
+That's it. Anything not in this list is NOT consumed. If the push gate were to start consuming a new rule file, that change ships in a new EVOL with explicit manifest entries.
+
+### NOT consumed (different reviewer, different lifecycle)
+
+Same disambiguation pattern as `review-policy.md`:
+
+- `.claude/rules/review-policy.md` — BVL/IMPLEMENT 🔍 REVIEW hat policy (DEV ↔ REVIEW retry loop, escalation, override, environment-driven strictness). Different reviewer, different lifecycle.
+- `.claude/rules/security_policy.md` — high-level project security policy (allowed crypto, PII handling, OWASP stance, threat model). Consumed by 🛡️ SEC hat in IMPLEMENT --build (SAST + dependency audit), QA --verify (DAST), and AUDIT (compliance dimension). The push gate's secret-pattern regexes are NOT here — they live in `scripts/detect_change_type.py` and may be extended only via skill changes (manifest-tracked), not via project rules.
+- `.claude/rules/testing.md` — testing policy (coverage thresholds, framework choice, AAA pattern). Consumed by BVL during DEV ↔ REVIEW (coverage gate), IMPLEMENT --build (TDD enforcement), QA --verify (test-plan execution). The push gate's "tests-deleted-without-justification" check (Block 5) reads the diff alone, not the policy file.
+- `.claude/rules/architecture.md` — layer dependency rules, module boundaries. Consumed by BLUEPRINT (design.md §7.8 Mandatory Patterns), BVL REVIEW hat (Check #1), AUDIT. The push gate does NOT enforce architecture; that is a deeper, design-time concern.
+- `.claude/rules/contract-first-policy.md` + `.claude/rules/api-standards.md` — contract authoring + versioning policy. Consumed by BLUEPRINT (CONTRACT-FREEZE gate), `Factory-coherence-validation/SKILL.md` (CVP Check 14/15). The push gate's API contract checks (Blocks 1, 2) operate on the **spec files themselves** via oasdiff/asyncapi-cli; the policy text governs how specs are written, not how the push gate reads them.
+- `.claude/rules/defect-prevention.md` — DC catalog. Consumed by every SDLC agent listed in each entry's `applicable_to:` field (see CLAUDE.md § Living Governance Catalogs). The push gate is NOT in the consumer list — defect prevention is a design-and-build-time concern, not a push-time one.
+- `config/codebase_inventory.json` — component registry. Consumed by `Factory-codebase-inventory/SKILL.md` (CIP Canary at IMPLEMENT --build), AUDIT (DRY dimension). Block 7 in this skill (CIP) is a **policy reminder**, not a deterministic check — the push gate does NOT scan the inventory; it relies on the upstream CIP Canary having run during IMPLEMENT --build. If you push code that bypassed CIP Canary (e.g. edited outside Claude), the push gate will not catch it; QA --verify is the next gate.
+
+The pattern: each rule file has ONE primary consumer. Multiple agents may read different slices, but ONE skill or SDLC phase owns the binding-decision authority. The push gate is deliberately narrow — it covers the things that are cheap and deterministic at push time, and defers everything else to its proper owner.
 
 ### ADR-driven exemptions
 
@@ -249,18 +265,6 @@ pr_review_overrides:
 The skill reads `pr_review_overrides:` from every ADR under `docs/project_log/adr/` (project-wide) and `docs/spec/{ID}/adr/` (feature-scoped, when the diff is feature-bounded). Project-wide ADRs override skill defaults; feature-scoped ADRs override project-wide rules within the feature scope only. Anything not declared in an override stays at the rule-file default.
 
 A project that wants to disable a check entirely declares it in an ADR (which is itself reviewed and ratified). There is no per-developer escape hatch — bypassing the gate without an ADR is a governance-scope violation.
-
-### Strictness levels
-
-`review-policy.md` declares `review_levels_by_environment` (STRICT / STANDARD / RELAXED). The push gate maps levels to behaviour:
-
-| Level | Block scope | Important findings | Nits |
-|---|---|---|---|
-| STRICT | All 12 blocks active | Surfaced + counted | Surfaced |
-| STANDARD | All blocks active except aesthetic | Surfaced + counted | Suppressed |
-| RELAXED | Only blocks 3 (secrets), 4 (high-sev security), 12 (protected) active | Suppressed | Suppressed |
-
-The level for the current branch is derived from the branch's target environment (read from `.claude/rules/ci-cd.instructions.md` or branch naming convention). Default: STANDARD.
 
 ## Customisation (deprecated path)
 

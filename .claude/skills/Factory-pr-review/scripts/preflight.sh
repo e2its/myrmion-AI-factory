@@ -86,49 +86,6 @@ if [[ -z "$CHANGED_FILES" ]]; then
   exit 0
 fi
 
-# ── Apply review-policy.md exclusions (project-specific, when present) ──
-# .claude/rules/review-policy.md declares `review_exclusions:` — files matching these
-# globs are skipped entirely (mock files, fixtures, generated code, build artefacts).
-# Falls back silently when the rule file is absent (fresh project, framework meta).
-REVIEW_POLICY=".claude/rules/review-policy.md"
-if [[ -f "$REVIEW_POLICY" ]]; then
-  EXCLUSION_GLOBS=$(awk '
-    /^review_exclusions:/ { in_block=1; next }
-    in_block && /^[a-zA-Z]/ { in_block=0 }
-    in_block && /^\s*-\s*"/ {
-      gsub(/^\s*-\s*"/, ""); gsub(/"\s*$/, "")
-      print
-    }
-    /```json/ { in_json=1; next }
-    /```/ && in_json { in_json=0; next }
-    in_json && /"\*\*/ {
-      gsub(/^\s*"/, ""); gsub(/",?\s*$/, "")
-      print
-    }
-  ' "$REVIEW_POLICY" 2>/dev/null | sort -u)
-
-  if [[ -n "$EXCLUSION_GLOBS" ]]; then
-    FILTERED=""
-    while IFS= read -r f; do
-      [[ -z "$f" ]] && continue
-      excluded=false
-      while IFS= read -r glob; do
-        [[ -z "$glob" ]] && continue
-        if "$PYTHON" -c "import fnmatch,sys; sys.exit(0 if fnmatch.fnmatch('$f','$glob') else 1)" 2>/dev/null; then
-          excluded=true; break
-        fi
-      done <<< "$EXCLUSION_GLOBS"
-      [[ "$excluded" == "false" ]] && FILTERED="${FILTERED}${f}
-"
-    done <<< "$CHANGED_FILES"
-    CHANGED_FILES=$(printf '%s' "$FILTERED" | sed '/^$/d')
-    if [[ -z "$CHANGED_FILES" ]]; then
-      log "preflight: every changed path matched review-policy.md exclusions — nothing to review"
-      exit 0
-    fi
-  fi
-fi
-
 # ── Docs-only fast-lane (matches CLAUDE.md Generation Standards §3) ──
 # Allowlist: **/*.md, docs/**, .context/templates/**, .gitignore
 # Hard exclusion: .github/workflows/**
