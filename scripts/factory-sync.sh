@@ -225,6 +225,9 @@ sync_skills() {
 
   for skill_dir in "$src_dir"/Factory-*/; do
     [[ -d "$skill_dir" ]] || continue
+    # Strip trailing slash from glob expansion so sync_tree's
+    # ${src_file#$src_root/} relative-path computation works correctly.
+    skill_dir="${skill_dir%/}"
     local skill_name
     skill_name="$(basename "$skill_dir")"
     sync_tree "$skill_dir" "$dst_dir/$skill_name"
