@@ -151,18 +151,17 @@ Each finding cites file/line/snippet/why/fix per the existing severity rubric (`
 After Phase 0 completes (regardless of verdict count), write a marker file:
 
 ```
-.claude/state/coherence-audit-${session_id}-${branch_sha}.marker
+.claude/state/coherence-audit-${branch_sha}.marker
 ```
 
-- `session_id` = Claude Code session identifier (provided by hook protocol).
 - `branch_sha` = `git rev-parse HEAD` at audit time.
 
 Marker body (JSON, single line):
 ```json
-{"session_id":"...","branch_sha":"...","audited_at":"ISO-8601","governance_sensitive":true,"findings":{"blocker":N,"important":N,"nit":N,"question":N}}
+{"branch_sha":"...","audited_at":"ISO-8601","governance_sensitive":true,"findings":{"blocker":N,"important":N,"nit":N,"question":N}}
 ```
 
-The marker proves Phase 0 ran for this exact `(session, branch sha)` tuple. New commit (sha changes) or new session → marker invalidated → audit must re-run.
+The marker proves Phase 0 ran for this exact tree state (commit sha). New commit → new sha → marker invalidated → audit must re-run. Same code state across sessions reuses the marker — re-auditing identical bytes is wasted work.
 
 #### Step 0.6 — Verdict
 - Any 🔴 Blocker → STOP. Surface findings to user with humanised resolution path. Do NOT write marker (or write marker with `"blocker": >0` and let preflight.sh refuse to proceed).

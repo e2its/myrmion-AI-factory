@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# preflight.sh — Factory PR Review push-gate orchestrator (v1.1.0)
+# preflight.sh — Factory PR Review push-gate orchestrator (v1.1.1)
 #
 # Runs the local quality gate before `git push`. Aggregates findings from:
 #   - detect_change_type.py     (classification + secrets heuristic)
@@ -167,16 +167,13 @@ except Exception:
 
   if [[ "$GOVERNANCE_SENSITIVE" == "true" ]]; then
     BRANCH_SHA=$(git rev-parse HEAD 2>/dev/null || echo '')
-    SID="${CLAUDE_SESSION_ID:-}"
-    SID_SAFE=$(printf '%s' "$SID" | tr -cd 'A-Za-z0-9_-')
-
-    if [[ -z "$SID_SAFE" ]]; then
-      log "preflight: coherence-audit marker check skipped (no CLAUDE_SESSION_ID — manual invocation)"
+    if [[ -z "$BRANCH_SHA" ]]; then
+      log "preflight: cannot resolve HEAD — skipping coherence-audit marker check"
     else
-      MARKER_FILE=".claude/state/coherence-audit-${SID_SAFE}-${BRANCH_SHA}.marker"
+      MARKER_FILE=".claude/state/coherence-audit-${BRANCH_SHA}.marker"
       if [[ ! -f "$MARKER_FILE" ]]; then
         # Defer add_finding (FINDINGS_FILE not yet created) — store and emit after.
-        DEFERRED_COHERENCE_FINDING="blocker|coherence-audit-missing|Governance-sensitive diff (touches $ROOT_SETS via config/coherence-context.json) requires Factory-pr-review Phase 0 Coherence Audit. Marker file '$MARKER_FILE' not found. Run the SKILL Phase 0 (read SKILL.md § Phase 0 — Coherence Audit) before pushing."
+        DEFERRED_COHERENCE_FINDING="blocker|coherence-audit-missing|Governance-sensitive diff requires Factory-pr-review Phase 0 Coherence Audit. Marker file '$MARKER_FILE' not found. Run the SKILL Phase 0 (read SKILL.md § Phase 0 — Coherence Audit) before pushing — the audit writes the marker on completion."
       else
         # Marker exists — parse JSON, look at blocker count.
         MARKER_BLOCKERS=$("$PYTHON" -c '

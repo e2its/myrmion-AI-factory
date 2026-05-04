@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# check-push-preflight.sh — PreToolUse Bash hook: Factory PR Review push gate (v1.1.0)
+# check-push-preflight.sh — PreToolUse Bash hook: Factory PR Review push gate (v1.1.1)
 # ============================================================================
 # Reads stdin JSON from Claude Code hook protocol.
 # When the Bash command contains `git push`, runs the Factory-pr-review
 # preflight script. Hard-blocker findings exit 1 (block); other outcomes
 # pass through. Tool-call failures (preflight exit 2) are treated as
 # warnings, NOT blocks (defence-in-depth must not break legitimate pushes).
-#
-# v1.1.0 — also extracts .session_id from stdin and exports it as
-# CLAUDE_SESSION_ID so preflight.sh Step 0 can locate the coherence-audit
-# marker file (.claude/state/coherence-audit-${session_id}-${branch_sha}.marker).
 # ============================================================================
 
 set -u
@@ -17,21 +13,12 @@ set -u
 # Read stdin JSON (Claude Code passes the tool call here)
 INPUT="$(cat)"
 
-# Best-effort parse: extract tool_input.command and session_id
+# Best-effort parse: extract tool_input.command
 CMD=$(printf '%s' "$INPUT" | python3 -c '
 import sys, json
 try:
     d = json.load(sys.stdin)
     print(d.get("tool_input", {}).get("command", ""))
-except Exception:
-    pass
-' 2>/dev/null)
-
-SID=$(printf '%s' "$INPUT" | python3 -c '
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get("session_id", ""))
 except Exception:
     pass
 ' 2>/dev/null)
@@ -64,8 +51,7 @@ if [ ! -x "$PREFLIGHT" ]; then
 fi
 
 # Run preflight quietly; capture output and exit code.
-# Export CLAUDE_SESSION_ID so preflight Step 0 (coherence-audit marker) can locate the marker.
-OUTPUT="$(CLAUDE_SESSION_ID="$SID" "$PREFLIGHT" 2>&1)"
+OUTPUT="$("$PREFLIGHT" 2>&1)"
 RC=$?
 
 case $RC in
