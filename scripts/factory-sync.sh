@@ -34,7 +34,7 @@
 #     --dry-run          Show what would change without modifying files
 #     --verbose          Show detailed file-by-file output
 #     --force            Skip confirmation prompt
-#     --greenfield       Allow target without docs/setup.md (pre-materialization)
+#     --greenfield       Force pre-materialization mode even when docs/spec/ has feature dirs (override the "instantiated project with missing setup.md" guard)
 #     --preserve-local   Do NOT overwrite targets that differ from source (report only)
 #
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -98,12 +98,25 @@ if [[ ! -f "$FRAMEWORK_ROOT/CLAUDE.md" ]] || [[ ! -d "$FRAMEWORK_ROOT/.context/t
 fi
 
 IS_GREENFIELD=false
+# Detection contract:
+#   docs/setup.md present  → fully instantiated (post /setup --generate). Sync proceeds normally.
+#   docs/setup.md absent   → pre-instantiation. Two sub-cases:
+#     (a) docs/spec/ holds feature directories → suspicious (setup.md lost while spec
+#         work was already in progress). ERROR unless --greenfield.
+#     (b) otherwise → legitimate "framework-installed but instantiation-pending" state.
+#         Auto-greenfield. Common case: a previous factory-sync seeded skills/hooks/
+#         CLAUDE.md on a target before /setup ran (Nexus-Tech-Link is canonical).
 if [[ ! -f "$TARGET_PROJECT/docs/setup.md" ]]; then
-  if $GREENFIELD || [[ ! -f "$TARGET_PROJECT/CLAUDE.md" && ! -d "$TARGET_PROJECT/docs/project_log" ]]; then
+  HAS_SPEC_DIRS=false
+  if [[ -d "$TARGET_PROJECT/docs/spec" ]] && [[ -n "$(find "$TARGET_PROJECT/docs/spec" -mindepth 1 -maxdepth 1 -type d -print -quit 2>/dev/null)" ]]; then
+    HAS_SPEC_DIRS=true
+  fi
+
+  if $GREENFIELD || ! $HAS_SPEC_DIRS; then
     IS_GREENFIELD=true
   else
-    echo -e "${RED}ERROR: Target has CLAUDE.md or docs/project_log/ but no docs/setup.md${NC}"
-    echo "This looks like a materialized project with a missing setup.md — investigate before sync."
+    echo -e "${RED}ERROR: Target has docs/spec/ feature directories but no docs/setup.md${NC}"
+    echo "This indicates an instantiated project where setup.md was lost while spec work was already in progress — investigate before sync."
     echo "Pass --greenfield to force pre-materialization mode."
     exit 1
   fi
