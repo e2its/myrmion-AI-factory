@@ -3,7 +3,7 @@ name: Factory-pr-review
 description: "Factory PR Review — five-axis review (code, code↔docs, API contracts, ADR, traceability) wired as a PUSH GATE (preflight before `git push`) and an assistive PR reviewer for already-pushed branches. Maps blockers to framework Hard Gates (CIP, CVP, IPP, BVL, GCRP). Use when: a Bash `git push` is about to fire (auto-invoked by hook) OR the user explicitly asks to review a branch / open PR."
 ---
 
-# Factory PR Review — Push Gate + Assistive Reviewer (v1.0.0)
+# Factory PR Review — Push Gate + Assistive Reviewer (v1.1.0)
 
 > **Shared Protocol** — Referenced by: ALL agents that ship code (IMPLEMENT, QA, DEVOPS, CODESIGN/BLUEPRINT for spec-bearing PRs) + the `check-push-preflight.sh` hook.
 > Position in the SDLC: runs **immediately before `git push`** as a local quality gate. Does NOT replace human review on the PR — it complements it by catching blockers before they hit the PR.
@@ -70,8 +70,17 @@ These extend the generic hard blocks (`SKILL.md` Phase 4 in the upstream skill) 
 | 10 | **Branch-protection drift**: branch name does not match an allowed working pattern (`feature/EVOL-*`, `feature/{ID}-*`, `fix/*`, `bugfix/*`, `hotfix/*`, `docs/*`, `chore/*`) | both | `Factory-branching-strategy/SKILL.md` |
 | 11 | **Governance-bump miss** (framework meta only): change touches a file tracked in `.context/templates/setup/governance_versions.json` but the manifest does NOT change in the same diff | meta only | CLAUDE.md § Generation Standards #2 |
 | 12 | **Protected-code modified**: diff touches a path listed in `config/protected-paths.json` OR a region between `PROTECTED-CODE START/END` markers | downstream | constitution.md + `config/protected-paths.json` |
+| 13 | **Reference coherence**: rename in diff (skill/rule/instruction/command/path/heading) without lock-step propagation to mention sites — broken markdown links, divergent identifier spellings, anchor pointers to non-existent headings | both | Phase 0 Coherence Audit + `config/coherence-context.json` |
+| 14 | **Placeholder leakage**: `{{X}}` token outside `audit.placeholder_allowlist_paths`. Meta allows under `.context/templates/**` only; downstream defaults to no allowlist (any `{{X}}` is a finding) | both | Phase 0 + `config/coherence-context.json` |
+| 15 | **Manifest ↔ disk coherence**: `governance_versions.json` entry pointing to a path that does not exist OR file change without manifest entry update in the same diff. Inverse of Block 11 plus the disk-side check | both | Phase 0 + `config/coherence-context.json` + manifest path |
+| 16-meta | **Meta ↔ template lock-step**: `.claude/X` changed without mirror at `.context/templates/setup/claude/X` (or vice-versa). Source of truth: `audit.lock_step_pairs` of type `meta_template_mirror` | meta only | Phase 0 + `config/coherence-context.json` |
+| 16-downstream | **Code ↔ docs lock-step**: public artefact added/removed/renamed without catalog/index update in CLAUDE.md, docs/, or referenced rule/instruction files. Source of truth: `audit.lock_step_pairs` of type `rename_propagation` and `code_doc_lock_step` | downstream only | Phase 0 + `config/coherence-context.json` |
+| 17 | **Commit ↔ diff coherence**: commit message claims a change that the diff does not show, or the diff carries a structural change the commit message omits (e.g. EVOL-N in commit ≠ branch's EVOL-N; new public field shipped under `chore:` prefix) | both | Phase 0 (semantic judgment) |
+| 18 | **Bump severity ↔ change kind coherence**: `governance_versions.json` bump kind (PATCH/MINOR/MAJOR) does not match the actual nature of the diff (new feature → MINOR; breaking contract → MAJOR; bug fix only → PATCH). Inverse cross-check of Generation Standards §2 | both | Phase 0 (semantic judgment) |
 
 Block 11 (Governance-bump miss) is the framework-meta equivalent of "missing CHANGELOG entry". It enforces the rule that lives in the root `CLAUDE.md` Generation Standards §2.
+
+Blocks 13-18 are produced by **Phase 0 Coherence Audit** (semantic, agentic). 13-15 are deterministic-leaning but require the agent to interpret rename intent and lock-step pair semantics; 16 is split by context (one variant active per repo); 17-18 require semantic judgment over commit message + manifest bump kind. All six read their context-specific configuration from `config/coherence-context.json` (`audit.*` keys).
 
 ## Framework artefact ↔ docs sync matrix
 
@@ -88,6 +97,77 @@ Extends `references/docs-sync-checklist.md` with the framework's own artefacts. 
 | `feature.scope` ≠ scope of touched paths (full-stack vs frontend-only vs backend-only) | (Scope Compatibility Gate) | **Blocker** |
 
 ## Workflow (`--preflight`)
+
+### Phase 0 — Coherence Audit (agentic, semantic)
+
+Runs BEFORE all other phases when the diff is **governance-sensitive** (touches any path under `audit.root_sets` of `config/coherence-context.json`, minus `audit.exclusions`). For non-sensitive diffs (e.g. pure UI under `src/components/`, build-tooling-only), Phase 0 is skipped — go straight to Phase 1.
+
+The audit is performed by the agent (Claude), NOT by a deterministic script. Reason: rename intent, lock-step semantics, commit↔diff coherence, and bump-severity judgment all require contextual reasoning that regex/grep cannot reliably perform without false negatives. The deterministic phases (1-6) stay deterministic and cheap; Phase 0 is the one phase that pays a model-call cost in exchange for completeness.
+
+**Scope discipline**: Phase 0 reads ONLY (a) files in the diff and (b) files in the **collateral set** built in Step 0.3. It NEVER scans the whole repo. The collateral set is bounded by `audit.root_sets` minus `audit.exclusions`.
+
+#### Step 0.0 — Skip checks
+- Detached HEAD or protected branch → skip with note (defence-in-depth, not Phase 0's concern).
+- Diff matches the docs-only fast-lane (CLAUDE.md Generation Standards §3) → skip Phase 0; existing fast-lane handles.
+- `config/coherence-context.json` missing → emit humanised warning, treat as `downstream` with empty allowlists, continue.
+
+#### Step 0.1 — Load context
+Read `config/coherence-context.json`. Parse:
+- `context` → `meta` | `downstream`. Selects which Block 16 variant is active and which lock-step pair types apply.
+- `audit.root_sets` → directories the audit is allowed to scan when expanding to collateral.
+- `audit.exclusions` → globs globally excluded.
+- `audit.placeholder_allowlist_paths` → globs where `{{X}}` is permitted (Block 14).
+- `audit.lock_step_pairs` → typed declarations driving Block 16 (`meta_template_mirror` for meta; `rename_propagation` + `code_doc_lock_step` for downstream).
+- `audit.manifest_paths` → manifest location for Blocks 15/18.
+
+#### Step 0.2 — Extract changed symbols from the diff
+Run `git diff --name-status origin/{base}..HEAD` and `git log --format=%B origin/{base}..HEAD`. Extract:
+- **Renamed paths** — git rename detection (`R{score}` entries).
+- **Deleted paths** — files that disappeared.
+- **Moved/renamed identifiers** — section headings changed in `.md` files (`-## OldName` paired with `+## NewName`); `name:` field changes in skill frontmatter; function/class definitions removed/added with similar names.
+- **Public artefact names** — Factory-* skill names, rule names (basename of `.claude/rules/*.instructions.md`), instruction names, command names, hook script names.
+
+Each extracted symbol → search term for Step 0.3.
+
+#### Step 0.3 — Build collateral set
+For each symbol from 0.2, run `git grep -l <symbol>` constrained to `audit.root_sets` minus `audit.exclusions`. Files that match AND are NOT in the diff = collateral set. Read those files in full. The set is naturally bounded — typical EVOLs touch ≤ 5 symbols and ≤ 30 collateral files.
+
+#### Step 0.4 — Apply detectors 13-18
+Run each detector against `diff ∪ collateral`. Routing:
+
+| Detector | Inputs | Verdict cues |
+|---|---|---|
+| 13 Reference coherence | renames + collateral mentions | mention site uses old name → 🔴 Blocker; mention site uses new name → ✅; ambiguous (legitimate historical mention) → ❓ Question with proof of intentionality |
+| 14 Placeholder leakage | diff files + `audit.placeholder_allowlist_paths` | `{{X}}` outside allowlist → 🔴 Blocker; inside allowlist → ✅ |
+| 15 Manifest ↔ disk | manifest at `audit.manifest_paths.primary` + diff path list | manifest entry whose target does not exist → 🔴 Blocker; tracked file changed without manifest bump (in same diff) → 🔴 Blocker (Block 11 already covers this for meta — Block 15 is the inverse-direction check) |
+| 16-meta | diff paths + `lock_step_pairs[type=meta_template_mirror]` | left changed without right (or vice versa) → 🔴 Blocker; both changed (or neither) → ✅ |
+| 16-downstream | diff paths + `lock_step_pairs[type=rename_propagation, code_doc_lock_step]` | rename without propagation to scan_targets → 🔴 Blocker; new artefact without catalog entry → 🔴 Blocker; modified artefact without doc update → 🟡 Important |
+| 17 Commit ↔ diff | commit message bodies + diff content | commit claims feature X but diff is refactor only → 🔴 Blocker; EVOL-N in commit ≠ branch's EVOL-N → 🔴 Blocker; diff carries new public field but commit prefix is `chore:` → 🟡 Important |
+| 18 Bump severity ↔ change kind | manifest bump entries + diff content | new feature → manifest entry should be MINOR or higher (PATCH on additive feature → 🔴 Blocker); breaking contract change → MAJOR (MINOR on breaking → 🔴 Blocker); pure bug fix → PATCH (over-bump is 🟡 Important, not blocker) |
+
+Each finding cites file/line/snippet/why/fix per the existing severity rubric (`references/severity-rubric.md`).
+
+#### Step 0.5 — Emit marker
+After Phase 0 completes (regardless of verdict count), write a marker file:
+
+```
+.claude/state/coherence-audit-${session_id}-${branch_sha}.marker
+```
+
+- `session_id` = Claude Code session identifier (provided by hook protocol).
+- `branch_sha` = `git rev-parse HEAD` at audit time.
+
+Marker body (JSON, single line):
+```json
+{"session_id":"...","branch_sha":"...","audited_at":"ISO-8601","governance_sensitive":true,"findings":{"blocker":N,"important":N,"nit":N,"question":N}}
+```
+
+The marker proves Phase 0 ran for this exact `(session, branch sha)` tuple. New commit (sha changes) or new session → marker invalidated → audit must re-run.
+
+#### Step 0.6 — Verdict
+- Any 🔴 Blocker → STOP. Surface findings to user with humanised resolution path. Do NOT write marker (or write marker with `"blocker": >0` and let preflight.sh refuse to proceed).
+- 0 🔴, any 🟡/🟢/❓ → write marker with finding counts; advise user on the non-blocker findings; proceed to Phase 1.
+- 0 findings → write marker; proceed to Phase 1 silently.
 
 ### Phase 1 — Branch + base resolution
 ```bash

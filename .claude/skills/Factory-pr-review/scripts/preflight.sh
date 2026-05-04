@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# preflight.sh — Factory PR Review push-gate orchestrator (v1.0.0)
+# preflight.sh — Factory PR Review push-gate orchestrator (v1.1.0)
 #
 # Runs the local quality gate before `git push`. Aggregates findings from:
 #   - detect_change_type.py     (classification + secrets heuristic)
@@ -110,12 +110,89 @@ if [[ "$fast_lane" == "true" ]]; then
   exit 0
 fi
 
-# ── Detect tools ──
+# ── Detect tools (early — needed by Step 0) ──
 PYTHON=python3
 command -v python3 >/dev/null 2>&1 || PYTHON=python
 if ! command -v "$PYTHON" >/dev/null 2>&1; then
   log "preflight: python not available — skipping (tooling failure)"
   exit 2
+fi
+
+# ── Step 0 — Coherence Audit marker check (Block 13-18 enforcement) ──
+# Governance-sensitive diff requires Phase 0 of the SKILL to have run for this
+# (session_id, branch_sha) tuple. Marker proves it. Missing marker → blocker.
+# When invoked manually (no CLAUDE_SESSION_ID env var), the check degrades to
+# advisory: log a note, do not block.
+COHERENCE_CONFIG="$REPO_ROOT/config/coherence-context.json"
+if [[ -f "$COHERENCE_CONFIG" ]]; then
+  ROOT_SETS=$("$PYTHON" -c '
+import json, sys
+try:
+    cfg = json.load(open(sys.argv[1]))
+    for p in cfg.get("audit", {}).get("root_sets", []):
+        print(p.rstrip("/"))
+except Exception:
+    pass
+' "$COHERENCE_CONFIG" 2>/dev/null || echo '')
+
+  EXCLUSIONS=$("$PYTHON" -c '
+import json, sys
+try:
+    cfg = json.load(open(sys.argv[1]))
+    for p in cfg.get("audit", {}).get("exclusions", []):
+        print(p.rstrip("/"))
+except Exception:
+    pass
+' "$COHERENCE_CONFIG" 2>/dev/null || echo '')
+
+  GOVERNANCE_SENSITIVE=false
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    excluded=false
+    while IFS= read -r ex; do
+      [[ -z "$ex" ]] && continue
+      case "$f" in
+        "$ex"|"$ex"/*) excluded=true; break ;;
+      esac
+    done <<< "$EXCLUSIONS"
+    [[ "$excluded" == "true" ]] && continue
+    while IFS= read -r rs; do
+      [[ -z "$rs" ]] && continue
+      case "$f" in
+        "$rs"|"$rs"/*) GOVERNANCE_SENSITIVE=true; break ;;
+      esac
+    done <<< "$ROOT_SETS"
+    [[ "$GOVERNANCE_SENSITIVE" == "true" ]] && break
+  done <<< "$CHANGED_FILES"
+
+  if [[ "$GOVERNANCE_SENSITIVE" == "true" ]]; then
+    BRANCH_SHA=$(git rev-parse HEAD 2>/dev/null || echo '')
+    SID="${CLAUDE_SESSION_ID:-}"
+    SID_SAFE=$(printf '%s' "$SID" | tr -cd 'A-Za-z0-9_-')
+
+    if [[ -z "$SID_SAFE" ]]; then
+      log "preflight: coherence-audit marker check skipped (no CLAUDE_SESSION_ID — manual invocation)"
+    else
+      MARKER_FILE=".claude/state/coherence-audit-${SID_SAFE}-${BRANCH_SHA}.marker"
+      if [[ ! -f "$MARKER_FILE" ]]; then
+        # Defer add_finding (FINDINGS_FILE not yet created) — store and emit after.
+        DEFERRED_COHERENCE_FINDING="blocker|coherence-audit-missing|Governance-sensitive diff (touches $ROOT_SETS via config/coherence-context.json) requires Factory-pr-review Phase 0 Coherence Audit. Marker file '$MARKER_FILE' not found. Run the SKILL Phase 0 (read SKILL.md § Phase 0 — Coherence Audit) before pushing."
+      else
+        # Marker exists — parse JSON, look at blocker count.
+        MARKER_BLOCKERS=$("$PYTHON" -c '
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    print(int(d.get("findings", {}).get("blocker", 0)))
+except Exception:
+    print(0)
+' "$MARKER_FILE" 2>/dev/null || echo 0)
+        if [[ "$MARKER_BLOCKERS" -gt 0 ]]; then
+          DEFERRED_COHERENCE_FINDING="blocker|coherence-audit-blockers|Coherence Audit recorded $MARKER_BLOCKERS blocker(s) in '$MARKER_FILE'. Resolve and re-run Phase 0 to refresh the marker."
+        fi
+      fi
+    fi
+  fi
 fi
 
 # ── Run detect_change_type.py ──
@@ -134,6 +211,12 @@ trap 'rm -f "$FINDINGS_FILE"' EXIT
 add_finding() {
   printf '%s|%s|%s\n' "$1" "$2" "$3" >> "$FINDINGS_FILE"
 }
+
+# Emit deferred Step-0 finding (computed before FINDINGS_FILE existed)
+if [[ -n "${DEFERRED_COHERENCE_FINDING:-}" ]]; then
+  IFS='|' read -r _sev _cat _msg <<< "$DEFERRED_COHERENCE_FINDING"
+  add_finding "$_sev" "$_cat" "$_msg"
+fi
 
 # Block 3: secrets in diff
 if [[ "$has_secrets" == "true" ]]; then
