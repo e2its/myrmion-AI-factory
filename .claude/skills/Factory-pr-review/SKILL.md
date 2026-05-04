@@ -3,7 +3,7 @@ name: Factory-pr-review
 description: "Factory PR Review — five-axis review (code, code↔docs, API contracts, ADR, traceability) wired as a PUSH GATE (preflight before `git push`) and an assistive PR reviewer for already-pushed branches. Maps blockers to framework Hard Gates (CIP, CVP, IPP, BVL, GCRP). Use when: a Bash `git push` is about to fire (auto-invoked by hook) OR the user explicitly asks to review a branch / open PR."
 ---
 
-# Factory PR Review — Push Gate + Assistive Reviewer (v1.2.0)
+# Factory PR Review — Push Gate + Assistive Reviewer (v1.2.1)
 
 > **Shared Protocol** — Referenced by: ALL agents that ship code (IMPLEMENT, QA, DEVOPS, CODESIGN/BLUEPRINT for spec-bearing PRs) + the `check-push-preflight.sh` hook.
 > Position in the SDLC: runs **immediately before `git push`** as a local quality gate. Does NOT replace human review on the PR — it complements it by catching blockers before they hit the PR.
@@ -106,6 +106,8 @@ The audit is performed by the agent (Claude), NOT by a deterministic script. Rea
 
 **Scope discipline**: Phase 0 reads ONLY (a) files in the diff and (b) files in the **collateral set** built in Step 0.3. It NEVER scans the whole repo. The collateral set is bounded by `audit.root_sets` minus `audit.exclusions`.
 
+**Execution split**: Phase 0 has two sides. Steps 0.1–0.5 are **agent-side** (LLM judgment) — the agent reads `config/coherence-context.json`, runs `git grep` for collateral, applies the six detectors, and emits the marker. Step 0 inside `preflight.sh` is **script-side** (deterministic verification) — it only reads the marker and decides whether to block, never executes the audit itself. The agent is responsible for running Phase 0 before pushing; the push gate fails closed if the marker is absent. Trigger entry points for the agent: when the user asks "review this branch" / "audit before push" / explicitly invokes the Factory-pr-review SKILL — the agent recognises the SKILL description match and runs Phase 0.1–0.5 inline.
+
 #### Step 0.0 — Skip checks
 - Detached HEAD or protected branch → skip with note (defence-in-depth, not Phase 0's concern).
 - Diff matches the docs-only fast-lane (CLAUDE.md Generation Standards §3) → skip Phase 0; existing fast-lane handles.
@@ -155,6 +157,7 @@ After Phase 0 completes (regardless of verdict count), write a marker file:
 ```
 
 - `branch_sha` = `git rev-parse HEAD` at audit time.
+- The agent MUST `mkdir -p .claude/state/` before writing — the directory is `.gitignore`d and may not exist on a fresh clone or after a state cleanup.
 
 Marker body (JSON, single line):
 ```json

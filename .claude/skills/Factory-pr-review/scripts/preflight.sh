@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# preflight.sh — Factory PR Review push-gate orchestrator (v1.1.2)
+# preflight.sh — Factory PR Review push-gate orchestrator (v1.1.3)
 #
 # Runs the local quality gate before `git push`. Aggregates findings from:
 #   - detect_change_type.py     (classification + secrets heuristic)
@@ -308,10 +308,12 @@ IMPORTANT_COUNT=$(grep '^important|' "$FINDINGS_FILE" 2>/dev/null | wc -l | tr -
 
 # ── Output ──
 if [[ "$OUTPUT_JSON" == "true" ]]; then
-  "$PYTHON" - <<PYEOF
+  # Pass FINDINGS_FILE via env (handles paths with spaces); keep heredoc
+  # unquoted so $BASE_REF/$CURRENT/$CHANGED_FILES below are bash-expanded.
+  PRE_FF="$FINDINGS_FILE" "$PYTHON" - <<PYEOF
 import json, os
 findings = []
-with open(os.environ.get("PRE_FF","$FINDINGS_FILE")) as fh:
+with open(os.environ["PRE_FF"]) as fh:
     for line in fh:
         line=line.strip()
         if not line: continue
