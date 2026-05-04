@@ -3,7 +3,7 @@ name: Factory-pr-review
 description: "Factory PR Review — five-axis review (code, code↔docs, API contracts, ADR, traceability) wired as a PUSH GATE (preflight before `git push`) and an assistive PR reviewer for already-pushed branches. Maps blockers to framework Hard Gates (CIP, CVP, IPP, BVL, GCRP). Use when: a Bash `git push` is about to fire (auto-invoked by hook) OR the user explicitly asks to review a branch / open PR."
 ---
 
-# Factory PR Review — Push Gate + Assistive Reviewer (v1.1.0)
+# Factory PR Review — Push Gate + Assistive Reviewer (v1.2.0)
 
 > **Shared Protocol** — Referenced by: ALL agents that ship code (IMPLEMENT, QA, DEVOPS, CODESIGN/BLUEPRINT for spec-bearing PRs) + the `check-push-preflight.sh` hook.
 > Position in the SDLC: runs **immediately before `git push`** as a local quality gate. Does NOT replace human review on the PR — it complements it by catching blockers before they hit the PR.
@@ -209,9 +209,36 @@ Required structure (severity buckets):
 5. ❓ Questions — legitimate doubts.
 6. 👏 Praise — what's well done.
 7. 📋 Documentation checklist (from `references/docs-sync-checklist.md`).
+8. 🔧 Mitigations applied (only when non-empty — see Phase 5.5).
+
+### Phase 5.5 — Mitigation hot-fix (`--review` mode only, optional)
+
+When the audit catches a clear-cut blocker that the reviewer can fix mechanically, the reviewer MAY apply the fix to the PR branch and record it in `mitigations_applied[]` instead of leaving the finding open. This shifts the resolution from "ask the author" to "show the author what was done" while preserving the audit trail.
+
+Eligibility (ALL must hold):
+
+1. **Mechanical fix** — unambiguous resolution (replace pattern X with Y; add missing manifest entry; sync byte-identical mirror file). No design choice, no stylistic preference.
+2. **Clear-cut category** — security regex hit; broken reference; lock-step drift; manifest↔disk drift; placeholder leakage; missing test for new logic with obvious test pattern.
+3. **High confidence** — reviewer can verify locally (tests pass, linter clean, build green).
+4. **Same branch** — commit lands on the PR branch, not on a separate fix-branch.
+
+If any criterion fails, leave the finding open in Blockers/Important and let the author decide. Mitigations are contributions, not overrides — the author always retains the option to revert.
+
+Workflow:
+
+1. Apply the fix. Commit to the PR branch with a Conventional Commits message: `fix(EVOL-NNN): {what was fixed} (review mitigation)` or similar attribution.
+2. Run any relevant verification locally (tests, lint, build). Capture the verification evidence.
+3. Push the commit to the PR branch (the push gate Phase 0 may re-fire — that's expected; re-audit if so).
+4. Add an entry to `mitigations_applied[]` in the review JSON: `finding_ref` cites the original finding (`blockers[N]` or `important[N]`); `commit_sha` is the resolution commit's full SHA; `description` summarises what was done; `verified_by` cites evidence.
+5. The corresponding entry in `blockers[]` / `important[]` STAYS — do not delete it. The author needs to see both the finding and the resolution.
+6. `decision` SHOULD remain `comment` (not `approve`) when mitigations were applied — author must confirm acceptance.
+
+If mitigation breaks something else (verification fails), revert the mitigation commit, leave the finding open, and explain in `description` what was attempted and why it failed.
 
 ### Phase 6 — Publication (`--review` mode only)
 Use `scripts/post_review.py` to publish on the platform. **NEVER** without explicit user confirmation — an incorrect review on GitHub is publicly visible. The push-gate (`--preflight`) NEVER publishes.
+
+When `mitigations_applied[]` is non-empty, `post_review.py` renders a "🔧 Mitigations applied during review" section after Findings, citing each mitigation's commit SHA + description + evidence. The author sees finding + resolution in a single comment.
 
 ## Review principles
 
