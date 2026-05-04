@@ -18,6 +18,14 @@ Do NOT:
 
 This rule applies to every session turn — not just inside slash commands. Tone defined here overrides any default verbosity of the harness.
 
+## RDR Universal — MANDATORY
+
+Any question to the user with alternatives follows RDR ([Factory-rdr/SKILL.md](.claude/skills/Factory-rdr/SKILL.md)): ≥3 options, recommendation justified with the main tradeoff, verbatim user choice, immediate persistence. No exceptions — free-form chat, debugging, scope clarification, implementation suggestions, branch-naming, scope cuts. Before sending "do you prefer A or B?", reformulate as RDR.
+
+The only legitimate binary question without RDR is **factual** (asking for a datum, not a decision). Decisions need RDR; lookups don't.
+
+Persistence path is context-specific — see Core Protocols table below.
+
 ## Governance Scope — MANDATORY
 
 All files and paths listed in the **Core Protocols** section below apply to **every session turn**, not only to slash commands. Any file modification, any code suggestion, any design decision made in a free-form chat is bound by the same rules that the framework ships to downstream projects. Constitutional supremacy, protected code blocks, DRY enforcement, zero-secrets, and every rule materialised in `.claude/rules/` are always active — there is no "ad-hoc" mode where they stop mattering.

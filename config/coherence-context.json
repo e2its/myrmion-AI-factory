@@ -1,0 +1,66 @@
+{
+  "$schema": "coherence_context_v1",
+  "version": "1.0.0",
+  "context": "meta",
+  "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by Factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
+  "audit": {
+    "root_sets": [
+      ".claude/",
+      ".context/templates/",
+      ".github/",
+      "docs/",
+      "scripts/",
+      "config/",
+      "CLAUDE.md",
+      "README.md"
+    ],
+    "exclusions": [
+      ".git/",
+      "node_modules/",
+      "dist/",
+      "build/",
+      "*.lock",
+      ".claude/state/"
+    ],
+    "placeholder_allowlist_paths": [
+      ".context/templates/**"
+    ],
+    "lock_step_pairs": [
+      {
+        "type": "meta_template_mirror",
+        "doc": "Hook scripts must mirror between meta .claude/hooks/ and template tree.",
+        "left": ".claude/hooks/*.sh",
+        "right": ".context/templates/setup/claude/hooks/*.sh"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "Settings JSON must mirror between meta and template tree (merge-preserve in template).",
+        "left": ".claude/settings.json",
+        "right": ".context/templates/setup/claude/settings.json"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "Governance scripts (governance-onedit, governance-onprompt, governance-oncompact) must mirror between meta scripts/ and template scripts/ trees.",
+        "left": "scripts/governance-*.sh",
+        "right": ".context/templates/setup/scripts/governance-*.sh"
+      },
+      {
+        "type": "universal_clause_mirror",
+        "doc": "Universal CLAUDE.md clauses (Communication Style, RDR Universal, Governance Scope, Pre-Action Gate, Invariants, Core Protocols) must be byte-identical between root CLAUDE.md and the template counterpart. Context-specific sections (triage default, framework_version invariant) legitimately diverge — see CLAUDE.md § What Lives Where.",
+        "left": "CLAUDE.md",
+        "right": ".context/templates/setup/claude/CLAUDE.md"
+      },
+      {
+        "type": "meta_to_downstream_via_sync",
+        "doc": "Factory-* skills + Factory-*.instructions.md ship from meta directly to downstream via factory-sync.sh — no template intermediary. Lock-step at meta level = no drift to detect; lock-step at downstream level = files match meta as of last sync. For meta context, this declaration is informational; the audit does NOT flag missing template counterparts for these paths.",
+        "left": ".claude/skills/Factory-*/",
+        "right": "(direct sync; no template counterpart)"
+      }
+    ],
+    "manifest_paths": {
+      "primary": ".context/templates/setup/governance_versions.json",
+      "framework_core_section": "framework_core",
+      "templates_section": "templates"
+    }
+  }
+}

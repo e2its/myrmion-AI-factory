@@ -1,0 +1,68 @@
+{
+  "$schema": "coherence_context_v1",
+  "version": "1.0.0",
+  "context": "downstream",
+  "_doc": "Single source of truth for which context this repo runs as. Materialised at SETUP --generate. Read by Factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. Project owners may extend audit.* keys via ADR — never edit context field.",
+  "audit": {
+    "root_sets": [
+      ".claude/",
+      ".github/",
+      "docs/",
+      "scripts/",
+      "config/",
+      "src/",
+      "CLAUDE.md",
+      "README.md"
+    ],
+    "exclusions": [
+      ".git/",
+      "node_modules/",
+      "dist/",
+      "build/",
+      "target/",
+      "vendor/",
+      "*.lock",
+      ".claude/state/"
+    ],
+    "placeholder_allowlist_paths": [],
+    "lock_step_pairs": [
+      {
+        "type": "rename_propagation",
+        "doc": "When a Factory-* skill, rule, instruction, command, or hook is renamed in .claude/, every textual mention in CLAUDE.md, docs/, .claude/instructions/, and .claude/rules/ must be updated in the same diff.",
+        "scan_targets": [
+          "CLAUDE.md",
+          "docs/**/*.md",
+          ".claude/instructions/**/*.md",
+          ".claude/rules/**/*.md",
+          ".claude/commands/**/*.md"
+        ]
+      },
+      {
+        "type": "code_doc_lock_step",
+        "doc": "When a public artefact (skill, rule, instruction, command, hook, contract operation) is added or removed, its mention in the corresponding catalog or index doc must move in lock-step.",
+        "code_paths": [
+          ".claude/skills/Factory-*/SKILL.md",
+          ".claude/rules/*.instructions.md",
+          ".claude/instructions/*.instructions.md",
+          ".claude/commands/*.md",
+          ".claude/hooks/*.sh"
+        ],
+        "doc_paths": [
+          "CLAUDE.md",
+          "docs/spec/**/*.md",
+          "docs/project_log/**/*.md"
+        ]
+      },
+      {
+        "type": "manifest_disk_coherence",
+        "doc": "Every entry under config/governance_versions.json templates.* must point to a file that exists in the repo. Every tracked file change must bump its manifest entry in the same diff.",
+        "manifest": "config/governance_versions.json"
+      }
+    ],
+    "manifest_paths": {
+      "primary": "config/governance_versions.json",
+      "framework_core_section": null,
+      "templates_section": "templates"
+    }
+  }
+}
