@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# preflight.sh — Factory PR Review push-gate orchestrator (v1.1.1)
+# preflight.sh — Factory PR Review push-gate orchestrator (v1.1.2)
 #
 # Runs the local quality gate before `git push`. Aggregates findings from:
 #   - detect_change_type.py     (classification + secrets heuristic)
@@ -300,8 +300,11 @@ sys.exit(0 if any(fnmatch.fnmatch('$f', p) for p in patterns) else 1)
 fi
 
 # ── Tally ──
-BLOCKER_COUNT=$(grep -c '^blocker|' "$FINDINGS_FILE" 2>/dev/null || echo 0)
-IMPORTANT_COUNT=$(grep -c '^important|' "$FINDINGS_FILE" 2>/dev/null || echo 0)
+# Use `grep | wc -l` instead of `grep -c || echo 0`: the latter concatenates
+# grep's "0" output with echo's "0" when grep finds nothing (exit 1), producing
+# a multi-line value that breaks the `[[ -gt ]]` arithmetic test below.
+BLOCKER_COUNT=$(grep '^blocker|' "$FINDINGS_FILE" 2>/dev/null | wc -l | tr -d ' ')
+IMPORTANT_COUNT=$(grep '^important|' "$FINDINGS_FILE" 2>/dev/null | wc -l | tr -d ' ')
 
 # ── Output ──
 if [[ "$OUTPUT_JSON" == "true" ]]; then
