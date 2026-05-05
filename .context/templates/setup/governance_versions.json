@@ -1160,18 +1160,20 @@
       ]
     },
     "codesign/user_journey.integration.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/user_journey.integration.md",
       "changelog": [
+        "1.1.0: feat(EVOL-027) fase 5 — reformat Section 2 from master-table to per-step blocks. Same parser-canonical contract as user_journey_template.md, with the integration-specific fields (Trigger, Effect, Idempotency Key, Retry Policy) preserved as labeled fields per step.",
         "1.0.0: feat(EVOL-027) initial manifest registration — backend-only / integration scope variant of user journey."
       ]
     },
     "codesign/user_journey_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/user_journey_template.md",
       "changelog": [
+        "1.1.0: feat(EVOL-027) fase 5 — reformat Section 2 from master-table to per-step blocks (### Paso N + labeled fields including DataIn:/DataOut:; optional #### Schema: block per step). Downstream parsers (e.g. MASS) anchor on the heading and read the labeled fields. Master-table layout removed; everything else (Section 0/1/3/4/5/Traceability) unchanged.",
         "1.0.0: feat(EVOL-027) initial manifest registration — user_journey.md scaffold for full-stack / frontend-only scope. Format reformat to parser-canonical (### Paso N + ### Schema:/DataIn:/DataOut:) lands in EVOL-027 fase 5 — bumped at that fase."
       ]
     },

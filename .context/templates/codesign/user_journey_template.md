@@ -61,15 +61,51 @@ sequenceDiagram
 
 ## Section 2: Journey Steps
 
-<!-- Master table: each row is a step in the journey.
-     Data In/Out reference schemas from Section 3 by name.
-     Screen/View links to mock.html.
+<!-- Per-step blocks (parser-canonical format).
+     Each step is delimited by a `### Paso N` heading followed by labeled fields.
+     Downstream parsers (CODESIGN consumers, contract generators, test scaffolders)
+     extract by anchoring on `^### Paso N$` and reading the labeled fields below.
+     `DataIn:` / `DataOut:` reference schemas from Section 3 by name.
+     `### Schema:` is OPTIONAL and used only when the step needs an inline schema
+     reference distinct from Section 3 (rare). External System / Screen /
+     QA-Test-Case correlations stay as labeled fields for parser stability.
      # correlates with QA test cases. -->
 
-| # | Actor | Action (Command) | System Response (Event) | Data In | Data Out | External System | Screen/View |
-|---|-------|-------------------|-------------------------|---------|----------|-----------------|-------------|
-| 1 | {{ACTOR}} | {{ACTION}} | {{EVENT}} | {{SchemaRef}} | {{SchemaRef}} | — | {{SCREEN}} |
-| 2 | {{ACTOR}} | {{ACTION}} | {{EVENT}} | {{SchemaRef}} | {{SchemaRef}} | — | {{SCREEN}} |
+### Paso 1
+
+- **Actor:** {{ACTOR}}
+- **Action (Command):** {{ACTION}}
+- **System Response (Event):** {{EVENT}}
+- **External System:** —
+- **Screen/View:** {{SCREEN}}
+- **DataIn:** {{SchemaRef}}
+- **DataOut:** {{SchemaRef}}
+
+#### Schema:
+
+> Optional inline schema reference. Most steps reuse a schema defined in Section 3 — leave this block empty or remove it when not needed.
+
+```yaml
+# Inline schema for this step only (rare). Use sparingly — Section 3 is the canonical schema source.
+```
+
+---
+
+### Paso 2
+
+- **Actor:** {{ACTOR}}
+- **Action (Command):** {{ACTION}}
+- **System Response (Event):** {{EVENT}}
+- **External System:** —
+- **Screen/View:** {{SCREEN}}
+- **DataIn:** {{SchemaRef}}
+- **DataOut:** {{SchemaRef}}
+
+#### Schema:
+
+```yaml
+# Inline schema (optional, see note above).
+```
 
 ---
 
