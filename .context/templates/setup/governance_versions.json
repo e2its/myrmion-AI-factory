@@ -494,20 +494,22 @@
       ]
     },
     "scripts/validate-governance.sh": {
-      "version": "1.1.1",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-026) self-review mitigation — synced from meta scripts/validate-governance.sh. --snapshot-freshness now validates dcs_hash against .claude/rules/defect-prevention.md alongside constitution and setup. Closes Block 16-meta lock-step drift caught by Factory-pr-review.",
         "1.1.1: fix(EVOL-017): Copilot PR #7 review — freshness gate hardening. Empty/missing constitution_hash in snapshot frontmatter now exits 2 (was silently passing). Absent md5sum/md5/openssl now exits 2 with install guidance (was silently passing). gov_compute_md5 hardened against set -euo pipefail aborts when tools fail. --banner fallback rewritten with explicit if/then (fragile || / && precedence replaced).",
         "1.0.0: Initial template — Governance drift detection: framework_core change tracking, orphan/stale detection, version consistency (GOV-001)",
         "1.1.0: feat(EVOL-017): --banner and --snapshot-freshness modes for governance always-on enforcement (3-tier). Reads $CLAUDE_PROJECT_DIR for cwd anchoring; portable md5 + awk frontmatter parsing; exit 2 on stale snapshot."
       ]
     },
     "scripts/governance-onedit.sh": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/governance-onedit.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-026) self-review mitigation — synced from meta scripts/governance-onedit.sh. Extends watcher to .claude/rules/defect-prevention.md so the third hashed governance source triggers <governance-source-edited> on next prompt. Closes Block 16-meta lock-step drift caught by Factory-pr-review.",
         "1.0.1: fix(EVOL-023) Copilot PR #12 review: explicit `else exit 0` added after the CLAUDE_PROJECT_DIR / git rev-parse anchoring cascade so the hook no-ops when it cannot reliably resolve a project root (was previously falling through and writing the marker into `.claude/state/` relative to the caller's CWD).",
         "1.0.0: feat(EVOL-023): initial template — PostToolUse Edit|Write hook. Detects edits to docs/constitution.md or docs/setup.md and writes a session-scoped marker (.claude/state/governance-source-edited-${session_id}.marker) listing the changed paths. Read by governance-onprompt.sh on the next prompt to emit `<governance-source-edited>` with cause attribution + explicit regen instruction. Always exits 0 (observational, never blocks). Same jq → python3 parser cascade as governance-onprompt.sh; degrades silently when both are absent (marker not written, agent falls through to plain freshness warning)."
       ]
@@ -1338,9 +1340,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.3.1",
+      "version": "2.4.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.4.0: feat(EVOL-026) self-review mitigation — Check #14 [DESIGN-ADR] renamed to [DESIGN-FDR] FDR Binding Compliance to consume design.md § 7.8 fdr_bindings (replacing adr_bindings field renamed by BLUEPRINT § 7.8 rewire). Legacy fallback to docs/spec/{FEATURE_ID}/adr/ kept for pre-EVOL-026 projects until backfilled. historical_adr_refs documented as informational-only (never validated). Closes contract-break finding caught by Factory-pr-review.",
         "2.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.3.0: feat(EVOL-019) phase 2: REVIEW Hat Protocol gains § Scope Dispatch (runs BEFORE Step R.0) — reads feature_scope from spec.feature, builds check_applicability matrix filtering 14 checks per scope (e.g. #6 TYPE-* only full-stack; #7 UX-* only [full-stack, frontend-only]; #8 MIGRATION-*, #10 CFP-*, #12 ACL-EXT only scopes with backend surface). Scope-excluded checks render as `N/A — skipped under scope={value}` in peer_review report (not silent). applicable_when HTML comments annotate checks #6, #7, #8, #10, #12 headers.",
         "2.1.6: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -1543,9 +1546,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "12.0.0",
+      "version": "12.1.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "12.1.0: feat(EVOL-026) self-review mitigation — root INVARIANT 2 synced to the EVOL-026 single-source-of-truth model (snapshot embeds [LAW] verbatim; freshness over constitution_hash + setup_hash + dcs_hash; ADRs not loaded as governance), framework-aware variant (the meta repo uses CLAUDE.md as its own governance source instead of docs/constitution.md). Closes universal-clause-mirror drift caught by Factory-pr-review.",
         "12.0.0: feat(EVOL-026) BREAKING — Mandatory Law #1 (Constitutional Supremacy) reformulated. Constitution becomes single source of truth; framework-level ADRs at docs/project_log/evolutions/ become historical records. Framework eats its own dogfood: ADR transitioning to status: accepted MUST amend constitution.md or the relevant framework-shipped artefact in the same PR. References Factory-adr-management skill formalising the ceremony for materialised projects.",
         "11.5.0: feat(EVOL-025) new universal section `## RDR Universal — MANDATORY` between Communication Style and Governance Scope. Universalises RDR application beyond the agent-posed-decision scope (SETUP/CODESIGN/BLUEPRINT/AUDIT/DEVOPS) — any user-facing question with alternatives requires ≥3 options, justified recommendation, verbatim ratification, immediate persistence. Factual lookups keep the binary-question carve-out. Persistence path is context-specific (commit message / framework decision record here in meta; IPP feature artefact in downstream). Byte-identical with templates.claude/CLAUDE.md per § What Lives Where.",
         "11.4.2: fix(EVOL-022) PR #10 review: RDR Core-Protocols Purpose column no longer points to `docs/project_log/adr/` (that directory does not exist in this repo). Updated to `docs/project_log/evolutions/` — the actual ADR-style tree used here.",

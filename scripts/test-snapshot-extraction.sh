@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# scripts/test-snapshot-extraction.sh — L2 extraction unit test (EVOL-026)
+# scripts/test-snapshot-extraction.sh — L2 extraction unit test
 # ============================================================================
 # Validates the deterministic extraction contract that SETUP --generate's
 # `generate_governance_snapshot()` (Factory-setup-materialization Checkpoint 3.1)
@@ -42,7 +42,7 @@ failures=0
 fail() { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; failures=$((failures + 1)); }
 pass() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 
-echo "L2 snapshot extraction unit test (EVOL-026)"
+echo "L2 snapshot extraction unit test"
 echo
 
 # ─── Reference implementation: EXTRACT_LAW_SECTIONS ─────────────────────────

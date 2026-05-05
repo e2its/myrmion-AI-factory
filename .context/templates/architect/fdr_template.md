@@ -67,7 +67,7 @@ status: proposed
 
 The framework previously used the term "ADR" for both project-wide and feature-scoped decisions, which conflated two different concerns:
 
-- **Project-wide ADR** — amends `docs/constitution.md`. Permanent, universal, accepted by ceremony with CI enforcement (EVOL-026).
+- **Project-wide ADR** — amends `docs/constitution.md`. Permanent, universal, accepted by ceremony with CI enforcement.
 - **Feature Decision Record (FDR)** — binding within a feature's scope only. Read by BLUEPRINT during design, never escalates to constitution amendment.
 
 Renaming makes the distinction explicit: if a decision deserves universal law, it goes through the ADR ceremony; if it is feature-local, it stays as an FDR.

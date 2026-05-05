@@ -72,7 +72,7 @@ FUNCTION generate_governance_snapshot():
   environments    = EXTRACT_ENVIRONMENTS(.claude/rules/ci-cd.instructions.md)
   setup_config    = EXTRACT_SETUP_CONFIG(docs/setup.md)
 
-  # Operational law — body extracted verbatim (EVOL-026 single-source-of-truth model)
+  # Operational law — body extracted verbatim from constitution [LAW] sections
   law_sections    = EXTRACT_LAW_SECTIONS(docs/constitution.md)
                     # Contract: every heading matching /^## \[LAW\] .+$/ to next /^## / boundary.
                     # Subsections (###, ####) inside a [LAW] block are preserved verbatim.
@@ -959,8 +959,8 @@ Generate platform-specific pipeline from template:
 - AWS CodePipeline: `buildspec.yml`
 Pipeline includes stages matching `ci_cd.tier` (lint, test, security, build, deploy per environment from `ci-cd.instructions.md`).
 
-**Governance Workflow (EVOL-026, 100% functional from scaffolding):**
-In addition to the CI pipeline, materialise the platform-specific governance check workflow that runs the EVOL-026 ADR ↔ constitution sync gate (`scripts/check-adr-constitution-sync.sh`) on every PR / MR targeting `main`. Source templates live at `.context/templates/setup/workflows/governance-check.{platform}.{ext}`:
+**Governance Workflow (100% functional from scaffolding):**
+In addition to the CI pipeline, materialise the platform-specific governance check workflow that runs the ADR ↔ constitution sync gate (`scripts/check-adr-constitution-sync.sh`) on every PR / MR targeting `main`. Source templates live at `.context/templates/setup/workflows/governance-check.{platform}.{ext}`:
 
 | `ci_cd.platform` | Source template | Materialised path |
 |---|---|---|
@@ -972,7 +972,7 @@ In addition to the CI pipeline, materialise the platform-specific governance che
 | `gcp-cloudbuild` | `governance-check.gcp-cloudbuild.yaml` | `cloudbuild-governance.yaml` |
 | `jenkins` | `governance-check.jenkins.groovy` | `Jenkinsfile.governance` |
 
-The workflow MUST be wired so that any PR transitioning an ADR file under `docs/project_log/adr/` from `status: proposed` to `status: accepted` without modifying `docs/constitution.md` in the same diff fails the gate. Bypass is via the `[adr-backfill]` commit-message marker (one-shot historical migration only). Future EVOLs add additional governance gates as steps in the same workflow — do NOT split into multiple workflows per gate.
+The workflow MUST be wired so that any PR transitioning an ADR file under `docs/project_log/adr/` from `status: proposed` to `status: accepted` without modifying `docs/constitution.md` in the same diff fails the gate. Bypass is via the `[adr-backfill]` commit-message marker (one-shot historical migration only). Additional governance gates are added as steps in the same workflow — do NOT split into multiple workflows per gate.
 
 **IaC Foundation (conditional on `hosting.iac_tool != None`):**
 - Create `infra/modules/`, `infra/features/`

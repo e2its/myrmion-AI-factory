@@ -2,7 +2,7 @@
 version: 3.0.0
 date: 2026-05-05
 changelog:
-  - "3.0.0: EVOL-026 — operational sections marked with `## [LAW]` for mechanical snapshot extraction. Single-source-of-truth model: only [LAW] sections embed in governance snapshot. Fixed UTF-8 mojibake in Security by Design heading."
+  - "3.0.0: Operational sections marked with `## [LAW]` for mechanical snapshot extraction. Single-source-of-truth model: only [LAW] sections embed in governance snapshot. Fixed UTF-8 mojibake in Security by Design heading."
   - "2.0.0: Added Project Mode & Brownfield Extension Strategy section (E0/E1/E2/E3) with per-strategy rules"
   - "1.0.0: Initial template version"
 ---

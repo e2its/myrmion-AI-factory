@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# scripts/check-adr-constitution-sync.sh — CI gate (EVOL-026)
+# scripts/check-adr-constitution-sync.sh — CI gate
 # ============================================================================
 # Enforces the single-source-of-truth invariant for project-wide ADRs:
 #
@@ -16,7 +16,7 @@
 # Bypass: a commit message in the PR diff range containing the marker
 # [adr-backfill] disables this gate for ALL ADRs in that PR. Used for
 # one-shot historical migration of pre-existing ACCEPTED ADRs in projects
-# that pre-date EVOL-026.
+# that pre-date the single-source-of-truth flip.
 #
 # FDRs (docs/spec/{FEAT-ID}/fdr/*.md) are NOT subject to this gate — they
 # are feature-local and never amend constitution.

@@ -2,18 +2,20 @@
 # ============================================================================
 # scripts/governance-onedit.sh — PostToolUse hook (governance source detector)
 # ============================================================================
-# Detects Edit/Write on docs/constitution.md or docs/setup.md and writes a
-# session-scoped marker so governance-onprompt.sh, on the NEXT prompt, can
-# emit a `<governance-source-edited>` block with cause attribution + explicit
-# regen instruction (Factory-governance-loading/SKILL.md § Step 1 POST-LOAD).
+# Detects Edit/Write on docs/constitution.md, docs/setup.md, or
+# .claude/rules/defect-prevention.md and writes a session-scoped marker so
+# governance-onprompt.sh, on the NEXT prompt, can emit a
+# `<governance-source-edited>` block with cause attribution + explicit regen
+# instruction (Factory-governance-loading/SKILL.md § Step 1 POST-LOAD).
 # When the marker is present the freshness gate's `<governance-warning>` block
 # is suppressed for that prompt — the agent already knows why.
 #
-# Scope is intentionally narrow: only the two files whose hashes the freshness
-# gate compares (`constitution_hash`, `setup_hash`). Edits to .claude/rules/**
-# also invalidate the snapshot body but are not hashed, so the freshness gate
-# does not flag them; surfacing them here would emit a marker without a
-# corresponding warning and confuse the agent.
+# Scope is intentionally narrow: only the three files whose hashes the
+# freshness gate compares (`constitution_hash`, `setup_hash`, `dcs_hash`).
+# Edits to other .claude/rules/** files also invalidate the snapshot body but
+# are not hashed, so the freshness gate does not flag them; surfacing them
+# here would emit a marker without a corresponding warning and confuse the
+# agent.
 #
 # Exit policy: always exit 0. Hook is observational, never blocks.
 #
@@ -91,7 +93,7 @@ FILE_PATH=$(json_path '.tool_input.file_path')
 
 # Match suffix — Claude Code may pass absolute or repo-relative paths.
 case "$FILE_PATH" in
-  */docs/constitution.md|docs/constitution.md|*/docs/setup.md|docs/setup.md) ;;
+  */docs/constitution.md|docs/constitution.md|*/docs/setup.md|docs/setup.md|*/.claude/rules/defect-prevention.md|.claude/rules/defect-prevention.md) ;;
   *) exit 0 ;;
 esac
 
@@ -106,11 +108,13 @@ fi
 
 # Normalise: strip leading ./ and any prefix outside the repo so the marker
 # carries repo-relative paths. The freshness gate's diagnostic uses the same
-# bare names ("constitution.md", "setup.md") — keep marker entries comparable.
+# bare names ("constitution.md", "setup.md", "defect-prevention.md") — keep
+# marker entries comparable.
 NORM_PATH="$FILE_PATH"
 case "$NORM_PATH" in
-  */docs/constitution.md) NORM_PATH="docs/constitution.md" ;;
-  */docs/setup.md)        NORM_PATH="docs/setup.md" ;;
+  */docs/constitution.md)              NORM_PATH="docs/constitution.md" ;;
+  */docs/setup.md)                     NORM_PATH="docs/setup.md" ;;
+  */.claude/rules/defect-prevention.md) NORM_PATH=".claude/rules/defect-prevention.md" ;;
 esac
 
 {

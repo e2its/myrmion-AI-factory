@@ -6,7 +6,7 @@
 #
 # Runs the governance gates that must pass before a PR can merge to main:
 #
-#   - scripts/check-adr-constitution-sync.sh — EVOL-026 single-source-of-truth
+#   - scripts/check-adr-constitution-sync.sh — single-source-of-truth
 #     gate. Bypass via [adr-backfill] commit message marker.
 #
 # Wire this as a separate pipeline triggered by branch policies on `main`,
@@ -38,4 +38,4 @@ stages:
           - script: |
               chmod +x scripts/check-adr-constitution-sync.sh
               bash scripts/check-adr-constitution-sync.sh "origin/$(System.PullRequest.TargetBranch)"
-            displayName: 'ADR ↔ Constitution sync (EVOL-026)'
+            displayName: 'ADR ↔ Constitution sync'

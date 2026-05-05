@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# scripts/test-adr-accept.sh — L4 ADR Accept Procedure simulation (EVOL-026)
+# scripts/test-adr-accept.sh — L4 ADR Accept Procedure simulation
 # ============================================================================
 # Validates the mechanical contract of Factory-adr-management Accept Procedure
 # against fixtures. The Accept Procedure (per the skill's pseudocode) is
@@ -41,7 +41,7 @@ failures=0
 fail() { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; failures=$((failures + 1)); }
 pass() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 
-echo "L4 ADR Accept Procedure simulation (EVOL-026)"
+echo "L4 ADR Accept Procedure simulation"
 echo
 
 # ─── Reference helper: read frontmatter value ───────────────────────────────

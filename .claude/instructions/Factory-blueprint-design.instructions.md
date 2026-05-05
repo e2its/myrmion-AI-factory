@@ -1142,7 +1142,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   # constraints superficially (e.g., manual tenant filtering in each query instead of the
   # prescribed BaseRepository auto-filter).
   #
-  # SOURCES (post-EVOL-026 single-source model):
+  # SOURCES:
   #   A) Constitution `[LAW]` sections — already loaded in the governance snapshot at
   #      `.context/governance_snapshot.md` § Active Constitution. Read from there directly
   #      (no need to re-scan constitution.md). Universal architectural law lives here.

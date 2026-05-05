@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ============================================================================
-# scripts/test-templates-static.sh — L1 static template validation (EVOL-026)
+# scripts/test-templates-static.sh — L1 static template validation
 # ============================================================================
 # Validates that the templates shipped to materialised projects are well-formed
-# under the EVOL-026 single-source-of-truth model:
+# under the single-source-of-truth model:
 #
 #   1. constitution_template.md has at least N `## [LAW]` markers in expected
 #      operational sections (whitelist).
@@ -47,7 +47,7 @@ assert() {
   fi
 }
 
-echo "L1 static template validation (EVOL-026)"
+echo "L1 static template validation"
 echo
 
 # ─── constitution_template.md ───────────────────────────────────────────────

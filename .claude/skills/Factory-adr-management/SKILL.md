@@ -249,6 +249,6 @@ The Accept Procedure produces a single coherent commit (constitution amendment +
 
 ## Versioning of this skill
 
-- `1.0.0` — Initial release as part of EVOL-026.
+- `1.0.0` — Initial release.
 
 Future evolutions of FAM extend the procedures or add new ones (e.g., `Supersede Procedure` to handle ADR → ADR replacement chains). All breaking changes to procedure signatures or output schemas require MAJOR bump.

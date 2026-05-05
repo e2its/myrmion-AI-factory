@@ -6,7 +6,7 @@
 #
 # Runs the governance gates that must pass before a PR can merge to main:
 #
-#   - scripts/check-adr-constitution-sync.sh — EVOL-026 single-source-of-truth
+#   - scripts/check-adr-constitution-sync.sh — single-source-of-truth
 #     gate. Fails when an ADR transitions to status: accepted in the diff
 #     without docs/constitution.md being modified in the same diff. Bypass
 #     via [adr-backfill] commit message marker.
@@ -38,7 +38,7 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
 
-      - name: ADR ↔ Constitution sync (EVOL-026)
+      - name: ADR ↔ Constitution sync
         run: |
           chmod +x scripts/check-adr-constitution-sync.sh
           bash scripts/check-adr-constitution-sync.sh "origin/${{ github.base_ref }}"

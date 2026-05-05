@@ -780,30 +780,32 @@ SEVERITY: BLOCKER for pattern violations
 CONSTRAINT_IDS: [DESIGN-PAT-{N}] — cite from Section 7.8 pattern IDs
 ```
 
-#### [DESIGN-ADR] ADR Binding Compliance
+#### [DESIGN-FDR] FDR Binding Compliance
 ```yaml
-# Source: design.md Section 7.8 adr_bindings (if GCD loaded)
-# Fallback: docs/spec/{FEATURE_ID}/adr/ + docs/adr/
+# Source: design.md Section 7.8 fdr_bindings (if GCD loaded)
+# Fallback: docs/spec/{FEATURE_ID}/fdr/*.md (status: accepted)
+# Legacy fallback: docs/spec/{FEATURE_ID}/adr/ (when fdr/ tree absent)
 
-IF mandatory_patterns.adr_bindings IS NOT NULL:
-  FOR EACH adr IN mandatory_patterns.adr_bindings:
-    FOR EACH component IN adr.mandatory_components:
-      # Verify ADR-mandated component exists
+IF mandatory_patterns.fdr_bindings IS NOT NULL:
+  FOR EACH fdr IN mandatory_patterns.fdr_bindings:
+    FOR EACH component IN fdr.mandatory_components:
       EXISTS = SEARCH(@workspace, component)
       IF NOT EXISTS:
-        ❌ BLOCKER: "[DESIGN-ADR-{adr.id}] ADR '{adr.title}' mandates component "
+        ❌ BLOCKER: "[DESIGN-FDR-{fdr.id}] FDR '{fdr.title}' mandates component "
                    "'{component}' which was NOT implemented. "
-                   "Decision: {adr.decision}"
-    
-    FOR EACH constraint IN adr.consequences:
-      # Verify ADR constraints are honored (semantic check)
+                   "Binding rule: {fdr.binding_rule}"
+
+    FOR EACH constraint IN fdr.consequences:
       VERIFY_CONSTRAINT(constraint, @workspace):
         IF constraint implies "no direct {X}": SCAN for violations
         IF constraint implies "always use {Y}": VERIFY usage exists
       IF VIOLATED:
-        ❌ BLOCKER: "[DESIGN-ADR-{adr.id}] ADR constraint violated: '{constraint}'"
+        ❌ BLOCKER: "[DESIGN-FDR-{fdr.id}] FDR constraint violated: '{constraint}'"
 
-SEVERITY: BLOCKER for ADR binding violations
+# mandatory_patterns.historical_adr_refs is informational only — never validated.
+# Project-wide [LAW] enforcement lives in [DESIGN-PAT] via mandatory_patterns.
+
+SEVERITY: BLOCKER for FDR binding violations
 ```
 
 #### [DESIGN-INVARIANT] Implementation Invariant Verification

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# scripts/test-check-adr-constitution-sync.sh — L5 CI gate test (EVOL-026)
+# scripts/test-check-adr-constitution-sync.sh — L5 CI gate test
 # ============================================================================
 # Validates scripts/check-adr-constitution-sync.sh against synthetic git
 # histories. Each scenario constructs an ephemeral repo with a base commit
@@ -41,7 +41,7 @@ failures=0
 fail() { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; failures=$((failures + 1)); }
 pass() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 
-echo "L5 CI gate test (EVOL-026)"
+echo "L5 CI gate test"
 echo
 
 # ─── Scenario harness ───────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ run_scenario() {
     cd "$repo"
     git init -q -b main
     git config user.email "test@evol026.local"
-    git config user.name "EVOL-026 L5 test"
+    git config user.name "L5 test"
 
     # Base commit: representative project layout.
     mkdir -p docs/project_log/adr docs/spec/FEAT-001/fdr

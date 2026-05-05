@@ -6,7 +6,7 @@
 #
 # Runs the governance gates that must pass before a PR can merge to main:
 #
-#   - scripts/check-adr-constitution-sync.sh — EVOL-026 single-source-of-truth
+#   - scripts/check-adr-constitution-sync.sh — single-source-of-truth
 #     gate. Bypass via [adr-backfill] commit message marker.
 #
 # Wire this buildspec via a CodeBuild project triggered by CodeStar / CodePipeline
