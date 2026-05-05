@@ -1,7 +1,8 @@
 ---
-version: 0.2.0
+version: 1.0.0
 date: 2026-05-05
 changelog:
+  - "1.0.0: feat(EVOL-027) execution complete — all 5 fases shipped on feature/EVOL-027-downstream-governance-completeness. Fase 1 (agent_templates manifest + upgrade walk) → bc153c2. Fase 2 (rules-naming convention drop, sed sweep across 51 files) → c5ac49e. Fase 3 (real scripts/generate-governance-snapshot.sh + setup/scripts/ mirror) → a5e82da. Fase 4 (scripts/check-inventory-drift.sh + CI advisory step + SKILL.md § Drift Detection Gate) → c0742da. Fase 5 (parser-canonical user_journey templates) → b4c6730. framework_version 3.0.0 → 4.0.0 (BREAKING). Status remains proposed pending user ratification of execution; flip to accepted after review and merge."
   - "0.2.0: Fase 2 reframed — Gap #4 fix unified as full convention drop (C). `.instructions.md` suffix removed from `.claude/rules/` everywhere — source, target, meta repo, manifest, instruction refs. Eliminates source-vs-target asymmetry permanently instead of patching meta self-application. RDR ratification: user explicit reject of split-into-EVOL-028 (one-shot or never). Status remains proposed."
   - "0.1.0: Skeleton — RDR decision persisted (slug A: downstream-governance-completeness, single EVOL covering 5 gaps). Status: proposed."
 adr_number: EVOL-027
@@ -125,3 +126,25 @@ Five fases, executed atomically in one PR:
 - Triggered by: MASS feedback report listing 7 gaps; framework triage on 2026-05-05 confirmed 5 as upstream gaps and declassified 2.
 - Verification (planned): static template validation (manifest schema + reformatted journey template), unit test for `generate-governance-snapshot.sh` reproducibility against the existing snapshot in `.context/`, unit test for `check-inventory-drift.sh` against a synthetic drift fixture, manual `Factory-setup-upgrade` dry-run on a throwaway materialised project.
 - Status: proposed. Acceptance flips this to `accepted` and triggers the manifest version bump per `scripts/check-adr-constitution-sync.sh` (or its meta-equivalent — this EVOL does not amend a project constitution; only the framework manifest is touched).
+
+## Execution Outcome
+
+| # | Task | Result | Commit |
+|---|---|---|---|
+| 1 | Branch `feature/EVOL-027-downstream-governance-completeness` from `origin/main` | done | — |
+| 2 | ADR skeleton at status `proposed` capturing slug A + grouping ratifications | done | 72cf79b |
+| 3 | Fase 2 reframe to full convention drop (C) ratified after triage of materialisation contract | done | b02ee9e |
+| 4 | Fase 1 — `agent_templates` section added to `governance_versions.json` (30 entries covering codesign / architect / develop / peer_review / po / qa / security / ux); `Factory-setup-upgrade` Step 1 gains explicit Manifest Sections Walked table | done | bc153c2 |
+| 5 | Fase 1 — `framework_version` bumped 3.0.0 → 4.0.0 (BREAKING — manifest schema gains new top-level section) | done | bc153c2 |
+| 6 | Fase 2 — sed sweep across 19 Factory-* instructions, 4 Factory-* skills, 1 preflight.sh: `.claude/rules/foo.instructions.md` → `.claude/rules/foo.md` (47+ occurrences, 0 remaining) | done | c5ac49e |
+| 7 | Fase 2 — manifest `target` fields rewritten for 25 `templates.rules/*` entries; `Factory-setup-materialization` Phase A/B/C drops the rename step (`.claude/rules/{name}.md` written directly); `Factory-setup-upgrade` § v4.0.0 migration rule added (idempotent, collision-safe `git mv` of legacy filenames during upgrade prologue) | done | c5ac49e |
+| 8 | Fase 2 — sweep of cross-rule references in `.context/templates/setup/rules/*.md`, setup scripts (lint-format, security-scan, ux-validation, validate-iac, validate-migrations), `.context/utils/*.py`/`.sh`, README, constitution_template, claude/CLAUDE.md template, MATERIALIZATION_REPORT_TEMPLATE, adr_setup_template, two agent_templates (api_test, test_plan) | done | c5ac49e |
+| 9 | Fase 2 — bumps: 20 framework_core entries (instructions + skills + preflight) + 23 templates entries (rules + scripts + constitution + claude template + utility templates + 2 agent_templates) all by MINOR | done | c5ac49e |
+| 10 | Fase 3 — `scripts/generate-governance-snapshot.sh` written: portable MD5, frontmatter, Stack Configuration via 2-space-indent YAML parser (no PyYAML dep), Rules Manifest table from frontmatter scan, Protected Paths from JSON, Setup Configuration verbatim excerpt, Active Constitution `[LAW]` extract via the awk contract from L2 test, Defect Prevention universal entries; `--check` and `--quiet` modes | done | a5e82da |
+| 11 | Fase 3 — Mirror at `.context/templates/setup/scripts/generate-governance-snapshot.sh`; `factory-sync.sh` base-scripts whitelist extended; `Factory-setup-materialization` Checkpoint 3.1 narrative replaces pseudocode-as-contract with reference to the script (pseudocode kept as normative documentation, not as a re-implementation guide) | done | a5e82da |
+| 12 | Fase 4 — `scripts/check-inventory-drift.sh` written: STALE / PROMOTE / INVALID classification via JSON parse of `config/codebase_inventory.json`; `--json` for CI, `--warn-only` for advisory mode; graceful when inventory absent | done | c0742da |
+| 13 | Fase 4 — Mirror at `.context/templates/setup/scripts/check-inventory-drift.sh`; `.github/workflows/governance-check.yml` gains advisory step (--warn-only); `Factory-codebase-inventory/SKILL.md` § Drift Detection Gate documents the new gate (classification table, invocation modes, scope boundary vs `SETUP --reconcile-inventory`) | done | c0742da |
+| 14 | Fase 5 — `codesign/user_journey_template.md` Section 2 reformatted from master-table to per-step `### Paso N` blocks with labeled DataIn:/DataOut:/Schema fields | done | b4c6730 |
+| 15 | Fase 5 — `codesign/user_journey.integration.md` reformatted to the same parser-canonical contract, with integration-specific fields (Trigger, Effect, Idempotency Key, Retry Policy) preserved per step; both `agent_templates.codesign/user_journey*.md` bumped 1.0.0 → 1.1.0 | done | b4c6730 |
+| 16 | Manifest description-line entries v3.0.0 → 4.0.0 (Fase 1 / Fase 2 / Fase 5 markers) consolidated in a single BREAKING block | done | bc153c2, c5ac49e, b4c6730 |
+| 17 | Status flip `proposed` → `accepted` with final ADR version bump | pending user ratification | — |
