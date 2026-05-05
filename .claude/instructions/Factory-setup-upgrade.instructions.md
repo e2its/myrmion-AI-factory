@@ -39,6 +39,37 @@ git mv docs/rules .claude/rules
 
 Then regenerate governance snapshot and re-run `--upgrade`.
 
+### v4.0.0 — rules-naming convention unification (drop `.instructions.md` suffix)
+
+Materialised projects on framework < 4.0.0 carry rules as `.claude/rules/foo.instructions.md`. Convention is unified to `.claude/rules/foo.md` everywhere — source, target, manifest, instruction refs.
+
+**Auto-applied during `--upgrade` (Step 2 prologue):**
+
+```bash
+# Detect legacy state and rename in lock-step. Idempotent + collision-safe.
+# Degrades to plain `mv` when not inside a git work tree (sandbox / non-git
+# materialisation) — `git mv` would otherwise fail with "fatal: not a git
+# repository" and abort the entire upgrade.
+shopt -s nullglob
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  rename_cmd=(git mv)
+else
+  rename_cmd=(mv)
+fi
+for f in .claude/rules/*.instructions.md; do
+  base="${f##*/}"; new="${base%.instructions.md}.md"
+  # Skip if target already exists (post-EVOL-027 materialisation already correct).
+  [ -e ".claude/rules/$new" ] && continue
+  "${rename_cmd[@]}" "$f" ".claude/rules/$new"
+done
+```
+
+The rename runs BEFORE Smart Additive Merge so that subsequent file-by-file comparisons use the new path. Manifest `target` fields for `templates.rules/*` already point to the new convention; the rename brings the project filesystem into alignment.
+
+If the migration finds collisions (both `foo.instructions.md` and `foo.md` exist), it skips the rename and surfaces a manual-resolution warning — typical cause is a half-applied prior upgrade that the user must reconcile.
+
+`factory-sync.sh` accepts both forms during the transition window (1 minor version) and prefers the new form when both exist on the framework side. The `--preserve-local` flag (factory-sync.sh global flag) applies to all targets including post-EVOL-027 framework-shipped scripts (`generate-governance-snapshot.sh`, `check-inventory-drift.sh`): when set, materialised projects with legitimate local modifications keep their version instead of being overwritten.
+
 ---
 
 ## Command: `--upgrade` (v3.0.0)
@@ -91,6 +122,17 @@ For each ADR in `docs/project_log/adr/`:
 4. If project snapshot missing: construct from current files with forced `"0.0.0"` version
 
 ### Step 1: Version Comparison & Change Detection (4.4.1)
+
+**Manifest sections walked by --upgrade (in order):**
+
+| Section | Target trees | Merge contract |
+|---------|--------------|----------------|
+| `templates` | `.claude/rules/**`, `docs/constitution.md`, `docs/setup.md`, `.context/templates/setup/**` materialised paths, CI/CD workflow YAML | Smart Additive Merge (Step 2) — placeholders resolved via Smart Discovery Cascade |
+| `agent_templates` | `.context/templates/{architect,codesign,develop,peer_review,po,qa,security,ux}/**` | Smart Additive Merge (Step 2) — placeholders are runtime-resolved by agents at feature time and ship verbatim; merge preserves any local customisations of headings, sections, or structural prose |
+| `framework_core` | `.claude/{commands,instructions,skills,hooks}/**`, `scripts/**`, `.github/workflows/**`, root `CLAUDE.md`, `README.md`, `config/coherence-context.json` | Script Semantic Merge for `.sh`/`.py` (Step 1b); Smart Additive Merge for everything else |
+
+The three sections are mutually exclusive on target paths — a file appears in exactly one section. Walk all three in a single pass; do not deduplicate by checksum across sections.
+
 1. Compare framework versions vs project versions (SemVer)
 2. Evaluate `stack_conditional` filters (skip files that don't apply to current stack)
 3. Detect user customizations (project checksum ≠ previous framework checksum → user modified file)

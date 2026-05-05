@@ -95,7 +95,7 @@ cascade_scope: []
 > **Chaos / fault-injection notes:** for integration features interacting with paid services, prefer contract-test doubles + recorded-interaction replays over real chaos. For internal downstreams, consider toxiproxy / chaos-mesh / Gremlin in staging. Never run chaos in prod without blast-radius controls — document the controls in § 2.2.X rows if adopted.
 
 ## 3. UX & Accessibility Testing (Required for UI Features — applicable_when scope in [full-stack, frontend-only])
-> **Objective:** Validate compliance with UX Constitution (.claude/rules/ux-constitution.instructions.md).
+> **Objective:** Validate compliance with UX Constitution (.claude/rules/ux-constitution.md).
 > **Reference:** WCAG 2.1 AA + responsive + design tokens.
 
 | ID | Test Case | Tool | Expected Result |
@@ -109,7 +109,7 @@ cascade_scope: []
 
 ## 4. Brand & Layout Compliance (Required for UI Features — applicable_when scope in [full-stack, frontend-only])
 > **Objective:** Validate brand identity consistency and layout architecture.
-> **Reference:** #file:.claude/rules/ux-constitution.instructions.md Section I (Brand Identity & Layout Constitution)
+> **Reference:** #file:.claude/rules/ux-constitution.md Section I (Brand Identity & Layout Constitution)
 
 | ID | Test Case | Tool | Expected Result |
 |:---|:---|:---|:---|

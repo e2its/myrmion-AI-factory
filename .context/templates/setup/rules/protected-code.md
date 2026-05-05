@@ -19,7 +19,7 @@ changelog:
 
 ## Rules
 - Never edit RED directly; use GREEN adapters/wrappers/DI/middleware.
-- Before editing, check `.claude/rules/protected-code.instructions.md` and `config/protected-paths.json`.
+- Before editing, check `.claude/rules/protected-code.md` and `config/protected-paths.json`.
 - CI drift check blocks merges on RED modifications.
 
 ## Extension Patterns (Allowed)
@@ -34,6 +34,6 @@ changelog:
 - Commit updates; review in PRs.
 
 ## See Also
-- `.claude/rules/protected-code.instructions.md`
-- `.claude/rules/architecture.instructions.md`
-- `.claude/rules/security_policy.instructions.md`
+- `.claude/rules/protected-code.md`
+- `.claude/rules/architecture.md`
+- `.claude/rules/security_policy.md`

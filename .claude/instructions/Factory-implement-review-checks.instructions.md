@@ -79,7 +79,7 @@ FUNCTION bind_review_context(governance_context, gcd_loaded):
   ELSE:
     # Fallback: governance_context has raw rule data from implement-build Step 0b.
     # Bind the equivalent fields so downstream checks use the same interface.
-    arch_constraints   = governance_context.arch_constraints     # raw arch rules (e.g., architecture.instructions.md)
+    arch_constraints   = governance_context.arch_constraints     # raw arch rules (e.g., architecture.md)
     gov_rules_index    = governance_context.governance_rules      # raw governance rules index
     sast_patterns      = governance_context.sast_patterns         # stack-specific SAST patterns (fallback-loaded)
     schema_constraints = governance_context.schema_constraints    # raw schema constraints / rule files
@@ -94,7 +94,7 @@ FUNCTION bind_review_context(governance_context, gcd_loaded):
 
 **Impact on check precision:**
 - With GCD: Each check references a named constraint ID (`[ARCH-B2-001]`, `[GOV-SEC-003]`)  
-- Without GCD: Checks reference rule files generically ("per architecture.instructions.md")  
+- Without GCD: Checks reference rule files generically ("per architecture.md")  
 - Named IDs make REVIEW findings precise, reproducible, and directly linkable to the design decision that generated them.
 
 ### Check #1: [ARCH-XX] Architecture Compliance
@@ -465,7 +465,7 @@ VERIFY:
   - Component tests exist for each UI component
   - E2E tests cover user journey scenarios from spec.feature
   - Accessibility tests (axe-core) pass
-  - Test coverage meets minimum threshold from testing.instructions.md
+  - Test coverage meets minimum threshold from testing.md
 ```
 
 #### [UX-REUSE] Component Reuse
@@ -492,7 +492,7 @@ SEVERITY: BLOCKER if duplicating vision library component
 #### [UX-RESP] Responsive Design
 ```yaml
 VERIFY responsive breakpoints:
-  - Mobile, tablet, desktop breakpoints from ux-constitution.instructions.md
+  - Mobile, tablet, desktop breakpoints from ux-constitution.md
   - Layout adapts correctly at each breakpoint
   - No horizontal overflow on mobile
   - Images and media responsive
@@ -561,7 +561,7 @@ IF implementation includes database migrations:
 ### Check #9: [IAC-XX] Infrastructure Compliance
 ```yaml
 IF implementation modifies infrastructure files (infra/):
-  VERIFY against .claude/rules/iac.instructions.md:
+  VERIFY against .claude/rules/iac.md:
     - Naming conventions followed
     - Modules properly structured
     - Security groups/IAM follow least privilege
@@ -1287,7 +1287,7 @@ CREATE docs/spec/{FEATURE_ID}/sec_audit.md:
   - SAST scan results per phase
   - Resolved vulnerabilities
   - Remaining findings (MEDIUM/LOW with risk acceptance)
-  - Compliance status per security_policy.instructions.md
+  - Compliance status per security_policy.md
 ```
 
 ### 3.3: Update dev_plan.md
@@ -1307,7 +1307,7 @@ VERIFY before marking complete:
   [ ] 2. Zero BLOCKER findings from REVIEW
   [ ] 3. Zero CRITICAL/HIGH findings from SEC
   [ ] 4. All tests passing (unit + integration + E2E)
-  [ ] 5. Test coverage meets threshold from testing.instructions.md
+  [ ] 5. Test coverage meets threshold from testing.md
   [ ] 6. No TODO/FIXME in business-critical code
   [ ] 7. All contracts implemented (OpenAPI/GraphQL/gRPC/AsyncAPI)
   [ ] 8. Schema compliance verified (user_journey.md)

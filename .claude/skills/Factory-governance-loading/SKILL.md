@@ -177,7 +177,7 @@ FUNCTION generate_governance_snapshot(governance_context):
     {EXTRACT from config/protected-paths.json: red_zones[], yellow_zones[]}
     
     ## Environments
-    {EXTRACT from .claude/rules/ci-cd.instructions.md: environments[]}
+    {EXTRACT from .claude/rules/ci-cd.md: environments[]}
     
     ## Constitutional Boundaries
     - Pattern: {architecture.pattern}
@@ -289,7 +289,7 @@ FUNCTION load_rule_content(rule_file):
     RETURN NULL
 
 # Usage example in validation:
-# snapshot says security_policy.instructions.md applies → agent calls load_rule_content("security_policy.instructions.md")
+# snapshot says security_policy.md applies → agent calls load_rule_content("security_policy.md")
 # ONLY when actually validating security compliance
 ```
 

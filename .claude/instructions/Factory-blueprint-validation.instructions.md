@@ -41,7 +41,7 @@ paths_match(pathA, pathB):
 ```
 
 ### 3.3 UX Constitution Validation
-- If `.claude/rules/ux-constitution.instructions.md` exists:
+- If `.claude/rules/ux-constitution.md` exists:
   - Verify design.md component architecture references style_guide tokens
   - Verify mock-referenced components exist in vision component_library
   - Verify navigation integration with navigation_map.md

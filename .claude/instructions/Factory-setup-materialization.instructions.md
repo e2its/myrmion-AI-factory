@@ -41,7 +41,7 @@ If any prerequisite fails → **BLOCK** with clear remediation message.
 ### Checkpoint 3 — Post-Materialization Validation (BLOCKING)
 Validate 6 artifact categories exist and are well-formed:
 1. `docs/constitution.md` — exists, no `{{placeholders}}` remaining
-2. `.claude/rules/*.instructions.md` — at least core rules materialized, all with YAML frontmatter
+2. `.claude/rules/*.md` — at least core rules materialized, all with YAML frontmatter
 3. Source directory structure — matches topology + pattern
 4. CI/CD pipeline — exists for chosen platform
 5. `docs/project_log/governance_versions.json` — snapshot created
@@ -54,6 +54,21 @@ If ANY check fails → **BLOCK** completion, list failures, suggest fixes.
 > **Purpose:** Generate the file-based governance snapshot consumed by ALL agents at every command start.
 > This file enables post-summarization governance recovery (see `.claude/skills/Factory-governance-loading/SKILL.md` Step 0).
 > Embeds the operational law (`## [LAW]` sections of constitution + universal DCs) so cultural guidance is mechanically present from turn 1 — agents do not depend on disciplinary on-demand loading for the rules that govern every decision. ADRs are NOT loaded; they are historical records of why constitutional changes were made — see `.claude/skills/Factory-adr-management/SKILL.md`.
+
+> **Implementation:** the deterministic generator ships as `scripts/generate-governance-snapshot.sh` (mirror at `.context/templates/setup/scripts/generate-governance-snapshot.sh` for materialised projects, propagated via `factory-sync.sh`). SETUP --generate, SETUP --upgrade, and the agent-driven post-load regen path (Factory-governance-loading SKILL § Step 1 POST-LOAD) all invoke the script. Direct re-implementation of the pseudocode below by individual agents is forbidden — the script is the single source of truth for snapshot bytes.
+>
+> **Propagation note:** `factory-sync.sh --preserve-local` covers this script — when the flag is set, materialised projects with a local custom version of `generate-governance-snapshot.sh` keep their version instead of being overwritten by the framework variant. Use this only when a project has documented its local fork in an ADR; the canonical path is to track the fork upstream rather than carry per-project drift indefinitely.
+
+> **Script invocation:**
+>
+> ```bash
+> bash scripts/generate-governance-snapshot.sh           # write the snapshot
+> bash scripts/generate-governance-snapshot.sh --check   # validate inputs only
+> ```
+>
+> Exit 0 = ok; exit 1 = missing required input (constitution.md / setup.md); exit 2 = tooling failure (no python3 or md5 implementation).
+
+The pseudocode below documents the contract the script honours. It is normative for understanding snapshot semantics; it is NOT to be re-implemented by hand at materialisation time.
 
 ```yaml
 FUNCTION generate_governance_snapshot():
@@ -69,7 +84,7 @@ FUNCTION generate_governance_snapshot():
   stack_config    = EXTRACT_STACK_CONFIG(docs/constitution.md)
   rules_manifest  = SCAN_RULES_DIRECTORY(.claude/rules/)
   protected_paths = READ_IF_EXISTS(config/protected-paths.json)
-  environments    = EXTRACT_ENVIRONMENTS(.claude/rules/ci-cd.instructions.md)
+  environments    = EXTRACT_ENVIRONMENTS(.claude/rules/ci-cd.md)
   setup_config    = EXTRACT_SETUP_CONFIG(docs/setup.md)
 
   # Operational law — body extracted verbatim from constitution [LAW] sections
@@ -334,14 +349,14 @@ Dynamic template scanning with technology-specific best practices:
 Scan `.context/templates/setup/rules/` for all `.md` templates. For each template:
 1. Read template content
 2. Resolve placeholders from `docs/setup.md` + `docs/constitution.md`
-3. Write to `.claude/rules/{rule_name}.instructions.md`
+3. Write to `.claude/rules/{rule_name}.md`
 
-Standard rules materialized to `.claude/rules/`: `architecture.instructions.md`, `security_policy.instructions.md`, `testing.instructions.md`, `branching.instructions.md`, `ci-cd.instructions.md`, `database.instructions.md`, `observability.instructions.md`, `performance.instructions.md`, `ux-constitution.instructions.md`, `contract-first-policy.instructions.md`, `immutability_policy.instructions.md`, `ai_budget_tracker.instructions.md`, `ai_budget_governance.instructions.md`, `stateless.instructions.md`, `privacy.instructions.md`, `frontend_architecture_compatibility.instructions.md`, `html-css.instructions.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`.
+Standard rules materialized to `.claude/rules/`: `architecture.md`, `security_policy.md`, `testing.md`, `branching.md`, `ci-cd.md`, `database.md`, `observability.md`, `performance.md`, `ux-constitution.md`, `contract-first-policy.md`, `immutability_policy.md`, `ai_budget_tracker.md`, `ai_budget_governance.md`, `stateless.md`, `privacy.md`, `frontend_architecture_compatibility.md`, `html-css.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`.
 
 **Phase B — Technology-Specific Best Practices:**
 For each detected technology (backend.runtime, frontend.framework):
 1. Check if `.context/templates/setup/rules/{technology}.md` exists
-2. **FOUND:** Use template, resolve placeholders, write to `.claude/rules/{technology}.instructions.md`
+2. **FOUND:** Use template, resolve placeholders, write to `.claude/rules/{technology}.md`
 3. **NOT_FOUND:** Auto-generate using 12-section structure with MANDATORY frontmatter:
    - **Step 3a — Generate frontmatter** using this exact structure:
      ```yaml
@@ -653,7 +668,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
   # DC: Backend-frontend contract mismatch
   # Applies when project has BOTH backend AND frontend AND uses contract-first policy
-  # Contract-first policy is always materialized as .claude/rules/contract-first-policy.instructions.md
+  # Contract-first policy is always materialized as .claude/rules/contract-first-policy.md
   # when both backend and frontend exist (Phase A standard rules)
   IF setup_md.frontend.framework != "None" AND setup_md.backend.runtime != "None":
     ADD DC: {
@@ -695,14 +710,12 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     RENDER as: "| DC-{dc_number} | {dc.name} | {dc.applicable_when} | {applicable_to_rendered} | {dc.review_severity} | {dc.prevention} |"
     dc_number += 1
   REPLACE {{DC_ENTRIES}} with rendered rows
-  WRITE to .claude/rules/defect-prevention.md (NOT .instructions.md — this is a catalog, not a rule file)
+  WRITE to .claude/rules/defect-prevention.md
 ```
-
-> **Note:** `defect-prevention.md` is written WITHOUT the `.instructions.md` extension because it is a living catalog managed by the Discovery Protocol, not a static governance rule. It does NOT require `applyTo:` and is exempt from the Phase C extension check.
 
 **Phase C — Global Validation:**
 After all rules generated, validate:
-- All materialized files in `.claude/rules/` have `.instructions.md` extension (except `defect-prevention.md`)
+- All materialized files in `.claude/rules/` end with `.md` (no `.instructions.md` suffix — convention unified)
 - All materialized files contain YAML frontmatter with `description:` field
 - All **technology-specific** rules (Phase A language rules + Phase B) contain `applyTo:` with a valid glob pattern
 - Cross-cutting rules (architecture, security_policy, branching, defect-prevention, etc.) are NOT required to have `applyTo`
@@ -957,7 +970,7 @@ Generate platform-specific pipeline from template:
 - Jenkins: `Jenkinsfile`
 - CircleCI: `.circleci/config.yml`
 - AWS CodePipeline: `buildspec.yml`
-Pipeline includes stages matching `ci_cd.tier` (lint, test, security, build, deploy per environment from `ci-cd.instructions.md`).
+Pipeline includes stages matching `ci_cd.tier` (lint, test, security, build, deploy per environment from `ci-cd.md`).
 
 **Governance Workflow (100% functional from scaffolding):**
 In addition to the CI pipeline, materialise the platform-specific governance check workflow that runs the ADR ↔ constitution sync gate (`scripts/check-adr-constitution-sync.sh`) on every PR / MR targeting `main`. Source templates live at `.context/templates/setup/workflows/governance-check.{platform}.{ext}`:
@@ -977,7 +990,7 @@ The workflow MUST be wired so that any PR transitioning an ADR file under `docs/
 **IaC Foundation (conditional on `hosting.iac_tool != None`):**
 - Create `infra/modules/`, `infra/features/`
 - Initialize `config/infrastructure_registry.json`
-- Materialize `.claude/rules/iac.instructions.md`
+- Materialize `.claude/rules/iac.md`
 - Copy IaC scripts from templates
 
 **Codebase Inventory Protocol (CIP v1.0.0):**
@@ -1123,21 +1136,21 @@ validation_script: [script path if script-based]
 ```
 
 **Special Integration — UX Constitution (scope-aware):**
-If `project_scope in [full-stack, frontend-only]` AND `frontend.framework != "None"`, populate `.claude/rules/ux-constitution.instructions.md` with:
+If `project_scope in [full-stack, frontend-only]` AND `frontend.framework != "None"`, populate `.claude/rules/ux-constitution.md` with:
 - Brand Identity from Visual DNA (Q13)
 - Layout preferences (border radius, shadows, animations)
 - Pixel-level mapping of Visual DNA to CSS variables
 
-When `project_scope in [backend-only, integration]`, SKIP ux-constitution materialisation entirely — no `ux-constitution.instructions.md`, no Visual DNA processing, no design-system merge. Downstream CODESIGN `--vision` is blocked by `Factory-codesign-vision.instructions.md § Prerequisites` (scope guard).
+When `project_scope in [backend-only, integration]`, SKIP ux-constitution materialisation entirely — no `ux-constitution.md`, no Visual DNA processing, no design-system merge. Downstream CODESIGN `--vision` is blocked by `Factory-codesign-vision.instructions.md § Prerequisites` (scope guard).
 
 **Special Integration — External Design System:**
 If `frontend.external_design_system.exists == true`:
-1. **Semantic Merge:** DS tokens → ux-constitution.instructions.md (DS takes precedence except WCAG/security violations → create RDR)
+1. **Semantic Merge:** DS tokens → ux-constitution.md (DS takes precedence except WCAG/security violations → create RDR)
 2. **Component Migration:** Compatible components → project folder structure + register in `docs/ux/component-registry.json` + protect in `protected-paths.json`
 3. **Tokens-Only:** Extract design tokens, create CSS custom properties file
 
 **Branching Rule Placeholders:**
-Populate `.claude/rules/branching.instructions.md` with PR validation settings from Q22.1 (`pr_validation_mode`, `pr_approval_count`, `pr_merge_method`).
+Populate `.claude/rules/branching.md` with PR validation settings from Q22.1 (`pr_validation_mode`, `pr_approval_count`, `pr_merge_method`).
 
 **Constitution Update:**
 Replace PLACEHOLDER governance index section in `docs/constitution.md` with generated markdown containing all rule metadata.

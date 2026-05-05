@@ -185,7 +185,7 @@ BACKUP VERIFICATION:
 ```yaml
 Feature-scoped: devops_plan.md APPROVED + secrets_config CONFIGURED
 Env-scoped: infrastructure_registry.json with resources for {ENV}
-BOTH: {ENV} must exist in ci-cd.instructions.md environments[]
+BOTH: {ENV} must exist in ci-cd.md environments[]
 BLOCKER: Production env requires MERGE to main + QA APPROVED (via --verify auto-approval or legacy --approve)
 ```
 
@@ -342,7 +342,7 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
         STOP
 
   # 5. Production requires MERGE + QA APPROVED
-  IF ENV == production_env:  # from ci-cd.instructions.md environments[]
+  IF ENV == production_env:  # from ci-cd.md environments[]
     # QA gate: feature-scoped lookup when FEATURE_ID present, env-scoped when null
     IF FEATURE_ID IS NOT NULL:
       qa_report = FIND latest docs/spec/{FEATURE_ID}/qa/qa_report_final_*.md
@@ -364,7 +364,7 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
     main_branch = DETECT main|master from git remote
     current_sha = git rev-parse HEAD
     is_on_main = git merge-base --is-ancestor {current_sha} {main_branch} AND git merge-base --is-ancestor {main_branch} {current_sha}
-    is_tagged = git describe --exact-match --tags {current_sha} 2>/dev/null matches release pattern from ci-cd.instructions.md
+    is_tagged = git describe --exact-match --tags {current_sha} 2>/dev/null matches release pattern from ci-cd.md
     IF NOT is_on_main AND NOT is_tagged:
       ❌ BLOCK: "Production deployment requires MERGE to main or a release tag. Create PR first."
       STOP

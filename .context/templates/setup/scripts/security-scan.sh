@@ -261,7 +261,7 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
     echo -e "$VIOLATIONS"
     echo ""
     echo "🛡️  Policy: RED ZONES are immutable (frameworks, dependencies, governance)"
-    echo "📋 See: .claude/rules/protected-code.instructions.md"
+    echo "📋 See: .claude/rules/protected-code.md"
     echo ""
     echo "⚠️  NO BYPASS ALLOWED. To request modification approval:"
     echo "  1. Stop implementation immediately"

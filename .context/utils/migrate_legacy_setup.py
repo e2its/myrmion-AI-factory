@@ -145,7 +145,7 @@ def add_missing_sections(markdown_content: str, frontmatter: dict) -> str:
 - Integrations: TBD
 - Total: TBD
 
-**Tracking File:** `.claude/rules/ai_budget_tracker.instructions.md`
+**Tracking File:** `.claude/rules/ai_budget_tracker.md`
 """)
     
     # Check if Integration Strategy section exists

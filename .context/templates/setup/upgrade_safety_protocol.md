@@ -618,7 +618,7 @@ Enables: /SETUP --analyze-upgrade {{TIMESTAMP}} for post-mortem
   "setup_md_checksum": "abc123...",
   "constitution_md_checksum": "def456...",
   "files": {
-    ".claude/rules/architecture.instructions.md": {
+    ".claude/rules/architecture.md": {
       "template_source": "rules/architecture.md",
       "template_version": "1.2.3",
       "content_type": "stack_configured",
@@ -644,8 +644,8 @@ Enables: /SETUP --analyze-upgrade {{TIMESTAMP}} for post-mortem
     }
   },
   "dependencies": {
-    ".claude/rules/architecture.instructions.md": [
-      ".claude/rules/api-standards.instructions.md",
+    ".claude/rules/architecture.md": [
+      ".claude/rules/api-standards.md",
       "docs/constitution.md"
     ]
   },

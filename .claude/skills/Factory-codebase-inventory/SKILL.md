@@ -455,6 +455,47 @@ AUTO_RECONCILE_ADVISORY:
 
 ---
 
+## Drift Detection Gate (`scripts/check-inventory-drift.sh`)
+
+The inventory's `path` fields can silently rot when files are deleted, renamed, or moved without updating the inventory entry. CIP Consultation does not catch this — it checks presence in inventory and cache freshness, not whether the inventory tells the truth about disk. The drift detector is a complementary gate that closes the asymmetry.
+
+### What it detects
+
+| Class | Definition | Action |
+|-------|-----------|--------|
+| `STALE` | Artifact has `status: IMPLEMENTED` but `path` does not exist on disk | Investigate: file deleted/moved → update or remove the inventory entry |
+| `PROMOTE` | Artifact has `status: PLANNED` but `path` exists on disk | Promote to `IMPLEMENTED` (transition is mechanical when path matches) |
+| `INVALID` | Entry missing required `path` or `status` fields | Repair or remove the entry |
+
+### Invocation
+
+```bash
+# Human report; exit 1 on drift, 0 if clean
+bash scripts/check-inventory-drift.sh
+
+# JSON output for CI / orchestration; same exit codes
+bash scripts/check-inventory-drift.sh --json
+
+# Report drift but never fail (advisory mode for soft CI gates)
+bash scripts/check-inventory-drift.sh --warn-only
+```
+
+Exit codes: `0` = no drift (or `--warn-only`), `1` = drift detected, `2` = tooling/file missing (no `python3`, etc.). When `config/codebase_inventory.json` is absent (CIP not bootstrapped — typical for greenfield projects pre-BLUEPRINT) the script exits 0 with an informational message.
+
+### When to invoke
+
+- **CI** — wired into `.github/workflows/governance-check.yml` as an advisory step (`--warn-only`). Drift surfaces as a workflow log line; does not block PR merge in advisory mode. Materialised projects whose CI must enforce drift can flip the flag in their workflow YAML.
+- **`SETUP --reconcile-inventory`** — runs the drift check after Phase 5 (Persist & Report) to surface any residual drift the heuristic reconciliation missed.
+- **Pre-merge audit (manual)** — invoke before approving a PR that touches `config/codebase_inventory.json` to verify the new entries are coherent.
+
+The detector is intentionally narrow: it does NOT scan the filesystem for orphan code files outside the inventory (that would require stack-specific globs that the script cannot derive deterministically). Filesystem-side orphan detection is the job of `SETUP --reconcile-inventory` Phase 4 (heuristic-driven, agent-mediated).
+
+### Propagation behaviour (`factory-sync.sh --preserve-local`)
+
+`scripts/check-inventory-drift.sh` ships meta-direct via `factory-sync.sh` (base-scripts whitelist). Default propagation overwrites the materialised project's copy with the framework version. When `factory-sync.sh --preserve-local` is set, materialised projects with legitimate local modifications keep their version (the sync reports it under the `PRESERVED` counter). The same flag covers the other framework-shipped scripts (`generate-governance-snapshot.sh`, governance-on{prompt,edit,compact}, validate-governance, etc.) — single global flag, not per-script. Use it when a project needs to lock specific framework scripts to a non-canonical version while still receiving updates to everything else.
+
+---
+
 ## Post-Summarization DRY Recovery (CIP Canary)
 
 **Problem:** LLM summarization can destroy in-memory CIP consultation results. An agent that already ran `cip_consultation_gate()` at phase start may lose awareness of existing artifacts and silently create duplicates — the worst DRY violation.

@@ -79,7 +79,7 @@ Each `full-sdlc` feature expands into **8 phase issues** on the backlog. Three o
 - **AUDIT** and **BACKLOG** are independent — run any time.
 - **Auto-Approval**: CODESIGN, DEVOPS `--configure`, QA `--verify` auto-approve when all validations pass. Auto-approval does NOT bypass the hard gates — a gate's own issue must be Done before the downstream command can start.
 - **BLUEPRINT `--approve`** is the only mandatory manual checkpoint for the classic phases.
-- Environments are dynamic — read from `.claude/rules/ci-cd.instructions.md`. MERGE always before production deploy.
+- Environments are dynamic — read from `.claude/rules/ci-cd.md`. MERGE always before production deploy.
 
 ### Hard Gates
 
@@ -147,7 +147,7 @@ Every feature ships as a chain of **vertical increments**. One PR per increment.
 
 **Artefact.** `docs/spec/{FEATURE_ID}/increment_plan.md` — sidecar of `design.md`. `§ 0` Slicing Rationale, `§ 1` Increments (each declaring `Status`, `scenarios_covered`, `contract_surface`, `depends_on` (DAG), `deployable: production`, acceptance checklist, branch name), `§ 2` Mermaid DAG, `§ 3` Monolithic Escape Declaration (only when monolithic). Generated at `BLUEPRINT --start` via RDR (≥3 slicing alternatives, verbatim ratification).
 
-**Increment lifecycle.** `DRAFT → READY → BUILDING → MERGED` + `→ INVALIDATED` branch from DRAFT/READY only. Transitions are monotonic — no regression. MERGED is terminal for that increment: further change to its scope requires either `CODESIGN --revise` (feature version bump) or a **Follow-up Increment** (additive, non-overlapping scenarios; no bump). See `.claude/rules/immutability_policy.instructions.md § Per-Increment Immutability`.
+**Increment lifecycle.** `DRAFT → READY → BUILDING → MERGED` + `→ INVALIDATED` branch from DRAFT/READY only. Transitions are monotonic — no regression. MERGED is terminal for that increment: further change to its scope requires either `CODESIGN --revise` (feature version bump) or a **Follow-up Increment** (additive, non-overlapping scenarios; no bump). See `.claude/rules/immutability_policy.md § Per-Increment Immutability`.
 
 **Branching.** `feature/{FEATURE_ID}-inc-N-{slug}` per increment, merged as independent PR. One branch open at a time per feature (concurrency lock). Merge hook stamps `Merged at:` and flips status.
 

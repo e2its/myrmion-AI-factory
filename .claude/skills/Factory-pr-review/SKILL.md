@@ -38,7 +38,7 @@ Runs locally against the current branch's diff vs its base. NEVER touches the re
 ```
 
 Steps (executed by `preflight.sh`):
-1. Resolve base (`origin/main` by default, or read from `.claude/rules/branching.instructions.md` `default_base_branch`).
+1. Resolve base (`origin/main` by default, or read from `.claude/rules/branching.md` `default_base_branch`).
 2. Compute `git diff --name-only origin/{base}..HEAD`.
 3. **Docs-only fast-lane** — if every changed path matches `**/*.md`, `docs/**`, `.context/templates/**`, `.gitignore` (and none under `.github/workflows/**`), exit 0 with `fast-lane: docs-only` note. Skip remaining checks.
 4. Run `detect_change_type.py` → flags JSON.
@@ -174,7 +174,7 @@ The marker proves Phase 0 ran for this exact tree state (commit sha). New commit
 ### Phase 1 — Branch + base resolution
 ```bash
 current=$(git branch --show-current)
-base=${BASE:-origin/main}  # or read from .claude/rules/branching.instructions.md
+base=${BASE:-origin/main}  # or read from .claude/rules/branching.md
 git fetch origin "${base#origin/}" --quiet
 git diff --name-only "$base"..HEAD
 ```
@@ -267,7 +267,7 @@ If you can't verify one of these four points, downgrade to "Question".
 
 | Protocol | Interaction |
 |---|---|
-| `Factory-branching-strategy` | Push gate is downstream of the Pre-Action Gate. Does NOT re-validate branch creation; assumes the branch exists and is non-protected. Reads `default_base_branch` from `.claude/rules/branching.instructions.md`. |
+| `Factory-branching-strategy` | Push gate is downstream of the Pre-Action Gate. Does NOT re-validate branch creation; assumes the branch exists and is non-protected. Reads `default_base_branch` from `.claude/rules/branching.md`. |
 | `Factory-codebase-inventory` (CIP) | Block 7 maps directly to CIP Canary; preflight checks for new code artefacts that are not registered in `config/codebase_inventory.json`. |
 | `Factory-coherence-validation` (CVP) | Block 8 invokes a subset of CVP checks (0a/0c/1/2/13-17) when `docs/spec/{ID}/**` is touched. Full CVP runs at BLUEPRINT --approve / IMPLEMENT --plan / QA --verify; preflight runs the cheap subset locally. |
 | `Factory-incremental-persistence` (IPP) | Block 9 is already enforced by `check-ipp-compliance.sh` at PreToolUse Write. Preflight re-asserts as defence in depth (in case the file was created outside Claude). |
@@ -333,7 +333,7 @@ Honest, narrow surface — only files the preflight script actually reads (or th
 
 | Block / category | Authoritative file | What the push gate reads |
 |---|---|---|
-| Branch protection (Block 10), base branch | `.claude/rules/branching.instructions.md` | `default_base_branch` field (`origin/{x}`); branch-name regex (when present) for Block 10 validation. |
+| Branch protection (Block 10), base branch | `.claude/rules/branching.md` | `default_base_branch` field (`origin/{x}`); branch-name regex (when present) for Block 10 validation. |
 | Protected paths (Block 12) | `config/protected-paths.json` | Glob list — every changed path is matched against it; any match → 🔴 Blocker. |
 | Protected code markers | `.claude/rules/protected-code.md` | The `PROTECTED-CODE START/END` marker convention. Push gate scans diff hunks; modifications inside a marker region → 🔴 Blocker. |
 | ADR / FDR-driven exemptions | `docs/project_log/adr/*.md` (project-wide ADRs) + `docs/spec/{ID}/fdr/*.md` (feature-scoped FDRs; legacy `adr/` read until migrated) | `pr_review_overrides:` frontmatter (see § ADR / FDR-driven exemptions below). |

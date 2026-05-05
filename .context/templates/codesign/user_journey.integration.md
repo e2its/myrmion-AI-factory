@@ -65,15 +65,55 @@ For async integrations, replace the final `-->>C` with an event publication (`AP
 
 ## Section 2: Integration Steps
 
-<!-- Master table: each row is one step in the integration flow.
-     Data In/Out reference schemas from Section 3 by name.
-     "Trigger" identifies what initiates the step (HTTP request, event, cron, webhook).
-     "Effect" is the persisted or observable outcome. -->
+<!-- Per-step blocks (parser-canonical format).
+     Each step is delimited by a `### Paso N` heading followed by labeled fields.
+     Downstream parsers (CODESIGN consumers, contract generators, test scaffolders)
+     extract by anchoring on `^### Paso N$` and reading the labeled fields below.
+     `DataIn:` / `DataOut:` reference schemas from Section 3 by name.
+     `Trigger` identifies what initiates the step (HTTP request, event, cron, webhook).
+     `Effect` is the persisted or observable outcome.
+     Integration-specific fields (Idempotency Key, Retry Policy) are mandatory for
+     this scope and never elided. -->
 
-| # | Actor | Trigger | Action (Command) | Effect (Event / Side-effect) | Data In | Data Out | External System | Idempotency Key | Retry Policy |
-|---|-------|---------|------------------|------------------------------|---------|----------|-----------------|-----------------|--------------|
-| 1 | {{CALLER}} | {{TRIGGER}} | {{ACTION}} | {{EFFECT}} | {{SchemaRef}} | {{SchemaRef}} | — | {{IDEMP_KEY_FIELD}} | none / exponential / dead-letter |
-| 2 | {{SYSTEM}} | {{TRIGGER}} | {{ACTION}} | {{EFFECT}} | {{SchemaRef}} | {{SchemaRef}} | {{DownstreamSystem}} | {{IDEMP_KEY_FIELD}} | exponential(max=5, base=2s) |
+### Paso 1
+
+- **Actor:** {{CALLER}}
+- **Trigger:** {{TRIGGER}}
+- **Action (Command):** {{ACTION}}
+- **Effect (Event / Side-effect):** {{EFFECT}}
+- **External System:** —
+- **DataIn:** {{SchemaRef}}
+- **DataOut:** {{SchemaRef}}
+- **Idempotency Key:** {{IDEMP_KEY_FIELD}}
+- **Retry Policy:** none / exponential / dead-letter
+
+#### Schema:
+
+> Optional inline schema reference. Most steps reuse a schema defined in Section 3 — leave this block empty or remove it when not needed.
+
+```yaml
+# Inline schema for this step only (rare). Use sparingly — Section 3 is the canonical schema source.
+```
+
+---
+
+### Paso 2
+
+- **Actor:** {{SYSTEM}}
+- **Trigger:** {{TRIGGER}}
+- **Action (Command):** {{ACTION}}
+- **Effect (Event / Side-effect):** {{EFFECT}}
+- **External System:** {{DownstreamSystem}}
+- **DataIn:** {{SchemaRef}}
+- **DataOut:** {{SchemaRef}}
+- **Idempotency Key:** {{IDEMP_KEY_FIELD}}
+- **Retry Policy:** exponential(max=5, base=2s)
+
+#### Schema:
+
+```yaml
+# Inline schema (optional, see note above).
+```
 
 ---
 

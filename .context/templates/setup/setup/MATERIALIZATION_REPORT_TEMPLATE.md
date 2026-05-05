@@ -47,14 +47,14 @@
 ### Phase 3: Rules Generation (29+ tasks - MANDATORY)
 
 #### Priority 1: Critical Rules 
-- [ ] Generate .claude/rules/architecture.instructions.md
+- [ ] Generate .claude/rules/architecture.md
 - [ ] Generate .claude/rules/{{BACKEND_RUNTIME}}.instructions.md (Backend standards - e.g., python.instructions.md, javascript.instructions.md)
 - [ ] Generate .claude/rules/{{FRONTEND_FRAMEWORK}}.instructions.md (Frontend standards - e.g., React.instructions.md, Vue.instructions.md)
-- [ ] Generate .claude/rules/testing.instructions.md
-- [ ] Generate .claude/rules/security_policy.instructions.md
-- [ ] Generate .claude/rules/stateless.instructions.md
-- [ ] Generate .claude/rules/api-standards.instructions.md (if backend.communication_style = REST/GraphQL)
-- [ ] Generate .claude/rules/database.instructions.md (if databases configured)
+- [ ] Generate .claude/rules/testing.md
+- [ ] Generate .claude/rules/security_policy.md
+- [ ] Generate .claude/rules/stateless.md
+- [ ] Generate .claude/rules/api-standards.md (if backend.communication_style = REST/GraphQL)
+- [ ] Generate .claude/rules/database.md (if databases configured)
 - [ ] Generate config/allowlist.json
 - [ ] Generate config/protected-paths.json
 - [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_1}}.instructions.md (e.g., terraform.instructions.md, docker.instructions.md, redis.instructions.md)
@@ -63,24 +63,24 @@
 - [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_4}}.instructions.md
 - [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_5}}.instructions.md
 - [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_N}}.instructions.md
-- [ ] Generate .claude/rules/privacy.instructions.md
-- [ ] Generate .claude/rules/ci-cd.instructions.md
-- [ ] Generate .claude/rules/branching.instructions.md
-- [ ] Generate .claude/rules/observability.instructions.md
-- [ ] Generate .claude/rules/contract-first-policy.instructions.md
-- [ ] Generate .claude/rules/ai_budget_governance.instructions.md
-- [ ] Generate .claude/rules/ai_budget_tracker.instructions.md
-- [ ] Generate .claude/rules/protected-code.instructions.md
-- [ ] Generate .claude/rules/immutability_policy.instructions.md
-- [ ] Generate .claude/rules/review-policy.instructions.md
-- [ ] Generate .claude/rules/ux-constitution.instructions.md (if frontend configured)
+- [ ] Generate .claude/rules/privacy.md
+- [ ] Generate .claude/rules/ci-cd.md
+- [ ] Generate .claude/rules/branching.md
+- [ ] Generate .claude/rules/observability.md
+- [ ] Generate .claude/rules/contract-first-policy.md
+- [ ] Generate .claude/rules/ai_budget_governance.md
+- [ ] Generate .claude/rules/ai_budget_tracker.md
+- [ ] Generate .claude/rules/protected-code.md
+- [ ] Generate .claude/rules/immutability_policy.md
+- [ ] Generate .claude/rules/review-policy.md
+- [ ] Generate .claude/rules/ux-constitution.md (if frontend configured)
 - [ ] Process Brand Identity tokens in ux-constitution.instructions.md Section I.1 (if frontend configured)
 - [ ] Process Layout Architecture in ux-constitution.instructions.md Section I.3 (if frontend configured)
 - [ ] Document brand tokens in {{STYLING_SYSTEM}} format (CSS vars / Tailwind extend / theme object)
 - [ ] Create assets/brand/ directory with logo-placeholder.svg (if frontend configured)
 - [ ] Generate Layout Components base structure according to frontend.layout_strategy.sections[]
-- [ ] Generate .claude/rules/frontend_architecture_compatibility.instructions.md (if frontend configured)
-- [ ] Generate .claude/rules/performance.instructions.md
+- [ ] Generate .claude/rules/frontend_architecture_compatibility.md (if frontend configured)
+- [ ] Generate .claude/rules/performance.md
 
 
 **Note:** Dynamic rules are auto-generated for each detected technology in docs/setup.md (frameworks, databases, tools, libraries).
@@ -93,15 +93,15 @@ _This section tracks files omitted due to coverage in constitution.md or non-app
 
 ### Files Omitted - Already Covered in Constitution
 <!-- Example:
-- **.claude/rules/backend-nestjs.instructions.md**: Omitted. NestJS fully documented in constitution.md (architecture.backend.framework) with 250+ words of configuration, principles and standards.
-- **.claude/rules/frontend-react.instructions.md**: Omitted. React covered in constitution.md (architecture.frontend.framework) including hooks policy, state management, and component patterns.
+- **.claude/rules/backend-nestjs.md**: Omitted. NestJS fully documented in constitution.md (architecture.backend.framework) with 250+ words of configuration, principles and standards.
+- **.claude/rules/frontend-react.md**: Omitted. React covered in constitution.md (architecture.frontend.framework) including hooks policy, state management, and component patterns.
 -->
 
 ### Files Omitted - Technology Not in Stack
 <!-- Example:
-- **.claude/rules/postgres-guidelines.instructions.md**: Omitted. Template available but project uses MongoDB (database.primary).
-- **.claude/rules/terraform.instructions.md**: Omitted. Template available but project uses pulumi (infrastructure.iac_tool).
-- **.claude/rules/angular.instructions.md**: Omitted. Angular template available but stack uses Next.js (frontend.framework).
+- **.claude/rules/postgres-guidelines.md**: Omitted. Template available but project uses MongoDB (database.primary).
+- **.claude/rules/terraform.md**: Omitted. Template available but project uses pulumi (infrastructure.iac_tool).
+- **.claude/rules/angular.md**: Omitted. Angular template available but stack uses Next.js (frontend.framework).
 -->
 
 ### Validation Criteria
@@ -262,8 +262,8 @@ _This section will be populated during materialization with list of generated fi
 
 ### Rules Generated
 <!-- Example:
-- ✅ [.claude/rules/python.instructions.md](.claude/rules/python.instructions.md) - Python backend standards (18KB)
-- ✅ [.claude/rules/React.instructions.md](.claude/rules/React.instructions.md) - React frontend standards (16KB)
+- ✅ [.claude/rules/python.md](.claude/rules/python.md) - Python backend standards (18KB)
+- ✅ [.claude/rules/React.md](.claude/rules/React.md) - React frontend standards (16KB)
 -->
 
 ---
@@ -299,7 +299,7 @@ cp .context/templates/setup/rules/* .claude/rules/
 
 ### Known Issues
 <!-- Example:
-- ⚠️ Timeout generating .claude/rules/performance.instructions.md (line 145 - complex template)
+- ⚠️ Timeout generating .claude/rules/performance.md (line 145 - complex template)
 - ⚠️ Template not found for {{TECHNOLOGY_X}}.instructions.md (auto-generation required)
 -->
 
@@ -311,7 +311,7 @@ _This section tracks failed materialization attempts for debugging._
 
 <!-- Example:
 - 2026-01-28 16:45:00 | BLOCKED | docs/setup.md drift detected (checksum mismatch)
-- 2026-01-28 17:30:00 | ERROR | Timeout generating .claude/rules/observability.instructions.md (60s limit exceeded)
+- 2026-01-28 17:30:00 | ERROR | Timeout generating .claude/rules/observability.md (60s limit exceeded)
 - 2026-01-28 18:00:00 | WARNING | Template missing for redis.instructions.md (auto-generated instead)
 -->
 

@@ -65,18 +65,18 @@ READ docs/constitution.md:
 ### Step 2: Load Governance Files
 ```yaml
 LOAD (ALL required):
-  .claude/rules/ci-cd.instructions.md → ci_cd_platform, environments_config, cost_limits
-  .claude/rules/iac.instructions.md → IaC standards, module structure
-  .claude/rules/stateless.instructions.md → Stateless service rules
-  .claude/rules/security_policy.instructions.md → Security standards
-  .claude/rules/branching.instructions.md → Branch/deploy coordination
-  .claude/rules/contract-first-policy.instructions.md → API contract compliance
-  .claude/rules/database.instructions.md → Database naming, migration standards
-  .claude/rules/observability.instructions.md → Logging, monitoring, alerting
-  .claude/rules/performance.instructions.md → Performance budgets
-  .claude/rules/immutability_policy.instructions.md → Immutable deployments
-  .claude/rules/ai_budget_tracker.instructions.md → Budget tracking
-  .claude/rules/ai_budget_governance.instructions.md → Budget governance
+  .claude/rules/ci-cd.md → ci_cd_platform, environments_config, cost_limits
+  .claude/rules/iac.md → IaC standards, module structure
+  .claude/rules/stateless.md → Stateless service rules
+  .claude/rules/security_policy.md → Security standards
+  .claude/rules/branching.md → Branch/deploy coordination
+  .claude/rules/contract-first-policy.md → API contract compliance
+  .claude/rules/database.md → Database naming, migration standards
+  .claude/rules/observability.md → Logging, monitoring, alerting
+  .claude/rules/performance.md → Performance budgets
+  .claude/rules/immutability_policy.md → Immutable deployments
+  .claude/rules/ai_budget_tracker.md → Budget tracking
+  .claude/rules/ai_budget_governance.md → Budget governance
   config/infrastructure_registry.json → Current infrastructure state
   
 LOAD (from feature):
@@ -113,7 +113,7 @@ VERIFY cloud_provider compatibility:
 ## Guardrail 2: Cost Limits
 
 ```yaml
-READ cost_limits FROM ci-cd.instructions.md:
+READ cost_limits FROM ci-cd.md:
   alert_threshold: N% of budget (WARNING)
   block_threshold: 50% of budget (BLOCK → requires ADR)
 
@@ -182,25 +182,25 @@ IF feature marked CRITICAL in design.md:
 ```yaml
 FUNCTION validate_environment_name(env_name):
   # This gate MUST execute on EVERY --env parameter and EVERY environment reference.
-  # ALL environment names come from .claude/rules/ci-cd.instructions.md environments[].
+  # ALL environment names come from .claude/rules/ci-cd.md environments[].
   # NEVER hardcode dev/staging/prod.
 
-  valid_envs = READ(".claude/rules/ci-cd.instructions.md", "environments[]")
+  valid_envs = READ(".claude/rules/ci-cd.md", "environments[]")
   IF valid_envs IS NULL OR valid_envs.length == 0:
-    ❌ BLOCK: "Cannot read environments from .claude/rules/ci-cd.instructions.md — file missing or malformed"
+    ❌ BLOCK: "Cannot read environments from .claude/rules/ci-cd.md — file missing or malformed"
     STOP
 
   IF env_name NOT IN valid_envs:
-    ❌ BLOCK: "Environment '{env_name}' not configured in .claude/rules/ci-cd.instructions.md"
+    ❌ BLOCK: "Environment '{env_name}' not configured in .claude/rules/ci-cd.md"
     SHOW: "Valid environments: {valid_envs.join(', ')}"
     STOP
 
   # Gate 2: Prevent literal hardcoding in generated files
   HARDCODED_ENV_PATTERNS = ["staging", "production", "development"]
   # These are only forbidden as LITERAL strings in IaC/config files.
-  # They're fine if read dynamically from ci-cd.instructions.md.
+  # They're fine if read dynamically from ci-cd.md.
 
-  ✅ Environment '{env_name}' validated against ci-cd.instructions.md
+  ✅ Environment '{env_name}' validated against ci-cd.md
 ```
 
 ## Guardrail 6: Downstream Iteration Detection (v1.0.0)
@@ -407,7 +407,7 @@ ELSE:
     ⚠️ WARN: "design.md Section 5 declares a static_site resource but feature.scope={feature_scope} excludes frontend. Remove the resource or re-check the scope assignment."
 
 GENERATE devops_plan.md with:
-  governance: {read-only section from constitution + ci-cd.instructions.md}
+  governance: {read-only section from constitution + ci-cd.md}
   resources: {from design.md Section 5 + derived target_runtime per resource}
   feature_scope: feature_scope
   deployment_shape: deployment_shape
@@ -417,7 +417,7 @@ GENERATE devops_plan.md with:
 
 ### Phase 2: Environment Decisions (Guided, One at a Time)
 ```yaml
-FOR EACH environment IN ci-cd.instructions.md environments[]:
+FOR EACH environment IN ci-cd.md environments[]:
   ASK (one at a time, RDR pattern):
     Q: "For {ENV} environment, what sizing?"
     R: "I recommend {RECOMMENDED} based on {env.lifecycle}. Alt: {OPTIONS}"
@@ -436,7 +436,7 @@ FOR EACH environment IN ci-cd.instructions.md environments[]:
 ### Phase 3: Deployment Strategy (RDR)
 ```yaml
 ASK: "Deployment strategy?"
-  R: "I recommend {strategy from ci-cd.instructions.md} because..."
+  R: "I recommend {strategy from ci-cd.md} because..."
   Options:
     blue-green: Zero-downtime, instant rollback, 2x resources during deploy
     canary: Gradual rollout, early detection, complex routing
@@ -625,8 +625,8 @@ cascade_scope: []
 cloud_provider: {from constitution}
 iac_tool: {from constitution}
 iac_descriptor: {derived}
-deployment_strategy: {from ci-cd.instructions.md or user decision}
-environments: {from ci-cd.instructions.md}
+deployment_strategy: {from ci-cd.md or user decision}
+environments: {from ci-cd.md}
 secrets_manager: {per-env from constitution}
 
 ## Environments

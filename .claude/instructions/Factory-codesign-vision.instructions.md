@@ -27,10 +27,10 @@ This instruction file defines the **Global UX Vision** protocols for the CODESIG
 All vision artifacts MUST comply with these directives. They define the difference between "functional" and "professional" UI.
 
 ### D0: Visual DNA Loading
-- Load `.claude/rules/ux-constitution.instructions.md` for project-level UX rules
+- Load `.claude/rules/ux-constitution.md` for project-level UX rules
 - Load External Design System from `docs/ux/design-system/` if it exists
 - Extract color palette, typography scale, spacing rhythm, border-radius tokens, shadow tokens
-- If no DS exists, derive from `ux-constitution.instructions.md` or propose defaults with RDR
+- If no DS exists, derive from `ux-constitution.md` or propose defaults with RDR
 
 ### D1: Spacing Discipline
 - Use consistent spacing scale (e.g., 4px base: 4, 8, 12, 16, 24, 32, 48, 64)
@@ -95,7 +95,7 @@ All vision artifacts MUST comply with these directives. They define the differen
 
 ### Prerequisites
 - `docs/setup.md` with `phase: COMPLETED`
-- `.claude/rules/ux-constitution.instructions.md` materialized
+- `.claude/rules/ux-constitution.md` materialized
 - `frontend.framework != "None"` in `docs/setup.md`
 - **`project_scope IN [full-stack, frontend-only]`** (`docs/setup.md` `project_scope` field, mirrored in `.context/governance_snapshot.md § Stack Configuration`)
 

@@ -45,7 +45,7 @@ chore(SETUP-001): Initial project scaffolding
 ```
 
 ## Rules
-1. Always use `{commit_type}` from branching.instructions.md format
+1. Always use `{commit_type}` from branching.md format
 2. Always include `{FEATURE_ID}` from branch name
 3. Always commit to feature branch (never main)
 4. Never skip commit prompt if files modified

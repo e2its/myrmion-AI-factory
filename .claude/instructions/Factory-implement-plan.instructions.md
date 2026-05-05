@@ -936,7 +936,7 @@ B.5: Compare mock components against component library → classify REUSE vs NEW
      ELSE: compare against component_library.html
 B.6: Extract responsive breakpoints from mock.html @media queries:
      IF uxd_loaded: cross-reference against uxd.design_tokens.breakpoints
-B.7: Validate WCAG requirements from ux-constitution.instructions.md
+B.7: Validate WCAG requirements from ux-constitution.md
 B.8: Map error scenarios from spec.feature to mock error states
 ```
 

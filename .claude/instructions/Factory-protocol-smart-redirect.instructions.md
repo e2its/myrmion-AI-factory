@@ -34,10 +34,10 @@ FUNCTION verify_redirect_not_hardcoded(suggested_actions, FEATURE_ID):
     # Gate 2: Environment name validation
     IF action.cmd CONTAINS "--env":
       env_name = EXTRACT_ENV(action.cmd)
-      valid_envs = READ(".claude/rules/ci-cd.instructions.md", "environments[]")
+      valid_envs = READ(".claude/rules/ci-cd.md", "environments[]")
       IF env_name NOT IN valid_envs:
         ❌ STRIP: Remove action from suggested_actions
-        LOG: "Redirect stripped: '{action.cmd}' — env '{env_name}' not in ci-cd.instructions.md"
+        LOG: "Redirect stripped: '{action.cmd}' — env '{env_name}' not in ci-cd.md"
         CONTINUE
 
     # Gate 3: Backwards flow prevention
@@ -220,7 +220,7 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
   actions = []  # Ordered list: first = most relevant
   
   # Load project environments from governance
-  project_envs = READ_ENVIRONMENTS_FROM(".claude/rules/ci-cd.instructions.md")
+  project_envs = READ_ENVIRONMENTS_FROM(".claude/rules/ci-cd.md")
   prod_env = project_envs.last  # Last is always production per invariant
   pre_prod_envs = project_envs.filter(env => env != prod_env)
 
@@ -450,7 +450,7 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
 ```yaml
 FUNCTION render_next_steps(actions, FEATURE_ID):
   # Replace {{ID}} placeholders with actual FEATURE_ID
-  # Replace {{env}} with actual environment names from ci-cd.instructions.md
+  # Replace {{env}} with actual environment names from ci-cd.md
   
   # Progress context — show where the feature stands
   state = compute_feature_state(FEATURE_ID) IF NOT already_computed
@@ -482,7 +482,7 @@ FUNCTION render_next_steps(actions, FEATURE_ID):
   # RULES:
   # - Show max 3 actions (most relevant first) — EXCEPTION: PHASE 0 cascade results render ALL actions (no cap)
   # - NEVER suggest a command if its output artifact already exists with status APPROVED
-  # - NEVER hardcode environment names — always read from ci-cd.instructions.md
+  # - NEVER hardcode environment names — always read from ci-cd.md
   # - NEVER suggest IMPLEMENT --plan if dev_plan.md exists (unless CANCELLED)
   # - NEVER suggest BLUEPRINT --start if design.md + test_plan.md exist (unless DEPRECATED)
   # - ALWAYS check for NEEDS_INFO status before suggesting --approve
@@ -541,9 +541,9 @@ FUNCTION verify_smart_redirect_executed(agent_output):
   # Verify all environment references are dynamic (operates on pre-render action objects)
   FOR EACH action IN actions:
     IF action.cmd CONTAINS_LITERAL("staging") OR action.cmd CONTAINS_LITERAL("production") OR action.cmd CONTAINS_LITERAL("dev"):
-      IF NOT action.env_source == "ci-cd.instructions.md":
+      IF NOT action.env_source == "ci-cd.md":
         ❌ STRIP: Replace literal env name with dynamic reference
-        LOG: "Environment name override: replaced literal with ci-cd.instructions.md reference"
+        LOG: "Environment name override: replaced literal with ci-cd.md reference"
 
   ✅ RETURN validated agent_output
 ```
@@ -561,7 +561,7 @@ SAFEGUARDS:
     EXCEPTION: IMPLEMENT --fix (hotfix flow)
   
   # 3. ENVIRONMENT AWARENESS
-  RULE: ALL environment references MUST come from .claude/rules/ci-cd.instructions.md
+  RULE: ALL environment references MUST come from .claude/rules/ci-cd.md
     NEVER write "staging" literally — use project_envs[N] or env variable name
   
   # 4. STATUS STALENESS
