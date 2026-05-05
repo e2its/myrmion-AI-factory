@@ -494,10 +494,11 @@
       ]
     },
     "scripts/validate-governance.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
+        "1.2.0: synced from meta — banner context detection + dcs digest + [LAW] / universal DC counts.",
         "1.1.0: feat(EVOL-026) self-review mitigation — synced from meta scripts/validate-governance.sh. --snapshot-freshness now validates dcs_hash against .claude/rules/defect-prevention.md alongside constitution and setup. Closes Block 16-meta lock-step drift caught by Factory-pr-review.",
         "1.1.1: fix(EVOL-017): Copilot PR #7 review — freshness gate hardening. Empty/missing constitution_hash in snapshot frontmatter now exits 2 (was silently passing). Absent md5sum/md5/openssl now exits 2 with install guidance (was silently passing). gov_compute_md5 hardened against set -euo pipefail aborts when tools fail. --banner fallback rewritten with explicit if/then (fragile || / && precedence replaced).",
         "1.0.0: Initial template — Governance drift detection: framework_core change tracking, orphan/stale detection, version consistency (GOV-001)",
@@ -515,10 +516,11 @@
       ]
     },
     "scripts/governance-onprompt.sh": {
-      "version": "2.1.1",
+      "version": "2.2.0",
       "content_type": "universal",
       "target": "scripts/governance-onprompt.sh",
       "changelog": [
+        "2.2.0: synced from meta — positive governance-loaded confirmation tag mid-session.",
         "2.1.1: fix(EVOL-023) Copilot PR #12 review: (a) marker-content allowlist filter — reader now drops anything that is not exactly `docs/constitution.md` or `docs/setup.md` before interpolating into the `<governance-source-edited paths=\"...\">` attribute, closing an injection vector through a tampered/legacy marker file in the user-writable `.claude/state/` directory. (b) explicit `else exit 0` added after the project-root anchoring cascade so the hook no-ops when it cannot resolve a project root. (c) freshness-gate header comment rewritten from \"always runs\" to \"runs by default, suppressed when the source-edit marker already attributed the cause\" to match actual control flow.",
         "2.1.0: feat(EVOL-023) source-edit attribution. Reads `.claude/state/governance-source-edited-${session_id}.marker` (written by the new PostToolUse hook scripts/governance-onedit.sh) and emits a `<governance-source-edited paths=\"...\">` block naming the edited governance source files (docs/constitution.md, docs/setup.md) plus an explicit regen instruction (Factory-governance-loading SKILL § Step 1 POST-LOAD, no /setup --upgrade required). When this block fires the freshness gate's `<governance-warning>` is suppressed for the same prompt — the agent already has cause attribution and an action.",
         "2.0.0: BREAKING fix: freshness gate is now advisory, not blocking. On stale snapshot the hook emits a `<governance-warning reason=\"snapshot-stale\">` block on stdout and exits 0 instead of exit 2. Removes the auto-livelock that occurred whenever an EVOL/ADR legitimately edited docs/constitution.md or docs/setup.md (the previous /setup carve-out only covered the recovery command, not the work that produced the staleness in the first place). The marker-replay path (post-compact re-inject of `<governance-reload>`) is unchanged. Downstream consumers depending on a non-zero exit code to halt their pipeline must read the stdout warning tag instead.",
@@ -1933,11 +1935,12 @@
       ]
     },
     "scripts/validate-governance.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": "scripts/validate-governance.sh",
       "type": "utility",
       "role": "Framework governance validator — SessionStart banner, drift detection (manifest vs core files), snapshot freshness, diff-only mode for CI. Ships identically to materialized projects via factory-sync and also runs inside the framework-meta repo.",
       "changelog": [
+        "1.2.0: feat — --banner detects context (meta vs downstream) and adapts. Meta repos (no docs/constitution.md but root CLAUDE.md present) emit `Governance loaded: meta CLAUDE.md {hash8} | meta-framework maintenance | triage: ON` instead of the misleading `project not initialized`. Downstream banner now also surfaces `dcs {hash8}` plus [LAW] section count and universal DC count parsed from the snapshot body, so the user sees what is actually embedded in context.",
         "1.1.0: feat(EVOL-026) --snapshot-freshness validates `dcs_hash` against `.claude/rules/defect-prevention.md` in addition to constitution and setup. Adds `defect-prevention.md` to the `drift` array when divergent.",
         "1.0.0: feat(EVOL-022) backfill: register framework_core entry (previously untracked despite being mandatory-trackable per CLAUDE.md Generation Standards §2). Baseline version matches template manifest entry of same script."
       ]
@@ -1954,11 +1957,12 @@
       ]
     },
     "scripts/governance-onprompt.sh": {
-      "version": "2.1.1",
+      "version": "2.2.0",
       "path": "scripts/governance-onprompt.sh",
       "type": "utility",
       "role": "UserPromptSubmit hook companion — three jobs per prompt: (1) post-compact re-inject of governance snapshot via `<governance-reload>` (sibling PreCompact marker); (2) source-edit attribution — reads marker written by PostToolUse governance-onedit.sh and emits `<governance-source-edited paths=\"...\">` with explicit regen instruction; (3) advisory freshness gate — emits `<governance-warning reason=\"snapshot-stale\">` on stale (suppressed when (2) fired). Always exits 0. GCRP Tier 2.",
       "changelog": [
+        "2.2.0: feat — emits a positive `<governance-loaded snapshot=\"fresh\" law-sections=\"N\" universal-dcs=\"M\" />` tag mid-session when the freshness gate passes. Counterpart to the existing `<governance-warning reason=\"snapshot-stale\">` block; same observational discipline, opposite signal. Meta-context fallback emits `<governance-loaded context=\"meta\" />` (no snapshot by design in the framework repo).",
         "2.1.1: fix(EVOL-023) Copilot PR #12 review: marker allowlist filter + project-root anchoring guard + freshness-gate comment rewording. Same content as templates entry, lock-step.",
         "2.1.0: feat(EVOL-023) source-edit attribution. Lock-step with templates entry — reads governance-source-edited marker, emits `<governance-source-edited>` block, suppresses freshness warning when marker present.",
         "2.0.0: BREAKING fix: freshness gate switched from blocking (exit 2) to advisory (always exit 0, stdout `<governance-warning reason=\"snapshot-stale\">` on stale). Removes the auto-livelock that occurred whenever an EVOL/ADR legitimately edited docs/constitution.md or docs/setup.md. Same change as templates entry, lock-step.",

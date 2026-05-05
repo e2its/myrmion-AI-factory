@@ -196,6 +196,20 @@ if [ -z "$EDIT_PATHS_CSV" ]; then
     echo "<governance-warning reason=\"snapshot-stale\">"
     echo "$FRESHNESS_OUTPUT"
     echo "</governance-warning>"
+  else
+    # Positive confirmation tag — emitted to the model as additional context so
+    # the agent knows governance is fresh in this turn (counterpart to the
+    # warning block above; same observational discipline, opposite signal).
+    # Counts mirror the SessionStart banner so the agent sees the same digest
+    # mid-session as the user sees on screen.
+    if [ -f "$SNAPSHOT" ]; then
+      law_count=$(grep -cE '^## \[LAW\] ' "$SNAPSHOT" 2>/dev/null || printf '0')
+      dcs_count=$(awk '/^## Defect Prevention Catalog/{f=1; next} f && /^## /{f=0} f && /^### DC-/{c++} END{print c+0}' "$SNAPSHOT" 2>/dev/null || printf '0')
+      echo "<governance-loaded snapshot=\"fresh\" law-sections=\"${law_count}\" universal-dcs=\"${dcs_count}\" />"
+    elif [ -f "CLAUDE.md" ] && [ ! -f "docs/constitution.md" ]; then
+      # Meta context — no snapshot by design, root CLAUDE.md is the source.
+      echo "<governance-loaded context=\"meta\" />"
+    fi
   fi
 fi
 
