@@ -85,7 +85,12 @@ run_scenario() {
 }
 
 write_adr_proposed() {
-  local n="$1" path="docs/project_log/adr/ADR-${n}-test.md"
+  # Each `local` is on its own line so `${n}` in `path` sees the local n
+  # just assigned. A single combined `local n="$1" path="...${n}..."` evaluates
+  # all expansions before any assignment, so `${n}` would reference the
+  # caller's (probably empty) `n` and the path would render as `ADR--test.md`.
+  local n="$1"
+  local path="docs/project_log/adr/ADR-${n}-test.md"
   cat > "$path" <<EOF
 ---
 adr_number: "${n}"
@@ -104,13 +109,16 @@ EOF
 }
 
 flip_adr_to_accepted() {
-  local n="$1" path="docs/project_log/adr/ADR-${n}-test.md"
+  local n="$1"
+  local path="docs/project_log/adr/ADR-${n}-test.md"
   sed -i.bak -E 's/^status:[[:space:]]*proposed/status: accepted/' "$path"
   rm -f "$path.bak"
 }
 
 write_fdr_proposed() {
-  local n="$1" feat="$2" path="docs/spec/${feat}/fdr/FDR-${n}-test.md"
+  local n="$1"
+  local feat="$2"
+  local path="docs/spec/${feat}/fdr/FDR-${n}-test.md"
   mkdir -p "$(dirname "$path")"
   cat > "$path" <<EOF
 ---
@@ -129,7 +137,9 @@ EOF
 }
 
 flip_fdr_to_accepted() {
-  local n="$1" feat="$2" path="docs/spec/${feat}/fdr/FDR-${n}-test.md"
+  local n="$1"
+  local feat="$2"
+  local path="docs/spec/${feat}/fdr/FDR-${n}-test.md"
   sed -i.bak -E 's/^status:[[:space:]]*proposed/status: accepted/' "$path"
   rm -f "$path.bak"
 }
