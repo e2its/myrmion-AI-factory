@@ -100,7 +100,14 @@ ENV_VAR_HINTS = [
     r"ENV\[",
 ]
 
-ADR_DIR_PATTERNS = [r"^docs/adr/", r"^doc/adr/", r"^architecture/decisions/"]
+ADR_DIR_PATTERNS = [
+    r"^docs/project_log/adr/",
+    r"^docs/spec/[^/]+/fdr/",
+    r"^docs/spec/[^/]+/adr/",
+    r"^docs/adr/",
+    r"^doc/adr/",
+    r"^architecture/decisions/",
+]
 
 
 def find_files(files, patterns):
@@ -240,7 +247,8 @@ def main():
                 "message": (
                     "Project dependencies change. If a new major library is introduced or "
                     "a core dependency is replaced, consider recording the decision as an ADR "
-                    "in docs/adr/ following the MADR template."
+                    "in docs/project_log/adr/ (project-wide, amends constitution.md) or as an "
+                    "FDR in docs/spec/{FEATURE_ID}/fdr/ (feature-scoped, no constitution amend)."
                 ),
                 "files_involved": dep_files_changed,
             })

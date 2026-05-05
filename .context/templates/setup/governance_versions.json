@@ -1853,10 +1853,11 @@
       "path": ".claude/skills/Factory-pr-review/references/api-contract-rules.md"
     },
     "skills/Factory-pr-review/references/adr-policy.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "skill-asset",
       "role": "Factory PR Review ADR policy — when an ADR is required (dependencies, data, inter-service comms, architecture, ops, security/compliance) vs not required (bug fixes, internal refactor, minor deps, tests, docs), MADR template, validation rules. ADR location: `docs/project_log/adr/` (downstream) + `docs/project_log/evolutions/` (framework meta — ADR-per-EVOL scheme).",
       "changelog": [
+        "1.1.0: feat — Path conventions corrected post-EVOL-016 / EVOL-026. Project-wide ADRs cited at `docs/project_log/adr/` (was generic `docs/adr/`); feature-scoped FDRs cited at `docs/spec/{FEATURE_ID}/fdr/`. Review template updated to mention `Factory-adr-management` Accept Procedure for project-wide ADRs and the constitution-amendment ceremony. Decision-type guidance distinguishes ADR (project-wide, amends constitution) vs FDR (feature-scoped, no amendment).",
         "1.0.0: feat(EVOL-024): initial — community-origin policy adapted; ADR location aligned to framework convention (docs/project_log/adr/ downstream, docs/project_log/evolutions/ meta)."
       ],
       "path": ".claude/skills/Factory-pr-review/references/adr-policy.md"
@@ -2073,11 +2074,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by Factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.2.0: feat — `audit.placeholder_allowlist_paths` extended to include `.claude/instructions/**`, `.claude/commands/**`, `.claude/skills/**`. Codifies the existing convention that `{{X}}` in those trees represents agent-runtime variable interpolation in pseudocode, not materialisation placeholders. Future Phase 0 audits no longer flag legitimate runtime placeholders as leakage; only template-tree leakage remains a finding.",
         "1.1.0: doc — universal_clause_mirror.doc extended to declare the universal preamble of Mandatory Law #1 (Constitutional Supremacy) byte-identical between root CLAUDE.md and template counterpart, with the single-line addendum after the preamble legitimately diverging per context. Codifies the structure introduced by the Mandatory Law #1 refactor.",
         "1.0.0: feat(EVOL-025) initial — meta variant. lock_step_pairs declare meta↔template mirrors for hooks/*.sh, settings.json, governance scripts, and CLAUDE.md universal clauses. Factory-* skills + instructions are explicitly marked `meta_to_downstream_via_sync` (no template intermediary, ship via factory-sync.sh; no drift to detect at meta level). placeholder_allowlist_paths permits `{{X}}` only under `.context/templates/**` per CLAUDE.md Generation Standards. Schema versioned via `$schema` field — extend by bumping `version` and adding keys under `audit.*`, never break existing keys."
       ]
@@ -2122,6 +2124,21 @@
       "path": "scripts/test-check-adr-constitution-sync.sh",
       "changelog": [
         "1.0.0: feat(EVOL-026) initial — L5 CI gate test against synthetic git histories. 7 scenarios: accept without constitution diff (FAIL), accept with constitution diff (PASS), [adr-backfill] bypass (PASS), no ADR changes (PASS), ADR edits without status flip (PASS), new ADR landing already-accepted (FAIL), FDR transitions (PASS — not subject to gate)."
+      ]
+    },
+    "skills/Factory-pr-review/scripts/check_docs_sync.py": {
+      "version": "1.0.0",
+      "path": ".claude/skills/Factory-pr-review/scripts/check_docs_sync.py",
+      "changelog": [
+        "1.0.0: initial tracked entry. ADR_DIR_PATTERNS now scans `docs/project_log/adr/`, `docs/spec/{ID}/fdr/`, and `docs/spec/{ID}/adr/` (legacy fallback) ahead of the generic MADR locations. Findings message updated to mention both ADR (project-wide) and FDR (feature-scoped) options."
+      ]
+    },
+    ".github/workflows/governance-check.yml": {
+      "version": "1.1.0",
+      "path": ".github/workflows/governance-check.yml",
+      "changelog": [
+        "1.1.0: feat — Workflow extended with two new steps: `ADR ↔ Constitution sync gate` runs `scripts/check-adr-constitution-sync.sh` to enforce the EVOL-026 invariant; `Run T2 governance suite` runs the four `scripts/test-*.sh` (templates static, snapshot extraction, ADR accept simulation, sync gate scenarios). Path filter extended to `.context/templates/**`, `scripts/**`, and `config/coherence-context.json` so test changes also trigger the workflow. Failure comment rewritten to enumerate the three possible causes (manifest drift / ADR-constitution sync / T2 suite) with a single local-reproduction one-liner.",
+        "1.0.0: initial tracked entry — meta-only workflow that runs `validate-governance.sh --base` on every PR to main."
       ]
     }
   }

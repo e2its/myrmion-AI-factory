@@ -23,7 +23,10 @@
       ".claude/state/"
     ],
     "placeholder_allowlist_paths": [
-      ".context/templates/**"
+      ".context/templates/**",
+      ".claude/instructions/**",
+      ".claude/commands/**",
+      ".claude/skills/**"
     ],
     "lock_step_pairs": [
       {

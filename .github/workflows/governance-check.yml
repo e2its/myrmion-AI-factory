@@ -21,7 +21,10 @@ on:
       - '.claude/instructions/**'
       - '.claude/skills/**'
       - 'CLAUDE.md'
+      - '.context/templates/**'
+      - 'scripts/**'
       - '.context/templates/setup/governance_versions.json'
+      - 'config/coherence-context.json'
 
 permissions:
   contents: read
@@ -44,6 +47,26 @@ jobs:
           chmod +x scripts/validate-governance.sh
           bash scripts/validate-governance.sh --base "${{ github.base_ref }}"
 
+      - name: ADR ↔ Constitution sync gate
+        run: |
+          chmod +x scripts/check-adr-constitution-sync.sh
+          bash scripts/check-adr-constitution-sync.sh "origin/${{ github.base_ref }}"
+
+      - name: Run T2 governance suite (templates + extraction + ADR accept + sync gate)
+        run: |
+          chmod +x scripts/test-templates-static.sh \
+                   scripts/test-snapshot-extraction.sh \
+                   scripts/test-adr-accept.sh \
+                   scripts/test-check-adr-constitution-sync.sh
+          set -e
+          for t in scripts/test-templates-static.sh \
+                   scripts/test-snapshot-extraction.sh \
+                   scripts/test-adr-accept.sh \
+                   scripts/test-check-adr-constitution-sync.sh; do
+            echo "════════ Running $t ════════"
+            bash "$t"
+          done
+
       - name: Post violation comment on failure
         if: failure()
         env:
@@ -51,12 +74,15 @@ jobs:
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body "## 🛑 Governance Check Failed
 
-          Framework core files were modified but \`governance_versions.json\` was not updated.
+          One or more governance gates failed. Common causes:
 
-          **To fix:**
-          1. Update \`.context/templates/setup/governance_versions.json\`
-          2. Bump \`framework_version\` appropriately (MAJOR for breaking, MINOR for features, PATCH for fixes)
-          3. Update \`framework_core\` entries for all modified files
-          4. If MAJOR bump: ensure at least one commit has \`BREAKING CHANGE:\` in body or \`feat!:\` prefix
+          1. **Manifest drift** — framework core files modified but \`governance_versions.json\` was not updated.
+             Update \`.context/templates/setup/governance_versions.json\` (bump \`framework_version\` and the relevant \`framework_core\` / \`templates\` entries). MAJOR bumps require \`BREAKING CHANGE:\` in commit body or \`feat!:\` prefix.
 
-          Run locally to verify: \`./scripts/validate-governance.sh --base main\`"
+          2. **ADR ↔ Constitution sync** — an ADR file transitioned to \`status: accepted\` without amending \`docs/constitution.md\` in the same diff.
+             Run the \`Factory-adr-management\` Accept Procedure on each offending ADR (it amends constitution.md atomically). One-shot bypass for historical migration: include \`[adr-backfill]\` in any commit message.
+
+          3. **T2 governance suite** — one of the static template / extraction / ADR-accept / sync-gate tests failed.
+             Run locally: \`bash scripts/test-templates-static.sh\` (and the other three). Each test is self-contained and prints the failing assertion.
+
+          Run all checks locally: \`./scripts/validate-governance.sh --base main && ./scripts/check-adr-constitution-sync.sh origin/main && for t in scripts/test-*.sh; do bash \"\$t\" || break; done\`"
