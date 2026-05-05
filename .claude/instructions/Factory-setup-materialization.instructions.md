@@ -959,6 +959,21 @@ Generate platform-specific pipeline from template:
 - AWS CodePipeline: `buildspec.yml`
 Pipeline includes stages matching `ci_cd.tier` (lint, test, security, build, deploy per environment from `ci-cd.instructions.md`).
 
+**Governance Workflow (EVOL-026, 100% functional from scaffolding):**
+In addition to the CI pipeline, materialise the platform-specific governance check workflow that runs the EVOL-026 ADR ↔ constitution sync gate (`scripts/check-adr-constitution-sync.sh`) on every PR / MR targeting `main`. Source templates live at `.context/templates/setup/workflows/governance-check.{platform}.{ext}`:
+
+| `ci_cd.platform` | Source template | Materialised path |
+|---|---|---|
+| `github-actions` | `governance-check.github-actions.yml` | `.github/workflows/governance-check.yml` |
+| `gitlab-ci` | `governance-check.gitlab-ci.yml` | `.gitlab/governance-check.yml` (or merge into `.gitlab-ci.yml`) |
+| `bitbucket` | `governance-check.bitbucket.yml` | `bitbucket-pipelines.yml` (merge `pull-requests:` block) |
+| `azure-devops` | `governance-check.azure-devops.yml` | `governance-check-pipeline.yml` |
+| `aws-codebuild` | `governance-check.aws-codebuild.yml` | `buildspec-governance.yml` |
+| `gcp-cloudbuild` | `governance-check.gcp-cloudbuild.yaml` | `cloudbuild-governance.yaml` |
+| `jenkins` | `governance-check.jenkins.groovy` | `Jenkinsfile.governance` |
+
+The workflow MUST be wired so that any PR transitioning an ADR file under `docs/project_log/adr/` from `status: proposed` to `status: accepted` without modifying `docs/constitution.md` in the same diff fails the gate. Bypass is via the `[adr-backfill]` commit-message marker (one-shot historical migration only). Future EVOLs add additional governance gates as steps in the same workflow — do NOT split into multiple workflows per gate.
+
 **IaC Foundation (conditional on `hosting.iac_tool != None`):**
 - Create `infra/modules/`, `infra/features/`
 - Initialize `config/infrastructure_registry.json`

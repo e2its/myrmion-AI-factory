@@ -534,11 +534,12 @@
       ]
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
+        "2.0.0: feat(EVOL-026) BREAKING — repurposed from framework-core manifest validator to materialised-project EVOL-026 ADR ↔ constitution sync gate. Runs scripts/check-adr-constitution-sync.sh on every PR to main; bypass via [adr-backfill] commit marker. Posts violation comment with resolution path on failure.",
         "1.0.0: Initial template — CI gate on PRs: blocks merge if framework_core files changed without manifest update (GOV-001)"
       ]
     },
@@ -980,6 +981,60 @@
       "changelog": [
         "1.0.0: feat(EVOL-026) initial — Feature Decision Record template at docs/spec/{FEATURE_ID}/fdr/. Replaces feature-scoped ADRs (which were renamed to FDR for clarity). FDRs are binding within feature scope only, do NOT amend constitution. Mandatory `## Binding Rule` section read by BLUEPRINT § 7.8 when generating design.md for the owning feature."
       ]
+    },
+    "workflows/governance-check.gitlab-ci.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".gitlab/governance-check.yml",
+      "stack_conditional": "ci_cd_platform == \"GitLab CI\"",
+      "changelog": [
+        "1.0.0: feat(EVOL-026) initial — GitLab CI governance-check job. Runs scripts/check-adr-constitution-sync.sh on merge_request_event targeting main."
+      ]
+    },
+    "workflows/governance-check.bitbucket.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "bitbucket-pipelines.yml",
+      "stack_conditional": "ci_cd_platform == \"Bitbucket Pipelines\"",
+      "changelog": [
+        "1.0.0: feat(EVOL-026) initial — Bitbucket Pipelines governance-check step under pull-requests:'main'. Runs scripts/check-adr-constitution-sync.sh."
+      ]
+    },
+    "workflows/governance-check.azure-devops.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "governance-check-pipeline.yml",
+      "stack_conditional": "ci_cd_platform == \"Azure DevOps\"",
+      "changelog": [
+        "1.0.0: feat(EVOL-026) initial — Azure DevOps PR validation pipeline. Wired via branch policies on main; runs scripts/check-adr-constitution-sync.sh against System.PullRequest.TargetBranch."
+      ]
+    },
+    "workflows/governance-check.aws-codebuild.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "buildspec-governance.yml",
+      "stack_conditional": "ci_cd_platform == \"AWS CodeBuild\"",
+      "changelog": [
+        "1.0.0: feat(EVOL-026) initial — AWS CodeBuild buildspec for governance check. Resolves base ref from CODEBUILD_WEBHOOK_BASE_REF; runs scripts/check-adr-constitution-sync.sh."
+      ]
+    },
+    "workflows/governance-check.gcp-cloudbuild.yaml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "cloudbuild-governance.yaml",
+      "stack_conditional": "ci_cd_platform == \"GCP Cloud Build\"",
+      "changelog": [
+        "1.0.0: feat(EVOL-026) initial — GCP Cloud Build governance check. Wired via Cloud Build trigger filtered to PR events targeting main; uses _BASE_BRANCH substitution."
+      ]
+    },
+    "workflows/governance-check.jenkins.groovy": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "Jenkinsfile.governance",
+      "stack_conditional": "ci_cd_platform == \"Jenkins\"",
+      "changelog": [
+        "1.0.0: feat(EVOL-026) initial — Jenkins declarative pipeline for governance check on PRs targeting main (Multibranch Pipeline). Uses CHANGE_TARGET to identify the base ref."
+      ]
     }
   },
   "framework_core": {
@@ -1399,9 +1454,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.0.0",
+      "version": "3.1.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.1.0: feat(EVOL-026) § 4.2.6 gains a Governance Workflow block — materialises the platform-specific governance-check workflow template alongside the CI pipeline. 7 platforms (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, AWS CodeBuild, GCP Cloud Build, Jenkins) each have a dedicated governance-check.{platform} template under .context/templates/setup/workflows/. Wires the EVOL-026 ADR ↔ constitution sync gate (scripts/check-adr-constitution-sync.sh) on every PR / MR targeting main.",
         "3.0.0: feat(EVOL-026) BREAKING — Checkpoint 3.1 snapshot generator rewritten. Frontmatter gains dcs_hash. Removed obsolete sections (Constitutional Boundaries, Key Constraints {EXTRACT}). New `## Active Constitution (Operational [LAW] sections — verbatim)` extracted via regex `^## \\[LAW\\] .+$`. New `## Defect Prevention Catalog (Universal entries)` filtered by applicable_when: always. EXTRACT_LAW_SECTIONS and EXTRACT_UNIVERSAL_DCS function contracts documented as deterministic pseudocode.",
         "2.12.0: feat(EVOL-024): § 4.2.6 step 3 rationale updated — hook chain enumeration now includes `check-ipp-compliance.sh` (closing pre-existing drift) and `check-push-preflight.sh` (Factory PR Review push gate, Bash matcher). Added Skill-dependency note: the push hook is silent when the Factory-pr-review skill is not installed; the gate activates the first time `factory-sync.sh` lands the skill into the materialised project. Auto-scan mechanism unchanged (no hardcoded list); the rationale text was the only stale surface.",
         "2.11.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1871,20 +1927,22 @@
       ]
     },
     "scripts/validate-governance.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "scripts/validate-governance.sh",
       "type": "utility",
       "role": "Framework governance validator — SessionStart banner, drift detection (manifest vs core files), snapshot freshness, diff-only mode for CI. Ships identically to materialized projects via factory-sync and also runs inside the framework-meta repo.",
       "changelog": [
+        "1.1.0: feat(EVOL-026) --snapshot-freshness validates `dcs_hash` against `.claude/rules/defect-prevention.md` in addition to constitution and setup. Adds `defect-prevention.md` to the `drift` array when divergent.",
         "1.0.0: feat(EVOL-022) backfill: register framework_core entry (previously untracked despite being mandatory-trackable per CLAUDE.md Generation Standards §2). Baseline version matches template manifest entry of same script."
       ]
     },
     "scripts/governance-onedit.sh": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "path": "scripts/governance-onedit.sh",
       "type": "utility",
       "role": "PostToolUse Edit|Write hook — detects edits to docs/constitution.md or docs/setup.md, writes session-scoped marker `.claude/state/governance-source-edited-${session_id}.marker` consumed by governance-onprompt.sh on the next prompt to attribute the cause of snapshot staleness. Observational, always exits 0. GCRP Tier 2 companion.",
       "changelog": [
+        "1.1.0: feat(EVOL-026) PostToolUse watcher extended to `.claude/rules/defect-prevention.md`. Edits to that file now leave a session-scoped marker so the next prompt receives `<governance-source-edited>` with regen instruction. Closes the freshness-trigger gap for the third hashed governance source.",
         "1.0.1: fix(EVOL-023) Copilot PR #12 review: project-root anchoring guard — same content as templates entry, lock-step.",
         "1.0.0: feat(EVOL-023): initial — same content as templates entry, lock-step."
       ]

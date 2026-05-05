@@ -1,8 +1,9 @@
 ---
-version: 1.0.0
+version: 1.1.0
 date: 2026-05-05
 changelog:
-  - "1.0.0: feat(EVOL-026) execution complete — all 19 tracked tasks done. T2 tests (L1, L2, L4, L5) green on first or second iteration. Snapshot generator rewired, [LAW] markers applied, ADR/FDR templates split, Factory-adr-management SKILL shipped, BLUEPRINT § 7.8 rewired, CI gate scripted + factory-sync extended, governance_versions.json bumped (8 entries + 8 new entries, framework_version 2.10.2 → 3.0.0). Status flipped to accepted for the EVOL record."
+  - "1.1.0: feat(EVOL-026) closure commit — all initially deferred items addressed within this EVOL per user directive (no follow-ups). Materialised-project governance workflow YAML created for 7 CI platforms (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, AWS CodeBuild, GCP Cloud Build, Jenkins) under .context/templates/setup/workflows/governance-check.{platform}.{ext}, wired into Factory-setup-materialization § 4.2.6. dcs_hash freshness validation extended in validate-governance.sh --snapshot-freshness. governance-onedit.sh watcher extended to .claude/rules/defect-prevention.md."
+  - "1.0.0: feat(EVOL-026) execution complete — all 19 initially-tracked tasks done. T2 tests (L1, L2, L4, L5) green on first or second iteration. Snapshot generator rewired, [LAW] markers applied, ADR/FDR templates split, Factory-adr-management SKILL shipped, BLUEPRINT § 7.8 rewired, CI gate scripted + factory-sync extended, governance_versions.json bumped (8 entries + 8 new entries, framework_version 2.10.2 → 3.0.0). Status flipped to accepted for the EVOL record."
   - "0.1.0: Skeleton — RDR decisions persisted (A1/E2/T2/skill model). Status: proposed."
 adr_number: EVOL-026
 title: Governance single-source-of-truth — constitution single source, ADR amends, mechanical [LAW] embed
@@ -114,7 +115,7 @@ CI gate `scripts/check-adr-constitution-sync.sh` enforces invariant: any ADR tra
 | 9 | `Factory-adr-management/SKILL.md` created — Propose / Accept / List Active ADRs procedures, ADR vs FDR decision matrix, invocation patterns for BLUEPRINT / AUDIT / IMPLEMENT / BACKLOG / free-form | done |
 | 10 | BLUEPRINT § 7.8 rewired — reads constitution `[LAW]` from snapshot, FDRs from `docs/spec/{ID}/fdr/`, upstream FDRs via `consumes_contract`, optional historical ADR refs via Factory-adr-management List Active API | done |
 | 11 | `scripts/check-adr-constitution-sync.sh` created (executable, shellcheck-clean); shipped via `factory-sync.sh` | done |
-| 12 | Materialised-project governance workflow YAML — DEFERRED. The framework does not currently ship a governance-check workflow template (`.context/templates/setup/.github/workflows/`); creating it is a separate capability, follow-up EVOL recommended | done (deferred to follow-up) |
+| 12 | Materialised-project governance workflow YAML — closed in the EVOL-026 closure commit. 7 platform-specific templates created under `.context/templates/setup/workflows/governance-check.{platform}.{ext}` (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, AWS CodeBuild, GCP Cloud Build, Jenkins). Materialization wired in `Factory-setup-materialization.instructions.md` § 4.2.6 with the per-platform target table. SETUP --generate now picks the right one per `ci_cd.platform`. | done |
 | 13 | L1 — `scripts/test-templates-static.sh` — 33 assertions green | done |
 | 14 | L2 — `scripts/test-snapshot-extraction.sh` — 18 assertions green (extraction + idempotency) | done |
 | 15 | L4 — `scripts/test-adr-accept.sh` — 14 assertions green across ADD / REPLACE / validation; one fix iteration needed for REPLACE regex (DOTALL spillover bug) | done |
@@ -126,7 +127,7 @@ CI gate `scripts/check-adr-constitution-sync.sh` enforces invariant: any ADR tra
 ## Decisions taken during execution (worth flagging)
 
 1. **Templates split into ADR (project-wide) + FDR (feature-scoped).** Originally one template with a `scope` field would have worked, but two templates with distinct frontmatter and lifecycle make the semantic distinction explicit and reduce error-prone branching in the Accept Procedure.
-2. **`dcs_hash` added to snapshot frontmatter.** Not validated by `validate-governance.sh` in this EVOL (kept conservative scope), but defect-prevention.md is now hashed for traceability and future enforcement. Extending the freshness check to validate `dcs_hash` is a small follow-up.
-3. **Materialised-project workflow YAML deferred.** The framework has no `.context/templates/setup/.github/workflows/` tree today. Wiring the new CI gate as a workflow template requires (a) creating the template tree, (b) deciding which CI platforms to support upfront (the framework is platform-agnostic per Q21). That scope justifies its own EVOL. Materialised projects must wire `scripts/check-adr-constitution-sync.sh` manually for now (or a thin governance workflow generator is a sensible next-EVOL topic).
+2. **`dcs_hash` added to snapshot frontmatter and validated.** Closure commit extended `validate-governance.sh --snapshot-freshness` to compare `dcs_hash` against `.claude/rules/defect-prevention.md`, so the freshness gate flags drift in the universal-DC source the same way it flags constitution/setup drift.
+3. **Materialised-project workflow YAML closed in EVOL-026.** Originally deferred; closure commit added 7 platform-specific governance-check templates and wired them into Factory-setup-materialization § 4.2.6. SETUP --generate now picks the right workflow per `ci_cd.platform` and ships it with the EVOL-026 ADR ↔ constitution sync gate as a step.
 4. **Reference shell implementations of extraction + Accept Procedure live in the test scripts.** The actual SETUP / Accept consumers are agents following pseudocode; the test scripts provide a concrete, deterministic reference that asserts the contract holds on canonical fixtures.
-5. **`governance-onedit.sh` not extended in this EVOL.** It currently only watches `docs/constitution.md` and `docs/setup.md`. Adding `defect-prevention.md` as a watched source for snapshot-regen is a small follow-up tied to point #2 (dcs_hash validation).
+5. **`governance-onedit.sh` extended to watch `defect-prevention.md`.** Closure commit added the third watched file alongside constitution.md and setup.md, completing the regen-trigger story for all three hashed governance sources.

@@ -30,6 +30,7 @@ fi
 SNAPSHOT_FILE=".context/governance_snapshot.md"
 CONSTITUTION_FILE="docs/constitution.md"
 SETUP_FILE="docs/setup.md"
+DCS_FILE=".claude/rules/defect-prevention.md"
 
 gov_compute_md5() {
   local file="$1"
@@ -108,6 +109,7 @@ if [ "${1:-}" = "--snapshot-freshness" ]; then
 
   snap_const=$(gov_snapshot_value constitution_hash)
   snap_setup=$(gov_snapshot_value setup_hash)
+  snap_dcs=$(gov_snapshot_value dcs_hash)
 
   if [ -z "$snap_const" ]; then
     echo "Governance snapshot malformed — frontmatter missing 'constitution_hash'. Run /setup --upgrade to regenerate." >&2
@@ -117,6 +119,8 @@ if [ "${1:-}" = "--snapshot-freshness" ]; then
   live_const=$(gov_compute_md5 "$CONSTITUTION_FILE")
   live_setup=""
   [ -f "$SETUP_FILE" ] && live_setup=$(gov_compute_md5 "$SETUP_FILE")
+  live_dcs=""
+  [ -f "$DCS_FILE" ] && live_dcs=$(gov_compute_md5 "$DCS_FILE")
 
   if [ -z "$live_const" ]; then
     echo "Governance snapshot cannot be verified — no md5 tool available (need md5sum, md5, or openssl). Install one before proceeding; freshness gate blocks by default." >&2
@@ -127,6 +131,9 @@ if [ "${1:-}" = "--snapshot-freshness" ]; then
   [ "$snap_const" != "$live_const" ] && drift+=("constitution.md")
   if [ -n "$snap_setup" ] && [ "$snap_setup" != "null" ]; then
     [ "$snap_setup" != "$live_setup" ] && drift+=("setup.md")
+  fi
+  if [ -n "$snap_dcs" ] && [ "$snap_dcs" != "null" ]; then
+    [ "$snap_dcs" != "$live_dcs" ] && drift+=("defect-prevention.md")
   fi
 
   if [ ${#drift[@]} -gt 0 ]; then
