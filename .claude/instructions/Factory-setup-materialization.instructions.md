@@ -55,6 +55,19 @@ If ANY check fails → **BLOCK** completion, list failures, suggest fixes.
 > This file enables post-summarization governance recovery (see `.claude/skills/Factory-governance-loading/SKILL.md` Step 0).
 > Embeds the operational law (`## [LAW]` sections of constitution + universal DCs) so cultural guidance is mechanically present from turn 1 — agents do not depend on disciplinary on-demand loading for the rules that govern every decision. ADRs are NOT loaded; they are historical records of why constitutional changes were made — see `.claude/skills/Factory-adr-management/SKILL.md`.
 
+> **Implementation:** the deterministic generator ships as `scripts/generate-governance-snapshot.sh` (mirror at `.context/templates/setup/scripts/generate-governance-snapshot.sh` for materialised projects, propagated via `factory-sync.sh`). SETUP --generate, SETUP --upgrade, and the agent-driven post-load regen path (Factory-governance-loading SKILL § Step 1 POST-LOAD) all invoke the script. Direct re-implementation of the pseudocode below by individual agents is forbidden — the script is the single source of truth for snapshot bytes.
+
+> **Script invocation:**
+>
+> ```bash
+> bash scripts/generate-governance-snapshot.sh           # write the snapshot
+> bash scripts/generate-governance-snapshot.sh --check   # validate inputs only
+> ```
+>
+> Exit 0 = ok; exit 1 = missing required input (constitution.md / setup.md); exit 2 = tooling failure (no python3 or md5 implementation).
+
+The pseudocode below documents the contract the script honours. It is normative for understanding snapshot semantics; it is NOT to be re-implemented by hand at materialisation time.
+
 ```yaml
 FUNCTION generate_governance_snapshot():
   # Called AFTER constitution.md is materialized + rules generated + defect-prevention.md present.

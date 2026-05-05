@@ -1058,6 +1058,14 @@
       "changelog": [
         "1.0.0: feat(EVOL-026) initial — Jenkins declarative pipeline for governance check on PRs targeting main (Multibranch Pipeline). Uses CHANGE_TARGET to identify the base ref."
       ]
+    },
+    "scripts/generate-governance-snapshot.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/generate-governance-snapshot.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-027) fase 3 — initial templates entry. Mirror of framework_core script for materialised projects, shipped via factory-sync.sh."
+      ]
     }
   },
   "agent_templates": {
@@ -1744,9 +1752,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.3.0: feat(EVOL-027) fase 3 — Checkpoint 3.1 narrative replaces pseudocode-as-contract with reference to scripts/generate-governance-snapshot.sh (the script is now the single source of truth for snapshot bytes). Pseudocode kept as normative documentation, not as agent re-implementation guide.",
         "3.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "3.1.0: feat(EVOL-026) § 4.2.6 gains a Governance Workflow block — materialises the platform-specific governance-check workflow template alongside the CI pipeline. 7 platforms (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, AWS CodeBuild, GCP Cloud Build, Jenkins) each have a dedicated governance-check.{platform} template under .context/templates/setup/workflows/. Wires the EVOL-026 ADR ↔ constitution sync gate (scripts/check-adr-constitution-sync.sh) on every PR / MR targeting main.",
         "3.0.0: feat(EVOL-026) BREAKING — Checkpoint 3.1 snapshot generator rewritten. Frontmatter gains dcs_hash. Removed obsolete sections (Constitutional Boundaries, Key Constraints {EXTRACT}). New `## Active Constitution (Operational [LAW] sections — verbatim)` extracted via regex `^## \\[LAW\\] .+$`. New `## Defect Prevention Catalog (Universal entries)` filtered by applicable_when: always. EXTRACT_LAW_SECTIONS and EXTRACT_UNIVERSAL_DCS function contracts documented as deterministic pseudocode.",
@@ -2212,11 +2221,12 @@
       "path": ".claude/skills/Factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.5.3",
+      "version": "1.6.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.6.0: feat(EVOL-027) fase 3 — add generate-governance-snapshot.sh to base-scripts whitelist so the new snapshot generator propagates to downstream projects under scripts/.",
         "1.5.3: chore(EVOL-026) ship list extended with check-adr-constitution-sync.sh so the EVOL-026 CI gate is materialised in downstream projects.",
         "1.5.2: fix: refine greenfield detection. Old logic flagged any target with `CLAUDE.md` OR `docs/project_log/` and missing `docs/setup.md` as suspicious materialized-with-lost-setup, requiring the `--greenfield` flag to bypass. False-positive in the common case where a previous factory-sync seeded skills/hooks/CLAUDE.md on a target before /setup ran (Nexus-Tech-Link surfaced this). New logic: missing `docs/setup.md` checks whether `docs/spec/` holds feature directories — yes → genuinely suspicious (post-instantiation work in progress, setup.md lost mid-flight), error unless `--greenfield`; no → legitimate pre-instantiation state, auto-greenfield without flag. Header USAGE block updated to describe the new `--greenfield` semantics (override the spec-dirs guard, not the setup.md presence).",
         "1.5.1: fix(EVOL-024): sync_skills() now strips the trailing slash from `Factory-*/` glob expansion before passing to sync_tree. Without the strip, `${src_file#$src_root/}` rel-path computation produced `Factory-pr-review//SKILL.md` mismatch and the strip yielded the original absolute path, leading to display garbage AND functional miscopy (every Factory-* skill showed as `+ added` and would have been written to nested wrong locations). Caught by the Nexus-Tech-Link dry-run before applying.",
@@ -2428,6 +2438,13 @@
       "changelog": [
         "1.1.0: feat — Workflow extended with two new steps: `ADR ↔ Constitution sync gate` runs `scripts/check-adr-constitution-sync.sh` to enforce the EVOL-026 invariant; `Run T2 governance suite` runs the four `scripts/test-*.sh` (templates static, snapshot extraction, ADR accept simulation, sync gate scenarios). Path filter extended to `.context/templates/**`, `scripts/**`, and `config/coherence-context.json` so test changes also trigger the workflow. Failure comment rewritten to enumerate the three possible causes (manifest drift / ADR-constitution sync / T2 suite) with a single local-reproduction one-liner.",
         "1.0.0: initial tracked entry — meta-only workflow that runs `validate-governance.sh --base` on every PR to main."
+      ]
+    },
+    "scripts/generate-governance-snapshot.sh": {
+      "version": "1.0.0",
+      "path": "scripts/generate-governance-snapshot.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-027) fase 3 — real generator implementing the Factory-setup-materialization Checkpoint 3.1 contract (frontmatter with hashes, Stack Configuration, Rules Manifest, Protected Paths, Setup Configuration, Active Constitution [LAW] extract, Defect Prevention universal entries). Replaces the language-agnostic pseudocode that every materialised project re-implemented inconsistently. Bash + awk + python3 (no PyYAML dependency). Portable MD5 (md5sum / md5 -q / openssl). --check validates inputs without writing; --quiet suppresses per-line stdout."
       ]
     }
   }
