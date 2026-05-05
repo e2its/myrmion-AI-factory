@@ -67,6 +67,11 @@ jobs:
             bash "$t"
           done
 
+      - name: Codebase inventory drift (advisory)
+        run: |
+          chmod +x scripts/check-inventory-drift.sh
+          bash scripts/check-inventory-drift.sh --warn-only
+
       - name: Post violation comment on failure
         if: failure()
         env:

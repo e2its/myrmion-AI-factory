@@ -1066,6 +1066,14 @@
       "changelog": [
         "1.0.0: feat(EVOL-027) fase 3 — initial templates entry. Mirror of framework_core script for materialised projects, shipped via factory-sync.sh."
       ]
+    },
+    "scripts/check-inventory-drift.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/check-inventory-drift.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-027) fase 4 — initial templates entry. Mirror for materialised projects, shipped via factory-sync.sh."
+      ]
     }
   },
   "agent_templates": {
@@ -1944,9 +1952,10 @@
       "path": ".claude/skills/Factory-agent-communication/SKILL.md"
     },
     "skills/Factory-codebase-inventory/SKILL.md": {
-      "version": "2.1.1",
+      "version": "2.2.0",
       "type": "skill",
       "changelog": [
+        "2.2.0: feat(EVOL-027) fase 4 — new § Drift Detection Gate documenting check-inventory-drift.sh: STALE/PROMOTE/INVALID classes, invocation modes, when to invoke, scope boundary vs SETUP --reconcile-inventory.",
         "2.1.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.1.0: feat: CIP Consultation Gate Step 0 — inventory cache fast path via /memories/repo/codebase-inventory-cache.md (MCP v1.0.0), write-through on cache miss",
         "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
@@ -2221,11 +2230,12 @@
       "path": ".claude/skills/Factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.7.0: feat(EVOL-027) fase 4 — add check-inventory-drift.sh to base-scripts whitelist.",
         "1.6.0: feat(EVOL-027) fase 3 — add generate-governance-snapshot.sh to base-scripts whitelist so the new snapshot generator propagates to downstream projects under scripts/.",
         "1.5.3: chore(EVOL-026) ship list extended with check-adr-constitution-sync.sh so the EVOL-026 CI gate is materialised in downstream projects.",
         "1.5.2: fix: refine greenfield detection. Old logic flagged any target with `CLAUDE.md` OR `docs/project_log/` and missing `docs/setup.md` as suspicious materialized-with-lost-setup, requiring the `--greenfield` flag to bypass. False-positive in the common case where a previous factory-sync seeded skills/hooks/CLAUDE.md on a target before /setup ran (Nexus-Tech-Link surfaced this). New logic: missing `docs/setup.md` checks whether `docs/spec/` holds feature directories — yes → genuinely suspicious (post-instantiation work in progress, setup.md lost mid-flight), error unless `--greenfield`; no → legitimate pre-instantiation state, auto-greenfield without flag. Header USAGE block updated to describe the new `--greenfield` semantics (override the spec-dirs guard, not the setup.md presence).",
@@ -2354,11 +2364,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.1.0: feat(EVOL-027) fase 4 — add advisory inventory-drift step (--warn-only) to CI.",
         "1.0.0: feat: initial registration in manifest (EVOL-014) — existing workflow enforces GWP via scripts/validate-governance.sh and blocks PRs that touch framework core without bumping entries."
       ]
     },
@@ -2445,6 +2456,13 @@
       "path": "scripts/generate-governance-snapshot.sh",
       "changelog": [
         "1.0.0: feat(EVOL-027) fase 3 — real generator implementing the Factory-setup-materialization Checkpoint 3.1 contract (frontmatter with hashes, Stack Configuration, Rules Manifest, Protected Paths, Setup Configuration, Active Constitution [LAW] extract, Defect Prevention universal entries). Replaces the language-agnostic pseudocode that every materialised project re-implemented inconsistently. Bash + awk + python3 (no PyYAML dependency). Portable MD5 (md5sum / md5 -q / openssl). --check validates inputs without writing; --quiet suppresses per-line stdout."
+      ]
+    },
+    "scripts/check-inventory-drift.sh": {
+      "version": "1.0.0",
+      "path": "scripts/check-inventory-drift.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-027) fase 4 — drift detector for codebase_inventory.json. Detects STALE (IMPLEMENTED but path missing), PROMOTE (PLANNED but path exists), INVALID (missing path/status). Modes: human report (default), --json (CI), --warn-only (advisory). Exits 0 when inventory absent (greenfield pre-bootstrap)."
       ]
     }
   }
