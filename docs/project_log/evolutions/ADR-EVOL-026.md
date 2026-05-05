@@ -1,7 +1,8 @@
 ---
-version: 1.1.0
+version: 1.2.0
 date: 2026-05-05
 changelog:
+  - "1.2.0: docs — full execution log added covering the entire branch (9 commits) and the three Factory-pr-review passes that the EVOL underwent. Outcome table extended to reflect all closure items and review-driven mitigations. Decisions taken section consolidated. Without this update the ADR record only described the first commit; the review trail and subsequent fixes lived only in commit messages and governance_versions.json changelogs."
   - "1.1.0: feat(EVOL-026) closure commit — all initially deferred items addressed within this EVOL per user directive (no follow-ups). Materialised-project governance workflow YAML created for 7 CI platforms (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, AWS CodeBuild, GCP Cloud Build, Jenkins) under .context/templates/setup/workflows/governance-check.{platform}.{ext}, wired into Factory-setup-materialization § 4.2.6. dcs_hash freshness validation extended in validate-governance.sh --snapshot-freshness. governance-onedit.sh watcher extended to .claude/rules/defect-prevention.md."
   - "1.0.0: feat(EVOL-026) execution complete — all 19 initially-tracked tasks done. T2 tests (L1, L2, L4, L5) green on first or second iteration. Snapshot generator rewired, [LAW] markers applied, ADR/FDR templates split, Factory-adr-management SKILL shipped, BLUEPRINT § 7.8 rewired, CI gate scripted + factory-sync extended, governance_versions.json bumped (8 entries + 8 new entries, framework_version 2.10.2 → 3.0.0). Status flipped to accepted for the EVOL record."
   - "0.1.0: Skeleton — RDR decisions persisted (A1/E2/T2/skill model). Status: proposed."
@@ -128,6 +129,65 @@ CI gate `scripts/check-adr-constitution-sync.sh` enforces invariant: any ADR tra
 
 1. **Templates split into ADR (project-wide) + FDR (feature-scoped).** Originally one template with a `scope` field would have worked, but two templates with distinct frontmatter and lifecycle make the semantic distinction explicit and reduce error-prone branching in the Accept Procedure.
 2. **`dcs_hash` added to snapshot frontmatter and validated.** Closure commit extended `validate-governance.sh --snapshot-freshness` to compare `dcs_hash` against `.claude/rules/defect-prevention.md`, so the freshness gate flags drift in the universal-DC source the same way it flags constitution/setup drift.
-3. **Materialised-project workflow YAML closed in EVOL-026.** Originally deferred; closure commit added 7 platform-specific governance-check templates and wired them into Factory-setup-materialization § 4.2.6. SETUP --generate now picks the right workflow per `ci_cd.platform` and ships it with the EVOL-026 ADR ↔ constitution sync gate as a step.
+3. **Materialised-project workflow YAML closed within this EVOL.** Originally deferred; closure commit added 7 platform-specific governance-check templates and wired them into Factory-setup-materialization § 4.2.6. SETUP --generate now picks the right workflow per `ci_cd.platform` and ships it with the ADR ↔ constitution sync gate as a step.
 4. **Reference shell implementations of extraction + Accept Procedure live in the test scripts.** The actual SETUP / Accept consumers are agents following pseudocode; the test scripts provide a concrete, deterministic reference that asserts the contract holds on canonical fixtures.
 5. **`governance-onedit.sh` extended to watch `defect-prevention.md`.** Closure commit added the third watched file alongside constitution.md and setup.md, completing the regen-trigger story for all three hashed governance sources.
+6. **Mandatory Law #1 refactored to universal preamble + context-specific addendum (Q1 from review #1).** Previous root version carried a factual error ("amend either docs/constitution.md OR framework-shipped artefact" — but the meta repo has no docs/constitution.md). Refactor places a byte-identical preamble between root and template, with a single-line `*Framework-meta application:* / *Project application:*` addendum that legitimately diverges per context. `coherence-context.json universal_clause_mirror.doc` updated to declare the new structure.
+7. **Governance-loaded confirmation visible at session start AND mid-session (B3 user request).** `validate-governance.sh --banner` detects context (meta vs downstream) and emits enriched banner with `dcs_hash` plus `[LAW] sections: N, universal DCs: M` parsed from the snapshot body. `governance-onprompt.sh` emits a positive `<governance-loaded snapshot="fresh" .../>` tag mid-session whenever the freshness gate passes, complementing the existing `<governance-warning reason="snapshot-stale">` block.
+8. **adr/ → fdr/ sweep (I1 from review #1) plus regression cleanup (B6 from review #2).** First sweep updated 10 instruction/skill files to cite `docs/spec/{ID}/fdr/` as primary path with legacy `docs/spec/{ID}/adr/` fallback. Sweep accidentally left 8 stale field-name references (`adr_bindings` consumed in IMPLEMENT --build / --plan after BLUEPRINT § 7.8 was rewired to emit `fdr_bindings`). Review #2 caught the regression; mitigated in the same branch with backward-compatible `OR raw_section_78.adr_bindings` in the GCD fast-path.
+9. **Q2 + I2 + I3 closed within this EVOL (review #2 follow-through).** Allowlist extended to permit `{{X}}` runtime placeholders in `.claude/instructions/**`, `.claude/commands/**`, and `.claude/skills/**` (matches the actual convention in those trees, which document agent-runtime substitution in pseudocode). Factory-pr-review skill's `references/adr-policy.md` and `scripts/check_docs_sync.py` updated to cite `docs/project_log/adr/` (post-EVOL-016 path) and `docs/spec/{ID}/fdr/`. T2 test suite wired into the meta repo's `.github/workflows/governance-check.yml` so future PRs run the four `scripts/test-*.sh` automatically.
+
+## Branch history (9 commits)
+
+| # | Commit | Type | Summary |
+|---|---|---|---|
+| 1 | `53a7ac9` | `feat!(EVOL-026)` | Initial single-source-of-truth flip — snapshot generator rewrite, `[LAW]` markers, ADR/FDR template split, Factory-adr-management SKILL, BLUEPRINT § 7.8 rewire, CI gate, T2 tests, manifest bumps to `3.0.0`. 17 files. |
+| 2 | `1b053f8` | `feat(EVOL-026)` | Closure — 7 platform-specific governance-check workflow templates, `dcs_hash` freshness validation extended, `governance-onedit.sh` watcher extended to `defect-prevention.md`. 12 files. |
+| 3 | `bfda0c2` | `fix(EVOL-026)` | Self-review #1 mitigations — lock-step drift on governance scripts (B1×2), root INVARIANT 2 sync (B2), REVIEW Check #14 contract break renamed `[DESIGN-ADR] → [DESIGN-FDR]` (B3), caveman cleanup of EVOL-026 narrative in 12+ framework files (B4), Phase 0 marker emitted (B5). 23 files. |
+| 4 | `12c4590` | `fix(EVOL-026)` | Q1 from review #1 — Mandatory Law #1 refactored to universal preamble (byte-identical) + single-line context-specific addendum (E2 ratification). `coherence-context.json` updated to declare the new structure. 4 files. |
+| 5 | `ceb43f0` | `feat(EVOL-026)` | B3 from user request — context-aware SessionStart banner (meta vs downstream) with `dcs_hash` + `[LAW]` / universal-DC counts. Mid-session `<governance-loaded ...>` tag emitted via `governance-onprompt.sh` when the freshness gate passes. 5 files. |
+| 6 | `a402c00` | `fix(EVOL-026)` | I1 from review #1 — sweep `docs/spec/{ID}/adr/ → fdr/` across 10 instruction/skill files with explicit legacy-fallback notes. Variable rename `adr_bindings → fdr_bindings` in some lookup loops. 7 files. |
+| 7 | `920a360` | `fix(EVOL-026)` | I1 sweep regression caught by Factory-pr-review pass #2 — 8 sites in IMPLEMENT --build / --plan still consumed the renamed `adr_bindings` field. Restored with backward-compatible `OR raw_section_78.adr_bindings` legacy fallback in the GCD fast-path. 3 files. |
+| 8 | `a1a4048` | `fix(EVOL-026)` | Q2 + I2 + I3 closure from review #2 — allowlist extended to `.claude/instructions/**`, `.claude/commands/**`, `.claude/skills/**` (Q2). `Factory-pr-review` skill paths corrected post-EVOL-016 (I2). T2 governance suite wired into `.github/workflows/governance-check.yml` (I3). 5 files. |
+| 9 | (this commit) | `docs(EVOL-026)` | Documentation closure — full execution log + review trail consolidated in this ADR. Aligns the ADR record with the branch history and the audit trail. |
+
+## Review trail
+
+The branch underwent three Factory-pr-review passes during the session. Each pass executed Phase 0 (Coherence Audit) plus deterministic Phases 1-5 against the current state, applied mechanical mitigations under Phase 5.5 where applicable, and surfaced remaining findings for user decision.
+
+**Pass #1** — after `1b053f8` (initial + closure commits).
+
+| Finding | Severity | Disposition |
+|---|---|---|
+| B1 governance scripts not mirrored to template (×2) | 🔴 Blocker | Mitigated in `bfda0c2` |
+| B2 root CLAUDE.md INVARIANT 2 stale wording | 🔴 Blocker | Mitigated in `bfda0c2` (initial framework-aware version) |
+| B3 REVIEW Check #14 `[DESIGN-ADR]` consumed renamed field | 🔴 Blocker | Mitigated in `bfda0c2` (renamed to `[DESIGN-FDR]`, reads `fdr_bindings`) |
+| B4 caveman drift — `EVOL-026` narrative leaked into operational files | 🔴 Blocker | Mitigated in `bfda0c2` (12+ sites cleaned) |
+| B5 Phase 0 marker missing | 🔴 Blocker | Mitigated in `bfda0c2` (marker written) |
+| Q1 Mandatory Law #1 root↔template divergence | ❓ Question | Resolved by user RDR (E2) → mitigated in `12c4590` |
+| I1 `docs/spec/{ID}/adr/` references in 10 files | 🟡 Important | Resolved by user direction → mitigated in `a402c00` |
+
+**Pass #2** — after `a402c00` (post-I1 sweep).
+
+| Finding | Severity | Disposition |
+|---|---|---|
+| B6 I1 sweep regression — 8 stale `adr_bindings` field references in IMPLEMENT --build / --plan | 🔴 Blocker | Mitigated in `920a360` (legacy-compatible field rename) |
+| I2 `docs/adr/` references in `Factory-pr-review` skill (post-EVOL-016 path drift) | 🟡 Important | Resolved by user direction → mitigated in `a1a4048` |
+| I3 T2 tests not wired into meta CI workflow | 🟡 Important | Resolved by user direction → mitigated in `a1a4048` |
+| Q2 `{{X}}` placeholder allowlist coverage | ❓ Question | Resolved by user RDR (lectura a) → mitigated in `a1a4048` |
+
+**Pass #3** — after `a1a4048` (post-Q2/I2/I3 closure).
+
+| Detector | Result |
+|---|---|
+| 13a stale `[DESIGN-ADR]` | Clean |
+| 13b stale `adr_bindings` field | Clean (only legacy-fallback citations remain) |
+| 13c stale `docs/adr/` paths | Clean (only the legacy regex pattern remains in `ADR_DIR_PATTERNS`) |
+| 14 placeholder leakage outside extended allowlist | Clean within the framework's operational tree; remaining hits are legitimate (meta-textual mention in CLAUDE.md, test-fixture content matching the placeholder convention, pre-existing `docs/project_log/` drift unrelated to EVOL-026) |
+| 16-meta universal preamble byte-identity | MATCH |
+| 16-meta governance scripts byte-identity | MATCH (governance-onedit, validate-governance, governance-onprompt, governance-oncompact) |
+| 17 commit ↔ diff coherence | All 9 commits aligned with their stated changes |
+| 18 bump severity ↔ change kind | `framework_version 2.10.2 → 3.0.0` MAJOR matches the breaking model flip; downstream entry bumps proportional |
+| T2 tests | L1, L2, L4, L5 all PASS |
+
+No new blockers. EVOL is internally coherent at branch HEAD.
