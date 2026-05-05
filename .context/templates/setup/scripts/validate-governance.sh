@@ -30,6 +30,7 @@ fi
 SNAPSHOT_FILE=".context/governance_snapshot.md"
 CONSTITUTION_FILE="docs/constitution.md"
 SETUP_FILE="docs/setup.md"
+DCS_FILE=".claude/rules/defect-prevention.md"
 
 gov_compute_md5() {
   local file="$1"
@@ -71,25 +72,59 @@ gov_snapshot_value() {
 # Prints a single visible line at session start. Never blocks.
 # ────────────────────────────────────────────────────────────────────────────
 if [ "${1:-}" = "--banner" ]; then
+  # Detect context. In materialised projects the governance source is
+  # docs/constitution.md; in the framework meta repo it is the root CLAUDE.md
+  # (the meta has no docs/constitution.md by design — see CLAUDE.md § What
+  # Lives Where). Either path triggers the "loaded" banner; absence of both
+  # means the project is uninitialised.
+  CONTEXT_LABEL="downstream"
+  GOV_SOURCE=""
+  if [ -f "$CONSTITUTION_FILE" ]; then
+    GOV_SOURCE="$CONSTITUTION_FILE"
+  elif [ -f "CLAUDE.md" ]; then
+    CONTEXT_LABEL="meta"
+    GOV_SOURCE="CLAUDE.md"
+  else
+    echo "Governance: project not initialized (run /setup --init)"
+    exit 0
+  fi
+
+  # Snapshot-less paths first.
   if [ ! -f "$SNAPSHOT_FILE" ]; then
-    if [ -f "$CONSTITUTION_FILE" ]; then
-      echo "Governance: snapshot missing — run /setup --upgrade to regenerate"
+    if [ "$CONTEXT_LABEL" = "meta" ]; then
+      meta_hash=$(gov_compute_md5 "$GOV_SOURCE")
+      meta_hash8="${meta_hash:0:8}"
+      [ -z "$meta_hash8" ] && meta_hash8="unknown"
+      echo "Governance loaded: meta CLAUDE.md ${meta_hash8} | meta-framework maintenance | triage: ON"
     else
-      echo "Governance: project not initialized (run /setup --init)"
+      echo "Governance: snapshot missing — run /setup --upgrade to regenerate"
     fi
     exit 0
   fi
+
+  # Snapshot exists — read frontmatter digests and count embedded operational
+  # artefacts so the banner reflects what is actually loaded into context.
   snap_const=$(gov_snapshot_value constitution_hash)
   snap_setup=$(gov_snapshot_value setup_hash)
+  snap_dcs=$(gov_snapshot_value dcs_hash)
   snap_const8="${snap_const:0:8}"
   snap_setup8="${snap_setup:0:8}"
-  if [ -z "$snap_const8" ]; then
-    snap_const8="unknown"
+  snap_dcs8="${snap_dcs:0:8}"
+  [ -z "$snap_const8" ] && snap_const8="unknown"
+  if [ -z "$snap_setup8" ] || [ "$snap_setup8" = "null" ]; then snap_setup8="n/a"; fi
+  if [ -z "$snap_dcs8" ] || [ "$snap_dcs8" = "null" ]; then snap_dcs8="n/a"; fi
+
+  # Counts derived from the snapshot body — `## [LAW] ` headings and `### DC-`
+  # entries inside the Defect Prevention Catalog block. Both are best-effort
+  # observational figures; absent values render as 0 without blocking.
+  law_count=$(grep -cE '^## \[LAW\] ' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
+  dcs_count=$(awk '/^## Defect Prevention Catalog/{f=1; next} f && /^## /{f=0} f && /^### DC-/{c++} END{print c+0}' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
+
+  if [ "$CONTEXT_LABEL" = "meta" ]; then
+    echo "Governance loaded: meta CLAUDE.md ${snap_const8}, dcs ${snap_dcs8} | [LAW] sections: ${law_count}, universal DCs: ${dcs_count} | meta-framework maintenance | triage: ON"
+  else
+    echo "Governance loaded: constitution ${snap_const8}, setup ${snap_setup8}, dcs ${snap_dcs8} | [LAW] sections: ${law_count}, universal DCs: ${dcs_count} | SDLC-first triage: ON"
   fi
-  if [ -z "$snap_setup8" ] || [ "$snap_setup8" = "null" ]; then
-    snap_setup8="n/a"
-  fi
-  echo "Governance loaded: constitution ${snap_const8}, setup ${snap_setup8} | SDLC-first triage: ON"
   exit 0
 fi
 
@@ -108,6 +143,7 @@ if [ "${1:-}" = "--snapshot-freshness" ]; then
 
   snap_const=$(gov_snapshot_value constitution_hash)
   snap_setup=$(gov_snapshot_value setup_hash)
+  snap_dcs=$(gov_snapshot_value dcs_hash)
 
   if [ -z "$snap_const" ]; then
     echo "Governance snapshot malformed — frontmatter missing 'constitution_hash'. Run /setup --upgrade to regenerate." >&2
@@ -117,6 +153,8 @@ if [ "${1:-}" = "--snapshot-freshness" ]; then
   live_const=$(gov_compute_md5 "$CONSTITUTION_FILE")
   live_setup=""
   [ -f "$SETUP_FILE" ] && live_setup=$(gov_compute_md5 "$SETUP_FILE")
+  live_dcs=""
+  [ -f "$DCS_FILE" ] && live_dcs=$(gov_compute_md5 "$DCS_FILE")
 
   if [ -z "$live_const" ]; then
     echo "Governance snapshot cannot be verified — no md5 tool available (need md5sum, md5, or openssl). Install one before proceeding; freshness gate blocks by default." >&2
@@ -127,6 +165,9 @@ if [ "${1:-}" = "--snapshot-freshness" ]; then
   [ "$snap_const" != "$live_const" ] && drift+=("constitution.md")
   if [ -n "$snap_setup" ] && [ "$snap_setup" != "null" ]; then
     [ "$snap_setup" != "$live_setup" ] && drift+=("setup.md")
+  fi
+  if [ -n "$snap_dcs" ] && [ "$snap_dcs" != "null" ]; then
+    [ "$snap_dcs" != "$live_dcs" ] && drift+=("defect-prevention.md")
   fi
 
   if [ ${#drift[@]} -gt 0 ]; then

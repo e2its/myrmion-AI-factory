@@ -1134,101 +1134,125 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     test_file_pattern: "{pattern}"
     key_lint_rules: ["{rule}"]
   
-  # 7.8 Mandatory Architectural Patterns + ADR Bindings (→ REVIEW Check #14: DESIGN + DEV Hat)
-  # PURPOSE: Constitution and ADRs define mandatory implementation patterns (e.g., BaseRepository
-  # with auto tenant filter, middleware tenant_id injection, global error handler, audit logging).
-  # These are NOT rules (.claude/rules/) — they are DESIGN DECISIONS that dictate HOW code must be
-  # structured. Without this section, IMPLEMENT satisfies constraints superficially (e.g., manual
-  # tenant filtering in each query instead of the prescribed BaseRepository auto-filter).
+  # 7.8 Mandatory Architectural Patterns + FDR Bindings (→ REVIEW Check #14: DESIGN + DEV Hat)
+  # PURPOSE: Constitution `[LAW]` sections and feature-scoped FDRs define mandatory implementation
+  # patterns (e.g., BaseRepository with auto tenant filter, middleware tenant_id injection, global
+  # error handler, audit logging). These are NOT rules (.claude/rules/) — they are DESIGN
+  # DECISIONS that dictate HOW code must be structured. Without this section, IMPLEMENT satisfies
+  # constraints superficially (e.g., manual tenant filtering in each query instead of the
+  # prescribed BaseRepository auto-filter).
   #
-  # This section captures:
-  #   A) Constitutional architectural patterns (mandatory shared components, middleware chain,
-  #      data access patterns, cross-cutting concerns)
-  #   B) ADR binding decisions from docs/spec/{FEATURE_ID}/adr/ that mandate specific approaches
-  #   C) Setup decisions that affect implementation (e.g., multitenancy strategy, auth mechanism)
-  
-  EXTRACT from constitution.md → architecture section:
-    # Scan for mandatory patterns: middleware requirements, base classes, shared services,
-    # data access strategies, security enforcement patterns, cross-cutting concerns.
-    # These are typically defined under architecture.patterns, architecture.middleware,
-    # architecture.data_access, architecture.security, or similar constitution sections.
-    mandatory_patterns = []
-    
-    FOR EACH pattern IN constitution.architecture.patterns (or equivalent sections):
+  # SOURCES:
+  #   A) Constitution `[LAW]` sections — already loaded in the governance snapshot at
+  #      `.context/governance_snapshot.md` § Active Constitution. Read from there directly
+  #      (no need to re-scan constitution.md). Universal architectural law lives here.
+  #   B) Feature Decision Records (FDR) at `docs/spec/{FEATURE_ID}/fdr/*.md` with
+  #      `status: accepted` — feature-local binding patterns.
+  #   C) Setup decisions from `.context/governance_snapshot.md` § Setup Configuration that
+  #      affect implementation (e.g., multitenancy strategy, auth mechanism, synthetic data flag).
+  #   D) Historical ADR traceability (read-only) via Factory-adr-management List Active API —
+  #      used to surface "why this [LAW] section is worded this way" in design.md notes.
+  #      Historical ADRs are NEVER binding; only the resulting [LAW] sections in constitution are.
+
+  # A. Read constitutional [LAW] from snapshot (already extracted by SETUP --generate /
+  # SETUP --upgrade — see Factory-setup-materialization Checkpoint 3.1).
+  law_sections = READ(".context/governance_snapshot.md") § "Active Constitution (Operational [LAW] sections — verbatim)"
+
+  mandatory_patterns = []
+  FOR EACH section IN law_sections:
+    # Scan section body for: mandatory shared components, middleware requirements, base classes,
+    # data access strategies, security enforcement patterns, cross-cutting concerns. The [LAW]
+    # body is verbatim constitution text — parse domain-specific patterns per section topic
+    # (Code Readability, Security by Design, etc.) and emit canonical entries:
+    FOR EACH pattern IN extract_patterns_from_law(section):
       mandatory_patterns.APPEND({
         id: "PAT-{sequential}",
         name: "{pattern_name}",  # e.g., "BaseRepository", "TenantMiddleware", "GlobalErrorHandler"
         type: "{middleware|base_class|shared_service|guard|interceptor|adapter|factory}",
         scope: "{shared|per_module}",
         description: "{what it does}",
-        enforcement: "{how it's enforced — e.g., all repositories MUST extend BaseRepository}",
-        constitution_ref: "{section reference in constitution.md}",
-        affects_feature: true|false  # whether this feature uses/needs this pattern
+        enforcement: "{how — e.g., all repositories MUST extend BaseRepository}",
+        law_section_ref: "{section.heading}",   # traceability back to the [LAW] section
+        affects_feature: true|false             # whether this feature uses/needs this pattern
       })
-    
-    # Multitenancy patterns (if constitution defines multitenancy)
-    IF constitution.architecture.multitenancy EXISTS:
-      EXTRACT:
-        isolation_strategy: "{row_level|schema|database}"
-        tenant_source: "{middleware|header|jwt_claim|subdomain}"
-        enforcement_mechanism: "{base_repository_filter|middleware_injection|db_policy|rls}"
-        mandatory_components:
-          - name: "{e.g., TenantMiddleware}"
-            responsibility: "{e.g., extract tenant_id from JWT, inject into request context}"
-          - name: "{e.g., BaseRepository}"
-            responsibility: "{e.g., auto-add WHERE tenant_id = $1 on all queries}"
-    
-    # Auth/security patterns
-    IF constitution.architecture.auth EXISTS:
-      EXTRACT:
-        auth_mechanism: "{jwt|session|oauth2|api_key}"
-        mandatory_middleware: ["{auth_middleware}", "{rbac_guard}", ...]
-        token_propagation: "{how auth context flows through layers}"
-    
-    # Cross-cutting concerns (error handling, logging, audit)
-    IF constitution.architecture.cross_cutting EXISTS:
-      EXTRACT:
-        error_handling: "{global_handler|per_module|middleware}"
-        logging: "{structured|middleware_injected|decorator}"
-        audit: "{audit_trail_middleware|event_sourcing|db_trigger}"
-  
-  # Load feature-relevant ADRs
-  adr_bindings = []
-  adr_dir = "docs/spec/{FEATURE_ID}/adr/"
-  IF DIRECTORY_EXISTS(adr_dir):
-    FOR EACH adr_file IN adr_dir:
-      adr = READ(adr_file)
-      IF adr.status == "accepted" OR adr.status == "approved":
-        adr_bindings.APPEND({
-          id: adr.id,  # e.g., "ADR-003"
-          title: adr.title,
-          decision: "{the specific implementation decision}",
-          consequences: ["{implementation constraint 1}", "{implementation constraint 2}"],
-          mandatory_components: ["{component names this ADR mandates}"]
+
+  # Domain-specific extractions from [LAW] sections (preserved from prior contract).
+  # Each conditional reads the relevant [LAW] section's body if present in the snapshot.
+
+  # Multitenancy patterns (if a [LAW] section addresses multitenancy)
+  IF any law_section addresses multitenancy:
+    EXTRACT:
+      isolation_strategy: "{row_level|schema|database}"
+      tenant_source: "{middleware|header|jwt_claim|subdomain}"
+      enforcement_mechanism: "{base_repository_filter|middleware_injection|db_policy|rls}"
+      mandatory_components:
+        - name: "{e.g., TenantMiddleware}"
+          responsibility: "{e.g., extract tenant_id from JWT, inject into request context}"
+        - name: "{e.g., BaseRepository}"
+          responsibility: "{e.g., auto-add WHERE tenant_id = $1 on all queries}"
+
+  # Auth/security patterns (typically in [LAW] Security by Design)
+  IF [LAW] section "Security by Design" addresses auth:
+    EXTRACT:
+      auth_mechanism: "{jwt|session|oauth2|api_key}"
+      mandatory_middleware: ["{auth_middleware}", "{rbac_guard}", ...]
+      token_propagation: "{how auth context flows through layers}"
+
+  # Cross-cutting concerns (error handling, logging, audit)
+  IF any [LAW] section addresses cross-cutting concerns:
+    EXTRACT:
+      error_handling: "{global_handler|per_module|middleware}"
+      logging: "{structured|middleware_injected|decorator}"
+      audit: "{audit_trail_middleware|event_sourcing|db_trigger}"
+
+  # B. Load feature-relevant FDRs (feature-scoped binding decisions)
+  fdr_bindings = []
+  fdr_dir = "docs/spec/{FEATURE_ID}/fdr/"
+  IF DIRECTORY_EXISTS(fdr_dir):
+    FOR EACH fdr_file IN fdr_dir:
+      fdr = READ(fdr_file)
+      IF fdr.status == "accepted":
+        fdr_bindings.APPEND({
+          id: fdr.fdr_number,                            # e.g., "FDR-003"
+          title: fdr.title,
+          binding_rule: fdr["## Binding Rule"].body,     # the operational text
+          decision: fdr["## Decision"].body,             # rationale (informational)
+          consequences: fdr["## Consequences"].negatives,
+          mandatory_components: extract_mandatory_components(fdr["## Binding Rule"].body)
         })
-  
-  # Also check project-level ADRs (docs/adr/) for cross-feature patterns
-  project_adr_dir = "docs/adr/"
-  IF DIRECTORY_EXISTS(project_adr_dir):
-    FOR EACH adr_file IN project_adr_dir:
-      adr = READ(adr_file)
-      IF (adr.status == "accepted" OR adr.status == "approved") AND (adr.affects_features CONTAINS FEATURE_ID OR adr.scope == "global"):
-        adr_bindings.APPEND({
-          id: adr.id,
-          title: adr.title,
-          decision: "{decision}",
-          consequences: ["{constraints}"],
-          mandatory_components: ["{components}"]
-        })
-  
-  # Load setup decisions that affect implementation patterns
+
+  # B'. Load FDRs from upstream features whose contract this feature consumes
+  # (cross-feature contract dependencies — see spec.feature.consumes_contract).
+  IF spec.feature.consumes_contract not empty:
+    FOR EACH upstream_feature_id IN spec.feature.consumes_contract:
+      upstream_fdr_dir = "docs/spec/{upstream_feature_id}/fdr/"
+      IF DIRECTORY_EXISTS(upstream_fdr_dir):
+        FOR EACH fdr_file IN upstream_fdr_dir:
+          fdr = READ(fdr_file)
+          IF fdr.status == "accepted":
+            fdr_bindings.APPEND({
+              id: "{upstream_feature_id}/{fdr.fdr_number}",
+              title: fdr.title + " (upstream)",
+              binding_rule: fdr["## Binding Rule"].body,
+              upstream_feature: upstream_feature_id
+            })
+
+  # C. Load setup decisions that affect implementation patterns
   setup_patterns = []
   IF FILE_EXISTS(".context/governance_snapshot.md"):
     EXTRACT from snapshot → Setup Configuration:
       IF synthetic_data.enabled: setup_patterns.APPEND("synthetic_data_seeding")
       # Other setup decisions that affect code patterns
-  
-  WRITE design.md "### 7.8 Mandatory Architectural Patterns + ADR Bindings → REVIEW [DESIGN] + DEV Hat"
+
+  # D. (Optional) Historical ADR traceability via Factory-adr-management
+  # ONLY consulted when the agent wants to surface "why this [LAW] is worded this way" — these
+  # are HISTORICAL records, NEVER binding. Active law lives in constitution [LAW] sections (A).
+  historical_adr_refs = []
+  IF design narrative wants to surface decision history:
+    historical_adr_refs = Factory-adr-management.list_active_adrs(feature_id=FEATURE_ID)
+    # Returns refs only — no binding semantics derived from them.
+
+  WRITE design.md "### 7.8 Mandatory Architectural Patterns + FDR Bindings → REVIEW [DESIGN] + DEV Hat"
   WRITE design.md:
     mandatory_patterns:
       - id: "PAT-{N}"
@@ -1237,44 +1261,54 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
         scope: "{shared|per_module}"
         description: "{what it does}"
         enforcement: "{how — e.g., all repos MUST extend BaseRepository}"
-        constitution_ref: "{section}"
+        law_section_ref: "{[LAW] section heading from constitution}"
         affects_feature: true|false
-    
+
     multitenancy: # (if applicable)
       isolation_strategy: "{strategy}"
       tenant_source: "{source}"
       enforcement_mechanism: "{mechanism}"
       mandatory_components:
         - name: "{component}" | responsibility: "{what it must do}"
-    
+
     auth_patterns: # (if applicable)
       mechanism: "{auth_mechanism}"
       mandatory_middleware: ["{middleware_list}"]
       token_propagation: "{flow description}"
-    
+
     cross_cutting: # (if applicable)
       error_handling: "{pattern}"
       logging: "{pattern}"
       audit: "{pattern}"
-    
-    adr_bindings:
+
+    fdr_bindings:                                           # feature-local binding decisions
+      - id: "{FDR-NNN}"
+        title: "{title}"
+        binding_rule: "{the operational rule from FDR}"
+        mandatory_components: ["{components this FDR requires}"]
+        upstream_feature: "{upstream FEAT-ID if from consumes_contract, else null}"
+
+    historical_adr_refs:                                    # informational only — NEVER binding
       - id: "{ADR-NNN}"
         title: "{title}"
-        decision: "{the binding decision}"
-        mandatory_components: ["{components this ADR requires}"]
-        consequences: ["{implementation constraints}"]
-    
+        path: "{relative path}"
+        accepted_at: "{ISO date}"
+        # Active law lives in the [LAW] sections referenced above; ADRs are historical context only.
+
     implementation_invariants:
       - "All repositories MUST extend/use {BaseRepository} — never implement tenant filtering manually"
       - "Tenant context MUST flow via middleware injection — never extract directly from JWT in handlers"
       - "Cross-cutting concerns MUST use prescribed middleware chain — never implement ad-hoc"
-      # (generated from patterns + ADRs — feature-specific invariants)
-    
+      # (generated from [LAW] patterns + FDRs — feature-specific invariants)
+
     note: >
-      DEV Hat: mandatory_patterns and implementation_invariants are BINDING.
-      Every shared component listed here MUST be created (or verified existing) before
-      feature-specific code that depends on it. REVIEW Check #14 [DESIGN] validates
-      materialization fidelity — bypassing prescribed patterns is a BLOCKER.
+      DEV Hat: mandatory_patterns and implementation_invariants are BINDING. Every shared component
+      listed here MUST be created (or verified existing) before feature-specific code that depends
+      on it. REVIEW Check #14 [DESIGN] validates materialization fidelity — bypassing prescribed
+      patterns is a BLOCKER. Sources of binding rules are constitution `[LAW]` sections (universal)
+      and feature-scoped FDRs (this feature + any upstream consumed via `consumes_contract`).
+      Historical ADRs are NOT binding — they are context for understanding why a `[LAW]` section
+      is worded the way it is.
   
   # Finalize and SAVE Section 7 atomically
   # Compute GCD hash from the dual-hash identity used by governance_snapshot (GCRP compliant).

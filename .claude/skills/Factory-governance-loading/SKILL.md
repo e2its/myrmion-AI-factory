@@ -309,10 +309,12 @@ Check: git diff main...current_branch --name-only
 
 FOR EACH modified_file:
   IF file_path IN protected-paths.json.red_zones:
-    Check: docs/spec/{{FEATURE_ID}}/adr/ for RED_ZONE_MODIFICATION_*.md
+    # RED_ZONE override is a feature-scoped binding decision → FDR.
+    # Source priority: docs/spec/{{FEATURE_ID}}/fdr/ (current) → docs/spec/{{FEATURE_ID}}/adr/ (legacy fallback).
+    Check: docs/spec/{{FEATURE_ID}}/fdr/ AND docs/spec/{{FEATURE_ID}}/adr/ for RED_ZONE_MODIFICATION_*.md
 
-    IF ADR missing OR doesn't mention file:
-      ❌ BLOCK: "RED ZONE violation - ADR approval required"
+    IF override record missing OR doesn't mention file:
+      ❌ BLOCK: "RED ZONE violation — FDR approval required"
       Output YAML violation report
       STOP: Do not proceed to Phase 2
 ```

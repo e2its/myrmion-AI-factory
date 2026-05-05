@@ -105,12 +105,13 @@ We choose **option X**, because…
 
 ## How it's validated in the review
 
-1. If the PR meets any of the "ADR required" criteria and there is NO new file in `docs/adr/`:
-   - Mark **Important** finding: "This change introduces <X>; consider recording the decision as an ADR".
-2. If the PR includes a new ADR:
-   - Verify it has the required frontmatter fields.
+1. If the PR meets any of the "ADR required" criteria and there is NO new file in `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/fdr/` (feature-scoped):
+   - Mark **Important** finding: "This change introduces <X>; consider recording the decision as an ADR (project-wide) or FDR (feature-scoped)".
+2. If the PR includes a new ADR or FDR:
+   - Verify it has the required frontmatter fields (project-wide ADR: `target_section`, `amendment_kind`, `## Operational Rule`).
    - Verify mandatory sections are filled in (no placeholders).
-   - Verify `status` is consistent with the PR (proposed if still open, accepted if about to merge).
+   - Verify `status` is consistent with the PR (`proposed` if still open, `accepted` if about to merge).
+   - For project-wide ADR transitioning to `accepted`: verify `docs/constitution.md` is also modified in the same diff (CI gate `scripts/check-adr-constitution-sync.sh` enforces this; bypass via `[adr-backfill]` commit marker).
 3. If the PR modifies an existing ADR:
    - Changes to `accepted` ones should mark them `superseded` and create a new one, not rewrite.
    - Minor changes (typos, links) are OK.
@@ -120,14 +121,19 @@ We choose **option X**, because…
 When an ADR is required and missing:
 
 ```
-🟡 Important — Recommend recording the decision as an ADR
+🟡 Important — Recommend recording the decision as an ADR (project-wide) or FDR (feature-scoped)
 
 This PR introduces <concrete description of the structural change>, which qualifies
 as an architectural decision per project policy.
 
-Please add an ADR under `docs/adr/` following the MADR template. The ADR can be
-created in this PR or in a parallel one, but must exist before merge.
+Project-wide constitutional decisions: add an ADR under `docs/project_log/adr/`
+using the project's `Factory-adr-management` skill (Propose Procedure). The Accept
+Procedure will copy the `## Operational Rule` field into `docs/constitution.md`
+as a `## [LAW]` section at status flip.
 
-Template: docs/adr/template.md
-Example: docs/adr/0001-choose-postgres-as-primary-database.md
+Feature-scoped decisions: add an FDR under `docs/spec/{FEATURE_ID}/fdr/` — they
+are binding within the feature scope and do NOT amend the universal constitution.
+
+Templates: `.context/templates/architect/adr_template.md` (project-wide),
+           `.context/templates/architect/fdr_template.md` (feature-scoped).
 ```

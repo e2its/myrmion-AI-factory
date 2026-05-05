@@ -359,19 +359,20 @@ FUNCTION load_mandatory_patterns(FEATURE_ID):
   
   IF gcd_section_78 EXISTS:
     patterns = gcd_section_78.mandatory_patterns
-    adr_bindings = gcd_section_78.adr_bindings
+    fdr_bindings = gcd_section_78.fdr_bindings OR gcd_section_78.adr_bindings  # adr_bindings is the legacy field name from pre-rewire BLUEPRINT
     invariants = gcd_section_78.implementation_invariants
-    LOG: "Mandatory patterns loaded from GCD Section 7.8 ({patterns.length} patterns, {adr_bindings.length} ADRs)"
+    LOG: "Mandatory patterns loaded from GCD Section 7.8 ({patterns.length} patterns, {fdr_bindings.length} FDRs)"
   ELSE:
-    # Fallback: Load directly from constitution + ADRs (pre-GCD BLUEPRINT)
-    patterns = EXTRACT_FROM(constitution.md → architecture.patterns, .middleware, .data_access, .security)
-    adr_bindings = []
-    FOR EACH adr_dir IN ["docs/spec/{FEATURE_ID}/adr/", "docs/adr/"]:
-      IF DIRECTORY_EXISTS(adr_dir):
-        FOR EACH adr IN adr_dir WHERE status IN ["accepted", "approved"]:
-          adr_bindings.APPEND(adr)
-    invariants = DERIVE_FROM(patterns + adr_bindings)
-    LOG: "Mandatory patterns loaded from constitution + ADR files (fallback)"
+    # Fallback: Load directly from constitution [LAW] sections + feature-local FDRs (pre-GCD BLUEPRINT).
+    # Source priority: docs/spec/{FEATURE_ID}/fdr/ (current) → docs/spec/{FEATURE_ID}/adr/ (legacy fallback for unmigrated projects).
+    patterns = EXTRACT_LAW_SECTIONS(docs/constitution.md)  # operational [LAW] body extracted via regex; project-wide patterns live here
+    fdr_bindings = []
+    FOR EACH dir IN ["docs/spec/{FEATURE_ID}/fdr/", "docs/spec/{FEATURE_ID}/adr/"]:
+      IF DIRECTORY_EXISTS(dir):
+        FOR EACH record IN dir WHERE status IN ["accepted", "approved"]:
+          fdr_bindings.APPEND(record)
+    invariants = DERIVE_FROM(patterns + fdr_bindings)
+    LOG: "Mandatory patterns loaded from constitution [LAW] sections + feature FDR files (fallback)"
   
   # Step 2: Cross-reference against design.md Section 2 Component Inventory
   component_inventory = READ(design.md, "## Section 2: Component Inventory")
@@ -403,7 +404,7 @@ FUNCTION load_mandatory_patterns(FEATURE_ID):
       })
   
   # Step 3: Generate ADR binding tasks
-  FOR EACH adr IN adr_bindings:
+  FOR EACH fdr IN fdr_bindings:
     FOR EACH component IN adr.mandatory_components:
       IF component NOT ALREADY IN mandatory_tasks:
         mandatory_tasks.APPEND({
@@ -546,7 +547,7 @@ TASKS:
   # If a mandatory component already exists in the codebase, the task is INTEGRATION
   # (verify usage) rather than CREATION.
   A.0.N: Shared component tasks from mandatory patterns
-    - Source: design.md Section 7.8 mandatory_patterns + adr_bindings
+    - Source: design.md Section 7.8 mandatory_patterns + fdr_bindings (legacy projects: adr_bindings)
     - Priority: PREREQUISITE — must complete before A.2+ tasks
     - CIP: Check codebase_inventory for existing shared components
     - Invariant: "{implementation_invariant from Section 7.8}"
