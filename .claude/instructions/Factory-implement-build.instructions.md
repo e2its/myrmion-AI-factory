@@ -245,13 +245,16 @@ FUNCTION load_governance_context(FEATURE_ID):
         contract_rules      = gcd_section["7.5"]  # contract paths, forbidden imports
         ux_constraints      = gcd_section["7.6"]  # vision refs, touch targets (if frontend)
         coding_standards    = gcd_section["7.7"]  # naming, structure, test patterns
-        raw_section_78      = gcd_section["7.8"]  # constitutional arch patterns + ADR bindings
-        # Normalize GCD 7.8: flatten nested field names for consistent downstream access
-        # BLUEPRINT writes mandatory_patterns/implementation_invariants inside Section 7.8;
-        # downstream consumers (REVIEW Check #14) reference .patterns/.implementation_invariants
+        raw_section_78      = gcd_section["7.8"]  # constitutional [LAW] patterns + FDR bindings
+        # Normalize GCD 7.8: flatten nested field names for consistent downstream access.
+        # BLUEPRINT writes mandatory_patterns / fdr_bindings / implementation_invariants inside
+        # Section 7.8; downstream consumers (REVIEW Check #14) reference .patterns / .fdr_bindings
+        # / .implementation_invariants. The `OR raw_section_78.adr_bindings` fallback accepts
+        # the legacy field name from pre-rewire BLUEPRINT outputs.
         mandatory_patterns = {
           patterns: raw_section_78.mandatory_patterns,
-          adr_bindings: raw_section_78.adr_bindings,
+          fdr_bindings: raw_section_78.fdr_bindings OR raw_section_78.adr_bindings,
+          historical_adr_refs: raw_section_78.historical_adr_refs,
           implementation_invariants: raw_section_78.implementation_invariants,
           multitenancy: raw_section_78.multitenancy,
           auth_patterns: raw_section_78.auth_patterns,
@@ -312,22 +315,22 @@ FUNCTION load_governance_context(FEATURE_ID):
         IF record.status == "accepted" OR record.status == "approved":
           fdr_bindings.APPEND(record)
   
-  # If GCD Section 7.8 was missing (pre-v3.0.0 BLUEPRINT), build mandatory_patterns from raw sources
+  # If GCD Section 7.8 was missing (pre-rewire BLUEPRINT), build mandatory_patterns from raw sources.
   IF NOT gcd_loaded OR NOT DEFINED(governance_context) OR governance_context.mandatory_patterns IS NULL:
     IF NOT DEFINED(governance_context):
       governance_context = {}  # Initialize for non-GCD path
-    constitution_patterns = EXTRACT_FROM(constitution.md → architecture.patterns, .middleware, .data_access, .security)
+    constitution_patterns = EXTRACT_LAW_SECTIONS(constitution.md)  # operational [LAW] body — project-wide patterns
     governance_context.mandatory_patterns = {
       patterns: constitution_patterns,
-      adr_bindings: adr_bindings,
-      implementation_invariants: DERIVE_FROM(constitution_patterns + adr_bindings)
+      fdr_bindings: fdr_bindings,
+      implementation_invariants: DERIVE_FROM(constitution_patterns + fdr_bindings)
     }
-    LOG: "Mandatory patterns loaded from constitution + ADRs (GCD 7.8 absent — fallback)"
+    LOG: "Mandatory patterns loaded from constitution [LAW] sections + feature FDRs (GCD 7.8 absent — fallback)"
   ELSE:
-    # Merge ADR bindings into existing GCD context (ADRs may have been added after BLUEPRINT)
-    governance_context.mandatory_patterns.adr_bindings = MERGE(
-      governance_context.mandatory_patterns.adr_bindings,
-      adr_bindings
+    # Merge feature-local FDR bindings into existing GCD context (FDRs may have been added after BLUEPRINT)
+    governance_context.mandatory_patterns.fdr_bindings = MERGE(
+      governance_context.mandatory_patterns.fdr_bindings,
+      fdr_bindings
     )
   
   READ test_plan.md:

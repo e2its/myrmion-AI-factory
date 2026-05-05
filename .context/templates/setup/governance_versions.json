@@ -1285,9 +1285,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.5.0",
+      "version": "2.5.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.5.1: fix — Step 2 GCD fast-path normalisation reads `raw_section_78.fdr_bindings OR raw_section_78.adr_bindings` (post-rewire field name with legacy fallback) instead of the now-renamed `adr_bindings` field, preventing silent loss of FDR bindings on post-rewire designs. Step 3b fallback path consistently uses `fdr_bindings` (matching the variable rename in the I1 sweep). `historical_adr_refs` surfaced from raw section 7.8 for traceability, kept informational-only.",
         "2.5.0: feat — Step 3b loads feature-local binding records from `docs/spec/{FEATURE_ID}/fdr/` (current) with legacy fallback to `docs/spec/{FEATURE_ID}/adr/` for unmigrated projects. Variable renamed `adr_bindings` → `fdr_bindings`. Project-wide ADRs are NOT loaded here — their operational law lives in constitution `[LAW]` sections via the snapshot.",
         "2.4.0: feat(EVOL-021) phase 4: increment-aware build engine. New Strategy-Aware Build Entry subsection computes build_scope = determine_build_scope(FEATURE_ID) at top of --build — resolves mode (monolithic|incremental), per-mode task regex family ([A/B/C.N] or [INC-N.A/B/C.M] + [INC-N.ACC.k]), target_increment (filters for BUILDING status, asserts exactly one, enforces concurrency lock). Phase Loop is scoped by build_scope.all_tasks_filter — under incremental, only tasks inside the target increment's `## Increment INC-N` section are processed. Completion Gate uses build_scope.task_regex_* for task-type breakdown; REVIEW/SEC phase verification splits into per-increment-phase status check (increment_plan.md § 1 INC-N.phases) vs plan-level (monolithic); Acceptance Gate added for [INC-N.ACC.k] items; status transition is per-increment under incremental with plan-level IMPLEMENTED_AND_VERIFIED flip only when ALL increments close. Pillar 3 Resume-on-Entry EXTRACT_PHASE replaced with dual-regex branching ([INC-N.A|B|C|ACC.M] for incremental, [A|B|C.M] for monolithic, passthrough for delta/adjustment/fix).",
         "2.2.9: Address PR review: prefix-based UXD header matching, UXD-first gate logic, component_library ref fix, N/A heading, landmarks wording",
@@ -1317,9 +1318,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.9.0",
+      "version": "2.9.1",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.9.1: fix — `FOR EACH adr IN adr_bindings` loop renamed to `FOR EACH fdr IN fdr_bindings` (matching the variable rename in the I1 sweep). dev_plan A.0.N source comment now cites `mandatory_patterns + fdr_bindings (legacy projects: adr_bindings)`.",
         "2.9.0: feat — fallback path (pre-GCD BLUEPRINT) loads `EXTRACT_LAW_SECTIONS(docs/constitution.md)` for project-wide patterns and walks `docs/spec/{FEATURE_ID}/fdr/` (current) → `docs/spec/{FEATURE_ID}/adr/` (legacy) for feature-local FDRs. Variable renamed `adr_bindings` → `fdr_bindings`. Stale `docs/adr/` directory reference removed (ADRs live at `docs/project_log/adr/` since EVOL-016).",
         "2.8.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.8.0: feat(EVOL-021) phase 2: Increment Plan Gate added to Prerequisites (BLOCKING) — reads increment_plan.md, verifies status=APPROVED + slicing_strategy matches spec.feature, computes target_increments by filtering {DRAFT, READY, INVALIDATED} (skips BUILDING/MERGED per immutability) then topological-sorting by depends_on. Plan Generation gains Strategy Branch subsection (monolithic = flat [A.M]/[B.M]/[C.M]; incremental = per-INC sections with [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] tags + [INC-N.ACC.k] Acceptance Gate). Per-Increment Completion Gate: status flips READY→BUILDING at branch open, BUILDING→MERGED by git merge hook, plan-level IMPLEMENTED_AND_VERIFIED only when all target increments close. Output section extended with frontmatter (slicing_strategy, invalidated_increments[], increments[] mirror) + dual Task Format blocks + machine-consumable tag regexes (source of truth for CVP Check 17, BVL, QA).",

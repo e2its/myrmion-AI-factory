@@ -404,7 +404,7 @@ FUNCTION load_mandatory_patterns(FEATURE_ID):
       })
   
   # Step 3: Generate ADR binding tasks
-  FOR EACH adr IN adr_bindings:
+  FOR EACH fdr IN fdr_bindings:
     FOR EACH component IN adr.mandatory_components:
       IF component NOT ALREADY IN mandatory_tasks:
         mandatory_tasks.APPEND({
@@ -547,7 +547,7 @@ TASKS:
   # If a mandatory component already exists in the codebase, the task is INTEGRATION
   # (verify usage) rather than CREATION.
   A.0.N: Shared component tasks from mandatory patterns
-    - Source: design.md Section 7.8 mandatory_patterns + adr_bindings
+    - Source: design.md Section 7.8 mandatory_patterns + fdr_bindings (legacy projects: adr_bindings)
     - Priority: PREREQUISITE — must complete before A.2+ tasks
     - CIP: Check codebase_inventory for existing shared components
     - Invariant: "{implementation_invariant from Section 7.8}"
