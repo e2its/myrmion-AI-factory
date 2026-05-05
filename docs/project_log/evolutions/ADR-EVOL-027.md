@@ -1,13 +1,14 @@
 ---
-version: 1.0.0
+version: 1.1.0
 date: 2026-05-05
 changelog:
+  - "1.1.0: docs(EVOL-027) status flip proposed → accepted after user ratification of execution outcome. PR #19 open against main. No constitution amendment required (framework infrastructure EVOL — see Constitution Amendment section: N/A). check-adr-constitution-sync.sh gate scope is `docs/project_log/adr/ADR-*.md` (project ADRs); EVOL records under `docs/project_log/evolutions/` are out of scope, no [adr-backfill] bypass needed."
   - "1.0.0: feat(EVOL-027) execution complete — all 5 fases shipped on feature/EVOL-027-downstream-governance-completeness. Fase 1 (agent_templates manifest + upgrade walk) → bc153c2. Fase 2 (rules-naming convention drop, sed sweep across 51 files) → c5ac49e. Fase 3 (real scripts/generate-governance-snapshot.sh + setup/scripts/ mirror) → a5e82da. Fase 4 (scripts/check-inventory-drift.sh + CI advisory step + SKILL.md § Drift Detection Gate) → c0742da. Fase 5 (parser-canonical user_journey templates) → b4c6730. framework_version 3.0.0 → 4.0.0 (BREAKING). Status remains proposed pending user ratification of execution; flip to accepted after review and merge."
   - "0.2.0: Fase 2 reframed — Gap #4 fix unified as full convention drop (C). `.instructions.md` suffix removed from `.claude/rules/` everywhere — source, target, meta repo, manifest, instruction refs. Eliminates source-vs-target asymmetry permanently instead of patching meta self-application. RDR ratification: user explicit reject of split-into-EVOL-028 (one-shot or never). Status remains proposed."
   - "0.1.0: Skeleton — RDR decision persisted (slug A: downstream-governance-completeness, single EVOL covering 5 gaps). Status: proposed."
 adr_number: EVOL-027
 title: Downstream governance completeness — agent-template propagation, rules-naming convention unification, snapshot+inventory drift tooling, parser-canonical user_journey
-status: proposed
+status: accepted
 type: framework-evolution
 scope: global
 ---
@@ -147,4 +148,4 @@ Five fases, executed atomically in one PR:
 | 14 | Fase 5 — `codesign/user_journey_template.md` Section 2 reformatted from master-table to per-step `### Paso N` blocks with labeled DataIn:/DataOut:/Schema fields | done | b4c6730 |
 | 15 | Fase 5 — `codesign/user_journey.integration.md` reformatted to the same parser-canonical contract, with integration-specific fields (Trigger, Effect, Idempotency Key, Retry Policy) preserved per step; both `agent_templates.codesign/user_journey*.md` bumped 1.0.0 → 1.1.0 | done | b4c6730 |
 | 16 | Manifest description-line entries v3.0.0 → 4.0.0 (Fase 1 / Fase 2 / Fase 5 markers) consolidated in a single BREAKING block | done | bc153c2, c5ac49e, b4c6730 |
-| 17 | Status flip `proposed` → `accepted` with final ADR version bump | pending user ratification | — |
+| 17 | Status flip `proposed` → `accepted` with final ADR version bump | done | (this commit) |
