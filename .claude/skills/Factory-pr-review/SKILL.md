@@ -321,7 +321,7 @@ The skill is framework code; it ships identical to every project. **Project-spec
 ### Hierarchy (highest to lowest, on conflict)
 
 1. **`docs/constitution.md`** — project constitution. The Hard-Gate categories (CIP, CVP, IPP, BVL, GCRP) are constitutional and cannot be disabled.
-2. **ADRs** — `docs/project_log/adr/*.md` (project-wide) + `docs/spec/{ID}/adr/*.md` (feature-scoped). ADRs may refine, exempt, or extend the rule defaults below; they CANNOT relax constitutional gates.
+2. **ADRs and FDRs** — `docs/project_log/adr/*.md` (project-wide ADRs that amend constitution.md via `Factory-adr-management` Accept Procedure) and `docs/spec/{ID}/fdr/*.md` (feature-scoped FDRs; legacy `docs/spec/{ID}/adr/*.md` is read until projects migrate). They may refine, exempt, or extend the rule defaults below; they CANNOT relax constitutional gates.
 3. **`.claude/rules/*.instructions.md`** — materialised at SETUP, evolved via ADR-backed updates only. These are the operational source of truth for each block category.
 4. **Skill defaults** — last-resort fallback when none of the above is present (e.g. fresh project before SETUP --generate completes).
 
@@ -336,7 +336,7 @@ Honest, narrow surface — only files the preflight script actually reads (or th
 | Branch protection (Block 10), base branch | `.claude/rules/branching.instructions.md` | `default_base_branch` field (`origin/{x}`); branch-name regex (when present) for Block 10 validation. |
 | Protected paths (Block 12) | `config/protected-paths.json` | Glob list — every changed path is matched against it; any match → 🔴 Blocker. |
 | Protected code markers | `.claude/rules/protected-code.md` | The `PROTECTED-CODE START/END` marker convention. Push gate scans diff hunks; modifications inside a marker region → 🔴 Blocker. |
-| ADR-driven exemptions | `docs/project_log/adr/*.md` (project-wide) + `docs/spec/{ID}/adr/*.md` (feature-scoped) | `pr_review_overrides:` frontmatter (see § ADR-driven exemptions below). |
+| ADR / FDR-driven exemptions | `docs/project_log/adr/*.md` (project-wide ADRs) + `docs/spec/{ID}/fdr/*.md` (feature-scoped FDRs; legacy `adr/` read until migrated) | `pr_review_overrides:` frontmatter (see § ADR / FDR-driven exemptions below). |
 | Governance manifest (meta only) | `.context/templates/setup/governance_versions.json` | Existence + diff-touched-without-update check (Block 11, framework meta only). |
 
 That's it. Anything not in this list is NOT consumed. If the push gate were to start consuming a new rule file, that change ships in a new EVOL with explicit manifest entries.
@@ -355,9 +355,9 @@ Same disambiguation pattern as `review-policy.md`:
 
 The pattern: each rule file has ONE primary consumer. Multiple agents may read different slices, but ONE skill or SDLC phase owns the binding-decision authority. The push gate is deliberately narrow — it covers the things that are cheap and deterministic at push time, and defers everything else to its proper owner.
 
-### ADR-driven exemptions
+### ADR / FDR-driven exemptions
 
-ADRs may declare frontmatter exemptions consumed by the push gate:
+ADRs (project-wide) and FDRs (feature-scoped) may declare frontmatter exemptions consumed by the push gate:
 
 ```yaml
 ---
@@ -371,9 +371,9 @@ pr_review_overrides:
 ---
 ```
 
-The skill reads `pr_review_overrides:` from every ADR under `docs/project_log/adr/` (project-wide) and `docs/spec/{ID}/adr/` (feature-scoped, when the diff is feature-bounded). Project-wide ADRs override skill defaults; feature-scoped ADRs override project-wide rules within the feature scope only. Anything not declared in an override stays at the rule-file default.
+The skill reads `pr_review_overrides:` from every ADR under `docs/project_log/adr/` (project-wide), every FDR under `docs/spec/{ID}/fdr/` (feature-scoped, when the diff is feature-bounded), and any legacy `docs/spec/{ID}/adr/` entries kept for backward compatibility. Project-wide ADRs override skill defaults; FDRs override project-wide rules within the feature scope only. Anything not declared in an override stays at the rule-file default.
 
-A project that wants to disable a check entirely declares it in an ADR (which is itself reviewed and ratified). There is no per-developer escape hatch — bypassing the gate without an ADR is a governance-scope violation.
+A project that wants to disable a check entirely declares it in an ADR (or FDR for feature-scoped exemptions), which is itself reviewed and ratified. There is no per-developer escape hatch — bypassing the gate without an ADR/FDR is a governance-scope violation.
 
 ## Customisation (deprecated path)
 

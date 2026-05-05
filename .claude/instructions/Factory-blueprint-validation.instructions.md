@@ -415,13 +415,14 @@ FUNCTION cip_update_gate(FEATURE_ID):
 
 ## Command: `--adr {{ID}}`
 
-### ADR Generation Modes
-- **Standalone**: `--adr {{FEATURE_ID}}` — interactive ADR creation
-- **Auto-triggered**: During --start or --refine when significant architectural decisions are made
+### Feature Decision Record (FDR) Generation Modes
+- **Standalone**: `--fdr {{FEATURE_ID}}` (legacy alias `--adr` accepted during migration) — interactive feature-scoped decision creation
+- **Auto-triggered**: During `--start` or `--refine` when significant feature-local architectural decisions are made
+- For project-wide constitutional decisions, use the `Factory-adr-management` skill — those amend `docs/constitution.md` and live at `docs/project_log/adr/`
 
-### ADR Numbering
-- Sequential: ADR-0001, ADR-0002, ...
-- Stored in: `docs/spec/{{FEATURE_ID}}/adr/ADR-XXXX-*.md`
+### FDR Numbering
+- Sequential: FDR-0001, FDR-0002, ...
+- Stored in: `docs/spec/{{FEATURE_ID}}/fdr/FDR-XXXX-*.md` (legacy projects continue to read `docs/spec/{{FEATURE_ID}}/adr/ADR-XXXX-*.md` until migrated)
 
 ### ADR Template
 ```markdown

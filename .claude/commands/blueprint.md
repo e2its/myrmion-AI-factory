@@ -35,7 +35,7 @@ All files under `docs/spec/{ID}/`:
 - `design.md` — Architecture design with component diagrams
 - `test_plan.md` — Comprehensive test strategy with coverage matrix
 - `increment_plan.md` — Vertical-slicing plan. Declares `slicing_strategy` (`incremental` default, `monolithic` escape when Trivial-Heuristic holds), per-increment frontmatter (`scenarios_covered`, `contract_surface`, `depends_on`, `deployable: production`, branch name) and `§ 2` Mermaid DAG. Sidecar of `design.md`, never folded in.
-- Feature ADRs in `docs/spec/{ID}/adr/` (project-level ADRs like ADR-0000 go in `docs/project_log/adr/`)
+- Feature Decision Records (FDR) in `docs/spec/{ID}/fdr/` for feature-scoped binding decisions; project-wide ADRs amend `docs/constitution.md` and live in `docs/project_log/adr/`. Legacy projects with feature-scoped ADRs at `docs/spec/{ID}/adr/` continue to be read until migrated
 - Contract files in `contracts/` (OpenAPI, GraphQL, gRPC, AsyncAPI)
 - `contracts/feature_map.md` — Contract-to-feature tracing
 

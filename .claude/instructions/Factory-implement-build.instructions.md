@@ -301,14 +301,16 @@ FUNCTION load_governance_context(FEATURE_ID):
     - Section 5 Infrastructure Needs
     # Section 7 already parsed above if gcd_loaded — do NOT re-read
   
-  # Step 3b: Load ADR bindings (required for design fidelity verification)
-  adr_bindings = []
-  FOR EACH adr_dir IN ["docs/spec/{FEATURE_ID}/adr/", "docs/adr/"]:
-    IF DIRECTORY_EXISTS(adr_dir):
-      FOR EACH adr_file IN adr_dir:
-        adr = READ_FRONTMATTER(adr_file)
-        IF adr.status == "accepted" OR adr.status == "approved":
-          adr_bindings.APPEND(adr)
+  # Step 3b: Load feature-local binding records for design fidelity verification.
+  # Source priority: docs/spec/{FEATURE_ID}/fdr/ (current) → docs/spec/{FEATURE_ID}/adr/ (legacy fallback for unmigrated projects).
+  # Project-wide ADRs at docs/project_log/adr/ are NOT loaded here — their operational law lives in constitution [LAW] sections (loaded via the snapshot).
+  fdr_bindings = []
+  FOR EACH dir IN ["docs/spec/{FEATURE_ID}/fdr/", "docs/spec/{FEATURE_ID}/adr/"]:
+    IF DIRECTORY_EXISTS(dir):
+      FOR EACH record_file IN dir:
+        record = READ_FRONTMATTER(record_file)
+        IF record.status == "accepted" OR record.status == "approved":
+          fdr_bindings.APPEND(record)
   
   # If GCD Section 7.8 was missing (pre-v3.0.0 BLUEPRINT), build mandatory_patterns from raw sources
   IF NOT gcd_loaded OR NOT DEFINED(governance_context) OR governance_context.mandatory_patterns IS NULL:
