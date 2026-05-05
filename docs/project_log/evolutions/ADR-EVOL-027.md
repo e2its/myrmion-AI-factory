@@ -1,10 +1,11 @@
 ---
-version: 0.1.0
+version: 0.2.0
 date: 2026-05-05
 changelog:
+  - "0.2.0: Fase 2 reframed — Gap #4 fix unified as full convention drop (C). `.instructions.md` suffix removed from `.claude/rules/` everywhere — source, target, meta repo, manifest, instruction refs. Eliminates source-vs-target asymmetry permanently instead of patching meta self-application. RDR ratification: user explicit reject of split-into-EVOL-028 (one-shot or never). Status remains proposed."
   - "0.1.0: Skeleton — RDR decision persisted (slug A: downstream-governance-completeness, single EVOL covering 5 gaps). Status: proposed."
 adr_number: EVOL-027
-title: Downstream governance completeness — agent-template propagation, instruction-ref sweep, snapshot+inventory drift tooling, parser-canonical user_journey
+title: Downstream governance completeness — agent-template propagation, rules-naming convention unification, snapshot+inventory drift tooling, parser-canonical user_journey
 status: proposed
 type: framework-evolution
 scope: global
@@ -24,7 +25,7 @@ Five gaps confirmed in framework upstream (not just materialised in MASS):
 
 1. `.context/templates/codesign/user_journey_template.md` ships a master-table format for journey steps. Downstream parsers (e.g. MASS) require parser-canonical step blocks (`### Paso N` + per-step `### Schema:` / `DataIn:` / `DataOut:` markers) for deterministic extraction. Current template forces every materialised project to patch locally.
 2. `Factory-setup-materialization.instructions.md` Checkpoint 3.1 ships `generate_governance_snapshot()` as language-agnostic pseudocode. No real script exists in `scripts/` or `.context/templates/setup/scripts/`. Each materialised project re-implements a different way to compute the snapshot.
-3. Multiple `.claude/instructions/Factory-*.instructions.md` files reference `.claude/rules/{name}.instructions.md` paths that do not exist — actual rules ship under `.claude/rules/{name}.md` (no `.instructions.md` suffix). 47+ broken refs across `Factory-blueprint-design` (29), `Factory-implement-build` (7), `Factory-implement-review-checks` (7), `Factory-implement-plan` (2), `Factory-qa-verify` (2), `Factory-devops-configure` (1+).
+3. Rules-naming convention is asymmetric and self-contradictory. Source templates ship as `.context/templates/setup/rules/foo.md` (no suffix). Materialised projects' target is `.claude/rules/foo.instructions.md` (with suffix, per `Factory-setup-materialization.instructions.md:337,705` and manifest `target` fields). The meta repo's own `.claude/rules/` follows source format (no suffix), so the meta repo's Factory-* instructions referencing `foo.instructions.md` cannot be read by agents running on the meta repo itself (self-application broken). The asymmetry forces every consumer (`SETUP --generate`, `SETUP --upgrade`, `factory-sync.sh`, CI checks, 47+ string-literal refs across Factory-* instructions) to know about the rename. Cargo-cult convention from v9.0.0 with no operational benefit — the `.claude/rules/` directory already disambiguates rule files from other markdown.
 4. `Factory-codebase-inventory` has cache-freshness via MD5 but no codebase-vs-inventory drift detection. CIP gate detects presence/cache, not content drift. No `check-inventory-drift.sh`, no CI workflow.
 5. `governance_versions.json` does not track `.context/templates/{codesign,architect,develop,po,qa,security,ux}/**`. `Factory-setup-upgrade` therefore cannot propagate fixes in those trees to already-materialised projects.
 
@@ -40,7 +41,7 @@ Single EVOL bundling the five confirmed upstream gaps under a unifying objective
 Five fases, executed atomically in one PR:
 
 - **Fase 1 — Agent-template manifest extension (gap #5).** Add `agent_templates` section to `governance_versions.json` covering `.context/templates/{codesign,architect,develop,po,qa,security,ux}/**`. Extend `Factory-setup-upgrade.instructions.md` Step 2 + Step 3 to include this tree under the existing Smart Additive Merge contract. `factory-sync.sh` extended to mirror the new section. Pre-requisite for fase 5.
-- **Fase 2 — Broken instruction-ref sweep (gap #3).** Replace `*.instructions.md` references with `*.md` everywhere they refer to `.claude/rules/` files. Single-purpose mechanical sweep across all `.claude/instructions/Factory-*.instructions.md`. Independent of other fases.
+- **Fase 2 — Rules-naming convention unification (gap #3, C-style).** Drop `.instructions.md` suffix from `.claude/rules/` everywhere. (a) Manifest `target` fields rewritten from `.claude/rules/foo.instructions.md` to `.claude/rules/foo.md` for every rules entry. (b) `Factory-setup-materialization.instructions.md` Checkpoint and § Standard Rules rewritten — rules materialise as `.claude/rules/foo.md` directly, no rename step. (c) All 47+ string-literal references across `.claude/instructions/Factory-*.instructions.md` rewritten from `foo.instructions.md` to `foo.md` for `.claude/rules/` paths (Factory-* instruction filenames themselves keep their `.instructions.md` suffix — separate convention, separate concern). (d) `Factory-setup-upgrade.instructions.md` gains a `--migrate-legacy-setup` rule that detects `.claude/rules/foo.instructions.md` files in already-materialised projects and renames them to `foo.md` on next upgrade. (e) `factory-sync.sh` accepts both forms during transition window. Independent of other fases.
 - **Fase 3 — Real governance-snapshot generator (gap #2).** Create `scripts/generate-governance-snapshot.sh` implementing the `Factory-setup-materialization.instructions.md` Checkpoint 3.1 pseudocode (and EXTRACT_LAW_SECTIONS / EXTRACT_UNIVERSAL_DCS contracts) as a deterministic shell+awk script. Replace pseudocode in instruction with reference to the script. Add manifest entry in `framework_core.scripts/generate-governance-snapshot.sh`. Ship via `factory-sync.sh`.
 - **Fase 4 — Codebase-inventory drift detection (gap #4).** Create `scripts/check-inventory-drift.sh` mirroring the `validate-governance.sh` pattern: scan tracked code paths, compare against `config/codebase_inventory.json`, report drift entries. Add CI workflow (or extend governance-check) to invoke. Document invocation in `Factory-codebase-inventory/SKILL.md`. Add manifest entries.
 - **Fase 5 — Parser-canonical user_journey template (gap #1).** Reformat `.context/templates/codesign/user_journey_template.md` from master-table to per-step blocks (`### Paso N` heading + `### Schema:` block + `DataIn:` / `DataOut:` markers). Cross-section traceability matrix preserved. Functions on top of fase 1 manifest extension so the fix actually reaches MASS via `--upgrade`.
@@ -51,6 +52,7 @@ Five fases, executed atomically in one PR:
 
 - **Slug:** A — `feature/EVOL-027-downstream-governance-completeness`. Captures the architectural objective (close the propagation cycle) without binding to MASS-as-origin (B) or to gap #5 alone (C).
 - **Grouping:** single EVOL covering all five confirmed gaps. User explicitly directed "agrupa todos los gaps a solucionar en un solo evol". Rejected (a) two-EVOL split (027 propagation + 028 governance tooling) — duplicates ceremony without functional benefit; (b) per-gap EVOLs — six PRs with no shared rationale.
+- **Gap #4 fix scope:** C — full convention unification (drop `.instructions.md` suffix from `.claude/rules/` everywhere). Rejected A (rename meta repo only) — leaves source-vs-target asymmetry forever and just patches meta self-application. Rejected B (drop fix from EVOL) — leaves bug open in MASS and meta. Rejected the "split into EVOL-028" suggestion explicitly per user: "no va a haber un evol-28 para esto, o lo hacemos ahora o no merece la pena hacerlo." Long-term reasoning: the asymmetry has no operational benefit (the directory already disambiguates), forces every script touching rules to know about the rename, and was the root cause of the MASS broken-refs report. The EVOL is already MAJOR (4.0.0) for unrelated reasons (manifest schema + journey format) — absorbing the convention flip on the same MAJOR boundary is the right tactical home.
 
 ## Scope
 
@@ -61,9 +63,9 @@ Five fases, executed atomically in one PR:
 
 ### Framework instruction changes
 
-- `.claude/instructions/Factory-setup-upgrade.instructions.md` — extend Step 2 (Unified Smart Additive Merge) and Step 3 (New File Handling) to walk `agent_templates` section. Document target paths under each materialised project's `.context/templates/{role}/`.
-- `.claude/instructions/Factory-setup-materialization.instructions.md` Checkpoint 3.1 — replace pseudocode with reference to `scripts/generate-governance-snapshot.sh`. Keep contract narrative for documentation purposes.
-- All `.claude/instructions/Factory-*.instructions.md` referencing `.claude/rules/{name}.instructions.md` — rewrite to `.claude/rules/{name}.md` (fase 2).
+- `.claude/instructions/Factory-setup-upgrade.instructions.md` — extend Step 2 (Unified Smart Additive Merge) and Step 3 (New File Handling) to walk `agent_templates` section. Document target paths under each materialised project's `.context/templates/{role}/`. Add legacy-rules-suffix migration rule: detect `.claude/rules/foo.instructions.md` in already-materialised projects and rename to `foo.md`.
+- `.claude/instructions/Factory-setup-materialization.instructions.md` — Checkpoint 3.1 replaces pseudocode with reference to `scripts/generate-governance-snapshot.sh` (keep contract narrative). § Standard Rules and § Stack-conditional Rules: drop `.instructions.md` suffix from all materialise targets — rules ship to `.claude/rules/foo.md` directly.
+- All `.claude/instructions/Factory-*.instructions.md` referencing `.claude/rules/{name}.instructions.md` — rewrite to `.claude/rules/{name}.md` (fase 2). Factory-* instruction filenames themselves keep `.instructions.md` suffix.
 
 ### Framework script changes
 
@@ -108,7 +110,7 @@ Five fases, executed atomically in one PR:
 
 - **Materialised projects:** any future framework correction to agent-consumed templates (codesign / architect / develop / po / qa / security / ux) propagates via `SETUP --upgrade`. Drift between framework upstream and materialised downstream becomes detectable and resolvable through the standard upgrade ceremony.
 - **MASS specifically:** receives gap #1 (parser-canonical journey template), gap #2 (real snapshot script), gap #3 (instruction-ref sweep), gap #4 (drift detection), gap #5 (manifest extension) on next `SETUP --upgrade` after this EVOL ships.
-- **MAJOR bump (`3.0.0 → 4.0.0`):** breaking on two axes — manifest schema gains `agent_templates` section (downstream tooling parsing the manifest must handle the new section); user_journey template format changes (downstream parsers consuming the master-table layout break). Both warrant the MAJOR.
+- **MAJOR bump (`3.0.0 → 4.0.0`):** breaking on three axes — manifest schema gains `agent_templates` section (downstream tooling parsing the manifest must handle the new section); user_journey template format changes (downstream parsers consuming the master-table layout break); rules-naming convention unified (downstream tooling expecting `.claude/rules/foo.instructions.md` paths must adapt to `foo.md`). Migration handled by `Factory-setup-upgrade --migrate-legacy-setup` rename rule. Single MAJOR boundary absorbs all three breaks.
 - **Token footprint:** snapshot generator behaviour is functionally identical to the pseudocode contract; no growth in snapshot size. Drift-detection script runs as a workflow step (CI cost only).
 - **Ceremony cost:** one EVOL, one PR, one ADR, one CI cycle. ADR is this file. Conventional commits per fase inside the PR for git-log readability.
 - **Backfill responsibility:** materialised projects with prior local patches over the master-table user_journey format must re-merge their patches against the parser-canonical layout during their `SETUP --upgrade`. Smart Additive Merge surfaces the diff for user review per existing Factory-setup-upgrade contract.
