@@ -35,7 +35,7 @@ Templates are materialized into `.claude/rules/*.instructions.md` with variable 
 # Template: branching.instructions.md
 **Strategy Selected:** {{BRANCHING_STRATEGY}}
 
-# Materialized: .claude/rules/branching.instructions.md
+# Materialized: .claude/rules/branching.md
 **Strategy Selected:** GitHub Flow
 ```
 

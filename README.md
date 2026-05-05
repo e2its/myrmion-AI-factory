@@ -228,7 +228,7 @@ Presets `simplified` (3 issues: spec → implement → qa, no gates) and `single
 
 > **Gate Enforcement Modes:** each gate has a mode (`enforce` / `warn` / `off`) configured at SETUP. Greenfield projects start in `enforce` from day 1. Brownfield projects can start in `warn` and flip to `enforce` once the first new feature validates the gate artefact in main.
 
-> **Dynamic Environments:** environments are read from `.claude/rules/ci-cd.instructions.md` `environments[]`. A project may have `dev → prod` or `dev → staging → UAT → prod`. The invariant: **MERGE always occurs BEFORE the production deploy**.
+> **Dynamic Environments:** environments are read from `.claude/rules/ci-cd.md` `environments[]`. A project may have `dev → prod` or `dev → staging → UAT → prod`. The invariant: **MERGE always occurs BEFORE the production deploy**.
 
 ---
 
@@ -382,7 +382,7 @@ Every feature ships as a sequence of **vertical increments**. Each increment is 
 
 **Branching.** One branch per increment — `feature/{FEATURE_ID}-inc-N-{slug}` — merged as an independent PR. Only one increment branch per feature is open at a time (existing concurrency lock). Branch open flips the increment's status `READY → BUILDING`; merge hook stamps `Merged at:` and flips `BUILDING → MERGED`.
 
-**Enforcement.** Four CRITICAL CVP checks at `BLUEPRINT --approve`: `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic`. Per-increment immutability (see `.claude/rules/immutability_policy.instructions.md § Per-Increment Immutability`) locks MERGED increments and routes changes through either `CODESIGN --revise` (new feature version) or a **Follow-up Increment** (additive, non-overlapping scenarios — no version bump).
+**Enforcement.** Four CRITICAL CVP checks at `BLUEPRINT --approve`: `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic`. Per-increment immutability (see `.claude/rules/immutability_policy.md § Per-Increment Immutability`) locks MERGED increments and routes changes through either `CODESIGN --revise` (new feature version) or a **Follow-up Increment** (additive, non-overlapping scenarios — no version bump).
 
 **Iteration cascade.** `CASCADE_INCREMENT_INTERNAL` (see `.claude/skills/Factory-iteration-model/SKILL.md`) propagates upstream changes selectively: only increments whose `scenarios_covered` or `contract_surface` overlap with the change are flagged `INVALIDATED`. MERGED increments are never invalidated — they anchor production history; a follow-up increment carries the change forward.
 

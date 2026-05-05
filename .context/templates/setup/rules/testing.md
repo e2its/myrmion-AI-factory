@@ -55,7 +55,7 @@ changelog:
 
 ## Framework References
 - Language-specific standards live in `.claude/rules/{language}.instructions.md`
-- Contract validation referenced by `.claude/rules/contract-first-policy.instructions.md`
+- Contract validation referenced by `.claude/rules/contract-first-policy.md`
 
 ## Further Reading
 - TDD by Example (Kent Beck)

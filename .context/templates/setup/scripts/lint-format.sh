@@ -46,7 +46,7 @@ if [ -n "$absolute_path_violations" ]; then
   echo "❌ [lint-format] BLOCKED: Absolute paths detected in source code"
   echo ""
   echo "🚫 CRITICAL POLICY VIOLATION: Absolute Path References"
-  echo "Reference: .claude/rules/testing.instructions.md - Path References Policy (Universal)"
+  echo "Reference: .claude/rules/testing.md - Path References Policy (Universal)"
   echo ""
   echo "Found violations:"
   echo "$absolute_path_violations"

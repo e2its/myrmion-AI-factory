@@ -177,7 +177,7 @@ fontFamily:\s*["'][^"']+["']
 
 If a hardcoded value is necessary (e.g., third-party library override):
 1. Document in code comment: `// BRAND-EXCEPTION: [reason]`
-2. Add to `.claude/rules/brand-exceptions.instructions.md`
+2. Add to `.claude/rules/brand-exceptions.md`
 3. Get approval in PR review
 
 ---
@@ -574,7 +574,7 @@ inset-inline-start: 0;      /* ✅ Instead of left: 0 */
 2. **By Label/Text:** `getByLabelText('Email')` or `getByText('Welcome')`.
 3. **By Test ID (The Escape Hatch):** `getByTestId('user-settings-card')` — Only when semantic selection is impossible.
 
-**Alignment:** Reinforces existing policy in `.claude/rules/frontend_architecture_compatibility.instructions.md`.
+**Alignment:** Reinforces existing policy in `.claude/rules/frontend_architecture_compatibility.md`.
 
 ---
 
@@ -1182,7 +1182,7 @@ QA Verification Checklist MUST include:
 **Policy:** Brand token changes >20% from constitution REQUIRE architectural decision record.
 
 **Detection Method:**
-1. **Baseline:** Load brand tokens from `docs/constitution.md` and `.claude/rules/ux-constitution.instructions.md`
+1. **Baseline:** Load brand tokens from `docs/constitution.md` and `.claude/rules/ux-constitution.md`
 2. **Comparison:** During WCAG auto-repair, check if color/typography adjustments exceed threshold:
    - **Colors:** Hue shift >30°, Saturation change >25%, Lightness change >20%
    - **Typography:** Font family change, size change >2 steps (e.g., `text-base` → `text-xl`)
@@ -1440,9 +1440,9 @@ PROPAGATION_RULES:
 
 ## 🔗 Related Policies
 
-- `.claude/rules/frontend_architecture_compatibility.instructions.md` — compatibility constraints
-- `.claude/rules/html-css.instructions.md` — Semantic HTML, CSS best practices
-- `.claude/rules/contract-first-policy.instructions.md` — API contracts
+- `.claude/rules/frontend_architecture_compatibility.md` — compatibility constraints
+- `.claude/rules/html-css.md` — Semantic HTML, CSS best practices
+- `.claude/rules/contract-first-policy.md` — API contracts
 - `.context/constitution.md` — Technology governance
 - `.context/agents/ARCHITECT.AGENT.MD` — Design validation
 - `.context/agents/QA.AGENT.MD` — Testing standards

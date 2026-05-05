@@ -1787,8 +1787,8 @@ Scenarios where Contract-First can be deferred:
 - `.context/constitution.md` § Contract-First Development
 - `.context/agents/BLUEPRINT.AGENT.MD` § Contract Generation
 - `.context/agents/IMPLEMENT.AGENT.MD` § Contract Validation
-- `.claude/rules/api-standards.instructions.md` § REST/GraphQL conventions
-- `.claude/rules/protected-code.instructions.md` § Never modify framework contracts
+- `.claude/rules/api-standards.md` § REST/GraphQL conventions
+- `.claude/rules/protected-code.md` § Never modify framework contracts
 
 ---
 

@@ -45,9 +45,9 @@ Before processing commands, read:
 > If snapshot is stale/missing → proceed with full rule loading below.
 > See governance-loading.md protocol for full snapshot lifecycle.
 
-**Core Rules (ALWAYS):** architecture.instructions.md, security_policy.instructions.md, protected-code.instructions.md, protected-paths.json, branching.instructions.md, testing.instructions.md, api-standards.instructions.md, contract-first-policy.instructions.md, database.instructions.md, ux-constitution.instructions.md, ci-cd.instructions.md, iac.instructions.md, observability.instructions.md, performance.instructions.md, privacy.instructions.md, immutability_policy.instructions.md, review-policy.instructions.md, ai_budget_tracker.instructions.md, allowlist.json
+**Core Rules (ALWAYS):** architecture.md, security_policy.md, protected-code.md, protected-paths.json, branching.md, testing.md, api-standards.md, contract-first-policy.md, database.md, ux-constitution.md, ci-cd.md, iac.md, observability.md, performance.md, privacy.md, immutability_policy.md, review-policy.md, ai_budget_tracker.md, allowlist.json
 
-**NOT loaded by QA:** stateless.instructions.md, ai_budget_governance.instructions.md, frontend_architecture_compatibility.instructions.md, html-css.instructions.md, technology-specific rules
+**NOT loaded by QA:** stateless.md, ai_budget_governance.md, frontend_architecture_compatibility.md, html-css.md, technology-specific rules
 
 ### Script-Based Validation Registry
 

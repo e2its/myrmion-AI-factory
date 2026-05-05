@@ -266,7 +266,7 @@ Questions are organized in dependency order within tiers. Some questions are con
   - Q13g: Animation style (none | minimal | moderate | expressive)
   - Q13h: Logo/brand assets (path to existing assets or "none")
 - **Persist:** `frontend.visual_dna.*` (each sub-field)
-- **After:** These values feed into `.claude/rules/ux-constitution.instructions.md` during materialization
+- **After:** These values feed into `.claude/rules/ux-constitution.md` during materialization
 
 #### Q14: External Design System (conditional: frontend exists)
 - **Q14a:** Does your organization have an existing Design System? (Yes/No)

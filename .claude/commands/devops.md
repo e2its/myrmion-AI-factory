@@ -14,7 +14,7 @@ Create infrastructure plan. PREREQUISITE: design.md + test_plan.md APPROVED.
 **Full protocol:** See `.claude/instructions/Factory-devops-configure.instructions.md`
 - Analyze design.md for infrastructure requirements
 - Generate `devops_plan.md` with IaC configuration
-- Map services to environments from `.claude/rules/ci-cd.instructions.md`
+- Map services to environments from `.claude/rules/ci-cd.md`
 
 ### `--refine {ID}`
 Iterate on devops_plan.md based on feedback or upstream changes.
@@ -51,7 +51,7 @@ Display current infrastructure and deployment status.
 - `deployment_report_{ts}.md` — Deployment results and metrics
 
 ## Key Principles
-- Dynamic environments: Read from `.claude/rules/ci-cd.instructions.md` `environments[]` (NEVER hardcoded)
+- Dynamic environments: Read from `.claude/rules/ci-cd.md` `environments[]` (NEVER hardcoded)
 - MERGE always before production deployment (deploy prod from main/tag)
 - Environment-scoped locks: `.context/locks/env-{ENV}.lock`
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "DEVOPS"` — always the actual agent name.

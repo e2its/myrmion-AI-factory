@@ -65,7 +65,7 @@ IMPLEMENT is **strategy-aware**. The entry point reads `spec.feature.slicing_str
 
 **Increment Plan Gate** at `--plan`: BLOCK if `increment_plan.md` status ≠ APPROVED. `--refine` respects per-increment lifecycle — only `DRAFT` / `READY` may be invalidated by cascade; `MERGED` anchors production and cascades to a Follow-up Increment instead.
 
-Canonical protocol: [Factory-implement-plan.instructions.md](../instructions/Factory-implement-plan.instructions.md) § Increment Plan Gate / § Strategy Branch. Immutability rules: `.claude/rules/immutability_policy.instructions.md § Per-Increment Immutability`.
+Canonical protocol: [Factory-implement-plan.instructions.md](../instructions/Factory-implement-plan.instructions.md) § Increment Plan Gate / § Strategy Branch. Immutability rules: `.claude/rules/immutability_policy.md § Per-Increment Immutability`.
 
 ## Review Checks
 See `.claude/instructions/Factory-implement-review-checks.instructions.md` for the complete REVIEW + SEC checklist.

@@ -288,10 +288,10 @@ FUNCTION load_governance_context(FEATURE_ID):
     
     # Load applicable rule files for REVIEW + SEC hats (covers all 14 checks)
     READ .claude/rules/ (all applicable rules):
-      - architecture.instructions.md → arch constraints
-      - security_policy.instructions.md → security rules
-      - testing.instructions.md → coverage thresholds
-      - api-standards.instructions.md → API rules
+      - architecture.md → arch constraints
+      - security_policy.md → security rules
+      - testing.md → coverage thresholds
+      - api-standards.md → API rules
       - {stack-specific rule} → naming, linting
       - (other applicable rules per stack — same set BLUEPRINT loaded in Steps 0-5)
     LOG: "GCD fast-path MISS — loaded {N} governance rule files directly"
@@ -1370,7 +1370,7 @@ IF dev_plan.md status == IMPLEMENTED_AND_VERIFIED:
 ### Post-Production Hotfix
 ```yaml
 IF hotfix required (production incident):
-  1. CREATE hotfix branch (per branching.instructions.md)
+  1. CREATE hotfix branch (per branching.md)
   2. EXECUTE generate_fix_tasks(FEATURE_ID, "PRODUCTION_INCIDENT", details)
   3. EXECUTE execute_fix_tasks(FEATURE_ID, fix_items)
   4. verify_completion_gate(FEATURE_ID)
@@ -1433,7 +1433,7 @@ IMPLEMENT --build implements: per design.md architecture, TDD per test_plan.md
 ### IMPLEMENT → DEVOPS
 ```yaml
 IMPLEMENT --build completes → returns to Factory
-Factory Smart Redirect computes environment from ci-cd.instructions.md (NOT hardcoded)
+Factory Smart Redirect computes environment from ci-cd.md (NOT hardcoded)
 ```
 
 ### IMPLEMENT → QA

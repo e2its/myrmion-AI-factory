@@ -242,7 +242,7 @@ The gate runs **before** Governance Context Loading (Steps 0-5) so that resolved
 - Set up ARCH + QA validation checklists
 
 ### Immutability Validation
-- Check `.claude/rules/immutability_policy.instructions.md`
+- Check `.claude/rules/immutability_policy.md`
 - Validate no changes attempted on frozen artifacts
 
 ### Parent Version Detection
@@ -360,7 +360,7 @@ candidates = find_inventory_matches(planned_artifact, topology):
   - Inbound → OpenAPI 3.1 `paths:` in `contracts/webhooks/inbound/{SLUG}/v1.yaml`
   - Outbound → OpenAPI 3.1 `webhooks:` section in `contracts/webhooks/outbound/{SLUG}/v1.yaml`
 
-**Step 2pre**: Derive CONTRACT_SLUG per `contract-first-policy.instructions.md`:
+**Step 2pre**: Derive CONTRACT_SLUG per `contract-first-policy.md`:
 - Format: `{domain}-{capability}` in kebab-case
 - Example: `auth-login`, `order-management`, `notification-email`
 
@@ -831,22 +831,22 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   # MUST cover ALL rule files in .claude/rules/ — not just a subset.
   # Missing rules cause IMPLEMENT to operate without constraints → quality gaps.
   EXTRACT key constraints from each applicable rule:
-    GOV-ARCH:   architecture.instructions.md → naming conventions, file organization rules, layer ordering
-    GOV-SEC:    security_policy.instructions.md → auth requirements, CORS, headers, session rules
-    GOV-TEST:   testing.instructions.md → coverage threshold (%), required frameworks, file patterns
-    GOV-API:    api-standards.instructions.md → versioning, status codes, pagination, error format
-    GOV-DB:     database.instructions.md → migration policy, index requirements, FK rules (if DB exists)
-    GOV-OBS:    observability.instructions.md → required log fields, trace headers, metrics
-    GOV-PERF:   performance.instructions.md → SLA targets, caching rules, query limits
-    GOV-PRIV:   privacy.instructions.md → PII field handling, data retention, masking requirements
-    GOV-STACK:  {stack-specific rule e.g. node.instructions.md, python.instructions.md} → key naming/lint rules
-    GOV-REVIEW: review-policy.instructions.md → review criteria, approval policies, review checklist scope
-    GOV-STATE:  stateless.instructions.md → state management constraints, session handling, caching rules
-    GOV-IMMUT:  immutability_policy.instructions.md → frozen artifacts, protected code block rules
-    GOV-CFP:    contract-first-policy.instructions.md → contract-first enforcement, cross-domain import policy
-    GOV-IAC:    iac.instructions.md → IaC naming, module structure, least privilege, tags (if infra exists)
-    GOV-FRONT:  frontend_architecture_compatibility.instructions.md → frontend arch compatibility rules (if frontend)
-    GOV-HTML:   html-css.instructions.md → HTML/CSS coding standards, semantic markup rules (if frontend)
+    GOV-ARCH:   architecture.md → naming conventions, file organization rules, layer ordering
+    GOV-SEC:    security_policy.md → auth requirements, CORS, headers, session rules
+    GOV-TEST:   testing.md → coverage threshold (%), required frameworks, file patterns
+    GOV-API:    api-standards.md → versioning, status codes, pagination, error format
+    GOV-DB:     database.md → migration policy, index requirements, FK rules (if DB exists)
+    GOV-OBS:    observability.md → required log fields, trace headers, metrics
+    GOV-PERF:   performance.md → SLA targets, caching rules, query limits
+    GOV-PRIV:   privacy.md → PII field handling, data retention, masking requirements
+    GOV-STACK:  {stack-specific rule e.g. node.md, python.md} → key naming/lint rules
+    GOV-REVIEW: review-policy.md → review criteria, approval policies, review checklist scope
+    GOV-STATE:  stateless.md → state management constraints, session handling, caching rules
+    GOV-IMMUT:  immutability_policy.md → frozen artifacts, protected code block rules
+    GOV-CFP:    contract-first-policy.md → contract-first enforcement, cross-domain import policy
+    GOV-IAC:    iac.md → IaC naming, module structure, least privilege, tags (if infra exists)
+    GOV-FRONT:  frontend_architecture_compatibility.md → frontend arch compatibility rules (if frontend)
+    GOV-HTML:   html-css.md → HTML/CSS coding standards, semantic markup rules (if frontend)
   
   FOR EACH rule WITH stack_conditional:
     IF stack_conditional != match(stack_context): SKIP rule, add to "not_applicable" list
@@ -855,38 +855,38 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   WRITE design.md:
     applicable_rules:
       - id: "GOV-ARCH"
-        source: ".claude/rules/architecture.instructions.md"
+        source: ".claude/rules/architecture.md"
         constraints: ["{compact rule 1}", "{compact rule 2}"]
       - id: "GOV-SEC"
-        source: ".claude/rules/security_policy.instructions.md"
+        source: ".claude/rules/security_policy.md"
         constraints: ["{constraint 1}", "{constraint 2}"]
       - id: "GOV-TEST"
-        source: ".claude/rules/testing.instructions.md"
+        source: ".claude/rules/testing.md"
         coverage_threshold: "{N}%"
         test_framework: "{framework}"
         test_file_pattern: "{pattern}"
       - id: "GOV-REVIEW"
-        source: ".claude/rules/review-policy.instructions.md"
+        source: ".claude/rules/review-policy.md"
         constraints: ["{review criteria}", "{approval count}", "{review scope rules}"]
       - id: "GOV-STATE"
-        source: ".claude/rules/stateless.instructions.md"
+        source: ".claude/rules/stateless.md"
         constraints: ["{session rule}", "{caching rule}", "{state constraint}"]
       - id: "GOV-IMMUT"
-        source: ".claude/rules/immutability_policy.instructions.md"
+        source: ".claude/rules/immutability_policy.md"
         constraints: ["{frozen artifacts}", "{protected code block rules}"]
       - id: "GOV-CFP"
-        source: ".claude/rules/contract-first-policy.instructions.md"
+        source: ".claude/rules/contract-first-policy.md"
         constraints: ["{cross-domain import policy}", "{contract-first enforcement}"]
       - id: "GOV-IAC"
-        source: ".claude/rules/iac.instructions.md"
+        source: ".claude/rules/iac.md"
         constraints: ["{IaC naming}", "{module structure}", "{least privilege}"]
         stack_conditional: "iac_tool != None"
       - id: "GOV-FRONT"
-        source: ".claude/rules/frontend_architecture_compatibility.instructions.md"
+        source: ".claude/rules/frontend_architecture_compatibility.md"
         constraints: ["{frontend arch rules}"]
         stack_conditional: "frontend.framework != None"
       - id: "GOV-HTML"
-        source: ".claude/rules/html-css.instructions.md"
+        source: ".claude/rules/html-css.md"
         constraints: ["{semantic markup}", "{CSS standards}", "{responsive rules}"]
         stack_conditional: "frontend.framework != None"
       # ... (one entry per applicable rule)
@@ -894,7 +894,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   
   # 7.3 SAST Patterns (→ SEC Hat) — stack-specific ONLY
   # Pre-compiles the exact patterns for THIS stack. SEC hat does not re-derive.
-  # Source: security_policy.instructions.md + stack-specific rules (already loaded in Steps 0-5).
+  # Source: security_policy.md + stack-specific rules (already loaded in Steps 0-5).
   # OWASP Top 10 coverage derived from the project's attack surface (API, frontend, data layer).
   DERIVE from governance rules already in memory:
     FOR backend.runtime: select applicable patterns (Python | TypeScript/JS | Java | Go)

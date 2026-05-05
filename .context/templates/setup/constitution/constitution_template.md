@@ -495,7 +495,7 @@ Ref: USR-001
 - **Backport:** May require manual backport to release branches (if applicable)
 
 ### CI/CD Integration
-> **Complete pipeline details:** See `.claude/rules/ci-cd.instructions.md`
+> **Complete pipeline details:** See `.claude/rules/ci-cd.md`
 
 #### Pre-Merge Checks (Required)
 - ✅ Lint & Format: `scripts/lint-format.sh --apply`
@@ -647,7 +647,7 @@ security:
   - `infra/features/{FEATURE_ID}/` — Feature-exclusive IaC (single consumer)
 - **State Management:** {{IAC_STATE_MANAGEMENT}} (remote state, never local in CI)
 - **Change Process:** Plan → Review → Apply (never manual console changes)
-- **Governance:** See `.claude/rules/iac.instructions.md` for naming, security, tagging, and module policies
+- **Governance:** See `.claude/rules/iac.md` for naming, security, tagging, and module policies
 - **Registry:** `config/infrastructure_registry.json` tracks all provisioned resources with scope (feature/system) and consumer tracking
 
 #### Drift Detection

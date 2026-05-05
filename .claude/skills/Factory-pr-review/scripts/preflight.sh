@@ -52,8 +52,8 @@ cd "$REPO_ROOT"
 
 # ── Resolve base ──
 if [[ -z "$BASE_REF" ]]; then
-  if [[ -f ".claude/rules/branching.instructions.md" ]]; then
-    cfg_base=$(grep -E '^default_base_branch:' .claude/rules/branching.instructions.md 2>/dev/null | head -n1 | awk '{print $2}' | tr -d '"' | tr -d "'")
+  if [[ -f ".claude/rules/branching.md" ]]; then
+    cfg_base=$(grep -E '^default_base_branch:' .claude/rules/branching.md 2>/dev/null | head -n1 | awk '{print $2}' | tr -d '"' | tr -d "'")
     BASE_REF="origin/${cfg_base:-main}"
   else
     BASE_REF="origin/main"

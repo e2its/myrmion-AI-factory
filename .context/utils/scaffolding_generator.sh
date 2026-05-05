@@ -186,7 +186,7 @@ generate_preserve_wrapper_scaffolding() {
   mkdir -p src/wrappers/ui/
   
   # Generate extension patterns documentation
-  cat > .claude/rules/extension_patterns.instructions.md <<'EOF'
+  cat > .claude/rules/extension_patterns.md <<'EOF'
 # Extension Patterns (Preserve+Wrapper Strategy)
 
 ## Backend Extensions

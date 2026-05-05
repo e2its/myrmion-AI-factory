@@ -39,6 +39,29 @@ git mv docs/rules .claude/rules
 
 Then regenerate governance snapshot and re-run `--upgrade`.
 
+### v4.0.0 — rules-naming convention unification (drop `.instructions.md` suffix)
+
+Materialised projects on framework < 4.0.0 carry rules as `.claude/rules/foo.instructions.md`. Convention is unified to `.claude/rules/foo.md` everywhere — source, target, manifest, instruction refs.
+
+**Auto-applied during `--upgrade` (Step 2 prologue):**
+
+```bash
+# Detect legacy state and rename in lock-step. Idempotent.
+shopt -s nullglob
+for f in .claude/rules/*.instructions.md; do
+  base="${f##*/}"; new="${base%.instructions.md}.md"
+  # Skip if target already exists (post-EVOL-027 materialisation already correct).
+  [ -e ".claude/rules/$new" ] && continue
+  git mv "$f" ".claude/rules/$new"
+done
+```
+
+The rename runs BEFORE Smart Additive Merge so that subsequent file-by-file comparisons use the new path. Manifest `target` fields for `templates.rules/*` already point to the new convention; the rename brings the project filesystem into alignment.
+
+If the migration finds collisions (both `foo.instructions.md` and `foo.md` exist), it skips the rename and surfaces a manual-resolution warning — typical cause is a half-applied prior upgrade that the user must reconcile.
+
+`factory-sync.sh` accepts both forms during the transition window (1 minor version) and prefers the new form when both exist on the framework side.
+
 ---
 
 ## Command: `--upgrade` (v3.0.0)

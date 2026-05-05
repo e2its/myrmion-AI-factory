@@ -114,7 +114,7 @@ FUNCTION route_by_category(classification):
 
 ```yaml
 # Patterns evaluated in order of specificity. First confident match wins.
-# {ID} = Feature ID extracted from context. {ENV} = from .claude/rules/ci-cd.instructions.md.
+# {ID} = Feature ID extracted from context. {ENV} = from .claude/rules/ci-cd.md.
 # {ISSUES} = Comma-separated issue numbers. {STATUS} = Target Kanban column name.
 
 INTENT_MAP:
@@ -428,7 +428,7 @@ FUNCTION execute_governance_bound_operation(user_request):
     tests → IMPLEMENT rules (TDD standards)
     infrastructure/IaC → DEVOPS rules
     API contracts → BLUEPRINT rules (contract-first-policy)
-    UI/frontend → IMPLEMENT rules + ux-constitution.instructions.md
+    UI/frontend → IMPLEMENT rules + ux-constitution.md
     documentation → Basic formatting
     config/.env → DEVOPS rules (Guardrail 3 + 7)
 

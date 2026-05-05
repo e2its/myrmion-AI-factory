@@ -18,7 +18,7 @@ stack: {{PRIMARY_LANGUAGE}} + {{PRIMARY_FRAMEWORK}}
 - SAST: check OWASP Top 10 patterns (Injection, XSS/CSRF, Broken Auth, etc.)
 - Secret scanning: API keys, DB strings, private keys, OAuth secrets
 - Dependency analysis: CVEs HIGH/CRITICAL block; license review
-- Anti-drift: enforce allowed hashes, forbid RED ZONE edits (`.claude/rules/protected-code.instructions.md`)
+- Anti-drift: enforce allowed hashes, forbid RED ZONE edits (`.claude/rules/protected-code.md`)
 - Reporting: classify findings (CRITICAL/HIGH/MODERATE/LOW) and block accordingly
 
 ## 2. Anti-Drift Policy (Third-Party Integrity)
@@ -95,12 +95,12 @@ TEMP_FILE = "/tmp/cache.tmp"  # System temp dir (OS-standard)
 
 ## 5. Security Testing (QA Integration)
 - Mandatory scenarios: SQLi prevention, XSS sanitization, authz enforcement, secrets absent from logs
-- Align with `docs/constitution.md` testing standards and `.claude/rules/testing.instructions.md`
+- Align with `docs/constitution.md` testing standards and `.claude/rules/testing.md`
 
 ## 6. Further Reading
 - OWASP Top 10, ASVS, CWE Top 25
 - NIST Cybersecurity Framework
-- `.claude/rules/protected-code.instructions.md`, `.claude/rules/testing.instructions.md`
+- `.claude/rules/protected-code.md`, `.claude/rules/testing.md`
 
 ## 7. Changelog
 | Date | Change | Author |
