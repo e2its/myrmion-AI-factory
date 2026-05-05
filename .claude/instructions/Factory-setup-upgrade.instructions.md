@@ -46,13 +46,21 @@ Materialised projects on framework < 4.0.0 carry rules as `.claude/rules/foo.ins
 **Auto-applied during `--upgrade` (Step 2 prologue):**
 
 ```bash
-# Detect legacy state and rename in lock-step. Idempotent.
+# Detect legacy state and rename in lock-step. Idempotent + collision-safe.
+# Degrades to plain `mv` when not inside a git work tree (sandbox / non-git
+# materialisation) — `git mv` would otherwise fail with "fatal: not a git
+# repository" and abort the entire upgrade.
 shopt -s nullglob
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  rename_cmd=(git mv)
+else
+  rename_cmd=(mv)
+fi
 for f in .claude/rules/*.instructions.md; do
   base="${f##*/}"; new="${base%.instructions.md}.md"
   # Skip if target already exists (post-EVOL-027 materialisation already correct).
   [ -e ".claude/rules/$new" ] && continue
-  git mv "$f" ".claude/rules/$new"
+  "${rename_cmd[@]}" "$f" ".claude/rules/$new"
 done
 ```
 
@@ -60,7 +68,7 @@ The rename runs BEFORE Smart Additive Merge so that subsequent file-by-file comp
 
 If the migration finds collisions (both `foo.instructions.md` and `foo.md` exist), it skips the rename and surfaces a manual-resolution warning — typical cause is a half-applied prior upgrade that the user must reconcile.
 
-`factory-sync.sh` accepts both forms during the transition window (1 minor version) and prefers the new form when both exist on the framework side.
+`factory-sync.sh` accepts both forms during the transition window (1 minor version) and prefers the new form when both exist on the framework side. The `--preserve-local` flag (factory-sync.sh global flag) applies to all targets including post-EVOL-027 framework-shipped scripts (`generate-governance-snapshot.sh`, `check-inventory-drift.sh`): when set, materialised projects with legitimate local modifications keep their version instead of being overwritten.
 
 ---
 

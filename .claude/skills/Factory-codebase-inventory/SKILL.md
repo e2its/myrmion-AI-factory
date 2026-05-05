@@ -490,6 +490,10 @@ Exit codes: `0` = no drift (or `--warn-only`), `1` = drift detected, `2` = tooli
 
 The detector is intentionally narrow: it does NOT scan the filesystem for orphan code files outside the inventory (that would require stack-specific globs that the script cannot derive deterministically). Filesystem-side orphan detection is the job of `SETUP --reconcile-inventory` Phase 4 (heuristic-driven, agent-mediated).
 
+### Propagation behaviour (`factory-sync.sh --preserve-local`)
+
+`scripts/check-inventory-drift.sh` ships meta-direct via `factory-sync.sh` (base-scripts whitelist). Default propagation overwrites the materialised project's copy with the framework version. When `factory-sync.sh --preserve-local` is set, materialised projects with legitimate local modifications keep their version (the sync reports it under the `PRESERVED` counter). The same flag covers the other framework-shipped scripts (`generate-governance-snapshot.sh`, governance-on{prompt,edit,compact}, validate-governance, etc.) — single global flag, not per-script. Use it when a project needs to lock specific framework scripts to a non-canonical version while still receiving updates to everything else.
+
 ---
 
 ## Post-Summarization DRY Recovery (CIP Canary)

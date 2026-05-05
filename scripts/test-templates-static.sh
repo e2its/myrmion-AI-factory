@@ -144,6 +144,83 @@ if [ -f "$FDR_TPL" ]; then
 fi
 echo
 
+# ─── agent_templates manifest ↔ disk coherence ──────────────────────────────
+echo "agent_templates manifest ↔ disk coherence"
+
+MANIFEST=".context/templates/setup/governance_versions.json"
+if [ ! -f "$MANIFEST" ]; then
+  printf '  \033[31m✗\033[0m %s missing\n' "$MANIFEST" >&2
+  failures=$((failures + 1))
+else
+  missing=$(python3 - <<'PY'
+import json, os
+data = json.load(open(".context/templates/setup/governance_versions.json"))
+at = data.get("agent_templates", {}) or {}
+missing = []
+for key in at:
+  if key.startswith("_"):
+    continue
+  src = f".context/templates/{key}"
+  if not os.path.exists(src):
+    missing.append(f"{key} -> {src}")
+print("\n".join(missing))
+PY
+  )
+  if [ -z "$missing" ]; then
+    count=$(python3 -c "
+import json
+data = json.load(open('.context/templates/setup/governance_versions.json'))
+at = data.get('agent_templates', {}) or {}
+print(sum(1 for k in at if not k.startswith('_')))
+")
+    printf '  \033[32m✓\033[0m all %s agent_templates entries have source files\n' "$count"
+  else
+    printf '  \033[31m✗\033[0m agent_templates entries with missing source files:\n' >&2
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      printf '      \033[31m→\033[0m %s\n' "$line" >&2
+      failures=$((failures + 1))
+    done <<EOF
+$missing
+EOF
+  fi
+fi
+echo
+
+# ─── runtime_artefacts manifest design coherence ────────────────────────────
+echo "runtime_artefacts manifest design coherence"
+
+if [ -f "$MANIFEST" ]; then
+  bad=$(python3 - <<'PY'
+import json
+data = json.load(open(".context/templates/setup/governance_versions.json"))
+ra = data.get("runtime_artefacts", {}) or {}
+bad = []
+for key, entry in ra.items():
+  if key.startswith("_"):
+    continue
+  if not isinstance(entry, dict):
+    continue
+  if entry.get("bootstrap_synthesised") is not True:
+    bad.append(key)
+print("\n".join(bad))
+PY
+  )
+  if [ -z "$bad" ]; then
+    printf '  \033[32m✓\033[0m all runtime_artefacts entries flagged bootstrap_synthesised: true\n'
+  else
+    printf '  \033[31m✗\033[0m runtime_artefacts entries missing bootstrap_synthesised: true flag:\n' >&2
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      printf '      \033[31m→\033[0m %s\n' "$line" >&2
+      failures=$((failures + 1))
+    done <<EOF
+$bad
+EOF
+  fi
+fi
+echo
+
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
   echo "L1: ok — all template assertions passed."

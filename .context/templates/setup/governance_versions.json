@@ -303,14 +303,6 @@
         "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
-    "config/codebase_inventory.json": {
-      "version": "1.0.0",
-      "content_type": "project_data",
-      "target": "config/codebase_inventory.json",
-      "changelog": [
-        "1.0.0: CIP v1.0.0 — Persistent codebase inventory registry for cross-agent DRY enforcement. Greenfield: empty scaffold. Brownfield: bootstrapped via workspace scan. Consumed by CODESIGN, BLUEPRINT, IMPLEMENT."
-      ]
-    },
     "backlog/project-config.json": {
       "version": "1.0.0",
       "content_type": "project_data",
@@ -884,6 +876,42 @@
       "target": "scripts/check-inventory-drift.sh",
       "changelog": [
         "1.0.0: feat(EVOL-027) fase 4 — initial templates entry. Mirror for materialised projects, shipped via factory-sync.sh."
+      ]
+    },
+    "rules/iac.md": {
+      "version": "1.1.0",
+      "content_type": "stack_configured",
+      "target": ".claude/rules/iac.md",
+      "changelog": [
+        "1.0.0: backfill — rule template existed but was untracked.",
+        "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified (.instructions.md suffix dropped from any internal cross-rule refs)."
+      ]
+    },
+    "rules/README.md": {
+      "version": "1.1.0",
+      "content_type": "universal",
+      "target": ".claude/rules/README.md",
+      "changelog": [
+        "1.0.0: backfill — rules dir README existed but was untracked.",
+        "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified."
+      ]
+    },
+    "adr/adr_setup_template.md": {
+      "version": "1.1.0",
+      "content_type": "stack_configured",
+      "target": "docs/project_log/adr/ADR-SETUP.md",
+      "changelog": [
+        "1.0.0: backfill — SETUP --generate ADR scaffold existed but was untracked.",
+        "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified."
+      ]
+    },
+    "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
+      "version": "1.1.0",
+      "content_type": "universal",
+      "target": "docs/project_log/MATERIALIZATION_REPORT.md",
+      "changelog": [
+        "1.0.0: backfill — materialisation report scaffold existed but was untracked.",
+        "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified."
       ]
     }
   },
@@ -1573,9 +1601,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.3.0",
+      "version": "3.4.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.4.0: feat(EVOL-027) review close (Q2) — Checkpoint 3.1 § Implementation note documents `factory-sync.sh --preserve-local` interaction with `generate-governance-snapshot.sh` (local custom versions preserved when flag is set).",
         "3.3.0: feat(EVOL-027) fase 3 — Checkpoint 3.1 narrative replaces pseudocode-as-contract with reference to scripts/generate-governance-snapshot.sh (the script is now the single source of truth for snapshot bytes). Pseudocode kept as normative documentation, not as agent re-implementation guide.",
         "3.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "3.1.0: feat(EVOL-026) § 4.2.6 gains a Governance Workflow block — materialises the platform-specific governance-check workflow template alongside the CI pipeline. 7 platforms (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, AWS CodeBuild, GCP Cloud Build, Jenkins) each have a dedicated governance-check.{platform} template under .context/templates/setup/workflows/. Wires the EVOL-026 ADR ↔ constitution sync gate (scripts/check-adr-constitution-sync.sh) on every PR / MR targeting main.",
@@ -1609,9 +1638,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.6.0: feat(EVOL-027) review close (Q3) — § v4.0.0 migration rule degrades to plain `mv` when `git rev-parse --is-inside-work-tree` fails (sandbox / non-git materialisation). Idempotent + collision-safe behaviour preserved.",
         "2.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "2.4.0: feat(EVOL-027) fase 1 — Step 1 (Version Comparison & Change Detection) gains an explicit Manifest Sections Walked table enumerating templates / agent_templates / framework_core with their target trees and merge contracts. Wires the new agent_templates section into the upgrade flow so per-role agent scaffolds (architect / codesign / develop / peer_review / po / qa / security / ux) are version-aware merged instead of blind-overwritten by factory-sync.sh.",
         "2.3.0: feat(EVOL-026) Step 4 regen step extended — calls generate_governance_snapshot() in the new EVOL-026 format (constitution + DC bodies via [LAW] markers + applicable_when filter). Legacy v < 3.0.0 constitutions without [LAW] markers must have them added by upgrade before regen, otherwise the snapshot's Active Constitution section is empty and CI fails.",
@@ -1765,9 +1795,10 @@
       "path": ".claude/skills/Factory-agent-communication/SKILL.md"
     },
     "skills/Factory-codebase-inventory/SKILL.md": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "type": "skill",
       "changelog": [
+        "2.3.0: feat(EVOL-027) review close (Q2) — § Drift Detection Gate documents `factory-sync.sh --preserve-local` interaction with `check-inventory-drift.sh` (and the framework-level governance scripts) — local custom versions in materialised projects are preserved when the flag is set.",
         "2.2.0: feat(EVOL-027) fase 4 — new § Drift Detection Gate documenting check-inventory-drift.sh: STALE/PROMOTE/INVALID classes, invocation modes, when to invoke, scope boundary vs SETUP --reconcile-inventory.",
         "2.1.1: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "2.1.0: feat: CIP Consultation Gate Step 0 — inventory cache fast path via /memories/repo/codebase-inventory-cache.md (MCP v1.0.0), write-through on cache miss",
@@ -2221,9 +2252,10 @@
       ]
     },
     "scripts/test-templates-static.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "scripts/test-templates-static.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-027) review close (Q1) — new L1 assertion block validating every agent_templates manifest entry has a source file at `.context/templates/{key}`. Closes the gap surfaced by Factory-pr-review Q1 (no static check that target paths resolve).",
         "1.0.0: feat(EVOL-026) initial — L1 static template validation. Asserts constitution_template.md has [LAW] markers in operational sections, adr_template.md has new schema (target_section, amendment_kind, Operational Rule, Constitution Amendment), fdr_template.md has Binding Rule and lacks Constitution Amendment."
       ]
     },
@@ -2277,6 +2309,41 @@
       "changelog": [
         "1.0.0: feat(EVOL-027) fase 4 — drift detector for codebase_inventory.json. Detects STALE (IMPLEMENTED but path missing), PROMOTE (PLANNED but path exists), INVALID (missing path/status). Modes: human report (default), --json (CI), --warn-only (advisory). Exits 0 when inventory absent (greenfield pre-bootstrap)."
       ]
+    },
+    "utils/budget_tracker.py": {
+      "version": "1.1.0",
+      "path": ".context/utils/budget_tracker.py",
+      "changelog": [
+        "1.1.0: feat(EVOL-027) review close — backfill manifest entry. File pre-existed but was untracked; touched in fase 2 string sweep (.claude/rules/ai_budget_tracker.instructions.md → .claude/rules/ai_budget_tracker.md). Tracked retroactively per Generation Standards §2 'framework code = manifest-tracked'."
+      ]
+    },
+    "utils/migrate_legacy_setup.py": {
+      "version": "1.1.0",
+      "path": ".context/utils/migrate_legacy_setup.py",
+      "changelog": [
+        "1.1.0: feat(EVOL-027) review close — backfill manifest entry. File pre-existed but was untracked; touched in fase 2 string sweep (`.claude/rules/ai_budget_tracker.instructions.md` → `.claude/rules/ai_budget_tracker.md` in docstring). Tracked retroactively."
+      ]
+    },
+    "utils/scaffolding_generator.sh": {
+      "version": "1.1.0",
+      "path": ".context/utils/scaffolding_generator.sh",
+      "changelog": [
+        "1.1.0: feat(EVOL-027) review close — backfill manifest entry. File pre-existed but was untracked; touched in fase 2 string sweep (`.claude/rules/extension_patterns.instructions.md` heredoc target → `.claude/rules/extension_patterns.md`). Tracked retroactively."
+      ]
+    }
+  },
+  "runtime_artefacts": {
+    "_description": "Artefacts that materialise at SETUP --generate time WITHOUT a template source file. SETUP synthesises them from operational data (greenfield: empty seed; brownfield: scanned from existing codebase). Tracked here so SETUP --upgrade and CI can validate their PRESENCE in materialised projects without expecting a corresponding template source under `.context/templates/setup/`. Distinct from `templates` (which require source files) and `agent_templates` (which mirror agent-consumed scaffolds).",
+    "_architecture": "Each entry's `target` is the synthesised location in the materialised project. `bootstrap_synthesised: true` flags that disk-coherence checks (Factory-pr-review Block 15) skip the source-existence assertion for this entry. Versioning tracks the schema/format of the synthesised artefact, not source content.",
+    "config/codebase_inventory.json": {
+      "version": "1.0.0",
+      "content_type": "project_data",
+      "target": "config/codebase_inventory.json",
+      "changelog": [
+        "feat(EVOL-027) review close — moved from `templates` to `runtime_artefacts` section. Pre-existing manifest design quirk (no source template — SETUP --generate synthesises empty for greenfield, scans for brownfield). New section semantics: `bootstrap_synthesised: true` exempts from disk-coherence source check. Block 15 of Factory-pr-review SKILL.md updated accordingly.",
+        "1.0.0: CIP v1.0.0 — Persistent codebase inventory registry for cross-agent DRY enforcement. Greenfield: empty scaffold. Brownfield: bootstrapped via workspace scan. Consumed by CODESIGN, BLUEPRINT, IMPLEMENT."
+      ],
+      "bootstrap_synthesised": true
     }
   }
 }

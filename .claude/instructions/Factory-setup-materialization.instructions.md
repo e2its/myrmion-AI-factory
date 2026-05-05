@@ -56,6 +56,8 @@ If ANY check fails → **BLOCK** completion, list failures, suggest fixes.
 > Embeds the operational law (`## [LAW]` sections of constitution + universal DCs) so cultural guidance is mechanically present from turn 1 — agents do not depend on disciplinary on-demand loading for the rules that govern every decision. ADRs are NOT loaded; they are historical records of why constitutional changes were made — see `.claude/skills/Factory-adr-management/SKILL.md`.
 
 > **Implementation:** the deterministic generator ships as `scripts/generate-governance-snapshot.sh` (mirror at `.context/templates/setup/scripts/generate-governance-snapshot.sh` for materialised projects, propagated via `factory-sync.sh`). SETUP --generate, SETUP --upgrade, and the agent-driven post-load regen path (Factory-governance-loading SKILL § Step 1 POST-LOAD) all invoke the script. Direct re-implementation of the pseudocode below by individual agents is forbidden — the script is the single source of truth for snapshot bytes.
+>
+> **Propagation note:** `factory-sync.sh --preserve-local` covers this script — when the flag is set, materialised projects with a local custom version of `generate-governance-snapshot.sh` keep their version instead of being overwritten by the framework variant. Use this only when a project has documented its local fork in an ADR; the canonical path is to track the fork upstream rather than carry per-project drift indefinitely.
 
 > **Script invocation:**
 >
