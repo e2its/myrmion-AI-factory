@@ -58,7 +58,7 @@ Canonical classifier: [Factory-protocol-iop-intent-map.instructions.md](.claude/
 
 ## Governance Rules
 
-1. **Constitutional Supremacy**: `docs/constitution.md` is LAW. `.claude/rules/` has detailed regulations; constitution wins on conflict. ADRs under `docs/project_log/adr/` are binding architectural decisions for this framework and are enforced by GCRP's RED_ZONE gate; do NOT re-state their binding here.
+1. **Constitutional Supremacy (single source of truth)**: `docs/constitution.md` is the SOLE source of operational law for this framework. `.claude/rules/` has detailed regulations consumed on-demand. Framework-level ADRs under `docs/project_log/evolutions/ADR-EVOL-*.md` are **historical records** of why constitutional / structural changes were made — they hold context, alternatives, and consequences but are NOT active law. The framework eats its own dogfood: an ADR transitioning to `status: accepted` MUST amend either `docs/constitution.md` (constitutional decisions) or the relevant framework-shipped artefact (templates, skills, scripts) in the same PR. The `Factory-adr-management` skill formalises this ceremony for materialised projects; framework evolutions follow the same model with the EVOL-N branch carrying the amendment.
 2. **Protected Code**: NEVER modify code between `PROTECTED-CODE START/END` markers or paths in `config/protected-paths.json`.
 3. **DRY Enforcement**: Consult `config/codebase_inventory.json` before creating code artifacts. See `.claude/skills/Factory-codebase-inventory/SKILL.md`.
 4. **Security**: Zero secrets in code. Use env vars or vault SDK. Check OWASP Top 10.
