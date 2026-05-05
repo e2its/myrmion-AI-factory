@@ -91,6 +91,17 @@ For each ADR in `docs/project_log/adr/`:
 4. If project snapshot missing: construct from current files with forced `"0.0.0"` version
 
 ### Step 1: Version Comparison & Change Detection (4.4.1)
+
+**Manifest sections walked by --upgrade (in order):**
+
+| Section | Target trees | Merge contract |
+|---------|--------------|----------------|
+| `templates` | `.claude/rules/**`, `docs/constitution.md`, `docs/setup.md`, `.context/templates/setup/**` materialised paths, CI/CD workflow YAML | Smart Additive Merge (Step 2) — placeholders resolved via Smart Discovery Cascade |
+| `agent_templates` | `.context/templates/{architect,codesign,develop,peer_review,po,qa,security,ux}/**` | Smart Additive Merge (Step 2) — placeholders are runtime-resolved by agents at feature time and ship verbatim; merge preserves any local customisations of headings, sections, or structural prose |
+| `framework_core` | `.claude/{commands,instructions,skills,hooks}/**`, `scripts/**`, `.github/workflows/**`, root `CLAUDE.md`, `README.md`, `config/coherence-context.json` | Script Semantic Merge for `.sh`/`.py` (Step 1b); Smart Additive Merge for everything else |
+
+The three sections are mutually exclusive on target paths — a file appears in exactly one section. Walk all three in a single pass; do not deduplicate by checksum across sections.
+
 1. Compare framework versions vs project versions (SemVer)
 2. Evaluate `stack_conditional` filters (skip files that don't apply to current stack)
 3. Detect user customizations (project checksum ≠ previous framework checksum → user modified file)
