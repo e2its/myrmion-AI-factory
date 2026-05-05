@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by Factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -46,7 +46,7 @@
       },
       {
         "type": "universal_clause_mirror",
-        "doc": "Universal CLAUDE.md clauses (Communication Style, RDR Universal, Governance Scope, Pre-Action Gate, Invariants, Core Protocols) must be byte-identical between root CLAUDE.md and the template counterpart. Context-specific sections (triage default, framework_version invariant) legitimately diverge — see CLAUDE.md § What Lives Where.",
+        "doc": "Universal CLAUDE.md clauses (Communication Style, RDR Universal, Governance Scope, Pre-Action Gate, Invariants, Core Protocols) and the universal preamble of Mandatory Law #1 Constitutional Supremacy (body up to but NOT including the *Framework-meta application:* / *Project application:* addendum line) must be byte-identical between root CLAUDE.md and the template counterpart. The single-line addendum after the preamble legitimately diverges per context — root explains the meta repo's local ceremony (ADR branch amends framework-shipped artefact), template explains the downstream ceremony (Factory-adr-management Accept Procedure amends docs/constitution.md). Other context-specific sections (triage default, framework_version invariant, Workflow / Hard Gates / Living Catalogs in template only, meta-only Generation Standards §2 framework manifest path) legitimately diverge — see CLAUDE.md § What Lives Where.",
         "left": "CLAUDE.md",
         "right": ".context/templates/setup/claude/CLAUDE.md"
       },

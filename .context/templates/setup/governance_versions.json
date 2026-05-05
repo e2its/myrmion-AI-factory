@@ -706,11 +706,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "2.1.0: feat(EVOL-026) Mandatory Law #1 refactored — universal preamble (byte-identical with root meta CLAUDE.md) + single-line context-specific addendum (*Project application:*). Same model factored at the right granularity: universal principle stated once, local ceremony described separately.",
         "2.0.0: feat(EVOL-026) BREAKING — Mandatory Law #1 (Constitutional Supremacy) reformulated to single-source-of-truth model. Constitution = sole source of operational law via `[LAW]` sections. ADRs at docs/project_log/adr/ become historical records of why a constitutional change was made; transition to status: accepted MUST amend constitution via Factory-adr-management Accept Procedure. New FDR primitive (Feature Decision Record) at docs/spec/{ID}/fdr/ for feature-scoped binding decisions that do NOT amend universal constitution. CI gate scripts/check-adr-constitution-sync.sh enforces atomic accept-with-amendment. INVARIANT 2 simplified — snapshot embeds operational law verbatim ([LAW] sections + universal DCs); freshness check now over constitution_hash + setup_hash + dcs_hash; ADRs are NOT loaded as governance.",
         "1.5.0: feat(EVOL-025) new universal section `## RDR Universal — MANDATORY` between Communication Style and Governance Scope. Mirror of root CLAUDE.md 11.5.0 (byte-identical content). Universalises RDR application across all agent–user interactions; downstream persistence path is the IPP feature artefact (already covered by Factory-rdr SKILL).",
         "1.4.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1546,9 +1547,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "12.1.0",
+      "version": "12.2.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "12.2.0: feat(EVOL-026) Mandatory Law #1 refactored — universal preamble (byte-identical with template) + single-line context-specific addendum (*Framework-meta application:*). Replaces prior framework-aware narrative whose mention of `docs/constitution.md OR framework-shipped artefact` was factually inconsistent with the meta repo's reality (no docs/constitution.md exists here).",
         "12.1.0: feat(EVOL-026) self-review mitigation — root INVARIANT 2 synced to the EVOL-026 single-source-of-truth model (snapshot embeds [LAW] verbatim; freshness over constitution_hash + setup_hash + dcs_hash; ADRs not loaded as governance), framework-aware variant (the meta repo uses CLAUDE.md as its own governance source instead of docs/constitution.md). Closes universal-clause-mirror drift caught by Factory-pr-review.",
         "12.0.0: feat(EVOL-026) BREAKING — Mandatory Law #1 (Constitutional Supremacy) reformulated. Constitution becomes single source of truth; framework-level ADRs at docs/project_log/evolutions/ become historical records. Framework eats its own dogfood: ADR transitioning to status: accepted MUST amend constitution.md or the relevant framework-shipped artefact in the same PR. References Factory-adr-management skill formalising the ceremony for materialised projects.",
         "11.5.0: feat(EVOL-025) new universal section `## RDR Universal — MANDATORY` between Communication Style and Governance Scope. Universalises RDR application beyond the agent-posed-decision scope (SETUP/CODESIGN/BLUEPRINT/AUDIT/DEVOPS) — any user-facing question with alternatives requires ≥3 options, justified recommendation, verbatim ratification, immediate persistence. Factual lookups keep the binary-question carve-out. Persistence path is context-specific (commit message / framework decision record here in meta; IPP feature artefact in downstream). Byte-identical with templates.claude/CLAUDE.md per § What Lives Where.",
@@ -2059,11 +2061,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by Factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.1.0: doc — universal_clause_mirror.doc extended to declare the universal preamble of Mandatory Law #1 (Constitutional Supremacy) byte-identical between root CLAUDE.md and template counterpart, with the single-line addendum after the preamble legitimately diverging per context. Codifies the structure introduced by the Mandatory Law #1 refactor.",
         "1.0.0: feat(EVOL-025) initial — meta variant. lock_step_pairs declare meta↔template mirrors for hooks/*.sh, settings.json, governance scripts, and CLAUDE.md universal clauses. Factory-* skills + instructions are explicitly marked `meta_to_downstream_via_sync` (no template intermediary, ship via factory-sync.sh; no drift to detect at meta level). placeholder_allowlist_paths permits `{{X}}` only under `.context/templates/**` per CLAUDE.md Generation Standards. Schema versioned via `$schema` field — extend by bumping `version` and adding keys under `audit.*`, never break existing keys."
       ]
     },
