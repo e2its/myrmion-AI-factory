@@ -1,11 +1,12 @@
 ---
-version: 0.1.0
+version: 1.0.0
 date: 2026-05-06
 changelog:
+  - "1.0.0: feat(EVOL-028) execution complete — all 3 fases shipped on feature/EVOL-028-applicability-discovery-protocol. Fase 1 (foundation: ADR + skill Factory-applicability-discovery + check-applicability-frontmatter.sh validator + CLAUDE.md universal §Applicability Discovery vocabulary [LAW] meta+template + manifest framework_version 4.0.0→4.1.0) → 922fe24. Fase 2 (backfill applicable_when frontmatter on 20 instructions + 16 skills, MINOR bumps, duplicate-template cleanup) → d3119ba. Fase 3 (Step 0 Applicability Roll-Call wired into all 8 commands as MANDATORY first section, MINOR bumps) → 366bb28. Status flips proposed→accepted; CLAUDE.md amendment is the §Applicability Discovery [LAW] section already shipped in Fase 1."
   - "0.1.0: Skeleton — RDR ratifications persisted (E2+E3 injection point, applicable_when vocabulary phase/scope/change_type/command/always + path_glob + framework, ambos espejados meta↔template, drop ADR backfill since constitution materialises [LAW]). Status: proposed."
 adr_number: EVOL-028
 title: Applicability Discovery Protocol (ADP) — salience por discovery vivo, no por listas estáticas
-status: proposed
+status: accepted
 type: framework-evolution
 scope: global
 ---
@@ -156,12 +157,17 @@ Formato canónico:
 | # | Task | Result | Commit |
 |---|---|---|---|
 | 1 | Branch `feature/EVOL-028-applicability-discovery-protocol` from `origin/main` | done | — |
-| 2 | ADR skeleton at status `proposed` capturing 4 RDR ratifications | in progress | (this commit) |
-| 3 | Fase 1 — Skill `Factory-applicability-discovery` written (meta + template) | pending | — |
-| 4 | Fase 1 — Vocabulary `applicable_when:` documented in `CLAUDE.md` (meta + template) | pending | — |
-| 5 | Fase 1 — `scripts/check-applicability-frontmatter.sh` written + CI gate | pending | — |
-| 6 | Fase 2 — Backfill `applicable_when:` en 20 instructions | pending | — |
-| 7 | Fase 2 — Backfill `applicable_when:` en skills estructurales | pending | — |
-| 8 | Fase 3 — Step 0 wired en los 8 commands | pending | — |
-| 9 | Manifest bumps + `framework_version` 4.0.0 → 4.1.0 | pending | — |
-| 10 | Status flip `proposed` → `accepted` con CLAUDE.md amendment | pending | — |
+| 2 | ADR skeleton at status `proposed` capturing 4 RDR ratifications | done | 922fe24 |
+| 3 | Fase 1 — Skill `Factory-applicability-discovery` written (framework_core; skills propagate via factory-sync.sh, no template mirror needed) | done | 922fe24 |
+| 4 | Fase 1 — Vocabulary `applicable_when:` documented in `CLAUDE.md` § Applicability Discovery [LAW] (meta + template, byte-identical) | done | 922fe24 |
+| 5 | Fase 1 — `scripts/check-applicability-frontmatter.sh` written + template mirror; closed-vocabulary validator (CI hard gate) | done | 922fe24 |
+| 6 | Fase 1 — Manifest entries: framework_core gains skill + script (1.0.0); templates gains script (1.0.0); `framework_version` 4.0.0 → 4.1.0 (MINOR — non-breaking, missing `applicable_when:` ⇒ `always:true`) | done | 922fe24 |
+| 7 | Fase 2 — Backfill `applicable_when:` en 20 instructions (phase + command per domain) | done | d3119ba |
+| 8 | Fase 2 — Backfill `applicable_when:` en 16 skills (always for cross-cutting; phase/command for phase-bound) | done | d3119ba |
+| 9 | Fase 2 — Cleanup: duplicate skill template removed (skills are framework_core-only; verified via existing 30 framework_core skill entries vs 0 templates skill entries pre-EVOL) | done | d3119ba |
+| 10 | Fase 2 — Manifest: 36 MINOR bumps for backfilled entries (20 instructions + 16 skills) | done | d3119ba |
+| 11 | Fase 3 — Step 0 — Applicability Roll-Call (MANDATORY) inserted as first action section in all 8 commands (audit, backlog, blueprint, codesign, devops, implement, qa, setup) | done | 366bb28 |
+| 12 | Fase 3 — Manifest: 8 MINOR bumps for command entries | done | 366bb28 |
+| 13 | Validator final run: 37 files scanned, all valid; governance banner unchanged | done | — |
+| 14 | Status flip `proposed` → `accepted`; CLAUDE.md `[LAW]` amendment already in place from Fase 1 (out of scope for `check-adr-constitution-sync.sh` per ADR-EVOL-027 precedent — gate scope is project ADRs `docs/project_log/adr/`, not framework EVOL records) | done | (this commit) |
+| 15 | Integration tests (Test 1-4) deferred — require materialised test project not yet provisioned. Capa 1-2 hard gates (validator + manifest parse) verified; capa 3 (behavioral) best-effort per plan postura | deferred | — |
