@@ -2128,11 +2128,12 @@
       "path": ".claude/skills/Factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.8.0: feat(EVOL-028) base-scripts ship list extended with check-applicability-frontmatter.sh so ADP validator propagates to materialised projects via factory-sync.",
         "1.7.0: feat(EVOL-027) fase 4 — add check-inventory-drift.sh to base-scripts whitelist.",
         "1.6.0: feat(EVOL-027) fase 3 — add generate-governance-snapshot.sh to base-scripts whitelist so the new snapshot generator propagates to downstream projects under scripts/.",
         "1.5.3: chore(EVOL-026) ship list extended with check-adr-constitution-sync.sh so the EVOL-026 CI gate is materialised in downstream projects.",
@@ -2344,9 +2345,10 @@
       ]
     },
     ".github/workflows/governance-check.yml": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": ".github/workflows/governance-check.yml",
       "changelog": [
+        "1.2.0: feat(EVOL-028) new step `Applicability frontmatter validation (ADP)` runs scripts/check-applicability-frontmatter.sh as CI hard gate. Closes ADP rollout — frontmatter drift in .claude/instructions, .claude/skills/Factory-*, and .claude/rules/defect-prevention.md is caught at PR time.",
         "1.1.0: feat — Workflow extended with two new steps: `ADR ↔ Constitution sync gate` runs `scripts/check-adr-constitution-sync.sh` to enforce the EVOL-026 invariant; `Run T2 governance suite` runs the four `scripts/test-*.sh` (templates static, snapshot extraction, ADR accept simulation, sync gate scenarios). Path filter extended to `.context/templates/**`, `scripts/**`, and `config/coherence-context.json` so test changes also trigger the workflow. Failure comment rewritten to enumerate the three possible causes (manifest drift / ADR-constitution sync / T2 suite) with a single local-reproduction one-liner.",
         "1.0.0: initial tracked entry — meta-only workflow that runs `validate-governance.sh --base` on every PR to main."
       ]
