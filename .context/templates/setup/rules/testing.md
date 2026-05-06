@@ -1,6 +1,11 @@
 ---
 description: "Testing standards — unit/integration/E2E patterns, coverage targets, test naming, mocking strategies. Applied automatically when editing test files."
-applyTo: "**/*.{test,spec}.{js,ts,jsx,tsx,py,java,cs}"
+applicable_when:
+  path_glob:
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/*.test.*"
+    - "**/*.spec.*"
 version: 1.0.0
 date: 2026-01-26
 changelog:

@@ -1,5 +1,4 @@
 ---
-applyTo: "backlog"
 description: "Tool adapter STUB for Linear. Materialised by SETUP --generate into docs/backlog/tool-adapter.md when project_tracking.tool matches /linear/i. Contributors: fill in the concrete commands or MCP calls for each abstract operation, then remove the STUB banner."
 tool: "Linear"
 integration: "mcp"

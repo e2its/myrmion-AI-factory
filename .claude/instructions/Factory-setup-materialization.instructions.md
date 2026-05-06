@@ -361,35 +361,39 @@ For each detected technology (backend.runtime, frontend.framework):
 1. Check if `.context/templates/setup/rules/{technology}.md` exists
 2. **FOUND:** Use template, resolve placeholders, write to `.claude/rules/{technology}.md`
 3. **NOT_FOUND:** Auto-generate using 12-section structure with MANDATORY frontmatter:
-   - **Step 3a — Generate frontmatter** using this exact structure:
+   - **Step 3a — Generate frontmatter** using this exact structure (ADP-conformant per ADR-EVOL-028):
      ```yaml
      ---
      description: "{Technology} coding standards — naming conventions, patterns, error handling, testing. Applied automatically when editing {Technology} files."
-     applyTo: "{glob_pattern}"
+     applicable_when:
+       path_glob:
+         - "{glob_1}"
+         - "{glob_2}"
+       framework: ["{technology_lc}"]
      version: 1.0.0
      date: {CURRENT_DATE}
      changelog:
        - "1.0.0: Auto-generated during SETUP materialization"
      ---
      ```
-   - **Step 3b — Derive `applyTo` glob** from technology name. Common mappings:
-     | Technology | `applyTo` glob |
-     |------------|----------------|
+   - **Step 3b — Derive `path_glob` list** from technology name (Factory-applicability-discovery scans these). Common mappings (one entry per glob — list form, NOT brace expansion):
+     | Technology | `path_glob` entries |
+     |------------|---------------------|
      | Python | `**/*.py` |
-     | Node.js / JavaScript | `**/*.{js,ts,mjs,cjs}` |
-     | React / Next.js | `**/*.{jsx,tsx}` |
+     | Node.js / JavaScript | `**/*.js`, `**/*.ts`, `**/*.mjs`, `**/*.cjs` |
+     | React / Next.js | `**/*.jsx`, `**/*.tsx` |
      | Java | `**/*.java` |
-     | C# / .NET | `**/*.{cs,csx}` |
+     | C# / .NET | `**/*.cs`, `**/*.csx` |
      | Go | `**/*.go` |
      | Rust | `**/*.rs` |
      | Ruby | `**/*.rb` |
-     | Kotlin | `**/*.{kt,kts}` |
+     | Kotlin | `**/*.kt`, `**/*.kts` |
      | Swift | `**/*.swift` |
      | PHP | `**/*.php` |
      | Vue | `**/*.vue` |
-     | Angular | `**/*.{ts,html,component.ts}` |
+     | Angular | `**/*.ts`, `**/*.html` |
      | Svelte | `**/*.svelte` |
-     For unlisted technologies: derive extensions from official language documentation. Use `**/*.{ext}` pattern. If multiple extensions exist, combine with comma: `**/*.{ext1,ext2}`.
+     For unlisted technologies: derive extensions from official language documentation. Always emit each extension as a separate list entry (the validator parses globs, brace expansion is not interpreted).
    - **Step 3c — Generate body** with 12-section structure:
      Naming conventions, file organization, error handling, logging, testing, security, performance, dependency management, documentation, versioning, deployment, monitoring
 4. Apply technology-specific deny lists and mandatory patterns
@@ -720,11 +724,34 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 After all rules generated, validate:
 - All materialized files in `.claude/rules/` end with `.md` (no `.instructions.md` suffix — convention unified)
 - All materialized files contain YAML frontmatter with `description:` field
-- All **technology-specific** rules (Phase A language rules + Phase B) contain `applyTo:` with a valid glob pattern
-- Cross-cutting rules (architecture, security_policy, branching, defect-prevention, etc.) are NOT required to have `applyTo`
+- All **technology-specific** rules (Phase A language rules + Phase B) contain `applicable_when:` with `path_glob:` (a list of globs) and optionally `framework:`
+- Cross-cutting rules (architecture, security_policy, branching, defect-prevention, etc.) declare `applicable_when: { always: true }` or omit the block entirely (treated as `always: true` for back-compat)
+- Run `scripts/check-applicability-frontmatter.sh` — closed vocabulary validator (CI hard gate per ADR-EVOL-028). MUST exit 0
 - No cross-rule contradictions
 - All referenced tools/frameworks match `docs/setup.md` selections
 - Technology-specific rules don't conflict with architecture rules
+
+**Phase D — ADP Context Materialization (ADR-EVOL-028):**
+
+Write `.context/applicability_context.json` — machine-readable context source consumed by `Factory-applicability-discovery` at every command Step 0. Without this file the discovery falls back to parsing `docs/setup.md` (best-effort), so emitting it eliminates ambiguity.
+
+```pseudocode
+context = {
+  project_scope: stack_config.project_scope,        # backend-only | frontend-only | full-stack | infra
+  frameworks: collect_frameworks(stack_config),     # e.g. ["python","fastapi","postgresql","react"]
+  path_glob_universe: derive_globs(frameworks),     # union of common globs for the active stack
+  language: stack_config.language,                  # EN | ES (used only as metadata, not for filtering)
+  generated_at: now_iso8601(),
+  source_hash: sha256(read("docs/setup.md"))[:16],
+}
+WRITE pretty-printed JSON to .context/applicability_context.json
+```
+
+`collect_frameworks()` extracts every named framework / runtime / database / cloud-provider declared in `stack_config` (backend.runtime, backend.framework, frontend.framework, database.type, cloud.provider, ci_cd.platform, iac.tool). Lowercased, deduplicated, sorted.
+
+`derive_globs()` is the union of `path_glob` entries from the technology mappings table in Phase B (Step 3b) for every framework present.
+
+`source_hash` lets the discovery skill detect drift between `docs/setup.md` and the cached context — if the hash mismatches, regenerate via `SETUP --upgrade --refresh-context` (or by re-running Phase D in isolation).
 
 ### 4.2.4 Tripartite Scaffolding
 Additive tree algorithm — builds directory structure from composable fragments:

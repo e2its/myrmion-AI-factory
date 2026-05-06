@@ -1,6 +1,11 @@
 ---
 description: "CI/CD pipeline standards — workflow configuration, environment management, deployment gates, artifact handling. Applied when editing CI/CD configuration."
-applyTo: "**/.github/workflows/**,**/Dockerfile,**/docker-compose*.yml,**/.gitlab-ci.yml,**/Jenkinsfile"
+applicable_when:
+  path_glob:
+    - ".github/workflows/**"
+    - "**/Jenkinsfile"
+    - "**/.gitlab-ci.yml"
+    - "**/azure-pipelines.yml"
 version: 1.0.0
 date: 2026-01-26
 changelog:

@@ -1,6 +1,13 @@
 ---
 description: "UX constitution — design system governance, WCAG compliance, component library standards, visual consistency. Applied when editing UX/component files."
-applyTo: "**/docs/ux/**,**/src/components/**,**/*.{jsx,tsx,vue,svelte}"
+applicable_when:
+  path_glob:
+    - "**/components/**"
+    - "**/pages/**"
+    - "**/layouts/**"
+    - "**/*.jsx"
+    - "**/*.tsx"
+    - "**/*.vue"
 version: 1.0.0
 date: 2026-01-26
 changelog:

@@ -1,5 +1,7 @@
 ---
 description: "Immutability policy — approved artifact versioning, change tracking requirements, audit trail enforcement."
+applicable_when:
+  always: true
 ---
 # Specification Immutability Policy
 

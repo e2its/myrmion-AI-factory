@@ -20,47 +20,52 @@
       ]
     },
     "rules/observability.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/observability.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/performance.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/performance.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/privacy.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/privacy.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/protected-code.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".claude/rules/protected-code.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/ai_budget_governance.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".claude/rules/ai_budget_governance.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) backfill `applicable_when: { always: true }` (cross-cutting governance — applies always).",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: Initial template",
@@ -68,10 +73,11 @@
       ]
     },
     "rules/ai_budget_tracker.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/ai_budget_tracker.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
@@ -86,89 +92,98 @@
       ]
     },
     "rules/frontend_architecture_compatibility.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".claude/rules/frontend_architecture_compatibility.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/html-css.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/html-css.md",
       "stack_conditional": "frontend exists",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/python.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/python.md",
       "stack_conditional": "backend.runtime == Python",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/React.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/React.md",
       "stack_conditional": "frontend.framework == React OR frontend.framework == Next.js",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/node.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/node.md",
       "stack_conditional": "backend.runtime == Node.js",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/csharp.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/csharp.md",
       "stack_conditional": "backend.runtime == C#",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/java.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/java.md",
       "stack_conditional": "backend.runtime == Java",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/architecture.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/architecture.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/branching.md": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md",
       "changelog": [
+        "2.4.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "2.3.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "2.0.0: PR validation mode, approval count, merge method configurable via SETUP Q22.1",
         "1.0.0: Initial template",
@@ -177,78 +192,86 @@
       ]
     },
     "rules/security_policy.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/security_policy.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/testing.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/testing.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/ci-cd.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/ci-cd.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/database.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/database.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/api-standards.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/api-standards.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:` (closed vocabulary per ADR-EVOL-028).",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/stateless.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/stateless.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/ux-constitution.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/ux-constitution.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/contract-first-policy.md": {
-      "version": "3.4.0",
+      "version": "3.5.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/contract-first-policy.md",
       "changelog": [
+        "3.5.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "3.4.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "3.2.0: feat: webhook communication support — contracts/webhooks/ directory (inbound/outbound), format selection matrix, OpenAPI 3.1 webhook examples, webhook vs AsyncAPI guidance",
         "3.1.0: Conditional contract directory creation — only create directories matching project stack (comm_style + topology). Additional types enabled via ADR.",
@@ -260,10 +283,11 @@
       ]
     },
     "rules/immutability_policy.md": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.1: fix(EVOL-015): References section no longer points to the deleted root instructions.md; redirects to the framework README § Command Reference on GitHub",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
@@ -272,10 +296,11 @@
       ]
     },
     "rules/review-policy.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/review-policy.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
@@ -767,10 +792,11 @@
       ]
     },
     "backlog-tool-adapters/none.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/none.md",
       "changelog": [
+        "1.1.0: fix(EVOL-028) drop legacy `applyTo: \"backlog\"` field — adapter templates are not scanned by ADP discovery; field had no semantic role.",
         "1.0.0: feat(EVOL-014): new adapter — file-mode (Q27 == None) backlog adapter reading/writing 8-column state.md schema; add_label and add_sub_issue are native via Labels and Parent columns"
       ]
     },
@@ -783,10 +809,11 @@
       ]
     },
     "backlog-tool-adapters/linear.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/linear.md",
       "changelog": [
+        "1.1.0: fix(EVOL-028) drop legacy `applyTo: \"backlog\"` field — same rationale.",
         "1.0.0: feat(EVOL-014): new stub adapter for Linear — MCP server integration (no first-party CLI); workflow states replace columns; every abstract op documented as TODO; stub: true frontmatter flag"
       ]
     },
@@ -880,10 +907,11 @@
       ]
     },
     "rules/iac.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/iac.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: backfill — rule template existed but was untracked.",
         "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified (.instructions.md suffix dropped from any internal cross-rule refs)."
       ]
@@ -916,11 +944,12 @@
       ]
     },
     "scripts/check-applicability-frontmatter.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/check-applicability-frontmatter.sh",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "1.1.0: feat(EVOL-028) validator scope extended to `.claude/rules/*.md` — synced from framework-core counterpart.",
         "1.0.0: feat(EVOL-028) materialised mirror of applicable_when frontmatter validator (CI gate). Ships to every project so downstream CI catches drift in their own .claude/instructions and .claude/rules entries."
       ]
     }
@@ -1559,9 +1588,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.8.0: fix(EVOL-028) remove duplicate `applyTo:` field — same rationale as Factory-backlog-execution-plan.",
         "1.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
         "1.6.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.6.0: feat(EVOL-019) phase 3: full-sdlc preset suffix 8 scope-aware — three phase label variants materialised by --plan-feature based on spec.feature.scope: phase:smoke-e2e-browser (frontend-only), phase:smoke-e2e-integration (backend-only/integration), phase:smoke-e2e-hybrid (full-stack). Exactly ONE variant emitted per feature; legacy phase:smoke-e2e accepted for backward compatibility. New label category `scope:{full-stack|backend-only|frontend-only|integration}` applied at --plan-feature time (inherits spec.feature.scope), uniform across all phase issues of the feature. Gate Issue Body Template gains scope-aware DoD variants for the three smoke-e2e-* phase labels.",
@@ -1580,9 +1610,10 @@
       ]
     },
     "instructions/Factory-backlog-execution-plan.instructions.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "path": ".claude/instructions/Factory-backlog-execution-plan.instructions.md",
       "changelog": [
+        "1.5.0: fix(EVOL-028) remove duplicate `applyTo:` field — `applicable_when:` (set in Fase 2) is the canonical ADP contract. Both fields coexisting was an artefact of pre-EVOL-028 backfill against a frontmatter that already carried legacy `applyTo`.",
         "1.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
         "1.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.3.0: feat(EVOL-014): dual-mode SSOT cleanup (file vs board), mode-scoping notes on §3/§4, guardrails 8-11 (slice/epic completeness, gate enforcement is resolver's job), 8-phase slice completeness",
@@ -1593,9 +1624,10 @@
       ]
     },
     "instructions/Factory-backlog-next-task.instructions.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "path": ".claude/instructions/Factory-backlog-next-task.instructions.md",
       "changelog": [
+        "1.8.0: fix(EVOL-028) remove duplicate `applyTo:` field — same rationale as Factory-backlog-execution-plan.",
         "1.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
         "1.6.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.6.0: feat(EVOL-019) phase 3: new Step 1.3.4.5 — consumes_contract cross-feature freeze filter. Runs BEFORE hard-gate enforcement (Step 1.3.5). For any feature-phase candidate, iterates spec.feature.consumes_contract; for each upstream verifies design.md APPROVED, scope != frontend-only, and (full-sdlc only) CONTRACT-FREEZE issue Done + not stale-after-cascade. Unresolved upstreams block under gate_enforcement_mode=enforce (blocker points at upstream CONTRACT-FREEZE), warn under mode=warn (candidate kept in pool with suffix), silent under mode=off. Pull-mode --eligible adapted.",
@@ -1635,9 +1667,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.5.0",
+      "version": "3.6.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.6.0: feat(EVOL-028) Phase B auto-generator now emits ADP-conformant frontmatter (`applicable_when: { path_glob: [...], framework: [...] }`) replacing legacy single-string `applyTo:`. Phase C validation switched to require `applicable_when:` and run scripts/check-applicability-frontmatter.sh as hard gate. NEW Phase D — ADP Context Materialization writes `.context/applicability_context.json` (project_scope + frameworks + path_glob_universe + source_hash) so Factory-applicability-discovery has a deterministic context source instead of best-effort docs/setup.md parsing.",
         "3.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
         "3.4.0: feat(EVOL-027) review close (Q2) — Checkpoint 3.1 § Implementation note documents `factory-sync.sh --preserve-local` interaction with `generate-governance-snapshot.sh` (local custom versions preserved when flag is set).",
         "3.3.0: feat(EVOL-027) fase 3 — Checkpoint 3.1 narrative replaces pseudocode-as-contract with reference to scripts/generate-governance-snapshot.sh (the script is now the single source of truth for snapshot bytes). Pseudocode kept as normative documentation, not as agent re-implementation guide.",
@@ -2389,16 +2422,18 @@
       ]
     },
     "skills/Factory-applicability-discovery/SKILL.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "skill",
       "changelog": [
+        "1.1.0: feat(EVOL-028) discovery scan extended — Step 4 now scans every `.claude/rules/*.md` (technical + cross-cutting governance), not only defect-prevention.md. Roll-Call output gains ACTIVE RULES section. Inputs table documents `.context/applicability_context.json` as the deterministic context source written by SETUP Phase D, with docs/setup.md as fallback. Validation contract section extended accordingly.",
         "1.0.0: feat(EVOL-028) new Applicability Discovery Protocol (ADP) skill — live scan of governance trees (snapshot LAWs, instructions, structural skills, DCs) filtered by applicable_when frontmatter; emits canonical Roll-Call block on-screen as first user-facing message of every command. Salience anchor against rule-amnesia symptom (lazy-load ineffective in practice — agents had rules loaded but ignored them). Closed vocabulary: phase, scope, change_type, command, path_glob, framework, always."
       ]
     },
     "scripts/check-applicability-frontmatter.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "changelog": [
+        "1.1.0: feat(EVOL-028) validator scope extended to all `.claude/rules/*.md` (excluding README.md). Catches drift in technical rules (python.md, React.md, java.md, etc.) and cross-cutting rules (security_policy.md, testing.md, performance.md, etc.) at PR time.",
         "1.0.0: feat(EVOL-028) new CI gate validating applicable_when frontmatter blocks across .claude/instructions, .claude/skills/Factory-*, and .claude/rules/defect-prevention.md. Closed vocabulary check (phase/scope/change_type/command/path_glob/framework/always); always-mutex enforcement; missing block treated as always:true (back-compat during migration)."
       ]
     }

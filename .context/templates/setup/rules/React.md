@@ -1,6 +1,9 @@
 ---
 description: "React coding standards — component patterns, hooks, state management, JSX best practices. Applied automatically when editing React files."
-applyTo: "**/*.{jsx,tsx}"
+applicable_when:
+  path_glob:
+    - "**/*.jsx"
+    - "**/*.tsx"
 version: 1.0.0
 date: 2026-01-26
 changelog:

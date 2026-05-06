@@ -1,5 +1,4 @@
 ---
-applyTo: "backlog"
 description: "Factory BACKLOG next-task guidance — determines the next executable step from execution plan and returns agent + command + evidence. Use when: user asks what to do next in the project."
 applicable_when:
   phase: [BACKLOG]

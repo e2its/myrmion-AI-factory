@@ -1,5 +1,7 @@
 ---
 description: "Performance standards — response time targets, resource budgets, caching strategy, load testing requirements."
+applicable_when:
+  always: true
 version: 1.0.0
 date: 2026-01-26
 changelog:

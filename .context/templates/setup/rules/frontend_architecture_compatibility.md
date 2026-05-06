@@ -1,5 +1,7 @@
 ---
 description: "Frontend architecture compatibility — SPA/MPA/SSR patterns, micro-frontend boundaries, shared state management."
+applicable_when:
+  always: true
 ---
 # Frontend Architecture Compatibility Matrix
 

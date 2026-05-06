@@ -1,6 +1,8 @@
 ---
 description: "Java coding standards — naming conventions, design patterns, exception handling, build configuration. Applied automatically when editing Java files."
-applyTo: "**/*.java"
+applicable_when:
+  path_glob:
+    - "**/*.java"
 ---
 # GitHub Copilot Instructions - Java Clean Code Profile
 

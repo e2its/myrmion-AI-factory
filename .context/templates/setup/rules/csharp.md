@@ -1,6 +1,9 @@
 ---
 description: "C# coding standards — naming conventions, LINQ, async patterns, .NET best practices. Applied automatically when editing C# files."
-applyTo: "**/*.{cs,csx}"
+applicable_when:
+  path_glob:
+    - "**/*.cs"
+    - "**/*.csx"
 ---
 # GitHub Copilot Instructions - C# Clean Code Profile
 
