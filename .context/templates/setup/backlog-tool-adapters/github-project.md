@@ -1,5 +1,4 @@
 ---
-applyTo: "backlog"
 description: "Tool adapter for GitHub Projects (v2). Materialised by SETUP --generate into docs/backlog/tool-adapter.md when project_tracking.tool matches /github/i."
 tool: "GitHub Projects"
 integration: "cli"

@@ -782,10 +782,11 @@
       ]
     },
     "backlog-tool-adapters/github-project.md": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/github-project.md",
       "changelog": [
+        "1.2.0: fix(EVOL-028) PR #20 review mitigation — drop legacy `applyTo: \"backlog\"` field; migration sweep missed this adapter on first pass (cdcf064 only cleaned none.md + linear.md).",
         "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.1.0: feat(EVOL-015): create_label section extended — kind:follow-up always created; appetite:{small,medium,big} conditional on {{APPETITE_SIZING_ENABLED}}==true; blocked-by:#{N} usage documented — labels are NOT created at init (per-issue value), MUST be created explicitly via `gh label create … --force` before the first `add_label` invocation (GitHub rejects --add-label on unknown labels); --force keeps the create idempotent",
         "1.0.0: feat(EVOL-014): new adapter — fully functional github-project adapter with native gh CLI commands for all abstract ops (create_project, create_label, create_issue, move_to_column, add_sub_issue via addSubIssue GraphQL mutation, add_label, query_board, etc.); placeholder set for SETUP --generate resolution"
@@ -801,10 +802,11 @@
       ]
     },
     "backlog-tool-adapters/jira.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/jira.md",
       "changelog": [
+        "1.1.0: fix(EVOL-028) PR #20 review mitigation — drop legacy `applyTo: \"backlog\"` field; migration sweep missed this adapter on first pass (cdcf064 only cleaned none.md + linear.md).",
         "1.0.0: feat(EVOL-014): new stub adapter for Jira — ankitpokhrel/jira-cli based; every abstract op documented with candidate commands marked TODO for contributor validation; stub: true frontmatter flag"
       ]
     },
