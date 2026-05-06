@@ -1,5 +1,7 @@
 ---
 description: "AI budget governance — token usage limits, model selection policy, cost tracking, budget alerts."
+applicable_when:
+  always: true
 ---
 # AI Budget Governance
 

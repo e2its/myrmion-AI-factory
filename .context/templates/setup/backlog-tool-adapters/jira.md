@@ -1,5 +1,4 @@
 ---
-applyTo: "backlog"
 description: "Tool adapter STUB for Jira (Atlassian Cloud / Server). Materialised by SETUP --generate into docs/backlog/tool-adapter.md when project_tracking.tool matches /jira/i. Contributors: fill in the concrete commands for each abstract operation, then remove the STUB banner."
 tool: "Jira"
 integration: "cli"

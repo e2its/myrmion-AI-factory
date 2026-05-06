@@ -1,6 +1,8 @@
 ---
 description: "Python coding standards — PEP 8, type hints, virtual environments, testing patterns. Applied automatically when editing Python files."
-applyTo: "**/*.py"
+applicable_when:
+  path_glob:
+    - "**/*.py"
 version: 1.0.0
 date: 2026-01-26
 changelog:

@@ -1,5 +1,7 @@
 ---
 description: "Security policy — OWASP Top 10 compliance, secret management, Zero Trust principles, vulnerability remediation."
+applicable_when:
+  always: true
 version: 1.0.0
 date: 2026-01-26
 changelog:

@@ -1,6 +1,8 @@
 ---
 name: Factory-commit-prompt
 description: "Factory Post-Command Commit Prompt — automated commit message generation after file modifications. Use when: any agent command completes with file changes."
+applicable_when:
+  always: true
 ---
 
 # POST-COMMAND COMMIT PROMPT (v1.0.0)

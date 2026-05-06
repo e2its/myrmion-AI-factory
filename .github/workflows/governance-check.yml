@@ -72,6 +72,11 @@ jobs:
           chmod +x scripts/check-inventory-drift.sh
           bash scripts/check-inventory-drift.sh --warn-only
 
+      - name: Applicability frontmatter validation (ADP)
+        run: |
+          chmod +x scripts/check-applicability-frontmatter.sh
+          bash scripts/check-applicability-frontmatter.sh
+
       - name: Post violation comment on failure
         if: failure()
         env:

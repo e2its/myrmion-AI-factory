@@ -1,6 +1,17 @@
 ---
 description: "Protected code policy — PROTECTED-CODE block enforcement, immutable sections, code review gates for protected regions. Applied when editing source code files."
-applyTo: "**/*.{js,ts,jsx,tsx,py,java,cs,go,rs,rb}"
+applicable_when:
+  path_glob:
+    - "**/*.js"
+    - "**/*.ts"
+    - "**/*.jsx"
+    - "**/*.tsx"
+    - "**/*.py"
+    - "**/*.java"
+    - "**/*.cs"
+    - "**/*.go"
+    - "**/*.rs"
+    - "**/*.rb"
 version: 1.0.0
 date: 2026-01-26
 changelog:

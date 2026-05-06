@@ -1,5 +1,8 @@
 ---
 description: "Factory IMPLEMENT peer review and security audit — code review checklist, OWASP checks, Zero Trust validation. Use when: IMPLEMENT review or security audit phase."
+applicable_when:
+  phase: [IMPLEMENT]
+  command: [implement]
 ---
 
 # IMPLEMENT Agent — REVIEW Hat, SEC Hat, Compliance & Finalization

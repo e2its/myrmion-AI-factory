@@ -1,5 +1,8 @@
 ---
 description: "Factory IMPLEMENT build execution — TDD, phase loop, DEV/REVIEW/SEC hats, checkpoint verification, delta iteration, fix tasks. Use when: IMPLEMENT --build, --refine, or --fix execution."
+applicable_when:
+  phase: [IMPLEMENT]
+  command: [implement]
 ---
 
 # IMPLEMENT Agent — Build, Refine, Fix & Resilience Instructions

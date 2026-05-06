@@ -1,6 +1,9 @@
 ---
 name: Factory-build-verification
 description: "Factory Build Verification Loop (BVL) — automated test execution, error parsing, auto-fix cycle, and full verification gate. Use when: IMPLEMENT --build executes tasks with TDD cycle requiring real test execution."
+applicable_when:
+  phase: [IMPLEMENT]
+  command: [implement]
 ---
 
 # BUILD VERIFICATION LOOP (BVL v1.4.0)

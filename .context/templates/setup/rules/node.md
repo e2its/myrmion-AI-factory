@@ -1,6 +1,11 @@
 ---
 description: "Node.js coding standards — module patterns, async/await, error handling, package management. Applied automatically when editing JavaScript/TypeScript files."
-applyTo: "**/*.{js,ts,mjs,cjs}"
+applicable_when:
+  path_glob:
+    - "**/*.js"
+    - "**/*.ts"
+    - "**/*.mjs"
+    - "**/*.cjs"
 version: 1.0.0
 date: 2026-01-26
 changelog:

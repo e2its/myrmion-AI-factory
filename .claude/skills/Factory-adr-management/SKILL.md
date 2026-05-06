@@ -1,6 +1,8 @@
 ---
 name: Factory-adr-management
 description: "Factory ADR Management Skill — canonical algorithm for proposing, ratifying, and querying Architectural Decision Records and Feature Decision Records. Mechanically copies the ADR's Operational Rule field into docs/constitution.md as a [LAW] section at status flip; FDRs stay feature-local. Use when: any agent or free-form turn proposes an architectural decision (BLUEPRINT design, AUDIT mitigation, IMPLEMENT discovery, CODESIGN vision deviation, DEVOPS infra choice, BACKLOG retrospective DC promotion, ad-hoc 'this deserves an ADR'); when ratifying a proposed ADR/FDR after RDR with the user; when downstream consumers (BLUEPRINT § 7.8, IMPLEMENT Review Check #14) need a list of active records."
+applicable_when:
+  always: true
 ---
 
 # FACTORY ADR MANAGEMENT (FAM v1.0.0)

@@ -1,6 +1,8 @@
 ---
 name: Factory-governance-loading
 description: "Factory Governance Loading Protocol (GCRP) — Zero Trust context recovery, governance snapshot, summarization-safe state reload. Use when: loading governance context at agent command start or recovering from summarization."
+applicable_when:
+  always: true
 ---
 
 # GOVERNANCE LOADING & VALIDATION PROTOCOL

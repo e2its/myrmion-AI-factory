@@ -1,5 +1,7 @@
 ---
 description: "Privacy standards — GDPR/CCPA compliance, data classification, PII handling, consent management, data retention."
+applicable_when:
+  always: true
 version: 1.0.0
 date: 2026-01-26
 changelog:

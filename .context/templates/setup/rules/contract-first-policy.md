@@ -1,5 +1,7 @@
 ---
 description: "Contract-first policy — API contracts before implementation, schema validation, backward compatibility rules."
+applicable_when:
+  always: true
 ---
 # Contract-First Development Policy
 

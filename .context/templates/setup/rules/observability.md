@@ -1,6 +1,9 @@
 ---
 description: "Observability standards — logging, metrics, tracing, alerting, dashboard design, SLO/SLI definitions. Applied when editing monitoring configuration."
-applyTo: "**/infra/monitoring/**,**/observability/**"
+applicable_when:
+  path_glob:
+    - "**/infra/monitoring/**"
+    - "**/observability/**"
 version: 1.0.0
 date: 2026-01-26
 changelog:

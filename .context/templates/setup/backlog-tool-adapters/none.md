@@ -1,5 +1,4 @@
 ---
-applyTo: "backlog"
 description: "Tool adapter for LOCAL FILE MODE. Materialised by SETUP --generate into docs/backlog/tool-adapter.md when project_tracking.tool == \"None\". The SSOT is docs/backlog/state.md; no external tracker is involved."
 tool: "None (local file mode)"
 integration: "file"

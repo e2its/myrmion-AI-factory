@@ -1,5 +1,7 @@
 ---
 description: "Factory Smart Redirect Protocol (SRP) — frontmatter-driven navigation, dynamic next-step computation from artifact state. Use when: any agent computes next workflow actions after command completion."
+applicable_when:
+  always: true
 ---
 
 # SMART REDIRECT PROTOCOL (SRP v1.1.0) — FRONTMATTER-DRIVEN NAVIGATION

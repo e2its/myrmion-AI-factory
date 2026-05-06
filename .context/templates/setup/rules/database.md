@@ -1,6 +1,10 @@
 ---
 description: "Database standards — migration patterns, query optimization, schema design, connection management. Applied when editing database-related files."
-applyTo: "**/migrations/**,**/*.sql,**/models/**"
+applicable_when:
+  path_glob:
+    - "**/migrations/**"
+    - "**/*.sql"
+    - "**/models/**"
 version: 1.0.0
 date: 2026-01-26
 changelog:

@@ -1,5 +1,7 @@
 ---
 description: "Branching strategy — branch naming, merge policy, PR requirements, commit message format, protected branches."
+applicable_when:
+  always: true
 version: 2.0.0
 date: 2026-01-26
 changelog:

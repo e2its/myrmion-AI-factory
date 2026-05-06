@@ -1,6 +1,11 @@
 ---
 description: "API standards — contract-first design, OpenAPI/GraphQL/gRPC/AsyncAPI conventions, versioning, error responses. Applied when editing API contracts."
-applyTo: "**/contracts/**,**/*.{openapi,graphql,proto,asyncapi}.*"
+applicable_when:
+  path_glob:
+    - "**/openapi/**"
+    - "**/asyncapi/**"
+    - "**/api/**"
+    - "**/*.proto"
 version: 1.0.0
 date: 2026-01-26
 changelog:

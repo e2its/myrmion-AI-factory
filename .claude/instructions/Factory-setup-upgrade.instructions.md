@@ -1,5 +1,8 @@
 ---
 description: "Factory SETUP upgrade — framework version upgrade, rollback, legacy migration, Smart Additive Merge. Use when: SETUP --upgrade, --rollback-upgrade, --migrate-legacy-setup."
+applicable_when:
+  phase: [SETUP]
+  command: [setup]
 ---
 
 # SETUP Agent — Upgrade, Migration & Rollback (`/setup --upgrade`, `--rollback-upgrade`, `--migrate-legacy-setup`)

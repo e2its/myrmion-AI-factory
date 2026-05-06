@@ -6,6 +6,7 @@
 #
 #   - .claude/instructions/*.instructions.md
 #   - .claude/skills/Factory-*/SKILL.md
+#   - .claude/rules/*.md (technical + cross-cutting governance)
 #   - .claude/rules/defect-prevention.md (per-entry blocks, if exists)
 #
 # Closed vocabulary axes:
@@ -69,7 +70,13 @@ fi
 TARGETS=()
 while IFS= read -r -d '' f; do TARGETS+=("$f"); done < <(find .claude/instructions -maxdepth 2 -name '*.md' -print0 2>/dev/null)
 while IFS= read -r -d '' f; do TARGETS+=("$f"); done < <(find .claude/skills -maxdepth 2 -name 'SKILL.md' -print0 2>/dev/null)
-[ -f .claude/rules/defect-prevention.md ] && TARGETS+=(".claude/rules/defect-prevention.md")
+# All rules (technical + cross-cutting). README.md and JSON config files are not validated.
+while IFS= read -r -d '' f; do
+  case "$(basename "$f")" in
+    README.md) continue ;;
+  esac
+  TARGETS+=("$f")
+done < <(find .claude/rules -maxdepth 1 -name '*.md' -print0 2>/dev/null)
 
 if [ "${#TARGETS[@]}" -eq 0 ]; then
   echo "INFO: no target files found under .claude/instructions/, .claude/skills/, .claude/rules/" >&2

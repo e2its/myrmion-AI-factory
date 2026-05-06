@@ -1,6 +1,8 @@
 ---
 name: Factory-worklog
 description: "Factory Worklog Enforcement — per-feature JSONL audit trail, action registration, phase mapping. Use when: any agent registers actions for traceability."
+applicable_when:
+  always: true
 ---
 
 # WORKLOG ENFORCEMENT (v2.0.0)

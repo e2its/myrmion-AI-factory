@@ -1,6 +1,8 @@
 ---
 name: Factory-iteration-model
 description: "Factory Iteration Model — domain-driven incremental development, change classification, version vs iteration, cascade invalidation. Use when: handling upstream spec changes, delta iterations, or version bumps."
+applicable_when:
+  always: true
 ---
 
 # ITERATION MODEL (Domain-Driven Incremental Development)

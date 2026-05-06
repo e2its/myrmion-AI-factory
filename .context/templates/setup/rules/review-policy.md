@@ -1,5 +1,7 @@
 ---
 description: "Review policy — code review requirements, approval thresholds, review checklist, automated review gates."
+applicable_when:
+  always: true
 ---
 # Review Policy Configuration
 

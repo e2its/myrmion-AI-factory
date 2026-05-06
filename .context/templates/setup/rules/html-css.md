@@ -1,6 +1,11 @@
 ---
 description: "HTML/CSS coding standards — semantic markup, BEM naming, responsive design, accessibility. Applied automatically when editing HTML/CSS files."
-applyTo: "**/*.{html,css,scss,less}"
+applicable_when:
+  path_glob:
+    - "**/*.html"
+    - "**/*.css"
+    - "**/*.scss"
+    - "**/*.less"
 ---
 # GitHub Copilot Instructions - HTML5 & Modern CSS Profile
 

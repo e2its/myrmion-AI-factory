@@ -1,5 +1,7 @@
 ---
 description: "AI budget tracker — per-command token accounting, session tracking, budget enforcement gates, cost reporting."
+applicable_when:
+  always: true
 ---
 # AI Budget Tracker - Monthly Cross-Feature Accumulation
 

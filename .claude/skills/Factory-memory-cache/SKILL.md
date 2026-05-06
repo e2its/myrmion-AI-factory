@@ -1,6 +1,8 @@
 ---
 name: Factory-memory-cache
 description: "Factory Memory Cache Protocol (FMCP) — unified /memories/repo/ caching layer for cross-command performance optimization. Use when: any agent reads frequently-accessed data (feature state, BVL commands, CIP inventory, execution plan)."
+applicable_when:
+  always: true
 ---
 
 # FACTORY MEMORY CACHE PROTOCOL (FMCP v1.0.2) — UNIFIED /memories/repo/ CACHING LAYER

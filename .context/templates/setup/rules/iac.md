@@ -1,6 +1,13 @@
 ---
 description: "Infrastructure as Code standards — Terraform/CloudFormation patterns, state management, module structure. Applied when editing IaC files."
-applyTo: "**/infra/**,**/*.tf,**/terraform/**,**/cloudformation/**"
+applicable_when:
+  path_glob:
+    - "**/terraform/**"
+    - "**/*.tf"
+    - "**/cloudformation/**"
+    - "**/pulumi/**"
+    - "**/k8s/**"
+    - "**/*.yaml"
 version: 1.0.0
 date: 2026-01-26
 changelog:

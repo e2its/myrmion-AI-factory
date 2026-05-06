@@ -1,5 +1,8 @@
 ---
 description: "Factory CODESIGN feature co-creation — BDD/Gherkin spec, mock HTML, user journey, Tripartite Alignment, 12-point validation. Use when: CODESIGN --start or --refine execution."
+applicable_when:
+  phase: [CODESIGN]
+  command: [codesign]
 ---
 
 # CODESIGN Agent — Level 2: Feature Co-Creation Protocol

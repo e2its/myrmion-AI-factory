@@ -1,5 +1,8 @@
 ---
 description: "Factory QA verification — checkbox-driven test execution, DAST scanning, regression checks, auto-approval gate. Use when: QA --verify, --reject, or --e2e execution."
+applicable_when:
+  phase: [QA]
+  command: [qa]
 ---
 
 # QA Agent — Verification & Approval Instructions

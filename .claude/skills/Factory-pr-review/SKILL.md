@@ -1,6 +1,8 @@
 ---
 name: Factory-pr-review
 description: "Factory PR Review — five-axis review (code, code↔docs, API contracts, ADR, traceability) wired as a PUSH GATE (preflight before `git push`) and an assistive PR reviewer for already-pushed branches. Maps blockers to framework Hard Gates (CIP, CVP, IPP, BVL, GCRP). Use when: a Bash `git push` is about to fire (auto-invoked by hook) OR the user explicitly asks to review a branch / open PR."
+applicable_when:
+  command: [push, review]
 ---
 
 # Factory PR Review — Push Gate + Assistive Reviewer (v1.2.1)
