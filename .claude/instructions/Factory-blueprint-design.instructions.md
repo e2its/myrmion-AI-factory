@@ -1,5 +1,8 @@
 ---
 description: "Factory BLUEPRINT technical design — architecture, API contracts, test plan, OpenAPI/GraphQL/gRPC/AsyncAPI generation. Use when: BLUEPRINT --start or --refine execution."
+applicable_when:
+  phase: [BLUEPRINT]
+  command: [blueprint]
 ---
 
 # BLUEPRINT Agent — Design & Artifact Generation (Phases 0-2)

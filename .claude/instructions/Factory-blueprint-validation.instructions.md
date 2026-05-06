@@ -1,5 +1,8 @@
 ---
 description: "Factory BLUEPRINT approval validation — design review, test plan review, CIP artifact re-check gate. Use when: BLUEPRINT --approve execution."
+applicable_when:
+  phase: [BLUEPRINT]
+  command: [blueprint]
 ---
 
 # BLUEPRINT Agent — Validation, Commands & Cross-Agent Workflows

@@ -1,6 +1,9 @@
 ---
 name: Factory-preventive-sweep
 description: "Preventive Defect Sweep — post-deployment runtime validation that catches defects invisible to static gates. Searches all cataloged defect classes in parallel, one sub-agent per non-overlapping scope derived from the DC catalog. Use when: first deploy of a feature, after major architectural changes, or on user request."
+applicable_when:
+  phase: [IMPLEMENT]
+  command: [implement]
 ---
 
 # PREVENTIVE DEFECT SWEEP (v1.0.0)

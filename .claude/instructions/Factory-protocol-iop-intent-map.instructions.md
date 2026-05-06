@@ -1,5 +1,7 @@
 ---
 description: "Factory Intelligent Orchestration Protocol (IOP) — intent classification, natural language to framework command mapping. Use when: Factory classifies user input and routes to agent commands."
+applicable_when:
+  always: true
 ---
 
 # INTELLIGENT ORCHESTRATION PROTOCOL (IOP v1.1.0)

@@ -1,5 +1,8 @@
 ---
 description: "Factory DEVOPS infrastructure configuration — IaC generation, environment mapping, governance snapshot recovery. Use when: DEVOPS --configure or --refine execution."
+applicable_when:
+  phase: [DEVOPS]
+  command: [devops]
 ---
 
 # DEVOPS Agent — Configure, Approve, Refine & Guardrails

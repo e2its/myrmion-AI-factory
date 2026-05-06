@@ -1,6 +1,9 @@
 ---
 applyTo: "backlog"
 description: "Factory BACKLOG execution plan — dependency analysis, epic formation, execution ordering, memory cache protocol. Use when: BACKLOG --plan-execution, --update-execution, --sync-execution execution."
+applicable_when:
+  phase: [BACKLOG]
+  command: [backlog]
 ---
 
 # Backlog Execution Plan Protocol (v1.2.0)

@@ -1,5 +1,8 @@
 ---
 description: "Factory AUDIT complexity analysis — COMP1 scoring, risk weighting, technical debt assessment. Use when: AUDIT complexity scoring."
+applicable_when:
+  phase: [AUDIT]
+  command: [audit]
 ---
 
 # AUDIT Agent — Phase E: Complexity Analysis (COMP1) & SETUP Integration

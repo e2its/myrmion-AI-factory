@@ -1,5 +1,8 @@
 ---
 description: "Factory SETUP materialization — governance scaffolding, rule generation, constitution creation, --generate --resume. Use when: SETUP --generate command execution."
+applicable_when:
+  phase: [SETUP]
+  command: [setup]
 ---
 
 # SETUP Agent — Materialization Phase (`/setup --generate`, `--generate --resume`)

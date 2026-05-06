@@ -1,5 +1,8 @@
 ---
 description: "Factory IMPLEMENT dev plan — task decomposition, phase ordering (A/B/C), dependency mapping, IPP skeleton-first. Use when: IMPLEMENT --plan execution."
+applicable_when:
+  phase: [IMPLEMENT]
+  command: [implement]
 ---
 
 # IMPLEMENT Agent — Plan Command Instructions

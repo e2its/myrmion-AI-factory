@@ -1,6 +1,9 @@
 ---
 applyTo: "backlog"
 description: "Factory BACKLOG operations — issue naming, body templates, board management, project configuration. Use when: BACKLOG --init-board, --plan-feature, --create-issue, --move, --status execution."
+applicable_when:
+  phase: [BACKLOG]
+  command: [backlog]
 ---
 
 # Backlog Manager — Operations Reference

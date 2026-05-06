@@ -1,6 +1,9 @@
 ---
 name: Factory-backlog-next-task
 description: "Factory Next Task Resolver — computes the next executable backlog step and returns exact agent + command + evidence. Use when: asking what should be executed next in project sequence."
+applicable_when:
+  phase: [BACKLOG]
+  command: [backlog]
 ---
 
 # NEXT TASK RESOLVER (v1.2.0)

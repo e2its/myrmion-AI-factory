@@ -1,6 +1,8 @@
 ---
 name: Factory-codebase-inventory
 description: "Factory Codebase Inventory Protocol (CIP) — DRY enforcement via codebase_inventory.json, CIP Canary gate, component reuse check. Use when: creating code artifacts, checking for existing components, or enforcing DRY across agents."
+applicable_when:
+  command: [implement, blueprint]
 ---
 
 # CODEBASE INVENTORY PROTOCOL (CIP v1.2.0) — CROSS-AGENT DRY ENFORCEMENT

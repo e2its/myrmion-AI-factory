@@ -1,6 +1,8 @@
 ---
 name: Factory-branching-strategy
 description: "Factory SCM Protocol — branching strategy enforcement, merge policy, concurrency locks. Use when: any agent modifies files, creates branches, or handles PRs."
+applicable_when:
+  always: true
 ---
 
 # SCM PROTOCOL — BRANCHING, MERGE & CONCURRENCY (v1.2.0)

@@ -1,6 +1,8 @@
 ---
 name: Factory-incremental-persistence
 description: "Factory Incremental Persistence Protocol (IPP) — skeleton-first write, section-atomic saves, resume-on-entry, Context Canary gate. Use when: any agent writes artifacts incrementally to survive context summarization."
+applicable_when:
+  always: true
 ---
 
 # INCREMENTAL PERSISTENCE PROTOCOL (IPP v1.0.1)

@@ -1,5 +1,8 @@
 ---
 description: "Factory AUDIT checklist — phases A-D, risk assessment, due diligence master checklist, governance scan. Use when: AUDIT --audit or AUDIT --software command execution."
+applicable_when:
+  phase: [AUDIT]
+  command: [audit]
 ---
 
 # AUDIT Agent — Execution & Master Checklist (Phases A-D)

@@ -1,6 +1,8 @@
 ---
 name: Factory-rdr
 description: "Factory Recommendation → Decision → Ratification Protocol (RDR) — canonical algorithm for agent-posed decisions requiring user ratification. Enforces minimum 3 options, justified recommendation, verbatim user choice, and immediate persistence via IPP. Use when: any agent asks the user to choose between alternatives (SETUP discovery, CODESIGN feature/vision, BLUEPRINT design, AUDIT low-confidence calls, DEVOPS configure, SETUP --generate ambiguous conventions)."
+applicable_when:
+  always: true
 ---
 
 # RECOMMENDATION → DECISION → RATIFICATION PROTOCOL (RDR v1.0.0)

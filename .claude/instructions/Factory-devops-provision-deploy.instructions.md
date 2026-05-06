@@ -1,5 +1,8 @@
 ---
 description: "Factory DEVOPS provision and deploy — environment provisioning, deployment, rollback, teardown, pre-deploy status gate. Use when: DEVOPS --provision, --deploy, --rollback, --teardown execution."
+applicable_when:
+  phase: [DEVOPS]
+  command: [devops]
 ---
 
 # DEVOPS Agent — Provision, Deploy, Operations & Infrastructure

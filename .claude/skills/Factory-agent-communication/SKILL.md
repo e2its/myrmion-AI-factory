@@ -1,6 +1,8 @@
 ---
 name: Factory-agent-communication
 description: "Factory Agent Communication Protocol (ACP) — entry announcement, phase milestones, completion summary, Factory return briefing. Use when: controlling sub-agent output verbosity and structuring inter-agent communication."
+applicable_when:
+  always: true
 ---
 
 # AGENT COMMUNICATION PROTOCOL (ACP v1.0.0)

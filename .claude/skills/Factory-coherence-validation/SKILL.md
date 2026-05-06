@@ -1,6 +1,8 @@
 ---
 name: Factory-coherence-validation
 description: "Factory Coherence Validation Protocol (CVP) — cross-artifact traceability and completeness verification. Ensures upstream deliverables are coherent, complete, and mutually consistent before downstream agents consume them. Use when: BLUEPRINT --approve, IMPLEMENT --plan, or QA --verify need to validate upstream artifact alignment."
+applicable_when:
+  phase: [BLUEPRINT, IMPLEMENT, QA]
 ---
 
 # COHERENCE VALIDATION PROTOCOL (CVP v1.0.0) — CROSS-ARTIFACT TRACEABILITY

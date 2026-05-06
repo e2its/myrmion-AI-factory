@@ -1,5 +1,8 @@
 ---
 description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q28 questions. Use when: SETUP --init command execution."
+applicable_when:
+  phase: [SETUP]
+  command: [setup]
 ---
 
 # SETUP Agent — Discovery Phase (`/setup --init`)

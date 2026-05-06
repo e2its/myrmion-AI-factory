@@ -1,5 +1,8 @@
 ---
 description: "Factory CODESIGN UX vision — application shell, style guide, design system, component library, navigation map. Use when: CODESIGN --vision command execution."
+applicable_when:
+  phase: [CODESIGN]
+  command: [codesign]
 ---
 
 # CODESIGN Agent — Level 1: Global Vision Protocol
