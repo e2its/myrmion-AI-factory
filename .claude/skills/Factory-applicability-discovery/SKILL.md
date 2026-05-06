@@ -1,0 +1,166 @@
+---
+name: Factory-applicability-discovery
+description: "Factory Applicability Discovery Protocol (ADP) — live scan of governance trees (snapshot, instructions, structural skills, DCs) filtered by applicable_when frontmatter, emits canonical Roll-Call block on-screen as first user-facing message of every command. Use when: any command/skill enters Step 0 — produces the salience-anchor commitment before acting."
+applicable_when:
+  always: true
+---
+
+# APPLICABILITY DISCOVERY PROTOCOL (v1.0.0)
+
+> **Shared Protocol** — Step 0 of every `.claude/commands/*.md`. Live discovery (no precomputed lists). Frontmatter-driven. Output is **on-screen, user-facing**, not internal reasoning.
+
+**Purpose.** Force the agent to enumerate, in writing and visible to the user, which governance entries (LAWs, DCs, instructions, skills) apply to the current task — before any action is taken. This commits the agent's attention and gives the user a veto window. The framework remains **alive**: a new DC added today appears in tomorrow's roll-call automatically; no manual table to maintain.
+
+---
+
+## When to invoke
+
+- **Always at Step 0** of every command in `.claude/commands/*.md`. Section name in command file: `## Step 0 — Applicability Roll-Call`.
+- **Re-invoke** when context changes mid-command (scope flip, phase transition, new sub-feature). Discovery hash drift is the trigger.
+- **NOT invoked on free-form chat turns** — only when a slash command or structural skill executes.
+
+---
+
+## Inputs (filter context)
+
+Derived from the runtime, not from a static config:
+
+| Variable | Source |
+|---|---|
+| `command` | The slash command being executed (`/implement --build` → `command: implement`) |
+| `phase` | Mapped from command (setup → SETUP, codesign → CODESIGN, blueprint → BLUEPRINT, implement → IMPLEMENT, qa → QA, devops → DEVOPS, backlog → BACKLOG, audit → AUDIT) |
+| `scope` | Read from feature progress (`_progress.scope` in feature spec frontmatter) or from project setup (`.context/setup.md` Stack section). Values: `frontend-only`, `backend-only`, `full-stack`, `infra` |
+| `change_type` | Derived from current branch name. `fix/*` `bugfix/*` `hotfix/*` → `fix`; `feature/EVOL-*` `feature/*` → `feature`; `docs/*` → `docs`; `chore/*` → `chore`; `refactor/*` → `refactor` |
+| `framework` | Read from `.context/setup.md` Stack section (e.g. `backend.framework: fastapi`, `frontend.framework: react`). List of all frameworks active in the project |
+| `path_glob_universe` | Inferred from project tree (which file extensions exist). Used to decide whether path-globbed entries plausibly apply |
+
+---
+
+## Discovery algorithm (sequential, deterministic)
+
+```
+INPUT: command, phase, scope, change_type, framework[]
+OUTPUT: canonical roll-call block (text, on-screen)
+
+# Step 1 — Active LAWs from snapshot
+laws = []
+read .context/governance_snapshot.md
+for each "## [LAW] <title>" section:
+  laws.append({source: "constitution|setup", title, axis: "always"})
+
+# Step 2 — Active universal DCs from snapshot
+dcs_universal = []
+for each entry in snapshot's "## Defect Prevention Catalog":
+  dcs_universal.append({id, title, axis: "always"})
+
+# Step 3 — Conditional DCs from defect-prevention.md
+dcs_conditional = []
+read .claude/rules/defect-prevention.md (if exists; in framework meta it lives in template)
+for each entry with applicable_when != always:
+  if MATCHES(entry.applicable_when, {phase, scope, change_type, framework, path_glob_universe}):
+    dcs_conditional.append({id, title, matched_axis: <the axis that matched>})
+  else:
+    record EXCLUDED with reason
+
+# Step 4 — Instructions
+instructions_active = []
+for each .claude/instructions/*.instructions.md:
+  read frontmatter only (YAML between --- markers)
+  if no applicable_when: treat as always (back-compat) → ACTIVE
+  if applicable_when matches context: ACTIVE
+  else: EXCLUDED with reason
+
+# Step 5 — Structural skills
+skills_active = []
+for each .claude/skills/Factory-*/SKILL.md:
+  read frontmatter
+  if no applicable_when or always:true: ACTIVE
+  else if matches: ACTIVE
+  else: EXCLUDED
+
+# Step 6 — Compute discovery hash
+hash_input = SORTED concat of every frontmatter scanned (filename + applicable_when block)
+discovery_hash = first 8 chars of sha256(hash_input)
+
+# Step 7 — Emit roll-call block to user (ON-SCREEN, FIRST MESSAGE)
+print canonical block (see Output below)
+```
+
+### Match semantics
+
+For each entry's `applicable_when`:
+
+- `always: true` → always matches.
+- Multiple axes in same entry → AND (all must match).
+- Multiple values within one axis → OR (any value matches).
+- `phase: [IMPLEMENT, QA]` matches if current phase is IMPLEMENT or QA.
+- `scope: [backend-only, full-stack]` matches if current scope is backend-only or full-stack.
+- `command: [implement, /implement --build]` matches by command name OR full subcommand string.
+- `path_glob: ["**/*.py"]` matches if any file in project tree matches the glob (in command-start discovery; future PreToolUse hook may use the same glob to filter at edit-time).
+- `framework: [django, fastapi]` matches if any project framework is in the list.
+- Missing `applicable_when:` block → treated as `always: true` (back-compat during EVOL-028 migration).
+
+---
+
+## Output — canonical Roll-Call block
+
+**MUST be the first user-facing output of every command.** Format is fixed, NOT subject to caveman tone rules. Target: ≤25 lines.
+
+```
+📋 Applicability Roll-Call — {command} · {feature_id} · phase={phase} scope={scope} change_type={change_type}
+
+  ACTIVE LAWS (n)
+    • {source} — {title} ({axis}={value})
+  ACTIVE DCs (n)
+    • {id} {title} ({axis}={value})
+  ACTIVE INSTRUCTIONS (n)
+    • {name}, {name}, {name}
+  ACTIVE SKILLS (n)
+    • {name}, {name}
+  EXCLUDED (n)
+    • {name} — {axis}={value} ≠ {current_value}
+  Discovery hash: {hash8} · {total} frontmatters scanned · {active_count} active · {excluded_count} excluded
+```
+
+### Rules for the block
+
+1. **Always emitted, even in plan/read-only mode.** Discovery is always safe.
+2. **Never abbreviated, never collapsed into prose.** Format is fixed for parseability.
+3. **EXCLUDED section caps at 6 entries.** If more excluded, show first 6 + `… and N more (see hash)`.
+4. **discovery_hash is mandatory.** Used by tests and by mid-session re-discovery to detect drift.
+5. **Empty sections render with `(0)` and no bullet** — never omit a section.
+
+---
+
+## Failure modes
+
+| Condition | Behavior |
+|---|---|
+| Snapshot missing or stale | Roll-call section LAWS prints `(0) ⚠️ snapshot-missing` and the agent halts before Step 1 of the actual command. User must regenerate snapshot. |
+| Frontmatter parse error in any scanned file | The file is reported as EXCLUDED with reason `frontmatter-parse-error: <file>`. Agent continues but flags the broken file in a follow-up note. |
+| `applicable_when:` syntax invalid (unknown axis) | Same as parse error — entry EXCLUDED with reason `applicable-when-invalid: <axis>`. CI gate `scripts/check-applicability-frontmatter.sh` should have caught it pre-merge; runtime treats as soft-fail. |
+| Discovery hash drift mid-command (frontmatter edited mid-session) | Re-emit roll-call before next destructive action (Edit/Write). |
+
+---
+
+## Integration points
+
+- **Step 0 of every `.claude/commands/*.md`** — wires this skill via the section "## Step 0 — Applicability Roll-Call".
+- **Factory-governance-loading SKILL** — runs BEFORE this skill (snapshot must be loaded first; this skill consumes it).
+- **Factory-rdr SKILL** — independent. RDR can be triggered from inside any command; the roll-call block is emitted once at command start, not per RDR.
+
+---
+
+## Validation contract (for `scripts/check-applicability-frontmatter.sh`)
+
+The validator MUST verify, for every file under `.claude/instructions/**`, `.claude/skills/Factory-*/SKILL.md`, and `.claude/rules/defect-prevention.md` entries:
+
+1. Frontmatter `applicable_when:` block parses as valid YAML.
+2. All keys belong to the closed vocabulary: `phase, scope, change_type, command, path_glob, framework, always`.
+3. `always: true` is mutually exclusive with any other axis in the same entry.
+4. Values for `phase` are subset of `[CODESIGN, BLUEPRINT, IMPLEMENT, QA, DEVOPS, SETUP, BACKLOG, AUDIT]`.
+5. Values for `scope` are subset of `[frontend-only, backend-only, full-stack, infra]`.
+6. Values for `change_type` are subset of `[feature, fix, docs, chore, refactor]`.
+7. `path_glob` values are valid glob syntax.
+
+A missing `applicable_when:` block is **valid** (interpreted as `always: true`) — back-compat during migration. After full backfill (Fase 2 complete), a separate gate may require explicit declaration.

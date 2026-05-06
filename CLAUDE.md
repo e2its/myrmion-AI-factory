@@ -110,6 +110,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 
 | Protocol | Reference | Purpose |
 |----------|-----------|---------|
+| Applicability Discovery (ADP) | `.claude/skills/Factory-applicability-discovery/SKILL.md` | **[LAW]** Step 0 of every command. Live scan of governance trees filtered by `applicable_when:` frontmatter, emits canonical Roll-Call block on-screen as first user-facing message. Salience anchor — agents commit in writing to which LAWs/DCs/instructions/skills apply before acting. |
 | Incremental Persistence (IPP) | `.claude/skills/Factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
 | RDR (Recommendation → Decision) | `.claude/skills/Factory-rdr/SKILL.md` | Agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice. In this repo the third-R (Ratification → IPP artefact) does NOT apply — no `_progress` frontmatter or feature-scoped ADR exists; persist the choice in the commit message or a framework-level decision record under `docs/project_log/evolutions/` (the repo's actual ADR-style tree). |
 | Branching & SCM | `.claude/skills/Factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
@@ -118,6 +119,22 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Agent Communication (ACP) | `.claude/skills/Factory-agent-communication/SKILL.md` | Inter-agent output structuring |
 
 Framework work rarely invokes BVL, CIP, CVP, Iteration Model, Preventive Sweep, Memory Cache, Next-Task Resolver, Worklog — those ship to downstream projects and are consumed there. When adding NEW features to those skills, read the SKILL.md first; when merely touching their content, you are editing framework artefacts, not consuming the protocol.
+
+### Applicability Discovery — `applicable_when:` vocabulary [LAW]
+
+Every entry in `.claude/instructions/`, `.claude/skills/Factory-*/`, and `.claude/rules/defect-prevention.md` MAY declare a frontmatter `applicable_when:` block using a **closed vocabulary**. Missing block ⇒ `always: true` (back-compat). The closed axes are:
+
+| Axis | Values | Use |
+|------|--------|-----|
+| `phase` | `[CODESIGN, BLUEPRINT, IMPLEMENT, QA, DEVOPS, SETUP, BACKLOG, AUDIT]` | SDLC phase |
+| `scope` | `[frontend-only, backend-only, full-stack, infra]` | Feature scope |
+| `change_type` | `[feature, fix, docs, chore, refactor]` | Branch-derived |
+| `command` | free list (`[implement, /implement --build]`) | Specific command/sub-command |
+| `path_glob` | list of globs (`["**/*.py"]`) | Technical rules tied to file patterns |
+| `framework` | free list (`[django, react, fastapi]`) | Stack-conditional rules |
+| `always` | `true` | Always applies (mutually exclusive with all other axes) |
+
+Semantics: AND across axes, OR within values of one axis. The Factory-applicability-discovery skill consumes these frontmatters at command Step 0 and emits the Roll-Call block on-screen, user-facing, as the first message of every command. Validator: `scripts/check-applicability-frontmatter.sh` (CI hard gate).
 
 ## What Lives Where
 

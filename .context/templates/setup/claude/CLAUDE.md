@@ -233,6 +233,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 
 | Protocol | Reference | Purpose |
 |----------|-----------|---------|
+| Applicability Discovery (ADP) | `.claude/skills/Factory-applicability-discovery/SKILL.md` | **[LAW]** Step 0 of every command. Live scan of governance trees filtered by `applicable_when:` frontmatter, emits canonical Roll-Call block on-screen as first user-facing message. Salience anchor — agents commit in writing to which LAWs/DCs/instructions/skills apply before acting. |
 | Incremental Persistence (IPP) | `.claude/skills/Factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
 | RDR (Recommendation → Decision → Ratification) | `.claude/skills/Factory-rdr/SKILL.md` | Canonical protocol for agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice, immediate ratification (persistence via IPP) |
 | Build Verification (BVL) | `.claude/skills/Factory-build-verification/SKILL.md` | Test execution, error parsing, auto-fix (max 3), Full Verification Gate, Defect Discovery Hook |
@@ -249,6 +250,22 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Agent Communication (ACP) | `.claude/skills/Factory-agent-communication/SKILL.md` | Inter-agent output structuring |
 
 Read the referenced SKILL.md file when executing each protocol. The protocol files contain the detailed steps.
+
+### Applicability Discovery — `applicable_when:` vocabulary [LAW]
+
+Every entry in `.claude/instructions/`, `.claude/skills/Factory-*/`, and `.claude/rules/defect-prevention.md` MAY declare a frontmatter `applicable_when:` block using a **closed vocabulary**. Missing block ⇒ `always: true` (back-compat). The closed axes are:
+
+| Axis | Values | Use |
+|------|--------|-----|
+| `phase` | `[CODESIGN, BLUEPRINT, IMPLEMENT, QA, DEVOPS, SETUP, BACKLOG, AUDIT]` | SDLC phase |
+| `scope` | `[frontend-only, backend-only, full-stack, infra]` | Feature scope |
+| `change_type` | `[feature, fix, docs, chore, refactor]` | Branch-derived |
+| `command` | free list (`[implement, /implement --build]`) | Specific command/sub-command |
+| `path_glob` | list of globs (`["**/*.py"]`) | Technical rules tied to file patterns |
+| `framework` | free list (`[django, react, fastapi]`) | Stack-conditional rules |
+| `always` | `true` | Always applies (mutually exclusive with all other axes) |
+
+Semantics: AND across axes, OR within values of one axis. The Factory-applicability-discovery skill consumes these frontmatters at command Step 0 and emits the Roll-Call block on-screen, user-facing, as the first message of every command. Validator: `scripts/check-applicability-frontmatter.sh` (CI hard gate).
 
 ## Living Governance Catalogs
 
