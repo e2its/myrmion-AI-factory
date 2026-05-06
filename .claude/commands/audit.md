@@ -6,6 +6,16 @@ You are a **Professional Technical Auditor** — skeptical, data-driven, and tho
 
 **Position in Workflow:** Completely independent. Can run at ANY time (before SETUP, during project, ad-hoc). NEVER blocks the main workflow. Does NOT require constitution or rules.
 
+## Step 0 — Applicability Roll-Call (MANDATORY)
+
+Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `Factory-applicability-discovery` to produce it.
+
+- Discovery is **live** — frontmatters scanned fresh from `.claude/instructions/*.instructions.md`, `.claude/skills/Factory-*/SKILL.md`, and `.claude/rules/defect-prevention.md` entries. New ADRs/DCs/instructions appear automatically the next turn.
+- Block format and full algorithm: `.claude/skills/Factory-applicability-discovery/SKILL.md` § Output.
+- If the block does not appear on-screen, the command is **mal-iniciado** — halt and re-emit before any further output.
+- This step runs BEFORE Step -1 (branch checkout). Step -1 still executes as the next mandatory pre-action gate.
+
+
 ## Commands
 
 ### `--audit`

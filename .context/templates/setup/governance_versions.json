@@ -1194,17 +1194,19 @@
       ]
     },
     "commands/audit.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": ".claude/commands/audit.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.1.0: feat(EVOL-015): --software command added — narrow software-only audit variant (P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1; excludes G1-G3, I1-I4, SEC2, SEC5). Produces docs/software_audit.md, coexists with docs/technical_due.md. Disambiguation via --scope {audit|software} when both artifacts are open. Use cases: M&A of a single codebase, OSS evaluation, contributor-level read.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Per CLAUDE.md § Generation Standards rule 2, every framework-core touch requires a version bump; commands were excluded from the manifest by oversight. Content unchanged at this commit — this entry registers the file and seeds its changelog."
       ]
     },
     "commands/backlog.md": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "path": ".claude/commands/backlog.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.1.0: feat(EVOL-015): --eligible pull-mode command added to the command table; Protocol 11 references Factory-backlog-next-task § 5 for pool computation (dual-mode, READ-ONLY, no persisted state)",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015",
@@ -1212,51 +1214,57 @@
       ]
     },
     "commands/blueprint.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": ".claude/commands/blueprint.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.2.0: feat — feature-scoped Decision Records (FDR) become the canonical primitive for `docs/spec/{ID}/fdr/`; project-wide ADRs amend `docs/constitution.md` and live at `docs/project_log/adr/`. Legacy `docs/spec/{ID}/adr/` continues to be read until projects migrate.",
         "1.1.0: feat(EVOL-022): § Output documents increment_plan.md (vertical-slicing plan, sidecar of design.md); Incremental Persistence principle extended with increment_plan.md section-atomic contract.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "commands/codesign.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.2.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.1.0: feat(EVOL-022): § Scope & Slicing added — documents feature.scope enum with Scope Compatibility Gate source-of-truth, slicing_strategy default + Trivial-Heuristic escape, consumes_contract cross-feature primitive. Closes the documentation gap from EVOL-019 + EVOL-021 that left these features undocumented in the command file.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "commands/devops.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": ".claude/commands/devops.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit.",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "commands/implement.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": ".claude/commands/implement.md",
       "changelog": [
+        "1.3.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.1.0: feat(EVOL-022): § Incremental Dev Plan Integration added — strategy-aware entry (reads spec.feature.slicing_strategy), [INC-N.A/B/C.M] + [INC-N.ACC.k] task tag conventions, per-increment branching (feature/{FEATURE_ID}-inc-N-{slug}), Increment Plan Gate prerequisite at --plan, refine semantics per-increment. Closes documentation gap from EVOL-021 phase 2 that left IMPLEMENT increment-awareness undocumented in the command file.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "commands/qa.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": ".claude/commands/qa.md",
       "changelog": [
+        "1.1.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "commands/setup.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": ".claude/commands/setup.md",
       "changelog": [
+        "1.1.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
