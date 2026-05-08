@@ -220,6 +220,9 @@ FUNCTION compute_feature_state(FEATURE_ID):
     (dev_plan.pending_iteration IS NOT NULL OR spec_feature.iteration > dev_plan.based_on_iteration))
   devops_plan_stale: (devops_plan.exists AND 
     (devops_plan.pending_iteration IS NOT NULL OR spec_feature.iteration > devops_plan.based_on_iteration))
+  # Aggregate-only invalidation flag — slice-level INVALIDATED status is reflected in
+  # state.qa_slice_reports.pending_slices (the slice qa_report status != APPROVED counts as pending).
+  # Cascade actions in PHASE 0 only act on the aggregate report; per-slice cascade is handled in § 5d.
   qa_invalidated: (qa_report.exists AND qa_report.status == "INVALIDATED")
 
   RETURN {vision, external_ds, code_layout, frontend_enabled,

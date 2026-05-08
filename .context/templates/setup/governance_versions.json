@@ -1110,10 +1110,11 @@
       ]
     },
     "peer_review/review_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/peer_review/review_template.md",
       "changelog": [
+        "1.1.0: feat(EVOL-029) post-review fix — frontmatter gains report_scope (feature | increment-{INC-N}) + increment_id (null | INC-N) to support per-slice peer reviews emitted by IMPLEMENT under slicing_strategy: incremental. Naming chosen to NOT collide with existing `scope` field (feature_scope inherited from spec.feature).",
         "1.0.0: feat(EVOL-027) initial manifest registration — peer review scaffold for IMPLEMENT REVIEW hat output."
       ]
     },
@@ -1134,10 +1135,11 @@
       ]
     },
     "qa/qa_report_template.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": ".context/templates/qa/qa_report_template.md",
       "changelog": [
+        "1.1.1: fix(EVOL-029) post-review fix — pre-merge rename of new EVOL-029 frontmatter field `scope` → `report_scope` to disambiguate from feature_scope semantics already used elsewhere (peer_review template uses `scope: full-stack` for feature_scope inherited from spec.feature). Avoids collision when downstream readers consume both reports.",
         "1.1.0: feat(EVOL-029) frontmatter gains scope (feature | increment-{INC-N}), increment_id (null | INC-N), aggregates ([] of slice report paths). Path is mode-aware: qa_report_{INC-N}_{ts}.md (slice) or qa_report_final_{ts}.md (aggregate / sole report for monolithic). report_kind enum extended with qa_report_increment.",
         "1.0.0: feat(EVOL-027) initial manifest registration — QA --verify report scaffold."
       ]
@@ -1279,9 +1281,10 @@
       ]
     },
     "commands/implement.md": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "path": ".claude/commands/implement.md",
       "changelog": [
+        "1.4.0: feat(EVOL-029) post-review fix — new sub-command --finalize {ID} for plan-level aggregate retry under slicing_strategy: incremental. Triggered when every increments[].status == IMPLEMENTED_AND_VERIFIED but global dev_plan.status remains BUILDING because the last-slice closure's plan-level BVL aggregate failed. Re-runs full_verification_gate(FEATURE_ID, null), flips global on PASSED. Idempotent (no-op when already finalized) and slicing-strategy-guarded (errors under monolithic).",
         "1.3.1: docs(EVOL-029) Completion Gate clarified as two-level under slicing_strategy: incremental — per-increment (tasks [x] + peer_review_INC-N APPROVED + BVL scope=increment) and plan-level (derived from increments[].status + plan-level BVL aggregate). Monolithic gate unchanged.",
         "1.3.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes Factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
@@ -1479,9 +1482,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.9.0: feat(EVOL-029) post-review fix — new § Finalize section documenting finalize_plan_aggregate(FEATURE_ID) for the --finalize sub-command. Strategy guard (incremental-only), per-increment closure invariant, idempotency check, plan-level BVL aggregate retry, global status flip + worklog + Smart Redirect. Bvl_aggregate failure messages updated to point at IMPLEMENT --finalize {FEATURE_ID} instead of --fix.",
         "2.8.0: feat(EVOL-029) Completion Verification Gate threads increment_id to BVL — bvl_increment_id derived from build_scope.mode (incremental → target_increment.id, monolithic → null). Plan-level aggregate full_verification_gate(FEATURE_ID, null) MANDATORY before flipping global IMPLEMENTED_AND_VERIFIED on the last slice closure (catches cross-slice regressions). IMPLEMENT → QA hand-off naming clarified: peer_review_{ts}.md (monolithic/aggregate) OR peer_review_{INC-N}_{ts}.md (per-slice closure under incremental).",
         "2.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
         "2.6.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -1548,9 +1552,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.7.1: fix(EVOL-029) post-review fix — § 3.1 Generate Review Report frontmatter wording aligned to peer_review template: new field is `report_scope` (not `scope`, which already exists with feature_scope semantics inherited from spec.feature). Templates Reference clarification.",
         "2.7.0: feat(EVOL-029) § 3.1 Generate Review Report — review file path is now build_scope-aware. Monolithic / plan-level aggregate keeps peer_review_{timestamp}.md; per-increment closure under slicing_strategy: incremental writes peer_review_{INC-N}_{timestamp}.md (matches build_scope.target_increment.id). Frontmatter adds scope + increment_id fields. QA --verify reads the slice-specific file in slice mode and the latest peer_review_*.md in aggregate mode. Templates Reference table line updated.",
         "2.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
         "2.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -1571,9 +1576,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.0.0",
+      "version": "3.0.1",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "3.0.1: fix(EVOL-029) post-review three fixes — (1) Gate 4 SMOKE-E2E now wrapped in `mode == aggregate` guard (slice closures NEVER run smoke; smoke validates the full-feature staging deploy that only exists once every slice has merged). (2) Frontmatter field rename scope → report_scope to disambiguate from feature_scope inherited from spec.feature (qa_report frontmatter + qa_skeleton_first + UPDATE_FRONTMATTER calls). (3) Aggregate-mode redirect now distinguishes missing per-slice reports from INVALIDATED ones (cascade) with separate humanised messages.",
         "3.0.0: feat(EVOL-029) Prerequisites Gate refactored to slice/aggregate dual-mode. /qa --verify {ID} [{INC-N}] accepts optional second positional argument. Slice mode reads dev_plan.frontmatter.increments[INC-N].status (must be IMPLEMENTED_AND_VERIFIED), reads peer_review_{INC-N}_*.md (must be APPROVED), checks qa_report_{INC-N}_*.md not already APPROVED, generates qa_report_{INC-N}_{ts}.md with checklist filtered by increment_plan § 1 Scenarios covered + Contract surface, scope + increment_id frontmatter populated. Aggregate mode for incremental features requires every increments[].status = IMPLEMENTED_AND_VERIFIED AND every qa_report_{INC-N}_*.md APPROVED, generates qa_report_final_{ts}.md with aggregates: [...] frontmatter + 3 new [QA-AGG-*] transversal checks (cross-slice regression, per-slice aggregation, CVP feature_completion). Aggregate mode for monolithic features unchanged from pre-EVOL-029. IPP qa_skeleton_first / qa_resume_check accept optional INCREMENT_ID. BREAKING for callers that hard-coded the old qa_report_final_*.md path under incremental — those must now branch on slicing_strategy.",
         "2.9.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
         "2.8.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -1735,9 +1741,10 @@
       ]
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
-      "version": "2.6.0",
+      "version": "2.6.1",
       "path": ".claude/instructions/Factory-protocol-smart-redirect.instructions.md",
       "changelog": [
+        "2.6.1: fix(EVOL-029) post-review fix — qa_invalidated semantics clarified (aggregate-only); slice-level invalidation lives in qa_slice_reports.pending_slices. Inline comment on qa_invalidated documents the split.",
         "2.6.0: feat(EVOL-029) state model gains qa_slice_reports (by_increment map + pending_slices list); decision tree § 5d branches on slicing_strategy — incremental projects with pending_slices surface per-slice /qa --verify {ID} {INC-N} actions before the aggregate. Monolithic + legacy incremental-without-pending paths unchanged.",
         "2.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
         "2.4.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -2348,9 +2355,10 @@
       ]
     },
     "scripts/check-adr-constitution-sync.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "scripts/check-adr-constitution-sync.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-029) accepted-ADR detection extended to docs/project_log/evolutions/ADR-EVOL-*.md (meta-framework + downstream framework-evolution records) in addition to docs/project_log/adr/ADR-*.md (downstream materialised projects). Governance source check broadened to accept docs/constitution.md (downstream), CLAUDE.md (meta universal law), or .context/templates/setup/constitution/constitution_template.md (meta amendment shipping universal law). Header doc + failure message updated.",
         "1.0.0: feat(EVOL-026) initial — CI gate that detects ADR transitions from proposed to accepted in PR diffs and FAILs when docs/constitution.md is not modified in the same diff. Bypass via [adr-backfill] commit message marker for one-shot historical migration. FDRs are not subject to this gate."
       ]
     },

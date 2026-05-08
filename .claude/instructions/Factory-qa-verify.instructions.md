@@ -198,13 +198,25 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
         REDIRECT: "Run IMPLEMENT --build per pending slice, then /qa --verify {FEATURE_ID} {INC-N} for each, before this aggregate."
         STOP
       missing_slice_reports = []
+      invalidated_slice_reports = []
       FOR EACH inc IN increments:
         latest_inc_report = LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_{inc.id}_*.md")
-        IF latest_inc_report IS NULL OR READ_FRONTMATTER(latest_inc_report, "status") != "APPROVED":
+        IF latest_inc_report IS NULL:
           missing_slice_reports.push(inc.id)
-      IF missing_slice_reports.length > 0:
-        ❌ BLOCK: "Aggregate --verify requires per-slice QA reports APPROVED. Missing/not-approved: {missing_slice_reports}."
-        REDIRECT: "Run /qa --verify {FEATURE_ID} {INC-N} for each pending slice."
+        ELSE:
+          slice_status = READ_FRONTMATTER(latest_inc_report, "status")
+          IF slice_status == "INVALIDATED":
+            invalidated_slice_reports.push(inc.id)
+          ELIF slice_status != "APPROVED":
+            missing_slice_reports.push(inc.id)
+      IF missing_slice_reports.length > 0 OR invalidated_slice_reports.length > 0:
+        block_lines = []
+        IF missing_slice_reports.length > 0:
+          block_lines.push("Slices without an APPROVED report: {missing_slice_reports} — run /qa --verify {FEATURE_ID} {INC-N} for each.")
+        IF invalidated_slice_reports.length > 0:
+          block_lines.push("Slices with INVALIDATED report (cascade): {invalidated_slice_reports} — re-run /qa --verify {FEATURE_ID} {INC-N} for each (the previous report was superseded by an upstream change).")
+        ❌ BLOCK: "Aggregate --verify requires every per-slice QA report APPROVED."
+        REDIRECT: JOIN(block_lines, "\n")
         STOP
 
   # Gate 2: peer_review status (mode-aware)
@@ -237,9 +249,13 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       ❌ BLOCK: "QA report already APPROVED for {mode} ({latest_report}). No re-verification needed."
       STOP
 
-  # Gate 4: SMOKE-E2E gate (full-sdlc preset only; scope-aware)
+  # Gate 4: SMOKE-E2E gate (aggregate mode only — slice closures NEVER run smoke)
+  # Smoke validates the full-feature dev deployment, which only exists once every slice has closed.
+  # Running smoke in slice mode would deadlock — SMOKE-E2E issue cannot be Done before the feature
+  # is wholly merged. Slice mode therefore skips Gate 4 outright; aggregate mode keeps the original
+  # full-sdlc preset behaviour.
   feature_phases = READ "docs/setup.md" → project_tracking.feature_phases
-  IF feature_phases == "full-sdlc":
+  IF mode == "aggregate" AND feature_phases == "full-sdlc":
     ADAPTER = READ "docs/backlog/tool-adapter.md"
 
     # scope-aware phase-label resolution.
@@ -448,7 +464,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   WRITE checklist to qa_report_path under "## Verification Checklist"
   IF mode == "aggregate" AND slicing_strategy == "incremental":
     UPDATE_FRONTMATTER(qa_report_path, "aggregates", LIST(LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_{inc.id}_*.md") FOR inc IN increments))
-  UPDATE_FRONTMATTER(qa_report_path, "scope", mode == "slice" ? "increment-{INCREMENT_ID}" : "feature")
+  UPDATE_FRONTMATTER(qa_report_path, "report_scope", mode == "slice" ? "increment-{INCREMENT_ID}" : "feature")
   UPDATE_FRONTMATTER(qa_report_path, "increment_id", mode == "slice" ? INCREMENT_ID : null)
   LOG: "Generated {checklist.count} verification checkboxes in {qa_report_path}"
   RETURN { checklist, qa_report_path }
@@ -624,9 +640,9 @@ feature_id: "{{FEATURE_ID}}"
 spec_iteration: N
 test_plan_version: N
 verdict: APPROVED | REJECTED
-scope: feature | increment-{{INC-N}}      # slice or aggregate
-increment_id: null | "{{INC-N}}"          # populated when scope == increment-*
-aggregates: []                             # list of qa_report_{{INC-N}}_*.md paths consumed (aggregate mode only)
+report_scope: feature | increment-{{INC-N}}  # report-level scope (slice or aggregate); distinct from feature_scope inherited from spec.feature
+increment_id: null | "{{INC-N}}"             # populated when report_scope == increment-*
+aggregates: []                                # list of qa_report_{{INC-N}}_*.md paths consumed (aggregate mode only)
 total_checks: N
 checks_passed: N
 checks_failed: N
@@ -831,7 +847,7 @@ FUNCTION qa_skeleton_first(FEATURE_ID, INCREMENT_ID=null):
       frontmatter:
         status: DRAFT
         feature_id: "{FEATURE_ID}"
-        scope: mode == "slice" ? "increment-{INCREMENT_ID}" : "feature"
+        report_scope: mode == "slice" ? "increment-{INCREMENT_ID}" : "feature"
         increment_id: INCREMENT_ID
         aggregates: []
         created_at: "{ISO_8601}"

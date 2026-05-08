@@ -14,9 +14,9 @@ verdict: PENDING   # PENDING | APPROVED | REJECTED
 date: [DATE]
 auditor: "QA Agent"
 report_kind: "qa_report_final" | "qa_report_increment"
-scope: feature | increment-{{INC-N}}      # slice or aggregate
-increment_id: null | "{{INC-N}}"          # populated when scope == increment-*
-aggregates: []                             # list of qa_report_{{INC-N}}_*.md paths consumed (aggregate mode + slicing_strategy=incremental only)
+report_scope: feature | increment-{{INC-N}}  # slice or aggregate (report-level scope; distinct from feature_scope inherited from spec.feature)
+increment_id: null | "{{INC-N}}"             # populated when report_scope == increment-*
+aggregates: []                                # list of qa_report_{{INC-N}}_*.md paths consumed (aggregate mode + slicing_strategy=incremental only)
 
 # Iteration model tracking
 based_on_iteration: 1

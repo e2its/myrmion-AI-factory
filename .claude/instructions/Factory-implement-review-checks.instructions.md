@@ -1292,7 +1292,7 @@ CREATE review_path:
   - Resolved blockers
   - Remaining warnings (with justifications)
   - Code quality metrics
-  - Frontmatter: scope = "feature" | "increment-{INC-N}", increment_id (when applicable)
+  - Frontmatter: report_scope = "feature" | "increment-{INC-N}", increment_id (when applicable). Note: `scope` (feature_scope) is the existing field inherited from spec.feature; `report_scope` is the new report-level scope.
 ```
 
 ### 3.2: Generate Security Audit

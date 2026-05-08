@@ -748,9 +748,9 @@ FUNCTION verify_completion_gate(FEATURE_ID):
       # INC-2 broke after a late refactor). This guards the global IMPLEMENTED_AND_VERIFIED transition.
       bvl_aggregate = EXECUTE full_verification_gate(FEATURE_ID, null)
       IF bvl_aggregate == BLOCKED:
-        ❌ BLOCK: "Plan-level BVL aggregate failed. Fix cross-slice regressions before IMPLEMENTED_AND_VERIFIED."
+        ❌ BLOCK: "Plan-level BVL aggregate failed. Fix cross-slice regressions, then run IMPLEMENT --finalize {FEATURE_ID} to retry."
         SHOW: bvl_aggregate.details
-        STOP — DO NOT flip global status (per-increment status remains IMPLEMENTED_AND_VERIFIED; operator must `IMPLEMENT --fix {FEATURE_ID}` to repair)
+        STOP — DO NOT flip global status (per-increment status remains IMPLEMENTED_AND_VERIFIED; operator commits cross-slice fixes on the last slice's branch and re-triggers the aggregate via `IMPLEMENT --finalize {FEATURE_ID}` — see § Finalize)
 
       ✅ UPDATE dev_plan.md frontmatter:
         status: IMPLEMENTED_AND_VERIFIED
@@ -776,6 +776,56 @@ FUNCTION verify_completion_gate(FEATURE_ID):
 
   APPEND_TO_WORKLOG: |
     {"timestamp":"YYYY-MM-DD","phase":"Dev (Implementation)","user_agent":"IMPLEMENT","action":"--build {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"IMPLEMENTED_AND_VERIFIED — {checked_tasks.count}/{total_tasks} tasks, {skipped_tasks.count} skipped — REVIEW ✅ SEC ✅"}
+```
+
+### Finalize (Plan-Level Aggregate Retry — `IMPLEMENT --finalize {FEATURE_ID}`)
+
+**Triggered ONLY** when `slicing_strategy: incremental` AND every `dev_plan.frontmatter.increments[i].status == "IMPLEMENTED_AND_VERIFIED"` AND the global `dev_plan.status` is still NOT `IMPLEMENTED_AND_VERIFIED`. Concrete scenario: the last-slice closure ran the plan-level BVL aggregate, the aggregate BLOCKED on cross-slice regression, the operator committed cross-slice fixes on the last slice's branch and now re-runs the aggregate gate.
+
+```yaml
+FUNCTION finalize_plan_aggregate(FEATURE_ID):
+  READ dev_plan.md
+  slicing_strategy = dev_plan.frontmatter.slicing_strategy OR "monolithic"
+
+  # Gate 0: strategy guard — finalize is incremental-only
+  IF slicing_strategy != "incremental":
+    ❌ BLOCK: "IMPLEMENT --finalize is only valid under slicing_strategy: incremental. Got '{slicing_strategy}'."
+    REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} for monolithic features."
+    STOP
+
+  # Gate 1: per-increment closure invariant
+  pending = FILTER(dev_plan.frontmatter.increments, inc.status != "IMPLEMENTED_AND_VERIFIED")
+  IF pending.length > 0:
+    ❌ BLOCK: "Cannot finalize — increments still pending: {[i.id for i in pending]}."
+    REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} (with the pending slice's branch in BUILDING) to close each pending increment first."
+    STOP
+
+  # Gate 2: idempotency — already finalized
+  IF dev_plan.frontmatter.status == "IMPLEMENTED_AND_VERIFIED":
+    ⚠️ NOTE: "Plan already IMPLEMENTED_AND_VERIFIED. Nothing to finalize."
+    LOG: "finalize: no-op (already finalized)"
+    STOP
+
+  # Re-run plan-level BVL aggregate (scope = entire feature)
+  LOG: "finalize: re-running plan-level BVL aggregate for {FEATURE_ID}"
+  bvl_aggregate = EXECUTE full_verification_gate(FEATURE_ID, null)
+  IF bvl_aggregate == BLOCKED:
+    ❌ BLOCK: "Plan-level BVL aggregate still failing. Fix remaining cross-slice regressions and re-run IMPLEMENT --finalize {FEATURE_ID}."
+    SHOW: bvl_aggregate.details
+    STOP — per-increment statuses untouched
+
+  # Aggregate clean — flip global
+  ✅ UPDATE dev_plan.md frontmatter:
+    status: IMPLEMENTED_AND_VERIFIED
+    completed_at: {ISO_8601}
+    bvl_result: {bvl_aggregate.summary}
+  LOG: "finalize: plan-level Completion Gate PASSED — global status flipped to IMPLEMENTED_AND_VERIFIED."
+
+  APPEND_TO_WORKLOG: |
+    {"timestamp":"YYYY-MM-DD","phase":"Dev (Finalize)","user_agent":"IMPLEMENT","action":"--finalize {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"Plan-level aggregate clean after retry — global status flipped to IMPLEMENTED_AND_VERIFIED — next: QA --verify {FEATURE_ID}"}
+
+  # Smart Redirect — next action is QA --verify (aggregate)
+  RETURN_TO_FACTORY(FEATURE_ID)
 ```
 
 ### Upstream Artifact Validation (MANDATORY for --refine)

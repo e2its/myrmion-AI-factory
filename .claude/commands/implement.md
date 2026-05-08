@@ -48,6 +48,15 @@ Handle upstream spec changes via Delta Iteration (v9.0.0) or user feedback. Only
 - **Completion Gate applies to ALL tasks** (original + delta + adjustment + fix) — zero unchecked allowed
 - After refine: status → READY
 
+### `--finalize {ID}`
+Plan-level aggregate retry. ONLY applicable under `slicing_strategy: incremental` when every entry of `dev_plan.frontmatter.increments[]` is `IMPLEMENTED_AND_VERIFIED` AND the global `dev_plan.status` is still `BUILDING` (the last-slice closure ran but the plan-level BVL aggregate failed). Re-runs `full_verification_gate(FEATURE_ID, null)` and, on PASSED, flips the global status. BLOCKS in any other state with humanized redirect (slice still pending → run `--build {ID} INC-N`; QA reject → `--fix {ID}`; nothing pending → already finalized).
+
+**Full protocol:** See `.claude/instructions/Factory-implement-build.instructions.md` (Finalize section)
+- Validate per-increment closure invariant (all increments[].status == IMPLEMENTED_AND_VERIFIED).
+- Re-execute `full_verification_gate(FEATURE_ID, null)`.
+- On PASSED → flip `dev_plan.status` to `IMPLEMENTED_AND_VERIFIED` and worklog the transition.
+- On BLOCKED → emit detailed BVL findings; per-increment statuses remain untouched.
+
 ### `--fix {ID}`
 Bug fix flow. Can be triggered by QA rejection or DEVOPS smoke test failure.
 

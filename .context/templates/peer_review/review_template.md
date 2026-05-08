@@ -2,6 +2,8 @@
 status: DRAFT   # DRAFT | APPROVED | CHANGES_REQUESTED | INVALIDATED
 feature_id: 
 scope: full-stack  # inherited from spec.feature.scope; drives which Section 3.X subsections run vs N/A
+report_scope: feature | increment-{{INC-N}}  # report-level scope: feature (monolithic / aggregate) or increment-{{INC-N}} (per-slice peer review). Distinct from `scope` above (which is feature_scope).
+increment_id: null | "{{INC-N}}"             # populated when report_scope == increment-*
 verdict: PENDING
 review_date: 
 review_level: STANDARD
