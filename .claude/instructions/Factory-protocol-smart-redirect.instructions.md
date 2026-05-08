@@ -390,6 +390,18 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
     RETURN actions
   
   IF state.dev_plan.exists AND state.dev_plan.status == "BUILDING":
+    # Limbo state detection: under slicing_strategy=incremental, every increment can be
+    # IMPLEMENTED_AND_VERIFIED while the plan-level global status remains BUILDING — produced
+    # when the last-slice closure ran the plan-level BVL aggregate and it BLOCKED. The right
+    # next action is IMPLEMENT --finalize, NOT another --build (which would BLOCK with
+    # "No increment in BUILDING status").
+    slicing_strategy = READ_FRONTMATTER(dev_plan, "slicing_strategy") OR "monolithic"
+    increments = READ_FRONTMATTER(dev_plan, "increments") OR []
+    all_increments_closed = (slicing_strategy == "incremental" AND increments.length > 0
+                             AND ALL(increments, inc.status == "IMPLEMENTED_AND_VERIFIED"))
+    IF all_increments_closed:
+      actions.push({cmd: "IMPLEMENT --finalize {{ID}}", reason: "Limbo state: every increment closed but plan-level aggregate failed. Retry the aggregate."})
+      RETURN actions
     actions.push({cmd: "IMPLEMENT --build {{ID}}", reason: "Build in progress, continue"})
     RETURN actions
 

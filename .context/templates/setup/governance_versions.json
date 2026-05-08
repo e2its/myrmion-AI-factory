@@ -1482,9 +1482,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.9.0",
+      "version": "2.9.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.9.1: fix(EVOL-029) post-review-2 — determine_build_scope detects limbo state (every increments[] IMPLEMENTED_AND_VERIFIED + global plan-level status BUILDING) and BLOCKs with explicit redirect to IMPLEMENT --finalize. Without this, an operator running --build under limbo received the misleading 'No increment in BUILDING status' message that suggested --plan or opening a new branch — neither of which apply.",
         "2.9.0: feat(EVOL-029) post-review fix — new § Finalize section documenting finalize_plan_aggregate(FEATURE_ID) for the --finalize sub-command. Strategy guard (incremental-only), per-increment closure invariant, idempotency check, plan-level BVL aggregate retry, global status flip + worklog + Smart Redirect. Bvl_aggregate failure messages updated to point at IMPLEMENT --finalize {FEATURE_ID} instead of --fix.",
         "2.8.0: feat(EVOL-029) Completion Verification Gate threads increment_id to BVL — bvl_increment_id derived from build_scope.mode (incremental → target_increment.id, monolithic → null). Plan-level aggregate full_verification_gate(FEATURE_ID, null) MANDATORY before flipping global IMPLEMENTED_AND_VERIFIED on the last slice closure (catches cross-slice regressions). IMPLEMENT → QA hand-off naming clarified: peer_review_{ts}.md (monolithic/aggregate) OR peer_review_{INC-N}_{ts}.md (per-slice closure under incremental).",
         "2.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",
@@ -1741,9 +1742,10 @@
       ]
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
-      "version": "2.6.1",
+      "version": "2.6.2",
       "path": ".claude/instructions/Factory-protocol-smart-redirect.instructions.md",
       "changelog": [
+        "2.6.2: fix(EVOL-029) post-review-2 — limbo state detection in PHASE 4 dev_plan.status == BUILDING branch. Under slicing_strategy: incremental, when every increments[] is IMPLEMENTED_AND_VERIFIED but plan-level status remains BUILDING (last-slice closure's BVL aggregate failed), Smart Redirect now suggests IMPLEMENT --finalize {ID} instead of the misleading --build (which would block on 'No increment in BUILDING status').",
         "2.6.1: fix(EVOL-029) post-review fix — qa_invalidated semantics clarified (aggregate-only); slice-level invalidation lives in qa_slice_reports.pending_slices. Inline comment on qa_invalidated documents the split.",
         "2.6.0: feat(EVOL-029) state model gains qa_slice_reports (by_increment map + pending_slices list); decision tree § 5d branches on slicing_strategy — incremental projects with pending_slices surface per-slice /qa --verify {ID} {INC-N} actions before the aggregate. Monolithic + legacy incremental-without-pending paths unchanged.",
         "2.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by Factory-applicability-discovery at command Step 0.",

@@ -510,6 +510,16 @@ FUNCTION determine_build_scope(FEATURE_ID):
   # at a time (concurrency lock).
   building = FILTER(dev_plan.frontmatter.increments, inc.status == "BUILDING")
   IF building.length == 0:
+    # Detect the "limbo" state: every increment closed (per-entry IMPLEMENTED_AND_VERIFIED)
+    # but the plan-level global status is still BUILDING — produced when the last-slice
+    # closure ran the plan-level BVL aggregate and it BLOCKED. Operator must NOT open a
+    # new increment branch nor run --plan; the right command is --finalize.
+    all_increments_closed = ALL(dev_plan.frontmatter.increments, inc.status == "IMPLEMENTED_AND_VERIFIED")
+    plan_status = dev_plan.frontmatter.status
+    IF all_increments_closed AND plan_status == "BUILDING":
+      ❌ BLOCK: "Limbo state — every increment is IMPLEMENTED_AND_VERIFIED but plan-level status is still BUILDING (the last-slice closure's plan-level BVL aggregate must have failed)."
+      REDIRECT: "Run IMPLEMENT --finalize {FEATURE_ID} to retry the plan-level aggregate. Do NOT open a new increment branch and do NOT run --plan."
+      STOP
     ❌ BLOCK: "No increment in BUILDING status. Open the next increment branch (Factory-branching-strategy) before running --build, or run IMPLEMENT --plan to promote DRAFT→READY."
     STOP
   IF building.length > 1:
