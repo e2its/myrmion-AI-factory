@@ -4,14 +4,20 @@
 # ============================================================================
 # Enforces the single-source-of-truth invariant for project-wide ADRs:
 #
-#   Any ADR file under docs/project_log/adr/ADR-*.md whose `status:` field
+#   Any ADR file under docs/project_log/adr/ADR-*.md (downstream materialised
+#   projects) OR docs/project_log/evolutions/ADR-EVOL-*.md (meta-framework
+#   repository + downstream framework-evolution records) whose `status:` field
 #   transitions from "proposed" to "accepted" in the PR diff MUST be
-#   accompanied by a change to docs/constitution.md in the same diff.
+#   accompanied by a change to one of the governance sources in the same diff:
+#     - docs/constitution.md (downstream), OR
+#     - CLAUDE.md (meta-framework universal law), OR
+#     - .context/templates/setup/constitution/constitution_template.md (meta
+#       amendment shipping universal law to downstream).
 #
 # The Factory-adr-management Accept Procedure produces this pairing by
-# construction (it edits constitution.md AND flips ADR status atomically).
-# Manual ADR edits that try to flip status without going through the skill
-# will fail this gate and the author must redo via the procedure.
+# construction (it edits the relevant governance source AND flips ADR status
+# atomically). Manual ADR edits that try to flip status without going through
+# the skill will fail this gate and the author must redo via the procedure.
 #
 # Bypass: a commit message in the PR diff range containing the marker
 # [adr-backfill] disables this gate for ALL ADRs in that PR. Used for
@@ -98,10 +104,15 @@ read_frontmatter_value() {
 }
 
 # ────────────────────────────────────────────────────────────────────────────
-# Determine whether docs/constitution.md is in the diff.
+# Determine whether the governance source is in the diff.
+# Downstream: docs/constitution.md.
+# Meta-framework (this repo): CLAUDE.md (universal law) OR the materialised
+# constitution template (.context/templates/setup/constitution/constitution_template.md)
+# when the amendment ships universal law to downstream.
 # ────────────────────────────────────────────────────────────────────────────
 constitution_in_diff="no"
-if git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null | grep -qx 'docs/constitution.md'; then
+diff_files=$(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null || true)
+if echo "$diff_files" | grep -qxE 'docs/constitution\.md|CLAUDE\.md|\.context/templates/setup/constitution/constitution_template\.md'; then
   constitution_in_diff="yes"
 fi
 
@@ -113,12 +124,19 @@ fi
 # the file in already-accepted state in a single commit).
 # ────────────────────────────────────────────────────────────────────────────
 offenders=()
-adr_glob='docs/project_log/adr/ADR-*.md'
+# Two canonical ADR locations across the framework:
+#   - docs/project_log/adr/ADR-*.md             — downstream materialised projects (per ADR-EVOL-026 layout)
+#   - docs/project_log/evolutions/ADR-EVOL-*.md — meta-framework repository (this repo) + downstream framework-evolution records
+# Both contribute to the gate; the constitution / governance source paths to diff against
+# also branch by repo context (downstream → docs/constitution.md; meta → CLAUDE.md universal section
+# OR the materialised constitution_template.md when the amendment ships universal law).
+adr_glob='docs/project_log/{adr,evolutions}/ADR-*.md'
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue
   case "$path" in
     docs/project_log/adr/ADR-*.md) ;;
+    docs/project_log/evolutions/ADR-EVOL-*.md) ;;
     *) continue ;;
   esac
 
@@ -151,7 +169,7 @@ while IFS= read -r path; do
       esac
       ;;
   esac
-done < <(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null | grep -E "^docs/project_log/adr/ADR-.*\.md$" || true)
+done < <(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null | grep -E "^docs/project_log/(adr/ADR-|evolutions/ADR-EVOL-).*\.md$" || true)
 
 # ────────────────────────────────────────────────────────────────────────────
 # Report.
@@ -161,11 +179,12 @@ if [ ${#offenders[@]} -eq 0 ]; then
   exit 0
 fi
 
-echo "check-adr-constitution-sync: FAIL — the following ADR files transition to accepted but docs/constitution.md is NOT in the same diff:" >&2
+echo "check-adr-constitution-sync: FAIL — the following ADR files transition to accepted but no governance source is in the same diff:" >&2
 for f in "${offenders[@]}"; do
   echo "  - $f" >&2
 done
 echo >&2
-echo "Resolution: run the Factory-adr-management Accept Procedure on each offending ADR — it amends constitution.md atomically and produces a single commit that passes this gate." >&2
+echo "A passing diff must touch one of: docs/constitution.md (downstream), CLAUDE.md (meta-framework universal law), or .context/templates/setup/constitution/constitution_template.md (meta amendment shipped to downstream)." >&2
+echo "Resolution: run the Factory-adr-management Accept Procedure on each offending ADR — it amends the relevant governance source atomically and produces a single commit that passes this gate." >&2
 echo "Bypass (one-shot historical migration only): include [adr-backfill] in any commit message in the PR." >&2
 exit 1

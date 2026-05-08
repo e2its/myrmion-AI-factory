@@ -183,11 +183,26 @@ FUNCTION compute_feature_state(FEATURE_ID):
     based_on_iteration: READ_FRONTMATTER("{{base_path}}/dev_plan.md", "based_on_iteration") OR 1
     pending_iteration: READ_FRONTMATTER("{{base_path}}/dev_plan.md", "pending_iteration") OR NULL
   
-  # QA artifacts
+  # QA artifacts (per-slice + aggregate reports)
   qa_report:
     exists: GLOB_EXISTS("{{base_path}}/qa/qa_report_final_*.md")
     status: READ_FRONTMATTER(LATEST("{{base_path}}/qa/qa_report_final_*.md"), "status") OR NULL
     # Valid: IN_PROGRESS | APPROVED | REJECTED | INVALIDATED
+  qa_slice_reports:
+    # Per-increment reports — populated only when slicing_strategy=incremental.
+    # Map of {INC-N → {exists, status, latest_path}} keyed by every increment id from dev_plan.frontmatter.increments[].
+    by_increment: FOR EACH inc IN (READ_FRONTMATTER("{{base_path}}/dev_plan.md", "increments") OR []):
+                    inc.id → {
+                      exists: GLOB_EXISTS("{{base_path}}/qa/qa_report_{inc.id}_*.md"),
+                      status: READ_FRONTMATTER(LATEST("{{base_path}}/qa/qa_report_{inc.id}_*.md"), "status") OR NULL,
+                      latest_path: LATEST("{{base_path}}/qa/qa_report_{inc.id}_*.md") OR NULL
+                    }
+    pending_slices: [inc.id FOR inc IN (READ_FRONTMATTER("{{base_path}}/dev_plan.md", "increments") OR [])
+                      WHERE inc.status == "IMPLEMENTED_AND_VERIFIED"
+                        AND (NOT GLOB_EXISTS("{{base_path}}/qa/qa_report_{inc.id}_*.md")
+                             OR READ_FRONTMATTER(LATEST("{{base_path}}/qa/qa_report_{inc.id}_*.md"), "status") != "APPROVED")]
+    # Smart Redirect SHOULD recommend `/qa --verify {FEATURE_ID} {INC-N}` for each id in pending_slices
+    # before suggesting the aggregate `/qa --verify {FEATURE_ID}`.
   
   # PR / Merge state
   pr_state:
@@ -205,11 +220,14 @@ FUNCTION compute_feature_state(FEATURE_ID):
     (dev_plan.pending_iteration IS NOT NULL OR spec_feature.iteration > dev_plan.based_on_iteration))
   devops_plan_stale: (devops_plan.exists AND 
     (devops_plan.pending_iteration IS NOT NULL OR spec_feature.iteration > devops_plan.based_on_iteration))
+  # Aggregate-only invalidation flag — slice-level INVALIDATED status is reflected in
+  # state.qa_slice_reports.pending_slices (the slice qa_report status != APPROVED counts as pending).
+  # Cascade actions in PHASE 0 only act on the aggregate report; per-slice cascade is handled in § 5d.
   qa_invalidated: (qa_report.exists AND qa_report.status == "INVALIDATED")
 
   RETURN {vision, external_ds, code_layout, frontend_enabled,
-          spec_feature, mock_html, user_journey, design_md, test_plan, 
-          devops_plan, dev_plan, qa_report, pr_state,
+          spec_feature, mock_html, user_journey, design_md, test_plan,
+          devops_plan, dev_plan, qa_report, qa_slice_reports, pr_state,
           design_stale, test_plan_stale, dev_plan_stale, devops_plan_stale, qa_invalidated}
 ```
 
@@ -372,6 +390,18 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
     RETURN actions
   
   IF state.dev_plan.exists AND state.dev_plan.status == "BUILDING":
+    # Limbo state detection: under slicing_strategy=incremental, every increment can be
+    # IMPLEMENTED_AND_VERIFIED while the plan-level global status remains BUILDING — produced
+    # when the last-slice closure ran the plan-level BVL aggregate and it BLOCKED. The right
+    # next action is IMPLEMENT --finalize, NOT another --build (which would BLOCK with
+    # "No increment in BUILDING status").
+    slicing_strategy = READ_FRONTMATTER(dev_plan, "slicing_strategy") OR "monolithic"
+    increments = READ_FRONTMATTER(dev_plan, "increments") OR []
+    all_increments_closed = (slicing_strategy == "incremental" AND increments.length > 0
+                             AND ALL(increments, inc.status == "IMPLEMENTED_AND_VERIFIED"))
+    IF all_increments_closed:
+      actions.push({cmd: "IMPLEMENT --finalize {{ID}}", reason: "Limbo state: every increment closed but plan-level aggregate failed. Retry the aggregate."})
+      RETURN actions
     actions.push({cmd: "IMPLEMENT --build {{ID}}", reason: "Build in progress, continue"})
     RETURN actions
 
@@ -410,12 +440,19 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
         actions.push({cmd: "DEVOPS --resume {{ID}} --env {{env}}", reason: "{{env}} suspended, resume for deploy"})
         needs_deploy = TRUE
     
-    # 5d: QA verification
+    # 5d: QA verification (slice-aware)
+    # Under slicing_strategy=incremental, recommend per-slice verification before the aggregate.
     IF NOT needs_deploy OR (state.qa_report.exists AND state.qa_report.status != "APPROVED"):
-      IF state.qa_invalidated:
+      slicing_strategy = READ_FRONTMATTER("{{base_path}}/dev_plan.md", "slicing_strategy") OR "monolithic"
+      IF slicing_strategy == "incremental" AND state.qa_slice_reports.pending_slices.length > 0:
+        # Surface every pending slice — operator runs them sequentially.
+        FOR EACH inc_id IN state.qa_slice_reports.pending_slices:
+          actions.push({cmd: "QA --verify {{ID}} {{inc_id}}", reason: "Slice {{inc_id}} closed but per-slice QA report missing or not APPROVED"})
+        # The aggregate cannot run while any slice is pending — do not push the aggregate yet.
+      ELIF state.qa_invalidated:
         actions.push({cmd: "QA --verify {{ID}}", reason: "⚠️ QA report INVALIDATED — re-verification required"})
       ELIF NOT state.qa_report.exists:
-        actions.push({cmd: "QA --verify {{ID}}", reason: "QA verification not started"})
+        actions.push({cmd: "QA --verify {{ID}}", reason: "QA verification not started" + (slicing_strategy == "incremental" ? " (aggregate — all slices APPROVED)" : "")})
       ELIF state.qa_report.status == "REJECTED":
         actions.push({cmd: "IMPLEMENT --fix {{ID}}", reason: "QA rejected, fix required"})
       ELIF state.qa_report.status == "IN_PROGRESS":

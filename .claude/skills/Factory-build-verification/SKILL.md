@@ -6,13 +6,30 @@ applicable_when:
   command: [implement]
 ---
 
-# BUILD VERIFICATION LOOP (BVL v1.4.0)
+# BUILD VERIFICATION LOOP (BVL v1.5.0)
 
 > **Shared Protocol** — Referenced by: IMPLEMENT agent (--build, --fix commands), REVIEW hat (coverage + lint verification), SEC hat (dependency audit + secret scan).
 > Closes the TDD feedback loop by executing tests in the terminal, parsing errors, and auto-fixing.
 > **Prerequisite:** The IMPLEMENT agent has `execute/runInTerminal` and `execute/getTerminalOutput` tools.
 
 **Core Principle:** Code that isn't executed isn't verified. Writing tests is necessary but insufficient — they must be run, results parsed, and failures fixed in a closed loop before marking a task complete.
+
+## v1.5.0 — Per-Increment Verification Scope
+
+> When `IMPLEMENT --build` runs under `slicing_strategy: incremental` and a single increment is in BUILDING, `full_verification_gate(FEATURE_ID, increment_id)` MUST restrict its scope to the increment's source/test files. The aggregate (feature-level) gate runs only when every increment has closed.
+
+**Rule:** `full_verification_gate(FEATURE_ID, increment_id=null)` accepts an optional `increment_id`:
+
+- `increment_id == null` (default — monolithic features and the final aggregate run on the last incremental closure): unchanged behaviour. `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` returns every source/test file under each module the feature touches.
+- `increment_id == "INC-N"`: scope is filtered to the source/test files mapped from the increment's tasks (`[INC-N.A.M]`, `[INC-N.B.M]`, `[INC-N.C.M]`) and contract surface (read from `increment_plan.md § 1`). **Tests** are selected by intersection (tests whose target files lie inside the increment scope, plus any test file explicitly created in the increment's Phase C tasks) and **lint** runs against the same scope set. **Typecheck, build, format, and SAST run repo-wide** even in slice mode — those tools need the full module graph (or the slice's branch state IS the repo, so a slice that breaks compilation breaks the whole repo). Slice-mode reduces test/lint runtime; it does not weaken the global compilation/security gates.
+
+**Resolver contract:** `COLLECT_ALL_SOURCE_FILES(FEATURE_ID, increment_id=null)` reads `dev_plan.md` Section "## Increment {increment_id}" (when `increment_id` provided) to extract layer-tagged file paths; falls back to feature-level scope when null. Under `incremental`, `phase_verification(phase, files)` is already per-phase scoped — when called inside a slice build the caller MUST pre-filter `files` to the increment's set.
+
+**Aggregate gate semantics:** The plan-level Completion Gate (Factory-implement-build.instructions.md § Completion Verification Gate) calls this function with `increment_id=null` ONLY when every entry in `dev_plan.frontmatter.increments[]` has `status: IMPLEMENTED_AND_VERIFIED`. Any earlier per-slice closure passes the slice id.
+
+**No regression for monolithic features:** `slicing_strategy: monolithic` always calls with `increment_id=null` — exactly the v1.4.0 behaviour.
+
+---
 
 ## v1.4.0 — Defect Discovery Hook
 
@@ -422,29 +439,40 @@ FUNCTION phase_verification(phase, all_test_files):
 
 ## FULL VERIFICATION GATE (Pre-IMPLEMENTED_AND_VERIFIED)
 
-Runs after all phases complete, before status → IMPLEMENTED_AND_VERIFIED.
+Runs after all phases complete, before status → IMPLEMENTED_AND_VERIFIED. Accepts an optional `increment_id` to restrict scope to a single slice (see § v1.5.0 — Per-Increment Verification Scope).
 
 ```yaml
-FUNCTION full_verification_gate(FEATURE_ID):
+FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   commands = resolve_verification_commands()
   results = {}
-  
-  # 1. Full test suite
+  scope_label = increment_id IS NOT NULL ? "increment {increment_id}" : "feature aggregate"
+
+  # Resolve scope-filtered file set ONCE — reused by every gate that takes `files`.
+  # When increment_id is null this returns the feature-level set (legacy behaviour).
+  scope_files = COLLECT_ALL_SOURCE_FILES(FEATURE_ID, increment_id)
+
+  # 1. Test suite (scope-aware)
+  # When increment_id is provided, run the suite filtered to tests whose target files
+  # lie inside scope_files OR tests created in the increment's Phase C. The runner
+  # invocation depends on the framework — most accept a list of test files or a
+  # path glob. Fall back to the full suite only if no per-file selection is possible.
   IF commands.test_suite IS NOT NULL:
-    result = RUN_IN_TERMINAL(commands.test_suite, timeout: 180000)
+    test_cmd = increment_id IS NOT NULL
+      ? RESOLVE_INCREMENT_TEST_CMD(commands, scope_files, increment_id)  # filtered selection
+      : commands.test_suite                                              # full suite
+    result = RUN_IN_TERMINAL(test_cmd, timeout: 180000)
     results.tests = {
       status: result.exit_code == 0 ? "GREEN" : "RED",
       output: parse_test_output(result.output, commands) IF result.exit_code != 0 ELSE NULL
     }
     IF result.exit_code != 0:
-      ❌ BLOCK: "Full test suite failed. Fix before marking IMPLEMENTED_AND_VERIFIED."
+      ❌ BLOCK: "Test suite failed for {scope_label}. Fix before marking IMPLEMENTED_AND_VERIFIED."
       SHOW: results.tests.output.summary
       RETURN BLOCKED
-  
+
   # 2. Lint check
   IF commands.lint IS NOT NULL:
-    all_source_files = COLLECT_ALL_SOURCE_FILES(FEATURE_ID)
-    lint_cmd = INTERPOLATE(commands.lint, {files: all_source_files})
+    lint_cmd = INTERPOLATE(commands.lint, {files: scope_files})
     result = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
     results.lint = {status: result.exit_code == 0 ? "CLEAN" : "ISSUES"}
     IF result.exit_code != 0:
@@ -513,8 +541,7 @@ FUNCTION full_verification_gate(FEATURE_ID):
   # The resolver scans for test files matching the seed alignment naming convention
   # (e.g., test_seed_schema_alignment, test_seed_deployment_isolation) under the project's
   # integration test directory. Stack-agnostic: uses BVL's test runner (pytest, jest, go test, etc.)
-  feature_files = COLLECT_ALL_SOURCE_FILES(FEATURE_ID)
-  IF feature_files MATCHES seed_script_pattern OR feature_files MATCHES migration_pattern:
+  IF scope_files MATCHES seed_script_pattern OR scope_files MATCHES migration_pattern:
     seed_test_files = GLOB("tests/**/test_seed_*" OR "tests/**/*seed*alignment*")
     seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_test_files})
     IF seed_test_cmd IS NOT NULL AND seed_test_files.length > 0:
@@ -525,9 +552,32 @@ FUNCTION full_verification_gate(FEATURE_ID):
         RETURN BLOCKED
 
   # All checks passed
-  LOG: "BVL Full Gate: tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}"
-  
+  LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}"
+
   RETURN PASSED(results)
+```
+
+### `RESOLVE_INCREMENT_TEST_CMD` helper
+
+```yaml
+FUNCTION RESOLVE_INCREMENT_TEST_CMD(commands, scope_files, increment_id):
+  # Map scope_files to corresponding test files: tests under the same module path,
+  # plus tests created in the increment's Phase C (path inside scope_files).
+  test_targets = []
+  FOR EACH source_file IN scope_files:
+    matching = GLOB(test_pattern_for_module(source_file))   # e.g. tests/**/test_<module>*
+    test_targets.push_all(matching)
+  test_targets.push_all(scope_files WHERE matches_test_naming_convention(file))
+  test_targets = DEDUPE(test_targets)
+
+  IF test_targets IS EMPTY:
+    LOG: "BVL: increment {increment_id} has no resolvable test targets — running full suite as fallback"
+    RETURN commands.test_suite
+
+  # Most runners accept a list of files via the same interpolation as test_single.
+  # Pass a glob/list rather than a single path. Stack-specific quoting is the runner's responsibility.
+  RETURN INTERPOLATE(commands.test_suite, {scope: test_targets}) OR
+         INTERPOLATE(commands.test_single, {test_file: JOIN(test_targets, " ")})
 ```
 
 ---

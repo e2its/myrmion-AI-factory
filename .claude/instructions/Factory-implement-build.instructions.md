@@ -510,6 +510,16 @@ FUNCTION determine_build_scope(FEATURE_ID):
   # at a time (concurrency lock).
   building = FILTER(dev_plan.frontmatter.increments, inc.status == "BUILDING")
   IF building.length == 0:
+    # Detect the "limbo" state: every increment closed (per-entry IMPLEMENTED_AND_VERIFIED)
+    # but the plan-level global status is still BUILDING — produced when the last-slice
+    # closure ran the plan-level BVL aggregate and it BLOCKED. Operator must NOT open a
+    # new increment branch nor run --plan; the right command is --finalize.
+    all_increments_closed = ALL(dev_plan.frontmatter.increments, inc.status == "IMPLEMENTED_AND_VERIFIED")
+    plan_status = dev_plan.frontmatter.status
+    IF all_increments_closed AND plan_status == "BUILDING":
+      ❌ BLOCK: "Limbo state — every increment is IMPLEMENTED_AND_VERIFIED but plan-level status is still BUILDING (the last-slice closure's plan-level BVL aggregate must have failed)."
+      REDIRECT: "Run IMPLEMENT --finalize {FEATURE_ID} to retry the plan-level aggregate. Do NOT open a new increment branch and do NOT run --plan."
+      STOP
     ❌ BLOCK: "No increment in BUILDING status. Open the next increment branch (Factory-branching-strategy) before running --build, or run IMPLEMENT --plan to promote DRAFT→READY."
     STOP
   IF building.length > 1:
@@ -709,10 +719,14 @@ FUNCTION verify_completion_gate(FEATURE_ID):
           STOP
 
   # BVL Full Verification Gate (MANDATORY — tests + lint + typecheck + build)
-  # See: Factory-build-verification/SKILL.md → Full Verification Gate
-  bvl_result = EXECUTE full_verification_gate(FEATURE_ID)
+  # See: Factory-build-verification/SKILL.md → Full Verification Gate (accepts optional increment_id)
+  # Under incremental, the slice closure passes the target increment id so BVL filters tests + lint
+  # to that slice's source set. The plan-level aggregate gate (run on the LAST slice closure once
+  # every increment has reached IMPLEMENTED_AND_VERIFIED) calls again with increment_id=null.
+  bvl_increment_id = build_scope.mode == "incremental" ? build_scope.target_increment.id : null
+  bvl_result = EXECUTE full_verification_gate(FEATURE_ID, bvl_increment_id)
   IF bvl_result == BLOCKED:
-    ❌ BLOCK: "BVL Full Verification Gate failed. Fix before IMPLEMENTED_AND_VERIFIED."
+    ❌ BLOCK: "BVL Full Verification Gate failed (scope={bvl_increment_id OR 'feature'}). Fix before IMPLEMENTED_AND_VERIFIED."
     SHOW: bvl_result.details
     STOP — DO NOT update status
 
@@ -738,14 +752,24 @@ FUNCTION verify_completion_gate(FEATURE_ID):
 
     all_done = ALL(dev_plan.frontmatter.increments, inc.status == "IMPLEMENTED_AND_VERIFIED")
     IF all_done:
+      # Plan-level BVL aggregate (MANDATORY before flipping global status)
+      # Re-runs BVL with increment_id=null so the suite executes against the entire feature scope —
+      # catches cross-slice regressions that per-slice BVL cannot see (e.g. INC-1 export consumed by
+      # INC-2 broke after a late refactor). This guards the global IMPLEMENTED_AND_VERIFIED transition.
+      bvl_aggregate = EXECUTE full_verification_gate(FEATURE_ID, null)
+      IF bvl_aggregate == BLOCKED:
+        ❌ BLOCK: "Plan-level BVL aggregate failed. Fix cross-slice regressions, then run IMPLEMENT --finalize {FEATURE_ID} to retry."
+        SHOW: bvl_aggregate.details
+        STOP — DO NOT flip global status (per-increment status remains IMPLEMENTED_AND_VERIFIED; operator commits cross-slice fixes on the last slice's branch and re-triggers the aggregate via `IMPLEMENT --finalize {FEATURE_ID}` — see § Finalize)
+
       ✅ UPDATE dev_plan.md frontmatter:
         status: IMPLEMENTED_AND_VERIFIED
         completed_at: {ISO_8601}
         tasks_completed: {checked_tasks.count across all increments}
         tasks_skipped: {skipped_tasks.count across all increments}
         tasks_total: {total_tasks across all increments}
-        bvl_result: {aggregated summary}
-      LOG: "Plan-level Completion Gate PASSED — all {dev_plan.frontmatter.increments.length} increments verified."
+        bvl_result: {bvl_aggregate.summary}
+      LOG: "Plan-level Completion Gate PASSED — all {dev_plan.frontmatter.increments.length} increments verified, aggregate BVL clean."
     ELSE:
       pending = FILTER(dev_plan.frontmatter.increments, inc.status != "IMPLEMENTED_AND_VERIFIED")
       LOG: "Increment {build_scope.target_increment.id} verified ({checked_tasks.count} tasks). Plan-level status remains {dev_plan.status} — pending: {[i.id for i in pending]}."
@@ -762,6 +786,56 @@ FUNCTION verify_completion_gate(FEATURE_ID):
 
   APPEND_TO_WORKLOG: |
     {"timestamp":"YYYY-MM-DD","phase":"Dev (Implementation)","user_agent":"IMPLEMENT","action":"--build {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"IMPLEMENTED_AND_VERIFIED — {checked_tasks.count}/{total_tasks} tasks, {skipped_tasks.count} skipped — REVIEW ✅ SEC ✅"}
+```
+
+### Finalize (Plan-Level Aggregate Retry — `IMPLEMENT --finalize {FEATURE_ID}`)
+
+**Triggered ONLY** when `slicing_strategy: incremental` AND every `dev_plan.frontmatter.increments[i].status == "IMPLEMENTED_AND_VERIFIED"` AND the global `dev_plan.status` is still NOT `IMPLEMENTED_AND_VERIFIED`. Concrete scenario: the last-slice closure ran the plan-level BVL aggregate, the aggregate BLOCKED on cross-slice regression, the operator committed cross-slice fixes on the last slice's branch and now re-runs the aggregate gate.
+
+```yaml
+FUNCTION finalize_plan_aggregate(FEATURE_ID):
+  READ dev_plan.md
+  slicing_strategy = dev_plan.frontmatter.slicing_strategy OR "monolithic"
+
+  # Gate 0: strategy guard — finalize is incremental-only
+  IF slicing_strategy != "incremental":
+    ❌ BLOCK: "IMPLEMENT --finalize is only valid under slicing_strategy: incremental. Got '{slicing_strategy}'."
+    REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} for monolithic features."
+    STOP
+
+  # Gate 1: per-increment closure invariant
+  pending = FILTER(dev_plan.frontmatter.increments, inc.status != "IMPLEMENTED_AND_VERIFIED")
+  IF pending.length > 0:
+    ❌ BLOCK: "Cannot finalize — increments still pending: {[i.id for i in pending]}."
+    REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} (with the pending slice's branch in BUILDING) to close each pending increment first."
+    STOP
+
+  # Gate 2: idempotency — already finalized
+  IF dev_plan.frontmatter.status == "IMPLEMENTED_AND_VERIFIED":
+    ⚠️ NOTE: "Plan already IMPLEMENTED_AND_VERIFIED. Nothing to finalize."
+    LOG: "finalize: no-op (already finalized)"
+    STOP
+
+  # Re-run plan-level BVL aggregate (scope = entire feature)
+  LOG: "finalize: re-running plan-level BVL aggregate for {FEATURE_ID}"
+  bvl_aggregate = EXECUTE full_verification_gate(FEATURE_ID, null)
+  IF bvl_aggregate == BLOCKED:
+    ❌ BLOCK: "Plan-level BVL aggregate still failing. Fix remaining cross-slice regressions and re-run IMPLEMENT --finalize {FEATURE_ID}."
+    SHOW: bvl_aggregate.details
+    STOP — per-increment statuses untouched
+
+  # Aggregate clean — flip global
+  ✅ UPDATE dev_plan.md frontmatter:
+    status: IMPLEMENTED_AND_VERIFIED
+    completed_at: {ISO_8601}
+    bvl_result: {bvl_aggregate.summary}
+  LOG: "finalize: plan-level Completion Gate PASSED — global status flipped to IMPLEMENTED_AND_VERIFIED."
+
+  APPEND_TO_WORKLOG: |
+    {"timestamp":"YYYY-MM-DD","phase":"Dev (Finalize)","user_agent":"IMPLEMENT","action":"--finalize {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"Plan-level aggregate clean after retry — global status flipped to IMPLEMENTED_AND_VERIFIED — next: QA --verify {FEATURE_ID}"}
+
+  # Smart Redirect — next action is QA --verify (aggregate)
+  RETURN_TO_FACTORY(FEATURE_ID)
 ```
 
 ### Upstream Artifact Validation (MANDATORY for --refine)
@@ -1441,8 +1515,12 @@ Factory Smart Redirect computes environment from ci-cd.md (NOT hardcoded)
 
 ### IMPLEMENT → QA
 ```yaml
-IMPLEMENT --build generates: peer_review_{timestamp}.md + sec_audit.md
-QA --verify reads these artifacts for verification
+# Naming is build_scope-aware (see Factory-implement-review-checks.instructions.md § 3.1):
+#  - monolithic / aggregate: peer_review_{timestamp}.md
+#  - per-increment closure:  peer_review_{INC-N}_{timestamp}.md
+IMPLEMENT --build generates: peer_review_{timestamp}.md (or peer_review_{INC-N}_{timestamp}.md when incremental) + sec_audit.md
+QA --verify {ID} INC-N reads peer_review_{INC-N}_*.md for the slice
+QA --verify {ID} (aggregator) reads the latest peer_review_*.md
 DAST (v8.0.0) absorbed by QA --verify (SEC hat in QA)
 ```
 

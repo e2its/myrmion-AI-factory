@@ -1,7 +1,9 @@
 ---
-version: 3.0.0
-date: 2026-05-05
+version: 3.2.0
+date: 2026-05-08
 changelog:
+  - "3.2.0: feat(EVOL-029) — added [LAW] QA Per-Increment Alignment section. Mandates per-slice transition path under slicing_strategy: incremental, triple gate (tasks/peer_review/BVL) per slice, /qa --verify {ID} {INC-N} required before aggregate, plan-level dev_plan.status derived (never written manually). Monolithic features unchanged."
+  - "3.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C)."
   - "3.0.0: Operational sections marked with `## [LAW]` for mechanical snapshot extraction. Single-source-of-truth model: only [LAW] sections embed in governance snapshot. Fixed UTF-8 mojibake in Security by Design heading."
   - "2.0.0: Added Project Mode & Brownfield Extension Strategy section (E0/E1/E2/E3) with per-strategy rules"
   - "1.0.0: Initial template version"
@@ -668,6 +670,35 @@ security:
 | **Tier 1 (Critical)** | Payment processing, Auth | <15min | <5min | Active-active multi-region |
 | **Tier 2 (Standard)** | Core application logic | <1hr | <15min | Active-passive with automated failover |
 | **Tier 3 (Non-Critical)** | Analytics, reporting | <4hr | <1hr | Backup restoration |
+
+---
+
+## [LAW] 🧩 QA Per-Increment Alignment
+
+> **Mandate:** Under `slicing_strategy: incremental`, the implementation lifecycle is per-slice. The QA verification command MUST mirror that granularity. The plan-level `dev_plan.status` value is **derived** from the per-slice mirror; never written manually.
+
+### Rules
+
+- ✅ **Per-slice transition path:** When `slicing_strategy: incremental`, `IMPLEMENT --build {ID} {INC-N}` flips ONLY `dev_plan.frontmatter.increments[INC-N].status` to `IMPLEMENTED_AND_VERIFIED`. The global `dev_plan.status` field MUST NOT be written manually under this strategy.
+- ✅ **Per-slice triple gate:** A slice transitions to `IMPLEMENTED_AND_VERIFIED` ONLY when (1) every `[INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M]/[INC-N.ACC.k]` task is `[x]`, (2) the latest `peer_review_{INC-N}_*.md` has `status: APPROVED`, and (3) `BVL full_verification_gate(FEATURE_ID, "INC-N")` returns `PASSED`.
+- ✅ **QA slice mode REQUIRED:** Each slice that has reached per-entry `IMPLEMENTED_AND_VERIFIED` REQUIRES `/qa --verify {FEATURE_ID} {INC-N}` before the aggregate may run. The slice report path is `docs/spec/{FEATURE_ID}/qa/qa_report_{INC-N}_{ts}.md` with checklist filtered to the scenarios assigned to that increment in `increment_plan.md § 1`.
+- ✅ **Aggregate gate:** `/qa --verify {FEATURE_ID}` (no `INC-N`) is BLOCKED until every per-slice `qa_report_{INC-N}_*.md` exists with `status: APPROVED`. The aggregate report (`qa_report_final_{ts}.md`) cross-references every slice report via the `aggregates: [...]` frontmatter field.
+- ✅ **Plan-level derivation:** `dev_plan.status` flips to `IMPLEMENTED_AND_VERIFIED` ONLY when (a) every entry in `dev_plan.frontmatter.increments[]` has `status: IMPLEMENTED_AND_VERIFIED` AND (b) the plan-level aggregate `BVL full_verification_gate(FEATURE_ID, null)` passes — run automatically on the last slice closure.
+- ✅ **Monolithic compatibility:** When `slicing_strategy: monolithic`, the gate is single-level: all `[ ]` → `[x]` plus BVL aggregate, then `dev_plan.status` flips. `/qa --verify {ID}` without `INC-N` reads global status — exactly as before.
+
+### Anti-Patterns (PROHIBITED)
+
+- ❌ **Manual global flip under incremental:** Writing `dev_plan.status: IMPLEMENTED_AND_VERIFIED` directly when `slicing_strategy: incremental` and any `increments[].status != IMPLEMENTED_AND_VERIFIED` remains.
+- ❌ **Skipping per-slice QA:** Running `/qa --verify {FEATURE_ID}` (aggregate) on an incremental feature with pending `qa_report_{INC-N}_*.md` items.
+- ❌ **Cross-slice peer_review reuse:** Pointing the slice closure to a `peer_review_{ts}.md` that does not match the `peer_review_{INC-N}_{ts}.md` naming for the slice being closed.
+- ❌ **Aggregate before plan-level BVL:** Marking `dev_plan.status` global as `IMPLEMENTED_AND_VERIFIED` before the last-slice plan-level BVL aggregate has run.
+
+### Validation in Code Review
+
+- ✅ Does the slice's `peer_review_{INC-N}_*.md` exist and is `APPROVED` before the slice transition?
+- ✅ Does `qa_report_{INC-N}_*.md` exist with `status: APPROVED` before the aggregate run?
+- ✅ Is the `aggregates: [...]` frontmatter field of `qa_report_final_*.md` populated with the consumed slice reports?
+- ✅ Does `dev_plan.frontmatter.increments[]` agree with the latest IMPLEMENT closure (no stale `BUILDING` entries for slices that have moved)?
 
 ---
 

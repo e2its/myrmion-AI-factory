@@ -1,6 +1,10 @@
-# Template C: Quality Report (`docs/spec/{{FEATURE_ID}}/qa/qa_report_final_{{timestamp}}.md`)
+# Template C: Quality Report
 
-Materialised by `QA --verify {{FEATURE_ID}}` as a checkbox-driven verification artefact. Auto-approval requires every `- [ ]` item to become `- [x]` and a verdict of `APPROVED`.
+Materialised by `QA --verify {{FEATURE_ID}} [{{INC-N}}]` as a checkbox-driven verification artefact. Auto-approval requires every `- [ ]` item to become `- [x]` and a verdict of `APPROVED`.
+
+**Path is mode-aware:**
+- Slice mode (`/qa --verify {{FEATURE_ID}} {{INC-N}}`): `docs/spec/{{FEATURE_ID}}/qa/qa_report_{{INC-N}}_{{timestamp}}.md`. Required for `slicing_strategy: incremental` features.
+- Aggregate mode (`/qa --verify {{FEATURE_ID}}`): `docs/spec/{{FEATURE_ID}}/qa/qa_report_final_{{timestamp}}.md`. Sole report for `slicing_strategy: monolithic` features. For incremental features it cross-references slice reports via `aggregates:`.
 
 ```markdown
 ---
@@ -9,7 +13,10 @@ status: DRAFT   # DRAFT | IN_PROGRESS | APPROVED | REJECTED | INVALIDATED
 verdict: PENDING   # PENDING | APPROVED | REJECTED
 date: [DATE]
 auditor: "QA Agent"
-report_kind: "qa_report_final"
+report_kind: "qa_report_final" | "qa_report_increment"
+report_scope: feature | increment-{{INC-N}}  # slice or aggregate (report-level scope; distinct from feature_scope inherited from spec.feature)
+increment_id: null | "{{INC-N}}"             # populated when report_scope == increment-*
+aggregates: []                                # list of qa_report_{{INC-N}}_*.md paths consumed (aggregate mode + slicing_strategy=incremental only)
 
 # Iteration model tracking
 based_on_iteration: 1

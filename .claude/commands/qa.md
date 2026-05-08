@@ -16,11 +16,15 @@ Before any command-specific logic, the FIRST user-facing output of this command 
 
 ## Commands
 
-### `--verify {ID}`
+### `--verify {ID} [{INC-N}]`
 Execute comprehensive post-staging verification using **checkbox-driven execution model**.
 
+The optional second positional argument `{INC-N}` (e.g. `INC-2`) selects per-slice verification:
+- **Slice mode** (`/qa --verify {ID} INC-N`): verifies a single increment that has reached `IMPLEMENTED_AND_VERIFIED` per-entry in `dev_plan.frontmatter.increments[]`. Generates `qa_report_{INC-N}_{ts}.md` whose checklist is filtered to scenarios + contracts assigned to that increment in `increment_plan.md § 1`. Required for `slicing_strategy: incremental` features before the aggregate can run.
+- **Aggregate mode** (`/qa --verify {ID}`): generates the feature-level `qa_report_final_{ts}.md`. For `slicing_strategy: monolithic` features reads global `dev_plan.status`. For `incremental` features requires every per-slice `qa_report_{INC-N}_*.md` already APPROVED — the aggregate cross-references slice reports via `aggregates:` frontmatter and runs feature-level transversal checks (cross-slice regression, CVP feature_completion).
+
 **Full protocol:** See `.claude/instructions/Factory-qa-verify.instructions.md`
-- Derive verification checklist from `test_plan.md` → generate `- [ ]` checkboxes in `qa_report_final_{ts}.md`
+- Derive verification checklist from `test_plan.md` (scenario-filtered in slice mode) → generate `- [ ]` checkboxes in the mode-aware qa_report path
 - Execute each verification item → mark `- [x]` on completion
 - **Completion Gate:** NEVER set verdict to APPROVED if ANY `- [ ]` checklist item remains unchecked
 - Run DAST scanning (OWASP ZAP or equivalent)
@@ -39,7 +43,8 @@ Run E2E test suite independently (without full verification).
 - Useful for regression testing or pre-verification checks
 
 ## Output
-- `docs/spec/{ID}/qa/qa_report_final_{ts}.md` — Comprehensive QA report with verification checklist
+- `docs/spec/{ID}/qa/qa_report_{INC-N}_{ts}.md` — Per-slice QA report (slice mode, slicing_strategy=incremental)
+- `docs/spec/{ID}/qa/qa_report_final_{ts}.md` — Aggregate / feature-level QA report (aggregate mode; sole report for monolithic features)
 
 ## Key Principles
 - QA does NOT modify production source code — only executes and reports
