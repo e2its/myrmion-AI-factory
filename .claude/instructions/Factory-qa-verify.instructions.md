@@ -34,8 +34,8 @@ Before processing commands, read:
 3. `docs/spec/{{FEATURE_ID}}/mock.html` (enrichment — UI drift detection)
 4. `docs/spec/{{FEATURE_ID}}/test_plan.md` (**MANDATORY** — verification baseline from BLUEPRINT)
 5. `docs/spec/{{FEATURE_ID}}/design.md` (enrichment — architecture reference)
-6. `docs/spec/{{FEATURE_ID}}/dev_plan.md` (**MANDATORY** — must have `status: IMPLEMENTED_AND_VERIFIED`)
-7. `docs/spec/{{FEATURE_ID}}/review/peer_review_*.md` (**MANDATORY** — latest must have `status: APPROVED`)
+6. `docs/spec/{{FEATURE_ID}}/dev_plan.md` (**MANDATORY** — see Prerequisites Gate § Slice vs Aggregate mode below)
+7. `docs/spec/{{FEATURE_ID}}/review/peer_review_*.md` (**MANDATORY** — slice mode reads `peer_review_{{INC-N}}_*.md`, aggregate mode reads the latest `peer_review_*.md`; selected file must have `status: APPROVED`)
 8. `docs/spec/{{FEATURE_ID}}/review/sec_audit.md` (enrichment — static security findings from IMPLEMENT SEC hat, cross-reference with DAST)
 9. Governance rules (19 specific rules — see loading protocol below)
 10. `config/system_resources.json`, `config/protected-paths.json`, `docs/constitution.md`
@@ -105,7 +105,8 @@ FUNCTION qa_iteration_detection_gate(FEATURE_ID, command):
     STOP
 
   # Step 4: QA Report INVALIDATED Check
-  latest_report = LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_final_*.md")
+  # Match both per-slice and aggregate reports; INVALIDATED at any level requires re-verification.
+  latest_report = LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_*.md")
   IF latest_report:
     report_status = READ_FRONTMATTER(latest_report, "status")
     IF report_status == "INVALIDATED":
@@ -146,43 +147,94 @@ FUNCTION qa_coherence_gate(FEATURE_ID):
 
 ## Command Logic
 
-### `--verify {{FEATURE_ID}}`
+### `--verify {{FEATURE_ID}} [{{INC-N}}]`
+
+> **Slice vs Aggregate mode.** The optional second positional argument `{{INC-N}}` (e.g. `INC-2`) selects per-slice verification:
+> - **Slice mode** (`/qa --verify {ID} INC-N`): verifies a single increment that has reached `IMPLEMENTED_AND_VERIFIED` per-entry in `dev_plan.frontmatter.increments[]`. Generates `qa_report_{INC-N}_{timestamp}.md` whose checklist is filtered to the scenarios assigned to that increment in `increment_plan.md § 1`. Required for incremental features before the aggregate can run.
+> - **Aggregate mode** (`/qa --verify {ID}`): generates the feature-level `qa_report_final_{timestamp}.md`. Required path:
+>     - For `slicing_strategy: monolithic` features: reads the global `dev_plan.status`.
+>     - For `slicing_strategy: incremental` features: requires every `increments[INC-N].status == IMPLEMENTED_AND_VERIFIED` AND every `qa_report_{INC-N}_*.md` exist with `status: APPROVED`. The aggregate report cross-references each slice report via the `aggregates:` frontmatter field and re-runs feature-level transversal checks (regression suite, DAST scope feature, CVP `feature_completion`).
 
 ### Prerequisites Gate (BLOCKING — M-08)
 ```yaml
-FUNCTION verify_prerequisites(FEATURE_ID):
+FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
   # This gate MUST execute BEFORE any verification work begins.
   # ALL prerequisites must pass or --verify is blocked.
+  # INCREMENT_ID is the optional second arg from /qa --verify {ID} [INC-N].
+  mode = INCREMENT_ID IS NOT NULL ? "slice" : "aggregate"
 
-  # Gate 1: dev_plan.md status
+  # Gate 1: dev_plan.md status (mode-aware)
   dev_plan_path = "docs/spec/{FEATURE_ID}/dev_plan.md"
   IF NOT FILE_EXISTS(dev_plan_path):
     ❌ BLOCK: "dev_plan.md not found. Run IMPLEMENT --build {FEATURE_ID} first."
     STOP
+  slicing_strategy = READ_FRONTMATTER(dev_plan_path, "slicing_strategy") OR "monolithic"
   dev_status = READ_FRONTMATTER(dev_plan_path, "status")
-  IF dev_status != "IMPLEMENTED_AND_VERIFIED":
-    ❌ BLOCK: "dev_plan.md status is '{dev_status}', expected 'IMPLEMENTED_AND_VERIFIED'"
-    REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} to complete implementation."
-    STOP
+  increments = READ_FRONTMATTER(dev_plan_path, "increments") OR []
 
-  # Gate 2: peer_review status
-  latest_review = LATEST("docs/spec/{FEATURE_ID}/review/peer_review_*.md")
+  IF mode == "slice":
+    IF slicing_strategy != "incremental":
+      ❌ BLOCK: "Per-slice verification requested ({INCREMENT_ID}) but feature uses slicing_strategy='{slicing_strategy}'. Drop the increment id or re-plan as incremental."
+      STOP
+    target = FIRST(increments, WHERE inc.id == INCREMENT_ID)
+    IF target IS NULL:
+      ❌ BLOCK: "Increment {INCREMENT_ID} not found in dev_plan.md frontmatter. Available: {[i.id for i in increments]}."
+      STOP
+    IF target.status != "IMPLEMENTED_AND_VERIFIED":
+      ❌ BLOCK: "Increment {INCREMENT_ID} status is '{target.status}', expected 'IMPLEMENTED_AND_VERIFIED'."
+      REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} (with branch feature/{FEATURE_ID}-inc-N-* in BUILDING) to close this increment first."
+      STOP
+  ELSE:
+    # Aggregate mode
+    IF slicing_strategy == "monolithic":
+      IF dev_status != "IMPLEMENTED_AND_VERIFIED":
+        ❌ BLOCK: "dev_plan.md status is '{dev_status}', expected 'IMPLEMENTED_AND_VERIFIED'"
+        REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} to complete implementation."
+        STOP
+    ELSE:  # incremental
+      pending = FILTER(increments, inc.status != "IMPLEMENTED_AND_VERIFIED")
+      IF pending.length > 0:
+        ❌ BLOCK: "Aggregate --verify requires every increment IMPLEMENTED_AND_VERIFIED. Pending: {[i.id for i in pending]}."
+        REDIRECT: "Run IMPLEMENT --build per pending slice, then /qa --verify {FEATURE_ID} {INC-N} for each, before this aggregate."
+        STOP
+      missing_slice_reports = []
+      FOR EACH inc IN increments:
+        latest_inc_report = LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_{inc.id}_*.md")
+        IF latest_inc_report IS NULL OR READ_FRONTMATTER(latest_inc_report, "status") != "APPROVED":
+          missing_slice_reports.push(inc.id)
+      IF missing_slice_reports.length > 0:
+        ❌ BLOCK: "Aggregate --verify requires per-slice QA reports APPROVED. Missing/not-approved: {missing_slice_reports}."
+        REDIRECT: "Run /qa --verify {FEATURE_ID} {INC-N} for each pending slice."
+        STOP
+
+  # Gate 2: peer_review status (mode-aware)
+  IF mode == "slice":
+    review_glob = "docs/spec/{FEATURE_ID}/review/peer_review_{INCREMENT_ID}_*.md"
+  ELSE:
+    review_glob = "docs/spec/{FEATURE_ID}/review/peer_review_*.md"
+  latest_review = LATEST(review_glob)
   IF latest_review IS NULL:
-    ❌ BLOCK: "No peer review found. IMPLEMENT --build generates this automatically."
+    ❌ BLOCK: "No peer review found at {review_glob}. IMPLEMENT --build generates this automatically (see Factory-implement-review-checks.instructions.md § 3.1)."
     STOP
   review_status = READ_FRONTMATTER(latest_review, "status")
   IF review_status != "APPROVED":
-    ❌ BLOCK: "Peer review status is '{review_status}', expected 'APPROVED'"
+    ❌ BLOCK: "Peer review status is '{review_status}', expected 'APPROVED' (file: {latest_review})"
     IF review_status == "CHANGES_REQUESTED":
-      REDIRECT: "DEV must fix via IMPLEMENT --fix {FEATURE_ID}"
+      REDIRECT: mode == "slice"
+        ? "DEV must fix via IMPLEMENT --fix {FEATURE_ID} {INCREMENT_ID}"
+        : "DEV must fix via IMPLEMENT --fix {FEATURE_ID}"
     STOP
 
-  # Gate 3: qa_report not already APPROVED (unless INVALIDATED)
-  latest_report = LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_final_*.md")
+  # Gate 3: target qa_report not already APPROVED (unless INVALIDATED)
+  IF mode == "slice":
+    target_report_glob = "docs/spec/{FEATURE_ID}/qa/qa_report_{INCREMENT_ID}_*.md"
+  ELSE:
+    target_report_glob = "docs/spec/{FEATURE_ID}/qa/qa_report_final_*.md"
+  latest_report = LATEST(target_report_glob)
   IF latest_report:
     report_status = READ_FRONTMATTER(latest_report, "status")
     IF report_status == "APPROVED":
-      ❌ BLOCK: "QA report already APPROVED. No re-verification needed."
+      ❌ BLOCK: "QA report already APPROVED for {mode} ({latest_report}). No re-verification needed."
       STOP
 
   # Gate 4: SMOKE-E2E gate (full-sdlc preset only; scope-aware)
@@ -268,13 +320,23 @@ FUNCTION verify_prerequisites(FEATURE_ID):
 
 ### Verification Checklist Generation (Checkbox-Driven Protocol — MANDATORY)
 
-**Before executing any verification step, generate a verification checklist in `qa_report_final_{ts}.md` with `- [ ]` items derived from test_plan.md + governance checks.**
+**Before executing any verification step, generate a verification checklist in the target qa_report file with `- [ ]` items derived from test_plan.md + governance checks.** Target file:
+- Slice mode (`INCREMENT_ID != null`): `qa_report_{INCREMENT_ID}_{ts}.md`. Test-case items filtered to scenarios assigned to that increment in `increment_plan.md § 1` (`Scenarios covered`). Reliability items filtered to contracts on the increment's `Contract surface`. Per-feature checks (lint/typecheck/SAST/DAST) still execute scope-aware (BVL filters). Do NOT include cross-slice transversal checks here.
+- Aggregate mode (`INCREMENT_ID == null`): `qa_report_final_{ts}.md`. Full checklist plus a transversal section (see § Aggregate Transversal Checks below) AND an `aggregates:` frontmatter listing the consumed `qa_report_{INC-N}_*.md` paths.
 
 ```yaml
-FUNCTION generate_verification_checklist(FEATURE_ID):
+FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
+  mode = INCREMENT_ID IS NOT NULL ? "slice" : "aggregate"
   READ test_plan.md → test_cases[], acceptance_tests[], edge_cases[]
   READ dev_plan.md → phases[], tasks[]
   READ constitution.md → stack config (for conditional checks)
+  IF mode == "slice":
+    READ increment_plan.md § 1 → target_increment = entry WHERE id == INCREMENT_ID
+    scenario_filter = SET(target_increment.scenarios_covered)
+    contract_filter = SET(target_increment.contract_surface)
+  ELSE:
+    scenario_filter = null  # all scenarios
+    contract_filter = null  # all contracts
 
   checklist = []
 
@@ -295,8 +357,10 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
   checklist.push("- [ ] [QA-GOV-2]: Integration audit (system_resources + hardcoded config)")
   checklist.push("- [ ] [QA-GOV-3]: Static audit (code quality + test coverage + standards)")
 
-  # Test plan derived checks (one per test case)
+  # Test plan derived checks (one per test case, scenario-filtered in slice mode)
   FOR EACH test_case IN test_plan.test_cases:
+    IF scenario_filter IS NOT NULL AND test_case.scenario NOT IN scenario_filter:
+      CONTINUE  # skip — not in this increment's scope
     checklist.push("- [ ] [QA-TC-{test_case.id}]: {test_case.description}")
     checklist[-1].metadata = {
       scenario_ref: test_case.scenario,
@@ -368,10 +432,26 @@ FUNCTION generate_verification_checklist(FEATURE_ID):
     }
   LOG: "QA DC consult: {applicable_dcs.length} DC checklist items added"
 
-  # Write checklist to qa_report
-  WRITE checklist to qa_report_final_{ts}.md under "## Verification Checklist"
-  LOG: "Generated {checklist.count} verification checkboxes in qa_report"
-  RETURN checklist
+  # Aggregate-only transversal section (mode == "aggregate")
+  # Cross-slice checks the per-slice reports cannot cover: end-to-end regression on the merged
+  # codebase, DAST against the deployed feature, CVP feature_completion across all artefacts.
+  IF mode == "aggregate" AND slicing_strategy == "incremental":
+    checklist.push("- [ ] [QA-AGG-1]: Cross-slice regression suite (full feature scope)")
+    checklist.push("- [ ] [QA-AGG-2]: Per-slice qa_report aggregation — every qa_report_{INC-N}_*.md APPROVED and not INVALIDATED")
+    checklist.push("- [ ] [QA-AGG-3]: CVP feature_completion full-chain coherence")
+    LOG: "QA aggregate transversal: 3 QA-AGG items added"
+
+  # Write checklist to the mode-aware qa_report path
+  qa_report_path = mode == "slice"
+    ? "docs/spec/{FEATURE_ID}/qa/qa_report_{INCREMENT_ID}_{ts}.md"
+    : "docs/spec/{FEATURE_ID}/qa/qa_report_final_{ts}.md"
+  WRITE checklist to qa_report_path under "## Verification Checklist"
+  IF mode == "aggregate" AND slicing_strategy == "incremental":
+    UPDATE_FRONTMATTER(qa_report_path, "aggregates", LIST(LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_{inc.id}_*.md") FOR inc IN increments))
+  UPDATE_FRONTMATTER(qa_report_path, "scope", mode == "slice" ? "increment-{INCREMENT_ID}" : "feature")
+  UPDATE_FRONTMATTER(qa_report_path, "increment_id", mode == "slice" ? INCREMENT_ID : null)
+  LOG: "Generated {checklist.count} verification checkboxes in {qa_report_path}"
+  RETURN { checklist, qa_report_path }
 ```
 
 > **Auto-approval impact.** `[QA-DC-N]` items are first-class checklist entries. The auto-approval verdict requires ALL checklist items (including all `[QA-DC-*]`) to be `[x]` — a single unchecked DC item blocks `APPROVED` just like an unchecked test case. See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 6 for the canonical protocol.
@@ -529,10 +609,13 @@ created_at: "{{ISO_8601}}"
 
 **6. Final Verdict + QA Report Generation:**
 
-Generate `docs/spec/{{FEATURE_ID}}/qa/qa_report_final_{{timestamp}}.md` consolidating all verification results.
+Generate the mode-aware qa_report file:
+- Slice mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_{{INCREMENT_ID}}_{{timestamp}}.md`
+- Aggregate mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_final_{{timestamp}}.md` (with `aggregates:` frontmatter referencing the consumed slice reports)
+
 **Verification Checklist Completion Gate:** Before setting verdict, verify ALL `- [ ]` items in the checklist are marked `[x]`. If any remain unchecked, verdict MUST be REJECTED.
 
-### QA Report Template (`qa_report_final_{{timestamp}}.md`)
+### QA Report Template (`qa_report_final_{{timestamp}}.md` / `qa_report_{{INC-N}}_{{timestamp}}.md`)
 
 ```yaml
 ---
@@ -541,6 +624,9 @@ feature_id: "{{FEATURE_ID}}"
 spec_iteration: N
 test_plan_version: N
 verdict: APPROVED | REJECTED
+scope: feature | increment-{{INC-N}}      # slice or aggregate
+increment_id: null | "{{INC-N}}"          # populated when scope == increment-*
+aggregates: []                             # list of qa_report_{{INC-N}}_*.md paths consumed (aggregate mode only)
 total_checks: N
 checks_passed: N
 checks_failed: N
@@ -732,23 +818,32 @@ Before verification, check peer_review status:
 
 **Pillar 1 — Skeleton-First Write (on --verify):**
 ```yaml
-FUNCTION qa_skeleton_first(FEATURE_ID):
-  path = "docs/spec/{FEATURE_ID}/qa/qa_report_final_{timestamp}.md"
+FUNCTION qa_skeleton_first(FEATURE_ID, INCREMENT_ID=null):
+  mode = INCREMENT_ID IS NOT NULL ? "slice" : "aggregate"
+  path = mode == "slice"
+    ? "docs/spec/{FEATURE_ID}/qa/qa_report_{INCREMENT_ID}_{timestamp}.md"
+    : "docs/spec/{FEATURE_ID}/qa/qa_report_final_{timestamp}.md"
   IF NOT FILE_EXISTS(path):
+    pending = ["QA-PRE", "QA-GOV", "QA-TC", "QA-REG", "QA-DAST", "verdict"]
+    IF mode == "aggregate" AND READ_FRONTMATTER(dev_plan_path, "slicing_strategy") == "incremental":
+      pending.push("QA-AGG")
     WRITE_SKELETON(path):
       frontmatter:
         status: DRAFT
         feature_id: "{FEATURE_ID}"
+        scope: mode == "slice" ? "increment-{INCREMENT_ID}" : "feature"
+        increment_id: INCREMENT_ID
+        aggregates: []
         created_at: "{ISO_8601}"
         _progress:
           current_phase: "skeleton"
           completed_sections: []
-          pending_sections: ["QA-PRE", "QA-GOV", "QA-TC", "QA-REG", "QA-DAST", "verdict"]
+          pending_sections: pending
           decisions: []
           last_agent: "QA"
-          last_command: "--verify {FEATURE_ID}"
+          last_command: mode == "slice" ? "--verify {FEATURE_ID} {INCREMENT_ID}" : "--verify {FEATURE_ID}"
           resumable: true
-      body: VERIFICATION_CHECKLIST_SKELETON()  # All checks as [ ] checkboxes
+      body: VERIFICATION_CHECKLIST_SKELETON()  # All checks as [ ] checkboxes — scenario-filtered when slice
     SAVE(path)  # IMMEDIATE
 ```
 
@@ -770,15 +865,20 @@ FOR EACH check IN [QA-PRE-*, QA-GOV-*, QA-TC-*, QA-REG-*, QA-DAST-*]:
 
 **Pillar 3 — Resume-on-Entry (for --verify, --e2e):**
 ```yaml
-FUNCTION qa_resume_check(FEATURE_ID, command):
-  # Find latest qa_report for this feature
-  reports = GLOB("docs/spec/{FEATURE_ID}/qa/qa_report_final_*.md")
+FUNCTION qa_resume_check(FEATURE_ID, command, INCREMENT_ID=null):
+  # Find latest qa_report matching the requested scope.
+  # Slice mode resumes only its own qa_report_{INCREMENT_ID}_*.md; aggregate mode resumes
+  # qa_report_final_*.md. The two are independent IPP artefacts.
+  glob = INCREMENT_ID IS NOT NULL
+    ? "docs/spec/{FEATURE_ID}/qa/qa_report_{INCREMENT_ID}_*.md"
+    : "docs/spec/{FEATURE_ID}/qa/qa_report_final_*.md"
+  reports = GLOB(glob)
   IF reports.length > 0:
     latest = SORT_BY_TIMESTAMP(reports).last
     fm = READ_FRONTMATTER(latest)
     IF fm._progress IS NOT NULL AND fm._progress.pending_sections.length > 0:
       unchecked = FIND_ALL(latest, "- [ ]")
-      LOG: "RESUME: qa_report — {fm._progress.completed_sections.length} categories done, {unchecked.length} checks pending"
+      LOG: "RESUME: {latest} — {fm._progress.completed_sections.length} categories done, {unchecked.length} checks pending"
       RECOVER_DECISIONS(fm._progress.decisions)
       RESUME_FROM(first_unchecked_check)
       RETURN "RESUMED"

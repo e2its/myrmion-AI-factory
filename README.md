@@ -301,10 +301,10 @@ Role: Triple personality (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC). Plans + imp
 | --- | --- | --- |
 | `/implement --plan {ID}` | — | Generates the implementation checklist (`dev_plan.md`). Requires BLUEPRINT APPROVED. Under `slicing_strategy: incremental` emits one `## Increment INC-N` section per increment with `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` tasks + `[INC-N.ACC.k]` acceptance gate; under `monolithic` preserves legacy `[A/B/C.N]` tags. |
 | `/implement --refine {ID} "[FEEDBACK]"` | Feedback | Plan refinement. Standard Refine produces `[ADJ-N]` tasks; Delta Iteration produces `[D.N]` tasks. |
-| `/implement --build {ID}` | — | Phased implementation: 💻 DEV (TDD + BVL) → 🔍 REVIEW → 🛡️ SEC (SAST). Build Verification Loop: runs tests in terminal, parses errors, auto-corrects (max 3 attempts). Full Verification Gate (tests + lint + typecheck + build) before `IMPLEMENTED_AND_VERIFIED`. Completion Gate: every task must be `[x]` or `@skip` with justification. |
+| `/implement --build {ID}` | — | Phased implementation: 💻 DEV (TDD + BVL) → 🔍 REVIEW → 🛡️ SEC (SAST). Build Verification Loop: runs tests in terminal, parses errors, auto-corrects (max 3 attempts). Full Verification Gate (tests + lint + typecheck + build) — under `slicing_strategy: incremental` runs scope-filtered per slice before flipping `dev_plan.frontmatter.increments[INC-N].status: IMPLEMENTED_AND_VERIFIED`; the global `dev_plan.status` is **derived** and only flips after the last slice closure passes a plan-level BVL aggregate. Completion Gate: every task must be `[x]` or `@skip` with justification. |
 | `/implement --fix {ID} "[HELP]"` | Help | Generates `[FIX-N]` tasks from QA rejection or blockers. Executes fix → marks `[x]`. |
 
-Artifacts: `docs/spec/{ID}/dev_plan.md`, source code, `peer_review_{ts}.md`, `sec_audit.md`, Draft PR.
+Artifacts: `docs/spec/{ID}/dev_plan.md`, source code, `peer_review_{ts}.md` (or `peer_review_{INC-N}_{ts}.md` per-slice when incremental), `sec_audit.md`, Draft PR.
 
 ### 4. DEVOPS (DevOps & Infrastructure)
 
@@ -336,11 +336,11 @@ Role: Final post-code certification and verification in a deployed environment (
 
 | Command | Arguments | Description |
 | --- | --- | --- |
-| `/qa --verify {ID}` | — | Checkbox-driven: generates the `[ ]` checklist (`[QA-PRE-*]`, `[QA-GOV-*]`, `[QA-TC-*]`, `[QA-REG-*]`, `[QA-DAST-*]`), marks `[x]` as it executes. Auto-approves when ALL `[x]` AND verdict APPROVED. Requires a deployed environment. |
+| `/qa --verify {ID} [{INC-N}]` | Optional `INC-N` | Checkbox-driven: generates the `[ ]` checklist (`[QA-PRE-*]`, `[QA-GOV-*]`, `[QA-TC-*]`, `[QA-REG-*]`, `[QA-DAST-*]`, plus `[QA-AGG-*]` in aggregate mode for incremental features), marks `[x]` as it executes. **Slice mode** (`INC-N` provided): verifies a single increment that has reached `IMPLEMENTED_AND_VERIFIED` per-entry — checklist filtered to scenarios assigned to the slice; required for incremental features before the aggregate. **Aggregate mode** (no `INC-N`): final feature-level verification; for incremental features requires every `qa_report_{INC-N}_*.md` already APPROVED. Auto-approves when ALL `[x]` AND verdict APPROVED. Requires a deployed environment. |
 | `/qa --reject {ID} "[REASON]"` | Reason | Generates remediation items `[FIX-N]` → `/implement --fix`. |
 | `/qa --e2e {ID}` | — | Runs E2E tests. |
 
-Artifacts: `docs/spec/{ID}/qa/qa_report_final_{ts}.md` (includes the Verification Checklist).
+Artifacts: `docs/spec/{ID}/qa/qa_report_{INC-N}_{ts}.md` (per-slice, slicing_strategy=incremental) and/or `docs/spec/{ID}/qa/qa_report_final_{ts}.md` (aggregate / sole report for monolithic). The aggregate report cross-references slice reports via the `aggregates:` frontmatter.
 
 > **Note:** Test planning was absorbed by BLUEPRINT (🧪 QA hat). QA focuses on post-staging verification.
 
@@ -434,8 +434,11 @@ When AUDIT runs, SETUP auto-detects Brownfield and pre-fills data.
 ### Phase 2: Implementation (Code)
 
 ```
-/implement --plan USR-001    → Generates the checklist (dev_plan.md)
-/implement --build USR-001   → TDD + BVL (real execution) + Review + SAST per phase
+/implement --plan USR-001          → Generates the checklist (dev_plan.md)
+/implement --build USR-001         → TDD + BVL (real execution) + Review + SAST per phase
+                                     Under slicing_strategy: incremental, run once per slice
+                                     (one open INC-N branch at a time). BVL runs scope-filtered
+                                     per slice; the plan-level aggregate runs on the last closure.
 ```
 
 ### Phase 2.5: Infrastructure (flexible — post-BLUEPRINT)
@@ -449,7 +452,10 @@ When AUDIT runs, SETUP auto-detects Brownfield and pre-fills data.
 
 ```
 /devops --deploy USR-001 --env staging   → Deploys to pre-production
-/qa --verify USR-001                     → Tests + DAST (auto-approves when verdict APPROVED)
+/qa --verify USR-001 INC-1               → Per-slice verification (slicing_strategy=incremental)
+                                           Repeat for each slice; required before the aggregate.
+/qa --verify USR-001                     → Aggregate / final verification
+                                           For monolithic features this is the only QA call.
 ```
 
 ### Phase 4: Merge and Production
@@ -548,8 +554,8 @@ graph TD
 | Blocked implementation | `dev_plan.md → task BLOCKED` | `/implement --fix ID "Technical hint..."` |
 | Test fails 3× (3-Strike Rule) | `dev_plan.md → NEEDS_DECISION` | Recommendation/Decision loop: retry, modify, or escalate |
 | SAST vulnerabilities | `sec_audit.md → VULNERABLE` | Inline fix loop in `/implement --build` |
-| DAST vulnerabilities | `qa_report.md → VULNERABLE` | Remediate → `/qa --verify ID` |
-| Hardcoded config | `qa_report.md → VULNERABLE` | Fix → `/qa --verify ID` |
+| DAST vulnerabilities | `qa_report.md → VULNERABLE` | Remediate → `/qa --verify ID [INC-N]` (slice or aggregate, depending on origin) |
+| Hardcoded config | `qa_report.md → VULNERABLE` | Fix → `/qa --verify ID [INC-N]` |
 | Drift violation | `qa_report.md → BLOCKED` | `/blueprint --refine ID` or fix and re-run |
 
 ---
@@ -586,6 +592,8 @@ graph TD
 | `BUILDING` | `/implement --fix ID` | `BUILDING` |
 | `IMPLEMENTED_AND_VERIFIED` | `/implement --refine ID` | `READY` (delta_mode) |
 | `IMPLEMENTED_AND_VERIFIED` | `/implement --fix ID` | `BUILDING` (fix cycle) |
+
+> Under `slicing_strategy: incremental` the plan-level state shown above is **derived**: it stays at `BUILDING` until every entry of `dev_plan.frontmatter.increments[]` has reached `IMPLEMENTED_AND_VERIFIED` AND a plan-level BVL aggregate passes. Per-slice transitions live on `increments[INC-N].status` and follow `READY → BUILDING → IMPLEMENTED_AND_VERIFIED → MERGED` (the merge is recorded by the SCM hook, not by IMPLEMENT).
 
 ### `qa_report_{ts}.md` (QA)
 

@@ -7,6 +7,10 @@
 ```markdown
 ---
 id: {{FEATURE_ID}}
+# When slicing_strategy == incremental, the global `status: IMPLEMENTED_AND_VERIFIED` is DERIVED — it flips
+# automatically only when every entry in `increments[]` has reached IMPLEMENTED_AND_VERIFIED AND the plan-level
+# BVL aggregate passes (Factory-implement-build.instructions.md § Completion Verification Gate). Per-slice
+# transitions are written to `increments[INC-N].status`; never write the global value manually under incremental.
 status: DRAFT   # DRAFT | READY | NEEDS_INFO | BUILDING | IMPLEMENTED_AND_VERIFIED | BLOCKED | REJECTED | INVALIDATED
 scope: full-stack  # inherited from spec.feature.scope
 slicing_strategy: incremental   # incremental | monolithic — inherited from increment_plan.md; drives body layout

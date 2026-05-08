@@ -1277,11 +1277,22 @@ Execute AFTER all phases verified + mock compliance + visual inspection.
 
 ### 3.1: Generate Review Report
 ```yaml
-CREATE docs/spec/{FEATURE_ID}/peer_review_{timestamp}.md:
-  - Summary of all REVIEW findings per phase
+# File path is scope-aware:
+#  - monolithic feature OR plan-level aggregate: docs/spec/{FEATURE_ID}/review/peer_review_{timestamp}.md
+#  - per-increment closure (build_scope.mode == "incremental"): docs/spec/{FEATURE_ID}/review/peer_review_{INC-N}_{timestamp}.md
+#    where {INC-N} == build_scope.target_increment.id (e.g. peer_review_INC-2_2026-05-08T10-30-00.md)
+# QA --verify {ID} INC-N reads the latest peer_review_{INC-N}_*.md for the slice;
+# QA --verify {ID} (aggregator) reads the latest peer_review_*.md (any) — typically the final aggregate
+# review emitted on the last slice closure or, for monolithic features, the single feature-level report.
+review_path = build_scope.mode == "incremental"
+  ? "docs/spec/{FEATURE_ID}/review/peer_review_{build_scope.target_increment.id}_{timestamp}.md"
+  : "docs/spec/{FEATURE_ID}/review/peer_review_{timestamp}.md"
+CREATE review_path:
+  - Summary of all REVIEW findings per phase (limited to build_scope when incremental)
   - Resolved blockers
   - Remaining warnings (with justifications)
   - Code quality metrics
+  - Frontmatter: scope = "feature" | "increment-{INC-N}", increment_id (when applicable)
 ```
 
 ### 3.2: Generate Security Audit
@@ -1381,7 +1392,7 @@ RETURN_TO_FACTORY(FEATURE_ID)
 ```yaml
 Templates available for generation:
   Template A: dev_plan.md (implementation plan with phases)
-  Template B: peer_review_{timestamp}.md (REVIEW hat report)
+  Template B: peer_review_{timestamp}.md OR peer_review_{INC-N}_{timestamp}.md (REVIEW hat report — name depends on build_scope, see § 3.1)
   Template C: sec_audit.md (SEC hat report)
   Template D: Phase-specific task checklist
   Template E: Test file scaffolding (per framework)

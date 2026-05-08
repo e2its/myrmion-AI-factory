@@ -709,10 +709,14 @@ FUNCTION verify_completion_gate(FEATURE_ID):
           STOP
 
   # BVL Full Verification Gate (MANDATORY — tests + lint + typecheck + build)
-  # See: Factory-build-verification/SKILL.md → Full Verification Gate
-  bvl_result = EXECUTE full_verification_gate(FEATURE_ID)
+  # See: Factory-build-verification/SKILL.md → Full Verification Gate (accepts optional increment_id)
+  # Under incremental, the slice closure passes the target increment id so BVL filters tests + lint
+  # to that slice's source set. The plan-level aggregate gate (run on the LAST slice closure once
+  # every increment has reached IMPLEMENTED_AND_VERIFIED) calls again with increment_id=null.
+  bvl_increment_id = build_scope.mode == "incremental" ? build_scope.target_increment.id : null
+  bvl_result = EXECUTE full_verification_gate(FEATURE_ID, bvl_increment_id)
   IF bvl_result == BLOCKED:
-    ❌ BLOCK: "BVL Full Verification Gate failed. Fix before IMPLEMENTED_AND_VERIFIED."
+    ❌ BLOCK: "BVL Full Verification Gate failed (scope={bvl_increment_id OR 'feature'}). Fix before IMPLEMENTED_AND_VERIFIED."
     SHOW: bvl_result.details
     STOP — DO NOT update status
 
@@ -738,14 +742,24 @@ FUNCTION verify_completion_gate(FEATURE_ID):
 
     all_done = ALL(dev_plan.frontmatter.increments, inc.status == "IMPLEMENTED_AND_VERIFIED")
     IF all_done:
+      # Plan-level BVL aggregate (MANDATORY before flipping global status)
+      # Re-runs BVL with increment_id=null so the suite executes against the entire feature scope —
+      # catches cross-slice regressions that per-slice BVL cannot see (e.g. INC-1 export consumed by
+      # INC-2 broke after a late refactor). This guards the global IMPLEMENTED_AND_VERIFIED transition.
+      bvl_aggregate = EXECUTE full_verification_gate(FEATURE_ID, null)
+      IF bvl_aggregate == BLOCKED:
+        ❌ BLOCK: "Plan-level BVL aggregate failed. Fix cross-slice regressions before IMPLEMENTED_AND_VERIFIED."
+        SHOW: bvl_aggregate.details
+        STOP — DO NOT flip global status (per-increment status remains IMPLEMENTED_AND_VERIFIED; operator must `IMPLEMENT --fix {FEATURE_ID}` to repair)
+
       ✅ UPDATE dev_plan.md frontmatter:
         status: IMPLEMENTED_AND_VERIFIED
         completed_at: {ISO_8601}
         tasks_completed: {checked_tasks.count across all increments}
         tasks_skipped: {skipped_tasks.count across all increments}
         tasks_total: {total_tasks across all increments}
-        bvl_result: {aggregated summary}
-      LOG: "Plan-level Completion Gate PASSED — all {dev_plan.frontmatter.increments.length} increments verified."
+        bvl_result: {bvl_aggregate.summary}
+      LOG: "Plan-level Completion Gate PASSED — all {dev_plan.frontmatter.increments.length} increments verified, aggregate BVL clean."
     ELSE:
       pending = FILTER(dev_plan.frontmatter.increments, inc.status != "IMPLEMENTED_AND_VERIFIED")
       LOG: "Increment {build_scope.target_increment.id} verified ({checked_tasks.count} tasks). Plan-level status remains {dev_plan.status} — pending: {[i.id for i in pending]}."
@@ -1441,8 +1455,12 @@ Factory Smart Redirect computes environment from ci-cd.md (NOT hardcoded)
 
 ### IMPLEMENT → QA
 ```yaml
-IMPLEMENT --build generates: peer_review_{timestamp}.md + sec_audit.md
-QA --verify reads these artifacts for verification
+# Naming is build_scope-aware (see Factory-implement-review-checks.instructions.md § 3.1):
+#  - monolithic / aggregate: peer_review_{timestamp}.md
+#  - per-increment closure:  peer_review_{INC-N}_{timestamp}.md
+IMPLEMENT --build generates: peer_review_{timestamp}.md (or peer_review_{INC-N}_{timestamp}.md when incremental) + sec_audit.md
+QA --verify {ID} INC-N reads peer_review_{INC-N}_*.md for the slice
+QA --verify {ID} (aggregator) reads the latest peer_review_*.md
 DAST (v8.0.0) absorbed by QA --verify (SEC hat in QA)
 ```
 
