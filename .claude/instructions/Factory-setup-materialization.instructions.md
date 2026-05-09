@@ -1027,6 +1027,13 @@ The workflow MUST be wired so that any PR transitioning an ADR file under `docs/
 - Greenfield: Create empty `config/codebase_inventory.json` with `{ "version": "1.0.0", "bootstrap_mode": "greenfield", "artifacts": [] }`
 - Brownfield: Execute BOOTSTRAP_CODEBASE_INVENTORY (targeted grep_search + file_search with framework-specific patterns to detect existing artifacts)
 
+**Inventory Reconciliation Bootstrap:**
+- Materialise `config/inventory_aliases.json` from `.context/templates/setup/config/inventory_aliases.json`. The template ships with empty `bc_alias` / `bc_feature` / `cross_bc_features` / `canonical_path_globs` — populate these from Discovery answers (bounded contexts list, feature ownership, canonical source-tree layout).
+- When the file stays empty, `scripts/check-inventory-freshness.py` and `scripts/reconcile_inventory.py` degrade gracefully (orphan scan disabled, registration is a no-op). Materialise to enable the inventory-drift CI gate.
+
+**Inventory Drift Workflow (conditional on `ci_cd.platform`):**
+Mirror the Governance Workflow shape — pick the platform-specific source from `.context/templates/setup/workflows/inventory-drift.{platform}.{ext}` and materialise it as `.github/workflows/inventory-drift.yml` (or the platform equivalent). The workflow is a blocking gate that runs `scripts/check-inventory-freshness.py` on every PR / MR touching `src/`, `config/codebase_inventory.json`, `config/inventory_aliases.json`, the freshness script itself, or the workflow file. The current template tree ships only the `github-actions` variant — if the project's `ci_cd.platform` is anything else, materialisation skips this workflow until a platform-specific variant lands.
+
 **System Resources Configuration:**
 - Create `config/system_resources.json` following schema `.context/templates/setup/config/system_resources_schema.md`
 - READ the schema to extract ALL required root-level and resource-level fields

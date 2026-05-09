@@ -669,10 +669,11 @@
       ]
     },
     "scripts/hooks/pre-push": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "type": "script",
-      "role": "Git hook — force-push protection, full governance validation.",
+      "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, full governance validation. Honors the actual push remote ($1) instead of hardcoding origin.",
       "changelog": [
+        "2.0.0: Added gitleaks secret-leak scan across the commits in the push range and honor the actual remote arg ($1). Force-push guard tightened to handle ZERO_SHA and protected branches at both local and remote sides.",
         "1.0.0: feat: pre-push hook with force-push guard and governance check"
       ]
     },
@@ -954,7 +955,8 @@
       "changelog": [
         "1.1.0: feat(EVOL-028) validator scope extended to `.claude/rules/*.md` — synced from framework-core counterpart.",
         "1.0.0: feat(EVOL-028) materialised mirror of applicable_when frontmatter validator (CI gate). Ships to every project so downstream CI catches drift in their own .claude/instructions and .claude/rules entries."
-      ]
+      ],
+        "path": "scripts/check-applicability-frontmatter.sh"
     }
   },
   "agent_templates": {
@@ -2451,11 +2453,56 @@
       "changelog": [
         "1.1.0: feat(EVOL-028) discovery scan extended — Step 4 now scans every `.claude/rules/*.md` (technical + cross-cutting governance), not only defect-prevention.md. Roll-Call output gains ACTIVE RULES section. Inputs table documents `.context/applicability_context.json` as the deterministic context source written by SETUP Phase D, with docs/setup.md as fallback. Validation contract section extended accordingly.",
         "1.0.0: feat(EVOL-028) new Applicability Discovery Protocol (ADP) skill — live scan of governance trees (snapshot LAWs, instructions, structural skills, DCs) filtered by applicable_when frontmatter; emits canonical Roll-Call block on-screen as first user-facing message of every command. Salience anchor against rule-amnesia symptom (lazy-load ineffective in practice — agents had rules loaded but ignored them). Closed vocabulary: phase, scope, change_type, command, path_glob, framework, always."
+      ],
+        "path": ".claude/skills/Factory-applicability-discovery/SKILL.md"
+    },
+    "skills/Factory-batch-interactivity/SKILL.md": {
+      "version": "1.2.0",
+      "type": "skill",
+      "role": "BIP — tiered proposal/review/converge cycles, BA mediation between specialist agents and the user.",
+      "changelog": [
+        "1.2.0: BIP — initial framework entry. Replaces one-question-at-a-time Q&A with batched decision tiers."
+      ]
+    },
+    "instructions/Factory-setup-reconcile-inventory.instructions.md": {
+      "version": "1.0.0",
+      "type": "instruction",
+      "role": "SETUP --reconcile-inventory protocol — drives the 5-phase reconciliation flow (detect drift, resolve dead paths, register orphans, optional enrich-descriptions, persist + verify).",
+      "changelog": [
+        "1.0.0: Initial framework entry. Path-derivation work delegated to scripts/reconcile_inventory.py + scripts/check-inventory-freshness.py with config/inventory_aliases.json as the project-specific map."
+      ],
+        "path": ".claude/instructions/Factory-setup-reconcile-inventory.instructions.md"
+    },
+    "scripts/reconcile_inventory.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Inventory reconciliation helper consumed by SETUP --reconcile-inventory. Reads BC alias map from config/inventory_aliases.json.",
+      "changelog": [
+        "1.0.0: Initial framework entry. BC alias / feature ownership / cross-BC overrides loaded from config/inventory_aliases.json (degrades gracefully when missing)."
+      ],
+        "path": "scripts/reconcile_inventory.py"
+    },
+    "scripts/check-inventory-freshness.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Inventory freshness detector — flags dead paths and canonical-path orphans. Reads scan globs and BC alias map from config/inventory_aliases.json.",
+      "changelog": [
+        "1.0.0: Initial framework entry. Canonical path globs and BC alias map loaded from config/inventory_aliases.json (empty config disables orphan scan)."
+      ],
+        "path": "scripts/check-inventory-freshness.py"
+    },
+    ".context/templates/setup/workflows/inventory-drift.github-actions.yml": {
+      "version": "1.0.0",
+      "type": "template-workflow",
+      "role": "GitHub Actions blocking CI gate that runs the freshness check on every PR touching src, the inventory, the freshness script, or this workflow itself. Materialised at SETUP --generate as `.github/workflows/inventory-drift.yml`.",
+      "changelog": [
+        "1.0.0: Initial framework entry. Lives in the template tree; meta repo itself does not consume it. Pairs with scripts/check-inventory-freshness.py + config/inventory_aliases.json."
       ]
     },
     "scripts/check-applicability-frontmatter.sh": {
       "version": "1.1.0",
       "type": "script",
+      "path": "scripts/check-applicability-frontmatter.sh",
       "changelog": [
         "1.1.0: feat(EVOL-028) validator scope extended to all `.claude/rules/*.md` (excluding README.md). Catches drift in technical rules (python.md, React.md, java.md, etc.) and cross-cutting rules (security_policy.md, testing.md, performance.md, etc.) at PR time.",
         "1.0.0: feat(EVOL-028) new CI gate validating applicable_when frontmatter blocks across .claude/instructions, .claude/skills/Factory-*, and .claude/rules/defect-prevention.md. Closed vocabulary check (phase/scope/change_type/command/path_glob/framework/always); always-mutex enforcement; missing block treated as always:true (back-compat during migration)."
