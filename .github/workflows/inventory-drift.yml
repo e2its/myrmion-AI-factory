@@ -1,0 +1,60 @@
+name: Inventory Drift Check
+
+# ============================================================================
+# Inventory Drift Check — blocking CI gate for codebase_inventory.json freshness
+# ============================================================================
+# Runs `scripts/check-inventory-freshness.py` on every PR that touches the
+# project's canonical-path source tree, the inventory itself, or the freshness
+# script. Detects:
+#
+#   - Dead paths (inventory entries pointing to non-existent files)
+#   - Orphan artifacts (canonical-path source files with no inventory entry)
+#
+# Path globs and BC alias map are loaded from `config/inventory_aliases.json`
+# (materialised at SETUP --generate). The freshness script skips entries whose
+# `status` is PLANNED / DESIGNED / DEPRECATED / REMOVED so forward-looking
+# work does not block PRs.
+# ============================================================================
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'config/codebase_inventory.json'
+      - 'config/inventory_aliases.json'
+      - 'scripts/check-inventory-freshness.py'
+      - '.github/workflows/inventory-drift.yml'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  inventory-drift:
+    runs-on: ubuntu-latest
+    name: Inventory drift (blocking)
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Run inventory freshness check
+        id: check
+        run: |
+          python3 scripts/check-inventory-freshness.py
+
+      - name: Surface result
+        if: always()
+        run: |
+          if [ "${{ steps.check.outcome }}" = "success" ]; then
+            echo "::notice::Inventory clean — no drift detected."
+          else
+            echo "::error::Inventory drift detected. See log above. Run \`SETUP --reconcile-inventory\` locally (or update config/codebase_inventory.json directly), then re-push."
+          fi
