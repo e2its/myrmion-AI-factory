@@ -37,12 +37,9 @@ Why this exists:
   override. CIP gate already enforces inventory presence (BLOCK on missing) but
   doesn't enforce freshness (no diff against actual code). This script closes that.
 
-  Pass C added 2026-05-05 (PR #297 self-review): the original gate verified
-  presence but not quality. A bulk-register run produced 43 entries that satisfied
-  Pass A + Pass B while having fabricated names, missing feature_ids, and
-  boilerplate descriptions. --strict catches that semantic rot.
-
-Authored 2026-05-05 as part of governance pre-flight + template hygiene PR.
+  Pass C verifies entry quality on top of presence: catches entries that satisfy
+  Pass A + Pass B (path exists, no orphans) but fail semantic gates — fabricated
+  names, missing feature_ids, boilerplate descriptions. Opt-in via `--strict`.
 """
 
 from __future__ import annotations

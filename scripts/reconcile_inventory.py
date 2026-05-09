@@ -37,9 +37,6 @@ Usage:
                                                          # for entries whose
                                                          # description is the
                                                          # boilerplate fallback
-
-Authored 2026-05-05 to close the SETUP --reconcile-inventory wiring gap
-identified during PR #297 self-review.
 """
 
 from __future__ import annotations
