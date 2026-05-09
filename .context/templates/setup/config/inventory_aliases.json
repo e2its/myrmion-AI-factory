@@ -1,0 +1,13 @@
+{
+  "_description": "Inventory alias map consumed by scripts/reconcile_inventory.py + scripts/check-inventory-freshness.py. SETUP --generate materialises this file with project-specific values during Phase D (Discovery).",
+  "_schema": {
+    "bc_alias": "dict[bounded_context_dir → short_alias]. Each BC's inventory ID prefix (e.g. 'auth', 'org').",
+    "bc_feature": "dict[bounded_context_dir → list[feature_id]]. Default feature ownership per BC.",
+    "cross_bc_features": "dict[file_path → list[feature_id]]. Path-level overrides for files whose feature ownership is NOT the default for their BC.",
+    "canonical_path_globs": "list[glob]. Repo-relative globs scanned for orphan detection. Each match must have an inventory entry."
+  },
+  "bc_alias": {},
+  "bc_feature": {},
+  "cross_bc_features": {},
+  "canonical_path_globs": []
+}

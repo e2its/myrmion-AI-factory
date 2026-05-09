@@ -2461,6 +2461,30 @@
         "1.2.0: BIP — initial framework entry. Replaces one-question-at-a-time Q&A with batched decision tiers."
       ]
     },
+    "instructions/Factory-setup-reconcile-inventory.instructions.md": {
+      "version": "1.0.0",
+      "type": "instruction",
+      "role": "SETUP --reconcile-inventory protocol — drives the 5-phase reconciliation flow (detect drift, resolve dead paths, register orphans, optional enrich-descriptions, persist + verify).",
+      "changelog": [
+        "1.0.0: Initial framework entry. Path-derivation work delegated to scripts/reconcile_inventory.py + scripts/check-inventory-freshness.py with config/inventory_aliases.json as the project-specific map."
+      ]
+    },
+    "scripts/reconcile_inventory.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Inventory reconciliation helper consumed by SETUP --reconcile-inventory. Reads BC alias map from config/inventory_aliases.json.",
+      "changelog": [
+        "1.0.0: Initial framework entry. BC alias / feature ownership / cross-BC overrides loaded from config/inventory_aliases.json (degrades gracefully when missing)."
+      ]
+    },
+    "scripts/check-inventory-freshness.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Inventory freshness detector — flags dead paths and canonical-path orphans. Reads scan globs and BC alias map from config/inventory_aliases.json.",
+      "changelog": [
+        "1.0.0: Initial framework entry. Canonical path globs and BC alias map loaded from config/inventory_aliases.json (empty config disables orphan scan)."
+      ]
+    },
     "scripts/check-applicability-frontmatter.sh": {
       "version": "1.1.0",
       "type": "script",
