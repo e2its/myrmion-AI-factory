@@ -2253,11 +2253,12 @@
       ]
     },
     "scripts/auto-tag.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "scripts/auto-tag.sh",
       "type": "utility",
       "role": "Framework-meta auto-tag utility with governance-aware override — reads framework_version from governance_versions.json so commit-based bump heuristics cannot silently under-bump. Meta-only variant; downstream projects receive the simpler template under .context/templates/setup/scripts/auto-tag.sh.",
       "changelog": [
+        "1.0.1: fix(ci) — git describe --tags --abbrev=0 now uses --match v* filter so defensive snapshot tags (pre-*, snapshot-*) no longer break SemVer parsing under set -u. Closes auto-tag.yml workflow failures on PR #22 + PR #23 merges.",
         "1.0.0: feat(EVOL-022) backfill: register framework_core entry (previously untracked) — divergent from template counterpart by intent."
       ]
     },
