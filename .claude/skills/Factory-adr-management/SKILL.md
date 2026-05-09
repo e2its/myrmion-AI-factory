@@ -14,14 +14,15 @@ applicable_when:
 
 ---
 
-## Two record types
+## Three record types
 
 | Type | Path | Amends constitution? | Lifecycle | Loaded into governance snapshot? |
 |---|---|---|---|---|
 | **ADR** (Architectural Decision Record) | `docs/project_log/adr/ADR-{N}-{slug}.md` | YES (mandatory at accept) | proposed → accepted | NO (the resulting constitution `[LAW]` section is loaded; the ADR itself is historical) |
 | **FDR** (Feature Decision Record) | `docs/spec/{FEAT-ID}/fdr/FDR-{N}-{slug}.md` | NO (feature-local only) | proposed → accepted | NO (read directly by BLUEPRINT § 7.8 when working the owning feature) |
+| **DIVERGENCE** (Divergence Record) | `docs/project_log/adr/ADR-{N}-{slug}.md` | NO (records intent, no [LAW] section added or modified) | accepted (single state — divergences are declarative) | NO (the ADR is the historical record; future readers consult it before "fixing" the documented divergence) |
 
-Choosing between ADR and FDR is the agent's first responsibility when invoking this skill — see § Decision: ADR vs FDR.
+Choosing between record types is the agent's first responsibility when invoking this skill — see § Decision: record_type. **DIVERGENCE records use the ADR file path and numbering** (they are a sub-flavour of ADR with `record_type: DIVERGENCE` in the call) but skip Accept Procedure (no constitution amendment). They satisfy `operational_rule` with a single explanatory line ("DIVERGENCE record — see § Decision body") and `target_section: none`, `amendment_kind: none`. The validator skips the constitution-section verification when `record_type == DIVERGENCE`.
 
 ---
 
@@ -33,26 +34,27 @@ Creates a new record in `status: proposed`. Triggered by any agent or free-form 
 
 **Inputs:**
 
-- `record_type: ADR | FDR`
-- `feature_id: string | null` — required for FDR; null for project-wide ADR.
+- `record_type: ADR | FDR | DIVERGENCE`
+- `feature_id: string | null` — required for FDR; null for project-wide ADR / DIVERGENCE.
 - `title: string` — operational title, will become heading + slug.
 - `context: string` — what problem motivated this decision.
 - `decision: string` — what was decided, with rationale.
 - `alternatives: list of {name, rationale}` — minimum 2 (required by RDR).
 - `consequences: {positives: list, negatives: list}`.
-- `operational_rule: string` — for ADR: the verbatim text that will be copied into `docs/constitution.md` as a `[LAW]` section at accept. For FDR: the binding rule that applies within the feature scope. **MUST NOT be empty.** Plain operational text only — no rationale, no alternatives, no commentary.
-- `target_section: string` — ADR only. Either `## [LAW] {existing heading}` to amend an existing section, or `NEW: {proposed heading}` to add a new section.
-- `amendment_kind: ADD | REPLACE | REMOVE` — ADR only.
+- `operational_rule: string` — for ADR: the verbatim text that will be copied into `docs/constitution.md` as a `[LAW]` section at accept. For FDR: the binding rule that applies within the feature scope. For DIVERGENCE: a single explanatory line stating that the ADR is a divergence record and points to its `## Decision` body. **MUST NOT be empty.** Plain operational text only — no rationale, no alternatives, no commentary.
+- `target_section: string` — ADR only (mandatory). Either `## [LAW] {existing heading}` to amend an existing section, or `NEW: {proposed heading}` to add a new section. For DIVERGENCE: `none`.
+- `amendment_kind: ADD | REPLACE | REMOVE | NONE` — ADR. `NONE` is reserved for `record_type: DIVERGENCE`.
 
 **Steps:**
 
-1. **Resolve number.** `N = max(existing_numbers) + 1` per scope (ADR scope = `docs/project_log/adr/`; FDR scope = `docs/spec/{FEAT-ID}/fdr/`). Format as zero-padded 3-digit: `ADR-001`, `FDR-014`.
+1. **Resolve number.** `N = max(existing_numbers) + 1` per scope (ADR + DIVERGENCE scope = `docs/project_log/adr/`; FDR scope = `docs/spec/{FEAT-ID}/fdr/`). Format as zero-padded — width matches local convention (detect max width of existing files in scope; fallback 4-digit if scope is empty): e.g. `ADR-0030`, `FDR-014`.
 2. **Validate inputs.**
    - `operational_rule` non-empty (whitespace-only fails).
    - For ADR: `target_section` non-empty AND `amendment_kind` ∈ {ADD, REPLACE, REMOVE}.
    - For ADR with `amendment_kind: REPLACE | REMOVE`: target section must exist in `docs/constitution.md` (verified by regex match against `^## \[LAW\] {target_section_heading}$`).
    - For ADR with `amendment_kind: ADD`: target section must NOT already exist.
    - For FDR: `feature_id` matches an existing feature directory.
+   - For DIVERGENCE: `target_section == "none"` AND `amendment_kind == "NONE"`. Constitution section verification SKIPPED.
    - Fail with humanised message if any check fails — never write the record on validation error.
 3. **Resolve template.** Read `.context/templates/architect/adr_template.md` (for ADR) or `fdr_template.md` (for FDR). Substitute placeholders with provided inputs.
 4. **Write file.** Atomic write to the resolved path. `## Constitution Amendment` section stays empty (placeholder text untouched) for ADRs; FDRs do not have this section.
