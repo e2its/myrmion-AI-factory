@@ -955,7 +955,8 @@
       "changelog": [
         "1.1.0: feat(EVOL-028) validator scope extended to `.claude/rules/*.md` — synced from framework-core counterpart.",
         "1.0.0: feat(EVOL-028) materialised mirror of applicable_when frontmatter validator (CI gate). Ships to every project so downstream CI catches drift in their own .claude/instructions and .claude/rules entries."
-      ]
+      ],
+        "path": "scripts/check-applicability-frontmatter.sh"
     }
   },
   "agent_templates": {
@@ -2452,7 +2453,8 @@
       "changelog": [
         "1.1.0: feat(EVOL-028) discovery scan extended — Step 4 now scans every `.claude/rules/*.md` (technical + cross-cutting governance), not only defect-prevention.md. Roll-Call output gains ACTIVE RULES section. Inputs table documents `.context/applicability_context.json` as the deterministic context source written by SETUP Phase D, with docs/setup.md as fallback. Validation contract section extended accordingly.",
         "1.0.0: feat(EVOL-028) new Applicability Discovery Protocol (ADP) skill — live scan of governance trees (snapshot LAWs, instructions, structural skills, DCs) filtered by applicable_when frontmatter; emits canonical Roll-Call block on-screen as first user-facing message of every command. Salience anchor against rule-amnesia symptom (lazy-load ineffective in practice — agents had rules loaded but ignored them). Closed vocabulary: phase, scope, change_type, command, path_glob, framework, always."
-      ]
+      ],
+        "path": ".claude/skills/Factory-applicability-discovery/SKILL.md"
     },
     "skills/Factory-batch-interactivity/SKILL.md": {
       "version": "1.2.0",
@@ -2468,7 +2470,8 @@
       "role": "SETUP --reconcile-inventory protocol — drives the 5-phase reconciliation flow (detect drift, resolve dead paths, register orphans, optional enrich-descriptions, persist + verify).",
       "changelog": [
         "1.0.0: Initial framework entry. Path-derivation work delegated to scripts/reconcile_inventory.py + scripts/check-inventory-freshness.py with config/inventory_aliases.json as the project-specific map."
-      ]
+      ],
+        "path": ".claude/instructions/Factory-setup-reconcile-inventory.instructions.md"
     },
     "scripts/reconcile_inventory.py": {
       "version": "1.0.0",
@@ -2476,7 +2479,8 @@
       "role": "Inventory reconciliation helper consumed by SETUP --reconcile-inventory. Reads BC alias map from config/inventory_aliases.json.",
       "changelog": [
         "1.0.0: Initial framework entry. BC alias / feature ownership / cross-BC overrides loaded from config/inventory_aliases.json (degrades gracefully when missing)."
-      ]
+      ],
+        "path": "scripts/reconcile_inventory.py"
     },
     "scripts/check-inventory-freshness.py": {
       "version": "1.0.0",
@@ -2484,7 +2488,8 @@
       "role": "Inventory freshness detector — flags dead paths and canonical-path orphans. Reads scan globs and BC alias map from config/inventory_aliases.json.",
       "changelog": [
         "1.0.0: Initial framework entry. Canonical path globs and BC alias map loaded from config/inventory_aliases.json (empty config disables orphan scan)."
-      ]
+      ],
+        "path": "scripts/check-inventory-freshness.py"
     },
     ".context/templates/setup/workflows/inventory-drift.github-actions.yml": {
       "version": "1.0.0",
@@ -2497,6 +2502,7 @@
     "scripts/check-applicability-frontmatter.sh": {
       "version": "1.1.0",
       "type": "script",
+      "path": "scripts/check-applicability-frontmatter.sh",
       "changelog": [
         "1.1.0: feat(EVOL-028) validator scope extended to all `.claude/rules/*.md` (excluding README.md). Catches drift in technical rules (python.md, React.md, java.md, etc.) and cross-cutting rules (security_policy.md, testing.md, performance.md, etc.) at PR time.",
         "1.0.0: feat(EVOL-028) new CI gate validating applicable_when frontmatter blocks across .claude/instructions, .claude/skills/Factory-*, and .claude/rules/defect-prevention.md. Closed vocabulary check (phase/scope/change_type/command/path_glob/framework/always); always-mutex enforcement; missing block treated as always:true (back-compat during migration)."
