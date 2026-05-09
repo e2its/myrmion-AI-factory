@@ -2,7 +2,7 @@
 # ============================================================================
 # scripts/test-adr-accept.sh — L4 ADR Accept Procedure simulation
 # ============================================================================
-# Validates the mechanical contract of Factory-adr-management Accept Procedure
+# Validates the mechanical contract of factory-adr-management Accept Procedure
 # against fixtures. The Accept Procedure (per the skill's pseudocode) is
 # language-agnostic — this test implements a reference shell version of the
 # steps and asserts:

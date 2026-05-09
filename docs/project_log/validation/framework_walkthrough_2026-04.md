@@ -231,7 +231,7 @@ Cada paso usa plantilla fija: **Cmd / Skills / Instruction / Gates / RDR / Artef
 - Additive, no version bump.
 
 #### E.11 — PREVENTIVE-SWEEP (primer deploy)
-- **Skill**: [Factory-preventive-sweep/SKILL.md](../../../.claude/skills/Factory-preventive-sweep/SKILL.md).
+- **Skill**: [Factory-preventive-sweep/SKILL.md](../../../.claude/skills/factory-preventive-sweep/SKILL.md).
 - Parallel sub-agents contra `.claude/rules/defect-prevention.md` DC catalog.
 - Zero C-severity → pasa.
 
@@ -326,7 +326,7 @@ Cada paso usa plantilla fija: **Cmd / Skills / Instruction / Gates / RDR / Artef
 | Gate | Step activación | Step PASS | Step FAIL | Defender |
 |---|---|---|---|---|
 | CONTRACT-FREEZE | D.3 (blueprint --approve) | D.5 (implement --plan) | Adv#1 | Blueprint --approve sella frontmatter; implement --plan lee hash |
-| PREVENTIVE-SWEEP | E.11 (pre-deploy dev) | E.12 | Adv#2 | Defined in [Factory-preventive-sweep/SKILL.md](../../../.claude/skills/Factory-preventive-sweep/SKILL.md) |
+| PREVENTIVE-SWEEP | E.11 (pre-deploy dev) | E.12 | Adv#2 | Defined in [Factory-preventive-sweep/SKILL.md](../../../.claude/skills/factory-preventive-sweep/SKILL.md) |
 | SMOKE-E2E | E.13 (pre-qa) | E.13 | Adv#3 | user_journey.md BDD manual blocks |
 
 ### M4 — Canary gates × pasos post-summarization
@@ -388,7 +388,7 @@ Cada escenario cita línea exacta del fichero defensor.
 - PASS si: WARNING (non-blocking) emite "Governance snapshot drift detected — constitution.md changed".
 
 **Adv#7 — IPP canary tras resume: escrito de section ya presente en `_progress.completed_sections`**
-- Defensa: [Factory-incremental-persistence/SKILL.md](../../../.claude/skills/Factory-incremental-persistence/SKILL.md) Pillar 3 (resume-on-entry).
+- Defensa: [Factory-incremental-persistence/SKILL.md](../../../.claude/skills/factory-incremental-persistence/SKILL.md) Pillar 3 (resume-on-entry).
 - PASS si: skip silencioso + warning en logs "section already written".
 
 **Adv#8 — Primer write de `increment_plan.md` con frontmatter _progress.completed_sections populated**
@@ -412,11 +412,11 @@ Cada escenario cita línea exacta del fichero defensor.
 ### Familia D — Iteración y recovery
 
 **Adv#12 — Intento de INVALIDATE de INC-1 que está en MERGED**
-- Defensa: [Factory-iteration-model/SKILL.md](../../../.claude/skills/Factory-iteration-model/SKILL.md) CASCADE_INCREMENT_INTERNAL (MERGED excluido).
+- Defensa: [Factory-iteration-model/SKILL.md](../../../.claude/skills/factory-iteration-model/SKILL.md) CASCADE_INCREMENT_INTERNAL (MERGED excluido).
 - PASS si: skip + cascade a follow-up increment en su lugar.
 
 **Adv#13 — BVL falla 3 attempts consecutivos en el mismo task**
-- Defensa: [Factory-build-verification/SKILL.md](../../../.claude/skills/Factory-build-verification/SKILL.md) max_attempts=3 → escalate.
+- Defensa: [Factory-build-verification/SKILL.md](../../../.claude/skills/factory-build-verification/SKILL.md) max_attempts=3 → escalate.
 - PASS si: abort `--build`, genera `[FIX-N]` tasks, RDR [refine vs escalate vs skip-test (requires justification)].
 
 ### Ramas pendientes

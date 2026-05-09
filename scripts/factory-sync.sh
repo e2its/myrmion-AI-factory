@@ -12,7 +12,7 @@
 # WHAT IT SYNCS (framework-owned, overwritten unless --preserve-local):
 #   .claude/commands/*.md
 #   .claude/instructions/Factory-*.instructions.md
-#   .claude/skills/Factory-*/  (entire tree: SKILL.md + references/ + scripts/ + assets/)
+#   .claude/skills/factory-*/  (entire tree: SKILL.md + references/ + scripts/ + assets/)
 #   .claude/hooks/*.sh
 #   scripts/auto-tag.sh, security-scan.sh, validate-governance.sh
 #   scripts/governance-onprompt.sh, governance-oncompact.sh, governance-onedit.sh
@@ -228,15 +228,15 @@ sync_dir() {
   done
 }
 
-# Sync skill directories — copies the FULL tree of each Factory-* skill
+# Sync skill directories — copies the FULL tree of each factory-* skill
 # (SKILL.md + any references/, scripts/, assets/, README.md, etc.).
-# Multi-file skills (e.g. Factory-pr-review) carry runtime artefacts beyond
+# Multi-file skills (e.g. factory-pr-review) carry runtime artefacts beyond
 # SKILL.md; SKILL-only sync would leave them inert.
 sync_skills() {
   local src_dir="$1"
   local dst_dir="$2"
 
-  for skill_dir in "$src_dir"/Factory-*/; do
+  for skill_dir in "$src_dir"/factory-*/; do
     [[ -d "$skill_dir" ]] || continue
     # Strip trailing slash from glob expansion so sync_tree's
     # ${src_file#$src_root/} relative-path computation works correctly.
@@ -340,7 +340,7 @@ sync_skills "$FRAMEWORK_ROOT/.claude/skills" "$TARGET_PROJECT/.claude/skills"
 # Check for orphan skill directories
 HAS_SKILL_ORPHANS=false
 if [[ -d "$TARGET_PROJECT/.claude/skills" ]]; then
-  for dst_skill in "$TARGET_PROJECT/.claude/skills/"Factory-*/; do
+  for dst_skill in "$TARGET_PROJECT/.claude/skills/"factory-*/; do
     [[ -d "$dst_skill" ]] || continue
     skill_name="$(basename "$dst_skill")"
     if [[ ! -d "$FRAMEWORK_ROOT/.claude/skills/$skill_name" ]]; then

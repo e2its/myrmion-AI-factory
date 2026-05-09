@@ -75,7 +75,7 @@ rdr_ratified_at: null               # ISO timestamp of user ratification
   - [ ] CVP `increment_deployability` gate PASS
   - [ ] No TODO markers left in increment's code paths
   - [ ] `qa_report_INC-N_*.md` status APPROVED (run `/qa --verify {{FEATURE_ID}} INC-N` after IMPLEMENT closes the slice)
-- **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see Factory-branching-strategy)
+- **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see factory-branching-strategy)
 - **Merged at:** null   *(ISO timestamp; set by the merge hook when the increment PR lands on main; trigger for status transition READY/BUILDING → MERGED)*
 - **Pending iteration:** null   *(non-null when `CASCADE_INCREMENT_INTERNAL` detects upstream change affecting this increment and status is BUILDING — operator must `IMPLEMENT --pause` then `--refine` before status can transition further; cleared by `IMPLEMENT --refine`)*
 - **Pending reason:** null   *(human-readable cascade trigger description, populated alongside `Pending iteration`)*
@@ -141,7 +141,7 @@ graph TD
 | `pending_iteration` | int\|null | upstream `--refine` | Non-null signals cascade pending |
 | `invalidated_increments` | list[string] | `CASCADE_INCREMENT_INTERNAL` | Subset of increment IDs requiring resync; empty when plan is fully aligned |
 | `total_increments` | int | BLUEPRINT | Must equal count of `### INC-N` sections in § 1 |
-| `rdr_alternatives_considered` | int | BLUEPRINT RDR | ≥ 3 per Factory-rdr |
+| `rdr_alternatives_considered` | int | BLUEPRINT RDR | ≥ 3 per factory-rdr |
 | `rdr_ratified_at` | iso | BLUEPRINT RDR | Set when user ratifies choice |
 
 ## Per-Increment Status Lifecycle

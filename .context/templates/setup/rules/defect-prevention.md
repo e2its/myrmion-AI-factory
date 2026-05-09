@@ -38,7 +38,7 @@ Each entry has the following schema:
 | **Severity** | `BLOCKER` or `WARNING` when the entry is violated by a consumer |
 | **Check (per consumer)** | What each listed consumer verifies. May be a single check when one agent owns it, or a table mapping agent→check when multiple consume |
 
-The authoritative detailed search methodology for the runtime sweep lives in `.claude/skills/Factory-preventive-sweep/SKILL.md`.
+The authoritative detailed search methodology for the runtime sweep lives in `.claude/skills/factory-preventive-sweep/SKILL.md`.
 
 > **SETUP materialization note:** The starter DCs below were selected based on the project's stack configuration. Extend this catalog with project-specific discoveries using the Discovery Protocol (§ 8).
 

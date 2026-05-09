@@ -270,7 +270,7 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 3 f
 
 ### Upstream Coherence Validation (CVP — Step 0.5)
 
-Cross-artifact coherence validation across the CODESIGN↔BLUEPRINT↔IMPLEMENT chain. See `.claude/skills/Factory-coherence-validation/SKILL.md` for full protocol.
+Cross-artifact coherence validation across the CODESIGN↔BLUEPRINT↔IMPLEMENT chain. See `.claude/skills/factory-coherence-validation/SKILL.md` for full protocol.
 
 ```yaml
 FUNCTION implement_coherence_gate(FEATURE_ID):
@@ -538,7 +538,7 @@ Each increment closes independently. When all `[INC-N.*]` checkboxes inside Incr
 2. UPDATE `dev_plan.md` frontmatter `increments[]` array: `{id: "INC-N", status: "IMPLEMENTED_AND_VERIFIED"}`.
 3. Plan-level `status` transitions to `IMPLEMENTED_AND_VERIFIED` ONLY when every target increment is `IMPLEMENTED_AND_VERIFIED` AND every follow-up increment added later (if any) also closes.
 
-Increment branches (`feature/{FEATURE_ID}-inc-N-{slug}`) are opened by Factory-branching-strategy; one PR per increment. Branch open is the trigger that flips the increment's `status` from `READY → BUILDING`. See `.claude/skills/Factory-branching-strategy/SKILL.md`.
+Increment branches (`feature/{FEATURE_ID}-inc-N-{slug}`) are opened by factory-branching-strategy; one PR per increment. Branch open is the trigger that flips the increment's `status` from `READY → BUILDING`. See `.claude/skills/factory-branching-strategy/SKILL.md`.
 
 ### Phase A: Backend / Core Logic
 ```yaml
@@ -1053,7 +1053,7 @@ These regexes are the source of truth for CVP Check 17 (`increment_to_task`), BV
 
 ## Incremental Persistence (IPP-compliant — MANDATORY)
 
-> **Implements:** Incremental Persistence Protocol (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
+> **Implements:** Incremental Persistence Protocol (`.claude/skills/factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
 
 **Pillar 1 — Skeleton-First Write:**
 ```yaml

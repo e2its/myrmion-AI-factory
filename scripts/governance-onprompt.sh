@@ -164,7 +164,7 @@ if [ -n "$EDIT_MARKER" ] && [ -f "$EDIT_MARKER" ]; then
     EDIT_PATHS_CSV=$(printf '%s' "$EDIT_PATHS_FILTERED" | tr '\n' ',' | sed 's/,$//; s/,/, /g')
     echo "<governance-source-edited paths=\"${EDIT_PATHS_CSV}\">"
     echo "Governance source was edited in this session. The snapshot is now stale by definition."
-    echo "Regenerate inline before continuing — Factory-governance-loading SKILL § Step 1 POST-LOAD"
+    echo "Regenerate inline before continuing — factory-governance-loading SKILL § Step 1 POST-LOAD"
     echo "(generate_governance_snapshot()). This does NOT require running /setup --upgrade."
     echo "</governance-source-edited>"
   fi

@@ -96,7 +96,7 @@ Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missi
 | Gate phase | Enforced by | Blocks |
 | --- | --- | --- |
 | CONTRACT-FREEZE (suffix 3) | [Factory-implement-plan.instructions.md](Factory-implement-plan.instructions.md) § Upstream Artifact Validation | `IMPLEMENT --plan` start — the feature's API contracts (OpenAPI / TS interfaces / GraphQL schema / whatever the stack uses) MUST be frozen and the contract test harness MUST exist |
-| PREVENTIVE-SWEEP (suffix 6) | [Factory-devops-provision-deploy.instructions.md](Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | `DEVOPS --deploy dev` — the Factory-preventive-sweep SKILL must have run against the feature's code (parallel scope sub-agents derived from DC catalog) and returned zero open C-severity findings |
+| PREVENTIVE-SWEEP (suffix 6) | [Factory-devops-provision-deploy.instructions.md](Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | `DEVOPS --deploy dev` — the factory-preventive-sweep SKILL must have run against the feature's code (parallel scope sub-agents derived from DC catalog) and returned zero open C-severity findings |
 | SMOKE-E2E (suffix 8 — scope-aware variants: `smoke-e2e-browser` / `smoke-e2e-integration` / `smoke-e2e-hybrid`) | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — scope-appropriate smoke blocks must pass on dev deploy. Frontend-only → browser-centric blocks from `user_journey.md`. Backend-only/integration → caller-harness + downstream-state + observability blocks from `user_journey.integration.md`, plus MANDATORY reliability blocks (SMOKE-REL-IDEMP, SMOKE-REL-RETRY, SMOKE-REL-DLQ, SMOKE-REL-SHUTDOWN) for `integration`. Full-stack → both browser AND integration blocks. |
 
 **Sub-issue nesting.** The three gate phases are logically **sub-issues of IMPLEMENT** (suffix 5). Adapters that declare `add_sub_issue: native` (e.g. `github-project.md`) materialise them as real sub-issues so holistic progress tracking on the board reflects feature completion. Adapters that declare `add_sub_issue: no-op` (e.g. `none.md`) materialise them as standalone siblings with a `> Parent: IMPLEMENT issue` cross-reference line in the body — the `--next-task` resolver reads the cross-reference to reconstruct the hierarchy.
@@ -497,7 +497,7 @@ The other gate types (CONTRACT-FREEZE, PREVENTIVE-SWEEP, INTEGRATION-TEST, RETRO
 
 > Gate issues do NOT have a direct Factory slash-command to run. The work is performed via the tool, the skill, or the user action listed here. When complete, move the issue to Done via `BACKLOG --update-execution {step_ref}` or the equivalent tracker UI action.
 
-{Literal instructions: "Run Factory-preventive-sweep skill against FEATURE_ID", "Execute the numbered smoke blocks on dev deploy", "Produce OpenAPI + contract harness", "Run retrospective write-back procedure (Factory-backlog-operations.instructions.md § 3.4.1)".}
+{Literal instructions: "Run factory-preventive-sweep skill against FEATURE_ID", "Execute the numbered smoke blocks on dev deploy", "Produce OpenAPI + contract harness", "Run retrospective write-back procedure (Factory-backlog-operations.instructions.md § 3.4.1)".}
 
 ## Cascade behaviour
 

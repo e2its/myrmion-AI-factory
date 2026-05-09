@@ -2,7 +2,7 @@
 
 > Project-wide Architectural Decision Record. Used for cross-cutting decisions that change `docs/constitution.md`.
 > For feature-scoped decisions that should NOT amend the universal constitution, use `fdr_template.md` instead.
-> Lifecycle: `status: proposed` (created here) → `status: accepted` (flipped by `Factory-adr-management` Accept Procedure with mandatory constitution amendment).
+> Lifecycle: `status: proposed` (created here) → `status: accepted` (flipped by `factory-adr-management` Accept Procedure with mandatory constitution amendment).
 > CI gate `scripts/check-adr-constitution-sync.sh` blocks any PR where an ADR transitions to accepted without `docs/constitution.md` modified in the same diff (bypass: `[adr-backfill]` commit marker for one-shot historical migration).
 
 ```markdown
@@ -45,7 +45,7 @@ amendment_kind: {{ADD|REPLACE|REMOVE}}
 ## Operational Rule
 > THIS is the law. Plain text, concise, executable. The text below will be copied
 > VERBATIM into `docs/constitution.md` as a `## [LAW]` section (or replace/remove
-> an existing one) by `Factory-adr-management` Accept Procedure per the
+> an existing one) by `factory-adr-management` Accept Procedure per the
 > `target_section` + `amendment_kind` frontmatter fields. Keep operational only —
 > no rationale, no alternatives, no commentary; those belong in §Context / §Decision /
 > §Consequences. Empty content here FAILS the Propose validation.
@@ -59,7 +59,7 @@ amendment_kind: {{ADD|REPLACE|REMOVE}}
 - ✅ Complies with `.claude/rules/{{REGLA}}.instructions.md`: {{JUSTIFICACION}}
 
 ## Constitution Amendment
-> Auto-managed by `Factory-adr-management` Accept Procedure. DO NOT EDIT MANUALLY.
+> Auto-managed by `factory-adr-management` Accept Procedure. DO NOT EDIT MANUALLY.
 > Empty while `status: proposed`. Populated with before/after diff at status flip.
 
 {{POBLAR_POR_ACCEPT_PROCEDURE}}
@@ -72,7 +72,7 @@ amendment_kind: {{ADD|REPLACE|REMOVE}}
 
 ## Frontmatter contract
 
-- `adr_number` — sequential integer assigned by `Factory-adr-management` Propose Procedure.
+- `adr_number` — sequential integer assigned by `factory-adr-management` Propose Procedure.
 - `title` — operational title; SCREAMING_SNAKE-able for slug.
 - `date` — ISO date when proposed.
 - `status` — `proposed` at creation. Flipped to `accepted` ONLY by Accept Procedure (which runs the amendment + diff record atomically).

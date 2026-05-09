@@ -60,7 +60,7 @@ Examples:
 
 **Concurrency.** Only ONE increment branch per feature may be open at a time (feature-level concurrency lock). The next increment starts only after the current one merges.
 
-**Lifecycle.** Branch open triggers the increment's status to flip `READY → BUILDING` in `increment_plan.md § 1`. Merge to `main` (via PR) triggers the post-merge hook to flip `BUILDING → MERGED` and stamp `Merged at:`. See `.claude/skills/Factory-branching-strategy/SKILL.md § Per-Increment Branching`.
+**Lifecycle.** Branch open triggers the increment's status to flip `READY → BUILDING` in `increment_plan.md § 1`. Merge to `main` (via PR) triggers the post-merge hook to flip `BUILDING → MERGED` and stamp `Merged at:`. See `.claude/skills/factory-branching-strategy/SKILL.md § Per-Increment Branching`.
 
 **Monolithic escape.** When `slicing_strategy: monolithic` (permitted only if the feature satisfies the trivial-heuristic — ≤2 scenarios AND ≤3 contract operations AND `scope ≠ full-stack`), the legacy single-branch naming `feature/{FEATURE_ID}-{slug}` applies without the `-inc-N-` segment.
 

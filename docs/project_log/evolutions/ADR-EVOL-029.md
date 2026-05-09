@@ -87,7 +87,7 @@ Cada increment recibe `dev_plan_INC-N.md` independiente; QA opera tal cual sobre
 
 > **[LAW] QA Per-Increment Alignment:** When `slicing_strategy: incremental`, `dev_plan.status` global is **derived** — it MUST NOT be written manually. Per-slice transitions MUST be applied to `dev_plan.frontmatter.increments[INC-N].status`. `/qa --verify {ID} {INC-N}` is REQUIRED for each increment that has reached `IMPLEMENTED_AND_VERIFIED` per-entry; the aggregate `/qa --verify {ID}` is BLOCKED until every per-slice `qa_report_{INC-N}_*.md` exists with `status: APPROVED`. The plan-level `IMPLEMENTED_AND_VERIFIED` global flips only after the aggregate BVL `full_verification_gate(FEATURE_ID, null)` passes following the last slice closure.
 
-This rule materialises into the project constitution as a `## [LAW] QA Per-Increment Alignment` section (ADR Accept Procedure — Factory-adr-management), via the constitution_template.md update shipped in this same PR.
+This rule materialises into the project constitution as a `## [LAW] QA Per-Increment Alignment` section (ADR Accept Procedure — factory-adr-management), via the constitution_template.md update shipped in this same PR.
 
 ## Consequences
 
@@ -122,7 +122,7 @@ This rule materialises into the project constitution as a `## [LAW] QA Per-Incre
 
 ### Rules Alignment
 
-- ✅ branching.md: ramas `feature/{FEATURE_ID}-inc-N-{slug}` ya soportadas por Factory-branching-strategy.
+- ✅ branching.md: ramas `feature/{FEATURE_ID}-inc-N-{slug}` ya soportadas por factory-branching-strategy.
 - ✅ testing.md: suite per-slice respeta el principio "tests before merge" — un slice no se cierra sin BVL clean.
 - ✅ review-policy.md: peer_review APPROVED sigue siendo gate; ahora también per-slice.
 - ✅ immutability_policy.md § Per-Increment Immutability: una vez slice MERGED el qa_report_INC-N queda inmutable (INVALIDATED si upstream cambia y dispara cascada).
@@ -134,7 +134,7 @@ This rule materialises into the project constitution as a `## [LAW] QA Per-Incre
 - **Branch:** `feature/EVOL-029-qa-incremental-slicing`.
 - **Related ADRs:** EVOL-019 (slicing dual-axis — introduced increments[]), EVOL-028 (ADP — frontmatter discovery contract reused for `applicable_when:` on instructions/skills modified here).
 - **Impacts:**
-  - `.claude/skills/Factory-build-verification/SKILL.md` (BVL v1.5.0)
+  - `.claude/skills/factory-build-verification/SKILL.md` (BVL v1.5.0)
   - `.claude/instructions/Factory-implement-build.instructions.md` (Completion Gate threading)
   - `.claude/instructions/Factory-implement-review-checks.instructions.md` (peer_review naming)
   - `.claude/instructions/Factory-qa-verify.instructions.md` (Prerequisites Gate refactor)

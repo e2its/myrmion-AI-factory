@@ -6,7 +6,7 @@
 # Triggered on Write tool calls.
 # Reads stdin JSON: { "tool_name": "Write", "tool_input": { "file_path": "...", "content": "..." } }
 #
-# Enforces Factory-incremental-persistence (IPP) Pillar 1: Skeleton-First Write.
+# Enforces factory-incremental-persistence (IPP) Pillar 1: Skeleton-First Write.
 # A first write to a tracked governance artifact MUST be a skeleton — small,
 # with <!-- PENDING --> markers, NOT claiming completed sections.
 #
@@ -122,7 +122,7 @@ else
     echo "BLOCKED: IPP violation on first write to '$BASENAME'."
     echo "  _progress.completed_sections claims sections done, but this is the creation write."
     echo "  Skeleton-First Write (IPP Pillar 1) requires an empty completed_sections[] on creation."
-    echo "  See: .claude/skills/Factory-incremental-persistence/SKILL.md § Pillar 1."
+    echo "  See: .claude/skills/factory-incremental-persistence/SKILL.md § Pillar 1."
     exit 1
   fi
 fi
@@ -139,7 +139,7 @@ if [ "$H2_COUNT" -ge 3 ] && [ "$PENDING_COUNT" -eq 0 ] && [ "$LINE_COUNT" -gt 15
   echo "  File has $H2_COUNT H2 sections, $LINE_COUNT lines, and 0 '<!-- PENDING -->' markers."
   echo "  Skeleton-First Write (IPP Pillar 1) requires an initial skeleton with <!-- PENDING --> placeholders,"
   echo "  then section-atomic saves (Pillar 2) — not one big terminal write."
-  echo "  See: .claude/skills/Factory-incremental-persistence/SKILL.md § Pillars 1-2."
+  echo "  See: .claude/skills/factory-incremental-persistence/SKILL.md § Pillars 1-2."
   exit 1
 fi
 

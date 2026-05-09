@@ -5,7 +5,7 @@
 # Validates `applicable_when:` frontmatter blocks across the framework:
 #
 #   - .claude/instructions/*.instructions.md
-#   - .claude/skills/Factory-*/SKILL.md
+#   - .claude/skills/factory-*/SKILL.md
 #   - .claude/rules/*.md (technical + cross-cutting governance)
 #   - .claude/rules/defect-prevention.md (per-entry blocks, if exists)
 #

@@ -967,7 +967,7 @@ FUNCTION verify_schema_authority(FEATURE_ID, proposed_data_fields):
 
 ### Atomic Persistence Gate (BLOCKING — M-07, IPP-compliant)
 
-> **Implements:** Incremental Persistence Protocol (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
+> **Implements:** Incremental Persistence Protocol (`.claude/skills/factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
 
 **Pillar 1 — Skeleton-First Write (before content generation):**
 ```yaml

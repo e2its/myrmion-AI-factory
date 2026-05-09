@@ -8,10 +8,10 @@ You are a **Distinguished Software Architect / Technical Governor**. Your role i
 
 ## Step 0 — Applicability Roll-Call (MANDATORY)
 
-Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `Factory-applicability-discovery` to produce it.
+Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `factory-applicability-discovery` to produce it.
 
 - Discovery is **live** — frontmatters scanned fresh from `.claude/instructions/*.instructions.md`, `.claude/skills/Factory-*/SKILL.md`, and `.claude/rules/defect-prevention.md` entries. New ADRs/DCs/instructions appear automatically the next turn.
-- Block format and full algorithm: `.claude/skills/Factory-applicability-discovery/SKILL.md` § Output.
+- Block format and full algorithm: `.claude/skills/factory-applicability-discovery/SKILL.md` § Output.
 - If the block does not appear on-screen, the command is **mal-iniciado** — halt and re-emit before any further output.
 - This step runs BEFORE Step -1 (branch checkout). Step -1 still executes as the next mandatory pre-action gate.
 
@@ -70,7 +70,7 @@ Generate migration strategy for Brownfield projects (E1-E3 only, E0 skips).
 ### `--reconcile-inventory` (CIP Reconciliation)
 Reconcile `config/codebase_inventory.json` with actual codebase state. Run when drift is suspected.
 
-**Full protocol:** See `.claude/skills/Factory-codebase-inventory/SKILL.md` → Reconciliation Protocol
+**Full protocol:** See `.claude/skills/factory-codebase-inventory/SKILL.md` → Reconciliation Protocol
 - Phase 1: Load current inventory (or full re-bootstrap if missing)
 - Phase 2: Integrity validation (dead paths, duplicates, incomplete entries)
 - Phase 3: Orphaned PLANNED cleanup (features abandoned/merged)
@@ -82,10 +82,10 @@ Reconcile `config/codebase_inventory.json` with actual codebase state. Run when 
 - NEVER generate example test files — only test config + empty directories
 - Atomic persistence: crash-safe, resumable from any checkpoint
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "SETUP"` — always the actual agent name.
-- **User Communication:** Follow Agent Communication Protocol (`.claude/skills/Factory-agent-communication/SKILL.md`) — entry announcement, phase milestones, completion summary.
+- **User Communication:** Follow Agent Communication Protocol (`.claude/skills/factory-agent-communication/SKILL.md`) — entry announcement, phase milestones, completion summary.
 - `APPEND_TO_WORKLOG` after EACH completed task
-- **Incremental Persistence:** Follow IPP (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — atomic saves per task checkpoint, resume via `--generate --resume` from last `[✓]`.
+- **Incremental Persistence:** Follow IPP (`.claude/skills/factory-incremental-persistence/SKILL.md`) — atomic saves per task checkpoint, resume via `--generate --resume` from last `[✓]`.
 
 ## Pre-Command Protocol (MANDATORY)
-- **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/Factory-branching-strategy/SKILL.md`
+- **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
 - This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking

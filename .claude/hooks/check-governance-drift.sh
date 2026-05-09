@@ -108,7 +108,7 @@ if [ ${#DRIFT_SOURCES[@]} -gt 0 ]; then
   echo "  The governance context in .context/governance_snapshot.md is STALE."
   echo "  Action: Execute GCRP Step 1 → POST-LOAD (full reload + inline snapshot regeneration)."
   echo "  This does NOT require SETUP. Read the generate_governance_snapshot() function in"
-  echo "  .claude/skills/Factory-governance-loading/SKILL.md and regenerate the snapshot in-place."
+  echo "  .claude/skills/factory-governance-loading/SKILL.md and regenerate the snapshot in-place."
   # Non-blocking: exit 0 so the agent can still operate and fix the drift
 fi
 

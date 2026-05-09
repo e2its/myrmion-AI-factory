@@ -2,7 +2,7 @@
   "$schema": "coherence_context_v1",
   "version": "1.0.0",
   "context": "downstream",
-  "_doc": "Single source of truth for which context this repo runs as. Materialised at SETUP --generate. Read by Factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. Project owners may extend audit.* keys via ADR — never edit context field.",
+  "_doc": "Single source of truth for which context this repo runs as. Materialised at SETUP --generate. Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. Project owners may extend audit.* keys via ADR — never edit context field.",
   "audit": {
     "root_sets": [
       ".claude/",

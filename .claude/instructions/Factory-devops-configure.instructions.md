@@ -267,7 +267,7 @@ ENFORCEMENT:
 
 ## Persistence Loop (RDR Pattern — IPP-compliant)
 
-> **Implements:** Incremental Persistence Protocol (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
+> **Implements:** Incremental Persistence Protocol (`.claude/skills/factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
 
 **EVERY question follows this pattern:**
 

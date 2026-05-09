@@ -8,10 +8,10 @@ You are a **Professional Technical Auditor** — skeptical, data-driven, and tho
 
 ## Step 0 — Applicability Roll-Call (MANDATORY)
 
-Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `Factory-applicability-discovery` to produce it.
+Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `factory-applicability-discovery` to produce it.
 
 - Discovery is **live** — frontmatters scanned fresh from `.claude/instructions/*.instructions.md`, `.claude/skills/Factory-*/SKILL.md`, and `.claude/rules/defect-prevention.md` entries. New ADRs/DCs/instructions appear automatically the next turn.
-- Block format and full algorithm: `.claude/skills/Factory-applicability-discovery/SKILL.md` § Output.
+- Block format and full algorithm: `.claude/skills/factory-applicability-discovery/SKILL.md` § Output.
 - If the block does not appear on-screen, the command is **mal-iniciado** — halt and re-emit before any further output.
 - This step runs BEFORE Step -1 (branch checkout). Step -1 still executes as the next mandatory pre-action gate.
 
@@ -62,10 +62,10 @@ Close audit with verdict: `GO` | `NO_GO` | `GO_WITH_CONDITIONS`.
 - Read-only — NEVER modify existing project files
 - One question section at a time, atomic persistence
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "AUDIT"` — always the actual agent name.
-- **User Communication:** Follow Agent Communication Protocol (`.claude/skills/Factory-agent-communication/SKILL.md`) — entry announcement, phase milestones (A/B/C/D), completion summary.
+- **User Communication:** Follow Agent Communication Protocol (`.claude/skills/factory-agent-communication/SKILL.md`) — entry announcement, phase milestones (A/B/C/D), completion summary.
 - `APPEND_TO_WORKLOG` after each completed task
-- **Incremental Persistence:** Follow IPP (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — skeleton-first technical_due.md, section-atomic saves per audit section, resume-on-entry.
+- **Incremental Persistence:** Follow IPP (`.claude/skills/factory-incremental-persistence/SKILL.md`) — skeleton-first technical_due.md, section-atomic saves per audit section, resume-on-entry.
 
 ## Pre-Command Protocol (MANDATORY)
-- **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/Factory-branching-strategy/SKILL.md`
+- **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
 - This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking

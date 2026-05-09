@@ -2,7 +2,7 @@
 # check-push-preflight.sh — PreToolUse Bash hook: Factory PR Review push gate (v1.1.1)
 # ============================================================================
 # Reads stdin JSON from Claude Code hook protocol.
-# When the Bash command contains `git push`, runs the Factory-pr-review
+# When the Bash command contains `git push`, runs the factory-pr-review
 # preflight script. Hard-blocker findings exit 1 (block); other outcomes
 # pass through. Tool-call failures (preflight exit 2) are treated as
 # warnings, NOT blocks (defence-in-depth must not break legitimate pushes).
@@ -44,7 +44,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo '')"
 if [ -z "$REPO_ROOT" ]; then
   exit 0
 fi
-PREFLIGHT="$REPO_ROOT/.claude/skills/Factory-pr-review/scripts/preflight.sh"
+PREFLIGHT="$REPO_ROOT/.claude/skills/factory-pr-review/scripts/preflight.sh"
 if [ ! -x "$PREFLIGHT" ]; then
   # Skill not installed in this project — pass through silently.
   exit 0
@@ -82,7 +82,7 @@ Resolution path:
   3. Re-run the push. The gate runs fresh on each attempt.
 
 To inspect findings without pushing:
-  bash .claude/skills/Factory-pr-review/scripts/preflight.sh --json
+  bash .claude/skills/factory-pr-review/scripts/preflight.sh --json
 
 To bypass intentionally (rare — for hotfix or recovery):
   git -c core.hooksPath=/dev/null push …
