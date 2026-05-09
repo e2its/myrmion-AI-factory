@@ -669,10 +669,11 @@
       ]
     },
     "scripts/hooks/pre-push": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "type": "script",
-      "role": "Git hook — force-push protection, full governance validation.",
+      "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, full governance validation. Honors the actual push remote ($1) instead of hardcoding origin.",
       "changelog": [
+        "2.0.0: Added gitleaks secret-leak scan across the commits in the push range and honor the actual remote arg ($1). Force-push guard tightened to handle ZERO_SHA and protected branches at both local and remote sides.",
         "1.0.0: feat: pre-push hook with force-push guard and governance check"
       ]
     },

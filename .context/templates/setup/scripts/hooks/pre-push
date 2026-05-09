@@ -5,7 +5,8 @@
 # ============================================================================
 # Checks:
 #   1. Protected branch enforcement (prevent force-push to main)
-#   2. Full governance validation (if validate-governance.sh exists)
+#   2. Secret leak detection across commits being pushed (gitleaks)
+#   3. Full governance validation (if validate-governance.sh exists)
 # ============================================================================
 
 set -euo pipefail
@@ -17,6 +18,15 @@ NC='\033[0m'
 
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+ZERO_SHA="0000000000000000000000000000000000000000"
+
+# Git invokes pre-push with <remote_name> <remote_url> as positional
+# args. `$1` is the remote being pushed to — use it verbatim instead
+# of hardcoding "origin" so the hook works for forks, contributor
+# remotes, and any git workflow that does not name the canonical
+# remote "origin". Fall back to "origin" only if someone invokes the
+# script manually without the expected positional args.
+PUSH_REMOTE="${1:-origin}"
 
 # ── 1. Block force-push to protected branches ──
 PROTECTED_BRANCHES="main master develop"
@@ -33,11 +43,13 @@ is_protected() {
 }
 
 # Read push info from stdin: <local ref> <local sha> <remote ref> <remote sha>
+# We need to inspect every line (protected-branch check + gitleaks range).
+PUSH_SPECS=()
 while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
-  # Check if pushing TO a protected branch (via remote ref)
+  PUSH_SPECS+=("$LOCAL_REF|$LOCAL_SHA|$REMOTE_REF|$REMOTE_SHA")
+
   if is_protected "$REMOTE_REF" || is_protected "$CURRENT_BRANCH"; then
-    if [ "$REMOTE_SHA" != "0000000000000000000000000000000000000000" ] && \
-       [ "$LOCAL_SHA" != "0000000000000000000000000000000000000000" ]; then
+    if [ "$REMOTE_SHA" != "$ZERO_SHA" ] && [ "$LOCAL_SHA" != "$ZERO_SHA" ]; then
       # Check if this is a force push (local doesn't contain remote)
       if ! git merge-base --is-ancestor "$REMOTE_SHA" "$LOCAL_SHA" 2>/dev/null; then
         DEST=$(basename "$REMOTE_REF")
@@ -49,7 +61,85 @@ while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
   fi
 done
 
-# ── 2. Full governance validation (optional) ──
+# ── 2. Gitleaks scan across pushed commits ──
+# Pre-push is the last local gate before a secret leaves the machine. Unlike
+# the pre-commit gitleaks step (which silently skips when the binary is
+# missing to honour ADR-0001's no-friction-per-commit principle), this
+# pre-push step is STRICT: missing binary → push blocked with install hints.
+# Push is infrequent enough that asking devs to install gitleaks once is
+# an acceptable ask, and CI runs the same scan anyway — failing locally
+# saves a CI round-trip.
+if [ "${#PUSH_SPECS[@]}" -gt 0 ]; then
+  if ! command -v gitleaks &>/dev/null; then
+    echo -e "${RED}❌ pre-push: gitleaks binary not found.${NC}"
+    echo "   Install it once and re-push:"
+    echo "     macOS:         brew install gitleaks"
+    echo "     Debian/Ubuntu: sudo apt install gitleaks"
+    echo "     Other:         https://github.com/gitleaks/gitleaks/releases"
+    echo "   Skip for a single push (not recommended):  git push --no-verify"
+    exit 1
+  fi
+
+  for spec in "${PUSH_SPECS[@]}"; do
+    IFS='|' read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA <<<"$spec"
+
+    # Deletions have local_sha = zero → nothing to scan.
+    [ "$LOCAL_SHA" = "$ZERO_SHA" ] && continue
+
+    if [ "$REMOTE_SHA" = "$ZERO_SHA" ]; then
+      # New branch — nothing exists on the remote yet, so we need a
+      # base ref locally to diff against. Preference order:
+      #   1. refs/remotes/$PUSH_REMOTE/HEAD (git's recorded default
+      #      branch for this remote)
+      #   2. $PUSH_REMOTE/main (conventional default)
+      #   3. $PUSH_REMOTE/master (legacy convention)
+      #   4. None of the above → fall back to scanning only the tip
+      #      commit. Partial coverage is better than a false block on
+      #      clones that never ran `git remote set-head` or that pull
+      #      from a remote whose default branch is unreachable.
+      if BASE_REF=$(git symbolic-ref --short "refs/remotes/${PUSH_REMOTE}/HEAD" 2>/dev/null); then
+        :
+      elif git rev-parse --verify --quiet "${PUSH_REMOTE}/main" >/dev/null 2>&1; then
+        BASE_REF="${PUSH_REMOTE}/main"
+      elif git rev-parse --verify --quiet "${PUSH_REMOTE}/master" >/dev/null 2>&1; then
+        BASE_REF="${PUSH_REMOTE}/master"
+      else
+        BASE_REF=""
+      fi
+
+      if [ -n "$BASE_REF" ]; then
+        RANGE="${BASE_REF}..${LOCAL_SHA}"
+      else
+        # No base ref available — scan only the tip commit. This is
+        # the degraded mode; log it so the dev knows coverage is
+        # reduced rather than silently skipping the step.
+        echo -e "${YELLOW}⚠  gitleaks: no base ref for new branch on remote '${PUSH_REMOTE}'; scanning tip commit only.${NC}"
+        RANGE="${LOCAL_SHA}~1..${LOCAL_SHA}"
+      fi
+    else
+      RANGE="${REMOTE_SHA}..${LOCAL_SHA}"
+    fi
+
+    # git log-opts expects the range as a single token. If the range is
+    # empty (nothing new), gitleaks exits 0; still fine.
+    echo -e "${YELLOW}🔍 gitleaks: scanning $(basename "$REMOTE_REF") range $RANGE${NC}"
+    if ! gitleaks detect \
+        --source="$REPO_ROOT" \
+        --redact \
+        --no-banner \
+        --log-opts="$RANGE" 2>&1; then
+      echo -e "${RED}❌ gitleaks found potential secrets in commits being pushed.${NC}"
+      echo "   Fix the findings above and create a NEW commit (do not --amend or"
+      echo "   --force — the secret stays in history until it is rewritten and"
+      echo "   the leaked material is rotated)."
+      exit 1
+    fi
+  done
+
+  echo -e "${GREEN}✅ gitleaks: no secrets detected in pushed commits.${NC}"
+fi
+
+# ── 3. Full governance validation (optional) ──
 GOVERNANCE_SCRIPT="${REPO_ROOT}/scripts/validate-governance.sh"
 if [ -n "$REPO_ROOT" ] && [ -x "$GOVERNANCE_SCRIPT" ]; then
   echo -e "${YELLOW}🔍 Running governance validation before push...${NC}"
@@ -59,3 +149,92 @@ if [ -n "$REPO_ROOT" ] && [ -x "$GOVERNANCE_SCRIPT" ]; then
   fi
   echo -e "${GREEN}✅ Governance validation passed.${NC}"
 fi
+
+# >>> factory-pr-review begin >>>
+# Generated by scripts/pr-review/install_pre_push_hook.sh — do not edit between sentinels.
+# Runs the 11 Factory-pr-review deterministic capabilities (Layer 1).
+# Set FACTORY_PR_REVIEW_SKIP=1 to bypass for one push (debug only — never on main).
+if [[ "${FACTORY_PR_REVIEW_SKIP:-}" != "1" ]]; then
+    REPO_ROOT_FPR="$(git rev-parse --show-toplevel)"
+    BRANCH_FPR="$(git rev-parse --abbrev-ref HEAD)"
+    FEATURE_ID_FPR=""
+    # Extract canonical feature ID — uppercase prefix + uppercase/digit segments
+    # joined by single dashes, stopping before any lowercase slug. Examples:
+    #   feature/FEAT-004-technical-audit-ai      → FEAT-004
+    #   feature/INFRA-CONTRACT-HARNESS-239       → INFRA-CONTRACT-HARNESS-239
+    #   fix/FEAT-001-avatar-upload-refresh       → FEAT-001
+    if [[ "$BRANCH_FPR" =~ (FEAT|FIX|HOTFIX|GOV|INFRA|SETUP|AUDIT|CLUSTER)-[0-9A-Z]+(-[0-9A-Z]+)* ]]; then
+        FEATURE_ID_FPR="${BASH_REMATCH[0]}"
+    fi
+    # Mirror CI's `Lint & Format` job locally — catches ruff drift before
+    # the push triggers a CI round-trip. Uses `find -print -quit` (DC-13)
+    # rather than `find | grep -q`, which dies on SIGPIPE under pipefail
+    # and silently skips the gate.
+    if command -v ruff >/dev/null 2>&1; then
+        if [[ -n "$(find "$REPO_ROOT_FPR/src/backend" "$REPO_ROOT_FPR/tests" -name '*.py' -print -quit 2>/dev/null)" ]]; then
+            echo "🧹 Factory-pr-review ruff check ..."
+            if ! ruff check "$REPO_ROOT_FPR/src/backend" "$REPO_ROOT_FPR/tests"; then
+                echo "❌ ruff check failed — push blocked. Fix with: ruff check --fix src/backend tests"
+                exit 1
+            fi
+            echo "✅ ruff check pass."
+            echo "🧹 Factory-pr-review ruff format check ..."
+            if ! ruff format --check "$REPO_ROOT_FPR/src/backend" "$REPO_ROOT_FPR/tests"; then
+                echo "❌ ruff format drift — push blocked. Fix with: ruff format src/backend tests"
+                exit 1
+            fi
+            echo "✅ ruff format check pass."
+        fi
+    fi
+    # Mirror CI's `Lint & Format` frontend gates locally (eslint + prettier)
+    # so a clean local push is a clean CI Lint & Format job. Closes the gap
+    # surfaced by FEAT-001 iter 7 PR #3 (#321) where two CI rounds were lost
+    # to errors that `npx eslint` / `npx prettier --check` would have caught
+    # in the working tree. Same DC-13 pipefail-safe pattern as the ruff guard:
+    # `find -print -quit` exits cleanly without SIGPIPE on the first match.
+    if [[ -d "$REPO_ROOT_FPR/src/frontend" ]] && [[ -f "$REPO_ROOT_FPR/src/frontend/package.json" ]]; then
+        if [[ -n "$(find "$REPO_ROOT_FPR/src/frontend" -path '*/node_modules' -prune -o \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \) -print -quit 2>/dev/null)" ]]; then
+            echo "🧹 Factory-pr-review eslint (frontend) ..."
+            if ! ( cd "$REPO_ROOT_FPR/src/frontend" && npx --no-install eslint --no-error-on-unmatched-pattern '**/*.{ts,tsx,js,jsx}' 2>&1 ); then
+                echo "❌ eslint failed — push blocked. Fix with: cd src/frontend && npx eslint --fix '**/*.{ts,tsx,js,jsx}'"
+                exit 1
+            fi
+            echo "✅ eslint pass."
+            echo "🧹 Factory-pr-review prettier --check (frontend) ..."
+            if ! ( cd "$REPO_ROOT_FPR/src/frontend" && npx --no-install prettier --check '**/*.{ts,tsx,js,jsx,css,json}' 2>&1 ); then
+                echo "❌ prettier drift — push blocked. Fix with: cd src/frontend && npx prettier --write '**/*.{ts,tsx,js,jsx,css,json}'"
+                exit 1
+            fi
+            echo "✅ prettier pass."
+        fi
+    fi
+    # Run unit tests for the review scripts first — a failing test means
+    # the deterministic capabilities themselves are broken; reviewing with
+    # broken tools is worse than not reviewing.
+    if command -v pytest >/dev/null 2>&1; then
+        echo "🧪 Factory-pr-review unit tests ..."
+        if ! pytest -q "$REPO_ROOT_FPR/tests/blueprint" "$REPO_ROOT_FPR/tests/pr_review"; then
+            echo "❌ Factory-pr-review unit tests failed — push blocked. Fix tests before pushing."
+            exit 1
+        fi
+        echo "✅ Factory-pr-review unit tests pass."
+    fi
+
+    ORCH_FPR="$REPO_ROOT_FPR/scripts/pr-review/run_capabilities.py"
+    if [[ -f "$ORCH_FPR" ]]; then
+        echo "🔍 Factory-pr-review deterministic capabilities (feature: ${FEATURE_ID_FPR:-none}) ..."
+        ARGS_FPR=(--base "origin/main" --head "HEAD" --format markdown)
+        [[ -n "$FEATURE_ID_FPR" ]] && ARGS_FPR+=(--feature "$FEATURE_ID_FPR")
+        set +e
+        python3 "$ORCH_FPR" "${ARGS_FPR[@]}"
+        FPR_RC=$?
+        set -e
+        case "$FPR_RC" in
+            0) echo "✅ Factory-pr-review PASS." ;;
+            1) echo "❌ Factory-pr-review orchestrator error — review incomplete. Set FACTORY_PR_REVIEW_SKIP=1 only as a debug bypass." ; exit 1 ;;
+            2) echo "❌ Factory-pr-review CRITICAL findings — push blocked. Run /pr-review in your Claude Code session for the semantic layer + remediation help." ; exit 1 ;;
+            *) echo "❌ Factory-pr-review unexpected exit $FPR_RC — push blocked." ; exit 1 ;;
+        esac
+    fi
+fi
+# <<< factory-pr-review end <<<
