@@ -122,7 +122,7 @@ Framework work rarely invokes BVL, CIP, CVP, Iteration Model, Preventive Sweep, 
 
 ### Applicability Discovery — `applicable_when:` vocabulary [LAW]
 
-Every entry in `.claude/instructions/`, `.claude/skills/Factory-*/`, and `.claude/rules/defect-prevention.md` MAY declare a frontmatter `applicable_when:` block using a **closed vocabulary**. Missing block ⇒ `always: true` (back-compat). The closed axes are:
+Every entry in `.claude/instructions/`, `.claude/skills/factory-*/`, and `.claude/rules/defect-prevention.md` MAY declare a frontmatter `applicable_when:` block using a **closed vocabulary**. Missing block ⇒ `always: true` (back-compat). The closed axes are:
 
 | Axis | Values | Use |
 |------|--------|-----|

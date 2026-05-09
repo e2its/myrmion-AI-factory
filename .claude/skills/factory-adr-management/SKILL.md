@@ -184,7 +184,7 @@ When ambiguous, default to FDR. Promotion FDR → ADR is an additive operation (
 
 ```yaml
 WHEN BLUEPRINT detects a design decision needing formalisation:
-  → run RDR with user (Factory-rdr/SKILL.md) → user picks decision
+  → run RDR with user (factory-rdr/SKILL.md) → user picks decision
   → invoke factory-adr-management Propose Procedure with operational_rule = decision text
   → continue design with new ADR/FDR as feature-relevant context
   → at BLUEPRINT --approve, invoke Accept Procedure on the proposed record
@@ -244,7 +244,7 @@ The Accept Procedure produces a single coherent commit (constitution amendment +
 
 ## What the skill does NOT do
 
-- Run RDR with the user. RDR is a separate protocol (`Factory-rdr/SKILL.md`) and is the caller's responsibility. This skill assumes the decision is already user-ratified before Accept is invoked.
+- Run RDR with the user. RDR is a separate protocol (`factory-rdr/SKILL.md`) and is the caller's responsibility. This skill assumes the decision is already user-ratified before Accept is invoked.
 - Validate the operational text quality. Whether the rule is well-worded, complete, or actionable is the author's responsibility (or the caller's RDR ceremony).
 - Resolve conflicts between concurrent ADRs targeting the same section. If two ADRs are proposed simultaneously for the same `target_section`, the second Accept will fail with `target_section_already_modified` and the caller must escalate to user.
 - Migrate legacy feature-scoped ADRs at `docs/spec/{ID}/adr/` to `docs/spec/{ID}/fdr/`. That is a one-shot SETUP --upgrade concern, not a runtime concern.

@@ -25,7 +25,7 @@ Load this file only if the PR contains code changes (`has_code: true`). The five
 
 - Does the change respect the dependency direction of the codebase? (clean architecture, layers, modules)
 - Does it put business logic where it shouldn't be? (fat controllers, anemic models, logic in templates)
-- **DRY / CIP**: does it reuse existing utilities, or reinvent the wheel? In materialised Factory projects, every new component must be checked against `config/codebase_inventory.json` — see `Factory-codebase-inventory/SKILL.md`. A new artefact without a CIP consultation is Hard Block 7.
+- **DRY / CIP**: does it reuse existing utilities, or reinvent the wheel? In materialised Factory projects, every new component must be checked against `config/codebase_inventory.json` — see `factory-codebase-inventory/SKILL.md`. A new artefact without a CIP consultation is Hard Block 7.
 - Does it introduce unnecessary coupling between modules?
 - Is the public interface (function signatures, exported classes) the minimum necessary?
 - If it introduces a new pattern in the codebase: should there be an ADR? See `adr-policy.md`.

@@ -61,7 +61,7 @@ The decision is **persisted immediately** to the artifact, in the same agent tur
    <!-- RDR-{N}: {question} → {user_choice} -->
    ```
 
-**The file write happens in the same turn as the decision.** Not at "the end of the section". Not "after the next few questions". Immediately. See [Factory-incremental-persistence/SKILL.md § Decision Persistence](../Factory-incremental-persistence/SKILL.md) for the persistence contract.
+**The file write happens in the same turn as the decision.** Not at "the end of the section". Not "after the next few questions". Immediately. See [factory-incremental-persistence/SKILL.md § Decision Persistence](../factory-incremental-persistence/SKILL.md) for the persistence contract.
 
 ---
 

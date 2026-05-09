@@ -111,7 +111,7 @@ The TDD cycle in IMPLEMENT --build previously followed: RED (write test) → GRE
 ## TEST COMMAND RESOLUTION (Automatic — No User Input Required)
 
 Test commands are derived from the governance snapshot's Stack Configuration. No SETUP question needed.
-Uses `/memories/repo/bvl-commands-cache.md` as acceleration layer (see `Factory-memory-cache/SKILL.md`).
+Uses `/memories/repo/bvl-commands-cache.md` as acceleration layer (see `factory-memory-cache/SKILL.md`).
 
 ```yaml
 FUNCTION resolve_verification_commands():

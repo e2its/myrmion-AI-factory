@@ -278,7 +278,7 @@ FUNCTION check_consumes_contract_resolution(elements):
         YIELD { check: "consumes_contract_resolution", severity: CRITICAL,
                 source: "spec.feature.consumes_contract[{upstream_id}]",
                 gap: "Upstream {upstream_id} CONTRACT-FREEZE is stale (label: stale-after-cascade)",
-                remediation: "Run BLUEPRINT --refine {upstream_id} to re-sync contracts, then re-close its CONTRACT-FREEZE issue (removing the stale label). This feature's dev_plan.md may need a CASCADE_PENDING_ITERATION sync as well (see Factory-iteration-model/SKILL.md § CASCADE_CONSUMERS)." }
+                remediation: "Run BLUEPRINT --refine {upstream_id} to re-sync contracts, then re-close its CONTRACT-FREEZE issue (removing the stale label). This feature's dev_plan.md may need a CASCADE_PENDING_ITERATION sync as well (see factory-iteration-model/SKILL.md § CASCADE_CONSUMERS)." }
 
     YIELD { check: "consumes_contract_resolution", severity: PASS,
             source: "spec.feature.consumes_contract[{upstream_id}]",

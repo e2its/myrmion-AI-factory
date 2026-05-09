@@ -102,7 +102,7 @@ for each .claude/instructions/*.instructions.md:
 
 # Step 6 — Structural skills
 skills_active = []
-for each .claude/skills/Factory-*/SKILL.md:
+for each .claude/skills/factory-*/SKILL.md:
   read frontmatter
   if no applicable_when or always:true: ACTIVE
   else if matches: ACTIVE
@@ -185,7 +185,7 @@ For each entry's `applicable_when`:
 
 ## Validation contract (for `scripts/check-applicability-frontmatter.sh`)
 
-The validator MUST verify, for every file under `.claude/instructions/**`, `.claude/skills/Factory-*/SKILL.md`, `.claude/rules/*.md` (technical + cross-cutting governance), and `.claude/rules/defect-prevention.md` per-entry blocks:
+The validator MUST verify, for every file under `.claude/instructions/**`, `.claude/skills/factory-*/SKILL.md`, `.claude/rules/*.md` (technical + cross-cutting governance), and `.claude/rules/defect-prevention.md` per-entry blocks:
 
 1. Frontmatter `applicable_when:` block parses as valid YAML.
 2. All keys belong to the closed vocabulary: `phase, scope, change_type, command, path_glob, framework, always`.

@@ -66,10 +66,10 @@ These extend the generic hard blocks (`SKILL.md` Phase 4 in the upstream skill) 
 | 4 | High-severity security vulnerability (SQLi, RCE, auth bypass, persistent XSS) | both | `references/code-review-criteria.md` § 4 |
 | 5 | Tests deleted without justification in PR description | both | `references/code-review-criteria.md` § 1 |
 | 6 | Irreversible DB migrations without rollback script | downstream | `references/code-review-criteria.md` § SQL |
-| 7 | **CIP violation**: new code artifact without `config/codebase_inventory.json` consultation | downstream | `Factory-codebase-inventory/SKILL.md` |
-| 8 | **CVP violation**: spec-bearing change with broken upstream traceability (spec.feature ↔ user_journey ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan) | downstream | `Factory-coherence-validation/SKILL.md` |
-| 9 | **IPP violation**: governance artifact written fully-formed on first write | both | `Factory-incremental-persistence/SKILL.md` (covered by `check-ipp-compliance.sh` PreToolUse — push gate re-asserts as defence in depth) |
-| 10 | **Branch-protection drift**: branch name does not match an allowed working pattern (`feature/EVOL-*`, `feature/{ID}-*`, `fix/*`, `bugfix/*`, `hotfix/*`, `docs/*`, `chore/*`) | both | `Factory-branching-strategy/SKILL.md` |
+| 7 | **CIP violation**: new code artifact without `config/codebase_inventory.json` consultation | downstream | `factory-codebase-inventory/SKILL.md` |
+| 8 | **CVP violation**: spec-bearing change with broken upstream traceability (spec.feature ↔ user_journey ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan) | downstream | `factory-coherence-validation/SKILL.md` |
+| 9 | **IPP violation**: governance artifact written fully-formed on first write | both | `factory-incremental-persistence/SKILL.md` (covered by `check-ipp-compliance.sh` PreToolUse — push gate re-asserts as defence in depth) |
+| 10 | **Branch-protection drift**: branch name does not match an allowed working pattern (`feature/EVOL-*`, `feature/{ID}-*`, `fix/*`, `bugfix/*`, `hotfix/*`, `docs/*`, `chore/*`) | both | `factory-branching-strategy/SKILL.md` |
 | 11 | **Governance-bump miss** (framework meta only): change touches a file tracked in `.context/templates/setup/governance_versions.json` but the manifest does NOT change in the same diff | meta only | CLAUDE.md § Generation Standards #2 |
 | 12 | **Protected-code modified**: diff touches a path listed in `config/protected-paths.json` OR a region between `PROTECTED-CODE START/END` markers | downstream | constitution.md + `config/protected-paths.json` |
 | 13 | **Reference coherence**: rename in diff (skill/rule/instruction/command/path/heading) without lock-step propagation to mention sites — broken markdown links, divergent identifier spellings, anchor pointers to non-existent headings | both | Phase 0 Coherence Audit + `config/coherence-context.json` |
@@ -351,9 +351,9 @@ Same disambiguation pattern as `review-policy.md`:
 - `.claude/rules/security_policy.md` — high-level project security policy (allowed crypto, PII handling, OWASP stance, threat model). Consumed by 🛡️ SEC hat in IMPLEMENT --build (SAST + dependency audit), QA --verify (DAST), and AUDIT (compliance dimension). The push gate's secret-pattern regexes are NOT here — they live in `scripts/detect_change_type.py` and may be extended only via skill changes (manifest-tracked), not via project rules.
 - `.claude/rules/testing.md` — testing policy (coverage thresholds, framework choice, AAA pattern). Consumed by BVL during DEV ↔ REVIEW (coverage gate), IMPLEMENT --build (TDD enforcement), QA --verify (test-plan execution). The push gate's "tests-deleted-without-justification" check (Block 5) reads the diff alone, not the policy file.
 - `.claude/rules/architecture.md` — layer dependency rules, module boundaries. Consumed by BLUEPRINT (design.md §7.8 Mandatory Patterns), BVL REVIEW hat (Check #1), AUDIT. The push gate does NOT enforce architecture; that is a deeper, design-time concern.
-- `.claude/rules/contract-first-policy.md` + `.claude/rules/api-standards.md` — contract authoring + versioning policy. Consumed by BLUEPRINT (CONTRACT-FREEZE gate), `Factory-coherence-validation/SKILL.md` (CVP Check 14/15). The push gate's API contract checks (Blocks 1, 2) operate on the **spec files themselves** via oasdiff/asyncapi-cli; the policy text governs how specs are written, not how the push gate reads them.
+- `.claude/rules/contract-first-policy.md` + `.claude/rules/api-standards.md` — contract authoring + versioning policy. Consumed by BLUEPRINT (CONTRACT-FREEZE gate), `factory-coherence-validation/SKILL.md` (CVP Check 14/15). The push gate's API contract checks (Blocks 1, 2) operate on the **spec files themselves** via oasdiff/asyncapi-cli; the policy text governs how specs are written, not how the push gate reads them.
 - `.claude/rules/defect-prevention.md` — DC catalog. Consumed by every SDLC agent listed in each entry's `applicable_to:` field (see CLAUDE.md § Living Governance Catalogs). The push gate is NOT in the consumer list — defect prevention is a design-and-build-time concern, not a push-time one.
-- `config/codebase_inventory.json` — component registry. Consumed by `Factory-codebase-inventory/SKILL.md` (CIP Canary at IMPLEMENT --build), AUDIT (DRY dimension). Block 7 in this skill (CIP) is a **policy reminder**, not a deterministic check — the push gate does NOT scan the inventory; it relies on the upstream CIP Canary having run during IMPLEMENT --build. If you push code that bypassed CIP Canary (e.g. edited outside Claude), the push gate will not catch it; QA --verify is the next gate.
+- `config/codebase_inventory.json` — component registry. Consumed by `factory-codebase-inventory/SKILL.md` (CIP Canary at IMPLEMENT --build), AUDIT (DRY dimension). Block 7 in this skill (CIP) is a **policy reminder**, not a deterministic check — the push gate does NOT scan the inventory; it relies on the upstream CIP Canary having run during IMPLEMENT --build. If you push code that bypassed CIP Canary (e.g. edited outside Claude), the push gate will not catch it; QA --verify is the next gate.
 
 The pattern: each rule file has ONE primary consumer. Multiple agents may read different slices, but ONE skill or SDLC phase owns the binding-decision authority. The push gate is deliberately narrow — it covers the things that are cheap and deterministic at push time, and defers everything else to its proper owner.
 
@@ -384,7 +384,7 @@ A project can also create `references/local-policy.md` in its copy of the skill,
 ## Skill structure
 
 ```
-Factory-pr-review/
+factory-pr-review/
 ├── SKILL.md                          ← this file (orchestrator + push-gate spec)
 ├── README.md                         ← installation + framework integration
 ├── references/

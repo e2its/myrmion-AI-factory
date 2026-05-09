@@ -208,7 +208,7 @@ FUNCTION generate_governance_snapshot(governance_context):
     ## Verification Commands
     > Auto-derived from Stack Configuration via BVL derive_commands_from_stack(stack_config).
     > Used by IMPLEMENT --build (Build Verification Loop). Override manually if non-standard tooling.
-    > See: Factory-build-verification/SKILL.md
+    > See: factory-build-verification/SKILL.md
     test_single: {derive_commands_from_stack(stack_config).test_single}
     test_suite: {derive_commands_from_stack(stack_config).test_suite}
     lint: {derive_commands_from_stack(stack_config).lint}
