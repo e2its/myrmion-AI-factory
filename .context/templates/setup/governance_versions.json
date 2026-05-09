@@ -2453,6 +2453,14 @@
         "1.0.0: feat(EVOL-028) new Applicability Discovery Protocol (ADP) skill — live scan of governance trees (snapshot LAWs, instructions, structural skills, DCs) filtered by applicable_when frontmatter; emits canonical Roll-Call block on-screen as first user-facing message of every command. Salience anchor against rule-amnesia symptom (lazy-load ineffective in practice — agents had rules loaded but ignored them). Closed vocabulary: phase, scope, change_type, command, path_glob, framework, always."
       ]
     },
+    "skills/Factory-batch-interactivity/SKILL.md": {
+      "version": "1.2.0",
+      "type": "skill",
+      "role": "BIP — tiered proposal/review/converge cycles, BA mediation between specialist agents and the user.",
+      "changelog": [
+        "1.2.0: BIP — initial framework entry. Replaces one-question-at-a-time Q&A with batched decision tiers."
+      ]
+    },
     "scripts/check-applicability-frontmatter.sh": {
       "version": "1.1.0",
       "type": "script",
