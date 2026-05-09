@@ -743,7 +743,7 @@ FUNCTION auto_declare_frontend_resource():
 
 **Step B — Increment Slicing RDR (Recommendation → Decision → Ratification):**
 
-Follow `.claude/skills/Factory-rdr/SKILL.md` canonical protocol. Slicing-specific invariants:
+Follow `.claude/skills/factory-rdr/SKILL.md` canonical protocol. Slicing-specific invariants:
 - Present **≥ 3 alternative slicings**. Typical families (pick ≥3, do NOT invent without justification):
   - `by-user-subjourney` — each increment ships one end-to-end capability of the user journey.
   - `by-data-entity` — each increment introduces one domain entity + its CRUD surface.
@@ -753,7 +753,7 @@ Follow `.claude/skills/Factory-rdr/SKILL.md` canonical protocol. Slicing-specifi
   - `read-then-write` — read-only surface first, mutating surface second, advanced last.
 - Each alternative MUST declare: ordered increments, scenarios per increment, contract ops per increment, estimated PR size (tasks count), and a one-line deployability rationale.
 - BLUEPRINT recommends **one** with a one-line justification (e.g., "alt 2 — each increment ships a self-contained read→write user loop without depending on future flags").
-- User MUST ratify **verbatim** (per Factory-rdr). A recommendation without user ratification is INCOMPLETE — BLOCK.
+- User MUST ratify **verbatim** (per factory-rdr). A recommendation without user ratification is INCOMPLETE — BLOCK.
 - Store ratification record in feature worklog: action `BLUEPRINT.increment_plan.rdr_ratified` with payload `{alternatives_presented: N, user_choice: "alt-k", rdr_ratified_at: iso}`.
 
 **Step C — Increment Plan Emission (IPP-compliant):**
@@ -783,11 +783,11 @@ Violations are **BUGS in the RDR output** — loop back to Step B with the speci
 
 **Step E — Worklog Registration:**
 
-Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, slicing_strategy, total_increments, rdr_alternatives_considered, rdr_ratified_at}`. See `.claude/skills/Factory-worklog/SKILL.md`.
+Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, slicing_strategy, total_increments, rdr_alternatives_considered, rdr_ratified_at}`. See `.claude/skills/factory-worklog/SKILL.md`.
 
 **Output invariants at step end:**
 - `docs/spec/{{FEATURE_ID}}/increment_plan.md` exists with `status: DRAFT`, well-formed frontmatter (all fields populated), § 0/§ 1/§ 2 fully written. § 3 only when `slicing_strategy == monolithic`.
-- CVP gates `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage` run at `--approve` (see `.claude/skills/Factory-coherence-validation/SKILL.md`).
+- CVP gates `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage` run at `--approve` (see `.claude/skills/factory-coherence-validation/SKILL.md`).
 
 ### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY — v2.3.0)
 
@@ -1153,7 +1153,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   #      `status: accepted` — feature-local binding patterns.
   #   C) Setup decisions from `.context/governance_snapshot.md` § Setup Configuration that
   #      affect implementation (e.g., multitenancy strategy, auth mechanism, synthetic data flag).
-  #   D) Historical ADR traceability (read-only) via Factory-adr-management List Active API —
+  #   D) Historical ADR traceability (read-only) via factory-adr-management List Active API —
   #      used to surface "why this [LAW] section is worded this way" in design.md notes.
   #      Historical ADRs are NEVER binding; only the resulting [LAW] sections in constitution are.
 
@@ -1247,12 +1247,12 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       IF synthetic_data.enabled: setup_patterns.APPEND("synthetic_data_seeding")
       # Other setup decisions that affect code patterns
 
-  # D. (Optional) Historical ADR traceability via Factory-adr-management
+  # D. (Optional) Historical ADR traceability via factory-adr-management
   # ONLY consulted when the agent wants to surface "why this [LAW] is worded this way" — these
   # are HISTORICAL records, NEVER binding. Active law lives in constitution [LAW] sections (A).
   historical_adr_refs = []
   IF design narrative wants to surface decision history:
-    historical_adr_refs = Factory-adr-management.list_active_adrs(feature_id=FEATURE_ID)
+    historical_adr_refs = factory-adr-management.list_active_adrs(feature_id=FEATURE_ID)
     # Returns refs only — no binding semantics derived from them.
 
   WRITE design.md "### 7.8 Mandatory Architectural Patterns + FDR Bindings → REVIEW [DESIGN] + DEV Hat"
@@ -1333,7 +1333,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
 
 ### Incremental Persistence (IPP-compliant — MANDATORY)
 
-> **Implements:** Incremental Persistence Protocol (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
+> **Implements:** Incremental Persistence Protocol (`.claude/skills/factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
 
 **Pillar 1 — Skeleton-First Write (before content generation):**
 ```yaml

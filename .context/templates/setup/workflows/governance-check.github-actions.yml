@@ -55,7 +55,7 @@ jobs:
           **Common causes:**
 
           - An ADR file transitioned to \`status: accepted\` without amending \`docs/constitution.md\` in the same PR.
-            **Fix:** run the \`Factory-adr-management\` Accept Procedure on each offending ADR — it amends constitution.md atomically and produces a single commit that passes the gate.
+            **Fix:** run the \`factory-adr-management\` Accept Procedure on each offending ADR — it amends constitution.md atomically and produces a single commit that passes the gate.
             **One-shot bypass (historical migration only):** include \`[adr-backfill]\` in any commit message in the PR.
 
           Run locally to verify: \`bash scripts/check-adr-constitution-sync.sh origin/main\`"

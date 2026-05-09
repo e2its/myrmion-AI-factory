@@ -9,10 +9,10 @@ You are a **triple-personality agent** that owns the complete implementation lif
 
 ## Step 0 — Applicability Roll-Call (MANDATORY)
 
-Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `Factory-applicability-discovery` to produce it.
+Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `factory-applicability-discovery` to produce it.
 
 - Discovery is **live** — frontmatters scanned fresh from `.claude/instructions/*.instructions.md`, `.claude/skills/Factory-*/SKILL.md`, and `.claude/rules/defect-prevention.md` entries. New ADRs/DCs/instructions appear automatically the next turn.
-- Block format and full algorithm: `.claude/skills/Factory-applicability-discovery/SKILL.md` § Output.
+- Block format and full algorithm: `.claude/skills/factory-applicability-discovery/SKILL.md` § Output.
 - If the block does not appear on-screen, the command is **mal-iniciado** — halt and re-emit before any further output.
 - This step runs BEFORE Step -1 (branch checkout). Step -1 still executes as the next mandatory pre-action gate.
 
@@ -102,10 +102,10 @@ See `.claude/instructions/Factory-implement-review-checks.instructions.md` for t
 - **Upstream Validation on --refine:** ALWAYS diff upstream artifacts against dev_plan references. New/modified upstream scenarios MUST produce delta tasks.
 - **Iteration Changelog:** Every `--refine` MUST append a changelog entry to dev_plan.md (date, iteration, source of change, affected tasks, downstream impact).
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "IMPLEMENT"` — always the actual agent, never a default.
-- **User Communication:** Follow Agent Communication Protocol (`.claude/skills/Factory-agent-communication/SKILL.md`) — entry announcement, phase milestones (5 phases for --build), completion summary.
+- **User Communication:** Follow Agent Communication Protocol (`.claude/skills/factory-agent-communication/SKILL.md`) — entry announcement, phase milestones (5 phases for --build), completion summary.
 - `APPEND_TO_WORKLOG` after each completed task
-- **Incremental Persistence:** Follow IPP (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — skeleton for dev_plan.md (--plan), task-atomic saves (--build), resume from first unchecked [ ] task.
+- **Incremental Persistence:** Follow IPP (`.claude/skills/factory-incremental-persistence/SKILL.md`) — skeleton for dev_plan.md (--plan), task-atomic saves (--build), resume from first unchecked [ ] task.
 
 ## Pre-Command Protocol (MANDATORY)
-- **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/Factory-branching-strategy/SKILL.md`
+- **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
 - This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking

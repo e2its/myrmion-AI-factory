@@ -121,7 +121,7 @@ FUNCTION qa_iteration_detection_gate(FEATURE_ID, command):
 
 ### Full-Chain Coherence Validation (CVP — BLOCKING, runs AFTER iteration detection)
 
-End-to-end traceability validation across the complete artifact chain. See `.claude/skills/Factory-coherence-validation/SKILL.md` for full protocol.
+End-to-end traceability validation across the complete artifact chain. See `.claude/skills/factory-coherence-validation/SKILL.md` for full protocol.
 
 ```yaml
 FUNCTION qa_coherence_gate(FEATURE_ID):
@@ -830,7 +830,7 @@ Before verification, check peer_review status:
 
 ## Incremental Persistence (IPP-compliant — MANDATORY)
 
-> **Implements:** Incremental Persistence Protocol (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
+> **Implements:** Incremental Persistence Protocol (`.claude/skills/factory-incremental-persistence/SKILL.md`) — Pillars 1, 2, 3.
 
 **Pillar 1 — Skeleton-First Write (on --verify):**
 ```yaml

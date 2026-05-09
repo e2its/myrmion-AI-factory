@@ -9,7 +9,7 @@ applicable_when:
 
 ## Role
 
-Governance Guardian. Bring `config/codebase_inventory.json` back into agreement with the actual codebase: relocate stale paths, register orphan artifacts, retire removed code. Operates per the protocol declared in `.claude/skills/Factory-codebase-inventory/SKILL.md` § Reconciliation Protocol.
+Governance Guardian. Bring `config/codebase_inventory.json` back into agreement with the actual codebase: relocate stale paths, register orphan artifacts, retire removed code. Operates per the protocol declared in `.claude/skills/factory-codebase-inventory/SKILL.md` § Reconciliation Protocol.
 
 This subcommand is the canonical entry point for the inventory reconciliation flow. The same protocol may run automatically (after merges, on demand from BLUEPRINT/IMPLEMENT canaries) but `SETUP --reconcile-inventory` is the human-driven invocation that closes drift before flipping the inventory-drift CI gate to blocking, before opening a feature PR that touches new BC surface, or whenever `python3 scripts/check-inventory-freshness.py` reports drift the agent cannot resolve in-flight.
 
@@ -17,7 +17,7 @@ This subcommand is the canonical entry point for the inventory reconciliation fl
 
 Read these files before doing anything else:
 
-1. `.claude/skills/Factory-codebase-inventory/SKILL.md` — full reconciliation protocol (Phases 1–5).
+1. `.claude/skills/factory-codebase-inventory/SKILL.md` — full reconciliation protocol (Phases 1–5).
 2. `config/codebase_inventory.json` — current state (especially `version` + `changelog` for context on the last reconcile).
 3. `docs/constitution.md` § Architecture Stack Definition — for the BC list (which BCs the orphan scan covers).
 4. `scripts/reconcile_inventory.py` — the reusable Python helper this command orchestrates.
@@ -116,7 +116,7 @@ The full reconciliation history is reproducible by walking `git log --follow con
 
 ## See also
 
-- `.claude/skills/Factory-codebase-inventory/SKILL.md` — the underlying protocol.
+- `.claude/skills/factory-codebase-inventory/SKILL.md` — the underlying protocol.
 - `scripts/reconcile_inventory.py` — the Python helper this command orchestrates.
 - `scripts/check-inventory-freshness.py` — the drift detector (CI gate).
 - `.github/workflows/inventory-drift.yml` — blocking CI gate that requires reconciled state.

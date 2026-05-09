@@ -323,9 +323,9 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
       IF sweep_issue.status != "Done":
         ❌ BLOCK: "PREVENTIVE-SWEEP gate not passed for {FEATURE_ID} (current: {sweep_issue.status})."
         SUGGEST: |
-          The Factory-preventive-sweep SKILL must run against the feature's code and
+          The factory-preventive-sweep SKILL must run against the feature's code and
           return zero open C-severity findings before DEVOPS --deploy dev. Run it now:
-            Invoke .claude/skills/Factory-preventive-sweep/SKILL.md against FEATURE_ID
+            Invoke .claude/skills/factory-preventive-sweep/SKILL.md against FEATURE_ID
             Resolve every C-severity finding
             Move the PREVENTIVE-SWEEP issue to Done
             Re-run DEVOPS --deploy --env {ENV} {FEATURE_ID}
@@ -337,7 +337,7 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
         fm = READ_FRONTMATTER(sweep_report)
         IF fm.status == "INVALIDATED":
           ❌ BLOCK: "Preventive sweep report is INVALIDATED — code changed after the last sweep."
-          SUGGEST: "Re-run Factory-preventive-sweep against FEATURE_ID and re-freeze the report."
+          SUGGEST: "Re-run factory-preventive-sweep against FEATURE_ID and re-freeze the report."
           STOP
       ELSE:
         ❌ BLOCK: "PREVENTIVE-SWEEP issue is Done but {sweep_report} is missing — governance drift."
@@ -444,7 +444,7 @@ Phase 5: Post-Deploy Verification
   IF verification passes:
     # Preventive Sweep Advisory (first deploy detection)
     # Compute BEFORE generating the report so the flag is in the frontmatter.
-    # See: .claude/skills/Factory-preventive-sweep/SKILL.md
+    # See: .claude/skills/factory-preventive-sweep/SKILL.md
     previous_deploys = GLOB("docs/spec/{FEATURE_ID}/devops/deployment_report_*.md")
     sweep_recommended = (previous_deploys.count == 0)  # No prior reports = first deploy
     IF sweep_recommended:

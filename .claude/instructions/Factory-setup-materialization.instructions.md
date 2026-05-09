@@ -34,7 +34,7 @@ If any prerequisite fails → **BLOCK** with clear remediation message.
 
 ### Checkpoint 2 — Per-Task Logging (CONTINUOUS — IPP Pillar 2)
 
-> **Implements:** Incremental Persistence Protocol (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — Pillar 2 (Section-Atomic Saves).
+> **Implements:** Incremental Persistence Protocol (`.claude/skills/factory-incremental-persistence/SKILL.md`) — Pillar 2 (Section-Atomic Saves).
 
 - After EACH completed task: `APPEND_TO_WORKLOG` with task details
 - Update MATERIALIZATION_REPORT.md checklist: `[ ]` → `[✓]`
@@ -55,10 +55,10 @@ If ANY check fails → **BLOCK** completion, list failures, suggest fixes.
 ### Checkpoint 3.1 — Governance Snapshot Generation (MANDATORY)
 
 > **Purpose:** Generate the file-based governance snapshot consumed by ALL agents at every command start.
-> This file enables post-summarization governance recovery (see `.claude/skills/Factory-governance-loading/SKILL.md` Step 0).
-> Embeds the operational law (`## [LAW]` sections of constitution + universal DCs) so cultural guidance is mechanically present from turn 1 — agents do not depend on disciplinary on-demand loading for the rules that govern every decision. ADRs are NOT loaded; they are historical records of why constitutional changes were made — see `.claude/skills/Factory-adr-management/SKILL.md`.
+> This file enables post-summarization governance recovery (see `.claude/skills/factory-governance-loading/SKILL.md` Step 0).
+> Embeds the operational law (`## [LAW]` sections of constitution + universal DCs) so cultural guidance is mechanically present from turn 1 — agents do not depend on disciplinary on-demand loading for the rules that govern every decision. ADRs are NOT loaded; they are historical records of why constitutional changes were made — see `.claude/skills/factory-adr-management/SKILL.md`.
 
-> **Implementation:** the deterministic generator ships as `scripts/generate-governance-snapshot.sh` (mirror at `.context/templates/setup/scripts/generate-governance-snapshot.sh` for materialised projects, propagated via `factory-sync.sh`). SETUP --generate, SETUP --upgrade, and the agent-driven post-load regen path (Factory-governance-loading SKILL § Step 1 POST-LOAD) all invoke the script. Direct re-implementation of the pseudocode below by individual agents is forbidden — the script is the single source of truth for snapshot bytes.
+> **Implementation:** the deterministic generator ships as `scripts/generate-governance-snapshot.sh` (mirror at `.context/templates/setup/scripts/generate-governance-snapshot.sh` for materialised projects, propagated via `factory-sync.sh`). SETUP --generate, SETUP --upgrade, and the agent-driven post-load regen path (factory-governance-loading SKILL § Step 1 POST-LOAD) all invoke the script. Direct re-implementation of the pseudocode below by individual agents is forbidden — the script is the single source of truth for snapshot bytes.
 >
 > **Propagation note:** `factory-sync.sh --preserve-local` covers this script — when the flag is set, materialised projects with a local custom version of `generate-governance-snapshot.sh` keep their version instead of being overwritten by the framework variant. Use this only when a project has documented its local fork in an ADR; the canonical path is to track the fork upstream rather than carry per-project drift indefinitely.
 
@@ -376,7 +376,7 @@ For each detected technology (backend.runtime, frontend.framework):
        - "1.0.0: Auto-generated during SETUP materialization"
      ---
      ```
-   - **Step 3b — Derive `path_glob` list** from technology name (Factory-applicability-discovery scans these). Common mappings (one entry per glob — list form, NOT brace expansion):
+   - **Step 3b — Derive `path_glob` list** from technology name (factory-applicability-discovery scans these). Common mappings (one entry per glob — list form, NOT brace expansion):
      | Technology | `path_glob` entries |
      |------------|---------------------|
      | Python | `**/*.py` |
@@ -733,7 +733,7 @@ After all rules generated, validate:
 
 **Phase D — ADP Context Materialization (ADR-EVOL-028):**
 
-Write `.context/applicability_context.json` — machine-readable context source consumed by `Factory-applicability-discovery` at every command Step 0. Without this file the discovery falls back to parsing `docs/setup.md` (best-effort), so emitting it eliminates ambiguity.
+Write `.context/applicability_context.json` — machine-readable context source consumed by `factory-applicability-discovery` at every command Step 0. Without this file the discovery falls back to parsing `docs/setup.md` (best-effort), so emitting it eliminates ambiguity.
 
 ```pseudocode
 context = {
@@ -1068,9 +1068,9 @@ Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/`:
    - Copy ALL `.sh` files from the template directory — auto-scan, no hardcoded list.
    - `chmod +x` for all copied scripts.
    - Fresh `--generate`: write as-is.
-   - `--upgrade`: overwrite each script with the template version. These scripts are framework-owned primitives — the target version is authoritative. No user customisation expected; project-specific branch protocol lives in constitution + ADRs, not in hook scripts. Current chain (PreToolUse): `check-branch-protection.sh`, `check-concurrency-lock.sh`, `check-governance-drift.sh`, `check-completion-gate.sh`, `check-ipp-compliance.sh`, `check-push-preflight.sh`. The first four match `Edit|Write`; `check-completion-gate.sh` and `check-ipp-compliance.sh` match `Write` only; `check-push-preflight.sh` matches `Bash` only (Factory PR Review push gate — invokes the Factory-pr-review skill's `scripts/preflight.sh` when the Bash command is `git push`).
+   - `--upgrade`: overwrite each script with the template version. These scripts are framework-owned primitives — the target version is authoritative. No user customisation expected; project-specific branch protocol lives in constitution + ADRs, not in hook scripts. Current chain (PreToolUse): `check-branch-protection.sh`, `check-concurrency-lock.sh`, `check-governance-drift.sh`, `check-completion-gate.sh`, `check-ipp-compliance.sh`, `check-push-preflight.sh`. The first four match `Edit|Write`; `check-completion-gate.sh` and `check-ipp-compliance.sh` match `Write` only; `check-push-preflight.sh` matches `Bash` only (Factory PR Review push gate — invokes the factory-pr-review skill's `scripts/preflight.sh` when the Bash command is `git push`).
    - **Invariant:** every hook referenced from `.claude/settings.json` MUST exist at the target path after this step. Post-materialisation check: for each `bash .claude/hooks/X.sh` command in the merged settings.json, verify the file exists. If any is missing → BLOCK with diagnostic listing the missing scripts.
-   - **Skill-dependency note (Factory PR Review):** `check-push-preflight.sh` is silent if `.claude/skills/Factory-pr-review/` is absent — it passes the `git push` through unchanged. Skills are NOT materialised by `SETUP --generate`; they propagate via `factory-sync.sh`. A fresh project lands the hook + the settings.json wiring; the gate activates the first time `factory-sync.sh` (or `SETUP --upgrade` followed by `factory-sync.sh`) installs the skill.
+   - **Skill-dependency note (Factory PR Review):** `check-push-preflight.sh` is silent if `.claude/skills/factory-pr-review/` is absent — it passes the `git push` through unchanged. Skills are NOT materialised by `SETUP --generate`; they propagate via `factory-sync.sh`. A fresh project lands the hook + the settings.json wiring; the gate activates the first time `factory-sync.sh` (or `SETUP --upgrade` followed by `factory-sync.sh`) installs the skill.
 
 Rationale: `.claude/settings.json` was previously untouched by `factory-sync.sh` ("project-owned"), leaving downstream projects with no governance-always-on hooks unless the user added them manually. Templating `settings.json` closes that gap; templating `CLAUDE.md` avoids shipping framework-specific guidance (meta-maintenance mode, EVOL-* workflow) to project users who should see SDLC-first guidance instead. Templating the hook scripts under `claude/hooks/` closes the follow-up gap where a fresh `SETUP --generate` would materialise a `settings.json` pointing at hook scripts that never existed in the target repo (Copilot PR #7 review round 2).
 
@@ -1236,7 +1236,7 @@ Display grouped list of all generated files with brief description per category.
 
 ## Resumability (`--generate --resume` — IPP Pillar 3)
 
-> **Implements:** Incremental Persistence Protocol (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — Pillar 3 (Resume-on-Entry).
+> **Implements:** Incremental Persistence Protocol (`.claude/skills/factory-incremental-persistence/SKILL.md`) — Pillar 3 (Resume-on-Entry).
 
 ```yaml
 FUNCTION setup_resume_check():

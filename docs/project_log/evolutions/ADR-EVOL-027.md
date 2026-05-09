@@ -28,7 +28,7 @@ Five gaps confirmed in framework upstream (not just materialised in MASS):
 1. `.context/templates/codesign/user_journey_template.md` ships a master-table format for journey steps. Downstream parsers (e.g. MASS) require parser-canonical step blocks (`### Paso N` + per-step `### Schema:` / `DataIn:` / `DataOut:` markers) for deterministic extraction. Current template forces every materialised project to patch locally.
 2. `Factory-setup-materialization.instructions.md` Checkpoint 3.1 ships `generate_governance_snapshot()` as language-agnostic pseudocode. No real script exists in `scripts/` or `.context/templates/setup/scripts/`. Each materialised project re-implements a different way to compute the snapshot.
 3. Rules-naming convention is asymmetric and self-contradictory. Source templates ship as `.context/templates/setup/rules/foo.md` (no suffix). Materialised projects' target is `.claude/rules/foo.instructions.md` (with suffix, per `Factory-setup-materialization.instructions.md:337,705` and manifest `target` fields). The meta repo's own `.claude/rules/` follows source format (no suffix), so the meta repo's Factory-* instructions referencing `foo.instructions.md` cannot be read by agents running on the meta repo itself (self-application broken). The asymmetry forces every consumer (`SETUP --generate`, `SETUP --upgrade`, `factory-sync.sh`, CI checks, 47+ string-literal refs across Factory-* instructions) to know about the rename. Cargo-cult convention from v9.0.0 with no operational benefit — the `.claude/rules/` directory already disambiguates rule files from other markdown.
-4. `Factory-codebase-inventory` has cache-freshness via MD5 but no codebase-vs-inventory drift detection. CIP gate detects presence/cache, not content drift. No `check-inventory-drift.sh`, no CI workflow.
+4. `factory-codebase-inventory` has cache-freshness via MD5 but no codebase-vs-inventory drift detection. CIP gate detects presence/cache, not content drift. No `check-inventory-drift.sh`, no CI workflow.
 5. `governance_versions.json` does not track `.context/templates/{codesign,architect,develop,po,qa,security,ux}/**`. `Factory-setup-upgrade` therefore cannot propagate fixes in those trees to already-materialised projects.
 
 Two MASS-reported gaps declassified during triage:
@@ -77,7 +77,7 @@ Five fases, executed atomically in one PR:
 
 ### Framework skill changes
 
-- `.claude/skills/Factory-codebase-inventory/SKILL.md` — document `check-inventory-drift.sh` invocation and integration with CIP Canary gate (fase 4).
+- `.claude/skills/factory-codebase-inventory/SKILL.md` — document `check-inventory-drift.sh` invocation and integration with CIP Canary gate (fase 4).
 
 ### Framework workflow changes
 

@@ -236,7 +236,7 @@ CONSTRAINT_IDS: [GOV-SEED-ALIGNMENT-{SCHEMA|DEPLOY|REGISTRY}-{N}]
 # and the checks are fast (grep-level).
 #
 # Reference: .claude/rules/defect-prevention.md
-# Detailed patterns: .claude/skills/Factory-preventive-sweep/SKILL.md
+# Detailed patterns: .claude/skills/factory-preventive-sweep/SKILL.md
 
 VERIFY:
   IF NOT FILE_EXISTS(".claude/rules/defect-prevention.md"):

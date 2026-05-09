@@ -20,7 +20,7 @@ This rule applies to every session turn — not just inside slash commands. Tone
 
 ## RDR Universal — MANDATORY
 
-Any question to the user with alternatives follows RDR ([Factory-rdr/SKILL.md](.claude/skills/Factory-rdr/SKILL.md)): ≥3 options, recommendation justified with the main tradeoff, verbatim user choice, immediate persistence. No exceptions — free-form chat, debugging, scope clarification, implementation suggestions, branch-naming, scope cuts. Before sending "do you prefer A or B?", reformulate as RDR.
+Any question to the user with alternatives follows RDR ([Factory-rdr/SKILL.md](.claude/skills/factory-rdr/SKILL.md)): ≥3 options, recommendation justified with the main tradeoff, verbatim user choice, immediate persistence. No exceptions — free-form chat, debugging, scope clarification, implementation suggestions, branch-naming, scope cuts. Before sending "do you prefer A or B?", reformulate as RDR.
 
 The only legitimate binary question without RDR is **factual** (asking for a datum, not a decision). Decisions need RDR; lookups don't.
 
@@ -38,7 +38,7 @@ Before touching any framework file, the Pre-Action Gate (branch protocol) is bin
 Governance loaded: constitution {hash8}, setup {hash8} | SDLC-first triage: ON
 ```
 
-The banner is produced deterministically by `scripts/validate-governance.sh --banner` wired as a `SessionStart` hook. If it does not appear, governance is not loaded — investigate before proceeding. If the snapshot is missing or the hashes diverge from `docs/constitution.md` + `docs/setup.md`, the `UserPromptSubmit` freshness gate (`scripts/governance-onprompt.sh`) emits an advisory `<governance-warning reason="snapshot-stale">` block on stdout. When an Edit/Write touches `docs/constitution.md` or `docs/setup.md` in the same session, the `PostToolUse` hook (`scripts/governance-onedit.sh`) leaves a session-scoped marker; the next prompt receives `<governance-source-edited paths="...">` with regen instruction (Factory-governance-loading SKILL § Step 1 POST-LOAD) and the freshness warning is suppressed. The hook always exits 0. See [README § Governance always-on enforcement](README.md#governance-always-on-enforcement-4-tier).
+The banner is produced deterministically by `scripts/validate-governance.sh --banner` wired as a `SessionStart` hook. If it does not appear, governance is not loaded — investigate before proceeding. If the snapshot is missing or the hashes diverge from `docs/constitution.md` + `docs/setup.md`, the `UserPromptSubmit` freshness gate (`scripts/governance-onprompt.sh`) emits an advisory `<governance-warning reason="snapshot-stale">` block on stdout. When an Edit/Write touches `docs/constitution.md` or `docs/setup.md` in the same session, the `PostToolUse` hook (`scripts/governance-onedit.sh`) leaves a session-scoped marker; the next prompt receives `<governance-source-edited paths="...">` with regen instruction (factory-governance-loading SKILL § Step 1 POST-LOAD) and the freshness warning is suppressed. The hook always exits 0. See [README § Governance always-on enforcement](README.md#governance-always-on-enforcement-4-tier).
 
 ## Meta-Framework Triage — MANDATORY
 
@@ -60,9 +60,9 @@ Canonical classifier: [Factory-protocol-iop-intent-map.instructions.md](.claude/
 
 1. **Constitutional Supremacy (single source of truth)**: Operational law lives in a single governance source — `docs/constitution.md` in materialised projects, this `CLAUDE.md` in the framework meta — and is read by agents from the snapshot's `## [LAW]` sections. `.claude/rules/` holds detailed regulations consumed on-demand; among them, `defect-prevention.md` universal entries (`applicable_when: always`) also embed in the snapshot. ADRs are **historical records** of why constitutional changes were made — context, alternatives, consequences — but are NOT active law. An ADR transitioning to `status: accepted` MUST amend the governance source in the same PR; CI gate `scripts/check-adr-constitution-sync.sh` blocks accept-without-amendment (bypass via `[adr-backfill]` commit marker for one-shot historical migration). Modifying operational law without the ADR ceremony is a governance-scope violation.
 
-   *Framework-meta application:* ADRs at `docs/project_log/evolutions/ADR-EVOL-*.md` track structural evolutions. An ADR transitioning to accepted amends this `CLAUDE.md` (universal constitutional content) or the relevant framework-shipped artefact (templates, skills, scripts, instructions) in the same PR. The `Factory-adr-management` skill ships to materialised projects but is not invoked imperatively here; the ADR branch is the local ceremony.
+   *Framework-meta application:* ADRs at `docs/project_log/evolutions/ADR-EVOL-*.md` track structural evolutions. An ADR transitioning to accepted amends this `CLAUDE.md` (universal constitutional content) or the relevant framework-shipped artefact (templates, skills, scripts, instructions) in the same PR. The `factory-adr-management` skill ships to materialised projects but is not invoked imperatively here; the ADR branch is the local ceremony.
 2. **Protected Code**: NEVER modify code between `PROTECTED-CODE START/END` markers or paths in `config/protected-paths.json`.
-3. **DRY Enforcement**: Consult `config/codebase_inventory.json` before creating code artifacts. See `.claude/skills/Factory-codebase-inventory/SKILL.md`.
+3. **DRY Enforcement**: Consult `config/codebase_inventory.json` before creating code artifacts. See `.claude/skills/factory-codebase-inventory/SKILL.md`.
 4. **Security**: Zero secrets in code. Use env vars or vault SDK. Check OWASP Top 10.
 5. **Testing**: 1 Logic = 1 Unit Test. TDD: Red → Green → Refactor → Verify.
 6. **Traceability**: `// Generated by Phase: [ROLE] | Feature: [ID]`
@@ -73,7 +73,7 @@ Canonical classifier: [Factory-protocol-iop-intent-map.instructions.md](.claude/
 
 1. **Template lookup (on-demand)** — Framework edits rarely create artefacts from templates; when they do (e.g. drafting a new rule template, adding a Factory-* instruction, adding a new SKILL), read an existing sibling of the same family to match frontmatter + section structure, THEN adapt. Never invent schemas.
 
-2. **Governance version bump — MANDATORY on every framework-core touch.** Touch a file tracked in `.context/templates/setup/governance_versions.json` (this repo's canonical manifest) → bump its entry + add a changelog line in the SAME commit. Applies to `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, `scripts/{validate-governance,governance-onprompt,governance-oncompact}.sh`, `.github/workflows/governance-check.yml`, `.github/workflows/auto-tag.yml`, and every tracked file under `.context/templates/**`. Bump kind: PATCH (typo / doc clarification), MINOR (new feature / section), MAJOR (breaking contract). New framework-core files → add entry at `1.0.0` in the appropriate section (`framework_core` for LLM/CI-enforced, `templates` for SETUP-materialised). Fast-lane (§3) bypasses CI workflows, NOT this rule. Canonical procedure: [Factory-governance-loading/SKILL.md](.claude/skills/Factory-governance-loading/SKILL.md) § Governance Write Protocol (GWP).
+2. **Governance version bump — MANDATORY on every framework-core touch.** Touch a file tracked in `.context/templates/setup/governance_versions.json` (this repo's canonical manifest) → bump its entry + add a changelog line in the SAME commit. Applies to `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, `scripts/{validate-governance,governance-onprompt,governance-oncompact}.sh`, `.github/workflows/governance-check.yml`, `.github/workflows/auto-tag.yml`, and every tracked file under `.context/templates/**`. Bump kind: PATCH (typo / doc clarification), MINOR (new feature / section), MAJOR (breaking contract). New framework-core files → add entry at `1.0.0` in the appropriate section (`framework_core` for LLM/CI-enforced, `templates` for SETUP-materialised). Fast-lane (§3) bypasses CI workflows, NOT this rule. Canonical procedure: [Factory-governance-loading/SKILL.md](.claude/skills/factory-governance-loading/SKILL.md) § Governance Write Protocol (GWP).
 
 3. **Docs-only fast-lane (commit-on-main + CI skip)** — Documentation-only changes may be committed directly to `main` without a feature branch and without triggering the full CI / Deploy / Tag workflows. A change qualifies as docs-only when **every** path in the diff matches the allowlist:
 
@@ -94,7 +94,7 @@ BEFORE any file modification:
 1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`). Working patterns for framework work: `feature/EVOL-{NNN}-{slug}` (evolutions), `fix/{slug}` | `bugfix/{slug}` | `hotfix/{slug}` (fixes), `docs/{slug}` (documentation), `chore/{slug}` (tooling).
 2. Create from `origin/main`, NEVER from HEAD.
 3. All merges to `main` via Pull Requests only.
-4. Full protocol: `.claude/skills/Factory-branching-strategy/SKILL.md`
+4. Full protocol: `.claude/skills/factory-branching-strategy/SKILL.md`
 
 ## Context Preservation Invariants
 
@@ -110,13 +110,13 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 
 | Protocol | Reference | Purpose |
 |----------|-----------|---------|
-| Applicability Discovery (ADP) | `.claude/skills/Factory-applicability-discovery/SKILL.md` | **[LAW]** Step 0 of every command. Live scan of governance trees filtered by `applicable_when:` frontmatter, emits canonical Roll-Call block on-screen as first user-facing message. Salience anchor — agents commit in writing to which LAWs/DCs/instructions/skills apply before acting. |
-| Incremental Persistence (IPP) | `.claude/skills/Factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
-| RDR (Recommendation → Decision) | `.claude/skills/Factory-rdr/SKILL.md` | Agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice. In this repo the third-R (Ratification → IPP artefact) does NOT apply — no `_progress` frontmatter or feature-scoped ADR exists; persist the choice in the commit message or a framework-level decision record under `docs/project_log/evolutions/` (the repo's actual ADR-style tree). |
-| Branching & SCM | `.claude/skills/Factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
-| Commit Prompt | `.claude/skills/Factory-commit-prompt/SKILL.md` | Conventional commit generation |
-| Governance Loading (GCRP) | `.claude/skills/Factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |
-| Agent Communication (ACP) | `.claude/skills/Factory-agent-communication/SKILL.md` | Inter-agent output structuring |
+| Applicability Discovery (ADP) | `.claude/skills/factory-applicability-discovery/SKILL.md` | **[LAW]** Step 0 of every command. Live scan of governance trees filtered by `applicable_when:` frontmatter, emits canonical Roll-Call block on-screen as first user-facing message. Salience anchor — agents commit in writing to which LAWs/DCs/instructions/skills apply before acting. |
+| Incremental Persistence (IPP) | `.claude/skills/factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
+| RDR (Recommendation → Decision) | `.claude/skills/factory-rdr/SKILL.md` | Agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice. In this repo the third-R (Ratification → IPP artefact) does NOT apply — no `_progress` frontmatter or feature-scoped ADR exists; persist the choice in the commit message or a framework-level decision record under `docs/project_log/evolutions/` (the repo's actual ADR-style tree). |
+| Branching & SCM | `.claude/skills/factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
+| Commit Prompt | `.claude/skills/factory-commit-prompt/SKILL.md` | Conventional commit generation |
+| Governance Loading (GCRP) | `.claude/skills/factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |
+| Agent Communication (ACP) | `.claude/skills/factory-agent-communication/SKILL.md` | Inter-agent output structuring |
 
 Framework work rarely invokes BVL, CIP, CVP, Iteration Model, Preventive Sweep, Memory Cache, Next-Task Resolver, Worklog — those ship to downstream projects and are consumed there. When adding NEW features to those skills, read the SKILL.md first; when merely touching their content, you are editing framework artefacts, not consuming the protocol.
 
@@ -134,7 +134,7 @@ Every entry in `.claude/instructions/`, `.claude/skills/Factory-*/`, and `.claud
 | `framework` | free list (`[django, react, fastapi]`) | Stack-conditional rules |
 | `always` | `true` | Always applies (mutually exclusive with all other axes) |
 
-Semantics: AND across axes, OR within values of one axis. The Factory-applicability-discovery skill consumes these frontmatters at command Step 0 and emits the Roll-Call block on-screen, user-facing, as the first message of every command. Validator: `scripts/check-applicability-frontmatter.sh` (CI hard gate).
+Semantics: AND across axes, OR within values of one axis. The factory-applicability-discovery skill consumes these frontmatters at command Step 0 and emits the Roll-Call block on-screen, user-facing, as the first message of every command. Validator: `scripts/check-applicability-frontmatter.sh` (CI hard gate).
 
 ## What Lives Where
 

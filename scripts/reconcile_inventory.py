@@ -2,7 +2,7 @@
 """reconcile_inventory.py — register orphan artifacts + relocate dead paths.
 
 Implements the reconciliation protocol described in
-`.claude/skills/Factory-codebase-inventory/SKILL.md` § Reconciliation Protocol.
+`.claude/skills/factory-codebase-inventory/SKILL.md` § Reconciliation Protocol.
 
 Two modes:
 

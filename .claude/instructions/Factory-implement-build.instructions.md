@@ -505,7 +505,7 @@ FUNCTION determine_build_scope(FEATURE_ID):
     }
 
   # Incremental — locate the single increment in BUILDING status.
-  # BUILDING is set by Factory-branching-strategy.SKILL.md § Per-Increment Branching
+  # BUILDING is set by factory-branching-strategy.SKILL.md § Per-Increment Branching
   # when the increment branch is opened. Only one increment per feature may be BUILDING
   # at a time (concurrency lock).
   building = FILTER(dev_plan.frontmatter.increments, inc.status == "BUILDING")
@@ -520,7 +520,7 @@ FUNCTION determine_build_scope(FEATURE_ID):
       ❌ BLOCK: "Limbo state — every increment is IMPLEMENTED_AND_VERIFIED but plan-level status is still BUILDING (the last-slice closure's plan-level BVL aggregate must have failed)."
       REDIRECT: "Run IMPLEMENT --finalize {FEATURE_ID} to retry the plan-level aggregate. Do NOT open a new increment branch and do NOT run --plan."
       STOP
-    ❌ BLOCK: "No increment in BUILDING status. Open the next increment branch (Factory-branching-strategy) before running --build, or run IMPLEMENT --plan to promote DRAFT→READY."
+    ❌ BLOCK: "No increment in BUILDING status. Open the next increment branch (factory-branching-strategy) before running --build, or run IMPLEMENT --plan to promote DRAFT→READY."
     STOP
   IF building.length > 1:
     ❌ BLOCK: "Concurrency violation — {building.length} increments in BUILDING: {[i.id for i in building]}. Only one may build at a time."
@@ -747,7 +747,7 @@ FUNCTION verify_completion_gate(FEATURE_ID):
       target_entry.tasks_skipped: {skipped_tasks.count}
       target_entry.bvl_result: {bvl_result.summary}
     SAVE dev_plan.md
-    # Git merge hook (Factory-branching-strategy) will flip BUILDING → MERGED on the increment_plan.md side
+    # Git merge hook (factory-branching-strategy) will flip BUILDING → MERGED on the increment_plan.md side
     # when the per-increment PR lands on main — this is NOT done here.
 
     all_done = ALL(dev_plan.frontmatter.increments, inc.status == "IMPLEMENTED_AND_VERIFIED")
@@ -1675,7 +1675,7 @@ FUNCTION enforce_phase_ordering(current_phase, phase_results):
 
 ### Law 12 — Incremental Persistence (IPP-compliant — MANDATORY)
 
-> **Implements:** Incremental Persistence Protocol (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — Pillars 2, 3.
+> **Implements:** Incremental Persistence Protocol (`.claude/skills/factory-incremental-persistence/SKILL.md`) — Pillars 2, 3.
 > Pillar 1 (skeleton) is handled by `--plan`. Build operates on an existing dev_plan.md.
 
 **Pillar 2 — Task-Atomic Saves (during --build):**

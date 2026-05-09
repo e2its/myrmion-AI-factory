@@ -103,5 +103,5 @@ Notes:
 
 ## Cascade Invalidation
 
-If this report is marked `status: INVALIDATED` by the iteration model cascade (see [Factory-iteration-model/SKILL.md](.claude/skills/Factory-iteration-model/SKILL.md) § CASCADE_PENDING_ITERATION → qa_report branch), re-run `QA --verify {{FEATURE_ID}}`. Section-level delta updates are NOT supported — the report is regenerated fresh against the current artefact state.
+If this report is marked `status: INVALIDATED` by the iteration model cascade (see [Factory-iteration-model/SKILL.md](.claude/skills/factory-iteration-model/SKILL.md) § CASCADE_PENDING_ITERATION → qa_report branch), re-run `QA --verify {{FEATURE_ID}}`. Section-level delta updates are NOT supported — the report is regenerated fresh against the current artefact state.
 ```

@@ -5,7 +5,7 @@
 # Implements the deterministic contract documented in
 # Factory-setup-materialization.instructions.md Checkpoint 3.1. Emits the
 # `.context/governance_snapshot.md` file consumed by all agents at command
-# start (Factory-governance-loading SKILL Step 0).
+# start (factory-governance-loading SKILL Step 0).
 #
 # Usage:
 #   scripts/generate-governance-snapshot.sh           # write the snapshot

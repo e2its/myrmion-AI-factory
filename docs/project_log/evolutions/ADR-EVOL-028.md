@@ -2,7 +2,7 @@
 version: 1.0.0
 date: 2026-05-06
 changelog:
-  - "1.0.0: feat(EVOL-028) execution complete — all 3 fases shipped on feature/EVOL-028-applicability-discovery-protocol. Fase 1 (foundation: ADR + skill Factory-applicability-discovery + check-applicability-frontmatter.sh validator + CLAUDE.md universal §Applicability Discovery vocabulary [LAW] meta+template + manifest framework_version 4.0.0→4.1.0) → 922fe24. Fase 2 (backfill applicable_when frontmatter on 20 instructions + 16 skills, MINOR bumps, duplicate-template cleanup) → d3119ba. Fase 3 (Step 0 Applicability Roll-Call wired into all 8 commands as MANDATORY first section, MINOR bumps) → 366bb28. Status flips proposed→accepted; CLAUDE.md amendment is the §Applicability Discovery [LAW] section already shipped in Fase 1."
+  - "1.0.0: feat(EVOL-028) execution complete — all 3 fases shipped on feature/EVOL-028-applicability-discovery-protocol. Fase 1 (foundation: ADR + skill factory-applicability-discovery + check-applicability-frontmatter.sh validator + CLAUDE.md universal §Applicability Discovery vocabulary [LAW] meta+template + manifest framework_version 4.0.0→4.1.0) → 922fe24. Fase 2 (backfill applicable_when frontmatter on 20 instructions + 16 skills, MINOR bumps, duplicate-template cleanup) → d3119ba. Fase 3 (Step 0 Applicability Roll-Call wired into all 8 commands as MANDATORY first section, MINOR bumps) → 366bb28. Status flips proposed→accepted; CLAUDE.md amendment is the §Applicability Discovery [LAW] section already shipped in Fase 1."
   - "0.1.0: Skeleton — RDR ratifications persisted (E2+E3 injection point, applicable_when vocabulary phase/scope/change_type/command/always + path_glob + framework, ambos espejados meta↔template, drop ADR backfill since constitution materialises [LAW]). Status: proposed."
 adr_number: EVOL-028
 title: Applicability Discovery Protocol (ADP) — salience por discovery vivo, no por listas estáticas
@@ -43,7 +43,7 @@ Vocabulario único, ejes ortogonales, AND implícito por eje, OR dentro de un ej
 
 Aplica a: `.claude/instructions/*.instructions.md`, `.claude/skills/Factory-*/SKILL.md` (estructurales solamente), `.claude/rules/defect-prevention.md` entries (ya existe `applicable_when:` con phase/scope; se extiende a path_glob/framework). **NO aplica a ADRs** — los ADRs son registro histórico; sus `[LAW]` operacionales viven en `constitution.md` / snapshot, que es lo que el discovery escanea como ley viva.
 
-### 2. Skill `Factory-applicability-discovery` — discovery vivo
+### 2. Skill `factory-applicability-discovery` — discovery vivo
 
 Skill único responsable de producir el roll-call. En cada Step 0 de comando ejecuta:
 
@@ -82,7 +82,7 @@ Formato canónico:
 
 ### RDR ratifications (verbatim user choices)
 
-- **Punto de inyección:** **E2 + E3** — skill `Factory-applicability-discovery` (E3) es la fuente única que printea el block; cada `commands/*.md` (E2) la invoca como Step 0 obligatorio. Rejected E1 (UserPromptSubmit hook como mecanismo primario) — ruido en cada turn no-comando, falsos positivos altos. Rejected solo-E2 (lógica embebida en commands) — anti-DRY, lógica duplicada en 8 archivos. Rejected solo-E3 (auto-invocación sin Step 0) — invisible al diff de commands, fácil de saltar. E1 queda como ampliación futura si E2+E3 prueba ser saltable en uso real.
+- **Punto de inyección:** **E2 + E3** — skill `factory-applicability-discovery` (E3) es la fuente única que printea el block; cada `commands/*.md` (E2) la invoca como Step 0 obligatorio. Rejected E1 (UserPromptSubmit hook como mecanismo primario) — ruido en cada turn no-comando, falsos positivos altos. Rejected solo-E2 (lógica embebida en commands) — anti-DRY, lógica duplicada en 8 archivos. Rejected solo-E3 (auto-invocación sin Step 0) — invisible al diff de commands, fácil de saltar. E1 queda como ampliación futura si E2+E3 prueba ser saltable en uso real.
 - **Vocabulario:** mínimo (phase, scope, change_type, command, always) **+ path_glob + framework**. Path_glob cubre rules técnicas tipo "no SQL injection en `*.py`"; framework cubre rules condicionadas a stack ("usa async views en Django 4+"). Rejected `language` (redundante con path_glob), `environment` (fuera de scope inicial — DEVOPS-specific puede añadirse en EVOL futura), `tool` (todo el corpus asume Claude Code).
 - **Scope:** **ambos espejados** meta-framework + proyectos materializados. El meta-framework también sufre el problema de salience al evolucionar EVOLs — el dogfooding aplica. Rejected solo-template (deja al meta sufriendo el problema) y solo-meta-primero (rompe la invariante de espejado meta↔template).
 - **Backfill ADRs:** **DROP** — los ADRs son registros históricos; sus `[LAW]` operacionales ya viven en `constitution.md` / snapshot vía gate `check-adr-constitution-sync.sh`. Forzar `applicable_when:` retroactivo en archivos ADR los trataría como ley activa, contradiciendo ADR-EVOL-026. El discovery scanea snapshot/constitution + DCs + instructions + skills — no los ADRs.
@@ -95,8 +95,8 @@ Formato canónico:
 
 ### Framework skill changes
 
-- `.claude/skills/Factory-applicability-discovery/SKILL.md` — **nuevo** (Fase 1). Implementa el algoritmo de discovery vivo y produce el block canónico.
-- `.claude/skills/Factory-*/SKILL.md` (subset estructurales) — añadir `applicable_when:` opcional donde corresponda (ej. `Factory-build-verification` → `phase: [IMPLEMENT]`). Skills puramente protocolarias (Factory-rdr, Factory-agent-communication, Factory-incremental-persistence) quedan como `always: true` o sin frontmatter (default `always`).
+- `.claude/skills/factory-applicability-discovery/SKILL.md` — **nuevo** (Fase 1). Implementa el algoritmo de discovery vivo y produce el block canónico.
+- `.claude/skills/Factory-*/SKILL.md` (subset estructurales) — añadir `applicable_when:` opcional donde corresponda (ej. `factory-build-verification` → `phase: [IMPLEMENT]`). Skills puramente protocolarias (factory-rdr, factory-agent-communication, factory-incremental-persistence) quedan como `always: true` o sin frontmatter (default `always`).
 
 ### Framework command changes
 
@@ -113,7 +113,7 @@ Formato canónico:
 
 ### Framework manifest changes
 
-- `.context/templates/setup/governance_versions.json` — añadir entradas para `Factory-applicability-discovery` (skill + template), `check-applicability-frontmatter.sh` (script + template); bumpear MINOR las 20 instructions y los skills estructurales tocados; bumpear MINOR los 8 commands; MINOR para `CLAUDE.md` raíz y template. `framework_version`: 4.0.0 → **4.1.0** (MINOR — funcionalidad nueva no breaking; el contrato `applicable_when:` ausente se trata como `always: true`, garantizando back-compat).
+- `.context/templates/setup/governance_versions.json` — añadir entradas para `factory-applicability-discovery` (skill + template), `check-applicability-frontmatter.sh` (script + template); bumpear MINOR las 20 instructions y los skills estructurales tocados; bumpear MINOR los 8 commands; MINOR para `CLAUDE.md` raíz y template. `framework_version`: 4.0.0 → **4.1.0** (MINOR — funcionalidad nueva no breaking; el contrato `applicable_when:` ausente se trata como `always: true`, garantizando back-compat).
 
 ### Out of scope
 
@@ -158,7 +158,7 @@ Formato canónico:
 |---|---|---|---|
 | 1 | Branch `feature/EVOL-028-applicability-discovery-protocol` from `origin/main` | done | — |
 | 2 | ADR skeleton at status `proposed` capturing 4 RDR ratifications | done | 922fe24 |
-| 3 | Fase 1 — Skill `Factory-applicability-discovery` written (framework_core; skills propagate via factory-sync.sh, no template mirror needed) | done | 922fe24 |
+| 3 | Fase 1 — Skill `factory-applicability-discovery` written (framework_core; skills propagate via factory-sync.sh, no template mirror needed) | done | 922fe24 |
 | 4 | Fase 1 — Vocabulary `applicable_when:` documented in `CLAUDE.md` § Applicability Discovery [LAW] (meta + template, byte-identical) | done | 922fe24 |
 | 5 | Fase 1 — `scripts/check-applicability-frontmatter.sh` written + template mirror; closed-vocabulary validator (CI hard gate) | done | 922fe24 |
 | 6 | Fase 1 — Manifest entries: framework_core gains skill + script (1.0.0); templates gains script (1.0.0); `framework_version` 4.0.0 → 4.1.0 (MINOR — non-breaking, missing `applicable_when:` ⇒ `always:true`) | done | 922fe24 |

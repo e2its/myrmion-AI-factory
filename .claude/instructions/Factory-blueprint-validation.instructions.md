@@ -73,7 +73,7 @@ paths_match(pathA, pathB):
 
 ### 3.8 Coherence Validation (CVP — BLOCKING)
 
-Cross-artifact coherence validation between CODESIGN and BLUEPRINT deliverables. See `.claude/skills/Factory-coherence-validation/SKILL.md` for full protocol.
+Cross-artifact coherence validation between CODESIGN and BLUEPRINT deliverables. See `.claude/skills/factory-coherence-validation/SKILL.md` for full protocol.
 
 ```yaml
 FUNCTION blueprint_coherence_gate(FEATURE_ID):
@@ -421,7 +421,7 @@ FUNCTION cip_update_gate(FEATURE_ID):
 ### Feature Decision Record (FDR) Generation Modes
 - **Standalone**: `--fdr {{FEATURE_ID}}` (legacy alias `--adr` accepted during migration) — interactive feature-scoped decision creation
 - **Auto-triggered**: During `--start` or `--refine` when significant feature-local architectural decisions are made
-- For project-wide constitutional decisions, use the `Factory-adr-management` skill — those amend `docs/constitution.md` and live at `docs/project_log/adr/`
+- For project-wide constitutional decisions, use the `factory-adr-management` skill — those amend `docs/constitution.md` and live at `docs/project_log/adr/`
 
 ### FDR Numbering
 - Sequential: FDR-0001, FDR-0002, ...
@@ -573,5 +573,5 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 3. **Regulatory Compliance**: Follow styles/guidelines in ALL loaded .claude/rules/ files (BLUEPRINT loads 20+ rules — explicitly listed in agent's Governance Context Loading Step 3)
 4. **Contract-First**: API contracts are generated BEFORE implementation. No implementation without contract.
 5. **Schema Authority**: user_journey.md Data Schemas are source of truth. Business fields locked — technical fields free.
-6. **Incremental Persistence (IPP)**: Follow `.claude/skills/Factory-incremental-persistence/SKILL.md` — skeleton-first write, section-atomic saves, resume-on-entry. See `blueprint-design.md` for BLUEPRINT-specific IPP implementation.
+6. **Incremental Persistence (IPP)**: Follow `.claude/skills/factory-incremental-persistence/SKILL.md` — skeleton-first write, section-atomic saves, resume-on-entry. See `blueprint-design.md` for BLUEPRINT-specific IPP implementation.
 7. **One Question at a Time**: RDR protocol — never batch questions

@@ -10,10 +10,10 @@ Both personalities co-create simultaneously — the spec informs the mock, the m
 
 ## Step 0 — Applicability Roll-Call (MANDATORY)
 
-Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `Factory-applicability-discovery` to produce it.
+Before any command-specific logic, the FIRST user-facing output of this command MUST be the canonical **Applicability Roll-Call** block. Invoke `factory-applicability-discovery` to produce it.
 
 - Discovery is **live** — frontmatters scanned fresh from `.claude/instructions/*.instructions.md`, `.claude/skills/Factory-*/SKILL.md`, and `.claude/rules/defect-prevention.md` entries. New ADRs/DCs/instructions appear automatically the next turn.
-- Block format and full algorithm: `.claude/skills/Factory-applicability-discovery/SKILL.md` § Output.
+- Block format and full algorithm: `.claude/skills/factory-applicability-discovery/SKILL.md` § Output.
 - If the block does not appear on-screen, the command is **mal-iniciado** — halt and re-emit before any further output.
 - This step runs BEFORE Step -1 (branch checkout). Step -1 still executes as the next mandatory pre-action gate.
 
@@ -50,9 +50,9 @@ Every feature declares two frontmatter fields in `spec.feature` that shape the r
 - Vision compliance: All feature mockups MUST reference vision artifacts
 - **Iteration Changelog:** Every `--refine` MUST append a changelog entry to the modified artifacts documenting what changed, what triggered the change, and which downstream artifacts are affected. This changelog serves as reference for the next agent in the pipeline.
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "CODESIGN"` — always the actual agent name.
-- **User Communication:** Follow Agent Communication Protocol (`.claude/skills/Factory-agent-communication/SKILL.md`) — entry announcement, phase milestones, completion summary.
+- **User Communication:** Follow Agent Communication Protocol (`.claude/skills/factory-agent-communication/SKILL.md`) — entry announcement, phase milestones, completion summary.
 - `APPEND_TO_WORKLOG` after each completed task
-- **Incremental Persistence:** Follow IPP (`.claude/skills/Factory-incremental-persistence/SKILL.md`) — skeleton-first write, section-atomic saves, resume-on-entry. See M-07 in codesign-feature instructions.
+- **Incremental Persistence:** Follow IPP (`.claude/skills/factory-incremental-persistence/SKILL.md`) — skeleton-first write, section-atomic saves, resume-on-entry. See M-07 in codesign-feature instructions.
 
 ### Changelog Format (for --refine)
 ```markdown
@@ -64,6 +64,6 @@ Every feature declares two frontmatter fields in `spec.feature` that shape the r
 ```
 
 ## Pre-Command Protocol (MANDATORY)
-- **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/Factory-branching-strategy/SKILL.md`
+- **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
 - This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking
 - Branch naming: `--vision` creates `feature/UX-VISION-global-app-design`, `--start {ID}` creates `feature/{ID}-{slug}`

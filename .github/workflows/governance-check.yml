@@ -90,7 +90,7 @@ jobs:
              Update \`.context/templates/setup/governance_versions.json\` (bump \`framework_version\` and the relevant \`framework_core\` / \`templates\` entries). MAJOR bumps require \`BREAKING CHANGE:\` in commit body or \`feat!:\` prefix.
 
           2. **ADR ↔ Constitution sync** — an ADR file transitioned to \`status: accepted\` without amending \`docs/constitution.md\` in the same diff.
-             Run the \`Factory-adr-management\` Accept Procedure on each offending ADR (it amends constitution.md atomically). One-shot bypass for historical migration: include \`[adr-backfill]\` in any commit message.
+             Run the \`factory-adr-management\` Accept Procedure on each offending ADR (it amends constitution.md atomically). One-shot bypass for historical migration: include \`[adr-backfill]\` in any commit message.
 
           3. **T2 governance suite** — one of the static template / extraction / ADR-accept / sync-gate tests failed.
              Run locally: \`bash scripts/test-templates-static.sh\` (and the other three). Each test is self-contained and prints the failing assertion.

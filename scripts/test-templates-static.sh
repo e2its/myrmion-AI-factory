@@ -102,11 +102,11 @@ if [ -f "$ADR_TPL" ]; then
     fi
   done
 
-  # The new ADR template must reference Factory-adr-management Accept Procedure.
-  if grep -qE "Factory-adr-management" "$ADR_TPL"; then
-    printf '  \033[32m✓\033[0m references Factory-adr-management Accept Procedure\n'
+  # The new ADR template must reference factory-adr-management Accept Procedure.
+  if grep -qE "factory-adr-management" "$ADR_TPL"; then
+    printf '  \033[32m✓\033[0m references factory-adr-management Accept Procedure\n'
   else
-    printf '  \033[31m✗\033[0m does not reference Factory-adr-management — likely stale template\n' >&2
+    printf '  \033[31m✗\033[0m does not reference factory-adr-management — likely stale template\n' >&2
     failures=$((failures + 1))
   fi
 fi

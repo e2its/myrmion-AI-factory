@@ -14,7 +14,7 @@
 #     - .context/templates/setup/constitution/constitution_template.md (meta
 #       amendment shipping universal law to downstream).
 #
-# The Factory-adr-management Accept Procedure produces this pairing by
+# The factory-adr-management Accept Procedure produces this pairing by
 # construction (it edits the relevant governance source AND flips ADR status
 # atomically). Manual ADR edits that try to flip status without going through
 # the skill will fail this gate and the author must redo via the procedure.
@@ -185,6 +185,6 @@ for f in "${offenders[@]}"; do
 done
 echo >&2
 echo "A passing diff must touch one of: docs/constitution.md (downstream), CLAUDE.md (meta-framework universal law), or .context/templates/setup/constitution/constitution_template.md (meta amendment shipped to downstream)." >&2
-echo "Resolution: run the Factory-adr-management Accept Procedure on each offending ADR — it amends the relevant governance source atomically and produces a single commit that passes this gate." >&2
+echo "Resolution: run the factory-adr-management Accept Procedure on each offending ADR — it amends the relevant governance source atomically and produces a single commit that passes this gate." >&2
 echo "Bypass (one-shot historical migration only): include [adr-backfill] in any commit message in the PR." >&2
 exit 1

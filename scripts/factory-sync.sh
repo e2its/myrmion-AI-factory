@@ -230,7 +230,7 @@ sync_dir() {
 
 # Sync skill directories — copies the FULL tree of each Factory-* skill
 # (SKILL.md + any references/, scripts/, assets/, README.md, etc.).
-# Multi-file skills (e.g. Factory-pr-review) carry runtime artefacts beyond
+# Multi-file skills (e.g. factory-pr-review) carry runtime artefacts beyond
 # SKILL.md; SKILL-only sync would leave them inert.
 sync_skills() {
   local src_dir="$1"
