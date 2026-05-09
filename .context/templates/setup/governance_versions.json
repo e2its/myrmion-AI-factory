@@ -2486,12 +2486,12 @@
         "1.0.0: Initial framework entry. Canonical path globs and BC alias map loaded from config/inventory_aliases.json (empty config disables orphan scan)."
       ]
     },
-    ".github/workflows/inventory-drift.yml": {
+    ".context/templates/setup/workflows/inventory-drift.github-actions.yml": {
       "version": "1.0.0",
-      "type": "workflow",
-      "role": "Blocking CI gate that runs the freshness check on every PR touching src, the inventory, the freshness script, or this workflow itself.",
+      "type": "template-workflow",
+      "role": "GitHub Actions blocking CI gate that runs the freshness check on every PR touching src, the inventory, the freshness script, or this workflow itself. Materialised at SETUP --generate as `.github/workflows/inventory-drift.yml`.",
       "changelog": [
-        "1.0.0: Initial framework entry. Pairs with scripts/check-inventory-freshness.py + config/inventory_aliases.json."
+        "1.0.0: Initial framework entry. Lives in the template tree; meta repo itself does not consume it. Pairs with scripts/check-inventory-freshness.py + config/inventory_aliases.json."
       ]
     },
     "scripts/check-applicability-frontmatter.sh": {
