@@ -54,8 +54,10 @@ for arg in "$@"; do
   esac
 done
 
-# ── Get last tag ──
-LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+# ── Get last version tag ──
+# Filter to v* pattern only — defensive snapshot tags (pre-*, snapshot-*, etc.)
+# are ignored so they don't break SemVer parsing.
+LAST_TAG=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "")
 FIRST_RELEASE=false
 
 if [ -z "$LAST_TAG" ]; then
