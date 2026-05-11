@@ -247,6 +247,27 @@ if [[ "$has_openapi" == "true" ]]; then
   fi
 fi
 
+# dev_plan task format — orphan `### X.N` h3 without matching `- [ ] [X.N]`
+# checkbox, OR `status: READY` with zero unchecked tasks. Inert in the meta
+# repo itself (no docs/spec/{ID}/) but live in every downstream project.
+# Triggered on changes to any `docs/spec/{FEAT}/dev_plan.md`.
+if echo "$CHANGED_FILES" | grep -qE '^docs/spec/[^/]+/dev_plan\.md$'; then
+  DEVPLAN_OUT=$("$PYTHON" "$SKILL_ROOT/scripts/check_dev_plan_task_format.py" \
+    --git-range "$BASE_REF"..HEAD --json 2>/dev/null || echo '{"findings":[]}')
+  while IFS=$'\t' read -r sev cat msg; do
+    [[ -z "$sev" ]] && continue
+    add_finding "$sev" "$cat" "$msg"
+  done < <(echo "$DEVPLAN_OUT" | "$PYTHON" -c '
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for f in data.get("findings", []):
+        print(f"{f.get(\"severity\",\"important\")}\t{f.get(\"category\",\"unknown\")}\t{f.get(\"message\",\"\")}")
+except Exception:
+    pass
+' 2>/dev/null)
+fi
+
 # AsyncAPI breaking-candidate
 if [[ "$has_asyncapi" == "true" ]]; then
   spec=$(echo "$CHANGED_FILES" | grep -E 'asyncapi.*\.(yaml|yml|json)$' | head -n1)
