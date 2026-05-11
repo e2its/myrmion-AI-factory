@@ -5,7 +5,7 @@ applicable_when:
   command: [push, review]
 ---
 
-# Factory PR Review — Push Gate + Assistive Reviewer (v1.2.1)
+# Factory PR Review — Push Gate + Assistive Reviewer (v1.3.0)
 
 > **Shared Protocol** — Referenced by: ALL agents that ship code (IMPLEMENT, QA, DEVOPS, CODESIGN/BLUEPRINT for spec-bearing PRs) + the `check-push-preflight.sh` hook.
 > Position in the SDLC: runs **immediately before `git push`** as a local quality gate. Does NOT replace human review on the PR — it complements it by catching blockers before they hit the PR.
@@ -45,10 +45,11 @@ Steps (executed by `preflight.sh`):
 3. **Docs-only fast-lane** — if every changed path matches `**/*.md`, `docs/**`, `.context/templates/**`, `.gitignore` (and none under `.github/workflows/**`), exit 0 with `fast-lane: docs-only` note. Skip remaining checks.
 4. Run `detect_change_type.py` → flags JSON.
 5. Run `check_docs_sync.py --git-range origin/{base}..HEAD --json` → docs findings.
-6. If `has_openapi: true`, run `check_openapi_diff.sh origin/{base} <spec-path>`.
-7. If `has_asyncapi: true`, run `check_asyncapi_diff.sh origin/{base} <spec-path>`.
-8. **Framework-aware checks** (run unconditionally — see § Framework-aware Hard Blocks below).
-9. Aggregate findings; print summary; exit 1 if any blocker, 0 otherwise.
+6. If any `docs/spec/*/dev_plan.md` in diff, run `check_dev_plan_task_format.py --git-range origin/{base}..HEAD --json` → IMPLEMENT plan task-format findings (orphan `### X.N` h3 vs canonical `- [ ] [X.N]` checkbox; `status: READY` plans with zero unchecked tasks).
+7. If `has_openapi: true`, run `check_openapi_diff.sh origin/{base} <spec-path>`.
+8. If `has_asyncapi: true`, run `check_asyncapi_diff.sh origin/{base} <spec-path>`.
+9. **Framework-aware checks** (run unconditionally — see § Framework-aware Hard Blocks below).
+10. Aggregate findings; print summary; exit 1 if any blocker, 0 otherwise.
 
 ### Mode 2 — `--review {PR-URL or branch}`
 
@@ -400,6 +401,7 @@ factory-pr-review/
 │   ├── check_openapi_diff.sh         ← oasdiff wrapper
 │   ├── check_asyncapi_diff.sh        ← asyncapi diff wrapper
 │   ├── check_docs_sync.py            ← drift detection (code ↔ docs)
+│   ├── check_dev_plan_task_format.py ← IMPLEMENT plan task-format gate (orphan h3 vs `- [ ]` checkbox)
 │   └── post_review.py                ← publishes review on platform (manual only)
 └── assets/
     └── review_template.md            ← JSON + Markdown final review template
