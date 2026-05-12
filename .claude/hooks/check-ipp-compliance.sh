@@ -134,7 +134,8 @@ LINE_COUNT=$(echo "$CONTENT" | wc -l | tr -d ' ')
 H2_COUNT=${H2_COUNT:-0}
 PENDING_COUNT=${PENDING_COUNT:-0}
 
-if [ "$H2_COUNT" -ge 3 ] && [ "$PENDING_COUNT" -eq 0 ] && [ "$LINE_COUNT" -gt 150 ]; then
+if [ -n "${H2_COUNT:-}" ] && [ -n "${PENDING_COUNT:-}" ] && [ -n "${LINE_COUNT:-}" ] \
+   && [ "$H2_COUNT" -ge 3 ] && [ "$PENDING_COUNT" -eq 0 ] && [ "$LINE_COUNT" -gt 150 ]; then
   echo "BLOCKED: IPP violation on first write to '$BASENAME'."
   echo "  File has $H2_COUNT H2 sections, $LINE_COUNT lines, and 0 '<!-- PENDING -->' markers."
   echo "  Skeleton-First Write (IPP Pillar 1) requires an initial skeleton with <!-- PENDING --> placeholders,"
@@ -142,5 +143,43 @@ if [ "$H2_COUNT" -ge 3 ] && [ "$PENDING_COUNT" -eq 0 ] && [ "$LINE_COUNT" -gt 15
   echo "  See: .claude/skills/factory-incremental-persistence/SKILL.md § Pillars 1-2."
   exit 1
 fi
+
+# Legitimate first write — drop a session-scoped marker so the next
+# UserPromptSubmit (governance-onprompt.sh) can inject an <ipp-reminder>
+# teaching block. The marker is best-effort: SESSION_ID may be empty in
+# environments where the PreToolUse payload omits it, in which case we
+# write to a session-less marker that still survives until the next prompt.
+SESSION_ID=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    print(data.get('session_id', ''))
+except Exception:
+    print('')
+" 2>/dev/null || echo '')
+
+STATE_DIR=".claude/state"
+mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
+
+SESSION_ID_SAFE=$(printf '%s' "$SESSION_ID" | tr -cd 'A-Za-z0-9_-')
+if [ -n "$SESSION_ID_SAFE" ]; then
+  MARKER="${STATE_DIR}/ipp-first-write-${SESSION_ID_SAFE}.marker"
+else
+  MARKER="${STATE_DIR}/ipp-first-write.marker"
+fi
+
+# Repo-relative path for marker entry — strip absolute prefix when possible.
+NORM_PATH="$FILE_PATH"
+REPO_ROOT=$(pwd 2>/dev/null || echo '')
+if [ -n "$REPO_ROOT" ]; then
+  case "$NORM_PATH" in
+    "$REPO_ROOT/"*) NORM_PATH="${NORM_PATH#$REPO_ROOT/}" ;;
+  esac
+fi
+
+{
+  if [ -f "$MARKER" ]; then cat "$MARKER"; fi
+  printf '%s\n' "$NORM_PATH"
+} | sort -u > "${MARKER}.tmp" 2>/dev/null && mv "${MARKER}.tmp" "$MARKER" 2>/dev/null || true
 
 exit 0

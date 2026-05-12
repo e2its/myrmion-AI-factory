@@ -12,6 +12,36 @@ This instruction file defines the **Multi-Dimensional Complexity Assessment** (P
 
 ---
 
+## Incremental Persistence (IPP — MANDATORY)
+
+> **Implements:** [factory-incremental-persistence/SKILL.md](.claude/skills/factory-incremental-persistence/SKILL.md) — Pillars 2, 3.
+> Pillar 1 (skeleton) for `technical_due.md` is owned by [Factory-audit-checklist.instructions.md](.claude/instructions/Factory-audit-checklist.instructions.md); this phase contributes scores and decisions into the parent artifact.
+
+Phase E produces **21 RDR decisions** (one per category) that feed `technical_due.md`. Each decision MUST be persisted to the artifact immediately — never batched, never held in memory.
+
+```yaml
+FUNCTION persist_complexity_decision(category_id, score, rationale):
+  # category_id: "COMP1-{1..21}" — sequential per the 21 categories below.
+  decision_entry = {
+    id: "COMP1-{category_id}",
+    question: "{category title and 0-3 rubric}",
+    recommendation: "{auto-detected score with evidence, when confidence >= 80%}",
+    user_choice: "{ratified score 0-3}",
+    rationale: "{why this score}",
+    timestamp: "{ISO_8601}",
+    impact: "Phase E complexity total"
+  }
+  UPDATE_FRONTMATTER("docs/spec/{FEATURE_ID}/technical_due.md"):
+    _progress.decisions APPEND decision_entry
+    updated_at = "{ISO_8601}"
+  APPEND_INLINE(technical_due.md, "<!-- COMP1-{N}: {category_title} → score {0-3} -->")
+  SAVE(technical_due.md)  # IMMEDIATE — next category does NOT start until on disk
+```
+
+**Resume-on-Entry.** Before running Phase E on a feature that already has a `technical_due.md`, read its `_progress.decisions[]` and skip every `COMP1-{N}` already present. Continue from the first missing category. This makes a power-loss recovery resume exactly where the previous run stopped without re-asking already-ratified categories.
+
+---
+
 ## Phase E: COMP1 Multi-Dimensional Complexity Assessment
 
 ### Overview
