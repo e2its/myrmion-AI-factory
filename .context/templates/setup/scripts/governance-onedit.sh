@@ -145,11 +145,21 @@ case "$FILE_PATH" in
   */docs/spec/*/design.md|*/docs/spec/*/test_plan.md|*/docs/spec/*/dev_plan.md|\
   */docs/spec/*/increment_plan.md|*/docs/spec/*/spec.feature|\
   */docs/spec/*/user_journey.md|*/docs/spec/*/user_journey.integration.md|\
+  */docs/spec/*/mock.html|\
   */docs/spec/*/devops_plan.md|*/docs/spec/*/technical_due.md|\
-  */docs/spec/*/qa_report*.md|*/docs/setup.md)
+  */docs/setup.md)
     IS_IPP_ARTEFACT=true
     ;;
 esac
+
+if ! $IS_IPP_ARTEFACT; then
+  IPP_BASENAME=$(basename "$FILE_PATH" 2>/dev/null || echo '')
+  case "$IPP_BASENAME" in
+    qa_report*.md|technical_due*.md)
+      IS_IPP_ARTEFACT=true
+      ;;
+  esac
+fi
 
 if $IS_IPP_ARTEFACT && [ -f "$FILE_PATH" ] && command -v python3 >/dev/null 2>&1; then
   VIOLATION_KIND=$(python3 - "$FILE_PATH" <<'PY' 2>/dev/null || echo ''

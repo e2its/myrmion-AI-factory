@@ -465,6 +465,22 @@ FUNCTION save_section_with_canary(artifact_path, section_id, content):
 
 ---
 
+## Runtime Binding (hook-side enforcement)
+
+The agent-side rules above are reinforced by a deterministic hook chain so the protocol survives even when an agent forgets to read this SKILL. The three hooks coordinate via session-scoped marker files under `.claude/state/` (gitignored; user-writable).
+
+| Phase | Hook | Trigger | Action |
+|---|---|---|---|
+| First write to a governance artefact | `.claude/hooks/check-ipp-compliance.sh` | PreToolUse Write | Existing block logic (rejects fully-formed first writes; rejects `_progress.completed_sections` populated on creation). On legitimate skeleton write, drops `.claude/state/ipp-first-write-${session_id}.marker` carrying the repo-relative artefact path. |
+| Subsequent edit to a governance artefact | `scripts/governance-onedit.sh` Block 2 | PostToolUse Edit\|Write | Parses the file from disk after the write applied. If filled H2 sections outpace `_progress.completed_sections` (kinds: `tracker-empty` = 3+ filled with empty tracker, `tracker-lagging` = filled exceeds tracker by 3+), drops `.claude/state/ipp-pillar2-${session_id}.marker` with `<path>\t<kind>` entries. Detection conservative — fires only on clear violations. |
+| Next prompt | `scripts/governance-onprompt.sh` Block 2b | UserPromptSubmit | Consumes both markers and emits model-facing tagged blocks on stdout: `<ipp-reminder paths="...">` (teaching, after skeleton, with Pillars 2/3 + this SKILL pointer) and `<ipp-warning reason="pillar-2-violation" entries="...">` (corrective, with backfill instruction). Markers are consumed (deleted) after emission. Independent of the freshness gate. |
+
+**Governance artefact allowlist** (identical in both hooks): `docs/spec/{ID}/{design,test_plan,dev_plan,increment_plan,user_journey,user_journey.integration,devops_plan,technical_due,mock}.{md,html,feature}`, `docs/setup.md`, and any file whose basename matches `qa_report*.md` or `technical_due*.md`.
+
+**Why hooks + agent rules together.** The agent-side pseudocode in the Pillars sections is the canonical specification — what an IPP-compliant agent does. The hooks are the safety net: a `<ipp-reminder>` injected at UserPromptSubmit guarantees the agent receives the rule at the exact moment of the next section write, even if the original Step 0 ADP Roll-Call has scrolled out of attention. The hook chain does NOT replace the agent's responsibility — it lowers the cost of a momentary lapse from "silent Pillar 2 violation hidden in the diff" to "agent receives a corrective system reminder before its next Edit/Write".
+
+---
+
 ## Enforcement
 
 This protocol is **MANDATORY** for ALL agents producing file artifacts. Violations:
