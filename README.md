@@ -709,6 +709,8 @@ The governance snapshot covers the "what is loaded" question, but it is a passiv
 
 See [scripts/validate-governance.sh](scripts/validate-governance.sh), [scripts/governance-onprompt.sh](scripts/governance-onprompt.sh), [scripts/governance-onedit.sh](scripts/governance-onedit.sh), [scripts/governance-oncompact.sh](scripts/governance-oncompact.sh), and [.claude/settings.json](.claude/settings.json).
 
+**Companion: IPP runtime binding.** The same PostToolUse → UserPromptSubmit marker pattern powers a parallel enforcement chain for the Incremental Persistence Protocol. `check-ipp-compliance.sh` (PreToolUse Write) drops `.claude/state/ipp-first-write-{session_id}.marker` after a legitimate skeleton write; `governance-onedit.sh` Block 2 (PostToolUse Edit\|Write) detects Pillar 2 violations (filled sections outpacing `_progress.completed_sections`) and drops `.claude/state/ipp-pillar2-{session_id}.marker`; `governance-onprompt.sh` Block 2b (UserPromptSubmit) emits `<ipp-reminder>` (teaching, post-skeleton) and `<ipp-warning reason="pillar-2-violation">` (corrective) tagged blocks on stdout, consuming the markers. The chain is independent of the four governance-source tiers and operates on artefact-integrity concerns. See [factory-incremental-persistence/SKILL.md § Runtime Binding](.claude/skills/factory-incremental-persistence/SKILL.md) for the canonical specification.
+
 ### Scope model — project scope + feature scope
 
 The framework governs two orthogonal scope axes:
