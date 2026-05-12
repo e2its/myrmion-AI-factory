@@ -474,59 +474,59 @@ git push origin feature/USR-001-login-oauth      → Push to remote
 ```mermaid
 graph TD
     Start([User: new feature]) --> TddCheck{Due Diligence?}
-    TddCheck -->|Yes, optional| TddAudit[/audit --audit]
+    TddCheck -->|Yes, optional| TddAudit["/audit --audit"]
     TddAudit --> TddNeedsInfo{status: NEEDS_INFO?}
-    TddNeedsInfo -->|Yes| TddRefine[/audit --refine SECTION]
+    TddNeedsInfo -->|Yes| TddRefine["/audit --refine SECTION"]
     TddRefine --> TddAudit
-    TddNeedsInfo -->|No| TddApprove[/audit --approve]
+    TddNeedsInfo -->|No| TddApprove["/audit --approve"]
     TddApprove --> TddVerdict{Verdict?}
     TddVerdict -->|GO / GO_WITH_CONDITIONS| Setup
     TddVerdict -->|NO_GO| NoGo([Project not viable])
     TddCheck -->|No| Setup{Setup complete?}
 
-    Setup -->|No| SetupInit[/setup --init]
-    SetupInit --> SetupGen[/setup --generate]
+    Setup -->|No| SetupInit["/setup --init"]
+    SetupInit --> SetupGen["/setup --generate"]
     SetupGen --> VisionCheck{Frontend?}
     Setup -->|Yes| VisionCheck
 
-    VisionCheck -->|Yes| CodesignVision[/codesign --vision]
-    CodesignVision --> CodesignVisionApprove[/codesign --vision-approve]
-    CodesignVisionApprove --> CodesignStart[/codesign --start ID]
+    VisionCheck -->|Yes| CodesignVision["/codesign --vision"]
+    CodesignVision --> CodesignVisionApprove["/codesign --vision-approve"]
+    CodesignVisionApprove --> CodesignStart["/codesign --start ID"]
     VisionCheck -->|No frontend| CodesignStart
 
     CodesignStart --> CodesignNeedsInfo{status: NEEDS_INFO?}
-    CodesignNeedsInfo -->|Yes| CodesignRefine[/codesign --refine ID FEEDBACK]
+    CodesignNeedsInfo -->|Yes| CodesignRefine["/codesign --refine ID FEEDBACK"]
     CodesignRefine --> CodesignStart
     CodesignNeedsInfo -->|No| CodesignAutoApprove{12/12 validations?}
-    CodesignAutoApprove -->|Yes, auto-approve 12/12| BlueprintStart[/blueprint --start ID]
+    CodesignAutoApprove -->|Yes, auto-approve 12/12| BlueprintStart["/blueprint --start ID"]
     CodesignAutoApprove -->|No| CodesignFix[Fix and re-refine]
     CodesignFix --> CodesignStart
 
     BlueprintStart --> BlueprintNeedsInfo{status: NEEDS_INFO?}
-    BlueprintNeedsInfo -->|Yes| BlueprintRefine[/blueprint --refine ID FEEDBACK]
+    BlueprintNeedsInfo -->|Yes| BlueprintRefine["/blueprint --refine ID FEEDBACK"]
     BlueprintRefine --> BlueprintStart
-    BlueprintNeedsInfo -->|No| BlueprintApprove[/blueprint --approve ID]
+    BlueprintNeedsInfo -->|No| BlueprintApprove["/blueprint --approve ID"]
 
-    BlueprintApprove --> ImplPlan[/implement --plan ID]
+    BlueprintApprove --> ImplPlan["/implement --plan ID"]
     ImplPlan --> ImplNeedsInfo{status: NEEDS_INFO?}
-    ImplNeedsInfo -->|Yes| ImplRefine[/implement --refine ID FEEDBACK]
+    ImplNeedsInfo -->|Yes| ImplRefine["/implement --refine ID FEEDBACK"]
     ImplRefine --> ImplPlan
-    ImplNeedsInfo -->|No| ImplBuild[/implement --build ID]
+    ImplNeedsInfo -->|No| ImplBuild["/implement --build ID"]
 
     ImplBuild --> ImplBlocked{status: BLOCKED?}
-    ImplBlocked -->|Yes| ImplFix[/implement --fix ID HELP]
+    ImplBlocked -->|Yes| ImplFix["/implement --fix ID HELP"]
     ImplFix --> ImplBuild
     ImplBlocked -->|No| ImplDone{Build complete?}
     ImplDone -->|No| ImplBuild
-    ImplDone -->|Yes| DevOpsDeploy[/devops --deploy ID --env PRE_PROD]
+    ImplDone -->|Yes| DevOpsDeploy["/devops --deploy ID --env PRE_PROD"]
 
-    DevOpsDeploy --> QaVerify[/qa --verify ID]
+    DevOpsDeploy --> QaVerify["/qa --verify ID"]
     QaVerify --> QaPass{Tests OK?}
-    QaPass -->|No| QaReject[/qa --reject ID REASON]
-    QaReject --> ImplFix2[/implement --fix ID]
+    QaPass -->|No| QaReject["/qa --reject ID REASON"]
+    QaReject --> ImplFix2["/implement --fix ID"]
     ImplFix2 --> ImplBuild
     QaPass -->|Yes, auto-approve| MergePR[MERGE: PR → main + tag]
-    MergePR --> DeployProd[/devops --deploy ID --env PROD]
+    MergePR --> DeployProd["/devops --deploy ID --env PROD"]
     DeployProd --> End([Feature complete])
 
     classDef checkpoint fill:#2ecc71,stroke:#27ae60,stroke-width:3px,color:#fff
