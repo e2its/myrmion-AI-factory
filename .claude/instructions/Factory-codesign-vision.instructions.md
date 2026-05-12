@@ -25,6 +25,83 @@ This instruction file defines the **Global UX Vision** protocols for the CODESIG
 
 ---
 
+## Incremental Persistence (IPP — MANDATORY)
+
+> **Implements:** [factory-incremental-persistence/SKILL.md](.claude/skills/factory-incremental-persistence/SKILL.md) — Pillars 1, 2, 3.
+
+The 6 vision artifacts ship as one transactional unit; each MUST be persisted incrementally so a power-loss recovery finds the exact next artifact to continue from. Plain prose, no batched dumps.
+
+**Pillar 1 — Skeleton-First (run BEFORE any content generation):**
+
+```yaml
+FUNCTION vision_skeleton_first():
+  # Create all 6 artifacts as skeletons in ONE pass before filling any.
+  artefacts = [
+    "docs/ux/vision/vision.md",
+    "docs/ux/vision/app_shell.html",
+    "docs/ux/vision/style_guide.html",
+    "docs/ux/vision/page_templates.html",
+    "docs/ux/vision/component_library.html",
+    "docs/ux/vision/navigation_map.md"
+  ]
+  FOR EACH path IN artefacts:
+    frontmatter = {
+      status: "DRAFT",
+      created_at: "{ISO_8601}",
+      updated_at: "{ISO_8601}",
+      _progress: {
+        current_phase: "skeleton",
+        completed_sections: [],
+        pending_sections: SECTIONS_FOR(path),
+        decisions: [],
+        last_agent: "CODESIGN",
+        last_command: "--vision",
+        resumable: true
+      }
+    }
+    body = SECTION_PLACEHOLDERS(path)  # one "<!-- PENDING -->" per expected section
+    WRITE(path, frontmatter + body)  # IMMEDIATE
+```
+
+**Pillar 2 — Section-Atomic Saves (during content generation):**
+
+```yaml
+# Granularity: 1 vision artifact = 1 save unit. Within an HTML artifact,
+# each major block (header, sidebar, component group, ...) MAY also be a
+# save unit when the artifact is long enough to warrant it.
+FUNCTION save_vision_section(path, section_id, content):
+  REPLACE_PLACEHOLDER(path, section_id, content)
+  UPDATE_FRONTMATTER(path):
+    _progress.completed_sections APPEND section_id
+    _progress.pending_sections REMOVE section_id
+    _progress.current_phase = NEXT_OR("complete")
+    updated_at = "{ISO_8601}"
+  SAVE(path)  # IMMEDIATE — next section does NOT start until this is on disk
+```
+
+**Pillar 3 — Resume-on-Entry (run BEFORE any vision content generation):**
+
+```yaml
+FUNCTION vision_resume_or_start():
+  FOR EACH path IN expected_vision_artefacts:
+    IF FILE_EXISTS(path):
+      fm = READ_FRONTMATTER(path)
+      IF fm._progress IS NOT NULL AND fm._progress.pending_sections.length > 0:
+        LOG: "RESUME: {path} — {fm._progress.completed_sections.length} done, {fm._progress.pending_sections.length} pending"
+        RECOVER_DECISIONS(fm._progress.decisions)
+        RESUME_FROM(fm._progress.pending_sections[0])
+        RETURN "RESUMED"
+      ELIF fm.status == "APPROVED":
+        RETURN "TERMINAL"
+  RETURN "FRESH"
+```
+
+**Finalisation:** when all 6 artifacts reach completion, set `status: APPROVED` and `_progress: null` per artefact in dependency order (vision.md first, then HTML artifacts, then navigation_map.md last).
+
+**RDR decisions persisted inline.** Aesthetic Quality Directive choices (D0-D9) made during vision creation are decisions. Each one MUST append to `vision.md._progress.decisions[]` immediately and appear inline as `<!-- RDR-N: {question} → {choice} -->` in the artifact body. See [factory-rdr/SKILL.md](.claude/skills/factory-rdr/SKILL.md).
+
+---
+
 ## Aesthetic Quality Directives (D0-D9)
 
 All vision artifacts MUST comply with these directives. They define the difference between "functional" and "professional" UI.
