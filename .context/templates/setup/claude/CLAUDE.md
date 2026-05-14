@@ -219,6 +219,8 @@ BEFORE any file modification:
 4. All merges to protected branches via Pull Requests only.
 5. Full protocol: `.claude/skills/factory-branching-strategy/SKILL.md`
 
+**Additionally — when the workspace contains nested or sibling git repositories** (any topology where more than one `.git` is reachable along the filesystem path): apply the CWD discipline rules in [`Factory-protocol-cwd-discipline.instructions.md`](.claude/instructions/Factory-protocol-cwd-discipline.instructions.md) before any destructive git op (`commit`, `push`, `reset`, `branch -D`, `rebase`, `merge`). Always prefix `cd <absolute-path>` to the Bash command — never trust a previous Bash call's cwd to persist. Known operational hazard catalogued because the Claude Code Bash tool does not persist `cd` between tool invocations.
+
 ## Context Preservation Invariants
 
 Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER from conversation memory:
