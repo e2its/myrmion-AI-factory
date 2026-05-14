@@ -747,11 +747,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "2.4.0: feat(known-issue) Pre-Action Gate gains addendum paragraph referencing new instruction `Factory-protocol-cwd-discipline.instructions.md` for workspaces with nested or sibling git repositories. Byte-identical with framework-meta CLAUDE.md 12.4.0.",
         "2.3.0: feat(EVOL-028) Core Protocols table gains row #1 Applicability Discovery (ADP) [LAW] referencing factory-applicability-discovery skill; new sub-section §Applicability Discovery — applicable_when: vocabulary [LAW] with closed-vocabulary axes table. Byte-identical with framework-meta CLAUDE.md per §What Lives Where.",
         "2.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "2.1.0: feat(EVOL-026) Mandatory Law #1 refactored — universal preamble (byte-identical with root meta CLAUDE.md) + single-line context-specific addendum (*Project application:*). Same model factored at the right granularity: universal principle stated once, local ceremony described separately.",
@@ -1776,6 +1777,13 @@
         "2.3.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
+    "instructions/Factory-protocol-cwd-discipline.instructions.md": {
+      "version": "1.0.0",
+      "path": ".claude/instructions/Factory-protocol-cwd-discipline.instructions.md",
+      "changelog": [
+        "1.0.0: feat(known-issue) — initial. Documents the Claude Code Bash tool's cwd-non-persistence hazard in workspaces with nested or sibling git repositories. Mandates absolute `cd <path> &&` prefix before any destructive git op (commit, push, reset, branch -D, rebase, merge). Catalogued after a misrouted-commit incident in a downstream materialised project; framework copy is abstract (no project-specific references). Referenced from CLAUDE.md § Pre-Action Gate (both framework-meta and template variants)."
+      ]
+    },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
       "version": "2.9.0",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md",
@@ -1801,9 +1809,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "12.3.0",
+      "version": "12.4.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "12.4.0: feat(known-issue) Pre-Action Gate gains addendum paragraph referencing new instruction `Factory-protocol-cwd-discipline.instructions.md` for workspaces with nested or sibling git repositories. Documents the Claude Code Bash tool's cwd-non-persistence hazard. Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
         "12.3.0: feat(EVOL-028) Core Protocols table gains row #1 Applicability Discovery (ADP) [LAW] referencing factory-applicability-discovery skill; new sub-section §Applicability Discovery — applicable_when: vocabulary [LAW] with closed-vocabulary axes table (phase/scope/change_type/command/path_glob/framework/always). Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
         "12.2.0: feat(EVOL-026) Mandatory Law #1 refactored — universal preamble (byte-identical with template) + single-line context-specific addendum (*Framework-meta application:*). Replaces prior framework-aware narrative whose mention of `docs/constitution.md OR framework-shipped artefact` was factually inconsistent with the meta repo's reality (no docs/constitution.md exists here).",
         "12.1.0: feat(EVOL-026) self-review mitigation — root INVARIANT 2 synced to the EVOL-026 single-source-of-truth model (snapshot embeds [LAW] verbatim; freshness over constitution_hash + setup_hash + dcs_hash; ADRs not loaded as governance), framework-aware variant (the meta repo uses CLAUDE.md as its own governance source instead of docs/constitution.md). Closes universal-clause-mirror drift caught by factory-pr-review.",
