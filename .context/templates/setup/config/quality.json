@@ -1,0 +1,19 @@
+{
+  "$schema": "quality_v1",
+  "complexity": {
+    "enabled": true,
+    "mcp_server": "{{COMPLEXITY_MCP_SERVER}}",
+    "mcp_tool_name": "{{COMPLEXITY_MCP_TOOL_NAME}}",
+    "thresholds": {
+      "soft": 10,
+      "hard": 15
+    },
+    "bvl_gate": true,
+    "pr_blocker": false,
+    "source_extensions": [
+      ".py", ".js", ".ts", ".tsx", ".jsx",
+      ".go", ".java", ".rb", ".php",
+      ".c", ".cpp", ".cs", ".swift", ".kt", ".rs"
+    ]
+  }
+}

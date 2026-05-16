@@ -354,7 +354,7 @@ Scan `.context/templates/setup/rules/` for all `.md` templates. For each templat
 2. Resolve placeholders from `docs/setup.md` + `docs/constitution.md`
 3. Write to `.claude/rules/{rule_name}.md`
 
-Standard rules materialized to `.claude/rules/`: `architecture.md`, `security_policy.md`, `testing.md`, `branching.md`, `ci-cd.md`, `database.md`, `observability.md`, `performance.md`, `ux-constitution.md`, `contract-first-policy.md`, `immutability_policy.md`, `ai_budget_tracker.md`, `ai_budget_governance.md`, `stateless.md`, `privacy.md`, `frontend_architecture_compatibility.md`, `html-css.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`.
+Standard rules materialized to `.claude/rules/`: `architecture.md`, `security_policy.md`, `testing.md`, `branching.md`, `ci-cd.md`, `database.md`, `observability.md`, `performance.md`, `ux-constitution.md`, `contract-first-policy.md`, `immutability_policy.md`, `ai_budget_tracker.md`, `ai_budget_governance.md`, `stateless.md`, `privacy.md`, `frontend_architecture_compatibility.md`, `html-css.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`, `quality.json` (see Quality Configuration below).
 
 **Phase B — Technology-Specific Best Practices:**
 For each detected technology (backend.runtime, frontend.framework):
@@ -1039,6 +1039,14 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
 - READ the schema to extract ALL required root-level and resource-level fields
 - Initial content: empty `resources` array with all required root fields populated
 - Resources are populated later by BLUEPRINT (integrations) and IMPLEMENT (endpoints)
+
+**Quality Configuration (config/quality.json):**
+- Materialise `config/quality.json` from `.context/templates/setup/config/quality.json` resolving the two placeholders against Q23.1 answers:
+  - `{{COMPLEXITY_MCP_SERVER}}` ← `quality.complexity.mcp_server` (`semgrep` | custom server name | `null` when Skip)
+  - `{{COMPLEXITY_MCP_TOOL_NAME}}` ← `quality.complexity.mcp_tool_name` (`scan_complexity` for Semgrep | custom tool name | `null` when Skip)
+- When user picked **Skip**: write `null` (JSON literal, not the string `"null"`) for both placeholders AND set `complexity.enabled=false`. The skill `factory-complexity-check` short-circuits to `{ok: true, reason: "disabled"}` and never invokes any MCP. The file is still materialised so the project can enable later by editing.
+- All other fields (`thresholds`, `bvl_gate`, `pr_blocker`, `source_extensions`) keep template defaults unless Discovery captured overrides. Defaults: `soft=10`, `hard=15` (McCabe), `bvl_gate=true`, `pr_blocker=false`.
+- This file is consumed by `factory-complexity-check` (BVL post-test step) and `factory-pr-review` (axis 6 — complexity). `factory-sync.sh` deliberately does NOT touch `config/`; `SETUP --upgrade` owns delta propagation.
 
 **Environment Variables (Secret Placeholder Convention):**
 - Generate `.env.example` with `REPLACE_ME_<description>` format for all required secrets
