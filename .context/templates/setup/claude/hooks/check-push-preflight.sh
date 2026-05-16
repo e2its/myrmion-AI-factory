@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-push-preflight.sh — PreToolUse Bash hook: Factory PR Review push gate (v1.1.1)
+# check-push-preflight.sh — PreToolUse Bash hook: Factory PR Review push gate
 # ============================================================================
 # Reads stdin JSON from Claude Code hook protocol.
 # When the Bash command contains `git push`, runs the factory-pr-review
