@@ -1,6 +1,6 @@
 ---
 name: factory-pr-review
-description: "Factory PR Review — five-axis review (code, code↔docs, API contracts, ADR, traceability) wired as a PUSH GATE (preflight before `git push`) and an assistive PR reviewer for already-pushed branches. Maps blockers to framework Hard Gates (CIP, CVP, IPP, BVL, GCRP). Use when: a Bash `git push` is about to fire (auto-invoked by hook) OR the user explicitly asks to review a branch / open PR."
+description: "Factory PR Review — six-axis review (code, code↔docs, API contracts, ADR, traceability, complexity) wired as a PUSH GATE (preflight before `git push`) and an assistive PR reviewer for already-pushed branches. Maps blockers to framework Hard Gates (CIP, CVP, IPP, BVL, GCRP) + DC-28 cyclomatic complexity. Use when: a Bash `git push` is about to fire (auto-invoked by hook) OR the user explicitly asks to review a branch / open PR."
 applicable_when:
   command: [push, review]
 ---
@@ -80,10 +80,13 @@ These extend the generic hard blocks (`SKILL.md` Phase 4 in the upstream skill) 
 | 16-downstream | **Code ↔ docs lock-step**: public artefact added/removed/renamed without catalog/index update in CLAUDE.md, docs/, or referenced rule/instruction files. Source of truth: `audit.lock_step_pairs` of type `rename_propagation` and `code_doc_lock_step` | downstream only | Phase 0 + `config/coherence-context.json` |
 | 17 | **Commit ↔ diff coherence**: commit message claims a change that the diff does not show, or the diff carries a structural change the commit message omits (e.g. EVOL-N in commit ≠ branch's EVOL-N; new public field shipped under `chore:` prefix) | both | Phase 0 (semantic judgment) |
 | 18 | **Bump severity ↔ change kind coherence**: `governance_versions.json` bump kind (PATCH/MINOR/MAJOR) does not match the actual nature of the diff (new feature → MINOR; breaking contract → MAJOR; bug fix only → PATCH). Inverse cross-check of Generation Standards §2 | both | Phase 0 (semantic judgment) |
+| 19 | **Cyclomatic complexity exceeds project threshold** (DC-28): one or more functions in the diff have CCN above `config/quality.json.complexity.thresholds.hard`. Blocker only when `complexity.pr_blocker=true`; otherwise classified Important (soft) / Nit (advisory) per `factory-complexity-check` skill output. Fail-open when MCP unavailable, config absent, or `complexity.enabled=false` | both | `config/quality.json` + `factory-complexity-check/SKILL.md` (axis 6) |
 
 Block 11 (Governance-bump miss) is the framework-meta equivalent of "missing CHANGELOG entry". It enforces the rule that lives in the root `CLAUDE.md` Generation Standards §2.
 
 Blocks 13-18 are produced by **Phase 0 Coherence Audit** (semantic, agentic). 13-15 are deterministic-leaning but require the agent to interpret rename intent and lock-step pair semantics; 16 is split by context (one variant active per repo); 17-18 require semantic judgment over commit message + manifest bump kind. All six read their context-specific configuration from `config/coherence-context.json` (`audit.*` keys).
+
+Block 19 (Cyclomatic complexity) is produced by **axis 6** in Phase 3 (per-axis analysis). The skill `factory-complexity-check` invokes a project-configured MCP (default Semgrep, RDR-ratified at SETUP Q23.1) on the cumulative branch diff; severity routing depends on `config/quality.json.complexity.pr_blocker` (default `false` → advisory). The skill fails open — missing config, unavailable MCP, or unparseable response degrade to a banner-only advisory.
 
 ## Framework artefact ↔ docs sync matrix
 
@@ -200,9 +203,10 @@ Apply this routing table (load reference + run script):
 | always | `references/changelog-policy.md` | — |
 | always | `references/severity-rubric.md` | — |
 | framework meta repo | governance-bump check (Block 11) | grep `governance_versions.json` in diff |
+| `has_code` AND `config/quality.json` present | axis 6 — `factory-complexity-check/SKILL.md` | INVOKE_SKILL("factory-complexity-check", { files: changed_source_files }) |
 
 ### Phase 4 — Hard-block enforcement
-The 12 hard blocks in § Framework-aware Hard Blocks. Each one is a deterministic pass/fail. The agent does NOT downgrade these — they are blocks by definition of the rubric.
+The 19 hard blocks in § Framework-aware Hard Blocks. Each one is a deterministic pass/fail. The agent does NOT downgrade these — they are blocks by definition of the rubric.
 
 ### Phase 5 — Review generation
 Use `assets/review_template.md` for the JSON structure. In `--preflight` mode the review is printed locally; in `--review` mode it is rendered to Markdown via `post_review.py`.

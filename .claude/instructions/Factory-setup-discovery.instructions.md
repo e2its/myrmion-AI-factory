@@ -339,6 +339,12 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Persist:** `testing.strategy`
 - **After:** Minimum coverage thresholds set by tier
 
+#### Q23.1: Code-Quality MCP (cyclomatic complexity scanner)
+- **Options:** `Semgrep MCP (semgrep-mcp, global coverage)` | `Custom MCP (project declares server + tool returning {file, function, ccn}[])` | `Skip (disable gate; enable later by editing config/quality.json)`
+- **RDR Recommendation:** Semgrep MCP — official, multi-language (Python, JS/TS, Go, Java, Ruby, PHP, C#, etc.), maintained, complexity via reusable rules. Choose Custom when a specialised tool fits the stack (e.g. wrapper around `gocyclo` for Go-heavy projects). Choose Skip for greenfield projects not yet ready to enforce complexity budgets.
+- **Persist:** `quality.complexity.mcp_server` (`semgrep` | custom server name | `null` if Skip), `quality.complexity.mcp_tool_name` (`scan_complexity` for Semgrep | custom tool name | `null` if Skip), `quality.complexity.enabled` (true unless Skip), `quality.complexity.thresholds.soft=10`, `quality.complexity.thresholds.hard=15` (McCabe industry baseline; project may override later), `quality.complexity.bvl_gate=true` (BVL fails on `hard` violations), `quality.complexity.pr_blocker=false` (PR-review advisory by default — projects opt-in to blocker)
+- **After:** Materialization resolves `{{COMPLEXITY_MCP_SERVER}}` + `{{COMPLEXITY_MCP_TOOL_NAME}}` in `config/quality.json`; BVL `full_verification_gate` gains `factory-complexity-check` invocation as post-test step; factory-pr-review activates axis 6 (complexity)
+
 #### Q24: AI Capabilities
 - **3 boolean sub-questions:**
   - Q24a: Does your project involve AI model **training**? → triggers MLflow/W&B/custom questions

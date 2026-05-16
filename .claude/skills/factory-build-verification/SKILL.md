@@ -551,8 +551,29 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
         BLOCK: "Seed schema alignment failed. Seed data drifted from migration schemas."
         RETURN BLOCKED
 
+  # 7. Complexity check (DC-28 — cyclomatic complexity gate, MCP-driven)
+  # Project-configured via config/quality.json. Tool-agnostic: skill picks the MCP at runtime
+  # (default Semgrep, RDR-ratified at SETUP Q23.1). Fail-open: missing config, disabled gate,
+  # unavailable MCP, or unparseable response → advisory only, never blocks.
+  # Scope_files (already computed above) IS the changed-file set for the increment / feature.
+  IF FILE_EXISTS("config/quality.json"):
+    complexity_report = INVOKE_SKILL("factory-complexity-check", { files: scope_files })
+    results.complexity = {
+      status: complexity_report.reason,                  # disabled | mcp-unavailable | no-source-files | ok | violations
+      mcp: complexity_report.mcp_consulted,
+      violations: complexity_report.violations,          # [{file, function, ccn, severity}]
+      thresholds: complexity_report.thresholds_used
+    }
+    quality_cfg = READ_JSON("config/quality.json").complexity
+    hard_violations = [v FOR v IN complexity_report.violations IF v.severity == "hard"]
+    IF quality_cfg.bvl_gate == true AND hard_violations.length > 0:
+      ❌ BLOCK: "Complexity exceeded hard threshold ({quality_cfg.thresholds.hard}) on {hard_violations.length} function(s)."
+      SHOW: humanise_complexity_violations(hard_violations)
+      RETURN BLOCKED
+    # Soft violations OR bvl_gate=false → advisory log only.
+
   # All checks passed
-  LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}"
+  LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}, complexity={results.complexity.status}"
 
   RETURN PASSED(results)
 ```
