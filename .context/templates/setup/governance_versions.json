@@ -2474,9 +2474,10 @@
       ]
     },
     "scripts/check-adr-constitution-sync.sh": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "path": "scripts/check-adr-constitution-sync.sh",
       "changelog": [
+        "1.1.1: fix(EVOL-032 CI) — bypass marker grep switched from BRE pattern `\\[adr-backfill\\]` to fixed-string `grep -qF '[adr-backfill]'`. `[adr-backfill]` is a literal token, not a regex; `-F` eliminates BRE/ERE escape ambiguity across grep variants. T2 L5 scenario 3 was failing on GitHub Actions ubuntu-latest (PR #30) while passing locally — the symptom was that bypass never tripped, ADR-003-test.md was reported as offender. Locally reproducible after the fix (all 7 scenarios green).",
         "1.1.0: feat(EVOL-029) accepted-ADR detection extended to docs/project_log/evolutions/ADR-EVOL-*.md (meta-framework + downstream framework-evolution records) in addition to docs/project_log/adr/ADR-*.md (downstream materialised projects). Governance source check broadened to accept docs/constitution.md (downstream), CLAUDE.md (meta universal law), or .context/templates/setup/constitution/constitution_template.md (meta amendment shipping universal law). Header doc + failure message updated.",
         "1.0.0: feat(EVOL-026) initial — CI gate that detects ADR transitions from proposed to accepted in PR diffs and FAILs when docs/constitution.md is not modified in the same diff. Bypass via [adr-backfill] commit message marker for one-shot historical migration. FDRs are not subject to this gate."
       ]
