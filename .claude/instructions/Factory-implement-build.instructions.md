@@ -153,6 +153,8 @@ IF spec.iteration > dev_plan.based_on_iteration:
      - [D.1] through [D.N] appended to relevant phases
      - New tasks ONLY for new/modified scenarios
      - Existing completed [x] tasks PRESERVED (never unchecked)
+     - Each delta task carries metadata: `origin: ITER-{FEAT_ID}-{N}` (upstream iteration that produced it) + `task_class: NEW | EXISTING | MODIFIED`.
+     - When `design.md.pending_design_items[]` is non-empty (BLUEPRINT --refine carry-over), each entry becomes a `[D.N]` task with `task_class: CARRIED_OVER` and `origin = design.iterations[-1].id`.
   5. UPDATE frontmatter:
      based_on_iteration: {spec.iteration}
      based_on_schemas_version: {user_journey.schemas_version}
@@ -165,15 +167,59 @@ IF spec.iteration > dev_plan.based_on_iteration:
   
   LOG: "Generated {count} delta tasks [D.1..D.{N}] in dev_plan.md"
 
+  # MCP-docs consultation — when factory-mcp-docs-scan banner reported docs MCPs available.
+  IF mcp_scan_banner.docs_mcps NOT EMPTY:
+    FOR EACH tech IN technologies_in_refine_scope:
+      query relevant docs MCP for tech
+      cite findings inline in delta task descriptions
+    populate iteration entry `mcp_consulted: [{names}]`
+
+  # CVP RUNS AFTER delta generation. CVP validates that the just-generated
+  # [D.N]/[ADJ-N]/CARRIED_OVER tasks close all cross-artefact gaps. Running CVP
+  # BEFORE generation would validate stale dev_plan against new spec — that's
+  # why we're refining. PREREQ: design.md.pending_iteration is null (BLUEPRINT
+  # --refine cleared it). Step 0a Upstream Sync Gate already enforces this.
+  cvp_result = cvp_coherence_gate(FEATURE_ID, CODESIGN_BLUEPRINT_IMPLEMENT, IMPLEMENT)
+  cvp_loop = 0
+  WHILE cvp_result.has_critical_gaps AND cvp_loop < 3:
+    LOG: "CVP detected {cvp_result.gaps.count} unclosed gaps — generating additional [D.N] tasks"
+    generate_additional_delta_tasks_for(cvp_result.gaps)
+    cvp_loop += 1
+    cvp_result = cvp_coherence_gate(FEATURE_ID, CODESIGN_BLUEPRINT_IMPLEMENT, IMPLEMENT)
+  IF cvp_result.has_critical_gaps:
+    ❌ BLOCK: "CVP gaps unresolved after 3 delta-task rounds. Manual review required."
+
+  # Append iteration entry to dev_plan.iterations[] via Iteration Append Pattern
+  # (factory-incremental-persistence). The entry's `delta_tasks` field is a checklist of
+  # tasks just generated; --build reads unchecked items from BOTH the legacy phase/increment
+  # sections AND the iteration anchor as one completion total.
+  iter_id = "ITER-{FEAT_ID}-{spec.iterations[-1].iteration}"
+  append_iteration_entry("dev_plan.md", {
+    id: iter_id, iteration: spec.iterations[-1].iteration, date: NOW_ISO(),
+    source: "cascade",
+    scope_summary: "{N} delta + {M} adjustment + {K} carried-over",
+    changes: [{kind: "delta_tasks_generated", refs: [D.1..D.N, ADJ.1..ADJ.M]}],
+    downstream_impact: ["qa/qa_report_final_*.md"],
+    anchor: "#iter-{N}",
+    rdr_rounds: 0, converged: true, impl_state_snapshot: null,
+    cascade_source: spec.iterations[-1].id,
+    mcp_consulted: [...],
+    delta_tasks: [
+      {tag: "D.1",            task_class: "NEW",          origin: spec.iterations[-1].id},
+      {tag: "D.2",            task_class: "MODIFIED",     origin: spec.iterations[-1].id},
+      {tag: "CARRIED_OVER.1", task_class: "CARRIED_OVER", origin: design.iterations[-1].id}
+    ]
+  })
+
   AUTO-CONTINUE PROMPT:
     "Delta tasks generated ({count} new checkboxes). Start building delta tasks now? (yes/no)"
     IF yes: EXECUTE --build (processes ONLY unchecked [ ] tasks including [D.N])
-  
+
   CASCADE: Execute CASCADE_PENDING_ITERATION for downstream:
     - QA reports → mark INVALIDATED if APPROVED
 
   APPEND_TO_WORKLOG: |
-    {"timestamp":"YYYY-MM-DD","phase":"Dev (Planning)","user_agent":"IMPLEMENT","action":"--refine {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"Delta iteration sync — {N} delta checkbox tasks [D.1..D.{N}] generated — based_on_iteration: {spec.iteration}"}
+    {"timestamp":"YYYY-MM-DD","phase":"Dev (Planning)","user_agent":"IMPLEMENT","action":"--refine {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","iteration_id":"{iter_id}","observations":"Delta iteration sync — {N} delta + {M} adjustment + {K} carried-over tasks — based_on_iteration: {spec.iteration}"}
 ```
 
 ---

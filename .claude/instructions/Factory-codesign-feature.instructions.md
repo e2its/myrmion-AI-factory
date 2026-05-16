@@ -741,12 +741,61 @@ BREAKING (always breaks downstream):
 - Original feature: breaking scenarios marked `@superseded_by(NEW_ID)`
 
 ### Iteration Execution
-- Increment `iteration` counter in spec.feature frontmatter
-- Add to `iteration_history` with date and scope
-- Update `last_iteration_scope`
-- **MANDATORY: Append Iteration Changelog entry** to spec.feature (see format below)
-- Re-run Tripartite Alignment Protocol
-- **MANDATORY: Execute CASCADE_PENDING_ITERATION** to push `pending_iteration` to ALL downstream artifacts (design.md, test_plan.md, dev_plan.md, devops_plan.md)
+
+Eight sub-steps mapping the user-facing `--refine` contract:
+
+**1.1 Implementation-state probe (pre-classification).**
+```yaml
+IF FILE_EXISTS("docs/spec/{FEAT_ID}/dev_plan.md"):
+  tasks_done = count_checked_tasks(dev_plan.md)
+  commits_since = git log --since={spec.iterations[-1].cascade_timestamp} --oneline -- src/spec/{FEAT_ID}/
+  impl_state_snapshot = { tasks_done, commits_since_last_iter: count(commits_since) }
+ELSE:
+  impl_state_snapshot = null
+# CWD discipline: absolute `cd <feature-root> &&` prefix on every git invocation.
+```
+
+**1.2 Iterative RDR loop (formalised on Disparity Resolution Protocol).** When Tripartite re-run surfaces disparities OR Change Classification flags HYBRID, enter loop:
+```yaml
+max_rounds = ARGS.--max-rdr-rounds OR 3
+prev_options = ∅
+FOR round IN 1..max_rounds:
+  options = surface_alternatives_for_unresolved_disparities()
+  IF options ⊆ prev_options:           # no new option produced
+    converged = true; break
+  decision = RDR(options)              # ≥3 options, justified recommendation
+  apply(decision)
+  prev_options = prev_options ∪ options
+rdr_rounds = round
+```
+
+**1.3 Apply changes** — existing Change Classification + Tripartite Alignment re-run, unchanged.
+
+- Increment `iteration` counter in spec.feature frontmatter (legacy scalar — dual-format).
+- Allocate `new_id = ITER-{FEAT_ID}-{spec.iterations[-1].iteration + 1}` (factory-iteration-model § Canonical Iteration ID).
+- Set `_progress.iteration_in_flight = new_id` on each artefact to be touched (factory-incremental-persistence § Iteration Append Pattern).
+
+**1.4 Aggregated changelog (append to `iterations[]` on ALL three artefacts).** For `spec.feature`, `user_journey.md`, `mock.html` invoke `append_iteration_entry(artefact_path, new_entry)` with `new_entry`:
+```yaml
+id: {new_id}
+iteration: {N+1}
+date: {ISO_8601}
+source: user-feedback | cascade
+classification: {DELTA|BREAKING|HYBRID}
+scope_summary: "one-line"
+changes: [{kind: scenario_added|scenario_modified|nfr_added|..., ref: "..."}, ...]
+downstream_impact: [design.md, test_plan.md, dev_plan.md, devops_plan.md]
+anchor: "#iter-{N+1}"
+rdr_rounds: {round}
+converged: {bool}
+impl_state_snapshot: {snapshot from 1.1}
+mcp_consulted: []        # CODESIGN does not consult MCP-docs (out of scope per RDR-D)
+```
+
+Legacy `## Changelog` table SHALL also be appended for one minor version (dual-format readability). It is NOT the source of truth.
+
+- Re-run Tripartite Alignment Protocol.
+- **MANDATORY: Execute CASCADE_PENDING_ITERATION** to push `pending_iteration` to ALL downstream artifacts (design.md, test_plan.md, dev_plan.md, devops_plan.md). `cascade_source` written as `ITER-{FEAT}-{N+1}` (the canonical id) — downstream `read_iteration_state()` accepts both ITER ID and legacy agent-name string.
 
 ### CASCADE Verification Gate (BLOCKING — runs AFTER every --refine iteration bump)
 

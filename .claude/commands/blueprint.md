@@ -29,7 +29,19 @@ Begin technical design for a feature. PREREQUISITE: spec.feature + user_journey.
 - Contract generation (OpenAPI/GraphQL/gRPC/AsyncAPI based on communication_style)
 
 ### `--refine {ID}`
-Iterate on design and test plan. Handles CASCADE_PENDING_ITERATION from upstream.
+Iterate on `design.md` / `test_plan.md` / `increment_plan.md` on upstream cascade or implementation-state drift.
+
+**Full protocol:** See `.claude/instructions/Factory-blueprint-refine.instructions.md`.
+
+**Eight sub-steps**:
+- **2.1 Locate changes** — diff upstream since last cascade.
+- **2.2 Analyze design state** — sections + contract ops + test categories affected.
+- **2.3 Dependencies analysis** — extend Step -0.5 from `--start`; surface affected `consumes_contract` chains.
+- **2.4 Impl-state probe (auto)** — fires when `dev_plan.md` has `[x]` tasks OR feature branch has commits beyond design. Classifies `drift | carry-over | emergent`.
+- **2.5 Update design with gaps** — drift→modify (RDR if multi-option); carry-over→`pending_design_items[]` + `## Carried-Over Gaps`; emergent→ADR.
+- **2.6 MCP-docs consultation** — invoke `factory-mcp-docs-scan`; populate `mcp_consulted: [...]` on iteration entry.
+- **2.7 Apply changes** — IPP section-atomic saves; `CASCADE_PENDING_ITERATION` to dev/devops/contracts; `CASCADE_CONSUMERS` for contract changes.
+- **2.8 Aggregated changelog** — `append_iteration_entry()` on all three artefacts with shared `ITER-{FEAT}-{N}` id.
 
 ### `--approve {ID}`
 Final approval of design.md + test_plan.md. Enables IMPLEMENT. **This is the ONLY mandatory manual checkpoint.**

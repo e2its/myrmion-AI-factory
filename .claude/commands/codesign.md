@@ -35,6 +35,12 @@ Iterate to produce three co-created artifacts per feature. Auto-approves when 12
 - `mock.html` (pixel-perfect visual mockup)
 - `user_journey.md` (simplified Event Storming with typed Data Schemas)
 
+**`--refine` sub-steps** (Iteration Execution — full pseudocode in the instruction file § Iteration Execution):
+- **1.1 Impl-state probe** — snapshot `dev_plan.md [x]` count + commits since last iteration cascade.
+- **1.2 Iterative RDR loop** — max 3 rounds (configurable via `--max-rdr-rounds`); converge-on-stability heuristic.
+- **1.3 Apply changes** — existing Change Classification + Tripartite Alignment re-run.
+- **1.4 Aggregated changelog** — `append_iteration_entry()` on `spec.feature`, `user_journey.md`, `mock.html` with shared `ITER-{FEAT}-{N+1}` id (factory-iteration-model + factory-incremental-persistence).
+
 ## Scope & Slicing
 
 Every feature declares two frontmatter fields in `spec.feature` that shape the rest of the pipeline:
