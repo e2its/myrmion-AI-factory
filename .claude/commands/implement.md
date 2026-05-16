@@ -31,6 +31,7 @@ Create implementation plan. PREREQUISITE: design.md + test_plan.md APPROVED. Vis
 Execute implementation. Iterates through phases A → B → C.
 
 **Full protocol:** See `.claude/instructions/Factory-implement-build.instructions.md`
+- **MCP Docs Scan banner (MANDATORY)** — emits `🔌 MCP Docs Scan — ...` as first line; DEV hat consults named docs MCPs before generating code for matching technologies (see `.claude/skills/factory-mcp-docs-scan/SKILL.md`).
 - Per phase: DEV implements (TDD: test first → code → green) → REVIEW verifies → SEC scans (SAST)
 - Fix loops happen inline within each phase
 - After ALL phases complete: Draft PR created automatically
@@ -45,7 +46,7 @@ Handle upstream spec changes via Delta Iteration or user feedback. Only modifies
 - **3.1 Locate changes** — Upstream Artifact Validation (existing); also read `design.md.pending_design_items[]` so BLUEPRINT carry-over becomes explicit delta tasks.
 - **3.2 Analyze dev_plan state** — read frontmatter status + based_on_iteration; map upstream changes to affected phases/increments.
 - **3.3 Coherence validation (CVP)** — `cvp_coherence_gate(FEATURE_ID, CODESIGN_BLUEPRINT_IMPLEMENT, IMPLEMENT)` **AFTER** delta task generation (validates the delta closes cross-artefact gaps; loop up to 3 rounds; mirrors BLUEPRINT --approve sequencing). PREREQ: `design.md.pending_iteration` cleared by BLUEPRINT --refine (Step 0a Upstream Sync Gate enforces).
-- **3.4 MCP-docs consultation** — invoke `factory-mcp-docs-scan`; cite findings in delta task descriptions; populate `mcp_consulted: [...]`.
+- **3.4 MCP-docs consultation** — invoke `factory-mcp-docs-scan` (banner mandatory as first line); cite consulted MCPs in delta task descriptions; populate `mcp_consulted: [...]` on iteration entry.
 - **3.5 Update dev_plan** — generate `[D.N]` / `[ADJ-N]` / `[CARRIED_OVER.N]` checkbox tasks tagged with `origin: ITER-{FEAT}-{N}` and `task_class: NEW | EXISTING | MODIFIED | CARRIED_OVER`.
 - **3.6 Aggregated changelog as checklist** — `append_iteration_entry()` on `dev_plan.md` with `delta_tasks: [...]` field; --build reads unchecked items from BOTH legacy phase/increment sections AND iteration anchor as one completion total.
 

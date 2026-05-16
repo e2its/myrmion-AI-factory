@@ -66,6 +66,11 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 - If snapshot valid → governance loaded (1 file read). If stale/missing → full reload Steps 1-4 + regenerate snapshot
 - See `governance-loading.md` Step 0 for full protocol
 
+### Step 0c: MCP Docs Scan (MANDATORY)
+- Invoke `factory-mcp-docs-scan` with `scope: "design"` (first user-facing turn).
+- Banner emission is BLOCKING — missing banner = `mal-iniciado`, halt and re-emit.
+- When `docs_mcps NOT EMPTY`, query each named docs MCP for technologies/frameworks in the design scope and cite findings inline in design.md (per skill § Citation contract).
+
 ### Step 1: Load Constitution & Governance Index
 - Parse stack (backend.runtime, frontend.framework, architecture, topology)
 - Parse `<!-- METADATA -->` comments for rule applicability

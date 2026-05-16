@@ -37,6 +37,11 @@ WHEN spec.iteration > dev_plan.based_on_iteration:
 
 ## `IMPLEMENT --refine {{FEATURE_ID}} "[FEEDBACK]"`
 
+### Step 0a: MCP Docs Scan (MANDATORY)
+- Invoke `factory-mcp-docs-scan` with `scope: "implementation"` (first user-facing turn).
+- Banner emission is BLOCKING — missing banner = `mal-iniciado`, halt and re-emit.
+- Result is consumed by Step 3.4 (MCP-docs consultation during delta generation).
+
 ### Step 0: Upstream Artifact Validation (MANDATORY — runs BEFORE any refinement)
 
 ```yaml
@@ -227,6 +232,11 @@ IF spec.iteration > dev_plan.based_on_iteration:
 ## `IMPLEMENT --build {{FEATURE_ID}}`
 
 ### Pre-Flight Checks
+
+#### Step 0—MCP: MCP Docs Scan (MANDATORY)
+- Invoke `factory-mcp-docs-scan` with `scope: "implementation"` (first user-facing turn).
+- Banner emission is BLOCKING — missing banner = `mal-iniciado`, halt and re-emit.
+- When `docs_mcps NOT EMPTY`, the DEV hat queries each named docs MCP before generating code for any task whose technology matches an available docs MCP, and cites the consulted MCPs in the task's inline traceability comment (per skill § Citation contract).
 
 #### Step 0: Status Normalization
 ```yaml
