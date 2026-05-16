@@ -750,11 +750,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "2.4.0",
+      "version": "3.0.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.0.0: feat(EVOL-032)! Governance Rules gain LAW 9 (Canonical Iteration ID — ITER-{FEAT}-{N} cross-artefact join key + read_iteration_state() wrapper mandate) and LAW 10 (MCP-Docs Scan Banner — mandatory first user-facing line of BLUEPRINT --start/--refine + IMPLEMENT --build/--refine, allowlist-based detection). Byte-identical with framework-meta CLAUDE.md 13.0.0.",
         "2.4.0: feat(known-issue) Pre-Action Gate gains addendum paragraph referencing new instruction `Factory-protocol-cwd-discipline.instructions.md` for workspaces with nested or sibling git repositories. Byte-identical with framework-meta CLAUDE.md 12.4.0.",
         "2.3.0: feat(EVOL-028) Core Protocols table gains row #1 Applicability Discovery (ADP) [LAW] referencing factory-applicability-discovery skill; new sub-section §Applicability Discovery — applicable_when: vocabulary [LAW] with closed-vocabulary axes table. Byte-identical with framework-meta CLAUDE.md per §What Lives Where.",
         "2.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
@@ -1857,9 +1858,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "12.4.0",
+      "version": "13.0.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.0.0: feat(EVOL-032)! Governance Rules gain LAW 9 (Canonical Iteration ID — ITER-{FEAT}-{N} cross-artefact join key + read_iteration_state() wrapper mandate) and LAW 10 (MCP-Docs Scan Banner — mandatory first user-facing line of BLUEPRINT --start/--refine + IMPLEMENT --build/--refine, allowlist-based detection). Constitution amendment for ADR-EVOL-032 acceptance. Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
         "12.4.0: feat(known-issue) Pre-Action Gate gains addendum paragraph referencing new instruction `Factory-protocol-cwd-discipline.instructions.md` for workspaces with nested or sibling git repositories. Documents the Claude Code Bash tool's cwd-non-persistence hazard. Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
         "12.3.0: feat(EVOL-028) Core Protocols table gains row #1 Applicability Discovery (ADP) [LAW] referencing factory-applicability-discovery skill; new sub-section §Applicability Discovery — applicable_when: vocabulary [LAW] with closed-vocabulary axes table (phase/scope/change_type/command/path_glob/framework/always). Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
         "12.2.0: feat(EVOL-026) Mandatory Law #1 refactored — universal preamble (byte-identical with template) + single-line context-specific addendum (*Framework-meta application:*). Replaces prior framework-aware narrative whose mention of `docs/constitution.md OR framework-shipped artefact` was factually inconsistent with the meta repo's reality (no docs/constitution.md exists here).",
