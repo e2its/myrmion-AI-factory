@@ -5,7 +5,7 @@ applicable_when:
   phase: [BLUEPRINT, IMPLEMENT, QA]
 ---
 
-# COHERENCE VALIDATION PROTOCOL (CVP v1.0.0) — CROSS-ARTIFACT TRACEABILITY
+# COHERENCE VALIDATION PROTOCOL (CVP) — CROSS-ARTIFACT TRACEABILITY
 
 > **Shared Protocol** — Referenced by: BLUEPRINT, IMPLEMENT, QA agents.
 > Before an agent consumes upstream deliverables, it MUST validate that those deliverables are mutually coherent, complete, and traceable. Each agent invokes CVP with a different SCOPE that determines which artifact pairs are checked.

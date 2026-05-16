@@ -591,7 +591,7 @@ The user can override any version before finalizing.
 
 ### § 4.1.3.2 — Cost Estimation Protocol (CEP)
 
-> **Problem.** Before EVOL-014, `docs/setup.md` had no canonical `costs:` section. Discovery finalization said "Sum all selected component costs" but defined neither the schema, the inputs, nor the output. Downstream templates (`ADR-0000-setup-decisions.md`, `MATERIALIZATION_REPORT.md`) referenced 20 cost placeholders (`{{BACKEND_COST}}`, `{{TOTAL_COST}}`, `{{BUDGET_PERCENTAGE}}`, …) that had no producer — they materialised as literal `{{…}}` strings in generated artifacts.
+> **Problem.** `docs/setup.md` had no canonical `costs:` section. Discovery finalization said "Sum all selected component costs" but defined neither the schema, the inputs, nor the output. Downstream templates (`ADR-0000-setup-decisions.md`, `MATERIALIZATION_REPORT.md`) referenced 20 cost placeholders (`{{BACKEND_COST}}`, `{{TOTAL_COST}}`, `{{BUDGET_PERCENTAGE}}`, …) that had no producer — they materialised as literal `{{…}}` strings in generated artifacts.
 
 > **Solution.** CEP is the canonical producer. Runs AFTER VVP during Discovery Finalization. Estimates monthly cost for every cost-bearing discovery answer using the agent's ecosystem knowledge, persists the full breakdown to `docs/setup.md § costs:`, and the materialization pass reads from that section to resolve every `{{*_COST}}` placeholder. **No hardcoded price tables** — the agent uses its knowledge of typical monthly pricing for each component at each tier level, and invokes RDR when pricing is ambiguous.
 

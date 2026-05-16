@@ -6,7 +6,7 @@ applicable_when:
   command: [implement]
 ---
 
-# BUILD VERIFICATION LOOP (BVL v1.5.0)
+# BUILD VERIFICATION LOOP (BVL)
 
 > **Shared Protocol** — Referenced by: IMPLEMENT agent (--build, --fix commands), REVIEW hat (coverage + lint verification), SEC hat (dependency audit + secret scan).
 > Closes the TDD feedback loop by executing tests in the terminal, parsing errors, and auto-fixing.
@@ -14,7 +14,7 @@ applicable_when:
 
 **Core Principle:** Code that isn't executed isn't verified. Writing tests is necessary but insufficient — they must be run, results parsed, and failures fixed in a closed loop before marking a task complete.
 
-## v1.5.0 — Per-Increment Verification Scope
+## Per-Increment Verification Scope
 
 > When `IMPLEMENT --build` runs under `slicing_strategy: incremental` and a single increment is in BUILDING, `full_verification_gate(FEATURE_ID, increment_id)` MUST restrict its scope to the increment's source/test files. The aggregate (feature-level) gate runs only when every increment has closed.
 
@@ -31,7 +31,7 @@ applicable_when:
 
 ---
 
-## v1.4.0 — Defect Discovery Hook
+## Defect Discovery Hook
 
 > When BVL detects a test failure caused by a **recurring pattern** (not a one-off bug), the agent MUST check `.claude/rules/defect-prevention.md` and propose cataloging if the pattern is novel. This closes the improvement loop: discover→catalog→prevent→never again.
 
@@ -63,7 +63,7 @@ FUNCTION defect_discovery_hook(errors, task, attempt):
       # If user approves → Discovery Protocol in defect-prevention.md Section 3
 ```
 
-## v1.3.0 — Seed/Synthetic Data Alignment Gate
+## Seed/Synthetic Data Alignment Gate
 
 > When a feature touches seed/synthetic data scripts OR migration/schema files, `full_verification_gate()` MUST run the project's seed alignment test suite. This catches schema drift between migration definitions and seed data generators.
 
@@ -85,7 +85,7 @@ The test suite verifies:
 
 **Cross-feature applicability:** This gate applies to ALL modules. When a new module introduces its own seed file, the test discovers it automatically.
 
-## v1.2.0 — Full Feature Scope Mandate (MANDATORY)
+## Full Feature Scope Mandate (MANDATORY)
 
 > When a feature is in `delta_mode: true` OR has a `cascade_source` annotation in `dev_plan.md` frontmatter, the gate MUST run the **full module scope**, not just changed files.
 
@@ -416,7 +416,7 @@ FUNCTION phase_verification(phase, all_test_files):
       ELSE:
         RETURN LINT_ISSUES(lint_result.output)
   
-  # Format check (v1.1.0 — between lint and typecheck)
+  # Format check (between lint and typecheck)
   IF commands.format IS NOT NULL:
     format_result = RUN_IN_TERMINAL(commands.format, timeout: 30000)
     IF format_result.exit_code != 0:
@@ -507,7 +507,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
       SHOW: parse_test_output(result.output, commands).summary
       RETURN BLOCKED
   
-  # 4a. Format check (v1.1.0)
+  # 4a. Format check
   IF commands.format IS NOT NULL:
     result = RUN_IN_TERMINAL(commands.format, timeout: 30000)
     results.format = {status: result.exit_code == 0 ? "CLEAN" : "ISSUES"}
@@ -524,7 +524,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
         BLOCK: "Format issues detected. Fix manually."
         RETURN BLOCKED
 
-  # 5. SAST check (v1.1.0)
+  # 5. SAST check
   IF commands.sast IS NOT NULL:
     result = RUN_IN_TERMINAL(commands.sast, timeout: 120000)
     sast_findings = parse_sast_results(result.output, commands)
@@ -536,7 +536,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
       BLOCK: "SAST found {sast_findings.critical} CRITICAL + {sast_findings.high} HIGH"
       RETURN BLOCKED
 
-  # 6. Seed alignment check (v1.3.0 — conditional)
+  # 6. Seed alignment check (conditional)
   # Seed alignment tests are resolved from the project's test suite via commands.test_single.
   # The resolver scans for test files matching the seed alignment naming convention
   # (e.g., test_seed_schema_alignment, test_seed_deployment_isolation) under the project's
@@ -582,7 +582,7 @@ FUNCTION RESOLVE_INCREMENT_TEST_CMD(commands, scope_files, increment_id):
 
 ---
 
-## SAST OUTPUT PARSER (v1.1.0)
+## SAST OUTPUT PARSER
 
 ```yaml
 FUNCTION parse_sast_results(raw_output, commands):

@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# BATCH INTERACTIVITY PROTOCOL (BIP v1.2.0)
+# BATCH INTERACTIVITY PROTOCOL (BIP)
 
 > **Shared Protocol** — Referenced by: Factory (BA Mediation), SETUP (--init), CODESIGN (--start, --vision), AUDIT (--audit when NEEDS_INFO).
 > Eliminates one-question-at-a-time inefficiency. Batches decisions by dependency tier and uses proposal-based iteration.

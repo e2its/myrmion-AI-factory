@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# WORKLOG ENFORCEMENT (v2.0.0)
+# WORKLOG ENFORCEMENT
 
 > **Shared Protocol** — Referenced by: ALL agents + Factory (dispatcher enforcement).
 > Ensures every agent action is recorded in a per-feature JSONL audit trail.
@@ -14,7 +14,7 @@ ALL agents MUST register their actions in the worklog for audit trail and tracea
 
 ---
 
-## Architecture: Per-Feature Segregation (v2.0.0)
+## Architecture: Per-Feature Segregation
 
 ```yaml
 STRUCTURE:

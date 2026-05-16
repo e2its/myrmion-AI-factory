@@ -16,7 +16,7 @@ applicable_when:
 NEW → NEEDS_INFO → READY → BUILDING → PHASE_X_VERIFIED → IMPLEMENTED_AND_VERIFIED
 ```
 
-### Status Normalization Rule (v9.0.1)
+### Status Normalization Rule
 ```yaml
 IF dev_plan.md has non-canonical status (e.g., IN_PROGRESS, WIP, STARTED):
   IF has [x] completed tasks: NORMALIZE to BUILDING
@@ -24,7 +24,7 @@ IF dev_plan.md has non-canonical status (e.g., IN_PROGRESS, WIP, STARTED):
   LOG: "Status auto-normalized from {original} to {normalized}"
 ```
 
-### Delta Iteration Flow (v9.0.0)
+### Delta Iteration Flow
 ```yaml
 WHEN spec.iteration > dev_plan.based_on_iteration:
   STATUS: any previous → READY (delta_mode: true)
@@ -37,6 +37,11 @@ WHEN spec.iteration > dev_plan.based_on_iteration:
 
 ## `IMPLEMENT --refine {{FEATURE_ID}} "[FEEDBACK]"`
 
+### Step 0a: MCP Docs Scan (MANDATORY)
+- Invoke `factory-mcp-docs-scan` with `scope: "implementation"` (first user-facing turn).
+- Banner emission is BLOCKING — missing banner = `mal-iniciado`, halt and re-emit.
+- Result is consumed by Step 3.4 (MCP-docs consultation during delta generation).
+
 ### Step 0: Upstream Artifact Validation (MANDATORY — runs BEFORE any refinement)
 
 ```yaml
@@ -45,7 +50,7 @@ upstream_changes = validate_upstream_artifacts(FEATURE_ID)
 # upstream_changes feeds into MODE 2 if spec.iteration diverged
 ```
 
-### Feedback Scope Classification (v11.0.0 — MANDATORY)
+### Feedback Scope Classification (MANDATORY)
 
 Before processing feedback, classify each item:
 
@@ -135,7 +140,7 @@ IF status == READY:
   LOG: "Generated {count} adjustment tasks [ADJ-1..ADJ-{N}] in dev_plan.md"
 ```
 
-### MODE 2: Delta Iteration Refine (v9.0.0 — Checkbox-Driven)
+### MODE 2: Delta Iteration Refine (Checkbox-Driven)
 ```yaml
 IF spec.iteration > dev_plan.based_on_iteration:
   
@@ -153,6 +158,8 @@ IF spec.iteration > dev_plan.based_on_iteration:
      - [D.1] through [D.N] appended to relevant phases
      - New tasks ONLY for new/modified scenarios
      - Existing completed [x] tasks PRESERVED (never unchecked)
+     - Each delta task carries metadata: `origin: ITER-{FEAT_ID}-{N}` (upstream iteration that produced it) + `task_class: NEW | EXISTING | MODIFIED`.
+     - When `design.md.pending_design_items[]` is non-empty (BLUEPRINT --refine carry-over), each entry becomes a `[D.N]` task with `task_class: CARRIED_OVER` and `origin = design.iterations[-1].id`.
   5. UPDATE frontmatter:
      based_on_iteration: {spec.iteration}
      based_on_schemas_version: {user_journey.schemas_version}
@@ -165,15 +172,59 @@ IF spec.iteration > dev_plan.based_on_iteration:
   
   LOG: "Generated {count} delta tasks [D.1..D.{N}] in dev_plan.md"
 
+  # MCP-docs consultation — when factory-mcp-docs-scan banner reported docs MCPs available.
+  IF mcp_scan_banner.docs_mcps NOT EMPTY:
+    FOR EACH tech IN technologies_in_refine_scope:
+      query relevant docs MCP for tech
+      cite findings inline in delta task descriptions
+    populate iteration entry `mcp_consulted: [{names}]`
+
+  # CVP RUNS AFTER delta generation. CVP validates that the just-generated
+  # [D.N]/[ADJ-N]/CARRIED_OVER tasks close all cross-artefact gaps. Running CVP
+  # BEFORE generation would validate stale dev_plan against new spec — that's
+  # why we're refining. PREREQ: design.md.pending_iteration is null (BLUEPRINT
+  # --refine cleared it). Step 0a Upstream Sync Gate already enforces this.
+  cvp_result = cvp_coherence_gate(FEATURE_ID, CODESIGN_BLUEPRINT_IMPLEMENT, IMPLEMENT)
+  cvp_loop = 0
+  WHILE cvp_result.has_critical_gaps AND cvp_loop < 3:
+    LOG: "CVP detected {cvp_result.gaps.count} unclosed gaps — generating additional [D.N] tasks"
+    generate_additional_delta_tasks_for(cvp_result.gaps)
+    cvp_loop += 1
+    cvp_result = cvp_coherence_gate(FEATURE_ID, CODESIGN_BLUEPRINT_IMPLEMENT, IMPLEMENT)
+  IF cvp_result.has_critical_gaps:
+    ❌ BLOCK: "CVP gaps unresolved after 3 delta-task rounds. Manual review required."
+
+  # Append iteration entry to dev_plan.iterations[] via Iteration Append Pattern
+  # (factory-incremental-persistence). The entry's `delta_tasks` field is a checklist of
+  # tasks just generated; --build reads unchecked items from BOTH the legacy phase/increment
+  # sections AND the iteration anchor as one completion total.
+  iter_id = "ITER-{FEAT_ID}-{spec.iterations[-1].iteration}"
+  append_iteration_entry("dev_plan.md", {
+    id: iter_id, iteration: spec.iterations[-1].iteration, date: NOW_ISO(),
+    source: "cascade",
+    scope_summary: "{N} delta + {M} adjustment + {K} carried-over",
+    changes: [{kind: "delta_tasks_generated", refs: [D.1..D.N, ADJ.1..ADJ.M]}],
+    downstream_impact: ["qa/qa_report_final_*.md"],
+    anchor: "#iter-{N}",
+    rdr_rounds: 0, converged: true, impl_state_snapshot: null,
+    cascade_source: spec.iterations[-1].id,
+    mcp_consulted: [...],
+    delta_tasks: [
+      {tag: "D.1",            task_class: "NEW",          origin: spec.iterations[-1].id},
+      {tag: "D.2",            task_class: "MODIFIED",     origin: spec.iterations[-1].id},
+      {tag: "CARRIED_OVER.1", task_class: "CARRIED_OVER", origin: design.iterations[-1].id}
+    ]
+  })
+
   AUTO-CONTINUE PROMPT:
     "Delta tasks generated ({count} new checkboxes). Start building delta tasks now? (yes/no)"
     IF yes: EXECUTE --build (processes ONLY unchecked [ ] tasks including [D.N])
-  
+
   CASCADE: Execute CASCADE_PENDING_ITERATION for downstream:
     - QA reports → mark INVALIDATED if APPROVED
 
   APPEND_TO_WORKLOG: |
-    {"timestamp":"YYYY-MM-DD","phase":"Dev (Planning)","user_agent":"IMPLEMENT","action":"--refine {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"Delta iteration sync — {N} delta checkbox tasks [D.1..D.{N}] generated — based_on_iteration: {spec.iteration}"}
+    {"timestamp":"YYYY-MM-DD","phase":"Dev (Planning)","user_agent":"IMPLEMENT","action":"--refine {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","iteration_id":"{iter_id}","observations":"Delta iteration sync — {N} delta + {M} adjustment + {K} carried-over tasks — based_on_iteration: {spec.iteration}"}
 ```
 
 ---
@@ -181,6 +232,11 @@ IF spec.iteration > dev_plan.based_on_iteration:
 ## `IMPLEMENT --build {{FEATURE_ID}}`
 
 ### Pre-Flight Checks
+
+#### Step 0—MCP: MCP Docs Scan (MANDATORY)
+- Invoke `factory-mcp-docs-scan` with `scope: "implementation"` (first user-facing turn).
+- Banner emission is BLOCKING — missing banner = `mal-iniciado`, halt and re-emit.
+- When `docs_mcps NOT EMPTY`, the DEV hat queries each named docs MCP before generating code for any task whose technology matches an available docs MCP, and cites the consulted MCPs in the task's inline traceability comment (per skill § Citation contract).
 
 #### Step 0: Status Normalization
 ```yaml
@@ -190,8 +246,11 @@ IF status NOT IN canonical_statuses:
 ```
 
 #### Step 0a: Iteration Staleness Gate (BLOCKING — M-11)
+
+All four iteration reads route through `read_iteration_state(artifact_path)` (factory-iteration-model § Dual-format read). Direct `fm.iteration` access is a violation.
+
 ```yaml
-READ spec.feature → iteration
+READ spec.feature → iteration                     # read_iteration_state()
 READ dev_plan.md → based_on_iteration, pending_iteration
 
 # Check push-based staleness (from upstream cascade)
@@ -216,7 +275,7 @@ IF spec.iteration > design.md.based_on_iteration:
 ✅ All upstream artifacts in sync — proceed with build
 ```
 
-#### Step 0b: Architecture Context Loading (GCD Fast-Path v2.2.0)
+#### Step 0b: Architecture Context Loading (GCD Fast-Path)
 ```yaml
 # GCD FAST-PATH: Read pre-digested governance rules from design.md Section 7
 
@@ -273,7 +332,7 @@ FUNCTION load_governance_context(FEATURE_ID):
       # Fall through to full load below
   
   ELSE:  # gcd_section missing or frontmatter.governance_digest_version absent
-    LOG: "GCD not found — design.md Section 7 absent (pre-v2.3.0 BLUEPRINT). Falling back to full load."
+    LOG: "GCD not found — design.md Section 7 absent (legacy BLUEPRINT). Falling back to full load."
   
   IF NOT gcd_loaded:
     # Step 2: Fallback — traditional governance loading (pre-GCD projects or stale digest)
@@ -343,7 +402,7 @@ FUNCTION load_governance_context(FEATURE_ID):
   RETURN { governance_context, gcd_loaded }  # Both consumed by Phase Loop
 ```
 
-#### Step 0c: UX Vision Gate (v12.1.0 — UXD Fast-Path)
+#### Step 0c: UX Vision Gate (UXD Fast-Path)
 ```yaml
 IF frontend.framework != "None":
   VERIFY vision approved
@@ -364,7 +423,7 @@ IF frontend.framework != "None":
     }
     LOG: "UXD fast-path HIT ✅ — vision context loaded from design.md Section 7.6"
   ELSE:
-    # FALLBACK: Load raw vision HTML files (pre-v12.1.0 BLUEPRINT)
+    # FALLBACK: Load raw vision HTML files (legacy BLUEPRINT)
     uxd_loaded = false
     VERIFY all 5 source artifacts exist  # only required when UXD is absent
     LOG: "⚠️ UXD not found — loading raw vision HTML files (risk: content may be lost to summarization)"
@@ -378,7 +437,7 @@ IF frontend.framework != "None":
   # ux_context (or raw HTML content) is available to Phase B (DEV Hat + REVIEW Hat)
 ```
 
-#### Step 0c.1: CSS Foundation Gate (v12.1.0 — BLOCKING for Phase B)
+#### Step 0c.1: CSS Foundation Gate (BLOCKING for Phase B)
 
 ```yaml
 # PURPOSE: Verify that the CSS toolchain and design tokens are materialized
@@ -427,7 +486,7 @@ IF frontend.framework != "None":
     INJECT tokens into CSS entry point
 ```
 
-#### Step 0d: DRY Reuse Gate (CIP v1.0.0 — MANDATORY, DO NOT SKIP)
+#### Step 0d: DRY Reuse Gate (CIP — MANDATORY, DO NOT SKIP)
 ```yaml
 # CIP GATE — Execute BEFORE any code generation. This prevents duplicating existing components.
 
@@ -558,7 +617,7 @@ FUNCTION determine_build_scope(FEATURE_ID):
 ```yaml
 FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
   
-  # DEV Hat: Implement (with Defect Prevention Check v1.2.0)
+  # DEV Hat: Implement (with Defect Prevention Check)
   FOR EACH task IN phase.unchecked_tasks:
     # DEFECT PREVENTION CHECK (per-task, MANDATORY)
     # DEV Hat consults the Defect Prevention Catalog BEFORE writing code.
@@ -1125,7 +1184,7 @@ AFTER implementing each task:
 
 ### DEV Hat Protocol — Phase B (Frontend)
 
-#### CSS Foundation Gate (v12.1.0 — BLOCKING)
+#### CSS Foundation Gate (BLOCKING)
 ```yaml
 # BLOCKING: Verify styling infrastructure (CSS framework + design tokens) before component generation.
 
@@ -1521,7 +1580,7 @@ Factory Smart Redirect computes environment from ci-cd.md (NOT hardcoded)
 IMPLEMENT --build generates: peer_review_{timestamp}.md (or peer_review_{INC-N}_{timestamp}.md when incremental) + sec_audit.md
 QA --verify {ID} INC-N reads peer_review_{INC-N}_*.md for the slice
 QA --verify {ID} (aggregator) reads the latest peer_review_*.md
-DAST (v8.0.0) absorbed by QA --verify (SEC hat in QA)
+DAST absorbed by QA --verify (SEC hat in QA)
 ```
 
 ### QA → IMPLEMENT
@@ -1755,10 +1814,10 @@ FUNCTION persist_new_tasks(dev_plan_path, new_tasks, task_type):
 
 ---
 
-## DEFECT DISCOVERY PROTOCOL (v1.3.0 — AUTOMATIC)
+## DEFECT DISCOVERY PROTOCOL (AUTOMATIC)
 
 > When IMPLEMENT detects a runtime defect NOT in the Defect Prevention Catalog, the agent MUST propose cataloging it. This closes the improvement loop: discover→catalog→prevent.
-> Works with BVL v1.4.0 Defect Discovery Hook.
+> Works with BVL Defect Discovery Hook.
 
 ```yaml
 FUNCTION defect_discovery_check(error, context):

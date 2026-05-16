@@ -75,8 +75,10 @@ MERGE_BASE=$(git merge-base "$BASE_REF" HEAD 2>/dev/null || true)
 
 # ────────────────────────────────────────────────────────────────────────────
 # Bypass check: any commit message in the diff range carrying [adr-backfill].
+# Uses -F (fixed-string) — [adr-backfill] is a literal token, not a regex.
+# Eliminates BRE/ERE escape ambiguity across grep variants (GNU vs BSD vs CI).
 # ────────────────────────────────────────────────────────────────────────────
-if git log "$MERGE_BASE..HEAD" --pretty=%B 2>/dev/null | grep -q '\[adr-backfill\]'; then
+if git log "$MERGE_BASE..HEAD" --pretty=%B 2>/dev/null | grep -qF '[adr-backfill]'; then
   echo "check-adr-constitution-sync: BYPASS — [adr-backfill] marker found in commit messages. Gate skipped."
   exit 0
 fi

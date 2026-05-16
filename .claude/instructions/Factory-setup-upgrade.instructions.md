@@ -14,7 +14,7 @@ applicable_when:
 
 ## Migration Path Mapping
 
-### v9.0.0 — filename rename
+### filename rename
 
 | Pre-9.0.0 Path | Post-9.0.0 Path |
 |---|---|
@@ -25,7 +25,7 @@ applicable_when:
 
 ### Rules / config split (NOT auto-applied)
 
-| Pre-EVOL-016 | Post-EVOL-016 |
+| Before | After |
 |---|---|
 | docs/rules/*.instructions.md | .claude/rules/*.instructions.md |
 | docs/rules/defect-prevention.md | .claude/rules/defect-prevention.md |
@@ -42,7 +42,7 @@ git mv docs/rules .claude/rules
 
 Then regenerate governance snapshot and re-run `--upgrade`.
 
-### v4.0.0 — rules-naming convention unification (drop `.instructions.md` suffix)
+### rules-naming convention unification (drop `.instructions.md` suffix)
 
 Materialised projects on framework < 4.0.0 carry rules as `.claude/rules/foo.instructions.md`. Convention is unified to `.claude/rules/foo.md` everywhere — source, target, manifest, instruction refs.
 
@@ -61,7 +61,7 @@ else
 fi
 for f in .claude/rules/*.instructions.md; do
   base="${f##*/}"; new="${base%.instructions.md}.md"
-  # Skip if target already exists (post-EVOL-027 materialisation already correct).
+  # Skip if target already exists (current materialisation already correct).
   [ -e ".claude/rules/$new" ] && continue
   "${rename_cmd[@]}" "$f" ".claude/rules/$new"
 done
@@ -71,11 +71,11 @@ The rename runs BEFORE Smart Additive Merge so that subsequent file-by-file comp
 
 If the migration finds collisions (both `foo.instructions.md` and `foo.md` exist), it skips the rename and surfaces a manual-resolution warning — typical cause is a half-applied prior upgrade that the user must reconcile.
 
-`factory-sync.sh` accepts both forms during the transition window (1 minor version) and prefers the new form when both exist on the framework side. The `--preserve-local` flag (factory-sync.sh global flag) applies to all targets including post-EVOL-027 framework-shipped scripts (`generate-governance-snapshot.sh`, `check-inventory-drift.sh`): when set, materialised projects with legitimate local modifications keep their version instead of being overwritten.
+`factory-sync.sh` accepts both forms during the transition window (1 minor version) and prefers the new form when both exist on the framework side. The `--preserve-local` flag (factory-sync.sh global flag) applies to all targets including current framework-shipped scripts (`generate-governance-snapshot.sh`, `check-inventory-drift.sh`): when set, materialised projects with legitimate local modifications keep their version instead of being overwritten.
 
 ---
 
-## Command: `--upgrade` (v3.0.0)
+## Command: `--upgrade`
 
 Upgrades project governance artifacts to match the latest framework templates. Uses Smart Additive Merge to preserve user customizations while adding new framework capabilities.
 
@@ -218,7 +218,7 @@ Post-merge validation to detect configuration conflicts:
 
 **Step 5b — Zero-TODO Enforcement:**
 Scan merged content for unresolved placeholders (`TODO`, `FIXME`, `XXX`, `{{...}}`).
-- **Exception:** `REPLACE_ME_*` patterns in `.env.example` files are EXEMPT (Secret Placeholder Convention v11.0.0)
+- **Exception:** `REPLACE_ME_*` patterns in `.env.example` files are EXEMPT (Secret Placeholder Convention)
 - If unresolved TODOs found → resolve via Smart Discovery Cascade or RDR before proceeding
 
 **Step 6 — Show Diff:** Display unified diff for user confirmation.
@@ -237,7 +237,7 @@ Files that exist in framework but not in project:
 
 **Special case — `claude/CLAUDE.md` and `claude/settings.json`:**
 
-- `.context/templates/setup/claude/CLAUDE.md` → target `CLAUDE.md` (project root). Uses `smart-additive-merge`. On first upgrade after EVOL-018, the project's existing `CLAUDE.md` is expected to be the old framework-shared variant; the merge keeps all existing sections, adds any new universal sections from the template, and leaves user-added sections untouched. Framework-repo-specific sections in the old file (e.g. "Meta-Framework Triage", paths to `.context/templates/setup/governance_versions.json`) become stale — the upgrade surfaces them as diff candidates for user review. Explicit user confirmation is required before the merge replaces framework-specific guidance with project-specific guidance.
+- `.context/templates/setup/claude/CLAUDE.md` → target `CLAUDE.md` (project root). Uses `smart-additive-merge`. On first upgrade, the project's existing `CLAUDE.md` is expected to be the old framework-shared variant; the merge keeps all existing sections, adds any new universal sections from the template, and leaves user-added sections untouched. Framework-repo-specific sections in the old file (e.g. "Meta-Framework Triage", paths to `.context/templates/setup/governance_versions.json`) become stale — the upgrade surfaces them as diff candidates for user review. Explicit user confirmation is required before the merge replaces framework-specific guidance with project-specific guidance.
 - `.context/templates/setup/claude/settings.json` → target `.claude/settings.json`. Uses `merge-preserve` (more conservative than smart-additive-merge):
   - Add the `hooks.SessionStart`, `hooks.UserPromptSubmit`, `hooks.PreCompact` blocks from the template if absent in target.
   - For `hooks.PreToolUse`, if target has any entry at all, leave it untouched (never overwrite user-configured pre-tool-use hooks).

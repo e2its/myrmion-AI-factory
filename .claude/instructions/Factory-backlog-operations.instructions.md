@@ -101,7 +101,7 @@ Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missi
 
 **Sub-issue nesting.** The three gate phases are logically **sub-issues of IMPLEMENT** (suffix 5). Adapters that declare `add_sub_issue: native` (e.g. `github-project.md`) materialise them as real sub-issues so holistic progress tracking on the board reflects feature completion. Adapters that declare `add_sub_issue: no-op` (e.g. `none.md`) materialise them as standalone siblings with a `> Parent: IMPLEMENT issue` cross-reference line in the body — the `--next-task` resolver reads the cross-reference to reconstruct the hierarchy.
 
-**Iteration of the preset.** The 8-phase expansion was introduced by EVOL-014 (derived from the production experience of the first materialised product after months of real use: contract drift killed six features, fifteen runtime defects slipped past static gates into dev, and unstructured smoke testing produced inconsistent Done criteria). Projects materialised before EVOL-014 with the legacy 5-phase expansion keep their existing issue sets — gate issues are backfilled manually by `--plan-feature {ID}` when run on a pre-EVOL-014 feature.
+**Iteration of the preset.** The 8-phase expansion was introduced (derived from the production experience of the first materialised product after months of real use: contract drift killed six features, fifteen runtime defects slipped past static gates into dev, and unstructured smoke testing produced inconsistent Done criteria). Projects materialised before EVOL-014 with the legacy 5-phase expansion keep their existing issue sets — gate issues are backfilled manually by `--plan-feature {ID}` when run on a legacy feature.
 
 ---
 

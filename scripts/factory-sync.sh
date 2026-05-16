@@ -373,7 +373,7 @@ resolve_script_src() {
     echo "$meta"
   fi
 }
-for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh governance-onprompt.sh governance-oncompact.sh governance-onedit.sh generate-governance-snapshot.sh check-inventory-drift.sh check-applicability-frontmatter.sh project_summarization.py check-adr-constitution-sync.sh reconcile_inventory.py check-inventory-freshness.py; do
+for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh governance-onprompt.sh governance-oncompact.sh governance-onedit.sh generate-governance-snapshot.sh check-inventory-drift.sh check-applicability-frontmatter.sh check-iteration-id-format.sh migrate-iteration-frontmatter.sh project_summarization.py check-adr-constitution-sync.sh reconcile_inventory.py check-inventory-freshness.py; do
   sync_file "$(resolve_script_src "$script")" "$TARGET_PROJECT/scripts/$script"
 done
 # factory-sync.sh exists only in framework_core (no template variant by design).

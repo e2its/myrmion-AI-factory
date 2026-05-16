@@ -6,7 +6,7 @@ applicable_when:
   command: [implement]
 ---
 
-# PREVENTIVE DEFECT SWEEP (v1.0.0)
+# PREVENTIVE DEFECT SWEEP
 
 > **Shared Protocol** — Referenced by: QA agent (--verify post-deploy), IMPLEMENT agent (build completion gate for first-deploy features).
 > Catches runtime defects that static gates cannot detect by searching for empirically-discovered defect patterns across backend, frontend, and infrastructure.
@@ -99,7 +99,7 @@ FUNCTION derive_sweep_scopes(applicable_dcs):
 ```yaml
 FUNCTION filter_dcs_by_feature_scope(applicable_dcs, feature_scope):
   # filter DCs so only scope-relevant patterns are swept.
-  # This complements the per-DC feature_scope field (DPC v2.2.0 — Filter 2 in consult_defect_catalog)
+  # This complements the per-DC feature_scope field (DPC — Filter 2 in consult_defect_catalog)
   # by applying a sweep-wide second pass keyed on sweep-scope buckets, not per-DC:
   #   * scope=frontend-only  → drop backend + cross-cutting-API scopes (no backend surface to sweep)
   #   * scope=backend-only   → drop frontend scope (no UI surface to sweep)

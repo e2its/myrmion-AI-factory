@@ -5,11 +5,11 @@ applicable_when:
   command: [implement, blueprint]
 ---
 
-# CODEBASE INVENTORY PROTOCOL (CIP v1.2.0) — CROSS-AGENT DRY ENFORCEMENT
+# CODEBASE INVENTORY PROTOCOL (CIP) — CROSS-AGENT DRY ENFORCEMENT
 
 > **Shared Protocol** — Referenced by: CODESIGN, BLUEPRINT, IMPLEMENT, SETUP agents.
 > Before ANY agent proposes creating a new service, entity, utility, component, or significant code artifact, it MUST consult the Codebase Inventory to detect existing artifacts with overlapping responsibility.
-> **Memory Cache (MCP v1.0.0):** Uses `/memories/repo/codebase-inventory-cache.md` for fast domain-group lookups. See `factory-memory-cache/SKILL.md`.
+> **Memory Cache (MCP):** Uses `/memories/repo/codebase-inventory-cache.md` for fast domain-group lookups. See `factory-memory-cache/SKILL.md`.
 
 **Applies to:** `CODESIGN` (domain concepts), `BLUEPRINT` (technical artifacts), `IMPLEMENT` (code creation), `SETUP` (brownfield bootstrap)
 

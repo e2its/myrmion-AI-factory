@@ -829,7 +829,7 @@ The rule lives in two places depending on context (framework/project split):
 
 - [.context/templates/setup/claude/CLAUDE.md § SDLC-First Triage](.context/templates/setup/claude/CLAUDE.md) — the materialized-project variant (SDLC-first is the default; carve-outs for read-only, docs-only fast-lane, trivial edits).
 - [CLAUDE.md § Meta-Framework Triage](CLAUDE.md) — the framework-repo variant (meta-maintenance is the default; SDLC routing is the rare exception).
-- [.claude/instructions/Factory-protocol-iop-intent-map.instructions.md](.claude/instructions/Factory-protocol-iop-intent-map.instructions.md) — the canonical technical classifier (IOP v1.1.0) that both variants point at.
+- [.claude/instructions/Factory-protocol-iop-intent-map.instructions.md](.claude/instructions/Factory-protocol-iop-intent-map.instructions.md) — the canonical technical classifier (IOP) that both variants point at.
 
 ### Cross-Cutting Skills (Protocols)
 

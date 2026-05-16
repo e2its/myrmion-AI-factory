@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# INCREMENTAL PERSISTENCE PROTOCOL (IPP v1.0.1)
+# INCREMENTAL PERSISTENCE PROTOCOL (IPP)
 
 > **Shared Protocol** — Referenced by: ALL agents (SETUP, AUDIT, CODESIGN, BLUEPRINT, IMPLEMENT, DEVOPS, QA).
 > Ensures every reasoning cycle is persisted to files so that context loss (summarization, session change, interruption) never causes loss of progress or decisions.
@@ -490,3 +490,61 @@ This protocol is **MANDATORY** for ALL agents producing file artifacts. Violatio
 - Making RDR decisions without persisting them to the artifact → **VIOLATION**
 - Writing a section WITHOUT running `ipp_canary_gate()` first → **VIOLATION**
 - Assuming section completion state from conversation memory instead of reading `_progress` from file → **VIOLATION**
+- Appending an `iterations[]` entry without an `iteration_in_flight` marker, or leaving the marker set after success → **VIOLATION** (see § Iteration Append Pattern)
+
+---
+
+## Iteration Append Pattern
+
+`--refine` writes to an artefact's `iterations[]` array (per factory-iteration-model § Canonical Iteration ID). YAML list append is read-modify-write → unsafe under summarization. Use the marker + 5-save pattern below.
+
+### Marker
+
+Extend `_progress` with `iteration_in_flight: ITER-{FEAT}-{N} | null`.
+
+### Pattern
+
+```yaml
+FUNCTION append_iteration_entry(artifact_path, new_entry):
+  fm = READ_FRONTMATTER(artifact_path)
+
+  # Step 1 — Resume / collision check
+  IF fm._progress.iteration_in_flight IS NOT NULL:
+    IF fm._progress.iteration_in_flight == new_entry.id:
+      IF FIND(fm.iterations, e => e.id == new_entry.id) IS NOT NULL:
+        UPDATE_FRONTMATTER(artifact_path, { _progress.iteration_in_flight: null })
+        SAVE(artifact_path)
+        RETURN "ALREADY_PERSISTED"
+      # else fall through — re-execute Steps 3–5 idempotently
+    ELSE:
+      RAISE: "iteration_in_flight collision: {fm._progress.iteration_in_flight} ≠ {new_entry.id}"
+
+  # Step 2 — Mark before mutating
+  UPDATE_FRONTMATTER(artifact_path, { _progress.iteration_in_flight: new_entry.id })
+  SAVE(artifact_path)
+
+  # Step 3 — Append (idempotent on id)
+  fm = READ_FRONTMATTER(artifact_path)
+  IF FIND(fm.iterations, e => e.id == new_entry.id) IS NULL:
+    UPDATE_FRONTMATTER(artifact_path, { iterations: APPEND(fm.iterations OR [], new_entry) })
+    SAVE(artifact_path)
+
+  # Step 4 — Body anchor
+  APPEND_BODY_SECTION(artifact_path, RENDER_ITERATION_SECTION(new_entry))
+  SAVE(artifact_path)
+
+  # Step 5 — Clear marker
+  UPDATE_FRONTMATTER(artifact_path, { _progress.iteration_in_flight: null })
+  SAVE(artifact_path)
+```
+
+### Resume-on-entry
+
+`resume_or_start()` inspects `_progress.iteration_in_flight`:
+- `null` → normal flow.
+- non-null + entry already in `iterations[]` → clear marker (ALREADY_PERSISTED branch).
+- non-null + no matching entry → re-execute Steps 3–5 idempotently before any other write.
+
+### CI gate
+
+`scripts/check-iteration-id-format.sh` blocks merge when `_progress.iteration_in_flight` remains set on any artefact.

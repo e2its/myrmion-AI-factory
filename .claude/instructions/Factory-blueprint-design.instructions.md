@@ -66,6 +66,11 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 - If snapshot valid → governance loaded (1 file read). If stale/missing → full reload Steps 1-4 + regenerate snapshot
 - See `governance-loading.md` Step 0 for full protocol
 
+### Step 0c: MCP Docs Scan (MANDATORY)
+- Invoke `factory-mcp-docs-scan` with `scope: "design"` (first user-facing turn).
+- Banner emission is BLOCKING — missing banner = `mal-iniciado`, halt and re-emit.
+- When `docs_mcps NOT EMPTY`, query each named docs MCP for technologies/frameworks in the design scope and cite findings inline in design.md (per skill § Citation contract).
+
 ### Step 1: Load Constitution & Governance Index
 - Parse stack (backend.runtime, frontend.framework, architecture, topology)
 - Parse `<!-- METADATA -->` comments for rule applicability
@@ -116,7 +121,10 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 f
 ### Mandatory Branching
 - Must be on `feature/{{FEATURE_ID}}-*` branch. BLOCK if on protected branch.
 
-### Downstream Iteration Detection (v1.0.0 Dual-Source)
+### Downstream Iteration Detection (Dual-Source)
+
+Reads `spec.iteration` / `design.based_on_iteration` / `design.pending_iteration` via `read_iteration_state(artifact_path)` (factory-iteration-model § Dual-format read). Direct `fm.iteration` access is a violation.
+
 ```yaml
 # Source A: Pull-based comparison
 pull_gap = (spec.iteration > design.based_on_iteration)
@@ -441,7 +449,7 @@ infrastructure_needs:
     notes: "Any special considerations (offline sync states, temporal data, etc.)"
 ```
 
-### Section 6: Frontend UI Contract (MANDATORY — if frontend.framework != "None") (v2.4.0)
+### Section 6: Frontend UI Contract (MANDATORY — if frontend.framework != "None")
 
 > **Purpose:** Bridge the gap between UX Vision artifacts (mock.html, style_guide.html, component_library.html) and IMPLEMENT Phase B. Without this section, developers build components with generic utility classes instead of reproducing the mock's precise visual design. This section produces an actionable, machine-readable contract that Phase B MUST follow.
 >
@@ -538,7 +546,7 @@ OUTPUT: list of @layer components entries needed in globals.css
 
 ---
 
-### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY — v2.3.0)
+### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY —)
 
 > **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for DEV + REVIEW + SEC hats.
 >
@@ -789,7 +797,7 @@ Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, sl
 - `docs/spec/{{FEATURE_ID}}/increment_plan.md` exists with `status: DRAFT`, well-formed frontmatter (all fields populated), § 0/§ 1/§ 2 fully written. § 3 only when `slicing_strategy == monolithic`.
 - CVP gates `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage` run at `--approve` (see `.claude/skills/factory-coherence-validation/SKILL.md`).
 
-### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY — v2.3.0)
+### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY —)
 
 > **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for DEV + REVIEW + SEC — reliably, with zero duplication.
 
@@ -1329,7 +1337,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
 **Reliability guarantees:**
 - **Same-source:** The GCD uses the SAME governance context already loaded by BLUEPRINT (Steps 0-5). It does not re-read any files — it re-structures what is already in memory.
 - **Hash-validated:** The `governance_digest_version` field stores `constitution_hash[:8]` from the governance snapshot. IMPLEMENT Step 0b compares this against the current snapshot's `constitution_hash` — if they diverge, IMPLEMENT falls back to direct governance loading and emits an advisory to re-run `BLUEPRINT --refine`.
-- **Graceful degradation:** If Section 7 is absent (pre-v2.3.0 BLUEPRINT) or stale, IMPLEMENT loads governance from raw files. No workflow breakage.
+- **Graceful degradation:** If Section 7 is absent (legacy BLUEPRINT) or stale, IMPLEMENT loads governance from raw files. No workflow breakage.
 
 ### Incremental Persistence (IPP-compliant — MANDATORY)
 

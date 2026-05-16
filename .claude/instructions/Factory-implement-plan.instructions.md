@@ -165,7 +165,7 @@ FUNCTION consumes_contract_upstream_freeze_gate(FEATURE_ID):
 
 **Pair with the BLUEPRINT-side gate.** The same `consumes_contract` list is validated at `BLUEPRINT --start` by the Consumes-Contract Resolution Gate (Phase 1) — that one runs before the downstream design is even drafted. This IMPLEMENT-side gate is the second enforcement point: the upstream must still be APPROVED + frozen + current at implementation time (a regression would be caught by the cascade labelling). Together they make consumes_contract a load-bearing primitive, not just a documentation field.
 
-### UX Vision Gate (v12.0.0)
+### UX Vision Gate
 ```yaml
 READ docs/setup.md → frontend.framework
 IF frontend.framework != "None":
@@ -436,7 +436,7 @@ FOR EACH dependency:
     ADD Phase A task: "Create mock/stub for {dependency}"
 ```
 
-## Pre-Implementation Codebase Survey (CIP v1.0.0)
+## Pre-Implementation Codebase Survey (CIP)
 
 ### Step S.1: Load Registry
 ```yaml
@@ -587,7 +587,7 @@ TASKS:
 ### Phase B: Frontend / UI (if frontend.framework != "None")
 ```yaml
 TASKS:
-  # B.0: Frontend Foundation (CSS/Design Token Scaffolding — v12.1.0)
+  # B.0: Frontend Foundation (CSS/Design Token Scaffolding —)
   # These tasks MUST complete BEFORE any component implementation.
   # Without this foundation, components are generated with default/empty styles
   # instead of the project's design system tokens.
@@ -888,11 +888,11 @@ FUNCTION validate_seed_integrity():
 
 ## UX Artifacts Integration (Vision + Feature)
 
-### Global Vision References (V.1–V.6) — UXD Fast-Path (v12.1.0)
+### Global Vision References (V.1–V.6) — UXD Fast-Path
 
 > **Source:** `design.md Section 7.6: UX Vision Digest (UXD)`. BLUEPRINT pre-digested all 5 vision
 > HTML/MD artifacts into a compact structured section. IMPLEMENT reads ONE section — no raw HTML loading.
-> Fallback to raw HTML files ONLY if UXD is absent (pre-v12.1.0 BLUEPRINT).
+> Fallback to raw HTML files ONLY if UXD is absent (legacy BLUEPRINT).
 
 ```yaml
 FUNCTION load_ux_vision_context(FEATURE_ID):
@@ -910,8 +910,8 @@ FUNCTION load_ux_vision_context(FEATURE_ID):
     RETURN { uxd, uxd_loaded: true }
   
   ELSE:
-    # FALLBACK: Load raw vision files (pre-v12.1.0 BLUEPRINT)
-    LOG: "⚠️ UXD not found in design.md Section 7.6 (pre-v12.1.0 BLUEPRINT). Loading raw HTML files."
+    # FALLBACK: Load raw vision files (legacy BLUEPRINT)
+    LOG: "⚠️ UXD not found in design.md Section 7.6 (legacy BLUEPRINT). Loading raw HTML files."
     V.1: READ app_shell.html → Determine shell composition (header, sidebar, footer)
     V.2: READ style_guide.html → Extract design tokens (CSS variables, color palette, typography scale)
     V.3: READ page_templates.html → Identify which template type this feature uses

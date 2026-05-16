@@ -21,6 +21,9 @@ invalidated_reason: null
 cascade_source: null
 cascade_timestamp: null
 cascade_scope: []
+
+# ITER-{FEAT}-{N} entries — see factory-iteration-model
+iterations: []
 ---
 
 # Test Cases: {{FEATURE_ID}}

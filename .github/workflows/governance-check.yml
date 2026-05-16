@@ -77,6 +77,11 @@ jobs:
           chmod +x scripts/check-applicability-frontmatter.sh
           bash scripts/check-applicability-frontmatter.sh
 
+      - name: Iteration ID schema validation
+        run: |
+          chmod +x scripts/check-iteration-id-format.sh
+          bash scripts/check-iteration-id-format.sh
+
       - name: Post violation comment on failure
         if: failure()
         env:

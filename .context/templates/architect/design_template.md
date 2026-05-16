@@ -27,6 +27,12 @@ invalidated_reason: null
 cascade_source: null
 cascade_timestamp: null
 cascade_scope: []
+
+# ITER-{FEAT}-{N} entries — see factory-iteration-model
+iterations: []
+
+# Designed-not-implemented carry-over (BLUEPRINT impl-state probe → IMPLEMENT delta tasks)
+pending_design_items: []
 ---
 
 <!-- Scope-aware section applicability:

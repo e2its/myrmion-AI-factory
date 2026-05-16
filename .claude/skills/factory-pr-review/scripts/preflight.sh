@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# preflight.sh — Factory PR Review push-gate orchestrator (v1.1.3)
+# preflight.sh — Factory PR Review push-gate orchestrator
 #
 # Runs the local quality gate before `git push`. Aggregates findings from:
 #   - detect_change_type.py     (classification + secrets heuristic)

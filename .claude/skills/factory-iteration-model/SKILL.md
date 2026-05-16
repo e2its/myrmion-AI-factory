@@ -217,7 +217,7 @@ Step 4: Upstream Sync Gate (MANDATORY for IMPLEMENT and DEVOPS)
 
 ---
 
-## Downstream Cascade Invalidation Protocol (MANDATORY — v1.0.0)
+## Downstream Cascade Invalidation Protocol (MANDATORY —)
 
 When an upstream agent opens a new iteration or syncs its artifacts via DELTA/FULL, it MUST **push** `pending_iteration` to ALL existing downstream artifacts. This converts the pull-based model into a **push+pull hybrid**.
 
@@ -765,3 +765,56 @@ status: "INVALIDATED"
 invalidated_by_iteration: 3
 invalidated_reason: "Upstream artifacts changed: [ui_restyling, schema_change]"
 ```
+
+---
+
+## Canonical Iteration ID — `ITER-{FEAT}-{N}`
+
+Capability flag `governance_features.iterations_array_v1` in the governance manifest gates presence of `iterations[]` per project.
+
+### Entry shape
+
+```yaml
+- id: ITER-AUTH-001-3                 # ^ITER-[A-Z0-9]+(-[A-Z0-9]+)*-\d+$
+  iteration: 3                        # N suffix of id
+  date: 2026-05-16T10:30:00Z
+  source: user-feedback               # user-feedback | cascade | impl-gap-probe | rdr-ratification | mcp-docs-finding
+  classification: DELTA               # DELTA | BREAKING | HYBRID (CODESIGN only)
+  scope_summary: "one-line summary"
+  changes: [{kind: scenario_added, ref: "User enables MFA"}]
+  downstream_impact: [design.md, test_plan.md]
+  anchor: "#iter-3"                   # body MUST carry matching `## Iteration {id} {#iter-N}`
+  rdr_rounds: 2                       # 0 when not applicable
+  converged: true
+  impl_state_snapshot: {tasks_done: 14, commits_since_last_iter: 7}
+  cascade_source: ITER-AUTH-001-3     # join key: downstream entry's cascade_source == upstream entry's id
+  mcp_consulted: [context7, aws-knowledge]
+```
+
+**Rules**
+- `FEAT` portion = `spec.feature.feature_id` verbatim.
+- `N` monotonic per feature. Next N = `max(iterations[].iteration) + 1` on `spec.feature`.
+- Cross-artefact join = same `id` on upstream entry and downstream `cascade_source`.
+
+### Cascade contract
+
+Scalar `pending_iteration` (CASCADE signal) = `iterations[-1].iteration` of upstream artefact. `cascade_source` accepts both ITER ID and legacy agent-name string.
+
+### Dual-format read
+
+Every gate reading `iteration` / `iteration_history` / `pending_iteration` routes through:
+
+```yaml
+FUNCTION read_iteration_state(artifact_path):
+  fm = READ_FRONTMATTER(artifact_path)
+  IF fm.iterations NOT EMPTY:
+    latest = fm.iterations[-1]
+    RETURN { n: latest.iteration, id: latest.id, history: fm.iterations, source: "array" }
+  ELSE:
+    RETURN { n: fm.iteration OR 1,
+             id: "ITER-{spec.feature_id}-{fm.iteration OR 1}",   # synthesized, not persisted
+             history: fm.iteration_history OR [],
+             source: "scalar-legacy" }
+```
+
+Direct `fm.iteration` access in any gate is a violation.
