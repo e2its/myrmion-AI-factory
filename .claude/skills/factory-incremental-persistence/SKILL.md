@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# INCREMENTAL PERSISTENCE PROTOCOL (IPP v1.0.1)
+# INCREMENTAL PERSISTENCE PROTOCOL (IPP)
 
 > **Shared Protocol** — Referenced by: ALL agents (SETUP, AUDIT, CODESIGN, BLUEPRINT, IMPLEMENT, DEVOPS, QA).
 > Ensures every reasoning cycle is persisted to files so that context loss (summarization, session change, interruption) never causes loss of progress or decisions.

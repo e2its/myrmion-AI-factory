@@ -206,7 +206,7 @@ FUNCTION validate_environment_name(env_name):
   ✅ Environment '{env_name}' validated against ci-cd.md
 ```
 
-## Guardrail 6: Downstream Iteration Detection (v1.0.0)
+## Guardrail 6: Downstream Iteration Detection
 
 ```yaml
 BEFORE any command that reads feature artifacts:
@@ -233,7 +233,7 @@ BEFORE any command that reads feature artifacts:
       ❌ BLOCK: "BLUEPRINT artifacts stale. Run BLUEPRINT --refine first."
 ```
 
-## Guardrail 7: Placeholder Detection (v11.0.0)
+## Guardrail 7: Placeholder Detection
 
 ```yaml
 FUNCTION DETECT_PLACEHOLDERS(value):
@@ -244,7 +244,7 @@ FUNCTION DETECT_PLACEHOLDERS(value):
     xxx+, aaaa+, 1234, password123        # Filler values
     example\.com, localhost, 0\.0\.0\.0   # Dev-only addresses
     <YOUR_.*>, \[INSERT_.*\]              # Bracket placeholders
-    REPLACE_ME_.*                         # SETUP convention (v11.0.0)
+    REPLACE_ME_.*                         # SETUP convention
   
   IF match: RETURN {detected: true, pattern, value}
 
@@ -468,7 +468,7 @@ Save confirmation
 ### Phase 6: Secrets Configuration (Per-Secret, Per-Env)
 ```yaml
 SCAN design.md + system_resources.json for required secrets
-SCAN .env.example for REPLACE_ME_* patterns (SETUP convention v11.0.0)
+SCAN .env.example for REPLACE_ME_* patterns (SETUP convention)
 
 FOR EACH secret identified:
   FOR EACH environment:
@@ -506,7 +506,7 @@ PRESENT summary of all decisions:
 UPDATE devops_plan.md:
   questions: {total: N, answered: N, next_question: null}
 
-### Auto-Approval Protocol (v8.2.0 — eliminates separate --approve command)
+### Auto-Approval Protocol (eliminates separate --approve command)
 
 ```yaml
 FUNCTION devops_auto_approve(FEATURE_ID, devops_plan_path):
@@ -613,7 +613,7 @@ feature_id: "{FEATURE_ID}"
 created_at: "{ISO_8601}"
 updated_at: "{ISO_8601}"
 approved_at: null
-# Iteration tracking (v1.0.0)
+# Iteration tracking
 based_on_iteration: 1
 based_on_schemas_version: 1
 pending_iteration: null

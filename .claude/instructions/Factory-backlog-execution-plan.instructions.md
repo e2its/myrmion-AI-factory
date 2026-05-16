@@ -5,7 +5,7 @@ applicable_when:
   command: [backlog]
 ---
 
-# Backlog Execution Plan Protocol (v1.2.0)
+# Backlog Execution Plan Protocol
 
 > Loaded contextually by the `backlog` agent. Contains the protocol for generating and maintaining
 > the execution plan that minimizes rework by grouping features into **Epics** by shared Bounded Context
@@ -16,7 +16,7 @@ applicable_when:
 > a cohesive group of features that share Bounded Context boundaries and are co-designed, contracted,
 > and implemented together. This aligns with standard Agile nomenclature and enables epic-scoped branching.
 >
-> **Slices (v1.2.0):** Each epic is subdivided into **Slices** — small batches of 1-3 tightly-coupled
+> **Slices:** Each epic is subdivided into **Slices** — small batches of 1-3 tightly-coupled
 > features grouped by shared Aggregate Root. This prevents agent overload by limiting co-design scope
 > to max 3 features at a time. Later slices consume contracts established by earlier slices.
 

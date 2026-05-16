@@ -4,7 +4,7 @@ applicable_when:
   always: true
 ---
 
-# INTELLIGENT ORCHESTRATION PROTOCOL (IOP v1.1.0)
+# INTELLIGENT ORCHESTRATION PROTOCOL (IOP)
 
 > **Shared Protocol** — Referenced by: Factory orchestrator agent.
 > ALL user interactions — whether explicit commands, natural language requests, or ad-hoc operations — are subject to the same governance standards.

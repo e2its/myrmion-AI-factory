@@ -16,7 +16,7 @@ applicable_when:
 NEW → NEEDS_INFO → READY → BUILDING → PHASE_X_VERIFIED → IMPLEMENTED_AND_VERIFIED
 ```
 
-### Status Normalization Rule (v9.0.1)
+### Status Normalization Rule
 ```yaml
 IF dev_plan.md has non-canonical status (e.g., IN_PROGRESS, WIP, STARTED):
   IF has [x] completed tasks: NORMALIZE to BUILDING
@@ -24,7 +24,7 @@ IF dev_plan.md has non-canonical status (e.g., IN_PROGRESS, WIP, STARTED):
   LOG: "Status auto-normalized from {original} to {normalized}"
 ```
 
-### Delta Iteration Flow (v9.0.0)
+### Delta Iteration Flow
 ```yaml
 WHEN spec.iteration > dev_plan.based_on_iteration:
   STATUS: any previous → READY (delta_mode: true)
@@ -50,7 +50,7 @@ upstream_changes = validate_upstream_artifacts(FEATURE_ID)
 # upstream_changes feeds into MODE 2 if spec.iteration diverged
 ```
 
-### Feedback Scope Classification (v11.0.0 — MANDATORY)
+### Feedback Scope Classification (MANDATORY)
 
 Before processing feedback, classify each item:
 
@@ -140,7 +140,7 @@ IF status == READY:
   LOG: "Generated {count} adjustment tasks [ADJ-1..ADJ-{N}] in dev_plan.md"
 ```
 
-### MODE 2: Delta Iteration Refine (v9.0.0 — Checkbox-Driven)
+### MODE 2: Delta Iteration Refine (Checkbox-Driven)
 ```yaml
 IF spec.iteration > dev_plan.based_on_iteration:
   
@@ -275,7 +275,7 @@ IF spec.iteration > design.md.based_on_iteration:
 ✅ All upstream artifacts in sync — proceed with build
 ```
 
-#### Step 0b: Architecture Context Loading (GCD Fast-Path v2.2.0)
+#### Step 0b: Architecture Context Loading (GCD Fast-Path)
 ```yaml
 # GCD FAST-PATH: Read pre-digested governance rules from design.md Section 7
 
@@ -332,7 +332,7 @@ FUNCTION load_governance_context(FEATURE_ID):
       # Fall through to full load below
   
   ELSE:  # gcd_section missing or frontmatter.governance_digest_version absent
-    LOG: "GCD not found — design.md Section 7 absent (pre-v2.3.0 BLUEPRINT). Falling back to full load."
+    LOG: "GCD not found — design.md Section 7 absent (legacy BLUEPRINT). Falling back to full load."
   
   IF NOT gcd_loaded:
     # Step 2: Fallback — traditional governance loading (pre-GCD projects or stale digest)
@@ -402,7 +402,7 @@ FUNCTION load_governance_context(FEATURE_ID):
   RETURN { governance_context, gcd_loaded }  # Both consumed by Phase Loop
 ```
 
-#### Step 0c: UX Vision Gate (v12.1.0 — UXD Fast-Path)
+#### Step 0c: UX Vision Gate (UXD Fast-Path)
 ```yaml
 IF frontend.framework != "None":
   VERIFY vision approved
@@ -423,7 +423,7 @@ IF frontend.framework != "None":
     }
     LOG: "UXD fast-path HIT ✅ — vision context loaded from design.md Section 7.6"
   ELSE:
-    # FALLBACK: Load raw vision HTML files (pre-v12.1.0 BLUEPRINT)
+    # FALLBACK: Load raw vision HTML files (legacy BLUEPRINT)
     uxd_loaded = false
     VERIFY all 5 source artifacts exist  # only required when UXD is absent
     LOG: "⚠️ UXD not found — loading raw vision HTML files (risk: content may be lost to summarization)"
@@ -437,7 +437,7 @@ IF frontend.framework != "None":
   # ux_context (or raw HTML content) is available to Phase B (DEV Hat + REVIEW Hat)
 ```
 
-#### Step 0c.1: CSS Foundation Gate (v12.1.0 — BLOCKING for Phase B)
+#### Step 0c.1: CSS Foundation Gate (BLOCKING for Phase B)
 
 ```yaml
 # PURPOSE: Verify that the CSS toolchain and design tokens are materialized
@@ -486,7 +486,7 @@ IF frontend.framework != "None":
     INJECT tokens into CSS entry point
 ```
 
-#### Step 0d: DRY Reuse Gate (CIP v1.0.0 — MANDATORY, DO NOT SKIP)
+#### Step 0d: DRY Reuse Gate (CIP — MANDATORY, DO NOT SKIP)
 ```yaml
 # CIP GATE — Execute BEFORE any code generation. This prevents duplicating existing components.
 
@@ -617,7 +617,7 @@ FUNCTION determine_build_scope(FEATURE_ID):
 ```yaml
 FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
   
-  # DEV Hat: Implement (with Defect Prevention Check v1.2.0)
+  # DEV Hat: Implement (with Defect Prevention Check)
   FOR EACH task IN phase.unchecked_tasks:
     # DEFECT PREVENTION CHECK (per-task, MANDATORY)
     # DEV Hat consults the Defect Prevention Catalog BEFORE writing code.
@@ -1184,7 +1184,7 @@ AFTER implementing each task:
 
 ### DEV Hat Protocol — Phase B (Frontend)
 
-#### CSS Foundation Gate (v12.1.0 — BLOCKING)
+#### CSS Foundation Gate (BLOCKING)
 ```yaml
 # BLOCKING: Verify styling infrastructure (CSS framework + design tokens) before component generation.
 
@@ -1580,7 +1580,7 @@ Factory Smart Redirect computes environment from ci-cd.md (NOT hardcoded)
 IMPLEMENT --build generates: peer_review_{timestamp}.md (or peer_review_{INC-N}_{timestamp}.md when incremental) + sec_audit.md
 QA --verify {ID} INC-N reads peer_review_{INC-N}_*.md for the slice
 QA --verify {ID} (aggregator) reads the latest peer_review_*.md
-DAST (v8.0.0) absorbed by QA --verify (SEC hat in QA)
+DAST absorbed by QA --verify (SEC hat in QA)
 ```
 
 ### QA → IMPLEMENT
@@ -1814,10 +1814,10 @@ FUNCTION persist_new_tasks(dev_plan_path, new_tasks, task_type):
 
 ---
 
-## DEFECT DISCOVERY PROTOCOL (v1.3.0 — AUTOMATIC)
+## DEFECT DISCOVERY PROTOCOL (AUTOMATIC)
 
 > When IMPLEMENT detects a runtime defect NOT in the Defect Prevention Catalog, the agent MUST propose cataloging it. This closes the improvement loop: discover→catalog→prevent.
-> Works with BVL v1.4.0 Defect Discovery Hook.
+> Works with BVL Defect Discovery Hook.
 
 ```yaml
 FUNCTION defect_discovery_check(error, context):

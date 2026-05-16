@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# RECOMMENDATION → DECISION → RATIFICATION PROTOCOL (RDR v1.0.0)
+# RECOMMENDATION → DECISION → RATIFICATION PROTOCOL (RDR)
 
 > **Shared Protocol** — Referenced by: ALL agents that pose decisions to the user.
 > Canonical source of truth for RDR semantics, format, and persistence contract. Every inline reference to "RDR" across commands / instructions / templates must conform to this protocol.

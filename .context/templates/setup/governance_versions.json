@@ -1232,9 +1232,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.5.3",
+      "version": "2.5.4",
       "path": "README.md",
       "changelog": [
+        "2.5.4: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.3: fix(readme-mermaid-syntax) — § Complete Workflow Diagram failed to render on GitHub: every command-labeled node (21 occurrences) was written as `NodeId[/command --flag]`, which Mermaid parses as the parallelogram-shape opener `[/.../]` and chokes when no closing `/]` is found (lexical error on line 3). Wrapped every such label in quotes `NodeId[\"/command --flag\"]` so Mermaid treats it as a plain rectangular node with the leading slash as literal content. No semantic change to the workflow.",
         "2.5.2: docs(IPP runtime binding, self-review cycle 2 nit) — § Governance always-on enforcement gains a Companion paragraph after the smoke-test checklist describing the IPP runtime-binding chain (check-ipp-compliance.sh PreToolUse + governance-onedit.sh Block 2 PostToolUse + governance-onprompt.sh Block 2b UserPromptSubmit) and its `ipp-first-write` / `ipp-pillar2` session-scoped markers. The chain is presented as parallel to the four governance-source tiers, operating on artefact integrity rather than snapshot freshness. Cross-link to factory-incremental-persistence/SKILL.md § Runtime Binding for the canonical spec.",
         "2.5.1: docs(EVOL-029) IMPLEMENT --build description gains per-slice scope-filtered BVL note + derived dev_plan.status. QA --verify description rewritten with [{INC-N}] optional argument + slice/aggregate semantics. Artefact lists updated. Recommended pipeline § Phase 3 shows per-slice example + aggregate. dev_plan.md state matrix gains derivation note for incremental.",
@@ -1294,9 +1295,10 @@
       ]
     },
     "commands/devops.md": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "path": ".claude/commands/devops.md",
       "changelog": [
+        "1.3.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.3.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit.",
@@ -1361,9 +1363,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.3.0",
+      "version": "3.3.1",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "3.3.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "3.3.0: feat(EVOL-032) phase 3 — new Step 0c MCP Docs Scan (BLOCKING). Invokes factory-mcp-docs-scan with scope:design; banner emission is mandatory first user-facing turn; consulted docs MCPs cited inline in design.md per skill § Citation contract.",
         "3.2.1: feat(EVOL-032) phase 1 — Downstream Iteration Detection routes iteration reads through read_iteration_state(artifact_path) (factory-iteration-model § Dual-format read). Direct fm.iteration access is a violation.",
         "3.2.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -1400,9 +1403,10 @@
       ]
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
+        "2.7.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.6.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "2.5.0: feat — `### ADR Generation Modes` / `### ADR Numbering` renamed to `### Feature Decision Record (FDR) Generation Modes` / `### FDR Numbering`. Path updated to `docs/spec/{{FEATURE_ID}}/fdr/FDR-XXXX-*.md` with legacy `adr/ADR-XXXX-*.md` fallback. CLI flag `--adr` kept as legacy alias of `--fdr`.",
@@ -1422,9 +1426,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "2.9.0",
+      "version": "2.9.1",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "2.9.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.9.0: feat(EVOL-032) phase 2 — Iteration Execution section restructured into 4 sub-steps mapping the user-facing --refine contract: 1.1 impl-state probe (snapshots dev_plan [x] count + commits since last cascade; honors CWD discipline), 1.2 iterative RDR loop formalised on Disparity Resolution Protocol (max 3 rounds default, configurable via --max-rdr-rounds, converge-on-stability heuristic), 1.3 apply changes (existing Change Classification + Tripartite re-run, plus ITER-{FEAT}-{N+1} id allocation + _progress.iteration_in_flight marker), 1.4 aggregated changelog via append_iteration_entry() on spec.feature + user_journey.md + mock.html with the shared id and full canonical entry shape (per factory-iteration-model). Legacy `## Changelog` table appended for one minor version (dual-format readability) but no longer source of truth.",
         "2.8.1: feat(EVOL-032) phase 1 — Change Classification Protocol routes iteration reads through read_iteration_state(artifact_path) (factory-iteration-model § Dual-format read). Direct fm.iteration access is a violation.",
         "2.8.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -1475,9 +1480,10 @@
       ]
     },
     "instructions/Factory-devops-configure.instructions.md": {
-      "version": "2.5.0",
+      "version": "2.5.1",
       "path": ".claude/instructions/Factory-devops-configure.instructions.md",
       "changelog": [
+        "2.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.4.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "2.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1500,9 +1506,10 @@
       ]
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
-      "version": "2.5.0",
+      "version": "2.5.1",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
+        "2.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.4.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "2.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1520,9 +1527,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.11.0",
+      "version": "2.11.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.11.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.11.0: feat(EVOL-032) phase 3 — two new MCP-Docs Scan steps wired (BLOCKING). `IMPLEMENT --refine` gains Step 0a MCP Docs Scan (scope:implementation; result consumed by Step 3.4). `IMPLEMENT --build` gains Step 0-MCP MCP Docs Scan (scope:implementation; DEV hat queries named docs MCPs before generating code for matching technologies, cites in inline traceability comment).",
         "2.10.0: feat(EVOL-032) phase 2 — `IMPLEMENT --refine` Refine section augmented: delta tasks carry metadata `origin: ITER-{FEAT_ID}-{N}` + `task_class: NEW | EXISTING | MODIFIED | CARRIED_OVER`; design.md.pending_design_items[] (BLUEPRINT carry-over) become CARRIED_OVER delta tasks. MCP-docs consultation block added (consumes factory-mcp-docs-scan banner findings). CVP coherence gate (`cvp_coherence_gate(FEATURE_ID, CODESIGN_BLUEPRINT_IMPLEMENT, IMPLEMENT)`) runs AFTER delta generation (sequencing correction — running BEFORE would validate stale dev_plan against new spec); loops up to 3 rounds generating additional [D.N] tasks until CVP passes or blocks for manual review. Iteration entry appended to dev_plan.iterations[] via append_iteration_entry() with `delta_tasks: [...]` checklist (--build reads unchecked items from both legacy phase/increment sections AND iteration anchor as one completion total). Worklog entry gains `iteration_id` field.",
         "2.9.2: feat(EVOL-032) phase 1 — Step 0a Iteration Staleness Gate now routes all four iteration reads through read_iteration_state(artifact_path) (factory-iteration-model § Dual-format read). Direct fm.iteration access is a violation.",
@@ -1561,9 +1569,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.11.0",
+      "version": "2.11.1",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.11.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.11.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.10.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "2.9.1: fix — `FOR EACH adr IN adr_bindings` loop renamed to `FOR EACH fdr IN fdr_bindings` (matching the variable rename in the I1 sweep). dev_plan A.0.N source comment now cites `mandatory_patterns + fdr_bindings (legacy projects: adr_bindings)`.",
@@ -1594,9 +1603,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.7.1",
+      "version": "2.7.2",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.7.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.7.1: fix(EVOL-029) post-review fix — § 3.1 Generate Review Report frontmatter wording aligned to peer_review template: new field is `report_scope` (not `scope`, which already exists with feature_scope semantics inherited from spec.feature). Templates Reference clarification.",
         "2.7.0: feat(EVOL-029) § 3.1 Generate Review Report — review file path is now build_scope-aware. Monolithic / plan-level aggregate keeps peer_review_{timestamp}.md; per-increment closure under slicing_strategy: incremental writes peer_review_{INC-N}_{timestamp}.md (matches build_scope.target_increment.id). Frontmatter adds scope + increment_id fields. QA --verify reads the slice-specific file in slice mode and the latest peer_review_*.md in aggregate mode. Templates Reference table line updated.",
         "2.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -1618,9 +1628,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.0.1",
+      "version": "3.0.2",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "3.0.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "3.0.1: fix(EVOL-029) post-review three fixes — (1) Gate 4 SMOKE-E2E now wrapped in `mode == aggregate` guard (slice closures NEVER run smoke; smoke validates the full-feature staging deploy that only exists once every slice has merged). (2) Frontmatter field rename scope → report_scope to disambiguate from feature_scope inherited from spec.feature (qa_report frontmatter + qa_skeleton_first + UPDATE_FRONTMATTER calls). (3) Aggregate-mode redirect now distinguishes missing per-slice reports from INVALIDATED ones (cascade) with separate humanised messages.",
         "3.0.0: feat(EVOL-029) Prerequisites Gate refactored to slice/aggregate dual-mode. /qa --verify {ID} [{INC-N}] accepts optional second positional argument. Slice mode reads dev_plan.frontmatter.increments[INC-N].status (must be IMPLEMENTED_AND_VERIFIED), reads peer_review_{INC-N}_*.md (must be APPROVED), checks qa_report_{INC-N}_*.md not already APPROVED, generates qa_report_{INC-N}_{ts}.md with checklist filtered by increment_plan § 1 Scenarios covered + Contract surface, scope + increment_id frontmatter populated. Aggregate mode for incremental features requires every increments[].status = IMPLEMENTED_AND_VERIFIED AND every qa_report_{INC-N}_*.md APPROVED, generates qa_report_final_{ts}.md with aggregates: [...] frontmatter + 3 new [QA-AGG-*] transversal checks (cross-slice regression, per-slice aggregation, CVP feature_completion). Aggregate mode for monolithic features unchanged from pre-EVOL-029. IPP qa_skeleton_first / qa_resume_check accept optional INCREMENT_ID. BREAKING for callers that hard-coded the old qa_report_final_*.md path under incremental — those must now branch on slicing_strategy.",
         "2.9.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -1648,9 +1659,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.8.0",
+      "version": "1.8.1",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.8.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.8.0: fix(EVOL-028) remove duplicate `applyTo:` field — same rationale as Factory-backlog-execution-plan.",
         "1.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "1.6.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1670,9 +1682,10 @@
       ]
     },
     "instructions/Factory-backlog-execution-plan.instructions.md": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "path": ".claude/instructions/Factory-backlog-execution-plan.instructions.md",
       "changelog": [
+        "1.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.5.0: fix(EVOL-028) remove duplicate `applyTo:` field — `applicable_when:` (set in Fase 2) is the canonical ADP contract. Both fields coexisting was an artefact of pre-EVOL-028 backfill against a frontmatter that already carried legacy `applyTo`.",
         "1.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "1.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1702,9 +1715,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.12.0",
+      "version": "2.12.1",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.12.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.12.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.11.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "2.10.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1727,9 +1741,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.6.0",
+      "version": "3.6.1",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.6.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "3.6.0: feat(EVOL-028) Phase B auto-generator now emits ADP-conformant frontmatter (`applicable_when: { path_glob: [...], framework: [...] }`) replacing legacy single-string `applyTo:`. Phase C validation switched to require `applicable_when:` and run scripts/check-applicability-frontmatter.sh as hard gate. NEW Phase D — ADP Context Materialization writes `.context/applicability_context.json` (project_scope + frameworks + path_glob_universe + source_hash) so factory-applicability-discovery has a deterministic context source instead of best-effort docs/setup.md parsing.",
         "3.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "3.4.0: feat(EVOL-027) review close (Q2) — Checkpoint 3.1 § Implementation note documents `factory-sync.sh --preserve-local` interaction with `generate-governance-snapshot.sh` (local custom versions preserved when flag is set).",
@@ -1766,9 +1781,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.7.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.6.0: feat(EVOL-027) review close (Q3) — § v4.0.0 migration rule degrades to plain `mv` when `git rev-parse --is-inside-work-tree` fails (sandbox / non-git materialisation). Idempotent + collision-safe behaviour preserved.",
         "2.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -1783,9 +1799,10 @@
       ]
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
-      "version": "2.6.2",
+      "version": "2.6.3",
       "path": ".claude/instructions/Factory-protocol-smart-redirect.instructions.md",
       "changelog": [
+        "2.6.3: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.6.2: fix(EVOL-029) post-review-2 — limbo state detection in PHASE 4 dev_plan.status == BUILDING branch. Under slicing_strategy: incremental, when every increments[] is IMPLEMENTED_AND_VERIFIED but plan-level status remains BUILDING (last-slice closure's BVL aggregate failed), Smart Redirect now suggests IMPLEMENT --finalize {ID} instead of the misleading --build (which would block on 'No increment in BUILDING status').",
         "2.6.1: fix(EVOL-029) post-review fix — qa_invalidated semantics clarified (aggregate-only); slice-level invalidation lives in qa_slice_reports.pending_slices. Inline comment on qa_invalidated documents the split.",
         "2.6.0: feat(EVOL-029) state model gains qa_slice_reports (by_increment map + pending_slices list); decision tree § 5d branches on slicing_strategy — incremental projects with pending_slices surface per-slice /qa --verify {ID} {INC-N} actions before the aggregate. Monolithic + legacy incremental-without-pending paths unchanged.",
@@ -1815,9 +1832,10 @@
       ]
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
-      "version": "2.9.0",
+      "version": "2.9.1",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md",
       "changelog": [
+        "2.9.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.9.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.8.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "2.7.0: feat(EVOL-017): IOP v1.0.0 → v1.1.0 — Bias & Announcement MANDATORY section. Default bias = SDLC on borderline classifications. One-line classification call-out required on every turn (Routing / Direct + reason). Silence is a governance-scope violation. Paired with CLAUDE.md § SDLC-First Triage.",
@@ -1898,9 +1916,10 @@
       ]
     },
     "skills/factory-governance-loading/SKILL.md": {
-      "version": "2.9.1",
+      "version": "2.9.2",
       "type": "skill",
       "changelog": [
+        "2.9.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.9.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "2.8.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "2.7.0: feat — RED_ZONE override check reads `docs/spec/{FEATURE_ID}/fdr/` (current) → `docs/spec/{FEATURE_ID}/adr/` (legacy fallback) for `RED_ZONE_MODIFICATION_*.md`. RED_ZONE overrides are feature-scoped binding decisions → FDR. Block message updated from `ADR approval required` to `FDR approval required`.",
@@ -1919,9 +1938,10 @@
       "path": ".claude/skills/factory-governance-loading/SKILL.md"
     },
     "skills/factory-incremental-persistence/SKILL.md": {
-      "version": "2.3.0",
+      "version": "2.3.1",
       "type": "skill",
       "changelog": [
+        "2.3.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.3.0: feat(EVOL-032) phase 1 — § Iteration Append Pattern documents the crash-safe sequence for appending entries to artefact `iterations[]` arrays. Extends `_progress` with `iteration_in_flight: ITER-{FEAT}-{N} | null` marker. Five atomic saves: (1) resume/collision check, (2) set marker, (3) append entry (idempotent on id), (4) write `## Iteration {id} {#iter-N}` body anchor, (5) clear marker. Resume-on-entry inspects iteration_in_flight to detect ALREADY_PERSISTED vs re-execute-Steps-3–5 branches. CI gate check-iteration-id-format.sh blocks merge when iteration_in_flight is left set.",
         "2.2.2: feat(IPP runtime binding, self-review mitigation) — new `## Runtime Binding (hook-side enforcement)` section between Context Canary and Enforcement. Documents the three-hook chain (check-ipp-compliance.sh PreToolUse, governance-onedit.sh Block 2 PostToolUse, governance-onprompt.sh Block 2b UserPromptSubmit) coordinating via `.claude/state/ipp-first-write` and `.claude/state/ipp-pillar2` session-scoped markers. Documents the canonical governance-artefact allowlist (mirror of check-ipp-compliance.sh + governance-onedit.sh Block 2). Closes the drift introduced in PR #27 where the runtime layer existed in hooks but not in the SKILL spec.",
         "2.2.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
@@ -1933,9 +1953,10 @@
       "path": ".claude/skills/factory-incremental-persistence/SKILL.md"
     },
     "skills/factory-agent-communication/SKILL.md": {
-      "version": "2.1.1",
+      "version": "2.1.2",
       "type": "skill",
       "changelog": [
+        "2.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "2.0.0: BREAKING — migrated from .instructions.md to .claude/skills/ format",
         "1.0.0: Initial agent-communication protocol"
@@ -1943,9 +1964,10 @@
       "path": ".claude/skills/factory-agent-communication/SKILL.md"
     },
     "skills/factory-codebase-inventory/SKILL.md": {
-      "version": "2.4.1",
+      "version": "2.4.2",
       "type": "skill",
       "changelog": [
+        "2.4.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "2.3.0: feat(EVOL-027) review close (Q2) — § Drift Detection Gate documents `factory-sync.sh --preserve-local` interaction with `check-inventory-drift.sh` (and the framework-level governance scripts) — local custom versions in materialised projects are preserved when the flag is set.",
         "2.2.0: feat(EVOL-027) fase 4 — new § Drift Detection Gate documenting check-inventory-drift.sh: STALE/PROMOTE/INVALID classes, invocation modes, when to invoke, scope boundary vs SETUP --reconcile-inventory.",
@@ -1957,9 +1979,10 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.5.0",
+      "version": "2.5.1",
       "type": "skill",
       "changelog": [
+        "2.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.0: feat(EVOL-032) phase 1 — § Canonical Iteration ID Schema (ITER-{FEAT}-{N}) with entry shape (id, iteration, date, source, classification, scope_summary, changes, downstream_impact, anchor, rdr_rounds, converged, impl_state_snapshot, cascade_source, mcp_consulted). Defines cross-artefact join semantics: downstream entry's cascade_source MUST equal upstream entry's id. Cascade contract: scalar pending_iteration = iterations[-1].iteration of upstream. § Dual-format read protocol introduces read_iteration_state(artifact_path) wrapper — array-aware when iterations[] present, falls back to scalar iteration synthesising an ad-hoc id. Direct fm.iteration access is a violation. Capability flag governance_features.iterations_array_v1 (manifest-level) gates presence in projects.",
         "2.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "2.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1973,10 +1996,11 @@
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
     "skills/factory-branching-strategy/SKILL.md": {
-      "version": "1.6.1",
+      "version": "1.6.2",
       "type": "skill",
       "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse, per-increment branching.",
       "changelog": [
+        "1.6.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "1.4.1: fix(EVOL-021) phase 4: threshold wording unified to 'contract operations' (was 'ops') in Monolithic Escape comment — matches canonical wording across template + immutability_policy + CVP Check 16 + README + CLAUDE.md.",
@@ -1993,10 +2017,11 @@
       "path": ".claude/skills/factory-branching-strategy/SKILL.md"
     },
     "skills/factory-commit-prompt/SKILL.md": {
-      "version": "1.2.1",
+      "version": "1.2.2",
       "type": "skill",
       "role": "Post-command commit prompt — conventional commit message generation after file modifications.",
       "changelog": [
+        "1.2.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.2.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "1.0.0: feat: extracted from copilot-instructions.md — commit prompt protocol"
@@ -2004,20 +2029,22 @@
       "path": ".claude/skills/factory-commit-prompt/SKILL.md"
     },
     "skills/factory-worklog/SKILL.md": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "type": "skill",
       "role": "Worklog v2.0.0 — per-feature JSONL audit trail, action registration, phase mapping, dispatcher enforcement.",
       "changelog": [
+        "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.0.0: feat: extracted from copilot-instructions.md — worklog enforcement protocol"
       ],
       "path": ".claude/skills/factory-worklog/SKILL.md"
     },
     "skills/factory-build-verification/SKILL.md": {
-      "version": "1.7.1",
+      "version": "1.7.2",
       "type": "skill",
       "role": "BVL v1.5.0 — Build Verification Loop with per-increment verification scope. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, defect discovery hook.",
       "changelog": [
+        "1.7.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.7.0: feat(EVOL-029) full_verification_gate(FEATURE_ID, increment_id=null) — extends signature with optional increment_id. When provided, scope (tests + lint) is filtered to the increment's source/test files derived from dev_plan Section ## Increment {INC-N} + increment_plan § 1 contract surface; typecheck/build/format/SAST stay repo-wide. RESOLVE_INCREMENT_TEST_CMD helper documents test target resolution. New § v1.5.0 Per-Increment Verification Scope. Plan-level aggregate (increment_id=null) runs after the last slice closure to catch cross-slice regressions. No regression for monolithic features.",
         "1.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.4.0: feat: Defect Discovery Hook — BVL proposes cataloging recurring test failure patterns into defect-prevention.md",
@@ -2043,10 +2070,11 @@
       "path": ".claude/skills/factory-mcp-docs-scan/SKILL.md"
     },
     "skills/factory-memory-cache/SKILL.md": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "type": "skill",
       "role": "FMCP v1.0.2 — Unified /memories/repo/ caching layer. Feature State, BVL Commands, CIP Inventory, Execution Plan caches. Write-through, hash-validated, graceful degradation.",
       "changelog": [
+        "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.0.3: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
         "1.0.2: fix: complete FMCP terminology consistency in internal references (FMCP architecture/caches) while preserving MCP mention only for external Model Context Protocol",
@@ -2056,10 +2084,11 @@
       "path": ".claude/skills/factory-memory-cache/SKILL.md"
     },
     "skills/factory-coherence-validation/SKILL.md": {
-      "version": "1.3.1",
+      "version": "1.3.2",
       "type": "skill",
       "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "changelog": [
+        "1.3.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.3.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.2.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.2.1: fix(EVOL-021) phase 4: Check 0a scope_consistency_across_artifacts now also reads elements.increment_plan.frontmatter.scope (was missing — allowed silent drift when CASCADE or hand-edit caused increment_plan.scope to diverge from spec.feature.scope). Check 0c required_fields annotated with explanation that cascade/iteration fields (pending_*, invalidated_*, cascade_*, based_on_*, rdr_rationale) are populated opportunistically by BLUEPRINT/CASCADE_INCREMENT_INTERNAL/CASCADE_PENDING_ITERATION — their absence in a fresh plan is expected; validation of these belongs in the cascade layer, not Check 0c.",
@@ -2072,10 +2101,11 @@
       "path": ".claude/skills/factory-coherence-validation/SKILL.md"
     },
     "skills/factory-backlog-next-task/SKILL.md": {
-      "version": "1.4.1",
+      "version": "1.4.2",
       "type": "skill",
       "role": "Next Task Resolver — computes next executable backlog step from execution plan, with mandatory adapter-based issue fetch and discrepancy detection.",
       "changelog": [
+        "1.4.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.2.0: feat: add 'epic' and 'slice' fields to output contract (EPIC-{N} identifier + EPIC-{N}.{M} slice); 'cluster' retained as backward-compatible alias; example updated",
         "1.1.2: fix: cache fast path explicitly preserves mandatory Step 5 issue fetch; replace hardcoded CLI shape with adapter-resolved ISSUE_READ operation; local mode now resolves body_path via docs/backlog/state.md; remove unused execute_mode input contract",
@@ -2087,10 +2117,11 @@
       "path": ".claude/skills/factory-backlog-next-task/SKILL.md"
     },
     "skills/factory-preventive-sweep/SKILL.md": {
-      "version": "1.4.1",
+      "version": "1.4.2",
       "type": "skill",
       "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
+        "1.4.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat: initial — 4-agent parallel strategy, consolidation protocol, report template, governance integration with defect-prevention.md",
@@ -2101,20 +2132,22 @@
       "path": ".claude/skills/factory-preventive-sweep/SKILL.md"
     },
     "skills/factory-rdr/SKILL.md": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "type": "skill",
       "role": "RDR v1.0.0 — Recommendation → Decision → Ratification canonical protocol. Single source of truth for agent-posed decisions requiring user ratification. Enforces ≥3 options, justified recommendation, verbatim user choice, immediate persistence via IPP Decision Persistence (two locations: _progress.decisions[] frontmatter + inline RDR-N comment). Covers Sequential (L-03 one-at-a-time) and Batch (BIP tier-atomic) modes. Replaces previously-scattered RDR definitions across SETUP/CODESIGN/BLUEPRINT/AUDIT/DEVOPS instructions and fixes the Registration→Ratification terminology drift from upgrade_safety_protocol.md.",
       "changelog": [
+        "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.0.0: feat(EVOL-020): initial canonical RDR skill — consolidates RDR semantics previously scattered across Factory-setup-discovery, Factory-blueprint-design, Factory-audit-complexity, Factory-setup-materialization, upgrade_safety_protocol.md § 3.2, and the setup.md command. Anti-patterns section explicitly names the Registration variant as a terminology VIOLATION."
       ],
       "path": ".claude/skills/factory-rdr/SKILL.md"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.5.2",
+      "version": "1.5.4",
       "type": "skill",
-      "role": "Factory PR Review v1.1.0 — five-axis review (code, code↔docs, API contracts, ADR, traceability) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. v1.1.0 adds Phase 0 Coherence Audit (agentic, semantic) executed BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six new detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${session_id}-${branch_sha}.marker`. Hard blocks total: 18 (12 from v1.0 + 6 new). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, and `coherence-context.json` (Phase 0). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT 🔍 REVIEW hat scope, separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
+      "role": "Factory PR Review — five-axis review (code, code↔docs, API contracts, ADR, traceability) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six new detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${session_id}-${branch_sha}.marker`. Hard blocks total: 18. Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, and `coherence-context.json` (Phase 0). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT 🔍 REVIEW hat scope, separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "changelog": [
+        "1.5.4: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs).",
         "1.5.2: feat — Phase 1 Step 6 added: invokes check_dev_plan_task_format.py whenever `docs/spec/*/dev_plan.md` is in the diff. Validates IMPLEMENT --plan task format (canonical `- [ ] [X.N]` checkbox vs orphan `### X.N` h3). Origin: MASS PR #331 retrospective — a real iter-7 plan shipped with orphan h3 tasks and all existing gates passed green because no script validated task format; IMPLEMENT --build could not track the plan. Adapted from MASS capability 29 to the meta's check_*.py skill-bundled convention per ADR-0030. Header version bumped to v1.3.0.",
         "1.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.4.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -2193,10 +2226,11 @@
       "path": ".claude/skills/factory-pr-review/references/changelog-policy.md"
     },
     "skills/factory-pr-review/scripts/preflight.sh": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "type": "skill-asset",
       "role": "Factory PR Review push-gate orchestrator — wraps detect_change_type.py + check_docs_sync.py + check_openapi_diff.sh + check_asyncapi_diff.sh + check_dev_plan_task_format.py + framework-aware checks (governance-bump miss, protected-paths) + Step 0 coherence-audit marker check (v1.1.0). Exit 0 silent pass, 1 blocker found, 2 environment failure (warn-not-block). Honours docs-only fast-lane (CLAUDE.md Generation Standards §3 verbatim allowlist). Reads `default_base_branch` from `.claude/rules/branching.md` when present, and `config/coherence-context.json` for Step 0 governance-sensitivity computation + marker location.",
       "changelog": [
+        "1.3.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.3.0: feat — invokes check_dev_plan_task_format.py whenever any `docs/spec/*/dev_plan.md` is in the diff. The check enforces IMPLEMENT's task-format contract (`- [ ] [X.N]` checkbox vs orphan `### X.N` h3) — IMPLEMENT --build needs the checkbox as its single source of truth for completion tracking. Origin: MASS PR #331 retrospective (a real iter-7 plan shipped with 10 tasks as orphan h3 headers; all existing gates passed green because no script validated task format). Adapted from MASS capability 29 to the meta's `check_*.py` skill-bundled convention per ADR-0030 (capability-based architecture is MASS-specific, but the defect class is universal — every downstream project inherits the gate without further work). Inert in the meta repo itself (no docs/spec/{ID}/) but live in every materialised project.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
         "1.1.3: fix(EVOL-025) defensive bash quoting around the JSON-output heredoc — `os.environ.get('PRE_FF', '$FINDINGS_FILE')` passed FINDINGS_FILE via bash expansion as a python string default. If the FINDINGS_FILE path contained spaces (rare with mktemp but possible), the literal would break. Now: export `PRE_FF=\"$FINDINGS_FILE\"` as env var and read via `os.environ['PRE_FF']` only. Heredoc kept unquoted so other bash variables ($BASE_REF, $CURRENT, $CHANGED_FILES) continue to expand. Self-review mitigation during PR #16 audit. Out of scope (separate fix-PR): the `--json` mode `$CHANGED_FILES` multiline injection bug — pre-existing, unrelated to EVOL-025 path.",
@@ -2386,11 +2420,12 @@
       ]
     },
     "hooks/check-push-preflight.sh": {
-      "version": "1.1.1",
+      "version": "1.1.3",
       "type": "hook",
       "path": ".claude/hooks/check-push-preflight.sh",
-      "role": "PreToolUse hook (Bash) — Factory PR Review push gate. Intercepts `git push` token-boundary matches in tool_input.command, invokes the factory-pr-review preflight script (.claude/skills/factory-pr-review/scripts/preflight.sh) against origin/{base}..HEAD, and on hard-blocker findings exits 1 with a humanised message + finding catalog + resolution path (commit + re-push). Skips silently when the skill is not installed in the project, when on a protected branch (already covered by check-branch-protection.sh), or for `git push --dry-run`. Tooling failures (env, missing python) warn and pass — defence-in-depth must not break legitimate pushes. v1.1.0: also extracts `.session_id` from stdin JSON and exports `CLAUDE_SESSION_ID` before invoking preflight, so preflight Step 0 can locate the coherence-audit marker.",
+      "role": "PreToolUse hook (Bash) — Factory PR Review push gate. Intercepts `git push` token-boundary matches in tool_input.command, invokes the factory-pr-review preflight script (.claude/skills/factory-pr-review/scripts/preflight.sh) against origin/{base}..HEAD, and on hard-blocker findings exits 1 with a humanised message + finding catalog + resolution path (commit + re-push). Skips silently when the skill is not installed in the project, when on a protected branch (already covered by check-branch-protection.sh), or for `git push --dry-run`. Tooling failures (env, missing python) warn and pass — defence-in-depth must not break legitimate pushes.",
       "changelog": [
+        "1.1.3: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs).",
         "1.1.1: fix(EVOL-025) revert the .session_id extraction + CLAUDE_SESSION_ID export added in 1.1.0 — the marker key was simplified to `${branch_sha}` only (preflight.sh 1.1.1), so the hook no longer needs to forward session_id. Net diff vs 1.0.0: hook is byte-identical to its 1.0.0 form; the 1.1.0 → 1.1.1 path round-trips. Bumped (rather than reverted to 1.0.0) so the changelog records the design decision and the lock-step with preflight.sh / SKILL.md.",
         "1.1.0: feat(EVOL-025) extract `.session_id` from stdin JSON alongside `.tool_input.command` and export `CLAUDE_SESSION_ID` env var when invoking preflight.sh. Required so preflight Step 0 (coherence-audit marker check) can locate the session-keyed marker.",
         "1.0.0: feat(EVOL-024): initial — same content as templates entry, lock-step. Push gate replaces the more expensive merge gate (CI on PR) by catching blockers before they hit the remote, saving CI minutes + reviewer round-trips."
@@ -2428,9 +2463,10 @@
       ]
     },
     "skills/factory-adr-management/SKILL.md": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "path": ".claude/skills/factory-adr-management/SKILL.md",
       "changelog": [
+        "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.0.0: feat(EVOL-026) initial — factory-adr-management skill with Propose / Accept / List Active ADRs procedures. Mechanical Accept Procedure copies the ADR's `## Operational Rule` field into docs/constitution.md as a `## [LAW]` section per target_section + amendment_kind (ADD/REPLACE/REMOVE). Two record types: ADR (project-wide, amends constitution) and FDR (feature-local, no amendment). Decision matrix ADR-vs-FDR documented. Invocation patterns for BLUEPRINT, AUDIT, IMPLEMENT, BACKLOG retrospective, free-form turns."
       ]
@@ -2525,19 +2561,21 @@
       ]
     },
     "skills/factory-applicability-discovery/SKILL.md": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "type": "skill",
       "changelog": [
+        "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) discovery scan extended — Step 4 now scans every `.claude/rules/*.md` (technical + cross-cutting governance), not only defect-prevention.md. Roll-Call output gains ACTIVE RULES section. Inputs table documents `.context/applicability_context.json` as the deterministic context source written by SETUP Phase D, with docs/setup.md as fallback. Validation contract section extended accordingly.",
         "1.0.0: feat(EVOL-028) new Applicability Discovery Protocol (ADP) skill — live scan of governance trees (snapshot LAWs, instructions, structural skills, DCs) filtered by applicable_when frontmatter; emits canonical Roll-Call block on-screen as first user-facing message of every command. Salience anchor against rule-amnesia symptom (lazy-load ineffective in practice — agents had rules loaded but ignored them). Closed vocabulary: phase, scope, change_type, command, path_glob, framework, always."
       ],
         "path": ".claude/skills/factory-applicability-discovery/SKILL.md"
     },
     "skills/factory-batch-interactivity/SKILL.md": {
-      "version": "1.2.1",
+      "version": "1.2.2",
       "type": "skill",
       "role": "BIP — tiered proposal/review/converge cycles, BA mediation between specialist agents and the user.",
       "changelog": [
+        "1.2.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.2.0: BIP — initial framework entry. Replaces one-question-at-a-time Q&A with batched decision tiers."
       ]
     },

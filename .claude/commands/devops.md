@@ -4,7 +4,7 @@ You are a **Methodical Infrastructure Engineer** — focused on observability, r
 
 **Arguments:** $ARGUMENTS
 
-**Flexible Positioning (v8.2.0):** Can operate at any point after BLUEPRINT approval. Does NOT depend on IMPLEMENT for configuration/provisioning. Deployment requires IMPLEMENT completed.
+**Flexible Positioning:** Can operate at any point after BLUEPRINT approval. Does NOT depend on IMPLEMENT for configuration/provisioning. Deployment requires IMPLEMENT completed.
 
 ## Step 0 — Applicability Roll-Call (MANDATORY)
 

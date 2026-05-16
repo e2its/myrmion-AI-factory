@@ -710,7 +710,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     }
 
   # Materialize: render DC entries into the template table format
-  # Table columns MUST match the catalog schema (v2.0.0):
+  # Table columns MUST match the catalog schema:
   #   DC | Name | Applicable When | Applicable To | Severity | Check
   FOR EACH dc IN dc_entries:
     applicable_to_rendered = "[" + join(dc.applicable_to, ", ") + "]"
@@ -840,7 +840,7 @@ Add `src/shared/` or equivalent anti-corruption layer directories based on topol
 If `ai.training`, `ai.inference`, or `ai.agentic` enabled:
 - `src/ai/models/`, `src/ai/pipelines/`, `src/ai/agents/`, `src/ai/tools/`, `src/ai/prompts/`
 
-**Step 6 — Backlog Scaffolding (conditional on project_tracking.tool — SSOT v1.0.0):**
+**Step 6 — Backlog Scaffolding (conditional on project_tracking.tool — SSOT):**
 
 The scaffolded artifacts depend on the SSOT mode and, in every mode, include a **tool-adapter** rendered from the canonical per-tool templates in `.context/templates/setup/backlog-tool-adapters/`.
 
@@ -1023,7 +1023,7 @@ The workflow MUST be wired so that any PR transitioning an ADR file under `docs/
 - Materialize `.claude/rules/iac.md`
 - Copy IaC scripts from templates
 
-**Codebase Inventory Protocol (CIP v1.0.0):**
+**Codebase Inventory Protocol (CIP):**
 - Greenfield: Create empty `config/codebase_inventory.json` with `{ "version": "1.0.0", "bootstrap_mode": "greenfield", "artifacts": [] }`
 - Brownfield: Execute BOOTSTRAP_CODEBASE_INVENTORY (targeted grep_search + file_search with framework-specific patterns to detect existing artifacts)
 
@@ -1040,7 +1040,7 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
 - Initial content: empty `resources` array with all required root fields populated
 - Resources are populated later by BLUEPRINT (integrations) and IMPLEMENT (endpoints)
 
-**Environment Variables (Secret Placeholder Convention v11.0.0):**
+**Environment Variables (Secret Placeholder Convention):**
 - Generate `.env.example` with `REPLACE_ME_<description>` format for all required secrets
 - NEVER generate `.env` with real values
 - Format: `DATABASE_URL=REPLACE_ME_database_connection_string`
@@ -1142,7 +1142,7 @@ Any future template that adopts a `{{*_COST}}` or `{{BUDGET_*}}` placeholder is 
 
 **Budget breach handling.** If `costs.totals.status == "EXCEEDS_BUDGET"`, materialization does NOT block — the user already accepted the breach during Discovery Finalization and the 5-alternative dialog happened there. Materialization simply renders the `status: EXCEEDS_BUDGET` value into templates so the generated `MATERIALIZATION_REPORT.md` displays a prominent warning block, and logs an ADR entry under `ADR-0000-setup-decisions.md § Budget Override`.
 
-> **Rationale.** Before EVOL-014, § 4.2.7 was a 12-line stub listing 9 cost categories without specifying where the values came from or how they reached the generated artifacts. The 20+ `{{*_COST}}` placeholders in `adr_setup_template.md` and `MATERIALIZATION_REPORT_TEMPLATE.md` were dangling — they would materialise as literal `{{…}}` strings in production artifacts. CEP (new producer in discovery) + this resolution pass (new consumer in materialization) close the loop. The substitution map is a single-responsibility template-variable surface; dollar values live per-project in `docs/setup.md`, never in a committed rule file.
+> **Rationale.** § 4.2.7 was a 12-line stub listing 9 cost categories without specifying where the values came from or how they reached the generated artifacts. The 20+ `{{*_COST}}` placeholders in `adr_setup_template.md` and `MATERIALIZATION_REPORT_TEMPLATE.md` were dangling — they would materialise as literal `{{…}}` strings in production artifacts. CEP (new producer in discovery) + this resolution pass (new consumer in materialization) close the loop. The substitution map is a single-responsibility template-variable surface; dollar values live per-project in `docs/setup.md`, never in a committed rule file.
 
 ### 4.2.8 .context Preservation
 **NEVER clean up** `.context/` directory during materialization. It contains:

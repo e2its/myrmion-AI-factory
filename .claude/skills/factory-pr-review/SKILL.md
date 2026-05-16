@@ -5,7 +5,7 @@ applicable_when:
   command: [push, review]
 ---
 
-# Factory PR Review — Push Gate + Assistive Reviewer (v1.3.0)
+# Factory PR Review — Push Gate + Assistive Reviewer
 
 > **Shared Protocol** — Referenced by: ALL agents that ship code (IMPLEMENT, QA, DEVOPS, CODESIGN/BLUEPRINT for spec-bearing PRs) + the `check-push-preflight.sh` hook.
 > Position in the SDLC: runs **immediately before `git push`** as a local quality gate. Does NOT replace human review on the PR — it complements it by catching blockers before they hit the PR.

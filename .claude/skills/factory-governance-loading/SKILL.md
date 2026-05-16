@@ -44,7 +44,7 @@ LLM context windows are finite (128K in Copilot). When conversation history is s
 > (agent can't write the regenerated snapshot if edits are blocked).
 >
 > This hook ensures drift is **always visible** regardless of whether the agent remembers to execute Step 0.
-> Before EVOL-013, Step 0 was purely instructional — agents could skip it after context summarization.
+> Step 0 was purely instructional — agents could skip it after context summarization.
 >
 > **On WARNING:** The agent MUST execute Step 1 → POST-LOAD (`generate_governance_snapshot()`) inline.
 > This does **NOT** require running `SETUP --generate`. Any agent can regenerate the snapshot directly
@@ -408,7 +408,7 @@ Read side above. Write side here.
 
 **Tracked files.** `.context/templates/setup/governance_versions.json` has two sections:
 
-- `framework_core` — used by the LLM or enforced by CI, not materialised into downstream projects. `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, `.github/workflows/governance-check.yml`, `.github/workflows/auto-tag.yml`. The framework is Claude Code — single agent + slash commands. Legacy `agents/*.agent.md` entries were pre-Claude-Code residue and were removed from the manifest in EVOL-014.
+- `framework_core` — used by the LLM or enforced by CI, not materialised into downstream projects. `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, `.github/workflows/governance-check.yml`, `.github/workflows/auto-tag.yml`. The framework is Claude Code — single agent + slash commands. Legacy `agents/*.agent.md` entries were pre-Claude-Code residue and were removed from the manifest.
 - `templates` — materialised into target projects by `SETUP --generate`. `.context/templates/setup/**`, `.context/templates/{architect,codesign,develop,peer_review,po,qa,security,ux}/*`.
 
 **Bump kind (semver).**

@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# POST-COMMAND COMMIT PROMPT (v1.0.0)
+# POST-COMMAND COMMIT PROMPT
 
 > **Shared Protocol** — Referenced by: ALL agents + Factory (post-routing).
 > Ensures every file modification is committed with a conventional commit message on the feature branch.

@@ -6,7 +6,7 @@ applicable_when:
   command: [backlog]
 ---
 
-# NEXT TASK RESOLVER (v1.2.0)
+# NEXT TASK RESOLVER
 
 > **Shared operational skill** for sequencing decisions in backlog mode.
 > Uses memory cache (fast path) and deterministic parsing of `docs/backlog/execution-plan.md` (authoritative).

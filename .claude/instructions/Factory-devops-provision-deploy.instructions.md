@@ -9,7 +9,7 @@ applicable_when:
 
 > Detailed instructions for infrastructure provisioning (`--provision`), deployment (`--deploy`), lifecycle operations (`--suspend`, `--resume`, `--rollback`, `--teardown`, `--status`), IaC generation, Dual-Mode resolution, and cross-agent integration.
 
-## Dual-Mode Resolution Protocol (v8.3.0)
+## Dual-Mode Resolution Protocol
 
 Many DEVOPS commands accept `[FEATURE_ID]` as OPTIONAL. This determines scope:
 
@@ -40,7 +40,7 @@ FUNCTION resolve_command_scope(command, FEATURE_ID, ENV):
 
 ---
 
-## IaC Descriptor-Driven Generation (v9.0.0)
+## IaC Descriptor-Driven Generation
 
 ### Directory Model
 ```yaml

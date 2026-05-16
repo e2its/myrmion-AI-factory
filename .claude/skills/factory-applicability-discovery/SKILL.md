@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# APPLICABILITY DISCOVERY PROTOCOL (v1.0.0)
+# APPLICABILITY DISCOVERY PROTOCOL
 
 > **Shared Protocol** — Step 0 of every `.claude/commands/*.md`. Live discovery (no precomputed lists). Frontmatter-driven. Output is **on-screen, user-facing**, not internal reasoning.
 

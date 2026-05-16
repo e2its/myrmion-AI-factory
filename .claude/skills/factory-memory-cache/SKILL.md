@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# FACTORY MEMORY CACHE PROTOCOL (FMCP v1.0.2) — UNIFIED /memories/repo/ CACHING LAYER
+# FACTORY MEMORY CACHE PROTOCOL (FMCP) — UNIFIED /memories/repo/ CACHING LAYER
 
 > Naming note: `FMCP` refers to this internal Factory caching protocol.
 > `MCP` without the `F` prefix refers to the external Model Context Protocol ecosystem.
@@ -344,7 +344,7 @@ total_artifacts: 12
 
 ## CACHE TYPE 4: EXECUTION PLAN CACHE
 
-**Purpose:** Already implemented (v1.1.0). See `Factory-backlog-execution-plan.instructions.md` § Memory Cache Protocol.
+**Purpose:** Already implemented. See `Factory-backlog-execution-plan.instructions.md` § Memory Cache Protocol.
 
 **Cache Location:** `/memories/repo/execution-plan-cache.md`
 

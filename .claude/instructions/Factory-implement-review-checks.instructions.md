@@ -50,7 +50,7 @@ FUNCTION review_scope_dispatch():
 
 When a check resolves as **N/A**, the report's § 3.X entry reads: `N/A — skipped under scope={feature_scope}` and contributes zero findings (0 blocker, 0 warning, 0 nitpick). Skipping is not silent — auditors reading the peer_review report see exactly which checks ran and why others did not.
 
-### Step R.0: Governance Context Binding (GCD v2.2.0 — MANDATORY FIRST STEP)
+### Step R.0: Governance Context Binding (GCD — MANDATORY FIRST STEP)
 ```yaml
 # governance_context + gcd_loaded received from Phase Loop caller (implement-build Step 0b).
 # Fields available (when gcd_loaded == true):
@@ -518,7 +518,7 @@ VERIFY layout matches page_templates.html:
   - Content zones in correct positions
 ```
 
-#### [UX-VISION] Vision Fidelity (v12.0.0) — CRITICAL
+#### [UX-VISION] Vision Fidelity — CRITICAL
 ```yaml
 VERIFY global vision artifacts are faithfully materialized:
 
@@ -694,7 +694,7 @@ IF policies include authorization rules:
   VERIFY audit trail for sensitive operations
 ```
 
-### Check #14: [DESIGN-XX] Design Materialization Fidelity (v3.0.0)
+### Check #14: [DESIGN-XX] Design Materialization Fidelity
 
 > **Purpose:** Verifies that ALL mandatory shared components from design.md Section 2
 > (Component Inventory) and Section 7.8 (Mandatory Architectural Patterns + ADR Bindings)
@@ -834,7 +834,7 @@ IF mandatory_patterns.implementation_invariants IS NOT NULL:
 SEVERITY: BLOCKER for confirmed violations, WARNING for suspected
 ```
 
-### REVIEW Verification Loop (BVL-Integrated — Real Execution v1.1.1)
+### REVIEW Verification Loop (BVL-Integrated — Real Execution)
 
 > **Purpose:** Static checks (#1-#14) read code. This loop **executes** real tools to verify
 > that coverage, lint, and type compliance are real — not assumed from code inspection.
@@ -980,7 +980,7 @@ Step R.5: Fix Loop Control
 
 Execute AFTER REVIEW Hat passes for each phase.
 
-### SAST Scan (GCD v2.2.0)
+### SAST Scan (GCD)
 ```yaml
 # SEC Hat uses same governance_context + gcd_loaded from Phase Loop (implement-build Step 0b).
 # GCD path: sast_patterns pre-compiled with IDs. Fallback: derived from full SAST library.
@@ -1058,7 +1058,7 @@ IF brownfield (extension strategy E1/E2/E3):
     - Legacy adapter contracts preserved
 ```
 
-### SEC Verification Loop (BVL-Integrated — Real Execution v1.1.1)
+### SEC Verification Loop (BVL-Integrated — Real Execution)
 
 > **Purpose:** SAST pattern matching above is static (agent reads code). This loop **executes**
 > real security tools to catch vulnerabilities that pattern matching alone cannot detect:

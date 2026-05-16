@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# AGENT COMMUNICATION PROTOCOL (ACP v1.0.0)
+# AGENT COMMUNICATION PROTOCOL (ACP)
 
 > **Shared Protocol** — Referenced by: ALL sub-agents (audit, setup, codesign, blueprint, implement, devops, qa) + Factory (return briefing).
 > Ensures the user always knows which agent is active, what it's doing, and what it produced.

@@ -217,7 +217,7 @@ Step 4: Upstream Sync Gate (MANDATORY for IMPLEMENT and DEVOPS)
 
 ---
 
-## Downstream Cascade Invalidation Protocol (MANDATORY — v1.0.0)
+## Downstream Cascade Invalidation Protocol (MANDATORY —)
 
 When an upstream agent opens a new iteration or syncs its artifacts via DELTA/FULL, it MUST **push** `pending_iteration` to ALL existing downstream artifacts. This converts the pull-based model into a **push+pull hybrid**.
 

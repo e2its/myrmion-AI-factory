@@ -4,11 +4,11 @@ applicable_when:
   always: true
 ---
 
-# SMART REDIRECT PROTOCOL (SRP v1.1.0) — FRONTMATTER-DRIVEN NAVIGATION
+# SMART REDIRECT PROTOCOL (SRP) — FRONTMATTER-DRIVEN NAVIGATION
 
 > **Shared Protocol** — Referenced by: Factory, CODESIGN, BLUEPRINT, IMPLEMENT, DEVOPS, QA agents.
 > ALL "next step" suggestions after command completion MUST be computed dynamically by inspecting the actual frontmatter status of all feature artifacts.
-> **Memory Cache (FMCP v1.0.2):** Uses `/memories/repo/feature-state-cache.md` as acceleration layer. See `Factory-memory-cache/SKILL.md`.
+> **Memory Cache (FMCP):** Uses `/memories/repo/feature-state-cache.md` as acceleration layer. See `Factory-memory-cache/SKILL.md`.
 
 **CRITICAL RULE:** NEVER use hardcoded redirections like "Run `IMPLEMENT --plan`" without first checking if the artifact already exists and its current status.
 
@@ -372,12 +372,12 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
     actions.push({cmd: "IMPLEMENT --refine {{ID}}", reason: "Implementation plan has blockers"})
     RETURN actions
   
-  # Status Normalization (v9.0.1): Handle non-canonical statuses
+  # Status Normalization: Handle non-canonical statuses
   IF state.dev_plan.exists AND state.dev_plan.status NOT IN ["DRAFT", "NEW", "NEEDS_INFO", "READY", "BUILDING", "IMPLEMENTED_AND_VERIFIED"]:
     actions.push({cmd: "IMPLEMENT --build {{ID}}", reason: "Plan status '{{status}}' is non-canonical. --build will auto-normalize."})
     RETURN actions
   
-  # Delta Iteration Detection (v9.0.0): Secondary pull-based check
+  # Delta Iteration Detection: Secondary pull-based check
   IF state.dev_plan.exists AND state.dev_plan.status IN ["READY", "BUILDING", "IMPLEMENTED_AND_VERIFIED"]:
     spec_iteration = READ_FRONTMATTER(spec_feature, "iteration") OR 1
     dev_plan_based_on = READ_FRONTMATTER(dev_plan, "based_on_iteration") OR 1
@@ -458,7 +458,7 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
       ELIF state.qa_report.status == "IN_PROGRESS":
         actions.push({cmd: "QA --verify {{ID}}", reason: "QA verification in progress"})
     
-    # 5e: QA auto-approval (v8.2.0)
+    # 5e: QA auto-approval
     # --verify now auto-approves when verdict is APPROVED.
     # No separate --approve step needed. IN_PROGRESS means verify is still running.
 

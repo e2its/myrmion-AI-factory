@@ -191,7 +191,7 @@ CYCLE:
 
 ---
 
-## Interactive Mock Protocol (IMP v1.0.0 — Stack-Agnostic)
+## Interactive Mock Protocol (IMP — Stack-Agnostic)
 
 > **Principle:** Mocks are visual references, not functional prototypes. They must be navigable and state-aware WITHOUT any external dependency — zero npm, zero dev server, zero framework coupling. The mock works by opening the HTML file in any browser (file:// protocol).
 
@@ -319,7 +319,7 @@ Every `mock.html` MUST follow this structure:
 
   <!-- ═══ IMP: Interactivity Engine (vanilla JS — zero dependencies) ═══ -->
   <script>
-    // PROTECTED-CODE START — IMP Engine v1.0.0
+    // PROTECTED-CODE START — IMP Engine
     (function() {
       'use strict';
       
@@ -363,7 +363,7 @@ Every `mock.html` MUST follow this structure:
       window.addEventListener('hashchange', navigate);
       navigate();
     })();
-    // PROTECTED-CODE END — IMP Engine v1.0.0
+    // PROTECTED-CODE END — IMP Engine
   </script>
 
 </body>
@@ -582,7 +582,7 @@ When `feature_scope IN [backend-only, integration]`: Vision Gate is **N/A**. No 
 9. **BIP Tier ALIGNMENT:** Run Tripartite Alignment check (scope-aware — when mock.html is N/A, only SPEC↔JOURNEY + JOURNEY↔SPEC bidirectional checks apply; see § Tripartite Alignment Protocol). Present gaps to user via RDR for resolution.
 10. Run Auto-Approval Protocol (below)
 
-### Auto-Approval Protocol (v8.2.0 — eliminates separate --approve command)
+### Auto-Approval Protocol (eliminates separate --approve command)
 
 ```yaml
 FUNCTION codesign_auto_approve(FEATURE_ID):

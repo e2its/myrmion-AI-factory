@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# SCM PROTOCOL — BRANCHING, MERGE & CONCURRENCY (v1.2.0)
+# SCM PROTOCOL — BRANCHING, MERGE & CONCURRENCY
 
 > **Shared Protocol** — Referenced by: ALL agents + Factory (pre-routing).
 > Ensures all work happens in dedicated branches, merges go through PRs, and concurrent access is serialized.

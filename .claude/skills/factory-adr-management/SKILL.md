@@ -5,7 +5,7 @@ applicable_when:
   always: true
 ---
 
-# FACTORY ADR MANAGEMENT (FAM v1.0.0)
+# FACTORY ADR MANAGEMENT (FAM)
 
 > **Shared Protocol** — Referenced by: BLUEPRINT (`--start`, `--refine`), AUDIT (`--audit`), IMPLEMENT (`--build` discovery, `--fix` classification), CODESIGN (`--vision-deviation`), DEVOPS (`--configure`), BACKLOG (RETROSPECTIVE), and any free-form turn that needs to formalise an architectural decision.
 > Single source of truth for ADR/FDR lifecycle, file format, amendment ceremony, and downstream query API. Every inline reference to ADR/FDR creation or acceptance across commands / instructions / templates must conform to this protocol.

@@ -244,7 +244,7 @@ This changelog serves as:
 - **Reference for IMPLEMENT:** Which delta tasks to generate in dev_plan.md
 - **Reference for DEVOPS:** Which infrastructure may need re-planning
 
-### Downstream Cascade Invalidation (v1.0.0)
+### Downstream Cascade Invalidation
 After refine completes, execute `CASCADE_PENDING_ITERATION()`:
 - Push `pending_iteration` to `dev_plan.md` (if exists)
 - Push `pending_iteration` to `devops_plan.md` (if infrastructure affected)

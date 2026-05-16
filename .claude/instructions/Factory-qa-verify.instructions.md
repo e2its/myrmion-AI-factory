@@ -320,7 +320,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
   ✅ Prerequisites passed — proceed with verification
 ```
 
-> **Rationale for Gate 4.** Before EVOL-014, QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: the user_journey.md BDD scenarios are numbered into explicit blocks, each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the pre-EVOL-014 flow.
+> **Rationale for Gate 4.** QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: the user_journey.md BDD scenarios are numbered into explicit blocks, each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the legacy flow.
 
 ### Scope Boundary (M-09)
 ```yaml
@@ -411,7 +411,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   ELSE:
     LOG: "QA reliability checklist: N/A (scope={feature_scope}) — no QA-REL items"
 
-  # Static analysis tools (defense in depth — v2.2.0)
+  # Static analysis tools (defense in depth —)
   # QA independently re-executes lint/typecheck/SAST even though IMPLEMENT SEC hat
   # already ran them. This catches regressions introduced between IMPLEMENT and QA,
   # and eliminates trust dependency on upstream agent execution.
@@ -512,12 +512,12 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
 5. **Log Analysis:** Verify PASS in all cases → STATIC_PASS or REJECTED
    - For each test case verified: MARK corresponding `[QA-TC-*]` [x] in checklist
 
-**5a. System Regression Suite (v9.0.0):**
+**5a. System Regression Suite:**
 - Run `scripts/test.sh --all` (unit + integration + contract)
 - Classify failures: DIRECT_FAILURE, INDIRECT_REGRESSION, FLAKY, REGRESSION
 - Direct or indirect failures → REJECT | Flaky only → WARN | All pass → MARK `[QA-REG-1]`, `[QA-REG-2]`, `[QA-REG-3]` [x]
 
-**5b. Static Analysis Tools (Defense in Depth — v2.2.0):**
+**5b. Static Analysis Tools (Defense in Depth —):**
 
 QA independently re-executes lint, typecheck, and SAST tools. This is NOT redundant — it catches:
 - Code changes made after IMPLEMENT (manual edits, formatter runs)
@@ -560,7 +560,7 @@ IF commands.sast IS NOT NULL:
     MARK [QA-STATIC-3] [x]
 ```
 
-**5c-5h. DAST Phase (SEC hat, v8.0.0):**
+**5c-5h. DAST Phase (SEC hat,):**
 - Switch to SEC personality (paranoid, Zero Trust)
 - Pre-scan: Verify TARGET_URL, Docker, ZAP config
 - Execute: `scripts/security-scan.sh --dast` (baseline), `--dast-full`, or `--dast-api`
@@ -740,7 +740,7 @@ reviewed_by: QA
 - **OVERALL:** {{APPROVED | REJECTED}}
 ```
 
-### Auto-Approval Protocol (v8.2.0 — eliminates separate --approve command)
+### Auto-Approval Protocol (eliminates separate --approve command)
 
 ```yaml
 FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
