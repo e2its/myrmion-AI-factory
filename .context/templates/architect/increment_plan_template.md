@@ -30,6 +30,9 @@ total_increments: 0                 # count of increments in § 1
 rdr_rationale: ""                   # one-line justification for the chosen slicing
 rdr_alternatives_considered: 0      # count of alternative slicings evaluated (RDR requires ≥3)
 rdr_ratified_at: null               # ISO timestamp of user ratification
+
+# ITER-{FEAT}-{N} entries — see factory-iteration-model
+iterations: []
 ---
 
 # Increment Plan: {{FEATURE_ID}}

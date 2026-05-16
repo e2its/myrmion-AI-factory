@@ -190,8 +190,11 @@ IF status NOT IN canonical_statuses:
 ```
 
 #### Step 0a: Iteration Staleness Gate (BLOCKING — M-11)
+
+All four iteration reads route through `read_iteration_state(artifact_path)` (factory-iteration-model § Dual-format read). Direct `fm.iteration` access is a violation.
+
 ```yaml
-READ spec.feature → iteration
+READ spec.feature → iteration                     # read_iteration_state()
 READ dev_plan.md → based_on_iteration, pending_iteration
 
 # Check push-based staleness (from upstream cascade)

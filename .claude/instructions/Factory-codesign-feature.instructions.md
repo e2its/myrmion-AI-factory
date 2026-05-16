@@ -701,6 +701,8 @@ FUNCTION cip_refine_recheck(FEATURE_ID, refine_changes):
 
 ### Change Classification Protocol (when refining APPROVED specs with downstream work)
 
+Reads `iteration` via `read_iteration_state(artifact_path)` (factory-iteration-model § Dual-format read). Direct `fm.iteration` access is a violation.
+
 **Level 1: Structural Classification (Deterministic)**
 
 ```

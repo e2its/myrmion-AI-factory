@@ -13,8 +13,9 @@ co_creation_round: 0
 po_sign_off: false
 ux_sign_off: false  # N/A when scope in [backend-only, integration]
 schemas_version: 1
-iteration: 1
-iteration_history: []
+iteration: 1                    # scalar N (legacy read path)
+iteration_history: []           # legacy
+iterations: []                  # ITER-{FEAT}-{N} entries — see factory-iteration-model
 last_iteration_scope: "Initial co-creation"
 ---
 # =========================================================================

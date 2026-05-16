@@ -117,6 +117,9 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 f
 - Must be on `feature/{{FEATURE_ID}}-*` branch. BLOCK if on protected branch.
 
 ### Downstream Iteration Detection (v1.0.0 Dual-Source)
+
+Reads `spec.iteration` / `design.based_on_iteration` / `design.pending_iteration` via `read_iteration_state(artifact_path)` (factory-iteration-model § Dual-format read). Direct `fm.iteration` access is a violation.
+
 ```yaml
 # Source A: Pull-based comparison
 pull_gap = (spec.iteration > design.based_on_iteration)

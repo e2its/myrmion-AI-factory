@@ -44,6 +44,9 @@ increments: []
   # - id: "INC-2"
   #   status: "READY"
   #   tasks: { A: N, B: N, C: N, ACC: N }
+
+# ITER-{FEAT}-{N} entries — see factory-iteration-model. Each entry MAY carry `delta_tasks: [...]` checklist read by --build.
+iterations: []
 ---
 
 # Implementation Plan: {{FEATURE_ID}}
