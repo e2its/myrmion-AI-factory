@@ -2,7 +2,7 @@
 id: ADR-EVOL-034
 title: Framework downstream-awareness — lock-step hardening + schema canonicalisation
 date: 2026-05-18
-status: proposed
+status: accepted
 ---
 
 # ADR-EVOL-034: Framework downstream-awareness — lock-step hardening + schema canonicalisation
@@ -105,7 +105,7 @@ concept that disappears post-materialisation. Defense in depth: header marker
 
 - **Section affected:** `CLAUDE.md` (root meta only). One new framework-only `[LAW]` block added under § Governance Rules:
   - **LAW 12** — Lock-step Pair Integrity. Meta scripts and their template counterparts declared in `config/coherence-context.json § lock_step_pairs` MUST stay in lock-step. Enforced by `scripts/check-lockstep-pairs.sh` invoked from `.github/workflows/lockstep-check.yml` on every PR. Infrastructure is META-ONLY (defense in depth: header marker + self-guard); not propagated to materialised projects.
-- **Before:** Governance Rules ended at LAW 11 (MCP-Docs Scan Banner).
+- **Before:** Governance Rules ended at LAW 11 (Cyclomatic Complexity Gate — added by ADR-EVOL-033). The proposal phase incorrectly named LAW 11 as MCP-Docs Scan Banner (that was LAW 10); corrected here on accept.
 - **After:** LAW 12 appended.
 - **Template mirror:** NO — this LAW is framework-only by design. `.context/templates/setup/claude/CLAUDE.md` NOT updated. This is the framework-only branch of "What Lives Where"; rationale documented inline in the LAW body (lock-step pairs only exist in meta).
 - **Constitution version bump:** none (this `meta` repo has no `docs/constitution.md`; universal/meta LAWs live in `CLAUDE.md`).
