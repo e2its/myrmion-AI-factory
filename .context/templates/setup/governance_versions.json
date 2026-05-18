@@ -921,10 +921,11 @@
       ]
     },
     "scripts/generate-governance-snapshot.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "scripts/generate-governance-snapshot.sh",
       "changelog": [
+        "1.0.1: fix(EVOL-034) Phase 0 Block 13 lock-step — backport meta fix: Python snapshot extractor `red_zones` → `paths` dict key + section heading. Mirror of framework_core/scripts/generate-governance-snapshot.sh 1.0.1.",
         "1.0.0: feat(EVOL-027) fase 3 — initial templates entry. Mirror of framework_core script for materialised projects, shipped via factory-sync.sh."
       ]
     },
@@ -2581,9 +2582,10 @@
       ]
     },
     "scripts/generate-governance-snapshot.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "scripts/generate-governance-snapshot.sh",
       "changelog": [
+        "1.0.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: Python embedded snapshot extractor at line 249-250 — heading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)` + dict key `p.get(\"red_zones\", [])` → `p.get(\"paths\", [])`. The protected-paths.json field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35 (second iteration — initial Phase 0 pass missed scripts/ tree because grep filter was over-narrow).",
         "1.0.0: feat(EVOL-027) fase 3 — real generator implementing the Factory-setup-materialization Checkpoint 3.1 contract (frontmatter with hashes, Stack Configuration, Rules Manifest, Protected Paths, Setup Configuration, Active Constitution [LAW] extract, Defect Prevention universal entries). Replaces the language-agnostic pseudocode that every materialised project re-implemented inconsistently. Bash + awk + python3 (no PyYAML dependency). Portable MD5 (md5sum / md5 -q / openssl). --check validates inputs without writing; --quiet suppresses per-line stdout."
       ]
     },
