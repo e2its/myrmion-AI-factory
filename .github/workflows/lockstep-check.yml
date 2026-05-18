@@ -1,0 +1,71 @@
+# ============================================================================
+# Lock-step Check — CI Gate for Pull Requests
+# ============================================================================
+# META-ONLY: do not ship to downstream materialised projects.
+# Lock-step pairs are a meta-framework concept (a script lives twice —
+# once at meta scripts/X.sh, once at .context/templates/setup/scripts/X.sh
+# as the template shipped to downstream via factory-sync.sh). The
+# distinction collapses post-materialisation → this workflow has no
+# analogue downstream.
+#
+# Invokes scripts/check-lockstep-pairs.sh on every PR that touches
+# anything declared under config/coherence-context.json § audit.lock_step_pairs.
+# Fails CI if any registered pair has diverged.
+# ============================================================================
+
+name: Lock-step Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.claude/hooks/**'
+      - '.claude/settings.json'
+      - 'scripts/governance-*.sh'
+      - '.context/templates/setup/claude/hooks/**'
+      - '.context/templates/setup/claude/settings.json'
+      - '.context/templates/setup/scripts/governance-*.sh'
+      - 'config/coherence-context.json'
+      - 'scripts/check-lockstep-pairs.sh'
+      - '.github/workflows/lockstep-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Verify lock-step pair integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq (preinstalled on ubuntu-latest; verify only)
+        run: jq --version
+
+      - name: Run check-lockstep-pairs.sh
+        run: |
+          chmod +x scripts/check-lockstep-pairs.sh
+          ./scripts/check-lockstep-pairs.sh
+
+      - name: Failure hint
+        if: failure()
+        run: |
+          cat <<'EOF'
+          ❌ Lock-step pair drift detected.
+
+          Some meta↔template pairs declared in
+          config/coherence-context.json § audit.lock_step_pairs are no
+          longer byte-identical.
+
+          To reproduce locally:
+            bash scripts/check-lockstep-pairs.sh
+
+          To fix:
+            - If the divergence is intentional, reconsider — the pair was
+              declared as lock-step. Update the declaration in
+              coherence-context.json (change `type` or remove the pair).
+            - If the divergence is accidental, propagate the change to
+              both sides (typically: meta change forgot to update the
+              template counterpart, or vice versa).
+          EOF

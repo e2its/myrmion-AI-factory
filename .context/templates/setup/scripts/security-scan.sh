@@ -207,7 +207,7 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
   fi
   
   # Get all RED ZONE paths and flatten to newline-separated list
-  RED_ZONE_PATTERNS=$(jq -r '.red_zones | to_entries[] | .value[]' "$PROTECTED_PATHS_FILE" | grep -v '^#' | grep -v '^$')
+  RED_ZONE_PATTERNS=$(jq -r '.paths[]' "$PROTECTED_PATHS_FILE" | grep -v '^#' | grep -v '^$')
   
   if [ -z "$RED_ZONE_PATTERNS" ]; then
     echo "⚠️  No RED ZONE patterns defined. Skipping drift check."

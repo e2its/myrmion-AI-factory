@@ -283,7 +283,7 @@ CONSTRAINT_IDS: [SAST-{category}-{N}] — cite from Section 7.3
 ```yaml
 READ config/protected-paths.json:
   FOR EACH modified_file:
-    IF file IN red_zones:
+    IF file IN protected-paths.paths:
       CHECK for ADR approving modification
       IF no ADR: ❌ BLOCKER: "RED ZONE violation"
     IF file IN yellow_zones:

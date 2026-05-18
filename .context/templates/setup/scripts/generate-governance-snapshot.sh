@@ -246,8 +246,8 @@ try:
 except Exception as e:
     print(f"> Failed to parse $PROTECTED_PATHS: {e}")
     raise SystemExit(0)
-print("### Red Zones (BLOCKING — ADR required)")
-red = p.get("red_zones", []) or []
+print("### Protected Paths (BLOCKING — ADR required)")
+red = p.get("paths", []) or []
 if red:
     for path in red: print(f"- {path}")
 else:

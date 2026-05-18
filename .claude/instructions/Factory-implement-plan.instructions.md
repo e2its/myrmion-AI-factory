@@ -481,7 +481,7 @@ READ config/protected-paths.json
 FROM design.md: EXTRACT target_file_paths[]
 
 FOR EACH path IN target_file_paths:
-  IF path IN protected-paths.red_zones:
+  IF path IN protected-paths.paths:
     ❌ BLOCK: "Implementation targets RED ZONE: {path}. ADR required."
     SUGGEST: "BLUEPRINT --adr {ID} 'Red zone modification: {path}'"
   IF path IN protected-paths.yellow_zones:

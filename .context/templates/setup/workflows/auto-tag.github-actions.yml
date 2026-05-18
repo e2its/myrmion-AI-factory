@@ -40,7 +40,7 @@ jobs:
           OUTPUT=$(scripts/auto-tag.sh --apply --ci 2>&1)
           echo "$OUTPUT"
           # Extract NEW_TAG from script output
-          NEW_TAG=$(echo "$OUTPUT" | grep -oP '(?<=TAG=)\S+')
+          NEW_TAG=$(awk -F= '/^TAG=/{print $2; exit}' <<< "$OUTPUT")
           echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release

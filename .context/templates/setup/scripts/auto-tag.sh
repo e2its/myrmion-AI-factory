@@ -55,7 +55,7 @@ for arg in "$@"; do
 done
 
 # ── Get last tag ──
-LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+LAST_TAG=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "")
 FIRST_RELEASE=false
 
 if [ -z "$LAST_TAG" ]; then
@@ -121,9 +121,9 @@ echo ""
 # ── Show commits summary ──
 echo "Commits included:"
 if [ "$FIRST_RELEASE" = true ]; then
-  git log --pretty=format:"  - %s (%h)" | head -20
+  git log -n 20 --pretty=format:"  - %s (%h)"
 else
-  git log "${LAST_TAG}..HEAD" --pretty=format:"  - %s (%h)" | head -20
+  git log -n 20 "${LAST_TAG}..HEAD" --pretty=format:"  - %s (%h)"
 fi
 echo ""
 

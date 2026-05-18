@@ -1,5 +1,5 @@
 {
-  "red_zones": [
+  "paths": [
     ".context/**",
     "node_modules/**",
     "venv/**",
