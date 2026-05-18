@@ -310,10 +310,11 @@
       ]
     },
     "rules/protected-paths.json": {
-      "version": "1.1.0",
+      "version": "2.0.0",
       "content_type": "stack_configured",
       "target": "config/protected-paths.json",
       "changelog": [
+        "2.0.0: BREAKING(EVOL-034) sub-task 2 — canonical block-paths field renamed `red_zones` → `paths` per ratified ADR-EVOL-034 RDR-1 = Option A. Unifies with factory-pr-review Block 12 read (preflight.sh:309-321 already reads `.paths`). `yellow_zones` + `green_zones` advisory fields kept unchanged. security-scan.sh jq updated in lock-step. No live downstream consumer at time of break (nexus + MASS forked off as independent forks 2026-05-18 same session); future materialised projects start clean.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
@@ -430,10 +431,11 @@
       ]
     },
     "scripts/security-scan.sh": {
-      "version": "2.3.0",
+      "version": "2.3.1",
       "content_type": "universal",
       "target": "scripts/security-scan.sh",
       "changelog": [
+        "2.3.1: fix(EVOL-034) sub-task 2 — jq query for protected-paths.json drift check updated `.red_zones | to_entries[] | .value[]` (object-of-arrays assumption, never matched the actual flat-array template) → `.paths[]` matching the canonical schema after ADR-EVOL-034 RDR-1 = Option A rename. Closes Finding #2 (schema incoherence between security-scan.sh expected shape and template config actual shape).",
         "2.3.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "2.1.0: feat: webhook contract validation — spectral lint for contracts/webhooks/, outbound webhooks: section presence check",
         "2.0.0: Multi-format contract validation — gRPC (buf lint), AsyncAPI (asyncapi validate), OpenAPI (spectral/swagger-cli). Replaces TypeScript contract checks.",
