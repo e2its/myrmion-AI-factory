@@ -2568,6 +2568,13 @@
         "1.0.1: backfill: register framework_core entry (previously untracked despite explicit mention in CLAUDE.md Generation Standards §2 as mandatory-trackable) + fix(EVOL-034) lock-step Theme A Finding #5 — convert 3 `echo \"$OUTPUT\" | awk … exit` parse lines (TAG / BUMP / PREVIOUS) to `awk … exit <<< \"$OUTPUT\"` here-strings, eliminating SIGPIPE under GitHub Actions implicit pipefail that caused 5 consecutive auto-tag failures on nexus PRs #11-15."
       ]
     },
+    ".github/workflows/lockstep-check.yml": {
+      "version": "1.0.0",
+      "path": ".github/workflows/lockstep-check.yml",
+      "changelog": [
+        "1.0.0: feat(EVOL-034) sub-task 3 — NEW META-ONLY CI workflow invoking scripts/check-lockstep-pairs.sh on every PR that touches paths declared under coherence-context.json § audit.lock_step_pairs. Fails CI on byte-level drift. Defense in depth: header `# META-ONLY` marker + workflow path filter scoped to meta/template trees only — not propagated to downstream materialised projects."
+      ]
+    },
     "scripts/generate-governance-snapshot.sh": {
       "version": "1.0.0",
       "path": "scripts/generate-governance-snapshot.sh",
@@ -2580,6 +2587,13 @@
       "path": "scripts/check-inventory-drift.sh",
       "changelog": [
         "1.0.0: feat(EVOL-027) fase 4 — drift detector for codebase_inventory.json. Detects STALE (IMPLEMENTED but path missing), PROMOTE (PLANNED but path exists), INVALID (missing path/status). Modes: human report (default), --json (CI), --warn-only (advisory). Exits 0 when inventory absent (greenfield pre-bootstrap)."
+      ]
+    },
+    "scripts/check-lockstep-pairs.sh": {
+      "version": "1.0.0",
+      "path": "scripts/check-lockstep-pairs.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-034) sub-task 3 — NEW META-ONLY gate consuming coherence-context.json § audit.lock_step_pairs. Iterates declared pairs; for type=meta_template_mirror runs byte-identical diff (glob-aware: expands left side, pairs by basename to right dir). Skips type=universal_clause_mirror (deferred — clause extraction not implemented in v1) + type=meta_to_downstream_via_sync (informational only). Defense in depth: header `# META-ONLY` marker + 3-line self-guard at script start that exits 0 silently if .context/templates/setup/ absent (belt-and-braces against accidental copy to downstream). Exit codes: 0=all pass, 1=at least one drift, 2=config missing or jq unavailable. Smoke-tested at creation: 10 files verified across 5 pair declarations (3 meta_template_mirror + 2 skipped types) with no drift."
       ]
     },
     "utils/budget_tracker.py": {
