@@ -30,7 +30,7 @@ pipelines:
 
               OUTPUT=$(bash scripts/auto-tag.sh --apply --ci 2>&1)
               echo "$OUTPUT"
-              NEW_TAG=$(echo "$OUTPUT" | awk -F= '/^TAG=/{print $2; exit}')
+              NEW_TAG=$(awk -F= '/^TAG=/{print $2; exit}' <<< "$OUTPUT")
 
               if [ -n "$NEW_TAG" ]; then
                 echo "✅ Tag $NEW_TAG created and pushed"

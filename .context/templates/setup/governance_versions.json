@@ -523,10 +523,11 @@
       ]
     },
     "scripts/auto-tag.sh": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "content_type": "universal",
       "target": "scripts/auto-tag.sh",
       "changelog": [
+        "2.1.0: fix(EVOL-034) lock-step Theme A backports from meta — (a) Finding #6: `git describe --tags --abbrev=0` now uses `--match v*` filter so defensive non-semver tags (`pre-*`, `snapshot-*`) no longer break SemVer parsing under set -u; (b) Finding #7: replace `git log … | head -20` (two occurrences) with native `git log -n 20 …` to eliminate SIGPIPE under pipefail when parent captures stdout. Both fixes already lived in meta scripts/auto-tag.sh (lines 60/190/192) but template drifted — root cause of EVOL-034 Theme A.",
         "2.0.0: Governance-aware override — reads framework_version from manifest to prevent silent under-bumping (GOV-001)",
         "1.0.0: Initial template — SemVer auto-tagging from conventional commits (--apply, --ci, --no-push)"
       ]
@@ -589,20 +590,22 @@
       ]
     },
     "workflows/auto-tag.github-actions.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": ".github/workflows/auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
+        "1.0.1: fix(EVOL-034) lock-step Theme A — replace non-portable `grep -oP '(?<=TAG=)\\S+'` (GNU PCRE only) with `awk -F= '/^TAG=/{print $2; exit}' <<< \"$OUTPUT\"` matching the meta workflow + other template variants. Also closes SIGPIPE risk on the same line.",
         "1.0.0: Initial template — GitHub Actions auto-tag & release on PR merge"
       ]
     },
     "workflows/auto-tag.gitlab-ci.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": ".gitlab-ci-auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"GitLab CI\"",
       "changelog": [
+        "1.0.1: fix(EVOL-034) lock-step Theme A Finding #5 — convert `echo \"$OUTPUT\" | awk … exit` to `awk … exit <<< \"$OUTPUT\"` here-string to eliminate SIGPIPE under implicit pipefail.",
         "1.0.0: Initial template — GitLab CI auto-tag & release on merge to main"
       ]
     },
@@ -616,11 +619,12 @@
       ]
     },
     "workflows/auto-tag.bitbucket.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "bitbucket-pipelines.yml",
       "stack_conditional": "ci_cd_platform == \"Bitbucket Pipelines\"",
       "changelog": [
+        "1.0.1: fix(EVOL-034) lock-step Theme A Finding #5 — convert `echo \"$OUTPUT\" | awk … exit` to `awk … exit <<< \"$OUTPUT\"` here-string to eliminate SIGPIPE under implicit pipefail.",
         "1.0.0: Initial template — Bitbucket Pipelines auto-tag on merge to main"
       ]
     },
@@ -2553,6 +2557,13 @@
         "1.2.0: feat(EVOL-028) new step `Applicability frontmatter validation (ADP)` runs scripts/check-applicability-frontmatter.sh as CI hard gate. Closes ADP rollout — frontmatter drift in .claude/instructions, .claude/skills/Factory-*, and .claude/rules/defect-prevention.md is caught at PR time.",
         "1.1.0: feat — Workflow extended with two new steps: `ADR ↔ Constitution sync gate` runs `scripts/check-adr-constitution-sync.sh` to enforce the EVOL-026 invariant; `Run T2 governance suite` runs the four `scripts/test-*.sh` (templates static, snapshot extraction, ADR accept simulation, sync gate scenarios). Path filter extended to `.context/templates/**`, `scripts/**`, and `config/coherence-context.json` so test changes also trigger the workflow. Failure comment rewritten to enumerate the three possible causes (manifest drift / ADR-constitution sync / T2 suite) with a single local-reproduction one-liner.",
         "1.0.0: initial tracked entry — meta-only workflow that runs `validate-governance.sh --base` on every PR to main."
+      ]
+    },
+    ".github/workflows/auto-tag.yml": {
+      "version": "1.0.1",
+      "path": ".github/workflows/auto-tag.yml",
+      "changelog": [
+        "1.0.1: backfill: register framework_core entry (previously untracked despite explicit mention in CLAUDE.md Generation Standards §2 as mandatory-trackable) + fix(EVOL-034) lock-step Theme A Finding #5 — convert 3 `echo \"$OUTPUT\" | awk … exit` parse lines (TAG / BUMP / PREVIOUS) to `awk … exit <<< \"$OUTPUT\"` here-strings, eliminating SIGPIPE under GitHub Actions implicit pipefail that caused 5 consecutive auto-tag failures on nexus PRs #11-15."
       ]
     },
     "scripts/generate-governance-snapshot.sh": {
