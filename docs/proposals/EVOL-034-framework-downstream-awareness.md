@@ -28,6 +28,12 @@ ratified_rdrs:
     choice: "Option A (`paths`, flat array)"
     user_verbatim: "cual es tu recomendacion? → A; me encaja este split"
     rationale: "Nexus + MASS forking off as independent forks → no legacy fleet to migrate → pick cleanest contract over backward compat."
+  - id: RDR-3
+    date: 2026-05-18
+    choice: "Option A (CI workflow .github/workflows/lockstep-check.yml)"
+    user_verbatim: "CI workflow (Recommended)"
+    rationale: "Cheapest reliable enforcement; runs on every PR uniformly with no per-developer setup. Option B (BVL) ruled out as incoherent (BVL is downstream-shipped, gate is meta-only)."
+    scope_note: "Entire sub-task 3 is meta-only — defense in depth applied (inline `# META-ONLY` marker + self-guard silent no-op)."
 deferred_rdrs:
   - id: RDR-4
     target: EVOL-CO-DIRECTION
@@ -35,7 +41,7 @@ deferred_rdrs:
   - id: RDR-5
     target: EVOL-CO-DIRECTION
     reason: "ADR exemption axes become primitives of the territory model, not standalone framework contract."
-open_rdrs: [RDR-3]
+open_rdrs: []  # all RDRs ratified or deferred as of 2026-05-18
 ---
 
 # Framework Downstream-Awareness — analysis & design
@@ -135,13 +141,34 @@ Originally framed as "framework needs explicit contract for meta-vs-downstream b
 - security-scan.sh:210 (meta + template): jq becomes `.paths[]`
 - Template `protected-paths.json`: rename `red_zones` → `paths`
 
-**3. Lock-step enforcement (new infrastructure):**
-- Ratify RDR-3 (gate venue)
+**3. Lock-step enforcement (new infrastructure) — META-ONLY:**
+
+*Scope:* the entire sub-task lives in the meta-framework only. In a materialised downstream project the meta/template distinction collapses (only one copy of each file exists), so the gate has no work to do. Propagation prevented mechanically — everything below lives at meta root, NOT under `.context/templates/setup/`; `factory-sync.sh` only copies from the templates tree.
+
+- Ratify RDR-3 (gate venue — narrowed to A / C / D after Option B = BVL ruled out as inapplicable for meta-only infra)
 - New script `scripts/check-lockstep-pairs.sh` iterating `coherence-context.json § lock_step_pairs`, asserting parity
-- If RDR-3=A: new CI workflow `.github/workflows/lockstep-check.yml`
-- If RDR-3=B: BVL `full_verification_gate` integration
-- If RDR-3=C: pre-commit hook
-- Extend `coherence-context.json` v1.1.0 → v1.2.0 (MINOR, additive) adding `lock_step_pairs: [{meta, template}, ...]`
+- If RDR-3=A: new CI workflow `.github/workflows/lockstep-check.yml` (meta repo's own GitHub Actions)
+- If RDR-3=C: pre-commit hook in meta repo (requires bootstrap installer; documented in meta README)
+- Extend meta-only `config/coherence-context.json` v1.1.0 → v1.2.0 (MINOR, additive) adding `lock_step_pairs: [{meta, template}, ...]`
+- Template `.context/templates/setup/config/coherence-context.json` NOT touched — schema legitimately diverges (meta has `lock_step_pairs`; future template will carry territory primitives from EVOL-CO-DIRECTION)
+
+**Defense in depth (always applied, regardless of RDR-3 choice):**
+- Inline marker header in `scripts/check-lockstep-pairs.sh` and `.github/workflows/lockstep-check.yml`:
+  ```
+  # META-ONLY: do not ship to downstream materialised projects.
+  # Lock-step pairs are a meta-framework concept (script lives in both
+  # scripts/ and .context/templates/setup/scripts/); the distinction
+  # collapses post-materialisation. If you find this file in a downstream
+  # project, it was copied by mistake — delete it.
+  ```
+- Self-guard at script start (3 lines):
+  ```bash
+  if [[ ! -d .context/templates/setup ]]; then
+    echo "[INFO] check-lockstep-pairs: not in meta repo (.context/templates/setup absent) — no-op" >&2
+    exit 0
+  fi
+  ```
+  Silent no-op if accidentally invoked outside the meta repo. Belt-and-braces against future copy-paste.
 
 ### Manifest impact
 
@@ -156,9 +183,9 @@ Originally framed as "framework needs explicit contract for meta-vs-downstream b
 | `scripts/security-scan.sh` | PATCH | 2 | jq `.red_zones | to_entries…` → `.paths[]` |
 | `.context/templates/setup/scripts/security-scan.sh` | PATCH | 2 | jq (lock-step) |
 | `.context/templates/setup/config/protected-paths.json` | MAJOR | 2 | field rename `red_zones` → `paths` (no live consumer; future projects only) |
-| `scripts/check-lockstep-pairs.sh` | NEW 1.0.0 | 3 | added to `framework_core` |
-| `.github/workflows/lockstep-check.yml` | NEW 1.0.0 (if RDR-3=A) | 3 | added to `framework_core` |
-| `config/coherence-context.json` | MINOR | 3 | add `lock_step_pairs` (additive, no contract break) |
+| `scripts/check-lockstep-pairs.sh` | NEW 1.0.0 | 3 | `framework_core` section only — META-ONLY, no template counterpart |
+| `.github/workflows/lockstep-check.yml` | NEW 1.0.0 (if RDR-3=A) | 3 | `framework_core` section only — META-ONLY, meta repo's own CI |
+| `config/coherence-context.json` | MINOR | 3 | meta-only `lock_step_pairs` field; template's coherence-context.json NOT updated (schemas legitimately diverge) |
 
 ### Lock-step pairs to register in `coherence-context.json`
 - `scripts/auto-tag.sh` ↔ `.context/templates/setup/scripts/auto-tag.sh`
@@ -174,7 +201,7 @@ Originally framed as "framework needs explicit contract for meta-vs-downstream b
 - Future materialised projects start clean on canonicalised `paths` field.
 
 ### BVL / CVP / GCRP impact
-- **BVL:** RDR-3=B option would add `check-lockstep-pairs.sh` to `full_verification_gate` Step 8.
+- **BVL:** Option B (BVL integration) **ruled out 2026-05-18** — BVL is project-side infrastructure that materialises into downstream as a skill; embedding a meta-only gate inside a skill that ships to projects where the gate is inapplicable is incoherent. RDR-3 narrowed to A / C / D.
 - **CVP:** no change.
 - **GCRP:** no change — snapshot doesn't consume `coherence-context.json` or `protected-paths.json` today.
 
@@ -194,7 +221,7 @@ Per [factory-rdr SKILL § Algorithm](../../.claude/skills/factory-rdr/SKILL.md) 
 |---|---|---|
 | RDR-1 (split decision) | ✅ RATIFIED 2026-05-18 | proposal-meta, history only |
 | RDR-2 (protected-paths shape) | ✅ RATIFIED 2026-05-18 = A | ADR-EVOL-034 as RDR-1 |
-| RDR-3 (lock-step venue) | 🔓 OPEN | ADR-EVOL-034 as RDR-2 |
+| RDR-3 (lock-step venue) | ✅ RATIFIED 2026-05-18 = A (CI workflow) | ADR-EVOL-034 as RDR-2 |
 | RDR-4 (changelog policy) | ⏭️ DEFERRED 2026-05-18 | EVOL-CO-DIRECTION |
 | RDR-5 (ADR exemption axes) | ⏭️ DEFERRED 2026-05-18 | EVOL-CO-DIRECTION |
 
@@ -219,15 +246,22 @@ Later refinement same day: scope reduced to Themes A + B (Theme C deferred to EV
 | C | `red_zones` | object-of-arrays | Not chosen |
 | D | accept both shapes via conditional jq | as-is | Not chosen — weakest contract |
 
-### RDR-3 — lock-step enforcement venue 🔓 OPEN
+### RDR-3 — lock-step enforcement venue ✅ RATIFIED
 
-| Option | Description |
-|---|---|
-| **A (recommended)** | CI workflow (`lockstep-check.yml`) — runs on every PR, fails CI on diff |
-| B | BVL `full_verification_gate` integration — runs before commit |
-| C | Pre-commit hook — strongest enforcement, per-developer install friction |
+**Status:** ✅ RATIFIED 2026-05-18 — user chose **Option A (CI workflow)**. Verbatim: *"CI workflow (Recommended)"*.
 
-**Recommendation:** A. Meta runs CI on every PR; one-script workflow is cheapest and uniform. BVL is project-side and only weakly invoked in meta.
+**Scope clarification (pre-ratification):** lock-step pairs exist only in the meta-framework (a script lives twice — once as meta tool, once as template that ships to downstream). In a materialised project, the meta/template distinction collapses → the entire enforcement gate is meta-only. Question narrowed to WHERE within the meta repo it runs.
+
+Option B (BVL integration) was discarded 2026-05-18 before ratification — BVL is project-side infrastructure that materialises into downstream as a skill; embedding a meta-only gate inside it is incoherent.
+
+| Option | Venue | Disposition |
+|---|---|---|
+| **A (RATIFIED)** | CI workflow `.github/workflows/lockstep-check.yml` | Chosen — cheapest reliable enforcement; runs on every PR uniformly with no per-developer setup |
+| ~~B~~ | ~~BVL `full_verification_gate` Step 8~~ | Discarded pre-ratification — meta-only gate cannot live in a downstream-shipped skill |
+| C | Pre-commit hook in meta repo | Not chosen — bootstrap friction; may be added later as defense in depth |
+| D | No gate, script-only | Not chosen — empirical evidence (3/7 EVOL-034 findings caused by drift) shows discipline alone is insufficient |
+
+**Defense in depth (applied to chosen Option A):** inline `# META-ONLY` marker in script + workflow headers; 3-line self-guard in script that silent no-ops if `.context/templates/setup/` not present. Detailed in sub-task 3 above.
 
 ### RDR-4 — changelog policy default ⏭️ DEFERRED
 
@@ -261,15 +295,15 @@ Options preserved here for historical context.
 
 | EVOL | Files touched | RDRs to ratify | Schema break | Implementation est. | Risk |
 |---|---|---|---|---|---|
-| 034 | ~9 files (6 backports + 2 schema canon + 2 new for enforcement) | RDR-3 only | `protected-paths.json` field rename (no live consumer); `coherence-context.json` additive v1.1→v1.2 | 1-2 sessions | Low |
+| 034 | ~9 files (6 backports + 2 schema canon + 2 new for enforcement) | None — all ratified ✅ | `protected-paths.json` field rename (no live consumer); meta-only `coherence-context.json` additive v1.1→v1.2 | 1-2 sessions | Low |
 
 ## Implementation sequence
 
 1. ✅ RDR-1 ratified 2026-05-18 = single EVOL.
 2. ✅ RDR-2 ratified 2026-05-18 = Option A (`paths` flat).
 3. ⏭️ RDR-4 + RDR-5 deferred 2026-05-18 to EVOL-CO-DIRECTION.
-4. **🔓 Ratify RDR-3** — only remaining decision before branching.
-5. Author `docs/project_log/evolutions/ADR-EVOL-034-framework-downstream-awareness.md` — renumbers RDR-2 → RDR-1, RDR-3 → RDR-2 within that ADR.
+4. ✅ RDR-3 ratified 2026-05-18 = Option A (CI workflow). All ratifications complete.
+5. **Next:** Author `docs/project_log/evolutions/ADR-EVOL-034-framework-downstream-awareness.md` — renumbers RDR-2 → RDR-1, RDR-3 → RDR-2 within that ADR.
 6. Branch `feature/EVOL-034-framework-downstream-awareness` off `origin/main`.
 7. Implement in sub-task order (1 → 2 → 3). Bump manifest per sub-task to preserve commit-level traceability.
 8. PR + review + merge + tag.
