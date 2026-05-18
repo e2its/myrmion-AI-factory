@@ -1587,9 +1587,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.11.1",
+      "version": "2.11.2",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.11.2: fix(EVOL-034) Phase 0 Block 13 — reference coherence: `protected-paths.red_zones` → `protected-paths.paths` (line 484). The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
         "2.11.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.11.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.10.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -1621,9 +1622,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.7.2",
+      "version": "2.7.3",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.7.3: fix(EVOL-034) Phase 0 Block 13 — reference coherence: `red_zones` → `protected-paths.paths` (line 286). The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
         "2.7.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.7.1: fix(EVOL-029) post-review fix — § 3.1 Generate Review Report frontmatter wording aligned to peer_review template: new field is `report_scope` (not `scope`, which already exists with feature_scope semantics inherited from spec.feature). Templates Reference clarification.",
         "2.7.0: feat(EVOL-029) § 3.1 Generate Review Report — review file path is now build_scope-aware. Monolithic / plan-level aggregate keeps peer_review_{timestamp}.md; per-increment closure under slicing_strategy: incremental writes peer_review_{INC-N}_{timestamp}.md (matches build_scope.target_increment.id). Frontmatter adds scope + increment_id fields. QA --verify reads the slice-specific file in slice mode and the latest peer_review_*.md in aggregate mode. Templates Reference table line updated.",
@@ -1760,9 +1762,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.7.0",
+      "version": "3.7.1",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.7.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: snapshot-generation section `protected_paths.red_zones` → `protected_paths.paths` (line 155); subheading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)`. The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
         "3.7.0: feat(EVOL-033) phase 2 — Quality Configuration materialization step added. config/quality.json materialised from .context/templates/setup/config/quality.json with placeholder resolution: {{COMPLEXITY_MCP_SERVER}} ← quality.complexity.mcp_server (semgrep | custom | null when Skip); {{COMPLEXITY_MCP_TOOL_NAME}} ← quality.complexity.mcp_tool_name. Skip path writes JSON null literal (not string) and sets complexity.enabled=false so factory-complexity-check short-circuits cleanly; file still materialised to enable later opt-in via edit. Quality config added to § 4.2.3 config artefacts list. factory-sync.sh deliberately skips config/; SETUP --upgrade owns delta propagation.",
         "3.6.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "3.6.0: feat(EVOL-028) Phase B auto-generator now emits ADP-conformant frontmatter (`applicable_when: { path_glob: [...], framework: [...] }`) replacing legacy single-string `applyTo:`. Phase C validation switched to require `applicable_when:` and run scripts/check-applicability-frontmatter.sh as hard gate. NEW Phase D — ADP Context Materialization writes `.context/applicability_context.json` (project_scope + frameworks + path_glob_universe + source_hash) so factory-applicability-discovery has a deterministic context source instead of best-effort docs/setup.md parsing.",
@@ -1877,9 +1880,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.1.0",
+      "version": "13.2.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.2.0: feat(EVOL-034) Governance Rules gain LAW 12 (Lock-step Pair Integrity — META-ONLY). Constitution amendment for ADR-EVOL-034 acceptance. Meta scripts and template counterparts declared in config/coherence-context.json § audit.lock_step_pairs MUST stay in lock-step per pair type (byte-identical for meta_template_mirror; deferred for universal_clause_mirror; informational for meta_to_downstream_via_sync). Enforced by scripts/check-lockstep-pairs.sh invoked from .github/workflows/lockstep-check.yml on every PR. Infrastructure META-ONLY by construction (lock-step pairs disappear post-materialisation); defense in depth via header `# META-ONLY` marker + 3-line self-guard exit-0 if .context/templates/setup/ absent. Framework-only LAW — template counterpart NOT mirrored (intentional divergence documented in ADR-EVOL-034 § Constitution Amendment). Surfaced by Phase 0 Coherence Audit on this PR — manifest bump miss caught + fixed before merge.",
         "13.1.0: feat(EVOL-033) Governance Rules gain LAW 11 (Cyclomatic Complexity Gate is MCP-driven, project-configured). Constitution amendment for ADR-EVOL-033 acceptance. Process in framework (DC-28, skill factory-complexity-check contract, gate semantics BVL Step 7 + factory-pr-review axis 6 / Block 19, thresholds 10/15); tool in project (config/quality.json.complexity.mcp_server via SETUP RDR Q23.1 — Semgrep MCP default / Custom MCP / Skip). Skill tool-agnostic. Fail-open on infra issues. Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
         "13.0.0: feat(EVOL-032)! Governance Rules gain LAW 9 (Canonical Iteration ID — ITER-{FEAT}-{N} cross-artefact join key + read_iteration_state() wrapper mandate) and LAW 10 (MCP-Docs Scan Banner — mandatory first user-facing line of BLUEPRINT --start/--refine + IMPLEMENT --build/--refine, allowlist-based detection). Constitution amendment for ADR-EVOL-032 acceptance. Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
         "12.4.0: feat(known-issue) Pre-Action Gate gains addendum paragraph referencing new instruction `Factory-protocol-cwd-discipline.instructions.md` for workspaces with nested or sibling git repositories. Documents the Claude Code Bash tool's cwd-non-persistence hazard. Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
@@ -1938,9 +1942,10 @@
       ]
     },
     "skills/factory-governance-loading/SKILL.md": {
-      "version": "2.9.2",
+      "version": "2.9.3",
       "type": "skill",
       "changelog": [
+        "2.9.3: fix(EVOL-034) Phase 0 Block 13 — reference coherence: two references `red_zones[]` → `paths[]` (line 179, snapshot extraction) and `protected-paths.json.red_zones` → `protected-paths.json.paths` (line 313, RED_ZONE override check). The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
         "2.9.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.9.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "2.8.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",

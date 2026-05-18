@@ -176,7 +176,7 @@ FUNCTION generate_governance_snapshot(governance_context):
     }
     
     ## Protected Paths
-    {EXTRACT from config/protected-paths.json: red_zones[], yellow_zones[]}
+    {EXTRACT from config/protected-paths.json: paths[], yellow_zones[]}
     
     ## Environments
     {EXTRACT from .claude/rules/ci-cd.md: environments[]}
@@ -310,7 +310,7 @@ Load: config/protected-paths.json
 Check: git diff main...current_branch --name-only
 
 FOR EACH modified_file:
-  IF file_path IN protected-paths.json.red_zones:
+  IF file_path IN protected-paths.json.paths:
     # RED_ZONE override is a feature-scoped binding decision → FDR.
     # Source priority: docs/spec/{{FEATURE_ID}}/fdr/ (current) → docs/spec/{{FEATURE_ID}}/adr/ (legacy fallback).
     Check: docs/spec/{{FEATURE_ID}}/fdr/ AND docs/spec/{{FEATURE_ID}}/adr/ for RED_ZONE_MODIFICATION_*.md

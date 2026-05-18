@@ -151,8 +151,8 @@ FUNCTION generate_governance_snapshot():
     }
 
     ## Protected Paths
-    ### Red Zones (BLOCKING — ADR required)
-    {FOR EACH path IN protected_paths.red_zones: - {path}}
+    ### Protected Paths (BLOCKING — ADR required)
+    {FOR EACH path IN protected_paths.paths: - {path}}
     ### Yellow Zones (WARNING)
     {FOR EACH path IN protected_paths.yellow_zones: - {path}}
 
