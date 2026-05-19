@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -49,15 +49,13 @@
       },
       {
         "type": "universal_clause_mirror",
-        "doc": "Universal CLAUDE.md clauses (Communication Style, RDR Universal, Governance Scope, Pre-Action Gate, Invariants, Core Protocols) and the universal preamble of Mandatory Law #1 Constitutional Supremacy (body up to but NOT including the *Framework-meta application:* / *Project application:* addendum line) must be byte-identical between root CLAUDE.md and the template counterpart. The single-line addendum after the preamble legitimately diverges per context — root explains the meta repo's local ceremony (ADR branch amends framework-shipped artefact), template explains the downstream ceremony (factory-adr-management Accept Procedure amends docs/constitution.md). Other context-specific sections (triage default, framework_version invariant, Workflow / Hard Gates / Living Catalogs in template only, meta-only Generation Standards §2 framework manifest path) legitimately diverge — see CLAUDE.md § What Lives Where.",
+        "doc": "Universal CLAUDE.md clauses that must be byte-identical between root CLAUDE.md (meta) and the template counterpart. Verified by check-lockstep-pairs.sh which extracts each section listed in universal_sections (content between the H2 heading and the next H2 heading or EOF) and diffs both sides. Sections with legitimate context-specific divergence (Governance Scope wording, Pre-Action Gate steps, Core Protocols table, Generation Standards manifest path, Mandatory Law #1 addendum, Triage default, INVARIANT 4 manifest path, Workflow / Hard Gates / Living Catalogs in template only) are intentionally NOT listed here — they are governed by CLAUDE.md § What Lives Where and verified during human review (factory-pr-review Phase 0 Detector 16-meta operates on whole-file lock-step pairs, not section-level here).",
         "left": "CLAUDE.md",
-        "right": ".context/templates/setup/claude/CLAUDE.md"
-      },
-      {
-        "type": "meta_to_downstream_via_sync",
-        "doc": "Factory-* skills + Factory-*.instructions.md ship from meta directly to downstream via factory-sync.sh — no template intermediary. Lock-step at meta level = no drift to detect; lock-step at downstream level = files match meta as of last sync. For meta context, this declaration is informational; the audit does NOT flag missing template counterparts for these paths.",
-        "left": ".claude/skills/Factory-*/",
-        "right": "(direct sync; no template counterpart)"
+        "right": ".context/templates/setup/claude/CLAUDE.md",
+        "universal_sections": [
+          "## Communication Style — MANDATORY",
+          "## RDR Universal — MANDATORY"
+        ]
       }
     ],
     "manifest_paths": {

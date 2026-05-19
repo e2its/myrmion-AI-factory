@@ -99,7 +99,7 @@ Extends `references/docs-sync-checklist.md` with the framework's own artefacts. 
 | New / modified test_plan case | `dev_plan.md` task tags reference the case | Important |
 | `slicing_strategy: incremental` feature ships without `increment_plan.md` APPROVED | (CVP Check 0c) | **Blocker** |
 | Code change inside an `INC-N` MERGED scope (immutability) | (Per-Increment Immutability) | **Blocker** |
-| New `INC-N` without `depends_on` graph entry | `increment_plan.md` § 2 DAG | Important |
+| New `INC-N` without `depends_on:` field in § 1 | `increment_plan.md` § 1 `depends_on:` (canonical DAG) | Important |
 | `feature.scope` ≠ scope of touched paths (full-stack vs frontend-only vs backend-only) | (Scope Compatibility Gate) | **Blocker** |
 
 ## Workflow (`--preflight`)

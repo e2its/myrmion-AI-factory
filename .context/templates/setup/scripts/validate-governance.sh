@@ -407,11 +407,6 @@ if [ -n "$BASE_FW_VERSION" ] && [ -n "$CURRENT_FW_VERSION" ]; then
       pass "BREAKING CHANGE marker found in commits (auto-tag will detect MAJOR)"
     fi
   elif [ "$CURRENT_MAJOR" -eq "$BASE_MAJOR" ]; then
-    BASE_MINOR=$(echo "$BASE_FW_VERSION" | cut -d. -f2)
-    CURRENT_MINOR=$(echo "$CURRENT_FW_VERSION" | cut -d. -f2)
-    if [ "$CURRENT_MINOR" -gt "$BASE_MINOR" ]; then
-      info "Framework MINOR version bump: ${BASE_FW_VERSION} → ${CURRENT_FW_VERSION}"
-    fi
     pass "Version consistency OK"
   fi
 else
