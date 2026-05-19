@@ -45,10 +45,11 @@ iterations: []
 ## 0. Slicing Rationale
 
 - **Strategy:** `{{slicing_strategy}}`
-- **Justification:** {{one-paragraph rationale; why this slicing over the alternatives presented at RDR}}
+- **Priority axis cited:** `reliability` | `balance-ceiling` | `cost-tiebreaker`   *(per BLUEPRINT Recommendation Selection Rule — reliability > cost, balanced; see `Factory-blueprint-design.instructions.md` Step B)*
+- **Justification:** {{one-paragraph rationale; why this slicing over the alternatives presented at RDR — must reference the cited axis (e.g., "reliability — minimal blast radius per PR; balance OK at 4 PRs vs lowest-cost alt at 3")}}
 - **Rejected alternatives (summary):**
-  - Alt-A: {{short description}} — rejected because {{reason}}
-  - Alt-B: {{short description}} — rejected because {{reason}}
+  - Alt-A: {{short description}} — rejected because {{reason; e.g., "higher per-PR blast radius — touches 3 layers in INC-2"}}
+  - Alt-B: {{short description}} — rejected because {{reason; e.g., "exceeded balance ceiling — 8 PRs vs lowest-cost 3"}}
 - **Ratified by user:** {{YYYY-MM-DD HH:MM}} — verbatim user choice recorded in feature worklog.
 
 > When `slicing_strategy == monolithic`, § 1 contains a single increment `INC-1` covering the entire feature AND § 3 (Monolithic Escape Declaration) is populated with the heuristic that authorised monolithic.
@@ -105,18 +106,9 @@ iterations: []
 
 ### INC-N …
 
-## 2. Dependency Graph (DAG check)
+> **Canonical DAG.** The dependency graph is encoded by each increment's `depends_on:` field in § 1 above. CVP `increment_deployability` builds the graph from those fields and verifies acyclicity + that every referenced increment exists. § 3 below renders the same graph in Mermaid for human readers and is non-authoritative — if § 3 disagrees with § 1, § 1 wins.
 
-```mermaid
-graph TD
-  INC-1 --> INC-2
-  INC-2 --> INC-3
-  INC-1 --> INC-3
-```
-
-> BLUEPRINT's CVP `increment_deployability` check verifies this graph is acyclic and every referenced increment exists.
-
-## 3. Monolithic Escape Declaration
+## 2. Monolithic Escape Declaration
 
 > Populate ONLY when `slicing_strategy == monolithic`. Delete this section for `incremental`.
 
@@ -128,6 +120,17 @@ graph TD
 - **Justification:** feature below the slicing threshold — single PR is acceptable under the heuristic.
 - **Override path:** to force `incremental` on a trivial feature, set `slicing_strategy: incremental` in `spec.feature` manually before `BLUEPRINT --start`.
 - **Frontend-only vacuous case.** Frontend-only features have `ops_count = 0` by construction (no backend API). A frontend-only feature with ≤2 scenarios therefore satisfies the heuristic trivially and may adopt `monolithic`. This is **intentional**: the vertical-slicing mandate primarily benefits features with backend contracts where per-endpoint rollout reduces risk. Teams that prefer strict vertical slicing for all UI features (training value, review discipline) should set `slicing_strategy: incremental` in spec.feature or bump the project default via `docs/setup.md`.
+
+## 3. Human-readable Dependency Diagram (non-authoritative)
+
+> **Non-authoritative.** Rendered from § 1 `depends_on:` for human visual review. CVP does NOT parse this block — the authoritative DAG lives in § 1. If this diagram disagrees with § 1, § 1 wins. BLUEPRINT regenerates this block mechanically on every emission of increment_plan.md.
+
+```mermaid
+graph TD
+  INC-1 --> INC-2
+  INC-2 --> INC-3
+  INC-1 --> INC-3
+```
 ```
 
 ---

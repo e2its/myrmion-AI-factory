@@ -36,7 +36,7 @@ Drives Hard Block 8 (CVP subset) when files under `docs/spec/{ID}/**` are touche
 | New / modified test_plan case | `dev_plan.md` task tags reference the case (CVP Check 17) | Important |
 | `slicing_strategy: incremental` feature without `increment_plan.md` APPROVED | (CVP Check 0c) | **Blocker** |
 | Code touches a file inside an `INC-N` MERGED scope | (Per-Increment Immutability) | **Blocker** |
-| New `INC-N` without `depends_on` graph entry | `increment_plan.md` § 2 DAG | Important |
+| New `INC-N` without `depends_on:` field in § 1 | `increment_plan.md` § 1 `depends_on:` (canonical DAG) | Important |
 | `feature.scope` ≠ scope of touched paths | (Scope Compatibility Gate) | **Blocker** |
 | New code artefact (component / class / module) | `config/codebase_inventory.json` (CIP) | **Blocker** |
 

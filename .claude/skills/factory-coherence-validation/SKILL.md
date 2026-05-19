@@ -698,7 +698,7 @@ FUNCTION check_increment_deployability(elements):
   cycle = DETECT_CYCLE_BY_TOPOLOGICAL_SORT(increments, edge=depends_on)
   IF cycle IS NOT NULL:
     YIELD { check: "increment_deployability", severity: CRITICAL,
-            source: "increment_plan.md § 2 Dependency Graph",
+            source: "increment_plan.md § 1 (depends_on edges)",
             gap: "Cyclic dependency detected: {cycle.path}",
             remediation: "Break the cycle by removing at least one depends_on edge, or merge the cyclic increments into a single increment" }
 

@@ -760,7 +760,11 @@ Follow `.claude/skills/factory-rdr/SKILL.md` canonical protocol. Slicing-specifi
   - `happy-path-first` — all happy paths across the feature in INC-1, edge cases in INC-N.
   - `read-then-write` — read-only surface first, mutating surface second, advanced last.
 - Each alternative MUST declare: ordered increments, scenarios per increment, contract ops per increment, estimated PR size (tasks count), and a one-line deployability rationale.
-- BLUEPRINT recommends **one** with a one-line justification (e.g., "alt 2 — each increment ships a self-contained read→write user loop without depending on future flags").
+- **Recommendation Selection Rule (reliability > cost, balanced).** BLUEPRINT ranks the alternatives in this order:
+  1. **Primary axis — implementation reliability.** Prefer the slicing with lower per-increment blast radius: fewer scenarios per PR, narrower contract surface per PR, fewer concurrent layer changes, shorter `depends_on` chains, earliest contract closure (contracts that lock down first). Reliability beats cost.
+  2. **Balance ceiling.** Reject any reliability-best alternative whose total PR count exceeds **2× the lowest-cost alternative's PR count**. The point is "most balanced scenario possible" — reliability-first, not reliability-at-any-cost.
+  3. **Cost tiebreaker.** When two alternatives tie on reliability AND both pass the balance ceiling, prefer the one with fewer total increments.
+- BLUEPRINT recommends **one** with a one-line justification that **explicitly cites which axis drove the choice** (e.g., "alt 2 — reliability-first: each increment ships a self-contained read→write loop with zero forward dependency; balance OK (4 PRs vs lowest-cost 3 PRs)").
 - User MUST ratify **verbatim** (per factory-rdr). A recommendation without user ratification is INCOMPLETE — BLOCK.
 - Store ratification record in feature worklog: action `BLUEPRINT.increment_plan.rdr_ratified` with payload `{alternatives_presented: N, user_choice: "alt-k", rdr_ratified_at: iso}`.
 
@@ -770,10 +774,10 @@ Follow `.claude/skills/factory-rdr/SKILL.md` canonical protocol. Slicing-specifi
 2. Resolve placeholders:
    - `{{FEATURE_ID}}`, `{{SCOPE}}`, `[DATE]` from spec.feature + system clock.
    - `slicing_strategy`, `based_on_iteration`, `based_on_schemas_version` inherited from spec.feature (never recomputed).
-   - § 1 **Increments** populated from ratified RDR choice: title, scenarios_covered, contract_surface, depends_on, functional_definition, acceptance checklist, branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`.
-   - § 2 **Dependency Graph** — emit Mermaid DAG from `depends_on` relations.
+   - § 1 **Increments** populated from ratified RDR choice: title, scenarios_covered, contract_surface, depends_on, functional_definition, acceptance checklist, branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`. **The canonical dependency DAG is encoded by each increment's `depends_on:` field — CVP reads only this.**
    - § 0 **Slicing Rationale** — populate with chosen strategy justification + summaries of ≥2 rejected alternatives + ratification timestamp.
-   - § 3 **Monolithic Escape Declaration** — emit ONLY when `slicing_strategy == monolithic`; include heuristic metrics.
+   - § 2 **Monolithic Escape Declaration** — emit ONLY when `slicing_strategy == monolithic`; include heuristic metrics.
+   - § 3 **Human-readable Dependency Diagram** — emit Mermaid `graph TD` block mechanically derived from § 1 `depends_on:` edges. **Non-authoritative** (CVP does not parse it; § 1 is the source of truth). Emit unconditionally — purpose is human visual review.
    - Frontmatter: `total_increments` = count of § 1 sections; `rdr_alternatives_considered` = number presented (≥3); `rdr_ratified_at` = ratification ISO timestamp; `status: DRAFT`.
 3. Atomic-write `docs/spec/{{FEATURE_ID}}/increment_plan.md` via IPP (skeleton-first + section-atomic; see § Incremental Persistence below for the full loop).
 
@@ -794,7 +798,7 @@ Violations are **BUGS in the RDR output** — loop back to Step B with the speci
 Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, slicing_strategy, total_increments, rdr_alternatives_considered, rdr_ratified_at}`. See `.claude/skills/factory-worklog/SKILL.md`.
 
 **Output invariants at step end:**
-- `docs/spec/{{FEATURE_ID}}/increment_plan.md` exists with `status: DRAFT`, well-formed frontmatter (all fields populated), § 0/§ 1/§ 2 fully written. § 3 only when `slicing_strategy == monolithic`.
+- `docs/spec/{{FEATURE_ID}}/increment_plan.md` exists with `status: DRAFT`, well-formed frontmatter (all fields populated), § 0, § 1, and § 3 (human-readable Mermaid diagram) fully written. § 2 (Monolithic Escape Declaration) only when `slicing_strategy == monolithic`.
 - CVP gates `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage` run at `--approve` (see `.claude/skills/factory-coherence-validation/SKILL.md`).
 
 ### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY —)
