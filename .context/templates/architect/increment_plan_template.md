@@ -52,7 +52,7 @@ iterations: []
   - Alt-B: {{short description}} — rejected because {{reason; e.g., "exceeded balance ceiling — 8 PRs vs lowest-cost 3"}}
 - **Ratified by user:** {{YYYY-MM-DD HH:MM}} — verbatim user choice recorded in feature worklog.
 
-> When `slicing_strategy == monolithic`, § 1 contains a single increment `INC-1` covering the entire feature AND § 3 (Monolithic Escape Declaration) is populated with the heuristic that authorised monolithic.
+> When `slicing_strategy == monolithic`, § 1 contains a single increment `INC-1` covering the entire feature AND § 2 (Monolithic Escape Declaration) is populated with the heuristic that authorised monolithic.
 
 ## 1. Increments
 

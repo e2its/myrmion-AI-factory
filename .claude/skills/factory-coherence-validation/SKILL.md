@@ -818,7 +818,7 @@ FUNCTION check_increment_to_contract_coverage(elements):
 
 ### Check 16: `monolithic_heuristic` (CRITICAL when `slicing_strategy == monolithic`)
 
-When the Increment Plan declares `slicing_strategy: monolithic`, § 3 Monolithic Escape Declaration must be present AND the trivial-heuristic must actually be satisfied (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack). Monolithic escape with heuristic violation is governance drift — the feature should be re-sliced.
+When the Increment Plan declares `slicing_strategy: monolithic`, § 2 Monolithic Escape Declaration must be present AND the trivial-heuristic must actually be satisfied (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack). Monolithic escape with heuristic violation is governance drift — the feature should be re-sliced.
 
 ```yaml
 FUNCTION check_monolithic_heuristic(elements):
@@ -828,12 +828,12 @@ FUNCTION check_monolithic_heuristic(elements):
     YIELD { check: "monolithic_heuristic", severity: PASS, note: "slicing_strategy=incremental — check not applicable" }
     RETURN
 
-  # Must have § 3 Monolithic Escape Declaration
-  IF plan.section_3_monolithic_escape IS NULL:
+  # Must have § 2 Monolithic Escape Declaration
+  IF plan.section_2_monolithic_escape IS NULL:
     YIELD { check: "monolithic_heuristic", severity: CRITICAL,
-            source: "increment_plan.md § 3",
-            gap: "slicing_strategy=monolithic but § 3 Monolithic Escape Declaration is missing",
-            remediation: "BLUEPRINT --refine {FEATURE_ID} — populate § 3 with the satisfied heuristic metrics" }
+            source: "increment_plan.md § 2",
+            gap: "slicing_strategy=monolithic but § 2 Monolithic Escape Declaration is missing",
+            remediation: "BLUEPRINT --refine {FEATURE_ID} — populate § 2 with the satisfied heuristic metrics" }
     RETURN
 
   # Verify heuristic metrics
@@ -861,7 +861,7 @@ FUNCTION check_monolithic_heuristic(elements):
 
   IF all_checks_passed:
     YIELD { check: "monolithic_heuristic", severity: PASS,
-            source: "increment_plan.md § 3",
+            source: "increment_plan.md § 2",
             target: "heuristic satisfied: {scenarios_count} scenarios, {ops_count} ops, scope={scope}" }
 ```
 
