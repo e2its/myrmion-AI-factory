@@ -14,9 +14,11 @@
 #   - meta_template_mirror     : byte-identical diff between left/right.
 #                                 If left/right contain glob chars (*),
 #                                 expand and pair files by basename.
-#   - universal_clause_mirror  : DEFERRED — clause extraction not yet
-#                                 implemented. INFO log, SKIPPED.
-#   - meta_to_downstream_via_sync : informational only. INFO log, SKIPPED.
+#   - universal_clause_mirror  : extracts each H2 section listed in the
+#                                 pair's universal_sections array (content
+#                                 between the heading and the next H2 or
+#                                 EOF) from left and right, diffs them.
+#                                 Drift in any listed section fails.
 #   - other types              : WARN and SKIPPED.
 #
 # Exits:
@@ -78,6 +80,61 @@ check_byte_identical() {
   return 0
 }
 
+# Extract content between an H2 heading and the next H2 heading (or EOF).
+# Output is the section body without the heading line itself.
+extract_section() {
+  local file="$1"
+  local heading="$2"
+  awk -v h="$heading" '
+    BEGIN { p = 0 }
+    {
+      if (substr($0, 1, length(h)) == h && length($0) == length(h)) { p = 1; next }
+      if (p && /^## /) { exit }
+      if (p) print
+    }
+  ' "$file"
+}
+
+check_universal_clauses() {
+  local left="$1"
+  local right="$2"
+  local sections_json="$3"
+  local local_drift=0
+
+  if [[ ! -f "$left" ]]; then
+    echo "[FAIL] $left missing (declared as left side of universal_clause_mirror)" >&2
+    return 1
+  fi
+  if [[ ! -f "$right" ]]; then
+    echo "[FAIL] $right missing (declared as right side of universal_clause_mirror)" >&2
+    return 1
+  fi
+
+  while IFS= read -r section; do
+    [[ -z "$section" ]] && continue
+    local left_body right_body
+    left_body=$(extract_section "$left" "$section")
+    right_body=$(extract_section "$right" "$section")
+    if [[ -z "$left_body" ]]; then
+      echo "[FAIL] universal_clause_mirror: section '$section' not found in $left" >&2
+      local_drift=$((local_drift + 1))
+      continue
+    fi
+    if [[ -z "$right_body" ]]; then
+      echo "[FAIL] universal_clause_mirror: section '$section' not found in $right" >&2
+      local_drift=$((local_drift + 1))
+      continue
+    fi
+    if ! diff -q <(printf '%s' "$left_body") <(printf '%s' "$right_body") > /dev/null 2>&1; then
+      echo "[FAIL] universal_clause_mirror drift in section '$section': $left <> $right" >&2
+      diff -u <(printf '%s' "$left_body") <(printf '%s' "$right_body") 2>&1 | sed 's/^/   /' >&2 || true
+      local_drift=$((local_drift + 1))
+    fi
+  done < <(jq -r '.[]' <<< "$sections_json")
+
+  return $local_drift
+}
+
 while IFS= read -r pair; do
   TYPE=$(jq -r '.type // empty' <<< "$pair")
   LEFT=$(jq -r '.left // empty' <<< "$pair")
@@ -110,12 +167,18 @@ while IFS= read -r pair; do
       fi
       ;;
     universal_clause_mirror)
-      echo "[INFO] skipping universal_clause_mirror (clause extraction not yet implemented): $LEFT <> $RIGHT" >&2
-      SKIPPED=$((SKIPPED + 1))
-      ;;
-    meta_to_downstream_via_sync)
-      echo "[INFO] skipping meta_to_downstream_via_sync (informational, no parity to enforce): $LEFT <> $RIGHT" >&2
-      SKIPPED=$((SKIPPED + 1))
+      SECTIONS_JSON=$(jq -c '.universal_sections // []' <<< "$pair")
+      SECTION_COUNT=$(jq 'length' <<< "$SECTIONS_JSON")
+      if [[ "$SECTION_COUNT" == "0" ]]; then
+        echo "[FAIL] universal_clause_mirror declared without universal_sections list: $LEFT <> $RIGHT" >&2
+        DRIFT_COUNT=$((DRIFT_COUNT + 1))
+      else
+        CHECKED=$((CHECKED + SECTION_COUNT))
+        if ! check_universal_clauses "$LEFT" "$RIGHT" "$SECTIONS_JSON"; then
+          rc=$?
+          DRIFT_COUNT=$((DRIFT_COUNT + rc))
+        fi
+      fi
       ;;
     *)
       echo "[WARN] unknown pair type '$TYPE' — skipping: $LEFT <> $RIGHT" >&2
