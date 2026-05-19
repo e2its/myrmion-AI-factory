@@ -745,8 +745,8 @@ FUNCTION auto_declare_frontend_resource():
      - `scope` = `spec.feature.scope`.
      - Gate passes **only if** `scenarios_count ≤ 2` AND `ops_count ≤ 3` AND `scope != "full-stack"`.
    - IF gate FAILS → BLOCK with humanized message:
-     - "This feature is too large for a monolithic plan (N scenarios, M ops, scope=S). Set `slicing_strategy: incremental` in spec.feature and re-run --start. See `.context/templates/architect/increment_plan_template.md` § 3 for the heuristic."
-   - IF gate PASSES → emit `increment_plan.md` with a single `INC-1` increment + § 3 Monolithic Escape Declaration populated. Skip Step B.
+     - "This feature is too large for a monolithic plan (N scenarios, M ops, scope=S). Set `slicing_strategy: incremental` in spec.feature and re-run --start. See `.context/templates/architect/increment_plan_template.md` § 2 for the heuristic."
+   - IF gate PASSES → emit `increment_plan.md` with a single `INC-1` increment + § 2 Monolithic Escape Declaration populated. Skip Step B.
 3. IF `slicing_strategy == incremental` → proceed to Step B (RDR).
 
 **Step B — Increment Slicing RDR (Recommendation → Decision → Ratification):**
