@@ -26,7 +26,7 @@ Validate: docs/project_log/governance_versions.json EXISTS
   IF NOT: Construct legacy snapshot + rebuild registry
 
 Validate: .context/templates/setup/governance_versions.json EXISTS
-  IF NOT: 🛑 BLOCK "🛑 Framework manifest missing. git pull to update mi-AI-Factory."
+  IF NOT: 🛑 BLOCK "🛑 Framework manifest missing. git pull to update myrmion-AI-factory."
   STOP
 
 Load: Both manifests

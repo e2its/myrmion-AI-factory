@@ -1,4 +1,4 @@
-# mi AI Factory for Claude
+# Myrmion AI Factory for Claude
 
 [![License: EULA](https://img.shields.io/badge/License-EULA-blue.svg)](./EULA.md)
 [![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai/claude-code)
@@ -68,8 +68,8 @@ The framework activates automatically when opening the repository with Claude Co
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/e2its/mi-AI-Factory-for-Claude.git
-cd mi-AI-Factory-for-Claude
+git clone https://github.com/e2its/myrmion-AI-factory.git
+cd myrmion-AI-factory
 
 # 2. Run Claude Code (CLI)
 claude

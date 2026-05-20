@@ -121,7 +121,7 @@ for i, line in enumerate(lines):
 
 # Build JSON structure
 metadata = {
-    "project_name": "mi-AI-Factory",
+    "project_name": "myrmion-AI-factory",
     "created_at": "2026-02-04T00:00:00Z",
     "migrated_from_markdown": datetime.utcnow().isoformat() + "Z",
     "version": "1.0.0",

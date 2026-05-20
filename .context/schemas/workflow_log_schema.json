@@ -12,7 +12,7 @@
         "project_name": {
           "type": "string",
           "description": "Project name (from constitution.md or setup.md)",
-          "example": "mi-AI-Factory"
+          "example": "myrmion-AI-factory"
         },
         "created_at": {
           "type": "string",
