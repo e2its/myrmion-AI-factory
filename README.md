@@ -33,6 +33,8 @@ Adoption and Federation are complementary — the cultural-governance pair: one 
 
 ## Table of Contents
 
+- [Part of the Myrmion ecosystem](#part-of-the-myrmion-ecosystem)
+
 1. [Overview](#overview)
 2. [Prerequisites](#prerequisites)
 3. [Installation](#installation)
@@ -1066,6 +1068,8 @@ This ensures CI/CD pipelines pass from day 1 (no stub code = no lint/compile err
 This project is distributed under the [MIT License](./LICENSE). Free use — commercial and non-commercial — with attribution.
 
 `e2its` is an unregistered trademark used as a project and domain identifier; the MIT grant covers the software, not the brand.
+
+> **Licence history:** earlier releases — under the `mi AI Factory` name — were distributed under a proprietary End User License Agreement (EULA). From the `Myrmion AI Factory` rebrand onward the project is MIT-licensed.
 
 ---
 
