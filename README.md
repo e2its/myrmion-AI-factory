@@ -13,7 +13,7 @@
 </tr>
 </table>
 
-[![License: EULA](https://img.shields.io/badge/License-EULA-blue.svg)](./EULA.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai/claude-code)
 [![Myrmion ecosystem](https://img.shields.io/badge/Myrmion-Phase_2_AI_Factory-1b3a5c.svg)](https://github.com/e2its/myrmion-framework)
 
@@ -1042,9 +1042,9 @@ This ensures CI/CD pipelines pass from day 1 (no stub code = no lint/compile err
 
 ## License
 
-e2its is an unregistered trademark used as a project and domain identifier. The holder of the domain e2its.com retains all rights over the software and the brand, without implying official registration.
+This project is distributed under the [MIT License](./LICENSE). Free use — commercial and non-commercial — with attribution.
 
-This software is provided under a custom End User License Agreement (EULA). See [EULA.md](./EULA.md) for details.
+`e2its` is an unregistered trademark used as a project and domain identifier; the MIT grant covers the software, not the brand.
 
 ---
 
@@ -1052,4 +1052,4 @@ This software is provided under a custom End User License Agreement (EULA). See 
 
 - **Issues**: GitHub Issues.
 - **Discussions**: GitHub Discussions.
-- **Core docs**: [CLAUDE.md](CLAUDE.md), [EULA.md](EULA.md). The project constitution is materialised per target project at `docs/constitution.md` by `/setup --generate` — it does not exist in this framework repository.
+- **Core docs**: [CLAUDE.md](CLAUDE.md), [LICENSE](LICENSE). The project constitution is materialised per target project at `docs/constitution.md` by `/setup --generate` — it does not exist in this framework repository.
