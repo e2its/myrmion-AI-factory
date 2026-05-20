@@ -1275,9 +1275,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.6.3",
+      "version": "2.6.4",
       "path": "README.md",
       "changelog": [
+        "2.6.4: docs — Directory Structure: add FDR/ADR record dirs. Per-feature docs/spec/{ID}/adr/ → docs/spec/{ID}/fdr/ (Feature Decision Records); docs/project_log/adr/ (project-wide ADRs) added.",
         "2.6.3: docs — refresh \"Framework File Structure\" tree. Skill dirs lowercased Factory-→factory- and 7 missing skills added (20 total); 3 missing instructions added (23 total); .claude/hooks/ subtree added; .context/schemas/, config/, scripts/ added.",
         "2.6.2: docs — relicense EULA → MIT. EULA.md removed, LICENSE (MIT, Copyright (c) 2026 José Luis Sánchez del Coso) added; README License section + badge + Support links updated.",
         "2.6.1: docs — correct ecosystem framing. Myrmion has three frameworks; AI Factory (phase 2) is a STANDALONE product-development framework, Adoption + Federation are the complementary cultural-governance pair. Dropped Federation-coupling and Adoption-Constitution-dependency language.",

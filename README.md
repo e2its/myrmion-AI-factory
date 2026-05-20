@@ -1003,7 +1003,7 @@ docs/
 │   ├── test_plan.md                #   Test strategy (BLUEPRINT)
 │   ├── dev_plan.md                 #   Implementation plan (IMPLEMENT)
 │   ├── devops_plan.md              #   Infrastructure plan (DEVOPS)
-│   ├── adr/                        #   Architecture Decision Records
+│   ├── fdr/                        #   Feature Decision Records (feature-local, never escalate)
 │   └── qa/                         #   QA verification reports
 ├── backlog/                        # Project tracking (BACKLOG — SSOT mode-dependent)
 │   ├── project-config.json         #   External mode: non-sensitive connection params
@@ -1011,6 +1011,7 @@ docs/
 │   └── issue-bodies/               #   Local mode: issue body markdown files
 ├── ux/vision/                      # Global UX vision artifacts
 └── project_log/                    # Worklog, migration reports
+    └── adr/                        #   Architecture Decision Records (project-wide → constitution)
 contracts/                          # API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI)
 config/                             # system_resources.json, infrastructure_registry.json
 infra/                              # Infrastructure as Code (modules/ + features/)
