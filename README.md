@@ -7,7 +7,7 @@
 
 # Myrmion AI Factory for Claude
 
-> **Phase 2 of the Myrmion ecosystem — the executable layer of Myrmion Federation.** A single Claude Code agent orchestrates the complete Software Development Life Cycle with built-in governance, security, and quality gates via slash commands.
+> **Phase 2 of the Myrmion ecosystem — the product-development framework.** A single Claude Code agent orchestrates the complete Software Development Life Cycle with built-in governance, security, and quality gates via slash commands.
 
 </td>
 </tr>
@@ -15,16 +15,17 @@
 
 [![License: EULA](https://img.shields.io/badge/License-EULA-blue.svg)](./EULA.md)
 [![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai/claude-code)
-[![Myrmion Federation](https://img.shields.io/badge/Myrmion-Federation-1b3a5c.svg)](https://github.com/e2its/myrmion-framework)
+[![Myrmion ecosystem](https://img.shields.io/badge/Myrmion-Phase_2_AI_Factory-1b3a5c.svg)](https://github.com/e2its/myrmion-framework)
 
 ## Part of the Myrmion ecosystem
 
-[Myrmion](https://github.com/e2its/myrmion-framework) is an opensource ecosystem for adopting corporate AI with an organisation's own culture. It is articulated in two phases:
+[Myrmion](https://github.com/e2its/myrmion-framework) is an opensource ecosystem for adopting corporate AI with an organisation's own culture. It is made of three frameworks:
 
-- **Myrmion Adoption** (phase 1) — cultural modelling for companies adopting AI through commercial products. Three layers: Regulatory Framework, Corporate Constitution, Departmental Layers. No programmatic agents.
-- **Myrmion Federation** (phase 2) — federated, culturally-aware governance for organisations whose departmental agents must invoke each other. **This repository is the executable layer of that phase.**
+- **Myrmion Adoption** (phase 1) — the *enterprise framework*. Cultural modelling for companies adopting AI through commercial products: Regulatory Framework, Corporate Constitution, Departmental Layers. No programmatic agents.
+- **Myrmion AI Factory** (phase 2) — the *product-development framework*. **This repository.** A governed agentic SDLC that builds software products under built-in governance, security, and quality gates.
+- **Myrmion Federation** (phase 3) — the *federation framework*. Federated, culturally-aware governance for organisations whose departmental agents must invoke each other.
 
-The Corporate Constitution articulated in Adoption is the same one this framework materialises programmatically: `/setup --generate` turns it into `docs/constitution.md`, the operational law every governed agent reads. What changes between phases is the degree of programmaticity — not the culture, not the method.
+Adoption and Federation are complementary — the cultural-governance pair: one articulates the corporate culture, the other federates agents across departments. **The AI Factory is independent of both.** It is a self-contained framework for building software products and can be adopted on its own, with no Myrmion Adoption or Myrmion Federation in place.
 
 📖 [Myrmion umbrella manifesto](https://github.com/e2its/myrmion-framework/blob/main/docs/manifesto.md) · [Myrmion Federation manifesto](https://github.com/e2its/myrmion-framework/blob/main/docs/federation/manifesto.md)
 
@@ -56,9 +57,9 @@ The Corporate Constitution articulated in Adoption is the same one this framewor
 
 ## Overview
 
-Myrmion AI Factory is the **executable layer of Myrmion Federation**: it transforms Claude Code into a **governed SDLC orchestrator** using slash commands (`.claude/commands/`). A single agent assumes specialized roles — 6 covering the main SDLC phases plus 2 independent operational commands (AUDIT and BACKLOG) — supported by cross-cutting skill protocols and contextual instruction files.
+Myrmion AI Factory is **phase 2 of the Myrmion ecosystem — the product-development framework**: it transforms Claude Code into a **governed SDLC orchestrator** using slash commands (`.claude/commands/`). A single agent assumes specialized roles — 6 covering the main SDLC phases plus 2 independent operational commands (AUDIT and BACKLOG) — supported by cross-cutting skill protocols and contextual instruction files.
 
-Where Myrmion Adoption articulates a corporate culture as a written Constitution, this framework **materialises that Constitution programmatically**. `docs/constitution.md` becomes operational law: every role, every gate, every generated artefact is validated against it — culture propagated into each agent move, the decision chain kept auditable.
+At setup the framework generates its own **operational law** — `docs/constitution.md`. Every role, every gate, every generated artefact is validated against it, so governance is propagated into each agent move and the decision chain stays auditable.
 
 ### Key Features
 
