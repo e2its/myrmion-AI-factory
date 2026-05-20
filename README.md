@@ -110,7 +110,7 @@ claude
 CLAUDE.md                                    # Root governance (always loaded)
 .claude/
 ├── commands/                                # 8 slash commands (one per SDLC phase)
-│   ├── audit.md                             # /audit  — Due Diligence
+│   ├── audit.md                             # /audit — Technical Due Diligence
 │   ├── setup.md                             # /setup — Setup & Governance
 │   ├── codesign.md                          # /codesign — Co-Creation (PO ↔ UX)
 │   ├── blueprint.md                         # /blueprint — Technical Design (ARCH ↔ QA)
@@ -118,17 +118,20 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── devops.md                            # /devops — Infrastructure & Deployment
 │   ├── qa.md                                # /qa — Post-Staging Verification
 │   └── backlog.md                           # /backlog — Project Tracking & Issues
-├── instructions/                            # Detailed instructions (contextual load)
+├── instructions/                            # 23 detailed instructions (contextual load)
 │   ├── Factory-protocol-smart-redirect.instructions.md
 │   ├── Factory-protocol-iop-intent-map.instructions.md
+│   ├── Factory-protocol-cwd-discipline.instructions.md
 │   ├── Factory-audit-checklist.instructions.md
 │   ├── Factory-audit-complexity.instructions.md
 │   ├── Factory-setup-discovery.instructions.md
 │   ├── Factory-setup-materialization.instructions.md
 │   ├── Factory-setup-upgrade.instructions.md
+│   ├── Factory-setup-reconcile-inventory.instructions.md
 │   ├── Factory-codesign-vision.instructions.md
 │   ├── Factory-codesign-feature.instructions.md
 │   ├── Factory-blueprint-design.instructions.md
+│   ├── Factory-blueprint-refine.instructions.md
 │   ├── Factory-blueprint-validation.instructions.md
 │   ├── Factory-implement-plan.instructions.md
 │   ├── Factory-implement-build.instructions.md
@@ -139,23 +142,40 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── Factory-backlog-operations.instructions.md
 │   ├── Factory-backlog-execution-plan.instructions.md
 │   └── Factory-backlog-next-task.instructions.md
-├── skills/                                  # Cross-cutting skills (reusable protocols)
-│   ├── Factory-build-verification/          # BVL — test execution + auto-fix loop
-│   ├── Factory-incremental-persistence/     # IPP — incremental persistence
-│   ├── Factory-codebase-inventory/          # CIP — DRY inventory
-│   ├── Factory-governance-loading/          # GCRP — Zero Trust context recovery
-│   ├── Factory-iteration-model/             # Cascading invalidation
-│   ├── Factory-branching-strategy/          # SCM — branch enforcement
-│   ├── Factory-agent-communication/         # ACP — controlled verbosity
-│   ├── Factory-commit-prompt/               # Auto-generated conventional commits
-│   ├── Factory-worklog/                     # Per-feature JSONL audit trail
-│   ├── Factory-memory-cache/                # MCP — acceleration layer at /memories/repo/
-│   ├── Factory-coherence-validation/        # CVP — cross-artifact validation
-│   ├── Factory-preventive-sweep/            # Runtime defect sweep pre-deploy
-│   └── Factory-backlog-next-task/           # Next-task resolver with cache fast path
-└── settings.json                            # Permission configuration
+├── skills/                                  # 20 cross-cutting skills (reusable protocols)
+│   ├── factory-applicability-discovery/     # ADP — governance Roll-Call (command Step 0)
+│   ├── factory-governance-loading/          # GCRP — Zero Trust context recovery
+│   ├── factory-incremental-persistence/     # IPP — incremental persistence
+│   ├── factory-codebase-inventory/          # CIP — DRY inventory
+│   ├── factory-coherence-validation/        # CVP — cross-artifact validation
+│   ├── factory-build-verification/          # BVL — test execution + auto-fix loop
+│   ├── factory-branching-strategy/          # SCM — branch enforcement
+│   ├── factory-commit-prompt/               # Auto-generated conventional commits
+│   ├── factory-rdr/                         # RDR — Recommendation → Decision
+│   ├── factory-batch-interactivity/         # BIP — tiered proposal/review cycles
+│   ├── factory-agent-communication/         # ACP — controlled verbosity
+│   ├── factory-iteration-model/             # Cascading invalidation
+│   ├── factory-worklog/                     # Per-feature JSONL audit trail
+│   ├── factory-memory-cache/                # FMCP — acceleration layer at /memories/repo/
+│   ├── factory-preventive-sweep/            # Runtime defect sweep pre-deploy
+│   ├── factory-backlog-next-task/           # Next-task resolver with cache fast path
+│   ├── factory-adr-management/              # ADR / FDR lifecycle
+│   ├── factory-mcp-docs-scan/               # MCP docs-scan banner
+│   ├── factory-complexity-check/            # Cyclomatic complexity gate (DC-28)
+│   └── factory-pr-review/                   # Six-axis PR review + push gate
+├── hooks/                                   # 6 deterministic enforcement hooks
+│   ├── check-branch-protection.sh           # PreToolUse — blocks edits on protected branches
+│   ├── check-completion-gate.sh
+│   ├── check-concurrency-lock.sh
+│   ├── check-governance-drift.sh
+│   ├── check-ipp-compliance.sh              # PreToolUse Write — IPP skeleton-first
+│   └── check-push-preflight.sh              # PreToolUse Bash — factory-pr-review push gate
+└── settings.json                            # Hook wiring + permission configuration
 .context/
-└── templates/                               # Materialization templates (SETUP --generate)
+├── templates/                               # Materialization templates (SETUP --generate)
+└── schemas/                                 # JSON schemas (worklog log, …)
+config/                                      # Framework config — coherence-context, quality, protected-paths
+scripts/                                     # Governance + CI scripts (validate-governance, auto-tag, lock-step, …)
 ```
 
 ### Post-Installation Verification
