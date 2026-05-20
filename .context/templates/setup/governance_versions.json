@@ -2,7 +2,7 @@
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
   "framework_version": "5.3.1",
-  "last_updated": "2026-05-19T12:00:00Z",
+  "last_updated": "2026-05-20T12:00:00Z",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -287,10 +287,11 @@
       ]
     },
     "rules/immutability_policy.md": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.md",
       "changelog": [
+        "1.3.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.3.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.1: fix(EVOL-015): References section no longer points to the deleted root instructions.md; redirects to the framework README § Command Reference on GitHub",
         "1.0.0: Initial template",
@@ -402,10 +403,11 @@
       ]
     },
     "scripts/convert-worklog-md-to-json.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "scripts/convert-worklog-md-to-json.sh",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: Initial template — Worklog MD to JSON converter"
       ]
     },
@@ -499,10 +501,11 @@
       ]
     },
     "scripts/worklog-dashboard.html": {
-      "version": "2.0.0",
+      "version": "2.0.1",
       "content_type": "universal",
       "target": "scripts/worklog-dashboard.html",
       "changelog": [
+        "2.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: Initial template",
         "2.0.0: Updated for aggregate JSONL data loading"
       ]
@@ -525,10 +528,11 @@
       ]
     },
     "scripts/auto-tag.sh": {
-      "version": "2.1.0",
+      "version": "2.1.1",
       "content_type": "universal",
       "target": "scripts/auto-tag.sh",
       "changelog": [
+        "2.1.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "2.1.0: fix(EVOL-034) lock-step Theme A backports from meta — (a) Finding #6: `git describe --tags --abbrev=0` now uses `--match v*` filter so defensive non-semver tags (`pre-*`, `snapshot-*`) no longer break SemVer parsing under set -u; (b) Finding #7: replace `git log … | head -20` (two occurrences) with native `git log -n 20 …` to eliminate SIGPIPE under pipefail when parent captures stdout. Both fixes already lived in meta scripts/auto-tag.sh (lines 60/190/192) but template drifted — root cause of EVOL-034 Theme A.",
         "2.0.0: Governance-aware override — reads framework_version from manifest to prevent silent under-bumping (GOV-001)",
         "1.0.0: Initial template — SemVer auto-tagging from conventional commits (--apply, --ci, --no-push)"
@@ -583,78 +587,86 @@
       ]
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.0.0",
+      "version": "2.0.1",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
+        "2.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "2.0.0: feat(EVOL-026) BREAKING — repurposed from framework-core manifest validator to materialised-project EVOL-026 ADR ↔ constitution sync gate. Runs scripts/check-adr-constitution-sync.sh on every PR to main; bypass via [adr-backfill] commit marker. Posts violation comment with resolution path on failure.",
         "1.0.0: Initial template — CI gate on PRs: blocks merge if framework_core files changed without manifest update (GOV-001)"
       ]
     },
     "workflows/auto-tag.github-actions.yml": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "content_type": "universal",
       "target": ".github/workflows/auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
+        "1.0.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.1: fix(EVOL-034) lock-step Theme A — replace non-portable `grep -oP '(?<=TAG=)\\S+'` (GNU PCRE only) with `awk -F= '/^TAG=/{print $2; exit}' <<< \"$OUTPUT\"` matching the meta workflow + other template variants. Also closes SIGPIPE risk on the same line.",
         "1.0.0: Initial template — GitHub Actions auto-tag & release on PR merge"
       ]
     },
     "workflows/auto-tag.gitlab-ci.yml": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "content_type": "universal",
       "target": ".gitlab-ci-auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"GitLab CI\"",
       "changelog": [
+        "1.0.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.1: fix(EVOL-034) lock-step Theme A Finding #5 — convert `echo \"$OUTPUT\" | awk … exit` to `awk … exit <<< \"$OUTPUT\"` here-string to eliminate SIGPIPE under implicit pipefail.",
         "1.0.0: Initial template — GitLab CI auto-tag & release on merge to main"
       ]
     },
     "workflows/auto-tag.azure-devops.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "azure-pipelines-auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"Azure DevOps\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: Initial template — Azure DevOps auto-tag pipeline on Merged PR"
       ]
     },
     "workflows/auto-tag.bitbucket.yml": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "content_type": "universal",
       "target": "bitbucket-pipelines.yml",
       "stack_conditional": "ci_cd_platform == \"Bitbucket Pipelines\"",
       "changelog": [
+        "1.0.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.1: fix(EVOL-034) lock-step Theme A Finding #5 — convert `echo \"$OUTPUT\" | awk … exit` to `awk … exit <<< \"$OUTPUT\"` here-string to eliminate SIGPIPE under implicit pipefail.",
         "1.0.0: Initial template — Bitbucket Pipelines auto-tag on merge to main"
       ]
     },
     "workflows/auto-tag.jenkins.groovy": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "Jenkinsfile.auto-tag",
       "stack_conditional": "ci_cd_platform == \"Jenkins\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: Initial template — Jenkins declarative pipeline auto-tag on merge"
       ]
     },
     "workflows/auto-tag.aws-codebuild.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "buildspec-auto-tag.yml",
       "stack_conditional": "ci_cd_platform == \"AWS CodePipeline\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: Initial template — AWS CodeBuild buildspec auto-tag on merge"
       ]
     },
     "workflows/auto-tag.gcp-cloudbuild.yaml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "cloudbuild-auto-tag.yaml",
       "stack_conditional": "ci_cd_platform == \"GCP Cloud Build\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: Initial template — GCP Cloud Build auto-tag on push to main"
       ]
     },
@@ -759,11 +771,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.1.1",
+      "version": "3.1.2",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.1.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "3.1.1: fix(increment-plan-rule) — § Incremental Dev Plan Artefact paragraph re-describes increment_plan.md section structure: canonical DAG via § 1 `depends_on:`; § 2 Monolithic Escape Declaration (only when monolithic); § 3 Human-readable Dependency Diagram (Mermaid, non-authoritative — derived from § 1).",
         "3.1.0: feat(EVOL-033) Governance Rules gain LAW 11 (Cyclomatic Complexity Gate is MCP-driven, project-configured). Process in framework (DC-28, skill factory-complexity-check contract, gate semantics BVL Step 7 + factory-pr-review axis 6 / Block 19, thresholds 10/15); tool in project (config/quality.json.complexity.mcp_server via SETUP RDR Q23.1). Skill tool-agnostic — Semgrep/lizard/radon/gocyclo never named in code paths. Fail-open. Byte-identical with framework-meta CLAUDE.md 13.1.0.",
         "3.0.0: feat(EVOL-032)! Governance Rules gain LAW 9 (Canonical Iteration ID — ITER-{FEAT}-{N} cross-artefact join key + read_iteration_state() wrapper mandate) and LAW 10 (MCP-Docs Scan Banner — mandatory first user-facing line of BLUEPRINT --start/--refine + IMPLEMENT --build/--refine, allowlist-based detection). Byte-identical with framework-meta CLAUDE.md 13.0.0.",
@@ -842,10 +855,11 @@
       ]
     },
     "upgrade_safety_protocol.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": "docs/upgrade_safety_protocol.md",
       "changelog": [
+        "1.2.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: chore(EVOL-014): placeholder notation convention block added to header — distinguishes SCREAMING_SNAKE materialization placeholders from lowercase pseudo-code/log-format locals",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
@@ -869,56 +883,62 @@
       ]
     },
     "workflows/governance-check.gitlab-ci.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": ".gitlab/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitLab CI\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: feat(EVOL-026) initial — GitLab CI governance-check job. Runs scripts/check-adr-constitution-sync.sh on merge_request_event targeting main."
       ]
     },
     "workflows/governance-check.bitbucket.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "bitbucket-pipelines.yml",
       "stack_conditional": "ci_cd_platform == \"Bitbucket Pipelines\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: feat(EVOL-026) initial — Bitbucket Pipelines governance-check step under pull-requests:'main'. Runs scripts/check-adr-constitution-sync.sh."
       ]
     },
     "workflows/governance-check.azure-devops.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "governance-check-pipeline.yml",
       "stack_conditional": "ci_cd_platform == \"Azure DevOps\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: feat(EVOL-026) initial — Azure DevOps PR validation pipeline. Wired via branch policies on main; runs scripts/check-adr-constitution-sync.sh against System.PullRequest.TargetBranch."
       ]
     },
     "workflows/governance-check.aws-codebuild.yml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "buildspec-governance.yml",
       "stack_conditional": "ci_cd_platform == \"AWS CodeBuild\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: feat(EVOL-026) initial — AWS CodeBuild buildspec for governance check. Resolves base ref from CODEBUILD_WEBHOOK_BASE_REF; runs scripts/check-adr-constitution-sync.sh."
       ]
     },
     "workflows/governance-check.gcp-cloudbuild.yaml": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "cloudbuild-governance.yaml",
       "stack_conditional": "ci_cd_platform == \"GCP Cloud Build\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: feat(EVOL-026) initial — GCP Cloud Build governance check. Wired via Cloud Build trigger filtered to PR events targeting main; uses _BASE_BRANCH substitution."
       ]
     },
     "workflows/governance-check.jenkins.groovy": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "Jenkinsfile.governance",
       "stack_conditional": "ci_cd_platform == \"Jenkins\"",
       "changelog": [
+        "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.0: feat(EVOL-026) initial — Jenkins declarative pipeline for governance check on PRs targeting main (Multibranch Pipeline). Uses CHANGE_TARGET to identify the base ref."
       ]
     },
@@ -985,7 +1005,7 @@
         "1.1.0: feat(EVOL-028) validator scope extended to `.claude/rules/*.md` — synced from framework-core counterpart.",
         "1.0.0: feat(EVOL-028) materialised mirror of applicable_when frontmatter validator (CI gate). Ships to every project so downstream CI catches drift in their own .claude/instructions and .claude/rules entries."
       ],
-        "path": "scripts/check-applicability-frontmatter.sh"
+      "path": "scripts/check-applicability-frontmatter.sh"
     }
   },
   "agent_templates": {
@@ -1255,9 +1275,16 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.5.4",
+      "version": "2.6.5",
       "path": "README.md",
       "changelog": [
+        "2.6.5: docs — review-nit resolution. TOC gains a \"Part of the Myrmion ecosystem\" front-matter entry; License section gains a licence-history note (proprietary EULA → MIT at the Myrmion rebrand).",
+        "2.6.4: docs — Directory Structure: add FDR/ADR record dirs. Per-feature docs/spec/{ID}/adr/ → docs/spec/{ID}/fdr/ (Feature Decision Records); docs/project_log/adr/ (project-wide ADRs) added.",
+        "2.6.3: docs — refresh \"Framework File Structure\" tree. Skill dirs lowercased Factory-→factory- and 7 missing skills added (20 total); 3 missing instructions added (23 total); .claude/hooks/ subtree added; .context/schemas/, config/, scripts/ added.",
+        "2.6.2: docs — relicense EULA → MIT. EULA.md removed, LICENSE (MIT, Copyright (c) 2026 José Luis Sánchez del Coso) added; README License section + badge + Support links updated.",
+        "2.6.1: docs — correct ecosystem framing. Myrmion has three frameworks; AI Factory (phase 2) is a STANDALONE product-development framework, Adoption + Federation are the complementary cultural-governance pair. Dropped Federation-coupling and Adoption-Constitution-dependency language.",
+        "2.6.0: docs — Myrmion ecosystem framing. Logo header (table layout, assets/myrmion-logo.png), new \"Part of the Myrmion ecosystem\" section positioning the repo as the executable layer of Myrmion Federation (phase 2), Overview reworded in Myrmion vocabulary.",
+        "2.5.5: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "2.5.4: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.3: fix(readme-mermaid-syntax) — § Complete Workflow Diagram failed to render on GitHub: every command-labeled node (21 occurrences) was written as `NodeId[/command --flag]`, which Mermaid parses as the parallelogram-shape opener `[/.../]` and chokes when no closing `/]` is found (lexical error on line 3). Wrapped every such label in quotes `NodeId[\"/command --flag\"]` so Mermaid treats it as a plain rectangular node with the leading slash as literal content. No semantic change to the workflow.",
         "2.5.2: docs(IPP runtime binding, self-review cycle 2 nit) — § Governance always-on enforcement gains a Companion paragraph after the smoke-test checklist describing the IPP runtime-binding chain (check-ipp-compliance.sh PreToolUse + governance-onedit.sh Block 2 PostToolUse + governance-onprompt.sh Block 2b UserPromptSubmit) and its `ipp-first-write` / `ipp-pillar2` session-scoped markers. The chain is presented as parallel to the four governance-source tiers, operating on artefact integrity rather than snapshot freshness. Cross-link to factory-incremental-persistence/SKILL.md § Runtime Binding for the canonical spec.",
@@ -1888,9 +1915,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.2.1",
+      "version": "13.2.2",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.2.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "13.2.1: fix(governance-info-cleanup) — LAW 12 wording updated to reflect current `lock_step_pairs` state: removed mention of `meta_to_downstream_via_sync` (declaration deleted from coherence-context.json — had no enforcement contract) and removed `deferred for universal_clause_mirror until clause extraction is implemented` (clause extraction now implemented in check-lockstep-pairs.sh 1.1.0 — section-level byte-identical diff per `universal_sections` array). Drift caught by Phase 0 Detector 13 (Reference coherence) during PR-review iteration 2.",
         "13.2.0: feat(EVOL-034) Governance Rules gain LAW 12 (Lock-step Pair Integrity — META-ONLY). Constitution amendment for ADR-EVOL-034 acceptance. Meta scripts and template counterparts declared in config/coherence-context.json § audit.lock_step_pairs MUST stay in lock-step per pair type (byte-identical for meta_template_mirror; deferred for universal_clause_mirror; informational for meta_to_downstream_via_sync). Enforced by scripts/check-lockstep-pairs.sh invoked from .github/workflows/lockstep-check.yml on every PR. Infrastructure META-ONLY by construction (lock-step pairs disappear post-materialisation); defense in depth via header `# META-ONLY` marker + 3-line self-guard exit-0 if .context/templates/setup/ absent. Framework-only LAW — template counterpart NOT mirrored (intentional divergence documented in ADR-EVOL-034 § Constitution Amendment). Surfaced by Phase 0 Coherence Audit on this PR — manifest bump miss caught + fixed before merge.",
         "13.1.0: feat(EVOL-033) Governance Rules gain LAW 11 (Cyclomatic Complexity Gate is MCP-driven, project-configured). Constitution amendment for ADR-EVOL-033 acceptance. Process in framework (DC-28, skill factory-complexity-check contract, gate semantics BVL Step 7 + factory-pr-review axis 6 / Block 19, thresholds 10/15); tool in project (config/quality.json.complexity.mcp_server via SETUP RDR Q23.1 — Semgrep MCP default / Custom MCP / Skip). Skill tool-agnostic. Fail-open on infra issues. Universal section — mirrored byte-identical in templates/claude/CLAUDE.md.",
@@ -2117,10 +2145,11 @@
       "path": ".claude/skills/factory-complexity-check/SKILL.md"
     },
     "skills/factory-memory-cache/SKILL.md": {
-      "version": "1.1.2",
+      "version": "1.1.3",
       "type": "skill",
       "role": "FMCP v1.0.2 — Unified /memories/repo/ caching layer. Feature State, BVL Commands, CIP Inventory, Execution Plan caches. Write-through, hash-validated, graceful degradation.",
       "changelog": [
+        "1.1.3: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.0.3: Remove decorative separators and condense redundant rationale comments (~2300 tokens saved)",
@@ -2416,11 +2445,12 @@
       ]
     },
     "scripts/auto-tag.sh": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "path": "scripts/auto-tag.sh",
       "type": "utility",
       "role": "Framework-meta auto-tag utility with governance-aware override — reads framework_version from governance_versions.json so commit-based bump heuristics cannot silently under-bump. Meta-only variant; downstream projects receive the simpler template under .context/templates/setup/scripts/auto-tag.sh.",
       "changelog": [
+        "1.0.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.1: fix(ci) — git describe --tags --abbrev=0 now uses --match v* filter so defensive snapshot tags (pre-*, snapshot-*) no longer break SemVer parsing under set -u. Closes auto-tag.yml workflow failures on PR #22 + PR #23 merges.",
         "1.0.0: feat(EVOL-022) backfill: register framework_core entry (previously untracked) — divergent from template counterpart by intent."
       ]
@@ -2648,7 +2678,7 @@
         "1.1.0: feat(EVOL-028) discovery scan extended — Step 4 now scans every `.claude/rules/*.md` (technical + cross-cutting governance), not only defect-prevention.md. Roll-Call output gains ACTIVE RULES section. Inputs table documents `.context/applicability_context.json` as the deterministic context source written by SETUP Phase D, with docs/setup.md as fallback. Validation contract section extended accordingly.",
         "1.0.0: feat(EVOL-028) new Applicability Discovery Protocol (ADP) skill — live scan of governance trees (snapshot LAWs, instructions, structural skills, DCs) filtered by applicable_when frontmatter; emits canonical Roll-Call block on-screen as first user-facing message of every command. Salience anchor against rule-amnesia symptom (lazy-load ineffective in practice — agents had rules loaded but ignored them). Closed vocabulary: phase, scope, change_type, command, path_glob, framework, always."
       ],
-        "path": ".claude/skills/factory-applicability-discovery/SKILL.md"
+      "path": ".claude/skills/factory-applicability-discovery/SKILL.md"
     },
     "skills/factory-batch-interactivity/SKILL.md": {
       "version": "1.2.2",
@@ -2666,7 +2696,7 @@
       "changelog": [
         "1.0.0: Initial framework entry. Path-derivation work delegated to scripts/reconcile_inventory.py + scripts/check-inventory-freshness.py with config/inventory_aliases.json as the project-specific map."
       ],
-        "path": ".claude/instructions/Factory-setup-reconcile-inventory.instructions.md"
+      "path": ".claude/instructions/Factory-setup-reconcile-inventory.instructions.md"
     },
     "scripts/reconcile_inventory.py": {
       "version": "1.0.0",
@@ -2675,7 +2705,7 @@
       "changelog": [
         "1.0.0: Initial framework entry. BC alias / feature ownership / cross-BC overrides loaded from config/inventory_aliases.json (degrades gracefully when missing)."
       ],
-        "path": "scripts/reconcile_inventory.py"
+      "path": "scripts/reconcile_inventory.py"
     },
     "scripts/check-inventory-freshness.py": {
       "version": "1.0.0",
@@ -2684,7 +2714,7 @@
       "changelog": [
         "1.0.0: Initial framework entry. Canonical path globs and BC alias map loaded from config/inventory_aliases.json (empty config disables orphan scan)."
       ],
-        "path": "scripts/check-inventory-freshness.py"
+      "path": "scripts/check-inventory-freshness.py"
     },
     ".context/templates/setup/workflows/inventory-drift.github-actions.yml": {
       "version": "1.0.0",

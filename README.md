@@ -1,13 +1,39 @@
-# mi AI Factory for Claude
+<table>
+<tr>
+<td width="140" valign="top">
+<img src="./assets/myrmion-logo.png" alt="Myrmion" width="120">
+</td>
+<td valign="top">
 
-[![License: EULA](https://img.shields.io/badge/License-EULA-blue.svg)](./EULA.md)
+# Myrmion AI Factory for Claude
+
+> **Phase 2 of the Myrmion ecosystem — the product-development framework.** A single Claude Code agent orchestrates the complete Software Development Life Cycle with built-in governance, security, and quality gates via slash commands.
+
+</td>
+</tr>
+</table>
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude-Code-blueviolet)](https://claude.ai/claude-code)
+[![Myrmion ecosystem](https://img.shields.io/badge/Myrmion-Phase_2_AI_Factory-1b3a5c.svg)](https://github.com/e2its/myrmion-framework)
 
-> **Governed Agentic SDLC System**: A single Claude Code agent orchestrates the complete Software Development Life Cycle with built-in governance, security, and quality gates via slash commands.
+## Part of the Myrmion ecosystem
+
+[Myrmion](https://github.com/e2its/myrmion-framework) is an opensource ecosystem for adopting corporate AI with an organisation's own culture. It is made of three frameworks:
+
+- **Myrmion Adoption** (phase 1) — the *enterprise framework*. Cultural modelling for companies adopting AI through commercial products: Regulatory Framework, Corporate Constitution, Departmental Layers. No programmatic agents.
+- **Myrmion AI Factory** (phase 2) — the *product-development framework*. **This repository.** A governed agentic SDLC that builds software products under built-in governance, security, and quality gates.
+- **Myrmion Federation** (phase 3) — the *federation framework*. Federated, culturally-aware governance for organisations whose departmental agents must invoke each other.
+
+Adoption and Federation are complementary — the cultural-governance pair: one articulates the corporate culture, the other federates agents across departments. **The AI Factory is independent of both.** It is a self-contained framework for building software products and can be adopted on its own, with no Myrmion Adoption or Myrmion Federation in place.
+
+📖 [Myrmion umbrella manifesto](https://github.com/e2its/myrmion-framework/blob/main/docs/manifesto.md) · [Myrmion Federation manifesto](https://github.com/e2its/myrmion-framework/blob/main/docs/federation/manifesto.md)
 
 ---
 
 ## Table of Contents
+
+- [Part of the Myrmion ecosystem](#part-of-the-myrmion-ecosystem)
 
 1. [Overview](#overview)
 2. [Prerequisites](#prerequisites)
@@ -33,7 +59,9 @@
 
 ## Overview
 
-This system transforms Claude Code into a **governed SDLC orchestrator** using slash commands (`.claude/commands/`). A single agent assumes specialized roles — 6 covering the main SDLC phases plus 2 independent operational commands (AUDIT and BACKLOG) — supported by cross-cutting skill protocols and contextual instruction files.
+Myrmion AI Factory is **phase 2 of the Myrmion ecosystem — the product-development framework**: it transforms Claude Code into a **governed SDLC orchestrator** using slash commands (`.claude/commands/`). A single agent assumes specialized roles — 6 covering the main SDLC phases plus 2 independent operational commands (AUDIT and BACKLOG) — supported by cross-cutting skill protocols and contextual instruction files.
+
+At setup the framework generates its own **operational law** — `docs/constitution.md`. Every role, every gate, every generated artefact is validated against it, so governance is propagated into each agent move and the decision chain stays auditable.
 
 ### Key Features
 
@@ -68,8 +96,8 @@ The framework activates automatically when opening the repository with Claude Co
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/e2its/mi-AI-Factory-for-Claude.git
-cd mi-AI-Factory-for-Claude
+git clone https://github.com/e2its/myrmion-AI-factory.git
+cd myrmion-AI-factory
 
 # 2. Run Claude Code (CLI)
 claude
@@ -84,7 +112,7 @@ claude
 CLAUDE.md                                    # Root governance (always loaded)
 .claude/
 ├── commands/                                # 8 slash commands (one per SDLC phase)
-│   ├── audit.md                             # /audit  — Due Diligence
+│   ├── audit.md                             # /audit — Technical Due Diligence
 │   ├── setup.md                             # /setup — Setup & Governance
 │   ├── codesign.md                          # /codesign — Co-Creation (PO ↔ UX)
 │   ├── blueprint.md                         # /blueprint — Technical Design (ARCH ↔ QA)
@@ -92,17 +120,20 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── devops.md                            # /devops — Infrastructure & Deployment
 │   ├── qa.md                                # /qa — Post-Staging Verification
 │   └── backlog.md                           # /backlog — Project Tracking & Issues
-├── instructions/                            # Detailed instructions (contextual load)
+├── instructions/                            # 23 detailed instructions (contextual load)
 │   ├── Factory-protocol-smart-redirect.instructions.md
 │   ├── Factory-protocol-iop-intent-map.instructions.md
+│   ├── Factory-protocol-cwd-discipline.instructions.md
 │   ├── Factory-audit-checklist.instructions.md
 │   ├── Factory-audit-complexity.instructions.md
 │   ├── Factory-setup-discovery.instructions.md
 │   ├── Factory-setup-materialization.instructions.md
 │   ├── Factory-setup-upgrade.instructions.md
+│   ├── Factory-setup-reconcile-inventory.instructions.md
 │   ├── Factory-codesign-vision.instructions.md
 │   ├── Factory-codesign-feature.instructions.md
 │   ├── Factory-blueprint-design.instructions.md
+│   ├── Factory-blueprint-refine.instructions.md
 │   ├── Factory-blueprint-validation.instructions.md
 │   ├── Factory-implement-plan.instructions.md
 │   ├── Factory-implement-build.instructions.md
@@ -113,23 +144,40 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── Factory-backlog-operations.instructions.md
 │   ├── Factory-backlog-execution-plan.instructions.md
 │   └── Factory-backlog-next-task.instructions.md
-├── skills/                                  # Cross-cutting skills (reusable protocols)
-│   ├── Factory-build-verification/          # BVL — test execution + auto-fix loop
-│   ├── Factory-incremental-persistence/     # IPP — incremental persistence
-│   ├── Factory-codebase-inventory/          # CIP — DRY inventory
-│   ├── Factory-governance-loading/          # GCRP — Zero Trust context recovery
-│   ├── Factory-iteration-model/             # Cascading invalidation
-│   ├── Factory-branching-strategy/          # SCM — branch enforcement
-│   ├── Factory-agent-communication/         # ACP — controlled verbosity
-│   ├── Factory-commit-prompt/               # Auto-generated conventional commits
-│   ├── Factory-worklog/                     # Per-feature JSONL audit trail
-│   ├── Factory-memory-cache/                # MCP — acceleration layer at /memories/repo/
-│   ├── Factory-coherence-validation/        # CVP — cross-artifact validation
-│   ├── Factory-preventive-sweep/            # Runtime defect sweep pre-deploy
-│   └── Factory-backlog-next-task/           # Next-task resolver with cache fast path
-└── settings.json                            # Permission configuration
+├── skills/                                  # 20 cross-cutting skills (reusable protocols)
+│   ├── factory-applicability-discovery/     # ADP — governance Roll-Call (command Step 0)
+│   ├── factory-governance-loading/          # GCRP — Zero Trust context recovery
+│   ├── factory-incremental-persistence/     # IPP — incremental persistence
+│   ├── factory-codebase-inventory/          # CIP — DRY inventory
+│   ├── factory-coherence-validation/        # CVP — cross-artifact validation
+│   ├── factory-build-verification/          # BVL — test execution + auto-fix loop
+│   ├── factory-branching-strategy/          # SCM — branch enforcement
+│   ├── factory-commit-prompt/               # Auto-generated conventional commits
+│   ├── factory-rdr/                         # RDR — Recommendation → Decision
+│   ├── factory-batch-interactivity/         # BIP — tiered proposal/review cycles
+│   ├── factory-agent-communication/         # ACP — controlled verbosity
+│   ├── factory-iteration-model/             # Cascading invalidation
+│   ├── factory-worklog/                     # Per-feature JSONL audit trail
+│   ├── factory-memory-cache/                # FMCP — acceleration layer at /memories/repo/
+│   ├── factory-preventive-sweep/            # Runtime defect sweep pre-deploy
+│   ├── factory-backlog-next-task/           # Next-task resolver with cache fast path
+│   ├── factory-adr-management/              # ADR / FDR lifecycle
+│   ├── factory-mcp-docs-scan/               # MCP docs-scan banner
+│   ├── factory-complexity-check/            # Cyclomatic complexity gate (DC-28)
+│   └── factory-pr-review/                   # Six-axis PR review + push gate
+├── hooks/                                   # 6 deterministic enforcement hooks
+│   ├── check-branch-protection.sh           # PreToolUse — blocks edits on protected branches
+│   ├── check-completion-gate.sh
+│   ├── check-concurrency-lock.sh
+│   ├── check-governance-drift.sh
+│   ├── check-ipp-compliance.sh              # PreToolUse Write — IPP skeleton-first
+│   └── check-push-preflight.sh              # PreToolUse Bash — factory-pr-review push gate
+└── settings.json                            # Hook wiring + permission configuration
 .context/
-└── templates/                               # Materialization templates (SETUP --generate)
+├── templates/                               # Materialization templates (SETUP --generate)
+└── schemas/                                 # JSON schemas (worklog log, …)
+config/                                      # Framework config — coherence-context, quality, protected-paths
+scripts/                                     # Governance + CI scripts (validate-governance, auto-tag, lock-step, …)
 ```
 
 ### Post-Installation Verification
@@ -957,7 +1005,7 @@ docs/
 │   ├── test_plan.md                #   Test strategy (BLUEPRINT)
 │   ├── dev_plan.md                 #   Implementation plan (IMPLEMENT)
 │   ├── devops_plan.md              #   Infrastructure plan (DEVOPS)
-│   ├── adr/                        #   Architecture Decision Records
+│   ├── fdr/                        #   Feature Decision Records (feature-local, never escalate)
 │   └── qa/                         #   QA verification reports
 ├── backlog/                        # Project tracking (BACKLOG — SSOT mode-dependent)
 │   ├── project-config.json         #   External mode: non-sensitive connection params
@@ -965,6 +1013,7 @@ docs/
 │   └── issue-bodies/               #   Local mode: issue body markdown files
 ├── ux/vision/                      # Global UX vision artifacts
 └── project_log/                    # Worklog, migration reports
+    └── adr/                        #   Architecture Decision Records (project-wide → constitution)
 contracts/                          # API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI)
 config/                             # system_resources.json, infrastructure_registry.json
 infra/                              # Infrastructure as Code (modules/ + features/)
@@ -1016,9 +1065,11 @@ This ensures CI/CD pipelines pass from day 1 (no stub code = no lint/compile err
 
 ## License
 
-e2its is an unregistered trademark used as a project and domain identifier. The holder of the domain e2its.com retains all rights over the software and the brand, without implying official registration.
+This project is distributed under the [MIT License](./LICENSE). Free use — commercial and non-commercial — with attribution.
 
-This software is provided under a custom End User License Agreement (EULA). See [EULA.md](./EULA.md) for details.
+`e2its` is an unregistered trademark used as a project and domain identifier; the MIT grant covers the software, not the brand.
+
+> **Licence history:** earlier releases — under the `mi AI Factory` name — were distributed under a proprietary End User License Agreement (EULA). From the `Myrmion AI Factory` rebrand onward the project is MIT-licensed.
 
 ---
 
@@ -1026,4 +1077,4 @@ This software is provided under a custom End User License Agreement (EULA). See 
 
 - **Issues**: GitHub Issues.
 - **Discussions**: GitHub Discussions.
-- **Core docs**: [CLAUDE.md](CLAUDE.md), [EULA.md](EULA.md). The project constitution is materialised per target project at `docs/constitution.md` by `/setup --generate` — it does not exist in this framework repository.
+- **Core docs**: [CLAUDE.md](CLAUDE.md), [LICENSE](LICENSE). The project constitution is materialised per target project at `docs/constitution.md` by `/setup --generate` — it does not exist in this framework repository.

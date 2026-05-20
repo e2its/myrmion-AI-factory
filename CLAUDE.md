@@ -1,4 +1,4 @@
-# mi AI Factory — Framework Repository (Meta)
+# Myrmion AI Factory — Framework Repository (Meta)
 
 You are working on the **SDLC framework itself**. This repo defines the governed pipeline that materialised projects consume via `SETUP --generate` and `factory-sync.sh`. Materialised projects run under a different `CLAUDE.md` — the canonical template lives at [.context/templates/setup/claude/CLAUDE.md](.context/templates/setup/claude/CLAUDE.md).
 

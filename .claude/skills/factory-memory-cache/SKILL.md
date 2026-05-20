@@ -19,7 +19,7 @@ applicable_when:
 
 ## WHY THIS PROTOCOL EXISTS
 
-Agent commands in mi-AI-Factory repeatedly read the same files:
+Agent commands in myrmion-AI-factory repeatedly read the same files:
 - **Smart Redirect** reads 9-15 artifact frontmatters after every command
 - **BVL** derives test commands from stack config on every `--build`
 - **CIP** parses the full `codebase_inventory.json` and runs 4-Criteria matching 3-5 times per build
