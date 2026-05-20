@@ -1275,9 +1275,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.5.5",
+      "version": "2.6.0",
       "path": "README.md",
       "changelog": [
+        "2.6.0: docs — Myrmion ecosystem framing. Logo header (table layout, assets/myrmion-logo.png), new \"Part of the Myrmion ecosystem\" section positioning the repo as the executable layer of Myrmion Federation (phase 2), Overview reworded in Myrmion vocabulary.",
         "2.5.5: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "2.5.4: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.3: fix(readme-mermaid-syntax) — § Complete Workflow Diagram failed to render on GitHub: every command-labeled node (21 occurrences) was written as `NodeId[/command --flag]`, which Mermaid parses as the parallelogram-shape opener `[/.../]` and chokes when no closing `/]` is found (lexical error on line 3). Wrapped every such label in quotes `NodeId[\"/command --flag\"]` so Mermaid treats it as a plain rectangular node with the leading slash as literal content. No semantic change to the workflow.",
