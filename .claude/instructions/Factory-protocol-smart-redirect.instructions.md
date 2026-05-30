@@ -204,6 +204,17 @@ FUNCTION compute_feature_state(FEATURE_ID):
     # Smart Redirect SHOULD recommend `/qa --verify {FEATURE_ID} {INC-N}` for each id in pending_slices
     # before suggesting the aggregate `/qa --verify {FEATURE_ID}`.
   
+  # Frozen contract set (BLUEPRINT-owned) — point-in-time, regenerated whole on invalidation
+  contracts_freeze:
+    exists: GLOB_EXISTS("contracts/**/*{{FEATURE_ID}}*/**") OR DIR_EXISTS("{{base_path}}/contracts/")
+    # INVALIDATED when an iteration touched schema/contract/new_scenario scopes — the iteration
+    # model marks the frozen set INVALIDATED and re-freeze runs via BLUEPRINT --refine/--approve.
+    invalidated: ANY(contract_file.status == "INVALIDATED" FOR contract_file IN frozen_set)
+
+  # Preventive defect sweep report (post-deploy runtime validation) — point-in-time
+  preventive_sweep:
+    exists: GLOB_EXISTS("{{base_path}}/review/preventive_sweep_*.md")
+
   # PR / Merge state
   pr_state:
     branch_pushed: CHECK_REMOTE_BRANCH_EXISTS(FEATURE_ID)
@@ -224,11 +235,15 @@ FUNCTION compute_feature_state(FEATURE_ID):
   # state.qa_slice_reports.pending_slices (the slice qa_report status != APPROVED counts as pending).
   # Cascade actions in PHASE 0 only act on the aggregate report; per-slice cascade is handled in § 5d.
   qa_invalidated: (qa_report.exists AND qa_report.status == "INVALIDATED")
+  # Frozen contracts invalidated by an upstream iteration — re-freeze owned by BLUEPRINT.
+  contracts_invalidated: (contracts_freeze.exists AND contracts_freeze.invalidated)
 
   RETURN {vision, external_ds, code_layout, frontend_enabled,
           spec_feature, mock_html, user_journey, design_md, test_plan,
-          devops_plan, dev_plan, qa_report, qa_slice_reports, pr_state,
-          design_stale, test_plan_stale, dev_plan_stale, devops_plan_stale, qa_invalidated}
+          devops_plan, dev_plan, qa_report, qa_slice_reports,
+          contracts_freeze, preventive_sweep, pr_state,
+          design_stale, test_plan_stale, dev_plan_stale, devops_plan_stale,
+          qa_invalidated, contracts_invalidated}
 ```
 
 ---
@@ -252,8 +267,11 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
   # ══════════════════════════════════════════════════
   cascade_actions = []
   
-  IF state.design_stale OR state.test_plan_stale:
-    cascade_actions.push({cmd: "BLUEPRINT --refine {{ID}}", reason: "⚠️ Blueprint stale (pending sync with spec iteration {{state.spec_feature.iteration}})"})
+  IF state.design_stale OR state.test_plan_stale OR state.contracts_invalidated:
+    reason = state.contracts_invalidated
+      ? "⚠️ Frozen contracts INVALIDATED — re-freeze via blueprint (schema/contract change in iteration {{state.spec_feature.iteration}})"
+      : "⚠️ Blueprint stale (pending sync with spec iteration {{state.spec_feature.iteration}})"
+    cascade_actions.push({cmd: "BLUEPRINT --refine {{ID}}", reason: reason})
   
   IF state.dev_plan_stale:
     cascade_actions.push({cmd: "IMPLEMENT --refine {{ID}}", reason: "⚠️ Implementation plan stale (pending sync with iteration {{state.spec_feature.iteration}})"})
@@ -472,6 +490,12 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
       prod_deployed = GREP(deployment_reports, prod_env) OR FALSE
       IF NOT prod_deployed:
         actions.push({cmd: "DEVOPS --deploy {{ID}} --env {{prod_env}}", reason: "Merged to main, deploy to production"})
+      ELIF NOT state.preventive_sweep.exists:
+        # First deploy of the feature is the canonical preventive-sweep trigger
+        # (Factory-preventive-sweep SKILL). Advisory — surfaces runtime defects
+        # invisible to static gates. Does NOT block "complete".
+        actions.push({cmd: "sweep {{ID}}", reason: "Deployed — run preventive defect sweep (first-deploy runtime validation)"})
+        actions.push({cmd: "✅ WORKFLOW COMPLETE", reason: "Feature deployed to production (sweep recommended, not required)"})
       ELSE:
         actions.push({cmd: "✅ WORKFLOW COMPLETE", reason: "Feature fully deployed to production"})
   
@@ -486,31 +510,80 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
 
 ## Step 3: Render Smart Suggestions (OUTPUT FORMAT)
 
+> **Self-contained.** Every helper used below is defined in THIS file. No external
+> CLAUDE.md helper is required — the render layer reads only what is here.
+
+### Render helpers (defined here — single source)
+
+```yaml
+# PHASE_PROGRESS_MAP — phase → completion percentage
+PHASE_PROGRESS_MAP = {setup: 5, vision: 10, codesign: 25, blueprint: 40,
+                      implement: 65, devops: 75, qa: 85, deploy: 95, complete: 100}
+
+# PHASE_LABELS — phase → human label (rendered in session language)
+PHASE_LABELS = {
+  setup:     {en: "Setup",            es: "Configuración"},
+  vision:    {en: "Global Vision",    es: "Visión Global"},
+  codesign:  {en: "Co-Design",        es: "Co-Diseño"},
+  blueprint: {en: "Blueprint",        es: "Diseño Técnico"},
+  implement: {en: "Implementation",   es: "Implementación"},
+  devops:    {en: "DevOps",           es: "DevOps"},
+  qa:        {en: "Quality Assurance",es: "Verificación QA"},
+  deploy:    {en: "Deployment",       es: "Despliegue"},
+  complete:  {en: "Complete",         es: "Completado"}}
+
+FUNCTION derive_current_phase(state):
+  # Map artifact state → current phase. First match wins (most advanced).
+  IF state.qa_report.status == "APPROVED" AND state.pr_state.pr_merged: RETURN "complete"
+  IF state.qa_report.status == "APPROVED":                             RETURN "deploy"
+  IF state.dev_plan.status == "IMPLEMENTED_AND_VERIFIED":              RETURN "qa"
+  IF state.devops_plan.exists AND NOT state.dev_plan.exists:           RETURN "devops"
+  IF state.dev_plan.exists:                                            RETURN "implement"
+  IF state.design_md.status == "APPROVED":                             RETURN "devops"
+  IF state.design_md.exists:                                           RETURN "blueprint"
+  IF state.spec_feature.status == "APPROVED":                          RETURN "blueprint"
+  IF state.spec_feature.exists:                                        RETURN "codesign"
+  IF state.frontend_enabled.value AND NOT state.vision.exists:         RETURN "vision"
+  RETURN "setup"
+
+FUNCTION HUMANIZE_PHASE(phase, lang):
+  RETURN PHASE_LABELS[phase][lang] OR PHASE_LABELS[phase]["en"]
+
+FUNCTION render_progress_bar(pct):
+  # 10 cells, one per 10%. Filled ▓, empty ░.
+  filled = ROUND(pct / 10)
+  RETURN ("▓" * filled) + ("░" * (10 - filled))
+
+FUNCTION HUMANIZE_ACTION(action, lang):
+  # One plain-language line explaining WHY this action is next.
+  # Derive from action.reason: state it in the session language, no jargon, ≤1 line.
+  RETURN one_line_plain_language(action.reason, lang)
+```
+
 ```yaml
 FUNCTION render_next_steps(actions, FEATURE_ID):
   # Replace {{ID}} placeholders with actual FEATURE_ID
   # Replace {{env}} with actual environment names from ci-cd.md
   
-  # Progress context — show where the feature stands
+  # Progress context — show where the feature stands (helpers defined above)
   state = compute_feature_state(FEATURE_ID) IF NOT already_computed
-  phase = derive_current_phase(state)  # Uses CLAUDE.md PHASE_MAP
-  phase_label = HUMANIZE_PHASE(phase)  # From CLAUDE.md helper
+  lang = session.language OR "en"
+  phase = derive_current_phase(state)
+  phase_label = HUMANIZE_PHASE(phase, lang)
   progress_pct = PHASE_PROGRESS_MAP[phase] OR 0
-  # PHASE_PROGRESS_MAP: setup=5, vision=10, codesign=25, blueprint=40, implement=65, devops=75, qa=85, deploy=95, complete=100
-  progress_bar = render_progress_bar(progress_pct)  # From CLAUDE.md helper
+  progress_bar = render_progress_bar(progress_pct)
 
   # Humanized explanations for each action
   level = session.explanation_level OR "SIMPLIFIED"
-  lang = session.language OR "en"
   FOR EACH action IN actions:
-    action.user_explanation = HUMANIZE_ACTION(action, lang)  # From CLAUDE.md helper
+    action.user_explanation = HUMANIZE_ACTION(action, lang)
 
   OUTPUT:
   """
   {{progress_bar}} **{{phase_label}}** ({{progress_pct}}%)
   
-  📋 **{{t(lang, 'progress')}}:**
-  # progress: es="Próximos pasos" en="Next steps"
+  📋 **{{progress_heading}}:**
+  # progress_heading: es="Próximos pasos" en="Next steps" (render in `lang`)
   
   {{FOR idx, action IN actions:}}
     {{idx+1}}. `{{action.cmd}}`
@@ -531,13 +604,14 @@ FUNCTION render_next_steps(actions, FEATURE_ID):
 
 ---
 
-## Step 4: Integration with Agent Outputs (MANDATORY)
+## Step 4: Integration — FINAL STEP of every command (MANDATORY)
 
 ```yaml
-# ALL agent outputs MUST call this protocol instead of hardcoded next-step suggestions.
+# Single-agent model: there is NO separate "Factory" turn after a command.
+# The agent that executed the command runs this block ITSELF, inline, as the
+# LAST thing it emits — replacing any hardcoded next-step suggestion.
 
-INTEGRATION_POINTS:
-  POST_COMMAND_REDIRECT:
+POST_COMMAND_REDIRECT(FEATURE_ID):  # run by the command-executing agent at command close
     # Step 0: Try cache fast path
     state = try_cached_feature_state(FEATURE_ID)
     IF state IS NULL:
@@ -548,10 +622,10 @@ INTEGRATION_POINTS:
     
     actions = compute_next_actions(state, FEATURE_ID)
     
-    # Agent-specific enrichment
-    IF current_agent == "DEVOPS" AND actions contains deploy suggestion:
+    # Command-specific enrichment (the same agent applies it for its own command)
+    IF command == "DEVOPS" AND actions contains deploy suggestion:
       ENRICH(actions, devops_plan.environments)
-    IF current_agent == "QA" AND state.qa_report.status == "REJECTED":
+    IF command == "QA" AND state.qa_report.status == "REJECTED":
       ENRICH(actions, qa_report.blocking_issues)
     
     render_next_steps(actions, FEATURE_ID)
@@ -561,20 +635,20 @@ INTEGRATION_POINTS:
 
 ## Step 5: Override Safeguards
 
-### Integration Checkpoint Gate (BLOCKING — verifies Smart Redirect was called)
+### Integration Checkpoint Gate (BLOCKING — self-check before emitting next steps)
 
 ```yaml
-FUNCTION verify_smart_redirect_executed(agent_output):
-  # This gate runs in Factory's PMO Validation AFTER every agent returns.
-  # If the agent output contains next-step suggestions that were NOT
-  # computed by Smart Redirect, Factory MUST re-compute them.
+FUNCTION verify_smart_redirect_executed(draft_output):
+  # Single-agent self-check: the command-executing agent runs this on its OWN
+  # draft output BEFORE emitting it. If the draft contains next-step suggestions
+  # that were NOT computed by Smart Redirect (Step 4), the agent re-computes them.
 
-  IF agent_output CONTAINS "next steps" OR agent_output CONTAINS "suggested command":
-    IF NOT agent_output.metadata.smart_redirect_executed:
-      ⚠️ OVERRIDE: "Agent output contains unverified next steps — re-computing via Smart Redirect"
+  IF draft_output CONTAINS "next steps" OR draft_output CONTAINS "suggested command":
+    IF NOT smart_redirect_executed_this_command:
+      ⚠️ OVERRIDE: "Draft contains unverified next steps — re-computing via Smart Redirect"
       state = compute_feature_state(FEATURE_ID)
       actions = compute_next_actions(state, FEATURE_ID)
-      REPLACE agent_output.next_steps WITH render_next_steps(actions, FEATURE_ID)
+      REPLACE draft_output.next_steps WITH render_next_steps(actions, FEATURE_ID)
       LOG: "Smart Redirect override: replaced hardcoded suggestions with computed actions"
 
   # Verify all environment references are dynamic (operates on pre-render action objects)

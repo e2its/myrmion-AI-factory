@@ -86,9 +86,12 @@ Canonical classifier: [Factory-protocol-iop-intent-map.instructions.md](.claude/
    - `.context/templates/**`
    - `.gitignore`
 
-   The ONLY hard exclusion is `.github/workflows/**`. Workflow YAML changes ALWAYS go through PR + full CI.
+   Hard exclusions (ALWAYS PR + full CI, even when the path also matches `**/*.md`):
 
-   Mixed diffs (one or more non-allowlist paths) follow the normal feature-branch + PR + CI flow. All-or-nothing.
+   - `.github/workflows/**` — workflow YAML.
+   - `.claude/instructions/**`, `.claude/skills/**`, `.claude/commands/**`, `.claude/hooks/**` — framework-core **behavioral contracts**. Editing an agent instruction, skill, command, or hook changes runtime agent behaviour and downstream-materialised governance; it is never "docs", even though instruction/skill/command files carry the `.md` extension. These always go through PR + full CI + governance bump.
+
+   Mixed diffs (one or more non-allowlist paths, or any hard-exclusion path) follow the normal feature-branch + PR + CI flow. All-or-nothing.
 
 ## Pre-Action Gate
 

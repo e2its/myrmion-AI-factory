@@ -893,8 +893,9 @@ FUNCTION finalize_plan_aggregate(FEATURE_ID):
   APPEND_TO_WORKLOG: |
     {"timestamp":"YYYY-MM-DD","phase":"Dev (Finalize)","user_agent":"IMPLEMENT","action":"--finalize {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"Plan-level aggregate clean after retry — global status flipped to IMPLEMENTED_AND_VERIFIED — next: QA --verify {FEATURE_ID}"}
 
-  # Smart Redirect — next action is QA --verify (aggregate)
-  RETURN_TO_FACTORY(FEATURE_ID)
+  # FINAL STEP — run Smart Redirect yourself (Factory-protocol-smart-redirect):
+  # compute + render next steps inline (next action is QA --verify aggregate).
+  POST_COMMAND_REDIRECT(FEATURE_ID)
 ```
 
 ### Upstream Artifact Validation (MANDATORY for --refine)
