@@ -200,9 +200,12 @@ Only relevant if editing the framework repo itself. The strategy, thresholds, li
    - `docs/**` (the entire docs tree — constitution, rules, setup, UX, project log)
    - `.gitignore`
 
-   The ONLY hard exclusion is `.github/workflows/**` (or the CI-platform equivalent). Workflow YAML executes in CI/CD — a typo there breaks the build for everyone, so workflow changes ALWAYS go through PR + full CI regardless.
+   Hard exclusions (ALWAYS PR + full CI, even when the path also matches `**/*.md`):
 
-   Mixed diffs (one or more non-allowlist paths) follow the normal feature-branch + PR + CI flow. The fast-lane is all-or-nothing: even a one-line code touch alongside docs reverts to the standard flow.
+   - `.github/workflows/**` (or the CI-platform equivalent). Workflow YAML executes in CI/CD — a typo there breaks the build for everyone, so workflow changes ALWAYS go through PR + full CI regardless.
+   - `.claude/instructions/**`, `.claude/skills/**`, `.claude/commands/**`, `.claude/hooks/**` — framework-core **behavioral contracts**. Editing an agent instruction, skill, command, or hook changes runtime agent behaviour; it is never "docs", even though instruction/skill/command files carry the `.md` extension.
+
+   Mixed diffs (one or more non-allowlist paths, or any hard-exclusion path) follow the normal feature-branch + PR + CI flow. The fast-lane is all-or-nothing: even a one-line code touch alongside docs reverts to the standard flow.
 
    The rule only relaxes the "no direct commit to main" branch rule and the workflow trigger filters. Other governance constraints still apply: constitution/red-zone changes still need an ADR; `governance_versions.json` still needs a version bump when a rule file changes; memory-significant changes still need a feedback-memory update.
 

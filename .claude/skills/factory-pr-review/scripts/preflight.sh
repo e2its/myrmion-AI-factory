@@ -88,12 +88,16 @@ fi
 
 # ── Docs-only fast-lane (matches CLAUDE.md Generation Standards §3) ──
 # Allowlist: **/*.md, docs/**, .context/templates/**, .gitignore
-# Hard exclusion: .github/workflows/**
+# Hard exclusions (always PR + full CI, even when the path also matches *.md):
+#   .github/workflows/**  — workflow YAML
+#   .claude/{instructions,skills,commands,hooks}/** — framework-core behavioral contracts
+# Exclusion arms MUST precede the *.md allow arm: instruction/skill/command files
+# carry the .md extension but are behaviour, not docs.
 fast_lane=true
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   case "$f" in
-    .github/workflows/*)
+    .github/workflows/*|.claude/instructions/*|.claude/skills/*|.claude/commands/*|.claude/hooks/*)
       fast_lane=false; break ;;
     *.md|docs/*|.context/templates/*|.gitignore)
       ;;
