@@ -797,7 +797,7 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
       "  - *Evidence: {blocker.evidence}*"
   ```
 - Route: bugs/regressions → `IMPLEMENT --fix` (must address all [FIX-N] items) | spec ambiguity → `CODESIGN --refine`
-- Release lock → return to Factory for Smart Redirect (computes next steps from artifact state)
+- Release lock → run Smart Redirect inline as the final step (computes next steps from artifact state)
 - APPEND_TO_WORKLOG:
   ```json
   {"timestamp":"YYYY-MM-DD","phase":"QA","user_agent":"QA","action":"--reject {{FEATURE_ID}}","result":"REJECTED","feature_id":"{{FEATURE_ID}}","observations":"QA REJECTED — blockers: {{blocker_list}}"}

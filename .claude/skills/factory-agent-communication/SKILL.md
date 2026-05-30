@@ -1,14 +1,14 @@
 ---
 name: factory-agent-communication
-description: "Factory Agent Communication Protocol (ACP) — entry announcement, phase milestones, completion summary, Factory return briefing. Use when: controlling sub-agent output verbosity and structuring inter-agent communication."
+description: "Factory Agent Communication Protocol (ACP) — entry announcement, phase milestones, completion summary, closing briefing. Use when: structuring command output verbosity and the agent's closing next-steps briefing."
 applicable_when:
   always: true
 ---
 
 # AGENT COMMUNICATION PROTOCOL (ACP)
 
-> **Shared Protocol** — Referenced by: ALL sub-agents (audit, setup, codesign, blueprint, implement, devops, qa) + Factory (return briefing).
-> Ensures the user always knows which agent is active, what it's doing, and what it produced.
+> **Shared Protocol** — Referenced by: every command persona (audit, setup, codesign, blueprint, implement, devops, qa) and the closing briefing.
+> Ensures the user always knows which persona is active, what it's doing, and what it produced.
 
 **Problem:** Slash commands execute complex multi-phase operations. Without explicit communication, the user has no visibility into progress or results.
 
@@ -184,7 +184,7 @@ FOR EACH item IN CHECKLIST:
     LOG: "ACP self-correction: {item} was missing, executed now"
 ```
 
-**Rules:** The rendered checklist in the Completion Summary makes progress visible to the user and Factory's PMO Validation. Items not applicable to the command (e.g., cascade for `--approve`) should be omitted from the rendered output.
+**Rules:** The rendered checklist in the Completion Summary makes progress visible to the user and feeds the agent's own post-command self-validation. Items not applicable to the command (e.g., cascade for `--approve`) should be omitted from the rendered output.
 
 ### Rules:
 - Table includes ONLY artifacts relevant to the command (not all feature files)
@@ -205,9 +205,11 @@ If command could not complete:
 
 ---
 
-## 4. Factory Return Briefing (Executed by Factory after PMO Validation)
+## 4. Closing Briefing (FINAL block the agent emits after its own self-validation)
 
-When Factory regains control after PMO Validation, it presents a **concise briefing** to the user:
+Single-agent runtime: there is NO separate Factory turn. After the command-executing
+agent finishes its own post-command self-validation, it emits a **concise closing
+briefing** as the last block of its output:
 
 ```markdown
 **{AGENT_NAME}** completed `--{command} {FEATURE_ID}` — {pass/issues detected}
@@ -218,16 +220,16 @@ When Factory regains control after PMO Validation, it presents a **concise brief
 {Smart Redirect computed actions — numbered list with commands}
 ```
 
-### Factory Return Briefing Gate (BLOCKING — L-01):
+### Closing Briefing Gate (BLOCKING — L-01):
 ```yaml
-FUNCTION verify_briefing_not_redundant(briefing_content, agent_completion_summary):
-  # Factory MUST NOT repeat the sub-agent's completion summary.
+FUNCTION verify_briefing_not_redundant(briefing_content, completion_summary):
+  # The agent MUST NOT repeat its own completion summary.
   # The user already saw the completion summary inline.
-  # Factory's briefing adds VALUE via: PMO validation result + Smart Redirect.
+  # The closing briefing adds VALUE via: self-validation verdict + Smart Redirect.
 
-  IF briefing_content CONTAINS agent_completion_summary.artifact_table:
+  IF briefing_content CONTAINS completion_summary.artifact_table:
     ❌ STRIP: Remove duplicated artifact table from briefing
-    LOG: "Briefing de-duplicated: removed agent's artifact table"
+    LOG: "Briefing de-duplicated: removed artifact table"
 
   IF briefing_content.line_count > 5 (excluding next steps):
     ⚠️ TRIM: "Briefing too long ({line_count} lines). Keep to 3-5 lines max."
@@ -236,17 +238,17 @@ FUNCTION verify_briefing_not_redundant(briefing_content, agent_completion_summar
   REQUIRED_ELEMENTS = ["pass/issues verdict", "next steps from Smart Redirect"]
   FOR EACH element IN REQUIRED_ELEMENTS:
     IF element NOT IN briefing_content:
-      ❌ BLOCK: "Factory briefing missing: {element}"
+      ❌ BLOCK: "Closing briefing missing: {element}"
       ADD element to briefing
 
   ✅ Briefing validated — concise, non-redundant, actionable
 ```
 
 ### Rules:
-- If PMO Validation passes cleanly: single line + next steps
-- If PMO Validation detects issues: list issues, then next steps
+- If self-validation passes cleanly: single line + next steps
+- If self-validation detects issues: list issues, then next steps
 - ALWAYS include next steps (this is the key user value of the briefing)
-- NEVER repeat the full completion summary (the sub-agent already showed it)
+- NEVER repeat the full completion summary (already shown inline)
 
 ---
 

@@ -1119,6 +1119,9 @@ SAVE(path)
 APPEND_TO_WORKLOG: |
   {"timestamp":"YYYY-MM-DD","phase":"Dev (Planning)","user_agent":"IMPLEMENT","action":"--plan {FEATURE_ID}","result":"COMPLETED","feature_id":"{FEATURE_ID}","observations":"dev_plan.md created — {total_tasks} tasks across phases A/B/C — status: READY"}
 
-# Return to Factory — Smart Redirect computes next steps from artifact state
-RETURN_TO_FACTORY(FEATURE_ID)
+# FINAL STEP — run Smart Redirect yourself (Factory-protocol-smart-redirect):
+# the command-executing agent computes + renders next steps inline, as the
+# last block of its output. No separate Factory turn.
+POST_COMMAND_REDIRECT(FEATURE_ID)
+# = compute_feature_state → compute_next_actions → render_next_steps
 ```

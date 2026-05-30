@@ -1379,10 +1379,11 @@ CREATE Draft PR:
 
 ### 3.8: Smart Redirect
 ```yaml
-# Return to Factory — Smart Redirect Protocol computes next steps
-# from artifact frontmatter state. Agents NEVER hardcode suggestions.
-RETURN_TO_FACTORY(FEATURE_ID)
-# Factory executes: compute_feature_state → compute_next_actions → render_next_steps
+# FINAL STEP — the command-executing agent runs Smart Redirect ITSELF, inline,
+# as the last block of its output. Next steps come from artifact frontmatter
+# state — NEVER hardcoded. No separate Factory turn (single-agent runtime).
+POST_COMMAND_REDIRECT(FEATURE_ID)
+# = compute_feature_state → compute_next_actions → render_next_steps
 ```
 
 ---
