@@ -6,7 +6,7 @@
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract.",
+  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -2252,10 +2252,11 @@
       "path": ".claude/skills/factory-pr-review/SKILL.md"
     },
     "skills/factory-pr-review/README.md": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "type": "skill-asset",
       "role": "Factory PR Review installation + framework integration notes — community-origin README kept for upstream attribution and contributor guidance.",
       "changelog": [
+        "1.0.2: fix(skillspector-hardening) — usage example updated to post_review.py 2.0.0 contract: --publish flag shown as the explicit opt-in (old example said \"remove --dry-run to publish for real\", stale after the default flip). Found by Phase 0 detector 13 (reference coherence) during PR #41 review loop.",
         "1.0.0: feat(EVOL-024): initial — same content as community-origin skill, kept verbatim for attribution. Framework-specific guidance lives in SKILL.md."
       ],
       "path": ".claude/skills/factory-pr-review/README.md"
@@ -2372,11 +2373,11 @@
       "path": ".claude/skills/factory-pr-review/assets/review_template.md"
     },
     "skills/factory-pr-review/scripts/post_review.py": {
-      "version": "1.2.0",
+      "version": "2.0.0",
       "type": "skill-asset",
       "role": "Factory PR Review platform publisher — reads structured review JSON (`assets/review_template.md` schema), renders Markdown, posts to GitHub (via gh CLI) / GitLab (glab) / Azure DevOps (az) / Bitbucket. Used only in `--review {PR}` mode and only with explicit user confirmation. Never invoked by the push gate. Dry-run by default — publishing requires the explicit --publish flag. Review body is control-char-sanitised and passed to gh via --body-file temp file, never inline argv.",
       "changelog": [
-        "1.2.0: fix(skillspector-hardening) — Skillspector OH1 findings triaged (post_review.py:168/189/205/218). No command injection existed (argv list, no shell), but model-originated body hardened: (1) dry-run becomes the default, --publish flag required to post (--dry-run kept as deprecated override); (2) body via --body-file temp file on GitHub path instead of inline --body argv; (3) sanitize_body() strips control chars (except \\n \\t) before any CLI; (4) parse_github_url owner/repo charset tightened to [\\w.-]+ with anchored end; (5) glab mr approve returncode checked. False-positive baseline at docs/project_log/validation/skillspector-triage-2026-06-11.md.",
+        "2.0.0: fix(skillspector-hardening) BREAKING — invocation contract flips: dry-run becomes the default and posting requires the new --publish flag (callers relying on default-publish must add --publish). Skillspector OH1 findings triaged (post_review.py:168/189/205/218). No command injection existed (argv list, no shell), but model-originated body hardened: (1) dry-run becomes the default, --publish flag required to post (--dry-run kept as deprecated override); (2) body via --body-file temp file on GitHub path instead of inline --body argv; (3) sanitize_body() strips control chars (except \\n \\t) before any CLI; (4) parse_github_url owner/repo charset tightened to [\\w.-]+ with anchored end; (5) glab mr approve returncode checked. False-positive baseline at docs/project_log/validation/skillspector-triage-2026-06-11.md.",
         "1.1.0: feat(EVOL-025) renderer gains '🔧 Mitigations applied during review' Markdown section below the Documentation checklist (only when `mitigations_applied[]` is non-empty). Each entry rendered as `### {finding_ref} [{category}]` heading + Commit / Applied at / What was done / Verified by lines. Lock-step with assets/review_template.md 1.1.0 + SKILL.md 1.2.0 Phase 5.5.",
         "1.0.0: feat(EVOL-024): initial — community-origin script kept verbatim, untracked in manifest until v2.10.0 backfill (pre-existing gap). Provides Markdown renderer + GitHub/GitLab/Azure/Bitbucket publishers with explicit user confirmation gate."
       ],

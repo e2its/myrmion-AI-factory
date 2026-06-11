@@ -105,12 +105,12 @@ gh pr diff 123 --name-only | python pr-review/scripts/detect_change_type.py --st
 # Check drift between code and docs
 python pr-review/scripts/check_docs_sync.py --git-range main..HEAD --json
 
-# Publish review (after manually validating the JSON)
+# Render review (dry-run is the default — nothing is published)
 python pr-review/scripts/post_review.py \
     --review review.json \
     --pr-url https://github.com/owner/repo/pull/123 \
     --decision comment \
-    --dry-run    # remove this to publish for real
+    --publish    # required to actually publish; omit to just print
 ```
 
 ## Customization
