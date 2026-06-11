@@ -8,12 +8,13 @@ Auto-detects the platform from the URL or remote.
 Usage:
     python post_review.py --review review.json --pr-url https://github.com/owner/repo/pull/123
     python post_review.py --review review.json --pr-url ... --decision approve|request-changes|comment
-    python post_review.py --review review.json --pr-url ... --dry-run
+    python post_review.py --review review.json --pr-url ... --publish
 
 The review.json file must follow the structure defined in assets/review_template.md.
 
 IMPORTANT: this script must NOT run without explicit user confirmation.
 An incorrect review on a public platform stays public and notifies the author.
+Default mode is dry-run (print only); publishing requires the explicit --publish flag.
 """
 
 import argparse
@@ -21,6 +22,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -40,10 +42,19 @@ def detect_platform(url: str) -> str:
 
 def parse_github_url(url: str):
     # https://github.com/owner/repo/pull/123
-    m = re.match(r"https?://github\.com/([^/]+)/([^/]+)/pull/(\d+)", url)
+    m = re.match(r"https?://github\.com/([\w.-]+)/([\w.-]+)/pull/(\d+)$", url)
     if not m:
         raise ValueError(f"Invalid GitHub URL: {url}")
     return m.group(1), m.group(2), int(m.group(3))
+
+
+# Control chars (except \n and \t) stripped before the body reaches any CLI:
+# the review body originates from model output and is not trusted verbatim.
+_CONTROL_CHARS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def sanitize_body(body: str) -> str:
+    return _CONTROL_CHARS_RE.sub("", body)
 
 
 def render_review_markdown(review: dict) -> str:
@@ -151,10 +162,10 @@ def render_review_markdown(review: dict) -> str:
 
 def post_to_github(review: dict, pr_url: str, decision: str, dry_run: bool):
     owner, repo, pr_number = parse_github_url(pr_url)
-    body = render_review_markdown(review)
+    body = sanitize_body(render_review_markdown(review))
 
     if dry_run:
-        print("=== DRY RUN — not publishing ===")
+        print("=== DRY RUN — not publishing (use --publish to post) ===")
         print(f"Platform: GitHub")
         print(f"Owner/Repo: {owner}/{repo}")
         print(f"PR: #{pr_number}")
@@ -177,26 +188,33 @@ def post_to_github(review: dict, pr_url: str, decision: str, dry_run: bool):
         "comment": "--comment",
     }.get(decision, "--comment")
 
-    # Publish
-    cmd = [
-        "gh", "pr", "review", str(pr_number),
-        "--repo", f"{owner}/{repo}",
-        gh_decision,
-        "--body", body,
-    ]
+    # Publish — body goes through a temp file, never through argv (ARG_MAX,
+    # and keeps untrusted content out of the process table).
+    with tempfile.NamedTemporaryFile("w", suffix=".md", encoding="utf-8", delete=False) as tf:
+        tf.write(body)
+        body_file = tf.name
+    try:
+        cmd = [
+            "gh", "pr", "review", str(pr_number),
+            "--repo", f"{owner}/{repo}",
+            gh_decision,
+            "--body-file", body_file,
+        ]
 
-    print(f"Publishing review on {owner}/{repo}#{pr_number}...")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"ERROR while publishing: {result.stderr}", file=sys.stderr)
-        sys.exit(2)
-    print("✓ Review published.")
+        print(f"Publishing review on {owner}/{repo}#{pr_number}...")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"ERROR while publishing: {result.stderr}", file=sys.stderr)
+            sys.exit(2)
+        print("✓ Review published.")
+    finally:
+        Path(body_file).unlink(missing_ok=True)
 
 
 def post_to_gitlab(review: dict, pr_url: str, decision: str, dry_run: bool):
-    body = render_review_markdown(review)
+    body = sanitize_body(render_review_markdown(review))
     if dry_run:
-        print("=== DRY RUN GitLab ===")
+        print("=== DRY RUN GitLab — not publishing (use --publish to post) ===")
         print(body)
         return
 
@@ -223,7 +241,14 @@ def post_to_gitlab(review: dict, pr_url: str, decision: str, dry_run: bool):
 
     # Approval / changes requested (if applicable)
     if decision == "approve":
-        subprocess.run(["glab", "mr", "approve", mr_id, "--repo", project])
+        result = subprocess.run(
+            ["glab", "mr", "approve", mr_id, "--repo", project],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            print(f"ERROR while approving: {result.stderr}", file=sys.stderr)
+            sys.exit(2)
+        print("✓ MR approved.")
 
 
 def post_to_azure(review: dict, pr_url: str, decision: str, dry_run: bool):
@@ -243,18 +268,22 @@ def main():
     parser.add_argument("--review", type=Path, required=True, help="JSON file with the review")
     parser.add_argument("--pr-url", required=True, help="PR/MR URL")
     parser.add_argument("--decision", choices=["approve", "request-changes", "comment"], default="comment")
-    parser.add_argument("--dry-run", action="store_true", help="Don't publish, just print")
+    parser.add_argument("--publish", action="store_true",
+                        help="Actually publish to the platform. Without it the review is only printed.")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Deprecated: dry-run is now the default. Overrides --publish if both are given.")
     args = parser.parse_args()
 
     review = json.loads(args.review.read_text(encoding="utf-8"))
     platform = detect_platform(args.pr_url)
+    dry_run = not args.publish or args.dry_run
 
     if platform == "github":
-        post_to_github(review, args.pr_url, args.decision, args.dry_run)
+        post_to_github(review, args.pr_url, args.decision, dry_run)
     elif platform == "gitlab":
-        post_to_gitlab(review, args.pr_url, args.decision, args.dry_run)
+        post_to_gitlab(review, args.pr_url, args.decision, dry_run)
     elif platform == "azure":
-        post_to_azure(review, args.pr_url, args.decision, args.dry_run)
+        post_to_azure(review, args.pr_url, args.decision, dry_run)
     else:
         print(f"Unsupported platform: {platform}", file=sys.stderr)
         sys.exit(2)

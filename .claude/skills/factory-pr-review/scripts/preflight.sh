@@ -333,9 +333,11 @@ IMPORTANT_COUNT=$(grep '^important|' "$FINDINGS_FILE" 2>/dev/null | wc -l | tr -
 
 # ── Output ──
 if [[ "$OUTPUT_JSON" == "true" ]]; then
-  # Pass FINDINGS_FILE via env (handles paths with spaces); keep heredoc
-  # unquoted so $BASE_REF/$CURRENT/$CHANGED_FILES below are bash-expanded.
-  PRE_FF="$FINDINGS_FILE" "$PYTHON" - <<PYEOF
+  # ALL dynamic values passed via env, heredoc quoted (no bash expansion):
+  # a multiline $CHANGED_FILES expanded inside a python string literal is a
+  # syntax error, and any quote/backslash in a branch name would inject.
+  PRE_FF="$FINDINGS_FILE" PRE_BASE="$BASE_REF" PRE_BRANCH="$CURRENT" \
+  PRE_CHANGED="$CHANGED_FILES" "$PYTHON" - <<'PYEOF'
 import json, os
 findings = []
 with open(os.environ["PRE_FF"]) as fh:
@@ -349,9 +351,9 @@ blockers=[f for f in findings if f["severity"]=="blocker"]
 print(json.dumps({
     "verdict": "block" if blockers else "pass",
     "mode": "preflight",
-    "base": "$BASE_REF",
-    "branch": "$CURRENT",
-    "files_changed_count": sum(1 for _ in "$CHANGED_FILES".splitlines() if _.strip()),
+    "base": os.environ.get("PRE_BASE", ""),
+    "branch": os.environ.get("PRE_BRANCH", ""),
+    "files_changed_count": sum(1 for l in os.environ.get("PRE_CHANGED", "").splitlines() if l.strip()),
     "blockers": blockers,
     "important": [f for f in findings if f["severity"]=="important"],
     "nits": [f for f in findings if f["severity"]=="nit"]
