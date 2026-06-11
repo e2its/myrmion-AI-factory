@@ -248,6 +248,8 @@ If mitigation breaks something else (verification fails), revert the mitigation 
 ### Phase 6 — Publication (`--review` mode only)
 Use `scripts/post_review.py` to publish on the platform. **NEVER** without explicit user confirmation — an incorrect review on GitHub is publicly visible. The push-gate (`--preflight`) NEVER publishes.
 
+The script is **dry-run by default**: invoked without flags it only renders and prints the review. Publishing requires the explicit `--publish` flag, which the agent adds ONLY after the user has confirmed the rendered output. The review body is sanitised (control characters stripped) and passed to the platform CLI via `--body-file`, never inline through argv.
+
 When `mitigations_applied[]` is non-empty, `post_review.py` renders a "🔧 Mitigations applied during review" section after Findings, citing each mitigation's commit SHA + description + evidence. The author sees finding + resolution in a single comment.
 
 ## Review principles
