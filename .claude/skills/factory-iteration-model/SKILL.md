@@ -466,6 +466,10 @@ CASCADE_TRIGGERS:
       # would double-invalidate: a pure re-slice has an EMPTY text-delta → implicit_touch → wholesale wipe.
       SKIP CASCADE_INCREMENT_INTERNAL
     ELSE:
+      # Compound refine (re-slice + text/broad change): BOTH CASCADE_SLICE_INTERNAL (above, assignment-delta)
+      # and this call run. The overlap is INTENTIONAL and safe — invalidation is idempotent (monotonic status;
+      # INVALIDATED stays INVALIDATED), and the broad/text path here preserves the wider invalidation the
+      # slice-only path would miss. Do NOT "deduplicate" by gating this call on the slice set.
       CASCADE_INCREMENT_INTERNAL(FEATURE_ID, new_iteration, affected_scopes, affected_scenarios, affected_contract_ops)
 
   # 2. BLUEPRINT --refine (Syncing design.md + test_plan.md)

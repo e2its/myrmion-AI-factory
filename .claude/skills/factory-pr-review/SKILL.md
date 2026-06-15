@@ -97,7 +97,7 @@ Extends `references/docs-sync-checklist.md` with the framework's own artefacts. 
 | New / modified Gherkin scenario in `docs/spec/{ID}/` | `user_journey.md` + `test_plan.md` (CVP Check 1, 2) | **Blocker** |
 | New / modified design contract operation | `design.md` § Contracts + OpenAPI/AsyncAPI under `contracts/` | **Blocker** |
 | New / modified test_plan case | `dev_plan.md` task tags reference the case | Important |
-| `slicing_strategy: incremental` feature ships without `slice_map.md` APPROVED | (CVP Check 0d slice_map_presence) | **Blocker** |
+| `slicing_strategy: incremental` feature ships without `slice_map.md` APPROVED | (CVP Check 0d slice_map_presence) | **Blocker** for a NEW feature (no increment_plan yet); WARNING for a legacy pre-EVOL-036 feature already carrying increment_plan (grandfathered — Check 0d) |
 | `slicing_strategy: incremental` feature ships without `increment_plan.md` APPROVED | (CVP Check 0c) | **Blocker** |
 | `INC-N` `cascade_source` does not resolve to a real slice, or a slice is unrealized | (CVP Check 18 slice_to_increment_coverage) | **Blocker** |
 | Re-slice moves a MERGED-frozen scenario out of its owning slice | (CVP Check 20 slice_immutability_consistency) | **Blocker** |

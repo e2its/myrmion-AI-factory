@@ -2087,9 +2087,10 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.6.1",
+      "version": "2.6.2",
       "type": "skill",
       "changelog": [
+        "2.6.2: fix(EVOL-036) coherence-3 — ON_CODESIGN_REFINE_ITERATION: documented that a compound refine intentionally runs BOTH CASCADE_SLICE_INTERNAL and CASCADE_INCREMENT_INTERNAL (idempotent overlap; do not deduplicate) — prevents a future maintainer mistaking it for redundancy.",
         "2.6.1: fix(EVOL-036) coherence — CASCADE_SLICE_INTERNAL move-semantics: affected set = whole membership of each changed slice across persisted∪proposed (not just the moved scenario) so a MOVE flags BOTH source and destination realizers (else Check 18(c) fails at next gate). reslice_only guard tightened: SKIP CASCADE_INCREMENT_INTERNAL only on a PURE re-slice (no scenario text, no contract op, no broad policy/schema/ui/infra/contract scope) — prevents dropped invalidation on compound refines.",
         "2.6.0: feat(EVOL-036) SLICE-4 — per-scenario slice immutability. New § Slice Freeze Derivation & Slice Cascade: a slice has NO scalar status — freeze is a per-SCENARIO partition (merged_scenarios/locked_scenarios) derived from realizing increments. Adds check_slice_immutability() (PRE-persist scenario-set gate, TOCTOU re-grep, MERGED→block+follow-up, BUILDING/DRAFT→forward cascade) and CASCADE_SLICE_INTERNAL (forward-only slice_map→increment_plan on assignment-delta; reuses CASCADE_INCREMENT_INTERNAL table verbatim; explicit set so implicit_touch never wholesale-wipes; idempotent; never writes back to slice_map). ON_CODESIGN_REFINE_ITERATION wires CASCADE_SLICE_INTERNAL + SKIPs CASCADE_INCREMENT_INTERNAL on pure re-slice (anti-double-invalidation). Disambiguation vs CASCADE_SLICE_PEERS; acyclicity note; Follow-up Slice Rule + CODESIGN --revise terminal escape.",
         "2.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2279,10 +2280,11 @@
       "path": ".claude/skills/factory-rdr/SKILL.md"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.8.0",
+      "version": "1.8.1",
       "type": "skill",
       "role": "Factory PR Review — six-axis review (code, code↔docs, API contracts, ADR, traceability, complexity) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${session_id}-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 19. Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT 🔍 REVIEW hat scope, separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "changelog": [
+        "1.8.1: fix(EVOL-036) coherence-3 — Hard-Gate slice_map-absent row severity made precise: Blocker for a NEW incremental feature, WARNING for a legacy grandfathered one (matches Check 0d behavior).",
         "1.8.0: feat(EVOL-036) SLICE-5 — push-gate parity: Block 8 CVP subset string (0a/0c/1/2/13-17) → (0a/0c/0d/1/2/13-20) so slice checks fire at the local push preflight, matching BLUEPRINT --approve. Block 8 traceability chain gains slice_map. Hard-Gate table gains rows: missing slice_map.md APPROVED (Check 0d), unresolved cascade_source / unrealized slice (Check 18), re-slice moving a MERGED scenario (Check 20).",
         "1.7.0: fix(skillspector-hardening) — Phase 6 Publication contract updated for post_review.py 1.2.0: script is dry-run by default, agent adds --publish ONLY after user confirms the rendered output; body sanitised + passed via --body-file. Lock-step with scripts/post_review.py 1.2.0.",
         "1.6.1: fix(increment-plan-rule) — `§ Framework-aware Hard Blocks` row for missing `depends_on` updated to point at increment_plan.md § 1 (canonical DAG) instead of the removed § 2 Mermaid block.",
@@ -2331,10 +2333,11 @@
       "path": ".claude/skills/factory-pr-review/references/code-review-criteria.md"
     },
     "skills/factory-pr-review/references/docs-sync-checklist.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "type": "skill-asset",
       "role": "Factory PR Review code↔docs sync matrix — three-tier matrix: Universal (any project: CLI flags, env vars, OpenAPI/AsyncAPI, README, CHANGELOG, ADR, runbooks, DB schema), Materialised Factory project (CVP-driven: spec.feature ↔ user_journey ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan, Per-Increment Immutability, Scope Compatibility Gate, CIP), Framework meta repo (governance-bump miss enforcing CLAUDE.md Generation Standards §2).",
       "changelog": [
+        "1.1.1: fix(EVOL-036) coherence-3 — slice_map-absent row severity precise (Blocker new / WARNING legacy grandfathered), aligned with SKILL.md + Check 0d.",
         "1.1.0: feat(EVOL-036) SLICE-5 — docs-sync table gains slice rows: missing slice_map.md APPROVED (Check 0d), unresolved cascade_source / unrealized slice (Check 18), re-slice moving a MERGED-frozen scenario (Check 20).",
         "1.0.2: fix(increment-plan-rule) — Materialised Factory project tier row for missing `depends_on` re-points at increment_plan.md § 1 (canonical) instead of the removed § 2 Mermaid block.",
         "1.0.0: feat(EVOL-024): initial — community-origin matrix split into three contexts; downstream tier added with CVP Check ID references (1, 2, 14, 15, 17, 0c); meta tier added enforcing manifest bump on framework-core touch."
