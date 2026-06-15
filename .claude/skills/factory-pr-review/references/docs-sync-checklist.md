@@ -34,7 +34,10 @@ Drives Hard Block 8 (CVP subset) when files under `docs/spec/{ID}/**` are touche
 | New / modified Gherkin scenario | `user_journey.md` + `test_plan.md` (CVP Check 1, 2) | **Blocker** |
 | New / modified contract operation in `design.md` | OpenAPI/AsyncAPI under `contracts/` (CVP Check 14, 15) | **Blocker** |
 | New / modified test_plan case | `dev_plan.md` task tags reference the case (CVP Check 17) | Important |
+| `slicing_strategy: incremental` feature without `slice_map.md` APPROVED | (CVP Check 0d) | **Blocker** |
 | `slicing_strategy: incremental` feature without `increment_plan.md` APPROVED | (CVP Check 0c) | **Blocker** |
+| `INC-N` `cascade_source` unresolved / slice unrealized | (CVP Check 18) | **Blocker** |
+| Re-slice moves a MERGED-frozen scenario | (CVP Check 20) | **Blocker** |
 | Code touches a file inside an `INC-N` MERGED scope | (Per-Increment Immutability) | **Blocker** |
 | New `INC-N` without `depends_on:` field in § 1 | `increment_plan.md` § 1 `depends_on:` (canonical DAG) | Important |
 | `feature.scope` ≠ scope of touched paths | (Scope Compatibility Gate) | **Blocker** |

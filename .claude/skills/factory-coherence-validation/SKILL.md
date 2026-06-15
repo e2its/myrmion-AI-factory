@@ -40,6 +40,7 @@ CVP_SCOPES:
     checks:
       - scope_consistency_across_artifacts   # scope field matches across spec.feature/design.md/test_plan.md/dev_plan.md
       - consumes_contract_resolution         # every FEAT-XXX in spec.feature.consumes_contract resolves to an APPROVED upstream with frozen contract files
+      - slice_map_presence                   # EVOL-036 — slice_map.md exists + well-formed (RDR≥3) when slicing_strategy==incremental; absent when monolithic
       - increment_plan_presence              # increment_plan.md exists with well-formed frontmatter; slicing_strategy inherited from spec.feature
       - scenario_to_component        # spec.feature scenarios → design.md components
       - data_schema_to_data_model    # user_journey.md schemas → design.md data model
@@ -51,6 +52,9 @@ CVP_SCOPES:
       - increment_to_scenario_coverage       # every spec.feature scenario appears in exactly one increment (no orphan, no duplicate)
       - increment_to_contract_coverage       # every contract operation appears in exactly one increment (no orphan, no duplicate)
       - monolithic_heuristic                 # applicable_when slicing_strategy==monolithic — § 3 Escape Declaration present + heuristic satisfied
+      - slice_to_increment_coverage          # EVOL-036 — every slice realized by ≥1 increment (cascade_source), bidirectional + scenario consistency
+      - slice_seam_resolution                # EVOL-036 — each depends_on_slice/depends_on_feature resolves + DAG + seam present (4 fail-modes)
+      - slice_immutability_consistency       # EVOL-036 — per-scenario freeze partition well-formed; no MERGED increment orphaned; vacuous pre-BLUEPRINT
 
   CODESIGN_BLUEPRINT_IMPLEMENT:
     # Invoked by: IMPLEMENT --plan (Step 0.5)
@@ -112,6 +116,7 @@ FUNCTION cvp_coherence_gate(FEATURE_ID, scope, invoking_agent):
   artifacts.design_md = READ("{base_path}/design.md")
   artifacts.test_plan = READ("{base_path}/test_plan.md")
   artifacts.increment_plan = READ_IF_EXISTS("{base_path}/increment_plan.md")  # may be absent on pre-slicing features
+  artifacts.slice_map = READ_IF_EXISTS("{base_path}/slice_map.md")            # EVOL-036 — present only when slicing_strategy==incremental
 
   IF scope IN [CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN]:
     artifacts.dev_plan = READ("{base_path}/dev_plan.md")
@@ -344,6 +349,63 @@ FUNCTION check_increment_plan_presence(elements):
   YIELD { check: "increment_plan_presence", severity: PASS,
           source: "increment_plan.md",
           target: "present, {fm.total_increments} increments, slicing_strategy={fm.slicing_strategy}" }
+```
+
+### Check 0d: `slice_map_presence` (CRITICAL — EVOL-036)
+
+`slice_map.md` is CODESIGN's authoritative capability-VALUE slicing. It must exist + be well-formed when `slicing_strategy == incremental`, and be absent when `monolithic`. The mandatory ≥3 slicing-value RDR lives HERE (moved upstream from increment_plan — Check 0c no longer gates it). Mirrors Check 0c structure.
+
+```yaml
+FUNCTION check_slice_map_presence(elements):
+  spec = elements.spec_feature
+  IF spec IS NULL: RETURN
+
+  slicing = spec.frontmatter.slicing_strategy OR "MISSING"
+  sm = elements.slice_map   # may be NULL
+
+  IF slicing != "incremental":
+    # monolithic / legacy-missing → no slice_map expected (vacuous PASS)
+    IF sm IS NOT NULL:
+      YIELD { check: "slice_map_presence", severity: WARNING,
+              source: "docs/spec/{FEATURE_ID}/slice_map.md",
+              gap: "slice_map.md present but slicing_strategy='{slicing}' (monolithic features carry no slice_map)",
+              remediation: "Remove slice_map.md, or set slicing_strategy: incremental in spec.feature" }
+    ELSE:
+      YIELD { check: "slice_map_presence", severity: PASS, note: "slicing_strategy={slicing} — no slice_map expected" }
+    RETURN
+
+  IF sm IS NULL:
+    YIELD { check: "slice_map_presence", severity: CRITICAL,
+            source: "docs/spec/{FEATURE_ID}/slice_map.md",
+            gap: "slicing_strategy='incremental' but slice_map.md is absent — CODESIGN owns capability-value slicing",
+            remediation: "Run CODESIGN --start {FEATURE_ID} (or --refine) to emit slice_map.md before BLUEPRINT refines it" }
+    RETURN
+
+  # Frontmatter integrity (minimal contract; RDR≥3 enforced here, not in increment_plan)
+  fm = sm.frontmatter
+  required_fields = ["id", "status", "slicing_strategy", "scope", "total_slices", "rdr_alternatives_considered", "rdr_ratified_at"]
+  missing = [f FOR f IN required_fields IF fm.get(f) IS NULL]
+  IF missing NOT EMPTY:
+    YIELD { check: "slice_map_presence", severity: CRITICAL,
+            source: "slice_map.md.frontmatter",
+            gap: "Missing required fields: {missing}",
+            remediation: "Re-run CODESIGN --refine {FEATURE_ID} — the generator populates these fields automatically" }
+
+  IF fm.status == "APPROVED" AND fm.rdr_alternatives_considered < 3:
+    YIELD { check: "slice_map_presence", severity: CRITICAL,
+            source: "slice_map.md.frontmatter.rdr_alternatives_considered = {fm.rdr_alternatives_considered}",
+            gap: "Approved slice_map with <3 slicing-value alternatives — factory-rdr mandates ≥3",
+            remediation: "Re-run the slicing-value RDR via CODESIGN --refine {FEATURE_ID}" }
+
+  IF fm.slicing_strategy != slicing:
+    YIELD { check: "slice_map_presence", severity: CRITICAL,
+            source: "slice_map.md.frontmatter.slicing_strategy='{fm.slicing_strategy}'",
+            gap: "Slicing strategy drift: spec.feature says '{slicing}', slice_map says '{fm.slicing_strategy}'",
+            remediation: "spec.feature is authoritative. Re-run CODESIGN --refine to regenerate slice_map.md" }
+
+  YIELD { check: "slice_map_presence", severity: PASS,
+          source: "slice_map.md",
+          target: "present, {fm.total_slices} slices, rdr_alternatives={fm.rdr_alternatives_considered}" }
 ```
 
 ### Check 1: `scenario_to_component` (CRITICAL)
@@ -894,6 +956,186 @@ FUNCTION check_increment_to_task(elements):
               source: inc.id, target: "{task_count} task(s)" }
 ```
 
+### Check 18: `slice_to_increment_coverage` (CRITICAL — EVOL-036)
+
+The two-stage join: every `SLICE-{FEAT}-N` in slice_map.md must be realized by ≥1 increment citing it via `cascade_source`; every increment must cite a real slice; and the scenarios are consistent across the join. Reuses the Check 14 orphan/duplicate/phantom set-diff machinery, keyed on the `cascade_source` join.
+
+```yaml
+FUNCTION check_slice_to_increment_coverage(elements):
+  slices = elements.slices
+  IF slices IS EMPTY: 
+    YIELD { check: "slice_to_increment_coverage", severity: PASS, note: "no slice_map (monolithic/pre-slicing) — not applicable" }
+    RETURN
+  increments = elements.increments
+  IF increments IS EMPTY: RETURN   # pre-BLUEPRINT — handled by Check 13/0c; Check 18 needs realizers to join
+
+  slice_ids = { s.id FOR s IN slices }
+
+  # Build join: slice_id → [increment ids that cite it via cascade_source]
+  realized = {}
+  FOR EACH inc IN increments:
+    realized.setdefault(inc.cascade_source, []).append(inc.id)
+
+  # (a) every slice realized by ≥1 increment
+  FOR EACH s IN slices:
+    IF realized.get(s.id, []) IS EMPTY:
+      YIELD { check: "slice_to_increment_coverage", severity: CRITICAL,
+              source: "slice_map.md: {s.id}",
+              gap: "Slice not realized by any increment (no increment with cascade_source: {s.id})",
+              remediation: "BLUEPRINT --refine {FEATURE_ID} — map {s.id} to an increment, or remove the orphan slice via CODESIGN --refine" }
+
+  # (b) every increment cites a real slice (no phantom cascade_source)
+  FOR EACH inc IN increments:
+    IF inc.cascade_source IS NULL OR inc.cascade_source NOT IN slice_ids:
+      YIELD { check: "slice_to_increment_coverage", severity: CRITICAL,
+              source: "increment_plan.md: {inc.id}.cascade_source='{inc.cascade_source}'",
+              gap: "Increment cascade_source does not resolve to a real slice in slice_map.md",
+              remediation: "Set cascade_source to a valid SLICE-{FEAT}-N (Rule 9 join key)" }
+
+  # (c) scenario consistency: union of scenarios across realizing increments == slice scenarios
+  FOR EACH s IN slices:
+    realizing = FILTER(increments, inc.cascade_source == s.id)
+    inc_scenarios = UNION(realizing.map(inc => inc.scenarios_covered))
+    IF SET(inc_scenarios) != SET(s.scenarios_covered):
+      YIELD { check: "slice_to_increment_coverage", severity: CRITICAL,
+              source: "{s.id}",
+              gap: "Scenario set drift between slice and its realizing increments: slice={s.scenarios_covered}, increments={inc_scenarios}",
+              remediation: "Align the increments' scenarios_covered with the slice (BLUEPRINT --refine) — a slice and its realizers must cover the same scenarios" }
+
+  IF no_gaps_yielded:
+    YIELD { check: "slice_to_increment_coverage", severity: PASS,
+            source: "slice_map.md × increment_plan.md",
+            target: "{slices.length} slices, each realized; scenario sets consistent across cascade_source join" }
+```
+
+### Check 19: `slice_seam_resolution` (CRITICAL — EVOL-036)
+
+Each `depends_on_slice` resolves to a real intra-feature slice AND the set forms a DAG (Kahn). Each `depends_on_feature: [FEAT-Y@SLICE-Y-Z]` resolves to a real upstream feature whose slice_map declares that slice AND whose design is APPROVED. Every declared dependency MUST carry a `seam`. Cross-feature reads widen the standing "CVP is per-feature" invariant — a ratified scope expansion (ADR-EVOL-036).
+
+```yaml
+FUNCTION check_slice_seam_resolution(elements):
+  slices = elements.slices
+  IF slices IS EMPTY:
+    YIELD { check: "slice_seam_resolution", severity: PASS, note: "no slice_map — not applicable" }
+    RETURN
+  slice_ids = { s.id FOR s IN slices }
+
+  FOR EACH s IN slices:
+    # intra-feature ordering deps
+    FOR EACH dep IN s.depends_on_slice:
+      IF dep NOT IN slice_ids:
+        YIELD { check: "slice_seam_resolution", severity: CRITICAL,
+                source: "{s.id}.depends_on_slice",
+                gap: "Depends on non-existent slice '{dep}'",
+                remediation: "Fix the reference or add the missing slice (CODESIGN --refine)" }
+
+    # cross-feature deps — FEAT-Y@SLICE-Y-Z, 4 fail-modes
+    FOR EACH dep IN s.depends_on_feature:
+      (feat_id, slice_ref) = PARSE_FEATURE_SLICE_REF(dep)   # "FEAT-Y@SLICE-Y-Z"
+      up_design = READ_IF_EXISTS("docs/spec/{feat_id}/design.md")
+      up_spec   = READ_IF_EXISTS("docs/spec/{feat_id}/spec.feature")
+      IF up_spec IS NULL:
+        # fail-mode 4 — referenced feature absent → WARN (mirror consumes_contract severity)
+        YIELD { check: "slice_seam_resolution", severity: WARNING,
+                source: "{s.id}.depends_on_feature='{dep}'",
+                gap: "Referenced feature {feat_id} does not exist yet",
+                remediation: "Create {feat_id} first, or drop the cross-feature dependency" }
+        CONTINUE
+      IF up_spec.frontmatter.slicing_strategy == "monolithic":
+        # fail-mode 3 — monolithic upstream IS one vertical slice by definition → resolve to implicit SLICE-{feat}-1/INC-1 → PASS
+        CONTINUE
+      up_slice_map = READ_IF_EXISTS("docs/spec/{feat_id}/slice_map.md")
+      IF up_slice_map IS NULL OR up_slice_map.frontmatter.status != "APPROVED" OR slice_ref NOT IN PARSE_SLICES(up_slice_map).ids:
+        # fail-mode 2 — feature exists but slice_map absent/non-APPROVED OR slice missing → BLOCK
+        YIELD { check: "slice_seam_resolution", severity: CRITICAL,
+                source: "{s.id}.depends_on_feature='{dep}'",
+                gap: "Upstream {feat_id} slice '{slice_ref}' is not resolvable (slice_map absent/non-APPROVED or slice missing)",
+                remediation: "Wait for {feat_id} CODESIGN approval, or correct the @SLICE reference" }
+        CONTINUE
+      # fail-mode 1 — exists + slice_map APPROVED + slice present → PASS (also require design APPROVED)
+      IF up_design IS NULL OR up_design.frontmatter.status NOT IN ["APPROVED", "IMPLEMENTED_AND_VERIFIED"]:
+        YIELD { check: "slice_seam_resolution", severity: CRITICAL,
+                source: "{s.id}.depends_on_feature='{dep}'",
+                gap: "Upstream {feat_id} design is not APPROVED — cannot bind a cross-feature seam to an unfrozen contract",
+                remediation: "Complete BLUEPRINT --approve {feat_id} first" }
+
+    # every declared dependency must have a seam
+    has_dep = (s.depends_on_slice NOT EMPTY) OR (s.depends_on_feature NOT EMPTY)
+    IF has_dep AND s.seam IS NULL:
+      YIELD { check: "slice_seam_resolution", severity: CRITICAL,
+              source: "{s.id}",
+              gap: "Slice declares a dependency but no seam (where the dep is consumed)",
+              remediation: "Add seam { at, resolves } so review can confirm the ordering is real" }
+
+  # DAG over depends_on_slice (reuse Check 13 Kahn)
+  cycle = DETECT_CYCLE_BY_TOPOLOGICAL_SORT(slices, edge=depends_on_slice)
+  IF cycle IS NOT NULL:
+    YIELD { check: "slice_seam_resolution", severity: CRITICAL,
+            source: "slice_map.md § 1 (depends_on_slice edges)",
+            gap: "Cyclic slice dependency: {cycle.path}",
+            remediation: "Break the cycle — slice ordering must be acyclic" }
+
+  IF no_gaps_yielded:
+    YIELD { check: "slice_seam_resolution", severity: PASS,
+            source: "slice_map.md", target: "all slice deps resolve; DAG acyclic; seams present" }
+```
+
+### Check 20: `slice_immutability_consistency` (CRITICAL — EVOL-036)
+
+The per-scenario freeze partition (factory-iteration-model § Slice Freeze Derivation) must be well-formed: no scenario is both MERGED-frozen and re-assigned, and no MERGED increment is orphaned by a slice_map edit. Does NOT compare a scalar status (none exists). **Vacuous when zero realizing increments** (pre-BLUEPRINT bootstrap). Delegates transition-legality to `immutability_policy.check_slice_immutability()`.
+
+```yaml
+FUNCTION check_slice_immutability_consistency(elements):
+  slices = elements.slices
+  increments = elements.increments
+  IF slices IS EMPTY: 
+    YIELD { check: "slice_immutability_consistency", severity: PASS, note: "no slice_map — not applicable" }
+    RETURN
+  IF increments IS EMPTY:
+    # pre-BLUEPRINT bootstrap — empty realizer partition is vacuously consistent
+    YIELD { check: "slice_immutability_consistency", severity: PASS, note: "zero realizing increments — partition vacuously consistent" }
+    RETURN
+
+  slice_ids = { s.id FOR s IN slices }
+
+  # (1) No MERGED increment orphaned: its parent slice still exists and still owns its scenarios (Check 18(c) cross-link).
+  FOR EACH inc IN increments WHERE inc.status == "MERGED":
+    parent = inc.cascade_source
+    IF parent NOT IN slice_ids:
+      YIELD { check: "slice_immutability_consistency", severity: CRITICAL,
+              source: "{inc.id} (MERGED)",
+              gap: "MERGED increment orphaned — its slice '{parent}' no longer exists in slice_map.md (a re-slice deleted a frozen slice)",
+              remediation: "MERGED scenarios are frozen wherever they sit. Restore the slice or use CODESIGN --revise (new feature version)." }
+    ELSE:
+      slice = FIND(slices, id == parent)
+      missing = SET(inc.scenarios_covered) - SET(slice.scenarios_covered)
+      IF missing NOT EMPTY:
+        YIELD { check: "slice_immutability_consistency", severity: CRITICAL,
+                source: "{inc.id} (MERGED) → {parent}",
+                gap: "Re-slice moved MERGED scenario(s) {missing} out of their owning slice",
+                remediation: "A MERGED scenario is frozen in place — revert the re-slice, add a follow-up slice, or CODESIGN --revise" }
+
+  # (2) Partition well-formedness: a scenario frozen by a MERGED realizer must not also be claimed by a different slice.
+  merged_scenarios = UNION(increments WHERE status==MERGED → scenarios_covered)
+  FOR EACH sc IN merged_scenarios:
+    owning_slices = FILTER(slices, sc IN s.scenarios_covered)
+    IF owning_slices.length > 1:
+      YIELD { check: "slice_immutability_consistency", severity: CRITICAL,
+              source: "scenario '{sc}'",
+              gap: "MERGED-frozen scenario assigned to multiple slices: {owning_slices.ids}",
+              remediation: "A frozen scenario belongs to exactly one slice — resolve the duplicate" }
+
+  # (3) Acyclicity: the cascade must not have written back to slice_map (no cascade_source edge slice→slice).
+  #     CASCADE_SLICE_INTERNAL writes DOWNWARD only (increment_plan); the MERGED back-constraint is the
+  #     pre-persist gate, not a cascade write. Delegate transition-legality to immutability_policy.
+  #     (Structural assertion — no slice frontmatter should carry an increment-sourced cascade edge.)
+
+  IF no_gaps_yielded:
+    YIELD { check: "slice_immutability_consistency", severity: PASS,
+            source: "slice_map.md × increment_plan.md",
+            target: "freeze partition well-formed; no MERGED increment orphaned; {merged_scenarios.length} frozen scenario(s)" }
+```
+
 ---
 
 ## ELEMENT EXTRACTION
@@ -954,6 +1196,24 @@ FUNCTION extract_traceable_elements(artifacts, scope):
   ELSE:
     elements.increment_plan = NULL
     elements.increments = []
+
+  # From slice_map.md (EVOL-036 — may be NULL on monolithic / pre-slicing features)
+  IF artifacts.slice_map IS NOT NULL:
+    elements.slice_map = artifacts.slice_map   # raw artefact for frontmatter-level checks (Check 0d)
+    elements.slices = PARSE_SLICES(artifacts.slice_map)
+    # Each slice: {
+    #   id,                     # "SLICE-{FEAT}-1"
+    #   value_order,            # int
+    #   scenarios_covered,      # list of scenario names (must match spec.feature; exclusive across slices)
+    #   journey_steps,          # list of journey step refs
+    #   depends_on_slice,       # list of SLICE-{FEAT}-X (intra-feature ordering DAG)
+    #   depends_on_feature,     # list of "FEAT-Y@SLICE-Y-Z" (cross-feature)
+    #   seam,                   # { at, resolves } or null
+    #   realized_by             # list of INC ids (back-ref filled by BLUEPRINT)
+    # }
+  ELSE:
+    elements.slice_map = NULL
+    elements.slices = []
 
   # IMPLEMENT scope additions
   IF scope IN [CODESIGN_BLUEPRINT_IMPLEMENT, FULL_CHAIN]:

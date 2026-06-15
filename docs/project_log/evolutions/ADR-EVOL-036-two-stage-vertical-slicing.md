@@ -2,12 +2,12 @@
 id: ADR-EVOL-036
 title: Two-stage vertical slicing — slice_map from CODESIGN, refined by BLUEPRINT, with per-scenario slice immutability
 date: 2026-06-15
-status: proposed
+status: accepted
 ---
 
 # ADR-EVOL-036: Two-stage vertical slicing — slice_map from CODESIGN + per-scenario immutability
 
-> **Status: proposed.** This ADR lands with SLICE-1 of the evolution. It flips to `accepted` in SLICE-5 (CVP capstone), which is the PR that amends `CLAUDE.md` (Rule 9 already extended in SLICE-1; accept adds the Operational Rule reference) per Governance Rule 1 + `check-adr-constitution-sync.sh`. Full design: [docs/proposals/EVOL-036-two-stage-vertical-slicing.md](../../proposals/EVOL-036-two-stage-vertical-slicing.md).
+> **Status: accepted (SLICE-5, 2026-06-15).** Landed across 5 vertical sub-slices on `feature/EVOL-036-two-stage-vertical-slicing`. The accept PR carries the governance source (`CLAUDE.md` — Rule 9 extended in SLICE-1) in its diff to satisfy Governance Rule 1 + `check-adr-constitution-sync.sh`. Per RDR-4 no new universal LAW was added — slice immutability extends `immutability_policy.md` + `factory-iteration-model`. Full design: [docs/proposals/EVOL-036-two-stage-vertical-slicing.md](../../proposals/EVOL-036-two-stage-vertical-slicing.md).
 
 ## Context
 
@@ -55,8 +55,6 @@ Shipped as **5 vertical sub-slices**, each an independently coherent + mergeable
 ## Operational Rule
 
 ```
-(Activated on flip to accepted in SLICE-5.)
-
 Under slicing_strategy: incremental, CODESIGN emits docs/spec/{FEAT}/slice_map.md —
 the capability-VALUE slicing authority (which scenarios/journeys form each vertical
 slice; user-value order; independence; depends_on_slice / depends_on_feature; seams).
@@ -71,4 +69,4 @@ at BLUEPRINT --approve and the push preflight.
 
 ## Constitution Amendment
 
-> Applied when this ADR flips to `accepted` (SLICE-5). Rule 9 (Canonical Iteration ID) gains `slice_map.md` in the refine-able-artefact list — done in SLICE-1 in BOTH `CLAUDE.md` and `.context/templates/setup/claude/CLAUDE.md` (Rule 9 is not a lock-step universal_section; edited by hand, kept identical). No new universal LAW (RDR-4 = extend `immutability_policy.md` + `factory-iteration-model`). The accept PR carries the governance source in its diff to satisfy `check-adr-constitution-sync.sh`.
+> Applied (this ADR is `accepted`, SLICE-5). Rule 9 (Canonical Iteration ID) gained `slice_map.md` in the refine-able-artefact list — done in SLICE-1 in BOTH `CLAUDE.md` and `.context/templates/setup/claude/CLAUDE.md` (Rule 9 is not a lock-step universal_section; edited by hand, kept identical). No new universal LAW (RDR-4 = extend `immutability_policy.md` + `factory-iteration-model`). The accept PR carries the governance source in its diff to satisfy `check-adr-constitution-sync.sh`.
