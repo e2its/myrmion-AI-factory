@@ -30,6 +30,7 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 | SDLC Phase | Lock Trigger | Immutable Artifact | Blocked Commands | Allowed Command |
 |------------|--------------|--------------------|-----------------|-----------------|
 | **CODESIGN Approved** | `/CODESIGN --start` / `--refine` (auto-approval) | `spec.feature` | `/CODESIGN --reset` (with downstream), `/CODESIGN --refine` (if downstream APPROVED) | `/CODESIGN --revise` |
+| **CODESIGN Approved (slice_map)** | `/CODESIGN --start` / `--refine` (auto-approval) | `slice_map.md` plan-level frontmatter + § 0; § 1 scenario membership frozen per-scenario as realizing increments reach MERGED (see Per-Slice Immutability) | `/CODESIGN --refine` re-slice touching a MERGED scenario | `/CODESIGN --revise` or additive follow-up slice |
 | **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --reset`, `/CODESIGN --refine`, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --revise` |
 | **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` (except per-increment allowance) | `/CODESIGN --revise` or `/BLUEPRINT --refine` (scoped to editable increments) |
 | **IMPLEMENT Approved** | `/IMPLEMENT --build` (all 3 hats pass) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) or `/IMPLEMENT --override` (emergencies) |
@@ -62,7 +63,7 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 
 ##### Per-Increment Immutability (`slicing_strategy: incremental`)
 
-`increment_plan.md` is BLUEPRINT's contract-aware **refinement** of CODESIGN's authoritative `slice_map.md` value-slices — BLUEPRINT maps each `SLICE-{FEAT}-N` to one (1:1 default) or more increments and does NOT invent or value-reorder slices. Its § 1 is addressable per-increment. Each `### INC-N` section carries a `**Status:**` field (`DRAFT | READY | BUILDING | MERGED | INVALIDATED`) that scopes the lock below the plan level. This lets the pipeline mutate still-DRAFT increments without re-versioning the feature while preserving audit integrity for increments already in production.
+`increment_plan.md` is BLUEPRINT's contract-aware **refinement** of CODESIGN's authoritative `slice_map.md` value-slices — BLUEPRINT maps each `SLICE-{FEAT}-N` to one (1:1 default) or more increments and does NOT invent or value-reorder slices. Its § 1 is addressable per-increment. Each `### INC-N` section carries a `**Status:**` field (`DRAFT | READY | BUILDING | MERGED | INVALIDATED`) that scopes the lock below the plan level. This lets the pipeline mutate still-DRAFT increments without re-versioning the feature while preserving audit integrity for increments already in production. (How a MERGED increment freezes its scenarios back in `slice_map.md` is governed separately — see § Per-Slice Immutability below.)
 
 **Per-Increment Lock Table:**
 
@@ -99,6 +100,53 @@ When `BLUEPRINT --refine` appends a new `### INC-N+1` to a plan with at least on
 
 - `incremental → monolithic` is permitted ONLY when no increment has reached `BUILDING` (all still `DRAFT`/`READY`) AND the trivial-heuristic passes (`≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack`). Requires `BLUEPRINT --refine`; no version bump.
 - `monolithic → incremental` is permitted ONLY when no increment has reached `BUILDING`. Requires CODESIGN to emit/refine `slice_map.md` (capability-value slices) and BLUEPRINT to re-refine it into increments. If the monolithic INC-1 already merged, a version bump (`USR-001 → USR-001-v2`) is MANDATORY — the original monolithic form is preserved as v1's audit record.
+
+##### Per-Slice Immutability (`slicing_strategy: incremental`, EVOL-036)
+
+`slice_map.md` (CODESIGN, capability-VALUE) is the upstream of `increment_plan.md`. A slice carries **no scalar status** — its immutability is a **per-SCENARIO freeze partition** derived from the increments that realize it (`cascade_source: SLICE-{FEAT}-N`):
+
+- **Plan-level frontmatter + § 0 Decision History** freeze at slice_map approval (same as the increment_plan plan-level lock).
+- **Per-slice scenario membership** stays editable until a realizing increment reaches **MERGED**, at which point that scenario freezes **wherever it currently sits** — the freeze predicate is scenario-membership, NOT slice-id (re-slicing moves scenarios between slices). `BUILDING` realizers lock their scenarios via the forward cascade (`pending_iteration` + `IMPLEMENT --pause`), exactly as at the increment layer — no harder-than-increment fork.
+- **Empty realizers** (pre-BLUEPRINT) ⇒ slice fully editable.
+
+Changes to a frozen (MERGED) scenario's slicing require a **Follow-up Slice** (below) or **`CODESIGN --revise`** (new feature version). Derivation + gate + cascade pseudocode: `Factory-iteration-model/SKILL.md § Slice Freeze Derivation`.
+
+**Follow-up Slice Rule (additive, non-breaking):**
+
+A NEW slice MAY be appended to `slice_map.md § 1` without bumping the feature version when ALL hold:
+- It is additive: its scenarios do NOT overlap the `merged_scenarios` of any existing slice.
+- Its `depends_on_slice` references only existing slices (no cycles).
+- The feature has NOT yet reached **Phase 4 (QA Verify+DAST Approved)** — same lock window as the Follow-up Increment Rule.
+
+The Phase-4 lock is scoped to **per-feature realizers ONLY**. A slice with cross-feature `depends_on_feature` deps does NOT propagate another feature's QA lock — those deps are governed by the existing `consumes_contract` / `CASCADE_CONSUMERS` path, not the per-slice gate (no phantom global lock).
+
+**Enforcement — pre-persist scenario-set gate (`check_slice_immutability`):**
+
+Runs in CODESIGN `--refine` BEFORE the slice_map section write (pre-persist reject/redirect — never a rollback, never a cascade edge):
+
+```python
+def check_slice_immutability(feature_id, proposed_slice_map):
+    """
+    Pre-persist gate. Mirrors check_increment_immutability but keyed on SCENARIO membership
+    (a MERGED scenario is frozen wherever it sits), not on slice id.
+    """
+    merged_scenarios = compute_merged_scenarios(feature_id)   # ⋃ scenarios of MERGED realizing increments
+    # TOCTOU guard: re-grep Status:MERGED immediately before the write; abort if the set grew.
+
+    reslice_diff = scenarios_removed_moved_or_relabelled(persisted_slice_map, proposed_slice_map)
+
+    blocked = reslice_diff & merged_scenarios
+    if blocked:
+        raise BlockedError(
+            f"Re-slice touches scenario(s) {sorted(blocked)} already MERGED (in production). "
+            f"Options: (a) add an additive follow-up slice (non-overlapping scenarios), "
+            f"(b) `CODESIGN --revise {feature_id}` for a destructive re-slice (new feature version)."
+        )
+
+    # BUILDING + DRAFT/READY are NOT blocked here — the forward cascade CASCADE_SLICE_INTERNAL
+    # delegates them to CASCADE_INCREMENT_INTERNAL's per-status transition table.
+    return True
+```
 
 #### Phase 3: IMPLEMENT APPROVED (Hard Lock - Code Implemented + Reviewed + SAST)
 - **Trigger:** `/IMPLEMENT --build USR-001` completes all phases (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC per phase)
