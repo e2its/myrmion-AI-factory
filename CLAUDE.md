@@ -26,6 +26,10 @@ The only legitimate binary question without RDR is **factual** (asking for a dat
 
 Persistence path is context-specific — see Core Protocols table below.
 
+## Adversarial Reasoning — MANDATORY
+
+Before proposing or picking any alternative, run a double pass — argue **FOR**, then argue **AGAINST** the choice across two axes: (a) SDLC governance (constitution / `[LAW]`, `.claude/rules/`, defect-prevention DCs, knowledge MCPs) and (b) the product and its objectives. A recommendation that does not survive its own AGAINST is not the recommendation. Only after both passes, present via the normal flow — RDR when it is a user decision, a one-line stated rationale (pick + surviving risk) when it is an agent-internal choice. Trivial / mechanical choices (one correct answer) skip the pass. Mechanics: [factory-adversarial-reasoning/SKILL.md](.claude/skills/factory-adversarial-reasoning/SKILL.md).
+
 ## Governance Scope — MANDATORY
 
 All files and paths listed in the **Core Protocols** section below apply to **every session turn**, not only to slash commands. Any file modification, any code suggestion, any design decision made in a free-form chat is bound by the same rules that the framework ships to downstream projects. Constitutional supremacy, protected code blocks, DRY enforcement, zero-secrets, and every rule materialised in `.claude/rules/` are always active — there is no "ad-hoc" mode where they stop mattering.

@@ -54,7 +54,8 @@
         "right": ".context/templates/setup/claude/CLAUDE.md",
         "universal_sections": [
           "## Communication Style — MANDATORY",
-          "## RDR Universal — MANDATORY"
+          "## RDR Universal — MANDATORY",
+          "## Adversarial Reasoning — MANDATORY"
         ]
       }
     ],

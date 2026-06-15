@@ -1,8 +1,8 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "5.3.3",
-  "last_updated": "2026-06-11T15:02:15Z",
+  "framework_version": "5.4.0",
+  "last_updated": "2026-06-15T06:15:40Z",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -771,11 +771,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.1.3",
+      "version": "3.2.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.2.0: feat(EVOL-035) universal section `## Adversarial Reasoning — MANDATORY` added (byte-identical with framework-meta CLAUDE.md 13.3.0). Mandatory FOR/AGAINST double pass before any non-trivial proposal/selection. Mechanics in skill factory-adversarial-reasoning.",
         "3.1.3: fix(fast-lane-carve) Generation Standards §3 — `.claude/instructions/**`, `.claude/skills/**`, `.claude/commands/**`, `.claude/hooks/**` added as hard exclusions to the docs-only fast-lane (framework-core behavioral contracts that carry the .md extension must not be fast-laned). Parallel to meta CLAUDE.md 13.2.3.",
         "3.1.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "3.1.1: fix(increment-plan-rule) — § Incremental Dev Plan Artefact paragraph re-describes increment_plan.md section structure: canonical DAG via § 1 `depends_on:`; § 2 Monolithic Escape Declaration (only when monolithic); § 3 Human-readable Dependency Diagram (Mermaid, non-authoritative — derived from § 1).",
@@ -1921,9 +1922,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.2.3",
+      "version": "13.3.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.3.0: feat(EVOL-035) Governance gains universal section `## Adversarial Reasoning — MANDATORY` (after § RDR Universal). Constitution amendment for ADR-EVOL-035 acceptance. Mandatory FOR/AGAINST double pass before any non-trivial proposal/selection, tested against (a) SDLC governance and (b) product + objectives; recommendation must survive its own AGAINST. Mechanics in new skill factory-adversarial-reasoning (applicable_when always). Universal section — mirrored byte-identical in templates/claude/CLAUDE.md; registered in coherence-context.json § universal_sections (gated by check-lockstep-pairs.sh).",
         "13.2.3: fix(fast-lane-carve) Generation Standards §3 — `.claude/instructions/**`, `.claude/skills/**`, `.claude/commands/**`, `.claude/hooks/**` added as hard exclusions to the docs-only fast-lane. These framework-core behavioral contracts match `**/*.md` (instruction/skill/command files carry the .md extension) and were therefore eligible for commit-on-main + CI-skip — a bypass of PR + full CI review on runtime agent behaviour. Surfaced as a nit by factory-pr-review on PR #39. Lock-step with preflight.sh fast-lane logic + template claude/CLAUDE.md §3.",
         "13.2.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "13.2.1: fix(governance-info-cleanup) — LAW 12 wording updated to reflect current `lock_step_pairs` state: removed mention of `meta_to_downstream_via_sync` (declaration deleted from coherence-context.json — had no enforcement contract) and removed `deferred for universal_clause_mirror until clause extraction is implemented` (clause extraction now implemented in check-lockstep-pairs.sh 1.1.0 — section-level byte-identical diff per `universal_sections` array). Drift caught by Phase 0 Detector 13 (Reference coherence) during PR-review iteration 2.",
@@ -2217,11 +2219,21 @@
       ],
       "path": ".claude/skills/factory-preventive-sweep/SKILL.md"
     },
+    "skills/factory-adversarial-reasoning/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "Adversarial Reasoning — mandatory FOR/AGAINST double pass on any non-trivial proposed or selected alternative, weighed against (a) SDLC governance (constitution/LAW, .claude/rules/, defect-prevention DCs, knowledge MCPs) and (b) the product + its objectives, before presenting via the normal flow (RDR for user decisions; one-line stated rationale for agent-internal picks). applicable_when always; surfaced in every command Roll-Call via ADP; feeds factory-rdr Beat 1.",
+      "changelog": [
+        "1.0.0: feat(EVOL-035) initial skill — adversarial double-pass protocol (Pass 1 FOR, Pass 2 AGAINST across governance + product axes; output routing; scope gate trivial-skip/non-trivial-mandatory; anti-patterns; protocol relationships). Constitution amendment for ADR-EVOL-035 acceptance (new universal section ## Adversarial Reasoning — MANDATORY in CLAUDE.md, mirrored byte-identical in templates/claude/CLAUDE.md). Referenced by factory-rdr Beat 1."
+      ],
+      "path": ".claude/skills/factory-adversarial-reasoning/SKILL.md"
+    },
     "skills/factory-rdr/SKILL.md": {
-      "version": "1.1.2",
+      "version": "1.2.0",
       "type": "skill",
       "role": "RDR v1.0.0 — Recommendation → Decision → Ratification canonical protocol. Single source of truth for agent-posed decisions requiring user ratification. Enforces ≥3 options, justified recommendation, verbatim user choice, immediate persistence via IPP Decision Persistence (two locations: _progress.decisions[] frontmatter + inline RDR-N comment). Covers Sequential (L-03 one-at-a-time) and Batch (BIP tier-atomic) modes. Replaces previously-scattered RDR definitions across SETUP/CODESIGN/BLUEPRINT/AUDIT/DEVOPS instructions and fixes the Registration→Ratification terminology drift from upgrade_safety_protocol.md.",
       "changelog": [
+        "1.2.0: feat(EVOL-035) Beat 1 wired to the adversarial double pass — options/recommendation/tradeoffs are the output of factory-adversarial-reasoning (each option carries FOR + AGAINST; recommendation states why it wins despite its own AGAINST). New anti-pattern row (options framed only positively) + relationship row. Mechanics not duplicated — skill reasons, RDR ratifies.",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.0.0: feat(EVOL-020): initial canonical RDR skill — consolidates RDR semantics previously scattered across Factory-setup-discovery, Factory-blueprint-design, Factory-audit-complexity, Factory-setup-materialization, upgrade_safety_protocol.md § 3.2, and the setup.md command. Anti-patterns section explicitly names the Registration variant as a terminology VIOLATION."
