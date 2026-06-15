@@ -751,10 +751,11 @@
       ]
     },
     "claude/hooks/check-ipp-compliance.sh": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "content_type": "universal",
       "target": ".claude/hooks/check-ipp-compliance.sh",
       "changelog": [
+        "1.1.2: feat(EVOL-036) SLICE-2 — IPP first-write allowlist gains `*/docs/spec/*/slice_map.md` so skeleton-first is enforced on the CODESIGN slice_map producer. Lock-step with framework_core.hooks/check-ipp-compliance.sh.",
         "1.1.1: fix(IPP runtime binding) — after the existing block checks pass on a legitimate first-write, the hook now drops a session-scoped `.claude/state/ipp-first-write-${session_id}.marker` carrying the repo-relative artefact path. Consumed by governance-onprompt.sh on the next prompt as `<ipp-reminder>` teaching block (Pillars 2/3 + SKILL pointer). Marker write is best-effort: `session_id` extracted from PreToolUse payload via python3, falls back to unscoped marker name when unavailable. Existing block logic (Signal 1 _progress claim on creation, Signal 2 fully-formed body) preserved verbatim; added defensive `-n` guards on H2/PENDING/LINE counters to survive empty content. Lock-step with framework_core.hooks/check-ipp-compliance.sh.",
         "1.0.0: feat(EVOL-020): initial template — PreToolUse Write hook enforces IPP Pillar 1 (Skeleton-First Write) by blocking first-writes of tracked governance artifacts (docs/spec/*/design|test_plan|dev_plan|spec.feature|user_journey*|mock|devops_plan|technical_due.md, docs/setup.md, qa_report*.md) that arrive fully-formed (≥3 H2 sections + 0 <!-- PENDING --> markers + >150 lines) OR claim _progress.completed_sections non-empty on creation. Canonical protocol: .claude/skills/factory-incremental-persistence/SKILL.md.",
         "1.1.0: feat(EVOL-021) phase 4: tracked-artefact allowlist extended with `*/docs/spec/*/increment_plan.md`. Closes IPP Pillar 1 coverage gap — BLUEPRINT's new sidecar artefact now blocks fully-formed first-writes identically to design.md / test_plan.md / dev_plan.md."
@@ -1349,9 +1350,10 @@
       ]
     },
     "commands/codesign.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.4.0: feat(EVOL-036) SLICE-2 — Per-Feature artefact list gains slice_map.md (when slicing_strategy: incremental); Scope & Slicing notes CODESIGN emits the Stage-1 slice_map refined by BLUEPRINT into increment_plan.md (join cascade_source: SLICE-{FEAT}-N). 12/12 → all-applicable validations.",
         "1.3.0: feat(EVOL-032) phase 2 — Per-Feature `--refine` block documents the four sub-steps (1.1 impl-state probe / 1.2 iterative RDR loop / 1.3 apply / 1.4 aggregated changelog on the three artefacts via append_iteration_entry).",
         "1.2.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.1.0: feat(EVOL-022): § Scope & Slicing added — documents feature.scope enum with Scope Compatibility Gate source-of-truth, slicing_strategy default + Trivial-Heuristic escape, consumes_contract cross-feature primitive. Closes the documentation gap from EVOL-019 + EVOL-021 that left these features undocumented in the command file.",
@@ -1492,9 +1494,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "2.9.1",
+      "version": "2.10.0",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "2.10.0: feat(EVOL-036) SLICE-2 — CODESIGN emits slice_map.md (Stage 1, capability-VALUE slicing). § Generated Artifacts 3->4 (slice_map when incremental); new Execution Flow step 9.5 (adversarial FOR/AGAINST + ONE slicing-VALUE RDR >=3 alternatives → exclusive scenario partition, user-value order, independence, depends_on_slice/depends_on_feature + seam; IPP emit; self-check); Auto-Approval CHECK 14 (slice_map well-formed + exclusive+total coverage, N/A when monolithic) + loop [0..14] + APPROVED artifact set includes slice_map when incremental. NO BLUEPRINT change yet — slice_map advisory until SLICE-3.",
         "2.9.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.9.0: feat(EVOL-032) phase 2 — Iteration Execution section restructured into 4 sub-steps mapping the user-facing --refine contract: 1.1 impl-state probe (snapshots dev_plan [x] count + commits since last cascade; honors CWD discipline), 1.2 iterative RDR loop formalised on Disparity Resolution Protocol (max 3 rounds default, configurable via --max-rdr-rounds, converge-on-stability heuristic), 1.3 apply changes (existing Change Classification + Tripartite re-run, plus ITER-{FEAT}-{N+1} id allocation + _progress.iteration_in_flight marker), 1.4 aggregated changelog via append_iteration_entry() on spec.feature + user_journey.md + mock.html with the shared id and full canonical entry shape (per factory-iteration-model). Legacy `## Changelog` table appended for one minor version (dual-format readability) but no longer source of truth.",
         "2.8.1: feat(EVOL-032) phase 1 — Change Classification Protocol routes iteration reads through read_iteration_state(artifact_path) (factory-iteration-model § Dual-format read). Direct fm.iteration access is a violation.",
@@ -2533,11 +2536,12 @@
       ]
     },
     "hooks/check-ipp-compliance.sh": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "type": "hook",
       "path": ".claude/hooks/check-ipp-compliance.sh",
       "role": "PreToolUse hook (Write) — IPP Pillar 1 enforcement + post-skeleton marker drop. Blocks first-writes of tracked governance artifacts that arrive fully-formed (violating skeleton-first) or claim _progress.completed_sections non-empty on creation. On a legitimate first-write that passes the block checks, drops `.claude/state/ipp-first-write-${session_id}.marker` so the next UserPromptSubmit emits `<ipp-reminder>` teaching block.",
       "changelog": [
+        "1.1.2: feat(EVOL-036) SLICE-2 — IPP first-write allowlist gains `*/docs/spec/*/slice_map.md` so skeleton-first is enforced on the CODESIGN slice_map producer. Lock-step with templates.claude/hooks/check-ipp-compliance.sh.",
         "1.1.1: fix(IPP runtime binding) — marker drop added after the block checks pass on a legitimate first-write (lock-step with templates entry). Defensive `-n` guards on H2/PENDING/LINE counters to survive empty content.",
         "1.1.0: fix(EVOL-022): added `*/docs/spec/*/increment_plan.md` to allowlist — lock-step repair of the drift where the template counterpart received the coverage in EVOL-021 phase 4 but the meta hook was left behind. Closes BLOCKER gap G01 detected by the EVOL-022 framework validation walkthrough.",
         "1.0.0: feat(EVOL-020): initial IPP compliance hook — PreToolUse Write gate for docs/spec/*/design|test_plan|dev_plan|spec.feature|user_journey*|mock|devops_plan|technical_due.md, docs/setup.md, qa_report*.md. Signal 1 inspects frontmatter for completed_sections populated on first write; Signal 2 triggers when ≥3 H2 sections + 0 <!-- PENDING --> markers + >150 lines combine on a file that did not yet exist. Canonical protocol: .claude/skills/factory-incremental-persistence/SKILL.md."

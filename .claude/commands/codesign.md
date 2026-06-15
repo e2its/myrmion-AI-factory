@@ -28,12 +28,13 @@ Visual identity and structure of the complete application. Executed once before 
 - Vision APPROVED is ALWAYS required before features with UI
 
 ### 2. Per-Feature Co-Creation (`--start {ID}`, `--refine {ID}`)
-Iterate to produce three co-created artifacts per feature. Auto-approves when 12/12 validations pass.
+Iterate to produce three co-created artifacts (+ a `slice_map.md` when `slicing_strategy: incremental`) per feature. Auto-approves when all applicable validations pass.
 
 **Full protocol:** See `.claude/instructions/Factory-codesign-feature.instructions.md`
 - `spec.feature` (BDD/Gherkin with business rules)
 - `mock.html` (pixel-perfect visual mockup)
 - `user_journey.md` (simplified Event Storming with typed Data Schemas)
+- `slice_map.md` (capability-VALUE vertical-slice map — only when `slicing_strategy: incremental`; refined by BLUEPRINT into `increment_plan.md`)
 
 **`--refine` sub-steps** (Iteration Execution — full pseudocode in the instruction file § Iteration Execution):
 - **1.1 Impl-state probe** — snapshot `dev_plan.md [x]` count + commits since last iteration cascade.
@@ -46,7 +47,7 @@ Iterate to produce three co-created artifacts per feature. Auto-approves when 12
 Every feature declares two frontmatter fields in `spec.feature` that shape the rest of the pipeline:
 
 - `scope`: `full-stack | backend-only | frontend-only | integration`. Per-feature, defaults to `project_scope` from `docs/setup.md`. **Scope Compatibility Gate** in [Factory-codesign-feature.instructions.md](../instructions/Factory-codesign-feature.instructions.md) BLOCKS when `feature.scope` is incompatible with `project_scope` (matrix: `full-stack` project accepts all; `backend-only`/`integration` accept `backend-only`+`integration`; `frontend-only` accepts only `frontend-only`). `scope` is immutable after APPROVED — changing it requires a fresh `--start` on a new FEAT-ID. Scope drives artefact presence: `mock.html` + Global UX Vision are N/A for backend-only/integration; `user_journey.integration.md` replaces `user_journey.md` for those scopes.
-- `slicing_strategy`: `incremental | monolithic`. Default `incremental`. `monolithic` escape allowed only when the Trivial-Heuristic holds: `scenarios_count ≤ 2` AND `contract_operations ≤ 3` AND `scope ≠ full-stack`. Enforced at `/blueprint --start` (Trivial-Heuristic Gate) and `/blueprint --approve` (CVP Check 16). RDR required when ≥2 viable options exist.
+- `slicing_strategy`: `incremental | monolithic`. Default `incremental`. `monolithic` escape allowed only when the Trivial-Heuristic holds: `scenarios_count ≤ 2` AND `contract_operations ≤ 3` AND `scope ≠ full-stack`. Enforced at `/blueprint --start` (Trivial-Heuristic Gate) and `/blueprint --approve` (CVP Check 16). RDR required when ≥2 viable options exist. When `incremental`, CODESIGN emits `docs/spec/{ID}/slice_map.md` (capability-VALUE slicing, Stage 1); BLUEPRINT refines it into `increment_plan.md` (Stage 2, contract-aware) joined by `cascade_source: SLICE-{FEAT}-N`.
 - `consumes_contract: [FEAT-XXX, ...]` (optional): cross-feature dependency declaration. Triggers Consumes-Contract Resolution Gate at `/blueprint --start` and propagates `CASCADE_PENDING_ITERATION` on upstream contract change.
 
 ## Key Principles
