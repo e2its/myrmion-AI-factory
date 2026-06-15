@@ -56,7 +56,7 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
   - `spec.feature` → **BLOCKED** for PO (no more `--reset`, no more `--refine`)
   - `test_plan.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
   - `design.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
-  - `increment_plan.md` → **PARTIALLY BLOCKED** — plan-level frontmatter and § 0 Slicing Rationale frozen; § 1 per-increment sections follow Per-Increment Immutability below
+  - `increment_plan.md` → **PARTIALLY BLOCKED** — plan-level frontmatter and § 0 Refinement Record frozen; § 1 per-increment sections follow Per-Increment Immutability below
 - **Versioning:** **MANDATORY** for any change (except per-increment allowances)
 - **Command:** `/CODESIGN --revise USR-001 "Reason for change"`
 - **Note:** QA verification happens AFTER implementation (Phase 4), not at this phase.
