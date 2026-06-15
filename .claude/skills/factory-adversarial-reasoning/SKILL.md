@@ -1,19 +1,19 @@
 ---
 name: factory-adversarial-reasoning
-description: "Factory Adversarial Reasoning — mandatory FOR/AGAINST double pass on any proposed or selected alternative, weighed against SDLC governance (constitution, rules, defect-prevention DCs, knowledge MCPs) and the product + its objectives, before presenting via the normal flow. Use when: any agent or free-form turn proposes, selects, or recommends an option — user-facing decision (feeds RDR) or agent-internal choice."
+description: "Factory Adversarial Reasoning — mandatory FOR/AGAINST double pass on any non-trivial proposed or selected alternative, weighed against SDLC governance (constitution, rules, defect-prevention DCs, knowledge MCPs) and the product + its objectives, before presenting via the normal flow. Use when: any agent or free-form turn proposes, selects, or recommends an option — user-facing decision (feeds RDR) or agent-internal choice."
 applicable_when:
   always: true
 ---
 
 # ADVERSARIAL REASONING
 
-> **Shared Protocol** — applies to ALL turns and agents. Pairs with [factory-rdr](../factory-rdr/SKILL.md) (user-facing decisions) and ADP Roll-Call (always-on surfacing).
+> **Shared Protocol** — applies to ALL turns and agents. In command turns it surfaces via the ADP Roll-Call ([factory-applicability-discovery](../factory-applicability-discovery/SKILL.md)); in free-form turns the binding is the `## Adversarial Reasoning — MANDATORY` clause in CLAUDE.md. Pairs with [factory-rdr](../factory-rdr/SKILL.md) for user-facing decisions.
 
 **Core Principle:** No alternative is proposed or picked until it survives its own counter-case. Argue FOR. Then argue AGAINST. Only then present.
 
 ## The Double Pass
 
-Run before every proposal or selection — user-facing (RDR) or agent-internal (silent pick).
+Run before every proposal or selection — user-facing (RDR) or agent-internal (one-line stated pick).
 
 ### Pass 1 — FOR
 

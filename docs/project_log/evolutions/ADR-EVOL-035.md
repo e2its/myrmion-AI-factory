@@ -9,7 +9,7 @@ status: accepted
 
 ## Context
 
-The framework mandates RDR for every user-facing decision (CLAUDE.md § RDR Universal) but RDR only ever frames options **positively** — Beat 1 alternatives carry a "when it would be preferred" rationale, never a "why this could be wrong". A repo-wide scan (`adversarial`, `steelman`, `devil`, `counter-argument`, `reasons against`) returned **zero** matches in `.claude/` and `docs/`. The "main tradeoff" mention in § RDR Universal is the only adversarial residue, and it is singular and optional.
+The framework mandates RDR for every user-facing decision (CLAUDE.md § RDR Universal) but RDR only ever frames options **positively** — Beat 1 alternatives carry a "when it would be preferred" rationale, never a "why this could be wrong". A repo-wide scan (`adversarial`, `steelman`, `devil`, `counter-argument`, `reasons against`) found **no existing protocol** — the only hit is one incidental prose mention in `docs/project_log/validation/`, not a decision-making mechanism. The "main tradeoff" phrase in § RDR Universal is the only adversarial residue, and it is singular and optional.
 
 The user asked for a thinking discipline broader than RDR: before selecting or proposing any alternative, weigh the reasons **for** it AND the reasons **against** it, tested against (a) the SDLC governance (constitution, rules, DCs, knowledge MCPs) and (b) the product being built and its objectives — then present via the usual flow. This applies to "cualquier cosa" — not just user questions, but agent-internal picks too.
 

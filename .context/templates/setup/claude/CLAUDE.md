@@ -26,7 +26,7 @@ Persistence path is context-specific — see Core Protocols table below.
 
 ## Adversarial Reasoning — MANDATORY
 
-Before proposing or picking any alternative, run a double pass — argue **FOR**, then argue **AGAINST** the choice across two axes: (a) SDLC governance (constitution / `[LAW]`, `.claude/rules/`, defect-prevention DCs, knowledge MCPs) and (b) the product and its objectives. A recommendation that does not survive its own AGAINST is not the recommendation. Only after both passes, present via the normal flow — RDR when it is a user decision, a one-line stated rationale (pick + surviving risk) when it is an agent-internal choice. Trivial / mechanical choices (one correct answer) skip the pass. Mechanics: [factory-adversarial-reasoning/SKILL.md](.claude/skills/factory-adversarial-reasoning/SKILL.md).
+Before proposing or picking any non-trivial alternative, run a double pass — argue **FOR**, then argue **AGAINST** the choice across two axes: (a) SDLC governance (constitution / `[LAW]`, `.claude/rules/`, defect-prevention DCs, knowledge MCPs) and (b) the product and its objectives. A recommendation that does not survive its own AGAINST is not the recommendation. Only after both passes, present via the normal flow — RDR when it is a user decision, a one-line stated rationale (pick + surviving risk) when it is an agent-internal choice. Trivial / mechanical choices (one correct answer) skip the pass. Mechanics: [factory-adversarial-reasoning/SKILL.md](.claude/skills/factory-adversarial-reasoning/SKILL.md).
 
 ## Governance Scope — MANDATORY
 
@@ -248,6 +248,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Applicability Discovery (ADP) | `.claude/skills/factory-applicability-discovery/SKILL.md` | **[LAW]** Step 0 of every command. Live scan of governance trees filtered by `applicable_when:` frontmatter, emits canonical Roll-Call block on-screen as first user-facing message. Salience anchor — agents commit in writing to which LAWs/DCs/instructions/skills apply before acting. |
 | Incremental Persistence (IPP) | `.claude/skills/factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
 | RDR (Recommendation → Decision → Ratification) | `.claude/skills/factory-rdr/SKILL.md` | Canonical protocol for agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice, immediate ratification (persistence via IPP) |
+| Adversarial Reasoning | `.claude/skills/factory-adversarial-reasoning/SKILL.md` | FOR/AGAINST double pass before any non-trivial proposal/selection (axes: SDLC governance + product). Feeds RDR Beat 1. |
 | Build Verification (BVL) | `.claude/skills/factory-build-verification/SKILL.md` | Test execution, error parsing, auto-fix (max 3), Full Verification Gate, Defect Discovery Hook |
 | Codebase Inventory (CIP) | `.claude/skills/factory-codebase-inventory/SKILL.md` | DRY enforcement via inventory, 4-criteria matching |
 | Iteration Model | `.claude/skills/factory-iteration-model/SKILL.md` | Cascade invalidation on upstream changes |
