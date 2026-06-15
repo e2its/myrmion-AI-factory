@@ -68,7 +68,7 @@ These extend the generic hard blocks (`SKILL.md` Phase 4 in the upstream skill) 
 | 5 | Tests deleted without justification in PR description | both | `references/code-review-criteria.md` § 1 |
 | 6 | Irreversible DB migrations without rollback script | downstream | `references/code-review-criteria.md` § SQL |
 | 7 | **CIP violation**: new code artifact without `config/codebase_inventory.json` consultation | downstream | `factory-codebase-inventory/SKILL.md` |
-| 8 | **CVP violation**: spec-bearing change with broken upstream traceability (spec.feature ↔ user_journey ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan) | downstream | `factory-coherence-validation/SKILL.md` |
+| 8 | **CVP violation**: spec-bearing change with broken upstream traceability (spec.feature ↔ user_journey ↔ slice_map ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan) | downstream | `factory-coherence-validation/SKILL.md` |
 | 9 | **IPP violation**: governance artifact written fully-formed on first write | both | `factory-incremental-persistence/SKILL.md` (covered by `check-ipp-compliance.sh` PreToolUse — push gate re-asserts as defence in depth) |
 | 10 | **Branch-protection drift**: branch name does not match an allowed working pattern (`feature/EVOL-*`, `feature/{ID}-*`, `fix/*`, `bugfix/*`, `hotfix/*`, `docs/*`, `chore/*`) | both | `factory-branching-strategy/SKILL.md` |
 | 11 | **Governance-bump miss** (framework meta only): change touches a file tracked in `.context/templates/setup/governance_versions.json` but the manifest does NOT change in the same diff | meta only | CLAUDE.md § Generation Standards #2 |
@@ -97,7 +97,10 @@ Extends `references/docs-sync-checklist.md` with the framework's own artefacts. 
 | New / modified Gherkin scenario in `docs/spec/{ID}/` | `user_journey.md` + `test_plan.md` (CVP Check 1, 2) | **Blocker** |
 | New / modified design contract operation | `design.md` § Contracts + OpenAPI/AsyncAPI under `contracts/` | **Blocker** |
 | New / modified test_plan case | `dev_plan.md` task tags reference the case | Important |
+| `slicing_strategy: incremental` feature ships without `slice_map.md` APPROVED | (CVP Check 0d slice_map_presence) | **Blocker** for a NEW feature (no increment_plan yet); WARNING for a legacy pre-EVOL-036 feature already carrying increment_plan (grandfathered — Check 0d) |
 | `slicing_strategy: incremental` feature ships without `increment_plan.md` APPROVED | (CVP Check 0c) | **Blocker** |
+| `INC-N` `cascade_source` does not resolve to a real slice, or a slice is unrealized | (CVP Check 18 slice_to_increment_coverage) | **Blocker** |
+| Re-slice moves a MERGED-frozen scenario out of its owning slice | (CVP Check 20 slice_immutability_consistency) | **Blocker** |
 | Code change inside an `INC-N` MERGED scope (immutability) | (Per-Increment Immutability) | **Blocker** |
 | New `INC-N` without `depends_on:` field in § 1 | `increment_plan.md` § 1 `depends_on:` (canonical DAG) | Important |
 | `feature.scope` ≠ scope of touched paths (full-stack vs frontend-only vs backend-only) | (Scope Compatibility Gate) | **Blocker** |
@@ -325,7 +328,7 @@ Without persisting the analysis on the PR, the chain "I saw a failure → I diag
 |---|---|
 | `factory-branching-strategy` | Push gate is downstream of the Pre-Action Gate. Does NOT re-validate branch creation; assumes the branch exists and is non-protected. Reads `default_base_branch` from `.claude/rules/branching.md`. |
 | `factory-codebase-inventory` (CIP) | Block 7 maps directly to CIP Canary; preflight checks for new code artefacts that are not registered in `config/codebase_inventory.json`. |
-| `factory-coherence-validation` (CVP) | Block 8 invokes a subset of CVP checks (0a/0c/1/2/13-17) when `docs/spec/{ID}/**` is touched. Full CVP runs at BLUEPRINT --approve / IMPLEMENT --plan / QA --verify; preflight runs the cheap subset locally. |
+| `factory-coherence-validation` (CVP) | Block 8 invokes a subset of CVP checks (0a/0c/0d/1/2/13-20) when `docs/spec/{ID}/**` is touched — the `0d/18/19/20` slice checks (EVOL-036) give the local push preflight parity with BLUEPRINT --approve. Full CVP runs at BLUEPRINT --approve / IMPLEMENT --plan / QA --verify; preflight runs the cheap subset locally. |
 | `factory-incremental-persistence` (IPP) | Block 9 is already enforced by `check-ipp-compliance.sh` at PreToolUse Write. Preflight re-asserts as defence in depth (in case the file was created outside Claude). |
 | `factory-build-verification` (BVL) | Preflight does NOT re-run BVL (tests already passed at `IMPLEMENT --build`). It checks that test files are not deleted and that new logic has accompanying tests (heuristic). |
 | `factory-governance-loading` (GCRP) | Block 11 (governance-bump miss, meta only) enforces the same rule as GCRP § Governance Write Protocol (GWP). Preflight computes the diff against `governance_versions.json` and blocks if a tracked file changed without a manifest update. |

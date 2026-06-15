@@ -1,7 +1,7 @@
 # Template: Increment Plan (`increment_plan.md`)
 
-> Emitted by BLUEPRINT, consumed by IMPLEMENT `--plan`.
-> Authoritative sidecar manifest of vertical increments. Each increment is a PR that leaves the product 100% functional and production-deployable on merge (strict — no feature-flag-OFF escape).
+> Emitted by BLUEPRINT (contract-aware **refinement** of CODESIGN's authoritative `slice_map.md` value-slices — BLUEPRINT does NOT invent slices), consumed by IMPLEMENT `--plan`.
+> Authoritative sidecar manifest of vertical increments. Each increment realizes one slice (`cascade_source: SLICE-{{FEATURE_ID}}-N`; 1:1 default) and is a PR that leaves the product 100% functional and production-deployable on merge (strict — no feature-flag-OFF escape).
 > **Placement:** `docs/spec/{{FEATURE_ID}}/increment_plan.md` (same folder as `design.md` and `test_plan.md`).
 
 ```markdown
@@ -27,9 +27,9 @@ cascade_timestamp: null
 
 # Meta (set during RDR)
 total_increments: 0                 # count of increments in § 1
-rdr_rationale: ""                   # one-line justification for the chosen slicing
-rdr_alternatives_considered: 0      # count of alternative slicings evaluated (RDR requires ≥3)
-rdr_ratified_at: null               # ISO timestamp of user ratification
+rdr_rationale: ""                   # one-line justification for any intra-slice layering split
+rdr_alternatives_considered: 0      # count of intra-slice layering alternatives (≥1 when a slice split; 0 when all 1:1)
+rdr_ratified_at: null               # ISO timestamp of layering ratification (null when no slice split)
 
 # ITER-{FEAT}-{N} entries — see factory-iteration-model
 iterations: []
@@ -42,17 +42,20 @@ iterations: []
 **Test Plan:** `test_plan.md`
 **API Contracts:** `contracts/{{CONTRACT_TYPE}}/{{CONTRACT_SLUG}}/` (if applicable)
 
-## 0. Slicing Rationale
+## 0. Refinement Record
+
+> BLUEPRINT REFINES CODESIGN's authoritative capability-value slices (`slice_map.md`) into contract-aware increments — it does NOT invent or value-reorder slices. This section records the refinement, NOT a slice-invention rationale (that authority lives in `slice_map.md § 0 Decision History`).
 
 - **Strategy:** `{{slicing_strategy}}`
-- **Priority axis cited:** `reliability` | `balance-ceiling` | `cost-tiebreaker`   *(per BLUEPRINT Recommendation Selection Rule — reliability > cost, balanced; see `Factory-blueprint-design.instructions.md` Step B)*
-- **Justification:** {{one-paragraph rationale; why this slicing over the alternatives presented at RDR — must reference the cited axis (e.g., "reliability — minimal blast radius per PR; balance OK at 4 PRs vs lowest-cost alt at 3")}}
-- **Rejected alternatives (summary):**
-  - Alt-A: {{short description}} — rejected because {{reason; e.g., "higher per-PR blast radius — touches 3 layers in INC-2"}}
-  - Alt-B: {{short description}} — rejected because {{reason; e.g., "exceeded balance ceiling — 8 PRs vs lowest-cost 3"}}
-- **Ratified by user:** {{YYYY-MM-DD HH:MM}} — verbatim user choice recorded in feature worklog.
+- **Slice → increment mapping** (1:1 default; ≥2 only when an intra-slice layering RDR ran):
+  - `SLICE-{{FEATURE_ID}}-1` → [{{INC-1}}]
+  - `SLICE-{{FEATURE_ID}}-2` → [{{INC-2}}]
+- **Intra-slice layering** (only when a slice split into ≥2 increments — the ONLY surviving RDR):
+  - `SLICE-{{FEATURE_ID}}-N`: axis cited `reliability` | `balance-ceiling` | `cost-tiebreaker` *(per BLUEPRINT Recommendation Selection Rule, `Factory-blueprint-design.instructions.md` Step B)*; rejected layerings: {{summary}}; ratified by user {{YYYY-MM-DD HH:MM}} (verbatim choice in feature worklog).
+- **Contract-forced deviations from CODESIGN value-order** (only when contracts cannot satisfy the declared order — never silent):
+  - {{e.g., "SLICE-3 needs op X owned by SLICE-5 — realized after SLICE-5; flagged for CODESIGN --refine"}} — *(none if empty)*
 
-> When `slicing_strategy == monolithic`, § 1 contains a single increment `INC-1` covering the entire feature AND § 2 (Monolithic Escape Declaration) is populated with the heuristic that authorised monolithic.
+> When `slicing_strategy == monolithic`, no slice_map exists; § 1 contains a single increment `INC-1` covering the entire feature AND § 2 (Monolithic Escape Declaration) is populated with the heuristic that authorised monolithic.
 
 ## 1. Increments
 
@@ -69,7 +72,11 @@ iterations: []
 - **Scope:** {{one-line user-observable capability delivered by this increment}}
 - **Scenarios covered:** `spec.feature` → [{{Scenario name 1}}, {{Scenario name 2}}]
 - **Contract surface:** [{{POST /api/v1/foo}}, {{GET /api/v1/bar/:id}}] (or GraphQL fields / AsyncAPI topics / gRPC RPCs)
-- **Depends on:** []   *(INC-1 always empty)*
+- **Depends on:** []   *(INC-1 always empty — intra-feature INC→INC DAG edge)*
+- **cascade_source:** `SLICE-{{FEATURE_ID}}-1`   *(Rule 9 join key → the slice_map.md slice this increment realizes; CVP Check 18 resolves it)*
+- **depends_on_slice:** []        *(inherited from the realized slice — intra-feature slice ordering; `[SLICE-{{FEATURE_ID}}-X]`)*
+- **depends_on_feature:** []      *(inherited — cross-feature dep, `[FEAT-Y@SLICE-Y-Z]`)*
+- **seam:** null                  *(inherited — `{ at: "<contract op / scenario / journey step>", resolves: "<SLICE-X | FEAT-Y@SLICE-Y-Z>" }` when a dep is declared; CVP Check 19)*
 - **Deployable:** production
 - **Functional definition:** "After merging INC-1, the user can {{minimal end-to-end capability}}."
 - **Acceptance (mergeable = 100% functional):**
@@ -95,6 +102,10 @@ iterations: []
 - **Scenarios covered:** …
 - **Contract surface:** …
 - **Depends on:** [INC-1]
+- **cascade_source:** `SLICE-{{FEATURE_ID}}-2`
+- **depends_on_slice:** [SLICE-{{FEATURE_ID}}-1]   *(example — inherited from the realized slice)*
+- **depends_on_feature:** []
+- **seam:** { at: "{{contract op / scenario / journey step}}", resolves: "SLICE-{{FEATURE_ID}}-1" }
 - **Deployable:** production
 - **Functional definition:** "After merging INC-2 (on top of INC-1), the user can additionally {{next capability}}."
 - **Acceptance:** (same checklist as INC-1)
@@ -147,7 +158,7 @@ graph TD
 | `pending_iteration` | int\|null | upstream `--refine` | Non-null signals cascade pending |
 | `invalidated_increments` | list[string] | `CASCADE_INCREMENT_INTERNAL` | Subset of increment IDs requiring resync; empty when plan is fully aligned |
 | `total_increments` | int | BLUEPRINT | Must equal count of `### INC-N` sections in § 1 |
-| `rdr_alternatives_considered` | int | BLUEPRINT RDR | ≥ 3 per factory-rdr |
+| `rdr_alternatives_considered` | int | BLUEPRINT RDR | Count of **intra-slice layering** alternatives evaluated (≥1 when any slice split into ≥2 increments; 0 when every slice maps 1:1). NOT a slice-invention RDR — that authority is CODESIGN's `slice_map.md` |
 | `rdr_ratified_at` | iso | BLUEPRINT RDR | Set when user ratifies choice |
 
 ## Per-Increment Status Lifecycle
@@ -170,7 +181,7 @@ New increments MAY be appended to `increment_plan.md` after earlier increments r
 2. **increment_to_scenario_coverage** (CRITICAL) — every scenario in `spec.feature` appears in exactly one increment; no orphan, no duplicate.
 3. **increment_to_contract_coverage** (CRITICAL) — every contract operation in `contracts/**` appears in exactly one increment.
 4. **monolithic_heuristic** (CRITICAL when `slicing_strategy == monolithic`) — § 3 declaration present AND heuristic actually satisfied (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack).
-5. **increment_status_monotonic** (CRITICAL) — status transitions follow the lifecycle above; no regression (e.g., `MERGED → BUILDING` is BLOCKED).
+5. **increment_status_monotonic** — status transitions follow the lifecycle above; no regression (e.g., `MERGED → BUILDING` is BLOCKED). **Delegated to `immutability_policy.check_increment_immutability`** — this is NOT a CVP function (CVP has none); the monotonicity guard lives in the immutability layer.
 
 ## Consumption Contract (IMPLEMENT `--plan`)
 

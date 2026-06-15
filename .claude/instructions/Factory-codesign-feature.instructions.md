@@ -14,11 +14,12 @@ This instruction file defines the **Per-Feature Co-Creation** protocols for the 
 
 ---
 
-## Generated Feature Artifacts (3 files per feature)
+## Generated Feature Artifacts (3–4 files per feature)
 
 1. **`spec.feature`** — Co-created Gherkin specification (🎩 PO leads, 🎨 UX validates)
 2. **`mock.html`** — Co-created interactive visual mockup (🎨 UX leads, 🎩 PO validates) — inherits shell from vision, includes state toggles + journey-step navigation
 3. **`user_journey.md`** — Simplified Event Storming with typed Data Schemas (co-created)
+4. **`slice_map.md`** — Capability-VALUE vertical-slice map (🎩 PO leads). Emitted ONLY when `slicing_strategy: incremental` (the default). Groups scenarios + journey steps into independently-shippable slices (`SLICE-{FEAT}-N`) with user-value order, independence rationale, and cross-slice / cross-feature seams. A **value hypothesis** — BLUEPRINT refines it into the contract-aware `increment_plan.md` (joins via `cascade_source: SLICE-{FEAT}-N`). Template: `.context/templates/codesign/slice_map_template.md`.
 
 The `user_journey.md` Data Schemas are the **source of truth** for data contracts — downstream agents formalize but do NOT invent business fields.
 
@@ -580,6 +581,7 @@ When `feature_scope IN [backend-only, integration]`: Vision Gate is **N/A**. No 
 7. Run Phase 3 completeness check (all DataIn/DataOut have defined schemas)
 8. Save all artifacts with `status: DRAFT`
 9. **BIP Tier ALIGNMENT:** Run Tripartite Alignment check (scope-aware — when mock.html is N/A, only SPEC↔JOURNEY + JOURNEY↔SPEC bidirectional checks apply; see § Tripartite Alignment Protocol). Present gaps to user via RDR for resolution.
+9.5. **Slice Map Generation (Stage 1 — capability-VALUE slicing).** Run ONLY when `spec.feature.slicing_strategy == incremental` (the default; skip for `monolithic`). Read the aligned scenarios (`spec.feature`), journey steps (`{journey_file}`) and `scope`. Apply the **adversarial FOR/AGAINST double pass** (`factory-adversarial-reasoning`) to candidate slicings, then pose ONE slicing-VALUE RDR (≥3 alternatives — e.g. by journey, by entity, by risk vs happy-path) whose decision sets, per slice: USER-VALUE order, the scenario partition (every scenario in exactly one slice — exclusive + total), independence rationale, and any `depends_on_slice` / `depends_on_feature` + integration `seam`. Emit `docs/spec/{FEATURE_ID}/slice_map.md` from `.context/templates/codesign/slice_map_template.md` via IPP (skeleton-first; frontmatter + § 0 frozen at RDR ratification; each `### SLICE-{FEAT}-N` section-atomic). The slice_map is a **value hypothesis** — BLUEPRINT (Stage 2) refines it into `increment_plan.md` and may re-order only when contract reality forces it. Self-check: exclusive+total scenario coverage; `depends_on_slice` acyclic; one seam per declared dep. **On `--refine` re-slice (EVOL-036): run `check_slice_immutability(FEATURE_ID, proposed_slice_map)` PRE-persist** (factory-iteration-model § SLICE_IMMUTABILITY_GATE) — BLOCK + redirect to a follow-up slice (or `--revise`) if the re-slice diff touches a MERGED scenario; at `--start` there are no realizers, so the gate is vacuous.
 10. Run Auto-Approval Protocol (below)
 
 ### Auto-Approval Protocol (eliminates separate --approve command)
@@ -621,23 +623,29 @@ FUNCTION codesign_auto_approve(FEATURE_ID):
   # Integration-scope addendum (when feature_scope=integration):
   # CHECK 13 (Phase 2 material): external system contract declared in spec.feature § External Systems + {journey_file} § Section 5.
 
-  FOR EACH check IN [0..12]:
-    IF check FAILS (and is not N/A for this scope):
+  # CHECK 14 (slice_map, EVOL-036): when slicing_strategy=incremental — slice_map.md present + well-formed:
+  #   every spec.feature scenario appears in exactly one slice (exclusive + total); depends_on_slice acyclic;
+  #   one seam per declared dep; ids match SLICE-{FEAT}-N. N/A when slicing_strategy=monolithic (no slice_map).
+
+  FOR EACH check IN [0..14]:
+    IF check FAILS (and is not N/A for this scope / slicing_strategy):
       failures.push(check)
 
   IF failures.length == 0:
-    # All 12 validations passed — auto-approve all 3 artifacts
-    FOR EACH artifact IN [spec.feature, mock.html, user_journey.md]:
+    # All applicable validations passed — auto-approve the feature artifacts
+    # (slice_map.md included only when slicing_strategy=incremental)
+    artifacts = [spec.feature, mock.html, user_journey.md] + (slicing_strategy == "incremental" ? [slice_map.md] : [])
+    FOR EACH artifact IN artifacts:
       UPDATE_FRONTMATTER("{base_path}/{artifact}", "status", "APPROVED")
-    LOG: "CODESIGN auto-approved: all 12 validations passed"
+    LOG: "CODESIGN auto-approved: all applicable validations passed"
     APPEND_TO_WORKLOG:
-      {"timestamp":"YYYY-MM-DD","phase":"Co-Creation","user_agent":"CODESIGN","action":"--start {{FEATURE_ID}}","result":"APPROVED","feature_id":"{{FEATURE_ID}}","observations":"3 artifacts created + auto-approved (12/12 validations passed) — BLUEPRINT now enabled"}
+      {"timestamp":"YYYY-MM-DD","phase":"Co-Creation","user_agent":"CODESIGN","action":"--start {{FEATURE_ID}}","result":"APPROVED","feature_id":"{{FEATURE_ID}}","observations":"3-4 artifacts created + auto-approved (all applicable validations passed; slice_map.md when incremental) — BLUEPRINT now enabled"}
   ELSE:
     # Leave as DRAFT — show which validations failed
     LOG: "Auto-approval blocked: {failures.length} validation(s) failed"
     SHOW: "⚠️ Validations failed: {failures}. Refine artifacts and re-run `CODESIGN --start {ID}` or `CODESIGN --refine {ID}`."
     APPEND_TO_WORKLOG:
-      {"timestamp":"YYYY-MM-DD","phase":"Co-Creation","user_agent":"CODESIGN","action":"--start {{FEATURE_ID}}","result":"COMPLETED","feature_id":"{{FEATURE_ID}}","observations":"3 artifacts created — status: DRAFT (auto-approval blocked: {failures.length}/12 validations failed: {failures})"}
+      {"timestamp":"YYYY-MM-DD","phase":"Co-Creation","user_agent":"CODESIGN","action":"--start {{FEATURE_ID}}","result":"COMPLETED","feature_id":"{{FEATURE_ID}}","observations":"feature artifacts created — status: DRAFT (auto-approval blocked: {failures.length} validation(s) failed: {failures})"}
 
   # Execute Smart Redirect Protocol
   state = compute_feature_state(FEATURE_ID)
@@ -775,7 +783,7 @@ rdr_rounds = round
 - Allocate `new_id = ITER-{FEAT_ID}-{spec.iterations[-1].iteration + 1}` (factory-iteration-model § Canonical Iteration ID).
 - Set `_progress.iteration_in_flight = new_id` on each artefact to be touched (factory-incremental-persistence § Iteration Append Pattern).
 
-**1.4 Aggregated changelog (append to `iterations[]` on ALL three artefacts).** For `spec.feature`, `user_journey.md`, `mock.html` invoke `append_iteration_entry(artefact_path, new_entry)` with `new_entry`:
+**1.4 Aggregated changelog (append to `iterations[]` on ALL refine-able artefacts).** For `spec.feature`, `user_journey.md`, `mock.html`, and (when `slicing_strategy == incremental`) `slice_map.md`, invoke `append_iteration_entry(artefact_path, new_entry)` with `new_entry`:
 ```yaml
 id: {new_id}
 iteration: {N+1}
@@ -796,6 +804,7 @@ Legacy `## Changelog` table SHALL also be appended for one minor version (dual-f
 
 - Re-run Tripartite Alignment Protocol.
 - **MANDATORY: Execute CASCADE_PENDING_ITERATION** to push `pending_iteration` to ALL downstream artifacts (design.md, test_plan.md, dev_plan.md, devops_plan.md). `cascade_source` written as `ITER-{FEAT}-{N+1}` (the canonical id) — downstream `read_iteration_state()` accepts both ITER ID and legacy agent-name string.
+- **EVOL-036 re-slice cascade.** The `ON_CODESIGN_REFINE_ITERATION` trigger (factory-iteration-model § Cascade Trigger Points) additionally fires `CASCADE_SLICE_INTERNAL(FEATURE_ID, new_iteration)` — a forward-only `slice_map → increment_plan` cascade on the slice-assignment delta. On a pure re-slice (assignment changed, no scenario text changed) it SKIPS `CASCADE_INCREMENT_INTERNAL` to avoid double-invalidation. No-op when monolithic or pre-BLUEPRINT (no `increment_plan.md`).
 
 ### CASCADE Verification Gate (BLOCKING — runs AFTER every --refine iteration bump)
 
@@ -872,6 +881,7 @@ Creates a new Feature ID from an existing one (for pure BREAKING changes):
 - Marks original scenarios as `@superseded_by(NEW_ID)`
 - New feature has `iteration: 1` (fresh start)
 - Original feature remains APPROVED but with superseded scenarios marked read-only
+- **EVOL-036 terminal escape for destructive re-slice.** When a re-slice must alter a MERGED scenario's decomposition (blocked by `check_slice_immutability` — a follow-up slice cannot touch frozen scenarios), `--revise` is the ONLY legal path: the v2 `slice_map.md` starts fresh; v1's merged slices are preserved as audit history.
 
 ---
 

@@ -30,12 +30,12 @@ Mandatory before any file modification:
 
 ```yaml
 upstream_changes = git diff --since=design.iterations[-1].cascade_timestamp \
-                     -- spec.feature user_journey.md mock.html
+                     -- spec.feature user_journey.md mock.html slice_map.md
 direct_changes   = user_request OR backlog issue body
 trigger = "cascade" IF upstream_changes ELSE "user-feedback"
 ```
 
-Read upstream via `read_iteration_state()`. Emit findings to iteration body under `### Located Changes`.
+`slice_map.md` is an upstream source (EVOL-036): a CODESIGN re-slice or an additive follow-up slice changes which slices BLUEPRINT must realize. Read upstream via `read_iteration_state()`. Emit findings to iteration body under `### Located Changes`.
 
 ## Step 2.2 — Analyze Current Design State
 
@@ -80,7 +80,8 @@ For each technology/framework named in the refine scope: query the relevant docs
 Use IPP section-atomic saves:
 - Edit affected `design.md` sections (per `Factory-incremental-persistence § Pillar 2`).
 - Edit affected `test_plan.md` categories.
-- Edit affected `increment_plan.md § 1` increments (per-increment immutability rules apply — MERGED never invalidates, BUILDING requires --pause, DRAFT/READY flip to INVALIDATED — see `factory-iteration-model § CASCADE_INCREMENT_INTERNAL`).
+- **slice_map re-ingestion (EVOL-036).** When `slice_map.md` is in the change set: re-run the `Factory-blueprint-design § Increment Plan Generation` Step A0 Ingestion Gate (slice_map APPROVED), then realize any NEW or unrealized `SLICE-{FEAT}-N` into an increment per Step B/C — set `cascade_source: SLICE-{FEAT}-N` + `depends_on_slice`/`depends_on_feature`/`seam` and fill the slice's `Realized by increments` back-ref. This closes the additive follow-up-slice loop: CVP Check 18(a) (every slice realized) BLOCKs at `--approve` if a follow-up slice has no realizing increment. BLUEPRINT does NOT re-order or re-invent slices.
+- Edit affected `increment_plan.md § 1` increments (per-increment immutability rules apply — MERGED never invalidates, BUILDING requires --pause, DRAFT/READY flip to INVALIDATED — see `factory-iteration-model § CASCADE_INCREMENT_INTERNAL` / `§ CASCADE_SLICE_INTERNAL` for re-slice).
 - Re-generate / patch contracts in `contracts/` (when contract operations changed → re-open CONTRACT-FREEZE gate via tool-adapter).
 - Execute `CASCADE_PENDING_ITERATION` (factory-iteration-model) to `dev_plan.md` / `devops_plan.md` / runtime reports.
 - For contract changes → execute `CASCADE_CONSUMERS` against any downstream feature whose `spec.feature.consumes_contract` references this feature.

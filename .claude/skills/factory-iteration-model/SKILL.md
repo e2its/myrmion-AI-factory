@@ -446,11 +446,31 @@ CASCADE_TRIGGERS:
     new_iteration = spec.feature.iteration
     new_schemas_version = user_journey.schemas_version
     affected_scopes = CLASSIFY_CHANGE_SCOPES(codesign_changes)
-    affected_scenarios = EXTRACT_AFFECTED_SCENARIOS(codesign_changes)   # list of Scenario names touched
+    affected_scenarios = EXTRACT_AFFECTED_SCENARIOS(codesign_changes)   # scenario names whose Gherkin TEXT changed
     affected_contract_ops = []                                          # CODESIGN doesn't alter contracts — contracts change only via BLUEPRINT
+    # reslice_only fires ONLY for a PURE re-slice — slice assignment changed and NOTHING else that needs a
+    # broad (implicit_touch) invalidation. A refine that ALSO edits policy/schema/ui/infra/contract or
+    # scenario text must NOT skip CASCADE_INCREMENT_INTERNAL below, or that change's invalidation is silently lost.
+    broad_scopes = {"new_scenario","schema_change","ui_restyling","policy_change","infra_change","contract_change"}
+    reslice_only = (slice ASSIGNMENT changed
+                    AND affected_scenarios IS EMPTY
+                    AND affected_contract_ops IS EMPTY
+                    AND (affected_scopes ∩ broad_scopes) IS EMPTY)
     CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, new_schemas_version, affected_scopes)
     CASCADE_SLICE_PEERS(FEATURE_ID, new_iteration, affected_scopes)
-    CASCADE_INCREMENT_INTERNAL(FEATURE_ID, new_iteration, affected_scopes, affected_scenarios, affected_contract_ops)
+    # EVOL-036: slice_map → increment_plan forward cascade on the assignment-delta. The pre-persist
+    # SLICE_IMMUTABILITY_GATE (check_slice_immutability) already ran in CODESIGN --refine before the write.
+    CASCADE_SLICE_INTERNAL(FEATURE_ID, new_iteration)
+    IF reslice_only:
+      # The slice path already handled invalidation via the assignment-delta. Running the line below too
+      # would double-invalidate: a pure re-slice has an EMPTY text-delta → implicit_touch → wholesale wipe.
+      SKIP CASCADE_INCREMENT_INTERNAL
+    ELSE:
+      # Compound refine (re-slice + text/broad change): BOTH CASCADE_SLICE_INTERNAL (above, assignment-delta)
+      # and this call run. The overlap is INTENTIONAL and safe — invalidation is idempotent (monotonic status;
+      # INVALIDATED stays INVALIDATED), and the broad/text path here preserves the wider invalidation the
+      # slice-only path would miss. Do NOT "deduplicate" by gating this call on the slice set.
+      CASCADE_INCREMENT_INTERNAL(FEATURE_ID, new_iteration, affected_scopes, affected_scenarios, affected_contract_ops)
 
   # 2. BLUEPRINT --refine (Syncing design.md + test_plan.md)
   ON_BLUEPRINT_SYNC_COMPLETE:
@@ -718,6 +738,80 @@ Scenario: User logs out
 - Superseded scenarios are READ-ONLY (no agent can modify them)
 - Active scenarios continue evolving through iterations
 - Downstream agents SKIP superseded scenarios during DELTA sync
+
+---
+
+## Slice Freeze Derivation & Slice Cascade (Two-Stage Vertical Slicing — EVOL-036)
+
+`slice_map.md` (CODESIGN, capability-VALUE) is upstream of `increment_plan.md` (BLUEPRINT, contract-level). Cascade graph is strictly acyclic per refine event: `spec.feature → slice_map → increment_plan → dev_plan`. A slice has **no scalar status** — its immutability is a per-SCENARIO freeze partition derived from the increments that realize it.
+
+### Slice Freeze Derivation (per-scenario partition)
+
+Over the feature's increments (`grep cascade_source: SLICE-{FEAT}-N` in `increment_plan.md` + each `### INC-N` `Status:`):
+```
+merged_scenarios(slice) = ⋃ INC.scenarios_covered  WHERE INC realizes slice AND INC.status == MERGED
+locked_scenarios(slice) = ⋃ INC.scenarios_covered  WHERE INC realizes slice AND INC.status == BUILDING
+# every other scenario (DRAFT / READY / INVALIDATED / no realizer) is freely re-sliceable
+```
+- **Empty-realizer bootstrap** (CODESIGN-time, pre-BLUEPRINT): `realizers == []` ⇒ both sets empty ⇒ slice fully editable.
+- "1..N partially frozen" emerges naturally: a slice with a MERGED realizer covering `{s1}` and a DRAFT realizer covering `{s2}` freezes `s1`, leaves `s2` re-sliceable.
+- A cosmetic display status MAY be shown but is NEVER gated on. The freeze predicate is **scenario-membership, NOT slice-id** — re-slicing moves scenarios between slices, so a slice-id key could let a MERGED-owned scenario slip into a DRAFT slice and orphan its increment.
+
+### SLICE_IMMUTABILITY_GATE — `check_slice_immutability()` (PRE-persist, scenario-set based)
+
+Invoked from CODESIGN `--refine` BEFORE the slice_map section write (analogous to `check_increment_immutability` at command entry — NOT inside the cascade). Mirrors `immutability_policy.md` scope-exclusivity-on-append, lifted to scenarios.
+```
+FUNCTION check_slice_immutability(FEATURE_ID, proposed_slice_map):
+  merged_scenarios = compute over feature increments (grep cascade_source + Status:MERGED)
+  reslice_diff = scenarios REMOVED / MOVED / RE-LABELLED between persisted and proposed slice_map
+  IF reslice_diff ∩ merged_scenarios != ∅:
+     BLOCK (humanised): "Scenario {s} is in production (MERGED). Add a follow-up slice, or run CODESIGN --revise for a destructive re-slice."
+     REDIRECT to Follow-up Slice Rule (additive SLICE-{FEAT}-N+1, non-overlapping, depends_on existing)
+  # BUILDING + DRAFT/READY are NOT blocked here — they are handled by the FORWARD cascade
+  # (CASCADE_SLICE_INTERNAL → CASCADE_INCREMENT_INTERNAL per-status table). No harder-than-increment fork.
+  # TOCTOU guard: re-grep Status:MERGED IMMEDIATELY before the write; abort if merged_scenarios grew.
+  RETURN OK
+```
+This is a pre-persist reject/redirect — it never rolls back a persisted re-slice, and it produces NO cascade edge (acyclicity).
+
+### CASCADE_SLICE_INTERNAL — forward only, assignment-delta, idempotent
+```
+FUNCTION CASCADE_SLICE_INTERNAL(FEATURE_ID, target_iteration):
+  # FORWARD ONLY (slice_map → increment_plan). NEVER writes back to slice_map (acyclicity invariant).
+  plan_path = "docs/spec/{FEATURE_ID}/increment_plan.md"
+  IF NOT FILE_EXISTS(plan_path): RETURN              # pre-BLUEPRINT — no realizers yet
+  IF READ_FRONTMATTER(plan_path).slicing_strategy != "incremental": RETURN   # monolithic no-op
+
+  # Assignment-delta = slices whose scenario membership changed between persisted and proposed slice_map.
+  # A MOVE of scenario s from SLICE-A to SLICE-B changes BOTH slices' membership.
+  changed_slices = { s : s.scenarios_covered differs between persisted and proposed slice_map }
+  IF changed_slices IS EMPTY: RETURN                 # pure no-op re-approval — no invalidation
+
+  # Affected scenarios = the WHOLE membership of each changed slice across BOTH versions — NOT just the
+  # moved scenario. Rationale (move semantics): the DESTINATION increment does not yet list the moved
+  # scenario (only BLUEPRINT re-refinement adds it), so a moved-scenario-only set would invalidate the
+  # SOURCE increment but leave the DESTINATION stale — then Check 18(c) would fail at the next gate instead
+  # of being cascade-corrected. Passing each changed slice's full scenario set matches the destination
+  # increment via its OTHER scenarios. (Brand-new destination slice with only the moved scenario has no
+  # realizer yet → Check 18(a) "slice not realized" forces BLUEPRINT to create it — fail-safe.)
+  affected_scenarios = UNION over changed_slices of (persisted.scenarios_covered ∪ proposed.scenarios_covered)
+
+  # Reuse CASCADE_INCREMENT_INTERNAL's per-status transition table VERBATIM, passing this EXPLICIT set so
+  # the implicit_touch fallback is NEVER reached (a pure re-slice has an EMPTY gherkin text-diff — without
+  # an explicit set, implicit_touch would wholesale-invalidate every non-MERGED increment).
+  RETURN CASCADE_INCREMENT_INTERNAL(FEATURE_ID, target_iteration, ["reslice"], affected_scenarios, [])
+```
+Idempotent: re-running on the same re-slice invalidates the same set (the assignment-delta is deterministic; implicit_touch never fires). Monolithic guard inherited from `CASCADE_INCREMENT_INTERNAL`'s early return.
+
+> **Disambiguation.** `CASCADE_SLICE_INTERNAL` (vertical, intra-feature, `slice_map → increment_plan`, namespace `SLICE-{FEAT}-N`) ≠ `CASCADE_SLICE_PEERS` (horizontal, cross-feature epic-slice integration suite, namespace `slice:EPIC-N.N` → `SLICE-N.N`). Different concepts, different namespaces.
+
+> **Acyclicity.** `CASCADE_SLICE_INTERNAL` writes DOWNWARD only. The MERGED back-constraint is the pre-persist gate (`check_slice_immutability`), NOT a cascade write — so `spec.feature → slice_map → increment_plan → dev_plan` stays strictly acyclic per refine event.
+
+### Follow-up Slice Rule & terminal escape
+- A re-slice that does NOT touch `merged_scenarios` may proceed as an additive follow-up slice `SLICE-{FEAT}-N+1` (non-overlapping scenarios, `depends_on` existing slices), inheriting the same Phase-4 QA-verify lock window as the Follow-up Increment Rule. Phase-4 lock is scoped to **per-feature realizers ONLY** — cross-feature `depends_on_feature` deps are governed by the existing `consumes_contract` / `CASCADE_CONSUMERS` path, NOT the per-slice gate (no phantom global lock).
+- A genuinely destructive re-slice (e.g. "split `s1`, currently MERGED in INC-1") cannot be satisfied by a follow-up slice. The ONLY legal path is **`CODESIGN --revise`** (new feature version; v2 slice_map starts fresh; v1 merged slices are audit history). This mirrors the increment model's slicing-flip escape.
+
+Canonical lock semantics live in `rules/immutability_policy.md § Per-Slice Immutability`.
 
 ---
 

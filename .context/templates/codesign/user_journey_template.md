@@ -20,7 +20,7 @@ based_on_iteration: 1
 > **Method:** Simplified Event Storming (Brandolini)
 > **Generado por:** CODESIGN Agent | Feature: {{FEATURE_ID}}
 > **Source of Truth for Data Schemas** — ARCH formalizes in contracts, DOES NOT invent business fields.
-> **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), BLUEPRINT distributes the scenarios in `spec.feature` across vertical increments declared in `increment_plan.md § 1` — each increment ships as an independent PR that leaves the product 100% functional. This journey describes the COMPLETE end-state; per-increment UI/flow deltas are documented in `increment_plan.md` and in Section 0 below when they diverge significantly.
+> **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), CODESIGN groups the scenarios in `spec.feature` into capability-VALUE slices in `slice_map.md § 1` (CODESIGN owns value slicing); BLUEPRINT then REFINES each slice into a contract-aware vertical increment in `increment_plan.md § 1` (`cascade_source: SLICE-{FEAT}-N`) — each ships as an independent PR that leaves the product 100% functional. This journey describes the COMPLETE end-state; per-slice/per-increment UI/flow deltas are documented in `slice_map.md` / `increment_plan.md` and in Section 0 below when they diverge significantly.
 
 ---
 
