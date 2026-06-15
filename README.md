@@ -322,7 +322,7 @@ Role: Dual personality (🎩 PO hat ↔ 🎨 UX hat). Co-creates the functional 
 | `/codesign --vision-refine "[FEEDBACK]"` | Feedback | Refinement of the global vision. |
 | `/codesign --vision-approve` | — | Joint PO+UX approval of the global vision. |
 | `/codesign --vision-propagate` | — | Propagates vision changes to existing mocks. |
-| `/codesign --start {ID}` | Feature ID | Starts co-creation. Vision Gate for UI features. Event Storming → spec ↔ mock ↔ journey until convergence. Auto-approves when 12/12 validations pass. |
+| `/codesign --start {ID}` | Feature ID | Starts co-creation. Vision Gate for UI features. Event Storming → spec ↔ mock ↔ journey until convergence. When `slicing_strategy: incremental`, also emits `slice_map.md` (capability-VALUE slices via the slicing-VALUE RDR, ≥3 alternatives). Auto-approves when all validations pass (incl. slice_map coverage). |
 | `/codesign --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement. Classifies changes as DELTA or BREAKING. Auto-approves when 12/12 validations pass. |
 
 Per-feature artifacts: `docs/spec/{ID}/spec.feature`, `mock.html`, `user_journey.md`.
@@ -334,9 +334,9 @@ Role: Dual personality (🏗️ ARCH hat ↔ 🧪 QA hat). Co-designs architectu
 
 | Command | Arguments | Description |
 | --- | --- | --- |
-| `/blueprint --start {ID}` | — | Co-designs `design.md` + `test_plan.md` + `increment_plan.md`. Requires CODESIGN APPROVED. Produces C4, contracts, Section 5 (Infrastructure Needs). Emits the Increment Plan via RDR (≥3 slicing alternatives; user ratifies verbatim). |
+| `/blueprint --start {ID}` | — | Co-designs `design.md` + `test_plan.md` + `increment_plan.md`. Requires CODESIGN APPROVED + (when incremental) `slice_map.md` APPROVED. Produces C4, contracts, Section 5 (Infrastructure Needs). **Refines** CODESIGN's authoritative slices into increments (`cascade_source: SLICE-{FEAT}-N`, 1:1 default) — it does NOT invent or value-reorder slices; the only RDR here is intra-slice layering when a slice splits. |
 | `/blueprint --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement of design, tests and/or the Increment Plan. |
-| `/blueprint --approve {ID}` | — | Joint ARCH+QA approval. Runs CVP Coherence Gate (13 checks in CODESIGN_BLUEPRINT scope, incl. increment_deployability, increment_to_scenario_coverage, increment_to_contract_coverage). Enables IMPLEMENT. |
+| `/blueprint --approve {ID}` | — | Joint ARCH+QA approval. Runs CVP Coherence Gate (CODESIGN_BLUEPRINT scope, incl. `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, and the EVOL-036 slice checks `slice_map_presence` 0d / `slice_to_increment_coverage` 18 / `slice_seam_resolution` 19 / `slice_immutability_consistency` 20). Enables IMPLEMENT. |
 | `/blueprint --adr {ID} "[TITLE]" "[DECISION]"` | Title and decision | Generates a standalone ADR. |
 | `/blueprint --review-conflict {ID}` | — | Arbitration when peer review rejects 3+ times. |
 
@@ -431,7 +431,7 @@ Every feature ships as a sequence of **vertical increments**. Each increment is 
 
 **Branching.** One branch per increment — `feature/{FEATURE_ID}-inc-N-{slug}` — merged as an independent PR. Only one increment branch per feature is open at a time (existing concurrency lock). Branch open flips the increment's status `READY → BUILDING`; merge hook stamps `Merged at:` and flips `BUILDING → MERGED`.
 
-**Enforcement.** Four CRITICAL CVP checks at `BLUEPRINT --approve`: `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic`. Per-increment immutability (see `.claude/rules/immutability_policy.md § Per-Increment Immutability`) locks MERGED increments and routes changes through either `CODESIGN --revise` (new feature version) or a **Follow-up Increment** (additive, non-overlapping scenarios — no version bump).
+**Enforcement.** CRITICAL CVP checks at `BLUEPRINT --approve` (and the local push preflight): `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, `monolithic_heuristic`, plus the EVOL-036 slice checks `slice_map_presence` (0d), `slice_to_increment_coverage` (18), `slice_seam_resolution` (19), `slice_immutability_consistency` (20). Per-increment immutability (see `.claude/rules/immutability_policy.md § Per-Increment Immutability`) locks MERGED increments; per-slice immutability (§ Per-Slice Immutability) freezes a scenario wherever it sits once a realizing increment merges. Changes route through either `CODESIGN --revise` (new feature version) or a **Follow-up Increment / Follow-up Slice** (additive, non-overlapping — no version bump).
 
 **Iteration cascade.** `CASCADE_INCREMENT_INTERNAL` (see `.claude/skills/factory-iteration-model/SKILL.md`) propagates upstream changes selectively: only increments whose `scenarios_covered` or `contract_surface` overlap with the change are flagged `INVALIDATED`. MERGED increments are never invalidated — they anchor production history; a follow-up increment carries the change forward.
 

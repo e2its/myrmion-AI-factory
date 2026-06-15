@@ -327,7 +327,9 @@ FUNCTION check_increment_plan_presence(elements):
   # time (see factory-iteration-model), not here. Keep required_fields minimal to avoid coupling
   # Check 0c to the cascade lifecycle.
   fm = plan.frontmatter
-  required_fields = ["id", "status", "slicing_strategy", "scope", "total_increments", "rdr_alternatives_considered", "rdr_ratified_at"]
+  # NOTE (EVOL-036): rdr_ratified_at is NOT unconditionally required — it is legitimately null for the
+  # DEFAULT 1:1 plan (no intra-slice layering RDR ran). It is gated conditionally below, not here.
+  required_fields = ["id", "status", "slicing_strategy", "scope", "total_increments", "rdr_alternatives_considered"]
   missing = [f FOR f IN required_fields IF fm.get(f) IS NULL]
   IF missing NOT EMPTY:
     YIELD { check: "increment_plan_presence", severity: CRITICAL,
@@ -345,6 +347,12 @@ FUNCTION check_increment_plan_presence(elements):
   # slicing) — enforced by Check 0d slice_map_presence. increment_plan's `rdr_alternatives_considered`
   # now counts OPTIONAL intra-slice layering alternatives (0 when every slice maps 1:1), so it is NOT
   # gated here. BLUEPRINT REFINES authoritative slices into increments; it does not invent ≥3 slicings.
+  # Conditional: rdr_ratified_at must be non-null ONLY when a layering RDR actually ran (alternatives >= 1).
+  IF fm.status == "APPROVED" AND (fm.rdr_alternatives_considered OR 0) >= 1 AND fm.rdr_ratified_at IS NULL:
+    YIELD { check: "increment_plan_presence", severity: CRITICAL,
+            source: "increment_plan.md.frontmatter.rdr_ratified_at",
+            gap: "An intra-slice layering RDR was recorded (rdr_alternatives_considered={fm.rdr_alternatives_considered}) but rdr_ratified_at is null",
+            remediation: "A layering split requires verbatim user ratification — re-run BLUEPRINT --refine and ratify the layering choice" }
 
   YIELD { check: "increment_plan_presence", severity: PASS,
           source: "increment_plan.md",
@@ -375,6 +383,17 @@ FUNCTION check_slice_map_presence(elements):
     RETURN
 
   IF sm IS NULL:
+    # Grandfather (EVOL-036 backward-compat): a feature created BEFORE EVOL-036 already has an
+    # increment_plan.md but no slice_map.md. Hard-blocking it would strand every in-flight incremental
+    # feature on framework upgrade with no safe migration (re-running CODESIGN on a merged upstream risks
+    # check_slice_immutability). Degrade to a migration advisory instead — MERGED increments are unaffected.
+    IF elements.increment_plan IS NOT NULL:
+      YIELD { check: "slice_map_presence", severity: WARNING,
+              source: "docs/spec/{FEATURE_ID}/slice_map.md",
+              gap: "Legacy incremental feature: increment_plan.md present but slice_map.md absent (pre-EVOL-036)",
+              remediation: "Optional migration: run CODESIGN --refine {FEATURE_ID} to back-fill slice_map.md (the two-stage value authority). Already-MERGED increments are unaffected." }
+      RETURN
+    # New feature, pre-BLUEPRINT: slice_map MUST exist — CODESIGN emits it before BLUEPRINT refines.
     YIELD { check: "slice_map_presence", severity: CRITICAL,
             source: "docs/spec/{FEATURE_ID}/slice_map.md",
             gap: "slicing_strategy='incremental' but slice_map.md is absent — CODESIGN owns capability-value slicing",
@@ -1029,7 +1048,13 @@ FUNCTION check_slice_seam_resolution(elements):
                 gap: "Depends on non-existent slice '{dep}'",
                 remediation: "Fix the reference or add the missing slice (CODESIGN --refine)" }
 
-    # cross-feature deps — FEAT-Y@SLICE-Y-Z, 4 fail-modes
+    # cross-feature deps — FEAT-Y@SLICE-Y-Z, 4 fail-modes.
+    # NOTE (cascade coverage): a cross-feature seam's iteration cascade is carried by the EXISTING
+    # consumes_contract / CASCADE_CONSUMERS path (the per-slice gate explicitly disclaims cross-feature
+    # locks). For that delegation to actually fire, the consuming feature SHOULD also declare FEAT-Y in
+    # spec.feature.consumes_contract — if it does not, the depends_on_feature ordering is advisory only
+    # (review-confirmed via the seam, not cascade-enforced). WARN when a depends_on_feature has no
+    # matching consumes_contract entry.
     FOR EACH dep IN s.depends_on_feature:
       (feat_id, slice_ref) = PARSE_FEATURE_SLICE_REF(dep)   # "FEAT-Y@SLICE-Y-Z"
       up_design = READ_IF_EXISTS("docs/spec/{feat_id}/design.md")

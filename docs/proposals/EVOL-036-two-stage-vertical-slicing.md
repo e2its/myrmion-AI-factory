@@ -175,8 +175,13 @@ The original "delegate to CASCADE_INCREMENT_INTERNAL UNCHANGED" is a FORK hidden
 ```
 FUNCTION CASCADE_SLICE_INTERNAL(FEATURE_ID, target_iteration):
   # FORWARD ONLY. NEVER writes back to slice_map (acyclicity invariant — header note).
-  affected_scenarios = scenarios whose SLICE ASSIGNMENT changed (assignment-delta, NOT text-delta)
-  IF affected_scenarios IS EMPTY: RETURN   # pure no-op re-approval — no invalidation
+  # [POST-REVIEW HARDENING] affected set = WHOLE membership of each slice whose membership changed,
+  # across persisted ∪ proposed — NOT just the moved scenario. A MOVE's destination increment does not
+  # yet list the moved scenario, so a moved-only set leaves it stale (Check 18(c) would then fail at the
+  # next gate instead of cascade-correcting). Brand-new destination slice → Check 18(a) forces realization.
+  changed_slices = slices whose scenarios_covered differs between persisted and proposed slice_map
+  IF changed_slices IS EMPTY: RETURN   # pure no-op re-approval — no invalidation
+  affected_scenarios = UNION over changed_slices of (persisted.scenarios ∪ proposed.scenarios)
   # delegate the per-status TRANSITION TABLE (MERGED→warn+follow-up, BUILDING→pending+pause,
   # DRAFT/READY/INVALIDATED→invalidate) to CASCADE_INCREMENT_INTERNAL, but pass the EXPLICIT
   # assignment-delta set so implicit_touch (:579) is NEVER reached.
@@ -190,10 +195,15 @@ The function body of `CASCADE_INCREMENT_INTERNAL` is reused verbatim (goal-3 man
 ON_CODESIGN_REFINE_ITERATION:
   ...
   CASCADE_SLICE_INTERNAL(FEATURE_ID, new_iteration)               # NEW — assignment-delta path
-  IF the refine changed ONLY slice assignment (no scenario TEXT change):
+  # [POST-REVIEW HARDENING] SKIP only on a PURE re-slice — slice assignment changed AND no scenario text
+  # AND no contract op AND no broad scope (policy/schema/ui/infra/contract). A compound refine that
+  # re-slices AND edits policy must still run CASCADE_INCREMENT_INTERNAL or that change's invalidation is lost.
+  reslice_only = (slice assignment changed AND affected_scenarios EMPTY AND affected_contract_ops EMPTY
+                  AND (affected_scopes ∩ {new_scenario,schema_change,ui_restyling,policy_change,infra_change,contract_change}) EMPTY)
+  IF reslice_only:
      SKIP the existing CASCADE_INCREMENT_INTERNAL(:453)            # slice path already handled it
   ELSE:
-     CASCADE_INCREMENT_INTERNAL(... affected_scenarios=text-delta ...)   # unchanged path for text edits
+     CASCADE_INCREMENT_INTERNAL(... affected_scenarios=text-delta ...)   # unchanged path for text/broad edits
 ```
 Idempotency: running the cascade twice on the same re-slice invalidates the same set (assignment-delta is deterministic; no implicit_touch). Monolithic guard: `CASCADE_INCREMENT_INTERNAL` already returns early when `slicing_strategy != incremental` (`:568`) — degenerate single-slice slice_map no-ops.
 

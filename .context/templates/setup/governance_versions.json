@@ -753,10 +753,11 @@
       ]
     },
     "claude/hooks/check-ipp-compliance.sh": {
-      "version": "1.1.2",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-ipp-compliance.sh",
       "changelog": [
+        "1.2.0: fix(EVOL-036) coherence — severity correction: slice_map allowlist extension is a feat → MINOR (EVOL-021 precedent), supersedes 1.1.2 PATCH. Byte-identical lock-step pair with framework hooks/check-ipp-compliance.sh. No content change vs 1.1.2.",
         "1.1.2: feat(EVOL-036) SLICE-2 — IPP first-write allowlist gains `*/docs/spec/*/slice_map.md` so skeleton-first is enforced on the CODESIGN slice_map producer. Lock-step with framework_core.hooks/check-ipp-compliance.sh.",
         "1.1.1: fix(IPP runtime binding) — after the existing block checks pass on a legitimate first-write, the hook now drops a session-scoped `.claude/state/ipp-first-write-${session_id}.marker` carrying the repo-relative artefact path. Consumed by governance-onprompt.sh on the next prompt as `<ipp-reminder>` teaching block (Pillars 2/3 + SKILL pointer). Marker write is best-effort: `session_id` extracted from PreToolUse payload via python3, falls back to unscoped marker name when unavailable. Existing block logic (Signal 1 _progress claim on creation, Signal 2 fully-formed body) preserved verbatim; added defensive `-n` guards on H2/PENDING/LINE counters to survive empty content. Lock-step with framework_core.hooks/check-ipp-compliance.sh.",
         "1.0.0: feat(EVOL-020): initial template — PreToolUse Write hook enforces IPP Pillar 1 (Skeleton-First Write) by blocking first-writes of tracked governance artifacts (docs/spec/*/design|test_plan|dev_plan|spec.feature|user_journey*|mock|devops_plan|technical_due.md, docs/setup.md, qa_report*.md) that arrive fully-formed (≥3 H2 sections + 0 <!-- PENDING --> markers + >150 lines) OR claim _progress.completed_sections non-empty on creation. Canonical protocol: .claude/skills/factory-incremental-persistence/SKILL.md.",
@@ -775,11 +776,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.3.0",
+      "version": "3.4.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.4.0: feat(EVOL-036) coherence — § Incremental Dev Plan rewritten to the two-stage model (CODESIGN slice_map value authority → BLUEPRINT increment_plan contract refinement, cascade_source/depends_on_slice/seam, §0 Refinement Record, no slice invention). Enforcement gates add CVP 0d/18/19/20; Iteration cascade adds CASCADE_SLICE_INTERNAL + check_slice_immutability. Framework Editor Invariants: CVP catalogue 0a,0c,0d,1,2,13-20; cascade-function list adds CASCADE_SLICE_INTERNAL; new two-stage-authority + per-slice-freeze source-of-truth rows.",
         "3.3.0: feat(EVOL-036) SLICE-1 — Rule 9 refine-able-artefact list gains `slice_map.md` (byte-identical with framework-meta CLAUDE.md 13.4.0; Rule 9 edited by hand, not a lock-step universal_section).",
         "3.2.0: feat(EVOL-035) universal section `## Adversarial Reasoning — MANDATORY` added (byte-identical with framework-meta CLAUDE.md 13.3.0). Mandatory FOR/AGAINST double pass before any non-trivial proposal/selection. Mechanics in skill factory-adversarial-reasoning.",
         "3.1.3: fix(fast-lane-carve) Generation Standards §3 — `.claude/instructions/**`, `.claude/skills/**`, `.claude/commands/**`, `.claude/hooks/**` added as hard exclusions to the docs-only fast-lane (framework-core behavioral contracts that carry the .md extension must not be fast-laned). Parallel to meta CLAUDE.md 13.2.3.",
@@ -1294,9 +1296,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "path": "README.md",
       "changelog": [
+        "2.7.1: fix(EVOL-036) coherence — command table /codesign --start emits slice_map.md (incremental); /blueprint --start refines authoritative slices (no invention); /blueprint --approve + Enforcement list the slice CVP checks 0d/18/19/20. Removes the residual 'BLUEPRINT runs the slicing RDR' claim + stale check counts.",
         "2.7.0: feat(EVOL-036) SLICE-3 — Incremental Dev Plan section rewritten as two-stage authoring: CODESIGN owns capability-VALUE slicing (slice_map.md, slicing-value RDR ≥3); BLUEPRINT refines each SLICE-{FEAT}-N into one contract-aware increment (cascade_source, depends_on_slice/feature/seam, 1:1 default, no slice invention). Removes 'Increment Slicing RDR' authority claim.",
         "2.6.6: docs(EVOL-035) — skill tree gains factory-adversarial-reasoning; cross-cutting skills count 20 → 21. COMP-1 fix from the EVOL-035 coherence review.",
         "2.6.5: docs — review-nit resolution. TOC gains a \"Part of the Myrmion ecosystem\" front-matter entry; License section gains a licence-history note (proprietary EULA → MIT at the Myrmion rebrand).",
@@ -1358,9 +1361,10 @@
       ]
     },
     "commands/codesign.md": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.4.1: fix(EVOL-036) coherence — --refine sub-step 1.4 changelog target list adds slice_map.md (when incremental); notes check_slice_immutability pre-persist + CASCADE_SLICE_INTERNAL on re-slice (command↔instruction drift fix).",
         "1.4.0: feat(EVOL-036) SLICE-2 — Per-Feature artefact list gains slice_map.md (when slicing_strategy: incremental); Scope & Slicing notes CODESIGN emits the Stage-1 slice_map refined by BLUEPRINT into increment_plan.md (join cascade_source: SLICE-{FEAT}-N). 12/12 → all-applicable validations.",
         "1.3.0: feat(EVOL-032) phase 2 — Per-Feature `--refine` block documents the four sub-steps (1.1 impl-state probe / 1.2 iterative RDR loop / 1.3 apply / 1.4 aggregated changelog on the three artefacts via append_iteration_entry).",
         "1.2.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
@@ -1473,9 +1477,10 @@
       ]
     },
     "instructions/Factory-blueprint-refine.instructions.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": ".claude/instructions/Factory-blueprint-refine.instructions.md",
       "changelog": [
+        "1.1.0: feat(EVOL-036) coherence — --refine ingests slice_map.md: Step 2.1 upstream diff set adds slice_map.md; Step 2.7 adds slice re-ingestion (re-run Step A0 gate, realize new/unrealized SLICE-{FEAT}-N into increments with cascade_source/seam + back-ref) — closes the additive follow-up-slice loop that CVP Check 18(a) guards.",
         "1.0.0: feat(EVOL-032) phase 2 — NEW INSTRUCTION. BLUEPRINT --refine canonical 8-step protocol (closes the long-standing stub at .claude/commands/blueprint.md:31-32). Steps: 2.1 locate changes (git diff since design.iterations[-1].cascade_timestamp); 2.2 analyze current design state; 2.3 dependencies analysis (reuses --start Step -0.5 Inter-Domain + CASCADE_CONSUMERS when needed); 2.4 implementation-state probe (auto-trigger when dev_plan has [x] tasks OR feature branch has commits since design point; classifies drift/carry-over/emergent); 2.5 update design with gaps (drift→modify with RDR, carry-over→pending_design_items[]+`## Carried-Over Gaps`, emergent→ADR via factory-adr-management); 2.6 MCP-docs consultation (consumes factory-mcp-docs-scan banner); 2.7 apply changes (IPP section-atomic, CASCADE_PENDING_ITERATION + CASCADE_CONSUMERS on contract changes); 2.8 aggregated changelog (append_iteration_entry on design.md + test_plan.md + increment_plan.md with shared ITER-{FEAT}-{N} id). Completion gate runs verify_cascade_completion + CVP CODESIGN_BLUEPRINT scope + check-iteration-id-format dry-run."
       ]
     },
@@ -2080,9 +2085,10 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.6.0",
+      "version": "2.6.1",
       "type": "skill",
       "changelog": [
+        "2.6.1: fix(EVOL-036) coherence — CASCADE_SLICE_INTERNAL move-semantics: affected set = whole membership of each changed slice across persisted∪proposed (not just the moved scenario) so a MOVE flags BOTH source and destination realizers (else Check 18(c) fails at next gate). reslice_only guard tightened: SKIP CASCADE_INCREMENT_INTERNAL only on a PURE re-slice (no scenario text, no contract op, no broad policy/schema/ui/infra/contract scope) — prevents dropped invalidation on compound refines.",
         "2.6.0: feat(EVOL-036) SLICE-4 — per-scenario slice immutability. New § Slice Freeze Derivation & Slice Cascade: a slice has NO scalar status — freeze is a per-SCENARIO partition (merged_scenarios/locked_scenarios) derived from realizing increments. Adds check_slice_immutability() (PRE-persist scenario-set gate, TOCTOU re-grep, MERGED→block+follow-up, BUILDING/DRAFT→forward cascade) and CASCADE_SLICE_INTERNAL (forward-only slice_map→increment_plan on assignment-delta; reuses CASCADE_INCREMENT_INTERNAL table verbatim; explicit set so implicit_touch never wholesale-wipes; idempotent; never writes back to slice_map). ON_CODESIGN_REFINE_ITERATION wires CASCADE_SLICE_INTERNAL + SKIPs CASCADE_INCREMENT_INTERNAL on pure re-slice (anti-double-invalidation). Disambiguation vs CASCADE_SLICE_PEERS; acyclicity note; Follow-up Slice Rule + CODESIGN --revise terminal escape.",
         "2.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.0: feat(EVOL-032) phase 1 — § Canonical Iteration ID Schema (ITER-{FEAT}-{N}) with entry shape (id, iteration, date, source, classification, scope_summary, changes, downstream_impact, anchor, rdr_rounds, converged, impl_state_snapshot, cascade_source, mcp_consulted). Defines cross-artefact join semantics: downstream entry's cascade_source MUST equal upstream entry's id. Cascade contract: scalar pending_iteration = iterations[-1].iteration of upstream. § Dual-format read protocol introduces read_iteration_state(artifact_path) wrapper — array-aware when iterations[] present, falls back to scalar iteration synthesising an ad-hoc id. Direct fm.iteration access is a violation. Capability flag governance_features.iterations_array_v1 (manifest-level) gates presence in projects.",
@@ -2197,10 +2203,11 @@
       "path": ".claude/skills/factory-memory-cache/SKILL.md"
     },
     "skills/factory-coherence-validation/SKILL.md": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "type": "skill",
       "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "changelog": [
+        "1.5.1: fix(EVOL-036) coherence — Check 0c no longer unconditionally requires rdr_ratified_at (legitimately null for 1:1 plans; gated conditionally on rdr_alternatives_considered>=1) — removes false-positive CRITICAL on the default path. Check 0d grandfathers pre-EVOL-036 incremental features (increment_plan present, slice_map absent → WARNING migration advisory, not CRITICAL). Check 19 documents that cross-feature seam cascade rides consumes_contract/CASCADE_CONSUMERS (WARN when depends_on_feature lacks a consumes_contract entry).",
         "1.5.0: feat(EVOL-036) SLICE-5 — NEW CVP slice checks: Check 0d slice_map_presence (RDR≥3 enforced here, moved upstream from increment_plan), Check 18 slice_to_increment_coverage (bidirectional cascade_source join + scenario consistency), Check 19 slice_seam_resolution (depends_on_slice DAG + 4 cross-feature fail-modes incl. monolithic-sibling PASS + seam-present), Check 20 slice_immutability_consistency (per-scenario freeze partition well-formed, no MERGED increment orphaned, vacuous pre-BLUEPRINT). Registered in CODESIGN_BLUEPRINT.checks; cvp_coherence_gate Step 0 reads slice_map; extract_traceable_elements parses elements.slices via PARSE_SLICES.",
         "1.4.0: feat(EVOL-036) SLICE-3 coupling — Check 0c increment_plan_presence no longer gates rdr_alternatives_considered≥3 (that field now counts OPTIONAL intra-slice layering alternatives, 0 when every slice maps 1:1); the mandatory ≥3 RDR moved UPSTREAM to slice_map.md (Check 0d slice_map_presence, lands SLICE-5). Removes stale 'Increment Slicing RDR' authority reference. New Checks 18/19/20 land in SLICE-5.",
         "1.3.4: fix(increment-plan-stale-section-refs) — Check 16 `monolithic_heuristic` prose + 5 source/gap/remediation strings cited `§ 3` for Monolithic Escape Declaration; § 2 is now the canonical location (v5.3.0 reorder demoted Mermaid to § 3 non-authoritative). Pseudocode field renamed plan.section_3_monolithic_escape → plan.section_2_monolithic_escape to mirror the template § numbering. No semantic change.",
@@ -2551,11 +2558,12 @@
       ]
     },
     "hooks/check-ipp-compliance.sh": {
-      "version": "1.1.2",
+      "version": "1.2.0",
       "type": "hook",
       "path": ".claude/hooks/check-ipp-compliance.sh",
       "role": "PreToolUse hook (Write) — IPP Pillar 1 enforcement + post-skeleton marker drop. Blocks first-writes of tracked governance artifacts that arrive fully-formed (violating skeleton-first) or claim _progress.completed_sections non-empty on creation. On a legitimate first-write that passes the block checks, drops `.claude/state/ipp-first-write-${session_id}.marker` so the next UserPromptSubmit emits `<ipp-reminder>` teaching block.",
       "changelog": [
+        "1.2.0: fix(EVOL-036) coherence — severity correction: the SLICE-1 slice_map allowlist extension is a feat → MINOR (matches the EVOL-021 allowlist precedent), supersedes the 1.1.2 PATCH. No content change vs 1.1.2.",
         "1.1.2: feat(EVOL-036) SLICE-2 — IPP first-write allowlist gains `*/docs/spec/*/slice_map.md` so skeleton-first is enforced on the CODESIGN slice_map producer. Lock-step with templates.claude/hooks/check-ipp-compliance.sh.",
         "1.1.1: fix(IPP runtime binding) — marker drop added after the block checks pass on a legitimate first-write (lock-step with templates entry). Defensive `-n` guards on H2/PENDING/LINE counters to survive empty content.",
         "1.1.0: fix(EVOL-022): added `*/docs/spec/*/increment_plan.md` to allowlist — lock-step repair of the drift where the template counterpart received the coverage in EVOL-021 phase 4 but the meta hook was left behind. Closes BLOCKER gap G01 detected by the EVOL-022 framework validation walkthrough.",

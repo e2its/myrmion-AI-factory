@@ -448,7 +448,14 @@ CASCADE_TRIGGERS:
     affected_scopes = CLASSIFY_CHANGE_SCOPES(codesign_changes)
     affected_scenarios = EXTRACT_AFFECTED_SCENARIOS(codesign_changes)   # scenario names whose Gherkin TEXT changed
     affected_contract_ops = []                                          # CODESIGN doesn't alter contracts — contracts change only via BLUEPRINT
-    reslice_only = (slice ASSIGNMENT changed AND no scenario TEXT changed)   # pure re-slice refine
+    # reslice_only fires ONLY for a PURE re-slice — slice assignment changed and NOTHING else that needs a
+    # broad (implicit_touch) invalidation. A refine that ALSO edits policy/schema/ui/infra/contract or
+    # scenario text must NOT skip CASCADE_INCREMENT_INTERNAL below, or that change's invalidation is silently lost.
+    broad_scopes = {"new_scenario","schema_change","ui_restyling","policy_change","infra_change","contract_change"}
+    reslice_only = (slice ASSIGNMENT changed
+                    AND affected_scenarios IS EMPTY
+                    AND affected_contract_ops IS EMPTY
+                    AND (affected_scopes ∩ broad_scopes) IS EMPTY)
     CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, new_schemas_version, affected_scopes)
     CASCADE_SLICE_PEERS(FEATURE_ID, new_iteration, affected_scopes)
     # EVOL-036: slice_map → increment_plan forward cascade on the assignment-delta. The pre-persist
@@ -770,14 +777,27 @@ FUNCTION CASCADE_SLICE_INTERNAL(FEATURE_ID, target_iteration):
   plan_path = "docs/spec/{FEATURE_ID}/increment_plan.md"
   IF NOT FILE_EXISTS(plan_path): RETURN              # pre-BLUEPRINT — no realizers yet
   IF READ_FRONTMATTER(plan_path).slicing_strategy != "incremental": RETURN   # monolithic no-op
-  affected_scenarios = scenarios whose SLICE ASSIGNMENT changed (assignment-delta, NOT gherkin text-delta)
-  IF affected_scenarios IS EMPTY: RETURN             # pure no-op re-approval — no invalidation
-  # Reuse CASCADE_INCREMENT_INTERNAL's per-status transition table VERBATIM, passing the EXPLICIT
-  # assignment-delta so the implicit_touch fallback is NEVER reached: a pure re-slice has an EMPTY
-  # gherkin text-diff — without this, implicit_touch would wholesale-invalidate every non-MERGED increment.
+
+  # Assignment-delta = slices whose scenario membership changed between persisted and proposed slice_map.
+  # A MOVE of scenario s from SLICE-A to SLICE-B changes BOTH slices' membership.
+  changed_slices = { s : s.scenarios_covered differs between persisted and proposed slice_map }
+  IF changed_slices IS EMPTY: RETURN                 # pure no-op re-approval — no invalidation
+
+  # Affected scenarios = the WHOLE membership of each changed slice across BOTH versions — NOT just the
+  # moved scenario. Rationale (move semantics): the DESTINATION increment does not yet list the moved
+  # scenario (only BLUEPRINT re-refinement adds it), so a moved-scenario-only set would invalidate the
+  # SOURCE increment but leave the DESTINATION stale — then Check 18(c) would fail at the next gate instead
+  # of being cascade-corrected. Passing each changed slice's full scenario set matches the destination
+  # increment via its OTHER scenarios. (Brand-new destination slice with only the moved scenario has no
+  # realizer yet → Check 18(a) "slice not realized" forces BLUEPRINT to create it — fail-safe.)
+  affected_scenarios = UNION over changed_slices of (persisted.scenarios_covered ∪ proposed.scenarios_covered)
+
+  # Reuse CASCADE_INCREMENT_INTERNAL's per-status transition table VERBATIM, passing this EXPLICIT set so
+  # the implicit_touch fallback is NEVER reached (a pure re-slice has an EMPTY gherkin text-diff — without
+  # an explicit set, implicit_touch would wholesale-invalidate every non-MERGED increment).
   RETURN CASCADE_INCREMENT_INTERNAL(FEATURE_ID, target_iteration, ["reslice"], affected_scenarios, [])
 ```
-Idempotent: re-running on the same re-slice invalidates the same set (assignment-delta is deterministic; implicit_touch never fires). Monolithic guard inherited from `CASCADE_INCREMENT_INTERNAL`'s early return.
+Idempotent: re-running on the same re-slice invalidates the same set (the assignment-delta is deterministic; implicit_touch never fires). Monolithic guard inherited from `CASCADE_INCREMENT_INTERNAL`'s early return.
 
 > **Disambiguation.** `CASCADE_SLICE_INTERNAL` (vertical, intra-feature, `slice_map → increment_plan`, namespace `SLICE-{FEAT}-N`) ≠ `CASCADE_SLICE_PEERS` (horizontal, cross-feature epic-slice integration suite, namespace `slice:EPIC-N.N` → `SLICE-N.N`). Different concepts, different namespaces.
 
