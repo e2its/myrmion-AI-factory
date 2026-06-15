@@ -22,11 +22,12 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 ---
 
-## Required Inputs (13 Sources)
+## Required Inputs (14 Sources)
 
 | Source | Status | Purpose |
 |--------|--------|---------|
 | `spec.feature` | APPROVED (mandatory) | Gherkin scenarios for design; `scope` and `consumes_contract` frontmatter |
+| `slice_map.md` | APPROVED (mandatory when `slicing_strategy: incremental`; absent when `monolithic`) | CODESIGN's authoritative capability-value slices — BLUEPRINT refines these into increments (Increment Plan Generation Step A0/B), never re-invents them |
 | `user_journey.md` (or `user_journey.integration.md` for scope in [backend-only, integration]) | APPROVED (mandatory) | Data Schemas (source of truth for contracts); integration variant adds § 5 External Systems contract_slug backfill + § 6 Reliability Contract |
 | `mock.html` | APPROVED (mandatory for scope in [full-stack, frontend-only]; N/A for backend-only/integration) | Visual reference for component architecture |
 | Global UX Vision (`docs/ux/vision/`) | APPROVED (if scope in [full-stack, frontend-only]) | App shell, style guide, components, nav map |
@@ -732,14 +733,25 @@ FUNCTION auto_declare_frontend_resource():
 
 ### Increment Plan Generation (MANDATORY)
 
-> **Purpose:** BLUEPRINT declares the vertical slicing strategy IMPLEMENT will follow. Each increment = 1 PR that leaves the product 100% functional and production-deployable on merge. Feature-flag-OFF merges are NOT a valid escape.
-> **When:** After Cross-Pollination completes. All upstream artifacts (design.md, test_plan.md, contracts/**) must already be finalized at section-complete granularity.
+> **Purpose:** BLUEPRINT REFINES CODESIGN's authoritative capability-value slices (`slice_map.md`) into a contract-aware `increment_plan.md` — it does NOT invent or value-reorder slices (that authority is CODESIGN's). Each increment realizes one slice (1:1 default; ≥2 only with an intra-slice layering RDR) and = 1 PR that leaves the product 100% functional and production-deployable on merge. Feature-flag-OFF merges are NOT a valid escape.
+> **When:** After Cross-Pollination completes. All upstream artifacts (slice_map.md APPROVED, design.md, test_plan.md, contracts/**) must already be finalized at section-complete granularity.
 > **Output:** `docs/spec/{{FEATURE_ID}}/increment_plan.md` (template: `.context/templates/architect/increment_plan_template.md`).
 
-**Step A — Strategy Resolution:**
-1. READ `spec.feature` frontmatter field `slicing_strategy` (default `incremental`).
-2. IF `slicing_strategy == monolithic`:
-   - Run the **Trivial-Heuristic Gate**:
+**Step A0 — slice_map Ingestion Gate (BLOCKING, runs FIRST):**
+
+CODESIGN owns capability-VALUE slicing and emits it as `slice_map.md`. BLUEPRINT consumes it — it does NOT invent slices.
+
+1. `slicing_strategy = READ spec.feature.frontmatter.slicing_strategy` (default `incremental`).
+2. IF `slicing_strategy == incremental`:
+   - READ `docs/spec/{{FEATURE_ID}}/slice_map.md`.
+   - IF absent → ❌ BLOCK (humanised): "This feature is `incremental`, but `docs/spec/{{FEATURE_ID}}/slice_map.md` does not exist. CODESIGN owns the capability-value slicing and must emit it first. Resolution: run `/codesign --start {{FEATURE_ID}}` (or `--refine`) to produce slice_map.md, then re-run `/blueprint --start {{FEATURE_ID}}`."
+   - IF `slice_map.status != APPROVED` → ❌ BLOCK (humanised): "slice_map.md is in status `{status}`, not APPROVED. BLUEPRINT refines an APPROVED value-slicing — wait for CODESIGN auto-approval, then re-run."
+   - LOAD each `### SLICE-{{FEATURE_ID}}-N` entry: value order, `scenarios_covered`, journey steps, independence rationale, `depends_on_slice`, `depends_on_feature`, `seam`. **These are AUTHORITATIVE** — BLUEPRINT does NOT re-invent or value-reorder them (Step B).
+3. IF `slicing_strategy == monolithic`: slice_map is absent by contract (CODESIGN emits it only when incremental) — skip the read, proceed to Step A.
+
+**Step A — Strategy Resolution & Feasibility Cross-Validation:**
+1. IF `slicing_strategy == monolithic`:
+   - Run the **Trivial-Heuristic Gate** (contract-feasibility check — BLUEPRINT owns this; CODESIGN structurally cannot run it because `ops_count` reads `contracts/**`, which exist only after BLUEPRINT):
      - `scenarios_count` = number of `Scenario:` / `Scenario Outline:` blocks in spec.feature (exclude `Background:`).
      - `ops_count` = total contract operations across `contracts/**` for this feature (OpenAPI operations + GraphQL root fields + gRPC RPCs + AsyncAPI messages).
      - `scope` = `spec.feature.scope`.
@@ -747,26 +759,23 @@ FUNCTION auto_declare_frontend_resource():
    - IF gate FAILS → BLOCK with humanized message:
      - "This feature is too large for a monolithic plan (N scenarios, M ops, scope=S). Set `slicing_strategy: incremental` in spec.feature and re-run --start. See `.context/templates/architect/increment_plan_template.md` § 2 for the heuristic."
    - IF gate PASSES → emit `increment_plan.md` with a single `INC-1` increment + § 2 Monolithic Escape Declaration populated. Skip Step B.
-3. IF `slicing_strategy == incremental` → proceed to Step B (RDR).
+2. IF `slicing_strategy == incremental`:
+   - **Cross-validate the slice count against contract feasibility.** A 1-slice slice_map (`total_slices == 1`) asserts monolithic-shaped intent declared by CODESIGN; verify it holds against contracts using the same Trivial-Heuristic metrics. CVP cross-validates `total_slices == 1 AND heuristic holds` at `--approve`. If a 1-slice declaration FAILS the heuristic, that is a contract-feasibility deviation — record it in § 0 (Step C) so CODESIGN can `--refine` the slicing; do NOT silently invent extra slices.
+   - Proceed to Step B (Slice Refinement).
 
-**Step B — Increment Slicing RDR (Recommendation → Decision → Ratification):**
+**Step B — Slice Refinement (contract-aware, NOT slice invention):**
 
-Follow `.claude/skills/factory-rdr/SKILL.md` canonical protocol. Slicing-specific invariants:
-- Present **≥ 3 alternative slicings**. Typical families (pick ≥3, do NOT invent without justification):
-  - `by-user-subjourney` — each increment ships one end-to-end capability of the user journey.
-  - `by-data-entity` — each increment introduces one domain entity + its CRUD surface.
-  - `by-capability-layer` — each increment adds a vertical capability (read → write → edit → delete).
-  - `by-risk-tier` — lowest-risk / highest-observability first, risky/integration-heavy last.
-  - `happy-path-first` — all happy paths across the feature in INC-1, edge cases in INC-N.
-  - `read-then-write` — read-only surface first, mutating surface second, advanced last.
-- Each alternative MUST declare: ordered increments, scenarios per increment, contract ops per increment, estimated PR size (tasks count), and a one-line deployability rationale.
-- **Recommendation Selection Rule (reliability > cost, balanced).** BLUEPRINT ranks the alternatives in this order:
-  1. **Primary axis — implementation reliability.** Prefer the slicing with lower per-increment blast radius: fewer scenarios per PR, narrower contract surface per PR, fewer concurrent layer changes, shorter `depends_on` chains, earliest contract closure (contracts that lock down first). Reliability beats cost.
-  2. **Balance ceiling.** Reject any reliability-best alternative whose total PR count exceeds **2× the lowest-cost alternative's PR count**. The point is "most balanced scenario possible" — reliability-first, not reliability-at-any-cost.
-  3. **Cost tiebreaker.** When two alternatives tie on reliability AND both pass the balance ceiling, prefer the one with fewer total increments.
-- BLUEPRINT recommends **one** with a one-line justification that **explicitly cites which axis drove the choice** (e.g., "alt 2 — reliability-first: each increment ships a self-contained read→write loop with zero forward dependency; balance OK (4 PRs vs lowest-cost 3 PRs)").
-- User MUST ratify **verbatim** (per factory-rdr). A recommendation without user ratification is INCOMPLETE — BLOCK.
-- Store ratification record in feature worklog: action `BLUEPRINT.increment_plan.rdr_ratified` with payload `{alternatives_presented: N, user_choice: "alt-k", rdr_ratified_at: iso}`.
+> The `SLICE-{{FEATURE_ID}}-N` set, their user-value order, scenario assignment, independence rationale, and cross-slice/cross-feature dependencies are AUTHORITATIVE outputs of CODESIGN's slice_map.md. BLUEPRINT does NOT invent or value-reorder slices. Its job here is **contract-aware refinement**: map each authoritative slice to one (or, only with RDR justification, more) increments. Single authority per concern: capability-value = CODESIGN; contract-decomposition = BLUEPRINT.
+
+1. **Default mapping (1:1).** For each `SLICE-{{FEATURE_ID}}-N` in value order, emit one `INC` covering the slice's `scenarios_covered` + the contract operations those scenarios require. The increment inherits the slice's `depends_on_slice` / `depends_on_feature` / `seam` (Step C).
+2. **Intra-slice layering RDR (the ONLY surviving RDR).** When a single slice admits ≥2 viable contract-aware decompositions (e.g. a read-then-write slice whose read surface can ship before its mutating surface), run the canonical RDR (`.claude/skills/factory-rdr/SKILL.md`) over the **intra-slice layering** alternatives ONLY — it never re-ranks or re-groups slices. Each layering alternative declares: ordered increments WITHIN the slice, scenarios per increment, contract ops per increment, estimated PR size, one-line deployability rationale.
+   - **Recommendation Selection Rule (reliability > cost, balanced) — applies to intra-slice layering ONLY.** BLUEPRINT ranks the layering alternatives:
+     1. **Primary axis — implementation reliability.** Prefer the layering with lower per-increment blast radius: fewer scenarios per PR, narrower contract surface per PR, fewer concurrent layer changes, shorter `depends_on` chains, earliest contract closure. Reliability beats cost.
+     2. **Balance ceiling.** Reject any reliability-best layering whose total PR count exceeds **2× the lowest-cost layering's PR count**.
+     3. **Cost tiebreaker.** Ties on reliability that both pass the ceiling → prefer fewer total increments.
+   - BLUEPRINT recommends **one** with a one-line justification citing which axis drove the choice. User MUST ratify **verbatim** (per factory-rdr); unratified = INCOMPLETE → BLOCK.
+   - Store ratification in feature worklog: action `BLUEPRINT.increment_plan.rdr_ratified` with payload `{slice: "SLICE-{FEAT}-N", layering_alternatives_presented: N, user_choice: "alt-k", rdr_ratified_at: iso}`. A slice mapped 1:1 (no split) carries no layering RDR.
+3. **Contract-feasibility veto (recorded, never silent).** If contract reality forces a re-order or re-group of CODESIGN's value-order (e.g. an operation a slice needs is owned by a later slice), BLUEPRINT does NOT silently override — it records the deviation in § 0 (refinement record) with the contract reason, preserving single-authority discipline. A deviation is a feasibility signal CODESIGN may revisit via `--refine`.
 
 **Step C — Increment Plan Emission (IPP-compliant):**
 
@@ -774,11 +783,14 @@ Follow `.claude/skills/factory-rdr/SKILL.md` canonical protocol. Slicing-specifi
 2. Resolve placeholders:
    - `{{FEATURE_ID}}`, `{{SCOPE}}`, `[DATE]` from spec.feature + system clock.
    - `slicing_strategy`, `based_on_iteration`, `based_on_schemas_version` inherited from spec.feature (never recomputed).
-   - § 1 **Increments** populated from ratified RDR choice: title, scenarios_covered, contract_surface, depends_on, functional_definition, acceptance checklist, branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`. **The canonical dependency DAG is encoded by each increment's `depends_on:` field — CVP reads only this.**
-   - § 0 **Slicing Rationale** — populate with chosen strategy justification + summaries of ≥2 rejected alternatives + ratification timestamp.
+   - § 1 **Increments** populated from the Step B refinement: title, scenarios_covered, contract_surface, depends_on, functional_definition, acceptance checklist, branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`. **The canonical INC→INC dependency DAG is encoded by each increment's `depends_on:` field — CVP reads only this.** ADDITIONALLY set, on each `### INC-N`:
+     - `cascade_source: SLICE-{{FEATURE_ID}}-N` — the authoritative slice this increment realizes (Rule 9 join key; CVP Check 18 resolves it).
+     - `depends_on_slice` / `depends_on_feature` / `seam` — inherited from the realized slice (null-defaulted; empty stays a one-liner). These mirror the slice_map fields; `depends_on` stays the intra-feature INC→INC edge.
+   - For each realized slice, fill its `**Realized by increments:**` back-ref in slice_map.md with the citing INC ids. (slice_map.md stays APPROVED — this back-ref is the only field BLUEPRINT writes to it.)
+   - § 0 **Refinement Record** — populate with: which SLICE each INC realizes; intra-slice layering justification (when a slice split, cite the surviving Recommendation Selection axis); any contract-forced deviation from CODESIGN's value-order (Step B.3) with its reason + ratification timestamp. BLUEPRINT does NOT author a slice-invention rationale (that authority moved to CODESIGN's slice_map § 0).
    - § 2 **Monolithic Escape Declaration** — emit ONLY when `slicing_strategy == monolithic`; include heuristic metrics.
    - § 3 **Human-readable Dependency Diagram** — emit Mermaid `graph TD` block mechanically derived from § 1 `depends_on:` edges. **Non-authoritative** (CVP does not parse it; § 1 is the source of truth). Emit unconditionally — purpose is human visual review.
-   - Frontmatter: `total_increments` = count of § 1 sections; `rdr_alternatives_considered` = number presented (≥3); `rdr_ratified_at` = ratification ISO timestamp; `status: DRAFT`.
+   - Frontmatter: `total_increments` = count of § 1 sections; `rdr_alternatives_considered` = number of intra-slice layering alternatives evaluated (≥1 when any slice split; 0 when every slice maps 1:1); `rdr_ratified_at` = layering ratification ISO timestamp (null when no slice split); `status: DRAFT`.
 3. Atomic-write `docs/spec/{{FEATURE_ID}}/increment_plan.md` via IPP (skeleton-first + section-atomic; see § Incremental Persistence below for the full loop).
 
 **Step D — Self-Check Invariants (before proceeding to Section 7 GCD):**
@@ -787,11 +799,13 @@ BLUEPRINT MUST self-verify before exit:
 
 - **Scenario coverage (exclusive):** every `Scenario:` in `spec.feature` appears in exactly one increment's `scenarios_covered`. No orphan, no duplicate.
 - **Contract coverage (exclusive):** every contract operation in `contracts/**` appears in exactly one increment's `contract_surface`. No orphan, no duplicate.
+- **Slice realization (bidirectional):** every `SLICE-{{FEATURE_ID}}-N` in slice_map.md is realized by ≥1 increment whose `cascade_source` cites it; every increment's `cascade_source` resolves to a real slice; the union of scenarios across the increments realizing a slice equals that slice's `scenarios_covered`. (CVP Check 18 re-verifies at `--approve`.)
+- **Seam resolution:** every increment `seam` resolves to a declared predecessor slice (`depends_on_slice`) or external feature@slice (`depends_on_feature`). (CVP Check 19.)
 - **DAG:** `depends_on` across all increments is acyclic (topological sort succeeds). INC-1 has `depends_on: []`. Every referenced ID exists.
 - **Deployability:** every increment declares `deployable: production`. Any other value (e.g., `flagged_off`, `experimental`) → BLOCK. Feature-flag-OFF merges are NOT a valid escape. If the user argues for a flagged rollout, that MUST be expressed as an explicit follow-up increment with its own scenarios, not as an escape on a half-done slice.
 - **Acceptance checklist shape:** each increment's acceptance block contains the template's standard checklist (E2E / API / Reliability / CVP / no-TODO).
 
-Violations are **BUGS in the RDR output** — loop back to Step B with the specific violation surfaced to the user. Do NOT attempt to auto-correct.
+Violations are **BUGS in the refinement** — a coverage/seam mismatch loops back to Step B; a value-order conflict that contracts cannot satisfy is recorded as a § 0 deviation and surfaced to the user (CODESIGN may need `--refine`). Do NOT silently auto-correct slice assignment.
 
 **Step E — Worklog Registration:**
 

@@ -336,11 +336,10 @@ FUNCTION check_increment_plan_presence(elements):
             gap: "Slicing strategy drift: spec.feature says '{slicing}', increment_plan says '{fm.slicing_strategy}'",
             remediation: "spec.feature is authoritative. Re-run BLUEPRINT --refine to regenerate increment_plan.md with the correct strategy" }
 
-  IF fm.status == "APPROVED" AND fm.rdr_alternatives_considered < 3 AND fm.slicing_strategy == "incremental":
-    YIELD { check: "increment_plan_presence", severity: CRITICAL,
-            source: "increment_plan.md.frontmatter.rdr_alternatives_considered = {fm.rdr_alternatives_considered}",
-            gap: "Incremental plan approved with <3 RDR alternatives considered — factory-rdr mandates ≥3",
-            remediation: "Re-run the Increment Slicing RDR via BLUEPRINT --refine {FEATURE_ID}" }
+  # NOTE (EVOL-036): the mandatory ≥3 RDR moved UPSTREAM to CODESIGN's slice_map.md (capability-VALUE
+  # slicing) — enforced by Check 0d slice_map_presence. increment_plan's `rdr_alternatives_considered`
+  # now counts OPTIONAL intra-slice layering alternatives (0 when every slice maps 1:1), so it is NOT
+  # gated here. BLUEPRINT REFINES authoritative slices into increments; it does not invent ≥3 slicings.
 
   YIELD { check: "increment_plan_presence", severity: PASS,
           source: "increment_plan.md",

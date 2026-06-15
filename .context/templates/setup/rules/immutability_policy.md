@@ -62,7 +62,7 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 
 ##### Per-Increment Immutability (`slicing_strategy: incremental`)
 
-`increment_plan.md` § 1 is addressable per-increment. Each `### INC-N` section carries a `**Status:**` field (`DRAFT | READY | BUILDING | MERGED | INVALIDATED`) that scopes the lock below the plan level. This lets the pipeline mutate still-DRAFT increments without re-versioning the feature while preserving audit integrity for increments already in production.
+`increment_plan.md` is BLUEPRINT's contract-aware **refinement** of CODESIGN's authoritative `slice_map.md` value-slices — BLUEPRINT maps each `SLICE-{FEAT}-N` to one (1:1 default) or more increments and does NOT invent or value-reorder slices. Its § 1 is addressable per-increment. Each `### INC-N` section carries a `**Status:**` field (`DRAFT | READY | BUILDING | MERGED | INVALIDATED`) that scopes the lock below the plan level. This lets the pipeline mutate still-DRAFT increments without re-versioning the feature while preserving audit integrity for increments already in production.
 
 **Per-Increment Lock Table:**
 
@@ -98,7 +98,7 @@ When `BLUEPRINT --refine` appends a new `### INC-N+1` to a plan with at least on
 **Slicing-Strategy Flip:**
 
 - `incremental → monolithic` is permitted ONLY when no increment has reached `BUILDING` (all still `DRAFT`/`READY`) AND the trivial-heuristic passes (`≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack`). Requires `BLUEPRINT --refine`; no version bump.
-- `monolithic → incremental` is permitted ONLY when no increment has reached `BUILDING`. Requires re-running the Increment Slicing RDR. If the monolithic INC-1 already merged, a version bump (`USR-001 → USR-001-v2`) is MANDATORY — the original monolithic form is preserved as v1's audit record.
+- `monolithic → incremental` is permitted ONLY when no increment has reached `BUILDING`. Requires CODESIGN to emit/refine `slice_map.md` (capability-value slices) and BLUEPRINT to re-refine it into increments. If the monolithic INC-1 already merged, a version bump (`USR-001 → USR-001-v2`) is MANDATORY — the original monolithic form is preserved as v1's audit record.
 
 #### Phase 3: IMPLEMENT APPROVED (Hard Lock - Code Implemented + Reviewed + SAST)
 - **Trigger:** `/IMPLEMENT --build USR-001` completes all phases (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC per phase)

@@ -287,10 +287,11 @@
       ]
     },
     "rules/immutability_policy.md": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.md",
       "changelog": [
+        "1.4.0: feat(EVOL-036) SLICE-3 — § Per-Increment Immutability lead-in reworded: increment_plan is BLUEPRINT's contract-aware refinement of CODESIGN's slice_map value-slices (no slice invention). Slicing-Strategy Flip monolithic→incremental now routes through CODESIGN slice_map + BLUEPRINT refine (removed 'Increment Slicing RDR' reference).",
         "1.3.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.3.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.1: fix(EVOL-015): References section no longer points to the deleted root instructions.md; redirects to the framework README § Command Reference on GitHub",
@@ -1042,10 +1043,11 @@
       ]
     },
     "architect/increment_plan_template.md": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".context/templates/architect/increment_plan_template.md",
       "changelog": [
+        "1.3.0: feat(EVOL-036) SLICE-3 — per-INC cascade_source: SLICE-{FEAT}-N + depends_on_slice/depends_on_feature/seam (null-default); §0 Slicing Rationale → Refinement Record (slice→INC mapping, intra-slice layering, contract-forced deviations — no slice invention); rdr_alternatives_considered redefined to intra-slice layering count; Invariant 5 increment_status_monotonic reworded to 'delegated to immutability_policy.check_increment_immutability' (not a CVP function).",
         "1.2.1: fix(increment-plan-stale-section-refs) — § 0 narrative note about monolithic strategy cited `§ 3 (Monolithic Escape Declaration)`; § 2 is now the canonical location (v5.3.0 reorder missed this self-reference). Single-token edit, no semantic change.",
         "1.2.0: fix(increment-plan-rule) — § 2 Dependency Graph (Mermaid) moved to § 3 and demoted to non-authoritative (CVP `increment_deployability` reads § 1 `depends_on:` only; § 3 is a human-readable mirror). Old § 3 Monolithic Escape Declaration renumbered to § 2. § 0 Slicing Rationale gains mandatory `Priority axis cited:` field (reliability | balance-ceiling | cost-tiebreaker) consumed by the new Recommendation Selection Rule in BLUEPRINT Step B.",
         "1.1.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger).",
@@ -1070,10 +1072,11 @@
       ]
     },
     "codesign/gherkin_master_template.feature": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/gherkin_master_template.feature",
       "changelog": [
+        "1.2.0: feat(EVOL-036) SLICE-3 — Incremental-Slicing Note flipped: scenarios assigned to a capability-VALUE slice in slice_map.md at CODESIGN --start (not direct scenario→increment at BLUEPRINT); BLUEPRINT refines slices into increments via cascade_source.",
         "1.1.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger); legacy scalar `iteration:` + `iteration_history[]` retained for dual-format gate compatibility.",
         "1.0.0: feat(EVOL-027) initial manifest registration — Gherkin scenario scaffold for spec.feature output."
       ]
@@ -1113,19 +1116,21 @@
       ]
     },
     "codesign/user_journey.integration.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/user_journey.integration.md",
       "changelog": [
+        "1.2.0: feat(EVOL-036) SLICE-3 — Incremental-slicing note flipped: CODESIGN owns value slicing (slice_map.md), BLUEPRINT refines into increments. Removes 'BLUEPRINT distributes the scenarios' claim.",
         "1.1.0: feat(EVOL-027) fase 5 — reformat Section 2 from master-table to per-step blocks. Same parser-canonical contract as user_journey_template.md, with the integration-specific fields (Trigger, Effect, Idempotency Key, Retry Policy) preserved as labeled fields per step.",
         "1.0.0: feat(EVOL-027) initial manifest registration — backend-only / integration scope variant of user journey."
       ]
     },
     "codesign/user_journey_template.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/user_journey_template.md",
       "changelog": [
+        "1.3.0: feat(EVOL-036) SLICE-3 — Incremental-slicing note flipped: CODESIGN groups scenarios into capability-value slices (slice_map.md), BLUEPRINT refines into increments. Removes 'BLUEPRINT distributes the scenarios' authority claim.",
         "1.2.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger); legacy scalar `iteration:` + `iteration_history[]` retained for dual-format gate compatibility.",
         "1.1.0: feat(EVOL-027) fase 5 — reformat Section 2 from master-table to per-step blocks (### Paso N + labeled fields including DataIn:/DataOut:; optional #### Schema: block per step). Downstream parsers (e.g. MASS) anchor on the heading and read the labeled fields. Master-table layout removed; everything else (Section 0/1/3/4/5/Traceability) unchanged.",
         "1.0.0: feat(EVOL-027) initial manifest registration — user_journey.md scaffold for full-stack / frontend-only scope. Format reformat to parser-canonical (### Paso N + ### Schema:/DataIn:/DataOut:) lands in EVOL-027 fase 5 — bumped at that fase."
@@ -1288,9 +1293,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.6.6",
+      "version": "2.7.0",
       "path": "README.md",
       "changelog": [
+        "2.7.0: feat(EVOL-036) SLICE-3 — Incremental Dev Plan section rewritten as two-stage authoring: CODESIGN owns capability-VALUE slicing (slice_map.md, slicing-value RDR ≥3); BLUEPRINT refines each SLICE-{FEAT}-N into one contract-aware increment (cascade_source, depends_on_slice/feature/seam, 1:1 default, no slice invention). Removes 'Increment Slicing RDR' authority claim.",
         "2.6.6: docs(EVOL-035) — skill tree gains factory-adversarial-reasoning; cross-cutting skills count 20 → 21. COMP-1 fix from the EVOL-035 coherence review.",
         "2.6.5: docs — review-nit resolution. TOC gains a \"Part of the Myrmion ecosystem\" front-matter entry; License section gains a licence-history note (proprietary EULA → MIT at the Myrmion rebrand).",
         "2.6.4: docs — Directory Structure: add FDR/ADR record dirs. Per-feature docs/spec/{ID}/adr/ → docs/spec/{ID}/fdr/ (Feature Decision Records); docs/project_log/adr/ (project-wide ADRs) added.",
@@ -1337,9 +1343,10 @@
       ]
     },
     "commands/blueprint.md": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "path": ".claude/commands/blueprint.md",
       "changelog": [
+        "1.6.0: feat(EVOL-036) SLICE-3 — --start prereq adds slice_map.md APPROVED (incremental); Output increment_plan.md re-described as contract-aware refinement of slice_map slices (cascade_source: SLICE-{FEAT}-N, depends_on_slice/feature/seam, no slice invention); IPP bullet §0 Slicing Rationale → Refinement Record.",
         "1.5.1: fix(increment-plan-rule) — § Output entry for increment_plan.md re-describes the DAG location (canonical § 1 `depends_on:`; § 3 Mermaid mirror non-authoritative). IPP bullet updated to list § 2 Monolithic Escape + § 3 Mermaid diagram in the section-atomic order.",
         "1.5.0: feat(EVOL-032) phase 3 — `--start` bullet list gains MCP Docs Scan banner item; `--refine` step 2.6 reworded to make banner-first-line + inline-citation requirements explicit.",
         "1.4.0: feat(EVOL-032) phase 2 — `--refine {ID}` section rewritten with eight enumerated sub-steps (2.1 locate / 2.2 design state / 2.3 dependencies / 2.4 impl-state probe auto / 2.5 update with gaps / 2.6 MCP-docs / 2.7 apply / 2.8 aggregated changelog). Points at new instruction Factory-blueprint-refine.instructions.md.",
@@ -1429,9 +1436,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.4.1",
+      "version": "3.5.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "3.5.0: feat(EVOL-036) SLICE-3 — BLUEPRINT consumes slice_map. Increment Plan Generation reworked: NEW Step A0 slice_map Ingestion Gate (BLOCK when incremental + slice_map absent/non-APPROVED); Step A keeps the monolithic Trivial-Heuristic in BLUEPRINT and cross-validates CODESIGN's 1-slice declaration; Step B GUTTED from the ≥3 slice-invention RDR to Slice Refinement (map SLICE-N→INC, 1:1 default; intra-slice layering RDR is the ONLY survivor; contract-forced deviation recorded in §0 — no slice invention or value-reorder); Step C sets per-INC cascade_source: SLICE-{FEAT}-N + depends_on_slice/depends_on_feature/seam + slice 'Realized by increments' back-ref, §0 becomes Refinement Record; Step D adds bidirectional slice↔increment coverage + seam-resolution self-checks. slice_map.md added to Required Inputs (13→14).",
         "3.4.1: fix(increment-plan-stale-section-refs) — Step A heuristic-fail BLOCK message and gate-PASS emission instruction cited `§ 3` for Monolithic Escape Declaration; § 2 is now the canonical location (v5.3.0 reorder demoted Mermaid to § 3 non-authoritative). Two single-token edits, no semantic change.",
         "3.4.0: fix(increment-plan-rule) — Two coupled changes to the Increment Plan Generation phase. (1) Step C emission contract: § 2 Dependency Graph (Mermaid) demoted out of canon; canonical DAG lives in § 1 `depends_on:` (CVP-read only); new § 3 emits a Mermaid mirror mechanically derived from § 1, explicitly non-authoritative (CVP does not parse it). § 2 hosts Monolithic Escape Declaration. Step D output invariant updated. (2) Step B Recommendation Selection Rule (NEW) — reliability > cost, balanced. Primary axis: lowest per-increment blast radius (fewer scenarios/contract-ops per PR, shorter depends_on chains, earliest contract closure). Balance ceiling: reject alternatives whose total PR count exceeds 2× the lowest-cost alternative. Cost tiebreaker: fewer increments when reliability ties and balance holds. BLUEPRINT recommendation MUST cite which axis drove the choice.",
         "3.3.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2186,10 +2194,11 @@
       "path": ".claude/skills/factory-memory-cache/SKILL.md"
     },
     "skills/factory-coherence-validation/SKILL.md": {
-      "version": "1.3.4",
+      "version": "1.4.0",
       "type": "skill",
       "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "changelog": [
+        "1.4.0: feat(EVOL-036) SLICE-3 coupling — Check 0c increment_plan_presence no longer gates rdr_alternatives_considered≥3 (that field now counts OPTIONAL intra-slice layering alternatives, 0 when every slice maps 1:1); the mandatory ≥3 RDR moved UPSTREAM to slice_map.md (Check 0d slice_map_presence, lands SLICE-5). Removes stale 'Increment Slicing RDR' authority reference. New Checks 18/19/20 land in SLICE-5.",
         "1.3.4: fix(increment-plan-stale-section-refs) — Check 16 `monolithic_heuristic` prose + 5 source/gap/remediation strings cited `§ 3` for Monolithic Escape Declaration; § 2 is now the canonical location (v5.3.0 reorder demoted Mermaid to § 3 non-authoritative). Pseudocode field renamed plan.section_3_monolithic_escape → plan.section_2_monolithic_escape to mirror the template § numbering. No semantic change.",
         "1.3.3: fix(increment-plan-rule) — Check 13 `increment_deployability` cycle-detection finding `source:` string updated from `increment_plan.md § 2 Dependency Graph` to `increment_plan.md § 1 (depends_on edges)`. Reflects the new canonical-DAG location (§ 1 `depends_on:`); the diagram in § 3 is non-authoritative and not parsed by CVP.",
         "1.3.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",

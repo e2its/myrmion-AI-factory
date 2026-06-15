@@ -35,10 +35,12 @@ last_iteration_scope: "Initial co-creation"
 # =========================================================================
 
 # Incremental-Slicing Note (when slicing_strategy: incremental, which is the default):
-# Every Scenario: below will be assigned to EXACTLY ONE increment in
-# docs/spec/{{FEATURE_ID}}/increment_plan.md § 1 at BLUEPRINT --start (Increment Slicing RDR).
-# Scenarios are distributed so each increment is independently deployable to production.
-# When slicing_strategy: monolithic, all scenarios belong to a single implicit INC-1.
+# Every Scenario: below is assigned to EXACTLY ONE capability-value slice in
+# docs/spec/{{FEATURE_ID}}/slice_map.md § 1 at CODESIGN --start (slicing-value RDR — CODESIGN owns
+# capability-VALUE slicing). BLUEPRINT then REFINES each slice into a contract-aware increment in
+# increment_plan.md § 1 (cascade_source: SLICE-{{FEATURE_ID}}-N; 1:1 default) — it does NOT re-assign
+# scenarios or re-order value. Each slice/increment ships as an independently deployable vertical.
+# When slicing_strategy: monolithic, no slice_map exists and all scenarios belong to a single implicit INC-1.
 
 Feature: [Clear Requirement Title]
   As [User Role]
