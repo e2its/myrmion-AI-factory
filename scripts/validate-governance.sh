@@ -335,6 +335,61 @@ else
 fi
 
 # ============================================================================
+# CHECK 1b: PER-ENTRY VERSION ADVANCE — a changed framework_core file whose
+# manifest entry version did NOT advance vs base. Closes the blindspot where
+# CHECK 1 only verifies the manifest changed *at all*, not per-entry (GBC-02).
+# ============================================================================
+header "CHECK 1b: Per-entry version advance (changed file ⇒ entry bump)"
+
+if [ "$CORE_FILES_CHANGED" -gt 0 ]; then
+  BASE_MANIFEST_TMP=$(mktemp)
+  git show "origin/${BASE_BRANCH}:${MANIFEST}" > "$BASE_MANIFEST_TMP" 2>/dev/null || true
+  if [ -s "$BASE_MANIFEST_TMP" ]; then
+    STALE_ENTRY=$(CHANGED_TRACKED="$(printf '%s\n' "${DRIFTED_FILES[@]}")" \
+      python3 - "$BASE_MANIFEST_TMP" "$MANIFEST" <<'PYEOF'
+import json, os, sys
+def vmap(path):
+    core = json.load(open(path)).get('framework_core', {})
+    m = {}
+    for k, v in core.items():
+        if k.startswith('_') or not isinstance(v, dict):
+            continue
+        p = v.get('path') or ('.claude/' + k if not k.startswith('.') else k)
+        if 'version' in v:
+            m[p] = v['version']
+    return m
+def tup(s):
+    out = []
+    for x in str(s).split('.')[:3]:
+        n = ''.join(c for c in x if c.isdigit())
+        out.append(int(n) if n else 0)
+    return tuple(out)
+base = vmap(sys.argv[1])
+head = vmap(sys.argv[2])
+for p in os.environ.get('CHANGED_TRACKED', '').split('\n'):
+    p = p.strip()
+    if not p or p not in head or p not in base:
+        continue
+    if tup(head[p]) <= tup(base[p]):
+        print(f"{p} ({base[p]} -> {head[p]})")
+PYEOF
+) || STALE_ENTRY=""
+    if [ -n "$STALE_ENTRY" ]; then
+      fail "Changed framework_core file(s) whose manifest entry version did NOT advance:"
+      while IFS= read -r e; do [ -n "$e" ] && echo -e "     ${RED}→ $e${NC}"; done <<< "$STALE_ENTRY"
+      echo -e "   ${YELLOW}ACTION: bump each entry's version + add a changelog line (Generation Standards §2 / GWP)${NC}"
+    else
+      pass "All changed framework_core entries advanced their version"
+    fi
+  else
+    info "CHECK 1b skipped (base manifest unavailable)"
+  fi
+  rm -f "$BASE_MANIFEST_TMP"
+else
+  pass "CHECK 1b: no framework_core files changed"
+fi
+
+# ============================================================================
 # CHECK 2: ORPHAN — New files in tracked dirs not in manifest
 # ============================================================================
 header "CHECK 2: Orphan Detection (untracked files in agent/instruction dirs)"

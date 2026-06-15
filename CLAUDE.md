@@ -26,6 +26,10 @@ The only legitimate binary question without RDR is **factual** (asking for a dat
 
 Persistence path is context-specific — see Core Protocols table below.
 
+## Adversarial Reasoning — MANDATORY
+
+Before proposing or picking any non-trivial alternative, run a double pass — argue **FOR**, then argue **AGAINST** the choice across two axes: (a) SDLC governance (constitution / `[LAW]`, `.claude/rules/`, defect-prevention DCs, knowledge MCPs) and (b) the product and its objectives. A recommendation that does not survive its own AGAINST is not the recommendation. Only after both passes, present via the normal flow — RDR when it is a user decision, a one-line stated rationale (pick + surviving risk) when it is an agent-internal choice. Trivial / mechanical choices (one correct answer) skip the pass. Mechanics: [factory-adversarial-reasoning/SKILL.md](.claude/skills/factory-adversarial-reasoning/SKILL.md).
+
 ## Governance Scope — MANDATORY
 
 All files and paths listed in the **Core Protocols** section below apply to **every session turn**, not only to slash commands. Any file modification, any code suggestion, any design decision made in a free-form chat is bound by the same rules that the framework ships to downstream projects. Constitutional supremacy, protected code blocks, DRY enforcement, zero-secrets, and every rule materialised in `.claude/rules/` are always active — there is no "ad-hoc" mode where they stop mattering.
@@ -122,6 +126,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Applicability Discovery (ADP) | `.claude/skills/factory-applicability-discovery/SKILL.md` | **[LAW]** Step 0 of every command. Live scan of governance trees filtered by `applicable_when:` frontmatter, emits canonical Roll-Call block on-screen as first user-facing message. Salience anchor — agents commit in writing to which LAWs/DCs/instructions/skills apply before acting. |
 | Incremental Persistence (IPP) | `.claude/skills/factory-incremental-persistence/SKILL.md` | Skeleton-first write, section-atomic saves, resume-on-entry |
 | RDR (Recommendation → Decision) | `.claude/skills/factory-rdr/SKILL.md` | Agent-posed decisions: ≥3 options with justified recommendation, verbatim user choice. In this repo the third-R (Ratification → IPP artefact) does NOT apply — no `_progress` frontmatter or feature-scoped ADR exists; persist the choice in the commit message or a framework-level decision record under `docs/project_log/evolutions/` (the repo's actual ADR-style tree). |
+| Adversarial Reasoning | `.claude/skills/factory-adversarial-reasoning/SKILL.md` | FOR/AGAINST double pass before any non-trivial proposal/selection (axes: SDLC governance + product). Feeds RDR Beat 1. |
 | Branching & SCM | `.claude/skills/factory-branching-strategy/SKILL.md` | Branch enforcement, merge policy |
 | Commit Prompt | `.claude/skills/factory-commit-prompt/SKILL.md` | Conventional commit generation |
 | Governance Loading (GCRP) | `.claude/skills/factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |

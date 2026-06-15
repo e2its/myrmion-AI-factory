@@ -25,6 +25,8 @@ The agent presents the decision with:
 3. **Alternatives** — at least **two** additional options (total ≥ 3 options). Each alternative carries a one-line rationale describing when it would be preferred over the recommendation.
 4. **Impact** — which downstream sections / artifacts this decision affects, so the user can gauge cost of override.
 
+> **Adversarial pass (MANDATORY).** Options, recommendation, and tradeoffs are the OUTPUT of the [factory-adversarial-reasoning](../factory-adversarial-reasoning/SKILL.md) FOR/AGAINST double pass. Each option carries its FOR (when preferred) AND its AGAINST (main tradeoff vs SDLC governance + product). The recommendation names why it wins despite its own AGAINST.
+
 **MUST NOT:**
 - Present a single option phrased as a question ("shall we use X?") — that is coercion, not RDR.
 - Omit the recommendation to appear neutral — the user expects agent judgement.
@@ -129,6 +131,7 @@ If the trigger you face is not listed but meets the core principle (agent needs 
 | Decision recorded only in conversation | Not recoverable after summarization | Persist to `_progress.decisions[]` AND inline comment |
 | Multiple decisions in one question | User cannot ratify them independently | Split into sequential RDRs |
 | Skipped RDR because "obvious" | Bypasses user agency | If ≥2 viable options exist, RDR is mandatory |
+| Options framed only positively (no AGAINST) | User cannot weigh the real tradeoff | Run the [adversarial double pass](../factory-adversarial-reasoning/SKILL.md); each option carries its counter-case |
 | "Registration" used as the third R | Terminology drift | Canonical third beat is **Ratification** (persistence + artifact commit) |
 
 ---
@@ -142,6 +145,7 @@ If the trigger you face is not listed but meets the core principle (agent needs 
 | **GCRP (factory-governance-loading)** | Recommendation justifications cite governance context loaded by GCRP. Ratified decisions become inputs to future governance snapshots. |
 | **CVP (factory-coherence-validation)** | Ratified decisions persisted via RDR are the ground truth CVP checks across artifacts. Missing RDR trail = lower coherence confidence. |
 | **ACP (factory-agent-communication)** | ACP structures HOW the agent speaks to the user during RDR; RDR structures WHAT is being asked / chosen / persisted. Orthogonal. |
+| **Adversarial Reasoning (factory-adversarial-reasoning)** | Feeds RDR Beat 1: options, recommendation, and tradeoffs are the output of the FOR/AGAINST double pass. RDR ratifies; adversarial reasons. |
 
 ---
 

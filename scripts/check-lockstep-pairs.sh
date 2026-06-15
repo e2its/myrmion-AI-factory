@@ -174,10 +174,11 @@ while IFS= read -r pair; do
         DRIFT_COUNT=$((DRIFT_COUNT + 1))
       else
         CHECKED=$((CHECKED + SECTION_COUNT))
-        if ! check_universal_clauses "$LEFT" "$RIGHT" "$SECTIONS_JSON"; then
-          rc=$?
-          DRIFT_COUNT=$((DRIFT_COUNT + rc))
-        fi
+        # Capture the function's real exit status. `if ! func; then rc=$?` would
+        # set rc to the if-test status (0), silently dropping the drift count.
+        rc=0
+        check_universal_clauses "$LEFT" "$RIGHT" "$SECTIONS_JSON" || rc=$?
+        DRIFT_COUNT=$((DRIFT_COUNT + rc))
       fi
       ;;
     *)

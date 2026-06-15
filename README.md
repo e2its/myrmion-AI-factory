@@ -144,7 +144,7 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── Factory-backlog-operations.instructions.md
 │   ├── Factory-backlog-execution-plan.instructions.md
 │   └── Factory-backlog-next-task.instructions.md
-├── skills/                                  # 20 cross-cutting skills (reusable protocols)
+├── skills/                                  # 21 cross-cutting skills (reusable protocols)
 │   ├── factory-applicability-discovery/     # ADP — governance Roll-Call (command Step 0)
 │   ├── factory-governance-loading/          # GCRP — Zero Trust context recovery
 │   ├── factory-incremental-persistence/     # IPP — incremental persistence
@@ -154,6 +154,7 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── factory-branching-strategy/          # SCM — branch enforcement
 │   ├── factory-commit-prompt/               # Auto-generated conventional commits
 │   ├── factory-rdr/                         # RDR — Recommendation → Decision
+│   ├── factory-adversarial-reasoning/       # Adversarial reasoning — FOR/AGAINST double pass
 │   ├── factory-batch-interactivity/         # BIP — tiered proposal/review cycles
 │   ├── factory-agent-communication/         # ACP — controlled verbosity
 │   ├── factory-iteration-model/             # Cascading invalidation

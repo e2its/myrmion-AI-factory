@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -54,7 +54,8 @@
         "right": ".context/templates/setup/claude/CLAUDE.md",
         "universal_sections": [
           "## Communication Style — MANDATORY",
-          "## RDR Universal — MANDATORY"
+          "## RDR Universal — MANDATORY",
+          "## Adversarial Reasoning — MANDATORY"
         ]
       }
     ],
