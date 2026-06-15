@@ -27,7 +27,10 @@ on:
       - '.context/templates/setup/scripts/governance-*.sh'
       - 'config/coherence-context.json'
       - 'scripts/check-lockstep-pairs.sh'
+      - 'scripts/test-check-lockstep-pairs.sh'
       - '.github/workflows/lockstep-check.yml'
+      - 'CLAUDE.md'
+      - '.context/templates/setup/claude/CLAUDE.md'
 
 permissions:
   contents: read
@@ -47,6 +50,11 @@ jobs:
         run: |
           chmod +x scripts/check-lockstep-pairs.sh
           ./scripts/check-lockstep-pairs.sh
+
+      - name: Run lock-step gate self-test
+        run: |
+          chmod +x scripts/test-check-lockstep-pairs.sh
+          ./scripts/test-check-lockstep-pairs.sh
 
       - name: Failure hint
         if: failure()
