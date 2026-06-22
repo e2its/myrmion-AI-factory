@@ -1,8 +1,8 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "5.6.0",
-  "last_updated": "2026-06-22T00:00:00Z",
+  "framework_version": "5.6.1",
+  "last_updated": "2026-06-22T12:00:00Z",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -1752,9 +1752,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.8.1",
+      "version": "1.8.2",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.8.2: fix(coherence) — broken markdown link to iteration-model skill (line 543): wrong path + case `Factory-iteration-model/SKILL.md` → `.claude/skills/factory-iteration-model/SKILL.md` (repo root-relative convention). Caught by framework coherence sweep (reference coherence / Block 13).",
         "1.8.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.8.0: fix(EVOL-028) remove duplicate `applyTo:` field — same rationale as Factory-backlog-execution-plan.",
         "1.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -2770,6 +2771,7 @@
     "skills/factory-batch-interactivity/SKILL.md": {
       "version": "1.2.2",
       "type": "skill",
+      "path": ".claude/skills/factory-batch-interactivity/SKILL.md",
       "role": "BIP — tiered proposal/review/converge cycles, BA mediation between specialist agents and the user.",
       "changelog": [
         "1.2.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
