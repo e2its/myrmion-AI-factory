@@ -572,8 +572,26 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
       RETURN BLOCKED
     # Soft violations OR bvl_gate=false → advisory log only.
 
+  # 8. Minimalism advisory (DC-29 — over-engineering self-scan, NON-BLOCKING)
+  # No MCP: the agent (LLM) scans scope_files for the four DC-29 categories — reinvented stdlib,
+  # unneeded dependency, single-implementation abstraction, dead flexibility. Advisory by design
+  # (minimalism is subjective; the cost-saving lives in prevention at decision-time via
+  # factory-adversarial-reasoning, NOT in post-hoc blocking). NEVER blocks IMPLEMENTED_AND_VERIFIED.
+  # Fail-open: skip silently when the catalog is absent.
+  # how-not-what guardrail: findings are logged for the author; a scope cut is NEVER auto-applied —
+  # a real scope reduction routes to CODESIGN via RDR, not to this gate.
+  IF FILE_EXISTS(".claude/rules/defect-prevention.md"):
+    minimalism_findings = SCAN_DC29(scope_files)   # [{file, line, category, suggestion, net_lines}]
+    results.minimalism = {
+      status: minimalism_findings.length == 0 ? "lean" : "advisory",
+      findings: minimalism_findings
+    }
+    IF minimalism_findings.length > 0:
+      LOG: "ℹ️ BVL Minimalism (DC-29, advisory): {minimalism_findings.length} simplification(s) possible, net -{SUM(net_lines)} lines. Author decides — no block."
+    # No RETURN BLOCKED from this step — ever.
+
   # All checks passed
-  LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}, complexity={results.complexity.status}"
+  LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}, complexity={results.complexity.status}, minimalism={results.minimalism.status}"
 
   RETURN PASSED(results)
 ```

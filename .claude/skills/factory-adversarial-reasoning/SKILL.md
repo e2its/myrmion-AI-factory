@@ -28,6 +28,19 @@ Why this option could be wrong. Test across TWO axes:
 
 A recommendation that does not survive its own AGAINST is not the recommendation. Switch it, or state why the FOR wins despite the AGAINST.
 
+### The Do-Less Lens (always-on — DC-29)
+
+Every AGAINST pass also runs the minimalist counter-question: is the cheapest version the one that builds **less — or nothing**? Walk the YAGNI ladder, stop at the first viable rung:
+
+1. Does it need to exist? (skip)
+2. stdlib? → 3. native platform feature? → 4. already-installed dependency? → 5. one-liner? → 6. only then, minimal code.
+
+Flag the four over-engineering categories: reinvented stdlib, unneeded dependency, single-implementation abstraction, dead flexibility (config/flags/params with no caller). The token never spent is the code never generated — this lens is the cost-saver, applied at decision-time before any line is written.
+
+**Guardrail — how, not what.** The lens argues a simpler *implementation*. It NEVER cuts *specified scope*: a scope reduction is a user decision routed through [factory-rdr](../factory-rdr/SKILL.md) to CODESIGN, never a silent omission. Validation, error handling, security, accessibility are never simplified.
+
+**Output of the lens.** When the do-less option wins → it becomes the recommendation (name the rung reached). When the fuller option wins → state why the extra code earns its place. Source of truth: DC-29 in `.claude/rules/defect-prevention.md`.
+
 ## Output
 
 - **User-facing decision** → feed both passes into [factory-rdr](../factory-rdr/SKILL.md): each option carries its FOR (when preferred) AND its AGAINST (main tradeoff vs governance + product). The recommendation names why it wins despite its own AGAINST.
