@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "5.6.1",
+  "framework_version": "5.7.0",
   "last_updated": "2026-06-22T12:00:00Z",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
@@ -1330,9 +1330,10 @@
       ]
     },
     "commands/audit.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": ".claude/commands/audit.md",
       "changelog": [
+        "1.3.0: feat(EVOL-038): --software --deep sub-command added — extended software audit with (1) prior-audit reconciliation Step R (stable-ID match → STILL_VALID/MODIFIED_CONTEXT/RESOLVED, RESOLVED requires proof-of-absence), (2) per-axis deep-dive (fan-out fact-gathering + mandatory adversarial refute-by-default verification) emitting docs/engineering/{date}-deepdive-{slug}.md per axis, (3) stable finding IDs {AXIS}-{N} as cross-cycle + issue-tracker join key. Doc-only (never edits code, never auto-creates issues). Reuses docs/software_audit.md artifact + identical --refine/--approve/--scope semantics. De-specialised port of nexus feature/FRAMEWORK-audit-deep: stack-specific probes framed as adaptable examples, NEXUS-security tracker generalised to the project issue tracker.",
         "1.2.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.1.0: feat(EVOL-015): --software command added — narrow software-only audit variant (P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1; excludes G1-G3, I1-I4, SEC2, SEC5). Produces docs/software_audit.md, coexists with docs/technical_due.md. Disambiguation via --scope {audit|software} when both artifacts are open. Use cases: M&A of a single codebase, OSS evaluation, contributor-level read.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Per CLAUDE.md § Generation Standards rule 2, every framework-core touch requires a version bump; commands were excluded from the manifest by oversight. Content unchanged at this commit — this entry registers the file and seeds its changelog."
@@ -1418,9 +1419,10 @@
       ]
     },
     "instructions/Factory-audit-checklist.instructions.md": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
       "changelog": [
+        "2.6.0: feat(EVOL-038): § Command: --software --deep added — full reconciliation + deep-dive protocol. Stable finding IDs {AXIS}-{N} (A=data, B=api/security, C=components) reused across cycles. Step R prior-audit reconciliation (runs before scan, classifies each prior finding STILL_VALID/MODIFIED_CONTEXT/RESOLVED with proof-of-absence rule, carries non-RESOLVED forward, emits §0 table). Step Deep per-axis fan-out fact-gathering + integrity scans + MANDATORY adversarial refute-by-default verification + per-axis deepdive doc. Methodology note (auditor owns judgment, never stamps critical on unverified agent claim). Output frontmatter gains deepdives/prior_cycle/reconciliation counts. Issue-tracker handoff advisory. De-specialised port of nexus: stack-specific probe examples (RLS/verify_jwt/etc.) reframed as adaptable illustrations for a relational-DB+serverless stack; NEXUS-security tracker generalised to project issue tracker; report heading english-default with (report language) note.",
         "2.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.4.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "2.2.0: feat(EVOL-015): Command: --software added — narrow software-only audit variant. New artifact docs/software_audit.md with same schema as technical_due.md. Section list P0 + S1-S4 + SEC1/SEC3/SEC4 + COMP1. Excluded: G1-G3 (HR), I1-I4 (infra), SEC2 (network), SEC5 (compliance). Verdict thresholds scaled down (risk_score < 25 / 25-49 / >= 50 for GO / GO_WITH_CONDITIONS / NO_GO) because section count is halved — same density = lower absolute. --refine and --approve auto-detect artifact; require --scope {audit|software} when both open. Branch pattern feature/AUDIT-XXX-software for the new mode.",
