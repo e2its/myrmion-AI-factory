@@ -40,6 +40,17 @@ Use case: rapid repository health check without demanding organizational access 
 
 See `.claude/instructions/Factory-audit-checklist.instructions.md` § Command: `--software` for the full section list and scope rules.
 
+### `--software --deep`
+Extended software audit. Runs everything `--software` does **plus** three additions:
+
+1. **Prior-audit reconciliation (Step R).** Before scanning, load the most recent APPROVED audit (`docs/software_audit.md` + archived cycles under `docs/project_log/audits/`). For each prior finding — matched by its **stable finding ID** — classify against current reality: `STILL_VALID` (persists unchanged) · `MODIFIED_CONTEXT` (still present, scope/severity changed — record delta) · `RESOLVED` (no longer reproducible — cite negative evidence). Non-RESOLVED findings carry forward into the new cycle. Emits a `§0 Reconciliation` table.
+2. **Extended multi-axis deep-dive.** Beyond S1–S4/SEC, a per-axis deep analysis (default axes: data schema, API/security, components — derive from the stack) via parallel fact-gathering + **adversarial verification** (refute-by-default; every "exploitable"/critical claim re-verified file:line). Emits one detailed engineering doc per axis at `docs/engineering/{date}-deepdive-{slug}.md` + a summary annex per axis in `software_audit.md`.
+3. **Stable finding IDs.** Every finding gets a persistent `{AXIS}-{N}` ID (A=data, B=api/security, C=components, S/SEC=standard) that survives across cycles — the join key for Step R and for the project's issue tracker.
+
+Doc-only: `--deep` never modifies code and never auto-creates tracker issues (registration is a separate explicit step). Same `--refine` / `--approve` / `--scope` semantics as `--software` (same `docs/software_audit.md` artifact).
+
+See `.claude/instructions/Factory-audit-checklist.instructions.md` § Command: `--software --deep` for the full reconciliation + deep-dive protocol.
+
 ### `--refine {SECTION_ID}`
 Refine a specific section. Valid IDs depend on which mode produced the artifact:
 - After `--audit`: `P0`, `G1`–`G3`, `S1`–`S4`, `I1`–`I4`, `SEC1`–`SEC5`, `COMP1`.

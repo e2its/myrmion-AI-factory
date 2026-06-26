@@ -290,6 +290,56 @@ Downstream `SETUP --init` consumes whichever keys are non-null and asks the user
 
 ---
 
+## Command: `--software --deep`
+
+Extended variant of `--software`. Same included sections (P0, S1–S4, SEC1/SEC3/SEC4, COMP1) **plus** three additions: prior-audit reconciliation, per-axis deep-dive, and stable finding IDs. Produces `docs/software_audit.md` (with `§0 Reconciliation` + per-axis annexes) and one `docs/engineering/{YYYY-MM-DD}-deepdive-{slug}.md` per axis. `--deep` is **doc-only** — never edits code, never auto-creates tracker issues.
+
+### Stable finding IDs
+
+Every finding carries a persistent ID `{AXIS}-{N}` — `A-{N}` data schema · `B-{N}` API/security · `C-{N}` components · `S{n}`/`SEC{n}` standard sections. IDs are assigned once and **REUSED across cycles** for the same defect — they are the join key for Step R and for the project's issue tracker. A genuinely new defect gets the next free N in its axis; **never renumber a carried-forward finding**.
+
+### Step R — Prior-Audit Reconciliation (runs BEFORE the scan)
+
+```yaml
+1. Locate the most recent APPROVED software_audit.md + archived cycles under docs/project_log/audits/*software_audit*.
+   IF none: skip Step R (first deep cycle), note it in §0.
+2. Extract every prior finding: stable ID + title + severity + evidence (file:line).
+3. FOR EACH prior finding — re-scan current reality and classify:
+   - RESOLVED         → pattern no longer reproducible. Cite the NEGATIVE evidence (the guard/fix now present). Do NOT carry forward.
+   - MODIFIED_CONTEXT → still present but scope/severity/location changed. Record delta (old → new). Carry forward with updated evidence.
+   - STILL_VALID      → unchanged. Carry forward verbatim.
+4. Emit "## 0. Reconciliation with Prior Cycle" (in the report language): table  ID | title | prior cycle | state | evidence.
+5. Carried-forward findings (STILL_VALID + MODIFIED_CONTEXT) are first-class findings of the new cycle and feed risk_score.
+```
+
+**RULE:** a finding may only be marked `RESOLVED` with positive proof-of-absence (the scan that demonstrates the pattern is gone) — never on assumption or because it "should" be fixed.
+
+### Step Deep — Per-axis deep-dive (after standard sections)
+
+For each axis (default: **data schema**, **API/security**, **components**; adapt to stack — a backend-only project may drop components and add infra):
+
+1. **Fan-out fact-gathering.** Decompose the axis into non-overlapping scopes (data → per-domain-cluster schema; API → per-endpoint/handler; components → per-hotspot + cross-cutting dimensions) and gather VERIFIABLE FACTS (catalogs, counts, file:line) — facts only, no conclusions.
+2. **Integrity / pattern scans.** Axis-specific global scans. *Example probes for a relational-DB + serverless-functions stack (adapt to yours):*
+   - data → row-level-security coverage, FK-index gaps, privileged-function search-path, `ON DELETE` blast-radius, enum/trigger inventory, permission-model read.
+   - API → auth matrix (declared flag + manual checks), privilege-escalation / authz-bypass surface, secrets, CORS, webhook-signature, SSRF, input-validation.
+   - components → data-coupling (inline data-access), code-splitting, duplication, state-mgmt, i18n/a11y.
+3. **Adversarial verification (MANDATORY).** Every finding ≥ medium — and EVERY "exploitable"/critical claim — is re-verified file:line with a refute-by-default probe. Sub-agent conclusions are **hypotheses until verified**. Explicitly distinguish: *public-by-design* exposure (matches an intended anonymous-access policy) ≠ leak; a disabled gateway auth flag ≠ unauthenticated (manual auth may exist downstream). Over-flags get refuted; real defects get confirmed evidence.
+4. Emit `docs/engineering/{date}-deepdive-{slug}.md` (synthesis + raw catalogs) + a summary annex in `software_audit.md` linking it. Assign stable IDs.
+
+### Methodology note
+
+Fan-out + adversarial-verify is parallelisable (multi-agent), but the **judgment** — severity, exploitability, risk_score, RESOLVED classification — is the auditor's, made from VERIFIED facts. **Never stamp a critical/exploitable finding on an unverified agent claim.**
+
+### Output + verdict
+
+`software_audit.md` frontmatter gains: `deepdives: {axis: path}`, `prior_cycle`, `reconciliation: {still_valid, modified, resolved}` counts. `risk_score` reflects carried-forward + new findings. Same GO/NO_GO/GO_WITH_CONDITIONS matrix; document the owner-of-code override when the literal matrix over-penalises a self-audited codebase. State machine + `--refine`/`--approve` semantics identical to `--software` (same artifact); resume reads `last_completed_section`.
+
+### Issue-tracker handoff (advisory)
+
+Findings (carried + new) are the input to the project's security/issue tracker — one issue per stable ID. `--deep` is doc-only; issue registration is an explicit separate step (`/backlog` or external tracker). The stable ID is the cross-reference that lets the next `--deep` cycle reconcile tracker state.
+
+---
+
 ## Command: `--refine {{SECTION_ID}}`
 
 - Reopens a specific section for correction
