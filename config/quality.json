@@ -1,0 +1,28 @@
+{
+  "$schema": "quality_v1",
+  "_doc": "Meta repo's own quality config (EVOL-040). complexity disabled (repo is markdown + small bash/python validators — Semgrep MCP coverage for .sh is weak; revisit if validators grow). code_review defaults (Block 20 active, dogfooding). security_scan resolved concrete: gitleaks is the meta repo's ratified scanner (RDR-2; house default, range-aware, single binary).",
+  "complexity": {
+    "enabled": false,
+    "mcp_server": null,
+    "mcp_tool_name": null,
+    "thresholds": { "soft": 10, "hard": 15 },
+    "bvl_gate": false,
+    "pr_blocker": false,
+    "source_extensions": [".py", ".sh"]
+  },
+  "code_review": {
+    "enabled": true,
+    "pr_blocker": true,
+    "gate_blocking_agents": ["code-reviewer", "silent-failure-hunter", "pr-test-analyzer"],
+    "conditional_agents": ["type-design-analyzer"],
+    "advisory_agents": ["comment-analyzer", "code-simplifier"]
+  },
+  "security_scan": {
+    "enabled": true,
+    "scanner": "gitleaks",
+    "secrets_command": "gitleaks detect --source=. --redact --no-banner --log-opts={{RANGE}}",
+    "report_format": "exit-code",
+    "fail_on": "any",
+    "install_hint": "brew install gitleaks | apt: see github.com/gitleaks/gitleaks/releases"
+  }
+}

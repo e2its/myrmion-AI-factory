@@ -3,8 +3,11 @@
 # test-check-lockstep-pairs.sh — self-test for the lock-step gate
 # ============================================================================
 # META-ONLY: exercises scripts/check-lockstep-pairs.sh in a disposable sandbox.
-# Regression guard for the universal_clause_mirror false-green (LS-01): a
-# drifted universal section MUST make the gate exit 1, not 0.
+# Coverage: universal_clause_mirror (Cases 1-3, incl. the LS-01 false-green
+# regression guard) + law_corpus_mirror (EVOL-040: Cases 4-17 — identity,
+# body drift, ordinal cosmetics, placement, addendum truncation both
+# directions, deletion-everywhere, duplicates, empty corpus, zero-law crash
+# regression, malformed-config exit 2).
 # ============================================================================
 set -uo pipefail
 
@@ -61,6 +64,92 @@ cat > "$d/config/coherence-context.json" <<'JSON'
     "universal_sections": ["## Shared — MANDATORY"] } ] } }
 JSON
 assert_exit "missing section on right detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# ── law_corpus_mirror cases (EVOL-040) ──────────────────────────────────────
+
+write_law_pair() { # $1 dir ; $2 left-laws-body ; $3 right-laws-body ; $4 extra pair fields (JSON, no braces)
+  local dir="$1"
+  mkdir -p "$dir/config" "$dir/.context/templates/setup" "$dir/L" "$dir/R"
+  printf '# Doc\n\n## Governance Rules\n\n%s\n## Next\n\ntail.\n' "$2" > "$dir/L/F.md"
+  printf '# Doc\n\n## Governance Rules\n\n%s\n## Next\n\ntail.\n' "$3" > "$dir/R/F.md"
+  cat > "$dir/config/coherence-context.json" <<JSON
+{ "audit": { "lock_step_pairs": [
+  { "type": "law_corpus_mirror", "left": "L/F.md", "right": "R/F.md",
+    "law_section": "## Governance Rules"${4:+, $4} } ] } }
+JSON
+}
+
+UNI=$'1. **[LAW-01] Alpha**: body alpha.\n2. **[LAW-02] Beta**: body beta.'
+
+# Case 4 — identical corpus → pass
+d=$(mktemp -d); write_law_pair "$d" "$UNI" "$UNI" ""
+assert_exit "law corpus identical" 0 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 5 — drifted universal body (ordinal differs too — must be stripped) → fail
+d=$(mktemp -d); write_law_pair "$d" "$UNI" $'1. **[LAW-01] Alpha**: body alpha.\n7. **[LAW-02] Beta**: body DRIFTED.' ""
+assert_exit "law universal body drift detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 5b — same bodies under different ordinals → pass (ordinal is cosmetic)
+d=$(mktemp -d); write_law_pair "$d" "$UNI" $'3. **[LAW-01] Alpha**: body alpha.\n9. **[LAW-02] Beta**: body beta.' ""
+assert_exit "ordinal-only difference tolerated" 0 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 6 — undeclared ID missing on right → fail
+d=$(mktemp -d); write_law_pair "$d" "$UNI" $'1. **[LAW-01] Alpha**: body alpha.' ""
+assert_exit "undeclared missing law detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 7 — declared meta_only absent right → pass; present right → fail
+d=$(mktemp -d); write_law_pair "$d" "$UNI" $'1. **[LAW-01] Alpha**: body alpha.' '"meta_only": ["LAW-02"]'
+assert_exit "declared meta-only law tolerated" 0 "$(run_gate "$d")"; rm -rf "$d"
+d=$(mktemp -d); write_law_pair "$d" "$UNI" "$UNI" '"meta_only": ["LAW-02"]'
+assert_exit "meta-only law present on right detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 8 — duplicate ID within one side → fail
+d=$(mktemp -d); write_law_pair "$d" $'1. **[LAW-01] Alpha**: a.\n2. **[LAW-01] Alpha**: a.' $'1. **[LAW-01] Alpha**: a.' ""
+assert_exit "duplicate law ID detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 9 — divergence BELOW the addendum marker of a declared addendum ID → pass
+AL=$'1. **[LAW-01] Alpha**: body alpha.\n\n   *Meta application:* meta-specific tail.'
+AR=$'1. **[LAW-01] Alpha**: body alpha.\n\n   *Project application:* project-specific tail.'
+d=$(mktemp -d); write_law_pair "$d" "$AL" "$AR" '"addendum_ids": ["LAW-01"]'
+assert_exit "declared addendum divergence tolerated" 0 "$(run_gate "$d")"; rm -rf "$d"
+
+# ── EVOL-040 pr-review-loop regression guards ───────────────────────────────
+
+# Case 10 — drift ABOVE the addendum marker of a declared addendum ID → fail
+AL2=$'1. **[LAW-01] Alpha**: body DRIFTED.\n\n   *Meta application:* tail.'
+AR2=$'1. **[LAW-01] Alpha**: body alpha.\n\n   *Project application:* tail.'
+d=$(mktemp -d); write_law_pair "$d" "$AL2" "$AR2" '"addendum_ids": ["LAW-01"]'
+assert_exit "drift above addendum marker detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 11 — UNDECLARED ID with divergent application tails → fail (no truncation)
+d=$(mktemp -d); write_law_pair "$d" "$AL" "$AR" ""
+assert_exit "undeclared addendum-style divergence detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 12 — declared meta_only ID absent from BOTH files (law deleted everywhere) → fail
+d=$(mktemp -d); write_law_pair "$d" $'1. **[LAW-01] Alpha**: a.' $'1. **[LAW-01] Alpha**: a.' '"meta_only": ["LAW-02"]'
+assert_exit "declared meta-only law deleted everywhere detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 13 — declared project_only ID absent from BOTH files → fail
+d=$(mktemp -d); write_law_pair "$d" $'1. **[LAW-01] Alpha**: a.' $'1. **[LAW-01] Alpha**: a.' '"project_only": ["LAW-09"]'
+assert_exit "declared project-only law deleted everywhere detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 14 — empty corpus BOTH sides (heading renamed / format drifted) → fail
+d=$(mktemp -d); write_law_pair "$d" $'prose, no laws here.' $'prose, no laws here.' ""
+assert_exit "empty law corpus on both sides detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 15 — zero law lines on LEFT only (grep -c crash regression) → fail, NOT arithmetic crash
+d=$(mktemp -d); write_law_pair "$d" $'prose only.' $'1. **[LAW-01] Alpha**: a.' ""
+assert_exit "zero-law left side fails cleanly (no crash)" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 16 — duplicate ID on the RIGHT side → fail
+d=$(mktemp -d); write_law_pair "$d" $'1. **[LAW-01] Alpha**: a.' $'1. **[LAW-01] Alpha**: a.\n2. **[LAW-01] Alpha**: a.' ""
+assert_exit "duplicate law ID on right detected" 1 "$(run_gate "$d")"; rm -rf "$d"
+
+# Case 17 — malformed coherence-context.json → exit 2 (never a green no-pairs INFO)
+d=$(mktemp -d)
+mkdir -p "$d/config" "$d/.context/templates/setup"
+echo '{ "audit": { broken json' > "$d/config/coherence-context.json"
+assert_exit "malformed config JSON exits 2" 2 "$(run_gate "$d")"; rm -rf "$d"
 
 echo ""
 echo "test-check-lockstep-pairs: $PASS passed, $FAIL failed"

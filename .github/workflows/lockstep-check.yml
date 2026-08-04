@@ -15,22 +15,14 @@
 
 name: Lock-step Check
 
+# EVOL-040: no paths filter — LAW-12 says this gate runs "on every PR" and the
+# pair list is CONFIG (coherence-context.json), not workflow YAML: every new
+# pair would otherwise need a trigger edit here, and a PR touching only one
+# pair side (e.g. scripts/security-scan.sh) would merge ungated. The suite
+# runs in seconds; same rationale as governance-check.yml's filter removal.
 on:
   pull_request:
     branches: [main]
-    paths:
-      - '.claude/hooks/**'
-      - '.claude/settings.json'
-      - 'scripts/governance-*.sh'
-      - '.context/templates/setup/claude/hooks/**'
-      - '.context/templates/setup/claude/settings.json'
-      - '.context/templates/setup/scripts/governance-*.sh'
-      - 'config/coherence-context.json'
-      - 'scripts/check-lockstep-pairs.sh'
-      - 'scripts/test-check-lockstep-pairs.sh'
-      - '.github/workflows/lockstep-check.yml'
-      - 'CLAUDE.md'
-      - '.context/templates/setup/claude/CLAUDE.md'
 
 permissions:
   contents: read

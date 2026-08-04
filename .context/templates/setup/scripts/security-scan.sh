@@ -1,7 +1,38 @@
 #!/usr/bin/env bash
+# security-scan.sh — tool-agnostic security dispatcher (EVOL-040, RDR-2)
+# ============================================================================
+# The framework owns the PROCESS; the project owns the TOOL, chosen at SETUP
+# discovery Q23.2 and materialized into config/quality.json.security_scan.
+# This script NEVER names a scanner in code paths — the resolved
+# `secrets_command` template is the only tool binding (LAW-11 pattern).
+#
+# Two-layer security model:
+#   floor  — detect_change_type.py secrets regex (pr-review Block 3): always
+#            on, fail-closed, no external deps. Never disabled by this script.
+#   scanner— this dispatcher's --secrets lane: config-driven, fail-open NOISY
+#            (mandatory 🔒 banner) unless --require-scanner (pre-push context).
+#
+# Exit codes (secrets lane): 0 clean / disabled / scanner-unavailable-fail-open
+#             1 findings (fail-closed on findings, ALWAYS)
+#             2 infra failure under --require-scanner, or malformed invocation
+# Legacy lanes (--dast/--contracts/--validate-ux/--drift) predate this contract
+# and exit 1 on their own tooling failures under --apply.
+# ============================================================================
 set -euo pipefail
-SEM_GREP=0
-GITLEAKS=0
+
+# Anchor to project root regardless of cwd — config/quality.json and the
+# configured --source=. are repo-relative; from a subdirectory the lane would
+# otherwise misread "not configured" and fail-open (same preamble as
+# validate-governance.sh).
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
+  cd "$CLAUDE_PROJECT_DIR"
+elif REPO_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null); then
+  cd "$REPO_TOPLEVEL"
+fi
+
+SECRETS=0
+REQUIRE_SCANNER=0
+RANGE=""
 VALIDATE_CONTRACTS=0
 VALIDATE_UX=0
 DRIFT_CHECK=0
@@ -12,22 +43,112 @@ APPLY=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --semgrep) SEM_GREP=1 ;;
-    --gitleaks) GITLEAKS=1 ;;
-    --validate-contracts) VALIDATE_CONTRACTS=1 ;;
+    --secrets) SECRETS=1 ;;
+    --require-scanner) REQUIRE_SCANNER=1 ;;
+    --range) RANGE="${2:-}"; shift ;;
+    --contracts|--validate-contracts) VALIDATE_CONTRACTS=1 ;;
     --validate-ux) VALIDATE_UX=1 ;;
-    --drift-check) DRIFT_CHECK=1 ;;
+    --drift|--drift-check) DRIFT_CHECK=1 ;;
     --dast) DAST=1 ; DAST_MODE="baseline" ;;
     --dast-full) DAST=1 ; DAST_MODE="full" ;;
     --dast-api) DAST=1 ; DAST_MODE="api" ;;
     --apply) APPLY=1 ; DRY_RUN=0 ;;
+    *) echo "security-scan: unknown flag $1" >&2; exit 2 ;;
   esac
   shift
 done
 
-cmd="echo security scan base"
-[ "$SEM_GREP" -eq 1 ] && cmd="$cmd && echo semgrep"
-[ "$GITLEAKS" -eq 1 ] && cmd="$cmd && echo gitleaks"
+# ── Secrets lane (config-driven dispatcher) ──
+if [ "$SECRETS" -eq 1 ]; then
+  # RANGE is a CALLER input (not the project-controlled config) and is
+  # substituted into a command that gets eval'd — validate it as a git range
+  # BEFORE it can reach eval. git refnames legally contain ; $ | so a hostile
+  # remote default-branch name must not become code. Fail-closed on mismatch.
+  if [ -n "$RANGE" ] && ! printf '%s' "$RANGE" | grep -qE '^[A-Za-z0-9._/~^-]+(\.\.\.?[A-Za-z0-9._/~^-]+)?$'; then
+    echo "❌ security-scan: refusing malformed --range '$RANGE' (not a valid git range)." >&2
+    exit 2
+  fi
+
+  # ONE python invocation, ONE fallback covering EVERY failure mode (file
+  # missing / JSON broken / python3 absent). Probing scalars separately would
+  # leave the fallback illusory: a missing python3 would kill the script under
+  # set -euo pipefail before the header-contracted fail-open could run.
+  SS_META=$(RANGE_VAL="$RANGE" python3 - <<'PY' 2>/dev/null
+import json, os
+try:
+    cfg = json.load(open('config/quality.json')).get('security_scan', {})
+    cfg_ok = True
+except FileNotFoundError:
+    cfg, cfg_ok = {}, True          # no config = unconfigured, fail-open
+except Exception:
+    cfg, cfg_ok = {}, False         # present but broken = distinct cause
+enabled = 'true' if cfg.get('enabled', True) else 'false'
+scanner = cfg.get('scanner') or ''
+hint = cfg.get('install_hint') or 'configure security_scan in config/quality.json'
+cmd = cfg.get('secrets_command') or ''
+rng = os.environ.get('RANGE_VAL', '')
+words = []
+for w in cmd.split():
+    if '{{RANGE}}' in w:
+        if rng:
+            words.append(w.replace('{{RANGE}}', rng))   # rng already validated in bash
+    else:
+        words.append(w)
+resolved = ' '.join(words)
+# tab-joined; install_hint sanitised of tabs/newlines
+hint = hint.replace('\t', ' ').replace('\n', ' ')
+print('\t'.join(['ok' if cfg_ok else 'parse-error', enabled, scanner, hint, resolved]))
+PY
+  ) || SS_META=""
+  if [ -z "$SS_META" ]; then
+    # python3 absent or crashed entirely — the real fail-open path.
+    SS_STATUS="python-missing"; SS_ENABLED="true"; SS_SCANNER=""; SS_HINT="python3 required to read config/quality.json"; SS_CMD=""
+  else
+    IFS=$'\t' read -r SS_STATUS SS_ENABLED SS_SCANNER SS_HINT SS_CMD <<< "$SS_META"
+  fi
+
+  if [ "$SS_STATUS" = "parse-error" ]; then
+    if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+      echo "❌ security-scan: config/quality.json is present but unparseable (JSON syntax error) — fix the file, not SETUP." >&2
+      exit 2
+    fi
+    echo "🔒 security-scan: config/quality.json unparseable (JSON syntax error) — fail-open. Regex floor still active. Fix the file's JSON." >&2
+  elif [ "$SS_STATUS" = "python-missing" ]; then
+    if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+      echo "❌ security-scan: python3 unavailable — cannot read scanner config and this context requires a scan (--require-scanner). Install python3." >&2
+      exit 2
+    fi
+    echo "🔒 security-scan: python3 unavailable — cannot read config, fail-open. Regex floor still active." >&2
+  elif [ "$SS_ENABLED" != "true" ]; then
+    echo "🔒 security-scan: scanner layer DISABLED (config/quality.json security_scan.enabled=false). Regex floor (detect_change_type.py) still active." >&2
+  elif [ -z "$SS_SCANNER" ] || [ -z "$SS_CMD" ]; then
+    if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+      echo "❌ security-scan: no scanner configured and this context requires one (--require-scanner)." >&2
+      echo "   Resolution: run SETUP discovery Q23.2 (or edit config/quality.json security_scan) to choose a scanner. $SS_HINT" >&2
+      exit 2
+    fi
+    echo "🔒 security-scan: scanner layer UNAVAILABLE (not configured) — fail-open. Regex floor still active. $SS_HINT" >&2
+  else
+    SS_BIN="${SS_CMD%% *}"
+    if ! command -v "$SS_BIN" >/dev/null 2>&1; then
+      if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+        echo "❌ security-scan: configured scanner '$SS_SCANNER' not installed and this context requires it (--require-scanner)." >&2
+        echo "   Install: $SS_HINT" >&2
+        exit 2
+      fi
+      echo "🔒 security-scan: scanner '$SS_SCANNER' NOT INSTALLED — fail-open. Regex floor still active. Install: $SS_HINT" >&2
+    else
+      echo "🔒 security-scan: running '$SS_SCANNER' (${RANGE:-full tree})..." >&2
+      if eval "$SS_CMD"; then
+        echo "✅ security-scan: no findings ($SS_SCANNER)" >&2
+      else
+        echo "❌ security-scan: findings reported by '$SS_SCANNER' — fail-closed." >&2
+        echo "   Remediate in a NEW commit (never --amend/--force over pushed history) and rotate any exposed secret." >&2
+        exit 1
+      fi
+    fi
+  fi
+fi
 
 # DAST scanning with OWASP ZAP
 if [ "$DAST" -eq 1 ]; then
@@ -55,21 +176,24 @@ if [ "$DAST" -eq 1 ]; then
   echo "  ├─ Pulling OWASP ZAP Docker image..."
   docker pull zaproxy/zap-stable:latest
   
-  # Execute scan based on mode
+  # Execute scan based on mode. ZAP exits non-zero when it reports findings;
+  # capture that rather than swallowing it with `|| true` (findings are
+  # fail-closed, same as the secrets lane — the header contract).
+  ZAP_RC=0
   case "$DAST_MODE" in
     baseline)
       echo "  ├─ Running ZAP Baseline Scan (passive + spider, ~10 min)..."
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-baseline.py -t "$TARGET_URL" \
-        -g gen.conf -r "${REPORT_FILE}.html" || true
+        -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
     full)
       echo "  ├─ Running ZAP Full Scan (active attacks + AJAX spider, ~30 min)..."
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-full-scan.py -t "$TARGET_URL" \
-        -g gen.conf -r "${REPORT_FILE}.html" || true
+        -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
     api)
       echo "  ├─ Running ZAP API Scan (OpenAPI/GraphQL, ~15 min)..."
@@ -79,11 +203,16 @@ if [ "$DAST" -eq 1 ]; then
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-api-scan.py -t "$TARGET_URL" \
-        -f openapi -g gen.conf -r "${REPORT_FILE}.html" || true
+        -f openapi -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
   esac
-  
-  echo "  ✅ DAST scan completed. Report: ${REPORT_FILE}.html"
+
+  if [ "$ZAP_RC" -ne 0 ]; then
+    echo "  ⚠️  DAST: ZAP reported findings (rc=$ZAP_RC) — review ${REPORT_FILE}.html"
+    [ "$DRY_RUN" != "1" ] && exit 1
+  else
+    echo "  ✅ DAST scan completed, no blocking findings. Report: ${REPORT_FILE}.html"
+  fi
 fi
 
 # Contract validation
@@ -278,8 +407,4 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
   fi
 fi
 
-if [ "$DRY_RUN" = "1" ]; then
-  echo "[security-scan] DRY_RUN=1 would: $cmd"
-else
-  eval "$cmd"
-fi
+exit 0

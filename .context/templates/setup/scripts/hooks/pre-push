@@ -5,7 +5,7 @@
 # ============================================================================
 # Checks:
 #   1. Protected branch enforcement (prevent force-push to main)
-#   2. Secret leak detection across commits being pushed (gitleaks)
+#   2. Secret leak detection (delegated to security-scan.sh --secrets; scanner per config/quality.json)
 #   3. Full governance validation (if validate-governance.sh exists)
 # ============================================================================
 
@@ -43,7 +43,7 @@ is_protected() {
 }
 
 # Read push info from stdin: <local ref> <local sha> <remote ref> <remote sha>
-# We need to inspect every line (protected-branch check + gitleaks range).
+# We need to inspect every line (protected-branch check + secrets-scan range).
 PUSH_SPECS=()
 while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
   PUSH_SPECS+=("$LOCAL_REF|$LOCAL_SHA|$REMOTE_REF|$REMOTE_SHA")
@@ -61,22 +61,24 @@ while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
   fi
 done
 
-# ── 2. Gitleaks scan across pushed commits ──
-# Pre-push is the last local gate before a secret leaves the machine. Unlike
-# the pre-commit gitleaks step (which silently skips when the binary is
-# missing to honour ADR-0001's no-friction-per-commit principle), this
-# pre-push step is STRICT: missing binary → push blocked with install hints.
-# Push is infrequent enough that asking devs to install gitleaks once is
-# an acceptable ask, and CI runs the same scan anyway — failing locally
-# saves a CI round-trip.
+# ── 2. Secrets scan across pushed commits (EVOL-040: delegated dispatcher) ──
+# Pre-push is the last local gate before a secret leaves the machine. The scan
+# itself is DELEGATED to scripts/security-scan.sh --secrets --require-scanner:
+# the scanner is the project's SETUP-ratified choice (config/quality.json
+# security_scan — tool-agnostic, LAW-11 pattern), and --require-scanner keeps
+# this hook STRICT (missing scanner/config → push blocked with install hint),
+# unlike pre-commit's silent skip (no-friction-per-commit). Note the deliberate
+# carve-out: security_scan.enabled=false passes even here — a project-RATIFIED
+# policy opt-out is not an infra failure; the regex floor still applies at
+# pr-review Block 3. Push is
+# infrequent enough that installing the scanner once is an acceptable ask, and
+# failing locally saves a CI round-trip. Range computation stays here (hook
+# owns the push-spec semantics); the dispatcher owns tool resolution.
 if [ "${#PUSH_SPECS[@]}" -gt 0 ]; then
-  if ! command -v gitleaks &>/dev/null; then
-    echo -e "${RED}❌ pre-push: gitleaks binary not found.${NC}"
-    echo "   Install it once and re-push:"
-    echo "     macOS:         brew install gitleaks"
-    echo "     Debian/Ubuntu: sudo apt install gitleaks"
-    echo "     Other:         https://github.com/gitleaks/gitleaks/releases"
-    echo "   Skip for a single push (not recommended):  git push --no-verify"
+
+  if [ ! -f "$REPO_ROOT/scripts/security-scan.sh" ]; then
+    echo -e "${RED}❌ pre-push: scripts/security-scan.sh missing — cannot run the secrets gate.${NC}"
+    echo "   The hook was installed but the dispatcher was not synced. Re-run scripts/factory-sync.sh from the framework repo."
     exit 1
   fi
 
@@ -113,30 +115,24 @@ if [ "${#PUSH_SPECS[@]}" -gt 0 ]; then
         # No base ref available — scan only the tip commit. This is
         # the degraded mode; log it so the dev knows coverage is
         # reduced rather than silently skipping the step.
-        echo -e "${YELLOW}⚠  gitleaks: no base ref for new branch on remote '${PUSH_REMOTE}'; scanning tip commit only.${NC}"
+        echo -e "${YELLOW}⚠  secrets scan: no base ref for new branch on remote '${PUSH_REMOTE}'; scanning tip commit only.${NC}"
         RANGE="${LOCAL_SHA}~1..${LOCAL_SHA}"
       fi
     else
       RANGE="${REMOTE_SHA}..${LOCAL_SHA}"
     fi
 
-    # git log-opts expects the range as a single token. If the range is
-    # empty (nothing new), gitleaks exits 0; still fine.
-    echo -e "${YELLOW}🔍 gitleaks: scanning $(basename "$REMOTE_REF") range $RANGE${NC}"
-    if ! gitleaks detect \
-        --source="$REPO_ROOT" \
-        --redact \
-        --no-banner \
-        --log-opts="$RANGE" 2>&1; then
-      echo -e "${RED}❌ gitleaks found potential secrets in commits being pushed.${NC}"
-      echo "   Fix the findings above and create a NEW commit (do not --amend or"
-      echo "   --force — the secret stays in history until it is rewritten and"
-      echo "   the leaked material is rotated)."
+    echo -e "${YELLOW}🔍 secrets scan: $(basename "$REMOTE_REF") range $RANGE${NC}"
+    if ! bash "$REPO_ROOT/scripts/security-scan.sh" --secrets --require-scanner --range "$RANGE"; then
+      echo -e "${RED}❌ pre-push: secrets scan failed for range $RANGE (findings or scanner missing — see above).${NC}"
+      echo "   For findings: fix and create a NEW commit (do not --amend or --force —"
+      echo "   the secret stays in history until rewritten and the material is rotated)."
+      echo "   Skip for a single push (not recommended):  git push --no-verify"
       exit 1
     fi
   done
 
-  echo -e "${GREEN}✅ gitleaks: no secrets detected in pushed commits.${NC}"
+  echo -e "${GREEN}✅ secrets scan: no findings in pushed commits.${NC}"
 fi
 
 # ── 3. Full governance validation (optional) ──

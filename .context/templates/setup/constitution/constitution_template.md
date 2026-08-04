@@ -15,7 +15,7 @@ changelog:
 > **Purpose:** Define the NON-NEGOTIABLE architectural and governance rules of the project  
 > **Modification:** Only via an ADR transitioning to `status: accepted` through the `factory-adr-management` Accept Procedure, which mechanically writes the amendment from the ADR's `## Operational Rule` field into a new or existing `## [LAW]` section here.
 > **Language:** All technical instructions must be in **ENGLISH**
-> **`[LAW]` marker convention:** Sections marked `## [LAW] {name}` are operational law extracted into the governance snapshot consumed by every agent on every turn. Sections without the marker (preamble, governance index, references) are informational and stay on-demand. The snapshot generator extracts `^## \[LAW\]` blocks via regex; never edit a `[LAW]` heading manually.
+> **`[LAW]` marker convention:** Sections marked `## [LAW] {name}` are operational law extracted into the governance snapshot consumed by every agent on every turn. Sections without the marker (preamble, governance index, references) are informational and stay on-demand. The snapshot generator extracts `^## \[LAW\]` blocks via regex; never edit a `[LAW]` heading manually. Stable-ID convention: framework laws carry `[LAW-NN]` (reserved LAW-01..99, minted only in the framework repo); project-minted laws carry `[PLAW-NN]` — regex-disjoint namespaces so tooling and cross-references never collide.
 > **Placeholder notation:** Top-level materialization placeholders use `{{SCREAMING_SNAKE}}` (e.g. `{{PROJECT_NAME}}`, `{{BACKEND_RUNTIME}}`). Handlebars-style `{{#each COLLECTION}}...{{field_name}}...{{/each}}` loops use lowercase iteration variables — these are NOT materialization placeholders and must not be forced to uppercase. SETUP --generate populates the collection; the template engine renders one row per item with field-level substitution.
 
 ---
@@ -265,7 +265,7 @@ changelog:
 
 ### Enforcement
 - **CI/CD Gate:** `scripts/check-integrations.sh` validates structure, schema compliance, and absence of credentials (BLOCKING).
-- **Pre-Commit Hook:** `scripts/security-scan.sh --gitleaks` blocks commits with detected secrets.
+- **Pre-Commit Hook:** `scripts/security-scan.sh --secrets` blocks commits with detected secrets (scanner per `config/quality.json.security_scan`; regex floor always on).
 - **Code Review:** Any configuration hardcoding must be rejected in PR.
 
 ### Further Reading
@@ -502,7 +502,7 @@ Ref: USR-001
 #### Pre-Merge Checks (Required)
 - ✅ Lint & Format: `scripts/lint-format.sh --apply`
 - ✅ Unit Tests: `scripts/test.sh` (≥80% coverage)
-- ✅ Security Scan: `scripts/security-scan.sh --semgrep --gitleaks`
+- ✅ Security Scan: `scripts/security-scan.sh --secrets`
 - ✅ Dependency Check: `scripts/dependency-allowlist.sh`
 
 #### Post-Merge Actions

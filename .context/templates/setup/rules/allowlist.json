@@ -3,7 +3,7 @@
     "generated_by": "/SETUP --generate",
     "updated_via": "/BLUEPRINT --refine + ADR",
     "policy": "semver-ranges-bloqueados",
-    "notes": "Rellenar con rangos derivados de .context/setup.md"
+    "notes": "Rellenar con rangos derivados de docs/setup.md"
   },
   "runtimes": [
     { "name": "python", "version": ">=3.10,<3.13" },

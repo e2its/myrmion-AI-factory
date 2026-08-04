@@ -20,11 +20,11 @@
     }
   },
   "last_updated": "2026-08-04",
-  "total_entries": 1,
+  "total_entries": 2,
   "entries_by_agent": {
-    "FACTORY": 1
+    "FACTORY": 2
   },
   "entries_by_result": {
-    "COMPLETED": 1
+    "COMPLETED": 2
   }
 }

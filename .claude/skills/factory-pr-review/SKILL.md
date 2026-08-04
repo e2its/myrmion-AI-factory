@@ -1,6 +1,6 @@
 ---
 name: factory-pr-review
-description: "Factory PR Review — six-axis review (code, code↔docs, API contracts, ADR, traceability, complexity) wired as a PUSH GATE (preflight before `git push`) and an assistive PR reviewer for already-pushed branches. Maps blockers to framework Hard Gates (CIP, CVP, IPP, BVL, GCRP) + DC-28 cyclomatic complexity. Use when: a Bash `git push` is about to fire (auto-invoked by hook) OR the user explicitly asks to review a branch / open PR."
+description: "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a PUSH GATE (preflight before `git push`) and an assistive PR reviewer for already-pushed branches. Maps blockers to framework Hard Gates (CIP, CVP, IPP, BVL, GCRP) + DC-28 cyclomatic complexity. Use when: a Bash `git push` is about to fire (auto-invoked by hook) OR the user explicitly asks to review a branch / open PR."
 applicable_when:
   command: [push, review]
 ---

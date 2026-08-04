@@ -22,5 +22,13 @@
     "gate_blocking_agents": ["code-reviewer", "silent-failure-hunter", "pr-test-analyzer"],
     "conditional_agents": ["type-design-analyzer"],
     "advisory_agents": ["comment-analyzer", "code-simplifier"]
+  },
+  "security_scan": {
+    "enabled": true,
+    "scanner": "{{SECURITY_SCANNER}}",
+    "secrets_command": "{{SECURITY_SCANNER_COMMAND}}",
+    "report_format": "exit-code",
+    "fail_on": "any",
+    "install_hint": "{{SECURITY_SCANNER_INSTALL_HINT}}"
   }
 }

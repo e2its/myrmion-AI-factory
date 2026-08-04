@@ -14,10 +14,10 @@
 #   .claude/instructions/Factory-*.instructions.md
 #   .claude/skills/factory-*/  (entire tree: SKILL.md + references/ + scripts/ + assets/)
 #   .claude/hooks/*.sh
-#   scripts/auto-tag.sh, security-scan.sh, validate-governance.sh
-#   scripts/governance-onprompt.sh, governance-oncompact.sh, governance-onedit.sh
-#   scripts/install-hooks.sh, factory-sync.sh, project_summarization.py
-#   scripts/hooks/{commit-msg,pre-commit,pre-push}
+#   scripts/ — MANIFEST-DRIVEN (EVOL-040): every governance_versions.json entry
+#     under scripts/ (templates + framework_core sections) whose `delivery` is
+#     `sync` or `both`, template variant preferred. No hardcoded list — add a
+#     manifest entry with a delivery field and it ships. Includes scripts/hooks/*.
 #   .context/templates/ (full tree — consumed by SETUP --upgrade)
 #
 # WHAT IT DOES NOT TOUCH (project-owned):
@@ -252,12 +252,14 @@ sync_tree() {
   local src_root="$1"
   local dst_root="$2"
 
-  [[ -d "$src_root" ]] || return
+  [[ -d "$src_root" ]] || return 0
 
+  # EVOL-040: prune runtime byproducts — find is gitignore-unaware and was
+  # copying committed-adjacent junk (e.g. __pycache__/*.pyc) into every project.
   while IFS= read -r -d '' src_file; do
     local rel="${src_file#$src_root/}"
     sync_file "$src_file" "$dst_root/$rel"
-  done < <(find "$src_root" -type f -print0 | sort -z)
+  done < <(find "$src_root" -name '__pycache__' -prune -o -type f -print0 | sort -z)
 }
 
 # Detect orphan files in a tree (recursive)
@@ -265,7 +267,7 @@ detect_tree_orphans() {
   local src_root="$1"
   local dst_root="$2"
 
-  [[ -d "$dst_root" ]] || return
+  [[ -d "$dst_root" ]] || return 0
 
   while IFS= read -r -d '' dst_file; do
     local rel="${dst_file#$dst_root/}"
@@ -284,7 +286,7 @@ detect_orphans() {
   local pattern="${3:-*}"
   local prefix="${4:-}"
 
-  [[ -d "$dst_dir" ]] || return
+  [[ -d "$dst_dir" ]] || return 0
 
   for dst_file in "$dst_dir"/$pattern; do
     [[ -f "$dst_file" ]] || continue
@@ -373,17 +375,39 @@ resolve_script_src() {
     echo "$meta"
   fi
 }
-for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh governance-onprompt.sh governance-oncompact.sh governance-onedit.sh generate-governance-snapshot.sh check-inventory-drift.sh check-applicability-frontmatter.sh check-iteration-id-format.sh migrate-iteration-frontmatter.sh project_summarization.py check-adr-constitution-sync.sh check-complexity-config.sh reconcile_inventory.py check-inventory-freshness.py; do
+# EVOL-040 (root cause B): the script list is a MANIFEST QUERY, not a hardcoded
+# array. Source of truth = governance_versions.json `delivery` field:
+#   sync | both → shipped by factory-sync (template variant preferred via
+#   resolve_script_src); setup → materialization-only, never synced.
+# Adding a script downstream = add its manifest entry with delivery — no edit here.
+SYNC_SCRIPTS=$(python3 -c "
+import json
+m = json.load(open('$FRAMEWORK_ROOT/.context/templates/setup/governance_versions.json'))
+names = set()
+for section in ('templates', 'framework_core'):
+    for k, v in m.get(section, {}).items():
+        if k.startswith('_') or not isinstance(v, dict):
+            continue
+        if k.startswith('scripts/') and v.get('delivery') in ('sync', 'both'):
+            names.add(k[len('scripts/'):])
+for n in sorted(names):
+    print(n)
+") || SYNC_QUERY_FAILED=1
+if [[ -n "${SYNC_QUERY_FAILED:-}" ]]; then
+  # python3 missing / manifest unreadable — the delivery channel would ship
+  # ZERO scripts (and zero git hooks — they ride this same query). That is a
+  # hard failure of the sync, not a silent success: surface it and bump ERRORS
+  # so a wrapper/CI can detect the degraded run (stderr NOT suppressed — the
+  # cause must be visible).
+  echo -e "${RED}  ✗ manifest delivery query FAILED (python3 missing or governance_versions.json unreadable) — NO scripts or hooks synced${NC}"
+  ERRORS=$((ERRORS + 1))
+elif [[ -z "$SYNC_SCRIPTS" ]]; then
+  echo -e "${YELLOW}  ⚠ manifest delivery query returned empty — no scripts/* entries carry delivery: sync|both (check governance_versions.json)${NC}"
+fi
+while IFS= read -r script; do
+  [[ -z "$script" ]] && continue
   sync_file "$(resolve_script_src "$script")" "$TARGET_PROJECT/scripts/$script"
-done
-# factory-sync.sh exists only in framework_core (no template variant by design).
-sync_file "$FRAMEWORK_ROOT/scripts/factory-sync.sh" "$TARGET_PROJECT/scripts/factory-sync.sh"
-# Git hooks — template-variant preferred when present.
-for hook in commit-msg pre-commit pre-push; do
-  tpl="$FRAMEWORK_ROOT/.context/templates/setup/scripts/hooks/$hook"
-  src="$([[ -f "$tpl" ]] && echo "$tpl" || echo "$FRAMEWORK_ROOT/scripts/hooks/$hook")"
-  sync_file "$src" "$TARGET_PROJECT/scripts/hooks/$hook"
-done
+done <<< "$SYNC_SCRIPTS"
 echo ""
 
 echo -e "${BOLD}[7/7] Templates (.context/templates/)${NC}"
