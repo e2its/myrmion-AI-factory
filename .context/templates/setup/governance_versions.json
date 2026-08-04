@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "5.8.0",
+  "framework_version": "5.9.0",
   "last_updated": "2026-08-04",
   "governance_features": {
     "iterations_array_v1": "1.0.0"

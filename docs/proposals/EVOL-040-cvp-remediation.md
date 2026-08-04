@@ -1,6 +1,6 @@
 # EVOL-040 — Global CVP Remediation (validator + delivery channel + CLAUDE.md pair)
 
-Branch: `feature/EVOL-040-cvp-remediation`. Status: **DRAFT — design in plan mode**.
+Branch: `feature/EVOL-040-cvp-remediation`. Status: **FINAL — implemented**.
 
 North star (user directive, persistent): every decision optimises for SETUP instantiation being perfect, reliable and secure. Definitive verification = synthetic materialization, not meta validators alone.
 
@@ -32,14 +32,19 @@ Design (LAW 11 / EVOL-033 pattern — process in framework, tool in project): ne
 
 Options presented: A implement minimal (chosen, then refined to materialization-driven) / B remove file + rewrite 4 refs (cuts specified capability) / C explicit stub (formalizes the smoke).
 
-## 3. Design
+## 3. Design (as shipped — 6 commits)
 
-TBD — plan mode.
+- **K1 weld** — `validate-governance.sh` 2.0.0: TRACKED_DIRS ×10, full-tree CHECK 2 via `git ls-files` (extension + diff-scoping blind spots die), 3-section TRACKED_PATHS/vmap, NEW CHECK 1c (dup paths/targets, missing target keys). 26 new manifest entries in the SAME commit (the weld). Duplicate workflow keys merged, Bitbucket `target_mode: merge`, `delivery` field introduced, changelog hygiene, `$schema` v2. governance-check.yml paths filter deleted.
+- **K2 delivery channel** — factory-sync 1.9.0: hardcoded list → manifest query over `delivery`; `__pycache__` prune. 3 CI-invoked scripts template-ized + lockstep pairs. Materialization: constitution path fix, `coherence-context.json` materialised, delivery-closure Invariant. Phantom refs removed; downstream coherence-context globs fixed.
+- **K3 LAW-NN corpus** — both CLAUDE.md re-rendered `N. **[LAW-NN] Title**`; LAW-07 meta / LAW-14 project (ordinal-7 collision dies); LAW-13 both (EVOL-039 offset dies); LAW-08 template-wins; LAW-15 = ADP. NEW `law_corpus_mirror` pair type + 8 self-test cases. § What Lives Where rewritten; declared-divergence doctrine; PLAW-NN project namespace. ADR-EVOL-040 accepted (constitutional amendment = the restructure).
+- **K4 dispatcher (RDR-2)** — template security-scan.sh 3.0.0 (tool flags die; `--secrets` config-driven lane; 🔒 fail-open-noisy / findings fail-closed / `--require-scanner`); meta 0-byte dies; Q23.2 discovery + TIER_2 backfill; quality.json ×2 (template placeholders + meta concrete gitleaks); pre-push delegates (inline gitleaks removed).
+- **K5 T3** — `test-materialization-surface.sh` (5 assertion groups over the agnostic delivery surface), negative-tested, in the T2 CI loop.
+- **K6 close** — this doc, framework_version 5.9.0.
 
 ## 4. Disposition table (40 findings)
 
-TBD — carried in ADR-EVOL-040; summary here after design.
+Carried in full in `docs/project_log/evolutions/ADR-EVOL-040.md` (40 rows): **37 FIXED** (K1 ×15, K2 ×9, K3 ×11, K4 ×1, K6 ×1) · **3 DISCARDED with reason** (immutable historical ADR mention; algorithm-local rule numbering; intentional schematic notation).
 
-## 5. Verification
+## 5. Verification (executed)
 
-TBD — must include synthetic materialization test (T3 class): scratch `SETUP --generate`, assert materialized CI references only existing files, rules resolve, gates active.
+Full local CI parity green at every commit (validate-governance hardened, lockstep 10 pairs incl. law corpus, ADR-sync, applicability, T2+L6+T3 suites). Dispatcher matrix 6/6 (clean/not-installed/require-scanner/disabled/unconfigured/planted-secret). factory-sync synthetic run: emitted list == old ∪ nothing-lost, 0 `.pyc`. law_corpus_mirror negative-tested live (planted LAW-05 drift caught with diff). T3 negative-tested (detects pre-K2 state). CHECK 1b caught its own author's bump error during K4 (constitution_template 3.1.0 under a 3.2.0 base) — the weld working. Block 20 dogfood + /pr-review loop to 0/0/0 before push.
