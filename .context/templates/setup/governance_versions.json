@@ -1,8 +1,8 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "5.7.0",
-  "last_updated": "2026-06-22T12:00:00Z",
+  "framework_version": "5.8.0",
+  "last_updated": "2026-08-04",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -778,11 +778,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.5.0",
+      "version": "3.6.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.6.0: feat(EVOL-039) Governance Rules gain LAW 12 (Agentic Code Review Gate — single-engine, marker-proven). Text-identical to framework-meta CLAUDE.md 13.6.0 LAW 13 modulo number (template has no META-ONLY lock-step law, hence the offset). See that changelog for semantics.",
         "3.5.0: feat(EVOL-037) universal section `## Adversarial Reasoning — MANDATORY` gains the always-on do-less lens sentence (DC-29 minimalism: YAGNI ladder, argue simpler how, never cut specified what — scope cut routes to CODESIGN via RDR). Byte-identical with framework-meta CLAUDE.md 13.5.0 (lock-step universal_section).",
         "3.4.0: feat(EVOL-036) coherence — § Incremental Dev Plan rewritten to the two-stage model (CODESIGN slice_map value authority → BLUEPRINT increment_plan contract refinement, cascade_source/depends_on_slice/seam, §0 Refinement Record, no slice invention). Enforcement gates add CVP 0d/18/19/20; Iteration cascade adds CASCADE_SLICE_INTERNAL + check_slice_immutability. Framework Editor Invariants: CVP catalogue 0a,0c,0d,1,2,13-20; cascade-function list adds CASCADE_SLICE_INTERNAL; new two-stage-authority + per-slice-freeze source-of-truth rows.",
         "3.3.0: feat(EVOL-036) SLICE-1 — Rule 9 refine-able-artefact list gains `slice_map.md` (byte-identical with framework-meta CLAUDE.md 13.4.0; Rule 9 edited by hand, not a lock-step universal_section).",
@@ -887,10 +888,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.1.0: feat(EVOL-039) — optional code_review block (enabled, pr_blocker, gate_blocking_agents, conditional_agents, advisory_agents). Pure defaults, placeholder-free — no SETUP materialization edit, no discovery question. Block ABSENT ⇒ defaults ACTIVE (inverse of complexity: the code-review executor ships with the skill, no external MCP). Consumed by factory-code-review SKILL + preflight.sh Step 0-bis.",
         "1.0.0: feat(EVOL-033) phase 1 — project-local quality schema. complexity section: enabled (default true), mcp_server + mcp_tool_name (placeholders resolved at SETUP via discovery RDR), thresholds.soft=10/hard=15 (McCabe industry baseline), bvl_gate=true, pr_blocker=false (advisory by default), source_extensions allowlist (15 common languages). Consumed by factory-complexity-check skill. Materialised at SETUP --generate; SETUP --upgrade owns delta propagation (factory-sync.sh deliberately does NOT touch config/)."
       ]
     },
@@ -1695,9 +1697,11 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.7.4",
+      "version": "2.9.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.9.0: feat(EVOL-039 RDR-5) Step R.1b passes governance_context (Step R.0 GCD) through to factory-code-review — engine § Governance Binding primary packet source in hat mode.",
+        "2.8.0: feat(EVOL-039) Step R.1b Agentic Code Review — INVOKE_SKILL factory-code-review scope=increment profile=full context=hat, inserted between Check #14 and the REVIEW Verification Loop. Single engine per RDR-3: checks #1-#14 keep the framework-specific lens; factory-code-review owns generic code quality (bugs, silent failures, test gaps, type design, comment rot). Never writes the Block 20 marker (branch pass only). R.2 merges code_review_blockers/warnings into the verdict aggregation. R.3 gains the previously-unwritten verdict→peer_review frontmatter status mapping (CLEAN_PASS|PASS_WITH_WARNINGS→APPROVED, BLOCKED past R.5 retries→CHANGES_REQUESTED) that implement.md increment gate + QA Gate 2 depend on. Scope Dispatch matrix gains R.1b row (ALL scopes). § 3.1 report gains § Agentic Code Review per-agent section + explicit frontmatter status rule. Worklog: IMPLEMENT.code_review.run.",
         "2.7.4: fix(smart-redirect) single-agent call-site — §3.8 Smart Redirect replaces RETURN_TO_FACTORY(FEATURE_ID) + '# Factory executes' comment with POST_COMMAND_REDIRECT(FEATURE_ID) run inline by the command-executing agent. No separate Factory turn (single-agent runtime).",
         "2.7.3: fix(EVOL-034) Phase 0 Block 13 — reference coherence: `red_zones` → `protected-paths.paths` (line 286). The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
         "2.7.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -1957,9 +1961,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.5.0",
+      "version": "13.6.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.6.0: feat(EVOL-039) Governance Rules gain LAW 13 (Agentic Code Review Gate — single-engine, marker-proven). Constitution amendment for ADR-EVOL-039 acceptance. Engine factory-code-review (6 vendored pr-review-toolkit agents, Apache-2.0); two invocations (hat Step R.1b per increment / push gate axis 7 Block 20 per branch, sole marker writer, content-hash keyed); fail-open infra / fail-closed findings with two-plane audited override (marker RDR one-shot + ADR pr_review_overrides permanent); RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory; config optional-absent⇒active. Mirrored modulo LAW number in templates/claude/CLAUDE.md 3.6.0 (LAW 12 there — meta LAW 12 is the META-ONLY lock-step law).",
         "13.5.0: feat(EVOL-037) § Adversarial Reasoning — MANDATORY gains the always-on do-less lens sentence (DC-29 minimalism: YAGNI ladder, argue simpler how, never cut specified what — scope cut routes to CODESIGN via RDR). Constitution amendment for ADR-EVOL-037 acceptance — no new LAW (the do-less lens is a facet of the existing adversarial mandate). Byte-identical mirror in template claude/CLAUDE.md 3.5.0 (lock-step universal_section, gated by check-lockstep-pairs.sh). Mechanics in factory-adversarial-reasoning + DC-29 in defect-prevention.md.",
         "13.4.0: feat(EVOL-036) SLICE-1 — Rule 9 (Canonical Iteration ID) refine-able-artefact list gains `slice_map.md` (before `increment_plan.md`). New two-stage slicing artefact emitted by CODESIGN; capability-VALUE authority. Rule 9 is not a lock-step universal_section — edited by hand identically in template claude/CLAUDE.md 3.3.0. ADR-EVOL-036 (proposed).",
         "13.3.0: feat(EVOL-035) Governance gains universal section `## Adversarial Reasoning — MANDATORY` (after § RDR Universal). Constitution amendment for ADR-EVOL-035 acceptance. Mandatory FOR/AGAINST double pass before any non-trivial proposal/selection, tested against (a) SDLC governance and (b) product + objectives; recommendation must survive its own AGAINST. Mechanics in new skill factory-adversarial-reasoning (applicable_when always). Universal section — mirrored byte-identical in templates/claude/CLAUDE.md; registered in coherence-context.json § universal_sections (gated by check-lockstep-pairs.sh).",
@@ -2197,6 +2202,110 @@
       ],
       "path": ".claude/skills/factory-complexity-check/SKILL.md"
     },
+    "skills/factory-code-review/SKILL.md": {
+      "version": "1.1.0",
+      "type": "skill",
+      "role": "Factory Code Review — agentic multi-perspective code review engine. 6 vendored Anthropic pr-review-toolkit agents (Apache-2.0, pinned commit in skill README § Provenance). Single engine, two invocations (RDR-3): IMPLEMENT 🔍 REVIEW hat Step R.1b (scope=increment, feeds peer_review, never writes marker) and factory-pr-review axis 7 / Block 20 (scope=branch, ONLY writer of the proof-of-execution marker .claude/state/code-review-${content_hash}.marker). RDR-1 content-hash keying (sha256 over sorted path+blob-sha of is_code∪is_test files — amend/rebase-stable). RDR-2: fail-open on infra (executor-missing → noisy Important), fail-closed on findings (blockers block push; override only via explicit RDR, recorded in marker override object + worklog SCM.code_review.override). RDR-4 gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type defs, comment-analyzer + code-simplifier advisory. Config optional in config/quality.json.code_review — ABSENT ⇒ ACTIVE (inverse of complexity-check; executor ships with the skill). Mandatory 🔎 banner. Severity normalisation orchestrator-side via references/severity-mapping.md.",
+      "changelog": [
+        "1.1.0: feat(EVOL-039 RDR-5) § Governance Binding — MANDATORY rule Roll-Call before spawn. Three mechanical gates: provenance (rules/*.md must carry a governance-manifest entry; unregistered file → ❓ foreign-rule), applicability (ADP closed-vocabulary applicable_when vs review context — CI-validated frontmatters), precedence (constitution [LAW] > ADR/FDR > rule > agent default; same-level conflict → ❓ + RDR, engine never picks). Per-agent packet slices (table). Severity anchoring: convention findings cite the bound rule and use the explicit-violation tier, no-anchor convention findings NEVER reach 🔴; correctness findings (bug/security/data-loss) keep their lane regardless. Fail-soft: no rules dir → CLAUDE.md only, banner declares 'rules 0 bound'. Banner gains 'rules {B} bound / {E} excluded / {F} foreign'. Hat mode consumes R.0 governance_context (GCD) as primary packet source. Spawn inputs.governance = binding.packet_for(agent) with mandatory citation directive.",
+        "1.0.1: fix(EVOL-039 dogfood) — § Configuration documents pr_blocker consumption semantics (false → Important downgrade, mirrors complexity.pr_blocker); § Provenance re-sync covers frontmatter adaptations recorded in README table (YAML cannot carry inline markers — mechanical re-sync would have reintroduced upstream's 'Daisy' persona).",
+        "1.0.0: feat(EVOL-039) — NEW SKILL. Orchestrator: 4-variant banner, optional-config-active default, two-mode scope resolver (increment=dev_plan/design §1 artifacts — BVL forbids git diff for feature scope; branch=diff via detect_change_type.py), preventive-sweep-style PARALLEL_MAP spawn contract with per-agent model override from vendored frontmatter, severity normalisation + dedupe, marker write spec (mkdir/atomic/tr-sanitise house rules), RDR-2 override two-plane doc (marker one-shot vs ADR pr_review_overrides.block_20_code_review permanent), worklog actions, ACP hat/standalone rule, fail-open vocabulary (disabled/executor-missing/no-source-files/spawn-failure — spawn-failure writes NO marker, incomplete run is not proof)."
+      ],
+      "path": ".claude/skills/factory-code-review/SKILL.md"
+    },
+    "skills/factory-code-review/README.md": {
+      "version": "1.0.1",
+      "type": "skill-asset",
+      "role": "Provenance table (upstream repo + pinned commit b7e93a4e + per-file adaptation log), Apache-2.0 attribution, re-sync procedure, file inventory.",
+      "changelog": [
+        "1.0.1: fix(EVOL-039 dogfood) — silent-failure-hunter provenance row records the frontmatter description adaptation explicitly (no inline marker possible); code-simplifier adaptation reason completed (return types + try/catch stance); re-sync procedure covers frontmatter adaptations.",
+        "1.0.0: feat(EVOL-039) — initial. Upstream pin b7e93a4e7c950ba5b22a2bdb9a61e2631f75a51e."
+      ],
+      "path": ".claude/skills/factory-code-review/README.md"
+    },
+    "skills/factory-code-review/LICENSE": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Apache-2.0 license vendored verbatim from anthropics/claude-plugins-official repo root — attribution requirement for the 6 vendored agents.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim at pin b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/LICENSE"
+    },
+    "skills/factory-code-review/agents/code-reviewer.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: opus) — project-guideline compliance, bug detection, code quality. Confidence 0-100, reports ≥80. Gate profile: BLOCKING.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/code-reviewer.md"
+    },
+    "skills/factory-code-review/agents/silent-failure-hunter.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: inherit) — silent failures, inadequate error handling, inappropriate fallbacks. CRITICAL/HIGH/MEDIUM. Gate profile: BLOCKING.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored from pr-review-toolkit @ b7e93a4e; factory-adapted hunks: Daisy→user in description examples, upstream logging stack (logForDebugging/logError/logEvent, Sentry, Statsig, constants/errorIds.ts) genericised to governance-driven wording."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/silent-failure-hunter.md"
+    },
+    "skills/factory-code-review/agents/pr-test-analyzer.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: inherit) — behavioral test coverage quality, critical gaps, edge cases. Gap rating 1-10. Gate profile: BLOCKING.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/pr-test-analyzer.md"
+    },
+    "skills/factory-code-review/agents/type-design-analyzer.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: inherit) — type encapsulation, invariant expression, usefulness, enforcement (4 axes 1-10). Gate profile: BLOCKING, conditional on type definitions in scope.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/type-design-analyzer.md"
+    },
+    "skills/factory-code-review/agents/comment-analyzer.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: inherit) — comment accuracy vs implementation, comment rot, technical debt. Gate profile: ADVISORY (never blocks).",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/comment-analyzer.md"
+    },
+    "skills/factory-code-review/agents/code-simplifier.md": {
+      "version": "1.0.1",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: opus) — clarity/maintainability refactor proposals, functionality-preserving. No severity model → all 🟢. Gate profile: ADVISORY (never blocks); proposals only, never edits in review context.",
+      "changelog": [
+        "1.0.1: fix(EVOL-039 dogfood) — factory-adapted marker reason completed: names all 5 replaced upstream bullets incl. explicit-return-types and the avoid-try/catch stance change.",
+        "1.0.0: feat(EVOL-039) — vendored from pr-review-toolkit @ b7e93a4e; factory-adapted hunk: upstream stack standards (ES modules, function keyword, React Props) genericised to governance-driven lookup."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/code-simplifier.md"
+    },
+    "skills/factory-code-review/references/severity-mapping.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Single tuning home: upstream agent scales → framework rubric 🔴🟡🟢❓. Per-agent tables + cross-cutting rules (iron law unverifiable→❓, advisory ceiling 🟡, dedupe, mandatory fix per 🔴/🟡). Orchestrator-side — agent files never edited for severity.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — initial provisional cutoffs, dogfood calibration expected."
+      ],
+      "path": ".claude/skills/factory-code-review/references/severity-mapping.md"
+    },
+    "skills/factory-code-review/scripts/code_review_hash.py": {
+      "version": "1.1.0",
+      "type": "skill-asset",
+      "role": "Canonical RDR-1 content hash for the Block 20 marker. stdin = detect_change_type.py JSON → filter files to is_code∪is_test → skip deleted-at-HEAD → sha256 over sorted path+NUL+blob-sha → 64-hex (or EMPTY). Same pipeline on writer (skill branch pass) and verifier (preflight Step 0-bis) sides. Presence doubles as RDR-2 executor probe. Exit 0 ok / 2 tooling — never 1.",
+      "changelog": [
+        "1.1.0: fix(EVOL-039 dogfood) — findings from the skill's OWN first branch pass (3 agents converged on CRITICAL-1). blob_shas() batch via single `git ls-tree -z` replaces per-file rev-parse: git infra failure now structurally distinct from path-deleted → exit 2 with stderr, NEVER disguised as EMPTY (was: silent gate bypass). `files` key missing → rc 2 (message previously claimed this, code didn't). from __future__ import annotations (PEP 604 on py<3.10 killed module load → silent advisory degrade). Raw docstring (rendered formula broke mid-string). Top-level catch → rc 2 defends the never-exit-1 contract. Alphabetized imports.",
+        "1.0.0: feat(EVOL-039) — initial."
+      ],
+      "path": ".claude/skills/factory-code-review/scripts/code_review_hash.py"
+    },
     "skills/factory-memory-cache/SKILL.md": {
       "version": "1.1.3",
       "type": "skill",
@@ -2288,10 +2397,12 @@
       "path": ".claude/skills/factory-rdr/SKILL.md"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.8.1",
+      "version": "1.9.1",
       "type": "skill",
-      "role": "Factory PR Review — six-axis review (code, code↔docs, API contracts, ADR, traceability, complexity) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${session_id}-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 19. Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT 🔍 REVIEW hat scope, separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
+      "role": "Factory PR Review — six-axis review (code, code↔docs, API contracts, ADR, traceability, complexity) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .claude/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT 🔍 REVIEW hat scope, separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "changelog": [
+        "1.9.1: fix(EVOL-039 dogfood) — Block 20 row + axis 7 routing widened to has_code OR has_tests (tests-only bypass); row documents pr_blocker severity routing + marker-corrupt condition.",
+        "1.9.0: feat(EVOL-039) Block 20 — agentic code review gate. New Hard Block row 20 + explainer (production split: factory-code-review skill = executor + marker writer, preflight Step 0-bis = deterministic verifier), Phase 3 axis-7 routing row, Phase 4 count 19→20, Per-context Block 20 bullets (meta dogfoods via optional-config-active defaults; drive-by fix of stale 'All 12 blocks active'), § scope note rewritten for single-engine convergence (RDR-3: hat + gate share factory-code-review; gate consumes ONLY the marker, never peer_review files), review-policy NOT-consumed bullet updated, pr_review_overrides gains block_20_code_review: advisory + two-plane override doc, Skill structure cross-ref. Drive-by: role-text stale marker name fixed (session_id- prefix dropped, matching preflight.sh 1.1.1).",
         "1.8.1: fix(EVOL-036) coherence-3 — Hard-Gate slice_map-absent row severity made precise: Blocker for a NEW incremental feature, WARNING for a legacy grandfathered one (matches Check 0d behavior).",
         "1.8.0: feat(EVOL-036) SLICE-5 — push-gate parity: Block 8 CVP subset string (0a/0c/1/2/13-17) → (0a/0c/0d/1/2/13-20) so slice checks fire at the local push preflight, matching BLUEPRINT --approve. Block 8 traceability chain gains slice_map. Hard-Gate table gains rows: missing slice_map.md APPROVED (Check 0d), unresolved cascade_source / unrealized slice (Check 18), re-slice moving a MERGED scenario (Check 20).",
         "1.7.0: fix(skillspector-hardening) — Phase 6 Publication contract updated for post_review.py 1.2.0: script is dry-run by default, agent adds --publish ONLY after user confirms the rendered output; body sanitised + passed via --body-file. Lock-step with scripts/post_review.py 1.2.0.",
@@ -2381,10 +2492,12 @@
       "path": ".claude/skills/factory-pr-review/references/changelog-policy.md"
     },
     "skills/factory-pr-review/scripts/preflight.sh": {
-      "version": "1.3.3",
+      "version": "1.5.0",
       "type": "skill-asset",
       "role": "Factory PR Review push-gate orchestrator — wraps detect_change_type.py + check_docs_sync.py + check_openapi_diff.sh + check_asyncapi_diff.sh + check_dev_plan_task_format.py + framework-aware checks (governance-bump miss, protected-paths) + Step 0 coherence-audit marker check (v1.1.0). Exit 0 silent pass, 1 blocker found, 2 environment failure (warn-not-block). Honours docs-only fast-lane (CLAUDE.md Generation Standards §3 verbatim allowlist). Reads `default_base_branch` from `.claude/rules/branching.md` when present, and `config/coherence-context.json` for Step 0 governance-sensitivity computation + marker location.",
       "changelog": [
+        "1.5.0: fix(EVOL-039 dogfood) — Block 20 self-review findings applied. FAIL-CLOSED: corrupt/unreadable marker → sentinel -1 → NEW blocker code-review-marker-corrupt (was: parsed as 0 blockers → silent pass on the fail-closed plane; CRITICAL-2, 2 agents converged); same fix applied to Step 0 coherence marker (coherence-audit-marker-corrupt). GUARD WIDENED: has_tests joins has_code (tests-only diffs bypassed Block 20 while pr-test-analyzer is a blocking agent). pr_blocker consumed: false → Block 20 findings degrade to Important (was dead config on an enforcement path). NOISY DEGRADES: classification-failure Important when detect_change_type returns {} (mute infra fallback silently disabled secrets + Block 20); helper stderr first line captured into code-review-hash-failure message; EMPTY branch logs. SHAPE ALLOWLIST: regex ^([0-9a-f]{64}|EMPTY)$ replaces tr char-filter (char soup could fabricate a marker path → misrouted blocker). DC-29: Step 0 relocated below add_finding — DEFERRED_COHERENCE_FINDING machinery deleted, Step 0/0-bis now structurally identical. Nits: redundant isinstance guard dropped, ${CR_OVERRIDE_AT:-unknown}.",
+        "1.4.0: feat(EVOL-039) Step 0-bis — Block 20 marker check after the deferred-coherence flush (has_code + $CLASSIFICATION + live add_finding available; no deferred-string dance; consumes the previously dead has_code parse). RDR-2 semantics: code_review.enabled=false → log skip; code_review_hash.py absent → important code-review-executor-missing (noisy, non-blocking); hash failure → important code-review-hash-failure (advisory degrade); EMPTY → skip; marker missing → blocker code-review-missing; findings.blocker>0 without override → blocker code-review-blockers; with override → important code-review-overridden. Content-allowlist discipline: only int-cast counts + tr-filtered timestamp/hash echoed; override reason text never echoed. Drive-by: dead Step 0 comment removed (CLAUDE_SESSION_ID advisory degradation was never implemented).",
         "1.3.3: fix — --json mode multiline injection closed (pre-existing, catalogued in 1.1.3 as out-of-scope). The output heredoc was unquoted so $CHANGED_FILES (multiline) expanded inside a python string literal -> SyntaxError on any diff with 2+ files; quotes/backslashes in branch names could also inject. Now ALL dynamic values (PRE_BASE, PRE_BRANCH, PRE_CHANGED) pass via env vars like PRE_FF already did, and the heredoc delimiter is quoted ('PYEOF') — zero bash expansion inside the python block. Human mode untouched.",
         "1.3.2: fix(fast-lane-carve) docs-only fast-lane allowlist gains hard-exclusion arms for `.claude/{instructions,skills,commands,hooks}/*` BEFORE the `*.md` allow arm — framework-core behavioral contracts carry the .md extension but must always go through PR + full CI. Lock-step with CLAUDE.md §3 (meta 13.2.3 + template 3.1.3).",
         "1.3.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2596,11 +2709,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.3.0: feat(EVOL-039) — T2 suite gains scripts/test-code-review-gate.sh (L6, Block 20 gate: 14 scenarios incl. both dogfood-CRITICAL regressions).",
         "1.2.0: feat(EVOL-032) phase 1 — wires new step `Iteration ID schema validation` that invokes scripts/check-iteration-id-format.sh on every PR.",
         "1.1.0: feat(EVOL-027) fase 4 — add advisory inventory-drift step (--warn-only) to CI.",
         "1.0.0: feat: initial registration in manifest (EVOL-014) — existing workflow enforces GWP via scripts/validate-governance.sh and blocks PRs that touch framework core without bumping entries."
@@ -2684,9 +2798,10 @@
       ]
     },
     ".github/workflows/governance-check.yml": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": ".github/workflows/governance-check.yml",
       "changelog": [
+        "1.3.0: feat(EVOL-039) — T2 suite gains scripts/test-code-review-gate.sh (L6, Block 20 gate: 14 scenarios incl. both dogfood-CRITICAL regressions).",
         "1.2.0: feat(EVOL-028) new step `Applicability frontmatter validation (ADP)` runs scripts/check-applicability-frontmatter.sh as CI hard gate. Closes ADP rollout — frontmatter drift in .claude/instructions, .claude/skills/Factory-*, and .claude/rules/defect-prevention.md is caught at PR time.",
         "1.1.0: feat — Workflow extended with two new steps: `ADR ↔ Constitution sync gate` runs `scripts/check-adr-constitution-sync.sh` to enforce the EVOL-026 invariant; `Run T2 governance suite` runs the four `scripts/test-*.sh` (templates static, snapshot extraction, ADR accept simulation, sync gate scenarios). Path filter extended to `.context/templates/**`, `scripts/**`, and `config/coherence-context.json` so test changes also trigger the workflow. Failure comment rewritten to enumerate the three possible causes (manifest drift / ADR-constitution sync / T2 suite) with a single local-reproduction one-liner.",
         "1.0.0: initial tracked entry — meta-only workflow that runs `validate-governance.sh --base` on every PR to main."
@@ -2846,6 +2961,15 @@
       "path": "scripts/check-complexity-config.sh",
       "changelog": [
         "1.0.0: feat(EVOL-033) phase 6 — CI gate for config/quality.json schema (DC-28). Absent file → exit 0 (skill fail-open). When present: validates complexity.{enabled bool, mcp_server str|null, mcp_tool_name str|null, thresholds.{soft int, hard int}, bvl_gate bool, pr_blocker bool, source_extensions list[str starts-with-dot]}. Consistency: mcp_server + mcp_tool_name both null OR both non-null. Ordering: thresholds.soft <= thresholds.hard. Idempotent."
+      ]
+    },
+    "scripts/test-code-review-gate.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "L6 CI gate test — validates code_review_hash.py + preflight.sh Step 0-bis against synthetic repos. 14 scenarios: hash determinism, RDR-1 invariance (docs commit stable / code commit changes), EMPTY sentinel, git-unavailable→rc2 (CRITICAL-1 regression), bad-stdin/missing-files→rc2, marker missing/blockers/override/corrupt (CRITICAL-2 regression)/clean, enabled=false, pr_blocker=false routing, executor-missing, tests-only diff gating (has_tests regression). Wired into governance-check.yml T2 step.",
+      "path": "scripts/test-code-review-gate.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-039 dogfood) — initial. Hard-gate validators get test suites per repo convention (pr-test-analyzer finding); regression guards for both dogfood CRITICALs."
       ]
     }
   },

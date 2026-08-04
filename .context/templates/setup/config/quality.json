@@ -15,5 +15,12 @@
       ".go", ".java", ".rb", ".php",
       ".c", ".cpp", ".cs", ".swift", ".kt", ".rs"
     ]
+  },
+  "code_review": {
+    "enabled": true,
+    "pr_blocker": true,
+    "gate_blocking_agents": ["code-reviewer", "silent-failure-hunter", "pr-test-analyzer"],
+    "conditional_agents": ["type-design-analyzer"],
+    "advisory_agents": ["comment-analyzer", "code-simplifier"]
   }
 }
