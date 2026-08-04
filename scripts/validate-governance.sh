@@ -193,7 +193,12 @@ NC='\033[0m'
 
 # ── Config ──
 MANIFEST=".context/templates/setup/governance_versions.json"
-TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" ".claude/hooks" "CLAUDE.md")
+# EVOL-040: all governed trees (was 5 of 8 — scripts/, workflows/ and the
+# .context side-trees escaped orphan detection entirely; root cause A).
+TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" ".claude/hooks" "CLAUDE.md" "scripts" ".github/workflows" ".context/templates" ".context/utils" ".context/schemas")
+# Files exempt from CHECK 2 (orphan): the manifest cannot self-track without
+# a version-bump regress. Single member by design — extend only via EVOL.
+ORPHAN_EXEMPT=(".context/templates/setup/governance_versions.json")
 DIFF_ONLY=false
 BASE_BRANCH="main"
 VIOLATIONS=0
@@ -267,20 +272,21 @@ fi
 
 MANIFEST_CHANGED=$(echo "$CHANGED_FILES" | grep -c "$MANIFEST" || true)
 
-# ── Extract tracked paths from manifest ──
+# ── Extract tracked SOURCE paths from manifest (EVOL-040: all 3 source-bearing
+# sections, not framework_core alone; runtime_artefacts excluded — synthesized,
+# no source) ──
 TRACKED_PATHS=$(python3 -c "
 import json, sys
 with open('${MANIFEST}') as f:
     data = json.load(f)
-core = data.get('framework_core', {})
-for key, val in core.items():
-    if key.startswith('_'):
-        continue
-    if isinstance(val, dict) and 'path' in val:
-        print(val['path'])
-    elif isinstance(val, dict):
-        # Entries without explicit path — derive from key using Claude Code prefix
-        print('.claude/' + key if not key.startswith('.') else key)
+def emit(section, resolve):
+    for key, val in data.get(section, {}).items():
+        if key.startswith('_') or not isinstance(val, dict):
+            continue
+        print(resolve(key, val))
+emit('framework_core', lambda k, v: v.get('path') or ('.claude/' + k if not k.startswith('.') else k))
+emit('templates',       lambda k, v: '.context/templates/setup/' + k)
+emit('agent_templates', lambda k, v: '.context/templates/' + k)
 ")
 
 # ── Extract current and base framework_version ──
@@ -349,14 +355,19 @@ if [ "$CORE_FILES_CHANGED" -gt 0 ]; then
       python3 - "$BASE_MANIFEST_TMP" "$MANIFEST" <<'PYEOF'
 import json, os, sys
 def vmap(path):
-    core = json.load(open(path)).get('framework_core', {})
+    data = json.load(open(path))
     m = {}
-    for k, v in core.items():
-        if k.startswith('_') or not isinstance(v, dict):
-            continue
-        p = v.get('path') or ('.claude/' + k if not k.startswith('.') else k)
-        if 'version' in v:
-            m[p] = v['version']
+    resolvers = {
+        'framework_core':  lambda k, v: v.get('path') or ('.claude/' + k if not k.startswith('.') else k),
+        'templates':       lambda k, v: '.context/templates/setup/' + k,
+        'agent_templates': lambda k, v: '.context/templates/' + k,
+    }
+    for section, resolve in resolvers.items():
+        for k, v in data.get(section, {}).items():
+            if k.startswith('_') or not isinstance(v, dict):
+                continue
+            if 'version' in v:
+                m[resolve(k, v)] = v['version']
     return m
 def tup(s):
     out = []
@@ -390,9 +401,58 @@ else
 fi
 
 # ============================================================================
-# CHECK 2: ORPHAN — New files in tracked dirs not in manifest
+# CHECK 1c: MANIFEST INTEGRITY — duplicate source paths, duplicate targets,
+# missing target keys (EVOL-040; always-on, not diff-gated)
 # ============================================================================
-header "CHECK 2: Orphan Detection (untracked files in agent/instruction dirs)"
+header "CHECK 1c: Manifest integrity (dup paths / dup targets / target keys)"
+
+INTEGRITY_ISSUES=$(python3 - "$MANIFEST" <<'PYEOF'
+import json, sys
+data = json.load(open(sys.argv[1]))
+resolvers = {
+    'framework_core':  lambda k, v: v.get('path') or ('.claude/' + k if not k.startswith('.') else k),
+    'templates':       lambda k, v: '.context/templates/setup/' + k,
+    'agent_templates': lambda k, v: '.context/templates/' + k,
+}
+by_path = {}
+for section, resolve in resolvers.items():
+    for k, v in data.get(section, {}).items():
+        if k.startswith('_') or not isinstance(v, dict):
+            continue
+        by_path.setdefault(resolve(k, v), []).append(f"{section}::{k}")
+for p, keys in sorted(by_path.items()):
+    if len(keys) > 1:
+        print(f"DUP-PATH {p} <- {', '.join(keys)}")
+# templates: target key must be present (null allowed = consumed in place);
+# duplicate non-null targets allowed only when every collider declares target_mode: merge
+by_target = {}
+for k, v in data.get('templates', {}).items():
+    if k.startswith('_') or not isinstance(v, dict):
+        continue
+    if 'target' not in v:
+        print(f"NO-TARGET templates::{k}")
+    elif v['target']:
+        by_target.setdefault(v['target'], []).append((k, v.get('target_mode')))
+for t, entries in sorted(by_target.items()):
+    if len(entries) > 1 and not all(mode == 'merge' for _, mode in entries):
+        print(f"DUP-TARGET {t} <- {', '.join(k for k, _ in entries)} (declare target_mode: merge on all, or fix)")
+PYEOF
+) || INTEGRITY_ISSUES=""
+
+if [ -n "$INTEGRITY_ISSUES" ]; then
+  fail "Manifest integrity issues:"
+  while IFS= read -r e; do [ -n "$e" ] && echo -e "     ${RED}→ $e${NC}"; done <<< "$INTEGRITY_ISSUES"
+else
+  pass "Manifest integrity OK (no duplicate paths/targets, all template entries carry target)"
+fi
+
+# ============================================================================
+# CHECK 2: ORPHAN — files in tracked trees not in manifest
+# EVOL-040: FULL-TREE via git ls-files (was: diff-scoped find with .md/.json/.sh
+# filter — how 27 orphans became permanently invisible). git ls-files covers
+# every extension + extensionless and respects .gitignore.
+# ============================================================================
+header "CHECK 2: Orphan Detection (full-tree, all tracked trees)"
 
 ORPHAN_COUNT=0
 
@@ -403,19 +463,21 @@ for dir in "${TRACKED_DIRS[@]}"; do
 
   while IFS= read -r file; do
     [ -z "$file" ] && continue
-    # Check if this file is tracked in manifest
+    case "$file" in */__pycache__/*) continue ;; esac
+    exempt=false
+    for ex in "${ORPHAN_EXEMPT[@]}"; do
+      [ "$file" = "$ex" ] && exempt=true && break
+    done
+    [ "$exempt" = "true" ] && continue
     if ! echo "$TRACKED_PATHS" | grep -Fxq "$file"; then
-      # Only flag if it was added/modified in this PR
-      if echo "$CHANGED_FILES" | grep -Fxq "$file"; then
-        fail "New file NOT tracked in governance manifest: ${file}"
-        ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
-      fi
+      fail "File in governed tree NOT tracked in governance manifest: ${file}"
+      ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
     fi
-  done < <(find "$dir" -type f \( -name "*.md" -o -name "*.json" -o -name "*.sh" \) 2>/dev/null)
+  done < <(git ls-files -- "$dir" 2>/dev/null)
 done
 
 if [ "$ORPHAN_COUNT" -eq 0 ]; then
-  pass "No orphan files detected in tracked directories"
+  pass "No orphan files detected in tracked trees (full-tree sweep)"
 fi
 
 # ============================================================================
