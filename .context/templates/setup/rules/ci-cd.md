@@ -288,7 +288,7 @@ jobs:
       - name: Test
         run: scripts/test.sh
       - name: Security Scan
-        run: scripts/security-scan.sh --semgrep --gitleaks
+        run: scripts/security-scan.sh --secrets
   
   deploy-dev:
     needs: lint-test
@@ -330,7 +330,7 @@ test:
 security:
   stage: security
   script:
-    - scripts/security-scan.sh --semgrep --gitleaks
+    - scripts/security-scan.sh --secrets
 
 deploy_dev:
   stage: deploy
@@ -365,7 +365,7 @@ stages:
             displayName: 'Lint & Format'
           - script: scripts/test.sh
             displayName: 'Unit Tests'
-          - script: scripts/security-scan.sh --semgrep --gitleaks
+          - script: scripts/security-scan.sh --secrets
             displayName: 'Security Scan'
 
   - stage: DeployDev
@@ -401,7 +401,7 @@ pipelines:
           script:
             - scripts/lint-format.sh --apply
             - scripts/test.sh
-            - scripts/security-scan.sh --semgrep --gitleaks
+            - scripts/security-scan.sh --secrets
 
   branches:
     main:
@@ -430,7 +430,7 @@ pipeline {
       steps { sh 'scripts/test.sh' }
     }
     stage('Security Scan') {
-      steps { sh 'scripts/security-scan.sh --semgrep --gitleaks' }
+      steps { sh 'scripts/security-scan.sh --secrets' }
     }
     stage('Deploy Dev') {
       when { branch 'main' }
@@ -458,7 +458,7 @@ phases:
     commands:
       - scripts/lint-format.sh --apply
       - scripts/test.sh
-      - scripts/security-scan.sh --semgrep --gitleaks
+      - scripts/security-scan.sh --secrets
   build:
     commands:
       - echo "Building artifacts..."
@@ -488,7 +488,7 @@ steps:
       - |
         scripts/lint-format.sh --apply
         scripts/test.sh
-        scripts/security-scan.sh --semgrep --gitleaks
+        scripts/security-scan.sh --secrets
 
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/app:$SHORT_SHA', '.']
@@ -508,7 +508,7 @@ steps:
 # Manual pipeline execution
 scripts/lint-format.sh --apply
 scripts/test.sh
-scripts/security-scan.sh --semgrep --gitleaks
+scripts/security-scan.sh --secrets
 scripts/auto-tag.sh --apply
 ```
 
