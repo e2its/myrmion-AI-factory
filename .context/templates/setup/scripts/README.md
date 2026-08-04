@@ -23,7 +23,7 @@ All scripts use DRY_RUN=1 by default. Use `--apply` or export DRY_RUN=0 to run f
 3) **Develop (TDD)**: run `lint-format.sh <tech>` and `test.sh` (unit) in DRY_RUN by default.
 4) **Final QA**: `lint-format.sh <tech>` + `test.sh` + `check-integrations.sh` to validate quality before Security.
 5) **E2E QA (Staging)**: `test.sh e2e` (Playwright) or `test.sh api-e2e` (Newman) to validate user journeys post-deployment.
-6) **Security (SAST)**: `security-scan.sh --semgrep --gitleaks` + `validate-gitignore.sh --strict` + `check-integrations.sh --strict` to verify integrity.
+6) **Security (SAST)**: `security-scan.sh --secrets` + `validate-gitignore.sh --strict` + `check-integrations.sh --strict` to verify integrity.
 7) **Security (DAST)**: `TARGET_URL=https://staging.example.com security-scan.sh --dast` (baseline) or `--dast-full` (active scan) for dynamic scanning with OWASP ZAP.
 8) **Dependencies**: `dependency-allowlist.sh` to verify against allowed/blocklist in `docs/constitution.md`.
 
@@ -103,7 +103,7 @@ BASE_URL=https://staging.example.com ./scripts/test.sh e2e --apply
 **Examples:**
 ```bash
 # Dry-run SAST scans (Semgrep + Gitleaks)
-./scripts/security-scan.sh --semgrep --gitleaks
+./scripts/security-scan.sh --secrets
 
 # Execute DAST baseline scan on staging
 TARGET_URL=https://staging.example.com ./scripts/security-scan.sh --dast --apply
