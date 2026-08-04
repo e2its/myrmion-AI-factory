@@ -326,10 +326,11 @@
       ]
     },
     "constitution/constitution_template.md": {
-      "version": "3.2.0",
+      "version": "3.1.0",
       "content_type": "project_data",
       "target": "docs/constitution.md",
       "changelog": [
+        "3.1.0: feat(EVOL-040) — [LAW] marker convention gains the stable-ID note: framework [LAW-NN] (reserved 01..99) vs project [PLAW-NN], disjoint namespaces.",
         "3.2.0: feat(EVOL-029) added [LAW] QA Per-Increment Alignment section — mandates per-slice transition path under slicing_strategy: incremental, triple gate (tasks/peer_review/BVL) per slice, /qa --verify {ID} {INC-N} required before aggregate, plan-level dev_plan.status derived (never written manually). Monolithic features unchanged.",
         "3.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "3.0.0: feat(EVOL-026) BREAKING — operational sections marked with `## [LAW]` for mechanical snapshot extraction. 12 `[LAW]` headings (Fundamental Principles, Stateless Design, Project Mode, Code Readability, Configuration Hardcoding, Security by Design, Privacy & GDPR, Internationalization, Documentation Standards, Dependency Management, Branching Strategy, Deployment & Environment). Governance Index stays informational. Preamble updated to document `[LAW]` marker convention. Modification path now references factory-adr-management Accept Procedure. Bonus: fixed UTF-8 mojibake in Security by Design heading (artefact removed).",
@@ -820,11 +821,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.6.0",
+      "version": "3.7.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.7.0: feat(EVOL-040 RDR-1) — Governance Rules re-rendered with stable [LAW-NN] IDs: tpl#7 = LAW-14 (SETUP scaffolding, project-only — kills the ordinal-7 two-laws collision), tpl#12 = LAW-13 (code review gate — kills the EVOL-039 13/12 offset). LAW-15 tag on ADP heading; immutability landmark citation fixed (§ Per-Increment Immutability); § anchors normalized. Universal bodies now mechanically mirrored via law_corpus_mirror.",
         "3.6.0: feat(EVOL-039) Governance Rules gain LAW 12 (Agentic Code Review Gate — single-engine, marker-proven). Text-identical to framework-meta CLAUDE.md 13.6.0 LAW 13 modulo number (template has no META-ONLY lock-step law, hence the offset). See that changelog for semantics.",
         "3.5.0: feat(EVOL-037) universal section `## Adversarial Reasoning — MANDATORY` gains the always-on do-less lens sentence (DC-29 minimalism: YAGNI ladder, argue simpler how, never cut specified what — scope cut routes to CODESIGN via RDR). Byte-identical with framework-meta CLAUDE.md 13.5.0 (lock-step universal_section).",
         "3.4.0: feat(EVOL-036) coherence — § Incremental Dev Plan rewritten to the two-stage model (CODESIGN slice_map value authority → BLUEPRINT increment_plan contract refinement, cascade_source/depends_on_slice/seam, §0 Refinement Record, no slice invention). Enforcement gates add CVP 0d/18/19/20; Iteration cascade adds CASCADE_SLICE_INTERNAL + check_slice_immutability. Framework Editor Invariants: CVP catalogue 0a,0c,0d,1,2,13-20; cascade-function list adds CASCADE_SLICE_INTERNAL; new two-stage-authority + per-slice-freeze source-of-truth rows.",
@@ -1653,9 +1655,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.5.0",
+      "version": "3.5.1",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "3.5.1: fix(EVOL-040) — :89 malformed validation-template path restored to canonical .context/validation_templates/{AGENT}_VALIDATION_TEMPLATE.md (downstream-synthesized); ordinal law refs migrated to LAW-08/LAW-09 stable IDs.",
         "3.5.0: feat(EVOL-036) SLICE-3 — BLUEPRINT consumes slice_map. Increment Plan Generation reworked: NEW Step A0 slice_map Ingestion Gate (BLOCK when incremental + slice_map absent/non-APPROVED); Step A keeps the monolithic Trivial-Heuristic in BLUEPRINT and cross-validates CODESIGN's 1-slice declaration; Step B GUTTED from the ≥3 slice-invention RDR to Slice Refinement (map SLICE-N→INC, 1:1 default; intra-slice layering RDR is the ONLY survivor; contract-forced deviation recorded in §0 — no slice invention or value-reorder); Step C sets per-INC cascade_source: SLICE-{FEAT}-N + depends_on_slice/depends_on_feature/seam + slice 'Realized by increments' back-ref, §0 becomes Refinement Record; Step D adds bidirectional slice↔increment coverage + seam-resolution self-checks. slice_map.md added to Required Inputs (13→14).",
         "3.4.1: fix(increment-plan-stale-section-refs) — Step A heuristic-fail BLOCK message and gate-PASS emission instruction cited `§ 3` for Monolithic Escape Declaration; § 2 is now the canonical location (v5.3.0 reorder demoted Mermaid to § 3 non-authoritative). Two single-token edits, no semantic change.",
         "3.4.0: fix(increment-plan-rule) — Two coupled changes to the Increment Plan Generation phase. (1) Step C emission contract: § 2 Dependency Graph (Mermaid) demoted out of canon; canonical DAG lives in § 1 `depends_on:` (CVP-read only); new § 3 emits a Mermaid mirror mechanically derived from § 1, explicitly non-authoritative (CVP does not parse it). § 2 hosts Monolithic Escape Declaration. Step D output invariant updated. (2) Step B Recommendation Selection Rule (NEW) — reliability > cost, balanced. Primary axis: lowest per-increment blast radius (fewer scenarios/contract-ops per PR, shorter depends_on chains, earliest contract closure). Balance ceiling: reject alternatives whose total PR count exceeds 2× the lowest-cost alternative. Cost tiebreaker: fewer increments when reliability ties and balance holds. BLUEPRINT recommendation MUST cite which axis drove the choice.",
@@ -2168,9 +2171,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.6.0",
+      "version": "13.7.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.7.0: feat(EVOL-040 RDR-1 / root cause C) — Governance Rules re-rendered with stable [LAW-NN] IDs (single namespace across the pair; list ordinal cosmetic; assigned once, never renumbered/reused). LAW-08 body restored from template (meta was truncated — Humanized Blocking lost its what/why/next-command contract). LAW-12 body drops the inline universal_sections enumeration (config is the single source) + documents the new law_corpus_mirror pair type. LAW-15 tag on the ADP vocabulary heading. § What Lives Where rewritten to reality (mechanically-enforced universal surface named; framework-only/project-only lists corrected; declared-divergence doctrine). INVARIANT-1 gains feat/*; § Templates phantom `claude` role dir fixed; § anchors normalized (Canonical Iteration ID, GWP case). Constitutional amendment for ADR-EVOL-040 acceptance.",
         "13.6.0: feat(EVOL-039) Governance Rules gain LAW 13 (Agentic Code Review Gate — single-engine, marker-proven). Constitution amendment for ADR-EVOL-039 acceptance. Engine factory-code-review (6 vendored pr-review-toolkit agents, Apache-2.0); two invocations (hat Step R.1b per increment / push gate axis 7 Block 20 per branch, sole marker writer, content-hash keyed); fail-open infra / fail-closed findings with two-plane audited override (marker RDR one-shot + ADR pr_review_overrides permanent); RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory; config optional-absent⇒active. Mirrored modulo LAW number in templates/claude/CLAUDE.md 3.6.0 (LAW 12 there — meta LAW 12 is the META-ONLY lock-step law).",
         "13.5.0: feat(EVOL-037) § Adversarial Reasoning — MANDATORY gains the always-on do-less lens sentence (DC-29 minimalism: YAGNI ladder, argue simpler how, never cut specified what — scope cut routes to CODESIGN via RDR). Constitution amendment for ADR-EVOL-037 acceptance — no new LAW (the do-less lens is a facet of the existing adversarial mandate). Byte-identical mirror in template claude/CLAUDE.md 3.5.0 (lock-step universal_section, gated by check-lockstep-pairs.sh). Mechanics in factory-adversarial-reasoning + DC-29 in defect-prevention.md.",
         "13.4.0: feat(EVOL-036) SLICE-1 — Rule 9 (Canonical Iteration ID) refine-able-artefact list gains `slice_map.md` (before `increment_plan.md`). New two-stage slicing artefact emitted by CODESIGN; capability-VALUE authority. Rule 9 is not a lock-step universal_section — edited by hand identically in template claude/CLAUDE.md 3.3.0. ADR-EVOL-036 (proposed).",
@@ -2529,10 +2533,11 @@
       "path": ".claude/skills/factory-memory-cache/SKILL.md"
     },
     "skills/factory-coherence-validation/SKILL.md": {
-      "version": "1.5.1",
+      "version": "1.5.2",
       "type": "skill",
       "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "changelog": [
+        "1.5.2: fix(EVOL-040) — ordinal 'Rule 9' ref migrated to LAW-09 stable ID.",
         "1.5.1: fix(EVOL-036) coherence — Check 0c no longer unconditionally requires rdr_ratified_at (legitimately null for 1:1 plans; gated conditionally on rdr_alternatives_considered>=1) — removes false-positive CRITICAL on the default path. Check 0d grandfathers pre-EVOL-036 incremental features (increment_plan present, slice_map absent → WARNING migration advisory, not CRITICAL). Check 19 documents that cross-feature seam cascade rides consumes_contract/CASCADE_CONSUMERS (WARN when depends_on_feature lacks a consumes_contract entry).",
         "1.5.0: feat(EVOL-036) SLICE-5 — NEW CVP slice checks: Check 0d slice_map_presence (RDR≥3 enforced here, moved upstream from increment_plan), Check 18 slice_to_increment_coverage (bidirectional cascade_source join + scenario consistency), Check 19 slice_seam_resolution (depends_on_slice DAG + 4 cross-feature fail-modes incl. monolithic-sibling PASS + seam-present), Check 20 slice_immutability_consistency (per-scenario freeze partition well-formed, no MERGED increment orphaned, vacuous pre-BLUEPRINT). Registered in CODESIGN_BLUEPRINT.checks; cvp_coherence_gate Step 0 reads slice_map; extract_traceable_elements parses elements.slices via PARSE_SLICES.",
         "1.4.0: feat(EVOL-036) SLICE-3 coupling — Check 0c increment_plan_presence no longer gates rdr_alternatives_considered≥3 (that field now counts OPTIONAL intra-slice layering alternatives, 0 when every slice maps 1:1); the mandatory ≥3 RDR moved UPSTREAM to slice_map.md (Check 0d slice_map_presence, lands SLICE-5). Removes stale 'Increment Slicing RDR' authority reference. New Checks 18/19/20 land in SLICE-5.",
@@ -2955,11 +2960,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.6.0: feat(EVOL-040) — law_corpus_mirror pair declared (CLAUDE.md ↔ template; meta_only LAW-07/12, project_only LAW-14, addendum LAW-01); placeholder_allowlist_paths += scripts/test-* (self-test fixtures embed {{X}} sentinels legitimately).",
         "1.5.0: feat(EVOL-040) — 3 new meta_template_mirror pairs for the CI-invoked delivery scripts (check-adr-constitution-sync.sh, check-inventory-freshness.py, reconcile_inventory.py).",
         "1.4.0: feat(EVOL-035) — `universal_clause_mirror.universal_sections` gains `## Adversarial Reasoning — MANDATORY` (3rd universal H2 registered for byte-identical lock-step). Manifest entry realigned with the file's internal `version` (both → 1.4.0; prior dual-version drift — file 1.2.0 / manifest 1.3.0 — corrected). GBC-01 fix per Generation Standards §2 / GWP, surfaced by the EVOL-035 coherence review.",
         "1.3.0: fix(governance-info-cleanup) — `universal_clause_mirror` declaration gains `universal_sections` array listing the H2 headings to compare byte-identically (`## Communication Style — MANDATORY`, `## RDR Universal — MANDATORY`). Doc string narrowed: previously over-claimed broad section list now confirmed unrealistic by direct diff (Governance Scope, Pre-Action Gate, Core Protocols all have legitimate context-specific divergence). `meta_to_downstream_via_sync` declaration removed — had zero enforcement contract (informational only, no live consumer beyond the lock-step script's own SKIP branch). 5 pair declarations → 4. Both changes consumed by scripts/check-lockstep-pairs.sh 1.1.0 (real handler).",
@@ -2969,9 +2975,10 @@
       ]
     },
     "skills/factory-adr-management/SKILL.md": {
-      "version": "1.1.2",
+      "version": "1.1.3",
       "path": ".claude/skills/factory-adr-management/SKILL.md",
       "changelog": [
+        "1.1.3: feat(EVOL-040) — PLAW-NN namespace documented for project-minted laws (regex-disjoint from framework LAW-01..99).",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.0.0: feat(EVOL-026) initial — factory-adr-management skill with Propose / Accept / List Active ADRs procedures. Mechanical Accept Procedure copies the ADR's `## Operational Rule` field into docs/constitution.md as a `## [LAW]` section per target_section + amendment_kind (ADD/REPLACE/REMOVE). Two record types: ADR (project-wide, amends constitution) and FDR (feature-local, no amendment). Decision matrix ADR-vs-FDR documented. Invocation patterns for BLUEPRINT, AUDIT, IMPLEMENT, BACKLOG retrospective, free-form turns."
@@ -3041,19 +3048,21 @@
       ]
     },
     "scripts/check-lockstep-pairs.sh": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "path": "scripts/check-lockstep-pairs.sh",
       "changelog": [
+        "1.2.0: feat(EVOL-040 root cause C) — NEW pair type law_corpus_mirror: parses [LAW-NN]-tagged items from the pair's law_section, strips cosmetic ordinals, asserts universal bodies byte-identical, context IDs correctly placed per meta_only/project_only, no duplicate IDs, addendum_ids truncated at the '*…application:*' marker. Unknown types still WARN+skip (back-compat for older synced copies).",
         "1.1.1: fix(EVOL-035 review LS-01) — universal_clause_mirror false-green fixed: `if ! check_universal_clauses …; then rc=$?` captured the if-test status (0) instead of the function's drift count, so a drifted universal section printed [FAIL] but exited 0. Now `rc=0; check_universal_clauses … || rc=$?`. Regression-guarded by scripts/test-check-lockstep-pairs.sh.",
         "1.1.0: fix(governance-info-cleanup) — implements `universal_clause_mirror` handler (was deferred since 1.0.0). New `extract_section()` reads content between an H2 heading and the next H2 heading (or EOF); new `check_universal_clauses()` iterates the pair's `universal_sections` list (declared in coherence-context.json) and diffs each section between left and right. Drift in any listed section now fails CI. Removes `meta_to_downstream_via_sync` case branch — declaration eliminated from coherence-context.json since it had no enforcement contract (informational only). Removes the two persistent `[INFO]` log lines that fired on every invocation. Header doc table updated.",
         "1.0.0: feat(EVOL-034) sub-task 3 — NEW META-ONLY gate consuming coherence-context.json § audit.lock_step_pairs. Iterates declared pairs; for type=meta_template_mirror runs byte-identical diff (glob-aware: expands left side, pairs by basename to right dir). Skips type=universal_clause_mirror (deferred — clause extraction not implemented in v1) + type=meta_to_downstream_via_sync (informational only). Defense in depth: header `# META-ONLY` marker + 3-line self-guard at script start that exits 0 silently if .context/templates/setup/ absent (belt-and-braces against accidental copy to downstream). Exit codes: 0=all pass, 1=at least one drift, 2=config missing or jq unavailable. Smoke-tested at creation: 10 files verified across 5 pair declarations (3 meta_template_mirror + 2 skipped types) with no drift."
       ]
     },
     "scripts/test-check-lockstep-pairs.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "scripts/test-check-lockstep-pairs.sh",
       "type": "test",
       "changelog": [
+        "1.1.0: feat(EVOL-040) — 8 law_corpus_mirror self-test cases (identical/body-drift/ordinal-only/undeclared-missing/declared-meta-only ×2/duplicate-ID/addendum-divergence). 11 cases total.",
         "1.0.0: feat(EVOL-035 review LS-01) — NEW META-ONLY self-test for scripts/check-lockstep-pairs.sh. Drift-injection sandbox asserts a drifted universal_clause section exits 1 (regression guard for the false-green) and a missing section exits 1, while an identical section exits 0. Wired into .github/workflows/lockstep-check.yml."
       ]
     },

@@ -42,7 +42,7 @@ Creates a new record in `status: proposed`. Triggered by any agent or free-form 
 - `alternatives: list of {name, rationale}` — minimum 2 (required by RDR).
 - `consequences: {positives: list, negatives: list}`.
 - `operational_rule: string` — for ADR: the verbatim text that will be copied into `docs/constitution.md` as a `[LAW]` section at accept. For FDR: the binding rule that applies within the feature scope. For DIVERGENCE: a single explanatory line stating that the ADR is a divergence record and points to its `## Decision` body. **MUST NOT be empty.** Plain operational text only — no rationale, no alternatives, no commentary.
-- `target_section: string` — ADR only (mandatory). Either `## [LAW] {existing heading}` to amend an existing section, or `NEW: {proposed heading}` to add a new section. For DIVERGENCE: `none`.
+- `target_section: string` — ADR only (mandatory). Either `## [LAW] {existing heading}` to amend an existing section, or `NEW: {proposed heading}` to add a new section. For DIVERGENCE: `none`. Project-minted laws that want a stable ID use the `PLAW-NN` namespace (e.g. `## [LAW] [PLAW-01] {name}`) — regex-disjoint from the framework's `LAW-NN` corpus (reserved LAW-01..99); never mint a `LAW-NN` ID in a project.
 - `amendment_kind: ADD | REPLACE | REMOVE | NONE` — ADR. `NONE` is reserved for `record_type: DIVERGENCE`.
 
 **Steps:**

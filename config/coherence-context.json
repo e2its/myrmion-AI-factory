@@ -26,7 +26,8 @@
       ".context/templates/**",
       ".claude/instructions/**",
       ".claude/commands/**",
-      ".claude/skills/**"
+      ".claude/skills/**",
+      "scripts/test-*"
     ],
     "lock_step_pairs": [
       {
@@ -64,6 +65,16 @@
         "doc": "Delivery script pair of check-inventory-freshness (EVOL-040) — reconciliation half of the inventory pipeline.",
         "left": "scripts/reconcile_inventory.py",
         "right": ".context/templates/setup/scripts/reconcile_inventory.py"
+      },
+      {
+        "type": "law_corpus_mirror",
+        "doc": "Governance Rules corpus (EVOL-040, RDR-1): stable [LAW-NN] IDs, single namespace across the pair. Universal LAW bodies byte-identical after stripping the cosmetic list ordinal. LAW-01 carries a declared per-context addendum (lines from the first '*…application:*' marker onward exempt). Context Preservation INVARIANTS 2/4/5 diverge by design (meta: framework manifest/branch-state; template: project manifest/feature-state) — governed by CLAUDE.md § What Lives Where, not part of this corpus. LAW-15 (ADP vocabulary) lives outside § Governance Rules and is verified by reference coherence, not by this pair.",
+        "left": "CLAUDE.md",
+        "right": ".context/templates/setup/claude/CLAUDE.md",
+        "law_section": "## Governance Rules",
+        "meta_only": ["LAW-07", "LAW-12"],
+        "project_only": ["LAW-14"],
+        "addendum_ids": ["LAW-01"]
       },
       {
         "type": "universal_clause_mirror",

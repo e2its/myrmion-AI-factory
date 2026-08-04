@@ -1009,7 +1009,7 @@ FUNCTION check_slice_to_increment_coverage(elements):
       YIELD { check: "slice_to_increment_coverage", severity: CRITICAL,
               source: "increment_plan.md: {inc.id}.cascade_source='{inc.cascade_source}'",
               gap: "Increment cascade_source does not resolve to a real slice in slice_map.md",
-              remediation: "Set cascade_source to a valid SLICE-{FEAT}-N (Rule 9 join key)" }
+              remediation: "Set cascade_source to a valid SLICE-{FEAT}-N (LAW-09 join key)" }
 
   # (c) scenario consistency: union of scenarios across realizing increments == slice scenarios
   FOR EACH s IN slices:
