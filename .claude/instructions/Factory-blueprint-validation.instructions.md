@@ -20,7 +20,7 @@ This instruction file defines the **Phase 3 Governance Validation**, remaining c
   - GraphQL SDL: valid schema syntax, all types resolved
   - AsyncAPI 2.6+: valid channels, messages, schemas
   - gRPC Proto3: valid syntax, package declaration
-- If `scripts/lint-contracts.sh` exists: run Spectral linting
+- Contract linting runs via `scripts/security-scan.sh --contracts` (tool-agnostic dispatcher; config-driven)
 - BLOCK if any contract is invalid
 
 ### 3.2 Cross-Feature Endpoint Collision Detection

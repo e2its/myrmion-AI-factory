@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "context": "downstream",
   "_doc": "Single source of truth for which context this repo runs as. Materialised at SETUP --generate. Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. Project owners may extend audit.* keys via ADR — never edit context field.",
   "audit": {
@@ -41,8 +41,8 @@
         "type": "code_doc_lock_step",
         "doc": "When a public artefact (skill, rule, instruction, command, hook, contract operation) is added or removed, its mention in the corresponding catalog or index doc must move in lock-step.",
         "code_paths": [
-          ".claude/skills/Factory-*/SKILL.md",
-          ".claude/rules/*.instructions.md",
+          ".claude/skills/factory-*/SKILL.md",
+          ".claude/rules/*.md",
           ".claude/instructions/*.instructions.md",
           ".claude/commands/*.md",
           ".claude/hooks/*.sh"

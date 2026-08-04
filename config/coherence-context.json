@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -46,6 +46,24 @@
         "doc": "Governance scripts (governance-onedit, governance-onprompt, governance-oncompact) must mirror between meta scripts/ and template scripts/ trees.",
         "left": "scripts/governance-*.sh",
         "right": ".context/templates/setup/scripts/governance-*.sh"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "CI-invoked delivery scripts (EVOL-040): template workflows invoke these in every materialised project; template source is the SETUP-delivery copy, meta copy is this repo's own. Byte-drift between them means downstream CI runs different logic than meta CI.",
+        "left": "scripts/check-adr-constitution-sync.sh",
+        "right": ".context/templates/setup/scripts/check-adr-constitution-sync.sh"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "CI-invoked delivery script (EVOL-040) — inventory freshness, invoked by the materialised inventory-drift workflow.",
+        "left": "scripts/check-inventory-freshness.py",
+        "right": ".context/templates/setup/scripts/check-inventory-freshness.py"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "Delivery script pair of check-inventory-freshness (EVOL-040) — reconciliation half of the inventory pipeline.",
+        "left": "scripts/reconcile_inventory.py",
+        "right": ".context/templates/setup/scripts/reconcile_inventory.py"
       },
       {
         "type": "universal_clause_mirror",

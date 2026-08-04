@@ -88,10 +88,11 @@
       ]
     },
     "rules/allowlist.json": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "config/allowlist.json",
       "changelog": [
+        "1.2.0: fix(EVOL-040) — notes field legacy path .context/setup.md → docs/setup.md.",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
         "1.0.0: Initial template"
       ]
@@ -921,10 +922,11 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "config/coherence-context.json",
       "changelog": [
+        "1.1.0: fix(EVOL-040) — downstream glob fixes: .claude/skills/Factory-*/ → factory-* (downstream skills are lowercase; old glob matched 0), .claude/rules/*.instructions.md → *.md (family extinct since ADR-EVOL-027).",
         "1.0.0: feat(EVOL-025) initial template — downstream variant. `context: downstream` (vs meta), root_sets adapted (no `.context/templates/`, adds `src/`), placeholder_allowlist_paths empty by default (any `{{X}}` is a finding in a materialised project). lock_step_pairs declare semantic types — `rename_propagation` (skill/rule/instruction/command renames must update all mention sites in CLAUDE.md, docs/, .claude/instructions/, .claude/rules/, .claude/commands/) and `code_doc_lock_step` (public artefact added/removed must update catalog/index in CLAUDE.md, docs/spec/, docs/project_log/). manifest_paths.primary points to `config/governance_versions.json` (project manifest, not framework manifest). Materialised at SETUP --generate; SETUP --upgrade owns delta propagation (factory-sync.sh deliberately does NOT touch `config/`)."
       ]
     },
@@ -1192,6 +1194,36 @@
       "changelog": [
         "1.0.0: fix(EVOL-040) — entry moved framework_core→templates with explicit target (was section-misplaced with no target: SETUP --upgrade could never materialize it despite its own role text).",
         "1.0.0: Initial framework entry. Lives in the template tree; meta repo itself does not consume it. Pairs with scripts/check-inventory-freshness.py + config/inventory_aliases.json."
+      ]
+    },
+    "scripts/check-adr-constitution-sync.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/check-adr-constitution-sync.sh",
+      "role": "SETUP-delivery copy of check-adr-constitution-sync.sh (byte-mirror of the meta script, meta_template_mirror pair). CI-invoked in materialised projects — a fresh SETUP --generate must deliver it or the first PR fails CI (CVP CRITICAL 9-10 class).",
+      "delivery": "both",
+      "changelog": [
+        "1.0.0: feat(EVOL-040 root cause B) — template source created (byte-copy of meta; lockstep pair declared). Closes materialised-CI-invokes-undelivered-script."
+      ]
+    },
+    "scripts/check-inventory-freshness.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/check-inventory-freshness.py",
+      "role": "SETUP-delivery copy of check-inventory-freshness.py (byte-mirror of the meta script, meta_template_mirror pair). CI-invoked in materialised projects — a fresh SETUP --generate must deliver it or the first PR fails CI (CVP CRITICAL 9-10 class).",
+      "delivery": "both",
+      "changelog": [
+        "1.0.0: feat(EVOL-040 root cause B) — template source created (byte-copy of meta; lockstep pair declared). Closes materialised-CI-invokes-undelivered-script."
+      ]
+    },
+    "scripts/reconcile_inventory.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/reconcile_inventory.py",
+      "role": "SETUP-delivery copy of reconcile_inventory.py (byte-mirror of the meta script, meta_template_mirror pair). CI-invoked in materialised projects — a fresh SETUP --generate must deliver it or the first PR fails CI (CVP CRITICAL 9-10 class).",
+      "delivery": "both",
+      "changelog": [
+        "1.0.0: feat(EVOL-040 root cause B) — template source created (byte-copy of meta; lockstep pair declared). Closes materialised-CI-invokes-undelivered-script."
       ]
     }
   },
@@ -1665,9 +1697,10 @@
       ]
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.7.1",
+      "version": "2.7.2",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
+        "2.7.2: fix(EVOL-040) — phantom scripts/lint-contracts.sh conditional removed; contract linting routes through the security-scan dispatcher --contracts path.",
         "2.7.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.6.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -2015,9 +2048,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.7.1",
+      "version": "3.8.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.8.0: feat(EVOL-040 root cause B) — § 4.2.2 constitution template path fixed (missing constitution/ segment — SETUP constitution generation read a non-existent path); § 4.2.3 config artefacts += coherence-context.json (template + manifest entry existed, instruction never materialised it — pr-review Phase 0 degraded in every downstream project); § Scripts Materialization gains the delivery-closure Invariant (every templates::scripts entry with delivery setup|both must exist post-copy → BLOCK, mirrors hooks Invariant).",
         "3.7.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: snapshot-generation section `protected_paths.red_zones` → `protected_paths.paths` (line 155); subheading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)`. The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
         "3.7.0: feat(EVOL-033) phase 2 — Quality Configuration materialization step added. config/quality.json materialised from .context/templates/setup/config/quality.json with placeholder resolution: {{COMPLEXITY_MCP_SERVER}} ← quality.complexity.mcp_server (semgrep | custom | null when Skip); {{COMPLEXITY_MCP_TOOL_NAME}} ← quality.complexity.mcp_tool_name. Skip path writes JSON null literal (not string) and sets complexity.enabled=false so factory-complexity-check short-circuits cleanly; file still materialised to enable later opt-in via edit. Quality config added to § 4.2.3 config artefacts list. factory-sync.sh deliberately skips config/; SETUP --upgrade owns delta propagation.",
         "3.6.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2742,11 +2776,12 @@
       "path": ".claude/skills/factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.8.3",
+      "version": "1.9.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.9.0: feat(EVOL-040 root cause B) — [6/7] hardcoded 17-name script list + hooks loop DELETED; replaced by a manifest query over governance_versions.json `delivery` fields (sync|both → shipped, template-variant preferred via resolve_script_src; setup → materialization-only). Adding a downstream script = manifest entry only, no sync edit. Empty query → loud warning, nothing silently skipped. sync_tree() gains __pycache__ prune (find is gitignore-unaware and was copying .pyc runtime junk into every project). Verified: emitted list == old list ∪ nothing-lost (21 scripts incl. hooks + factory-sync).",
         "1.8.3: fix(EVOL-033 lock-step) — base-scripts ship list extended with check-complexity-config.sh (gap surfaced during first post-merge Nexus dry-run: the new DC-28 validator script existed in framework_core but factory-sync's hardcoded script list missed it). Without this entry, downstream syncs of EVOL-033 would deliver the skill + DC + LAW + BVL Step 7 + PR-review axis 6 but leave the validator absent, breaking CI symmetry between meta and downstream.",
         "1.8.2: feat(EVOL-032) phase 1 — base-scripts ship list extended with check-iteration-id-format.sh + migrate-iteration-frontmatter.sh so iteration-id CI gate + opt-in legacy converter propagate to materialised projects via factory-sync.",
         "1.8.0: feat(EVOL-028) base-scripts ship list extended with check-applicability-frontmatter.sh so ADP validator propagates to materialised projects via factory-sync.",
@@ -2920,11 +2955,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.5.0: feat(EVOL-040) — 3 new meta_template_mirror pairs for the CI-invoked delivery scripts (check-adr-constitution-sync.sh, check-inventory-freshness.py, reconcile_inventory.py).",
         "1.4.0: feat(EVOL-035) — `universal_clause_mirror.universal_sections` gains `## Adversarial Reasoning — MANDATORY` (3rd universal H2 registered for byte-identical lock-step). Manifest entry realigned with the file's internal `version` (both → 1.4.0; prior dual-version drift — file 1.2.0 / manifest 1.3.0 — corrected). GBC-01 fix per Generation Standards §2 / GWP, surfaced by the EVOL-035 coherence review.",
         "1.3.0: fix(governance-info-cleanup) — `universal_clause_mirror` declaration gains `universal_sections` array listing the H2 headings to compare byte-identically (`## Communication Style — MANDATORY`, `## RDR Universal — MANDATORY`). Doc string narrowed: previously over-claimed broad section list now confirmed unrealistic by direct diff (Governance Scope, Pre-Action Gate, Core Protocols all have legitimate context-specific divergence). `meta_to_downstream_via_sync` declaration removed — had zero enforcement contract (informational only, no live consumer beyond the lock-step script's own SKIP branch). 5 pair declarations → 4. Both changes consumed by scripts/check-lockstep-pairs.sh 1.1.0 (real handler).",
         "1.2.0: feat — `audit.placeholder_allowlist_paths` extended to include `.claude/instructions/**`, `.claude/commands/**`, `.claude/skills/**`. Codifies the existing convention that `{{X}}` in those trees represents agent-runtime variable interpolation in pseudocode, not materialisation placeholders. Future Phase 0 audits no longer flag legitimate runtime placeholders as leakage; only template-tree leakage remains a finding.",
@@ -3043,9 +3079,10 @@
       ]
     },
     "skills/factory-applicability-discovery/SKILL.md": {
-      "version": "1.1.2",
+      "version": "1.1.3",
       "type": "skill",
       "changelog": [
+        "1.1.3: fix(EVOL-040) — phantom scripts/generate-applicability-context.sh reference removed (existed nowhere; regen path is SETUP --upgrade); legacy .context/setup.md → docs/setup.md.",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) discovery scan extended — Step 4 now scans every `.claude/rules/*.md` (technical + cross-cutting governance), not only defect-prevention.md. Roll-Call output gains ACTIVE RULES section. Inputs table documents `.context/applicability_context.json` as the deterministic context source written by SETUP Phase D, with docs/setup.md as fallback. Validation contract section extended accordingly.",
         "1.0.0: feat(EVOL-028) new Applicability Discovery Protocol (ADP) skill — live scan of governance trees (snapshot LAWs, instructions, structural skills, DCs) filtered by applicable_when frontmatter; emits canonical Roll-Call block on-screen as first user-facing message of every command. Salience anchor against rule-amnesia symptom (lazy-load ineffective in practice — agents had rules loaded but ignored them). Closed vocabulary: phase, scope, change_type, command, path_glob, framework, always."

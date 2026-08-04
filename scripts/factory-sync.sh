@@ -254,10 +254,12 @@ sync_tree() {
 
   [[ -d "$src_root" ]] || return
 
+  # EVOL-040: prune runtime byproducts — find is gitignore-unaware and was
+  # copying committed-adjacent junk (e.g. __pycache__/*.pyc) into every project.
   while IFS= read -r -d '' src_file; do
     local rel="${src_file#$src_root/}"
     sync_file "$src_file" "$dst_root/$rel"
-  done < <(find "$src_root" -type f -print0 | sort -z)
+  done < <(find "$src_root" -name '__pycache__' -prune -o -type f -print0 | sort -z)
 }
 
 # Detect orphan files in a tree (recursive)
@@ -373,17 +375,32 @@ resolve_script_src() {
     echo "$meta"
   fi
 }
-for script in auto-tag.sh install-hooks.sh security-scan.sh validate-governance.sh governance-onprompt.sh governance-oncompact.sh governance-onedit.sh generate-governance-snapshot.sh check-inventory-drift.sh check-applicability-frontmatter.sh check-iteration-id-format.sh migrate-iteration-frontmatter.sh project_summarization.py check-adr-constitution-sync.sh check-complexity-config.sh reconcile_inventory.py check-inventory-freshness.py; do
+# EVOL-040 (root cause B): the script list is a MANIFEST QUERY, not a hardcoded
+# array. Source of truth = governance_versions.json `delivery` field:
+#   sync | both → shipped by factory-sync (template variant preferred via
+#   resolve_script_src); setup → materialization-only, never synced.
+# Adding a script downstream = add its manifest entry with delivery — no edit here.
+SYNC_SCRIPTS=$(python3 -c "
+import json
+m = json.load(open('$FRAMEWORK_ROOT/.context/templates/setup/governance_versions.json'))
+names = set()
+for section in ('templates', 'framework_core'):
+    for k, v in m.get(section, {}).items():
+        if k.startswith('_') or not isinstance(v, dict):
+            continue
+        if k.startswith('scripts/') and v.get('delivery') in ('sync', 'both'):
+            names.add(k[len('scripts/'):])
+for n in sorted(names):
+    print(n)
+" 2>/dev/null || echo '')
+if [[ -z "$SYNC_SCRIPTS" ]]; then
+  echo -e "${YELLOW}  ⚠ manifest delivery query returned empty — scripts NOT synced (check governance_versions.json delivery fields)${NC}"
+fi
+while IFS= read -r script; do
+  [[ -z "$script" ]] && continue
+  mkdir -p "$TARGET_PROJECT/scripts/$(dirname "$script")" 2>/dev/null || true
   sync_file "$(resolve_script_src "$script")" "$TARGET_PROJECT/scripts/$script"
-done
-# factory-sync.sh exists only in framework_core (no template variant by design).
-sync_file "$FRAMEWORK_ROOT/scripts/factory-sync.sh" "$TARGET_PROJECT/scripts/factory-sync.sh"
-# Git hooks — template-variant preferred when present.
-for hook in commit-msg pre-commit pre-push; do
-  tpl="$FRAMEWORK_ROOT/.context/templates/setup/scripts/hooks/$hook"
-  src="$([[ -f "$tpl" ]] && echo "$tpl" || echo "$FRAMEWORK_ROOT/scripts/hooks/$hook")"
-  sync_file "$src" "$TARGET_PROJECT/scripts/hooks/$hook"
-done
+done <<< "$SYNC_SCRIPTS"
 echo ""
 
 echo -e "${BOLD}[7/7] Templates (.context/templates/)${NC}"

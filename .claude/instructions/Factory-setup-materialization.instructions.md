@@ -333,7 +333,7 @@ When generating configuration files, the agent MUST use the pinned versions from
 
 ### 4.2.2 Constitution Generation
 9-step process reading `docs/setup.md` → template → `docs/constitution.md`:
-1. Read template from `.context/templates/setup/constitution_template.md`
+1. Read template from `.context/templates/setup/constitution/constitution_template.md`
 2. Map project_name, business_goal, project_mode
 3. Map backend stack (runtime, framework, topology, communication_style)
 4. Map frontend stack (framework, meta_framework, pattern, state_management)
@@ -354,7 +354,7 @@ Scan `.context/templates/setup/rules/` for all `.md` templates. For each templat
 2. Resolve placeholders from `docs/setup.md` + `docs/constitution.md`
 3. Write to `.claude/rules/{rule_name}.md`
 
-Standard rules materialized to `.claude/rules/`: `architecture.md`, `security_policy.md`, `testing.md`, `branching.md`, `ci-cd.md`, `database.md`, `observability.md`, `performance.md`, `ux-constitution.md`, `contract-first-policy.md`, `immutability_policy.md`, `ai_budget_tracker.md`, `ai_budget_governance.md`, `stateless.md`, `privacy.md`, `frontend_architecture_compatibility.md`, `html-css.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`, `quality.json` (see Quality Configuration below).
+Standard rules materialized to `.claude/rules/`: `architecture.md`, `security_policy.md`, `testing.md`, `branching.md`, `ci-cd.md`, `database.md`, `observability.md`, `performance.md`, `ux-constitution.md`, `contract-first-policy.md`, `immutability_policy.md`, `ai_budget_tracker.md`, `ai_budget_governance.md`, `stateless.md`, `privacy.md`, `frontend_architecture_compatibility.md`, `html-css.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`, `quality.json` (see Quality Configuration below), `coherence-context.json` (copied as-is from `.context/templates/setup/config/coherence-context.json` — its `context: "downstream"` field is NEVER edited; consumed by factory-pr-review Phase 0).
 
 **Phase B — Technology-Specific Best Practices:**
 For each detected technology (backend.runtime, frontend.framework):
@@ -1060,6 +1060,7 @@ Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/`:
 - Stack conditionals from `governance_versions.json` filter scripts by stack
 - `stack_configured` scripts resolve placeholders
 - `chmod +x` for all `.sh` files
+- **Invariant (EVOL-040):** after the copy, every `templates::scripts/**` manifest entry with `delivery` ∈ {`setup`, `both`} MUST exist under the target `scripts/` path. If any is missing → BLOCK with the entry key and the expected path. This mirrors the hooks Invariant below — a materialised workflow invoking a script SETUP did not deliver is a broken-first-CI defect class (CVP CRITICAL 9-10).
 
 **Claude Code Materialization (`.context/templates/setup/claude/` → project root + `.claude/`):**
 
