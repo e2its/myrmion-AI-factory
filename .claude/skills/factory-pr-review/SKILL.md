@@ -81,12 +81,15 @@ These extend the generic hard blocks (`SKILL.md` Phase 4 in the upstream skill) 
 | 17 | **Commit ↔ diff coherence**: commit message claims a change that the diff does not show, or the diff carries a structural change the commit message omits (e.g. EVOL-N in commit ≠ branch's EVOL-N; new public field shipped under `chore:` prefix) | both | Phase 0 (semantic judgment) |
 | 18 | **Bump severity ↔ change kind coherence**: `governance_versions.json` bump kind (PATCH/MINOR/MAJOR) does not match the actual nature of the diff (new feature → MINOR; breaking contract → MAJOR; bug fix only → PATCH). Inverse cross-check of Generation Standards §2 | both | Phase 0 (semantic judgment) |
 | 19 | **Cyclomatic complexity exceeds project threshold** (DC-28): one or more functions in the diff have CCN above `config/quality.json.complexity.thresholds.hard`. Blocker only when `complexity.pr_blocker=true`; otherwise classified Important (soft) / Nit (advisory) per `factory-complexity-check` skill output. Fail-open when MCP unavailable, config absent, or `complexity.enabled=false` | both | `config/quality.json` + `factory-complexity-check/SKILL.md` (axis 6) |
+| 20 | **Agentic code review not run / blockers unresolved**: `has_code` diff without a valid `.claude/state/code-review-${content_hash}.marker`, or marker records blockers without an RDR-ratified audited override. Marker written ONLY by the factory-code-review BRANCH pass (single engine — the IMPLEMENT 🔍 REVIEW hat pass never writes it). Fail-open (noisy Important) when the skill is not installed or `code_review.enabled=false` | both | `factory-code-review/SKILL.md` + Step 0-bis in `scripts/preflight.sh` (axis 7) |
 
 Block 11 (Governance-bump miss) is the framework-meta equivalent of "missing CHANGELOG entry". It enforces the rule that lives in the root `CLAUDE.md` Generation Standards §2.
 
 Blocks 13-18 are produced by **Phase 0 Coherence Audit** (semantic, agentic). 13-15 are deterministic-leaning but require the agent to interpret rename intent and lock-step pair semantics; 16 is split by context (one variant active per repo); 17-18 require semantic judgment over commit message + manifest bump kind. All six read their context-specific configuration from `config/coherence-context.json` (`audit.*` keys).
 
 Block 19 (Cyclomatic complexity) is produced by **axis 6** in Phase 3 (per-axis analysis). The skill `factory-complexity-check` invokes a project-configured MCP (default Semgrep, RDR-ratified at SETUP Q23.1) on the cumulative branch diff; severity routing depends on `config/quality.json.complexity.pr_blocker` (default `false` → advisory). The skill fails open — missing config, unavailable MCP, or unparseable response degrade to a banner-only advisory.
+
+Block 20 (Agentic code review) mirrors the Phase 0 production split: the skill `factory-code-review` is the **executor + marker writer** (agent-side — spawns the review agent roster on the branch diff, normalises severity, writes `.claude/state/code-review-${content_hash}.marker`); **Step 0-bis in `preflight.sh`** is the deterministic verifier (script-side — recomputes the content hash via the same `code_review_hash.py` pipeline, reads the marker, never executes the review). Gate profile per RDR-4: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type definitions, comment-analyzer + code-simplifier advisory. Content-hash keying (RDR-1): sha256 over sorted path+blob-sha of `is_code∪is_test` files — docs-only commits and content-preserving rebases do NOT invalidate the marker. Findings plane is fail-closed: blockers block unless an RDR-ratified override object is recorded in the marker (RDR-2; audited in marker + worklog).
 
 ## Framework artefact ↔ docs sync matrix
 
@@ -207,9 +210,10 @@ Apply this routing table (load reference + run script):
 | always | `references/severity-rubric.md` | — |
 | framework meta repo | governance-bump check (Block 11) | grep `governance_versions.json` in diff |
 | `has_code` AND `config/quality.json` present | axis 6 — `factory-complexity-check/SKILL.md` | INVOKE_SKILL("factory-complexity-check", { files: changed_source_files }) |
+| `has_code` | axis 7 — `factory-code-review/SKILL.md` | INVOKE_SKILL("factory-code-review", { scope: "branch", base: BASE_REF }) — agent-side; writes the Block 20 marker; `preflight.sh` Step 0-bis verifies it |
 
 ### Phase 4 — Hard-block enforcement
-The 19 hard blocks in § Framework-aware Hard Blocks. Each one is a deterministic pass/fail. The agent does NOT downgrade these — they are blocks by definition of the rubric.
+The 20 hard blocks in § Framework-aware Hard Blocks. Each one is a deterministic pass/fail. The agent does NOT downgrade these — they are blocks by definition of the rubric.
 
 ### Phase 5 — Review generation
 Use `assets/review_template.md` for the JSON structure. In `--preflight` mode the review is printed locally; in `--review` mode it is rendered to Markdown via `post_review.py`.
@@ -339,10 +343,12 @@ Without persisting the analysis on the PR, the chain "I saw a failure → I diag
 ### Framework meta repo (this repo)
 - Block 11 (governance-bump miss) is **active**.
 - Blocks 7-8-12 are **inactive** (no `docs/spec/`, no `codebase_inventory.json`, no `protected-paths.json` in the meta — the framework IS the protected code, governed by Block 11 instead).
+- Block 20 (agentic code review) is **active** — the meta repo has no `config/quality.json`, so `code_review` defaults apply (gate live = the framework dogfoods its own gate).
 - Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim.
 
 ### Materialised projects (downstream)
-- All 12 blocks active.
+- All blocks active except the meta-only ones (Block 11, Block 16-meta).
+- Block 20 active by default; tune via optional `config/quality.json.code_review` or downgrade via ADR `pr_review_overrides.block_20_code_review`.
 - Docs-only fast-lane only when the project's own `CLAUDE.md` declares it (defaults to OFF).
 - `config/protected-paths.json` consulted for Block 12.
 - `docs/spec/{ID}/` artefacts drive Block 8 (CVP subset).
@@ -375,7 +381,7 @@ The hook script reads stdin JSON, extracts `tool_input.command`, matches `/(^|\s
 
 The skill is framework code; it ships identical to every project. **Project-specific behaviour comes from project rules and ADRs**, NOT from skill defaults.
 
-> **Scope note.** This skill is the **push gate**. It is NOT the inline 🔍 REVIEW hat that runs during `IMPLEMENT --build` (DEV ↔ REVIEW ↔ SEC). Those are governed by `.claude/rules/review-policy.md` and live inside the BVL cycle. The push gate is a downstream, independent concern: it runs at `git push` time on the cumulative branch diff, regardless of what happened during IMPLEMENT.
+> **Scope note.** This skill is the **push gate**. It is NOT the inline 🔍 REVIEW hat that runs during `IMPLEMENT --build` (DEV ↔ REVIEW ↔ SEC) — that hat is governed by `.claude/rules/review-policy.md` and lives inside the BVL cycle. Since EVOL-039 the two share ONE code-quality engine — `factory-code-review` — invoked twice: the hat runs it per increment (findings feed `peer_review_{INC-N}_*.md`), the push gate runs it on the cumulative branch diff (writes the Block 20 marker). The push gate consumes ONLY the marker, never the peer_review files — file-coverage union over per-increment reviews is a false green (a file touched by two increments accumulates partial reviews, none over its final state). The hat's 14 framework-specific checks and the review-policy retry/override ladder remain hat-only concerns.
 
 ### Hierarchy (highest to lowest, on conflict)
 
@@ -404,7 +410,7 @@ That's it. Anything not in this list is NOT consumed. If the push gate were to s
 
 Same disambiguation pattern as `review-policy.md`:
 
-- `.claude/rules/review-policy.md` — BVL/IMPLEMENT 🔍 REVIEW hat policy (DEV ↔ REVIEW retry loop, escalation, override, environment-driven strictness). Different reviewer, different lifecycle.
+- `.claude/rules/review-policy.md` — BVL/IMPLEMENT 🔍 REVIEW hat policy (DEV ↔ REVIEW retry loop, escalation, override, environment-driven strictness). Different reviewer, different lifecycle. The generic code-quality lens both reviewers need is shared via `factory-code-review` (single engine); review-policy.md continues to govern only the hat's loop mechanics.
 - `.claude/rules/security_policy.md` — high-level project security policy (allowed crypto, PII handling, OWASP stance, threat model). Consumed by 🛡️ SEC hat in IMPLEMENT --build (SAST + dependency audit), QA --verify (DAST), and AUDIT (compliance dimension). The push gate's secret-pattern regexes are NOT here — they live in `scripts/detect_change_type.py` and may be extended only via skill changes (manifest-tracked), not via project rules.
 - `.claude/rules/testing.md` — testing policy (coverage thresholds, framework choice, AAA pattern). Consumed by BVL during DEV ↔ REVIEW (coverage gate), IMPLEMENT --build (TDD enforcement), QA --verify (test-plan execution). The push gate's "tests-deleted-without-justification" check (Block 5) reads the diff alone, not the policy file.
 - `.claude/rules/architecture.md` — layer dependency rules, module boundaries. Consumed by BLUEPRINT (design.md §7.8 Mandatory Patterns), BVL REVIEW hat (Check #1), AUDIT. The push gate does NOT enforce architecture; that is a deeper, design-time concern.
@@ -427,8 +433,11 @@ pr_review_overrides:
   block_1_public_endpoint_without_spec: scoped
   block_1_spec_paths: ["contracts/openapi/v3/*.yaml"]
   block_8_cvp_subset: ["0a", "0c", "1", "2", "13", "14", "15"]   # disable check 16 for this project
+  block_20_code_review: advisory   # downgrade Block 20 to advisory (never blocks)
 ---
 ```
+
+`block_20_code_review: advisory` is the **permanent plane** of the RDR-2 override model: a project-wide ADR (or feature-scoped FDR) downgrades the code-review gate to advisory, ratified and audited like any ADR. The **one-shot plane** is the marker `override` object written by `factory-code-review` after an explicit RDR with the user (single push, single tree state). Both planes are audited; neither is a per-developer escape.
 
 The skill reads `pr_review_overrides:` from every ADR under `docs/project_log/adr/` (project-wide), every FDR under `docs/spec/{ID}/fdr/` (feature-scoped, when the diff is feature-bounded), and any legacy `docs/spec/{ID}/adr/` entries kept for backward compatibility. Project-wide ADRs override skill defaults; FDRs override project-wide rules within the feature scope only. Anything not declared in an override stays at the rule-file default.
 
@@ -452,7 +461,7 @@ factory-pr-review/
 │   ├── adr-policy.md                 ← ADR location: docs/project_log/adr/
 │   └── changelog-policy.md           ← CHANGELOG + governance_versions.json (meta)
 ├── scripts/
-│   ├── preflight.sh                  ← orchestrator (push gate entry point)
+│   ├── preflight.sh                  ← orchestrator (push gate entry point — Step 0 coherence marker + Step 0-bis code-review marker)
 │   ├── detect_change_type.py         ← classifies the diff
 │   ├── check_openapi_diff.sh         ← oasdiff wrapper
 │   ├── check_asyncapi_diff.sh        ← asyncapi diff wrapper
@@ -462,3 +471,5 @@ factory-pr-review/
 └── assets/
     └── review_template.md            ← JSON + Markdown final review template
 ```
+
+Sibling engine: `.claude/skills/factory-code-review/` — Block 20 executor (own tree, own manifest entries).

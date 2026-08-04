@@ -124,9 +124,7 @@ fi
 
 # ── Step 0 — Coherence Audit marker check (Block 13-18 enforcement) ──
 # Governance-sensitive diff requires Phase 0 of the SKILL to have run for this
-# (session_id, branch_sha) tuple. Marker proves it. Missing marker → blocker.
-# When invoked manually (no CLAUDE_SESSION_ID env var), the check degrades to
-# advisory: log a note, do not block.
+# branch_sha. Marker proves it. Missing marker → blocker.
 COHERENCE_CONFIG="$REPO_ROOT/config/coherence-context.json"
 if [[ -f "$COHERENCE_CONFIG" ]]; then
   ROOT_SETS=$("$PYTHON" -c '
@@ -217,6 +215,81 @@ add_finding() {
 if [[ -n "${DEFERRED_COHERENCE_FINDING:-}" ]]; then
   IFS='|' read -r _sev _cat _msg <<< "$DEFERRED_COHERENCE_FINDING"
   add_finding "$_sev" "$_cat" "$_msg"
+fi
+
+# ── Step 0-bis — Agentic Code Review marker check (Block 20 enforcement) ──
+# RDR-1: content-hash marker (amend/rebase that preserves code content stays valid).
+# RDR-2: fail-open on infra (executor missing → NOISY Important, push passes),
+#        fail-closed on findings (blockers block unless RDR-ratified override).
+# RDR-3: only the factory-code-review BRANCH pass writes the marker.
+# Script side verifies only — never executes the review (same split as Step 0).
+if [[ "$has_code" == "true" ]]; then
+  CR_HELPER="$REPO_ROOT/.claude/skills/factory-code-review/scripts/code_review_hash.py"
+  # Optional config: code_review block in config/quality.json. ABSENT ⇒ enabled
+  # (inverse of complexity — this executor ships with the skill, no external MCP).
+  CR_ENABLED=$("$PYTHON" -c '
+import json, sys
+try:
+    cfg = json.load(open(sys.argv[1]))
+    print("false" if cfg.get("code_review", {}).get("enabled") is False else "true")
+except Exception:
+    print("true")
+' "$REPO_ROOT/config/quality.json" 2>/dev/null || echo 'true')
+
+  if [[ "$CR_ENABLED" == "false" ]]; then
+    log "preflight: code-review gate disabled via config/quality.json code_review.enabled=false"
+  elif [[ ! -f "$CR_HELPER" ]]; then
+    # RDR-2 infra plane: noisy, non-blocking (contrast: the push hook's skill-absent
+    # skip at check-push-preflight.sh stays silent — this warning is the required noise).
+    add_finding "important" "code-review-executor-missing" "factory-code-review skill not installed — push proceeds WITHOUT agentic code review (Block 20 inactive). Run scripts/factory-sync.sh (downstream) or restore .claude/skills/factory-code-review/ (meta)."
+  else
+    CR_HASH=$(echo "$CLASSIFICATION" | "$PYTHON" "$CR_HELPER" 2>/dev/null || echo '')
+    CR_HASH=$(printf '%s' "$CR_HASH" | tr -cd 'a-fA-F0-9EMPTY')
+    if [[ -z "$CR_HASH" ]]; then
+      add_finding "important" "code-review-hash-failure" "Could not compute code-review content hash (helper error) — Block 20 degraded to advisory this push. Investigate before next push."
+    elif [[ "$CR_HASH" == "EMPTY" ]]; then
+      : # all code files deleted at HEAD — nothing reviewable
+    else
+      CR_MARKER=".claude/state/code-review-${CR_HASH}.marker"
+      if [[ ! -f "$CR_MARKER" ]]; then
+        add_finding "blocker" "code-review-missing" "Code diff requires the factory-code-review branch pass (Block 20). Marker '$CR_MARKER' not found. Invoke the skill (scope=branch, read factory-code-review/SKILL.md) — it writes the marker on completion. Content-hash keying: docs-only commits and content-preserving rebases do NOT invalidate an existing marker."
+      else
+        # Content-allowlist discipline: .claude/state/ is user-writable. Only
+        # int-cast counts and tr-filtered timestamps are ever echoed; the
+        # override reason text is NEVER echoed by this script.
+        CR_BLOCKERS=$("$PYTHON" -c '
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    print(int(d.get("findings", {}).get("blocker", 0)))
+except Exception:
+    print(0)
+' "$CR_MARKER" 2>/dev/null || echo 0)
+        CR_OVERRIDE=$("$PYTHON" -c '
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    o = d.get("override") or {}
+    print("true" if isinstance(o, dict) and o.get("reason") else "false")
+except Exception:
+    print("false")
+' "$CR_MARKER" 2>/dev/null || echo 'false')
+        if [[ "$CR_BLOCKERS" -gt 0 && "$CR_OVERRIDE" != "true" ]]; then
+          add_finding "blocker" "code-review-blockers" "factory-code-review recorded $CR_BLOCKERS blocker(s) in '$CR_MARKER'. Resolve and re-run the branch pass, or record an RDR-ratified override (factory-code-review/SKILL.md § Override)."
+        elif [[ "$CR_BLOCKERS" -gt 0 ]]; then
+          CR_OVERRIDE_AT=$("$PYTHON" -c '
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    print(str((d.get("override") or {}).get("at", "")))
+except Exception:
+    print("")
+' "$CR_MARKER" 2>/dev/null | tr -cd '0-9TZ:+-')
+          add_finding "important" "code-review-overridden" "Block 20: $CR_BLOCKERS blocker(s) overridden by audited RDR override recorded at ${CR_OVERRIDE_AT} — push proceeds. Audit trail in marker + worklog."
+        fi
+      fi
+    fi
+  fi
 fi
 
 # Block 3: secrets in diff
