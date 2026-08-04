@@ -19,12 +19,21 @@
 #                                 between the heading and the next H2 or
 #                                 EOF) from left and right, diffs them.
 #                                 Drift in any listed section fails.
+#   - law_corpus_mirror        : parses `N. **[LAW-NN] …**` items from the
+#                                 pair's law_section (EVOL-040). Universal
+#                                 IDs must be body-identical after stripping
+#                                 the cosmetic list ordinal; placement is
+#                                 enforced via meta_only / project_only
+#                                 (declared-but-absent-everywhere FAILS);
+#                                 addendum_ids truncate at the first
+#                                 `*…application:*` marker before comparing;
+#                                 duplicate IDs and an empty corpus FAIL.
 #   - other types              : WARN and SKIPPED.
 #
 # Exits:
 #   0 — all checked pairs pass (or list empty / all skipped)
 #   1 — at least one pair has drifted
-#   2 — config file missing or unreadable
+#   2 — config file missing, not valid JSON, or jq unavailable
 #
 # Self-guard: if .context/templates/setup/ is absent (not in meta repo),
 # exits 0 silently. Belt-and-braces against future copy-paste leaks.
@@ -47,6 +56,13 @@ fi
 
 if ! command -v jq > /dev/null 2>&1; then
   echo "[ERROR] check-lockstep-pairs: jq not installed" >&2
+  exit 2
+fi
+
+# Unreadable-as-JSON must be exit 2 (header contract), never a green
+# "no pairs declared" — one stray comma would otherwise turn the gate off.
+if ! jq empty "$CONTEXT_FILE" 2>/dev/null; then
+  echo "[ERROR] check-lockstep-pairs: $CONTEXT_FILE is not valid JSON — gate cannot run" >&2
   exit 2
 fi
 
@@ -184,8 +200,11 @@ check_law_corpus() {
     '
   }
 
-  local addendum_list
+  local addendum_list meta_only_list project_only_list declared_ids
   addendum_list=$(jq -r 'join("|")' <<< "$addendum_json")
+  meta_only_list=$(jq -r 'join("|")' <<< "$meta_only_json")
+  project_only_list=$(jq -r 'join("|")' <<< "$project_only_json")
+  declared_ids=$(jq -r '.[]' <<< "$meta_only_json"; jq -r '.[]' <<< "$project_only_json")
 
   local left_idx right_idx
   left_idx=$(law_index "$left" "$addendum_list")
@@ -195,23 +214,32 @@ check_law_corpus() {
   left_ids=$(printf '%s\n' "$left_idx" | cut -f1 | grep -v '^$' || true)
   right_ids=$(printf '%s\n' "$right_idx" | cut -f1 | grep -v '^$' || true)
 
+  # Empty corpus on BOTH sides = the section heading was renamed or the law
+  # format drifted — the check would otherwise iterate zero IDs and pass green.
+  if [[ -z "$left_ids" && -z "$right_ids" ]]; then
+    echo "[FAIL] law_corpus_mirror: no [LAW-NN] entries found under '$section' in either file — heading renamed or item format drifted; the corpus check cannot run" >&2
+    return 1
+  fi
+
   # duplicate IDs within one side
   for side in "left:$left_ids" "right:$right_ids"; do
     dups=$(printf '%s\n' "${side#*:}" | sort | uniq -d)
     if [[ -n "$dups" ]]; then
-      echo "[FAIL] law_corpus_mirror: duplicate LAW ID(s) in ${side%%:*} file: $(echo $dups)" >&2
+      echo "[FAIL] law_corpus_mirror: duplicate LAW ID(s) in ${side%%:*} file: ${dups//$'\n'/ }" >&2
       local_drift=$((local_drift + 1))
     fi
   done
 
-  # placement + universal-body comparison
+  # placement + universal-body comparison — iterate observed ∪ DECLARED IDs:
+  # a declared ID absent from BOTH files (law deleted everywhere) must FAIL,
+  # not silently drop out of the loop.
   while IFS= read -r id; do
     [[ -z "$id" ]] && continue
     local in_left in_right is_meta_only is_project_only
     in_left=$(printf '%s\n' "$left_ids" | grep -Fxc "$id" || true)
     in_right=$(printf '%s\n' "$right_ids" | grep -Fxc "$id" || true)
-    is_meta_only=$(jq --arg id "$id" 'index($id) != null' <<< "$meta_only_json")
-    is_project_only=$(jq --arg id "$id" 'index($id) != null' <<< "$project_only_json")
+    is_meta_only=false; [[ "|$meta_only_list|" == *"|$id|"* ]] && is_meta_only=true
+    is_project_only=false; [[ "|$project_only_list|" == *"|$id|"* ]] && is_project_only=true
 
     if [[ "$is_meta_only" == "true" ]]; then
       [[ "$in_right" -gt 0 ]] && { echo "[FAIL] law_corpus_mirror: meta-only $id present in right file" >&2; local_drift=$((local_drift + 1)); }
@@ -237,7 +265,7 @@ check_law_corpus() {
       diff -u <(printf '%s' "$lb" | tr '\001' '\n') <(printf '%s' "$rb" | tr '\001' '\n') 2>&1 | sed 's/^/   /' >&2 || true
       local_drift=$((local_drift + 1))
     fi
-  done < <(printf '%s\n%s\n' "$left_ids" "$right_ids" | sort -u)
+  done < <(printf '%s\n%s\n%s\n' "$left_ids" "$right_ids" "$declared_ids" | sort -u)
 
   return $local_drift
 }
@@ -278,7 +306,10 @@ while IFS= read -r pair; do
       META_ONLY_JSON=$(jq -c '.meta_only // []' <<< "$pair")
       PROJECT_ONLY_JSON=$(jq -c '.project_only // []' <<< "$pair")
       ADDENDUM_JSON=$(jq -c '.addendum_ids // []' <<< "$pair")
-      LAW_COUNT=$(grep -cE '^[0-9]+\. \*\*\[LAW-[0-9]+\]' "$LEFT" 2>/dev/null || echo 0)
+      # grep -c prints 0 AND exits 1 on no-match — `|| echo 0` would append a
+      # second 0 ("0\n0") and crash the arithmetic below. Capture, then default.
+      LAW_COUNT=$(grep -cE '^[0-9]+\. \*\*\[LAW-[0-9]+\]' "$LEFT" 2>/dev/null || true)
+      LAW_COUNT=${LAW_COUNT:-0}
       CHECKED=$((CHECKED + LAW_COUNT))
       # Same rc-capture idiom as universal_clause_mirror below.
       rc=0

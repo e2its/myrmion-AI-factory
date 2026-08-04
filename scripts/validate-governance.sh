@@ -3,7 +3,10 @@
 # scripts/validate-governance.sh — Governance Drift Detection & Enforcement
 # ============================================================================
 # Modes:
-#   (default)             CI drift check — manifest vs framework_core files
+#   (default)             CI drift + integrity + orphan check — manifest (all 3
+#                         source-bearing sections: framework_core, templates,
+#                         agent_templates) vs every governed tree. CHECK 1c is
+#                         always-on; CHECK 2 is a full-tree sweep (EVOL-040).
 #   --diff-only           Drift check, non-blocking
 #   --base <branch>       Drift check against specific base
 #   --banner              Print "Governance loaded: ..." one-liner (SessionStart)
@@ -193,7 +196,7 @@ NC='\033[0m'
 
 # ── Config ──
 MANIFEST=".context/templates/setup/governance_versions.json"
-# EVOL-040: all governed trees (was 5 of 8 — scripts/, workflows/ and the
+# EVOL-040: all governed trees (previously 5 — scripts/, workflows/ and the
 # .context side-trees escaped orphan detection entirely; root cause A).
 TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" ".claude/hooks" "CLAUDE.md" "scripts" ".github/workflows" ".context/templates" ".context/utils" ".context/schemas")
 # Files exempt from CHECK 2 (orphan): the manifest cannot self-track without
@@ -276,17 +279,18 @@ MANIFEST_CHANGED=$(echo "$CHANGED_FILES" | grep -c "$MANIFEST" || true)
 # sections, not framework_core alone; runtime_artefacts excluded — synthesized,
 # no source) ──
 TRACKED_PATHS=$(python3 -c "
-import json, sys
-with open('${MANIFEST}') as f:
-    data = json.load(f)
-def emit(section, resolve):
-    for key, val in data.get(section, {}).items():
-        if key.startswith('_') or not isinstance(val, dict):
+import json
+data = json.load(open('${MANIFEST}'))
+resolvers = {
+    'framework_core':  lambda k, v: v.get('path') or ('.claude/' + k if not k.startswith('.') else k),
+    'templates':       lambda k, v: '.context/templates/setup/' + k,
+    'agent_templates': lambda k, v: '.context/templates/' + k,
+}
+for section, resolve in resolvers.items():
+    for k, v in data.get(section, {}).items():
+        if k.startswith('_') or not isinstance(v, dict):
             continue
-        print(resolve(key, val))
-emit('framework_core', lambda k, v: v.get('path') or ('.claude/' + k if not k.startswith('.') else k))
-emit('templates',       lambda k, v: '.context/templates/setup/' + k)
-emit('agent_templates', lambda k, v: '.context/templates/' + k)
+        print(resolve(k, v))
 ")
 
 # ── Extract current and base framework_version ──
@@ -323,21 +327,21 @@ done <<< "$TRACKED_PATHS"
 
 if [ "$CORE_FILES_CHANGED" -gt 0 ]; then
   if [ "$MANIFEST_CHANGED" -eq 0 ]; then
-    fail "Framework core files changed but governance manifest NOT updated!"
-    echo "   Changed framework_core files:"
+    fail "Tracked files changed but governance manifest NOT updated!"
+    echo "   Changed tracked files:"
     for f in "${DRIFTED_FILES[@]}"; do
       echo -e "     ${RED}→ $f${NC}"
     done
     echo ""
     echo -e "   ${YELLOW}ACTION: Update ${MANIFEST} → framework_core entries + bump version${NC}"
   else
-    pass "Framework core files changed AND manifest updated (${CORE_FILES_CHANGED} files)"
+    pass "Tracked files changed AND manifest updated (${CORE_FILES_CHANGED} files)"
     for f in "${DRIFTED_FILES[@]}"; do
       echo -e "     → $f"
     done
   fi
 else
-  pass "No framework_core tracked files changed"
+  pass "No tracked files changed (all 3 manifest sections)"
 fi
 
 # ============================================================================
@@ -384,20 +388,20 @@ for p in os.environ.get('CHANGED_TRACKED', '').split('\n'):
     if tup(head[p]) <= tup(base[p]):
         print(f"{p} ({base[p]} -> {head[p]})")
 PYEOF
-) || STALE_ENTRY=""
+) || { fail "CHECK 1b inspector crashed — cannot verify per-entry version advance (base manifest unparseable?). Treated as a violation: a broken inspector must never read as 'all entries advanced'."; STALE_ENTRY=""; }
     if [ -n "$STALE_ENTRY" ]; then
-      fail "Changed framework_core file(s) whose manifest entry version did NOT advance:"
+      fail "Changed tracked file(s) whose manifest entry version did NOT advance:"
       while IFS= read -r e; do [ -n "$e" ] && echo -e "     ${RED}→ $e${NC}"; done <<< "$STALE_ENTRY"
       echo -e "   ${YELLOW}ACTION: bump each entry's version + add a changelog line (Generation Standards §2 / GWP)${NC}"
     else
-      pass "All changed framework_core entries advanced their version"
+      pass "All changed tracked entries advanced their version"
     fi
   else
     info "CHECK 1b skipped (base manifest unavailable)"
   fi
   rm -f "$BASE_MANIFEST_TMP"
 else
-  pass "CHECK 1b: no framework_core files changed"
+  pass "CHECK 1b: no tracked files changed"
 fi
 
 # ============================================================================
@@ -437,7 +441,7 @@ for t, entries in sorted(by_target.items()):
     if len(entries) > 1 and not all(mode == 'merge' for _, mode in entries):
         print(f"DUP-TARGET {t} <- {', '.join(k for k, _ in entries)} (declare target_mode: merge on all, or fix)")
 PYEOF
-) || INTEGRITY_ISSUES=""
+) || { fail "CHECK 1c inspector crashed — cannot verify manifest integrity (malformed manifest?). Treated as a violation: 'printed nothing' must never read as 'no issues'."; INTEGRITY_ISSUES=""; }
 
 if [ -n "$INTEGRITY_ISSUES" ]; then
   fail "Manifest integrity issues:"
@@ -459,8 +463,12 @@ ORPHAN_COUNT=0
 for dir in "${TRACKED_DIRS[@]}"; do
   # Skip if it's a file not a directory
   [ -f "$dir" ] && continue
-  [ ! -d "$dir" ] && continue
+  if [ ! -d "$dir" ]; then
+    warn "CHECK 2: tracked tree absent, skipped: ${dir} (renamed? update TRACKED_DIRS)"
+    continue
+  fi
 
+  LS_OUT=$(git ls-files -- "$dir" 2>/dev/null) || { warn "CHECK 2: git ls-files failed for ${dir} — tree NOT swept"; continue; }
   while IFS= read -r file; do
     [ -z "$file" ] && continue
     case "$file" in */__pycache__/*) continue ;; esac
@@ -473,7 +481,7 @@ for dir in "${TRACKED_DIRS[@]}"; do
       fail "File in governed tree NOT tracked in governance manifest: ${file}"
       ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
     fi
-  done < <(git ls-files -- "$dir" 2>/dev/null)
+  done <<< "$LS_OUT"
 done
 
 if [ "$ORPHAN_COUNT" -eq 0 ]; then

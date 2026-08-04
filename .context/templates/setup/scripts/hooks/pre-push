@@ -5,7 +5,7 @@
 # ============================================================================
 # Checks:
 #   1. Protected branch enforcement (prevent force-push to main)
-#   2. Secret leak detection across commits being pushed (gitleaks)
+#   2. Secret leak detection (delegated to security-scan.sh --secrets; scanner per config/quality.json)
 #   3. Full governance validation (if validate-governance.sh exists)
 # ============================================================================
 
@@ -43,7 +43,7 @@ is_protected() {
 }
 
 # Read push info from stdin: <local ref> <local sha> <remote ref> <remote sha>
-# We need to inspect every line (protected-branch check + gitleaks range).
+# We need to inspect every line (protected-branch check + secrets-scan range).
 PUSH_SPECS=()
 while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
   PUSH_SPECS+=("$LOCAL_REF|$LOCAL_SHA|$REMOTE_REF|$REMOTE_SHA")
@@ -67,11 +67,20 @@ done
 # the scanner is the project's SETUP-ratified choice (config/quality.json
 # security_scan — tool-agnostic, LAW-11 pattern), and --require-scanner keeps
 # this hook STRICT (missing scanner/config → push blocked with install hint),
-# unlike pre-commit's silent skip (ADR-0001 no-friction-per-commit). Push is
+# unlike pre-commit's silent skip (no-friction-per-commit). Note the deliberate
+# carve-out: security_scan.enabled=false passes even here — a project-RATIFIED
+# policy opt-out is not an infra failure; the regex floor still applies at
+# pr-review Block 3. Push is
 # infrequent enough that installing the scanner once is an acceptable ask, and
 # failing locally saves a CI round-trip. Range computation stays here (hook
 # owns the push-spec semantics); the dispatcher owns tool resolution.
 if [ "${#PUSH_SPECS[@]}" -gt 0 ]; then
+
+  if [ ! -f "$REPO_ROOT/scripts/security-scan.sh" ]; then
+    echo -e "${RED}❌ pre-push: scripts/security-scan.sh missing — cannot run the secrets gate.${NC}"
+    echo "   The hook was installed but the dispatcher was not synced. Re-run scripts/factory-sync.sh from the framework repo."
+    exit 1
+  fi
 
   for spec in "${PUSH_SPECS[@]}"; do
     IFS='|' read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA <<<"$spec"
@@ -106,7 +115,7 @@ if [ "${#PUSH_SPECS[@]}" -gt 0 ]; then
         # No base ref available — scan only the tip commit. This is
         # the degraded mode; log it so the dev knows coverage is
         # reduced rather than silently skipping the step.
-        echo -e "${YELLOW}⚠  gitleaks: no base ref for new branch on remote '${PUSH_REMOTE}'; scanning tip commit only.${NC}"
+        echo -e "${YELLOW}⚠  secrets scan: no base ref for new branch on remote '${PUSH_REMOTE}'; scanning tip commit only.${NC}"
         RANGE="${LOCAL_SHA}~1..${LOCAL_SHA}"
       fi
     else

@@ -1361,17 +1361,15 @@ rules:
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Existing flags
-SEM_GREP=0
-GITLEAKS=0
+# Existing flags (EVOL-040: secrets lane is config-driven — no tool-named flags)
+SECRETS=0
 VALIDATE_CONTRACTS=0  # NEW FLAG
 DRY_RUN=${DRY_RUN:-1}
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --semgrep) SEM_GREP=1 ;;
-    --gitleaks) GITLEAKS=1 ;;
-    --validate-contracts) VALIDATE_CONTRACTS=1 ;;  # NEW
+    --secrets) SECRETS=1 ;;
+    --contracts|--validate-contracts) VALIDATE_CONTRACTS=1 ;;  # NEW
     --apply) DRY_RUN=0 ;;
   esac
   shift
@@ -1408,7 +1406,7 @@ if [ "$VALIDATE_CONTRACTS" -eq 1 ]; then
   echo "✅ All contracts valid"
 fi
 
-# Existing semgrep/gitleaks logic...
+# Existing secrets-lane logic (config-driven dispatcher)...
 ```
 
 ### GitHub Actions Workflow

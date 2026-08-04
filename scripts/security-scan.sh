@@ -12,11 +12,24 @@
 #   scanner— this dispatcher's --secrets lane: config-driven, fail-open NOISY
 #            (mandatory 🔒 banner) unless --require-scanner (pre-push context).
 #
-# Exit codes: 0 clean / disabled / scanner-unavailable-fail-open
+# Exit codes (secrets lane): 0 clean / disabled / scanner-unavailable-fail-open
 #             1 findings (fail-closed on findings, ALWAYS)
 #             2 infra failure under --require-scanner, or malformed invocation
+# Legacy lanes (--dast/--contracts/--validate-ux/--drift) predate this contract
+# and exit 1 on their own tooling failures under --apply.
 # ============================================================================
 set -euo pipefail
+
+# Anchor to project root regardless of cwd — config/quality.json and the
+# configured --source=. are repo-relative; from a subdirectory the lane would
+# otherwise misread "not configured" and fail-open (same preamble as
+# validate-governance.sh).
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
+  cd "$CLAUDE_PROJECT_DIR"
+elif REPO_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null); then
+  cd "$REPO_TOPLEVEL"
+fi
+
 SECRETS=0
 REQUIRE_SCANNER=0
 RANGE=""
@@ -47,39 +60,66 @@ done
 
 # ── Secrets lane (config-driven dispatcher) ──
 if [ "$SECRETS" -eq 1 ]; then
-  QCFG="config/quality.json"
-  CFG_JSON=$(python3 -c "
-import json, sys
+  # RANGE is a CALLER input (not the project-controlled config) and is
+  # substituted into a command that gets eval'd — validate it as a git range
+  # BEFORE it can reach eval. git refnames legally contain ; $ | so a hostile
+  # remote default-branch name must not become code. Fail-closed on mismatch.
+  if [ -n "$RANGE" ] && ! printf '%s' "$RANGE" | grep -qE '^[A-Za-z0-9._/~^-]+(\.\.\.?[A-Za-z0-9._/~^-]+)?$'; then
+    echo "❌ security-scan: refusing malformed --range '$RANGE' (not a valid git range)." >&2
+    exit 2
+  fi
+
+  # ONE python invocation, ONE fallback covering EVERY failure mode (file
+  # missing / JSON broken / python3 absent). Probing scalars separately would
+  # leave the fallback illusory: a missing python3 would kill the script under
+  # set -euo pipefail before the header-contracted fail-open could run.
+  SS_META=$(RANGE_VAL="$RANGE" python3 - <<'PY' 2>/dev/null
+import json, os
 try:
-    cfg = json.load(open('$QCFG')).get('security_scan', {})
+    cfg = json.load(open('config/quality.json')).get('security_scan', {})
+    cfg_ok = True
+except FileNotFoundError:
+    cfg, cfg_ok = {}, True          # no config = unconfigured, fail-open
 except Exception:
-    cfg = {}
-print(json.dumps({
-  'enabled': cfg.get('enabled', True),
-  'scanner': cfg.get('scanner') or '',
-  'cmd': cfg.get('secrets_command') or '',
-  'install_hint': cfg.get('install_hint') or 'configure security_scan in config/quality.json',
-}))" 2>/dev/null || echo '{"enabled":true,"scanner":"","cmd":"","install_hint":"configure security_scan in config/quality.json"}')
-  SS_ENABLED=$(echo "$CFG_JSON" | python3 -c 'import sys,json; print("true" if json.load(sys.stdin)["enabled"] else "false")')
-  SS_SCANNER=$(echo "$CFG_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["scanner"])')
-  SS_HINT=$(echo "$CFG_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["install_hint"])')
-  # Resolve the command template: substitute {{RANGE}}; empty range strips the
-  # whole word carrying the token (full-tree scan).
-  SS_CMD=$(echo "$CFG_JSON" | RANGE_VAL="$RANGE" python3 -c "
-import sys, json, os
-cmd = json.load(sys.stdin)['cmd']
+    cfg, cfg_ok = {}, False         # present but broken = distinct cause
+enabled = 'true' if cfg.get('enabled', True) else 'false'
+scanner = cfg.get('scanner') or ''
+hint = cfg.get('install_hint') or 'configure security_scan in config/quality.json'
+cmd = cfg.get('secrets_command') or ''
 rng = os.environ.get('RANGE_VAL', '')
 words = []
 for w in cmd.split():
     if '{{RANGE}}' in w:
         if rng:
-            words.append(w.replace('{{RANGE}}', rng))
-        # empty range → drop the word entirely
+            words.append(w.replace('{{RANGE}}', rng))   # rng already validated in bash
     else:
         words.append(w)
-print(' '.join(words))")
+resolved = ' '.join(words)
+# tab-joined; install_hint sanitised of tabs/newlines
+hint = hint.replace('\t', ' ').replace('\n', ' ')
+print('\t'.join(['ok' if cfg_ok else 'parse-error', enabled, scanner, hint, resolved]))
+PY
+  ) || SS_META=""
+  if [ -z "$SS_META" ]; then
+    # python3 absent or crashed entirely — the real fail-open path.
+    SS_STATUS="python-missing"; SS_ENABLED="true"; SS_SCANNER=""; SS_HINT="python3 required to read config/quality.json"; SS_CMD=""
+  else
+    IFS=$'\t' read -r SS_STATUS SS_ENABLED SS_SCANNER SS_HINT SS_CMD <<< "$SS_META"
+  fi
 
-  if [ "$SS_ENABLED" != "true" ]; then
+  if [ "$SS_STATUS" = "parse-error" ]; then
+    if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+      echo "❌ security-scan: config/quality.json is present but unparseable (JSON syntax error) — fix the file, not SETUP." >&2
+      exit 2
+    fi
+    echo "🔒 security-scan: config/quality.json unparseable (JSON syntax error) — fail-open. Regex floor still active. Fix the file's JSON." >&2
+  elif [ "$SS_STATUS" = "python-missing" ]; then
+    if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+      echo "❌ security-scan: python3 unavailable — cannot read scanner config and this context requires a scan (--require-scanner). Install python3." >&2
+      exit 2
+    fi
+    echo "🔒 security-scan: python3 unavailable — cannot read config, fail-open. Regex floor still active." >&2
+  elif [ "$SS_ENABLED" != "true" ]; then
     echo "🔒 security-scan: scanner layer DISABLED (config/quality.json security_scan.enabled=false). Regex floor (detect_change_type.py) still active." >&2
   elif [ -z "$SS_SCANNER" ] || [ -z "$SS_CMD" ]; then
     if [ "$REQUIRE_SCANNER" -eq 1 ]; then
@@ -136,21 +176,24 @@ if [ "$DAST" -eq 1 ]; then
   echo "  ├─ Pulling OWASP ZAP Docker image..."
   docker pull zaproxy/zap-stable:latest
   
-  # Execute scan based on mode
+  # Execute scan based on mode. ZAP exits non-zero when it reports findings;
+  # capture that rather than swallowing it with `|| true` (findings are
+  # fail-closed, same as the secrets lane — the header contract).
+  ZAP_RC=0
   case "$DAST_MODE" in
     baseline)
       echo "  ├─ Running ZAP Baseline Scan (passive + spider, ~10 min)..."
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-baseline.py -t "$TARGET_URL" \
-        -g gen.conf -r "${REPORT_FILE}.html" || true
+        -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
     full)
       echo "  ├─ Running ZAP Full Scan (active attacks + AJAX spider, ~30 min)..."
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-full-scan.py -t "$TARGET_URL" \
-        -g gen.conf -r "${REPORT_FILE}.html" || true
+        -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
     api)
       echo "  ├─ Running ZAP API Scan (OpenAPI/GraphQL, ~15 min)..."
@@ -160,11 +203,16 @@ if [ "$DAST" -eq 1 ]; then
       docker run -v "$(pwd)":/zap/wrk/:rw \
         -t zaproxy/zap-stable:latest \
         zap-api-scan.py -t "$TARGET_URL" \
-        -f openapi -g gen.conf -r "${REPORT_FILE}.html" || true
+        -f openapi -g gen.conf -r "${REPORT_FILE}.html" || ZAP_RC=$?
       ;;
   esac
-  
-  echo "  ✅ DAST scan completed. Report: ${REPORT_FILE}.html"
+
+  if [ "$ZAP_RC" -ne 0 ]; then
+    echo "  ⚠️  DAST: ZAP reported findings (rc=$ZAP_RC) — review ${REPORT_FILE}.html"
+    [ "$DRY_RUN" != "1" ] && exit 1
+  else
+    echo "  ✅ DAST scan completed, no blocking findings. Report: ${REPORT_FILE}.html"
+  fi
 fi
 
 # Contract validation

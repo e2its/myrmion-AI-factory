@@ -7,7 +7,7 @@ All scripts use DRY_RUN=1 by default. Use `--apply` or export DRY_RUN=0 to run f
 - check-structure.sh `<arch>` [--apply]
 - lint-format.sh `<tech>` [--apply]
 - test.sh [scope] [--apply]
-- security-scan.sh [--semgrep] [--gitleaks] [--dast] [--dast-full] [--dast-api] [--apply]
+- security-scan.sh [--secrets] [--require-scanner] [--range <git-range>] [--contracts] [--dast] [--dast-full] [--dast-api] [--apply]
 - dependency-allowlist.sh [--apply]
 - validate-gitignore.sh [--strict]
 - check-integrations.sh [--strict] [--skip-connect] [--env `<file>`]
@@ -23,7 +23,7 @@ All scripts use DRY_RUN=1 by default. Use `--apply` or export DRY_RUN=0 to run f
 3) **Develop (TDD)**: run `lint-format.sh <tech>` and `test.sh` (unit) in DRY_RUN by default.
 4) **Final QA**: `lint-format.sh <tech>` + `test.sh` + `check-integrations.sh` to validate quality before Security.
 5) **E2E QA (Staging)**: `test.sh e2e` (Playwright) or `test.sh api-e2e` (Newman) to validate user journeys post-deployment.
-6) **Security (SAST)**: `security-scan.sh --secrets` + `validate-gitignore.sh --strict` + `check-integrations.sh --strict` to verify integrity.
+6) **Security (secrets)**: `security-scan.sh --secrets` (SETUP-ratified scanner) + `validate-gitignore.sh --strict` + `check-integrations.sh --strict` to verify integrity.
 7) **Security (DAST)**: `TARGET_URL=https://staging.example.com security-scan.sh --dast` (baseline) or `--dast-full` (active scan) for dynamic scanning with OWASP ZAP.
 8) **Dependencies**: `dependency-allowlist.sh` to verify against allowed/blocklist in `docs/constitution.md`.
 
@@ -80,16 +80,18 @@ BASE_URL=https://staging.example.com ./scripts/test.sh e2e --apply
 
 ## security-scan.sh - Security Scanner
 
-**Purpose:** Orchestrates SAST (Semgrep, Gitleaks) and DAST (OWASP ZAP) security scans.
+**Purpose:** Tool-agnostic security dispatcher. The secrets lane reads the SETUP-ratified scanner from `config/quality.json` `security_scan` (LAW-11 pattern — no tool named in the script); DAST via OWASP ZAP; contract linting via `--contracts`.
 
 **Usage:**
 ```bash
-./scripts/security-scan.sh [--semgrep] [--gitleaks] [--dast] [--dast-full] [--dast-api] [--apply]
+./scripts/security-scan.sh [--secrets] [--require-scanner] [--range <git-range>] [--contracts] [--dast] [--dast-full] [--dast-api] [--apply]
 ```
 
 **Flags:**
-- `--semgrep`: Run Semgrep SAST (static code analysis for vulnerabilities).
-- `--gitleaks`: Run Gitleaks (secret detection in code and git history).
+- `--secrets`: Run the configured secrets scanner over the diff (or full tree). Fail-open NOISY (🔒 banner) when the scanner is absent; the `detect_change_type.py` regex floor stays active regardless.
+- `--require-scanner`: Make `--secrets` STRICT (missing scanner/config/python → exit 2). Used by the pre-push hook.
+- `--range <git-range>`: Restrict `--secrets` to a commit range (validated as a git range before use).
+- `--contracts`: Lint API contracts (OpenAPI/GraphQL/gRPC/AsyncAPI).
 - `--dast`: Run OWASP ZAP Baseline Scan (passive + spider, ~10 min).
 - `--dast-full`: Run OWASP ZAP Full Scan (active attacks + AJAX spider, ~30 min).
 - `--dast-api`: Run OWASP ZAP API Scan (OpenAPI/GraphQL schema import, ~15 min).
@@ -102,7 +104,7 @@ BASE_URL=https://staging.example.com ./scripts/test.sh e2e --apply
 
 **Examples:**
 ```bash
-# Dry-run SAST scans (Semgrep + Gitleaks)
+# Secrets scan with the SETUP-ratified scanner (full tree)
 ./scripts/security-scan.sh --secrets
 
 # Execute DAST baseline scan on staging

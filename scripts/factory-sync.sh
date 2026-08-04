@@ -14,10 +14,10 @@
 #   .claude/instructions/Factory-*.instructions.md
 #   .claude/skills/factory-*/  (entire tree: SKILL.md + references/ + scripts/ + assets/)
 #   .claude/hooks/*.sh
-#   scripts/auto-tag.sh, security-scan.sh, validate-governance.sh
-#   scripts/governance-onprompt.sh, governance-oncompact.sh, governance-onedit.sh
-#   scripts/install-hooks.sh, factory-sync.sh, project_summarization.py
-#   scripts/hooks/{commit-msg,pre-commit,pre-push}
+#   scripts/ — MANIFEST-DRIVEN (EVOL-040): every governance_versions.json entry
+#     under scripts/ (templates + framework_core sections) whose `delivery` is
+#     `sync` or `both`, template variant preferred. No hardcoded list — add a
+#     manifest entry with a delivery field and it ships. Includes scripts/hooks/*.
 #   .context/templates/ (full tree — consumed by SETUP --upgrade)
 #
 # WHAT IT DOES NOT TOUCH (project-owned):
@@ -392,13 +392,20 @@ for section in ('templates', 'framework_core'):
             names.add(k[len('scripts/'):])
 for n in sorted(names):
     print(n)
-" 2>/dev/null || echo '')
-if [[ -z "$SYNC_SCRIPTS" ]]; then
-  echo -e "${YELLOW}  ⚠ manifest delivery query returned empty — scripts NOT synced (check governance_versions.json delivery fields)${NC}"
+") || SYNC_QUERY_FAILED=1
+if [[ -n "${SYNC_QUERY_FAILED:-}" ]]; then
+  # python3 missing / manifest unreadable — the delivery channel would ship
+  # ZERO scripts (and zero git hooks — they ride this same query). That is a
+  # hard failure of the sync, not a silent success: surface it and bump ERRORS
+  # so a wrapper/CI can detect the degraded run (stderr NOT suppressed — the
+  # cause must be visible).
+  echo -e "${RED}  ✗ manifest delivery query FAILED (python3 missing or governance_versions.json unreadable) — NO scripts or hooks synced${NC}"
+  ERRORS=$((ERRORS + 1))
+elif [[ -z "$SYNC_SCRIPTS" ]]; then
+  echo -e "${YELLOW}  ⚠ manifest delivery query returned empty — no scripts/* entries carry delivery: sync|both (check governance_versions.json)${NC}"
 fi
 while IFS= read -r script; do
   [[ -z "$script" ]] && continue
-  mkdir -p "$TARGET_PROJECT/scripts/$(dirname "$script")" 2>/dev/null || true
   sync_file "$(resolve_script_src "$script")" "$TARGET_PROJECT/scripts/$script"
 done <<< "$SYNC_SCRIPTS"
 echo ""

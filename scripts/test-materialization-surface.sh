@@ -59,7 +59,7 @@ for wf in glob.glob('.context/templates/setup/workflows/*'):
 for m in sorted(missing):
     print(m)
 PY
-)
+) || MISSING="probe failed — python error above must be fixed, not ignored (a broken probe is not a pass)"
 if [ -z "$MISSING" ]; then
   ok "every workflow-invoked script has a template source"
 else
@@ -69,8 +69,13 @@ echo ""
 
 echo "2. template CLAUDE.md ref resolution (delivery map)"
 MISSING=$(python3 - <<'PY'
-import os, re
+import json, os, re
 txt = open('.context/templates/setup/claude/CLAUDE.md', errors='replace').read()
+manifest = json.load(open('.context/templates/setup/governance_versions.json'))
+# runtime-synthesised artefacts + the manifest itself are exempt from the
+# template-source requirement (loop invariants — computed once)
+runtime = {k.split('/')[-1] for k in manifest.get('runtime_artefacts', {}) if not k.startswith('_')}
+project_local = {'governance_versions.json'}
 missing = set()
 # rules / config refs → template sources (SETUP channel)
 for ref in set(re.findall(r'\.claude/rules/[A-Za-z0-9_.-]+\.md', txt)):
@@ -79,14 +84,9 @@ for ref in set(re.findall(r'\.claude/rules/[A-Za-z0-9_.-]+\.md', txt)):
         missing.add(f'{ref} -> no template under rules/')
 for ref in set(re.findall(r'config/[A-Za-z0-9_-]+\.json', txt)):
     name = ref.split('/')[-1]
-    candidates = [f'.context/templates/setup/config/{name}', f'.context/templates/setup/rules/{name}']
-    # runtime-synthesised artefacts are exempt (manifest runtime_artefacts)
-    import json
-    m = json.load(open('.context/templates/setup/governance_versions.json'))
-    runtime = {k.split('/')[-1] for k in m.get('runtime_artefacts', {}) if not k.startswith('_')}
-    project_local = {'governance_versions.json'}  # materialised from the framework manifest itself
     if name in runtime or name in project_local:
         continue
+    candidates = [f'.context/templates/setup/config/{name}', f'.context/templates/setup/rules/{name}']
     if not any(os.path.exists(c) for c in candidates):
         missing.add(f'{ref} -> no template under config/ or rules/')
 # skills / instructions → meta tree (factory-sync channel)
@@ -99,7 +99,7 @@ for ref in set(re.findall(r'\.claude/instructions/[A-Za-z0-9-]+\.instructions\.m
 for m in sorted(missing):
     print(m)
 PY
-)
+) || MISSING="probe failed — python error above must be fixed, not ignored (a broken probe is not a pass)"
 if [ -z "$MISSING" ]; then
   ok "every template-CLAUDE.md governance ref resolves through its delivery channel"
 else
@@ -120,7 +120,7 @@ for cfg in glob.glob('.context/templates/setup/config/*.json'):
 for m in sorted(missing):
     print(m)
 PY
-)
+) || MISSING="probe failed — python error above must be fixed, not ignored (a broken probe is not a pass)"
 if [ -z "$MISSING" ]; then
   ok "every {{TOKEN}} in template configs has a materialization resolution rule"
 else
@@ -139,7 +139,7 @@ for hook in set(re.findall(r'\.claude/hooks/([A-Za-z0-9_-]+\.sh)', s)):
     if not os.path.exists(f'.context/templates/setup/claude/hooks/{hook}'):
         print(f'.claude/hooks/{hook} wired in template settings.json but no template hook file')
 PY
-)
+) || MISSING="probe failed — python error above must be fixed, not ignored (a broken probe is not a pass)"
 if [ -z "$MISSING" ]; then
   ok "every hook wired in template settings.json ships as a template hook"
 else
@@ -157,8 +157,16 @@ for k, v in m.get('templates', {}).items():
     if k.startswith('scripts/') and v.get('delivery') in ('setup', 'both'):
         if not os.path.exists(f'.context/templates/setup/{k}'):
             print(f'templates::{k} (delivery={v["delivery"]}) -> template source missing')
+# framework_core sync|both scripts must resolve template-or-meta (the
+# factory-sync query ships them; a dangling entry ships nothing silently)
+for k, v in m.get('framework_core', {}).items():
+    if k.startswith('_') or not isinstance(v, dict):
+        continue
+    if k.startswith('scripts/') and v.get('delivery') in ('sync', 'both'):
+        if not (os.path.exists(f'.context/templates/setup/{k}') or os.path.exists(k)):
+            print(f'framework_core::{k} (delivery={v["delivery"]}) -> no template or meta source')
 PY
-)
+) || MISSING="probe failed — python error above must be fixed, not ignored (a broken probe is not a pass)"
 if [ -z "$MISSING" ]; then
   ok "every delivery setup|both scripts entry resolves to a template source"
 else
