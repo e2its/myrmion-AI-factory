@@ -1,8 +1,8 @@
 {
   "$schema": "governance_versions_v1",
   "manifest_version": "2.0.0",
-  "framework_version": "5.7.0",
-  "last_updated": "2026-06-22T12:00:00Z",
+  "framework_version": "5.8.0",
+  "last_updated": "2026-08-04",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -778,11 +778,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.5.0",
+      "version": "3.6.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.6.0: feat(EVOL-039) Governance Rules gain LAW 12 (Agentic Code Review Gate — single-engine, marker-proven). Text-identical to framework-meta CLAUDE.md 13.6.0 LAW 13 modulo number (template has no META-ONLY lock-step law, hence the offset). See that changelog for semantics.",
         "3.5.0: feat(EVOL-037) universal section `## Adversarial Reasoning — MANDATORY` gains the always-on do-less lens sentence (DC-29 minimalism: YAGNI ladder, argue simpler how, never cut specified what — scope cut routes to CODESIGN via RDR). Byte-identical with framework-meta CLAUDE.md 13.5.0 (lock-step universal_section).",
         "3.4.0: feat(EVOL-036) coherence — § Incremental Dev Plan rewritten to the two-stage model (CODESIGN slice_map value authority → BLUEPRINT increment_plan contract refinement, cascade_source/depends_on_slice/seam, §0 Refinement Record, no slice invention). Enforcement gates add CVP 0d/18/19/20; Iteration cascade adds CASCADE_SLICE_INTERNAL + check_slice_immutability. Framework Editor Invariants: CVP catalogue 0a,0c,0d,1,2,13-20; cascade-function list adds CASCADE_SLICE_INTERNAL; new two-stage-authority + per-slice-freeze source-of-truth rows.",
         "3.3.0: feat(EVOL-036) SLICE-1 — Rule 9 refine-able-artefact list gains `slice_map.md` (byte-identical with framework-meta CLAUDE.md 13.4.0; Rule 9 edited by hand, not a lock-step universal_section).",
@@ -887,10 +888,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.1.0: feat(EVOL-039) — optional code_review block (enabled, pr_blocker, gate_blocking_agents, conditional_agents, advisory_agents). Pure defaults, placeholder-free — no SETUP materialization edit, no discovery question. Block ABSENT ⇒ defaults ACTIVE (inverse of complexity: the code-review executor ships with the skill, no external MCP). Consumed by factory-code-review SKILL + preflight.sh Step 0-bis.",
         "1.0.0: feat(EVOL-033) phase 1 — project-local quality schema. complexity section: enabled (default true), mcp_server + mcp_tool_name (placeholders resolved at SETUP via discovery RDR), thresholds.soft=10/hard=15 (McCabe industry baseline), bvl_gate=true, pr_blocker=false (advisory by default), source_extensions allowlist (15 common languages). Consumed by factory-complexity-check skill. Materialised at SETUP --generate; SETUP --upgrade owns delta propagation (factory-sync.sh deliberately does NOT touch config/)."
       ]
     },
@@ -1958,9 +1960,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.5.0",
+      "version": "13.6.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.6.0: feat(EVOL-039) Governance Rules gain LAW 13 (Agentic Code Review Gate — single-engine, marker-proven). Constitution amendment for ADR-EVOL-039 acceptance. Engine factory-code-review (6 vendored pr-review-toolkit agents, Apache-2.0); two invocations (hat Step R.1b per increment / push gate axis 7 Block 20 per branch, sole marker writer, content-hash keyed); fail-open infra / fail-closed findings with two-plane audited override (marker RDR one-shot + ADR pr_review_overrides permanent); RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory; config optional-absent⇒active. Mirrored modulo LAW number in templates/claude/CLAUDE.md 3.6.0 (LAW 12 there — meta LAW 12 is the META-ONLY lock-step law).",
         "13.5.0: feat(EVOL-037) § Adversarial Reasoning — MANDATORY gains the always-on do-less lens sentence (DC-29 minimalism: YAGNI ladder, argue simpler how, never cut specified what — scope cut routes to CODESIGN via RDR). Constitution amendment for ADR-EVOL-037 acceptance — no new LAW (the do-less lens is a facet of the existing adversarial mandate). Byte-identical mirror in template claude/CLAUDE.md 3.5.0 (lock-step universal_section, gated by check-lockstep-pairs.sh). Mechanics in factory-adversarial-reasoning + DC-29 in defect-prevention.md.",
         "13.4.0: feat(EVOL-036) SLICE-1 — Rule 9 (Canonical Iteration ID) refine-able-artefact list gains `slice_map.md` (before `increment_plan.md`). New two-stage slicing artefact emitted by CODESIGN; capability-VALUE authority. Rule 9 is not a lock-step universal_section — edited by hand identically in template claude/CLAUDE.md 3.3.0. ADR-EVOL-036 (proposed).",
         "13.3.0: feat(EVOL-035) Governance gains universal section `## Adversarial Reasoning — MANDATORY` (after § RDR Universal). Constitution amendment for ADR-EVOL-035 acceptance. Mandatory FOR/AGAINST double pass before any non-trivial proposal/selection, tested against (a) SDLC governance and (b) product + objectives; recommendation must survive its own AGAINST. Mechanics in new skill factory-adversarial-reasoning (applicable_when always). Universal section — mirrored byte-identical in templates/claude/CLAUDE.md; registered in coherence-context.json § universal_sections (gated by check-lockstep-pairs.sh).",
