@@ -92,6 +92,8 @@ BASE_URL=https://staging.example.com ./scripts/test.sh e2e --apply
 - `--require-scanner`: Make `--secrets` STRICT (missing scanner/config/python → exit 2). Used by the pre-push hook.
 - `--range <git-range>`: Restrict `--secrets` to a commit range (validated as a git range before use).
 - `--contracts`: Lint API contracts (OpenAPI/GraphQL/gRPC/AsyncAPI).
+- `--drift`: Protected-paths drift check (RED ZONE modifications).
+- `--validate-ux`: UX validation lane.
 - `--dast`: Run OWASP ZAP Baseline Scan (passive + spider, ~10 min).
 - `--dast-full`: Run OWASP ZAP Full Scan (active attacks + AJAX spider, ~30 min).
 - `--dast-api`: Run OWASP ZAP API Scan (OpenAPI/GraphQL schema import, ~15 min).

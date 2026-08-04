@@ -547,10 +547,11 @@
       "delivery": "both"
     },
     "scripts/README.md": {
-      "version": "1.1.2",
+      "version": "1.1.3",
       "content_type": "universal",
       "target": "scripts/README.md",
       "changelog": [
+        "1.1.3: fix(EVOL-040 pr-review loop i3b) — --drift/--validate-ux flags documented (last doc-completeness nit; 0/0/0).",
         "1.1.2: fix(EVOL-040 pr-review loop i2) — security-scan section rewritten to the dispatcher reality (synopsis, flags incl. --secrets/--require-scanner/--range, purpose tool-agnostic, examples de-tooled).",
         "1.1.1: fix(EVOL-040 pr-review loop) — tool-flag refs migrated to --secrets.",
         "1.1.0: feat: add git hooks and install-hooks.sh to script listing",
