@@ -122,9 +122,33 @@ if ! command -v "$PYTHON" >/dev/null 2>&1; then
   exit 2
 fi
 
+# ── Run detect_change_type.py ──
+CLASSIFICATION=$("$PYTHON" "$SKILL_ROOT/scripts/detect_change_type.py" \
+  --git-range "$BASE_REF"..HEAD --check-secrets 2>/dev/null || echo '{}')
+
+has_secrets=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("potential_secrets") else "false")' 2>/dev/null || echo 'false')
+has_openapi=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_openapi") else "false")' 2>/dev/null || echo 'false')
+has_asyncapi=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_asyncapi") else "false")' 2>/dev/null || echo 'false')
+has_code=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_code") else "false")' 2>/dev/null || echo 'false')
+has_tests=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_tests") else "false")' 2>/dev/null || echo 'false')
+
+# ── Aggregate findings (each line: SEVERITY|CATEGORY|message) ──
+FINDINGS_FILE=$(mktemp)
+trap 'rm -f "$FINDINGS_FILE"' EXIT
+
+add_finding() {
+  printf '%s|%s|%s\n' "$1" "$2" "$3" >> "$FINDINGS_FILE"
+}
+
+# Classifier failure is a mute infra fallback that silently disables every gate
+# keyed on classification flags (secrets, Block 20). Surface it.
+if [[ "$CLASSIFICATION" == '{}' ]]; then
+  add_finding "important" "classification-failure" "detect_change_type.py failed — preflight gates keyed on classification (secrets, Block 20 code review) are degraded this push. Investigate before next push."
+fi
+
 # ── Step 0 — Coherence Audit marker check (Block 13-18 enforcement) ──
 # Governance-sensitive diff requires Phase 0 of the SKILL to have run for this
-# branch_sha. Marker proves it. Missing marker → blocker.
+# branch_sha. Marker proves it. Missing or unreadable marker → blocker.
 COHERENCE_CONFIG="$REPO_ROOT/config/coherence-context.json"
 if [[ -f "$COHERENCE_CONFIG" ]]; then
   ROOT_SETS=$("$PYTHON" -c '
@@ -174,47 +198,26 @@ except Exception:
     else
       MARKER_FILE=".claude/state/coherence-audit-${BRANCH_SHA}.marker"
       if [[ ! -f "$MARKER_FILE" ]]; then
-        # Defer add_finding (FINDINGS_FILE not yet created) — store and emit after.
-        DEFERRED_COHERENCE_FINDING="blocker|coherence-audit-missing|Governance-sensitive diff requires factory-pr-review Phase 0 Coherence Audit. Marker file '$MARKER_FILE' not found. Run the SKILL Phase 0 (read SKILL.md § Phase 0 — Coherence Audit) before pushing — the audit writes the marker on completion."
+        add_finding "blocker" "coherence-audit-missing" "Governance-sensitive diff requires factory-pr-review Phase 0 Coherence Audit. Marker file '$MARKER_FILE' not found. Run the SKILL Phase 0 (read SKILL.md § Phase 0 — Coherence Audit) before pushing — the audit writes the marker on completion."
       else
-        # Marker exists — parse JSON, look at blocker count.
+        # Marker exists — parse blocker count. Unreadable/corrupt marker is NOT
+        # evidence of zero findings: sentinel -1 → blocker (fail-closed plane).
         MARKER_BLOCKERS=$("$PYTHON" -c '
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
     print(int(d.get("findings", {}).get("blocker", 0)))
 except Exception:
-    print(0)
-' "$MARKER_FILE" 2>/dev/null || echo 0)
-        if [[ "$MARKER_BLOCKERS" -gt 0 ]]; then
-          DEFERRED_COHERENCE_FINDING="blocker|coherence-audit-blockers|Coherence Audit recorded $MARKER_BLOCKERS blocker(s) in '$MARKER_FILE'. Resolve and re-run Phase 0 to refresh the marker."
+    print(-1)
+' "$MARKER_FILE" 2>/dev/null || echo -1)
+        if [[ "$MARKER_BLOCKERS" -lt 0 ]]; then
+          add_finding "blocker" "coherence-audit-marker-corrupt" "Marker '$MARKER_FILE' exists but is unreadable — re-run Phase 0 to rewrite it."
+        elif [[ "$MARKER_BLOCKERS" -gt 0 ]]; then
+          add_finding "blocker" "coherence-audit-blockers" "Coherence Audit recorded $MARKER_BLOCKERS blocker(s) in '$MARKER_FILE'. Resolve and re-run Phase 0 to refresh the marker."
         fi
       fi
     fi
   fi
-fi
-
-# ── Run detect_change_type.py ──
-CLASSIFICATION=$("$PYTHON" "$SKILL_ROOT/scripts/detect_change_type.py" \
-  --git-range "$BASE_REF"..HEAD --check-secrets 2>/dev/null || echo '{}')
-
-has_secrets=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("potential_secrets") else "false")' 2>/dev/null || echo 'false')
-has_openapi=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_openapi") else "false")' 2>/dev/null || echo 'false')
-has_asyncapi=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_asyncapi") else "false")' 2>/dev/null || echo 'false')
-has_code=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_code") else "false")' 2>/dev/null || echo 'false')
-
-# ── Aggregate findings (each line: SEVERITY|CATEGORY|message) ──
-FINDINGS_FILE=$(mktemp)
-trap 'rm -f "$FINDINGS_FILE"' EXIT
-
-add_finding() {
-  printf '%s|%s|%s\n' "$1" "$2" "$3" >> "$FINDINGS_FILE"
-}
-
-# Emit deferred Step-0 finding (computed before FINDINGS_FILE existed)
-if [[ -n "${DEFERRED_COHERENCE_FINDING:-}" ]]; then
-  IFS='|' read -r _sev _cat _msg <<< "$DEFERRED_COHERENCE_FINDING"
-  add_finding "$_sev" "$_cat" "$_msg"
 fi
 
 # ── Step 0-bis — Agentic Code Review marker check (Block 20 enforcement) ──
@@ -223,10 +226,13 @@ fi
 #        fail-closed on findings (blockers block unless RDR-ratified override).
 # RDR-3: only the factory-code-review BRANCH pass writes the marker.
 # Script side verifies only — never executes the review (same split as Step 0).
-if [[ "$has_code" == "true" ]]; then
+# Guard covers has_tests too: the hash spans is_code ∪ is_test, and a tests-only
+# diff is exactly what the blocking pr-test-analyzer agent exists to catch.
+if [[ "$has_code" == "true" || "$has_tests" == "true" ]]; then
   CR_HELPER="$REPO_ROOT/.claude/skills/factory-code-review/scripts/code_review_hash.py"
   # Optional config: code_review block in config/quality.json. ABSENT ⇒ enabled
   # (inverse of complexity — this executor ships with the skill, no external MCP).
+  # pr_blocker=false downgrades Block 20 findings to Important (advisory).
   CR_ENABLED=$("$PYTHON" -c '
 import json, sys
 try:
@@ -235,6 +241,15 @@ try:
 except Exception:
     print("true")
 ' "$REPO_ROOT/config/quality.json" 2>/dev/null || echo 'true')
+  CR_BLOCKING=$("$PYTHON" -c '
+import json, sys
+try:
+    cfg = json.load(open(sys.argv[1]))
+    print("false" if cfg.get("code_review", {}).get("pr_blocker") is False else "true")
+except Exception:
+    print("true")
+' "$REPO_ROOT/config/quality.json" 2>/dev/null || echo 'true')
+  CR_SEV=$([[ "$CR_BLOCKING" == "true" ]] && echo "blocker" || echo "important")
 
   if [[ "$CR_ENABLED" == "false" ]]; then
     log "preflight: code-review gate disabled via config/quality.json code_review.enabled=false"
@@ -243,39 +258,45 @@ except Exception:
     # skip at check-push-preflight.sh stays silent — this warning is the required noise).
     add_finding "important" "code-review-executor-missing" "factory-code-review skill not installed — push proceeds WITHOUT agentic code review (Block 20 inactive). Run scripts/factory-sync.sh (downstream) or restore .claude/skills/factory-code-review/ (meta)."
   else
-    CR_HASH=$(echo "$CLASSIFICATION" | "$PYTHON" "$CR_HELPER" 2>/dev/null || echo '')
-    CR_HASH=$(printf '%s' "$CR_HASH" | tr -cd 'a-fA-F0-9EMPTY')
-    if [[ -z "$CR_HASH" ]]; then
-      add_finding "important" "code-review-hash-failure" "Could not compute code-review content hash (helper error) — Block 20 degraded to advisory this push. Investigate before next push."
+    CR_ERRFILE=$(mktemp)
+    CR_HASH=$(echo "$CLASSIFICATION" | "$PYTHON" "$CR_HELPER" 2>"$CR_ERRFILE" || echo '')
+    # Exact-shape allowlist: 64 lowercase hex or the EMPTY sentinel; anything
+    # else (helper noise, truncation) routes to the infra advisory lane.
+    if [[ ! "$CR_HASH" =~ ^([0-9a-f]{64}|EMPTY)$ ]]; then
+      CR_ERR=$(head -n1 "$CR_ERRFILE" | tr -cd 'a-zA-Z0-9 :_.,()-' | cut -c1-160)
+      add_finding "important" "code-review-hash-failure" "Could not compute code-review content hash (${CR_ERR:-helper produced unexpected output}) — Block 20 degraded to advisory this push. Investigate before next push."
     elif [[ "$CR_HASH" == "EMPTY" ]]; then
-      : # all code files deleted at HEAD — nothing reviewable
+      log "preflight: code-review gate — no reviewable code content at HEAD (EMPTY)"
     else
       CR_MARKER=".claude/state/code-review-${CR_HASH}.marker"
       if [[ ! -f "$CR_MARKER" ]]; then
-        add_finding "blocker" "code-review-missing" "Code diff requires the factory-code-review branch pass (Block 20). Marker '$CR_MARKER' not found. Invoke the skill (scope=branch, read factory-code-review/SKILL.md) — it writes the marker on completion. Content-hash keying: docs-only commits and content-preserving rebases do NOT invalidate an existing marker."
+        add_finding "$CR_SEV" "code-review-missing" "Code diff requires the factory-code-review branch pass (Block 20). Marker '$CR_MARKER' not found. Invoke the skill (scope=branch, read factory-code-review/SKILL.md) — it writes the marker on completion. Content-hash keying: docs-only commits and content-preserving rebases do NOT invalidate an existing marker."
       else
         # Content-allowlist discipline: .claude/state/ is user-writable. Only
         # int-cast counts and tr-filtered timestamps are ever echoed; the
         # override reason text is NEVER echoed by this script.
+        # Unreadable/corrupt marker is NOT evidence of zero findings:
+        # sentinel -1 → blocker (fail-closed plane).
         CR_BLOCKERS=$("$PYTHON" -c '
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
     print(int(d.get("findings", {}).get("blocker", 0)))
 except Exception:
-    print(0)
-' "$CR_MARKER" 2>/dev/null || echo 0)
+    print(-1)
+' "$CR_MARKER" 2>/dev/null || echo -1)
         CR_OVERRIDE=$("$PYTHON" -c '
 import json, sys
 try:
     d = json.load(open(sys.argv[1]))
-    o = d.get("override") or {}
-    print("true" if isinstance(o, dict) and o.get("reason") else "false")
+    print("true" if (d.get("override") or {}).get("reason") else "false")
 except Exception:
     print("false")
 ' "$CR_MARKER" 2>/dev/null || echo 'false')
-        if [[ "$CR_BLOCKERS" -gt 0 && "$CR_OVERRIDE" != "true" ]]; then
-          add_finding "blocker" "code-review-blockers" "factory-code-review recorded $CR_BLOCKERS blocker(s) in '$CR_MARKER'. Resolve and re-run the branch pass, or record an RDR-ratified override (factory-code-review/SKILL.md § Override)."
+        if [[ "$CR_BLOCKERS" -lt 0 ]]; then
+          add_finding "$CR_SEV" "code-review-marker-corrupt" "Marker '$CR_MARKER' exists but is unreadable — re-run the factory-code-review branch pass to rewrite it."
+        elif [[ "$CR_BLOCKERS" -gt 0 && "$CR_OVERRIDE" != "true" ]]; then
+          add_finding "$CR_SEV" "code-review-blockers" "factory-code-review recorded $CR_BLOCKERS blocker(s) in '$CR_MARKER'. Resolve and re-run the branch pass, or record an RDR-ratified override (factory-code-review/SKILL.md § Override)."
         elif [[ "$CR_BLOCKERS" -gt 0 ]]; then
           CR_OVERRIDE_AT=$("$PYTHON" -c '
 import json, sys
@@ -285,10 +306,11 @@ try:
 except Exception:
     print("")
 ' "$CR_MARKER" 2>/dev/null | tr -cd '0-9TZ:+-')
-          add_finding "important" "code-review-overridden" "Block 20: $CR_BLOCKERS blocker(s) overridden by audited RDR override recorded at ${CR_OVERRIDE_AT} — push proceeds. Audit trail in marker + worklog."
+          add_finding "important" "code-review-overridden" "Block 20: $CR_BLOCKERS blocker(s) overridden by audited RDR override recorded at ${CR_OVERRIDE_AT:-unknown} — push proceeds. Audit trail in marker + worklog."
         fi
       fi
     fi
+    rm -f "$CR_ERRFILE"
   fi
 fi
 

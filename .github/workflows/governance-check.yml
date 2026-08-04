@@ -57,12 +57,14 @@ jobs:
           chmod +x scripts/test-templates-static.sh \
                    scripts/test-snapshot-extraction.sh \
                    scripts/test-adr-accept.sh \
-                   scripts/test-check-adr-constitution-sync.sh
+                   scripts/test-check-adr-constitution-sync.sh \
+                   scripts/test-code-review-gate.sh
           set -e
           for t in scripts/test-templates-static.sh \
                    scripts/test-snapshot-extraction.sh \
                    scripts/test-adr-accept.sh \
-                   scripts/test-check-adr-constitution-sync.sh; do
+                   scripts/test-check-adr-constitution-sync.sh \
+                   scripts/test-code-review-gate.sh; do
             echo "════════ Running $t ════════"
             bash "$t"
           done

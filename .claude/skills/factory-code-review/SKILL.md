@@ -37,7 +37,7 @@ Defaults (any key overridable in the project block):
 }
 ```
 
-`enabled: false` → no-op `{ok: true, reason: "disabled"}` (Step 0-bis honours it too).
+`enabled: false` → no-op `{ok: true, reason: "disabled"}` (Step 0-bis honours it too). `pr_blocker: false` → Step 0-bis downgrades every Block 20 finding (`code-review-missing` / `code-review-blockers` / `code-review-marker-corrupt`) from blocker to Important — advisory gate, same semantics as `complexity.pr_blocker`.
 
 ## Two-mode scope resolver
 
@@ -153,4 +153,4 @@ Findings plane is fail-closed: marker with `findings.blocker > 0` and no overrid
 
 ## Provenance & re-sync policy
 
-Upstream: `anthropics/claude-plugins-official/plugins/pr-review-toolkit` @ commit pinned in [README.md](README.md) § Provenance (Apache-2.0, LICENSE vendored verbatim). Adaptations marked inline `<!-- factory-adapted: reason -->`. Re-sync: diff upstream agents vs vendored, re-apply only the marked hunks. Severity mapping lives in `references/severity-mapping.md` — NEVER inside agent files.
+Upstream: `anthropics/claude-plugins-official/plugins/pr-review-toolkit` @ commit pinned in [README.md](README.md) § Provenance (Apache-2.0, LICENSE vendored verbatim). Adaptations marked inline `<!-- factory-adapted: reason -->` in agent BODIES; frontmatter adaptations (YAML cannot carry comments) are recorded ONLY in the README provenance table. Re-sync: diff upstream agents vs vendored, re-apply the marked body hunks PLUS every frontmatter adaptation listed in the README table. Severity mapping lives in `references/severity-mapping.md` — NEVER inside agent files.

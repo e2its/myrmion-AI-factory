@@ -13,13 +13,13 @@ License: Apache-2.0 ([LICENSE](LICENSE) vendored verbatim from upstream repo roo
 | File | Adaptation |
 |---|---|
 | agents/code-reviewer.md | verbatim |
-| agents/silent-failure-hunter.md | genericised: "Daisy" → "the user" in description examples; upstream logging stack (logForDebugging/logError/logEvent, Sentry, Statsig, constants/errorIds.ts) → governance-driven wording. Hunks marked `factory-adapted` |
+| agents/silent-failure-hunter.md | genericised: frontmatter `description` examples "Daisy" → "the user" (6 occurrences — NO inline marker possible in YAML frontmatter; recorded HERE, re-sync must re-apply from this row); body: upstream logging stack (logForDebugging/logError/logEvent, Sentry, Statsig, constants/errorIds.ts) → governance-driven wording, 3 hunks marked `factory-adapted` |
 | agents/pr-test-analyzer.md | verbatim |
 | agents/type-design-analyzer.md | verbatim |
 | agents/comment-analyzer.md | verbatim |
 | agents/code-simplifier.md | genericised: upstream stack standards (ES modules, `function` keyword, React Props) → governance-driven lookup. Hunk marked `factory-adapted` |
 
-Re-sync procedure: fetch upstream agents at a new pinned commit, diff against vendored, re-apply ONLY the `factory-adapted` marked hunks, update the pin here.
+Re-sync procedure: fetch upstream agents at a new pinned commit, diff against vendored, re-apply the `factory-adapted` marked body hunks PLUS every frontmatter adaptation recorded in the table above (frontmatter cannot carry inline markers), update the pin here.
 
 ## Files
 

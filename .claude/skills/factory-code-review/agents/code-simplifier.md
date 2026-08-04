@@ -48,7 +48,7 @@ You will analyze recently modified code and apply refinements that:
 
 2. **Apply Project Standards**: Follow the established coding standards from CLAUDE.md and `.claude/rules/` including:
 
-   <!-- factory-adapted: upstream stack-specific standards (ES modules, function keyword, React Props) replaced with governance-driven lookup -->
+   <!-- factory-adapted: upstream stack-specific standards (ES modules + import sorting, function keyword, explicit return types, React Props patterns, avoid-try/catch stance) replaced with governance-driven lookup; error-handling deferred to project rules instead of a hardcoded stance -->
    - Read the project's declared style rules (imports, function/declaration style, typing discipline, framework component patterns) and apply THOSE — never a hardcoded stack's conventions
    - Use proper error handling patterns per the project's error-handling rules
    - Maintain consistent naming conventions
