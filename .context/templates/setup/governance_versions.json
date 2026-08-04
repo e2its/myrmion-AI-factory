@@ -1519,9 +1519,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.7.1",
+      "version": "2.8.0",
       "path": "README.md",
       "changelog": [
+        "2.8.0: fix(EVOL-040 pr-review loop i3) — skills catalog gains factory-code-review (was 21-listed vs 22-on-disk), count 21→22, pr-review line seven-axis/20-blocks, scripts line manifest-driven + T3. Caught by the i3-hardened CHECK 1b local-branch fallback — the gate's own fix detected the gate author's miss.",
         "2.7.1: fix(EVOL-036) coherence — command table /codesign --start emits slice_map.md (incremental); /blueprint --start refines authoritative slices (no invention); /blueprint --approve + Enforcement list the slice CVP checks 0d/18/19/20. Removes the residual 'BLUEPRINT runs the slicing RDR' claim + stale check counts.",
         "2.7.0: feat(EVOL-036) SLICE-3 — Incremental Dev Plan section rewritten as two-stage authoring: CODESIGN owns capability-VALUE slicing (slice_map.md, slicing-value RDR ≥3); BLUEPRINT refines each SLICE-{FEAT}-N into one contract-aware increment (cascade_source, depends_on_slice/feature/seam, 1:1 default, no slice invention). Removes 'Increment Slicing RDR' authority claim.",
         "2.6.6: docs(EVOL-035) — skill tree gains factory-adversarial-reasoning; cross-cutting skills count 20 → 21. COMP-1 fix from the EVOL-035 coherence review.",
