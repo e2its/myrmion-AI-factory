@@ -41,6 +41,7 @@ FUNCTION review_scope_dispatch():
     "#12 [ACL-EXT]":      has_backend_surface     # external system ACL only exists when there IS a service-to-service boundary
     "#13 [POLICY-*]":     ALL scopes,
     "#14 [DESIGN-*]":     ALL scopes,
+    "R.1b factory-code-review": ALL scopes,   # agentic code-quality engine (EVOL-039) — step, not a check #15
   }
 
   # Scope-excluded checks are reported as "N/A (scope={value})" in peer_review report —
@@ -834,6 +835,32 @@ IF mandatory_patterns.implementation_invariants IS NOT NULL:
 SEVERITY: BLOCKER for confirmed violations, WARNING for suspected
 ```
 
+### Step R.1b: Agentic Code Review (factory-code-review — scope=increment)
+
+> Single engine per EVOL-039 RDR-3 — the SAME skill the push gate runs on the branch diff.
+> Checks #1-#14 own the framework-specific lens (GCD, protected paths, schema locks, CFP,
+> FDR, DC catalog); factory-code-review owns the generic code-quality lens (bugs, silent
+> failures, test gaps, type design, comment rot). This pass NEVER writes the Block 20
+> marker — that is the branch pass only.
+
+```yaml
+Step R.1b: Agentic Code Review
+  # context:"hat" → no ACP entry announcement (hat switches are internal); 🔎 banner still emitted.
+  result = INVOKE_SKILL("factory-code-review", {
+    scope: "increment",
+    feature_id: FEATURE_ID,
+    increment_id: build_scope.target_increment.id,   # null in monolithic mode → feature file set
+    files: <increment file set from dev_plan tasks + design.md §1 — NEVER a git diff (BVL Full Feature Scope Mandate)>,
+    profile: "full",          # all 6 agents (RDR-4: gate profile subsetting applies only to the branch pass)
+    context: "hat"
+  })
+  code_review_blockers = result.findings WHERE severity == 🔴
+  code_review_warnings = result.findings WHERE severity IN (🟡, ❓)
+  # 🟢 findings → logged in peer_review § Agentic Code Review, never gate
+
+  APPEND_TO_WORKLOG action: "IMPLEMENT.code_review.run", increment_id, result: (BLOCKED if code_review_blockers else COMPLETED)
+```
+
 ### REVIEW Verification Loop (BVL-Integrated — Real Execution)
 
 > **Purpose:** Static checks (#1-#14) read code. This loop **executes** real tools to verify
@@ -935,7 +962,7 @@ FUNCTION review_verification_loop(phase, source_files, governance_context):
 ### Step R.2: Aggregate Results (Static + Execution)
 ```yaml
 Step R.2: Aggregate Results
-  # Merge static check results (#1-#13) WITH verification loop results
+  # Merge static check results (#1-#14) WITH agentic code review WITH verification loop results
   static_blockers = COLLECT all BLOCKER findings from checks #1-#14
   static_warnings = COLLECT all WARNING findings from checks #1-#14
   
@@ -945,8 +972,8 @@ Step R.2: Aggregate Results
   execution_blockers = COLLECT findings WHERE status == "BLOCKER" FROM verification_results
   execution_warnings = COLLECT findings WHERE status == "WARNING" FROM verification_results
   
-  blockers = static_blockers + execution_blockers
-  warnings = static_warnings + execution_warnings
+  blockers = static_blockers + code_review_blockers + execution_blockers
+  warnings = static_warnings + code_review_warnings + execution_warnings
 
 Step R.3: Determine Verdict
   IF blockers.length > 0:
@@ -962,6 +989,12 @@ Step R.3: Determine Verdict
   IF no issues:
     verdict = "CLEAN_PASS"
     PROCEED to SEC Hat
+
+  # Verdict → peer_review frontmatter status (the contract implement.md increment
+  # gate + QA --verify Gate 2 depend on; previously unwritten):
+  #   CLEAN_PASS            → status: APPROVED
+  #   PASS_WITH_WARNINGS    → status: APPROVED   (warnings documented in § findings)
+  #   BLOCKED past R.5 max retries → status: CHANGES_REQUESTED
 
 Step R.4: Generate Review Report Snippet
   FOR EACH phase:
@@ -1289,10 +1322,12 @@ review_path = build_scope.mode == "incremental"
   : "docs/spec/{FEATURE_ID}/review/peer_review_{timestamp}.md"
 CREATE review_path:
   - Summary of all REVIEW findings per phase (limited to build_scope when incremental)
+  - § Agentic Code Review (Step R.1b): per-agent results from factory-code-review (N/A rows for profile-skipped agents)
   - Resolved blockers
   - Remaining warnings (with justifications)
   - Code quality metrics
   - Frontmatter: report_scope = "feature" | "increment-{INC-N}", increment_id (when applicable). Note: `scope` (feature_scope) is the existing field inherited from spec.feature; `report_scope` is the new report-level scope.
+  - Frontmatter status: per Step R.3 verdict mapping (CLEAN_PASS | PASS_WITH_WARNINGS → APPROVED; BLOCKED past R.5 retries → CHANGES_REQUESTED). This is the status the implement.md increment gate and QA --verify Gate 2 read.
 ```
 
 ### 3.2: Generate Security Audit
