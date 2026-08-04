@@ -2197,6 +2197,105 @@
       ],
       "path": ".claude/skills/factory-complexity-check/SKILL.md"
     },
+    "skills/factory-code-review/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "Factory Code Review — agentic multi-perspective code review engine. 6 vendored Anthropic pr-review-toolkit agents (Apache-2.0, pinned commit in skill README § Provenance). Single engine, two invocations (RDR-3): IMPLEMENT 🔍 REVIEW hat Step R.1b (scope=increment, feeds peer_review, never writes marker) and factory-pr-review axis 7 / Block 20 (scope=branch, ONLY writer of the proof-of-execution marker .claude/state/code-review-${content_hash}.marker). RDR-1 content-hash keying (sha256 over sorted path+blob-sha of is_code∪is_test files — amend/rebase-stable). RDR-2: fail-open on infra (executor-missing → noisy Important), fail-closed on findings (blockers block push; override only via explicit RDR, recorded in marker override object + worklog SCM.code_review.override). RDR-4 gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type defs, comment-analyzer + code-simplifier advisory. Config optional in config/quality.json.code_review — ABSENT ⇒ ACTIVE (inverse of complexity-check; executor ships with the skill). Mandatory 🔎 banner. Severity normalisation orchestrator-side via references/severity-mapping.md.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — NEW SKILL. Orchestrator: 4-variant banner, optional-config-active default, two-mode scope resolver (increment=dev_plan/design §1 artifacts — BVL forbids git diff for feature scope; branch=diff via detect_change_type.py), preventive-sweep-style PARALLEL_MAP spawn contract with per-agent model override from vendored frontmatter, severity normalisation + dedupe, marker write spec (mkdir/atomic/tr-sanitise house rules), RDR-2 override two-plane doc (marker one-shot vs ADR pr_review_overrides.block_20_code_review permanent), worklog actions, ACP hat/standalone rule, fail-open vocabulary (disabled/executor-missing/no-source-files/spawn-failure — spawn-failure writes NO marker, incomplete run is not proof)."
+      ],
+      "path": ".claude/skills/factory-code-review/SKILL.md"
+    },
+    "skills/factory-code-review/README.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Provenance table (upstream repo + pinned commit b7e93a4e + per-file adaptation log), Apache-2.0 attribution, re-sync procedure, file inventory.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — initial. Upstream pin b7e93a4e7c950ba5b22a2bdb9a61e2631f75a51e."
+      ],
+      "path": ".claude/skills/factory-code-review/README.md"
+    },
+    "skills/factory-code-review/LICENSE": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Apache-2.0 license vendored verbatim from anthropics/claude-plugins-official repo root — attribution requirement for the 6 vendored agents.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim at pin b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/LICENSE"
+    },
+    "skills/factory-code-review/agents/code-reviewer.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: opus) — project-guideline compliance, bug detection, code quality. Confidence 0-100, reports ≥80. Gate profile: BLOCKING.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/code-reviewer.md"
+    },
+    "skills/factory-code-review/agents/silent-failure-hunter.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: inherit) — silent failures, inadequate error handling, inappropriate fallbacks. CRITICAL/HIGH/MEDIUM. Gate profile: BLOCKING.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored from pr-review-toolkit @ b7e93a4e; factory-adapted hunks: Daisy→user in description examples, upstream logging stack (logForDebugging/logError/logEvent, Sentry, Statsig, constants/errorIds.ts) genericised to governance-driven wording."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/silent-failure-hunter.md"
+    },
+    "skills/factory-code-review/agents/pr-test-analyzer.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: inherit) — behavioral test coverage quality, critical gaps, edge cases. Gap rating 1-10. Gate profile: BLOCKING.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/pr-test-analyzer.md"
+    },
+    "skills/factory-code-review/agents/type-design-analyzer.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: inherit) — type encapsulation, invariant expression, usefulness, enforcement (4 axes 1-10). Gate profile: BLOCKING, conditional on type definitions in scope.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/type-design-analyzer.md"
+    },
+    "skills/factory-code-review/agents/comment-analyzer.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: inherit) — comment accuracy vs implementation, comment rot, technical debt. Gate profile: ADVISORY (never blocks).",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/comment-analyzer.md"
+    },
+    "skills/factory-code-review/agents/code-simplifier.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Vendored review agent (model: opus) — clarity/maintainability refactor proposals, functionality-preserving. No severity model → all 🟢. Gate profile: ADVISORY (never blocks); proposals only, never edits in review context.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — vendored from pr-review-toolkit @ b7e93a4e; factory-adapted hunk: upstream stack standards (ES modules, function keyword, React Props) genericised to governance-driven lookup."
+      ],
+      "path": ".claude/skills/factory-code-review/agents/code-simplifier.md"
+    },
+    "skills/factory-code-review/references/severity-mapping.md": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Single tuning home: upstream agent scales → framework rubric 🔴🟡🟢❓. Per-agent tables + cross-cutting rules (iron law unverifiable→❓, advisory ceiling 🟡, dedupe, mandatory fix per 🔴/🟡). Orchestrator-side — agent files never edited for severity.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — initial provisional cutoffs, dogfood calibration expected."
+      ],
+      "path": ".claude/skills/factory-code-review/references/severity-mapping.md"
+    },
+    "skills/factory-code-review/scripts/code_review_hash.py": {
+      "version": "1.0.0",
+      "type": "skill-asset",
+      "role": "Canonical RDR-1 content hash for the Block 20 marker. stdin = detect_change_type.py JSON → filter files to is_code∪is_test → skip deleted-at-HEAD → sha256 over sorted path+NUL+blob-sha → 64-hex (or EMPTY). Same pipeline on writer (skill branch pass) and verifier (preflight Step 0-bis) sides. Presence doubles as RDR-2 executor probe. Exit 0 ok / 2 tooling — never 1.",
+      "changelog": [
+        "1.0.0: feat(EVOL-039) — initial."
+      ],
+      "path": ".claude/skills/factory-code-review/scripts/code_review_hash.py"
+    },
     "skills/factory-memory-cache/SKILL.md": {
       "version": "1.1.3",
       "type": "skill",
