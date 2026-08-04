@@ -2937,11 +2937,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.5.0: feat(EVOL-040) — T2 suite gains scripts/test-materialization-surface.sh (T3 delivery-surface, both literal lists).",
         "1.4.0: feat(EVOL-040) — paths: trigger filter DELETED (runs on every PR; .claude/hooks/** and .github/workflows/** previously escaped the gate entirely); stale failure-comment count reworded count-free.",
         "1.3.0: chore(EVOL-040) — duplicate manifest keys merged (.github/workflows/governance-check.yml absorbed into workflows/governance-check.yml; CHECK 1c now blocks recurrence). Version = max of pair, changelog = union.",
         "1.3.0: feat(EVOL-039) — T2 suite gains scripts/test-code-review-gate.sh (L6, Block 20 gate: 14 scenarios incl. both dogfood-CRITICAL regressions).",
@@ -3331,6 +3332,15 @@
       "path": "config/quality.json",
       "changelog": [
         "1.0.0: feat(EVOL-040 RDR-2) — initial. Meta previously had NO quality.json (complexity axis permanently fail-open by absence); now explicit: complexity.enabled=false is a declared decision, not an accident."
+      ]
+    },
+    "scripts/test-materialization-surface.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "T3 delivery-surface test (EVOL-040, north-star check). SETUP --generate is LLM-driven and unscriptable in CI — this statically verifies the AGNOSTIC delivery surface instead: workflow→script closure, template-CLAUDE.md ref resolution via the delivery map, placeholder resolvability against materialization rules, template-side hooks invariant, delivery-field closure. Wired into governance-check.yml T2 loop.",
+      "path": "scripts/test-materialization-surface.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-040) — initial. Negative-tested: detects the pre-K2 state (CI-invoked scripts without template sources)."
       ]
     }
   },
