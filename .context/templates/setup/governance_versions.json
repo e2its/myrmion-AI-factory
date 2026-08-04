@@ -326,11 +326,11 @@
       ]
     },
     "constitution/constitution_template.md": {
-      "version": "3.1.0",
+      "version": "3.3.0",
       "content_type": "project_data",
       "target": "docs/constitution.md",
       "changelog": [
-        "3.1.0: feat(EVOL-040) — [LAW] marker convention gains the stable-ID note: framework [LAW-NN] (reserved 01..99) vs project [PLAW-NN], disjoint namespaces.",
+        "3.3.0: feat(EVOL-040) — [LAW] marker convention gains the stable-ID note: framework [LAW-NN] (reserved 01..99) vs project [PLAW-NN], disjoint namespaces.",
         "3.2.0: feat(EVOL-029) added [LAW] QA Per-Increment Alignment section — mandates per-slice transition path under slicing_strategy: incremental, triple gate (tasks/peer_review/BVL) per slice, /qa --verify {ID} {INC-N} required before aggregate, plan-level dev_plan.status derived (never written manually). Monolithic features unchanged.",
         "3.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "3.0.0: feat(EVOL-026) BREAKING — operational sections marked with `## [LAW]` for mechanical snapshot extraction. 12 `[LAW]` headings (Fundamental Principles, Stateless Design, Project Mode, Code Readability, Configuration Hardcoding, Security by Design, Privacy & GDPR, Internationalization, Documentation Standards, Dependency Management, Branching Strategy, Deployment & Environment). Governance Index stays informational. Preamble updated to document `[LAW]` marker convention. Modification path now references factory-adr-management Accept Procedure. Bonus: fixed UTF-8 mojibake in Security by Design heading (artefact removed).",
@@ -447,10 +447,11 @@
       "delivery": "setup"
     },
     "scripts/security-scan.sh": {
-      "version": "2.3.1",
+      "version": "3.0.0",
       "content_type": "universal",
       "target": "scripts/security-scan.sh",
       "changelog": [
+        "3.0.0: BREAKING(EVOL-040 RDR-2) — tool-named flags --semgrep/--gitleaks REMOVED (agnosticism principle: tool names live only in config resolution tables + SETUP discovery); the --gitleaks flag was a stub that echoed and never executed. NEW --secrets lane: config-driven dispatcher reads quality.json.security_scan {enabled, scanner, secrets_command with {{RANGE}} token, report_format, fail_on, install_hint}; scanner binary resolved at runtime; fail-open NOISY (mandatory 🔒 banner naming the regex floor + install hint) / fail-closed on findings (exit 1 always) / --require-scanner flips infra-absent to exit 2 (pre-push context, preserves ADR-0001 strictness asymmetry). Canonical flags --contracts/--drift with old --validate-contracts/--drift-check kept as aliases. dead cmd-echo scaffold + tail eval removed. DAST/contracts/UX/drift lanes unchanged.",
         "2.3.1: fix(EVOL-034) sub-task 2 — jq query for protected-paths.json drift check updated `.red_zones | to_entries[] | .value[]` (object-of-arrays assumption, never matched the actual flat-array template) → `.paths[]` matching the canonical schema after ADR-EVOL-034 RDR-1 = Option A rename. Closes Finding #2 (schema incoherence between security-scan.sh expected shape and template config actual shape).",
         "2.3.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "2.1.0: feat: webhook contract validation — spectral lint for contracts/webhooks/, outbound webhooks: section presence check",
@@ -739,10 +740,11 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "type": "script",
       "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, full governance validation. Honors the actual push remote ($1) instead of hardcoding origin.",
       "changelog": [
+        "2.1.0: feat(EVOL-040 RDR-2) — secrets lane delegated to scripts/security-scan.sh --secrets --require-scanner --range: inline gitleaks invocation + binary check removed (agnosticism violation — tool hardcoded in a shipped hook); fail-closed-at-push semantics preserved via --require-scanner (dispatcher exit 2 → push blocked with config-driven install hint); push-spec/range/base-fallback logic + factory-pr-review sentinel block untouched.",
         "2.0.0: fix(EVOL-040) — target + content_type + delivery declared (was the only 4 target-less templates entries; dead for SETUP --upgrade).",
         "2.0.0: Added gitleaks secret-leak scan across the commits in the push range and honor the actual remote arg ($1). Force-push guard tightened to handle ZERO_SHA and protected branches at both local and remote sides.",
         "1.0.0: feat: pre-push hook with force-push guard and governance check"
@@ -933,10 +935,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.2.0: feat(EVOL-040 RDR-2) — security_scan block: {{SECURITY_SCANNER}}/{{SECURITY_SCANNER_COMMAND}}/{{SECURITY_SCANNER_INSTALL_HINT}} placeholders resolved from Q23.2; report_format exit-code default, fail_on any. Skip ⇒ null literals + enabled=false, file still materialised.",
         "1.1.0: feat(EVOL-039) — optional code_review block (enabled, pr_blocker, gate_blocking_agents, conditional_agents, advisory_agents). Pure defaults, placeholder-free — no SETUP materialization edit, no discovery question. Block ABSENT ⇒ defaults ACTIVE (inverse of complexity: the code-review executor ships with the skill, no external MCP). Consumed by factory-code-review SKILL + preflight.sh Step 0-bis.",
         "1.0.0: feat(EVOL-033) phase 1 — project-local quality schema. complexity section: enabled (default true), mcp_server + mcp_tool_name (placeholders resolved at SETUP via discovery RDR), thresholds.soft=10/hard=15 (McCabe industry baseline), bvl_gate=true, pr_blocker=false (advisory by default), source_extensions allowlist (15 common languages). Consumed by factory-complexity-check skill. Materialised at SETUP --generate; SETUP --upgrade owns delta propagation (factory-sync.sh deliberately does NOT touch config/)."
       ]
@@ -2024,9 +2027,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.13.0",
+      "version": "2.14.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.14.0: feat(EVOL-040 RDR-2) — NEW Q23.2 Security Scanner (5-field mirror of Q23.1; gitleaks default / trufflehog / Custom / Skip; persists quality.security_scan.*; resolution table is the only home of scanner commands besides materialization; two-layer note: regex floor always on). TIER_2 array += Q23.1 (backfill — was missing, pre-existing bug) + Q23.2.",
         "2.13.0: feat(EVOL-033) phase 2 — Q23.1 Code-Quality MCP (cyclomatic complexity scanner) added after Q23 (Testing Strategy). Three options via RDR: Semgrep MCP (default, multi-lang official server) | Custom MCP (project declares server+tool returning {file, function, ccn}[]) | Skip (disable gate, enable later by editing config/quality.json). Persists quality.complexity.{mcp_server, mcp_tool_name, enabled, thresholds.{soft=10, hard=15}, bvl_gate=true, pr_blocker=false}. Defaults are McCabe industry baseline. Materialization consumer: Factory-setup-materialization § Quality Configuration resolves placeholders {{COMPLEXITY_MCP_SERVER}} + {{COMPLEXITY_MCP_TOOL_NAME}} in config/quality.json.",
         "2.12.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.12.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -2051,9 +2055,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.8.0",
+      "version": "3.9.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.9.0: feat(EVOL-040 RDR-2) — Quality Configuration resolves the three {{SECURITY_SCANNER*}} placeholders from Q23.2 with the same Skip null-literal semantics as complexity; consumers list extended (security-scan dispatcher, factory-code-review).",
         "3.8.0: feat(EVOL-040 root cause B) — § 4.2.2 constitution template path fixed (missing constitution/ segment — SETUP constitution generation read a non-existent path); § 4.2.3 config artefacts += coherence-context.json (template + manifest entry existed, instruction never materialised it — pr-review Phase 0 degraded in every downstream project); § Scripts Materialization gains the delivery-closure Invariant (every templates::scripts entry with delivery setup|both must exist post-copy → BLOCK, mirrors hooks Invariant).",
         "3.7.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: snapshot-generation section `protected_paths.red_zones` → `protected_paths.paths` (line 155); subheading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)`. The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
         "3.7.0: feat(EVOL-033) phase 2 — Quality Configuration materialization step added. config/quality.json materialised from .context/templates/setup/config/quality.json with placeholder resolution: {{COMPLEXITY_MCP_SERVER}} ← quality.complexity.mcp_server (semgrep | custom | null when Skip); {{COMPLEXITY_MCP_TOOL_NAME}} ← quality.complexity.mcp_tool_name. Skip path writes JSON null literal (not string) and sets complexity.enabled=false so factory-complexity-check short-circuits cleanly; file still materialised to enable later opt-in via edit. Quality config added to § 4.2.3 config artefacts list. factory-sync.sh deliberately skips config/; SETUP --upgrade owns delta propagation.",
@@ -2960,11 +2965,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.7.0: feat(EVOL-040 RDR-2) — 2 new meta_template_mirror pairs: scripts/security-scan.sh (dispatcher) + scripts/hooks/pre-push (delegated secrets lane).",
         "1.6.0: feat(EVOL-040) — law_corpus_mirror pair declared (CLAUDE.md ↔ template; meta_only LAW-07/12, project_only LAW-14, addendum LAW-01); placeholder_allowlist_paths += scripts/test-* (self-test fixtures embed {{X}} sentinels legitimately).",
         "1.5.0: feat(EVOL-040) — 3 new meta_template_mirror pairs for the CI-invoked delivery scripts (check-adr-constitution-sync.sh, check-inventory-freshness.py, reconcile_inventory.py).",
         "1.4.0: feat(EVOL-035) — `universal_clause_mirror.universal_sections` gains `## Adversarial Reasoning — MANDATORY` (3rd universal H2 registered for byte-identical lock-step). Manifest entry realigned with the file's internal `version` (both → 1.4.0; prior dual-version drift — file 1.2.0 / manifest 1.3.0 — corrected). GBC-01 fix per Generation Standards §2 / GWP, surfaced by the EVOL-035 coherence review.",
@@ -3279,11 +3285,12 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "config",
       "role": "Meta copy of the pre-push git hook (protected-branch force-push block + secrets scan + governance validation + factory-pr-review sentinel block). Extensionless.",
       "path": "scripts/hooks/pre-push",
       "changelog": [
+        "1.1.0: feat(EVOL-040 RDR-2) — meta copy synced with the delegated template (lockstep pair).",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ],
       "delivery": "both"
@@ -3299,11 +3306,12 @@
       "delivery": "both"
     },
     "scripts/security-scan.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "Meta copy of the security-scan dispatcher. Registered at its historical 0-byte state (born empty at initial commit — CVP CRITICAL); real dispatcher content lands with EVOL-040 K4 and bumps this entry.",
       "path": "scripts/security-scan.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-040 RDR-2) — meta copy = byte-mirror of the evolved template dispatcher (lockstep pair). The historical 0-byte state dies; meta's ratified scanner = gitleaks via config/quality.json.",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ],
       "delivery": "both"
@@ -3314,6 +3322,15 @@
       "changelog": [
         "1.1.0: feat(EVOL-035 review LS-02) — on.pull_request.paths gains CLAUDE.md + .context/templates/setup/claude/CLAUDE.md (single-file universal-section drift now triggers the gate) and scripts/test-check-lockstep-pairs.sh; new step runs the lock-step gate self-test on every triggering PR.",
         "1.0.0: feat(EVOL-034) sub-task 3 — NEW META-ONLY CI workflow invoking scripts/check-lockstep-pairs.sh on every PR that touches paths declared under coherence-context.json § audit.lock_step_pairs. Fails CI on byte-level drift. Defense in depth: header `# META-ONLY` marker + workflow path filter scoped to meta/template trees only — not propagated to downstream materialised projects."
+      ]
+    },
+    "config/quality.json": {
+      "version": "1.0.0",
+      "type": "config",
+      "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
+      "path": "config/quality.json",
+      "changelog": [
+        "1.0.0: feat(EVOL-040 RDR-2) — initial. Meta previously had NO quality.json (complexity axis permanently fail-open by absence); now explicit: complexity.enabled=false is a declared decision, not an accident."
       ]
     }
   },

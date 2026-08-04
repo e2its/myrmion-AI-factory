@@ -1,7 +1,25 @@
 #!/usr/bin/env bash
+# security-scan.sh — tool-agnostic security dispatcher (EVOL-040, RDR-2)
+# ============================================================================
+# The framework owns the PROCESS; the project owns the TOOL, chosen at SETUP
+# discovery Q23.2 and materialized into config/quality.json.security_scan.
+# This script NEVER names a scanner in code paths — the resolved
+# `secrets_command` template is the only tool binding (LAW-11 pattern).
+#
+# Two-layer security model:
+#   floor  — detect_change_type.py secrets regex (pr-review Block 3): always
+#            on, fail-closed, no external deps. Never disabled by this script.
+#   scanner— this dispatcher's --secrets lane: config-driven, fail-open NOISY
+#            (mandatory 🔒 banner) unless --require-scanner (pre-push context).
+#
+# Exit codes: 0 clean / disabled / scanner-unavailable-fail-open
+#             1 findings (fail-closed on findings, ALWAYS)
+#             2 infra failure under --require-scanner, or malformed invocation
+# ============================================================================
 set -euo pipefail
-SEM_GREP=0
-GITLEAKS=0
+SECRETS=0
+REQUIRE_SCANNER=0
+RANGE=""
 VALIDATE_CONTRACTS=0
 VALIDATE_UX=0
 DRIFT_CHECK=0
@@ -12,22 +30,85 @@ APPLY=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --semgrep) SEM_GREP=1 ;;
-    --gitleaks) GITLEAKS=1 ;;
-    --validate-contracts) VALIDATE_CONTRACTS=1 ;;
+    --secrets) SECRETS=1 ;;
+    --require-scanner) REQUIRE_SCANNER=1 ;;
+    --range) RANGE="${2:-}"; shift ;;
+    --contracts|--validate-contracts) VALIDATE_CONTRACTS=1 ;;
     --validate-ux) VALIDATE_UX=1 ;;
-    --drift-check) DRIFT_CHECK=1 ;;
+    --drift|--drift-check) DRIFT_CHECK=1 ;;
     --dast) DAST=1 ; DAST_MODE="baseline" ;;
     --dast-full) DAST=1 ; DAST_MODE="full" ;;
     --dast-api) DAST=1 ; DAST_MODE="api" ;;
     --apply) APPLY=1 ; DRY_RUN=0 ;;
+    *) echo "security-scan: unknown flag $1" >&2; exit 2 ;;
   esac
   shift
 done
 
-cmd="echo security scan base"
-[ "$SEM_GREP" -eq 1 ] && cmd="$cmd && echo semgrep"
-[ "$GITLEAKS" -eq 1 ] && cmd="$cmd && echo gitleaks"
+# ── Secrets lane (config-driven dispatcher) ──
+if [ "$SECRETS" -eq 1 ]; then
+  QCFG="config/quality.json"
+  CFG_JSON=$(python3 -c "
+import json, sys
+try:
+    cfg = json.load(open('$QCFG')).get('security_scan', {})
+except Exception:
+    cfg = {}
+print(json.dumps({
+  'enabled': cfg.get('enabled', True),
+  'scanner': cfg.get('scanner') or '',
+  'cmd': cfg.get('secrets_command') or '',
+  'install_hint': cfg.get('install_hint') or 'configure security_scan in config/quality.json',
+}))" 2>/dev/null || echo '{"enabled":true,"scanner":"","cmd":"","install_hint":"configure security_scan in config/quality.json"}')
+  SS_ENABLED=$(echo "$CFG_JSON" | python3 -c 'import sys,json; print("true" if json.load(sys.stdin)["enabled"] else "false")')
+  SS_SCANNER=$(echo "$CFG_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["scanner"])')
+  SS_HINT=$(echo "$CFG_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["install_hint"])')
+  # Resolve the command template: substitute {{RANGE}}; empty range strips the
+  # whole word carrying the token (full-tree scan).
+  SS_CMD=$(echo "$CFG_JSON" | RANGE_VAL="$RANGE" python3 -c "
+import sys, json, os
+cmd = json.load(sys.stdin)['cmd']
+rng = os.environ.get('RANGE_VAL', '')
+words = []
+for w in cmd.split():
+    if '{{RANGE}}' in w:
+        if rng:
+            words.append(w.replace('{{RANGE}}', rng))
+        # empty range → drop the word entirely
+    else:
+        words.append(w)
+print(' '.join(words))")
+
+  if [ "$SS_ENABLED" != "true" ]; then
+    echo "🔒 security-scan: scanner layer DISABLED (config/quality.json security_scan.enabled=false). Regex floor (detect_change_type.py) still active." >&2
+  elif [ -z "$SS_SCANNER" ] || [ -z "$SS_CMD" ]; then
+    if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+      echo "❌ security-scan: no scanner configured and this context requires one (--require-scanner)." >&2
+      echo "   Resolution: run SETUP discovery Q23.2 (or edit config/quality.json security_scan) to choose a scanner. $SS_HINT" >&2
+      exit 2
+    fi
+    echo "🔒 security-scan: scanner layer UNAVAILABLE (not configured) — fail-open. Regex floor still active. $SS_HINT" >&2
+  else
+    SS_BIN="${SS_CMD%% *}"
+    if ! command -v "$SS_BIN" >/dev/null 2>&1; then
+      if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+        echo "❌ security-scan: configured scanner '$SS_SCANNER' not installed and this context requires it (--require-scanner)." >&2
+        echo "   Install: $SS_HINT" >&2
+        exit 2
+      fi
+      echo "🔒 security-scan: scanner '$SS_SCANNER' NOT INSTALLED — fail-open. Regex floor still active. Install: $SS_HINT" >&2
+    else
+      echo "🔒 security-scan: running '$SS_SCANNER' (${RANGE:-full tree})..." >&2
+      if eval "$SS_CMD"; then
+        echo "✅ security-scan: no findings ($SS_SCANNER)" >&2
+      else
+        echo "❌ security-scan: findings reported by '$SS_SCANNER' — fail-closed." >&2
+        echo "   Remediate in a NEW commit (never --amend/--force over pushed history) and rotate any exposed secret." >&2
+        exit 1
+      fi
+    fi
+  fi
+fi
 
 # DAST scanning with OWASP ZAP
 if [ "$DAST" -eq 1 ]; then
@@ -278,8 +359,4 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
   fi
 fi
 
-if [ "$DRY_RUN" = "1" ]; then
-  echo "[security-scan] DRY_RUN=1 would: $cmd"
-else
-  eval "$cmd"
-fi
+exit 0

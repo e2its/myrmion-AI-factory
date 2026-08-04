@@ -1046,7 +1046,12 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
   - `{{COMPLEXITY_MCP_TOOL_NAME}}` ← `quality.complexity.mcp_tool_name` (`scan_complexity` for Semgrep | custom tool name | `null` when Skip)
 - When user picked **Skip**: write `null` (JSON literal, not the string `"null"`) for both placeholders AND set `complexity.enabled=false`. The skill `factory-complexity-check` short-circuits to `{ok: true, reason: "disabled"}` and never invokes any MCP. The file is still materialised so the project can enable later by editing.
 - All other fields (`thresholds`, `bvl_gate`, `pr_blocker`, `source_extensions`) keep template defaults unless Discovery captured overrides. Defaults: `soft=10`, `hard=15` (McCabe), `bvl_gate=true`, `pr_blocker=false`.
-- This file is consumed by `factory-complexity-check` (BVL post-test step) and `factory-pr-review` (axis 6 — complexity). `factory-sync.sh` deliberately does NOT touch `config/`; `SETUP --upgrade` owns delta propagation.
+- Resolve the three security-scanner placeholders against Q23.2 answers (EVOL-040 RDR-2):
+  - `{{SECURITY_SCANNER}}` ← `quality.security_scan.scanner` (`gitleaks` | `trufflehog` | custom name | `null` when Skip)
+  - `{{SECURITY_SCANNER_COMMAND}}` ← `quality.security_scan.secrets_command` (from the Q23.2 resolution table | custom template | `null` when Skip)
+  - `{{SECURITY_SCANNER_INSTALL_HINT}}` ← `quality.security_scan.install_hint`
+- When user picked **Skip** on Q23.2: write `null` (JSON literal, not the string `"null"`) for all three placeholders AND set `security_scan.enabled=false`. The dispatcher `scripts/security-scan.sh --secrets` degrades to the 🔒 disabled banner; the regex floor (detect_change_type.py, pr-review Block 3) stays active. The file is still materialised so the project can enable later by editing.
+- This file is consumed by `factory-complexity-check` (BVL post-test step), `factory-pr-review` (axis 6 — complexity; Step 0-bis — code_review; Block 3 floor is config-free), `factory-code-review` (code_review block) and `scripts/security-scan.sh` (security_scan block). `factory-sync.sh` deliberately does NOT touch `config/`; `SETUP --upgrade` owns delta propagation.
 
 **Environment Variables (Secret Placeholder Convention):**
 - Generate `.env.example` with `REPLACE_ME_<description>` format for all required secrets

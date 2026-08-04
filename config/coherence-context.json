@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.5.0",
+  "version": "1.7.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -67,14 +67,33 @@
         "right": ".context/templates/setup/scripts/reconcile_inventory.py"
       },
       {
+        "type": "meta_template_mirror",
+        "doc": "Security dispatcher (EVOL-040 RDR-2) — config-driven, tool-agnostic. Template is the SETUP-delivery source; meta copy is this repo's own gate. The historical meta 0-byte state was a CVP CRITICAL.",
+        "left": "scripts/security-scan.sh",
+        "right": ".context/templates/setup/scripts/security-scan.sh"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "pre-push git hook (EVOL-040) — delegates its secrets lane to the security-scan dispatcher with --require-scanner (fail-closed at push preserved).",
+        "left": "scripts/hooks/pre-push",
+        "right": ".context/templates/setup/scripts/hooks/pre-push"
+      },
+      {
         "type": "law_corpus_mirror",
         "doc": "Governance Rules corpus (EVOL-040, RDR-1): stable [LAW-NN] IDs, single namespace across the pair. Universal LAW bodies byte-identical after stripping the cosmetic list ordinal. LAW-01 carries a declared per-context addendum (lines from the first '*…application:*' marker onward exempt). Context Preservation INVARIANTS 2/4/5 diverge by design (meta: framework manifest/branch-state; template: project manifest/feature-state) — governed by CLAUDE.md § What Lives Where, not part of this corpus. LAW-15 (ADP vocabulary) lives outside § Governance Rules and is verified by reference coherence, not by this pair.",
         "left": "CLAUDE.md",
         "right": ".context/templates/setup/claude/CLAUDE.md",
         "law_section": "## Governance Rules",
-        "meta_only": ["LAW-07", "LAW-12"],
-        "project_only": ["LAW-14"],
-        "addendum_ids": ["LAW-01"]
+        "meta_only": [
+          "LAW-07",
+          "LAW-12"
+        ],
+        "project_only": [
+          "LAW-14"
+        ],
+        "addendum_ids": [
+          "LAW-01"
+        ]
       },
       {
         "type": "universal_clause_mirror",
