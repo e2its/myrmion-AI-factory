@@ -33,7 +33,7 @@ changelog:
 {{#if PIPELINE_DEPTH == "Advanced"}}
 1. **Lint & Format:** `scripts/lint-format.sh --apply`
 2. **Unit Tests:** `scripts/test.sh` (≥80% coverage)
-3. **Security Scan:** `scripts/security-scan.sh --semgrep --gitleaks` (blocks on HIGH/CRITICAL)
+3. **Security Scan:** `scripts/security-scan.sh --secrets` (scanner per `config/quality.json.security_scan`; blocks on findings)
 4. **Build:** Compile artifacts, build Docker image
 5. **Integration Tests:** API + DB tests
 6. **Deploy Dev:** Auto-deploy to development

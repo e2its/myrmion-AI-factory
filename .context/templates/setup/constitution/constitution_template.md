@@ -265,7 +265,7 @@ changelog:
 
 ### Enforcement
 - **CI/CD Gate:** `scripts/check-integrations.sh` validates structure, schema compliance, and absence of credentials (BLOCKING).
-- **Pre-Commit Hook:** `scripts/security-scan.sh --gitleaks` blocks commits with detected secrets.
+- **Pre-Commit Hook:** `scripts/security-scan.sh --secrets` blocks commits with detected secrets (scanner per `config/quality.json.security_scan`; regex floor always on).
 - **Code Review:** Any configuration hardcoding must be rejected in PR.
 
 ### Further Reading
@@ -502,7 +502,7 @@ Ref: USR-001
 #### Pre-Merge Checks (Required)
 - ✅ Lint & Format: `scripts/lint-format.sh --apply`
 - ✅ Unit Tests: `scripts/test.sh` (≥80% coverage)
-- ✅ Security Scan: `scripts/security-scan.sh --semgrep --gitleaks`
+- ✅ Security Scan: `scripts/security-scan.sh --secrets`
 - ✅ Dependency Check: `scripts/dependency-allowlist.sh`
 
 #### Post-Merge Actions

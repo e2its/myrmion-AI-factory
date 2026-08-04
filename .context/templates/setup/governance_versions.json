@@ -220,10 +220,11 @@
       ]
     },
     "rules/ci-cd.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/ci-cd.md",
       "changelog": [
+        "1.4.0: fix(EVOL-040 pr-review loop) — security-scan step migrated from tool-named flags to --secrets (Detector 13; agnosticism).",
         "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
@@ -326,10 +327,11 @@
       ]
     },
     "constitution/constitution_template.md": {
-      "version": "3.3.0",
+      "version": "3.4.0",
       "content_type": "project_data",
       "target": "docs/constitution.md",
       "changelog": [
+        "3.4.0: fix(EVOL-040 pr-review loop) — 2 refs to the removed --semgrep/--gitleaks flags migrated to the tool-agnostic --secrets lane (Detector 13; agnosticism).",
         "3.3.0: feat(EVOL-040) — [LAW] marker convention gains the stable-ID note: framework [LAW-NN] (reserved 01..99) vs project [PLAW-NN], disjoint namespaces.",
         "3.2.0: feat(EVOL-029) added [LAW] QA Per-Increment Alignment section — mandates per-slice transition path under slicing_strategy: incremental, triple gate (tasks/peer_review/BVL) per slice, /qa --verify {ID} {INC-N} required before aggregate, plan-level dev_plan.status derived (never written manually). Monolithic features unchanged.",
         "3.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
