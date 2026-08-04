@@ -353,7 +353,8 @@ header "CHECK 1b: Per-entry version advance (changed file ⇒ entry bump)"
 
 if [ "$CORE_FILES_CHANGED" -gt 0 ]; then
   BASE_MANIFEST_TMP=$(mktemp)
-  git show "origin/${BASE_BRANCH}:${MANIFEST}" > "$BASE_MANIFEST_TMP" 2>/dev/null || true
+  git show "origin/${BASE_BRANCH}:${MANIFEST}" > "$BASE_MANIFEST_TMP" 2>/dev/null \
+    || git show "${BASE_BRANCH}:${MANIFEST}" > "$BASE_MANIFEST_TMP" 2>/dev/null || true
   if [ -s "$BASE_MANIFEST_TMP" ]; then
     STALE_ENTRY=$(CHANGED_TRACKED="$(printf '%s\n' "${DRIFTED_FILES[@]}")" \
       python3 - "$BASE_MANIFEST_TMP" "$MANIFEST" <<'PYEOF'
@@ -388,8 +389,10 @@ for p in os.environ.get('CHANGED_TRACKED', '').split('\n'):
     if tup(head[p]) <= tup(base[p]):
         print(f"{p} ({base[p]} -> {head[p]})")
 PYEOF
-) || { fail "CHECK 1b inspector crashed — cannot verify per-entry version advance (base manifest unparseable?). Treated as a violation: a broken inspector must never read as 'all entries advanced'."; STALE_ENTRY=""; }
-    if [ -n "$STALE_ENTRY" ]; then
+) || { fail "CHECK 1b inspector crashed — cannot verify per-entry version advance (base manifest unparseable?). Treated as a violation: a broken inspector must never read as 'all entries advanced'."; STALE_ENTRY="__CRASHED__"; }
+    if [ "$STALE_ENTRY" = "__CRASHED__" ]; then
+      : # violation already recorded; do NOT print the green pass line
+    elif [ -n "$STALE_ENTRY" ]; then
       fail "Changed tracked file(s) whose manifest entry version did NOT advance:"
       while IFS= read -r e; do [ -n "$e" ] && echo -e "     ${RED}→ $e${NC}"; done <<< "$STALE_ENTRY"
       echo -e "   ${YELLOW}ACTION: bump each entry's version + add a changelog line (Generation Standards §2 / GWP)${NC}"
@@ -441,9 +444,11 @@ for t, entries in sorted(by_target.items()):
     if len(entries) > 1 and not all(mode == 'merge' for _, mode in entries):
         print(f"DUP-TARGET {t} <- {', '.join(k for k, _ in entries)} (declare target_mode: merge on all, or fix)")
 PYEOF
-) || { fail "CHECK 1c inspector crashed — cannot verify manifest integrity (malformed manifest?). Treated as a violation: 'printed nothing' must never read as 'no issues'."; INTEGRITY_ISSUES=""; }
+) || { fail "CHECK 1c inspector crashed — cannot verify manifest integrity (malformed manifest?). Treated as a violation: 'printed nothing' must never read as 'no issues'."; INTEGRITY_ISSUES="__CRASHED__"; }
 
-if [ -n "$INTEGRITY_ISSUES" ]; then
+if [ "$INTEGRITY_ISSUES" = "__CRASHED__" ]; then
+  : # violation already recorded; do NOT print the green pass line
+elif [ -n "$INTEGRITY_ISSUES" ]; then
   fail "Manifest integrity issues:"
   while IFS= read -r e; do [ -n "$e" ] && echo -e "     ${RED}→ $e${NC}"; done <<< "$INTEGRITY_ISSUES"
 else

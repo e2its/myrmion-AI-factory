@@ -144,7 +144,7 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── Factory-backlog-operations.instructions.md
 │   ├── Factory-backlog-execution-plan.instructions.md
 │   └── Factory-backlog-next-task.instructions.md
-├── skills/                                  # 21 cross-cutting skills (reusable protocols)
+├── skills/                                  # 22 cross-cutting skills (reusable protocols)
 │   ├── factory-applicability-discovery/     # ADP — governance Roll-Call (command Step 0)
 │   ├── factory-governance-loading/          # GCRP — Zero Trust context recovery
 │   ├── factory-incremental-persistence/     # IPP — incremental persistence
@@ -165,7 +165,8 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── factory-adr-management/              # ADR / FDR lifecycle
 │   ├── factory-mcp-docs-scan/               # MCP docs-scan banner
 │   ├── factory-complexity-check/            # Cyclomatic complexity gate (DC-28)
-│   └── factory-pr-review/                   # Six-axis PR review + push gate
+│   ├── factory-code-review/                 # Agentic code review engine (Block 20, LAW-13)
+│   └── factory-pr-review/                   # Seven-axis PR review + push gate (20 hard blocks)
 ├── hooks/                                   # 6 deterministic enforcement hooks
 │   ├── check-branch-protection.sh           # PreToolUse — blocks edits on protected branches
 │   ├── check-completion-gate.sh
@@ -178,7 +179,7 @@ CLAUDE.md                                    # Root governance (always loaded)
 ├── templates/                               # Materialization templates (SETUP --generate)
 └── schemas/                                 # JSON schemas (worklog log, …)
 config/                                      # Framework config — coherence-context, quality, protected-paths
-scripts/                                     # Governance + CI scripts (validate-governance, auto-tag, lock-step, …)
+scripts/                                     # Governance + CI scripts — manifest-driven delivery (validate-governance, security-scan dispatcher, auto-tag, lock-step, test-* suites incl. T3 materialization-surface, …)
 ```
 
 ### Post-Installation Verification

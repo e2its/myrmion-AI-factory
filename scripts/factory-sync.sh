@@ -252,7 +252,7 @@ sync_tree() {
   local src_root="$1"
   local dst_root="$2"
 
-  [[ -d "$src_root" ]] || return
+  [[ -d "$src_root" ]] || return 0
 
   # EVOL-040: prune runtime byproducts — find is gitignore-unaware and was
   # copying committed-adjacent junk (e.g. __pycache__/*.pyc) into every project.
@@ -267,7 +267,7 @@ detect_tree_orphans() {
   local src_root="$1"
   local dst_root="$2"
 
-  [[ -d "$dst_root" ]] || return
+  [[ -d "$dst_root" ]] || return 0
 
   while IFS= read -r -d '' dst_file; do
     local rel="${dst_file#$dst_root/}"
@@ -286,7 +286,7 @@ detect_orphans() {
   local pattern="${3:-*}"
   local prefix="${4:-}"
 
-  [[ -d "$dst_dir" ]] || return
+  [[ -d "$dst_dir" ]] || return 0
 
   for dst_file in "$dst_dir"/$pattern; do
     [[ -f "$dst_file" ]] || continue
