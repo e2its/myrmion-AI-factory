@@ -15,11 +15,13 @@ applicable_when:
 First user-facing line of every invocation. Missing banner = `mal-iniciado`.
 
 ```
-🔎 Code Review — scope {branch {base}..HEAD | increment {INC-N}} | profile {gate|full} | {N} agents | 🔴{b} 🟡{i} 🟢{n} ❓{q}
+🔎 Code Review — scope {branch {base}..HEAD | increment {INC-N}} | profile {gate|full} | {N} agents | rules {B} bound / {E} excluded / {F} foreign | 🔴{b} 🟡{i} 🟢{n} ❓{q}
 🔎 Code Review — disabled | (config/quality.json code_review.enabled=false)
 🔎 Code Review — no-source-files | nothing to review
 🔎 Code Review — spawn-failure ({agent}) | run incomplete, NO marker written
 ```
+
+`rules 0 bound` is a legitimate state (framework meta, pre-SETUP) — declared, never silent (§ Governance Binding fail-soft).
 
 ## Configuration source
 
@@ -71,12 +73,38 @@ FUNCTION resolve_scope(mode, args):
 
 Type-def trigger heuristic: any scope file matching `*.d.ts`, `types/**`, `*_types.*`, OR diff hunks adding/modifying `interface |type X =|TypedDict|dataclass|BaseModel|struct {|enum `. False-negative bias forbidden — ambiguity → run the agent.
 
+## Governance Binding — MANDATORY before spawn
+
+Review without project law = opinion. Binding = a rule Roll-Call over the review scope, run fresh per invocation (never cached). Three gates, all mechanical — the engine never judges rule content:
+
+1. **Provenance.** Candidate set = `.claude/rules/*.md` WITH a governance-manifest entry (`governance_versions.json`) + CLAUDE.md `[LAW]` sections + `defect-prevention.md` DCs (review-severity column). A file under `rules/` with NO manifest entry is NOT bound — reported as ❓ `foreign-rule` (drift, not law).
+2. **Applicability (ADP).** Evaluate each candidate's `applicable_when` frontmatter against the review context: `path_glob` vs scope files, `framework` vs project stack, `scope`/`change_type` axes. Missing block ⇒ `always: true`. Same closed vocabulary as the command Roll-Call; frontmatters are CI-validated (`check-applicability-frontmatter.sh`) — trust them.
+3. **Precedence on conflict.** `constitution [LAW]` > ADR/FDR (incl. `pr_review_overrides` refinements) > rule file > agent defaults. Same-level conflict → the engine does NOT pick: ❓ finding citing both sources, routed to RDR.
+
+Per-agent packet — each agent gets its slice, never the whole tree:
+
+| Agent | Packet |
+|---|---|
+| code-reviewer | coding-standard rules + `architecture.md` (bound subset for scope files) + CLAUDE.md LAWs |
+| silent-failure-hunter | logging / error-handling / observability conventions (`security_policy.md`, related rules) |
+| pr-test-analyzer | `testing.md` (thresholds, 1 Logic = 1 Unit Test, patterns) |
+| type-design-analyzer | `api-standards.md` / `contract-first-policy.md` when contract types in scope |
+| comment-analyzer, code-simplifier | style rules + DC-29 |
+| ALL | bound `defect-prevention.md` DCs |
+
+**Severity anchoring.** A CONVENTION finding that violates a bound rule → cite it (`file § section`, manifest version) and classify in the explicit-violation tier of `references/severity-mapping.md`. A finding a bound rule explicitly permits → suppress (log as note). A convention finding with NO rule anchor stays in the generic lane and NEVER reaches 🔴. Correctness findings (bug / security / data-loss) keep their lane regardless of rules — a real bug needs no rule.
+
+**Fail-soft.** No `.claude/rules/` (framework meta, pre-SETUP project) → bind CLAUDE.md only. 0 rules is never silent — the banner declares it.
+
+**Hat mode.** `context: "hat"` receives `governance_context` (GCD, design.md §7 — already bound at design time) as the primary packet source; the rules Roll-Call still runs for families the GCD does not carry.
+
 ## Spawn contract
 
 ```yaml
 FUNCTION run_code_review(mode, args, profile):
   scope = resolve_scope(mode, args)
   IF scope.files empty: RETURN { ok: true, reason: "no-source-files" }
+  binding = governance_binding(scope, args.governance_context)   # § Governance Binding
   roster = select_agents(profile, type_def_trigger(scope.files))
   # ONE sub-agent per roster entry, in parallel. The runtime decides actual
   # concurrency — this skill never asserts a number.
@@ -88,8 +116,8 @@ FUNCTION run_code_review(mode, args, profile):
       inputs = {
         files: scope.files,
         context: diff range or increment description,
-        governance: pointers to project CLAUDE.md + .claude/rules/,
-        directive: "REPORT findings only — never edit files"
+        governance: binding.packet_for(agent),   # § Governance Binding per-agent slice, with citations
+        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding"
       }))
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ... }   # NO marker
   findings = normalise(reports)         # references/severity-mapping.md

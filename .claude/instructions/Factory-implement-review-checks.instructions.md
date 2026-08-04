@@ -852,7 +852,8 @@ Step R.1b: Agentic Code Review
     increment_id: build_scope.target_increment.id,   # null in monolithic mode → feature file set
     files: <increment file set from dev_plan tasks + design.md §1 — NEVER a git diff (BVL Full Feature Scope Mandate)>,
     profile: "full",          # all 6 agents (RDR-4: gate profile subsetting applies only to the branch pass)
-    context: "hat"
+    context: "hat",
+    governance_context: governance_context   # Step R.0 GCD pass-through — engine § Governance Binding primary packet source
   })
   code_review_blockers = result.findings WHERE severity == 🔴
   code_review_warnings = result.findings WHERE severity IN (🟡, ❓)

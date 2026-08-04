@@ -80,6 +80,16 @@ Options presented:
 
 Cost note: with RDR-1 content-hash keying, the branch pass runs once per code state, not per commit. Total = N increment reviews + 1 final-state review.
 
+### RDR-5 — Governance Binding landing site
+
+**Ratified: Option A — amend in PR #47.**
+
+Verbatim user choice: `opcion A`.
+
+Context: user surfaced the gap post-implementation — the engine reviewed against generic best practice; spawn inputs carried only a vague pointer to CLAUDE.md/rules. Design (ratified through Q&A): binding = rule Roll-Call over the review scope — three mechanical gates (provenance via manifest, applicability via ADP closed vocabulary, precedence via constitution>ADR/FDR>rule>default ladder), per-agent packet slices, severity anchoring (convention findings cite the bound rule or never reach 🔴; correctness findings need no rule), fail-soft with banner-declared rule counts, hat mode consumes the R.0 GCD pass-through.
+
+Options presented: A amend PR #47 (recommended, chosen — engine contract belongs to EVOL-039, PR still open) / B fold into the CVP-remediation EVOL (cohesive with rules-delivery fixes but ships a knowingly-incomplete contract) / C own later EVOL with usage-calibrated design (evidence-informed but every project materialised meanwhile gets an opinion-based reviewer).
+
 ## 5. Scope — files touched
 
 NEW (12): `.claude/skills/factory-code-review/{SKILL.md, README.md, LICENSE, agents/×6, references/severity-mapping.md, scripts/code_review_hash.py}`, `docs/project_log/evolutions/ADR-EVOL-039.md`.
