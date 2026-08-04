@@ -18,5 +18,13 @@
       "entries_by_agent": {},
       "entries_by_result": {}
     }
+  },
+  "last_updated": "2026-08-04",
+  "total_entries": 1,
+  "entries_by_agent": {
+    "FACTORY": 1
+  },
+  "entries_by_result": {
+    "COMPLETED": 1
   }
 }
