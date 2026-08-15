@@ -831,11 +831,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.7.0",
+      "version": "3.8.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041), byte-identical with meta corpus via law_corpus_mirror.",
         "3.7.0: feat(EVOL-040 RDR-1) — Governance Rules re-rendered with stable [LAW-NN] IDs: tpl#7 = LAW-14 (SETUP scaffolding, project-only — kills the ordinal-7 two-laws collision), tpl#12 = LAW-13 (code review gate — kills the EVOL-039 13/12 offset). LAW-15 tag on ADP heading; immutability landmark citation fixed (§ Per-Increment Immutability); § anchors normalized. Universal bodies now mechanically mirrored via law_corpus_mirror.",
         "3.6.0: feat(EVOL-039) Governance Rules gain LAW 12 (Agentic Code Review Gate — single-engine, marker-proven). Text-identical to framework-meta CLAUDE.md 13.6.0 LAW 13 modulo number (template has no META-ONLY lock-step law, hence the offset). See that changelog for semantics.",
         "3.5.0: feat(EVOL-037) universal section `## Adversarial Reasoning — MANDATORY` gains the always-on do-less lens sentence (DC-29 minimalism: YAGNI ladder, argue simpler how, never cut specified what — scope cut routes to CODESIGN via RDR). Byte-identical with framework-meta CLAUDE.md 13.5.0 (lock-step universal_section).",
@@ -2185,9 +2186,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.7.0",
+      "version": "13.8.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041): CODESIGN artefacts carry only business-validatable content; technical formalisation lives in BLUEPRINT (design.md §3.1/3.2, §7.4, Reliability Contract). Mirrored via law_corpus_mirror.",
         "13.7.0: feat(EVOL-040 RDR-1 / root cause C) — Governance Rules re-rendered with stable [LAW-NN] IDs (single namespace across the pair; list ordinal cosmetic; assigned once, never renumbered/reused). LAW-08 body restored from template (meta was truncated — Humanized Blocking lost its what/why/next-command contract). LAW-12 body drops the inline universal_sections enumeration (config is the single source) + documents the new law_corpus_mirror pair type. LAW-15 tag on the ADP vocabulary heading. § What Lives Where rewritten to reality (mechanically-enforced universal surface named; framework-only/project-only lists corrected; declared-divergence doctrine). INVARIANT-1 gains feat/*; § Templates phantom `claude` role dir fixed; § anchors normalized (Canonical Iteration ID, GWP case). Constitutional amendment for ADR-EVOL-040 acceptance.",
         "13.6.0: feat(EVOL-039) Governance Rules gain LAW 13 (Agentic Code Review Gate — single-engine, marker-proven). Constitution amendment for ADR-EVOL-039 acceptance. Engine factory-code-review (6 vendored pr-review-toolkit agents, Apache-2.0); two invocations (hat Step R.1b per increment / push gate axis 7 Block 20 per branch, sole marker writer, content-hash keyed); fail-open infra / fail-closed findings with two-plane audited override (marker RDR one-shot + ADR pr_review_overrides permanent); RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory; config optional-absent⇒active. Mirrored modulo LAW number in templates/claude/CLAUDE.md 3.6.0 (LAW 12 there — meta LAW 12 is the META-ONLY lock-step law).",
         "13.5.0: feat(EVOL-037) § Adversarial Reasoning — MANDATORY gains the always-on do-less lens sentence (DC-29 minimalism: YAGNI ladder, argue simpler how, never cut specified what — scope cut routes to CODESIGN via RDR). Constitution amendment for ADR-EVOL-037 acceptance — no new LAW (the do-less lens is a facet of the existing adversarial mandate). Byte-identical mirror in template claude/CLAUDE.md 3.5.0 (lock-step universal_section, gated by check-lockstep-pairs.sh). Mechanics in factory-adversarial-reasoning + DC-29 in defect-prevention.md.",
