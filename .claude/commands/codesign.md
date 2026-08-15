@@ -31,9 +31,10 @@ Visual identity and structure of the complete application. Executed once before 
 Iterate to produce three co-created artifacts (+ a `slice_map.md` when `slicing_strategy: incremental`) per feature. Auto-approves when all applicable validations pass.
 
 **Full protocol:** See `.claude/instructions/Factory-codesign-feature.instructions.md`
-- `spec.feature` (BDD/Gherkin with business rules)
-- `mock.html` (pixel-perfect visual mockup)
-- `user_journey.md` (simplified Event Storming with typed Data Schemas)
+Canonical generation order (the journey is the ROOT — EVOL-041):
+- `user_journey.md` (journey-first: Part I experience — personas, Paso steps with Goal/Does/Sees/Feels 1-5/Pain/Ease, paths, pain map; Part II conceptual domain contract in plain business language. Single template, ALL scopes. 100% business-validatable — LAW-16)
+- `spec.feature` (BDD/Gherkin with business rules; scenario titles = the journey's `**BDD Scenario:**` machine anchors)
+- `mock.html` (pixel-perfect visual mockup; one `imp-step` per journey Paso — `id="step-N"` = the journey's `**Mock Action:**` anchor. UI scopes only)
 - `slice_map.md` (capability-VALUE vertical-slice map — only when `slicing_strategy: incremental`; refined by BLUEPRINT into `increment_plan.md`)
 
 **`--refine` sub-steps** (Iteration Execution — full pseudocode in the instruction file § Iteration Execution):
@@ -46,13 +47,14 @@ Iterate to produce three co-created artifacts (+ a `slice_map.md` when `slicing_
 
 Every feature declares two frontmatter fields in `spec.feature` that shape the rest of the pipeline:
 
-- `scope`: `full-stack | backend-only | frontend-only | integration`. Per-feature, defaults to `project_scope` from `docs/setup.md`. **Scope Compatibility Gate** in [Factory-codesign-feature.instructions.md](../instructions/Factory-codesign-feature.instructions.md) BLOCKS when `feature.scope` is incompatible with `project_scope` (matrix: `full-stack` project accepts all; `backend-only`/`integration` accept `backend-only`+`integration`; `frontend-only` accepts only `frontend-only`). `scope` is immutable after APPROVED — changing it requires a fresh `--start` on a new FEAT-ID. Scope drives artefact presence: `mock.html` + Global UX Vision are N/A for backend-only/integration; `user_journey.integration.md` replaces `user_journey.md` for those scopes.
+- `scope`: `full-stack | backend-only | frontend-only | integration`. Per-feature, defaults to `project_scope` from `docs/setup.md`. **Scope Compatibility Gate** in [Factory-codesign-feature.instructions.md](../instructions/Factory-codesign-feature.instructions.md) BLOCKS when `feature.scope` is incompatible with `project_scope` (matrix: `full-stack` project accepts all; `backend-only`/`integration` accept `backend-only`+`integration`; `frontend-only` accepts only `frontend-only`). `scope` is immutable after APPROVED — changing it requires a fresh `--start` on a new FEAT-ID. Scope drives artefact presence: `mock.html` + Global UX Vision are N/A for backend-only/integration; `user_journey.md` is generated for ALL scopes from the single template (backend personas = business callers, `Mock Action: —`).
 - `slicing_strategy`: `incremental | monolithic`. Default `incremental`. `monolithic` escape allowed only when the Trivial-Heuristic holds: `scenarios_count ≤ 2` AND `contract_operations ≤ 3` AND `scope ≠ full-stack`. Enforced at `/blueprint --start` (Trivial-Heuristic Gate) and `/blueprint --approve` (CVP Check 16). RDR required when ≥2 viable options exist. When `incremental`, CODESIGN emits `docs/spec/{ID}/slice_map.md` (capability-VALUE slicing, Stage 1); BLUEPRINT refines it into `increment_plan.md` (Stage 2, contract-aware) joined by `cascade_source: SLICE-{FEAT}-N`.
 - `consumes_contract: [FEAT-XXX, ...]` (optional): cross-feature dependency declaration. Triggers Consumes-Contract Resolution Gate at `/blueprint --start` and propagates `CASCADE_PENDING_ITERATION` on upstream contract change.
 
 ## Key Principles
 - DRY: Consult `config/codebase_inventory.json` before creating new domain concepts (CIP Phase 0.5)
-- user_journey.md Data Schemas are the **source of truth** for data contracts — downstream agents formalize but do NOT invent business fields
+- user_journey.md § 6 Business Fields is the **source of truth** for WHICH business fields exist (plain language, no types — LAW-16); ARCH derives all typing in design.md and does NOT invent business fields
+- Journey grammar (anchors, Feels 1-5, paths) is machine-validated by `scripts/check-journey-grammar.sh` (auto-approval CHECK 3)
 - After `--refine` in Iteration Mode → CASCADE_PENDING_ITERATION to all downstream artifacts
 - Vision compliance: All feature mockups MUST reference vision artifacts
 - **Iteration Changelog:** Every `--refine` MUST append a changelog entry to the modified artifacts documenting what changed, what triggered the change, and which downstream artifacts are affected. This changelog serves as reference for the next agent in the pipeline.

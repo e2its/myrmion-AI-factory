@@ -832,7 +832,9 @@ iteration_history:
     scope: "Added MFA scenario, extended Session with refresh token"
 last_iteration_scope: "Added MFA scenario, extended Session with refresh token"
 
-# user_journey.md frontmatter (UPSTREAM — data contract source of truth)
+# user_journey.md frontmatter (UPSTREAM ROOT — business-contract source of truth; EVOL-041)
+# schemas_version = version of Part II (Business Fields / Rules / Guarantees). Any § 5-8 change bumps it.
+# The ROOT carries NO based_on_* sync fields (it has no upstream — D19).
 schemas_version: 2
 
 # Downstream artifacts (design.md, test_plan.md, dev_plan.md, devops_plan.md)

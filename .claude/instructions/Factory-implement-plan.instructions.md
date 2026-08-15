@@ -566,7 +566,7 @@ TASKS:
   
   A.3: Business Logic / Domain Services
     - Service implementations following design.md architecture
-    - Business policy enforcement (from user_journey.md policies)
+    - Business policy enforcement (from user_journey.md § 7 Business Rules)
     - External system adapter implementations
   
   A.4: API Endpoints / Controllers
@@ -650,7 +650,7 @@ TASKS:
     - Implement layouts per Section 6.2 dom_contract (DOM nesting MUST match)
     - Implement pages by composing B.0 + B.2 shared components per Section 6.5
     - IMPLEMENT ALL states (default, loading, error, empty, + feature-specific)
-    - Wire form validations to user_journey.md data schemas
+    - Wire form validations to journey § 6 Business Fields (existence/required) + design.md § 7.4 (formats)
     - State management per design.md
   
   B.4: Styling Verification + Responsive
@@ -725,7 +725,7 @@ FUNCTION evaluate_synthetic_data_need(FEATURE_ID):
   
   has_ui = READ constitution.md → frontend.framework != "None"
   has_mock = FILE_EXISTS("docs/spec/{FEATURE_ID}/mock.html")
-  data_schemas = READ user_journey.md → data_schemas[]
+  data_schemas = READ design.md → § 7.4 Schema Constraints locked_fields (typing) ; existence cross-checked vs user_journey.md § 6
   staging_data = READ design.md → Section 5 "Infrastructure Needs" → staging_data
 
   IF (has_ui AND has_mock AND data_schemas.length > 0) OR staging_data.required:
@@ -742,7 +742,7 @@ FUNCTION evaluate_synthetic_data_need(FEATURE_ID):
 | **Idempotency** | Running seed twice must NOT duplicate data | Upsert (ON CONFLICT), check-before-insert, or deterministic IDs with IF NOT EXISTS |
 | **Reset capability** | Full teardown + clean re-seed to a known baseline | Dedicated reset command/script: truncate target tables → re-seed (respecting FK order) |
 | **Referential coherence** | All IDs across related entities must be valid and consistent | Use deterministic ID generation (sequential or UUID v5 with namespace) — build entity graphs respecting FK dependencies (parent → child order) |
-| **Schema alignment** | Synthetic data must match `user_journey.md` Data Schemas | Field names, types, and constraints from Data Schemas are the source of truth |
+| **Schema alignment** | Synthetic data must match `design.md § 7.4 Schema Constraints` | Field names from journey § 6 (existence); types/formats/constraints from § 7.4 + type_format_registry (typing authority — LAW-16) |
 | **Non-production guard** | Seed scripts must NEVER execute on production | Environment check gate: `IF env == production → ABORT` |
 | **Cross-domain registration** | Feature's seed entities MUST be registered in Shared Seed Registry | Register owned entities + declare consumed entities (see below) |
 
@@ -804,7 +804,7 @@ FUNCTION register_seed_entities(FEATURE_ID):
   
   # Step 2: Read feature's data model from design.md
   entities = READ design.md → Section 2 Component Inventory → data entities
-  schemas = READ user_journey.md → data_schemas[]
+  schemas = READ design.md → § 7.4 locked_fields + type_format_registry
   
   # Step 3: Classify each entity
   FOR EACH entity IN entities:
@@ -840,7 +840,7 @@ FUNCTION register_seed_entities(FEATURE_ID):
   # Step 7: Create fixture files
   FOR EACH owned_entity (owner_feature == FEATURE_ID):
     CREATE fixture file at fixture_path:
-      - Generate deterministic data from user_journey.md Data Schemas
+      - Generate deterministic data from design.md § 7.4 (types/formats) honouring journey § 6 field existence
       - Use declared id_strategy for reproducible IDs
       - Reference parent entities by their registered IDs (from fixture files)
   
@@ -880,7 +880,7 @@ FUNCTION validate_seed_integrity():
   
   # Check 4: Schema compliance
   FOR EACH entity IN registry.shared_entities:
-    IF entity has matching user_journey.md schema:
+    IF entity has matching § 7.4 entity (journey § 6 concept):
       VALIDATE fixture fields against schema (types, required, constraints)
   
   ✅ All checks pass → seed data is referentially coherent across all domains
@@ -930,7 +930,7 @@ FUNCTION load_ux_vision_context(FEATURE_ID):
 ```yaml
 B.1: Load mock.html → Extract visual structure (DOM hierarchy, CSS classes, accessibility attrs)
 B.2: Load spec.feature → Map scenarios to frontend interactions
-B.3: Load user_journey.md → Extract data schemas for form fields, display components
+B.3: Load user_journey.md § 6 (fields + required + allowed values) and design.md § 7.4 (formats) → form fields, display components
 B.4: Verify mock.html inherits vision shell correctly:
      IF uxd_loaded: compare mock DOM against uxd.shell_composition.shell_regions
      ELSE: compare against app_shell.html

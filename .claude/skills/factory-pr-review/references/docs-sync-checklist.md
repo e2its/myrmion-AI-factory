@@ -31,7 +31,7 @@ Drives Hard Block 8 (CVP subset) when files under `docs/spec/{ID}/**` are touche
 
 | Change | Artefact that must update | Severity if missing |
 |---|---|---|
-| New / modified Gherkin scenario | `user_journey.md` + `test_plan.md` (CVP Check 1, 2) | **Blocker** |
+| New / modified Gherkin scenario | `user_journey.md` + `test_plan.md` (journey `**BDD Scenario:**` anchors — check-journey-grammar.sh + CVP Checks 5, 4b) | **Blocker** |
 | New / modified contract operation in `design.md` | OpenAPI/AsyncAPI under `contracts/` (CVP Check 14, 15) | **Blocker** |
 | New / modified test_plan case | `dev_plan.md` task tags reference the case (CVP Check 17) | Important |
 | `slicing_strategy: incremental` feature without `slice_map.md` APPROVED | (CVP Check 0d) | **Blocker** (new feature) / WARNING (legacy grandfathered, increment_plan present) |

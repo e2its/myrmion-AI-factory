@@ -296,8 +296,8 @@ SEVERITY: BLOCKER for red_zone, WARNING for yellow_zone
 ### Check #5: [SCHEMA-XX] Schema Compliance
 ```yaml
 # Source: design.md Section 7.4 (if GCD loaded) → schema_constraints
-# Fallback: user_journey.md Data Schemas (direct read)
-VERIFY data structures match schema_constraints.entities (or user_journey.md):
+# Fallback: journey § 6 Business Fields (existence) + design §§ 3.1/3.2 (types) direct read
+VERIFY data structures match schema_constraints.entities (design § 7.4; existence per journey § 6):
   # schema_constraints.entities is a list of {name, locked_fields} objects (from GCD Section 7.4)
   entities_by_name = { e.name: e FOR e IN schema_constraints.entities }
   FOR EACH entity/DTO/model in implementation:
@@ -674,7 +674,7 @@ VERIFY no external service concepts leak into domain:
 
 #### [POLICY-COV] Policy Coverage
 ```yaml
-READ user_journey.md → policies[]
+READ user_journey.md → § 7 Business Rules rows
 VERIFY each business policy has implementation:
   - Guard/middleware/validator implementing the rule
   - Test verifying the rule enforcement
@@ -1293,7 +1293,7 @@ Step 2.2: Journey Walkthrough
       1. Start at entry point (from navigation_map.md)
       2. Follow each Given/When/Then step
       3. Verify UI state matches mock at each step
-      4. Verify data flows match user_journey.md schemas
+      4. Verify data flows match journey § 6 fields with design § 7.4 types
 
 Step 2.3: Graceful Degradation
   VERIFY:
@@ -1360,7 +1360,7 @@ VERIFY before marking complete:
   [ ] 5. Test coverage meets threshold from testing.md
   [ ] 6. No TODO/FIXME in business-critical code
   [ ] 7. All contracts implemented (OpenAPI/GraphQL/gRPC/AsyncAPI)
-  [ ] 8. Schema compliance verified (user_journey.md)
+  [ ] 8. Schema compliance verified (journey § 6 existence + design § 7.4 typing)
   [ ] 9. Protected paths not violated
   [ ] 10. Traceability comments present in generated files
   [ ] 11. .env.example updated with all required variables

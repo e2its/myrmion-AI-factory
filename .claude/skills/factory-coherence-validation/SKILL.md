@@ -20,7 +20,7 @@ applicable_when:
 Each agent in the SDLC pipeline produces artifacts that downstream agents consume as inputs. Existing gates validate **status** (is it APPROVED?) and **iteration** (is it stale?), but do NOT validate **semantic coherence** — whether the artifacts actually align in content. Examples of gaps CVP catches:
 
 - A Gherkin scenario in `spec.feature` with no corresponding component in `design.md`
-- A data field in `user_journey.md` Data Schemas absent from `design.md` data model
+- A business field in `user_journey.md § 6 Business Fields` absent from `design.md § 7.4 locked_fields`
 - A UI component in `mock.html` with no entry in `design.md` Component Inventory
 - A user journey step requiring an API call with no matching contract endpoint
 - A contract endpoint with no corresponding test case in `test_plan.md`
@@ -43,9 +43,10 @@ CVP_SCOPES:
       - slice_map_presence                   # EVOL-036 — slice_map.md exists + well-formed (RDR≥3) when slicing_strategy==incremental; absent when monolithic
       - increment_plan_presence              # increment_plan.md exists with well-formed frontmatter; slicing_strategy inherited from spec.feature
       - scenario_to_component        # spec.feature scenarios → design.md components
-      - data_schema_to_data_model    # user_journey.md schemas → design.md data model
+      - business_field_to_locked_field  # user_journey.md § 6 Business Fields → design.md § 7.4 locked_fields (id kept as data_schema_to_data_model alias)
       - ui_component_to_inventory    # mock.html components → design.md Component Inventory (applicable_when scope in [full-stack, frontend-only])
-      - journey_step_to_endpoint     # user_journey.md (OR user_journey.integration.md when scope in [backend-only, integration]) steps → contract endpoints
+      - journey_step_to_endpoint     # user_journey.md § 2 steps (single file, ALL scopes) → contract endpoints; mechanical anchor layer delegated to scripts/check-journey-grammar.sh
+      - journey_path_to_test_coverage  # EVOL-041 — every § 3 Path expands transitively Paso → BDD Scenario → test_plan TC; every path fully covered
       - scenario_to_test_coverage    # spec.feature scenarios → test_plan.md test cases
       - contract_to_test_coverage    # contract endpoints → test_plan.md integration tests
       - increment_deployability              # each increment declares deployable:production + acceptance checklist + DAG acyclic
@@ -111,8 +112,8 @@ FUNCTION cvp_coherence_gate(FEATURE_ID, scope, invoking_agent):
   # Step 0: Load artifacts based on scope
   artifacts = {}
   artifacts.spec_feature = READ("{base_path}/spec.feature")
-  artifacts.user_journey = READ("{base_path}/user_journey.md")
-  artifacts.mock_html = READ("{base_path}/mock.html")
+  artifacts.user_journey = READ("{base_path}/user_journey.md")   # single filename, ALL scopes (EVOL-041)
+  artifacts.mock_html = READ_IF_EXISTS("{base_path}/mock.html")  # absent for backend-only/integration — checks depending on it skip explicitly, never fail-open silently
   artifacts.design_md = READ("{base_path}/design.md")
   artifacts.test_plan = READ("{base_path}/test_plan.md")
   artifacts.increment_plan = READ_IF_EXISTS("{base_path}/increment_plan.md")  # may be absent on pre-slicing features
@@ -458,36 +459,53 @@ FUNCTION check_scenario_to_component(elements):
               source: scenario.name, target: matched_components }
 ```
 
-### Check 2: `data_schema_to_data_model` (CRITICAL)
+### Check 2: `business_field_to_locked_field` (CRITICAL) — alias `data_schema_to_data_model`
 
-Every field in `user_journey.md` Data Schemas must appear in `design.md` data model.
+Every business field in `user_journey.md § Section 6: Business Fields` must appear as a `locked_field` in `design.md § 7.4 Schema Constraints`, and § 7.4 must not carry business fields absent from the journey (LAW-16: journey owns existence, design owns typing).
 
 ```yaml
-FUNCTION check_data_schema_to_data_model(elements):
-  uj_schemas = elements.user_journey_schemas     # [{entity, fields: [{name, type, constraints}]}]
-  dm_entities = elements.design_data_model       # [{entity, fields: [{name, type, nullable, ...}]}]
+FUNCTION check_business_field_to_locked_field(elements):
+  uj_concepts = elements.user_journey_business_fields  # [{concept, fields: [{name, meaning, required}]}] — NO types in the journey
+  d74_entities = elements.design_locked_fields         # design.md § 7.4: [{name, locked_fields: [{field, type, format, required}]}]
 
-  FOR EACH uj_entity IN uj_schemas:
-    # Find matching entity in design data model
-    dm_match = FIND(dm_entities, entity_name ~= uj_entity.entity)
+  FOR EACH concept IN uj_concepts:
+    d74_match = FIND(d74_entities, name ~= concept.concept)
 
-    IF dm_match IS NULL:
-      YIELD { check: "data_schema_to_data_model", severity: CRITICAL,
-              source: "user_journey.md: entity '{uj_entity.entity}'",
-              gap: "Entity not found in design.md data model",
-              remediation: "BLUEPRINT --refine {ID} to add entity to data model" }
+    IF d74_match IS NULL:
+      YIELD { check: "business_field_to_locked_field", severity: CRITICAL,
+              source: "user_journey.md § 6: concept '{concept.concept}'",
+              gap: "Concept not found in design.md § 7.4 Schema Constraints",
+              remediation: "BLUEPRINT --refine {ID} to formalise the concept in § 7.4" }
       CONTINUE
 
-    FOR EACH field IN uj_entity.fields:
-      field_match = FIND(dm_match.fields, name ~= field.name)
+    FOR EACH field IN concept.fields:
+      field_match = FIND(d74_match.locked_fields, field ~= field.name)
       IF field_match IS NULL:
-        YIELD { check: "data_schema_to_data_model", severity: CRITICAL,
-                source: "user_journey.md: '{uj_entity.entity}.{field.name}'",
-                gap: "Field not found in design.md data model for entity '{dm_match.entity}'",
-                remediation: "BLUEPRINT --refine {ID} to add field" }
+        YIELD { check: "business_field_to_locked_field", severity: CRITICAL,
+                source: "user_journey.md § 6: '{concept.concept}.{field.name}'",
+                gap: "Business field not typed in design.md § 7.4 locked_fields",
+                remediation: "BLUEPRINT --refine {ID} to type the field in § 7.4" }
       ELSE:
-        YIELD { check: "data_schema_to_data_model", severity: PASS,
-                source: "{uj_entity.entity}.{field.name}", target: "{dm_match.entity}.{field_match.name}" }
+        # required-ness must survive formalisation
+        IF field.required != field_match.required:
+          YIELD { check: "business_field_to_locked_field", severity: CRITICAL,
+                  source: "'{concept.concept}.{field.name}'",
+                  gap: "Required/optional diverges between journey § 6 and design § 7.4",
+                  remediation: "Align § 7.4 with the journey (or RDR → CODESIGN --refine)" }
+        ELSE:
+          YIELD { check: "business_field_to_locked_field", severity: PASS,
+                  source: "{concept.concept}.{field.name}", target: "§7.4 {d74_match.name}.{field_match.field}" }
+
+  # Reverse direction: § 7.4 business fields must exist in the journey (H-15 existence authority)
+  FOR EACH d74 IN d74_entities:
+    FOR EACH lf IN d74.locked_fields:
+      IF lf.field NOT IN elements.design_exempt_technical_fields:
+        uj_match = FIND_FIELD(uj_concepts, lf.field)
+        IF uj_match IS NULL:
+          YIELD { check: "business_field_to_locked_field", severity: CRITICAL,
+                  source: "design.md § 7.4: '{d74.name}.{lf.field}'",
+                  gap: "Locked field has no existence authority in journey § 6 (invented business field)",
+                  remediation: "RDR → CODESIGN --refine {ID} to add the business field, or reclassify as technical" }
 ```
 
 ### Check 3: `ui_component_to_inventory` (CRITICAL for UI features)
@@ -495,10 +513,16 @@ FUNCTION check_data_schema_to_data_model(elements):
 Every interactive component in `mock.html` must have a corresponding entry in `design.md` Component Inventory.
 
 ```yaml
-FUNCTION check_ui_component_to_inventory(elements):
-  # Skip if no UI (non-frontend feature)
+FUNCTION check_ui_component_to_inventory(elements, scope):
+  # Backend scopes carry no mock — explicit N/A. A UI scope with a missing/empty
+  # mock is a CRITICAL gap, never a silent pass (EVOL-041 — kills the D2 fail-open).
+  IF feature_scope IN [backend-only, integration]:
+    YIELD { check: "ui_component_to_inventory", severity: PASS, note: "N/A (scope={feature_scope})" }
+    RETURN
   IF elements.mock_components IS EMPTY:
-    YIELD { check: "ui_component_to_inventory", severity: PASS, note: "No UI — skipped" }
+    YIELD { check: "ui_component_to_inventory", severity: CRITICAL,
+            source: "mock.html", gap: "UI-scope feature with absent or component-less mock.html",
+            remediation: "CODESIGN --refine {ID} — regenerate the mock (imp-step sections required)" }
     RETURN
 
   mock_components = elements.mock_components       # [{tag/class, role, data-attributes}]
@@ -518,28 +542,65 @@ FUNCTION check_ui_component_to_inventory(elements):
 
 ### Check 4: `journey_step_to_endpoint` (CRITICAL)
 
-Every user journey step that implies a system interaction must map to a contract endpoint.
+Two layers (EVOL-041): the MECHANICAL layer (anchors, fields, ranges, paths) is `scripts/check-journey-grammar.sh` — run it first, its failure is this check's failure. The SEMANTIC layer below is CVP's only remaining job: does each step whose business outcome requires the system to act map to a contract operation?
 
 ```yaml
-FUNCTION check_journey_step_to_endpoint(elements):
-  journey_steps = elements.user_journey_steps      # [{step_id, action, system_interaction}]
+FUNCTION check_journey_step_to_endpoint(elements, FEATURE_ID):
+  # Layer 1 — mechanical (delegated, deterministic)
+  grammar = RUN("scripts/check-journey-grammar.sh docs/spec/{FEATURE_ID}/")
+  IF grammar.exit_code != 0:
+    YIELD { check: "journey_step_to_endpoint", severity: CRITICAL,
+            source: "user_journey.md", gap: "Grammar validation failed: {grammar.output}",
+            remediation: "Fix the journey grammar (CODESIGN --refine {ID}); see script output" }
+    RETURN
+  # Script missing/not executable → NOISY warning, semantic layer still runs (fail-open on infra, never silent)
+
+  # Layer 2 — semantic
+  journey_steps = elements.user_journey_steps      # [{paso, persona, goal, does, sees}] — v2 fields
   contract_endpoints = elements.contract_endpoints  # [{method, path, operation_id, contract_slug}]
 
   FOR EACH step IN journey_steps:
-    IF step.system_interaction IS NULL:
-      CONTINUE  # Pure UI navigation or user-only action
+    IF step IMPLIES_NO_SYSTEM_ACTION:   # judged from Does/Sees: pure reading/navigation with no business outcome
+      CONTINUE
 
     matched = FIND(contract_endpoints,
-      operation SEMANTICALLY_RELATES_TO step.system_interaction)
+      operation SEMANTICALLY_RELATES_TO "{step.does} → {step.sees}")
 
     IF matched IS NULL:
       YIELD { check: "journey_step_to_endpoint", severity: CRITICAL,
-              source: "user_journey.md: step '{step.step_id}' — '{step.action}'",
-              gap: "System interaction has no matching contract endpoint",
+              source: "user_journey.md: Paso {step.paso} — '{step.does}'",
+              gap: "Step outcome has no matching contract endpoint",
               remediation: "BLUEPRINT --refine {ID} to add endpoint for this interaction" }
     ELSE:
       YIELD { check: "journey_step_to_endpoint", severity: PASS,
-              source: step.step_id, target: "{matched.method} {matched.path}" }
+              source: "Paso {step.paso}", target: "{matched.method} {matched.path}" }
+```
+
+### Check 4b: `journey_path_to_test_coverage` (CRITICAL) — EVOL-041
+
+Every named Path in `user_journey.md § Section 3` must be fully covered by test-plan TCs via the transitive join Paso → BDD Scenario → TC (`Gherkin Ref`). This is the anchor that makes SMOKE blocks derivable from the test catalogue (DEC-4).
+
+```yaml
+FUNCTION check_journey_path_to_test_coverage(elements):
+  paths = elements.user_journey_paths          # [{name, persona, pasos: [N, ...]}]
+  steps = elements.user_journey_steps          # [{paso, bdd_scenario, ...}]
+  test_cases = elements.test_plan_cases        # [{id, scenario_ref, ...}]
+
+  FOR EACH path IN paths:
+    uncovered = []
+    FOR EACH paso IN path.pasos:
+      scenario = FIND(steps, paso == paso).bdd_scenario
+      tcs = FILTER(test_cases, scenario_ref ~= scenario)
+      IF tcs IS EMPTY:
+        uncovered.push({paso, scenario})
+    IF uncovered IS NOT EMPTY:
+      YIELD { check: "journey_path_to_test_coverage", severity: CRITICAL,
+              source: "user_journey.md § 3: Path '{path.name}'",
+              gap: "Paso(s) {uncovered} have no test_plan TC via their BDD Scenario",
+              remediation: "BLUEPRINT --refine {ID} to add TCs (Gherkin Ref) for the uncovered scenarios" }
+    ELSE:
+      YIELD { check: "journey_path_to_test_coverage", severity: PASS,
+              source: "Path '{path.name}'", target: "TC set via transitive join" }
 ```
 
 ### Check 5: `scenario_to_test_coverage` (CRITICAL)
@@ -1021,6 +1082,17 @@ FUNCTION check_slice_to_increment_coverage(elements):
               gap: "Scenario set drift between slice and its realizing increments: slice={s.scenarios_covered}, increments={inc_scenarios}",
               remediation: "Align the increments' scenarios_covered with the slice (BLUEPRINT --refine) — a slice and its realizers must cover the same scenarios" }
 
+  # (d) journey-step refs resolve (EVOL-041 — D13): every slice `journey_steps` entry
+  #     must name an existing `### Paso N` in user_journey.md § 2.
+  paso_ids = { step.paso FOR step IN elements.user_journey_steps }
+  FOR EACH s IN slices:
+    FOR EACH ref IN s.journey_steps:
+      IF ref NOT IN paso_ids:
+        YIELD { check: "slice_to_increment_coverage", severity: CRITICAL,
+                source: "slice_map.md: {s.id}.journey_steps",
+                gap: "References non-existent journey step 'Paso {ref}'",
+                remediation: "Fix the slice's journey_steps (CODESIGN --refine) — phantom step refs" }
+
   IF no_gaps_yielded:
     YIELD { check: "slice_to_increment_coverage", severity: PASS,
             source: "slice_map.md × increment_plan.md",
@@ -1173,21 +1245,27 @@ FUNCTION extract_traceable_elements(artifacts, scope):
   elements.spec_scenarios = PARSE_GHERKIN_SCENARIOS(artifacts.spec_feature)
   # Each scenario: {name, steps: [{keyword, text}], tags: []}
 
-  # From user_journey.md
-  elements.user_journey_schemas = PARSE_DATA_SCHEMAS_SECTION(artifacts.user_journey)
-  # Each schema: {entity, fields: [{name, type, constraints}]}
+  # From user_journey.md (v2 — EVOL-041; mechanical grammar guaranteed by check-journey-grammar.sh)
+  elements.user_journey_business_fields = PARSE_BUSINESS_FIELDS_SECTION(artifacts.user_journey)
+  # § Section 6 — each concept: {concept, fields: [{name, meaning, required, allowed_values, example}]} — NO types (LAW-16)
   elements.user_journey_steps = PARSE_JOURNEY_STEPS(artifacts.user_journey)
-  # Each step: {step_id, action, system_interaction, ui_state}
+  # § Section 2 — each step: {paso, persona, goal, does, sees, feels, pain, ease, bdd_scenario, mock_action}
+  elements.user_journey_paths = PARSE_JOURNEY_PATHS(artifacts.user_journey)
+  # § Section 3 — each path: {name, persona, pasos: [N, ...]}
+  elements.user_journey_guarantees = PARSE_GUARANTEES(artifacts.user_journey)
+  # § Section 8 — each: {party, exchanged, guarantee}
 
-  # From mock.html
+  # From mock.html (absent for backend-only/integration — mock_components stays EMPTY)
   elements.mock_components = PARSE_INTERACTIVE_COMPONENTS(artifacts.mock_html)
-  # Each component: {tag, role, data_attributes, journey_step_ref}
+  # Each component: {tag, role, data_attributes, imp_step_id}  # imp_step_id = enclosing <section class="imp-step" id="step-N">
 
   # From design.md
   elements.design_components = PARSE_COMPONENT_ARCHITECTURE(artifacts.design_md)
   # Each: {name, type, module, responsibility, interfaces}
-  elements.design_data_model = PARSE_DATA_MODEL(artifacts.design_md)
-  # Each entity: {entity, fields: [{name, type, nullable, pk, fk_ref}]}
+  elements.design_locked_fields = PARSE_SCHEMA_CONSTRAINTS_74(artifacts.design_md)
+  # § 7.4 — each entity: {name, locked_fields: [{field, type, format, required}]}
+  elements.design_exempt_technical_fields = PARSE_EXEMPT_FIELDS_74(artifacts.design_md)
+  elements.design_data_model = elements.design_locked_fields  # legacy alias — § 7.4 IS the data model record
   elements.design_ui_inventory = PARSE_UI_COMPONENT_INVENTORY(artifacts.design_md)
   # Each: {name, type, props, events, page}
 

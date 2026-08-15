@@ -97,7 +97,7 @@ Extends `references/docs-sync-checklist.md` with the framework's own artefacts. 
 
 | Code change | Artefact that must update | Severity if missing |
 |---|---|---|
-| New / modified Gherkin scenario in `docs/spec/{ID}/` | `user_journey.md` + `test_plan.md` (CVP Check 1, 2) | **Blocker** |
+| New / modified Gherkin scenario in `docs/spec/{ID}/` | `user_journey.md` + `test_plan.md` (journey `**BDD Scenario:**` anchors — check-journey-grammar.sh + CVP Checks 5, 4b) | **Blocker** |
 | New / modified design contract operation | `design.md` § Contracts + OpenAPI/AsyncAPI under `contracts/` | **Blocker** |
 | New / modified test_plan case | `dev_plan.md` task tags reference the case | Important |
 | `slicing_strategy: incremental` feature ships without `slice_map.md` APPROVED | (CVP Check 0d slice_map_presence) | **Blocker** for a NEW feature (no increment_plan yet); WARNING for a legacy pre-EVOL-036 feature already carrying increment_plan (grandfathered — Check 0d) |

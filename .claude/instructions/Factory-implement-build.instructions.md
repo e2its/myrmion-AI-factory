@@ -60,7 +60,7 @@ FUNCTION classify_feedback_scope(feedback_item, feature_context):
   
   READ spec.feature → scenarios[]
   READ design.md → contracts, data_model, component_inventory
-  READ user_journey.md → data_schemas
+  READ design.md → § 7.4 Schema Constraints (locked_fields; typing authority) + user_journey.md § 6 (existence)
   
   FOR EACH item IN feedback_items:
     # Check if item targets existing spec scenarios
@@ -68,7 +68,7 @@ FUNCTION classify_feedback_scope(feedback_item, feature_context):
     # Check if item targets existing contracts
     matches_contract = GREP(design.md.contracts, item.target)
     # Check if item targets existing data schemas
-    matches_schema = GREP(user_journey.md.data_schemas, item.target)
+    matches_schema = GREP(design.md.section_7_4.locked_fields, item.target) OR GREP(user_journey.md.section_6_business_fields, item.target)
     
     IF matches_scenario OR matches_contract OR matches_schema:
       IF item.type == "correction" OR item.type == "bug":
@@ -911,7 +911,7 @@ FUNCTION validate_upstream_artifacts(FEATURE_ID):
 
   # Read upstream artifacts
   READ spec.feature → spec_iteration, scenarios[], iteration_history[]
-  READ user_journey.md → schemas_version, data_schemas[]
+  READ user_journey.md → schemas_version, § 6 Business Fields (business-contract version drives the delta)
   READ design.md → design_based_on_iteration, contracts[], component_inventory[]
   READ test_plan.md → tp_based_on_iteration, test_cases[]
 
@@ -1010,7 +1010,7 @@ FOR EACH contract_slug:
 
 #### Business Policies Enforcement
 ```yaml
-READ user_journey.md → policies[] (business rules)
+READ user_journey.md → § 7 Business Rules (When/Then rows)
 FOR EACH policy:
   GENERATE test that verifies policy enforcement
   IMPLEMENT policy in appropriate service/guard/middleware
@@ -1293,7 +1293,7 @@ Section 4: Styling Contract
 
 Section 5: Interaction Model
   - Map user interactions to spec.feature scenarios
-  - Extract form validations → map to user_journey.md data schemas
+  - Extract form validations → map to user_journey.md § 6 Business Fields (Required/Allowed values) + design.md § 7.4 formats
   IF uxd_loaded:
     - Identify navigation links → verify against ux_context.navigation.nav_structure
   ELSE:
@@ -1647,11 +1647,12 @@ FUNCTION verify_contract_first(task, FEATURE_ID):
 ### Law 6 — Schema Adherence Gate (BLOCKING — H-11)
 ```yaml
 FUNCTION verify_schema_adherence(task, FEATURE_ID):
-  # Data structures MUST match user_journey.md Data Schemas.
+  # Business-field EXISTENCE must match user_journey.md § 6 (LAW-16);
+  # TYPES must match design.md § 7.4 Schema Constraints (the typing authority).
   IF task.involves_data_model:
     uj_path = "docs/spec/{FEATURE_ID}/user_journey.md"
     IF NOT FILE_EXISTS(uj_path):
-      ❌ BLOCK: "user_journey.md not found — cannot verify schema adherence"
+      ❌ BLOCK: "user_journey.md not found — cannot verify schema adherence"   # single filename, ALL scopes (EVOL-041)
       STOP
 
     uj_schemas = READ(uj_path, "Data Schemas")
@@ -1659,8 +1660,8 @@ FUNCTION verify_schema_adherence(task, FEATURE_ID):
     FOR EACH field IN task.proposed_fields:
       IF field.category == "business":  # name, email, role, status, price, etc.
         IF field.name NOT IN uj_schemas OR field.type != uj_schemas[field.name].type:
-          ❌ BLOCK: "Schema violation: business field '{field.name}' diverges from user_journey.md"
-          RDR: "Accept divergence (with justification) or align with user_journey.md?"
+          ❌ BLOCK: "Schema violation: business field '{field.name}' diverges from journey § 6 (existence) or design § 7.4 (type)"
+          RDR: "Accept divergence (with justification) or align with the authority (journey § 6 for existence via CODESIGN --refine; design § 7.4 for typing via BLUEPRINT --refine)?"
           IF choice == "diverge" AND justification IS EMPTY:
             ❌ BLOCK: "Business field divergence requires justification"
             STOP

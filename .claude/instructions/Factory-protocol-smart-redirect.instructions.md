@@ -139,6 +139,7 @@ FUNCTION compute_feature_state(FEATURE_ID):
     status: READ_FRONTMATTER("{{base_path}}/spec.feature", "status") OR NULL
     # Valid: DRAFT | NEEDS_INFO | APPROVED | DEPRECATED | CANCELLED
     iteration: READ_FRONTMATTER("{{base_path}}/spec.feature", "iteration") OR 1
+    scope: READ_FRONTMATTER("{{base_path}}/spec.feature", "scope") OR "full-stack"
   
   mock_html:
     exists: FILE_EXISTS("{{base_path}}/mock.html")
@@ -320,9 +321,12 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
   # ══════════════════════════════════════════════════
   # PHASE 2: BLUEPRINT (design + test plan)
   # ══════════════════════════════════════════════════
-  codesign_approved = (state.spec_feature.status == "APPROVED" 
-                       AND state.mock_html.status == "APPROVED"
-                       AND state.user_journey.status == "APPROVED")
+  # mock.html exists only for UI scopes — for backend-only/integration its status is
+  # legitimately NULL and must NOT gate progression (EVOL-041 — kills the D14 dead-lock).
+  has_ui = state.spec_feature.scope IN ["full-stack", "frontend-only"]
+  codesign_approved = (state.spec_feature.status == "APPROVED"
+                       AND state.user_journey.status == "APPROVED"
+                       AND (NOT has_ui OR state.mock_html.status == "APPROVED"))
   
   IF codesign_approved AND NOT state.design_md.exists:
     actions.push({cmd: "BLUEPRINT --start {{ID}}", reason: "Co-design approved, blueprint not started"})
