@@ -220,7 +220,7 @@ ELSE:
 REUSE_EXISTING: "Domain concept already exists. Reference it."
 RENAME_NEW:     "Keep new concept but rename."
 MERGE:          "Merge overlapping concepts."
-KEEP_BOTH:      "Both distinct despite similar naming. Log in user_journey.md."
+KEEP_BOTH:      "Both distinct despite similar naming. Log in user_journey.md § 0 Decision History."
 ACKNOWLEDGE_CROSS_DOMAIN: "Expected in DDD. Document boundary."
 SHARED_KERNEL:  "Shared business concept. Flag for ADR by BLUEPRINT."
 ```
@@ -623,7 +623,7 @@ CIP_CANARY_TRIGGER_POINTS:
       IF canary.action == "RDR_REQUIRED": Lightweight RDR → REUSE / EXTEND / CREATE_NEW
   
   CODESIGN --start:
-    BEFORE persisting new domain concepts to user_journey.md:
+    BEFORE persisting new domain concepts to user_journey.md § 6 Business Fields:
       canary = cip_canary_gate({ name: concept_name, type: "domain_entity", module: inferred_module })
       IF canary.action != "PROCEED": RDR before persisting concept
   

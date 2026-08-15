@@ -340,7 +340,7 @@ TIER_ARTIFACTS:
   name: "Tripartite Artifact Generation"
   dependencies: [TIER_PROPOSAL approved]
   description: >
-    Agent generates all 3 artifacts (spec.feature, mock.html, user_journey.md)
+    Agent generates all 3 artifacts in dependency order (user_journey.md → spec.feature → mock.html)
     from approved Event Storming. Presented together for review.
 
 TIER_ALIGNMENT:

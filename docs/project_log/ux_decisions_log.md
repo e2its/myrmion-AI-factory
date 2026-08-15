@@ -10,9 +10,9 @@
 
 | Fecha | Feature ID | Decisión | Rationale | Aplicada en | ADR (si aplica) | Estado |
 |-------|-----------|----------|-----------|-------------|-----------------|---------|
-| *Ejemplo* | USR-001 | Color primario cambiado de `#007bff` a `#1e40af` | Mayor contraste WCAG AA (ratio 4.8:1) | design_ux.md, mock.html | ADR-0042 | APPROVED |
-| *Ejemplo* | USR-003 | Botón CTA 48px altura (antes 44px) | Accesibilidad táctil Android (Material Design 3) | design_ux.md Section 4 | N/A | APPROVED |
-| *Ejemplo* | BUG-015 | Modal backdrop opacity 60% → 50% | Reducir fatiga visual en sesiones largas | design_ux.md tokens | N/A | APPROVED |
+| *Ejemplo* | USR-001 | Color primario cambiado de `#007bff` a `#1e40af` | Mayor contraste WCAG AA (ratio 4.8:1) | user_journey.md Part I, mock.html | ADR-0042 | APPROVED |
+| *Ejemplo* | USR-003 | Botón CTA 48px altura (antes 44px) | Accesibilidad táctil Android (Material Design 3) | mock.html (touch targets) | N/A | APPROVED |
+| *Ejemplo* | BUG-015 | Modal backdrop opacity 60% → 50% | Reducir fatiga visual en sesiones largas | brand tokens | N/A | APPROVED |
 
 ---
 
@@ -89,7 +89,7 @@
 - Update "Constitución Actualizada" column after constitution edits
 
 **For REVIEW Agent:**
-- Cross-reference design_ux.md decisions with this log during `/IMPLEMENT --build` (🔍 REVIEW hat)
+- Cross-reference user_journey.md § 0 Decision History with this log during `/IMPLEMENT --build` (🔍 REVIEW hat)
 - Flag inconsistencies between feature decisions and project-wide decisions
 
 **For QA Agent:**
@@ -108,7 +108,7 @@
 **Auto-Populated Fields:**
 - `Fecha`: Timestamp from workflow_log.md entry
 - `Feature ID`: Extracted from command context
-- `Estado`: Synced with design_ux.md frontmatter `status`
+- `Estado`: Synced with mock.html frontmatter `status`
 
 **Manual Entries:**
 - Project-wide design system changes (requires ARCH approval)

@@ -32,7 +32,7 @@ One EVOL, seven RDR-ratified decisions:
 - `design.md` becomes the sole technical formalisation point: § 7.4 Schema Constraints (new, real), § Reliability Contract (migrated), § technical sequence diagram (migrated).
 - PO sign-off becomes meaningful by construction: every signed statement is business-verifiable (LAW-16).
 - The smoke gate keeps its position (DEVOPS dev-deploy → QA --verify) but its blocks are journey paths expanded to test-plan TCs — one ID space end to end.
-- `framework_version` 5.9.0 → 5.10.0 (MINOR per INVARIANT 1, feature branch; the breaking surface is carried by the template entries' own MAJOR bumps).
+- `framework_version` 5.9.0 → **6.0.0** (MAJOR — RDR in-flight: templates deleted + artefact grammar replaced is a breaking downstream contract; branch renamed `breaking/EVOL-041-journey-first` so INVARIANT 1 derives MAJOR honestly; the per-entry MAJORs — journey 2.0.0, smoke 2.0.0, codesign instructions 3.0.0, CVP 2.0.0 — carry the detail).
 
 ## Alternatives considered
 

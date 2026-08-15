@@ -1104,7 +1104,7 @@ QA Verification Checklist MUST include:
 ## 🎨 XIII. UX Agent Governance Rules (NEW)
 
 > **Enforced by:** `/CODESIGN --start`, `/CODESIGN --refine` (auto-approval on 9/9 validations)  
-> **Applies to:** Mock generation, design_ux.md artifacts, cross-agent validations  
+> **Applies to:** Mock generation, user_journey.md Part I (experience) artifacts, cross-agent validations  
 > **Severity:** BLOCKER (A, C), WARNING (D), MANDATORY (B)
 
 ### Rule A: CSS Styling Restrictions (BLOCKER)
@@ -1146,7 +1146,7 @@ QA Verification Checklist MUST include:
 
 **Exceptions:**
 - Framework configuration ONLY (Tailwind config, theme customization) in `<style>` tag
-- Must be documented in design_ux.md Section 6 (Design Tokens Application)
+- Must be documented in docs/project_log/ux_decisions_log.md (token decisions) and reflected in mock.html
 - Requires ARCH approval via comment in mock.html
 
 ---
@@ -1163,10 +1163,10 @@ QA Verification Checklist MUST include:
    - Iteration 2: Refine layout, font sizes, semantic tags
    - Iteration 3: Final attempt with aggressive fixes
 4. **RDR Fallback:** If 3 iterations fail to converge:
-   - Update design_ux.md status → `NEEDS_INFO`
+   - Update mock.html status → `NEEDS_INFO`
    - Document violations in Section 4 (Accessibility Checklist)
    - Enter RDR loop with UX stakeholder: `/CODESIGN --refine {{FEATURE_ID}} "{{FEEDBACK}}"`
-5. **Finalization:** Once compliant, set `wcag_compliant: true` in design_ux.md frontmatter
+5. **Finalization:** Once compliant, set `wcag_compliant: true` in mock.html frontmatter
 
 **Validation Criteria:**
 - Color contrast ≥4.5:1 (body text), ≥3:1 (large text ≥18pt)
@@ -1177,7 +1177,7 @@ QA Verification Checklist MUST include:
 
 **Enforcement:**
 - `/CODESIGN --start` / `--refine` auto-approval: BLOCKS if `wcag_compliant: false`
-- `/QA --verify`: Inherits WCAG checklist from design_ux.md Section 4
+- `/QA --verify`: Inherits WCAG checklist from test_plan.md § 3 (UX & Accessibility)
 - CI/CD: `scripts/ux-validation.sh --wcag` runs in PR checks (non-blocking WARNING)
 
 **Severity:** MANDATORY (non-blocking during development, BLOCKER at approval)
@@ -1223,7 +1223,7 @@ Action: Trigger ADR, update constitution
 
 **Enforcement:**
 - `/CODESIGN --start`: Auto-calculate drift after each WCAG iteration
-- `/CODESIGN --start` / `--refine` auto-approval: BLOCKS if drift >20% AND no ADR link in design_ux.md Section 0 (Historial)
+- `/CODESIGN --start` / `--refine` auto-approval: BLOCKS if drift >20% AND no ADR link in user_journey.md Section 0 (Decision History)
 - `/BLUEPRINT --review-conflict`: Validates ADR exists before approving constitution changes
 
 **Severity:** BLOCKER (prevents approval without governance)
@@ -1285,7 +1285,7 @@ Action: Trigger ADR, update constitution
 1. **Inventory Scan:** Query @workspace for existing UI components
 2. **Comparison:** Match Gherkin requirements to component capabilities
 3. **Decision Matrix:** REUTILIZAR vs. CREAR vs. ADAPTAR
-4. **Documentation:** Record in design_ux.md Section 3 (Component Inventory)
+4. **Documentation:** Record in design.md § Component Inventory (BLUEPRINT)
 
 **Decision Criteria:**
 - **REUTILIZAR:** Component exists AND covers 90%+ of requirements
@@ -1294,7 +1294,7 @@ Action: Trigger ADR, update constitution
 
 **Enforcement:**
 - `/CODESIGN --start`: MANDATORY component scan before mock generation
-- `/IMPLEMENT --plan`: Cross-references design_ux.md Section 3 to avoid duplication
+- `/IMPLEMENT --plan`: Cross-references design.md § Component Inventory to avoid duplication
 - `/BLUEPRINT --start`: Validates component decisions align with architecture
 
 **Severity:** MANDATORY (process requirement, non-blocking)
@@ -1304,18 +1304,18 @@ Action: Trigger ADR, update constitution
 ### Cross-Agent Integration Points
 
 **For `/QA --verify`:**
-- Load design_ux.md Section 4 (Accessibility Checklist) as test baseline
+- Load test_plan.md § 3 (UX & Accessibility) as test baseline
 - Inherit WCAG validation criteria for E2E tests
-- Validate mock.html touch targets match design_ux.md specifications
+- Validate mock.html touch targets match this constitution's minimums (≥44px)
 
 **For `/IMPLEMENT --plan`:**
-- Load design_ux.md Section 3 (Component Inventory) to identify implementation targets
+- Load design.md § Component Inventory to identify implementation targets
 - Use mock.html as visual reference (NOT executable code)
-- Implement JavaScript behaviors described in design_ux.md, NOT mock.html
+- Implement JavaScript behaviors from spec.feature scenarios + journey steps, NOT by copying mock.html script
 
 **For `/IMPLEMENT --build` (🔍 REVIEW hat):**
 - Compare implementation to mock.html for visual drift
-- Validate brand token usage matches design_ux.md Section 6
+- Validate brand token usage matches this constitution + ux_decisions_log.md
 - Check for style violations (Rule A enforcement)
 
 **For `/IMPLEMENT --build` (🛡️ SEC hat):**

@@ -69,7 +69,7 @@ contracts/
 #### 1. Directory Namespacing (CONTRACT_SLUG Convention)
 - Contract directories MUST use **`{CONTRACT_SLUG}`** = `{domain}-{capability}` in kebab-case: `contracts/{type}/{CONTRACT_SLUG}/`
 - Example: Feature `AUTH-001` (domain: auth, capability: oauth-login) → `contracts/openapi/auth-oauth-login/v1.yaml`
-- The `{CONTRACT_SLUG}` is derived by `/BLUEPRINT --start` from `user_journey.md` bounded context + `spec.feature` title
+- The `{CONTRACT_SLUG}` is derived by `/BLUEPRINT --start` from the dominant business concept in `user_journey.md § 6` + `spec.feature` title
 - ⚠️ **PROHIBIDO** usar Feature IDs como nombre de directorio (e.g., `AUTH-001/`) — el Feature ID se almacena como metadata `x-feature-id` dentro del contrato y en `feature_map.md`
 
 #### 2. Inline Metadata (OpenAPI Example)
