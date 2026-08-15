@@ -711,7 +711,7 @@ FUNCTION auto_declare_frontend_resource():
 
 **Level 1: Business/Acceptance Tests**
 - One test case per spec.feature scenario
-- Test ID format: `TC-{SCENARIO_NUMBER}` (e.g., TC-001, TC-002)
+- Test ID format: `AC-XX` (canonical family — matches test_plan_template § 1); `Gherkin Ref` = EXACT scenario title (machine join for journey Paths + CVP Check 4b)
 - Maps: Scenario → Preconditions → Steps → Expected Result
 
 **Level 2: Technical Tests**

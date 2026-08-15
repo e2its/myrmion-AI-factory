@@ -35,7 +35,7 @@ describe('{{FEATURE_NAME}} API', () => {
   describe('POST /api/v1/{{resource}}', () => {
     it('should create resource with valid payload → 201', async () => {
       const payload = {
-        // Fields from user_journey.md DataIn schema
+        // Field names from user_journey.md § 6 Business Fields; types/formats from design.md § 7.4
         // or from contracts/ request body schema
       };
 
@@ -46,7 +46,7 @@ describe('{{FEATURE_NAME}} API', () => {
 
       // Validate response matches contracts/ response schema
       expect(response.body).toMatchObject({
-        // Fields from contracts/ response schema or user_journey.md DataOut
+        // Fields from contracts/ response schema (types per design.md § 7.4)
       });
     });
   });
@@ -123,7 +123,7 @@ class TestFeatureAPI:
     # ─── Happy Path ───
     async def test_create_resource_valid_payload_201(self, client: AsyncClient):
         payload = {
-            # Fields from user_journey.md DataIn schema
+            # Field names from user_journey.md § 6; types/formats from design.md § 7.4
         }
         response = await client.post("/api/v1/{{resource}}", json=payload)
         assert response.status_code == 201
@@ -188,7 +188,7 @@ func TestGetResource_NotFound_404(t *testing.T) {
 
 1. **One test file per API resource** (e.g., `users.api.test.ts`, `auth.api.test.ts`).
 2. **Import app instance** (NOT start a server) — framework test utilities handle this.
-3. **Test data** from `user_journey.md` DataIn/DataOut schemas or `contracts/` request/response schemas.
+3. **Test data** — field existence from `user_journey.md § 6 Business Fields`; types/formats/examples from `design.md § 7.4 Schema Constraints` (type_format_registry) or `contracts/` request/response schemas.
 4. **Happy paths** from `spec.feature` scenarios → mapped to HTTP verbs + status codes.
 5. **Edge/error cases** from `test_plan.md` Section 2 (Edge, Security, Negative rows with HTTP status codes).
 6. **Status codes** from `contracts/` OpenAPI responses or `.claude/rules/api-standards.md`.

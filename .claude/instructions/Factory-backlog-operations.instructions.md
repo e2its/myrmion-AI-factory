@@ -81,13 +81,13 @@ SETUP Q27.2 persists a **preset string** in `project_tracking.feature_phases`. T
 
 **Scope-aware smoke-e2e selection.** `BACKLOG --plan-feature {ID}` reads `docs/spec/{ID}/spec.feature` frontmatter `scope` field and materialises EXACTLY ONE suffix-8 variant based on the scope → label mapping:
 
-| feature.scope | Phase label emitted | Smoke template |
+| feature.scope | Phase label emitted | Smoke template (single — EVOL-041) |
 |---|---|---|
-| `frontend-only` | `phase:smoke-e2e-browser` | `.context/templates/qa/smoke_e2e_report_template.md` (browser-centric) |
-| `backend-only`  | `phase:smoke-e2e-integration` | `.context/templates/qa/smoke_e2e_integration_template.md` (caller-harness + state + observability) |
-| `integration`   | `phase:smoke-e2e-integration` | same as backend-only (with MANDATORY SMOKE-REL-* reliability blocks) |
-| `full-stack`    | `phase:smoke-e2e-hybrid` | browser template augmented with integration smokes for the backend surface |
-| (missing / legacy) | `phase:smoke-e2e` (legacy) | `smoke_e2e_report_template.md` default |
+| `frontend-only` | `phase:smoke-e2e-browser` | `.context/templates/qa/smoke_e2e_report_template.md` — browser mode |
+| `backend-only`  | `phase:smoke-e2e-integration` | same template — caller-harness + state + observability mode |
+| `integration`   | `phase:smoke-e2e-integration` | same template — caller-harness mode with MANDATORY SMOKE-REL-* reliability blocks |
+| `full-stack`    | `phase:smoke-e2e-hybrid` | same template — hybrid (browser + backend surface) |
+| (missing / legacy) | `phase:smoke-e2e` (legacy) | same template — default browser mode |
 
 Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missing or unreadable, `BACKLOG --plan-feature` falls back to the legacy `phase:smoke-e2e` label with a WARN and a suggestion to add `scope:` to spec.feature for scope-aware future runs.
 
@@ -97,7 +97,7 @@ Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missi
 | --- | --- | --- |
 | CONTRACT-FREEZE (suffix 3) | [Factory-implement-plan.instructions.md](Factory-implement-plan.instructions.md) § Upstream Artifact Validation | `IMPLEMENT --plan` start — the feature's API contracts (OpenAPI / TS interfaces / GraphQL schema / whatever the stack uses) MUST be frozen and the contract test harness MUST exist |
 | PREVENTIVE-SWEEP (suffix 6) | [Factory-devops-provision-deploy.instructions.md](Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | `DEVOPS --deploy dev` — the factory-preventive-sweep SKILL must have run against the feature's code (parallel scope sub-agents derived from DC catalog) and returned zero open C-severity findings |
-| SMOKE-E2E (suffix 8 — scope-aware variants: `smoke-e2e-browser` / `smoke-e2e-integration` / `smoke-e2e-hybrid`) | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — scope-appropriate smoke blocks must pass on dev deploy. Frontend-only → browser-centric blocks from `user_journey.md`. Backend-only/integration → caller-harness + downstream-state + observability blocks from `user_journey.integration.md`, plus MANDATORY reliability blocks (SMOKE-REL-IDEMP, SMOKE-REL-RETRY, SMOKE-REL-DLQ, SMOKE-REL-SHUTDOWN) for `integration`. Full-stack → both browser AND integration blocks. |
+| SMOKE-E2E (suffix 8 — scope-aware variants: `smoke-e2e-browser` / `smoke-e2e-integration` / `smoke-e2e-hybrid`) | [Factory-qa-verify.instructions.md](Factory-qa-verify.instructions.md) § Verify Preconditions | `QA --verify` pass — scope-appropriate smoke blocks must pass on dev deploy. One SMOKE-{N} block per `user_journey.md § 3` Path (expanded Paso → BDD Scenario → test_plan TC). Frontend-only → browser mode. Backend-only/integration → caller-harness + downstream-state + observability mode, plus MANDATORY reliability blocks (SMOKE-REL-*, test_plan § 2.2 / design.md § 6) for `integration`. Full-stack → hybrid. |
 
 **Sub-issue nesting.** The three gate phases are logically **sub-issues of IMPLEMENT** (suffix 5). Adapters that declare `add_sub_issue: native` (e.g. `github-project.md`) materialise them as real sub-issues so holistic progress tracking on the board reflects feature completion. Adapters that declare `add_sub_issue: no-op` (e.g. `none.md`) materialise them as standalone siblings with a `> Parent: IMPLEMENT issue` cross-reference line in the body — the `--next-task` resolver reads the cross-reference to reconstruct the hierarchy.
 
@@ -463,7 +463,7 @@ For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** —
 
 **phase:smoke-e2e-browser** (scope=frontend-only):
 - [ ] `docs/spec/{ID}/smoke_e2e_report.md` exists, status: APPROVED, scope frontmatter matches `frontend-only`
-- [ ] Every numbered smoke block from `user_journey.md` executed on dev deploy, all verdicts PASS
+- [ ] Every SMOKE-{N} block (one per `user_journey.md § 3` Path, expanded Paso → BDD Scenario → test_plan TC) executed on dev deploy, all verdicts PASS
 - [ ] Zero console errors during smoke execution (captured in evidence logs)
 - [ ] Visual-navigation checks pass (app_shell + page_templates + component_library fidelity)
 - [ ] WCAG 2.1 AA quick pass on smoked flows (no critical/serious violations)
@@ -471,7 +471,7 @@ For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** —
 
 **phase:smoke-e2e-integration** (scope=backend-only OR integration):
 - [ ] `docs/spec/{ID}/smoke_e2e_report.md` exists, status: APPROVED, scope frontmatter matches `backend-only` or `integration`
-- [ ] Every SMOKE-{N} happy-path block from `user_journey.integration.md § Section 2 Integration Steps` executed on dev deploy, all verdicts PASS with caller request + downstream state + observability triple-verified
+- [ ] Every SMOKE-{N} block (one per `user_journey.md § 3` Path — caller-persona routes) executed on dev deploy, all verdicts PASS with caller request + downstream state + observability triple-verified
 - [ ] Structured logs emitted with mandatory fields (`trace_id`, `correlation_id`, `feature_id`, `idempotency_key`, `error_code`) — grep confirms presence in dev log sink
 - [ ] Trace propagation end-to-end: a single `trace_id` spans every hop (caller → our service → downstream systems); verified in trace backend
 - [ ] Metrics dashboard green during smoke window (`latency_p95` within SLA, `error_rate` == 0 on success path)
@@ -481,8 +481,8 @@ For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** —
 
 **phase:smoke-e2e-hybrid** (scope=full-stack):
 - [ ] `docs/spec/{ID}/smoke_e2e_report.md` exists, status: APPROVED, scope frontmatter matches `full-stack`
-- [ ] Browser-side smoke blocks PASS (subset from user_journey.md — UI scenarios)
-- [ ] API-side smoke blocks PASS (subset from user_journey.md or spec.feature API scenarios — caller + state + observability triple-verified for each)
+- [ ] Browser-side smoke blocks PASS (UI-persona Paths from user_journey.md § 3)
+- [ ] API-side smoke blocks PASS (caller-persona Paths / TC-API set — caller + state + observability triple-verified for each)
 - [ ] Cross-layer contract validated: request payloads from browser match the frozen contract; responses match design.md § 3.1 Cross-Layer Type Mapping (no type drift between FE and BE)
 - [ ] Data persists across layers: browser action → backend mutation → backend read → browser display shows the expected value
 - [ ] WCAG quick pass on browser-side scenarios

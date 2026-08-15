@@ -209,10 +209,11 @@
       ]
     },
     "rules/testing.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/testing.md",
       "changelog": [
+        "1.4.0: feat(EVOL-041) — test-data derivation split: journey § 6 existence + design § 7.4 types.",
         "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
@@ -833,11 +834,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.8.0",
+      "version": "3.9.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.9.0: feat(EVOL-041) — SMOKE-E2E gate row → Path→Scenario→TC transitive; § Scope Taxonomy: single journey template all scopes (integration variant retired); Framework Editor Invariants enum row updated.",
         "3.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041), byte-identical with meta corpus via law_corpus_mirror.",
         "3.7.0: feat(EVOL-040 RDR-1) — Governance Rules re-rendered with stable [LAW-NN] IDs: tpl#7 = LAW-14 (SETUP scaffolding, project-only — kills the ordinal-7 two-laws collision), tpl#12 = LAW-13 (code review gate — kills the EVOL-039 13/12 offset). LAW-15 tag on ADP heading; immutability landmark citation fixed (§ Per-Increment Immutability); § anchors normalized. Universal bodies now mechanically mirrored via law_corpus_mirror.",
         "3.6.0: feat(EVOL-039) Governance Rules gain LAW 12 (Agentic Code Review Gate — single-engine, marker-proven). Text-identical to framework-meta CLAUDE.md 13.6.0 LAW 13 modulo number (template has no META-ONLY lock-step law, hence the offset). See that changelog for semantics.",
@@ -1372,10 +1374,11 @@
       ]
     },
     "develop/api_test_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".context/templates/develop/api_test_template.md",
       "changelog": [
+        "1.2.0: feat(EVOL-041) — test data authority split: field existence from journey § 6, types/formats from design § 7.4 type_format_registry.",
         "1.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: feat(EVOL-027) initial manifest registration — DEVELOP API test scaffold."
       ]
@@ -1389,20 +1392,22 @@
       ]
     },
     "develop/dev_plan_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".context/templates/develop/dev_plan_template.md",
       "changelog": [
+        "1.2.0: feat(EVOL-041) — E2E refs → AC-XX/A11Y-XX real IDs + Path composition; reliability ref → design.md § 6 (journey § 8 for the business guarantees).",
         "1.1.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger). Each entry MAY carry `delta_tasks: [...]` checklist consumed by IMPLEMENT --build.",
         "1.0.1: docs(EVOL-029) frontmatter status field gains a derivation note — under slicing_strategy: incremental, the global IMPLEMENTED_AND_VERIFIED value is DERIVED from increments[].status + plan-level BVL aggregate, never written manually. Per-slice transitions go to increments[INC-N].status.",
         "1.0.0: feat(EVOL-027) initial manifest registration — dev_plan.md scaffold for IMPLEMENT --plan output."
       ]
     },
     "develop/e2e_spec_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/develop/e2e_spec_template.md",
       "changelog": [
+        "1.1.0: feat(EVOL-041) — E2E specs anchor on real IDs (AC-XX via Gherkin Ref + UX/A11Y-XX; TC-UX-XX phantom + row-ordinal refs die); flows follow user_journey § 3 Paths.",
         "1.0.0: feat(EVOL-027) initial manifest registration — Playwright e2e spec scaffold."
       ]
     },
@@ -1457,19 +1462,12 @@
         "1.0.0: feat(EVOL-027) initial manifest registration — QA --verify report scaffold."
       ]
     },
-    "qa/smoke_e2e_integration_template.md": {
-      "version": "1.0.0",
-      "content_type": "universal",
-      "target": ".context/templates/qa/smoke_e2e_integration_template.md",
-      "changelog": [
-        "1.0.0: feat(EVOL-027) initial manifest registration — Smoke E2E integration spec scaffold."
-      ]
-    },
     "qa/smoke_e2e_report_template.md": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "content_type": "universal",
       "target": ".context/templates/qa/smoke_e2e_report_template.md",
       "changelog": [
+        "2.0.0: feat(EVOL-041)! — smoke re-anchored on the test catalogue (DEC-4): SMOKE-{N} = one user_journey § 3 Path expanded transitively Paso → BDD Scenario → test_plan TC (Covered TCs mechanical); single template ALL scopes with per-scope execution mode (absorbs and retires smoke_e2e_integration_template.md); SMOKE-REL-* blocks sourced from test_plan § 2.2 / design.md § 6; US-N.M phantom grammar dies.",
         "1.0.0: feat(EVOL-027) initial manifest registration — Smoke E2E report scaffold."
       ]
     },
@@ -1482,10 +1480,11 @@
       ]
     },
     "qa/test_plan_template.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".context/templates/qa/test_plan_template.md",
       "changelog": [
+        "1.3.0: feat(EVOL-041) — Gherkin Ref documented as EXACT scenario title (machine join for Paths + CVP 4b); canonical ID-family note (AC/TC/TC-API/REL/UX/A11Y/BRAND/LAYOUT — kills TC-UX phantom); § 2.2 source of truth → design.md § 6 Reliability Contract.",
         "1.2.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger).",
         "1.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: feat(EVOL-027) initial manifest registration — test_plan.md scaffold for BLUEPRINT --test-plan output."
@@ -1520,9 +1519,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "path": "README.md",
       "changelog": [
+        "2.9.0: feat(EVOL-041) — SMOKE-E2E wording → Path→Scenario→TC transitive; journey artefact description journey-first; integration-variant mentions removed.",
         "2.8.0: fix(EVOL-040 pr-review loop i3) — skills catalog gains factory-code-review (was 21-listed vs 22-on-disk), count 21→22, pr-review line seven-axis/20-blocks, scripts line manifest-driven + T3. Caught by the i3-hardened CHECK 1b local-branch fallback — the gate's own fix detected the gate author's miss.",
         "2.7.1: fix(EVOL-036) coherence — command table /codesign --start emits slice_map.md (incremental); /blueprint --start refines authoritative slices (no invention); /blueprint --approve + Enforcement list the slice CVP checks 0d/18/19/20. Removes the residual 'BLUEPRINT runs the slicing RDR' claim + stale check counts.",
         "2.7.0: feat(EVOL-036) SLICE-3 — Incremental Dev Plan section rewritten as two-stage authoring: CODESIGN owns capability-VALUE slicing (slice_map.md, slicing-value RDR ≥3); BLUEPRINT refines each SLICE-{FEAT}-N into one contract-aware increment (cascade_source, depends_on_slice/feature/seam, 1:1 default, no slice invention). Removes 'Increment Slicing RDR' authority claim.",
@@ -1670,9 +1670,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.6.0",
+      "version": "3.7.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "3.7.0: feat(EVOL-041) — acceptance test ID family corrected to AC-XX with exact-title Gherkin Ref (was TC-{SCENARIO_NUMBER} drift).",
         "3.6.0: feat(EVOL-041) — journey v2 consumption: single user_journey.md all scopes; Schema Derivation Policy rewritten for LAW-16 (existence journey § 6 / typing ARCH §§ 3.1-3.2 + 7.4, type derivation from Meaning+Allowed values with RDR on ambiguity); § 7.4 emission joins journey existence with design typing; new Reliability Contract Derivation step (journey § 8 guarantees → design § 6 mechanisms); design_ux.md legacy input rows purged (DEC-6).",
         "3.5.1: fix(EVOL-040) — :89 malformed validation-template path restored to canonical .context/validation_templates/{AGENT}_VALIDATION_TEMPLATE.md (downstream-synthesized); ordinal law refs migrated to LAW-08/LAW-09 stable IDs.",
         "3.5.0: feat(EVOL-036) SLICE-3 — BLUEPRINT consumes slice_map. Increment Plan Generation reworked: NEW Step A0 slice_map Ingestion Gate (BLOCK when incremental + slice_map absent/non-APPROVED); Step A keeps the monolithic Trivial-Heuristic in BLUEPRINT and cross-validates CODESIGN's 1-slice declaration; Step B GUTTED from the ≥3 slice-invention RDR to Slice Refinement (map SLICE-N→INC, 1:1 default; intra-slice layering RDR is the ONLY survivor; contract-forced deviation recorded in §0 — no slice invention or value-reorder); Step C sets per-INC cascade_source: SLICE-{FEAT}-N + depends_on_slice/depends_on_feature/seam + slice 'Realized by increments' back-ref, §0 becomes Refinement Record; Step D adds bidirectional slice↔increment coverage + seam-resolution self-checks. slice_map.md added to Required Inputs (13→14).",
@@ -1716,9 +1717,10 @@
       ]
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
+        "2.9.0: fix(EVOL-041) — Template E lists the REAL test_plan sections (0/1/2/2.1/2.2/3/4 with canonical ID families; phantom §4 Test Environment / §5 Test Data die).",
         "2.8.0: feat(EVOL-041) — CVP scope + Mandatory Law #5 wording aligned to LAW-16 split (journey § 6 existence / design § 7.4 typing).",
         "2.7.2: fix(EVOL-040) — phantom scripts/lint-contracts.sh conditional removed; contract linting routes through the security-scan dispatcher --contracts path.",
         "2.7.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -1956,9 +1958,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.0.3",
+      "version": "3.1.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "3.1.0: feat(EVOL-041) — Gate 4 single smoke template + scope MODES; journey_source single filename (all scopes); REDIRECT + rationale rewritten to Path→Scenario→TC transitive anchoring; SMOKE-REL-* from test_plan § 2.2/design § 6; --e2e anchor note (implements TCs, composes via Paths); Required Input #2 + data checks per LAW-16 split.",
         "3.0.3: fix(smart-redirect) single-agent wording — --reject close 'return to Factory for Smart Redirect' replaced with 'run Smart Redirect inline as the final step'. No separate Factory turn (single-agent runtime).",
         "3.0.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "3.0.1: fix(EVOL-029) post-review three fixes — (1) Gate 4 SMOKE-E2E now wrapped in `mode == aggregate` guard (slice closures NEVER run smoke; smoke validates the full-feature staging deploy that only exists once every slice has merged). (2) Frontmatter field rename scope → report_scope to disambiguate from feature_scope inherited from spec.feature (qa_report frontmatter + qa_skeleton_first + UPDATE_FRONTMATTER calls). (3) Aggregate-mode redirect now distinguishes missing per-slice reports from INVALIDATED ones (cascade) with separate humanised messages.",
@@ -1988,9 +1991,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.8.2",
+      "version": "1.9.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.9.0: feat(EVOL-041) — suffix-8 table + gate row + DoD checklists re-anchored: one SMOKE block per journey § 3 Path, single smoke template with scope modes; integration variant refs die.",
         "1.8.2: fix(coherence) — broken markdown link to iteration-model skill (line 543): wrong path + case `Factory-iteration-model/SKILL.md` → `.claude/skills/factory-iteration-model/SKILL.md` (repo root-relative convention). Caught by framework coherence sweep (reference coherence / Block 13).",
         "1.8.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.8.0: fix(EVOL-028) remove duplicate `applyTo:` field — same rationale as Factory-backlog-execution-plan.",

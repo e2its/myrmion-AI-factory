@@ -91,7 +91,7 @@ Each `full-sdlc` feature expands into **8 phase issues** on the backlog. Three o
 | --- | --- | --- | --- |
 | **CONTRACT-FREEZE** | BLUEPRINT → IMPLEMENT | [Factory-implement-plan.instructions.md](.claude/instructions/Factory-implement-plan.instructions.md) § Upstream Artifact Validation | API contracts (OpenAPI, TS interfaces, GraphQL schema — stack-specific, resolved from discovery answers) plus the contract test harness. Kills contract drift between design and code. |
 | **PREVENTIVE-SWEEP** | IMPLEMENT → DEVOPS `--deploy dev` | [Factory-devops-provision-deploy.instructions.md](.claude/instructions/Factory-devops-provision-deploy.instructions.md) § Pre-Deploy Checklist | Runtime defect scan via the [factory-preventive-sweep](.claude/skills/factory-preventive-sweep/SKILL.md) SKILL — parallel Explore sub-agents, one per DC scope derived at sweep time. Catches the class of defects invisible to static gates (unused imports, missing null checks, broken teardown, env-var drift). Zero open C-severity findings required to pass. |
-| **SMOKE-E2E** | DEVOPS `--deploy dev` → QA `--verify` pass | [Factory-qa-verify.instructions.md](.claude/instructions/Factory-qa-verify.instructions.md) § Verify Preconditions | Numbered manual smoke blocks derived from `user_journey.md` BDD scenarios executed on the dev-deployed build. Replaces ad-hoc smoke with a reproducible DoD artefact. |
+| **SMOKE-E2E** | DEVOPS `--deploy dev` → QA `--verify` pass | [Factory-qa-verify.instructions.md](.claude/instructions/Factory-qa-verify.instructions.md) § Verify Preconditions | One SMOKE-{N} block per `user_journey.md § 3` Path, expanded transitively Paso → BDD Scenario → `test_plan.md` TC, executed on the dev-deployed build. Replaces ad-hoc smoke with a reproducible DoD artefact. |
 
 Each gate is materialised as a **backlog issue** (phase labels: `phase:contract-freeze`, `phase:preventive-sweep`, `phase:smoke-e2e`) and, on adapters that support sub-issues natively, nested under the IMPLEMENT issue so board progress tracks feature completion holistically. See [Factory-backlog-operations.instructions.md](.claude/instructions/Factory-backlog-operations.instructions.md) § 1.1 for the 8-phase preset expansion.
 
@@ -122,7 +122,7 @@ Two orthogonal scope axes govern what artefacts apply to what work:
 | Axis | Lives in | Set at | Drives |
 |------|----------|--------|--------|
 | **Project scope** | `docs/setup.md` (`project_scope` field) + governance snapshot | `/setup --init` (once per project) | Materialisation conditionals, discovery questions, template tree availability, CODESIGN `--vision` guard |
-| **Feature scope** | `spec.feature` frontmatter (`scope` field) per feature | `/codesign --start --scope=...` (per feature; defaults to project scope) | Per-feature agent behaviour, auto-approval N/A paths, DC filtering, template selection (mock.html vs user_journey.integration.md) |
+| **Feature scope** | `spec.feature` frontmatter (`scope` field) per feature | `/codesign --start --scope=...` (per feature; defaults to project scope) | Per-feature agent behaviour, auto-approval N/A paths, DC filtering, artefact presence (mock.html only for UI scopes) |
 
 Enum: `full-stack | backend-only | frontend-only | integration`. `integration` is the semantic alias of `backend-only` emphasising third-party adapters (webhooks, payment gateways, SaaS connectors).
 
@@ -137,13 +137,13 @@ Enum: `full-stack | backend-only | frontend-only | integration`. `integration` i
 
 **Cross-feature contracts.** `spec.feature.consumes_contract: [FEAT-XXX, ...]` declares upstream frozen-contract dependencies. BLUEPRINT `--start` runs a Consumes-Contract Resolution Gate that BLOCKS when any referenced upstream is not at least APPROVED with a contract file under `contracts/**`. Iteration Model adds the upstream→downstream cascade on upstream contract change (CASCADE_PENDING_ITERATION propagates to every feature that consumes the contract).
 
-**Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is replaced by `user_journey.integration.md` (reliability contract + caller-side actors + idempotency keys). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks 6 of 12 CHECKs as N/A.
+**Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is generated for ALL scopes from the single journey-first template (backend personas = business callers; `Mock Action: —`; reliability as § 8 business guarantees, formalised in `design.md § 6`). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks 6 of 12 CHECKs as N/A.
 
 ### Framework Editor Invariants (lock-step)
 
 Only relevant if editing the framework repo itself. The enum, matrix, and artefact impact above are load-bearing — breaking any of them requires synchronized edits and a MAJOR bump. Source-of-truth files:
 
-- **Enum literal values** (`full-stack | backend-only | frontend-only | integration`) → `setup_master_template.md § 0.1`, `spec.feature` / `design.md` / `user_journey.integration.md` frontmatter schemas. Keep `integration` as semantic alias of `backend-only` for compatibility checks.
+- **Enum literal values** (`full-stack | backend-only | frontend-only | integration`) → `setup_master_template.md § 0.1`, `spec.feature` / `design.md` / `user_journey.md` frontmatter schemas. Keep `integration` as semantic alias of `backend-only` for compatibility checks.
 - **Compatibility matrix logic** → `Factory-codesign-feature.instructions.md § Scope Compatibility Gate`.
 - **`consumes_contract` primitive** → `Factory-blueprint-design.instructions.md § Consumes-Contract Resolution Gate` + `factory-iteration-model.SKILL.md` cascade on upstream contract change.
 - **Axis separation invariant.** Never conflate `project_scope` and `feature.scope` in agent code — the compatibility matrix exists specifically to cross-check them.

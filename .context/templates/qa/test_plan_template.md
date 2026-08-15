@@ -41,10 +41,12 @@ iterations: []
 ## 1. Acceptance Criteria Verification (UAT)
 > **Objective:** Validate that the software strictly complies with the PO's Gherkin scenarios (Business Compliance).
 
+> **Machine join (EVOL-041):** `Gherkin Ref` carries the EXACT `Scenario:` title from `spec.feature` (not an ordinal). It is the transitive anchor: journey Paso → `**BDD Scenario:**` → this column → TC. Smoke blocks and CVP Check 4b resolve coverage through it.
+
 | ID | Gherkin Ref | Business Scenario | Expected Result (Business) |
 |:---|:---|:---|:---|
-| AC-01 | Scenario 1 | Successful Login | User redirected to Dashboard |
-| AC-02 | Scenario 2 | Validation Error | "Required field" message visible |
+| AC-01 | Happy Path - Complete purchase | Successful Login | User redirected to Dashboard |
+| AC-02 | Error - Payment declined | Validation Error | "Required field" message visible |
 
 ## 2. Detailed Technical Test Plan
 > **Objective:** Break the software. Edge cases, security and robustness (Technical Robustness).
@@ -76,7 +78,7 @@ iterations: []
 ### 2.2 Reliability Testing (applicable_when scope in [backend-only, integration])
 <!-- applicable_when: scope in [backend-only, integration] -->
 > **Objective:** Validate runtime robustness under adverse conditions. For UI-less features (no browser QA), reliability testing replaces visual regression as the primary quality surface.
-> **Source of truth:** `user_journey.integration.md` § 6 Reliability Contract (idempotency keys, retry policy, circuit breaker, DLQ, timeouts, graceful shutdown, observability).
+> **Source of truth:** `design.md § 6 Reliability Contract` (mechanisms + parameters; ARCH-derived from the business guarantees in `user_journey.md § Section 8` — LAW-16). Idempotency keys, retry policy, circuit breaker, DLQ, timeouts, graceful shutdown, observability.
 > **Skipping rule:** When `scope in [full-stack, frontend-only]` this section is **N/A** — replace body with `N/A (scope={value})`. When `scope in [backend-only, integration]`, every subsection below is MANDATORY (BLUEPRINT --approve BLOCKS on missing rows).
 
 | ID | Type | Scenario | Given Conditions | Expected Result |
@@ -96,6 +98,8 @@ iterations: []
 | REL-OBS-02 | Structured Logs on Error | Downstream returns 4xx with validation detail | Framework-layer validation visible in app logs (DC — framework-layer validation invisibility) | Log line has `error_code`, `correlation_id`, `upstream_request_id` — not a generic "request failed" |
 
 > **Chaos / fault-injection notes:** for integration features interacting with paid services, prefer contract-test doubles + recorded-interaction replays over real chaos. For internal downstreams, consider toxiproxy / chaos-mesh / Gremlin in staging. Never run chaos in prod without blast-radius controls — document the controls in § 2.2.X rows if adopted.
+
+> **Canonical ID families (single grammar — EVOL-041):** `AC-XX` (acceptance, Gherkin-anchored) · `TC-XX` (technical) · `TC-API-XX` (contract) · `REL-*-XX` (reliability) · `UX-XX` / `A11Y-XX` (this section) · `BRAND-XX` / `LAYOUT-XX` (§ 4). Downstream refs (dev_plan, e2e specs, QA checklist) MUST cite these exact IDs — no other families exist.
 
 ## 3. UX & Accessibility Testing (Required for UI Features — applicable_when scope in [full-stack, frontend-only])
 > **Objective:** Validate compliance with UX Constitution (.claude/rules/ux-constitution.md).

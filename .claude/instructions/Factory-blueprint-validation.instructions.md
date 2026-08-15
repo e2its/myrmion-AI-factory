@@ -531,12 +531,13 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 ```
 
 ### Template E: Test Plan Document (master template)
-- Section 1: Acceptance Tests (per scenario)
-- Section 2: Technical Tests (negative, security, performance)
-- Section 2.1: API Integration Tests (TC-API-XX per endpoint)
-- Section 3: Accessibility Tests (WCAG 2.1 AA)
-- Section 4: Test Environment Requirements
-- Section 5: Test Data Requirements
+- Section 0: Resolutions Log (Q&A)
+- Section 1: Acceptance Criteria Verification — AC-XX rows, `Gherkin Ref` = exact scenario title
+- Section 2: Detailed Technical Test Plan — TC-XX
+- Section 2.1: API Integration Tests — TC-API-XX per endpoint (Contract Ref)
+- Section 2.2: Reliability Testing — REL-*-XX (scope in [backend-only, integration]; source: design.md § 6)
+- Section 3: UX & Accessibility — UX-XX / A11Y-XX (UI scopes)
+- Section 4: Brand & Layout Compliance — BRAND-XX / LAYOUT-XX (UI scopes)
 
 ### Template F: QA Report Template
 - Summary: pass/fail/skip counts

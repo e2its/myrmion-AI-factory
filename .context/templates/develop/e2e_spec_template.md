@@ -7,7 +7,8 @@ import { {FeatureName}Page } from '../pages/{feature}.page';
 /**
  * E2E Tests for {Feature Name}
  * Ref: {{FEATURE_ID}}
- * Test Plan: test_plan.md → Section 3 (UX & Accessibility Testing)
+ * Test Plan: test_plan.md → § 1 AC-XX (scenario-anchored, via Gherkin Ref) + § 3 UX-XX/A11Y-XX
+ * Route composition: user_journey.md § 3 Paths (each E2E flow follows a named Path's Paso sequence)
  */
 test.describe('{Feature Name} E2E Tests', () => {
   let {feature}Page: {FeatureName}Page;
@@ -18,8 +19,8 @@ test.describe('{Feature Name} E2E Tests', () => {
   });
 
   /**
-   * TC-UX-01: Happy Path - Success Scenario
-   * Ref: test_plan.md → Row 1 of UX & Accessibility Testing table
+   * AC-01 — {exact Gherkin scenario title from test_plan § 1 Gherkin Ref}
+   * Path: user_journey.md § 3 "{path name}" (Paso 1 → Paso 2)
    */
   test('should {action} successfully with valid data', async () => {
     // Arrange: Valid test data
@@ -33,8 +34,8 @@ test.describe('{Feature Name} E2E Tests', () => {
   });
 
   /**
-   * TC-UX-02: Error Handling - Invalid Data
-   * Ref: test_plan.md → Row 2 of UX & Accessibility Testing table
+   * AC-02 — {exact Gherkin scenario title from test_plan § 1 Gherkin Ref}
+   * Path: user_journey.md § 3 "{recovery path name}"
    */
   test('should display error with invalid data', async () => {
     // Arrange: Invalid test data
@@ -48,8 +49,7 @@ test.describe('{Feature Name} E2E Tests', () => {
   });
 
   /**
-   * TC-A11Y-01: Accessibility - Keyboard Navigation
-   * Ref: test_plan.md → Accessibility row
+   * A11Y-03 — Keyboard Navigation (test_plan § 3, exact ID)
    */
   test('should be fully keyboard navigable', async ({ page }) => {
     // Tab through all interactive elements

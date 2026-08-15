@@ -30,7 +30,7 @@ applicable_when:
 
 Before processing commands, read:
 1. `docs/spec/{{FEATURE_ID}}/spec.feature` (acceptance criteria)
-2. `docs/spec/{{FEATURE_ID}}/user_journey.md` (Data Schemas for test data + integration validation)
+2. `docs/spec/{{FEATURE_ID}}/user_journey.md` (single file, ALL scopes — § 3 Paths for smoke composition, § 6 Business Fields for existence; test-data types come from `design.md § 7.4`)
 3. `docs/spec/{{FEATURE_ID}}/mock.html` (enrichment — UI drift detection)
 4. `docs/spec/{{FEATURE_ID}}/test_plan.md` (**MANDATORY** — verification baseline from BLUEPRINT)
 5. `docs/spec/{{FEATURE_ID}}/design.md` (enrichment — architecture reference)
@@ -269,13 +269,15 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       "backend-only"  → "phase:smoke-e2e-integration" # caller-harness + downstream-state + observability smoke
       "integration"   → "phase:smoke-e2e-integration" # same as backend-only
       default         → "phase:smoke-e2e"             # legacy projects (BACKLOG ships unscoped label)
-    smoke_template = CASE feature_scope:
-      "full-stack"    → ".context/templates/qa/smoke_e2e_report_template.md (browser + API hybrid)"
-      "frontend-only" → ".context/templates/qa/smoke_e2e_report_template.md (browser-centric)"
-      "backend-only"  → ".context/templates/qa/smoke_e2e_integration_template.md (caller-harness + state + observability)"
-      "integration"   → ".context/templates/qa/smoke_e2e_integration_template.md (includes SMOKE-REL-* idempotency/retry/DLQ/shutdown blocks)"
-      default         → ".context/templates/qa/smoke_e2e_report_template.md"
-    journey_source = has_ui ? "docs/spec/{FEATURE_ID}/user_journey.md" : "docs/spec/{FEATURE_ID}/user_journey.integration.md"
+    # Single smoke template, ALL scopes (EVOL-041) — execution mode varies by scope inside the template
+    smoke_template = ".context/templates/qa/smoke_e2e_report_template.md"
+    smoke_mode = CASE feature_scope:
+      "full-stack"    → "browser + API hybrid"
+      "frontend-only" → "browser-centric"
+      "backend-only"  → "caller-harness + downstream-state + observability"
+      "integration"   → "caller-harness + SMOKE-REL-* blocks (idempotency/retry/DLQ/shutdown)"
+      default         → "browser-centric"
+    journey_source = "docs/spec/{FEATURE_ID}/user_journey.md"   # single filename, ALL scopes
 
     # Accept either the scope-aware label OR the legacy unscoped label for backward compatibility
     smoke_issue = ADAPTER.query_board() → find item WHERE (labels CONTAINS expected_phase_label OR labels CONTAINS "phase:smoke-e2e") AND title CONTAINS FEATURE_ID
@@ -291,10 +293,10 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
 
       ❌ BLOCK: "SMOKE-E2E gate not passed for {FEATURE_ID} (scope: {feature_scope}, current status: {smoke_issue.status})."
       REDIRECT: |
-        Smoke blocks derived from {journey_source} must all pass on the dev-deployed build before --verify. Scope=`{feature_scope}` uses the {smoke_template} template. Steps:
+        Smoke blocks = journey Paths ({journey_source} § Section 3) expanded transitively Paso → BDD Scenario → test_plan TC. All must pass on the dev-deployed build before --verify. Scope=`{feature_scope}` runs in mode: {smoke_mode}. Steps:
           1. Ensure DEVOPS --deploy --env dev {FEATURE_ID} ran successfully
           2. Execute each numbered smoke block against the dev deployment (browser steps for UI scope; caller-harness + state + observability for backend-only/integration; HYBRID combines both for full-stack)
-          3. For scope=integration: additionally execute SMOKE-REL-IDEMP, SMOKE-REL-RETRY, SMOKE-REL-DLQ, SMOKE-REL-SHUTDOWN blocks (reliability contract from user_journey.integration.md § 6)
+          3. For scope in [backend-only, integration]: additionally execute SMOKE-REL-* blocks (test_plan § 2.2 REL-XX families; mechanisms per design.md § 6 Reliability Contract)
           4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
           5. Move the SMOKE-E2E issue to Done
           6. Re-run QA --verify {FEATURE_ID}
@@ -320,7 +322,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
   ✅ Prerequisites passed — proceed with verification
 ```
 
-> **Rationale for Gate 4.** QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: the user_journey.md BDD scenarios are numbered into explicit blocks, each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the legacy flow.
+> **Rationale for Gate 4.** QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: each journey Path (`user_journey.md § 3`) becomes one SMOKE-{N} block whose verification scope is the transitive TC set (Paso → BDD Scenario → test_plan `Gherkin Ref`), each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the legacy flow.
 
 ### Scope Boundary (M-09)
 ```yaml
@@ -487,7 +489,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     - Check seed scripts exist and include idempotent upsert logic
     - Verify reset capability (teardown + re-seed command available)
     - Validate referential coherence: related entity IDs are consistent (no orphan FKs)
-    - Confirm data aligns with `user_journey.md` Data Schemas (field names, types, constraints)
+    - Confirm data aligns with `user_journey.md § 6 Business Fields` (existence/required) + `design.md § 7.4` (types, formats, constraints)
     - Confirm production execution guard is present (`IF env == production → ABORT`)
     - **Cross-Domain Validation (via Shared Seed Registry):**
       - Verify `config/seed_registry.json` exists and includes this feature's entities
@@ -804,6 +806,8 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   ```
 
 ### `--e2e {{FEATURE_ID}}`
+
+> **Anchor (EVOL-041):** the E2E suite implements test_plan TCs (`AC-XX` scenario-anchored + `UX/A11Y-XX`); flows follow the journey's § 3 Paths. This runner executes and reports — it does not define scope.
 
 **Prerequisites:** Staging deployment complete + qa_report `status: APPROVED`
 **Blocked if:** Recent e2e_report (<24h) with `status: PASSED`

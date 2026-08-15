@@ -83,7 +83,7 @@ iterations: []
 - [ ] Create Page Object: `tests/e2e/pages/login.page.ts`
     - *Map: Email input, Password input, Submit button, Error message*
 - [ ] Create E2E Spec (RED): `tests/e2e/specs/auth.spec.ts`
-    - *Ref: test_plan.md → TC-UX-01, TC-UX-02*
+    - *Ref: test_plan.md → AC-01, AC-02 (scenario-anchored via Gherkin Ref) + UX-01/A11Y-XX; route composition from user_journey.md § 3 Paths*
     - *Scenarios: Login success, Login failure with invalid credentials*
 
 ### Unit/Integration Tests
@@ -106,7 +106,7 @@ iterations: []
 
 ### Reliability Tests (applicable_when scope in [backend-only, integration], reliability_test_required: true)
 <!-- applicable_when: scope in [backend-only, integration] -->
-> **Ref:** `test_plan.md § 2.2 Reliability Testing` + `user_journey.integration.md § 6 Reliability Contract`
+> **Ref:** `test_plan.md § 2.2 Reliability Testing` + `design.md § 6 Reliability Contract` (business guarantees: `user_journey.md § Section 8`)
 > **Template:** `.context/templates/develop/api_test_template.md` (reuse the harness — reliability tests are API-level with fault injection)
 > **Skipping rule:** When scope in [full-stack, frontend-only], replace this block with `N/A (scope={value})`. When scope in [backend-only, integration], every item below is MANDATORY.
 - [ ] [A.N] Create idempotency replay test (RED): `tests/reliability/idempotency.test.ts`
