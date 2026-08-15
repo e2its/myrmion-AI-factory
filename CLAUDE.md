@@ -169,4 +169,4 @@ After every framework change:
 
 ## Templates
 
-All templates live in `.context/templates/` organized by role (architect, codesign, develop, po, qa, security, setup, ux — project-CLAUDE.md and its hooks live under `setup/claude/`). Always READ templates before generating — never rewrite from scratch. The `.context/templates/setup/**` tree is what `SETUP --generate` materialises into downstream projects; edits here ship to every new materialised project.
+All templates live in `.context/templates/` organized by role (architect, codesign, develop, peer_review, po, qa, security, setup — project-CLAUDE.md and its hooks live under `setup/claude/`). Always READ templates before generating — never rewrite from scratch. The `.context/templates/setup/**` tree is what `SETUP --generate` materialises into downstream projects; edits here ship to every new materialised project.

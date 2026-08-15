@@ -1655,11 +1655,12 @@ FUNCTION verify_schema_adherence(task, FEATURE_ID):
       ❌ BLOCK: "user_journey.md not found — cannot verify schema adherence"   # single filename, ALL scopes (EVOL-041)
       STOP
 
-    uj_schemas = READ(uj_path, "Data Schemas")
+    uj_fields = READ(uj_path, "Section 6: Business Fields")          # existence + required (plain language)
+  d74 = READ("docs/spec/{FEATURE_ID}/design.md", "7.4 Schema Constraints")  # typing authority (locked_fields)
 
     FOR EACH field IN task.proposed_fields:
       IF field.category == "business":  # name, email, role, status, price, etc.
-        IF field.name NOT IN uj_schemas OR field.type != uj_schemas[field.name].type:
+        IF field.name NOT IN uj_fields OR field.type != d74.locked_fields[field.name].type:
           ❌ BLOCK: "Schema violation: business field '{field.name}' diverges from journey § 6 (existence) or design § 7.4 (type)"
           RDR: "Accept divergence (with justification) or align with the authority (journey § 6 for existence via CODESIGN --refine; design § 7.4 for typing via BLUEPRINT --refine)?"
           IF choice == "diverge" AND justification IS EMPTY:

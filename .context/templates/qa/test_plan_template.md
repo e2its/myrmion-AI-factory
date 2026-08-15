@@ -7,6 +7,7 @@ status: DRAFT   # DRAFT | NEEDS_INFO | APPROVED | BLOCKED | REJECTED | INVALIDAT
 scope: full-stack  # inherited from spec.feature.scope; full-stack | backend-only | frontend-only | integration
 date: [DATE]
 approver: PENDING
+dast_scan_type: null   # baseline | full (optional — `full` enables the QA-DAST-2 checklist item)
 
 # Iteration model tracking
 based_on_iteration: 1
@@ -29,7 +30,7 @@ iterations: []
 # Test Cases: {{FEATURE_ID}}
 **Base:** `spec_{{FEATURE_ID}}.feature`
 
-> **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), every test case below (AC-XX, TC-XX, TC-API-XX, REL-XX) is assigned to exactly one increment in `increment_plan.md § 1`. Each increment's assigned test cases must pass before its PR merges (per-increment acceptance gate + CVP Check 17). The plan is a unified catalogue; increment assignment is orthogonal — see `increment_plan.md` for the mapping.
+> **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), scenario-anchored and contract-anchored cases (AC-XX via `Gherkin Ref`, TC-API-XX via `Contract Ref`) are assigned to exactly one increment in `increment_plan.md § 1`; feature-level families (TC-XX, REL-*-XX, UX/A11Y/BRAND/LAYOUT-XX) validate at aggregate feature level. Each increment's assigned test cases must pass before its PR merges (per-increment acceptance gate + CVP Check 17). The plan is a unified catalogue; increment assignment is orthogonal — see `increment_plan.md` for the mapping.
 
 ## 0. Resolutions Log (Q&A Log)
 > 📝 **Strategy History:** Why we test what we test (Traceability).

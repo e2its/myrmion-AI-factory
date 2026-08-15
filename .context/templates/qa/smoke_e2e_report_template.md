@@ -78,7 +78,7 @@ Notes: {anomalies, follow-ups — optional}
 
 ### Reliability blocks (scope in [backend-only, integration] — MANDATORY)
 
-Additionally execute one `SMOKE-REL-{X}` block per REL-XX family in `test_plan.md § 2.2` (idempotency replay, retry exhaustion, circuit breaker, DLQ, graceful shutdown), whose mechanisms are defined in `design.md § 6 Reliability Contract`. Same block shape; `Covered TCs` lists the REL-XX ids.
+Additionally execute one `SMOKE-REL-{X}` block per REL-*-XX family in `test_plan.md § 2.2` (idempotency replay, retry exhaustion, circuit breaker, DLQ, graceful shutdown), whose mechanisms are defined in `design.md § 6 Reliability Contract`. Same block shape; `Covered TCs` lists the REL-*-XX ids.
 
 ## Consolidated Result
 

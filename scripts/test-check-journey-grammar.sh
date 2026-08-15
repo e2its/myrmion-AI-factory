@@ -187,6 +187,17 @@ write_valid
 sed -i 's/One-click confirmation/{{EASE}}/' "$SANDBOX/case/user_journey.md"
 expect 1 "unresolved {{placeholder}} fails"
 
+# RED 9b — mermaid journey diagram removed
+write_valid
+python3 - "$SANDBOX/case/user_journey.md" <<'PYEOF'
+import sys, re
+p = sys.argv[1]
+s = open(p).read()
+s = re.sub(r'```mermaid\n.*?```\n', '', s, flags=re.S)
+open(p, 'w').write(s)
+PYEOF
+expect 1 "missing mermaid journey diagram fails"
+
 # RED 9 — missing required section
 write_valid
 sed -i 's/^## Section 4: Pain & Emotion Map$/## Pain Map/' "$SANDBOX/case/user_journey.md"

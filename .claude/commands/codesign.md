@@ -32,7 +32,7 @@ Iterate to produce three co-created artifacts (+ a `slice_map.md` when `slicing_
 
 **Full protocol:** See `.claude/instructions/Factory-codesign-feature.instructions.md`
 Canonical generation order (the journey is the ROOT — EVOL-041):
-- `user_journey.md` (journey-first: Part I experience — personas, Paso steps with Goal/Does/Sees/Feels 1-5/Pain/Ease, paths, pain map; Part II conceptual domain contract in plain business language. Single template, ALL scopes. 100% business-validatable — LAW-16)
+- `user_journey.md` (journey-first: Part I experience — personas, Paso steps with the 9 fields Persona/Goal/Does/Sees/Feels 1-5/Pain/Ease/BDD Scenario/Mock Action, paths, pain map; Part II conceptual domain contract in plain business language. Single template, ALL scopes. 100% business-validatable — LAW-16)
 - `spec.feature` (BDD/Gherkin with business rules; scenario titles = the journey's `**BDD Scenario:**` machine anchors)
 - `mock.html` (pixel-perfect visual mockup; one `imp-step` per journey Paso — `id="step-N"` = the journey's `**Mock Action:**` anchor. UI scopes only)
 - `slice_map.md` (capability-VALUE vertical-slice map — only when `slicing_strategy: incremental`; refined by BLUEPRINT into `increment_plan.md`)

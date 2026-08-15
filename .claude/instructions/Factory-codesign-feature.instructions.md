@@ -1,5 +1,5 @@
 ---
-description: "Factory CODESIGN feature co-creation — BDD/Gherkin spec, mock HTML, user journey, Tripartite Alignment, 12-point validation. Use when: CODESIGN --start or --refine execution."
+description: "Factory CODESIGN feature co-creation — journey-first user journey, BDD/Gherkin spec, mock HTML, Tripartite Alignment, blocking auto-approval validations. Use when: CODESIGN --start or --refine execution."
 applicable_when:
   phase: [CODESIGN]
   command: [codesign]
@@ -8,7 +8,7 @@ applicable_when:
 # CODESIGN Agent — Level 2: Feature Co-Creation Protocol
 
 ## Purpose
-This instruction file defines the **Per-Feature Co-Creation** protocols for the CODESIGN agent (🎩 PO Hat + 🎨 UX Hat). A single agent with dual personality iterates dynamically producing three co-created artifacts per feature.
+This instruction file defines the **Per-Feature Co-Creation** protocols for the CODESIGN agent (🎩 PO Hat + 🎨 UX Hat). A single agent with dual personality iterates dynamically producing the co-created feature artifacts (3-4 files).
 
 **Feature artifacts** live in `docs/spec/{{FEATURE_ID}}/`.
 
@@ -29,7 +29,7 @@ Canonical generation order (dependency order — the journey is the ROOT):
 
 ## Shared Frontmatter Structure
 
-All three artifacts share these frontmatter fields:
+All feature artifacts share these frontmatter fields:
 ```yaml
 status: DRAFT | NEEDS_INFO | APPROVED | DEPRECATED | CANCELLED | SUPERSEDED
 feature_id: "{{FEATURE_ID}}"
@@ -158,14 +158,14 @@ BUSINESS_LANGUAGE:
 - 🎩 defines business content, 🎨 defines display structure
 
 ### Phase 4b: Experience Walk (🎨 UX hat; PO hat for backend callers)
-- Walk each persona through the feature: for every step capture **Goal / Does / Sees / Feels (1-5 + expected emotion + why) / Pain / Ease**
+- Walk each persona through the feature: for every step capture the NINE step fields — **Persona / Goal / Does / Sees / Feels (1-5 + expected emotion + why) / Pain / Ease / BDD Scenario (exact spec.feature title — assigned when the spec lands) / Mock Action (#step-N — assigned when the mock lands; `—` for backend scopes)**
 - Feels scale (comparable across features): 1 frustration/abandonment risk · 2 notable friction · 3 neutral · 4 confidence · 5 delight
 - Every Pain gets an Ease (what the design does to soften it) — this is the usability-maximisation lens
 - Name the Paths (ordered Paso sequences per persona): happy, recovery, abandonment
 - Backend scopes: personas are business callers (partner, operator, system acting FOR an actor); Sees = what the caller observes in business terms
 
 ### Phase 5: Business Field Definition (🎩 PO hat) — LAW-16
-- For each business concept surfaced by Commands/ReadModels: define the fields in PLAIN LANGUAGE
+- For each business concept surfaced during Phases 2-4 (what the personas act on and see): define the fields in PLAIN LANGUAGE
 - Table per concept: `Field | Meaning | Required | Allowed values (plain language) | Example`
 - Business states in plain words ("settled, declined, or pending") — the technical enum lives in design.md
 - NO types, NO constraint syntax, NO formats — ARCH derives typing in design.md §§ 3.1/3.2 + § 7.4 (ambiguity → RDR)
@@ -181,11 +181,27 @@ BUSINESS_LANGUAGE:
 - For each external system: direction (inbound/outbound/bidirectional), data exchanged, protocol
 - 🎨 identifies UI impact of external system states (loading, error, timeout)
 
+### ES-concept → journey-v2 landing map (MANDATORY — internal reasoning vs persisted artefact)
+
+Event Storming remains the DISCOVERY method; the persisted artefact is business-pure (LAW-16). Every discovered concept lands as follows — nothing else persists:
+
+| ES concept (internal) | Lands in user_journey.md as |
+|---|---|
+| Actor (P1) | § 1 Persona row (+ per-step **Persona:**) |
+| Command (P2) | a step's **Does** (§ 2) + a § 5 Actions & Outcomes row |
+| Event (P3) | the § 5 row's "The business guarantees…" outcome + the step's **Sees** |
+| Read Model (P4) | the step's **Sees** + the § 6 concept(s) it displays |
+| Data Schema (P5) | § 6 Business Fields table (plain language — NO types) |
+| Policy (P6) | § 7 Business Rules row |
+| External System (P7) | § 8 Third Parties & Guarantees row |
+
+PascalCase identifiers (`SubmitOrder`, `OrderSubmitted`, `DashboardReadModel`) are internal shorthand — they NEVER appear in the persisted journey.
+
 ---
 
 ## PO↔UX Dynamic Iteration Cycle (Internal — no user interaction)
 
-After the Event Storming proposal is accepted by the user (via BIP), PO and UX iterate internally on the three artifacts until convergence:
+After the Event Storming proposal is accepted by the user (via BIP), PO and UX iterate internally on the feature artifacts until convergence:
 
 ```yaml
 CYCLE:  # user_journey.md is the ROOT — written FIRST, refreshed on every pass
@@ -435,7 +451,7 @@ Ensures bidirectional 100% alignment across all applicable artifacts. Zero edge 
 | `backend-only` | spec.feature + user_journey.md | **Only SPEC↔JOURNEY + JOURNEY↔SPEC** (checks 3-4 below); checks involving mock (1, 2, 5, 6, 7-8, 10) are **N/A**. Error chain check (9) adapted: no UI error states; recovery paths expressed as journey Paths + § 8 guarantees instead (see CHECK 7 in Auto-Approval). |
 | `integration` | spec.feature + user_journey.md | Same as `backend-only`. |
 
-Disparity resolution and verification summary apply uniformly; the `ALIGNMENT_SUMMARY.checks_passed` denominator changes by scope (N/10 for UI, N/3 for backend-only/integration).
+Disparity resolution and verification summary apply uniformly; the `ALIGNMENT_SUMMARY.checks_passed` denominator changes by scope (N/10 for UI, N/2 for backend-only/integration — checks 3-4 only; the error chain runs as auto-approval CHECK 7, outside this protocol).
 
 ### Six Bidirectional Alignment Checks
 
@@ -472,13 +488,13 @@ Disparity resolution and verification summary apply uniformly; the `ALIGNMENT_SU
    - Destructive actions (delete, cancel) have confirmation pattern in mock AND scenario
 8. **NAVIGATION→EXITS**: Every navigation link in mock.html that targets another page/feature is documented as Cross-Module Exit
    - Internal navigation → route exists in spec.feature scenarios
-   - External feature navigation → documented in all 3 artifacts
+   - External feature navigation → documented in all 3 alignment artifacts (journey + spec + mock)
    - Back/breadcrumb navigation → consistent with page hierarchy
    - 404/not-found states for broken/invalid navigation targets
 
 ### Error & Edge Case Completeness Checks
 
-9. **ERROR-FULL-CHAIN**: Every error path is represented end-to-end across all 3 artifacts
+9. **ERROR-FULL-CHAIN**: Every error path is represented end-to-end across all 3 alignment artifacts (journey + spec + mock)
    - **Domain errors**: recovery Path / § 7 rule in user_journey.md → error scenario in spec.feature → error UI in mock.html
    - **Validation errors**: § 6 Required/Allowed-values cell → validation scenario → form error message in mock
    - **External system errors**: § 8 third-party guarantee in user_journey.md → timeout/error scenario → fallback UI in mock
@@ -486,7 +502,7 @@ Disparity resolution and verification summary apply uniformly; the `ALIGNMENT_SU
 10. **EMPTY-LOADING-FULL-CHAIN**: Critical entities have empty, loading, and error states in ALL 3 artifacts
     - **Empty state**: no-data scenario in spec.feature + a journey step whose **Sees** covers the empty case + empty UI in mock.html
     - **Loading state**: a journey step whose **Sees**/**Ease** covers the wait + loading scenario in spec.feature + spinner/skeleton in mock.html
-    - **Partial failure**: multi-item operation where some succeed → partial state in all 3 artifacts
+    - **Partial failure**: multi-item operation where some succeed → partial state in all 3 alignment artifacts
 
 ### Verification Summary Table
 
@@ -623,14 +639,14 @@ FUNCTION codesign_auto_approve(FEATURE_ID):
   CHECK 7: Error full-chain
            • has_ui=true → domain + validation + external + auth + UI error state
            • has_ui=false → domain + validation + external + auth (no UI path); integration scope additionally requires retry/backoff + dead-letter + idempotency error paths
-  CHECK 8: [has_ui ? "Empty/Loading full-chain (empty + loading + partial failure states in all 3 artifacts)" : "N/A (no mock.html); backend-only/integration must document empty-result + pending + timeout + partial-batch in spec.feature + user_journey.md § Section 2: Journey Steps instead"]
+  CHECK 8: [has_ui ? "Empty/Loading full-chain (empty + loading + partial failure states in all 3 alignment artifacts)" : "N/A (no mock.html); backend-only/integration must document empty-result + pending + timeout + partial-batch in spec.feature + user_journey.md § Section 2: Journey Steps instead"]
   CHECK 9: Cross-module exits documented in all applicable artifacts (3 when has_ui=true, 2 when has_ui=false)
   CHECK 10: [has_ui ? "No inline styles in mock.html (IMP `<style>` block and `imp-*` classes are allowed; `style=\"\"` attributes are not)" : "N/A (no mock.html)"]
   CHECK 11: [has_ui ? "Empty/loading states for critical entities in mock.html (every `imp-step` section has data-state divs for default + empty + loading + error at minimum)" : "N/A (no mock.html)"]
   CHECK 12: All § 6 Business Fields tables complete — every field has Meaning + Required + Example in plain language; NO technical type tokens (LAW-16; the purity tripwire in CHECK 3's script backs this mechanically)
 
   # Integration-scope addendum (when feature_scope=integration):
-  # CHECK 13 (Phase 2 material): external party declared in spec.feature § External Systems + user_journey.md § Section 8: Third Parties & Guarantees, with a business guarantee per party.
+  # CHECK 13 (Phase 2 material): every external party declared in user_journey.md § Section 8: Third Parties & Guarantees carries a business guarantee AND is exercised by ≥1 spec.feature scenario (timeout/failure paths included).
 
   # CHECK 14 (slice_map, EVOL-036): when slicing_strategy=incremental — slice_map.md present + well-formed:
   #   every spec.feature scenario appears in exactly one slice (exclusive + total); depends_on_slice acyclic;
@@ -897,12 +913,12 @@ Creates a new Feature ID from an existing one (for pure BREAKING changes):
 ## Terminal State Commands
 
 ### `--cancel {{FEATURE_ID}}`
-- Sets `status: CANCELLED` in all 3 artifacts
+- Sets `status: CANCELLED` in all feature artifacts (slice_map.md included when incremental)
 - CANCELLED is a **terminal state** — no agent can modify these artifacts
 - Logs cancellation reason in worklog
 
 ### `--deprecate {{FEATURE_ID}}`
-- Sets `status: DEPRECATED` in all 3 artifacts
+- Sets `status: DEPRECATED` in all feature artifacts (slice_map.md included when incremental)
 - DEPRECATED is a **terminal state** — no agent can modify these artifacts
 - Used when feature is replaced by a newer version
 
@@ -984,7 +1000,7 @@ Scenario: Original scenario name
 |-----------|---------|-----------------|
 | SETUP | `--generate` completed + frontend != None | Factory Smart Redirect computes `--vision` as next step |
 | CODESIGN --vision-approve | Vision APPROVED | Enables `--start` with template composition |
-| CODESIGN auto-approval | All 3 artifacts APPROVED | Enables `BLUEPRINT --start` |
+| CODESIGN auto-approval | All feature artifacts APPROVED | Enables `BLUEPRINT --start` |
 | CODESIGN --refine (Iteration) | spec.iteration bumped | Execute `CASCADE_PENDING_ITERATION` to all downstream |
 | BLUEPRINT | Schema derivation | user_journey.md § 6 Business Fields = existence source of truth; typing derived in design.md (LAW-16) |
 | IMPLEMENT REVIEW | Mock fidelity check | [UX-*] sub-checks including [UX-VISION] |
@@ -999,7 +1015,7 @@ Scenario: Original scenario name
 | Feature ID missing | BLOCK with "Feature ID required per project naming policy" |
 | Spec invalid Gherkin | 🎩 PO auto-fixes syntax, re-validates |
 | WCAG violation in mock | Run WCAG Auto-Repair Protocol (max 3 iterations) |
-| Schema incomplete at approve | BLOCK with list of incomplete schemas |
+| § 6 Business Fields incomplete at approve | BLOCK with list of incomplete concept tables |
 | Tripartite misalignment | Run Disparity Resolution Protocol per gap |
 | CANCELLED/DEPRECATED feature | HARD BLOCK — terminal state, no modifications allowed |
 
@@ -1155,7 +1171,7 @@ FUNCTION tripartite_alignment_canary(FEATURE_ID, target_artifact):
   
   # Determine what upstream data this artifact needs
   IF target_artifact == "spec.feature":
-    # spec.feature depends on user_journey.md (commands, events, schemas, policies)
+    # spec.feature depends on user_journey.md (§ 2 steps, § 5 outcomes, § 6 concepts, § 7 rules)
     uj_path = "{base_path}/user_journey.md"
     IF FILE_EXISTS(uj_path):
       # v2 sections (EVOL-041): H2 headings of the journey-first template
@@ -1172,7 +1188,7 @@ FUNCTION tripartite_alignment_canary(FEATURE_ID, target_artifact):
       RETURN { upstream: null }
   
   IF target_artifact == "mock.html":
-    # mock.html depends on BOTH user_journey.md (schemas) AND spec.feature (scenarios, errors)
+    # mock.html depends on BOTH user_journey.md (§ 2 steps, § 6 fields) AND spec.feature (scenarios, errors)
     upstream_contract = {}
     
     uj_path = "{base_path}/user_journey.md"

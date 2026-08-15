@@ -12,7 +12,8 @@
 #      when mock.html is present, every `#step-N` must resolve to id="step-N".
 #   7. BDD Scenario: when spec.feature is present, every referenced title must
 #      exactly match a `Scenario:` / `Scenario Outline:` title.
-#   8. Section 3 Paths: at least one `- **Path ...:**` line; every `Paso N` referenced exists.
+#   8. Section 3 Paths: at least one `- **Path {Name}** (...):` line; every `Paso N` referenced exists.
+#   8b. Section 2 carries at least one mermaid `journey` block (diagrammatic contract).
 #   9. Traceability Matrix rows reference existing Pasos.
 #  10. LAW-16 purity tripwire: technical type tokens are forbidden in Part II (Sections 5-8).
 #  11. Unresolved `{{...}}` placeholders are violations (an instance, not a template).
@@ -156,7 +157,7 @@ done
 PATHS_BLOCK=$(awk '/^## Section 3:/{p=1; next} /^## /{p=0} p' "$JOURNEY")
 PATH_LINES=$(echo "$PATHS_BLOCK" | grep -c '^- \*\*Path ' || true)
 if [ "$PATH_LINES" -eq 0 ]; then
-  fail "Section 3: no '- **Path {name}:**' entries found (at least one required)"
+  fail "Section 3: no '- **Path {Name}** (persona): Paso a → Paso b' entries found (at least one required)"
 else
   echo "$PATHS_BLOCK" | grep '^- \*\*Path ' | while IFS= read -r line; do
     for ref in $(echo "$line" | grep -o 'Paso [0-9][0-9]*' | sed 's/Paso //'); do
@@ -168,6 +169,14 @@ else
       fail "Section 3: path references non-existent ${bad#PATHREF_MISSING }"
     done < "$STEP_TMP/pathrefs"
   fi
+fi
+
+# ── 8b. Mermaid journey diagram present in Section 2 ────────────────────────
+SEC2=$(awk '/^## Section 2:/{p=1; next} /^## /{p=0} p' "$JOURNEY")
+if ! echo "$SEC2" | grep -q '^```mermaid'; then
+  fail "Section 2: no mermaid block found (at least one mermaid journey diagram per persona required)"
+elif ! echo "$SEC2" | awk '/^```mermaid/{m=1; next} m&&/^```/{m=0} m' | grep -q '^[[:space:]]*journey[[:space:]]*$'; then
+  fail "Section 2: mermaid block present but not of type 'journey'"
 fi
 
 # ── 9. Traceability Matrix rows ─────────────────────────────────────────────

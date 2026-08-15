@@ -209,10 +209,11 @@
       ]
     },
     "rules/testing.md": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/testing.md",
       "changelog": [
+        "1.4.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: backticked DataIn/DataOut line actually replaced (previous edit missed the literal).",
         "1.4.0: feat(EVOL-041) — test-data derivation split: journey § 6 existence + design § 7.4 types.",
         "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
@@ -563,10 +564,11 @@
       "delivery": "setup"
     },
     "scripts/auto-tag.sh": {
-      "version": "2.1.1",
+      "version": "2.1.2",
       "content_type": "universal",
       "target": "scripts/auto-tag.sh",
       "changelog": [
+        "2.1.2: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: same regex fix as meta.",
         "2.1.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "2.1.0: fix(EVOL-034) lock-step Theme A backports from meta — (a) Finding #6: `git describe --tags --abbrev=0` now uses `--match v*` filter so defensive non-semver tags (`pre-*`, `snapshot-*`) no longer break SemVer parsing under set -u; (b) Finding #7: replace `git log … | head -20` (two occurrences) with native `git log -n 20 …` to eliminate SIGPIPE under pipefail when parent captures stdout. Both fixes already lived in meta scripts/auto-tag.sh (lines 60/190/192) but template drifted — root cause of EVOL-034 Theme A.",
         "2.0.0: Governance-aware override — reads framework_version from manifest to prevent silent under-bumping (GOV-001)",
@@ -575,10 +577,11 @@
       "delivery": "both"
     },
     "scripts/validate-governance.sh": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
+        "1.3.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: same regex fix as meta.",
         "1.3.0: feat(EVOL-035 review GBC-02) — synced from meta. New CHECK 1b (per-entry version advance) fails when a changed framework_core file's manifest entry version did not advance vs base.",
         "1.2.1: fix(governance-info-cleanup) — synced from meta. Check 4 no longer emits the redundant `ℹ️ Framework MINOR version bump: X → Y` line on legitimate MINOR bumps. Reduces noise on every governance-checking PR.",
         "1.2.0: synced from meta — banner context detection + dcs digest + [LAW] / universal DC counts.",
@@ -836,11 +839,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.9.0",
+      "version": "3.9.1",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.9.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: template-root row drops the now-empty ux/*.md glob; auto-approval N/A wording names the 6 mock-dependent CHECKs.",
         "3.9.0: feat(EVOL-041) — SMOKE-E2E gate row → Path→Scenario→TC transitive; § Scope Taxonomy: single journey template all scopes (integration variant retired); Framework Editor Invariants enum row updated.",
         "3.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041), byte-identical with meta corpus via law_corpus_mirror.",
         "3.7.0: feat(EVOL-040 RDR-1) — Governance Rules re-rendered with stable [LAW-NN] IDs: tpl#7 = LAW-14 (SETUP scaffolding, project-only — kills the ordinal-7 two-laws collision), tpl#12 = LAW-13 (code review gate — kills the EVOL-039 13/12 offset). LAW-15 tag on ADP heading; immutability landmark citation fixed (§ Per-Increment Immutability); § anchors normalized. Universal bodies now mechanically mirrored via law_corpus_mirror.",
@@ -1247,12 +1251,13 @@
       ]
     },
     "scripts/check-journey-grammar.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/check-journey-grammar.sh",
       "role": "SETUP-delivery copy of check-journey-grammar.sh (byte-mirror, meta_template_mirror pair). Invoked by CODESIGN auto-approval CHECK 3 and CVP journey checks in materialised projects.",
       "delivery": "both",
       "changelog": [
+        "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: mirror of meta 1.1.0 (check 8b mermaid).",
         "1.0.0: feat(EVOL-041) — initial delivery."
       ]
     }
@@ -1269,10 +1274,11 @@
       ]
     },
     "architect/design_template.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": ".context/templates/architect/design_template.md",
       "changelog": [
+        "1.2.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: GCD stub lists 7.8 Mandatory Patterns (REVIEW reads it; was undocumented).",
         "1.2.0: feat(EVOL-041) — design.md becomes the sole technical formalisation point (LAW-16): new § 1.1 Technical Sequence Diagram (tiers migrate from journey), new § 6 Reliability Contract (migrates from user_journey.integration § 6; feeds test_plan § 2.2 + DEVOPS), new § 7 GCD skeleton with REAL § 7.4 Schema Constraints machine record (was phantom — instruction wrote it, template lacked it). §§ 3/3.1/3.2 re-anchored to journey § 6 Business Fields (existence) with ARCH-derived typing.",
         "1.1.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger) and `pending_design_items: []` (BLUEPRINT --refine impl-state probe carry-over → IMPLEMENT --refine delta tasks).",
         "1.0.0: feat(EVOL-027) initial manifest registration — design.md scaffold for BLUEPRINT --design output."
@@ -1317,10 +1323,11 @@
       ]
     },
     "codesign/gherkin_master_template.feature": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "universal",
       "target": ".context/templates/codesign/gherkin_master_template.feature",
       "changelog": [
+        "1.3.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: Journey Steps comments use Paso N grammar (old #N ordinal collided with #step-N mock anchors).",
         "1.3.0 feat(EVOL-041) — scenario titles documented as machine anchors (user_journey **BDD Scenario:** joins by exact title; renames after approval = realignment iteration).",
         "1.2.0: feat(EVOL-036) SLICE-3 — Incremental-Slicing Note flipped: scenarios assigned to a capability-VALUE slice in slice_map.md at CODESIGN --start (not direct scenario→increment at BLUEPRINT); BLUEPRINT refines slices into increments via cascade_source.",
         "1.1.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger); legacy scalar `iteration:` + `iteration_history[]` retained for dual-format gate compatibility.",
@@ -1356,18 +1363,20 @@
       ]
     },
     "codesign/questions_and_proposals.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/questions_and_proposals.md",
       "changelog": [
+        "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: examples business-pure (Paso N refs; Business Field Impact in plain language — old minLength example tripped the LAW-16 tripwire).",
         "1.0.0: feat(EVOL-027) initial manifest registration — CODESIGN open questions tracker."
       ]
     },
     "codesign/user_journey_template.md": {
-      "version": "2.0.0",
+      "version": "2.0.1",
       "content_type": "universal",
       "target": ".context/templates/codesign/user_journey_template.md",
       "changelog": [
+        "2.0.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: § 6 Reliability Contract numbering in § 8 comment; backend `—` Mock Action noted on the example step.",
         "2.0.0: feat(EVOL-041)! — journey-first rewrite under LAW-16 business purity (ADR-EVOL-041). Part I Experience (Personas, `### Paso N` steps with Persona/Goal/Does/Sees/Feels 1-5/Pain/Ease + machine anchors **BDD Scenario:**/**Mock Action:**, mermaid `journey` per persona, named Paths, Pain & Emotion Map) + Part II conceptual Domain Contract (Actions & Outcomes, Business Fields table Campo/Significado/Obligatorio/Valores/Ejemplo — NO technical types, Business Rules, Third Parties & Guarantees). Single template for ALL scopes (absorbs user_journey.integration.md). Typed Data Schemas, FE/BE sequence diagram and Reliability Contract migrate to design.md. Frontmatter drops based_on_iteration + iteration_history. Grammar validated by scripts/check-journey-grammar.sh.",
         "1.3.0: feat(EVOL-036) SLICE-3 — Incremental-slicing note flipped: CODESIGN groups scenarios into capability-value slices (slice_map.md), BLUEPRINT refines into increments. Removes 'BLUEPRINT distributes the scenarios' authority claim.",
         "1.2.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger); legacy scalar `iteration:` + `iteration_history[]` retained for dual-format gate compatibility.",
@@ -1376,10 +1385,11 @@
       ]
     },
     "develop/api_test_template.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": ".context/templates/develop/api_test_template.md",
       "changelog": [
+        "1.2.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: tests cite test_plan § 2.1 TC-API-XX ids (anchoring parity with e2e_spec_template).",
         "1.2.0: feat(EVOL-041) — test data authority split: field existence from journey § 6, types/formats from design § 7.4 type_format_registry.",
         "1.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: feat(EVOL-027) initial manifest registration — DEVELOP API test scaffold."
@@ -1439,10 +1449,11 @@
       ]
     },
     "po/gherkin_master_template.feature": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/po/gherkin_master_template.feature",
       "changelog": [
+        "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: MACHINE ANCHOR note added (scenario titles = journey/test_plan join keys) — twin parity with codesign copy.",
         "1.0.0: feat(EVOL-027) initial manifest registration — PO-side Gherkin scaffold (variant for product-owner-led feature drafts)."
       ]
     },
@@ -1455,20 +1466,22 @@
       ]
     },
     "qa/qa_report_template.md": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "content_type": "universal",
       "target": ".context/templates/qa/qa_report_template.md",
       "changelog": [
+        "1.1.2: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: test-cases heading covers all ID families (was 'acceptance criterion' only).",
         "1.1.1: fix(EVOL-029) post-review fix — pre-merge rename of new EVOL-029 frontmatter field `scope` → `report_scope` to disambiguate from feature_scope semantics already used elsewhere (peer_review template uses `scope: full-stack` for feature_scope inherited from spec.feature). Avoids collision when downstream readers consume both reports.",
         "1.1.0: feat(EVOL-029) frontmatter gains scope (feature | increment-{INC-N}), increment_id (null | INC-N), aggregates ([] of slice report paths). Path is mode-aware: qa_report_{INC-N}_{ts}.md (slice) or qa_report_final_{ts}.md (aggregate / sole report for monolithic). report_kind enum extended with qa_report_increment.",
         "1.0.0: feat(EVOL-027) initial manifest registration — QA --verify report scaffold."
       ]
     },
     "qa/smoke_e2e_report_template.md": {
-      "version": "2.0.0",
+      "version": "2.0.1",
       "content_type": "universal",
       "target": ".context/templates/qa/smoke_e2e_report_template.md",
       "changelog": [
+        "2.0.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: REL-*-XX canonical id family in reliability blocks.",
         "2.0.0: feat(EVOL-041)! — smoke re-anchored on the test catalogue (DEC-4): SMOKE-{N} = one user_journey § 3 Path expanded transitively Paso → BDD Scenario → test_plan TC (Covered TCs mechanical); single template ALL scopes with per-scope execution mode (absorbs and retires smoke_e2e_integration_template.md); SMOKE-REL-* blocks sourced from test_plan § 2.2 / design.md § 6; US-N.M phantom grammar dies.",
         "1.0.0: feat(EVOL-027) initial manifest registration — Smoke E2E report scaffold."
       ]
@@ -1482,10 +1495,11 @@
       ]
     },
     "qa/test_plan_template.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".context/templates/qa/test_plan_template.md",
       "changelog": [
+        "1.4.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: frontmatter gains optional dast_scan_type (QA-DAST-2 enabler); slicing note scoped to anchored families (AC/TC-API); REL-*-XX canonical.",
         "1.3.0: feat(EVOL-041) — Gherkin Ref documented as EXACT scenario title (machine join for Paths + CVP 4b); canonical ID-family note (AC/TC/TC-API/REL/UX/A11Y/BRAND/LAYOUT — kills TC-UX phantom); § 2.2 source of truth → design.md § 6 Reliability Contract.",
         "1.2.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger).",
         "1.1.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
@@ -1506,14 +1520,6 @@
       "target": ".context/templates/security/sec_audit_template.md",
       "changelog": [
         "1.0.0: feat(EVOL-027) initial manifest registration — sec_audit.md scaffold for IMPLEMENT SEC hat output."
-      ]
-    },
-    "ux/mock-template.html": {
-      "version": "1.0.0",
-      "content_type": "universal",
-      "target": ".context/templates/ux/mock-template.html",
-      "changelog": [
-        "1.0.0: feat(EVOL-027) initial manifest registration — UX mock HTML scaffold (UX-side variant of codesign/mock-template.html)."
       ]
     }
   },
@@ -1590,9 +1596,10 @@
       ]
     },
     "commands/codesign.md": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.5.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: journey step field list completed to the 9-field grammar.",
         "1.5.0: feat(EVOL-041) — artefact list journey-first with machine-anchor contract; single journey template all scopes; § 6 existence authority + check-journey-grammar.sh in Key Principles.",
         "1.4.1: fix(EVOL-036) coherence — --refine sub-step 1.4 changelog target list adds slice_map.md (when incremental); notes check_slice_immutability pre-persist + CASCADE_SLICE_INTERNAL on re-slice (command↔instruction drift fix).",
         "1.4.0: feat(EVOL-036) SLICE-2 — Per-Feature artefact list gains slice_map.md (when slicing_strategy: incremental); Scope & Slicing notes CODESIGN emits the Stage-1 slice_map refined by BLUEPRINT into increment_plan.md (join cascade_source: SLICE-{FEAT}-N). 12/12 → all-applicable validations.",
@@ -1672,9 +1679,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.7.0",
+      "version": "3.7.1",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "3.7.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: test_plan emission covers §§ 3/4 ID families; stale 'Section 4 Edge Cases' → § 2.",
         "3.7.0: feat(EVOL-041) — acceptance test ID family corrected to AC-XX with exact-title Gherkin Ref (was TC-{SCENARIO_NUMBER} drift).",
         "3.6.0: feat(EVOL-041) — journey v2 consumption: single user_journey.md all scopes; Schema Derivation Policy rewritten for LAW-16 (existence journey § 6 / typing ARCH §§ 3.1-3.2 + 7.4, type derivation from Meaning+Allowed values with RDR on ambiguity); § 7.4 emission joins journey existence with design typing; new Reliability Contract Derivation step (journey § 8 guarantees → design § 6 mechanisms); design_ux.md legacy input rows purged (DEC-6).",
         "3.5.1: fix(EVOL-040) — :89 malformed validation-template path restored to canonical .context/validation_templates/{AGENT}_VALIDATION_TEMPLATE.md (downstream-synthesized); ordinal law refs migrated to LAW-08/LAW-09 stable IDs.",
@@ -1719,9 +1727,10 @@
       ]
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.9.0",
+      "version": "2.9.1",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
+        "2.9.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: DC-coverage gate greps § 2 (Detailed Technical Test Plan) — '§ Edge Cases' anchor did not exist.",
         "2.9.0: fix(EVOL-041) — Template E lists the REAL test_plan sections (0/1/2/2.1/2.2/3/4 with canonical ID families; phantom §4 Test Environment / §5 Test Data die).",
         "2.8.0: feat(EVOL-041) — CVP scope + Mandatory Law #5 wording aligned to LAW-16 split (journey § 6 existence / design § 7.4 typing).",
         "2.7.2: fix(EVOL-040) — phantom scripts/lint-contracts.sh conditional removed; contract linting routes through the security-scan dispatcher --contracts path.",
@@ -1745,9 +1754,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "3.0.0",
+      "version": "3.1.0",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "3.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: ES-concept → journey-v2 landing map (Commands/Events/ReadModels/DataSchemas now have declared destinations); Phase 4b captures all 9 step fields; CHECK 13 re-anchored (spec § External Systems was phantom); backend Tripartite denominator N/2; artefact-count prose unified (slice_map included).",
         "3.0.0: feat(EVOL-041)! — journey-first generation: canonical order user_journey → spec → mock (D20); single template ALL scopes (D14/D15 root fix); Phase 4b Experience Walk (Goal/Does/Sees/Feels/Pain/Ease + Paths); Phase 5 → plain-language Business Field Definition (LAW-16); Tripartite v2 (anchor-based checks 3-7); auto-approval CHECK 3 invokes check-journey-grammar.sh, CHECK 12 purity; H-15 reads § 6 existence + classifier documented (D5); IPP loops scope-aware + slice_map (D16); canary M-08 reads real v2 sections (D6).",
         "2.11.0: feat(EVOL-036) SLICE-4 — step 9.5 runs check_slice_immutability() PRE-persist on --refine re-slice (BLOCK+redirect when diff touches a MERGED scenario; vacuous at --start); --refine 1.4 aggregated changelog includes slice_map.md when incremental; cascade step notes ON_CODESIGN_REFINE_ITERATION fires CASCADE_SLICE_INTERNAL (forward-only, SKIPs CASCADE_INCREMENT_INTERNAL on pure re-slice); --revise documented as the terminal escape for destructive re-slice of MERGED scenarios.",
         "2.10.0: feat(EVOL-036) SLICE-2 — CODESIGN emits slice_map.md (Stage 1, capability-VALUE slicing). § Generated Artifacts 3->4 (slice_map when incremental); new Execution Flow step 9.5 (adversarial FOR/AGAINST + ONE slicing-VALUE RDR >=3 alternatives → exclusive scenario partition, user-value order, independence, depends_on_slice/depends_on_feature + seam; IPP emit; self-check); Auto-Approval CHECK 14 (slice_map well-formed + exclusive+total coverage, N/A when monolithic) + loop [0..14] + APPROVED artifact set includes slice_map when incremental. NO BLUEPRINT change yet — slice_map advisory until SLICE-3.",
@@ -1849,9 +1859,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.12.0",
+      "version": "2.12.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.12.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: H-11 reads journey § 6 (existence) + design § 7.4 (types) — was reading the dead 'Data Schemas' section.",
         "2.12.0: feat(EVOL-041) — H-11 Law 6 validates existence vs journey § 6 + types vs design § 7.4; feedback classification greps both authorities; delta detection keyed on § 6 business-contract version.",
         "2.11.2: fix(smart-redirect) single-agent call-site — --finalize close replaces RETURN_TO_FACTORY(FEATURE_ID) with POST_COMMAND_REDIRECT(FEATURE_ID) run inline by the command-executing agent. No behavioural change to the build itself.",
         "2.11.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -1960,9 +1971,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "3.2.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: checklist derivation rewritten per ID family (template has no uniform scenario/type/description columns — killed the slice-mode empty-checklist fail-open); Gate 4 enforces overall_verdict=PASS + status=APPROVED; QA-REL aggregate-only + phantom REL-API-VER ref removed.",
         "3.1.0: feat(EVOL-041) — Gate 4 single smoke template + scope MODES; journey_source single filename (all scopes); REDIRECT + rationale rewritten to Path→Scenario→TC transitive anchoring; SMOKE-REL-* from test_plan § 2.2/design § 6; --e2e anchor note (implements TCs, composes via Paths); Required Input #2 + data checks per LAW-16 split.",
         "3.0.3: fix(smart-redirect) single-agent wording — --reject close 'return to Factory for Smart Redirect' replaced with 'run Smart Redirect inline as the final step'. No separate Factory turn (single-agent runtime).",
         "3.0.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2201,9 +2213,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.8.0",
+      "version": "13.8.1",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.8.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: § Templates role list matches the tree (ux/ removed, peer_review added).",
         "13.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041): CODESIGN artefacts carry only business-validatable content; technical formalisation lives in BLUEPRINT (design.md §3.1/3.2, §7.4, Reliability Contract). Mirrored via law_corpus_mirror.",
         "13.7.0: feat(EVOL-040 RDR-1 / root cause C) — Governance Rules re-rendered with stable [LAW-NN] IDs (single namespace across the pair; list ordinal cosmetic; assigned once, never renumbered/reused). LAW-08 body restored from template (meta was truncated — Humanized Blocking lost its what/why/next-command contract). LAW-12 body drops the inline universal_sections enumeration (config is the single source) + documents the new law_corpus_mirror pair type. LAW-15 tag on the ADP vocabulary heading. § What Lives Where rewritten to reality (mechanically-enforced universal surface named; framework-only/project-only lists corrected; declared-divergence doctrine). INVARIANT-1 gains feat/*; § Templates phantom `claude` role dir fixed; § anchors normalized (Canonical Iteration ID, GWP case). Constitutional amendment for ADR-EVOL-040 acceptance.",
         "13.6.0: feat(EVOL-039) Governance Rules gain LAW 13 (Agentic Code Review Gate — single-engine, marker-proven). Constitution amendment for ADR-EVOL-039 acceptance. Engine factory-code-review (6 vendored pr-review-toolkit agents, Apache-2.0); two invocations (hat Step R.1b per increment / push gate axis 7 Block 20 per branch, sole marker writer, content-hash keyed); fail-open infra / fail-closed findings with two-plane audited override (marker RDR one-shot + ADR pr_review_overrides permanent); RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory; config optional-absent⇒active. Mirrored modulo LAW number in templates/claude/CLAUDE.md 3.6.0 (LAW 12 there — meta LAW 12 is the META-ONLY lock-step law).",
@@ -2342,9 +2355,10 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.6.3",
+      "version": "2.6.4",
       "type": "skill",
       "changelog": [
+        "2.6.4: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: CLASSIFY_CHANGE_SCOPES keys schema_change on journey Part II (§ 5-8) — was keyed on the dead Data Schemas section (silent cascade hole).",
         "2.6.3: fix(EVOL-041) — journey frontmatter model: schemas_version = Part II business-contract version; ROOT carries no based_on_* sync fields (D19).",
         "2.6.2: fix(EVOL-036) coherence-3 — ON_CODESIGN_REFINE_ITERATION: documented that a compound refine intentionally runs BOTH CASCADE_SLICE_INTERNAL and CASCADE_INCREMENT_INTERNAL (idempotent overlap; do not deduplicate) — prevents a future maintainer mistaking it for redundancy.",
         "2.6.1: fix(EVOL-036) coherence — CASCADE_SLICE_INTERNAL move-semantics: affected set = whole membership of each changed slice across persisted∪proposed (not just the moved scenario) so a MOVE flags BOTH source and destination realizers (else Check 18(c) fails at next gate). reslice_only guard tightened: SKIP CASCADE_INCREMENT_INTERNAL only on a PURE re-slice (no scenario text, no contract op, no broad policy/schema/ui/infra/contract scope) — prevents dropped invalidation on compound refines.",
@@ -2567,10 +2581,11 @@
       "path": ".claude/skills/factory-memory-cache/SKILL.md"
     },
     "skills/factory-coherence-validation/SKILL.md": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "type": "skill",
       "role": "CVP v1.2.1 — Cross-artifact traceability and completeness verification. Validates upstream deliverables are coherent and mutually consistent. Three invocation modes: GATE (blocking at approve/plan/verify), AUTO (advisory post-command), ON_DEMAND (user-requested diagnostic).",
       "changelog": [
+        "2.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: Check 4b self-comparison bug fixed (step.paso == paso); test_plan_cases extraction per-family; Check 6 joins on TC-API endpoint+method (was dead-blocking on non-existent description/type); raw artefacts wired into elements (Checks 0a/0b/0c/0d/16 no longer fail open); Check 3 param naming.",
         "2.0.0: feat(EVOL-041)! — journey checks rebuilt for v2: Check 2 → business_field_to_locked_field (journey § 6 ↔ design § 7.4, bidirectional incl. invented-field reverse check); Check 4 two-layer (mechanical → check-journey-grammar.sh, semantic → LLM on Does/Sees); NEW Check 4b journey_path_to_test_coverage (Paso→Scenario→TC transitive, DEC-4); Check 3 scope-aware (UI scope with missing mock = CRITICAL, kills D2 fail-open); Check 18(d) slice journey_steps refs validated (D13); extraction shapes match template v2 (D3/D12 dead); Step 0 single journey filename.",
         "1.5.2: fix(EVOL-040) — ordinal 'Rule 9' ref migrated to LAW-09 stable ID.",
         "1.5.1: fix(EVOL-036) coherence — Check 0c no longer unconditionally requires rdr_ratified_at (legitimately null for 1:1 plans; gated conditionally on rdr_alternatives_considered>=1) — removes false-positive CRITICAL on the default path. Check 0d grandfathers pre-EVOL-036 incremental features (increment_plan present, slice_map absent → WARNING migration advisory, not CRITICAL). Check 19 documents that cross-feature seam cascade rides consumes_contract/CASCADE_CONSUMERS (WARN when depends_on_feature lacks a consumes_contract entry).",
@@ -2644,10 +2659,11 @@
       "path": ".claude/skills/factory-rdr/SKILL.md"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.9.3",
+      "version": "1.9.4",
       "type": "skill",
       "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .claude/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT 🔍 REVIEW hat scope, separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "changelog": [
+        "1.9.4: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: Block 8 CVP subset widened with 4b/5 — the Gherkin-scenario Blocker row is now actually runnable at push time.",
         "1.9.3: fix(EVOL-041) — Gherkin-scenario docs-sync row cites the real checks (journey BDD anchors via check-journey-grammar.sh + CVP 5/4b, was phantom 'Check 1, 2' — D17).",
         "1.9.2: fix(EVOL-040 pr-review loop i3) — frontmatter description + role text six-axis→seven-axis (EVOL-039 added axis 7 without updating the description — surfaced via the README catalog gap).",
         "1.9.1: fix(EVOL-039 dogfood) — Block 20 row + axis 7 routing widened to has_code OR has_tests (tests-only bypass); row documents pr_blocker severity routing + marker-corrupt condition.",
@@ -2704,10 +2720,11 @@
       "path": ".claude/skills/factory-pr-review/references/code-review-criteria.md"
     },
     "skills/factory-pr-review/references/docs-sync-checklist.md": {
-      "version": "1.1.2",
+      "version": "1.1.3",
       "type": "skill-asset",
       "role": "Factory PR Review code↔docs sync matrix — three-tier matrix: Universal (any project: CLI flags, env vars, OpenAPI/AsyncAPI, README, CHANGELOG, ADR, runbooks, DB schema), Materialised Factory project (CVP-driven: spec.feature ↔ user_journey ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan, Per-Increment Immutability, Scope Compatibility Gate, CIP), Framework meta repo (governance-bump miss enforcing CLAUDE.md Generation Standards §2).",
       "changelog": [
+        "1.1.3: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: CVP check numbers corrected (test_plan→dev_plan = Check 8; contract ops = Check 15).",
         "1.1.2: fix(EVOL-041) — same D17 correction as SKILL.md row.",
         "1.1.1: fix(EVOL-036) coherence-3 — slice_map-absent row severity precise (Blocker new / WARNING legacy grandfathered), aligned with SKILL.md + Check 0d.",
         "1.1.0: feat(EVOL-036) SLICE-5 — docs-sync table gains slice rows: missing slice_map.md APPROVED (Check 0d), unresolved cascade_source / unrealized slice (Check 18), re-slice moving a MERGED-frozen scenario (Check 20).",
@@ -2820,11 +2837,12 @@
       "path": ".claude/skills/factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.10.1",
+      "version": "1.11.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.11.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: orphan detector labels the 3 EVOL-041-retired templates as 'RETIRED — safe to delete' (F-01: no deletion channel exists; explicit signal for downstream operators).",
         "1.10.1: fix(EVOL-040 pr-review loop i3) — three bare `|| return` in orphan-walk helpers → `|| return 0` (pre-existing: under set -euo pipefail a greenfield --dry-run died silently at [3/7] with exit 1, no summary — dir absent is 'nothing to walk', not an error).",
         "1.10.0: fix(EVOL-040 pr-review loop i2) — manifest-query failure now bumps ERRORS with a red cause line and unsuppressed stderr (was: zero scripts+hooks shipped, exit 0, undetectable); redundant per-script mkdir removed (leaked directories into --dry-run targets); header sync-surface list replaced by the manifest-driven statement (enumerated 12 of 21).",
         "1.9.0: feat(EVOL-040 root cause B) — [6/7] hardcoded 17-name script list + hooks loop DELETED; replaced by a manifest query over governance_versions.json `delivery` fields (sync|both → shipped, template-variant preferred via resolve_script_src; setup → materialization-only). Adding a downstream script = manifest entry only, no sync edit. Empty query → loud warning, nothing silently skipped. sync_tree() gains __pycache__ prune (find is gitignore-unaware and was copying .pyc runtime junk into every project). Verified: emitted list == old list ∪ nothing-lost (21 scripts incl. hooks + factory-sync).",
@@ -2849,11 +2867,12 @@
       "delivery": "sync"
     },
     "scripts/validate-governance.sh": {
-      "version": "2.1.1",
+      "version": "2.1.2",
       "path": "scripts/validate-governance.sh",
       "type": "utility",
       "role": "Framework governance validator — SessionStart banner, drift detection (manifest vs core files), snapshot freshness, diff-only mode for CI. Ships identically to materialized projects via factory-sync and also runs inside the framework-meta repo.",
       "changelog": [
+        "2.1.2: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: breaking-marker regex accepts type(scope)!: (feat(EVOL-041)!: was invisible).",
         "2.1.1: fix(EVOL-040 pr-review loop i3) — crash-path sentinel (__CRASHED__) so CHECK 1b/1c never print a contradictory green pass line after recording the violation; CHECK 1b base-manifest retrieval gains the local-branch fallback CHECK 1 already had (1b was permanently 'skipped' in sandboxes/forks without origin/).",
         "2.1.0: fix(EVOL-040 pr-review loop i2) — CHECK 1b/1c inspector crashes now register a VIOLATION instead of green ('printed nothing' ≠ 'no issues'); CHECK 2 warns on absent trees + git ls-files failures instead of silently skipping; 'framework_core' wording generalized to 'tracked' (paths span 3 sections); TRACKED_PATHS resolver rendered self-similar with vmap/1c (dict-literal shape ×3, greppable).",
         "2.0.0: BREAKING(EVOL-040 root cause A) — CHECK 2 orphan detection goes FULL-TREE via git ls-files (was: diff-scoped find filtered to .md/.json/.sh — how 27 orphans became permanently invisible after fast-lane commits). TRACKED_DIRS 5→10 trees (+scripts, .github/workflows, .context/templates, .context/utils, .context/schemas). TRACKED_PATHS + CHECK 1b vmap extended to all 3 source-bearing manifest sections (templates → .context/templates/setup/{key}, agent_templates → .context/templates/{key}). NEW CHECK 1c (always-on): duplicate source paths across sections, missing templates target keys, duplicate targets without declared target_mode: merge. ORPHAN_EXEMPT allowlist = the manifest itself (single member).",
@@ -2862,7 +2881,8 @@
         "1.2.0: feat — --banner detects context (meta vs downstream) and adapts. Meta repos (no docs/constitution.md but root CLAUDE.md present) emit `Governance loaded: meta CLAUDE.md {hash8} | meta-framework maintenance | triage: ON` instead of the misleading `project not initialized`. Downstream banner now also surfaces `dcs {hash8}` plus [LAW] section count and universal DC count parsed from the snapshot body, so the user sees what is actually embedded in context.",
         "1.1.0: feat(EVOL-026) --snapshot-freshness validates `dcs_hash` against `.claude/rules/defect-prevention.md` in addition to constitution and setup. Adds `defect-prevention.md` to the `drift` array when divergent.",
         "1.0.0: feat(EVOL-022) backfill: register framework_core entry (previously untracked despite being mandatory-trackable per CLAUDE.md Generation Standards §2). Baseline version matches template manifest entry of same script."
-      ]
+      ],
+      "delivery": "both"
     },
     "scripts/governance-onedit.sh": {
       "version": "1.2.0",
@@ -2876,7 +2896,8 @@
         "1.1.0: feat(EVOL-026) PostToolUse watcher extended to `.claude/rules/defect-prevention.md`. Edits to that file now leave a session-scoped marker so the next prompt receives `<governance-source-edited>` with regen instruction. Closes the freshness-trigger gap for the third hashed governance source.",
         "1.0.1: fix(EVOL-023) Copilot PR #12 review: project-root anchoring guard — same content as templates entry, lock-step.",
         "1.0.0: feat(EVOL-023): initial — same content as templates entry, lock-step."
-      ]
+      ],
+      "delivery": "both"
     },
     "scripts/governance-onprompt.sh": {
       "version": "2.2.1",
@@ -2890,7 +2911,8 @@
         "2.1.0: feat(EVOL-023) source-edit attribution. Lock-step with templates entry — reads governance-source-edited marker, emits `<governance-source-edited>` block, suppresses freshness warning when marker present.",
         "2.0.0: BREAKING fix: freshness gate switched from blocking (exit 2) to advisory (always exit 0, stdout `<governance-warning reason=\"snapshot-stale\">` on stale). Removes the auto-livelock that occurred whenever an EVOL/ADR legitimately edited docs/constitution.md or docs/setup.md. Same change as templates entry, lock-step.",
         "1.0.0: feat(EVOL-022) backfill: register framework_core entry (previously untracked). Mandated by CLAUDE.md Generation Standards §2."
-      ]
+      ],
+      "delivery": "both"
     },
     "scripts/governance-oncompact.sh": {
       "version": "1.0.0",
@@ -2899,14 +2921,16 @@
       "role": "PreCompact hook companion — writes .claude/state/governance-reload-{session_id}.marker so the post-compact turn re-injects governance snapshot. GCRP Tier 3.",
       "changelog": [
         "1.0.0: feat(EVOL-022) backfill: register framework_core entry (previously untracked). Mandated by CLAUDE.md Generation Standards §2."
-      ]
+      ],
+      "delivery": "both"
     },
     "scripts/auto-tag.sh": {
-      "version": "1.0.2",
+      "version": "1.0.3",
       "path": "scripts/auto-tag.sh",
       "type": "utility",
       "role": "Framework-meta auto-tag utility with governance-aware override — reads framework_version from governance_versions.json so commit-based bump heuristics cannot silently under-bump. Meta-only variant; downstream projects receive the simpler template under .context/templates/setup/scripts/auto-tag.sh.",
       "changelog": [
+        "1.0.3: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: breaking-marker regex accepts type(scope)!:.",
         "1.0.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.1: fix(ci) — git describe --tags --abbrev=0 now uses --match v* filter so defensive snapshot tags (pre-*, snapshot-*) no longer break SemVer parsing under set -u. Closes auto-tag.yml workflow failures on PR #22 + PR #23 merges.",
         "1.0.0: feat(EVOL-022) backfill: register framework_core entry (previously untracked) — divergent from template counterpart by intent."
@@ -3089,14 +3113,16 @@
       "changelog": [
         "1.0.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: Python embedded snapshot extractor at line 249-250 — heading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)` + dict key `p.get(\"red_zones\", [])` → `p.get(\"paths\", [])`. The protected-paths.json field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35 (second iteration — initial Phase 0 pass missed scripts/ tree because grep filter was over-narrow).",
         "1.0.0: feat(EVOL-027) fase 3 — real generator implementing the Factory-setup-materialization Checkpoint 3.1 contract (frontmatter with hashes, Stack Configuration, Rules Manifest, Protected Paths, Setup Configuration, Active Constitution [LAW] extract, Defect Prevention universal entries). Replaces the language-agnostic pseudocode that every materialised project re-implemented inconsistently. Bash + awk + python3 (no PyYAML dependency). Portable MD5 (md5sum / md5 -q / openssl). --check validates inputs without writing; --quiet suppresses per-line stdout."
-      ]
+      ],
+      "delivery": "both"
     },
     "scripts/check-inventory-drift.sh": {
       "version": "1.0.0",
       "path": "scripts/check-inventory-drift.sh",
       "changelog": [
         "1.0.0: feat(EVOL-027) fase 4 — drift detector for codebase_inventory.json. Detects STALE (IMPLEMENTED but path missing), PROMOTE (PLANNED but path exists), INVALID (missing path/status). Modes: human report (default), --json (CI), --warn-only (advisory). Exits 0 when inventory absent (greenfield pre-bootstrap)."
-      ]
+      ],
+      "delivery": "both"
     },
     "scripts/check-lockstep-pairs.sh": {
       "version": "1.3.0",
@@ -3198,7 +3224,8 @@
       "changelog": [
         "1.1.0: feat(EVOL-028) validator scope extended to all `.claude/rules/*.md` (excluding README.md). Catches drift in technical rules (python.md, React.md, java.md, etc.) and cross-cutting rules (security_policy.md, testing.md, performance.md, etc.) at PR time.",
         "1.0.0: feat(EVOL-028) new CI gate validating applicable_when frontmatter blocks across .claude/instructions, .claude/skills/Factory-*, and .claude/rules/defect-prevention.md. Closed vocabulary check (phase/scope/change_type/command/path_glob/framework/always); always-mutex enforcement; missing block treated as always:true (back-compat during migration)."
-      ]
+      ],
+      "delivery": "both"
     },
     "scripts/check-iteration-id-format.sh": {
       "version": "1.0.0",
@@ -3413,17 +3440,19 @@
       ]
     },
     "scripts/check-journey-grammar.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "scripts/check-journey-grammar.sh",
       "delivery": "both",
       "changelog": [
+        "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: new check 8b: mermaid journey block mandatory in Section 2 (diagrammatic contract now machine-enforced); Path grammar docs match template syntax.",
         "1.0.0: feat(EVOL-041) — deterministic user_journey.md v2 grammar validator: ### Paso N anchors, 9 mandatory step fields, Feels 1-5, BDD Scenario ↔ spec.feature titles, Mock Action ↔ imp-step ids, paths, Traceability Matrix, LAW-16 purity tripwire, unresolved-placeholder check. Cross-file checks skip gracefully pre-spec/mock (journey-first order)."
       ]
     },
     "scripts/test-check-journey-grammar.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "scripts/test-check-journey-grammar.sh",
       "changelog": [
+        "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: 14th case: missing mermaid journey diagram MUST fail (red-proved).",
         "1.0.0: feat(EVOL-041) — red-proving self-test: 13 cases (2 green fixtures + 10 mutations that MUST fail + journey-first skip case). Wired into governance-check T2 suite."
       ]
     }

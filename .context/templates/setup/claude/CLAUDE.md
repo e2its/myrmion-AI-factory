@@ -137,7 +137,7 @@ Enum: `full-stack | backend-only | frontend-only | integration`. `integration` i
 
 **Cross-feature contracts.** `spec.feature.consumes_contract: [FEAT-XXX, ...]` declares upstream frozen-contract dependencies. BLUEPRINT `--start` runs a Consumes-Contract Resolution Gate that BLOCKS when any referenced upstream is not at least APPROVED with a contract file under `contracts/**`. Iteration Model adds the upstream→downstream cascade on upstream contract change (CASCADE_PENDING_ITERATION propagates to every feature that consumes the contract).
 
-**Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is generated for ALL scopes from the single journey-first template (backend personas = business callers; `Mock Action: —`; reliability as § 8 business guarantees, formalised in `design.md § 6`). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks 6 of 12 CHECKs as N/A.
+**Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is generated for ALL scopes from the single journey-first template (backend personas = business callers; `Mock Action: —`; reliability as § 8 business guarantees, formalised in `design.md § 6`). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks the 6 mock-dependent CHECKs (2/5/6/8/10/11) as N/A.
 
 ### Framework Editor Invariants (lock-step)
 
@@ -192,7 +192,7 @@ Only relevant if editing the framework repo itself. The strategy, thresholds, li
 
    | Command / persona | Template root |
    | --- | --- |
-   | **CODESIGN** (PO ↔ UX) | `.context/templates/{po,ux,codesign}/*.md` |
+   | **CODESIGN** (PO ↔ UX) | `.context/templates/{po,codesign}/*.md` + `.context/templates/codesign/*.html` (mocks/shell) |
    | **BLUEPRINT** (ARCH ↔ QA) | `.context/templates/architect/*.md` (design, ADR, technical gaps) + `.context/templates/qa/test_plan_template.md` |
    | **IMPLEMENT** (DEV ↔ REVIEW ↔ SEC) | `.context/templates/develop/*.md` (dev plan, api/e2e/page object tests, blockers report) + `.context/templates/peer_review/review_template.md` + `.context/templates/security/{remedy,sec_audit}_template.md` |
    | **QA** | `.context/templates/qa/qa_report_template.md` + `.context/templates/qa/test_gaps_proposals.md` + `.context/templates/qa/smoke_e2e_report_template.md` |

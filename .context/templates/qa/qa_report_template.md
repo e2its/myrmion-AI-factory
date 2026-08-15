@@ -57,7 +57,7 @@ warning_count: 0
 - [ ] [QA-GOV-2] Integration audit (system_resources + hardcoded config)
 - [ ] [QA-GOV-3] Static audit (code quality + test coverage + standards)
 
-### Test cases (one per test_plan.md acceptance criterion)
+### Test cases (one per test_plan.md case — all ID families, scenario-filtered in slice mode)
 - [ ] [QA-TC-{id}] {description}
 
 ### Regression

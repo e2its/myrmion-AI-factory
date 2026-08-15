@@ -703,7 +703,7 @@ FUNCTION CASCADE_SLICE_PEERS(FEATURE_ID, target_iteration, affected_scopes):
 FUNCTION CLASSIFY_CHANGE_SCOPES(changes):
   scopes = []
   IF changes affect Gherkin scenarios: scopes.push("new_scenario")
-  IF changes affect user_journey.md Data Schemas: scopes.push("schema_change")
+  IF changes affect user_journey.md Part II (§ 5-8 — Business Fields / Rules / Guarantees): scopes.push("schema_change")
   IF changes affect mock.html visual structure: scopes.push("ui_restyling")
   IF changes affect business rules/policies: scopes.push("policy_change")
   IF changes imply new infrastructure needs: scopes.push("infra_change")

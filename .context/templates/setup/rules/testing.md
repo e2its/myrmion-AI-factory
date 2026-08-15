@@ -28,7 +28,7 @@ changelog:
 ## API Integration Testing
 - Every HTTP endpoint in `contracts/` MUST have a corresponding test in `tests/api/`
 - Template: `.context/templates/develop/api_test_template.md`
-- Test data derived from `user_journey.md` DataIn/DataOut schemas or `contracts/` request/response schemas
+- Test data derived from `user_journey.md § 6 Business Fields` (existence) + `design.md § 7.4 Schema Constraints` (types/formats) or `contracts/` request/response schemas
 - Must cover: happy path (200/201), validation errors (400/422), not found (404), unauthorized (401), server errors (500/503)
 - Runner: `./scripts/test.sh api --apply` or direct stack runner
 - Contract validation (optional): validate response bodies against OpenAPI schema (ajv, jsonschema)

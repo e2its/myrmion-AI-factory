@@ -31,7 +31,7 @@ import request from 'supertest';
 import { app } from '{{APP_ENTRY}}'; // e.g., '../../src/app'
 
 describe('{{FEATURE_NAME}} API', () => {
-  // ─── Happy Path (from spec.feature scenarios) ───
+  // ─── Happy Path (implements test_plan § 2.1 TC-API-XX rows; scenarios from spec.feature) ───
   describe('POST /api/v1/{{resource}}', () => {
     it('should create resource with valid payload → 201', async () => {
       const payload = {
@@ -189,7 +189,7 @@ func TestGetResource_NotFound_404(t *testing.T) {
 1. **One test file per API resource** (e.g., `users.api.test.ts`, `auth.api.test.ts`).
 2. **Import app instance** (NOT start a server) — framework test utilities handle this.
 3. **Test data** — field existence from `user_journey.md § 6 Business Fields`; types/formats/examples from `design.md § 7.4 Schema Constraints` (type_format_registry) or `contracts/` request/response schemas.
-4. **Happy paths** from `spec.feature` scenarios → mapped to HTTP verbs + status codes.
+4. **Happy paths** implement `test_plan.md § 2.1` TC-API-XX rows (cite the exact ID per test) → mapped to HTTP verbs + status codes.
 5. **Edge/error cases** from `test_plan.md` Section 2 (Edge, Security, Negative rows with HTTP status codes).
 6. **Status codes** from `contracts/` OpenAPI responses or `.claude/rules/api-standards.md`.
 7. **Auth headers** if feature requires authentication (detect from `design.md` security section).

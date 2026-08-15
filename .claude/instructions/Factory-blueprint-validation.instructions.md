@@ -342,7 +342,7 @@ FOR EACH dc IN applicable_dcs:
       ❌ BLOCK: "Blueprint missing required DC-{dc.number} ({dc.name}) constraint."
       REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC reference to design.md § Constraints."
       STOP
-    IF "DC-{dc.number}" NOT present in test_plan.md § Edge Cases:
+    IF "DC-{dc.number}" NOT present in test_plan.md § 2 (Detailed Technical Test Plan):
       ❌ BLOCK: "Test plan missing required DC-{dc.number} ({dc.name}) edge case."
       REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC edge case to test_plan.md."
       STOP

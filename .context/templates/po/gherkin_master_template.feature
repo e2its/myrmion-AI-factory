@@ -19,6 +19,11 @@ last_update: [DATE]
 # - Proposal: [Suggested solution]
 # =========================================================================
 
+# MACHINE ANCHOR — Scenario titles are join keys: user_journey.md steps reference them verbatim
+# via `**BDD Scenario:** {title}` (validated by scripts/check-journey-grammar.sh), and test_plan.md
+# AC rows reference them via `Gherkin Ref`. Renaming a scenario after approval is a realignment
+# iteration, not a free edit.
+
 Feature: [Clear Requirement Title]
   As [User Role]
   I want [Action/Desire]

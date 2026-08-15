@@ -98,7 +98,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 # Consult the Defect Prevention Catalog filtered to this agent
 feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # pass to DPC Filter 2
 applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
-STORE applicable_dcs IN context FOR use by Section 7 (GCD) and Section 4 (test_plan Edge Cases)
+STORE applicable_dcs IN context FOR use by Section 7 (GCD) and test_plan § 2 (Detailed Technical Test Plan — edge cases)
 
 # Advisory projection: every applicable DC becomes an explicit design constraint
 # and an explicit test-plan edge case. Blocking enforcement happens at --approve.
@@ -708,6 +708,8 @@ FUNCTION auto_declare_frontend_resource():
 ```
 
 ### QA Test Plan Generation (🧪 hat)
+
+**Section coverage note (EVOL-041):** emit ALL applicable template sections — § 1 AC-XX, § 2 TC-XX, § 2.1 TC-API-XX, § 2.2 REL-*-XX (backend/integration; from design.md § 6), § 3 UX-XX/A11Y-XX and § 4 BRAND-XX/LAYOUT-XX (UI scopes; IDs per template).
 
 **Level 1: Business/Acceptance Tests**
 - One test case per spec.feature scenario

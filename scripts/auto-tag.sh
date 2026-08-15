@@ -93,7 +93,7 @@ PATCH=$(echo "$VERSION" | cut -d. -f3)
 # ── Determine bump type from commits ──
 BUMP="patch"
 
-if echo "$COMMITS" | grep -qiE "^feat!:|BREAKING CHANGE:"; then
+if echo "$COMMITS" | grep -qiE "^[a-z]+(\([^)]*\))?!:|BREAKING CHANGE:"; then
   BUMP="major"
 elif echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:"; then
   BUMP="minor"

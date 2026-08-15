@@ -310,6 +310,11 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
         ❌ BLOCK: "Smoke E2E report is INVALIDATED — dev build changed after the last smoke run."
         REDIRECT: "Re-deploy to dev and re-run the smoke blocks to refresh the report."
         STOP
+      # verdict + status enforcement (the template's own gate contract)
+      IF fm.overall_verdict != "PASS" OR fm.status != "APPROVED":
+        ❌ BLOCK: "Smoke report exists but overall_verdict={fm.overall_verdict} / status={fm.status} — only PASS + APPROVED closes the SMOKE-E2E gate."
+        REDIRECT: "Fix failing blocks, set overall_verdict: PASS + status: APPROVED, then re-run QA --verify {FEATURE_ID}."
+        STOP
       # scope-consistency check on the report
       IF fm.scope AND fm.scope != feature_scope:
         ❌ BLOCK: "Smoke report scope=`{fm.scope}` does not match spec.feature.scope=`{feature_scope}`. Regenerate the report using the correct template ({smoke_template})."
@@ -339,7 +344,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
 ### Verification Checklist Generation (Checkbox-Driven Protocol — MANDATORY)
 
 **Before executing any verification step, generate a verification checklist in the target qa_report file with `- [ ]` items derived from test_plan.md + governance checks.** Target file:
-- Slice mode (`INCREMENT_ID != null`): `qa_report_{INCREMENT_ID}_{ts}.md`. Test-case items filtered to scenarios assigned to that increment in `increment_plan.md § 1` (`Scenarios covered`). Reliability items filtered to contracts on the increment's `Contract surface`. Per-feature checks (lint/typecheck/SAST/DAST) still execute scope-aware (BVL filters). Do NOT include cross-slice transversal checks here.
+- Slice mode (`INCREMENT_ID != null`): `qa_report_{INCREMENT_ID}_{ts}.md`. Test-case items filtered to scenarios assigned to that increment in `increment_plan.md § 1` (`Scenarios covered`). TC-API items filtered to the increment's `Contract surface`; QA-REL reliability items are feature-level and run in aggregate mode only. Per-feature checks (lint/typecheck/SAST/DAST) still execute scope-aware (BVL filters). Do NOT include cross-slice transversal checks here.
 - Aggregate mode (`INCREMENT_ID == null`): `qa_report_final_{ts}.md`. Full checklist plus a transversal section (see § Aggregate Transversal Checks below) AND an `aggregates:` frontmatter listing the consumed `qa_report_{INC-N}_*.md` paths.
 
 ```yaml
@@ -375,16 +380,25 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   checklist.push("- [ ] [QA-GOV-2]: Integration audit (system_resources + hardcoded config)")
   checklist.push("- [ ] [QA-GOV-3]: Static audit (code quality + test coverage + standards)")
 
-  # Test plan derived checks (one per test case, scenario-filtered in slice mode)
+  # Test plan derived checks (one per test case, scenario-filtered in slice mode).
+  # Per-family column mapping (EVOL-041 — the template has NO uniform scenario/type/description columns):
+  #   AC-XX      → scenario_ref = § 1 `Gherkin Ref` (exact scenario title); label = `Business Scenario`
+  #   TC-XX      → scenario_ref = null;              label = `Technical Scenario`
+  #   TC-API-XX  → scenario_ref = null (join key = `Endpoint` + `Method`); label = `Scenario`
+  #   REL-*-XX   → scenario_ref = null;              label = `Scenario`
+  #   UX/A11Y/BRAND/LAYOUT-XX → scenario_ref = null; label = `Test Case`
+  # family is derived from the ID prefix — no `type` column exists outside § 2/§ 2.2.
   FOR EACH test_case IN test_plan.test_cases:
-    IF scenario_filter IS NOT NULL AND test_case.scenario NOT IN scenario_filter:
-      CONTINUE  # skip — not in this increment's scope
-    checklist.push("- [ ] [QA-TC-{test_case.id}]: {test_case.description}")
-    checklist[-1].metadata = {
-      scenario_ref: test_case.scenario,
-      type: test_case.type,  # unit | integration | e2e | contract
-      priority: test_case.priority
-    }
+    family = ID_PREFIX(test_case.id)   # AC | TC | TC-API | REL | UX | A11Y | BRAND | LAYOUT
+    scenario_ref = (family == "AC") ? test_case.gherkin_ref : null
+    # Slice filter: only scenario-anchored rows (AC) filter by increment scenarios;
+    # non-anchored families are feature-level and appear in AGGREGATE mode only.
+    IF scenario_filter IS NOT NULL:
+      IF family == "AC" AND scenario_ref NOT IN scenario_filter: CONTINUE
+      IF family != "AC" AND family != "TC-API": CONTINUE          # feature-level families → aggregate
+      IF family == "TC-API" AND contract_filter IS NOT NULL AND NOT MATCHES(test_case.endpoint_method, contract_filter): CONTINUE
+    checklist.push("- [ ] [QA-TC-{test_case.id}]: {test_case.label}")
+    checklist[-1].metadata = { family: family, scenario_ref: scenario_ref }
 
   # Regression suite
   checklist.push("- [ ] [QA-REG-1]: Unit test suite execution")
@@ -394,8 +408,8 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   # load feature_scope ONCE here; used by QA-REL block below AND by DPC Filter 2 in QA-DC section further down.
   feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
 
-  # Reliability verification (applicable_when scope in [backend-only, integration])
-  IF feature_scope IN ["backend-only", "integration"]:
+  # Reliability verification (applicable_when scope in [backend-only, integration]; aggregate mode only)
+  IF feature_scope IN ["backend-only", "integration"] AND mode == "aggregate":
     # Mandatory reliability checks sourced from test_plan.md § 2.2 Reliability Testing
     # and the reliability integration DCs (idempotency, retry, circuit breaker, DLQ,
     # graceful shutdown, structured logging, API versioning — see defect-prevention.md).
@@ -408,7 +422,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     checklist.push("- [ ] [QA-REL-7]: Observability contract — trace_id propagated across all hops; structured log fields present (trace_id, correlation_id, feature_id, error_code); metrics latency_p95 within SLA (test_plan § REL-OBS-01, REL-OBS-02)")
     # Integration scope adds contract versioning verification
     IF feature_scope == "integration":
-      checklist.push("- [ ] [QA-REL-8]: Contract versioning strategy — no breaking changes without major version bump; deprecation window honoured; @deprecated or sunset dates documented (test_plan § REL-API-VER equivalent + defect-prevention DC for API versioning)")
+      checklist.push("- [ ] [QA-REL-8]: Contract versioning strategy — no breaking changes without major version bump; deprecation window honoured; @deprecated or sunset dates documented (defect-prevention DC for API versioning)")
     LOG: "QA reliability checklist: {feature_scope == 'integration' ? 8 : 7} QA-REL items added"
   ELSE:
     LOG: "QA reliability checklist: N/A (scope={feature_scope}) — no QA-REL items"
@@ -675,7 +689,7 @@ reviewed_by: QA
 
 ### Test Cases (from test_plan.md)
 {{FOR EACH test_case IN test_plan.test_cases:}}
-- [ ] [QA-TC-{{test_case.id}}]: {{test_case.description}}
+- [ ] [QA-TC-{{test_case.id}}]: {{test_case.label}}
 {{END FOR}}
 
 ### Regression Suite

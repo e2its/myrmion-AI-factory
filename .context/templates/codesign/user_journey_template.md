@@ -79,7 +79,7 @@ journey
 - **Pain:** {{FRICTION_AT_THIS_STEP_OR_DASH}}
 - **Ease:** {{HOW_THE_DESIGN_SOFTENS_IT}}
 - **BDD Scenario:** {{EXACT_SCENARIO_TITLE}}
-- **Mock Action:** #step-1
+- **Mock Action:** #step-1 <!-- backend-only/integration scopes use `—` -->
 
 ### Paso 2
 
@@ -169,7 +169,7 @@ journey
      the relationship guarantees). For backend/integration scopes, reliability is
      expressed HERE as business guarantees ("the customer is never charged twice",
      "if it fails, X is notified") — the technical mechanisms (idempotency, retries,
-     circuit breakers) are ARCH's job in design.md § Reliability Contract. -->
+     circuit breakers) are ARCH's job in design.md § 6 Reliability Contract. -->
 
 | Party | What is exchanged | Business guarantee | Notes |
 |-------|-------------------|--------------------|-------|

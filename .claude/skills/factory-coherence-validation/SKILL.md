@@ -513,7 +513,7 @@ FUNCTION check_business_field_to_locked_field(elements):
 Every interactive component in `mock.html` must have a corresponding entry in `design.md` Component Inventory.
 
 ```yaml
-FUNCTION check_ui_component_to_inventory(elements, scope):
+FUNCTION check_ui_component_to_inventory(elements, feature_scope):
   # Backend scopes carry no mock — explicit N/A. A UI scope with a missing/empty
   # mock is a CRITICAL gap, never a silent pass (EVOL-041 — kills the D2 fail-open).
   IF feature_scope IN [backend-only, integration]:
@@ -556,7 +556,7 @@ FUNCTION check_journey_step_to_endpoint(elements, FEATURE_ID):
   # Script missing/not executable → NOISY warning, semantic layer still runs (fail-open on infra, never silent)
 
   # Layer 2 — semantic
-  journey_steps = elements.user_journey_steps      # [{paso, persona, goal, does, sees}] — v2 fields
+  journey_steps = elements.user_journey_steps      # [{paso, persona, goal, does, sees, feels, pain, ease, bdd_scenario, mock_action}] — v2 fields
   contract_endpoints = elements.contract_endpoints  # [{method, path, operation_id, contract_slug}]
 
   FOR EACH step IN journey_steps:
@@ -589,7 +589,7 @@ FUNCTION check_journey_path_to_test_coverage(elements):
   FOR EACH path IN paths:
     uncovered = []
     FOR EACH paso IN path.pasos:
-      scenario = FIND(steps, paso == paso).bdd_scenario
+      scenario = FIND(steps, step.paso == paso).bdd_scenario
       tcs = FILTER(test_cases, scenario_ref ~= scenario)
       IF tcs IS EMPTY:
         uncovered.push({paso, scenario})
@@ -635,7 +635,7 @@ FUNCTION check_contract_to_test_coverage(elements):
 
   FOR EACH endpoint IN endpoints:
     matched = FILTER(test_cases,
-      type == "integration" AND description REFERENCES endpoint.path)
+      family == "TC-API" AND endpoint ~= endpoint.path AND method == endpoint.method)
     IF matched.length == 0:
       YIELD { check: "contract_to_test_coverage", severity: CRITICAL,
               source: "Contract: {endpoint.method} {endpoint.path}",
@@ -1241,6 +1241,12 @@ FUNCTION check_slice_immutability_consistency(elements):
 FUNCTION extract_traceable_elements(artifacts, scope):
   elements = {}
 
+  # Raw artefacts (frontmatter-level checks: 0a scope drift, 0b consumes_contract, 0c/0d presence, 16 heuristic)
+  elements.spec_feature = artifacts.spec_feature
+  elements.design = artifacts.design_md
+  elements.test_plan = artifacts.test_plan
+  elements.dev_plan = artifacts.dev_plan
+
   # From spec.feature
   elements.spec_scenarios = PARSE_GHERKIN_SCENARIOS(artifacts.spec_feature)
   # Each scenario: {name, steps: [{keyword, text}], tags: []}
@@ -1276,7 +1282,11 @@ FUNCTION extract_traceable_elements(artifacts, scope):
 
   # From test_plan.md
   elements.test_plan_cases = PARSE_TEST_CASES(artifacts.test_plan)
-  # Each: {id, scenario_ref, type, description, priority}
+  # Per-family shape (EVOL-041 — no uniform columns):
+  #   {id, family: AC|TC|TC-API|REL|UX|A11Y|BRAND|LAYOUT (from ID prefix),
+  #    scenario_ref (§ 1 `Gherkin Ref` — AC family only; exact scenario title),
+  #    endpoint, method (§ 2.1 TC-API family only),
+  #    label (the family's scenario/test-case column text)}
 
   # From increment_plan.md (may be NULL on pre-slicing legacy features)
   IF artifacts.increment_plan IS NOT NULL:
