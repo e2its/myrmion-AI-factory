@@ -17,7 +17,7 @@ Only mark as blocker if AT LEAST one of the following holds:
 - **Build broken / tests broken** after the change (verifiable in CI).
 - **Framework Hard-Gate violation** (any of):
   - **CIP** (Codebase Inventory) — new code artefact without `config/codebase_inventory.json` consultation. Maps to Hard Block 7 in `SKILL.md`.
-  - **CVP** (Coherence Validation) — spec-bearing change with broken upstream traceability (spec.feature ↔ user_journey ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan). Hard Block 8.
+  - **CVP** (Coherence Validation) — spec-bearing change with broken upstream traceability (spec.feature ↔ user_journey ↔ slice_map ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan). Hard Block 8.
   - **IPP** (Incremental Persistence) — governance artefact written fully-formed on first write. Hard Block 9.
   - **Branch protection** — branch name does not match an allowed working pattern. Hard Block 10.
   - **Governance-bump miss** (framework meta only) — file tracked in `governance_versions.json` changed without a matching manifest entry update. Hard Block 11.

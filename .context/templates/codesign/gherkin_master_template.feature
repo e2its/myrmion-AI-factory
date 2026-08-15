@@ -28,7 +28,7 @@ last_iteration_scope: "Initial co-creation"
 # A1: [Final decision, e.g. Any pass < 8 chars will be rejected.]
 # Hat: [🎩 PO / 🎨 UX / 🎩🎨 CO-DESIGN]
 # Rationale: [Why]
-# Journey Ref: [Step # in user_journey.md, if applicable]
+# Journey Ref: [Paso N in user_journey.md, if applicable]
 #
 # PENDING: [Current open question if status is NEEDS_INFO]
 # - Proposal: [Suggested solution]
@@ -42,6 +42,11 @@ last_iteration_scope: "Initial co-creation"
 # scenarios or re-order value. Each slice/increment ships as an independently deployable vertical.
 # When slicing_strategy: monolithic, no slice_map exists and all scenarios belong to a single implicit INC-1.
 
+# MACHINE ANCHOR — Scenario titles are join keys: user_journey.md steps reference them verbatim
+# via `**BDD Scenario:** {title}` (validated by scripts/check-journey-grammar.sh), and test_plan.md
+# AC rows reference them via `Gherkin Ref`. Renaming a scenario after approval is a realignment
+# iteration, not a free edit.
+
 Feature: [Clear Requirement Title]
   As [User Role]
   I want [Action/Desire]
@@ -53,14 +58,14 @@ Feature: [Clear Requirement Title]
     And the database is active
 
   # 1. The happy path (What should happen if everything goes well)
-  # Journey Steps: #1, #2, #3 (refs to user_journey.md)
+  # Journey Steps: Paso 1, Paso 2, Paso 3 (informative — the canonical join is journey→spec via **BDD Scenario:**)
   Scenario: Happy Path - [Main Flow Name]
     Given the user is on the "Home" page
     When they enter the value "X" in the "Y" field
     Then the system shows the message "Saved successfully"
 
   # 2. Error Cases (Validations, 4xx, 5xx)
-  # Journey Steps: #4 (refs to user_journey.md)
+  # Journey Steps: Paso 4 (informative)
   Scenario: Error - [Error Name]
     Given the user is on the form
     When they enter invalid data

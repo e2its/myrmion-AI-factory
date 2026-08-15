@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -77,6 +77,12 @@
         "doc": "pre-push git hook (EVOL-040) — delegates its secrets lane to the security-scan dispatcher with --require-scanner (fail-closed at push preserved). Deliberate carve-out: security_scan.enabled=false passes even under --require-scanner (ratified policy opt-out ≠ infra failure; regex floor stays).",
         "left": "scripts/hooks/pre-push",
         "right": ".context/templates/setup/scripts/hooks/pre-push"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "Journey grammar validator (EVOL-041) — deterministic gate for user_journey.md v2 anchors (### Paso N, BDD Scenario titles, #step-N mock ids, Feels 1-5, paths, LAW-16 purity tripwire). Template is the SETUP-delivery source consumed by CODESIGN auto-approval + CVP downstream; meta copy backs the red-proving self-test in CI.",
+        "left": "scripts/check-journey-grammar.sh",
+        "right": ".context/templates/setup/scripts/check-journey-grammar.sh"
       },
       {
         "type": "law_corpus_mirror",

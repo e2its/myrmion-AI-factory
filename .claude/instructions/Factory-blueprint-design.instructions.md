@@ -28,11 +28,10 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 |--------|--------|---------|
 | `spec.feature` | APPROVED (mandatory) | Gherkin scenarios for design; `scope` and `consumes_contract` frontmatter |
 | `slice_map.md` | APPROVED (mandatory when `slicing_strategy: incremental`; absent when `monolithic`) | CODESIGN's authoritative capability-value slices — BLUEPRINT refines these into increments (Increment Plan Generation Step A0/B), never re-invents them |
-| `user_journey.md` (or `user_journey.integration.md` for scope in [backend-only, integration]) | APPROVED (mandatory) | Data Schemas (source of truth for contracts); integration variant adds § 5 External Systems contract_slug backfill + § 6 Reliability Contract |
+| `user_journey.md` (single file, ALL scopes) | APPROVED (mandatory) | Part II Domain Contract: § 6 Business Fields = source of truth for WHICH business fields exist (plain language, no types — LAW-16); § 8 Third Parties & Guarantees drives contract_slug backfill + design.md § 6 Reliability Contract derivation for backend/integration scopes |
 | `mock.html` | APPROVED (mandatory for scope in [full-stack, frontend-only]; N/A for backend-only/integration) | Visual reference for component architecture |
 | Global UX Vision (`docs/ux/vision/`) | APPROVED (if scope in [full-stack, frontend-only]) | App shell, style guide, components, nav map |
 | External Design System (`docs/ux/design-system/`) | If exists AND scope in [full-stack, frontend-only] | DS tokens, component library |
-| `design_ux.md` (legacy) | If exists AND scope in [full-stack, frontend-only] | Legacy UX decisions |
 | Governance rules (20+ files from `.claude/rules/`) | All applicable | Architecture, security, testing constraints |
 | Protected code (`protected-paths.json`) | If exists | RED ZONE boundaries |
 | `system_resources.json` | If exists | External integrations reference |
@@ -99,7 +98,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 # Consult the Defect Prevention Catalog filtered to this agent
 feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # pass to DPC Filter 2
 applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
-STORE applicable_dcs IN context FOR use by Section 7 (GCD) and Section 4 (test_plan Edge Cases)
+STORE applicable_dcs IN context FOR use by Section 7 (GCD) and test_plan § 2 (Detailed Technical Test Plan — edge cases)
 
 # Advisory projection: every applicable DC becomes an explicit design constraint
 # and an explicit test-plan edge case. Blocking enforcement happens at --approve.
@@ -144,7 +143,6 @@ IF has_gap:
 1. **Mock Visual Baseline**: Extract component tree, interaction points, data bindings from mock.html
 2. **Global UX Vision**: Load app_shell.html, style_guide.html, page_templates.html, component_library.html, navigation_map.md
 3. **External Design System**: Load DS tokens from `docs/ux/design-system/`
-4. **Legacy UX Artifacts**: Load `design_ux.md` if exists (backward compatibility)
 5. **Cross-Feature UX Decisions**: Load `ux_decisions_log.md` for precedent
 
 ---
@@ -302,7 +300,7 @@ topology = READ(constitution.md, "architecture.topology")
 
 **Sub-step -2b: Extract Planned Artifacts**
 - From spec.feature scenarios: services, controllers, repositories
-- From user_journey.md schemas: domain entities, DTOs
+- From user_journey.md § Section 6 Business Fields: domain concepts, DTOs (typing derived by ARCH)
 - From mock.html: UI components
 - Each artifact: name, type, module, projected_path, responsibility
 
@@ -394,12 +392,13 @@ candidates = find_inventory_matches(planned_artifact, topology):
 
 **Step 2d**: Reference contracts in design.md Section 3
 
-### Schema Derivation Policy
-- **Source of truth**: `user_journey.md` Data Schemas
-- **Technical fields FREE**: id, created_at, updated_at, version, audit fields → ARCH adds freely
-- **Business fields LOCKED**: Any field from journey schemas → ARCH formalizes but does NOT invent
-- **If ARCH needs a business field not in journey** → RDR explaining why → If approved, update journey schemas
-- **Cross-Layer Type Mapping Table**: MANDATORY in design.md — maps journey types → API types → DB types → UI types
+### Schema Derivation Policy (LAW-16)
+- **Existence source of truth**: `user_journey.md § Section 6: Business Fields` — plain-language table (Field | Meaning | Required | Allowed values | Example). The journey carries NO types.
+- **Typing authority**: ARCH, in design.md §§ 3.1/3.2 (per-layer types) + § 7.4 Schema Constraints (machine record consumed by REVIEW/H-11/synthetic data).
+- **Type derivation**: ARCH derives each Semantic Type from Meaning + Allowed values; ambiguous derivations (money precision, date granularity, value-code mapping) → RDR in design.md Section 0. Business allowed-values map to technical enums in § 3.1/3.2 (e.g. "settled/declined/pending" → `enum[SETTLED, DECLINED, PENDING]`).
+- **Technical fields FREE**: id, created_at, updated_at, version, audit, correlation/trace → ARCH adds freely.
+- **Business fields LOCKED**: ARCH formalizes but does NOT invent. New business field needed → RDR → `CODESIGN --refine` updates journey § 6.
+- **Cross-Layer Type Mapping Table**: MANDATORY in design.md — maps journey fields → API types → DB types → UI types.
 
 ### Infrastructure Needs Declaration (design.md Section 5)
 ```yaml
@@ -581,7 +580,7 @@ Pre-compile stack-specific SAST patterns so SEC hat does not re-derive them. Eac
 
 #### 7.4 Schema Constraints → REVIEW [SCHEMA]
 
-Extract from `user_journey.md` Data Schemas. Business fields are LOCKED. Technical fields (id, timestamps, audit) are exempt.
+Extract field EXISTENCE from `user_journey.md § Section 6: Business Fields`; types/formats come from §§ 3.1/3.2 of this design (ARCH-derived — the journey carries no types, LAW-16). Business fields are LOCKED. Technical fields (id, timestamps, audit) are exempt.
 
 #### 7.5 Contract-First Rules → REVIEW [CFP]
 
@@ -635,11 +634,19 @@ RELIABILITY:
 - Fallback behavior specifications
 
 ### External System Adapters
-For each external system identified in `user_journey.md Section 5`:
+For each third party identified in `user_journey.md § Section 8: Third Parties & Guarantees`:
 - Adapter interface definition
 - Error handling strategy (timeout, retry, circuit breaker)
 - Data transformation (external format ↔ internal format)
 - Mock/stub specification for testing
+
+### Reliability Contract Derivation (design.md § 6 — scope in [backend-only, integration])
+
+The journey states business guarantees in plain language (`§ Section 8`, e.g. "the customer is never charged twice", "if it fails, X is notified"); ARCH formalises HOW in `design.md § 6 Reliability Contract` (LAW-16 split):
+- One row per journey guarantee → mechanism (idempotency / retry / circuit breaker / DLQ / timeouts / graceful shutdown) + parameters.
+- Every journey § 8 guarantee MUST map to at least one mechanism row; orphan mechanisms (no guarantee) need a Section 0 rationale.
+- `test_plan.md § 2.2 Reliability Testing` is generated FROM design.md § 6 (not from the journey).
+- DEVOPS consumes § 6 for infra alarms.
 
 ### Frontend Hosting Auto-Declaration (MANDATORY when frontend.framework != None)
 
@@ -702,9 +709,11 @@ FUNCTION auto_declare_frontend_resource():
 
 ### QA Test Plan Generation (🧪 hat)
 
+**Section coverage note (EVOL-041):** emit ALL applicable template sections — § 1 AC-XX, § 2 TC-XX, § 2.1 TC-API-XX, § 2.2 REL-*-XX (backend/integration; from design.md § 6), § 3 UX-XX/A11Y-XX and § 4 BRAND-XX/LAYOUT-XX (UI scopes; IDs per template).
+
 **Level 1: Business/Acceptance Tests**
 - One test case per spec.feature scenario
-- Test ID format: `TC-{SCENARIO_NUMBER}` (e.g., TC-001, TC-002)
+- Test ID format: `AC-XX` (canonical family — matches test_plan_template § 1); `Gherkin Ref` = EXACT scenario title (machine join for journey Paths + CVP Check 4b)
 - Maps: Scenario → Preconditions → Steps → Expected Result
 
 **Level 2: Technical Tests**
@@ -955,10 +964,12 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       # ... only OWASP items relevant to this feature's surface area
   
   # 7.4 Schema Constraints (→ REVIEW Check #5: SCHEMA)
-  EXTRACT from user_journey.md Data Schemas:
-    FOR EACH entity IN data_schemas:
-      business_fields: [field_name, type, required|optional]  # LOCKED
-      # (Technical fields exempt: id, created_at, updated_at, version, audit fields)
+  EXTRACT from user_journey.md § Section 6 Business Fields (existence + required + meaning; NO types there — LAW-16):
+    FOR EACH concept IN business_fields_tables:
+      business_fields: [field_name, required|optional]  # LOCKED (existence authority = journey)
+  JOIN with design.md §§ 3.1/3.2 (ARCH-derived types/formats — typing authority = this design):
+      → per-field {type, format}
+      # (Technical fields exempt: id, created_at, updated_at, version, audit, correlation/trace fields)
   
   WRITE design.md "### 7.4 Schema Constraints → REVIEW [SCHEMA]"
   WRITE design.md:
@@ -971,7 +982,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     exempt_technical_fields: [id, created_at, updated_at, deleted_at, version, audit_fields]
     # Type Format Registry (for test data compliance)
     # Preserves domain type precision lost when normalizing to language primitives.
-    # Source: user_journey.md Data Schemas + OpenAPI/contract format fields.
+    # Source: journey § 6 Business Fields (existence) + design §§ 3.1/3.2 (types) + OpenAPI/contract format fields.
     # Consumed by: IMPLEMENT TDD (mock data generation), REVIEW Check #5 [SCHEMA-TEST].
     type_format_registry:
       - field_pattern: "*_id" | format: "uuid" | example: "550e8400-e29b-41d4-a716-446655440000"
@@ -981,9 +992,9 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       - field_pattern: "*url*" | format: "uri" | example: "https://example.com/resource"
       - field_pattern: "*uri*" | format: "uri" | example: "https://example.com/resource"
       - field_pattern: "*phone*" | format: "phone" | example: "+1-555-0100"
-      # Entity-specific overrides (from user_journey.md):
-      #   FOR EACH entity IN data_schemas:
-      #     FOR EACH field WHERE field.type has domain precision (UUID, Email, URL, etc.):
+      # Entity-specific overrides (journey concepts, ARCH-derived formats):
+      #   FOR EACH concept IN business_fields_tables:
+      #     FOR EACH field WHERE derived type has domain precision (UUID, Email, URL, etc.):
       #       - field_pattern: "{entity.name}.{field.field}" | format: "{domain_format}" | example: "{valid_example}"
   
   # 7.5 Contract-First Constraints (→ REVIEW Check #10: CFP)

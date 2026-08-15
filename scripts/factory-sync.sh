@@ -273,7 +273,12 @@ detect_tree_orphans() {
     local rel="${dst_file#$dst_root/}"
     if [[ ! -f "$src_root/$rel" ]]; then
       local rel_path="${dst_file#$TARGET_PROJECT/}"
-      echo -e "  ${RED}!${NC}  $rel_path ${RED}(orphan -- not in framework)${NC}"
+      case "$rel" in
+        codesign/user_journey.integration.md|ux/design_ux.md|qa/smoke_e2e_integration_template.md|ux/mock-template.html)
+          echo -e "  ${RED}!${NC}  $rel_path ${RED}(RETIRED by EVOL-041 -- safe to delete; superseded by user_journey_template ≥2.0 / smoke_e2e_report_template ≥2.0 / codesign mock-template)${NC}" ;;
+        *)
+          echo -e "  ${RED}!${NC}  $rel_path ${RED}(orphan -- not in framework)${NC}" ;;
+      esac
       DELETED=$((DELETED + 1))
     fi
   done < <(find "$dst_root" -type f -print0 | sort -z)

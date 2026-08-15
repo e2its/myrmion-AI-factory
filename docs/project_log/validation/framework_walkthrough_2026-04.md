@@ -10,6 +10,9 @@ author: EVOL-022
 
 # Framework Validation Walkthrough — Helix Testbed
 
+> **⚠️ SUPERSEDED (EVOL-041, 2026-08-15):** this walkthrough predates the journey-first redesign. `user_journey.integration.md`, `design_ux.md` and `smoke_e2e_integration_template.md` no longer exist — a single `user_journey.md` (business-pure, LAW-16) serves ALL scopes. Historical record; do not follow as procedure.
+
+
 ## Executive summary (English)
 
 End-to-end written simulation of a fictitious "Helix" SaaS project moving through the AI Factory SDLC, aimed at detecting structural gaps in the framework and guiding their fixes (EVOL-022). Nothing is executed — the walkthrough audits every command, instruction, skill, hook, script and template by direct inspection, citing the real source file for each observed behaviour.

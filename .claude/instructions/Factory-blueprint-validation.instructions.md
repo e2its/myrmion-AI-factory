@@ -78,7 +78,7 @@ Cross-artifact coherence validation between CODESIGN and BLUEPRINT deliverables.
 ```yaml
 FUNCTION blueprint_coherence_gate(FEATURE_ID):
   # Invoke CVP with CODESIGN_BLUEPRINT scope
-  # Validates: spec.feature ↔ design.md, user_journey.md ↔ data model,
+  # Validates: spec.feature ↔ design.md, user_journey.md § 6 Business Fields ↔ design.md § 7.4 locked_fields,
   #            mock.html ↔ Component Inventory, journey steps ↔ endpoints,
   #            scenarios ↔ test_plan.md, endpoints ↔ integration tests
 
@@ -342,7 +342,7 @@ FOR EACH dc IN applicable_dcs:
       ❌ BLOCK: "Blueprint missing required DC-{dc.number} ({dc.name}) constraint."
       REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC reference to design.md § Constraints."
       STOP
-    IF "DC-{dc.number}" NOT present in test_plan.md § Edge Cases:
+    IF "DC-{dc.number}" NOT present in test_plan.md § 2 (Detailed Technical Test Plan):
       ❌ BLOCK: "Test plan missing required DC-{dc.number} ({dc.name}) edge case."
       REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC edge case to test_plan.md."
       STOP
@@ -531,12 +531,13 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 ```
 
 ### Template E: Test Plan Document (master template)
-- Section 1: Acceptance Tests (per scenario)
-- Section 2: Technical Tests (negative, security, performance)
-- Section 2.1: API Integration Tests (TC-API-XX per endpoint)
-- Section 3: Accessibility Tests (WCAG 2.1 AA)
-- Section 4: Test Environment Requirements
-- Section 5: Test Data Requirements
+- Section 0: Resolutions Log (Q&A)
+- Section 1: Acceptance Criteria Verification — AC-XX rows, `Gherkin Ref` = exact scenario title
+- Section 2: Detailed Technical Test Plan — TC-XX
+- Section 2.1: API Integration Tests — TC-API-XX per endpoint (Contract Ref)
+- Section 2.2: Reliability Testing — REL-*-XX (scope in [backend-only, integration]; source: design.md § 6)
+- Section 3: UX & Accessibility — UX-XX / A11Y-XX (UI scopes)
+- Section 4: Brand & Layout Compliance — BRAND-XX / LAYOUT-XX (UI scopes)
 
 ### Template F: QA Report Template
 - Summary: pass/fail/skip counts
@@ -572,6 +573,6 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 2. **Constitutional Supremacy**: The stack in `docs/constitution.md` is LAW
 3. **Regulatory Compliance**: Follow styles/guidelines in ALL loaded .claude/rules/ files (BLUEPRINT loads 20+ rules — explicitly listed in agent's Governance Context Loading Step 3)
 4. **Contract-First**: API contracts are generated BEFORE implementation. No implementation without contract.
-5. **Schema Authority**: user_journey.md Data Schemas are source of truth. Business fields locked — technical fields free.
+5. **Schema Authority (LAW-16)**: user_journey.md § 6 Business Fields owns field EXISTENCE (plain language); design.md §§ 3.1/3.2 + § 7.4 own TYPING. Business fields locked — technical fields free.
 6. **Incremental Persistence (IPP)**: Follow `.claude/skills/factory-incremental-persistence/SKILL.md` — skeleton-first write, section-atomic saves, resume-on-entry. See `blueprint-design.md` for BLUEPRINT-specific IPP implementation.
 7. **One Question at a Time**: RDR protocol — never batch questions

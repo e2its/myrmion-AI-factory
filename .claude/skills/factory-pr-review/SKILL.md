@@ -97,7 +97,7 @@ Extends `references/docs-sync-checklist.md` with the framework's own artefacts. 
 
 | Code change | Artefact that must update | Severity if missing |
 |---|---|---|
-| New / modified Gherkin scenario in `docs/spec/{ID}/` | `user_journey.md` + `test_plan.md` (CVP Check 1, 2) | **Blocker** |
+| New / modified Gherkin scenario in `docs/spec/{ID}/` | `user_journey.md` + `test_plan.md` (journey `**BDD Scenario:**` anchors — check-journey-grammar.sh + CVP Checks 5, 4b) | **Blocker** |
 | New / modified design contract operation | `design.md` § Contracts + OpenAPI/AsyncAPI under `contracts/` | **Blocker** |
 | New / modified test_plan case | `dev_plan.md` task tags reference the case | Important |
 | `slicing_strategy: incremental` feature ships without `slice_map.md` APPROVED | (CVP Check 0d slice_map_presence) | **Blocker** for a NEW feature (no increment_plan yet); WARNING for a legacy pre-EVOL-036 feature already carrying increment_plan (grandfathered — Check 0d) |
@@ -332,7 +332,7 @@ Without persisting the analysis on the PR, the chain "I saw a failure → I diag
 |---|---|
 | `factory-branching-strategy` | Push gate is downstream of the Pre-Action Gate. Does NOT re-validate branch creation; assumes the branch exists and is non-protected. Reads `default_base_branch` from `.claude/rules/branching.md`. |
 | `factory-codebase-inventory` (CIP) | Block 7 maps directly to CIP Canary; preflight checks for new code artefacts that are not registered in `config/codebase_inventory.json`. |
-| `factory-coherence-validation` (CVP) | Block 8 invokes a subset of CVP checks (0a/0c/0d/1/2/13-20) when `docs/spec/{ID}/**` is touched — the `0d/18/19/20` slice checks (EVOL-036) give the local push preflight parity with BLUEPRINT --approve. Full CVP runs at BLUEPRINT --approve / IMPLEMENT --plan / QA --verify; preflight runs the cheap subset locally. |
+| `factory-coherence-validation` (CVP) | Block 8 invokes a subset of CVP checks (0a/0c/0d/1/2/4b/5/13-20) when `docs/spec/{ID}/**` is touched — 4b/5 (journey-path + scenario → test coverage, EVOL-041) back the Gherkin-scenario Blocker row — the `0d/18/19/20` slice checks (EVOL-036) give the local push preflight parity with BLUEPRINT --approve. Full CVP runs at BLUEPRINT --approve / IMPLEMENT --plan / QA --verify; preflight runs the cheap subset locally. |
 | `factory-incremental-persistence` (IPP) | Block 9 is already enforced by `check-ipp-compliance.sh` at PreToolUse Write. Preflight re-asserts as defence in depth (in case the file was created outside Claude). |
 | `factory-build-verification` (BVL) | Preflight does NOT re-run BVL (tests already passed at `IMPLEMENT --build`). It checks that test files are not deleted and that new logic has accompanying tests (heuristic). |
 | `factory-governance-loading` (GCRP) | Block 11 (governance-bump miss, meta only) enforces the same rule as GCRP § Governance Write Protocol (GWP). Preflight computes the diff against `governance_versions.json` and blocks if a tracked file changed without a manifest update. |

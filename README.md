@@ -261,7 +261,7 @@ Each `full-sdlc` feature expands into **8 backlog issues**. Three are hard gates
 
 - **CONTRACT-FREEZE** — freezes API contracts (OpenAPI, TS interfaces, GraphQL schema, etc., stack-specific) and the contract test harness before `IMPLEMENT --plan`.
 - **PREVENTIVE-SWEEP** — runtime defect scan post-IMPLEMENT via a parallel scope-sized skill; zero open C-severity findings to pass.
-- **SMOKE-E2E** — numbered manual smoke blocks derived from `user_journey.md` BDD scenarios, executed on the dev-deployed build before `QA --verify` can pass.
+- **SMOKE-E2E** — one smoke block per `user_journey.md § 3` Path, expanded transitively Paso → BDD Scenario → `test_plan.md` TC, executed on the dev-deployed build before `QA --verify` can pass.
 
 Two additional gates operate at the epic/slice level:
 
@@ -795,7 +795,6 @@ The framework governs two orthogonal scope axes:
    # Scope Compatibility Gate: full-stack project accepts backend-only feature ✅
    # Template Selector:
    #   spec.feature             → gherkin_master_template.feature
-   #   user_journey.integration → user_journey.integration.md (caller-side flows, reliability contract)
    #   mock.html                → N/A (skipped; no UI)
    # Auto-approval: 12-check gate degrades to ~6 applicable checks (UX checks N/A)
 
@@ -830,7 +829,7 @@ The framework governs two orthogonal scope axes:
 # PREVENTIVE-SWEEP sub-agents filter DCs by scope → only backend + cross-cutting + infra scopes swept
 
 /qa --verify FEAT-039
-   # SMOKE-E2E gate: scope-aware smoke template selected (smoke_e2e_integration_template.md)
+   # SMOKE-E2E gate: single smoke template, scope-aware execution mode (smoke_e2e_report_template.md)
    # SMOKE-REL-* blocks MANDATORY (for scope=integration); test_plan § 2.2 rows verified
    # Verification checklist includes QA-REL-1..7 reliability items
 ```
@@ -1002,7 +1001,7 @@ docs/
 ├── spec/{FEATURE_ID}/              # Per-feature workspace
 │   ├── spec.feature                #   Gherkin BDD (CODESIGN)
 │   ├── mock.html                   #   Visual mockup (CODESIGN)
-│   ├── user_journey.md             #   Event Storming + Data Schemas (CODESIGN)
+│   ├── user_journey.md             #   Journey-first: experience + business contract (CODESIGN, all scopes)
 │   ├── design.md                   #   Architecture (BLUEPRINT)
 │   ├── test_plan.md                #   Test strategy (BLUEPRINT)
 │   ├── dev_plan.md                 #   Implementation plan (IMPLEMENT)

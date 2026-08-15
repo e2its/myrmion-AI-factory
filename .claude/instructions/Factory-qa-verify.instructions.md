@@ -30,7 +30,7 @@ applicable_when:
 
 Before processing commands, read:
 1. `docs/spec/{{FEATURE_ID}}/spec.feature` (acceptance criteria)
-2. `docs/spec/{{FEATURE_ID}}/user_journey.md` (Data Schemas for test data + integration validation)
+2. `docs/spec/{{FEATURE_ID}}/user_journey.md` (single file, ALL scopes — § 3 Paths for smoke composition, § 6 Business Fields for existence; test-data types come from `design.md § 7.4`)
 3. `docs/spec/{{FEATURE_ID}}/mock.html` (enrichment — UI drift detection)
 4. `docs/spec/{{FEATURE_ID}}/test_plan.md` (**MANDATORY** — verification baseline from BLUEPRINT)
 5. `docs/spec/{{FEATURE_ID}}/design.md` (enrichment — architecture reference)
@@ -269,13 +269,15 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       "backend-only"  → "phase:smoke-e2e-integration" # caller-harness + downstream-state + observability smoke
       "integration"   → "phase:smoke-e2e-integration" # same as backend-only
       default         → "phase:smoke-e2e"             # legacy projects (BACKLOG ships unscoped label)
-    smoke_template = CASE feature_scope:
-      "full-stack"    → ".context/templates/qa/smoke_e2e_report_template.md (browser + API hybrid)"
-      "frontend-only" → ".context/templates/qa/smoke_e2e_report_template.md (browser-centric)"
-      "backend-only"  → ".context/templates/qa/smoke_e2e_integration_template.md (caller-harness + state + observability)"
-      "integration"   → ".context/templates/qa/smoke_e2e_integration_template.md (includes SMOKE-REL-* idempotency/retry/DLQ/shutdown blocks)"
-      default         → ".context/templates/qa/smoke_e2e_report_template.md"
-    journey_source = has_ui ? "docs/spec/{FEATURE_ID}/user_journey.md" : "docs/spec/{FEATURE_ID}/user_journey.integration.md"
+    # Single smoke template, ALL scopes (EVOL-041) — execution mode varies by scope inside the template
+    smoke_template = ".context/templates/qa/smoke_e2e_report_template.md"
+    smoke_mode = CASE feature_scope:
+      "full-stack"    → "browser + API hybrid"
+      "frontend-only" → "browser-centric"
+      "backend-only"  → "caller-harness + downstream-state + observability"
+      "integration"   → "caller-harness + SMOKE-REL-* blocks (idempotency/retry/DLQ/shutdown)"
+      default         → "browser-centric"
+    journey_source = "docs/spec/{FEATURE_ID}/user_journey.md"   # single filename, ALL scopes
 
     # Accept either the scope-aware label OR the legacy unscoped label for backward compatibility
     smoke_issue = ADAPTER.query_board() → find item WHERE (labels CONTAINS expected_phase_label OR labels CONTAINS "phase:smoke-e2e") AND title CONTAINS FEATURE_ID
@@ -291,10 +293,10 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
 
       ❌ BLOCK: "SMOKE-E2E gate not passed for {FEATURE_ID} (scope: {feature_scope}, current status: {smoke_issue.status})."
       REDIRECT: |
-        Smoke blocks derived from {journey_source} must all pass on the dev-deployed build before --verify. Scope=`{feature_scope}` uses the {smoke_template} template. Steps:
+        Smoke blocks = journey Paths ({journey_source} § Section 3) expanded transitively Paso → BDD Scenario → test_plan TC. All must pass on the dev-deployed build before --verify. Scope=`{feature_scope}` runs in mode: {smoke_mode}. Steps:
           1. Ensure DEVOPS --deploy --env dev {FEATURE_ID} ran successfully
           2. Execute each numbered smoke block against the dev deployment (browser steps for UI scope; caller-harness + state + observability for backend-only/integration; HYBRID combines both for full-stack)
-          3. For scope=integration: additionally execute SMOKE-REL-IDEMP, SMOKE-REL-RETRY, SMOKE-REL-DLQ, SMOKE-REL-SHUTDOWN blocks (reliability contract from user_journey.integration.md § 6)
+          3. For scope in [backend-only, integration]: additionally execute SMOKE-REL-* blocks (test_plan § 2.2 REL-XX families; mechanisms per design.md § 6 Reliability Contract)
           4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
           5. Move the SMOKE-E2E issue to Done
           6. Re-run QA --verify {FEATURE_ID}
@@ -308,6 +310,11 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
         ❌ BLOCK: "Smoke E2E report is INVALIDATED — dev build changed after the last smoke run."
         REDIRECT: "Re-deploy to dev and re-run the smoke blocks to refresh the report."
         STOP
+      # verdict + status enforcement (the template's own gate contract)
+      IF fm.overall_verdict != "PASS" OR fm.status != "APPROVED":
+        ❌ BLOCK: "Smoke report exists but overall_verdict={fm.overall_verdict} / status={fm.status} — only PASS + APPROVED closes the SMOKE-E2E gate."
+        REDIRECT: "Fix failing blocks, set overall_verdict: PASS + status: APPROVED, then re-run QA --verify {FEATURE_ID}."
+        STOP
       # scope-consistency check on the report
       IF fm.scope AND fm.scope != feature_scope:
         ❌ BLOCK: "Smoke report scope=`{fm.scope}` does not match spec.feature.scope=`{feature_scope}`. Regenerate the report using the correct template ({smoke_template})."
@@ -320,7 +327,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
   ✅ Prerequisites passed — proceed with verification
 ```
 
-> **Rationale for Gate 4.** QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: the user_journey.md BDD scenarios are numbered into explicit blocks, each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the legacy flow.
+> **Rationale for Gate 4.** QA relied on ad-hoc manual smoke testing whose coverage and repeatability varied between sessions. The SMOKE-E2E gate makes smoke execution a reproducible DoD artefact: each journey Path (`user_journey.md § 3`) becomes one SMOKE-{N} block whose verification scope is the transitive TC set (Paso → BDD Scenario → test_plan `Gherkin Ref`), each block has a pass/fail line in `smoke_e2e_report.md`, and the gate issue on the backlog cannot close until every block is ✅. This caught the class of "works on my machine, blows up on dev" defects that repeatedly slipped into QA under the legacy flow.
 
 ### Scope Boundary (M-09)
 ```yaml
@@ -337,7 +344,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
 ### Verification Checklist Generation (Checkbox-Driven Protocol — MANDATORY)
 
 **Before executing any verification step, generate a verification checklist in the target qa_report file with `- [ ]` items derived from test_plan.md + governance checks.** Target file:
-- Slice mode (`INCREMENT_ID != null`): `qa_report_{INCREMENT_ID}_{ts}.md`. Test-case items filtered to scenarios assigned to that increment in `increment_plan.md § 1` (`Scenarios covered`). Reliability items filtered to contracts on the increment's `Contract surface`. Per-feature checks (lint/typecheck/SAST/DAST) still execute scope-aware (BVL filters). Do NOT include cross-slice transversal checks here.
+- Slice mode (`INCREMENT_ID != null`): `qa_report_{INCREMENT_ID}_{ts}.md`. Test-case items filtered to scenarios assigned to that increment in `increment_plan.md § 1` (`Scenarios covered`). TC-API items filtered to the increment's `Contract surface`; QA-REL reliability items are feature-level and run in aggregate mode only. Per-feature checks (lint/typecheck/SAST/DAST) still execute scope-aware (BVL filters). Do NOT include cross-slice transversal checks here.
 - Aggregate mode (`INCREMENT_ID == null`): `qa_report_final_{ts}.md`. Full checklist plus a transversal section (see § Aggregate Transversal Checks below) AND an `aggregates:` frontmatter listing the consumed `qa_report_{INC-N}_*.md` paths.
 
 ```yaml
@@ -373,16 +380,25 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   checklist.push("- [ ] [QA-GOV-2]: Integration audit (system_resources + hardcoded config)")
   checklist.push("- [ ] [QA-GOV-3]: Static audit (code quality + test coverage + standards)")
 
-  # Test plan derived checks (one per test case, scenario-filtered in slice mode)
+  # Test plan derived checks (one per test case, scenario-filtered in slice mode).
+  # Per-family column mapping (EVOL-041 — the template has NO uniform scenario/type/description columns):
+  #   AC-XX      → scenario_ref = § 1 `Gherkin Ref` (exact scenario title); label = `Business Scenario`
+  #   TC-XX      → scenario_ref = null;              label = `Technical Scenario`
+  #   TC-API-XX  → scenario_ref = null (join key = `Endpoint` + `Method`); label = `Scenario`
+  #   REL-*-XX   → scenario_ref = null;              label = `Scenario`
+  #   UX/A11Y/BRAND/LAYOUT-XX → scenario_ref = null; label = `Test Case`
+  # family is derived from the ID prefix — no `type` column exists outside § 2/§ 2.2.
   FOR EACH test_case IN test_plan.test_cases:
-    IF scenario_filter IS NOT NULL AND test_case.scenario NOT IN scenario_filter:
-      CONTINUE  # skip — not in this increment's scope
-    checklist.push("- [ ] [QA-TC-{test_case.id}]: {test_case.description}")
-    checklist[-1].metadata = {
-      scenario_ref: test_case.scenario,
-      type: test_case.type,  # unit | integration | e2e | contract
-      priority: test_case.priority
-    }
+    family = ID_PREFIX(test_case.id)   # AC | TC | TC-API | REL | UX | A11Y | BRAND | LAYOUT
+    scenario_ref = (family == "AC") ? test_case.gherkin_ref : null
+    # Slice filter: only scenario-anchored rows (AC) filter by increment scenarios;
+    # non-anchored families are feature-level and appear in AGGREGATE mode only.
+    IF scenario_filter IS NOT NULL:
+      IF family == "AC" AND scenario_ref NOT IN scenario_filter: CONTINUE
+      IF family != "AC" AND family != "TC-API": CONTINUE          # feature-level families → aggregate
+      IF family == "TC-API" AND contract_filter IS NOT NULL AND NOT MATCHES(test_case.endpoint_method, contract_filter): CONTINUE
+    checklist.push("- [ ] [QA-TC-{test_case.id}]: {test_case.label}")
+    checklist[-1].metadata = { family: family, scenario_ref: scenario_ref }
 
   # Regression suite
   checklist.push("- [ ] [QA-REG-1]: Unit test suite execution")
@@ -392,8 +408,8 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   # load feature_scope ONCE here; used by QA-REL block below AND by DPC Filter 2 in QA-DC section further down.
   feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"
 
-  # Reliability verification (applicable_when scope in [backend-only, integration])
-  IF feature_scope IN ["backend-only", "integration"]:
+  # Reliability verification (applicable_when scope in [backend-only, integration]; aggregate mode only)
+  IF feature_scope IN ["backend-only", "integration"] AND mode == "aggregate":
     # Mandatory reliability checks sourced from test_plan.md § 2.2 Reliability Testing
     # and the reliability integration DCs (idempotency, retry, circuit breaker, DLQ,
     # graceful shutdown, structured logging, API versioning — see defect-prevention.md).
@@ -406,7 +422,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     checklist.push("- [ ] [QA-REL-7]: Observability contract — trace_id propagated across all hops; structured log fields present (trace_id, correlation_id, feature_id, error_code); metrics latency_p95 within SLA (test_plan § REL-OBS-01, REL-OBS-02)")
     # Integration scope adds contract versioning verification
     IF feature_scope == "integration":
-      checklist.push("- [ ] [QA-REL-8]: Contract versioning strategy — no breaking changes without major version bump; deprecation window honoured; @deprecated or sunset dates documented (test_plan § REL-API-VER equivalent + defect-prevention DC for API versioning)")
+      checklist.push("- [ ] [QA-REL-8]: Contract versioning strategy — no breaking changes without major version bump; deprecation window honoured; @deprecated or sunset dates documented (defect-prevention DC for API versioning)")
     LOG: "QA reliability checklist: {feature_scope == 'integration' ? 8 : 7} QA-REL items added"
   ELSE:
     LOG: "QA reliability checklist: N/A (scope={feature_scope}) — no QA-REL items"
@@ -487,7 +503,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     - Check seed scripts exist and include idempotent upsert logic
     - Verify reset capability (teardown + re-seed command available)
     - Validate referential coherence: related entity IDs are consistent (no orphan FKs)
-    - Confirm data aligns with `user_journey.md` Data Schemas (field names, types, constraints)
+    - Confirm data aligns with `user_journey.md § 6 Business Fields` (existence/required) + `design.md § 7.4` (types, formats, constraints)
     - Confirm production execution guard is present (`IF env == production → ABORT`)
     - **Cross-Domain Validation (via Shared Seed Registry):**
       - Verify `config/seed_registry.json` exists and includes this feature's entities
@@ -673,7 +689,7 @@ reviewed_by: QA
 
 ### Test Cases (from test_plan.md)
 {{FOR EACH test_case IN test_plan.test_cases:}}
-- [ ] [QA-TC-{{test_case.id}}]: {{test_case.description}}
+- [ ] [QA-TC-{{test_case.id}}]: {{test_case.label}}
 {{END FOR}}
 
 ### Regression Suite
@@ -804,6 +820,8 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   ```
 
 ### `--e2e {{FEATURE_ID}}`
+
+> **Anchor (EVOL-041):** the E2E suite implements test_plan TCs (`AC-XX` scenario-anchored + `UX/A11Y-XX`); flows follow the journey's § 3 Paths. This runner executes and reports — it does not define scope.
 
 **Prerequisites:** Staging deployment complete + qa_report `status: APPROVED`
 **Blocked if:** Recent e2e_report (<24h) with `status: PASSED`

@@ -14,9 +14,9 @@
 #   ./scripts/auto-tag.sh --apply --ci         # CI mode: create, push, emit TAG=vX.Y.Z
 #
 # Conventional Commit → Version Bump Mapping:
-#   BREAKING CHANGE: or feat!:              → MAJOR bump
+#   BREAKING[- ]CHANGE: or type(scope)!:     → MAJOR bump
 #   feat:                                   → MINOR bump
-#   fix:, docs:, refactor:, perf:, chore:  → PATCH bump
+#   any other type (fix:, docs:, chore:, test:, ci:, ...) → PATCH bump (default)
 #
 # Requirements: git
 # ============================================================================
@@ -91,7 +91,7 @@ PATCH=$(echo "$VERSION" | cut -d. -f3)
 # ── Determine bump type ──
 BUMP="patch"
 
-if echo "$COMMITS" | grep -qiE "^feat!:|BREAKING CHANGE:"; then
+if echo "$COMMITS" | grep -qiE "^[a-z]+(\([^)]*\))?!:|BREAKING[- ]CHANGE:"; then
   BUMP="major"
 elif echo "$COMMITS" | grep -qiE "^feat(\(.*\))?:"; then
   BUMP="minor"

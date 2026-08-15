@@ -452,12 +452,12 @@ if [ -n "$BASE_FW_VERSION" ] && [ -n "$CURRENT_FW_VERSION" ]; then
     # Check if any commit has BREAKING CHANGE marker
     HAS_BREAKING=$(echo "$CHANGED_FILES" | head -1 > /dev/null && \
       git log "origin/${BASE_BRANCH}..HEAD" --pretty=format:"%B" 2>/dev/null | \
-      grep -ciE "^feat!:|BREAKING CHANGE:" || true)
+      grep -ciE "^[a-z]+(\([^)]*\))?!:|BREAKING[- ]CHANGE:" || true)
 
     if [ "$HAS_BREAKING" -eq 0 ]; then
       warn "MAJOR version bump but no BREAKING CHANGE commit found"
       echo "   The auto-tag script may not detect this as a MAJOR bump."
-      echo -e "   ${YELLOW}ACTION: Ensure at least one commit has 'BREAKING CHANGE:' in body or 'feat!:' prefix${NC}"
+      echo -e "   ${YELLOW}ACTION: Ensure at least one commit has 'BREAKING CHANGE:'/'BREAKING-CHANGE:' in body or a 'type(scope)!:' prefix${NC}"
     else
       pass "BREAKING CHANGE marker found in commits (auto-tag will detect MAJOR)"
     fi

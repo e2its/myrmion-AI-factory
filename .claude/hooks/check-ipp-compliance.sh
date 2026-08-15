@@ -61,7 +61,6 @@ case "$FILE_PATH" in
   */docs/spec/*/slice_map.md|\
   */docs/spec/*/spec.feature|\
   */docs/spec/*/user_journey.md|\
-  */docs/spec/*/user_journey.integration.md|\
   */docs/spec/*/mock.html|\
   */docs/spec/*/devops_plan.md|\
   */docs/spec/*/technical_due.md|\
