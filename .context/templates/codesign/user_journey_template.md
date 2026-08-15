@@ -1,26 +1,25 @@
 ---
 status: DRAFT
 feature_id: "{{FEATURE_ID}}"
-scope: full-stack  # dual-axis — must match scope in spec.feature; when in [backend-only, integration], use user_journey.integration.md variant
+scope: full-stack  # dual-axis — must match scope in spec.feature; single template for ALL scopes (full-stack | frontend-only | backend-only | integration)
 co_creation_round: 0
 po_sign_off: false
 ux_sign_off: false  # N/A when scope in [backend-only, integration]
-schemas_version: 1
+schemas_version: 1  # business-contract version — bump on any Part II change; drives downstream cascade
 iteration: 1                    # scalar N (legacy read path)
-iteration_history: []           # legacy
 iterations: []                  # ITER-{FEAT}-{N} entries — see factory-iteration-model
 last_iteration_scope: "Initial co-creation"
 created_at: "{{TIMESTAMP}}"
 updated_at: "{{TIMESTAMP}}"
-based_on_iteration: 1
 ---
 
 # User Journey: {{FEATURE_ID}} — {{FEATURE_NAME}}
 
-> **Method:** Simplified Event Storming (Brandolini)
-> **Generado por:** CODESIGN Agent | Feature: {{FEATURE_ID}}
-> **Source of Truth for Data Schemas** — ARCH formalizes in contracts, DOES NOT invent business fields.
-> **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), CODESIGN groups the scenarios in `spec.feature` into capability-VALUE slices in `slice_map.md § 1` (CODESIGN owns value slicing); BLUEPRINT then REFINES each slice into a contract-aware vertical increment in `increment_plan.md § 1` (`cascade_source: SLICE-{FEAT}-N`) — each ships as an independent PR that leaves the product 100% functional. This journey describes the COMPLETE end-state; per-slice/per-increment UI/flow deltas are documented in `slice_map.md` / `increment_plan.md` and in Section 0 below when they diverge significantly.
+> **LAW-16 Business Purity** — everything in this file is validatable by the PO/UX from business knowledge alone. NO technical types, tiers, protocols, or reliability mechanisms. Technical formalisation lives in `design.md` (BLUEPRINT).
+> **Part I — Experience** (Sections 1-4): who travels, what they do, feel, and where it hurts. **Part II — Domain Contract** (Sections 5-8): what the business guarantees, in plain language.
+> **Source of Truth** — Part II is the sole authority on WHICH business facts exist (fields, rules, states). ARCH formalizes types/formats in `design.md § 7.4`, NEVER invents business facts.
+> **Machine anchors** — `### Paso N` headings, `**BDD Scenario:**` (exact scenario title in `spec.feature`), `**Mock Action:**` (`#step-N` id in `mock.html`, `—` for non-UI scopes). Validated by `scripts/check-journey-grammar.sh`.
+> **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), scenarios group into capability-VALUE slices in `slice_map.md § 1`; slices may reference the named Paths below. This journey describes the COMPLETE end-state.
 
 ---
 
@@ -34,151 +33,154 @@ based_on_iteration: 1
 
 ---
 
-## Section 1: Journey Overview
+<!-- ════════════ PART I — EXPERIENCE ════════════ -->
 
-### Actors
-<!-- Lista de actores que participan en esta feature -->
+## Section 1: Personas
 
-| Actor | Type | Description |
-|-------|------|-------------|
-| {{ACTOR_NAME}} | Usuario / Sistema / Externo | {{DESCRIPTION}} |
+<!-- Every traveller through this feature. For backend-only/integration scopes the
+     personas are business callers: a partner, an operator, a system acting on
+     behalf of a business actor. "System" alone is not a persona — name WHO it acts for. -->
 
-### Sequence Diagram
-
-```mermaid
-sequenceDiagram
-    participant U as {{ACTOR}}
-    participant FE as Frontend
-    participant BE as Backend
-    participant EXT as External System
-
-    U->>FE: {{Command}} ({{SchemaRef}})
-    FE->>BE: {{APICall}} ({{SchemaRef}})
-    BE-->>FE: {{Response}} ({{SchemaRef}})
-    FE-->>U: {{ReadModel}} ({{SchemaRef}})
-```
+| Persona | Type | Knows | Wants | Context |
+|---------|------|-------|-------|---------|
+| {{PERSONA_NAME}} | Human / Business caller | {{WHAT_THEY_ALREADY_KNOW}} | {{WHAT_THEY_WANT}} | {{WHEN_WHERE_WHY_THEY_ARRIVE}} |
 
 ---
 
 ## Section 2: Journey Steps
 
-<!-- Per-step blocks (parser-canonical format).
-     Each step is delimited by a `### Paso N` heading followed by labeled fields.
-     Downstream parsers (CODESIGN consumers, contract generators, test scaffolders)
-     extract by anchoring on `^### Paso N$` and reading the labeled fields below.
-     `DataIn:` / `DataOut:` reference schemas from Section 3 by name.
-     `### Schema:` is OPTIONAL and used only when the step needs an inline schema
-     reference distinct from Section 3 (rare). External System / Screen /
-     QA-Test-Case correlations stay as labeled fields for parser stability.
-     # correlates with QA test cases. -->
+<!-- One mermaid `journey` diagram per persona (scores 1-5 = the Feels value of each step),
+     then per-step blocks. Parser-canonical: each step is delimited by `### Paso N`
+     (global numbering across personas) followed by the labeled fields below — ALL
+     nine fields mandatory, `—` allowed only where noted.
+     `Feels` is comparable across features: 1 = frustration/abandonment risk,
+     2 = notable friction, 3 = neutral, 4 = confidence, 5 = delight.
+     `Pain` names the friction at this step (or `—`); `Ease` names what the design
+     does to remove or soften it — this pair is the usability lens.
+     `BDD Scenario` = exact `Scenario:` title in spec.feature (machine anchor).
+     `Mock Action` = `#step-N` matching `<section class="imp-step" id="step-N">`
+     in mock.html; `—` when scope has no mock. -->
+
+```mermaid
+journey
+    title {{PERSONA_NAME}} — {{FEATURE_NAME}}
+    section {{STAGE_NAME}}
+      {{PASO_1_LABEL}}: {{FEELS_1}}: {{PERSONA_NAME}}
+      {{PASO_2_LABEL}}: {{FEELS_2}}: {{PERSONA_NAME}}
+```
 
 ### Paso 1
 
-- **Actor:** {{ACTOR}}
-- **Action (Command):** {{ACTION}}
-- **System Response (Event):** {{EVENT}}
-- **External System:** —
-- **Screen/View:** {{SCREEN}}
-- **DataIn:** {{SchemaRef}}
-- **DataOut:** {{SchemaRef}}
-
-#### Schema:
-
-> Optional inline schema reference. Most steps reuse a schema defined in Section 3 — leave this block empty or remove it when not needed.
-
-```yaml
-# Inline schema for this step only (rare). Use sparingly — Section 3 is the canonical schema source.
-```
-
----
+- **Persona:** {{PERSONA_NAME}}
+- **Goal:** {{WHAT_THEY_TRY_TO_ACHIEVE_HERE}}
+- **Does:** {{THE_ACTION_IN_BUSINESS_WORDS}}
+- **Sees:** {{WHAT_THEY_OBSERVE_AS_RESULT}}
+- **Feels:** {{N}}/5 — {{EXPECTED_EMOTION_AND_WHY}}
+- **Pain:** {{FRICTION_AT_THIS_STEP_OR_DASH}}
+- **Ease:** {{HOW_THE_DESIGN_SOFTENS_IT}}
+- **BDD Scenario:** {{EXACT_SCENARIO_TITLE}}
+- **Mock Action:** #step-1
 
 ### Paso 2
 
-- **Actor:** {{ACTOR}}
-- **Action (Command):** {{ACTION}}
-- **System Response (Event):** {{EVENT}}
-- **External System:** —
-- **Screen/View:** {{SCREEN}}
-- **DataIn:** {{SchemaRef}}
-- **DataOut:** {{SchemaRef}}
-
-#### Schema:
-
-```yaml
-# Inline schema (optional, see note above).
-```
+- **Persona:** {{PERSONA_NAME}}
+- **Goal:** {{GOAL}}
+- **Does:** {{ACTION}}
+- **Sees:** {{RESULT}}
+- **Feels:** {{N}}/5 — {{EMOTION_AND_WHY}}
+- **Pain:** —
+- **Ease:** {{EASE}}
+- **BDD Scenario:** {{EXACT_SCENARIO_TITLE}}
+- **Mock Action:** #step-2
 
 ---
 
-## Section 3: Data Schemas
+## Section 3: Paths
 
-<!-- SOURCE OF TRUTH for data. ARCH formalizes in OpenAPI/TypeScript/GraphQL.
-     Primitive types: string, number, boolean, date, uuid, enum[...], array[...], object
-     Technical fields (id, created_at, updated_at) are freely added by ARCH.
-     Business fields are ONLY defined here. -->
+<!-- Named routes per persona — ordered Paso sequences. These COMPOSE the smoke
+     blocks: each Path expands transitively Paso → BDD Scenario → test-plan TC
+     (SMOKE-{N} = one Path). Every Paso referenced must exist in Section 2. -->
 
-### {{SchemaName}}
-```yaml
-# {{Description}}
-field_name: type        # constraint or format hint
-field_name: type        # constraint or format hint
-```
+- **Path {{PATH_NAME}}** ({{PERSONA_NAME}}): Paso 1 → Paso 2
+- **Path {{RECOVERY_PATH_NAME}}** ({{PERSONA_NAME}}): Paso 1 → Paso {{N}}
 
-<!-- Ejemplo:
-### LoginRequest
-```yaml
-# Data sent by the user to authenticate
-email: string           # format: email, required
-password: string        # minLength: 8, required
-remember_me: boolean    # default: false
-```
+---
 
-### LoginResponse
-```yaml
-# System response upon successful authentication
-token: string           # JWT token
-user_name: string       # display name
-role: enum[admin, user, guest]
-```
+## Section 4: Pain & Emotion Map
 
-### LoginError
-```yaml
-# System response in case of authentication error
-error_code: enum[INVALID_CREDENTIALS, ACCOUNT_LOCKED, ACCOUNT_NOT_VERIFIED]
-message: string
-remaining_attempts: number  # 0-5
-```
+<!-- The usability lens, aggregated: where it hurts, what we want them to feel,
+     and why that emotion matters for the business at that point. -->
+
+| Where (Paso) | Pain | Target emotion | Why here |
+|--------------|------|----------------|----------|
+| Paso {{N}} | {{PAIN}} | {{TARGET_EMOTION}} | {{WHY_IT_MATTERS}} |
+
+---
+
+<!-- ════════════ PART II — DOMAIN CONTRACT (conceptual, plain language) ════════════ -->
+
+## Section 5: Actions & Outcomes
+
+<!-- What the business commits to at each action. Plain language only. -->
+
+| # | When the persona… (ref Paso) | The business guarantees… | Ref |
+|---|------------------------------|--------------------------|-----|
+| A1 | {{ACTION_IN_BUSINESS_WORDS}} (Paso {{N}}) | {{OBSERVABLE_BUSINESS_OUTCOME}} | Paso {{N}} |
+
+---
+
+## Section 6: Business Fields
+
+<!-- SOLE authority on WHICH business fields exist. One table per business concept.
+     Plain language: a non-technical reader validates every cell. NO types, NO
+     formats, NO constraints syntax — ARCH derives those in design.md § 7.4
+     (RDR back to CODESIGN --refine if a new business field is needed). -->
+
+### {{CONCEPT_NAME}}
+
+| Field | Meaning | Required | Allowed values (plain language) | Example |
+|-------|---------|----------|--------------------------------|---------|
+| {{FIELD_NAME}} | {{WHAT_IT_MEANS_TO_THE_BUSINESS}} | Yes / No | {{PLAIN_VALUES_OR_FREE}} | {{BUSINESS_EXAMPLE}} |
+
+<!-- Example:
+### Payment
+| Field | Meaning | Required | Allowed values (plain language) | Example |
+|-------|---------|----------|--------------------------------|---------|
+| amount | How much the customer pays | Yes | A positive money amount | 49.90 euros |
+| status | Where the payment stands | Yes | settled, declined, or pending | settled |
 -->
 
 ---
 
-## Section 4: Business Rules (Policies)
+## Section 7: Business Rules
 
-<!-- Business rules that condition behavior.
-     Format: Condition → Action.
-     Each rule is referenced in spec.feature as Given/When/Then. -->
+<!-- Condition → Consequence, in business words. Each rule is exercised by at
+     least one spec.feature scenario. -->
 
-| # | Rule ID | Condition | Action | Scenario Ref |
-|---|---------|-----------|--------|-------------|
-| P1 | {{RULE_ID}} | {{CONDITION}} | {{ACTION}} | {{SCENARIO_NAME}} |
+| # | Rule ID | When… | Then the business… | Scenario Ref |
+|---|---------|-------|--------------------|--------------|
+| P1 | {{RULE_ID}} | {{CONDITION}} | {{CONSEQUENCE}} | {{SCENARIO_NAME}} |
 
 ---
 
-## Section 5: External Systems
+## Section 8: Third Parties & Guarantees
 
-<!-- External systems this feature interacts with.
-     Each integration must be documented in config/system_resources.json -->
+<!-- External parties in business terms (who they are, what is exchanged, what
+     the relationship guarantees). For backend/integration scopes, reliability is
+     expressed HERE as business guarantees ("the customer is never charged twice",
+     "if it fails, X is notified") — the technical mechanisms (idempotency, retries,
+     circuit breakers) are ARCH's job in design.md § Reliability Contract. -->
 
-| System | Protocol | Data Exchange (Schema Ref) | Auth Method | Notes |
-|--------|----------|---------------------------|-------------|-------|
-| {{SYSTEM_NAME}} | REST / GraphQL / gRPC / Event | {{SchemaRef}} | API Key / OAuth / mTLS | {{NOTES}} |
+| Party | What is exchanged | Business guarantee | Notes |
+|-------|-------------------|--------------------|-------|
+| {{PARTY_NAME}} | {{WHAT_FLOWS_IN_BUSINESS_WORDS}} | {{GUARANTEE}} | {{NOTES}} |
 
 ---
 
 ## Traceability Matrix
 
-<!-- Automatic mapping: Journey Step # → Gherkin Scenario → QA Test Case → Schema -->
+<!-- Mechanical join surface: Paso → scenario → mock → concepts → rules. -->
 
-| Journey Step | Gherkin Scenario | Schema In | Schema Out | Business Rules |
-|-------------|-----------------|-----------|-----------|----------------|
-| #1 | {{SCENARIO_NAME}} | {{SchemaRef}} | {{SchemaRef}} | P1, P2 |
+| Paso | Persona | BDD Scenario | Mock Action | Concepts | Rules |
+|------|---------|--------------|-------------|----------|-------|
+| 1 | {{PERSONA_NAME}} | {{SCENARIO_NAME}} | #step-1 | {{CONCEPT_NAME}} | P1 |

@@ -42,6 +42,11 @@ last_iteration_scope: "Initial co-creation"
 # scenarios or re-order value. Each slice/increment ships as an independently deployable vertical.
 # When slicing_strategy: monolithic, no slice_map exists and all scenarios belong to a single implicit INC-1.
 
+# MACHINE ANCHOR — Scenario titles are join keys: user_journey.md steps reference them verbatim
+# via `**BDD Scenario:** {title}` (validated by scripts/check-journey-grammar.sh), and test_plan.md
+# AC rows reference them via `Gherkin Ref`. Renaming a scenario after approval is a realignment
+# iteration, not a free edit.
+
 Feature: [Clear Requirement Title]
   As [User Role]
   I want [Action/Desire]

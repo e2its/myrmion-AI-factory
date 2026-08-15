@@ -1291,18 +1291,20 @@
       ]
     },
     "codesign/app-shell-template.html": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/app-shell-template.html",
       "changelog": [
+        "1.1.0: feat(EVOL-041) — shell gains shared IMP layer for composed mocks: imp CSS, fixed state bar, PROTECTED IMP engine.",
         "1.0.0: feat(EVOL-027) initial manifest registration — application shell HTML scaffold for mock generation."
       ]
     },
     "codesign/gherkin_master_template.feature": {
-      "version": "1.2.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/gherkin_master_template.feature",
       "changelog": [
+        "1.1.0: feat(EVOL-041) — scenario titles documented as machine anchors (user_journey **BDD Scenario:** joins by exact title; renames after approval = realignment iteration).",
         "1.2.0: feat(EVOL-036) SLICE-3 — Incremental-Slicing Note flipped: scenarios assigned to a capability-VALUE slice in slice_map.md at CODESIGN --start (not direct scenario→increment at BLUEPRINT); BLUEPRINT refines slices into increments via cascade_source.",
         "1.1.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger); legacy scalar `iteration:` + `iteration_history[]` retained for dual-format gate compatibility.",
         "1.0.0: feat(EVOL-027) initial manifest registration — Gherkin scenario scaffold for spec.feature output."
@@ -1321,6 +1323,7 @@
       "content_type": "universal",
       "target": ".context/templates/codesign/mock-feature-content-template.html",
       "changelog": [
+        "1.1.0: feat(EVOL-041) — IMP markup shipped in-template (imp-flow-nav + imp-step sections with data-state divs); #step-N ids are machine anchors for user_journey **Mock Action:**. Styles/state-bar/engine come from the vision shell.",
         "1.1.0: feat(EVOL-032) phase 1 — pseudo-frontmatter comment gains `iterations: []` field; body anchor format `<!-- iter:{id} | date | source | summary -->`.",
         "1.0.0: feat(EVOL-027) initial manifest registration — feature-content HTML scaffold injected into app-shell."
       ]
@@ -1330,6 +1333,7 @@
       "content_type": "universal",
       "target": ".context/templates/codesign/mock-template.html",
       "changelog": [
+        "1.1.0: feat(EVOL-041) — IMP markup shipped in-template (imp-flow-nav, imp-step sections with data-state divs, state bar, PROTECTED IMP engine, imp CSS); #step-N ids are machine anchors for user_journey **Mock Action:** (check-journey-grammar.sh). Phantom '/UX --mock' generator comment fixed to /CODESIGN --start.",
         "1.1.0: feat(EVOL-032) phase 1 — pseudo-frontmatter comment gains `iterations: []` field; body anchor format `<!-- iter:{id} | date | source | summary -->`.",
         "1.0.0: feat(EVOL-027) initial manifest registration — mock.html scaffold for UX drift detection."
       ]
@@ -1342,21 +1346,12 @@
         "1.0.0: feat(EVOL-027) initial manifest registration — CODESIGN open questions tracker."
       ]
     },
-    "codesign/user_journey.integration.md": {
-      "version": "1.2.0",
-      "content_type": "universal",
-      "target": ".context/templates/codesign/user_journey.integration.md",
-      "changelog": [
-        "1.2.0: feat(EVOL-036) SLICE-3 — Incremental-slicing note flipped: CODESIGN owns value slicing (slice_map.md), BLUEPRINT refines into increments. Removes 'BLUEPRINT distributes the scenarios' claim.",
-        "1.1.0: feat(EVOL-027) fase 5 — reformat Section 2 from master-table to per-step blocks. Same parser-canonical contract as user_journey_template.md, with the integration-specific fields (Trigger, Effect, Idempotency Key, Retry Policy) preserved as labeled fields per step.",
-        "1.0.0: feat(EVOL-027) initial manifest registration — backend-only / integration scope variant of user journey."
-      ]
-    },
     "codesign/user_journey_template.md": {
-      "version": "1.3.0",
+      "version": "2.0.0",
       "content_type": "universal",
       "target": ".context/templates/codesign/user_journey_template.md",
       "changelog": [
+        "2.0.0: feat(EVOL-041)! — journey-first rewrite under LAW-16 business purity (ADR-EVOL-041). Part I Experience (Personas, `### Paso N` steps with Persona/Goal/Does/Sees/Feels 1-5/Pain/Ease + machine anchors **BDD Scenario:**/**Mock Action:**, mermaid `journey` per persona, named Paths, Pain & Emotion Map) + Part II conceptual Domain Contract (Actions & Outcomes, Business Fields table Campo/Significado/Obligatorio/Valores/Ejemplo — NO technical types, Business Rules, Third Parties & Guarantees). Single template for ALL scopes (absorbs user_journey.integration.md). Typed Data Schemas, FE/BE sequence diagram and Reliability Contract migrate to design.md. Frontmatter drops based_on_iteration + iteration_history. Grammar validated by scripts/check-journey-grammar.sh.",
         "1.3.0: feat(EVOL-036) SLICE-3 — Incremental-slicing note flipped: CODESIGN groups scenarios into capability-value slices (slice_map.md), BLUEPRINT refines into increments. Removes 'BLUEPRINT distributes the scenarios' authority claim.",
         "1.2.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger); legacy scalar `iteration:` + `iteration_history[]` retained for dual-format gate compatibility.",
         "1.1.0: feat(EVOL-027) fase 5 — reformat Section 2 from master-table to per-step blocks (### Paso N + labeled fields including DataIn:/DataOut:; optional #### Schema: block per step). Downstream parsers (e.g. MASS) anchor on the heading and read the labeled fields. Master-table layout removed; everything else (Section 0/1/3/4/5/Traceability) unchanged.",
@@ -1497,14 +1492,6 @@
       "target": ".context/templates/security/sec_audit_template.md",
       "changelog": [
         "1.0.0: feat(EVOL-027) initial manifest registration — sec_audit.md scaffold for IMPLEMENT SEC hat output."
-      ]
-    },
-    "ux/design_ux.md": {
-      "version": "1.0.0",
-      "content_type": "universal",
-      "target": ".context/templates/ux/design_ux.md",
-      "changelog": [
-        "1.0.0: feat(EVOL-027) initial manifest registration — UX design scaffold."
       ]
     },
     "ux/mock-template.html": {

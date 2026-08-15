@@ -29,12 +29,27 @@
   - Uses the same CSS framework classes as the vision app_shell.html
   - Components should reference the vision's component_library.html
   - WCAG 2.1 AA compliance MANDATORY for all feature content
+  - IMP: one <section class="imp-step" id="step-N"> per user_journey.md `### Paso N`,
+    each with data-state divs (default + empty + loading + error minimum). The #step-N
+    ids are MACHINE ANCHORS for user_journey.md `**Mock Action:**` (validated by
+    scripts/check-journey-grammar.sh). Styles + state bar + engine come from the shell.
 -->
+
+    <!-- ═══ IMP: Flow Navigation (one link per user_journey.md step) ═══ -->
+    <nav class="imp-flow-nav" aria-label="User journey steps">
+      <a href="#step-1" class="imp-active">1. {{STEP_1_LABEL}}</a>
+      <a href="#step-2">2. {{STEP_2_LABEL}}</a>
+      <!-- ... one per user_journey.md step ... -->
+    </nav>
+
+    <!-- ═══ Step 1: {{STEP_1_LABEL}} ═══ -->
+    <section class="imp-step imp-visible" id="step-1">
+    <div data-state="default" class="active">
 
     <!-- Page Title -->
     <h1 class="text-3xl md:text-4xl font-heading font-extrabold text-neutral-900 tracking-tight mb-2">{{PAGE_TITLE}}</h1>
     <p class="text-lg text-neutral-500 mb-10 max-w-2xl">{{PAGE_SUBTITLE}}</p>
-    
+
     <!-- ========================================
          ALERT BANNER (Component from component_library.html)
          WCAG: role="alert", aria-live="assertive"
@@ -245,3 +260,30 @@
         }
       });
     </script>
+
+    </div><!-- /data-state=default -->
+
+    <!-- State: empty (real content, not placeholder — CHECK 8) -->
+    <div data-state="empty">
+      <p class="text-neutral-500">{{EMPTY_STATE_CONTENT}}</p>
+    </div>
+    <!-- State: loading (skeleton screens preferred) -->
+    <div data-state="loading">
+      <p class="text-neutral-500">{{LOADING_STATE_CONTENT}}</p>
+    </div>
+    <!-- State: error (with retry action) -->
+    <div data-state="error">
+      <p class="text-semantic-error">{{ERROR_STATE_CONTENT}}</p>
+    </div>
+
+    </section><!-- /step-1 -->
+
+    <!-- ═══ Step 2: {{STEP_2_LABEL}} ═══ -->
+    <section class="imp-step" id="step-2">
+      <div data-state="default" class="active"><!-- step 2 content --></div>
+      <div data-state="empty"></div>
+      <div data-state="loading"></div>
+      <div data-state="error"></div>
+    </section>
+
+    <!-- ... more steps from user_journey.md ... -->
