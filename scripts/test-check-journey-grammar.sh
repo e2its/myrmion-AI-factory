@@ -9,16 +9,21 @@ SANDBOX=$(mktemp -d)
 trap 'rm -rf "$SANDBOX"' EXIT
 PASS=0; FAIL=0
 
-expect() { # expect <0|1> <label> -- runs validator on $SANDBOX/case
-  local want=$1 label=$2
-  bash "$SCRIPT" "$SANDBOX/case" >/dev/null 2>&1
-  local got=$?
-  if [ "$got" -eq "$want" ]; then
-    PASS=$((PASS+1)); echo "  ✓ $label"
-  else
+expect() { # expect <exit> <label> [expected-substring] -- runs validator on $SANDBOX/case
+  local want=$1 label=$2 substr=${3:-}
+  local out got
+  out=$(bash "$SCRIPT" "$SANDBOX/case" 2>&1); got=$?
+  if [ "$got" -ne "$want" ]; then
     FAIL=$((FAIL+1)); echo "  ✗ $label (want exit $want, got $got)"
-    bash "$SCRIPT" "$SANDBOX/case" 2>&1 | sed 's/^/      /' | head -8
+    echo "$out" | sed 's/^/      /' | head -8
+    return
   fi
+  if [ -n "$substr" ] && ! echo "$out" | grep -qF "$substr"; then
+    FAIL=$((FAIL+1)); echo "  ✗ $label (exit ok but expected message not found: '$substr')"
+    echo "$out" | sed 's/^/      /' | head -8
+    return
+  fi
+  PASS=$((PASS+1)); echo "  ✓ $label"
 }
 
 write_valid() {
@@ -223,6 +228,107 @@ expect 0 "backend-only journey with '—' mock actions passes"
 write_valid
 rm "$SANDBOX/case/spec.feature" "$SANDBOX/case/mock.html"
 expect 0 "journey alone (spec/mock not yet generated) passes on grammar only"
+
+# ═══ Hardening battery (code-review remediation — EVOL-041) ═══
+
+# GREEN 4 — inline HTML comment on Mock Action (the template ships this exact form)
+write_valid
+sed -i 's|^- \*\*Mock Action:\*\* #step-1$|- **Mock Action:** #step-1 <!-- backend-only/integration scopes use `—` -->|' "$SANDBOX/case/user_journey.md"
+expect 0 "inline HTML comment on Mock Action is trimmed (template contract)"
+
+# GREEN 5 — parenthesised scenario title, byte-identical in journey and spec
+write_valid
+sed -i 's/Scenario: Error - Payment declined/Scenario: Error - Payment declined (retry)/' "$SANDBOX/case/spec.feature"
+sed -i 's/^- \*\*BDD Scenario:\*\* Error - Payment declined$/- **BDD Scenario:** Error - Payment declined (retry)/' "$SANDBOX/case/user_journey.md"
+sed -i 's/| Error - Payment declined |/| Error - Payment declined (retry) |/' "$SANDBOX/case/user_journey.md"
+expect 0 "parenthesised scenario title matches exactly (fixed-string, no ERE)"
+
+# GREEN 6 — file-mode invocation with explicit --spec/--mock
+write_valid
+out=$(bash "$SCRIPT" "$SANDBOX/case/user_journey.md" --spec "$SANDBOX/case/spec.feature" --mock "$SANDBOX/case/mock.html" 2>&1); got=$?
+if [ "$got" -eq 0 ]; then PASS=$((PASS+1)); echo "  ✓ file-mode with --spec/--mock passes"; else FAIL=$((FAIL+1)); echo "  ✗ file-mode with --spec/--mock (got $got)"; echo "$out" | head -5; fi
+
+# RED 11 — quoted backend-only scope must still enforce the '—' rule
+write_valid
+sed -i 's/^scope: full-stack$/scope: "backend-only"/' "$SANDBOX/case/user_journey.md"
+rm "$SANDBOX/case/mock.html"
+expect 1 "quoted \"backend-only\" scope with #step-N fails" "Mock Action must be '—'"
+
+# RED 12 — unknown scope value fails closed
+write_valid
+sed -i 's/^scope: full-stack$/scope: bakend-only/' "$SANDBOX/case/user_journey.md"
+expect 1 "typo scope fails closed (vocabulary check)" "not in vocabulary"
+
+# RED 13 — empty Mock Action value
+write_valid
+sed -i 's/^- \*\*Mock Action:\*\* #step-1$/- **Mock Action:**/' "$SANDBOX/case/user_journey.md"
+expect 1 "empty Mock Action value fails" "Mock Action is empty"
+
+# RED 14 — empty BDD Scenario value
+write_valid
+sed -i 's/^- \*\*BDD Scenario:\*\* Happy Path - Complete purchase$/- **BDD Scenario:**/' "$SANDBOX/case/user_journey.md"
+expect 1 "empty BDD Scenario value fails" "BDD Scenario is empty"
+
+# RED 15 — '—' is not a valid BDD anchor
+write_valid
+sed -i 's/^- \*\*BDD Scenario:\*\* Happy Path - Complete purchase$/- **BDD Scenario:** —/' "$SANDBOX/case/user_journey.md"
+expect 1 "BDD Scenario '—' rejected (anchor is mandatory)" "not a valid anchor"
+
+# RED 16 — missing frontmatter key
+write_valid
+sed -i '/^schemas_version: 1$/d' "$SANDBOX/case/user_journey.md"
+expect 1 "missing frontmatter schemas_version fails" "frontmatter missing 'schemas_version:'"
+
+# RED 17 — duplicate Paso anchors
+write_valid
+sed -i 's/^### Paso 2$/### Paso 1/' "$SANDBOX/case/user_journey.md"
+expect 1 "duplicate Paso 1 anchors fail"
+
+# RED 18 — Traceability Matrix phantom row
+write_valid
+sed -i 's/^| 2 | Shopper | Error - Payment declined | #step-2 | Payment | P1 |$/| 9 | Shopper | Error - Payment declined | #step-2 | Payment | P1 |/' "$SANDBOX/case/user_journey.md"
+expect 1 "matrix row referencing Paso 9 fails" "non-existent Paso 9"
+
+# RED 19 — Traceability Matrix missing a Paso row
+write_valid
+sed -i '/^| 2 | Shopper | Error - Payment declined | #step-2 | Payment | P1 |$/d' "$SANDBOX/case/user_journey.md"
+expect 1 "matrix missing the Paso 2 row fails" "Paso 2 has no row"
+
+# RED 20 — Mock Action free-text literal
+write_valid
+sed -i 's/^- \*\*Mock Action:\*\* #step-2$/- **Mock Action:** click the pay button/' "$SANDBOX/case/user_journey.md"
+expect 1 "free-text Mock Action fails" "numeric N"
+
+# RED 21 — Feels non-numeric
+write_valid
+sed -i 's|^- \*\*Feels:\*\* 4/5 — relief, the purchase is done$|- **Feels:** anxious|' "$SANDBOX/case/user_journey.md"
+expect 1 "non-numeric Feels fails" "Feels must be 'N/5'"
+
+# RED 22 — mermaid block of wrong type
+write_valid
+sed -i 's/^journey$/flowchart TD/' "$SANDBOX/case/user_journey.md"
+expect 1 "mermaid non-journey type fails" "not of type 'journey'"
+
+# RED 23 — lowercase technical token in Part II (case-insensitive tripwire)
+write_valid
+sed -i 's/| A positive money amount |/| varchar(255) not null |/' "$SANDBOX/case/user_journey.md"
+expect 1 "lowercase varchar in Part II fails (LAW-16)" "LAW-16 violation"
+
+# RED 24 — Path line listing no Paso at all
+write_valid
+sed -i 's/^- \*\*Path Happy purchase\*\* (Shopper): Paso 1$/- **Path Happy purchase** (Shopper): step one then done/' "$SANDBOX/case/user_journey.md"
+expect 1 "path with zero Paso refs fails" "path references non-existent"
+
+# EXIT-2 — dir without journey
+rm -rf "$SANDBOX/case"; mkdir -p "$SANDBOX/case"
+bash "$SCRIPT" "$SANDBOX/case" >/dev/null 2>&1
+if [ $? -eq 2 ]; then PASS=$((PASS+1)); echo "  ✓ dir without user_journey.md exits 2"; else FAIL=$((FAIL+1)); echo "  ✗ dir without journey (want exit 2)"; fi
+
+# EXIT-2 — infra failure (mktemp) must NOT pass the gate
+write_valid
+TMPDIR=/nonexistent-dir-xyz bash "$SCRIPT" "$SANDBOX/case" >/dev/null 2>&1
+rc=$?
+if [ "$rc" -eq 2 ]; then PASS=$((PASS+1)); echo "  ✓ mktemp infra failure exits 2 (never a silent PASS)"; else FAIL=$((FAIL+1)); echo "  ✗ mktemp infra failure (want exit 2, got $rc)"; fi
 
 echo "──────────────────────────────────────────"
 echo "test-check-journey-grammar: $PASS passed, $FAIL failed"

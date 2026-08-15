@@ -60,15 +60,20 @@ fi
 VIOLATIONS=0
 fail() { echo "❌ $*"; VIOLATIONS=$((VIOLATIONS + 1)); }
 note() { echo "   $*"; }
+trim_value() { printf '%s' "$1" | sed 's/<!--.*-->//; s/[[:space:]]*$//; s/^[[:space:]]*//'; }
 
 # ── 1. Frontmatter ──────────────────────────────────────────────────────────
 FM=$(awk '/^---$/{n++; next} n==1{print} n>=2{exit}' "$JOURNEY")
 for key in feature_id scope schemas_version; do
   echo "$FM" | grep -q "^${key}:" || fail "frontmatter missing '${key}:'"
 done
-SCOPE=$(echo "$FM" | sed -n 's/^scope:[[:space:]]*\([a-z-]*\).*/\1/p' | head -1)
+SCOPE=$(echo "$FM" | sed -n 's/^scope:[[:space:]]*"\{0,1\}\([a-z-]*\)"\{0,1\}.*/\1/p' | head -1)
 UI_SCOPE=1
-case "$SCOPE" in backend-only|integration) UI_SCOPE=0 ;; esac
+case "$SCOPE" in
+  backend-only|integration) UI_SCOPE=0 ;;
+  full-stack|frontend-only) ;;
+  *) fail "frontmatter scope '$SCOPE' not in vocabulary (full-stack | frontend-only | backend-only | integration)" ;;
+esac
 
 # ── 11. Unresolved placeholders ─────────────────────────────────────────────
 if grep -qn '{{[A-Za-z0-9_]*}}' "$JOURNEY"; then
@@ -102,7 +107,7 @@ paso_exists() { echo "$PASOS" | grep -qx "$1"; }
 
 # ── 4-6. Per-step fields ────────────────────────────────────────────────────
 # Extract each step block (from its ### Paso heading to the next ###/## heading).
-STEP_TMP=$(mktemp -d)
+STEP_TMP=$(mktemp -d) || { echo "❌ internal: mktemp failed — cannot validate (infra)" >&2; exit 2; }
 trap 'rm -rf "$STEP_TMP"' EXIT
 awk -v dir="$STEP_TMP" '
   /^### Paso [0-9]+$/ { n=$3; f=dir "/" n; print > f; inblock=1; next }
@@ -110,9 +115,14 @@ awk -v dir="$STEP_TMP" '
   inblock { print >> f }
 ' "$JOURNEY"
 
+: > "$STEP_TMP/spec_titles"
+if [ -n "$SPEC" ]; then
+  sed -n 's/^[[:space:]]*Scenario\( Outline\)\{0,1\}:[[:space:]]*//p' "$SPEC" | sed 's/[[:space:]]*$//' > "$STEP_TMP/spec_titles"
+fi
+
 for n in $PASOS; do
   blk="$STEP_TMP/$n"
-  [ -f "$blk" ] || continue
+  [ -f "$blk" ] || { fail "internal: step block Paso $n not extracted — cannot validate its fields"; continue; }
   for field in "Persona" "Goal" "Does" "Sees" "Feels" "Pain" "Ease" "BDD Scenario" "Mock Action"; do
     grep -q "^- \*\*${field}:\*\*" "$blk" || fail "Paso $n: missing mandatory field '- **${field}:**'"
   done
@@ -125,31 +135,36 @@ for n in $PASOS; do
     fi
   fi
 
-  # Mock Action
-  mock_action=$(sed -n 's/^- \*\*Mock Action:\*\*[[:space:]]*//p' "$blk" | head -1)
-  if [ -n "$mock_action" ]; then
+  # Mock Action (value trimmed: inline HTML comments + surrounding whitespace stripped)
+  mock_action=$(trim_value "$(sed -n 's/^- \*\*Mock Action:\*\*[[:space:]]*//p' "$blk" | head -1)")
+  if grep -q '^- \*\*Mock Action:\*\*' "$blk" && [ -z "$mock_action" ]; then
+    fail "Paso $n: Mock Action is empty — expected '#step-N' or '—'"
+  elif [ -n "$mock_action" ]; then
     case "$mock_action" in
       "—")
         : ;;
-      "#step-"*)
+      "#step-"[0-9]|"#step-"[0-9][0-9]|"#step-"[0-9][0-9][0-9])
         if [ "$UI_SCOPE" -eq 0 ]; then
           fail "Paso $n: scope=$SCOPE has no mock — Mock Action must be '—' (got '$mock_action')"
         elif [ -n "$MOCK" ]; then
           sid=${mock_action#\#}
-          grep -q "id=\"${sid}\"" "$MOCK" || fail "Paso $n: Mock Action '$mock_action' has no matching id=\"${sid}\" in $(basename "$MOCK")"
+          grep -qF "id=\"${sid}\"" "$MOCK" || fail "Paso $n: Mock Action '$mock_action' has no matching id=\"${sid}\" in $(basename "$MOCK")"
         fi
         ;;
       *)
-        fail "Paso $n: Mock Action must be '#step-N' or '—' (got '$mock_action')" ;;
+        fail "Paso $n: Mock Action must be '#step-N' (numeric N) or '—' (got '$mock_action')" ;;
     esac
   fi
 
-  # BDD Scenario ↔ spec.feature title
-  scenario=$(sed -n 's/^- \*\*BDD Scenario:\*\*[[:space:]]*//p' "$blk" | head -1)
-  if [ -n "$scenario" ] && [ "$scenario" != "—" ] && [ -n "$SPEC" ]; then
-    if ! grep -Eq "^[[:space:]]*Scenario( Outline)?:[[:space:]]*$(printf '%s' "$scenario" | sed 's/[][\.*^$/]/\\&/g')[[:space:]]*$" "$SPEC"; then
-      fail "Paso $n: BDD Scenario '$scenario' not found as a Scenario title in $(basename "$SPEC")"
-    fi
+  # BDD Scenario ↔ spec.feature title (exact fixed-string match — no regex, no '—' escape:
+  # the anchor is mandatory; the template grants no opt-out form for it)
+  scenario=$(trim_value "$(sed -n 's/^- \*\*BDD Scenario:\*\*[[:space:]]*//p' "$blk" | head -1)")
+  if grep -q '^- \*\*BDD Scenario:\*\*' "$blk" && [ -z "$scenario" ]; then
+    fail "Paso $n: BDD Scenario is empty — expected the exact Scenario title from spec.feature"
+  elif [ "$scenario" = "—" ]; then
+    fail "Paso $n: BDD Scenario must be the exact Scenario title — '—' is not a valid anchor"
+  elif [ -n "$scenario" ] && [ -n "$SPEC" ]; then
+    grep -qxF "$scenario" "$STEP_TMP/spec_titles" || fail "Paso $n: BDD Scenario '$scenario' not found as a Scenario title in $(basename "$SPEC")"
   fi
 done
 
@@ -160,7 +175,9 @@ if [ "$PATH_LINES" -eq 0 ]; then
   fail "Section 3: no '- **Path {Name}** (persona): Paso a → Paso b' entries found (at least one required)"
 else
   echo "$PATHS_BLOCK" | grep '^- \*\*Path ' | while IFS= read -r line; do
-    for ref in $(echo "$line" | grep -o 'Paso [0-9][0-9]*' | sed 's/Paso //'); do
+    refs=$(echo "$line" | grep -o 'Paso [0-9][0-9]*' | sed 's/Paso //')
+    [ -z "$refs" ] && echo "PATHREF_MISSING (none — path lists no Paso) :: $line"
+    for ref in $refs; do
       paso_exists "$ref" || echo "PATHREF_MISSING $ref :: $line"
     done
   done > "$STEP_TMP/pathrefs"
@@ -183,14 +200,23 @@ fi
 awk '/^## Traceability Matrix/{p=1; next} /^## /{p=0} p' "$JOURNEY" \
   | grep -E '^\|[[:space:]]*[0-9]+[[:space:]]*\|' \
   | sed 's/^|[[:space:]]*\([0-9]*\).*/\1/' > "$STEP_TMP/matrix" || true
+[ -f "$STEP_TMP/matrix" ] || : > "$STEP_TMP/matrix"
 while IFS= read -r row; do
   [ -z "$row" ] && continue
   paso_exists "$row" || fail "Traceability Matrix: row references non-existent Paso $row"
 done < "$STEP_TMP/matrix"
+for n in $PASOS; do
+  grep -qx "$n" "$STEP_TMP/matrix" || fail "Traceability Matrix: Paso $n has no row"
+done
 
 # ── 10. LAW-16 purity tripwire (Part II: Section 5 → EOF) ───────────────────
 PART2=$(awk '/^## Section 5:/{p=1} p' "$JOURNEY")
-for token in 'enum\[' 'VARCHAR' 'NUMERIC(' 'decimal(' 'minLength' 'maxLength' 'proto3' 'sint64' 'mTLS' 'HMAC'; do
+for token in 'enum\[' 'varchar' 'numeric(' 'decimal(' 'minlength' 'maxlength' 'proto3' 'sint64'; do
+  if echo "$PART2" | grep -qi "$token"; then
+    fail "LAW-16 violation: technical token '$token' found in Part II (Sections 5-8) — business language only; typing lives in design.md"
+  fi
+done
+for token in 'mTLS' 'HMAC'; do   # exact-case (prose false-positive risk)
   if echo "$PART2" | grep -q "$token"; then
     fail "LAW-16 violation: technical token '$token' found in Part II (Sections 5-8) — business language only; typing lives in design.md"
   fi

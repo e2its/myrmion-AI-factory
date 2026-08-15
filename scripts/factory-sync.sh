@@ -274,8 +274,8 @@ detect_tree_orphans() {
     if [[ ! -f "$src_root/$rel" ]]; then
       local rel_path="${dst_file#$TARGET_PROJECT/}"
       case "$rel" in
-        codesign/user_journey.integration.md|ux/design_ux.md|qa/smoke_e2e_integration_template.md)
-          echo -e "  ${RED}!${NC}  $rel_path ${RED}(RETIRED by EVOL-041 -- safe to delete; superseded by user_journey_template 2.0.0 / smoke_e2e_report_template 2.0.0)${NC}" ;;
+        codesign/user_journey.integration.md|ux/design_ux.md|qa/smoke_e2e_integration_template.md|ux/mock-template.html)
+          echo -e "  ${RED}!${NC}  $rel_path ${RED}(RETIRED by EVOL-041 -- safe to delete; superseded by user_journey_template 2.0.0 / smoke_e2e_report_template 2.0.0 / codesign mock-template 1.2.0)${NC}" ;;
         *)
           echo -e "  ${RED}!${NC}  $rel_path ${RED}(orphan -- not in framework)${NC}" ;;
       esac

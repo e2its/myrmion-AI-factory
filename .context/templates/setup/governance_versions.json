@@ -564,10 +564,11 @@
       "delivery": "setup"
     },
     "scripts/auto-tag.sh": {
-      "version": "2.1.2",
+      "version": "2.1.3",
       "content_type": "universal",
       "target": "scripts/auto-tag.sh",
       "changelog": [
+        "2.1.3: fix(EVOL-041 code-review) — Block 20 gate findings remediated: same as meta.",
         "2.1.2: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: same regex fix as meta.",
         "2.1.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "2.1.0: fix(EVOL-034) lock-step Theme A backports from meta — (a) Finding #6: `git describe --tags --abbrev=0` now uses `--match v*` filter so defensive non-semver tags (`pre-*`, `snapshot-*`) no longer break SemVer parsing under set -u; (b) Finding #7: replace `git log … | head -20` (two occurrences) with native `git log -n 20 …` to eliminate SIGPIPE under pipefail when parent captures stdout. Both fixes already lived in meta scripts/auto-tag.sh (lines 60/190/192) but template drifted — root cause of EVOL-034 Theme A.",
@@ -577,10 +578,11 @@
       "delivery": "both"
     },
     "scripts/validate-governance.sh": {
-      "version": "1.3.1",
+      "version": "1.3.2",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
+        "1.3.2: fix(EVOL-041 code-review) — Block 20 gate findings remediated: same as meta.",
         "1.3.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: same regex fix as meta.",
         "1.3.0: feat(EVOL-035 review GBC-02) — synced from meta. New CHECK 1b (per-entry version advance) fails when a changed framework_core file's manifest entry version did not advance vs base.",
         "1.2.1: fix(governance-info-cleanup) — synced from meta. Check 4 no longer emits the redundant `ℹ️ Framework MINOR version bump: X → Y` line on legitimate MINOR bumps. Reduces noise on every governance-checking PR.",
@@ -1251,12 +1253,13 @@
       ]
     },
     "scripts/check-journey-grammar.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "scripts/check-journey-grammar.sh",
       "role": "SETUP-delivery copy of check-journey-grammar.sh (byte-mirror, meta_template_mirror pair). Invoked by CODESIGN auto-approval CHECK 3 and CVP journey checks in materialised projects.",
       "delivery": "both",
       "changelog": [
+        "1.2.0: fix(EVOL-041 code-review) — Block 20 gate findings remediated: mirror of meta 1.2.0.",
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: mirror of meta 1.1.0 (check 8b mermaid).",
         "1.0.0: feat(EVOL-041) — initial delivery."
       ]
@@ -2837,11 +2840,12 @@
       "path": ".claude/skills/factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.11.0",
+      "version": "1.11.1",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.11.1: fix(EVOL-041 code-review) — Block 20 gate findings remediated: retired-label list completed with ux/mock-template.html (4th deletion of this branch).",
         "1.11.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: orphan detector labels the 3 EVOL-041-retired templates as 'RETIRED — safe to delete' (F-01: no deletion channel exists; explicit signal for downstream operators).",
         "1.10.1: fix(EVOL-040 pr-review loop i3) — three bare `|| return` in orphan-walk helpers → `|| return 0` (pre-existing: under set -euo pipefail a greenfield --dry-run died silently at [3/7] with exit 1, no summary — dir absent is 'nothing to walk', not an error).",
         "1.10.0: fix(EVOL-040 pr-review loop i2) — manifest-query failure now bumps ERRORS with a red cause line and unsuppressed stderr (was: zero scripts+hooks shipped, exit 0, undetectable); redundant per-script mkdir removed (leaked directories into --dry-run targets); header sync-surface list replaced by the manifest-driven statement (enumerated 12 of 21).",
@@ -2867,11 +2871,12 @@
       "delivery": "sync"
     },
     "scripts/validate-governance.sh": {
-      "version": "2.1.2",
+      "version": "2.1.3",
       "path": "scripts/validate-governance.sh",
       "type": "utility",
       "role": "Framework governance validator — SessionStart banner, drift detection (manifest vs core files), snapshot freshness, diff-only mode for CI. Ships identically to materialized projects via factory-sync and also runs inside the framework-meta repo.",
       "changelog": [
+        "2.1.3: fix(EVOL-041 code-review) — Block 20 gate findings remediated: BREAKING[- ]CHANGE synonym in the MAJOR-marker warn path.",
         "2.1.2: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: breaking-marker regex accepts type(scope)!: (feat(EVOL-041)!: was invisible).",
         "2.1.1: fix(EVOL-040 pr-review loop i3) — crash-path sentinel (__CRASHED__) so CHECK 1b/1c never print a contradictory green pass line after recording the violation; CHECK 1b base-manifest retrieval gains the local-branch fallback CHECK 1 already had (1b was permanently 'skipped' in sandboxes/forks without origin/).",
         "2.1.0: fix(EVOL-040 pr-review loop i2) — CHECK 1b/1c inspector crashes now register a VIOLATION instead of green ('printed nothing' ≠ 'no issues'); CHECK 2 warns on absent trees + git ls-files failures instead of silently skipping; 'framework_core' wording generalized to 'tracked' (paths span 3 sections); TRACKED_PATHS resolver rendered self-similar with vmap/1c (dict-literal shape ×3, greppable).",
@@ -2925,11 +2930,12 @@
       "delivery": "both"
     },
     "scripts/auto-tag.sh": {
-      "version": "1.0.3",
+      "version": "1.0.4",
       "path": "scripts/auto-tag.sh",
       "type": "utility",
       "role": "Framework-meta auto-tag utility with governance-aware override — reads framework_version from governance_versions.json so commit-based bump heuristics cannot silently under-bump. Meta-only variant; downstream projects receive the simpler template under .context/templates/setup/scripts/auto-tag.sh.",
       "changelog": [
+        "1.0.4: fix(EVOL-041 code-review) — Block 20 gate findings remediated: BREAKING[- ]CHANGE synonym per Conventional Commits 1.0.0 §16; header comment matches the real regex.",
         "1.0.3: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: breaking-marker regex accepts type(scope)!:.",
         "1.0.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.0.1: fix(ci) — git describe --tags --abbrev=0 now uses --match v* filter so defensive snapshot tags (pre-*, snapshot-*) no longer break SemVer parsing under set -u. Closes auto-tag.yml workflow failures on PR #22 + PR #23 merges.",
@@ -3440,18 +3446,20 @@
       ]
     },
     "scripts/check-journey-grammar.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": "scripts/check-journey-grammar.sh",
       "delivery": "both",
       "changelog": [
+        "1.2.0: fix(EVOL-041 code-review) — Block 20 gate findings remediated: fail-closed on infra (mktemp/step-extraction → exit 2 / violation, was silent PASS); anchor values trimmed (inline HTML comments — the template's own Mock Action line no longer false-fails); empty anchor values = violation; BDD title matching is fixed-string (ERE metachars in titles no longer false-fail/false-pass); '—' BDD escape removed; #step-N numeric shape enforced + grep -F id lookup; scope quote-stripping + closed vocabulary fail; matrix coverage per Paso; path lines with zero refs fail; tripwire case-insensitive.",
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: new check 8b: mermaid journey block mandatory in Section 2 (diagrammatic contract now machine-enforced); Path grammar docs match template syntax.",
         "1.0.0: feat(EVOL-041) — deterministic user_journey.md v2 grammar validator: ### Paso N anchors, 9 mandatory step fields, Feels 1-5, BDD Scenario ↔ spec.feature titles, Mock Action ↔ imp-step ids, paths, Traceability Matrix, LAW-16 purity tripwire, unresolved-placeholder check. Cross-file checks skip gracefully pre-spec/mock (journey-first order)."
       ]
     },
     "scripts/test-check-journey-grammar.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": "scripts/test-check-journey-grammar.sh",
       "changelog": [
+        "1.2.0: fix(EVOL-041 code-review) — Block 20 gate findings remediated: battery 14 → 33 cases: expect() proves WHICH gate fired (message assert); new red cases for every hardened gate (quoted scope, empty anchors, '—' BDD, duplicate Paso, matrix phantom/missing row, free-text Mock Action, non-numeric Feels, wrong mermaid type, lowercase varchar, zero-ref path, frontmatter key) + greens (inline comment trim, parenthesised title, file-mode --spec/--mock) + exit-2 contract (no journey, mktemp infra).",
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: 14th case: missing mermaid journey diagram MUST fail (red-proved).",
         "1.0.0: feat(EVOL-041) — red-proving self-test: 13 cases (2 green fixtures + 10 mutations that MUST fail + journey-first skip case). Wired into governance-check T2 suite."
       ]
