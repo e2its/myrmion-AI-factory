@@ -1239,6 +1239,16 @@
       "changelog": [
         "1.0.0: feat(EVOL-040 root cause B) — template source created (byte-copy of meta; lockstep pair declared). Closes materialised-CI-invokes-undelivered-script."
       ]
+    },
+    "scripts/check-journey-grammar.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/check-journey-grammar.sh",
+      "role": "SETUP-delivery copy of check-journey-grammar.sh (byte-mirror, meta_template_mirror pair). Invoked by CODESIGN auto-approval CHECK 3 and CVP journey checks in materialised projects.",
+      "delivery": "both",
+      "changelog": [
+        "1.0.0: feat(EVOL-041) — initial delivery."
+      ]
     }
   },
   "agent_templates": {
@@ -2944,11 +2954,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.7.0: feat(EVOL-041) — T2 suite gains test-check-journey-grammar.sh (journey grammar validator self-test).",
         "1.6.0: fix(EVOL-040 pr-review loop i2) — T2 suite gains test-security-scan.sh + test-validate-governance.sh (both literal lists).",
         "1.5.0: feat(EVOL-040) — T2 suite gains scripts/test-materialization-surface.sh (T3 delivery-surface, both literal lists).",
         "1.4.0: feat(EVOL-040) — paths: trigger filter DELETED (runs on every PR; .claude/hooks/** and .github/workflows/** previously escaped the gate entirely); stale failure-comment count reworded count-free.",
@@ -2974,11 +2985,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.7.1",
+      "version": "1.8.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.8.0: feat(EVOL-041) — new meta_template_mirror pair for scripts/check-journey-grammar.sh (journey grammar validator, D1 remediation: the validator pair is DECLARED, not implicit).",
         "1.7.1: fix(EVOL-040 pr-review loop i2) — pre-push pair doc records the enabled=false carve-out.",
         "1.7.0: feat(EVOL-040 RDR-2) — 2 new meta_template_mirror pairs: scripts/security-scan.sh (dispatcher) + scripts/hooks/pre-push (delegated secrets lane).",
         "1.6.0: feat(EVOL-040) — law_corpus_mirror pair declared (CLAUDE.md ↔ template; meta_only LAW-07/12, project_only LAW-14, addendum LAW-01); placeholder_allowlist_paths += scripts/test-* (self-test fixtures embed {{X}} sentinels legitimately).",
@@ -3374,6 +3386,21 @@
       "path": "scripts/test-validate-governance.sh",
       "changelog": [
         "1.0.0: feat(EVOL-040 pr-review loop i2) — initial."
+      ]
+    },
+    "scripts/check-journey-grammar.sh": {
+      "version": "1.0.0",
+      "path": "scripts/check-journey-grammar.sh",
+      "delivery": "both",
+      "changelog": [
+        "1.0.0: feat(EVOL-041) — deterministic user_journey.md v2 grammar validator: ### Paso N anchors, 9 mandatory step fields, Feels 1-5, BDD Scenario ↔ spec.feature titles, Mock Action ↔ imp-step ids, paths, Traceability Matrix, LAW-16 purity tripwire, unresolved-placeholder check. Cross-file checks skip gracefully pre-spec/mock (journey-first order)."
+      ]
+    },
+    "scripts/test-check-journey-grammar.sh": {
+      "version": "1.0.0",
+      "path": "scripts/test-check-journey-grammar.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-041) — red-proving self-test: 13 cases (2 green fixtures + 10 mutations that MUST fail + journey-first skip case). Wired into governance-check T2 suite."
       ]
     }
   },

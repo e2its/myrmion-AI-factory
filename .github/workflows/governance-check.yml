@@ -55,6 +55,7 @@ jobs:
                    scripts/test-code-review-gate.sh \
                    scripts/test-materialization-surface.sh \
                    scripts/test-security-scan.sh \
+                   scripts/test-check-journey-grammar.sh \
                    scripts/test-validate-governance.sh
           set -e
           for t in scripts/test-templates-static.sh \
@@ -64,6 +65,7 @@ jobs:
                    scripts/test-code-review-gate.sh \
                    scripts/test-materialization-surface.sh \
                    scripts/test-security-scan.sh \
+                   scripts/test-check-journey-grammar.sh \
                    scripts/test-validate-governance.sh; do
             echo "════════ Running $t ════════"
             bash "$t"
