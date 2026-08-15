@@ -16,7 +16,7 @@
 # Conventional Commit → Version Bump Mapping:
 #   BREAKING[- ]CHANGE: or type(scope)!:     → MAJOR bump
 #   feat:                                   → MINOR bump
-#   fix:, docs:, refactor:, perf:, chore:  → PATCH bump
+#   any other type (fix:, docs:, chore:, test:, ci:, ...) → PATCH bump (default)
 #
 # Requirements: git
 # ============================================================================

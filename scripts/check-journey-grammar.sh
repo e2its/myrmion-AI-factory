@@ -2,7 +2,7 @@
 # check-journey-grammar.sh — deterministic validator for user_journey.md v2 grammar (EVOL-041).
 #
 # Validates the machine-verifiable surface of the journey-first artefact:
-#   1. Frontmatter basics (feature_id, scope, schemas_version).
+#   1. Frontmatter basics (feature_id, scope ∈ closed vocabulary — fail-closed, schemas_version).
 #   2. Required H2 sections (Section 0..8 + Traceability Matrix).
 #   3. `### Paso N` anchors: unique, sequential from 1.
 #   4. Per-step labeled fields: Persona, Goal, Does, Sees, Feels, Pain, Ease,
@@ -11,11 +11,12 @@
 #   6. Mock Action: `#step-N` (UI scopes) or `—` (backend-only/integration MUST use `—`);
 #      when mock.html is present, every `#step-N` must resolve to id="step-N".
 #   7. BDD Scenario: when spec.feature is present, every referenced title must
-#      exactly match a `Scenario:` / `Scenario Outline:` title.
-#   8. Section 3 Paths: at least one `- **Path {Name}** (...):` line; every `Paso N` referenced exists.
+#      exactly match a `Scenario:` / `Scenario Outline:` title (fixed-string);
+#      empty or '—' anchors are rejected regardless of spec presence.
+#   8. Section 3 Paths: at least one `- **Path {Name}** (...):` line; every `Paso N` referenced exists; a path listing no Paso is a violation.
 #   8b. Section 2 carries at least one mermaid `journey` block (diagrammatic contract).
-#   9. Traceability Matrix rows reference existing Pasos.
-#  10. LAW-16 purity tripwire: technical type tokens are forbidden in Part II (Sections 5-8).
+#   9. Traceability Matrix: rows reference existing Pasos AND every Paso has a row (bidirectional).
+#  10. LAW-16 purity tripwire: technical type tokens are forbidden in Part II (Section 5 → end of file).
 #  11. Unresolved `{{...}}` placeholders are violations (an instance, not a template).
 #
 # Cross-file checks (6/7) run only when the counterpart file exists — CODESIGN writes
@@ -26,7 +27,7 @@
 #   check-journey-grammar.sh <feature-dir>                 # resolves user_journey.md, spec.feature, mock.html
 #   check-journey-grammar.sh <journey.md> [--spec FILE] [--mock FILE]
 #
-# Exit codes: 0 = grammar OK, 1 = violations, 2 = usage/missing journey.
+# Exit codes: 0 = grammar OK, 1 = violations, 2 = usage/missing journey/infra failure (never a silent PASS).
 set -u
 
 JOURNEY="" ; SPEC="" ; MOCK=""
@@ -105,7 +106,7 @@ fi
 PASO_COUNT=$(echo "$PASOS" | grep -c . || true)
 paso_exists() { echo "$PASOS" | grep -qx "$1"; }
 
-# ── 4-6. Per-step fields ────────────────────────────────────────────────────
+# ── 4-7. Per-step fields + BDD anchor ───────────────────────────────────────
 # Extract each step block (from its ### Paso heading to the next ###/## heading).
 STEP_TMP=$(mktemp -d) || { echo "❌ internal: mktemp failed — cannot validate (infra)" >&2; exit 2; }
 trap 'rm -rf "$STEP_TMP"' EXIT
@@ -213,12 +214,12 @@ done
 PART2=$(awk '/^## Section 5:/{p=1} p' "$JOURNEY")
 for token in 'enum\[' 'varchar' 'numeric(' 'decimal(' 'minlength' 'maxlength' 'proto3' 'sint64'; do
   if echo "$PART2" | grep -qi "$token"; then
-    fail "LAW-16 violation: technical token '$token' found in Part II (Sections 5-8) — business language only; typing lives in design.md"
+    fail "LAW-16 violation: technical token '$token' found in Part II (Section 5 → end) — business language only; typing lives in design.md"
   fi
 done
 for token in 'mTLS' 'HMAC'; do   # exact-case (prose false-positive risk)
   if echo "$PART2" | grep -q "$token"; then
-    fail "LAW-16 violation: technical token '$token' found in Part II (Sections 5-8) — business language only; typing lives in design.md"
+    fail "LAW-16 violation: technical token '$token' found in Part II (Section 5 → end) — business language only; typing lives in design.md"
   fi
 done
 

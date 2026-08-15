@@ -457,7 +457,7 @@ if [ -n "$BASE_FW_VERSION" ] && [ -n "$CURRENT_FW_VERSION" ]; then
     if [ "$HAS_BREAKING" -eq 0 ]; then
       warn "MAJOR version bump but no BREAKING CHANGE commit found"
       echo "   The auto-tag script may not detect this as a MAJOR bump."
-      echo -e "   ${YELLOW}ACTION: Ensure at least one commit has 'BREAKING CHANGE:' in body or a 'type(scope)!:' prefix${NC}"
+      echo -e "   ${YELLOW}ACTION: Ensure at least one commit has 'BREAKING CHANGE:'/'BREAKING-CHANGE:' in body or a 'type(scope)!:' prefix${NC}"
     else
       pass "BREAKING CHANGE marker found in commits (auto-tag will detect MAJOR)"
     fi
