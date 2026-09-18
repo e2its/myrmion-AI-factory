@@ -1406,6 +1406,66 @@
       "changelog": [
         "1.0.0: feat(EVOL-052) — initial."
       ]
+    },
+    "subproducts/po-package/static/es/README.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/README.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS-VISION.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS-VISION.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/static/es/00-core/rules-of-the-game.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/00-core/rules-of-the-game.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/static/es/30-templates/ERQ-TEMPLATE.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/30-templates/ERQ-TEMPLATE.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/RUNBOOK.es.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "subproducts/po-package/RUNBOOK.es.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted).",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted)."
+      ]
     }
   },
   "agent_templates": {
@@ -3618,7 +3678,7 @@
       "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-po-package.sh",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Part 1 validator (self-test, golden green via --dir/--zip, mutated red, hostile archive blocked, unresolved config refused). Part 2 builder (nothing written into the repo, no unresolved variable, cards well-formed, strict substitution, staging inside the repo refused). Part 3 cases 6A/6B/6C (runbook header truthful, code cards win per component, failing tool falls back, no shell, three drift findings, --strict, stale runbook warned). Part 4 closure (every command, flag and path the runbook and the workflow cite exists)."
+        "1.0.0: feat(EVOL-052) — initial. Part 1 validator (self-test, golden green via --dir/--zip, mutated red, hostile archive blocked, unresolved config refused). Part 2 builder (nothing written into the repo, no unresolved variable, cards well-formed, strict substitution, staging inside the repo refused). Part 2b language (per-file override, English fallback, literal canonical headings, EN/ES parity). Part 3 cases 6A/6B/6C (runbook header truthful, code cards win per component, failing tool falls back, no shell, three drift findings, --strict, stale runbook warned). Part 4 closure (every command, flag and path the runbook and the workflow cite exists)."
       ]
     }
   },

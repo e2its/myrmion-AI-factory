@@ -10,6 +10,7 @@
 #            mutated return red, hostile archive blocked, unresolved config humanised.
 #   Part 2 — builder: package built from the fixture project, nothing written into the
 #            repo, no unresolved variable, cards well-formed, strict substitution.
+#   Part 2b — language: per-file override, English fallback, EN/ES parity of variables and headings.
 #   Part 3 — the three design-system cases a project can be materialised in
 #            (6A vision only · 6B code rebuild by hand · 6C code rebuild in CI):
 #            runbook header resolved and truthful, code cards win per component,
@@ -42,11 +43,11 @@ expect_exit() { # expect_exit <want> <label> <substring-or-empty> -- cmd...
   ok "$label"
 }
 
-# materialise <project-dir> <code-cards-dir|null> <rebuild-command|null> <workflow: yes|no>
+# materialise <project-dir> <code-cards-dir|null> <rebuild-command|null> <workflow: yes|no> [language: en|es]
 # Mirrors the SETUP step: copy the tree, resolve placeholders (JSON null where a key does not
 # apply), derive the runbook's active section, install the optional workflow.
 materialise() {
-  local proj=$1 cards=$2 cmd=$3 workflow=$4
+  local proj=$1 cards=$2 cmd=$3 workflow=$4 lang=${5:-en}
   rm -rf "$proj/subproducts/po-package"; mkdir -p "$proj/subproducts"
   cp -R "$SRC" "$proj/subproducts/po-package"
   rm -rf "$proj/subproducts/po-package/__pycache__"
@@ -57,10 +58,10 @@ materialise() {
   else
     rm -f "$proj/.github/workflows/design-system-rebuild.yml"
   fi
-  python3 - "$proj/subproducts/po-package" "$cards" "$cmd" "$workflow" <<'PY'
+  python3 - "$proj/subproducts/po-package" "$cards" "$cmd" "$workflow" "$lang" <<'PY'
 import json, sys
 from pathlib import Path
-root, cards, cmd, workflow = Path(sys.argv[1]), *sys.argv[2:5]
+root, cards, cmd, workflow, lang = Path(sys.argv[1]), *sys.argv[2:6]
 has_cmd = cmd != "null"
 section = "6A" if not has_cmd else ("6C" if workflow == "yes" else "6B")
 status = ("installed at .github/workflows/design-system-rebuild.yml" if section == "6C"
@@ -73,7 +74,7 @@ cfg = root / "po-package.config.json"
 text = cfg.read_text(encoding="utf-8")
 for token, value in {**common,
                      "{{BUSINESS_GOAL}}": "Guests book a table without calling the venue.",
-                     "{{PROJECT_SCOPE}}": "full-stack", "{{PROJECT_LANGUAGE}}": "en",
+                     "{{PROJECT_SCOPE}}": "full-stack", "{{PROJECT_LANGUAGE}}": lang,
                      "{{FEATURE_ID_PATTERN}}": "^FEAT-\\\\d{3,}$"}.items():
     text = text.replace(token, value)
 for token, value in (("{{DS_CODE_CARDS_DIR}}", cards), ("{{DS_REBUILD_COMMAND}}", cmd)):
@@ -183,6 +184,40 @@ printf '\n${not_a_variable}\n' >> "$PROJ/subproducts/po-package/static/en/README
 expect_exit 2 "an unknown build variable stops the build" "unknown or malformed build variable" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/out2" --no-zip
 
+echo "── Part 2b: language ──"
+cp "$SRC/static/en/README.md" "$PROJ/subproducts/po-package/static/en/README.md"
+materialise "$PROJ" null null no es
+OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/oes" --no-zip 2>&1); RC=$?
+PES=$(find "$SANDBOX/oes" -mindepth 1 -maxdepth 1 -type d | head -1)
+if [ "$RC" -eq 0 ] && grep -q '^\*\*Ley 1 ' "$PES/PROJECT-INSTRUCTIONS.md" && grep -q 'en \*\*Spanish\*\*' "$PES/PROJECT-INSTRUCTIONS.md"; then
+  ok "project language overrides the prose file by file"
+else bad "language override failed (exit $RC)" "$OUT"; fi
+grep -q '^# Index of the return' "$PES/30-templates/MANIFEST-TEMPLATE.yaml" \
+  && ok "a file with no translation falls back to English" || bad "English fallback failed"
+grep -q '^## Section 2: Journey Steps' "$PES/30-templates/user_journey-TEMPLATE.md" && grep -qF '`## Section 2: Journey Steps`' "$PES/PROJECT-INSTRUCTIONS.md" \
+  && ok "canonical headings stay literal in the translated package" || bad "a canonical heading was translated"
+LEFT=$(grep -rlE '\$\{[a-z_]+\}' "$PES" | grep -v '/20-features/' || true)
+[ -z "$LEFT" ] && ok "no unresolved build variable in the translated package" || bad "unresolved build variables remain" "$LEFT"
+python3 - "$SRC" <<'PY' && ok "EN/ES parity: same build variables, same placeholders, same heading counts" || bad "EN and ES prose drifted apart"
+import re, sys
+from pathlib import Path
+src = Path(sys.argv[1]); problems = []
+def shape(path, var_re):
+    text = path.read_text(encoding="utf-8")
+    return (sorted(set(re.findall(var_re, text))), len(re.findall(r"^## ", text, re.M)), len(re.findall(r"^### ", text, re.M)))
+for es in sorted((src / "static" / "es").rglob("*")):
+    if es.is_file():
+        en = src / "static" / "en" / es.relative_to(src / "static" / "es")
+        if not en.exists():
+            problems.append(f"{es.name}: no English counterpart")
+        elif shape(es, r"\$\{[a-z_]+\}") != shape(en, r"\$\{[a-z_]+\}"):
+            problems.append(f"{es.relative_to(src)}: variables or headings differ from English")
+if shape(src / "RUNBOOK.es.md", r"\{\{[A-Z_]+\}\}") != shape(src / "RUNBOOK.md", r"\{\{[A-Z_]+\}\}"):
+    problems.append("RUNBOOK.es.md: placeholders or headings differ from RUNBOOK.md")
+print("\n".join(problems)); sys.exit(1 if problems else 0)
+PY
+materialise "$PROJ" null null no
+
 echo "── Part 3: the three design-system cases ──"
 mkdir -p "$PROJ/tools"
 cat > "$PROJ/tools/render_cards.py" <<'PY'
@@ -273,7 +308,7 @@ for name, text in texts.items():
     for rel in re.findall(r"`(\.context/templates/[^`]+)`", text):
         if not (root / rel).exists():
             problems.append(f"{name}: cites missing path {rel}")
-    for section in re.findall(r"\bsection (\d+)\b", text) if name.startswith("RUNBOOK") else []:
+    for section in re.findall(r"\b(?:section|apartado) (\d+)\b", text) if name.startswith("RUNBOOK") else []:
         if not re.search(rf"^## {section}\. ", text, re.M):
             problems.append(f"{name}: refers to section {section}, which does not exist")
 print("\n".join(problems)); sys.exit(1 if problems else 0)
