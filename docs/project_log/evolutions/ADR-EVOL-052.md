@@ -2,7 +2,7 @@
 id: ADR-EVOL-052
 title: PO package — CODESIGN authored in Claude Desktop, synced into the factory, component catalog aligned with the design system
 date: 2026-09-18
-status: proposed
+status: accepted
 ---
 
 # ADR-EVOL-052: PO package and external CODESIGN authoring
@@ -38,6 +38,9 @@ Agent-internal choices (pick + surviving risk):
 - **Written operating instructions.** The runbook carries all three design-system branches and a header block SETUP resolves to name the active one; the generator warns when that block no longer matches config and workflow presence.
 - **`--sync` never edits PO content.** Any validation finding, accessibility included, returns the target as NEEDS_INFO.
 - **One target per `--sync` invocation**, matching the one-branch-per-feature model.
+- **Authoring mode is read from `docs/setup.md`** (`codesign.authoring`), and an absent key means internal. Planned as a governance-snapshot key; dropped during implementation: the snapshot generator emits a fixed key list from the constitution frontmatter, so a new key would have dragged the constitution template and two twin scripts. Reading the field where SETUP persists it costs nothing and makes existing projects unaffected by construction.
+- **No manifest entry for the component registry.** Planned under the runtime-artefacts section; dropped: that section is for artefacts SETUP synthesises at materialisation, and the registry is born at command time, like the per-feature spec tree, which is not in the manifest either. Its schema is versioned by the owning instruction and by the schema id inside the file.
+- **Adopted files stay byte-identical.** No provenance comment is written into adopted HTML; provenance lives in the vision header and the worklog.
 - **`slice_map.md`** may be returned by the PO; when absent and slicing is incremental, `--sync` runs the existing slicing step with its RDR. Risk: it is the only generation left on the external path.
 
 ## Consequences
@@ -56,4 +59,8 @@ Materialise the return through `--refine` with a summary — rejected: it regene
 
 ## Operational Rule
 
-To be completed when this ADR is accepted, in the same PR: amendment to `CLAUDE.md` § Templates declaring the `setup/subproducts/**` template class and its self-test obligation.
+Amendment shipped in this PR to `CLAUDE.md` § Templates — the **Subproducts class**: `.context/templates/setup/subproducts/**` materialises to project-root `subproducts/**`; deliverable-generation tooling imported by no framework or product module and outside the project's governed trees; each subproduct ships a self-test that meta CI runs through a synthetic materialisation and that the consuming skill re-runs before trusting a green; only its configured files carry placeholders, every other file lands byte-identical. The project-side statement of the same rule ships in the project `CLAUDE.md` template § Templates. No LAW added; the LAW corpus and the three universal sections are untouched (lock-step verified).
+
+## Verification record
+
+Meta CI: `scripts/test-po-package.sh` (49 assertions — validator self-test with every check id red-proved and a coverage meta-assertion, builder, language parity, the three design-system cases of a synthetic materialisation, closure of every command, flag and path the runbooks and the workflow cite, registry schema parity, the guard byte-identical at the four authoring entry points, existence of every function `--sync` reuses by reference) and `scripts/test-materialization-surface.sh` assertion 6. The no-shell assertion, the runbook closure and the three new surface assertions were red-proved by sabotage. `/codesign --sync` is executed by an LLM and cannot run in CI: its manual smoke is reported on the PR. Increments 2 and 2b of the plan were merged into one because the runbook cites the rebuild and drift flags and its closure test requires them in the real argument parser.
