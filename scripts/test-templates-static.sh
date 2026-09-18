@@ -226,9 +226,14 @@ echo
 # ─── backlog adapter: GitHub Projects board linked to its repository ───────
 echo "backlog-tool-adapters/github-project.md"
 GH_ADAPTER=".context/templates/setup/backlog-tool-adapters/github-project.md"
-gh_create=$(awk '/^#### `create_project`/{f=1; next} f && /^#### /{exit} f' "$GH_ADAPTER")
-assert "printf '%s' \"\$gh_create\" | grep -qE 'gh project link \\{\\{PROJECT_NUMBER\\}\\} --owner \\{\\{ORG_OR_USER\\}\\} --repo \\{\\{REPO_SLUG\\}\\}'" \
-  "create_project links the new board to the repository (a board created alone is missing from the repo's Projects tab)"
+assert "[ -f '$GH_ADAPTER' ]" "file exists"
+if [ -f "$GH_ADAPTER" ]; then
+  gh_create=$(awk '/^#### `create_project`/{f=1; next} f && /^#### /{exit} f' "$GH_ADAPTER")
+  assert "printf '%s' \"\$gh_create\" | grep -qxE 'gh project link \\{\\{PROJECT_NUMBER\\}\\} --owner \\{\\{ORG_OR_USER\\}\\} --repo \\{\\{REPO_SLUG\\}\\}'" \
+    "create_project links the new board to the repository (a board created alone is missing from the repo's Projects tab)"
+  assert "printf '%s' \"\$gh_create\" | grep -qF 'repositories(first:50){ nodes { nameWithOwner } }' && printf '%s' \"\$gh_create\" | grep -qF 'never re-run'" \
+    "create_project verifies the link from the project side and never recovers by creating a second board"
+fi
 echo
 
 # ─── Summary ────────────────────────────────────────────────────────────────

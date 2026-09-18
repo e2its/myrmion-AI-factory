@@ -23,6 +23,8 @@ sudo apt install gh
 # Others: see https://cli.github.com/
 ```
 
+Requires gh **2.45.0 or later** (`gh project link`); check with `gh --version`. A distribution package can be older — install from https://cli.github.com/ instead.
+
 ### Authenticate
 
 ```bash
@@ -98,6 +100,12 @@ gh project create \
 gh project link {{PROJECT_NUMBER}} --owner {{ORG_OR_USER}} --repo {{REPO_SLUG}}
 ```
 Idempotent (re-linking is harmless) and visibility-neutral (a private board stays private). A board created before this step existed: run the same command once.
+
+**Verify** — must print `{{REPO_SLUG}}`. Ask the project, not the repository: a public repository may not list a private board.
+```bash
+gh api graphql -f query='query($id:ID!){ node(id:$id){ ... on ProjectV2 { repositories(first:50){ nodes { nameWithOwner } } } } }' -f id={{PROJECT_NODE_ID}} --jq '.data.node.repositories.nodes[].nameWithOwner'
+```
+**If the link or its verification fails, the board still exists.** Do not stop and never re-run `--init-board` — it would create a second board. Finish `configure_board`, persist the config, then report the board as created but NOT linked, with the link command to run on its own (§ 4).
 
 #### `configure_board`
 GitHub Projects v2 creates a default `Status` field with `Todo | In Progress | Done`. To match Q27.1 `{{BOARD_COLUMNS}}`:
@@ -304,6 +312,9 @@ Post-init values are written to `docs/backlog/project-config.json` and re-read o
 | `addSubIssue` returns `Node not found` | Child issue was created but `read_issue` not called to capture `node_id` | Always run `gh issue view --json id` after `create_issue` to capture the node ID before calling `add_sub_issue` |
 | `item-edit` returns `Cannot update field`, `invalid option ID` | `column_option_ids` in project-config.json are stale (project was recreated) | Re-run `configure_board` to refresh the mapping |
 | `HTTP 429: rate limit exceeded` | Too many API calls | Wait for `X-RateLimit-Reset` header; batch `query_board` calls through the memory cache |
+| `unknown command "link" for "gh project"` | gh older than 2.45.0 | Upgrade gh (§ 0), then run only the `gh project link` command from `create_project` — never re-run `--init-board` |
+| `… has different owner from …` | Board and repository have different owners | GitHub links a board only to a repository of the same owner: `{{ORG_OR_USER}}` must be the owner in `{{REPO_SLUG}}` |
+| `Could not resolve to a Repository with the name …` | The repository does not exist yet, or `{{REPO_SLUG}}` is wrong | Create or push the repository, then run only the `gh project link` command |
 
 ---
 
