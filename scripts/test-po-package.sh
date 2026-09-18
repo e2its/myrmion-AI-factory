@@ -494,7 +494,8 @@ run_build o6a --no-zip --check-drift --strict
 [ "$RC" -eq 0 ] && ! has 'RUNBOOK.md says' && ok "6A: builds, and no stale-runbook warning when aligned" || bad "6A: build or runbook check wrong (exit $RC)" "$OUT"
 has 'drift: not applicable' && ok "6A: drift is reported as not applicable, never as zero — and --strict has nothing to fail" || bad "6A: drift wording wrong" "$OUT"
 run_build o6a2 --no-zip --rebuild
-[ "$RC" -eq 0 ] && has 'no rebuild command is configured' && ok "6A: --rebuild without a command is said out loud" || bad "6A: --rebuild without a command went silent" "$OUT"
+[ "$RC" -eq 0 ] && has 'no rebuild command is configured' && ! has 'the rebuild command ran' \
+  && ok "6A: --rebuild without a command is said out loud, and never claims a command ran" || bad "6A: --rebuild without a command went silent or claimed a run" "$OUT"
 
 reset_cards; materialise "$PROJ" design-cards null no          # the usual: a tool the operator asks Claude to run, no command
 case_runbook 6B "6B cards refreshed by asking Claude"
@@ -508,8 +509,15 @@ run_build o6q --no-zip --mode ds-only --check-drift
 has 'as found — NOT refreshed (refresh them with your tool first' && ! has 'pass --rebuild' \
   && ok "6B by hand: the unrefreshed notice says how to refresh without a command" || bad "6B by hand: the notice points at a command that does not exist" "$OUT"
 run_build o6q2 --no-zip --mode ds-only --rebuild
-[ "$RC" -eq 0 ] && has 'no rebuild command is configured' && grep -q 'RENDERED-FROM-CODE button' "$PKGDIR/10-design-system/cards/button.html" \
-  && ok "6B by hand: --rebuild out of habit keeps the cards the tool left, said out loud" || bad "6B by hand: --rebuild threw the cards away (exit $RC)" "$OUT"
+[ "$RC" -eq 0 ] && has 'the cards in `design-cards` are taken as found' && grep -q 'RENDERED-FROM-CODE button' "$PKGDIR/10-design-system/cards/button.html" \
+  && has 'as found — NOT refreshed (refresh them with your tool first' \
+  && ok "6B by hand: --rebuild out of habit keeps the cards the tool left, and says nothing was refreshed" || bad "6B by hand: --rebuild threw the cards away or hid that nothing was refreshed (exit $RC)" "$OUT"
+expect_exit 1 "6B by hand: --rebuild with no command never passes --strict on drift it did not refresh" "with no rebuild command nothing was refreshed" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6q3" --no-zip --mode ds-only --rebuild --check-drift --strict
+materialise "$PROJ" design-cards null yes                        # a workflow file left behind after the command was dropped
+run_build o6x --no-zip --mode ds-only
+[ "$RC" -eq 0 ] && ! has 'RUNBOOK.md says' && ok "6B by hand: a stray workflow file does not make it 6C — CI needs a command" || bad "6B by hand: section derived as 6C without a command" "$OUT"
+rm -f "$PROJ/.github/workflows/design-system-rebuild.yml"
 
 PO_T_NULLSTR=1 materialise "$PROJ" null null no
 run_build o6n --no-zip --check-drift --strict
@@ -560,8 +568,9 @@ run_build o6k --no-zip --mode ds-only
 [ "$RC" -eq 0 ] && has 'a second time' && ok "6B: two code cards for one component are said out loud" || bad "6B: a card collision was resolved silently" "$OUT"
 
 reset_cards; materialise "$PROJ" null "python3 tools/render_cards.py" no
-run_build o6q --no-zip --mode ds-only --rebuild
-[ "$RC" -eq 0 ] && has 'its output is not used' && ok "a rebuild command with no cards folder configured is said out loud" || bad "a rebuild's output was discarded silently" "$OUT"
+run_build o6nc --no-zip --mode ds-only --rebuild
+[ "$RC" -eq 0 ] && has 'its output is not used' && ! has 'RUNBOOK.md says' \
+  && ok "a rebuild command with no cards folder is said out loud, and the project stays 6A" || bad "a rebuild's output was discarded silently, or the section is wrong" "$OUT"
 reset_cards
 
 cat > "$PROJ/tools/render_aligned.py" <<'PY'

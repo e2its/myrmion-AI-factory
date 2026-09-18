@@ -17,7 +17,7 @@ Apartado de design system activo: **{{DS_ACTIVE_SECTION}}**
 ## Requisitos
 
 - Python 3.10 o posterior, con PyYAML: `python3 -m pip install pyyaml`.
-- Comprueba ambos a la vez: `python3 subproducts/po-package/validate_po_return.py --selftest` — `0 failure(s)` quiere decir listo.
+- Comprueba la instalación: `python3 subproducts/po-package/validate_po_return.py --selftest` — `0 failure(s)` quiere decir listo.
 - El PO sólo necesita Claude Desktop.
 
 ## El bucle
@@ -130,7 +130,7 @@ Igual que 6B con comando de reconstrucción —una herramienta que sólo se lanz
 | `implemented-without-code-card` | El registro dice construido y nada se renderiza | La herramienta no lo cubre, o el estado está mal |
 | `candidate-implemented` | El registro dice diseñado o planificado, y el código ya lo renderiza | Reconcilia el registro a `IMPLEMENTED` (apartado 5.6) |
 | `drift: not applicable` | No hay carpeta de tarjetas desde código configurada (caso 6A, o un proyecto sin design system) | Nada. `--strict` no tiene sobre qué fallar |
-| `drift: NOT COMPUTED — …` | Hay una carpeta de tarjetas desde código configurada, así que la deriva aplica, pero no se pudo medir en esta ejecución (falló la reconstrucción, la carpeta no dio ninguna tarjeta, aún no hay visión, o el proyecto no tiene design system propio) | Lee las líneas `WARNING` que la preceden. Con `--strict` sale con 1: una deriva sin medir no es un aprobado |
+| `drift: NOT COMPUTED — …` | Hay una carpeta de tarjetas desde código configurada, así que la deriva aplica, pero no se pudo medir en esta ejecución (falló la reconstrucción, se pidió `--rebuild` sin comando de reconstrucción, la carpeta no dio ninguna tarjeta, aún no hay visión, o el proyecto no tiene design system propio) | Lee las líneas `WARNING` que la preceden. Con `--strict` sale con 1: una deriva sin medir no es un aprobado |
 | `code cards: N taken … as found — NOT refreshed` | Se usaron las tarjetas que había en disco sin ejecutar la herramienta | Refréscalas antes de fiarte de las líneas de deriva: pide a Claude que ejecute tu herramienta, o pasa `--rebuild` si hay comando de reconstrucción configurado |
 
 ### Espejo en Claude Design (opcional)

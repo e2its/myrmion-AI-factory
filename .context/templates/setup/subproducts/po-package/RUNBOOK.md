@@ -17,7 +17,7 @@ Active design-system section: **{{DS_ACTIVE_SECTION}}**
 ## Requirements
 
 - Python 3.10 or later, with PyYAML: `python3 -m pip install pyyaml`.
-- Check both at once: `python3 subproducts/po-package/validate_po_return.py --selftest` — `0 failure(s)` means ready.
+- Check the setup: `python3 subproducts/po-package/validate_po_return.py --selftest` — `0 failure(s)` means ready.
 - The PO needs only Claude Desktop.
 
 ## The loop
@@ -130,7 +130,7 @@ Same as 6B with a rebuild command — a tool you can only run by asking Claude c
 | `implemented-without-code-card` | The registry says built, nothing renders | The rebuild tool does not cover it, or the status is wrong |
 | `candidate-implemented` | The registry says designed or planned, and code already renders it | Reconcile the registry to `IMPLEMENTED` (section 5.6) |
 | `drift: not applicable` | No code cards folder is configured (case 6A, or a project with no design system) | Nothing. `--strict` has nothing to fail on |
-| `drift: NOT COMPUTED — …` | A code cards folder is configured, so drift applies, but it could not be measured in this run (the rebuild failed, the folder yielded no card, there is no vision yet, or the project authors no design system) | Read the `WARNING` lines above it. Under `--strict` this exits 1: an unmeasured drift is not a pass |
+| `drift: NOT COMPUTED — …` | A code cards folder is configured, so drift applies, but it could not be measured in this run (the rebuild failed, `--rebuild` was asked with no rebuild command, the folder yielded no card, there is no vision yet, or the project authors no design system) | Read the `WARNING` lines above it. Under `--strict` this exits 1: an unmeasured drift is not a pass |
 | `code cards: N taken … as found — NOT refreshed` | Cards on disk were used without running the tool | Refresh them before trusting the drift lines: ask Claude to run your tool, or pass `--rebuild` when a rebuild command is configured |
 
 ### Mirror in Claude Design (optional)

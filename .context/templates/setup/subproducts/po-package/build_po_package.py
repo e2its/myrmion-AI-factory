@@ -400,8 +400,9 @@ def run_rebuild(build: Build) -> bool:
     conf = build.cfg["design_system"]["code_cards"]
     command = conf.get("rebuild_command")
     if not command:
-        build.warn("--rebuild was asked but no rebuild command is configured — nothing was refreshed; "
-                   "a cards folder, if configured, is taken as found (refresh it with your tool first)")
+        folder = conf.get("dir")
+        build.warn("--rebuild was asked but no rebuild command is configured — nothing was refreshed"
+                   + (f"; the cards in `{folder}` are taken as found (refresh them with your tool first)" if folder else ""))
         return True
     try:
         proc = subprocess.run(shlex.split(command), cwd=build.repo, shell=False, capture_output=True,
@@ -657,6 +658,9 @@ def run(args: argparse.Namespace) -> int:
     cards, drifted = 0, "NOT COMPUTED — this project authors no design system"
     if with_vision:
         cards, drifted = build_design_system(build, trust_code, refreshed=refreshed)
+        if args.rebuild and not refreshed and isinstance(drifted, list):   # asked to refresh, then measure: nothing was refreshed
+            drifted = ("NOT COMPUTED — --rebuild was asked, but with no rebuild command nothing was refreshed "
+                       "(refresh the cards with your tool, then build without --rebuild)")
     if not configured:
         drifted = None   # the ONE place the rule lives: no code cards folder ⇒ drift does not apply
     if not ds_only:

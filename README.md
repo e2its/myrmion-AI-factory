@@ -457,7 +457,7 @@ CODESIGN is the phase whose signing actor is not an engineer. When a project cho
 | 6B | Code, per component; the vision for components not built yet | Ask Claude to run your tool, then build — or `build_po_package.py --rebuild` when a command is configured |
 | 6C | Same as 6B, with a rebuild command | Also an **optional, advisory** GitHub Actions job (`design-system-rebuild.yml`) on push to main and on demand |
 
-The rebuild command runs without a shell and with a timeout; a missing or failing tool falls back to vision cards with a loud warning and never blocks. `--check-drift` reports `code-card-unregistered`, `implemented-without-code-card` and `candidate-implemented` — the mechanical signal that the design system and what is built are still the same thing. Claude Design is a one-way mirror published by the user-started `/design-sync`; no gate depends on it.
+The rebuild command runs without a shell and with a timeout; a tool that is not installed, fails or times out falls back to vision cards with a loud warning and never blocks. `--check-drift` reports `code-card-unregistered`, `implemented-without-code-card` and `candidate-implemented` — the mechanical signal that the design system and what is built are still the same thing. Claude Design is a one-way mirror published by the user-started `/design-sync`; no gate depends on it.
 
 **Language.** PO-facing prose ships in English with a Spanish override, selected by the project language at build time. Canonical section headings and field labels are never translated.
 
