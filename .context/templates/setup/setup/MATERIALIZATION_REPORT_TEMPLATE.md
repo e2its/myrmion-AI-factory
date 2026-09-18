@@ -451,6 +451,18 @@ cat docs/constitution.md
 ls -la .claude/rules/
 ```
 
+### PO package — next steps
+<!-- Render ONLY when docs/setup.md `po_package.mode != "off"` (Q29 external authoring). Remove the block otherwise. -->
+- **CODESIGN authoring:** external — `/codesign --start` and `/codesign --refine` are closed; the Product Owner's work enters with `/codesign --sync`.
+- **Package mode:** {{PO_PACKAGE_MODE}}
+- **Design-system cards:** case **{{DS_ACTIVE_SECTION}}** — source `{{DS_CARDS_SOURCE}}`, rebuild command `{{DS_REBUILD_COMMAND}}`, CI workflow {{DS_CI_WORKFLOW_STATUS}}
+- **Read first:** `subproducts/po-package/RUNBOOK.md` — the full operator procedure. It works before the `factory-po-intake` skill arrives with `factory-sync.sh`.
+
+```bash
+python3 subproducts/po-package/validate_po_return.py --selftest   # the subproduct's only net — run it first
+python3 subproducts/po-package/build_po_package.py                # first package for the PO
+```
+
 ### Rollback (if needed)
 ```bash
 # Restore from last backup

@@ -880,10 +880,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.2.1",
+      "version": "2.3.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.3.0: feat(EVOL-052) — § E gains CODESIGN Authoring Surface (Q29) and Design-System Cards Source (Q29.1) with their persisted keys. Duplicated `### E. Operational Decisions` heading removed.",
         "2.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked. Canonical template for docs/setup.md; consumed by SETUP --generate to materialise the per-project architecture roadmap & decisions log.",
         "2.0.0: feat(EVOL-019) phase 1: retroactive version bump to match the template's own `version: 2.0.0` frontmatter (Tripartite architecture support pre-existing the EVOL-019 initial registration).",
@@ -1078,10 +1079,11 @@
       ]
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md",
       "changelog": [
+        "1.2.0: feat(EVOL-052) — NEW `### PO package — next steps` block (rendered only with external authoring): authoring mode, active design-system case 6A/6B/6C and why, runbook path, first two commands. The materialisation must leave written operating instructions.",
         "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified.",
         "1.0.0: backfill — materialisation report scaffold existed but was untracked."
       ]
@@ -2275,9 +2277,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.14.0",
+      "version": "2.15.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.15.0: feat(EVOL-052) — NEW Q29 CODESIGN Authoring Surface (external-full | external-features | internal → `codesign.authoring` + `po_package.mode`; 3 options for every scope) and Q29.1 Design-System Cards Source (vision | code-rebuild | defer → `po_package.ds_*`; conditional on external authoring AND UI scope; tool-agnostic — the framework names no tool). TIER_2 list extended.",
         "2.14.0: feat(EVOL-040 RDR-2) — NEW Q23.2 Security Scanner (5-field mirror of Q23.1; gitleaks default / trufflehog / Custom / Skip; persists quality.security_scan.*; resolution table is the only home of scanner commands besides materialization; two-layer note: regex floor always on). TIER_2 array += Q23.1 (backfill — was missing, pre-existing bug) + Q23.2.",
         "2.13.0: feat(EVOL-033) phase 2 — Q23.1 Code-Quality MCP (cyclomatic complexity scanner) added after Q23 (Testing Strategy). Three options via RDR: Semgrep MCP (default, multi-lang official server) | Custom MCP (project declares server+tool returning {file, function, ccn}[]) | Skip (disable gate, enable later by editing config/quality.json). Persists quality.complexity.{mcp_server, mcp_tool_name, enabled, thresholds.{soft=10, hard=15}, bvl_gate=true, pr_blocker=false}. Defaults are McCabe industry baseline. Materialization consumer: Factory-setup-materialization § Quality Configuration resolves placeholders {{COMPLEXITY_MCP_SERVER}} + {{COMPLEXITY_MCP_TOOL_NAME}} in config/quality.json.",
         "2.12.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2306,7 +2309,7 @@
       "version": "3.10.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
-        "3.10.0: feat(EVOL-052) — External-DS Component Migration now points at the registry schema owner (Factory-codesign-vision § Component Registry) instead of a dangling file reference.",
+        "3.10.0: feat(EVOL-052) — External-DS Component Migration now points at the registry schema owner (Factory-codesign-vision § Component Registry) instead of a dangling file reference. NEW step Subproducts Materialization (`.context/templates/setup/subproducts/` → `subproducts/`): whole-tree copy, universal files byte-identical, placeholders resolved only in the stack_configured files (11-row table incl. the two DERIVED runbook tokens), JSON `null` rule, optional design-system-rebuild workflow (GitHub Actions AND a configured command), invariant RUNBOOK.md present with zero placeholders else BLOCK, self-test run, MANDATORY written next steps in MATERIALIZATION_REPORT.md and the closing briefing.",
         "3.9.0: feat(EVOL-040 RDR-2) — Quality Configuration resolves the three {{SECURITY_SCANNER*}} placeholders from Q23.2 with the same Skip null-literal semantics as complexity; consumers list extended (security-scan dispatcher, factory-code-review).",
         "3.8.0: feat(EVOL-040 root cause B) — § 4.2.2 constitution template path fixed (missing constitution/ segment — SETUP constitution generation read a non-existent path); § 4.2.3 config artefacts += coherence-context.json (template + manifest entry existed, instruction never materialised it — pr-review Phase 0 degraded in every downstream project); § Scripts Materialization gains the delivery-closure Invariant (every templates::scripts entry with delivery setup|both must exist post-copy → BLOCK, mirrors hooks Invariant).",
         "3.7.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: snapshot-generation section `protected_paths.red_zones` → `protected_paths.paths` (line 155); subheading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)`. The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
@@ -3632,11 +3635,12 @@
       ]
     },
     "scripts/test-materialization-surface.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "role": "T3 delivery-surface test (EVOL-040, north-star check). SETUP --generate is LLM-driven and unscriptable in CI — this statically verifies the AGNOSTIC delivery surface instead: workflow→script closure, template-CLAUDE.md ref resolution via the delivery map, placeholder resolvability against materialization rules, template-side hooks invariant, delivery-field closure. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-materialization-surface.sh",
       "changelog": [
+        "1.2.0: feat(EVOL-052) — assertion 3 also covers the stack_configured files of a subproduct; NEW assertion 6 subproduct closure (disk ↔ manifest both ways, target == key, universal files placeholder-free so they land byte-identical, stack_configured files carry one, workflow → subproduct refs resolve, the materialization instruction owns the step and its written-instructions invariant). All three failure modes red-proved by sabotage.",
         "1.1.0: fix(EVOL-040 pr-review loop i2) — every python probe's exit status now captured — probe crash reads as an assertion FAILURE, not a green pass (negative-tested with a stubbed python3); assertion-2 loop invariants hoisted (manifest loaded once, no shadowing); assertion 5 widened to framework_core sync|both entries (template-or-meta resolution).",
         "1.0.0: feat(EVOL-040) — initial. Negative-tested: detects the pre-K2 state (CI-invoked scripts without template sources)."
       ]
