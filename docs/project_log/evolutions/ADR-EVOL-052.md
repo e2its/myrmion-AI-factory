@@ -49,6 +49,7 @@ Agent-internal choices (pick + surviving risk):
 - New sub-command `/codesign --sync`, new instruction `Factory-codesign-sync`, new skill `factory-po-intake`, new discovery questions Q29 and Q29.1, new optional workflow, new runtime artefact (the component registry) with its schema owned by the vision instruction.
 - The four authoring sub-commands become mode-guarded. Projects choosing internal authoring see no behaviour change.
 - No new LAW. RDR Universal and LAW-16 already cover ratification and purity.
+- `--vision-approve` check 4 is tightened for every project, internal authoring included: base components must sit under their component anchor and be listed in the registry. A vision drafted before this evolution gains the anchors at its next refine, before it can be approved again. Already approved visions are unaffected until refined.
 - `framework_version` 6.0.0 → **6.1.0** (MINOR — additive; branch `feature/EVOL-052-po-package`).
 - Open tension with #51: the project manifest will list `subproducts/**` targets as the upgrade channel, while #51 describes subproducts as having no manifest entry. To reconcile when #51 is built. The push gate treats subproduct Python as code; the exclusion class belongs to #51.
 - The external cards folder contract is an assumption: preview HTML files whose first line is the design-system card marker, with an optional compiled manifest. It is the only contract verifiable today. If the real tool output differs, only the adapter function changes.
