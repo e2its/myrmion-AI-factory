@@ -115,7 +115,7 @@ Igual que 6B, y además `.github/workflows/design-system-rebuild.yml` ejecuta la
 | `implemented-without-code-card` | El registro dice construido y nada se renderiza | La herramienta no lo cubre, o el estado está mal |
 | `candidate-implemented` | El registro dice diseñado o planificado, y el código ya lo renderiza | Reconcilia el registro a `IMPLEMENTED` (apartado 5.6) |
 | `drift: not applicable` | No hay carpeta de tarjetas desde código configurada (caso 6A, o un proyecto sin design system) | Nada. `--strict` no tiene sobre qué fallar |
-| `drift: NOT COMPUTED — …` | Aquí la deriva aplica pero no se pudo medir en esta ejecución (falló la reconstrucción, la carpeta no dio ninguna tarjeta, no hay visión) | Lee las líneas `WARNING` que la preceden. Con `--strict` sale con 1: una deriva sin medir no es un aprobado |
+| `drift: NOT COMPUTED — …` | Hay una carpeta de tarjetas desde código configurada, así que la deriva aplica, pero no se pudo medir en esta ejecución (falló la reconstrucción, la carpeta no dio ninguna tarjeta, aún no hay visión, o el proyecto no tiene design system propio) | Lee las líneas `WARNING` que la preceden. Con `--strict` sale con 1: una deriva sin medir no es un aprobado |
 | `code cards: N taken … as found — NOT refreshed` | Se usaron las tarjetas que había en disco sin ejecutar la herramienta | Pasa `--rebuild` antes de fiarte de las líneas de deriva |
 
 ### Espejo en Claude Design (opcional)

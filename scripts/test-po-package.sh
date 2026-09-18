@@ -10,7 +10,9 @@
 #             not do its job), repository resolution the way operators invoke it, golden
 #             return green (folder, zip with wrapper, archive-tool litter), RED as JSON,
 #             the verdict line a human reads, hostile / damaged / unreadable archives,
-#             a fault of the tool itself never reading as a verdict (with and without the trace).
+#             a fault of the tool itself never reading as a verdict (with and without the
+#             trace, and when the tool's own library is missing) — proven by breaking the
+#             sandbox copy of the tool.
 #   Part 2  — builder: nothing written into the repo (bytecode included), tree and content,
 #             no unresolved variable, cards well-formed, strict substitution, staging and
 #             zip refused inside the repo, config faults in plain language, mode matrix,
@@ -191,6 +193,11 @@ with zipfile.ZipFile(f"{root}/crc.zip", "w", zipfile.ZIP_STORED) as z:
     z.writestr("MANIFEST.yaml", "features: []\n"); z.writestr("FEAT-999/spec.feature", "Feature: PAYLOADPAYLOAD\n")
 data = bytearray(open(f"{root}/crc.zip", "rb").read()); data[data.find(b"PAYLOADPAYLOAD")] ^= 0xFF
 open(f"{root}/crc.zip", "wb").write(bytes(data))
+name = "MANIFEST.yaml"
+with zipfile.ZipFile(f"{root}/deflate.zip", "w", zipfile.ZIP_DEFLATED) as z:
+    z.writestr(name, "features: []\n" * 200)
+data = bytearray(open(f"{root}/deflate.zip", "rb").read()); data[30 + len(name)] = 0x07   # reserved deflate block type
+open(f"{root}/deflate.zip", "wb").write(bytes(data))
 PY
 expect_exit 1 "hostile archive is RED and is never extracted" "the archive was not extracted" \
   python3 "$VAL" --zip "$SANDBOX/fx/slip.zip" --repo "$PROJ"
@@ -198,14 +205,27 @@ expect_exit 1 "truncated download is RED in plain language" "not a readable zip"
   python3 "$VAL" --zip "$SANDBOX/fx/truncated.zip" --repo "$PROJ"
 expect_exit 1 "a damaged archive is RED in plain language and is never extracted" "damaged member: FEAT-999/spec.feature — the archive was not extracted" \
   python3 "$VAL" --zip "$SANDBOX/fx/crc.zip" --repo "$PROJ"
+expect_exit 1 "a damaged COMPRESSED archive is RED too — a decompressor error is a finding, not a tool fault" "cannot be read" \
+  python3 "$VAL" --zip "$SANDBOX/fx/deflate.zip" --repo "$PROJ"
 expect_exit 2 "--dir on a file is a usage fault (exit 2), never a RED verdict" "Not a folder" \
   python3 "$VAL" --dir "$SANDBOX/fx/golden.zip" --repo "$PROJ"
 expect_exit 2 "a return path that does not exist is a usage fault, never RED" "Not found" python3 "$VAL" --zip "$SANDBOX/nope.zip" --repo "$PROJ"
-cp -R "$RET" "$SANDBOX/fx/faulty"; rm "$SANDBOX/fx/faulty/MANIFEST.yaml"; mkdir "$SANDBOX/fx/faulty/MANIFEST.yaml"
-expect_exit 2 "a fault of the tool itself is exit 2 in plain language, never a verdict" "the tool itself failed" \
-  python3 "$VAL" --dir "$SANDBOX/fx/faulty" --repo "$PROJ"
-OUT=$(PO_PACKAGE_DEBUG=1 python3 "$VAL" --dir "$SANDBOX/fx/faulty" --repo "$PROJ" 2>&1); RC=$?
-[ "$RC" -eq 2 ] && has 'Traceback' && ok "the debug switch adds the trace and the exit code stays 2" || bad "the debug switch changed the exit code (got $RC)" "$OUT"
+# The boundary is proven by BREAKING the sandbox copy of the tool — never by leaning on a product defect.
+LIBCOPY="$PROJ/subproducts/po-package/po_lib.py"; cp "$LIBCOPY" "$SANDBOX/po_lib.bak"
+printf '\n\ndef load_glossary(*_a, **_k):\n    raise RuntimeError("injected fault")\n\n\ndef spec_features(*_a, **_k):\n    raise RuntimeError("injected fault")\n' >> "$LIBCOPY"
+expect_exit 2 "a fault of the validator itself is exit 2 in plain language, never a verdict" "the tool itself failed" \
+  python3 "$VAL" --dir "$RET" --repo "$PROJ"
+OUT=$(PO_PACKAGE_DEBUG=1 python3 "$VAL" --dir "$RET" --repo "$PROJ" 2>&1); RC=$?
+[ "$RC" -eq 2 ] && has 'Traceback' && has 'injected fault' && ok "the debug switch adds the trace and the exit code stays 2" || bad "the debug switch changed the exit code (got $RC)" "$OUT"
+expect_exit 2 "a fault of the builder itself is exit 2, never 'drift found'" "the tool itself failed" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-fault" --no-zip --check-drift --strict
+mv "$LIBCOPY" "$SANDBOX/po_lib.broken"
+expect_exit 2 "a partial materialisation (library missing) is exit 2 in plain language" "po_lib.py is missing or broken" \
+  python3 "$VAL" --dir "$RET" --repo "$PROJ"
+expect_exit 2 "…for the builder too" "po_lib.py is missing or broken" python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-nolib" --no-zip
+cp "$SANDBOX/po_lib.bak" "$LIBCOPY"
+python3 "$VAL" --dir "$RET" --repo "$PROJ" --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["verdict"]=="GREEN" and d["returnable_to_po"] is None, d' \
+  && ok "on a GREEN return the JSON does not say whether to send it back: there is nothing to send" || bad "JSON returnability is wrong on GREEN"
 python3 - "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX/allow.json" <<'PY'
 import json, sys
 c = json.load(open(sys.argv[1])); c["mock"]["allowed_external_hosts"] = ["CDN.Project.example"]; json.dump(c, open(sys.argv[2], "w"))
@@ -263,7 +283,7 @@ expect_exit 2 "staging inside the repository is refused" "outside the repository
   python3 "$BLD" --repo "$PROJ" --out "$PROJ/inside" --no-zip
 expect_exit 2 "zip folder inside the repository is refused" "zip folder must be outside" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o9" --zip-dir "$PROJ/dist"
-[ -d "$PROJ" ] && [ ! -e "$PROJ/dist" ] && [ ! -e "$PROJ/inside" ] && ok "neither refused folder was created" || bad "a refused folder was created"
+[ ! -e "$PROJ/dist" ] && [ ! -e "$PROJ/inside" ] && ok "neither refused folder was created" || bad "a refused folder was created"
 expect_exit 2 "a roadmap path that does not exist says so" "Roadmap file not found" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o10" --no-zip --roadmap "$SANDBOX/no-roadmap.json"
 echo '[{"key":"FEAT-500","name":"x"}]' > "$SANDBOX/badroadmap.json"
@@ -302,6 +322,7 @@ c = json.load(open(src)); c["features"]["include"] = ["FEAT-000"]; json.dump(c, 
 c = json.load(open(src)); c["design_system"].update(tokens_sources=["docs/nope.html"], extra_files=["docs/nope.pdf"], codebase_inventory="config/nope.json")
 json.dump(c, open(f"{box}/cfg-typos.json", "w"))
 c = json.load(open(src)); c["design_system"]["tokens_sources"] = ["docs/ux/vision"]; json.dump(c, open(f"{box}/cfg-dirtok.json", "w"))
+c = json.load(open(src)); c["design_system"]["vision_root"] = "docs/ux/no-vision-yet"; json.dump(c, open(f"{box}/cfg-novision.json", "w"))
 c = json.load(open(src)); c["design_system"]["code_cards"]["dir"] = "../outside-cards"; json.dump(c, open(f"{box}/cfg-escape.json", "w"))
 PY
 run_build o-ex --no-zip --config "$SANDBOX/cfg-exclude.json"
@@ -314,11 +335,13 @@ run_build o-in2 --no-zip --config "$SANDBOX/cfg-include-other.json"
 expect_exit 0 "a project that authors no design system has no drift to fail on, even under --strict" "drift: not applicable" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-bk" --no-zip --check-drift --strict --config "$SANDBOX/cfg-backend.json"
 run_build o-typo --no-zip --config "$SANDBOX/cfg-typos.json"
-[ "$RC" -eq 0 ] && has 'tokens source `docs/nope.html` does not exist' && has 'extra design-system file `docs/nope.pdf` does not exist' \
+[ "$RC" -eq 0 ] && has 'tokens source `docs/nope.html` is not a file of the repository' && has 'extra design-system file `docs/nope.pdf` does not exist' \
   && has 'the codebase inventory is not at' && grep -q 'token sources were not found' "$PKGDIR/10-design-system/tokens.md" \
   && ok "config paths that point nowhere are said out loud, in the run and in the package" || bad "a wrong config path degraded the package silently" "$OUT"
-expect_exit 2 "a fault of the builder itself is exit 2, never 'drift found'" "the tool itself failed" \
-  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-fault" --no-zip --check-drift --strict --config "$SANDBOX/cfg-dirtok.json"
+run_build o-dirtok --no-zip --config "$SANDBOX/cfg-dirtok.json"
+[ "$RC" -eq 0 ] && has 'is not a file of the repository' && ok "a tokens source that is a folder is a plain warning, not a tool fault" || bad "a folder as tokens source broke the build (exit $RC)" "$OUT"
+expect_exit 0 "a project before its first vision has no drift to fail on either, even under --strict" "drift: not applicable" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-nov" --no-zip --check-drift --strict --config "$SANDBOX/cfg-novision.json"
 expect_exit 2 "a code cards folder outside the repository is refused in plain language" "inside the repository" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-esc" --no-zip --config "$SANDBOX/cfg-escape.json"
 run_build ost --no-zip; : > "$PKGDIR/STALE.md"; run_build ost --no-zip

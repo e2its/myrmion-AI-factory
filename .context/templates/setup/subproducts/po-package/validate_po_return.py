@@ -10,7 +10,8 @@ Checks (BLOCKER and ERROR make the return RED; WARN never does):
   zip-safety                   an archive that escapes its folder, is oversized, password-protected
                                or damaged is found by READING it and is never extracted
   structure / manifest         a return nobody can index cannot be reviewed; an empty or non-UTF-8
-                               file, an unrecognised folder or file are named, never skipped
+                               file is named; so is any folder or file that is not part of a
+                               return, at the root (ERROR) or inside a target (WARN) — never skipped
   self-check                   the PO attests the checklist was walked (WARN)
   erq-*                        the evolution request is what makes the artefacts readable
   new-name-unjustified         a name declared new must say what was looked up first
@@ -53,7 +54,12 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True  # run as a CLI, this tool leaves no bytecode beside its sources
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import po_lib as L  # noqa: E402
+try:
+    import po_lib as L  # noqa: E402
+except ImportError as exc:   # a partial materialisation must never read as a RED verdict (exit 1)
+    print(f"Cannot validate: po_lib.py is missing or broken next to this tool ({exc}). "
+          "Re-run SETUP --generate or SETUP --upgrade.", file=sys.stderr)
+    sys.exit(2)
 
 SEVERITIES = {"BLOCKER": (0, "■"), "ERROR": (1, "▲"), "WARN": (2, "·")}
 CLASSIFICATIONS = ("delta", "breaking")
@@ -108,9 +114,9 @@ class Report:
 class Context:
     repo: Path
     cfg: dict
-    glossary: dict
-    hosts: frozenset
-    known_components: frozenset
+    glossary: dict[str, set[str]]
+    hosts: frozenset[str]
+    known_components: frozenset[str]
 
 
 def _yaml():
@@ -340,6 +346,9 @@ def validate_feature(feature_dir: Path, ctx: Context, rep: Report) -> None:
     scope = _resolve_scope(erq, journey_text, folder, ctx)
     required = ["ERQ.md", "user_journey.md", "spec.feature"] + (["mock.html"] if scope in L.UI_SCOPES else [])
     present = _require_files(feature_dir, required, folder, "structure", rep)
+    slice_map = feature_dir / "slice_map.md"
+    if slice_map.exists() and not L.read_text(slice_map).strip():
+        rep.add("ERROR", f"{folder}/slice_map.md", "structure", "this optional file came empty — leave it out or fill it")
     if "spec.feature" in present:
         check_spec(feature_dir / "spec.feature", folder, rep)
     if (feature_dir / "mock.html").exists():
@@ -427,7 +436,7 @@ def _manifest_coverage(manifest: dict, features: list[dict], present: set[str], 
 
 def check_manifest(root: Path, feature_dirs: list[Path], has_vision: bool, rep: Report) -> None:
     where = "MANIFEST.yaml"
-    if not (root / where).exists():
+    if not (root / where).is_file():
         rep.add("BLOCKER", where, "manifest", "MANIFEST.yaml is missing at the root of the return")
         return
     manifest = _safe_yaml(L.read_text(root / where), where, "manifest", rep)
@@ -477,13 +486,18 @@ def _check_encoding(root: Path, rep: Report) -> None:
 
 
 def _check_strays(root: Path, vision: Path | None, feature_dirs: list[Path], rep: Report) -> None:
-    """A file that is not part of a return is said so: silence would read as "reviewed"."""
-    expected = {root / "MANIFEST.yaml"}
-    expected |= {vision / n for n in ("ERQ.md",) + L.VISION_FILES} if vision else set()
-    expected |= {d / n for d in feature_dirs for n in FEATURE_FILES}
-    for target in [root] + ([vision] if vision else []) + feature_dirs:
-        for path in sorted(p for p in target.iterdir() if p.is_file() and not p.name.startswith(".")):
-            if path not in expected:
+    """What is not part of a return is said so: silence would read as "reviewed".
+    Root folders are `_targets`' job (ERROR); here: stray files anywhere, sub-folders inside a target."""
+    scopes = [(root, {"MANIFEST.yaml"})]
+    if vision:
+        scopes.append((vision, {"ERQ.md", *L.VISION_FILES}))
+    scopes += [(folder, set(FEATURE_FILES)) for folder in feature_dirs]
+    for folder, allowed in scopes:
+        for path in sorted(p for p in folder.iterdir() if not p.name.startswith(".") and p.name not in IGNORED_FOLDERS):
+            if path.is_dir() and folder is not root:
+                rep.add("WARN", path.relative_to(root).as_posix() + "/", "structure",
+                        "this folder is not part of a return — nothing in it was reviewed")
+            elif path.is_file() and path.name not in allowed:
                 rep.add("WARN", path.relative_to(root).as_posix(), "structure",
                         "this file is not part of a return — it was NOT reviewed")
 
@@ -532,7 +546,7 @@ def validate_zip(zip_path: Path, repo: Path, cfg: dict) -> Report:
             try:
                 with zipfile.ZipFile(zip_path) as archive:
                     archive.extractall(tmp)
-            except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError):
+            except Exception:  # noqa: BLE001 - last resort behind zip_problems: never a tool fault
                 problems = ["the archive could not be unpacked — what was unpacked was discarded and nothing was reviewed"]
         if not problems:
             return validate_dir(Path(tmp), repo, cfg)
@@ -555,7 +569,7 @@ def render(rep: Report, as_json: bool) -> str:
         infra = any(f.check == "journey-grammar-infra" for f in rep.blocking)
         return json.dumps({"checked": rep.checked, "findings": [f.__dict__ for f in rep.findings],
                            "verdict": "RED" if rep.blocking else "GREEN",
-                           "returnable_to_po": bool(rep.blocking) and not infra}, indent=2, ensure_ascii=False)
+                           "returnable_to_po": (not infra) if rep.blocking else None}, indent=2, ensure_ascii=False)
     lines = ["", "═══ PO return validation ═══", ""]
     if not rep.findings:
         lines.append("  No findings.")

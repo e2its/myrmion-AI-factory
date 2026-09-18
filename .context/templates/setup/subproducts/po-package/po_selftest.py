@@ -168,6 +168,18 @@ def _damaged(root: Path) -> Path:
     return target
 
 
+def _damaged_deflate(root: Path) -> Path:
+    """Real zip tools compress. A broken deflate stream raises the decompressor's own error,
+    not a CRC mismatch: first byte of the stream set to a reserved block type."""
+    target, name = root / "hostile.zip", "MANIFEST.yaml"
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(name, "features: []\n")           # small enough for the self-test's tiny caps
+    data = bytearray(target.read_bytes())
+    data[30 + len(name)] = 0x07                            # local header is 30 bytes + the name
+    target.write_bytes(bytes(data))
+    return target
+
+
 def _garbage(root: Path) -> Path:
     target = root / "hostile.zip"
     target.write_bytes(b"this is not a zip archive at all")
@@ -258,6 +270,10 @@ CASES: list[Case] = [
          mutate=_mock_head('<object data="https://obj.not-allowed.example/o.bin"></object>')),
     Case("R8k protocol-relative stylesheet import", "external-deps", "ERROR", message="imp.not-allowed.example",
          mutate=lambda r, t: _sub(_feat(t, "mock.html"), "<style>", '<style>@import "//imp.not-allowed.example/a.css";')),
+    Case("R8m vector image reference", "external-deps", "ERROR", message="svg.not-allowed.example",
+         mutate=_mock_head('<svg><image href="https://svg.not-allowed.example/a.png"/></svg>')),
+    Case("R8n preloaded responsive image", "external-deps", "ERROR", message="pre.not-allowed.example",
+         mutate=_mock_head('<link rel="preload" as="image" imagesrcset="https://pre.not-allowed.example/a.png 1x">')),
     Case("R8l base address re-rooting every relative URL", "external-deps", "ERROR", message="base.not-allowed.example",
          mutate=_mock_head('<base href="https://base.not-allowed.example/">')),
     # ── evolution request ──
@@ -334,6 +350,12 @@ CASES: list[Case] = [
          message="UTF-8"),
     Case("R29b manifest that is not UTF-8", "structure", "ERROR", message="UTF-8",
          mutate=lambda r, t: (t / "MANIFEST.yaml").write_bytes((t / "MANIFEST.yaml").read_bytes() + "# caf\xe9\n".encode("cp1252"))),
+    Case("R34b sub-folder inside a target", "structure", "WARN", message="nothing in it was reviewed",
+         mutate=lambda r, t: _write(_feat(t, "drafts") / "user_journey_v2.md", "# draft\n")),
+    Case("R34c optional slice map that came empty", "structure", "ERROR", message="came empty",
+         mutate=lambda r, t: _write(_feat(t, "slice_map.md"), "\n")),
+    Case("R11h a folder named like the manifest is not a manifest", "manifest", "BLOCKER", message="is missing",
+         mutate=lambda r, t: ((t / "MANIFEST.yaml").unlink(), (t / "MANIFEST.yaml").mkdir())),
     Case("R34 file that is not part of a return", "structure", "WARN", message="NOT reviewed",
          mutate=lambda r, t: _write(t / "FEAT-1000-user_journey.md", "# stray\n")),
     Case("R32 return with nothing in it", "structure", "BLOCKER", message="neither",
@@ -393,7 +415,9 @@ CASES: list[Case] = [
     Case("R18i password-protected archive is found by reading, never by extracting", "zip-safety", "BLOCKER",
          archive=_protected, message="password-protected"),
     Case("R18j damaged member is found by reading, never by extracting", "zip-safety", "BLOCKER",
-         archive=_damaged, message="damaged"),
+         archive=_damaged, message="damaged member"),
+    Case("R18k damaged COMPRESSED member is a finding, never a tool fault", "zip-safety", "BLOCKER",
+         archive=_damaged_deflate, message="cannot be read"),
 ]
 
 _LIMITS = {"MAX_MEMBER_BYTES": 32, "MAX_ZIP_ENTRIES": 5, "MAX_TOTAL_BYTES": 100}   # small caps so the hostile archives stay tiny
@@ -441,7 +465,10 @@ def _verdict(case: Case, rep: V.Report) -> str | None:
 def _run_case(case: Case, grammar: Path, cfg: dict) -> str | None:
     """None when the case behaves; otherwise the reason it does not."""
     with tempfile.TemporaryDirectory(prefix="po-selftest-") as tmp:
-        rep, fault = _validate(case, Path(tmp), grammar, cfg)
+        try:
+            rep, fault = _validate(case, Path(tmp), grammar, cfg)
+        except Exception as exc:  # noqa: BLE001 - a case that raises is a failed case, not a dead self-test
+            return f"raised {type(exc).__name__}: {exc}"
     return fault or _verdict(case, rep)
 
 
@@ -494,6 +521,13 @@ def _fuzz_one(path: Path, original: str, data: dict, header: bool, repo: Path, r
     return None
 
 
+def _variants(base: dict, keys: tuple[str, ...], header: bool) -> list[dict]:
+    variants = [{**base, key: odd} for key in keys for odd in _ODD]
+    if header:
+        return variants + [{**base, "changes": [{"id": odd, "kind": odd}]} for odd in _ODD]
+    return variants + [{**base, "features": [{"feature_id": odd, "self_checked": odd}]} for odd in _ODD]
+
+
 def _shape_fuzz(grammar: Path, cfg: dict) -> list[str]:
     """No shape a PO can author may raise: a crash reads as a tool fault and the PO never hears."""
     import yaml
@@ -504,10 +538,7 @@ def _shape_fuzz(grammar: Path, cfg: dict) -> list[str]:
                                    (ret / "MANIFEST.yaml", _MANIFEST_KEYS, False)):
             original = path.read_text(encoding="utf-8")
             base = yaml.safe_load(L.split_frontmatter(original)[0] if header else original)
-            variants = [{**base, key: odd} for key in keys for odd in _ODD]
-            variants += [{**base, "features": [{"feature_id": odd, "self_checked": odd}]} for odd in _ODD] if not header else []
-            variants += [{**base, "changes": [{"id": odd, "kind": odd}]} for odd in _ODD] if header else []
-            for data in variants:
+            for data in _variants(base, keys, header):
                 fault = _fuzz_one(path, original, data, header, repo, ret, cfg)
                 if fault:
                     failures.append(f"{path.relative_to(ret)} with {data!r:.90} raised {fault}")

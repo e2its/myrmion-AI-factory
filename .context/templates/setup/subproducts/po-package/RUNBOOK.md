@@ -115,7 +115,7 @@ Same as 6B, and `.github/workflows/design-system-rebuild.yml` runs the rebuild a
 | `implemented-without-code-card` | The registry says built, nothing renders | The rebuild tool does not cover it, or the status is wrong |
 | `candidate-implemented` | The registry says designed or planned, and code already renders it | Reconcile the registry to `IMPLEMENTED` (section 5.6) |
 | `drift: not applicable` | No code cards folder is configured (case 6A, or a project with no design system) | Nothing. `--strict` has nothing to fail on |
-| `drift: NOT COMPUTED — …` | Drift applies here but could not be measured in this run (the rebuild failed, the folder yielded no card, there is no vision) | Read the `WARNING` lines above it. Under `--strict` this exits 1: an unmeasured drift is not a pass |
+| `drift: NOT COMPUTED — …` | A code cards folder is configured, so drift applies, but it could not be measured in this run (the rebuild failed, the folder yielded no card, there is no vision yet, or the project authors no design system) | Read the `WARNING` lines above it. Under `--strict` this exits 1: an unmeasured drift is not a pass |
 | `code cards: N taken … as found — NOT refreshed` | Cards on disk were used without running the tool | Pass `--rebuild` before trusting the drift lines |
 
 ### Mirror in Claude Design (optional)

@@ -25,9 +25,9 @@ Usage:
     python3 build_po_package.py --roadmap roadmap.json
     python3 build_po_package.py --mode ds-only --rebuild --check-drift --out DIR
 
-Exit codes: 0 built · 1 under --check-drift --strict: drift found, or drift applies to this
-project but could not be computed (0 when drift does not apply: no code cards folder is
-configured) · 2 the tool could not do its job (usage, configuration, IO, or its own fault).
+Exit codes: 0 built · 1 under --check-drift --strict: drift found, or a code cards folder is
+configured and drift could not be computed (with no such folder drift does not apply: 0,
+whatever else is missing) · 2 the tool could not do its job (usage, configuration, IO, or its own fault).
 PO_PACKAGE_DEBUG=1 adds the stack trace to an exit 2; the exit code does not change.
 """
 
@@ -48,7 +48,12 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True  # run as a CLI, this tool leaves no bytecode beside its sources
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import po_lib as L  # noqa: E402
+try:
+    import po_lib as L  # noqa: E402
+except ImportError as exc:   # a partial materialisation must never read as "drift found" (exit 1)
+    print(f"Cannot build the package: po_lib.py is missing or broken next to this tool ({exc}). "
+          "Re-run SETUP --generate or SETUP --upgrade.", file=sys.stderr)
+    sys.exit(2)
 
 HERE = Path(__file__).resolve().parent
 LANGUAGE_NAMES = {"en": "English", "es": "Spanish"}
@@ -168,6 +173,16 @@ def roadmap_only(build: Build) -> list[dict]:
     return [r for r in build.roadmap if isinstance(r, dict) and r.get("id") and r["id"] not in specified]
 
 
+def _roadmap_note(given: bool, items: list[dict], dropped: int) -> str | None:
+    if not given:
+        return "_No roadmap export was provided for this package._\n"
+    if items:
+        return None
+    if dropped:
+        return "_The roadmap export could not be read: its items carry no `id`._\n"
+    return "_Every item of the roadmap export already has a specification._\n"
+
+
 def build_roadmap(build: Build) -> str:
     lines = ["# Roadmap — features with no specification yet\n",
              "Exported from the project board. Changing these is almost free: nothing is built. "
@@ -176,12 +191,9 @@ def build_roadmap(build: Build) -> str:
     dropped = sum(1 for r in build.roadmap if not (isinstance(r, dict) and r.get("id")))
     if dropped:
         build.warn(f"{dropped} roadmap item(s) have no `id` and were dropped — expected {{id, name, summary}}")
-    if not build.roadmap_given:
-        lines.append("_No roadmap export was provided for this package._\n")
-    elif dropped and not items:
-        lines.append("_The roadmap export could not be read: its items carry no `id`._\n")
-    elif not items:
-        lines.append("_Every item of the roadmap export already has a specification._\n")
+    note = _roadmap_note(build.roadmap_given, items, dropped)
+    if note:
+        lines.append(note)
     for item in items:
         lines += [f"\n## {item['id']} — {item.get('name', '')}\n", str(item.get("summary", "")).strip(), ""]
         if item.get("body"):
@@ -222,9 +234,9 @@ def build_tokens(build: Build) -> str:
     missing: list[str] = []
     for rel in build.cfg["design_system"]["tokens_sources"]:
         source = build.repo / rel
-        if not source.exists():
+        if not source.is_file():
             missing.append(rel)
-            build.warn(f"tokens source `{rel}` does not exist — check design_system.tokens_sources")
+            build.warn(f"tokens source `{rel}` is not a file of the repository — check design_system.tokens_sources")
             continue
         for block in re.findall(r":root\s*\{(.*?)\}", L.read_text(source), re.S):
             found += [(n, v.strip(), rel) for n, v in re.findall(r"(--[a-zA-Z0-9-]+)\s*:\s*([^;]+);", block)]
@@ -352,7 +364,7 @@ def _tool_manifest(build: Build, folder: Path, rel: str) -> dict[str, dict]:
     listed = manifest.get("cards") if isinstance(manifest, dict) else None
     if manifest is not None and not isinstance(listed, list):
         build.warn(f"`{rel}/_ds_manifest.json` is not the expected {{cards: [...]}} — card names fall back to the file names")
-    return {Path(str(c.get("path", ""))).name: c for c in listed or [] if isinstance(c, dict)}
+    return {Path(str(c.get("path", ""))).name: c for c in (listed if isinstance(listed, list) else []) if isinstance(c, dict)}
 
 
 def code_cards(build: Build) -> dict[str, dict]:
@@ -427,9 +439,9 @@ def _copy_design_sources(build: Build, root: Path) -> None:
             build.warn(f"extra design-system file `{rel}` does not exist — check design_system.extra_files")
 
 
-def build_design_system(build: Build, trust_code: bool, refreshed: bool) -> tuple[int, list[str] | str | None]:
-    """(cards shipped, drift). Drift: a list when computed · None when it does not apply to
-    this project · a text — the reason — when it applies but could not be computed."""
+def build_design_system(build: Build, trust_code: bool, refreshed: bool) -> tuple[int, list[str] | str]:
+    """(cards shipped, drift). Drift here: a list when computed, else a text — the reason it
+    could not be. Whether drift APPLIES to the project at all is decided once, in `run()`."""
     ds = build.cfg["design_system"]
     root = build.repo / ds["vision_root"]
     if not root.is_dir():
@@ -448,8 +460,6 @@ def build_design_system(build: Build, trust_code: bool, refreshed: bool) -> tupl
               "subtitle": c["subtitle"], "source": c["source"], "viewport": {"width": 960, "height": 600}}
              for c in cards.values()]
     build.write("10-design-system/_ds_manifest.json", json.dumps({"cards": index}, indent=2, ensure_ascii=False) + "\n")
-    if not configured:
-        return len(cards), None
     if not from_code:
         return len(cards), "NOT COMPUTED — no card rendered from code could be trusted in this run"
     if not refreshed:
@@ -605,6 +615,21 @@ def _report_drift(drifted: list[str] | str | None, strict: bool) -> int:
     return 1 if drifted and strict else 0
 
 
+def _build_documents(build: Build, mode: str, with_vision: bool) -> None:
+    cfg = build.cfg
+    variables = {"project_name": cfg["project"]["name"], "business_goal": cfg["project"].get("business_goal", ""),
+                 "project_scope": cfg["project"].get("scope", ""),
+                 "po_language_name": LANGUAGE_NAMES.get(build.language, build.language),
+                 "n_specified": str(len(build.features)), "n_roadmap": str(len(roadmap_only(build))),
+                 "package_id": build.package_id}
+    build_core(build)
+    build_features(build)
+    build_templates(build)
+    copy_static(build, with_vision, variables)
+    build.write("PACKAGE.json", json.dumps({"package_id": build.package_id, "mode": mode,
+                                           "with_vision": with_vision, "features": build.features}, indent=2) + "\n")
+
+
 def run(args: argparse.Namespace) -> int:
     repo = L.resolve_repo(args.repo)
     cfg = L.load_config(args.config)
@@ -621,22 +646,13 @@ def run(args: argparse.Namespace) -> int:
     if args.rebuild and trust_code and not configured:
         build.warn("the rebuild command ran, but no code cards folder is configured — its output is not used "
                    "(set design_system.code_cards.dir)")
+    cards, drifted = 0, "NOT COMPUTED — this project authors no design system"
     if with_vision:
         cards, drifted = build_design_system(build, trust_code, refreshed=args.rebuild)
-    else:   # a project that authors no design system has no drift unless it still configured code cards
-        cards, drifted = 0, ("NOT COMPUTED — this project authors no design system" if configured else None)
+    if not configured:
+        drifted = None   # the ONE place the rule lives: no code cards folder ⇒ drift does not apply
     if not ds_only:
-        variables = {"project_name": cfg["project"]["name"], "business_goal": cfg["project"].get("business_goal", ""),
-                     "project_scope": cfg["project"].get("scope", ""),
-                     "po_language_name": LANGUAGE_NAMES.get(build.language, build.language),
-                     "n_specified": str(len(build.features)), "n_roadmap": str(len(roadmap_only(build))),
-                     "package_id": build.package_id}
-        build_core(build)
-        build_features(build)
-        build_templates(build)
-        copy_static(build, with_vision, variables)
-        build.write("PACKAGE.json", json.dumps({"package_id": build.package_id, "mode": args.mode,
-                                               "with_vision": with_vision, "features": build.features}, indent=2) + "\n")
+        _build_documents(build, args.mode, with_vision)
     print(f"staging: {build.stage}")
     print(f"features: {len(build.features)} · roadmap: {len(roadmap_only(build))} · cards: {cards} · warnings: {build.warnings}")
     if not args.no_zip:

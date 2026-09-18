@@ -23,6 +23,7 @@ import traceback
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
+from typing import Callable
 from urllib.parse import urlparse
 
 HERE = Path(__file__).resolve().parent
@@ -276,7 +277,9 @@ def load_glossary(repo: Path, cfg: dict) -> dict[str, set[str]]:
 _CSS_REF_RE = re.compile(r"""(?:url\(\s*|@import\s+)["']?((?:https?:)?//[^"')\s;]+)""", re.I)
 LANDMARKS = ("header", "nav", "main")
 # attribute → the tags on which it LOADS something (None = any tag). An <a href> navigates; it loads nothing.
-_LOADING_ATTRS = {"src": None, "data-src": None, "poster": None, "href": ("link", "base"), "data": ("object",)}
+_LOADING_ATTRS = {"src": None, "data-src": None, "poster": None, "data": ("object",),
+                  "href": ("link", "base", "image", "use"), "xlink:href": ("image", "use")}
+_SRCSET_ATTRS = ("srcset", "imagesrcset")
 
 
 def _absolute(value: str) -> str | None:
@@ -289,10 +292,12 @@ def _absolute(value: str) -> str | None:
 class _HtmlFacts(HTMLParser):
     """One pass over a page: what it loads and the cheap accessibility signals.
 
-    A parser, not a regex: browsers load unquoted attribute values, `srcset` candidates,
-    `<object data>`, a `<base href>` and stylesheet `url()` / `@import` too, and a gate that
-    sees only some of them can be walked around. Style rules are read where they live
-    (`<style>` blocks and `style=` attributes), never in prose."""
+    A parser, not a regex: browsers load unquoted attribute values, `srcset` / `imagesrcset`
+    candidates, `<object data>`, a `<base href>`, SVG `<image>` / `<use>` references and
+    stylesheet `url()` / `@import` too. Style rules are read where they live (`<style>` blocks
+    and `style=` attributes), never in prose. NOT seen, by design of a static read: what a
+    script loads at run time and a `<meta http-equiv="refresh">` — WCAG and the sync gate
+    look at the rendered page; this is the cheap early net, not the last one."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -306,8 +311,9 @@ class _HtmlFacts(HTMLParser):
     def _candidates(tag: str, attributes: dict) -> list[str]:
         """Every attribute value that would make the browser fetch something for this tag."""
         values = [attributes.get(name) or "" for name, tags in _LOADING_ATTRS.items() if tags is None or tag in tags]
-        srcset = (attributes.get("srcset") or "").split(",")
-        return values + [parts[0] for parts in map(str.split, srcset) if parts] + _CSS_REF_RE.findall(attributes.get("style") or "")
+        listed = ",".join(attributes.get(name) or "" for name in _SRCSET_ATTRS)
+        candidates = [c.split()[0] for c in listed.split(",") if c.split()]
+        return values + candidates + _CSS_REF_RE.findall(attributes.get("style") or "")
 
     def _loaded(self, tag: str, attributes: dict) -> list[str]:
         return [ref for ref in map(_absolute, self._candidates(tag, attributes)) if ref]
@@ -504,7 +510,8 @@ def _content_problems(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) ->
         return [f"password-protected member: {protected[0]}"]
     try:
         damaged = archive.testzip()
-    except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError, EOFError):
+    except Exception:  # noqa: BLE001 - each decompressor raises its own type (zlib.error, LZMAError, …):
+        # this boundary exists to turn an unreadable archive into a finding, so it names none of them
         return ["a member cannot be read — the archive is damaged or uses an unsupported compression"]
     return [f"damaged member: {damaged}"] if damaged else []
 
@@ -532,7 +539,7 @@ def inside_repo(repo: Path, rel: str, label: str) -> Path:
     return path
 
 
-def cli_main(action, prefix: str) -> int:
+def cli_main(action: Callable[[], int], prefix: str) -> int:
     """Boundary shared by both tools: a fault of the tool must never read as a verdict.
 
     Exit 2, plain language (LAW-08). PO_PACKAGE_DEBUG=1 adds the trace; the exit code stays 2."""
