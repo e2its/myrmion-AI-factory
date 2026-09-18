@@ -1,0 +1,59 @@
+---
+id: ADR-EVOL-052
+title: PO package — CODESIGN authored in Claude Desktop, synced into the factory, component catalog aligned with the design system
+date: 2026-09-18
+status: proposed
+---
+
+# ADR-EVOL-052: PO package and external CODESIGN authoring
+
+## Context
+
+Issue #61. The reference implementation (MASS, an independent fork — read-only source, never modified, convergence not a criterion) built a subproduct that moves CODESIGN work to a Claude Desktop project: a generator packages the product model, the design system and the feature annexes; the Product Owner works there; a zip comes back; a deterministic validator judges form; the factory ratifies change by change. It was never exercised in a real round-trip there, and it is hard-wired to one product: name and domain, feature lists with tracker issue numbers, a TypeScript nav-model brace-matcher, a hardcoded component-to-primitive map, a component scraper tied to one frontend stack, Spanish-only prose, and a journey parser this framework does not ship (its grammar is the pre-journey-first one).
+
+Verified against this repo before design: the last discovery question is Q28.1; the journey-first grammar has no command/event/read-model sections, so the closed vocabulary is § 6 concepts and fields, § 1 personas and § 7 rules; `scripts/check-journey-grammar.sh` requires frontmatter a PO never writes; the framework's own mock templates load two external hosts, so a fonts-only allowlist would turn every factory mock red; vision tokens may live in a utility-framework config block, not only in a root CSS block; the backlog adapter has no update operation; skills are delivered by `factory-sync.sh`, not by SETUP; the orphan sweep of `scripts/validate-governance.sh` covers `.context/templates/**`; `docs/ux/component-registry.json` is referenced once in the materialisation instruction and defined nowhere; about forty files route to the CODESIGN authoring sub-commands.
+
+Binding user statements (verbatim): "las instrucciones se adapten durante la materializacion del setup"; "la idea es que /codesign vision se integre en claude desktop para crear el design system del proyecto"; "la materializacion debe dejar escritas instrucciones de como actuar", "segun este integrado en workflow o no"; and, rejecting the first plan, "ya no se va a implementar ni refinar via comando. como mucho se va a syncronizar algo".
+
+## Decision
+
+One EVOL, eight RDR-ratified decisions (user choice verbatim):
+
+- **DEC-1 — Surface: "Desktop + espejo Design (Recommended)".** The Claude Desktop project is the single authoring surface, vision and features. One return channel: a zip and one validator. Claude Design is a one-way mirror of the design system, published by the user-started design sync. No gate depends on it.
+- **DEC-2 — Vision: "Modo nuevo FROM_PO_PACKAGE (Recommended)".** Ratified outcome: the PO's vision is adopted without regeneration; the factory adds frontmatter and governance; then `--vision-approve`. Mechanics superseded by DEC-7: adoption lives in `--sync`; `detect_vision_input_mode()` is not touched.
+- **DEC-3 — Placement: "subproducts/ vía plantilla (Recommended)".** Source under `.context/templates/setup/subproducts/po-package/`, registered in the manifest, materialised to `subproducts/po-package/`. Its self-test runs in meta CI. Aligned with #51 without waiting for it.
+- **DEC-4 — Catalog: "Registro + feature fundacional (Recommended)".** `docs/ux/component-registry.json` is the single source of truth for alignment (design-system component, code primitive, status, backlog reference). `/backlog --plan-feature` creates a foundational catalog feature with one sub-issue per component; later components become refinement issues. The codebase inventory stays the source of truth for code.
+- **DEC-5 — Design system from code: "Fuente enchufable por config (Recommended)".** Same pattern as LAW-11: process in the framework, tool in the project. The project config names an external cards folder and a rebuild command. Code cards win per component; vision cards are the fallback. Fail-open. The framework names no third-party tool in code paths.
+- **DEC-6 — CI: "Workflow opcional en plantilla"** (the user's choice, not the recommended one). A workflow is materialised only when the rebuild command is configured; it rebuilds and reports card-to-registry drift. Advisory.
+- **DEC-7 — Sync: "Nuevo --sync + guardas (Recommended)".** `/codesign --sync {VISION|ID}` with its own short instruction adopts the ratified return verbatim and adds only what the factory owns. `--start`, `--refine`, `--vision`, `--vision-refine` gain an identical three-line guard: with external authoring they block in plain language and point to the package and `--sync`. State sub-commands are untouched. Routing references elsewhere are untouched because the guard redirects. LAW-16 is untouched.
+- **DEC-8 — Scope: "Elección por proyecto en SETUP (Recommended)".** New Q29 fixes external or internal authoring per project. Internal authoring stays until a project has completed real round-trips.
+
+Agent-internal choices (pick + surviving risk):
+
+- **Journey form is delegated** to `scripts/check-journey-grammar.sh`; the validator injects stub frontmatter into a temp copy and never duplicates those checks. Risk: the vocabulary extractor follows the template's section shapes.
+- **Two-stage substitution.** SETUP resolves placeholders only in the package config and the two operator runbooks. Zip prose and Python are universal and byte-identical in every project; prose carries build-time variables the generator fills strictly. Rejected the first idea of localising prose with an LLM at SETUP: it breaks the additive upgrade merge, is unverifiable in CI, and meta CI would not test what projects run. Risk: drift between the two languages, held by a parity test.
+- **No stack scrapers.** Component-to-primitive mapping is the registry joined with the codebase inventory; the route map is a copy of the vision navigation map.
+- **Offline generator.** It never calls a tracker; roadmap data is exported through `/backlog` and passed as a file.
+- **Rebuild command runs without a shell**, with a timeout, from the repo root. Missing, failing or timed-out command falls back to vision cards with a loud warning. Never blocks.
+- **Written operating instructions.** The runbook carries all three design-system branches and a header block SETUP resolves to name the active one; the generator warns when that block no longer matches config and workflow presence.
+- **`--sync` never edits PO content.** Any validation finding, accessibility included, returns the target as NEEDS_INFO.
+- **One target per `--sync` invocation**, matching the one-branch-per-feature model.
+- **`slice_map.md`** may be returned by the PO; when absent and slicing is incremental, `--sync` runs the existing slicing step with its RDR. Risk: it is the only generation left on the external path.
+
+## Consequences
+
+- New template class `setup/subproducts/**`: deliverable-generation tooling materialised to project-root `subproducts/**`, imported by no framework or product module, outside the project's governed trees, with a self-test that meta CI runs and the consuming skill re-runs.
+- New sub-command `/codesign --sync`, new instruction `Factory-codesign-sync`, new skill `factory-po-intake`, new discovery questions Q29 and Q29.1, new optional workflow, new runtime artefact (the component registry) with its schema owned by the vision instruction.
+- The four authoring sub-commands become mode-guarded. Projects choosing internal authoring see no behaviour change.
+- No new LAW. RDR Universal and LAW-16 already cover ratification and purity.
+- `framework_version` 6.0.0 → **6.1.0** (MINOR — additive; branch `feature/EVOL-052-po-package`).
+- Open tension with #51: the project manifest will list `subproducts/**` targets as the upgrade channel, while #51 describes subproducts as having no manifest entry. To reconcile when #51 is built. The push gate treats subproduct Python as code; the exclusion class belongs to #51.
+- The external cards folder contract is an assumption: preview HTML files whose first line is the design-system card marker, with an optional compiled manifest. It is the only contract verifiable today. If the real tool output differs, only the adapter function changes.
+
+## Alternatives considered
+
+Materialise the return through `--refine` with a summary — rejected: it regenerates and reinterprets the PO's work, contradicting DEC-2. Same sub-command names with a mode switch — rejected: conditional logic spread over two instructions of more than a thousand lines, and a command named refine that does not refine. External authoring only, as 7.0.0 — rejected: breaking, touches forty consumers and LAW-16, bets everything on a mechanism with no field validation. Localise prose at SETUP — rejected, see above. A raw tracker call inside the generator — rejected: bypasses the adapter and breaks offline CI. A new adapter update operation — rejected: refinement issues already cover it. A new LAW-17 — rejected: the rule only fires when a return arrives; a law would bloat the snapshot of every command. Governed `scripts/` placement with a lock-step pair — rejected: contradicts the subproducts class of #51 and forces a later move. Standalone per-component issues — rejected: no SDLC path would build them.
+
+## Operational Rule
+
+To be completed when this ADR is accepted, in the same PR: amendment to `CLAUDE.md` § Templates declaring the `setup/subproducts/**` template class and its self-test obligation.
