@@ -93,6 +93,12 @@ gh project create \
 - `project_number` → persist to `project_ids.project_number`
 - Run `gh project view {{PROJECT_NUMBER}} --owner {{ORG_OR_USER}} --format json` and capture `.id` → `project_ids.project_node_id`
 
+**Then link the board to the repository.** A Projects v2 board belongs to the owner, not to the repository, and adding issues as items does not link it — unlinked, it is missing from the repository's Projects tab:
+```bash
+gh project link {{PROJECT_NUMBER}} --owner {{ORG_OR_USER}} --repo {{REPO_SLUG}}
+```
+Idempotent (re-linking is harmless) and visibility-neutral (a private board stays private). A board created before this step existed: run the same command once.
+
 #### `configure_board`
 GitHub Projects v2 creates a default `Status` field with `Todo | In Progress | Done`. To match Q27.1 `{{BOARD_COLUMNS}}`:
 

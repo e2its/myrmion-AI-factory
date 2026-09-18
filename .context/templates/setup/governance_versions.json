@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "6.1.1",
+  "framework_version": "6.1.2",
   "last_updated": "2026-09-18",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
@@ -902,10 +902,11 @@
       ]
     },
     "backlog-tool-adapters/github-project.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "stack_configured",
       "target": "docs/backlog-tool-adapters/github-project.md",
       "changelog": [
+        "1.2.1: fix(github-project-link-repo) — `create_project` links the new board to the repository (`gh project link … --repo {{REPO_SLUG}}`): a Projects v2 board belongs to the owner and adding issues as items never linked it, so boards were missing from the repository's Projects tab. Idempotent, visibility-neutral; boards created earlier run the same command once.",
         "1.2.0: fix(EVOL-028) PR #20 review mitigation — drop legacy `applyTo: \"backlog\"` field; migration sweep missed this adapter on first pass (cdcf064 only cleaned none.md + linear.md).",
         "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.1.0: feat(EVOL-015): create_label section extended — kind:follow-up always created; appetite:{small,medium,big} conditional on {{APPETITE_SIZING_ENABLED}}==true; blocked-by:#{N} usage documented — labels are NOT created at init (per-issue value), MUST be created explicitly via `gh label create … --force` before the first `add_label` invocation (GitHub rejects --add-label on unknown labels); --force keeps the create idempotent",
@@ -3302,9 +3303,10 @@
       "delivery": "both"
     },
     "scripts/test-templates-static.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": "scripts/test-templates-static.sh",
       "changelog": [
+        "1.2.0: fix(github-project-link-repo) — assertion 7: the GitHub Projects adapter's `create_project` links the board to the repository.",
         "1.1.0: feat(EVOL-027) review close (Q1) — new L1 assertion block validating every agent_templates manifest entry has a source file at `.context/templates/{key}`. Closes the gap surfaced by factory-pr-review Q1 (no static check that target paths resolve).",
         "1.0.0: feat(EVOL-026) initial — L1 static template validation. Asserts constitution_template.md has [LAW] markers in operational sections, adr_template.md has new schema (target_section, amendment_kind, Operational Rule, Constitution Amendment), fdr_template.md has Binding Rule and lacks Constitution Amendment."
       ]

@@ -14,6 +14,8 @@
 #   5. adr_template.md has the auto-managed `## Constitution Amendment` section.
 #   6. fdr_template.md exists, has feature_id frontmatter and `## Binding Rule`
 #      section, and does NOT have a Constitution Amendment section.
+#   7. the GitHub Projects backlog adapter links the board it creates to the
+#      repository.
 #
 # Designed to run in CI (cheap, deterministic, no fixtures beyond the templates
 # themselves) and locally via `bash scripts/test-templates-static.sh`.
@@ -219,6 +221,14 @@ $bad
 EOF
   fi
 fi
+echo
+
+# ─── backlog adapter: GitHub Projects board linked to its repository ───────
+echo "backlog-tool-adapters/github-project.md"
+GH_ADAPTER=".context/templates/setup/backlog-tool-adapters/github-project.md"
+gh_create=$(awk '/^#### `create_project`/{f=1; next} f && /^#### /{exit} f' "$GH_ADAPTER")
+assert "printf '%s' \"\$gh_create\" | grep -qE 'gh project link \\{\\{PROJECT_NUMBER\\}\\} --owner \\{\\{ORG_OR_USER\\}\\} --repo \\{\\{REPO_SLUG\\}\\}'" \
+  "create_project links the new board to the repository (a board created alone is missing from the repo's Projects tab)"
 echo
 
 # ─── Summary ────────────────────────────────────────────────────────────────
