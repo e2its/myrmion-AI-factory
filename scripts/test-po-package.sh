@@ -15,7 +15,8 @@
 #            (6A vision only · 6B code rebuild by hand · 6C code rebuild in CI):
 #            runbook header resolved and truthful, code cards win per component,
 #            failing tool falls back, no shell, drift reported, stale runbook warned.
-#   Part 4 — closure: every command and flag the runbook and the workflow cite exists.
+#   Part 4 — closure: every command and flag the runbook and the workflow cite exists; the
+#            registry schema the vision instruction owns matches what the tooling uses.
 #
 # Exit codes: 0 all assertions pass · 1 any failure · 2 infrastructure (never a silent pass).
 set -u
@@ -311,6 +312,27 @@ for name, text in texts.items():
     for section in re.findall(r"\b(?:section|apartado) (\d+)\b", text) if name.startswith("RUNBOOK") else []:
         if not re.search(rf"^## {section}\. ", text, re.M):
             problems.append(f"{name}: refers to section {section}, which does not exist")
+print("\n".join(problems)); sys.exit(1 if problems else 0)
+PY
+
+python3 - "$SRC" "$ROOT" <<'PY' && ok "registry schema in the vision instruction matches what the tooling reads and writes" || bad "registry schema drifted between the instruction and the tooling"
+import json, re, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import po_fixtures
+text = (Path(sys.argv[2]) / ".claude/instructions/Factory-codesign-vision.instructions.md").read_text(encoding="utf-8")
+section = text.split("## Component Registry", 1)[1]
+example = json.loads(re.search(r"```json\n(.*?)\n```", section, re.S).group(1))
+problems = []
+if set(example) != set(po_fixtures.REGISTRY):
+    problems.append(f"top-level keys differ: {sorted(set(example) ^ set(po_fixtures.REGISTRY))}")
+if set(example["components"][0]) != set(po_fixtures.REGISTRY["components"][0]):
+    problems.append(f"component keys differ: {sorted(set(example['components'][0]) ^ set(po_fixtures.REGISTRY['components'][0]))}")
+if example["$schema"] != po_fixtures.REGISTRY["$schema"]:
+    problems.append("schema id differs")
+for anchor in ("data-component", "data-token-group"):
+    if anchor not in text:
+        problems.append(f"the instruction no longer states the `{anchor}` anchor the scanner depends on")
 print("\n".join(problems)); sys.exit(1 if problems else 0)
 PY
 

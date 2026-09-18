@@ -2001,9 +2001,10 @@
       ]
     },
     "instructions/Factory-codesign-vision.instructions.md": {
-      "version": "2.6.1",
+      "version": "2.7.0",
       "path": ".claude/instructions/Factory-codesign-vision.instructions.md",
       "changelog": [
+        "2.7.0: feat(EVOL-052) — NEW § Component Registry: owns the schema `component_registry_v1` of docs/ux/component-registry.json (previously referenced once and defined nowhere), writer table and status lifecycle DESIGNED→PLANNED→IMPLEMENTED / NO_PRIMITIVE; inventory stays SSOT for code (registry stores the join key only). V.3/V.5 gain the MANDATORY anchor contract (`data-token-group`, `data-component`) the PO package scanner and the catalog depend on. --vision-approve check 4 requires anchored base components listed in the registry.",
         "2.6.1: fix(IPP runtime binding) — new `## Incremental Persistence (IPP — MANDATORY)` section after `## Generated Vision Artifacts` wiring the 6 vision artefacts through all three IPP pillars. Pillar 1: `vision_skeleton_first()` creates all 6 skeletons in one pass with `_progress.pending_sections` filled. Pillar 2: `save_vision_section()` updates `_progress.completed_sections` and saves immediately on each artefact completion. Pillar 3: `vision_resume_or_start()` scans the 6 expected paths and resumes from the first pending section after a power-loss recovery. RDR decisions on Aesthetic Quality Directives (D0-D9) append to `vision.md._progress.decisions[]` + inline `<!-- RDR-N -->` for traceability. Previously this instruction had 0 IPP references despite the skill declaring `/codesign --vision` produces 6 artefacts under IPP.",
         "2.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -2297,9 +2298,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.9.0",
+      "version": "3.10.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.10.0: feat(EVOL-052) — External-DS Component Migration now points at the registry schema owner (Factory-codesign-vision § Component Registry) instead of a dangling file reference.",
         "3.9.0: feat(EVOL-040 RDR-2) — Quality Configuration resolves the three {{SECURITY_SCANNER*}} placeholders from Q23.2 with the same Skip null-literal semantics as complexity; consumers list extended (security-scan dispatcher, factory-code-review).",
         "3.8.0: feat(EVOL-040 root cause B) — § 4.2.2 constitution template path fixed (missing constitution/ segment — SETUP constitution generation read a non-existent path); § 4.2.3 config artefacts += coherence-context.json (template + manifest entry existed, instruction never materialised it — pr-review Phase 0 degraded in every downstream project); § Scripts Materialization gains the delivery-closure Invariant (every templates::scripts entry with delivery setup|both must exist post-copy → BLOCK, mirrors hooks Invariant).",
         "3.7.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: snapshot-generation section `protected_paths.red_zones` → `protected_paths.paths` (line 155); subheading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)`. The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",

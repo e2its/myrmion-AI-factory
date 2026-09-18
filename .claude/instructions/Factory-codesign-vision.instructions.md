@@ -269,6 +269,7 @@ Framework-aware, architecture-agnostic detection of existing layout in codebase.
 - Generate `style_guide.html` — interactive token reference
 - Sections: Colors (palette + semantic), Typography (scale + samples), Spacing (scale + examples), Borders, Shadows, Icons
 - Each token has: name, CSS variable, visual sample, usage notes
+- **Anchor (MANDATORY):** each token family = ONE top-level `<section id="{slug}" data-token-group="{Name}">`
 
 #### Phase V.4: Page Templates (🎩↔🎨 alternating)
 - Generate `page_templates.html` — at least 4 core templates:
@@ -284,6 +285,8 @@ Framework-aware, architecture-agnostic detection of existing layout in codebase.
 - MUST include: Button (variants), Input (types), Card, Modal, Table, Badge/Tag, Alert/Toast, Dropdown/Select
 - Each component: default + hover + active + disabled states
 - Components use style_guide tokens
+- **Anchor (MANDATORY):** each component = ONE top-level `<section id="{slug}" data-component="{Name}" data-group="{Group}">`. `id` = lowercase slug, unique in the file. Nested `<section>` allowed inside. No anchor ⇒ invisible to the registry ⇒ no build work planned.
+- Then write/refresh `docs/ux/component-registry.json` (§ Component Registry)
 
 #### Phase V.6: Navigation Map (🎩 PO hat)
 - Generate `navigation_map.md` — application navigation structure
@@ -317,7 +320,7 @@ Framework-aware, architecture-agnostic detection of existing layout in codebase.
 1. WCAG 2.1 AA compliant across all HTML artifacts
 2. No inline styles (all styling via CSS variables/classes referencing style_guide tokens)
 3. `navigation_map.md` has ≥3 pages/sections
-4. `component_library.html` has base components (Button, Input, Card minimum)
+4. `component_library.html` has base components (Button, Input, Card minimum), each under its `data-component` anchor, and `docs/ux/component-registry.json` lists every anchored component
 5. All artifacts exist and are non-empty
 
 ### On Approval
@@ -336,6 +339,44 @@ Framework-aware, architecture-agnostic detection of existing layout in codebase.
 - Preserves `<main>` content of each feature mock
 - Reports modified files
 - Use when vision was refined/updated after features were already created
+
+---
+
+## Component Registry (`docs/ux/component-registry.json`)
+
+SSOT of design-system ↔ build alignment. One entry per `data-component` anchor. `config/codebase_inventory.json` stays SSOT for code: the registry stores the JOIN KEY (`cip_name`), never a code path.
+
+```json
+{
+  "$schema": "component_registry_v1",
+  "version": "1.0.0",
+  "last_updated": "ISO_8601",
+  "catalog_feature": null,
+  "components": [{
+    "id": "button",
+    "name": "Button",
+    "group": "Components",
+    "ds_anchor": "component_library.html#button",
+    "origin": "vision|external_ds|po_return",
+    "cip_name": null,
+    "status": "DESIGNED|PLANNED|IMPLEMENTED|NO_PRIMITIVE",
+    "backlog_ref": null,
+    "introduced_by": "UX-VISION|ERQ-…"
+  }]
+}
+```
+
+- `id` = the anchor's `id`. `cip_name` = `name` of a `type: ui_component` inventory artifact, or `null`.
+- `status`: `DESIGNED` (in the library, no build work) → `PLANNED` (`backlog_ref` set) → `IMPLEMENTED` (`cip_name` resolves to an `IMPLEMENTED` inventory artifact). `NO_PRIMITIVE` = deliberately style-only — RDR only.
+- `catalog_feature` = id of the foundational Component Catalog feature once planned.
+
+| Writer | When | May write |
+|---|---|---|
+| CODESIGN `--vision` / `--vision-refine` / `--sync VISION` | after V.5 / after adoption | add entries `DESIGNED`; refresh `name`/`group`/`ds_anchor`. NEVER touches `cip_name`, `status`, `backlog_ref` of existing entries. Anchor gone ⇒ keep entry, report it |
+| SETUP external-DS Component Migration | materialisation | add entries, `origin: external_ds` |
+| `factory-po-intake` catalog beat | after a sync | `cip_name`, `status`, `backlog_ref`, `catalog_feature` (reconcile vs inventory) |
+
+Readers: PO package builder (component base + card footers + drift), PO return validator (known components), BLUEPRINT / IMPLEMENT REVIEW `[UX-VISION]` (reuse before create).
 
 ---
 

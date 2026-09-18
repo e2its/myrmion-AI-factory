@@ -1197,7 +1197,7 @@ When `project_scope in [backend-only, integration]`, SKIP ux-constitution materi
 **Special Integration — External Design System:**
 If `frontend.external_design_system.exists == true`:
 1. **Semantic Merge:** DS tokens → ux-constitution.md (DS takes precedence except WCAG/security violations → create RDR)
-2. **Component Migration:** Compatible components → project folder structure + register in `docs/ux/component-registry.json` + protect in `protected-paths.json`
+2. **Component Migration:** Compatible components → project folder structure + register in `docs/ux/component-registry.json` (schema + writer rules: `Factory-codesign-vision.instructions.md` § Component Registry; `origin: external_ds`, `status: DESIGNED`) + protect in `protected-paths.json`
 3. **Tokens-Only:** Extract design tokens, create CSS custom properties file
 
 **Branching Rule Placeholders:**
