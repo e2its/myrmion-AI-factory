@@ -1,8 +1,8 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "6.0.0",
-  "last_updated": "2026-08-15",
+  "framework_version": "6.1.0",
+  "last_updated": "2026-09-18",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -843,11 +843,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.9.1",
+      "version": "3.10.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.10.0: feat(EVOL-052) — Workflow: CODESIGN authoring surface (internal vs external, `/codesign --sync`, guarded authoring sub-commands, RUNBOOK pointer). Core Protocols: PO Intake row. Living Governance Catalogs: Component Registry. Templates: `subproducts/` class with its self-test obligation. Universal H2 sections and the LAW corpus untouched (lock-step verified).",
         "3.9.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: template-root row drops the now-empty ux/*.md glob; auto-approval N/A wording names the 6 mock-dependent CHECKs.",
         "3.9.0: feat(EVOL-041) — SMOKE-E2E gate row → Path→Scenario→TC transitive; § Scope Taxonomy: single journey template all scopes (integration variant retired); Framework Editor Invariants enum row updated.",
         "3.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041), byte-identical with meta corpus via law_corpus_mirror.",
@@ -879,10 +880,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.2.1",
+      "version": "2.3.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.3.0: feat(EVOL-052) — § E gains CODESIGN Authoring Surface (Q29) and Design-System Cards Source (Q29.1) with their persisted keys. Duplicated `### E. Operational Decisions` heading removed.",
         "2.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked. Canonical template for docs/setup.md; consumed by SETUP --generate to materialise the per-project architecture roadmap & decisions log.",
         "2.0.0: feat(EVOL-019) phase 1: retroactive version bump to match the template's own `version: 2.0.0` frontmatter (Tripartite architecture support pre-existing the EVOL-019 initial registration).",
@@ -1077,10 +1079,11 @@
       ]
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md",
       "changelog": [
+        "1.2.0: feat(EVOL-052) — NEW `### PO package — next steps` block (rendered only with external authoring): authoring mode, active design-system case 6A/6B/6C and why, runbook path, first two commands. The materialisation must leave written operating instructions.",
         "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified.",
         "1.0.0: backfill — materialisation report scaffold existed but was untracked."
       ]
@@ -1265,6 +1268,206 @@
         "1.2.0: fix(EVOL-041 code-review) — Block 20 gate findings remediated: mirror of meta 1.2.0.",
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: mirror of meta 1.1.0 (check 8b mermaid).",
         "1.0.0: feat(EVOL-041) — initial delivery."
+      ]
+    },
+    "subproducts/po-package/po_lib.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/po_lib.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "PO package shared helpers: repo/config resolution, journey-first closed vocabulary (§1/§6/§7), nesting-safe `<section data-component>` scanner, allowed external hosts derived from the framework CODESIGN templates, zip safety. Stack-agnostic, tracker-agnostic.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. PO package shared helpers: repo/config resolution, journey-first closed vocabulary (§1/§6/§7), nesting-safe `<section data-component>` scanner, allowed external hosts derived from the framework CODESIGN templates, zip safety. Stack-agnostic, tracker-agnostic. Code-review pass: parser-based page facts (what a page loads, language, alt, landmarks); section offsets built the way the HTML parser counts lines (a form feed or U+2028 used to shift every slice); unclosed top-level section reported; slug rule; config shapes and the `mode` vocabulary validated in plain language; one shared markdown-table parser; registry entries filtered to mappings; dead `external_ds_root` key removed. Second review pass: page facts close the remaining walk-arounds (`srcset` candidates, `<object data>`, `<base href>`, protocol-relative stylesheet URLs) and read style rules only where they live, never in prose; password-protected and damaged archives are found by READING them, so they are truly never extracted; malformed registry is an operator error in plain language, not a silent filter; one `cli_main` boundary for both tools (exit 2; PO_PACKAGE_DEBUG adds the trace without changing the exit code); `inside_repo` for configured read paths. Third review pass: any decompressor failure while reading an archive is a finding (a damaged COMPRESSED member raised the decompressor's own error type, which no enumerated tuple covered — the one blocker of this pass, found by two reviewers); page facts also see SVG image/use references and `imagesrcset`, and the docstring states what a static read cannot see; `cli_main` typed. Fourth review pass: an archive this machine cannot read (permissions, vanished file) is a local fault, exit 2 — never a RED sent to the PO. Fifth review pass: one rule for IO faults (`local_io_fault`), shared by reading and unpacking — only the errnos an archive can cause by itself (a name too long, a file where a folder must be, a made-up offset) and a corrupt stream (no errno) are the PO's, every other errno is the operator's machine (disk, share, limits, a race), exit 2 with what to do next; a damaged central directory (unknown zip version, undecodable name) is a finding, never a tool fault; `PO_LIB_COMPLETE` last-line sentinel for the import guards."
+      ]
+    },
+    "subproducts/po-package/validate_po_return.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/validate_po_return.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "PO return validator — form and coherence only, never merit (green = reviewable, not accepted). Delegates journey form to scripts/check-journey-grammar.sh with a stub frontmatter; adds structure, manifest, evolution-request, Gherkin, vocabulary, external-dependency, zip-safety and vision-return checks. Exit 0 clean / 1 findings / 2 infra.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. PO return validator — form and coherence only, never merit (green = reviewable, not accepted). Delegates journey form to scripts/check-journey-grammar.sh with a stub frontmatter; adds structure, manifest, evolution-request, Gherkin, vocabulary, external-dependency, zip-safety and vision-return checks. Exit 0 clean / 1 findings / 2 infra. Smoke-run follow-up: early-warning check `mock-states` (four `data-state` blocks per step — the sync gate's CHECK 11 bar, told to the PO before the round-trip) with its red and green cases; golden fixture enriched (states, error and empty scenarios, rule → scenario ref). Code-review pass (Block 20): four blockers fixed — a tool fault never reads as a RED verdict (boundary handler, exit 2, plain language; PO-authored YAML shapes become findings, never crashes; encrypted or damaged archives are a zip-safety BLOCKER); an empty or non-UTF-8 file and an unrecognised folder are named, never skipped (an empty journey used to skip the delegated gate and read GREEN); section ids must be lowercase slugs and sections must close (an id used to reach a file name unchecked); severity and check id are validated at construction (a typo used to fail open). External references are read with a parser — unquoted attribute values, stylesheet imports and protocol-relative URLs no longer slip through; a navigation link is not a dependency. Verdict text distinguishes a broken local gate from a PO fault. Functions split under the complexity thresholds. Second review pass: a non-text `name` / `id` / `feature_id` is a finding, never an unhashable-value tool fault (one blocker, found by three reviewers); mock states match the exact value, not a prefix (`error-banner` is not `error`); the manifest at the root is encoding-checked; a lone VISION or feature folder is a target, never unwrapped as a wrapper; files that are not part of a return are named; JSON carries `returnable_to_po`; boundary shared with the builder. Third review pass: stray detection has a per-folder allowlist and names sub-folders inside a target; an optional slice map that came empty is said; a folder named like the manifest is not a manifest; JSON `returnable_to_po` is null on GREEN; a missing or broken library next to the tool is exit 2 in plain language, never a traceback with exit 1. Fourth review pass: a local IO failure while unpacking an archive that read clean is exit 2; the library import guard also covers a truncated po_lib.py. Fifth review pass: an archive whose names cannot be written (too long, a file where a folder must be) is RED again, with the reason — the fourth pass had made it a local fault; a local IO fault while reading or unpacking is exit 2, naming the archive and the temp folder and what to do next; the import guard refuses a library cut short that still parses (it could exit 0)."
+      ]
+    },
+    "subproducts/po-package/po_selftest.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/po_selftest.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Hermetic self-test of the return validator: every check id red-proved, golden returns green, plus a coverage meta-assertion (a check with no red case fails the self-test). Run by meta CI and re-run by the factory-po-intake skill before trusting a green.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Hermetic self-test of the return validator: every check id red-proved, golden returns green, plus a coverage meta-assertion (a check with no red case fails the self-test). Run by meta CI and re-run by the factory-po-intake skill before trusting a green. Smoke-run follow-up: early-warning check `mock-states` (four `data-state` blocks per step — the sync gate's CHECK 11 bar, told to the PO before the round-trip) with its red and green cases; golden fixture enriched (states, error and empty scenarios, rule → scenario ref). Code-review pass: every red case asserts the SEVERITY and that the verdict follows it; golden returns must produce no finding at all; hostile archives of every kind, with proof that extraction is never attempted; coverage derived from the syntax tree, both directions, and case ids checked against the declared checks; 69 cases; all new assertions red-proved by sabotage. Second review pass: 100 cases — every external-load kind, tokens declared the way the framework templates do, returns carrying the factory header, litter next to the manifest, first design system, total-size cap, password-protected and damaged archives, unreadable YAML, plus a YAML shape-fuzz loop (no PO-authored shape may raise; red-proved by restoring the old bug); the vacuous coverage arm removed; Finding construction guards asserted. Third review pass: 106 cases — damaged compressed archive (red-proved: with the enumerated tuple the decompressor error escapes), SVG and preload references, sub-folder inside a target, empty optional slice map, folder named like the manifest; a case that raises is reported as a failed case instead of killing the self-test. Fourth review pass: 108 cases — inline style attribute and video poster loads. Fifth review pass: 109 cases — damaged central directory."
+      ]
+    },
+    "subproducts/po-package/po_fixtures.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/po_fixtures.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh. Smoke-run follow-up: early-warning check `mock-states` (four `data-state` blocks per step — the sync gate's CHECK 11 bar, told to the PO before the round-trip) with its red and green cases; golden fixture enriched (states, error and empty scenarios, rule → scenario ref). Code-review pass: docstring states what is emitted and for whom."
+      ]
+    },
+    "subproducts/po-package/po-package.config.json": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "subproducts/po-package/po-package.config.json",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Project config of the PO package — the file SETUP resolves placeholders in (project name, goal, scope, language, feature id pattern, package mode, design-system code-cards dir and rebuild command; JSON null where a key does not apply).",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Project config of the PO package — the file SETUP resolves placeholders in (project name, goal, scope, language, feature id pattern, package mode, design-system code-cards dir and rebuild command; JSON null where a key does not apply). Dead `external_ds_root` key removed."
+      ]
+    },
+    "subproducts/po-package/build_po_package.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/build_po_package.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "PO package builder: reads the repo, stages OUTSIDE it, zips. Offline (roadmap arrives as a file exported through /backlog). 00-core product sheet, feature catalogue, closed-vocabulary glossary, route map, roadmap; 10-design-system tokens, component base (registry joined with the codebase inventory), one preview card per component; 20-features annexes; 30-templates PO-safe cuts. Design-system cards from code per component when the project configures a rebuild tool (no shell, timeout, fail-open), card-to-registry drift report, ds-only mode for CI, stale-runbook warning. Names no third-party tool.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. PO package builder: reads the repo, stages OUTSIDE it, zips. Offline (roadmap arrives as a file exported through /backlog). 00-core product sheet, feature catalogue, closed-vocabulary glossary, route map, roadmap; 10-design-system tokens, component base (registry joined with the codebase inventory), one preview card per component; 20-features annexes; 30-templates PO-safe cuts. Design-system cards from code per component when the project configures a rebuild tool (no shell, timeout, fail-open), card-to-registry drift report, ds-only mode for CI, stale-runbook warning. Names no third-party tool. Code-review pass: writes confined to the package folder; boundary handler (a tool fault is exit 2, never 'drift found'); drift has three honest states — findings, NOT COMPUTED, not applicable — and --strict fails on an uncomputed drift; every fallback to vision cards is said out loud (folder missing, tool rendered nothing, file without the marker, broken tool manifest); missing configured paths warned; roadmap file errors named; modes trimmed to the two that are documented and tested (auto, ds-only); bytecode never written next to the tool; speculative product-notes hook removed. Second review pass: drift is `None` when it does not apply (a project with no design system can pass --strict), a text when it applies but could not be computed, a list otherwise — no more control flow on message wording; cards used without --rebuild are said to be unrefreshed; a rebuild whose output has no configured folder is said; a wrong-shaped manifest from the project tool never blocks; two code cards for one component are said; a code cards folder outside the repository is refused; IMPLEMENTED components whose join key resolves to nothing are said. Third review pass: the rule 'no code cards folder ⇒ drift does not apply' lives in ONE place (it was enforced per producer and one of them skipped it, so a project before its first vision failed --strict); documents building extracted from `run`; a tokens source that is a folder is a warning; any shape of the project tool's manifest is tolerated; library import guarded. Fourth review pass: the library import guard also covers a truncated po_lib.py. Fifth review pass: the import guard refuses a library cut short that still parses."
+      ]
+    },
+    "subproducts/po-package/RUNBOOK.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "subproducts/po-package/RUNBOOK.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse. States where findings, the evolution request and the decisions are kept, and that the drop zone is committed by --sync. Verdict table corrected: an undeclared name is a warning on a GREEN return, not a RED; a RED naming the gate's infrastructure does not go back to the PO; exit code 2 is not a verdict. Drift report rows for `not applicable`, `NOT COMPUTED` and unrefreshed cards; the debug switch. NOT COMPUTED row states that it only appears when a code cards folder is configured."
+      ]
+    },
+    "subproducts/po-package/static/en/README.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/README.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "PO-facing guide shipped at the zip root (build-time variables, no SETUP placeholders).",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. PO-facing guide shipped at the zip root (build-time variables, no SETUP placeholders)."
+      ]
+    },
+    "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "System prompt pasted into the PO's Claude Desktop project — feature mode. Journey-first grammar, LAW-16 zero technical types, closed vocabulary, literal headings, scope not decided here, 15 pre-delivery checks mirroring the validator.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. System prompt pasted into the PO's Claude Desktop project — feature mode. Journey-first grammar, LAW-16 zero technical types, closed vocabulary, literal headings, scope not decided here, 15 pre-delivery checks mirroring the validator. Teaches the mock state structure and the rule/field coverage the sync gate checks."
+      ]
+    },
+    "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS-VISION.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS-VISION.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "System prompt for the design-system project: the six vision artefacts, the `data-component` / `data-token-group` anchor contract the component catalogue is built from, reuse-first, WCAG 2.1 AA.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. System prompt for the design-system project: the six vision artefacts, the `data-component` / `data-token-group` anchor contract the component catalogue is built from, reuse-first, WCAG 2.1 AA."
+      ]
+    },
+    "subproducts/po-package/static/en/00-core/rules-of-the-game.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/00-core/rules-of-the-game.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "What the PO may and may not propose, and the cost table per kind of change.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. What the PO may and may not propose, and the cost table per kind of change."
+      ]
+    },
+    "subproducts/po-package/static/en/30-templates/ERQ-TEMPLATE.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/30-templates/ERQ-TEMPLATE.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Evolution request template: target feature|vision, scope, classification, changes[], new_names[], new_components[], open_questions[].",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Evolution request template: target feature|vision, scope, classification, changes[], new_names[], new_components[], open_questions[]."
+      ]
+    },
+    "subproducts/po-package/static/en/30-templates/MANIFEST-TEMPLATE.yaml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/30-templates/MANIFEST-TEMPLATE.yaml",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Return index template: package block, optional vision block, ordered features, reviewed_no_change, self_checked attestation.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Return index template: package block, optional vision block, ordered features, reviewed_no_change, self_checked attestation."
+      ]
+    },
+    "workflows/design-system-rebuild.github-actions.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".github/workflows/design-system-rebuild.yml",
+      "stack_conditional": "ci_cd_platform == \"GitHub Actions\" AND po_package.ds_rebuild_command != null",
+      "role": "OPTIONAL advisory GitHub Actions job (EVOL-052 DEC-6): rebuilds design-system cards from code through the PO package builder, reports card-to-registry drift, uploads the bundle. Materialised only when a rebuild command is configured. Push-to-main and manual only — never on pull requests. Names no third-party tool; reads the command from the package config at run time.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial."
+      ]
+    },
+    "subproducts/po-package/static/es/README.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/README.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted. Teaches the mock state structure and the rule/field coverage the sync gate checks."
+      ]
+    },
+    "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS-VISION.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS-VISION.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/static/es/00-core/rules-of-the-game.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/00-core/rules-of-the-game.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/static/es/30-templates/ERQ-TEMPLATE.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/es/30-templates/ERQ-TEMPLATE.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+      ]
+    },
+    "subproducts/po-package/RUNBOOK.es.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "subproducts/po-package/RUNBOOK.es.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted).",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted). States where findings, the evolution request and the decisions are kept, and that the drop zone is committed by --sync. Tabla de veredictos corregida en el mismo sentido que RUNBOOK.md. Filas del informe de deriva para `not applicable`, `NOT COMPUTED` y tarjetas sin refrescar; el interruptor de depuración. La fila NOT COMPUTED aclara que solo aparece con una carpeta de tarjetas configurada."
       ]
     }
   },
@@ -1533,9 +1736,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.9.0",
+      "version": "2.10.0",
       "path": "README.md",
       "changelog": [
+        "2.10.0: feat(EVOL-052) — NEW § External CODESIGN Authoring (PO Package): the loop, validate/ratify/sync/catalog table, written instructions after materialisation, design system from code (cases 6A/6B/6C, drift, optional workflow, one-way mirror), language. File-structure tree (24 instructions, 23 skills, subproducts template), CODESIGN command table gains `--sync` + authoring-surface note, skills table gains PO Intake, recommended pipeline gains the external path, project structure gains `subproducts/po-package/`, `docs/ux/component-registry.json`, `docs/ux/po-return/`.",
         "2.9.0: feat(EVOL-041) — SMOKE-E2E wording → Path→Scenario→TC transitive; journey artefact description journey-first; integration-variant mentions removed.",
         "2.8.0: fix(EVOL-040 pr-review loop i3) — skills catalog gains factory-code-review (was 21-listed vs 22-on-disk), count 21→22, pr-review line seven-axis/20-blocks, scripts line manifest-driven + T3. Caught by the i3-hardened CHECK 1b local-branch fallback — the gate's own fix detected the gate author's miss.",
         "2.7.1: fix(EVOL-036) coherence — command table /codesign --start emits slice_map.md (incremental); /blueprint --start refines authoritative slices (no invention); /blueprint --approve + Enforcement list the slice CVP checks 0d/18/19/20. Removes the residual 'BLUEPRINT runs the slicing RDR' claim + stale check counts.",
@@ -1602,9 +1806,10 @@
       ]
     },
     "commands/codesign.md": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.6.0: feat(EVOL-052) — third level of operation: External Authoring Sync (`--sync {VISION|ID}`); guard semantics for the four authoring sub-commands; branch naming for --sync. Guard ordering stated: after Step 0, before Step -1.",
         "1.5.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: journey step field list completed to the 9-field grammar.",
         "1.5.0: feat(EVOL-041) — artefact list journey-first with machine-anchor contract; single journey template all scopes; § 6 existence authority + check-journey-grammar.sh in Key Principles.",
         "1.4.1: fix(EVOL-036) coherence — --refine sub-step 1.4 changelog target list adds slice_map.md (when incremental); notes check_slice_immutability pre-persist + CASCADE_SLICE_INTERNAL on re-slice (command↔instruction drift fix).",
@@ -1760,9 +1965,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "3.2.0: feat(EVOL-052) — external-authoring guard as first step of `--start` and `--refine` (byte-identical to the contract in Factory-codesign-sync; CI-asserted). No other change: generation logic untouched; absent `codesign.authoring` ⇒ internal ⇒ no behaviour change.",
         "3.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: ES-concept → journey-v2 landing map (Commands/Events/ReadModels/DataSchemas now have declared destinations); Phase 4b captures all 9 step fields; CHECK 13 re-anchored (spec § External Systems was phantom); backend Tripartite denominator N/2; artefact-count prose unified (slice_map included).",
         "3.0.0: feat(EVOL-041)! — journey-first generation: canonical order user_journey → spec → mock (D20); single template ALL scopes (D14/D15 root fix); Phase 4b Experience Walk (Goal/Does/Sees/Feels/Pain/Ease + Paths); Phase 5 → plain-language Business Field Definition (LAW-16); Tripartite v2 (anchor-based checks 3-7); auto-approval CHECK 3 invokes check-journey-grammar.sh, CHECK 12 purity; H-15 reads § 6 existence + classifier documented (D5); IPP loops scope-aware + slice_map (D16); canary M-08 reads real v2 sections (D6).",
         "2.11.0: feat(EVOL-036) SLICE-4 — step 9.5 runs check_slice_immutability() PRE-persist on --refine re-slice (BLOCK+redirect when diff touches a MERGED scenario; vacuous at --start); --refine 1.4 aggregated changelog includes slice_map.md when incremental; cascade step notes ON_CODESIGN_REFINE_ITERATION fires CASCADE_SLICE_INTERNAL (forward-only, SKIPs CASCADE_INCREMENT_INTERNAL on pure re-slice); --revise documented as the terminal escape for destructive re-slice of MERGED scenarios.",
@@ -1801,9 +2007,10 @@
       ]
     },
     "instructions/Factory-codesign-vision.instructions.md": {
-      "version": "2.6.1",
+      "version": "2.7.0",
       "path": ".claude/instructions/Factory-codesign-vision.instructions.md",
       "changelog": [
+        "2.7.0: feat(EVOL-052) — NEW § Component Registry: owns the schema `component_registry_v1` of docs/ux/component-registry.json (previously referenced once and defined nowhere), writer table and status lifecycle DESIGNED→PLANNED→IMPLEMENTED / NO_PRIMITIVE; inventory stays SSOT for code (registry stores the join key only). V.3/V.5 gain the MANDATORY anchor contract (`data-token-group`, `data-component`) the PO package scanner and the catalog depend on. --vision-approve check 4 requires anchored base components listed in the registry. External-authoring guard as first step of `--vision` and `--vision-refine` (effective only when the PO package covers the design system); state sub-commands never guarded; `detect_vision_input_mode()` untouched.",
         "2.6.1: fix(IPP runtime binding) — new `## Incremental Persistence (IPP — MANDATORY)` section after `## Generated Vision Artifacts` wiring the 6 vision artefacts through all three IPP pillars. Pillar 1: `vision_skeleton_first()` creates all 6 skeletons in one pass with `_progress.pending_sections` filled. Pillar 2: `save_vision_section()` updates `_progress.completed_sections` and saves immediately on each artefact completion. Pillar 3: `vision_resume_or_start()` scans the 6 expected paths and resumes from the first pending section after a power-loss recovery. RDR decisions on Aesthetic Quality Directives (D0-D9) append to `vision.md._progress.decisions[]` + inline `<!-- RDR-N -->` for traceability. Previously this instruction had 0 IPP references despite the skill declaring `/codesign --vision` produces 6 artefacts under IPP.",
         "2.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -2011,9 +2218,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.10.0: feat(EVOL-052) — catalog component issue class: title pattern `[{ID}] COMPONENT: {name}`, label `kind:component-catalog` (lazy create_label), label-applicability row, body template with registry/inventory DoD. Feature Issue `## Factory command` becomes authoring-aware for codesign issues (external ⇒ PO package + `/codesign --sync {ID}`).",
         "1.9.0: feat(EVOL-041) — suffix-8 table + gate row + DoD checklists re-anchored: one SMOKE block per journey § 3 Path, single smoke template with scope modes; integration variant refs die.",
         "1.8.2: fix(coherence) — broken markdown link to iteration-model skill (line 543): wrong path + case `Factory-iteration-model/SKILL.md` → `.claude/skills/factory-iteration-model/SKILL.md` (repo root-relative convention). Caught by framework coherence sweep (reference coherence / Block 13).",
         "1.8.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2069,9 +2277,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.14.0",
+      "version": "2.15.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.15.0: feat(EVOL-052) — NEW Q29 CODESIGN Authoring Surface (external-full | external-features | internal → `codesign.authoring` + `po_package.mode`; 3 options for every scope) and Q29.1 Design-System Cards Source (vision | code-rebuild | defer → `po_package.ds_*`; conditional on external authoring AND UI scope; tool-agnostic — the framework names no tool). TIER_2 list extended.",
         "2.14.0: feat(EVOL-040 RDR-2) — NEW Q23.2 Security Scanner (5-field mirror of Q23.1; gitleaks default / trufflehog / Custom / Skip; persists quality.security_scan.*; resolution table is the only home of scanner commands besides materialization; two-layer note: regex floor always on). TIER_2 array += Q23.1 (backfill — was missing, pre-existing bug) + Q23.2.",
         "2.13.0: feat(EVOL-033) phase 2 — Q23.1 Code-Quality MCP (cyclomatic complexity scanner) added after Q23 (Testing Strategy). Three options via RDR: Semgrep MCP (default, multi-lang official server) | Custom MCP (project declares server+tool returning {file, function, ccn}[]) | Skip (disable gate, enable later by editing config/quality.json). Persists quality.complexity.{mcp_server, mcp_tool_name, enabled, thresholds.{soft=10, hard=15}, bvl_gate=true, pr_blocker=false}. Defaults are McCabe industry baseline. Materialization consumer: Factory-setup-materialization § Quality Configuration resolves placeholders {{COMPLEXITY_MCP_SERVER}} + {{COMPLEXITY_MCP_TOOL_NAME}} in config/quality.json.",
         "2.12.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2097,9 +2306,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.9.0",
+      "version": "3.10.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.10.0: feat(EVOL-052) — External-DS Component Migration now points at the registry schema owner (Factory-codesign-vision § Component Registry) instead of a dangling file reference. NEW step Subproducts Materialization (`.context/templates/setup/subproducts/` → `subproducts/`): whole-tree copy, universal files byte-identical, placeholders resolved only in the stack_configured files (11-row table incl. the two DERIVED runbook tokens), JSON `null` rule, optional design-system-rebuild workflow (GitHub Actions AND a configured command), invariant RUNBOOK.md present with zero placeholders else BLOCK, self-test run, MANDATORY written next steps in MATERIALIZATION_REPORT.md and the closing briefing.",
         "3.9.0: feat(EVOL-040 RDR-2) — Quality Configuration resolves the three {{SECURITY_SCANNER*}} placeholders from Q23.2 with the same Skip null-literal semantics as complexity; consumers list extended (security-scan dispatcher, factory-code-review).",
         "3.8.0: feat(EVOL-040 root cause B) — § 4.2.2 constitution template path fixed (missing constitution/ segment — SETUP constitution generation read a non-existent path); § 4.2.3 config artefacts += coherence-context.json (template + manifest entry existed, instruction never materialised it — pr-review Phase 0 degraded in every downstream project); § Scripts Materialization gains the delivery-closure Invariant (every templates::scripts entry with delivery setup|both must exist post-copy → BLOCK, mirrors hooks Invariant).",
         "3.7.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: snapshot-generation section `protected_paths.red_zones` → `protected_paths.paths` (line 155); subheading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)`. The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
@@ -2219,9 +2429,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.8.1",
+      "version": "13.9.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.9.0: feat(EVOL-052) — § Templates: Subproducts class (ADR-EVOL-052 Operational Rule). `.context/templates/setup/subproducts/**` → project-root `subproducts/**`; deliverable-generation tooling outside the project's governed trees; mandatory `--selftest` run by meta CI through a synthetic materialisation and re-run by the consuming skill; only `stack_configured` files carry placeholders, the rest land byte-identical. No LAW added; universal sections and LAW corpus untouched.",
         "13.8.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: § Templates role list matches the tree (ux/ removed, peer_review added).",
         "13.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041): CODESIGN artefacts carry only business-validatable content; technical formalisation lives in BLUEPRINT (design.md §3.1/3.2, §7.4, Reliability Contract). Mirrored via law_corpus_mirror.",
         "13.7.0: feat(EVOL-040 RDR-1 / root cause C) — Governance Rules re-rendered with stable [LAW-NN] IDs (single namespace across the pair; list ordinal cosmetic; assigned once, never renumbered/reused). LAW-08 body restored from template (meta was truncated — Humanized Blocking lost its what/why/next-command contract). LAW-12 body drops the inline universal_sections enumeration (config is the single source) + documents the new law_corpus_mirror pair type. LAW-15 tag on the ADP vocabulary heading. § What Lives Where rewritten to reality (mechanically-enforced universal surface named; framework-only/project-only lists corrected; declared-divergence doctrine). INVARIANT-1 gains feat/*; § Templates phantom `claude` role dir fixed; § anchors normalized (Canonical Iteration ID, GWP case). Constitutional amendment for ADR-EVOL-040 acceptance.",
@@ -2383,10 +2594,11 @@
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
     "skills/factory-branching-strategy/SKILL.md": {
-      "version": "1.6.2",
+      "version": "1.7.0",
       "type": "skill",
       "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse, per-increment branching.",
       "changelog": [
+        "1.7.0: feat(EVOL-052) — `CODESIGN --sync` is a branch-CREATION command (VISION → the UX-VISION branch; {ID} → same rules as --start, existing branch reused). Without it the external-authoring path deadlocks: --sync was a consumption command and --start, the only creator, is guarded. Found by the --sync smoke run.",
         "1.6.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -3013,11 +3225,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.8.0: feat(EVOL-052) — T2 suite gains test-po-package.sh (PO package subproduct: synthetic materialisation + validator self-test).",
         "1.7.0: feat(EVOL-041) — T2 suite gains test-check-journey-grammar.sh (journey grammar validator self-test).",
         "1.6.0: fix(EVOL-040 pr-review loop i2) — T2 suite gains test-security-scan.sh + test-validate-governance.sh (both literal lists).",
         "1.5.0: feat(EVOL-040) — T2 suite gains scripts/test-materialization-surface.sh (T3 delivery-surface, both literal lists).",
@@ -3424,11 +3637,12 @@
       ]
     },
     "scripts/test-materialization-surface.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "role": "T3 delivery-surface test (EVOL-040, north-star check). SETUP --generate is LLM-driven and unscriptable in CI — this statically verifies the AGNOSTIC delivery surface instead: workflow→script closure, template-CLAUDE.md ref resolution via the delivery map, placeholder resolvability against materialization rules, template-side hooks invariant, delivery-field closure. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-materialization-surface.sh",
       "changelog": [
+        "1.2.0: feat(EVOL-052) — assertion 3 also covers the stack_configured files of a subproduct; NEW assertion 6 subproduct closure (disk ↔ manifest both ways, target == key, universal files placeholder-free so they land byte-identical, stack_configured files carry one, workflow → subproduct refs resolve, the materialization instruction owns the step and its written-instructions invariant). All three failure modes red-proved by sabotage. Unknown `content_type` on a subproduct entry is now a failure (it used to escape both checks). Header states the closed content_type set.",
         "1.1.0: fix(EVOL-040 pr-review loop i2) — every python probe's exit status now captured — probe crash reads as an assertion FAILURE, not a green pass (negative-tested with a stubbed python3); assertion-2 loop invariants hoisted (manifest loaded once, no shadowing); assertion 5 widened to framework_core sync|both entries (template-or-meta resolution).",
         "1.0.0: feat(EVOL-040) — initial. Negative-tested: detects the pre-K2 state (CI-invoked scripts without template sources)."
       ]
@@ -3470,6 +3684,31 @@
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: 14th case: missing mermaid journey diagram MUST fail (red-proved).",
         "1.0.0: feat(EVOL-041) — red-proving self-test: 13 cases (2 green fixtures + 10 mutations that MUST fail + journey-first skip case). Wired into governance-check T2 suite."
       ]
+    },
+    "scripts/test-po-package.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
+      "path": "scripts/test-po-package.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Part 1 validator (self-test, golden green via --dir/--zip, mutated red, hostile archive blocked, unresolved config refused). Part 2 builder (nothing written into the repo, no unresolved variable, cards well-formed, strict substitution, staging inside the repo refused). Part 2b language (per-file override, English fallback, literal canonical headings, EN/ES parity). Part 3 cases 6A/6B/6C (runbook header truthful, code cards win per component, failing tool falls back, no shell, three drift findings, --strict, stale runbook warned). Part 4 closure (every command, flag and path the runbook and the workflow cite exists). Part 4 also asserts the registry schema parity between the vision instruction and the tooling, the byte-identical guard at the 4 authoring entry points, and the existence of every function --sync reuses by reference. Code-review pass: rewritten around the mutants that survived — exit-code contract incl. tool faults and stack-trace detection, repository resolution the way operators invoke it, archive-tool litter, RED asserted as parsed JSON, builder content not just existence, zip and staging refused inside the repo, config faults, mode matrix, include/exclude, hostile section id confined, the \"null\"-text slip, timeout, every silent fallback, no-shell proven with the tool's own argv, honest drift states; vacuous assertions removed; 81 assertions. Second review pass (mutation-driven): the text verdict line, a broken local gate not returnable to the PO (text and JSON), damaged archive, tool-fault boundary for both tools with and without the trace, project host allowlist, PO_PACKAGE_REPO proven from another repository, the no-bytecode proof run WITHOUT the test's own environment variable, include filtering others out, no-design-system project under --strict, wrong config paths, code cards outside the repo, same-day rebuild, unrefreshed cards, tool manifest shape, card collision, discarded rebuild output, aligned design system under --strict; POSIX-only constructs; 100 assertions. Third review pass: the tool-fault boundary is proven by BREAKING the sandbox copy of the tool (never by leaning on a product defect), for both tools, with the debug trace, and with the library missing; damaged COMPRESSED archive; GREEN JSON returnability; a project before its first vision under --strict; tokens source that is a folder; the no-op gate removed; 106 assertions. Fourth review pass: truncated library, unreadable archive as a local fault, malformed registry, dangling join key; absence-only assertions gated on the build having run; 110 assertions. Fifth review pass: unwritable names and a damaged directory are RED; injected disk, share, timeout and race faults are exit 2 and say what to do, while a corrupt stream and a made-up offset stay RED; a library cut short that still parses is exit 2 for both tools; the permission test that could count a skip as a pass replaced by one no user can bypass; 116 assertions."
+      ]
+    },
+    "instructions/Factory-codesign-sync.instructions.md": {
+      "version": "1.0.0",
+      "path": ".claude/instructions/Factory-codesign-sync.instructions.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. `/codesign --sync {VISION|ID}`: entry point for CODESIGN authored outside the repo. Adopts ONE ratified target verbatim; adds only what the factory owns (gates, frontmatter, iteration ledger, change classification, cascade, auto-approval checks as validation) — every piece reused BY REFERENCE from the feature/vision instructions and the iteration-model / IPP skills (existence CI-asserted). Never generates, never edits PO content: findings return the target as NEEDS_INFO. Owns the external-authoring guard text. Authoring mode read from docs/setup.md `codesign.authoring`; absent ⇒ internal (back-compat by construction). Hardened after a literal smoke run by a fresh agent (15 findings): PO block defined as the intact span between the factory header and the factory iteration appendix, with exact header carriers and appendix start markers per artefact; iteration entry spelled in full with `source: rdr-ratification` + `erq_id` (closed enum respected); `slicing_strategy` source defined and slicing declared as the ONE exception to never-author (existing step, its RDR); CIP inputs defined and RDR options restricted to REUSE_EXISTING / KEEP_BOTH / RETURN_TO_PO; Level 1→Level 2 classification with case-normalised compare; never-approved targets re-enter without classification or cascade; ERQ, RDR rows and findings persisted under `erq/`; rejected-key-absent precondition; one commit; guard runs after Step 0 and before Step -1. Second smoke run (clean project, fresh agent): no hard stop, PO blocks hash-identical, both gates pass; eight residual points fixed — literal appendix shapes per file type (`.feature` as Gherkin comment lines), whole-line boundaries with no separator bytes, finding = failed CHECK or Tripartite BLOCKER, slicing only after validation shows no PO finding, exact-name concept matching, explicit staging paths, worklog before the commit, disk deletion of the untracked drop zone."
+      ]
+    },
+    "skills/factory-po-intake/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "PO Intake v1.0.0 — external CODESIGN authoring. Builds the PO package, validates a return with the subproduct's deterministic validator (self-test first, always), one RDR per change, writes the transient drop zone, calls /codesign --sync per ratified target, reconciles the component registry against the codebase inventory and plans component-catalog issues through /backlog only. Never edits docs/spec/** or docs/ux/vision/**, never fixes PO documents, never decides scope or ordering.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Generalised from a downstream project skill; materialisation no longer goes through --refine (which regenerated) but through --sync (which adopts). New catalog beat. Beat 4 reordered after the smoke run: eligibility and rejection are settled BEFORE a target enters `ratified`; INTAKE.md frontmatter shape fixed (`synced: []`, rejected key omitted when empty); drop zone left uncommitted; NEEDS_INFO findings file returned to the PO unedited. Beat 1 states the exit-2 branch (not a verdict, nothing goes to the PO) and the broken-local-gate RED (`returnable_to_po: false`)."
+      ],
+      "path": ".claude/skills/factory-po-intake/SKILL.md"
     }
   },
   "runtime_artefacts": {

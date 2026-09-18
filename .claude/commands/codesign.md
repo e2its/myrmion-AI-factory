@@ -18,7 +18,7 @@ Before any command-specific logic, the FIRST user-facing output of this command 
 - This step runs BEFORE Step -1 (branch checkout). Step -1 still executes as the next mandatory pre-action gate.
 
 
-## Two Levels of Operation
+## Three Levels of Operation
 
 ### 1. Global Vision (`--vision`, `--vision-refine`, `--vision-approve`, `--vision-propagate`)
 Visual identity and structure of the complete application. Executed once before iterating features.
@@ -42,6 +42,13 @@ Canonical generation order (the journey is the ROOT — EVOL-041):
 - **1.2 Iterative RDR loop** — max 3 rounds (configurable via `--max-rdr-rounds`); converge-on-stability heuristic.
 - **1.3 Apply changes** — existing Change Classification + Tripartite Alignment re-run.
 - **1.4 Aggregated changelog** — `append_iteration_entry()` on `spec.feature`, `user_journey.md`, `mock.html`, and (when `slicing_strategy: incremental`) `slice_map.md`, with shared `ITER-{FEAT}-{N+1}` id (factory-iteration-model + factory-incremental-persistence). A re-slice runs `check_slice_immutability` pre-persist and fires `CASCADE_SLICE_INTERNAL` (slice_map → increment_plan).
+
+### 3. External Authoring Sync (`--sync {VISION|ID}`)
+When `docs/setup.md` says `codesign.authoring: external`, CODESIGN is authored by the PO in a Claude Desktop project (PO package) and ENTERS the repo here. `--sync` adopts ONE ratified target verbatim and adds only what the factory owns (gates, frontmatter, iteration ledger, change classification, cascade, auto-approval checks as validation). It never generates and never edits PO content — a finding returns the target as `NEEDS_INFO`.
+
+With external authoring, `--start` / `--refine` (and `--vision` / `--vision-refine` when the package covers the design system) are **guarded**: they block in plain language and point here — the guard runs after Step 0 and BEFORE Step -1, so a blocked command switches no branch and takes no lock. State sub-commands are never guarded. Absent key ⇒ `internal` ⇒ nothing changes.
+
+**Full protocol:** See `.claude/instructions/Factory-codesign-sync.instructions.md` · operator steps: `subproducts/po-package/RUNBOOK.md` · upstream skill: `factory-po-intake`.
 
 ## Scope & Slicing
 
@@ -75,4 +82,4 @@ Every feature declares two frontmatter fields in `spec.feature` that shape the r
 ## Pre-Command Protocol (MANDATORY)
 - **Before ANY file modification**, execute the full **Step -1 Auto-Branch Checkout Protocol** from `.claude/skills/factory-branching-strategy/SKILL.md`
 - This ensures correct branch checkout, cross-branch mismatch detection, dependency checks, and concurrency locking
-- Branch naming: `--vision` creates `feature/UX-VISION-global-app-design`, `--start {ID}` creates `feature/{ID}-{slug}`
+- Branch naming: `--vision` / `--sync VISION` use `feature/UX-VISION-global-app-design`; `--start {ID}` / `--sync {ID}` use `feature/{ID}-{slug}`

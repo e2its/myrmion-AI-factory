@@ -144,6 +144,7 @@ The exact fields inside `project_ids` and `board_field_mapping` are determined b
 | Feature phase | `[{ID}] {PHASE}: {phase_description} — {name}` | `{ID}` from naming_convention; `{PHASE}` from `feature_phases[N].label` uppercased; `{phase_description}` from `feature_phases[N].title_pattern`; `{name}` user-provided |
 | Feature refinement | `[{ID}] {PHASE}-R{k}: Refinement — {description}` | `{k}` sequential refinement index starting at 1 |
 | Feature extension | `[{ID}] {PHASE}-R{k}: Extension — {description}` | Same as refinement |
+| Catalog component | `[{ID}] COMPONENT: {component_name}` | `{ID}` = the foundational Component Catalog feature (`docs/ux/component-registry.json` `catalog_feature`); `{component_name}` = registry `name`. First round only — later components use the Feature extension pattern on the IMPLEMENT phase |
 | Slice integration gate | `[SLICE-{N.M}] INTEGRATION-TEST: {scope_description}` | `{N.M}` epic.slice index; `{scope_description}` cross-feature coupling focus |
 | Epic retrospective gate | `[EPIC-{N}] RETROSPECTIVE: {focus_area}` | `{N}` epic index; `{focus_area}` retrospective theme |
 | Infrastructure | `[INFRA] {description}` | — |
@@ -291,6 +292,7 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 | **Milestone strategy** | See § 4.2 | `milestone_strategy` from Q27.3 | — |
 | **Status** | `blocked`, `enhancement`, `bug`, `needs-rework-after-codesign` | Auto-created at `--init-board`; `needs-rework-after-codesign` applied manually when a downstream task lands before the upstream CODESIGN is finalized | — |
 | **Kind** | `kind:follow-up` | Set manually on issues that capture deferred work spun out from a parent feature or retrospective. Signals "known deferred, not accidental incomplete". | `kind:follow-up` |
+| **Kind** | `kind:component-catalog` | Applied by the `factory-po-intake` catalog beat to every issue that builds a design-system component with no code primitive yet. NOT pre-created at `--init-board`: `create_label` (idempotent) before the first `add_label`, same rule as `blocked-by`. | `kind:component-catalog` |
 | **Blocked-by** | `blocked-by:#{N}` | Set manually (or by `--plan-execution` when an explicit cross-feature dependency is declared) on issues that MUST NOT be picked up until the referenced issue is Done. Consumed by the `--next-task` resolver as a hard filter. Multiple `blocked-by:#N` labels on the same issue are AND-ed: all referenced issues must be Done. | `blocked-by:#42`, `blocked-by:#101` |
 | **Appetite** *(conditional on Q27.6 == true)* | `appetite:{small\|medium\|big}` | Hand-curated by the human on feature issues. Metadata only — never computed. When Q27.6 == false the labels are not materialised. | `appetite:small`, `appetite:medium`, `appetite:big` |
 
@@ -300,6 +302,7 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Feature phase | ✅ (one) | ✅ (one — mirrors spec.feature.scope) | ✅ (one) | ➕ optional | ➕ optional | ➕ optional | ➕ optional (feature-scoped; typically on CODESIGN issue) |
 | Feature refinement/extension | ✅ (same as parent) | ✅ (same as parent — scope inherited) | ✅ (same as parent) | `enhancement` | ➕ optional | ➕ optional | ❌ (inherits from parent) |
+| Catalog component | `phase:implement` | `scope:frontend-only` | ➕ optional | `kind:component-catalog` | ❌ | ➕ optional | ❌ |
 | Slice integration-test | `phase:integration-test` | ❌ (slice can span multiple scopes) | ✅ (one) | ➕ optional | ❌ | ➕ optional | ❌ |
 | Epic retrospective | `phase:retrospective` | ❌ (epic spans scopes) | ❌ (epic-scoped, not slice) | ➕ optional | ❌ | ➕ optional | ❌ |
 | Infrastructure | `infra` | ➕ optional (when infra is scope-specific: `scope:backend-only` for worker provisioning, `scope:frontend-only` for CDN config) | ❌ | ➕ optional | ➕ optional | ➕ optional | ➕ optional |
@@ -363,6 +366,7 @@ Milestone naming follows `milestone_strategy` from Q27.3:
 ## Factory command
 
 `{AGENT} --{command} {ID}`
+{codesign issues, when `docs/setup.md` `codesign.authoring: external`: replace the line above with — "Authored by the PO in the Product Owner package (`subproducts/po-package/RUNBOOK.md`). Enters the repo with `/codesign --sync {ID}`."}
 
 ## Prerequisites
 
@@ -415,6 +419,27 @@ Milestone naming follows `milestone_strategy` from Q27.3:
 - [ ] Downstream cascade verified
 - [ ] Tests updated
 ```
+
+### Body File Template — Catalog Component Issue
+
+```markdown
+## What is needed?
+
+Build the code primitive for design-system component **{component_name}** (`{ds_anchor}`).
+
+## Source of truth
+
+- Design: `docs/ux/vision/component_library.html#{id}` — states, variants, tokens
+- Registry entry: `docs/ux/component-registry.json` → `{id}` (status `PLANNED` once this issue exists)
+
+## Definition of Done
+
+- [ ] Primitive implemented with every state shown in the library, tokens only
+- [ ] Registered in `config/codebase_inventory.json` as `type: ui_component`
+- [ ] Registry entry: `cip_name` set, `status: IMPLEMENTED`
+```
+
+Parent: the IMPLEMENT issue of the catalog feature (`add_sub_issue`; adapters without it ⇒ first body line `> Parent: #{N}`).
 
 ### Body File Template — Gate Issue (CONTRACT-FREEZE / PREVENTIVE-SWEEP / SMOKE-E2E / INTEGRATION-TEST / RETROSPECTIVE)
 

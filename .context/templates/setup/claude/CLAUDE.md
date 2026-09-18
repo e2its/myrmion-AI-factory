@@ -81,6 +81,7 @@ SETUP (one-time)
 Each `full-sdlc` feature expands into **8 phase issues** on the backlog. Three of them are hard gates enforced by upstream command instructions — they cannot be skipped or auto-approved.
 
 - **AUDIT** and **BACKLOG** are independent — run any time.
+- **CODESIGN authoring surface** (`docs/setup.md` `codesign.authoring`, SETUP Q29): `internal` = co-created in this CLI via `--start` / `--refine` / `--vision`. `external` = authored by the PO in a Claude Desktop project from the **PO package** (`subproducts/po-package/`), returned as a zip, validated and ratified change by change (`factory-po-intake`), then adopted verbatim by **`/codesign --sync {VISION|ID}`** — never regenerated. With `external`, the authoring sub-commands are guarded and point to `--sync`. Operator steps: `subproducts/po-package/RUNBOOK.md`. Same gates and same auto-approval checks either way.
 - **Auto-Approval**: CODESIGN, DEVOPS `--configure`, QA `--verify` auto-approve when all validations pass. Auto-approval does NOT bypass the hard gates — a gate's own issue must be Done before the downstream command can start.
 - **BLUEPRINT `--approve`** is the only mandatory manual checkpoint for the classic phases.
 - Environments are dynamic — read from `.claude/rules/ci-cd.md`. MERGE always before production deploy.
@@ -269,6 +270,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Governance Loading (GCRP) | `.claude/skills/factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |
 | Memory Cache (FMCP) | `.claude/skills/factory-memory-cache/SKILL.md` | Cross-command performance caching |
 | Agent Communication (ACP) | `.claude/skills/factory-agent-communication/SKILL.md` | Inter-agent output structuring |
+| PO Intake | `.claude/skills/factory-po-intake/SKILL.md` | External CODESIGN authoring: build the PO package, validate a return (self-test first), one RDR per change, drop zone, `/codesign --sync` per ratified target, component-catalog issues via `/backlog`. Active only when `codesign.authoring: external` |
 
 Read the referenced SKILL.md file when executing each protocol. The protocol files contain the detailed steps.
 
@@ -321,6 +323,10 @@ After every command:
 
 `DRAFT` → `APPROVED` (via approval/auto-approval), `NEEDS_INFO` (paused, needs `--refine`), `BLOCKED`, `BUILDING` → `IMPLEMENTED_AND_VERIFIED`, `CASCADE_PENDING_ITERATION`, `REJECTED` (QA).
 
+- **Component Registry** (`docs/ux/component-registry.json`, schema `component_registry_v1`): SSOT of design-system ↔ build alignment — one entry per `data-component` anchor of `docs/ux/vision/component_library.html`, with its code primitive (join key into `config/codebase_inventory.json`, which stays SSOT for code), status `DESIGNED → PLANNED → IMPLEMENTED` and backlog reference. Schema, writers and lifecycle: [Factory-codesign-vision.instructions.md](.claude/instructions/Factory-codesign-vision.instructions.md) § Component Registry. A `DESIGNED` component with no backlog reference is unplanned build work: the `factory-po-intake` catalog beat turns it into issues (`kind:component-catalog`). BLUEPRINT and the REVIEW hat consult it before creating a UI component.
+
 ## Templates
 
 All templates live in `.context/templates/` organized by role (architect, codesign, develop, po, qa, security, setup, ux). Always READ templates before generating — never rewrite from scratch.
+
+`subproducts/` (project root) holds deliverable-generation tooling materialised by SETUP — today the PO package. It is imported by no product or framework module and sits outside the governed trees; each subproduct ships a `--selftest`, run before trusting any green it reports.

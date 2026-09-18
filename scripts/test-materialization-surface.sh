@@ -16,13 +16,20 @@
 #   2. Template CLAUDE.md ref resolution via the delivery map: rules/config/
 #      scripts refs → template sources exist; skills/instructions refs → meta
 #      tree exists (factory-sync channel).
-#   3. Placeholder resolvability: every {{TOKEN}} in template config JSONs has
-#      a resolution rule in Factory-setup-materialization.instructions.md.
+#   3. Placeholder resolvability: every {{TOKEN}} in template config JSONs and in
+#      the stack_configured files of a subproduct has a resolution rule in
+#      Factory-setup-materialization.instructions.md.
 #   4. Hooks invariant, template side: every hook wired in the template
 #      settings.json exists under the template hooks dir.
 #   5. Delivery-field closure: every manifest scripts entry with delivery
 #      setup|both resolves to an existing template source (the factory-sync
 #      query and the SETUP auto-scan both depend on it).
+#   6. Subproduct closure (EVOL-052): disk ↔ manifest both ways with target ==
+#      key; content_type is universal or stack_configured, nothing else; universal
+#      files carry no {{TOKEN}} (they must land byte-identical),
+#      stack_configured ones carry at least one; every subproduct file a
+#      template workflow invokes exists; the materialization instruction owns
+#      the step and its written-instructions invariant.
 #
 # Exit codes: 0 = ok, 1 = at least one assertion failed.
 # ============================================================================
@@ -109,10 +116,13 @@ echo ""
 
 echo "3. placeholder resolvability"
 MISSING=$(python3 - <<'PY'
-import glob, re
+import glob, json, re
 rules = open('.claude/instructions/Factory-setup-materialization.instructions.md', errors='replace').read()
 missing = set()
-for cfg in glob.glob('.context/templates/setup/config/*.json'):
+manifest = json.load(open('.context/templates/setup/governance_versions.json'))
+configured = ['.context/templates/setup/' + k for k, v in manifest.get('templates', {}).items()
+              if isinstance(v, dict) and k.startswith('subproducts/') and v.get('content_type') == 'stack_configured']
+for cfg in glob.glob('.context/templates/setup/config/*.json') + configured:
     txt = open(cfg, errors='replace').read()
     for token in set(re.findall(r'\{\{([A-Z0-9_]+)\}\}', txt)):
         if token not in rules:
@@ -174,8 +184,52 @@ else
 fi
 echo ""
 
+echo "6. subproduct closure"
+MISSING=$(python3 - <<'PY'
+import glob, json, os, re
+root = '.context/templates/setup/'
+m = json.load(open(root + 'governance_versions.json'))
+entries = {k: v for k, v in m.get('templates', {}).items() if isinstance(v, dict) and k.startswith('subproducts/')}
+on_disk = {os.path.relpath(p, root) for p in glob.glob(root + 'subproducts/**/*', recursive=True)
+           if os.path.isfile(p) and '__pycache__' not in p}
+for k in sorted(on_disk - set(entries)):
+    print(f'{k}: on disk, no manifest entry — SETUP --upgrade would never deliver it')
+for k in sorted(set(entries) - on_disk):
+    print(f'{k}: manifest entry, no file on disk')
+token = re.compile(r'\{\{[A-Z0-9_]+\}\}')
+for k, v in sorted(entries.items()):
+    if v.get('target') != k:
+        print(f'{k}: target must equal the key (got {v.get("target")})')
+    if k not in on_disk:
+        continue
+    has = bool(token.search(open(root + k, errors='replace').read()))
+    if v.get('content_type') == 'universal' and has:
+        print(f'{k}: universal file carries a placeholder — it would not land byte-identical')
+    if v.get('content_type') == 'stack_configured' and not has:
+        print(f'{k}: stack_configured but carries no placeholder')
+    if v.get('content_type') not in ('universal', 'stack_configured'):
+        print(f'{k}: content_type {v.get("content_type")!r} — a subproduct file is universal or stack_configured; '
+              'anything else escapes both the byte-identity and the placeholder-rule checks')
+for wf in glob.glob(root + 'workflows/*'):
+    for ref in set(re.findall(r'(subproducts/[A-Za-z0-9_./-]+\.(?:py|sh))', open(wf, errors='replace').read())):
+        if not os.path.exists(root + ref):
+            print(f'{os.path.basename(wf)} invokes {ref}, which has no template source')
+rules = open('.claude/instructions/Factory-setup-materialization.instructions.md', errors='replace').read()
+if entries:
+    for needle in ('Subproducts Materialization', 'subproducts/po-package/RUNBOOK.md', 'next steps'):
+        if needle not in rules:
+            print(f'materialization instruction no longer states «{needle}»')
+PY
+) || MISSING="probe failed — python error above must be fixed, not ignored (a broken probe is not a pass)"
+if [ -z "$MISSING" ]; then
+  ok "subproduct tree, manifest, placeholders, workflow refs and the materialization step are closed"
+else
+  while IFS= read -r m; do [ -n "$m" ] && bad "$m"; done <<< "$MISSING"
+fi
+echo ""
+
 if [ "$failures" -eq 0 ]; then
-  echo "T3: ok — materialization surface closed (5 assertion groups)."
+  echo "T3: ok — materialization surface closed (6 assertion groups)."
   exit 0
 else
   echo "T3: FAIL — $failures assertion(s) failed." >&2

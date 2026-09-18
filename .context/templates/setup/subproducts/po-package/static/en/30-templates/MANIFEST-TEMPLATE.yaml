@@ -1,0 +1,33 @@
+# Index of the return. It sits at the root of the zip.
+package:
+  author: "Name of the Product Owner"
+  date: "YYYY-MM-DD"
+  based_on_package: "${package_id}"   # tells whether you worked on a version already left behind
+  summary: "One line: what this return is about."
+
+# Only for a design-system return. Remove the block otherwise.
+# The block and the VISION/ folder come together, or not at all.
+vision:
+  erq: "VISION/ERQ.md"
+  classification: "delta"             # delta | breaking
+  self_checked: false                 # true ONLY after walking the checklist, one by one
+
+# Order matters: put first what you consider the highest priority.
+features:
+  - feature_id: "FEAT-XXX"
+    feature_name: "Name"
+    feature_state: "specified"        # specified | roadmap
+    erq: "FEAT-XXX/ERQ.md"
+    classification: "delta"           # delta | breaking
+    changes_count: 0
+    new_names_count: 0
+    open_questions_count: 0
+    self_checked: false               # true ONLY after walking the checklist, one by one
+
+# Tells "reviewed and fine" from "ran out of time".
+reviewed_no_change: []
+#  - feature_id: "FEAT-YYY"
+#    reason: "…"
+
+notes: |
+  …

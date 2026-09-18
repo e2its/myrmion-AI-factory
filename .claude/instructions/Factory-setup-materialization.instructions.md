@@ -1067,6 +1067,31 @@ Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/`:
 - `chmod +x` for all `.sh` files
 - **Invariant (EVOL-040):** after the copy, every `templates::scripts/**` manifest entry with `delivery` ∈ {`setup`, `both`} MUST exist under the target `scripts/` path. If any is missing → BLOCK with the entry key and the expected path. This mirrors the hooks Invariant below — a materialised workflow invoking a script SETUP did not deliver is a broken-first-CI defect class (CVP CRITICAL 9-10).
 
+**Subproducts Materialization (`.context/templates/setup/subproducts/` → `subproducts/`) — EVOL-052:**
+Deliverable-generation tooling: imported by no product or framework module, outside the project's governed trees, each with a `--selftest`. Today: the PO package.
+- SKIP entirely when `po_package.mode == "off"` (Q29 `internal`). Otherwise copy the WHOLE `subproducts/po-package/` tree — auto-scan, no hardcoded list. `universal` files are copied BYTE-IDENTICAL (never translate, never reword: the zip prose carries build-time `${var}` variables the builder fills; canonical headings must stay literal).
+- Resolve placeholders ONLY in the `stack_configured` files — `po-package.config.json`, `RUNBOOK.md`, `RUNBOOK.es.md`:
+
+  | Placeholder | Source (`docs/setup.md`) |
+  |---|---|
+  | `{{PROJECT_NAME}}` | Q1 `project_name` |
+  | `{{BUSINESS_GOAL}}` | § 1 Context & Business Goal, one sentence, JSON-escaped |
+  | `{{PROJECT_SCOPE}}` | `project_scope` (Q4.5) |
+  | `{{PROJECT_LANGUAGE}}` | `language`, lowercased (`en` \| `es`) |
+  | `{{FEATURE_ID_PATTERN}}` | derived from `project_tracking.naming_convention` (Q27.4): `FEAT-NNN` → `^FEAT-\\d{3,}$` (JSON-escaped backslash). Q27 == "None" → `^[A-Z][A-Z0-9]*-\\d{3,}$` |
+  | `{{PO_PACKAGE_MODE}}` | `po_package.mode` (Q29): `full` \| `features-only` |
+  | `{{DS_CODE_CARDS_DIR}}` | `po_package.ds_code_cards_dir` (Q29.1) |
+  | `{{DS_REBUILD_COMMAND}}` | `po_package.ds_rebuild_command` (Q29.1) |
+  | `{{DS_CARDS_SOURCE}}` | `po_package.ds_cards_source` (Q29.1): `vision` \| `code-rebuild` \| `defer` |
+  | `{{DS_ACTIVE_SECTION}}` | DERIVED: no rebuild command → `6A` · command AND workflow materialised (below) → `6C` · command, no workflow → `6B` |
+  | `{{DS_CI_WORKFLOW_STATUS}}` | DERIVED: `6C` → `installed at .github/workflows/design-system-rebuild.yml` · else `not installed — {reason}` (`no rebuild command configured` \| `ci_cd.platform is not GitHub Actions` \| `added by hand later, see section 8`) |
+
+- In `po-package.config.json`, when `{{DS_CODE_CARDS_DIR}}` / `{{DS_REBUILD_COMMAND}}` do not apply: write `null` (JSON literal replacing the QUOTED token, not the string `"null"`) — same rule as `config/quality.json`. In the runbooks the same absent command renders as `none`.
+- **Optional workflow:** materialise `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` → `.github/workflows/design-system-rebuild.yml` ONLY when `ci_cd.platform == github-actions` AND `po_package.ds_rebuild_command != null`. Advisory job; other platforms run the same builder command by hand (RUNBOOK § 6B).
+- **Invariant:** after this step `subproducts/po-package/RUNBOOK.md` MUST exist with ZERO `{{…}}` left, and `po-package.config.json` MUST parse as JSON. Else BLOCK — a project materialised without its written operating instructions is a broken delivery.
+- **Self-test:** run `python3 subproducts/po-package/validate_po_return.py --selftest`. Red ⇒ BLOCK (the journey gate `scripts/check-journey-grammar.sh` must already be delivered by Scripts Materialization).
+- **Written next steps (MANDATORY):** fill in `MATERIALIZATION_REPORT.md` the block `## PO package — next steps` and repeat it in the closing briefing (ACP): authoring mode, the active design-system case (`6A`/`6B`/`6C`) and why, the runbook path, the first command (`python3 subproducts/po-package/build_po_package.py`), and the note that the `factory-po-intake` skill + `/codesign --sync` arrive with `factory-sync.sh` — the runbook works without them.
+
 **Claude Code Materialization (`.context/templates/setup/claude/` → project root + `.claude/`):**
 
 1. `.context/templates/setup/claude/CLAUDE.md` → `CLAUDE.md` (project root)
@@ -1197,7 +1222,7 @@ When `project_scope in [backend-only, integration]`, SKIP ux-constitution materi
 **Special Integration — External Design System:**
 If `frontend.external_design_system.exists == true`:
 1. **Semantic Merge:** DS tokens → ux-constitution.md (DS takes precedence except WCAG/security violations → create RDR)
-2. **Component Migration:** Compatible components → project folder structure + register in `docs/ux/component-registry.json` + protect in `protected-paths.json`
+2. **Component Migration:** Compatible components → project folder structure + register in `docs/ux/component-registry.json` (schema + writer rules: `Factory-codesign-vision.instructions.md` § Component Registry; `origin: external_ds`, `status: DESIGNED`) + protect in `protected-paths.json`
 3. **Tokens-Only:** Extract design tokens, create CSS custom properties file
 
 **Branching Rule Placeholders:**

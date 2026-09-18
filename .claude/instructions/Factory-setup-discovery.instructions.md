@@ -74,7 +74,7 @@ TIER_1_STACK:
 
 TIER_2_INFRASTRUCTURE:
   name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1]
+  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1]
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
@@ -469,6 +469,22 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Simplified:** es: "¿Cómo generar los IDs de los datos sintéticos?" / en: "How to generate IDs for synthetic data?"
 - **RDR Recommendation:** `deterministic_sequential` for monoliths/simple topologies (readable in logs). `uuid_v5_namespace` for microservices/distributed (collision-safe across bounded contexts).
 - **Persist:** `synthetic_data.id_strategy`
+
+#### Q29: CODESIGN Authoring Surface
+- **Type:** Single-select
+- **Options:** `external-full` (the Product Owner authors the design system AND the features in a Claude Desktop project from the PO package; the repo takes them in with `/codesign --sync`) | `external-features` (features authored outside; the global vision stays on `/codesign --vision`) | `internal` (everything co-created in this CLI; the PO package is not materialised)
+- **Simplified:** es: "¿Dónde va a trabajar el Product Owner la definición funcional: fuera, en un proyecto de Claude Desktop, o aquí en la línea de comandos?" / en: "Where will the Product Owner shape the functional definition: outside, in a Claude Desktop project, or here in the command line?"
+- **RDR Recommendation:** `external-full` when `project_scope IN [full-stack, frontend-only]` AND a non-engineer signs CODESIGN — main trade-off: a friendlier surface and no regeneration of the PO's work, against a zip round-trip per return. `external-features` when `project_scope IN [backend-only, integration]` (no first-party UI ⇒ no design system to author). `internal` for a solo engineer who is also the PO.
+- **Tier-filtered:** All tiers. Zero infrastructure cost.
+- **Persist:** `codesign.authoring` = `external` | `internal` · `po_package.mode` = `full` | `features-only` | `off` (`external-full` → `external` + `full`; `external-features` → `external` + `features-only`; `internal` → `internal` + `off`). For non-UI scopes `external-full` persists as `features-only`.
+- **Conditional unlock:** Q29 != `internal` AND `project_scope IN [full-stack, frontend-only]` → [Q29.1]
+
+#### Q29.1: Design-System Cards Source (conditional: Q29 != "internal" AND UI scope)
+- **Type:** Single-select
+- **Options:** `vision` (preview cards are cut from the vision component library only) | `code-rebuild` (a project tool renders the real components into a cards folder inside the repo; ask TWO follow-ups: the folder, the one command that rebuilds it) | `defer` (decide later — keys stay `null`, enabled afterwards by editing `subproducts/po-package/po-package.config.json`)
+- **Simplified:** es: "¿Las fichas del design system salen sólo del diseño, o tienes una herramienta que las reconstruye desde el código real?" / en: "Do the design-system cards come from the design only, or do you have a tool that rebuilds them from the real code?"
+- **RDR Recommendation:** `vision` for greenfield (no components exist yet). `code-rebuild` for brownfield with an existing component library — the PO then sees what the application really renders. `defer` when a tool is planned but not chosen. The framework names no tool: any command that leaves HTML preview files opening with the design-system card marker qualifies.
+- **Persist:** `po_package.ds_cards_source` · `po_package.ds_code_cards_dir` · `po_package.ds_rebuild_command` (the last two `null` unless `code-rebuild`)
 
 ---
 

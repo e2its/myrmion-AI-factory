@@ -118,7 +118,6 @@ last_update: [TIMESTAMP]
 - **Cons:** [Bullet list]
 
 ### E. Operational Decisions
-### E. Operational Decisions
 - **Branching Strategy:** [GitHub Flow (default) | GitFlow | OneFlow | GitLab Flow | Trunk-Based Development]
 - **Semantic Versioning:** [Enabled on main | Disabled]
 - **Environment Strategy:** [Standard: Dev/Staging/Prod | Minimal: Dev/Prod | Custom: specify]
@@ -132,6 +131,8 @@ last_update: [TIMESTAMP]
 - **Security Baseline:** [OWASP Top 10 Controls | Secrets: Vault/AWS Secrets | SAST: Semgrep/Gitleaks | Network: Zero Trust/mTLS]
 - **Privacy Compliance:** [GDPR Art. 5+25 | PII Classification: Tier 1/2/3 | User Rights: Access/Erasure/Portability | Consent: Opt-In/Granular]
 - **Documentation Standard:** [Python: Google Docstrings | JS/TS: TSDoc | Java: Javadoc | C#: XML Comments | Go: Godoc]
+- **CODESIGN Authoring Surface (Q29):** [external-full | external-features | internal] → `codesign.authoring`: [external | internal] · `po_package.mode`: [full | features-only | off]
+- **Design-System Cards Source (Q29.1 — IF Q29 != internal AND UI scope):** [vision | code-rebuild | defer] → `po_package.ds_cards_source` · `po_package.ds_code_cards_dir`: [repo-relative folder | null] · `po_package.ds_rebuild_command`: [one command | null]
 
 ## 3.1. Budget Validation Summary
 > Calculated automatically before materialization.
