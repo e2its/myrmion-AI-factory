@@ -71,6 +71,7 @@ CASES: list[Case] = [
     Case("G2 clean vision return, no card markers needed", None, _only_vision),
     Case("G3 backend-only feature, no mock", None, with_vision=False, scope="backend-only"),
     Case("G4 clean combined return", None),
+    Case("G6 golden mock carries every state — no early warning", None, with_vision=False, forbid="mock-states"),
     Case("G5 host loaded by the framework templates is allowed", None,
          lambda r, t: _sub(t / "FEAT-999" / "mock.html", "<style>",
                            '<script src="https://allowed.example/lib.js"></script><style>'),
@@ -126,6 +127,9 @@ CASES: list[Case] = [
     Case("R23 factory-owned header returned in the vision", "vision-frontmatter-leak",
          lambda r, t: (t / "VISION" / "vision.md").write_text(
              "---\nstatus: APPROVED\n---\n\n# Vision\n", encoding="utf-8")),
+    Case("R25 step without its error state", "mock-states",
+         lambda r, t: _sub(t / "FEAT-999" / "mock.html",
+                           '  <div data-state="error"><p>That day is fully booked. The next open day is Saturday.</p></div>\n', "")),
     Case("R24 page without a language", "a11y-basics",
          lambda r, t: _sub(t / "FEAT-999" / "mock.html", '<html lang="en">', "<html>")),
 ]

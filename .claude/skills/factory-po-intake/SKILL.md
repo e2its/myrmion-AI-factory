@@ -44,13 +44,13 @@ Per target (`VISION/ERQ.md`, `{ID}/ERQ.md`): `changes[]`, `new_names[]`, `new_co
 
 ## Beat 4 — Drop zone, then sync
 
-1. Step -1 branch protocol for the FIRST target (one target = one branch).
-2. Write the drop zone — the ONLY place this skill writes in the repo:
+1. **Eligibility first.** New feature whose CODESIGN item is not eligible on the board ⇒ RDR: park the material in a refinement issue via `/backlog --create-issue` (recommended) / sync now / reject. Arrival is not scheduling. Only an eligible (or explicitly "sync now") target may enter `ratified`.
+2. A target with ANY rejected change is NOT syncable ⇒ it never enters `ratified`. RDR: return it to the PO (recommended) / ask the PO to split the ERQ and resubmit the ratified part / abandon the target.
+3. Write the drop zone — the ONLY place this skill writes in the repo, left UNCOMMITTED (`--sync` stages it with the adoption, one commit):
    - `docs/ux/po-return/VISION/` and/or `docs/ux/po-return/{ID}/` ← the returned files, verbatim.
-   - `docs/ux/po-return/INTAKE.md` ← `verdict`, `ratified: [targets]`, `rejected: {target: [change ids]}`, every RDR (question, options, recommendation, verbatim choice), `based_on_package`.
-3. A target with ANY rejected change is NOT syncable. RDR: return it to the PO (recommended) / ask the PO to split the ERQ and resubmit the ratified part / abandon the target.
-4. Per ratified target, one at a time: `/codesign --sync VISION` · `/codesign --sync {ID}`. NEVER `--start` / `--refine`.
-5. New feature whose CODESIGN item is not eligible on the board ⇒ RDR: park the material in a refinement issue via `/backlog --create-issue` (recommended) / sync now / reject. Arrival is not scheduling.
+   - `docs/ux/po-return/INTAKE.md` ← frontmatter `verdict: GREEN`, `based_on_package`, `ratified: [targets]`, `rejected: {target: [change ids]}` (omit a target with none), `synced: []` ; body: per target, one row per change — question, options, recommendation, VERBATIM user choice.
+4. Per ratified target, one at a time: `/codesign --sync VISION` · `/codesign --sync {ID}` (it creates or reuses the branch — NEVER `--start` / `--refine`). `--sync` moves the ERQ and the target's RDR rows next to the artefacts (`erq/`), so the decisions outlive the drop zone.
+5. `--sync` result `NEEDS_INFO` ⇒ send `{erq_id}.findings.md` (the `for: PO` items) to the PO unedited. The corrected return comes back through Beat 1.
 
 ## Beat 4C — Component catalog (after a VISION sync, or on request)
 

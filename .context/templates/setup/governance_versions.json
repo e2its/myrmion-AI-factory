@@ -1287,7 +1287,7 @@
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "PO return validator — form and coherence only, never merit (green = reviewable, not accepted). Delegates journey form to scripts/check-journey-grammar.sh with a stub frontmatter; adds structure, manifest, evolution-request, Gherkin, vocabulary, external-dependency, zip-safety and vision-return checks. Exit 0 clean / 1 findings / 2 infra.",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. PO return validator — form and coherence only, never merit (green = reviewable, not accepted). Delegates journey form to scripts/check-journey-grammar.sh with a stub frontmatter; adds structure, manifest, evolution-request, Gherkin, vocabulary, external-dependency, zip-safety and vision-return checks. Exit 0 clean / 1 findings / 2 infra."
+        "1.0.0: feat(EVOL-052) — initial. PO return validator — form and coherence only, never merit (green = reviewable, not accepted). Delegates journey form to scripts/check-journey-grammar.sh with a stub frontmatter; adds structure, manifest, evolution-request, Gherkin, vocabulary, external-dependency, zip-safety and vision-return checks. Exit 0 clean / 1 findings / 2 infra. Smoke-run follow-up: early-warning check `mock-states` (four `data-state` blocks per step — the sync gate's CHECK 11 bar, told to the PO before the round-trip) with its red and green cases; golden fixture enriched (states, error and empty scenarios, rule → scenario ref)."
       ]
     },
     "subproducts/po-package/po_selftest.py": {
@@ -1297,7 +1297,7 @@
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Hermetic self-test of the return validator: every check id red-proved, golden returns green, plus a coverage meta-assertion (a check with no red case fails the self-test). Run by meta CI and re-run by the factory-po-intake skill before trusting a green.",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Hermetic self-test of the return validator: every check id red-proved, golden returns green, plus a coverage meta-assertion (a check with no red case fails the self-test). Run by meta CI and re-run by the factory-po-intake skill before trusting a green."
+        "1.0.0: feat(EVOL-052) — initial. Hermetic self-test of the return validator: every check id red-proved, golden returns green, plus a coverage meta-assertion (a check with no red case fails the self-test). Run by meta CI and re-run by the factory-po-intake skill before trusting a green. Smoke-run follow-up: early-warning check `mock-states` (four `data-state` blocks per step — the sync gate's CHECK 11 bar, told to the PO before the round-trip) with its red and green cases; golden fixture enriched (states, error and empty scenarios, rule → scenario ref)."
       ]
     },
     "subproducts/po-package/po_fixtures.py": {
@@ -1307,7 +1307,7 @@
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh.",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh."
+        "1.0.0: feat(EVOL-052) — initial. Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh. Smoke-run follow-up: early-warning check `mock-states` (four `data-state` blocks per step — the sync gate's CHECK 11 bar, told to the PO before the round-trip) with its red and green cases; golden fixture enriched (states, error and empty scenarios, rule → scenario ref)."
       ]
     },
     "subproducts/po-package/po-package.config.json": {
@@ -1337,7 +1337,7 @@
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse.",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse."
+        "1.0.0: feat(EVOL-052) — initial. Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse. States where findings, the evolution request and the decisions are kept, and that the drop zone is committed by --sync."
       ]
     },
     "subproducts/po-package/static/en/README.md": {
@@ -1357,7 +1357,7 @@
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "System prompt pasted into the PO's Claude Desktop project — feature mode. Journey-first grammar, LAW-16 zero technical types, closed vocabulary, literal headings, scope not decided here, 15 pre-delivery checks mirroring the validator.",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. System prompt pasted into the PO's Claude Desktop project — feature mode. Journey-first grammar, LAW-16 zero technical types, closed vocabulary, literal headings, scope not decided here, 15 pre-delivery checks mirroring the validator."
+        "1.0.0: feat(EVOL-052) — initial. System prompt pasted into the PO's Claude Desktop project — feature mode. Journey-first grammar, LAW-16 zero technical types, closed vocabulary, literal headings, scope not decided here, 15 pre-delivery checks mirroring the validator. Teaches the mock state structure and the rule/field coverage the sync gate checks."
       ]
     },
     "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS-VISION.md": {
@@ -1427,7 +1427,7 @@
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted.",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted."
+        "1.0.0: feat(EVOL-052) — initial. Spanish override of the English file of the same path (closed `language: EN | ES` of the setup master). Canonical section headings and field labels stay literal English. EN/ES parity of build variables and heading counts is CI-asserted. Teaches the mock state structure and the rule/field coverage the sync gate checks."
       ]
     },
     "subproducts/po-package/static/es/PROJECT-INSTRUCTIONS-VISION.md": {
@@ -1467,7 +1467,7 @@
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted).",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted)."
+        "1.0.0: feat(EVOL-052) — initial. Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted). States where findings, the evolution request and the decisions are kept, and that the drop zone is committed by --sync."
       ]
     }
   },
@@ -1809,7 +1809,7 @@
       "version": "1.6.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
-        "1.6.0: feat(EVOL-052) — third level of operation: External Authoring Sync (`--sync {VISION|ID}`); guard semantics for the four authoring sub-commands; branch naming for --sync.",
+        "1.6.0: feat(EVOL-052) — third level of operation: External Authoring Sync (`--sync {VISION|ID}`); guard semantics for the four authoring sub-commands; branch naming for --sync. Guard ordering stated: after Step 0, before Step -1.",
         "1.5.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: journey step field list completed to the 9-field grammar.",
         "1.5.0: feat(EVOL-041) — artefact list journey-first with machine-anchor contract; single journey template all scopes; § 6 existence authority + check-journey-grammar.sh in Key Principles.",
         "1.4.1: fix(EVOL-036) coherence — --refine sub-step 1.4 changelog target list adds slice_map.md (when incremental); notes check_slice_immutability pre-persist + CASCADE_SLICE_INTERNAL on re-slice (command↔instruction drift fix).",
@@ -2594,10 +2594,11 @@
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
     "skills/factory-branching-strategy/SKILL.md": {
-      "version": "1.6.2",
+      "version": "1.7.0",
       "type": "skill",
       "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse, per-increment branching.",
       "changelog": [
+        "1.7.0: feat(EVOL-052) — `CODESIGN --sync` is a branch-CREATION command (VISION → the UX-VISION branch; {ID} → same rules as --start, existing branch reused). Without it the external-authoring path deadlocks: --sync was a consumption command and --start, the only creator, is guarded. Found by the --sync smoke run.",
         "1.6.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -3697,7 +3698,7 @@
       "version": "1.0.0",
       "path": ".claude/instructions/Factory-codesign-sync.instructions.md",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. `/codesign --sync {VISION|ID}`: entry point for CODESIGN authored outside the repo. Adopts ONE ratified target verbatim; adds only what the factory owns (gates, frontmatter, iteration ledger, change classification, cascade, auto-approval checks as validation) — every piece reused BY REFERENCE from the feature/vision instructions and the iteration-model / IPP skills (existence CI-asserted). Never generates, never edits PO content: findings return the target as NEEDS_INFO. Owns the external-authoring guard text. Authoring mode read from docs/setup.md `codesign.authoring`; absent ⇒ internal (back-compat by construction)."
+        "1.0.0: feat(EVOL-052) — initial. `/codesign --sync {VISION|ID}`: entry point for CODESIGN authored outside the repo. Adopts ONE ratified target verbatim; adds only what the factory owns (gates, frontmatter, iteration ledger, change classification, cascade, auto-approval checks as validation) — every piece reused BY REFERENCE from the feature/vision instructions and the iteration-model / IPP skills (existence CI-asserted). Never generates, never edits PO content: findings return the target as NEEDS_INFO. Owns the external-authoring guard text. Authoring mode read from docs/setup.md `codesign.authoring`; absent ⇒ internal (back-compat by construction). Hardened after a literal smoke run by a fresh agent (15 findings): PO block defined as the intact span between the factory header and the factory iteration appendix, with exact header carriers and appendix start markers per artefact; iteration entry spelled in full with `source: rdr-ratification` + `erq_id` (closed enum respected); `slicing_strategy` source defined and slicing declared as the ONE exception to never-author (existing step, its RDR); CIP inputs defined and RDR options restricted to REUSE_EXISTING / KEEP_BOTH / RETURN_TO_PO; Level 1→Level 2 classification with case-normalised compare; never-approved targets re-enter without classification or cascade; ERQ, RDR rows and findings persisted under `erq/`; rejected-key-absent precondition; one commit; guard runs after Step 0 and before Step -1."
       ]
     },
     "skills/factory-po-intake/SKILL.md": {
@@ -3705,7 +3706,7 @@
       "type": "skill",
       "role": "PO Intake v1.0.0 — external CODESIGN authoring. Builds the PO package, validates a return with the subproduct's deterministic validator (self-test first, always), one RDR per change, writes the transient drop zone, calls /codesign --sync per ratified target, reconciles the component registry against the codebase inventory and plans component-catalog issues through /backlog only. Never edits docs/spec/** or docs/ux/vision/**, never fixes PO documents, never decides scope or ordering.",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Generalised from a downstream project skill; materialisation no longer goes through --refine (which regenerated) but through --sync (which adopts). New catalog beat."
+        "1.0.0: feat(EVOL-052) — initial. Generalised from a downstream project skill; materialisation no longer goes through --refine (which regenerated) but through --sync (which adopts). New catalog beat. Beat 4 reordered after the smoke run: eligibility and rejection are settled BEFORE a target enters `ratified`; INTAKE.md frontmatter shape fixed (`synced: []`, rejected key omitted when empty); drop zone left uncommitted; NEEDS_INFO findings file returned to the PO unedited."
       ],
       "path": ".claude/skills/factory-po-intake/SKILL.md"
     }

@@ -87,7 +87,7 @@ PRE_SETUP_GOVERNANCE:
 ```yaml
 # ALL work MUST happen in dedicated branches. NO direct commits to main.
 
-branch_creation_commands = [SETUP --init, AUDIT --audit, CODESIGN --vision, CODESIGN --start]
+branch_creation_commands = [SETUP --init, AUDIT --audit, CODESIGN --vision, CODESIGN --start, CODESIGN --sync]
 
 IF command_modifies_files:
 
@@ -320,6 +320,8 @@ CREATION commands (make NEW branch):
   CODESIGN --vision → feature/UX-VISION-global-app-design
   CODESIGN --start {ID} → epic/EPIC-{N}-{slug}  (if feature belongs to an epic — SHARED branch)
                         → feature/{ID}-{slug}    (if standalone — REQUIRES explicit ID from user)
+  CODESIGN --sync VISION → feature/UX-VISION-global-app-design   (external authoring — same branch --vision uses)
+  CODESIGN --sync {ID}  → same rules as --start {ID} ; an existing branch for {ID} is REUSED (the external path has no --start to create it)
 
 CONSUMPTION commands (require EXISTING branch):
   ALL other agent commands → BLOCK if no branch exists for feature_id (or its parent epic)

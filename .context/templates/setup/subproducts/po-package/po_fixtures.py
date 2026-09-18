@@ -116,7 +116,7 @@ journey
 
 | # | Rule ID | When… | Then the business… | Scenario Ref |
 |---|---------|-------|--------------------|--------------|
-| P1 | RULE-BOOK-01 | The day is fully booked | Offers the next open day | Guest picks an available day |
+| P1 | RULE-BOOK-01 | The day is fully booked | Offers the next open day | Guest picks a fully booked day |
 
 ## Section 8: Third Parties & Guarantees
 
@@ -143,6 +143,16 @@ SPEC = """Feature: Table booking
     Given the guest picked a day
     When the guest confirms the booking
     Then the table is held for the guest
+
+  Scenario: Guest picks a fully booked day
+    Given the day the guest wants is fully booked
+    When the guest picks that day
+    Then the next open day is offered
+
+  Scenario: Guest opens the booking with no open days
+    Given the venue has no open days
+    When the guest opens the booking
+    Then the guest is told there is nothing to book yet
 """
 
 MOCK = """<!doctype html>
@@ -150,8 +160,18 @@ MOCK = """<!doctype html>
 <head><meta charset="utf-8"><title>Table booking</title>
 <style>:root{--color-primary:#1f2937}.imp-step{padding:1rem}</style></head>
 <body><main>
-<section class="imp-step" id="step-1"><h1>Pick a day</h1><button type="button">Friday</button></section>
-<section class="imp-step" id="step-2"><h2>Confirm</h2><button type="button">Confirm booking</button></section>
+<section class="imp-step" id="step-1"><h1>Pick a day</h1>
+  <div data-state="default" class="active"><label for="size">Party size</label><input id="size" type="number" min="1" max="12"><button type="button">Friday</button></div>
+  <div data-state="empty"><p>There is nothing to book yet.</p></div>
+  <div data-state="loading"><p>Looking for open days…</p></div>
+  <div data-state="error"><p>That day is fully booked. The next open day is Saturday.</p></div>
+</section>
+<section class="imp-step" id="step-2"><h2>Confirm</h2>
+  <div data-state="default" class="active"><p>Friday, 4 people.</p><button type="button">Confirm booking</button></div>
+  <div data-state="empty"><p>Pick a day first.</p></div>
+  <div data-state="loading"><p>Holding your table…</p></div>
+  <div data-state="error"><p>We could not hold the table. Nothing was booked.</p></div>
+</section>
 </main></body></html>
 """
 

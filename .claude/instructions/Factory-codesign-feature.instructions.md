@@ -533,7 +533,7 @@ When any check fails:
 **First step — external-authoring guard** (contract: `Factory-codesign-sync.instructions.md`):
 
 ```yaml
-# EXTERNAL-AUTHORING GUARD (EVOL-052) — runs first, before any gate or generation
+# EXTERNAL-AUTHORING GUARD (EVOL-052) — runs after Step 0 Roll-Call, BEFORE Step -1 (no branch switch, no lock, no write)
 IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-commands: AND po_package.mode == "full"
   ❌ BLOCK (humanised, LAW-08): "CODESIGN authoring for this project lives in the Product Owner package, not in this command. Send the change to the PO, validate the return, then run `/codesign --sync {target}`. Steps: subproducts/po-package/RUNBOOK.md."
   STOP
@@ -694,7 +694,7 @@ FUNCTION codesign_auto_approve(FEATURE_ID):
 **First step — external-authoring guard** (contract: `Factory-codesign-sync.instructions.md`):
 
 ```yaml
-# EXTERNAL-AUTHORING GUARD (EVOL-052) — runs first, before any gate or generation
+# EXTERNAL-AUTHORING GUARD (EVOL-052) — runs after Step 0 Roll-Call, BEFORE Step -1 (no branch switch, no lock, no write)
 IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-commands: AND po_package.mode == "full"
   ❌ BLOCK (humanised, LAW-08): "CODESIGN authoring for this project lives in the Product Owner package, not in this command. Send the change to the PO, validate the return, then run `/codesign --sync {target}`. Steps: subproducts/po-package/RUNBOOK.md."
   STOP

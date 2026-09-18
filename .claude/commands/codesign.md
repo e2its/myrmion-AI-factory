@@ -46,7 +46,7 @@ Canonical generation order (the journey is the ROOT — EVOL-041):
 ### 3. External Authoring Sync (`--sync {VISION|ID}`)
 When `docs/setup.md` says `codesign.authoring: external`, CODESIGN is authored by the PO in a Claude Desktop project (PO package) and ENTERS the repo here. `--sync` adopts ONE ratified target verbatim and adds only what the factory owns (gates, frontmatter, iteration ledger, change classification, cascade, auto-approval checks as validation). It never generates and never edits PO content — a finding returns the target as `NEEDS_INFO`.
 
-With external authoring, `--start` / `--refine` (and `--vision` / `--vision-refine` when the package covers the design system) are **guarded**: they block in plain language and point here. State sub-commands are never guarded. Absent key ⇒ `internal` ⇒ nothing changes.
+With external authoring, `--start` / `--refine` (and `--vision` / `--vision-refine` when the package covers the design system) are **guarded**: they block in plain language and point here — the guard runs after Step 0 and BEFORE Step -1, so a blocked command switches no branch and takes no lock. State sub-commands are never guarded. Absent key ⇒ `internal` ⇒ nothing changes.
 
 **Full protocol:** See `.claude/instructions/Factory-codesign-sync.instructions.md` · operator steps: `subproducts/po-package/RUNBOOK.md` · upstream skill: `factory-po-intake`.
 

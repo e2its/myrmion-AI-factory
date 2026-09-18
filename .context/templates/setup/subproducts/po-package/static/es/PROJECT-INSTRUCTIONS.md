@@ -67,7 +67,7 @@ Desde `30-templates/user_journey-TEMPLATE.md`, o desde el anexo adjunto si la fe
 
 ### 5.3 `spec.feature` — el comportamiento
 
-Gherkin. Una línea `Feature:`. Cada escenario tiene un título único, porque el journey apunta a títulos. Cada regla de negocio de la Section 7 la ejercita al menos un escenario. Incluye los caminos de error y los estados vacíos.
+Gherkin. Una línea `Feature:`. Cada escenario tiene un título único, porque el journey apunta a títulos. Cada regla de negocio de la Section 7 la ejercita al menos un escenario, y su `Scenario Ref` nombra ese escenario. Cada error y cada estado vacío que enseña el mock tiene su escenario, y cada campo obligatorio de la Section 6 tiene en el mock un sitio donde se introduce o se muestra.
 
 ### 5.4 `mock.html` — la pantalla navegable (sólo cuando la feature tiene pantalla)
 
@@ -75,7 +75,7 @@ Gherkin. Una línea `Feature:`. Cada escenario tiene un título único, porque e
 - **Un solo fichero.** Estilos y scripts dentro. Sólo puede cargar lo que ya cargan las plantillas del proyecto; nada más de la red.
 - **Tokens, nunca valores en crudo.** Usa los tokens de `10-design-system/tokens.md` y `style_guide.html`.
 - **Componentes existentes.** Compón con `10-design-system/components.md` y `component_library.html`. No inventes widgets.
-- **Una `<section class="imp-step" id="step-N">` por Paso**, con sus estados por defecto, vacío, cargando y error.
+- **Una `<section class="imp-step" id="step-N">` por Paso.** Dentro, un bloque `<div data-state="…">` para cada uno de `default`, `empty`, `loading` y `error`; el `default` lleva `class="active"`. Deja la navegación entre pasos, el selector de estados y el bloque de script del molde exactamente como están: son lo que hace navegable el mock, y no son tuyos para editar.
 - **Accesible.** WCAG 2.1 AA: contraste suficiente, foco visible, todo alcanzable por teclado, nombre para cada botón e icono, `lang` en `<html>`, orden de encabezados correcto.
 
 ### 5.5 `slice_map.md` — opcional
@@ -87,7 +87,7 @@ Desde `30-templates/slice_map-TEMPLATE.md`, cuando el Product Owner quiera propo
 Recórrelas una a una. Pon `self_checked: true` en el manifiesto sólo cuando todas se cumplan.
 
 1. Cada Paso cita un título de escenario que existe, carácter a carácter, en `spec.feature`.
-2. Cada `#step-N` existe como `id="step-N"` en `mock.html`.
+2. Cada `#step-N` existe como `id="step-N"` en `mock.html`, y cada sección de paso lleva sus cuatro bloques `data-state`.
 3. Los Pasos van numerados 1, 2, 3… sin huecos; cada Paso tiene los nueve campos; cada Paso tiene fila en la Traceability Matrix.
 4. Cada Path nombra Pasos que existen.
 5. Hay un bloque `mermaid` de tipo `journey` en la Section 2.

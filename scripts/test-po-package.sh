@@ -368,12 +368,25 @@ for ref, where in (("FUNCTION scope_compatibility_gate(", feature), ("### Vision
                    ("Slice Map Generation", feature), ("### Scope Guard", vision), ("#### Phase V.7", vision),
                    ("## Component Registry", vision), ("FUNCTION append_iteration_entry(", skills),
                    ("FUNCTION check_slice_immutability(", skills), ("FUNCTION CASCADE_PENDING_ITERATION(", skills),
-                   ("FUNCTION CASCADE_SLICE_INTERNAL(", skills)):
+                   ("FUNCTION CASCADE_SLICE_INTERNAL(", skills), ("**Level 2: Cross-Reference Downstream**", feature),
+                   ("### Blocking Validations", vision), ("rdr-ratification", skills),
+                   ("## Iteration {id}", skills)):
     if ref not in where:
         problems.append(f"--sync reuses «{ref}» by reference, but it no longer exists")
 for needle in ("--sync", "Factory-codesign-sync.instructions.md"):
     if needle not in command:
         problems.append(f"codesign.md does not mention {needle}")
+branching = (root / ".claude/skills/factory-branching-strategy/SKILL.md").read_text(encoding="utf-8")
+creation = re.search(r"branch_creation_commands = \[(.*?)\]", branching).group(1)
+if "CODESIGN --sync" not in creation:
+    problems.append("`CODESIGN --sync` is not a branch-creation command — a new target deadlocks (--start is guarded)")
+if "TARGET NOT IN INTAKE.rejected" not in sync:
+    problems.append("the rejected-changes precondition no longer tolerates a target with no rejected key")
+sys.path.insert(0, str(root / ".context/templates/setup/subproducts/po-package"))
+import validate_po_return as V
+for state in V.MOCK_STATES:
+    if f'data-state="{state}"' not in (root / ".context/templates/codesign/mock-template.html").read_text(encoding="utf-8"):
+        problems.append(f"validator expects mock state «{state}» that the framework mock template does not define")
 print("\n".join(problems)); sys.exit(1 if problems else 0)
 PY
 

@@ -67,7 +67,7 @@ From `30-templates/user_journey-TEMPLATE.md`, or the attached annex when the fea
 
 ### 5.3 `spec.feature` — the behaviour
 
-Gherkin. One `Feature:` line. Every scenario has a unique title, because the journey points at titles. Every business rule of Section 7 is exercised by at least one scenario. Include the error paths and the empty states.
+Gherkin. One `Feature:` line. Every scenario has a unique title, because the journey points at titles. Every business rule of Section 7 is exercised by at least one scenario, and its `Scenario Ref` names that scenario. Every error and every empty state shown in the mock has its scenario, and every required field of Section 6 has a place in the mock where it is entered or shown.
 
 ### 5.4 `mock.html` — the navigable screen (only when the feature has a screen)
 
@@ -75,7 +75,7 @@ Gherkin. One `Feature:` line. Every scenario has a unique title, because the jou
 - **One file.** Styles and scripts inside it. It may load only what the project templates already load; nothing else from the network.
 - **Tokens, never raw values.** Use the tokens of `10-design-system/tokens.md` and `style_guide.html`.
 - **Existing components.** Compose with `10-design-system/components.md` and `component_library.html`. Do not invent widgets.
-- **One `<section class="imp-step" id="step-N">` per Paso**, with its default, empty, loading and error states.
+- **One `<section class="imp-step" id="step-N">` per Paso.** Inside it, one `<div data-state="…">` block for each of `default`, `empty`, `loading` and `error`; the `default` one carries `class="active"`. Keep the step navigation, the state switcher and the script block of the mould exactly as they are: they are what makes the mock navigable, and they are not yours to edit.
 - **Accessible.** WCAG 2.1 AA: sufficient contrast, visible focus, everything reachable by keyboard, a name for every button and icon, a `lang` on `<html>`, a correct heading order.
 
 ### 5.5 `slice_map.md` — optional
@@ -87,7 +87,7 @@ From `30-templates/slice_map-TEMPLATE.md`, when the Product Owner wants to propo
 Walk them one by one. Set `self_checked: true` in the manifest only when all hold.
 
 1. Every Paso cites a scenario title that exists, character for character, in `spec.feature`.
-2. Every `#step-N` exists as `id="step-N"` in `mock.html`.
+2. Every `#step-N` exists as `id="step-N"` in `mock.html`, and every step section carries its four `data-state` blocks.
 3. Pasos are numbered 1, 2, 3… with no gaps; every Paso has the nine fields; every Paso has a row in the Traceability Matrix.
 4. Every Path names Pasos that exist.
 5. There is a `mermaid` block of type `journey` in Section 2.

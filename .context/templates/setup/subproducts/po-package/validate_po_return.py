@@ -16,6 +16,7 @@ What it enforces, and why each check exists:
   name-/field-new-undeclared   an invented name where one exists forces a contract rewrite
   external-deps                artefacts may load only what the framework templates load
   a11y-basics                  cheap signals only; WCAG stays authoritative at the gates
+  mock-states                  the sync gate wants four states per step; say so BEFORE the round-trip
   vision-*                     the design system arrives whole, tokenised and parseable
 
 Usage:
@@ -47,12 +48,13 @@ SEVERITY_ORDER = {"BLOCKER": 0, "ERROR": 1, "WARN": 2}
 MARKS = {"BLOCKER": "■", "ERROR": "▲", "WARN": "·"}
 CLASSIFICATIONS = ("delta", "breaking")
 CORE_COMPONENTS = ("button", "input", "card")
+MOCK_STATES = ("default", "empty", "loading", "error")
 ALL_CHECKS = (
     "zip-safety", "structure", "manifest", "self-check",
     "erq-header", "erq-fields", "erq-change-incomplete", "new-name-unjustified",
     "gherkin", "journey-grammar", "journey-grammar-infra",
     "name-new-undeclared", "field-new-undeclared",
-    "external-deps", "a11y-basics",
+    "external-deps", "a11y-basics", "mock-states",
     "vision-files", "vision-tokens-declared", "vision-components-parseable",
     "vision-component-undeclared", "vision-frontmatter-leak",
 )
@@ -196,6 +198,17 @@ def check_html(path: Path, where: str, ctx: Context, rep: Report, landmarks: boo
     return text
 
 
+def check_mock_states(html: str, where: str, rep: Report) -> None:
+    """Early warning only: the auto-approval gate at sync time is the authority."""
+    for block in L.scan_sections(html, "id"):
+        if not re.fullmatch(r"step-\d+", block["id"]):
+            continue
+        missing = [s for s in MOCK_STATES if not re.search(rf'data-state\s*=\s*["\']{s}["\']', block["html"])]
+        if missing:
+            rep.add("WARN", where, "mock-states",
+                    f"{block['id']} lacks the state block(s) {', '.join(missing)} — it will come back from the sync gate")
+
+
 def _resolve_scope(erq: dict, journey_text: str, folder: str, ctx: Context) -> str:
     candidates = [erq.get("scope"), L.frontmatter_value(L.split_frontmatter(journey_text)[0], "scope")]
     existing = ctx.repo / ctx.cfg["features"]["spec_root"] / folder / "user_journey.md"
@@ -269,7 +282,8 @@ def validate_feature(feature_dir: Path, ctx: Context, rep: Report) -> None:
     if (feature_dir / "spec.feature").exists():
         check_spec(feature_dir / "spec.feature", folder, rep)
     if (feature_dir / "mock.html").exists():
-        check_html(feature_dir / "mock.html", f"{folder}/mock.html", ctx, rep)
+        check_mock_states(check_html(feature_dir / "mock.html", f"{folder}/mock.html", ctx, rep),
+                          f"{folder}/mock.html", rep)
     if journey_text:
         check_journey_grammar(feature_dir, folder, scope, ctx, rep)
         check_vocabulary(journey_text, folder, erq, ctx, rep)
