@@ -16,7 +16,9 @@
 #            runbook header resolved and truthful, code cards win per component,
 #            failing tool falls back, no shell, drift reported, stale runbook warned.
 #   Part 4 — closure: every command and flag the runbook and the workflow cite exists; the
-#            registry schema the vision instruction owns matches what the tooling uses.
+#            registry schema the vision instruction owns matches what the tooling uses; the
+#            --sync guard is byte-identical at the 4 authoring entry points and every function
+#            --sync reuses by reference still exists.
 #
 # Exit codes: 0 all assertions pass · 1 any failure · 2 infrastructure (never a silent pass).
 set -u
@@ -333,6 +335,45 @@ if example["$schema"] != po_fixtures.REGISTRY["$schema"]:
 for anchor in ("data-component", "data-token-group"):
     if anchor not in text:
         problems.append(f"the instruction no longer states the `{anchor}` anchor the scanner depends on")
+print("\n".join(problems)); sys.exit(1 if problems else 0)
+PY
+
+python3 - "$ROOT" <<'PY' && ok "--sync contract: identical guard at the 4 authoring entry points; every function it reuses by reference exists" || bad "--sync contract is broken"
+import re, sys
+from pathlib import Path
+root = Path(sys.argv[1]); ins = root / ".claude/instructions"
+sync = (ins / "Factory-codesign-sync.instructions.md").read_text(encoding="utf-8")
+feature = (ins / "Factory-codesign-feature.instructions.md").read_text(encoding="utf-8")
+vision = (ins / "Factory-codesign-vision.instructions.md").read_text(encoding="utf-8")
+command = (root / ".claude/commands/codesign.md").read_text(encoding="utf-8")
+skills = "".join((root / ".claude/skills" / s / "SKILL.md").read_text(encoding="utf-8")
+                 for s in ("factory-iteration-model", "factory-incremental-persistence"))
+problems = []
+guard = re.search(r"```yaml\n(# EXTERNAL-AUTHORING GUARD.*?)```", sync, re.S).group(1)
+for name, text, want in (("feature", feature, 2), ("vision", vision, 2)):
+    if text.count(guard) != want:
+        problems.append(f"{name} instruction carries the guard {text.count(guard)} time(s), byte-identical, expected {want}")
+for heading, text in (("## Command: `--start", feature), ("## Command: `--refine", feature),
+                      ("## Command: `--vision`", vision), ("## Command: `--vision-refine", vision)):
+    after = text.split(heading, 1)[1][:400]
+    if "EXTERNAL-AUTHORING GUARD" not in after:
+        problems.append(f"the guard is not the first step under {heading}")
+for heading in ("## Command: `--vision-approve`", "## Command: `--vision-propagate`"):
+    if "EXTERNAL-AUTHORING GUARD" in vision.split(heading, 1)[1].split("\n## ", 1)[0]:
+        problems.append(f"a state sub-command is guarded: {heading}")
+for ref, where in (("FUNCTION scope_compatibility_gate(", feature), ("### Vision Gate", feature),
+                   ("### Phase 0.5: CIP Domain Concept Check", feature), ("FUNCTION cip_refine_recheck(", feature),
+                   ("### Change Classification Protocol", feature), ("### Iteration Execution", feature),
+                   ("## Tripartite Alignment Protocol", feature), ("FUNCTION codesign_auto_approve(", feature),
+                   ("Slice Map Generation", feature), ("### Scope Guard", vision), ("#### Phase V.7", vision),
+                   ("## Component Registry", vision), ("FUNCTION append_iteration_entry(", skills),
+                   ("FUNCTION check_slice_immutability(", skills), ("FUNCTION CASCADE_PENDING_ITERATION(", skills),
+                   ("FUNCTION CASCADE_SLICE_INTERNAL(", skills)):
+    if ref not in where:
+        problems.append(f"--sync reuses «{ref}» by reference, but it no longer exists")
+for needle in ("--sync", "Factory-codesign-sync.instructions.md"):
+    if needle not in command:
+        problems.append(f"codesign.md does not mention {needle}")
 print("\n".join(problems)); sys.exit(1 if problems else 0)
 PY
 

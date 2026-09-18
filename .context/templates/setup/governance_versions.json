@@ -1802,9 +1802,10 @@
       ]
     },
     "commands/codesign.md": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.6.0: feat(EVOL-052) — third level of operation: External Authoring Sync (`--sync {VISION|ID}`); guard semantics for the four authoring sub-commands; branch naming for --sync.",
         "1.5.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: journey step field list completed to the 9-field grammar.",
         "1.5.0: feat(EVOL-041) — artefact list journey-first with machine-anchor contract; single journey template all scopes; § 6 existence authority + check-journey-grammar.sh in Key Principles.",
         "1.4.1: fix(EVOL-036) coherence — --refine sub-step 1.4 changelog target list adds slice_map.md (when incremental); notes check_slice_immutability pre-persist + CASCADE_SLICE_INTERNAL on re-slice (command↔instruction drift fix).",
@@ -1960,9 +1961,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "3.2.0: feat(EVOL-052) — external-authoring guard as first step of `--start` and `--refine` (byte-identical to the contract in Factory-codesign-sync; CI-asserted). No other change: generation logic untouched; absent `codesign.authoring` ⇒ internal ⇒ no behaviour change.",
         "3.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: ES-concept → journey-v2 landing map (Commands/Events/ReadModels/DataSchemas now have declared destinations); Phase 4b captures all 9 step fields; CHECK 13 re-anchored (spec § External Systems was phantom); backend Tripartite denominator N/2; artefact-count prose unified (slice_map included).",
         "3.0.0: feat(EVOL-041)! — journey-first generation: canonical order user_journey → spec → mock (D20); single template ALL scopes (D14/D15 root fix); Phase 4b Experience Walk (Goal/Does/Sees/Feels/Pain/Ease + Paths); Phase 5 → plain-language Business Field Definition (LAW-16); Tripartite v2 (anchor-based checks 3-7); auto-approval CHECK 3 invokes check-journey-grammar.sh, CHECK 12 purity; H-15 reads § 6 existence + classifier documented (D5); IPP loops scope-aware + slice_map (D16); canary M-08 reads real v2 sections (D6).",
         "2.11.0: feat(EVOL-036) SLICE-4 — step 9.5 runs check_slice_immutability() PRE-persist on --refine re-slice (BLOCK+redirect when diff touches a MERGED scenario; vacuous at --start); --refine 1.4 aggregated changelog includes slice_map.md when incremental; cascade step notes ON_CODESIGN_REFINE_ITERATION fires CASCADE_SLICE_INTERNAL (forward-only, SKIPs CASCADE_INCREMENT_INTERNAL on pure re-slice); --revise documented as the terminal escape for destructive re-slice of MERGED scenarios.",
@@ -2004,7 +2006,7 @@
       "version": "2.7.0",
       "path": ".claude/instructions/Factory-codesign-vision.instructions.md",
       "changelog": [
-        "2.7.0: feat(EVOL-052) — NEW § Component Registry: owns the schema `component_registry_v1` of docs/ux/component-registry.json (previously referenced once and defined nowhere), writer table and status lifecycle DESIGNED→PLANNED→IMPLEMENTED / NO_PRIMITIVE; inventory stays SSOT for code (registry stores the join key only). V.3/V.5 gain the MANDATORY anchor contract (`data-token-group`, `data-component`) the PO package scanner and the catalog depend on. --vision-approve check 4 requires anchored base components listed in the registry.",
+        "2.7.0: feat(EVOL-052) — NEW § Component Registry: owns the schema `component_registry_v1` of docs/ux/component-registry.json (previously referenced once and defined nowhere), writer table and status lifecycle DESIGNED→PLANNED→IMPLEMENTED / NO_PRIMITIVE; inventory stays SSOT for code (registry stores the join key only). V.3/V.5 gain the MANDATORY anchor contract (`data-token-group`, `data-component`) the PO package scanner and the catalog depend on. --vision-approve check 4 requires anchored base components listed in the registry. External-authoring guard as first step of `--vision` and `--vision-refine` (effective only when the PO package covers the design system); state sub-commands never guarded; `detect_vision_input_mode()` untouched.",
         "2.6.1: fix(IPP runtime binding) — new `## Incremental Persistence (IPP — MANDATORY)` section after `## Generated Vision Artifacts` wiring the 6 vision artefacts through all three IPP pillars. Pillar 1: `vision_skeleton_first()` creates all 6 skeletons in one pass with `_progress.pending_sections` filled. Pillar 2: `save_vision_section()` updates `_progress.completed_sections` and saves immediately on each artefact completion. Pillar 3: `vision_resume_or_start()` scans the 6 expected paths and resumes from the first pending section after a power-loss recovery. RDR decisions on Aesthetic Quality Directives (D0-D9) append to `vision.md._progress.decisions[]` + inline `<!-- RDR-N -->` for traceability. Previously this instruction had 0 IPP references despite the skill declaring `/codesign --vision` produces 6 artefacts under IPP.",
         "2.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.5.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C). Mass sed sweep across instructions and skills; no semantic logic change.",
@@ -3680,7 +3682,14 @@
       "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-po-package.sh",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Part 1 validator (self-test, golden green via --dir/--zip, mutated red, hostile archive blocked, unresolved config refused). Part 2 builder (nothing written into the repo, no unresolved variable, cards well-formed, strict substitution, staging inside the repo refused). Part 2b language (per-file override, English fallback, literal canonical headings, EN/ES parity). Part 3 cases 6A/6B/6C (runbook header truthful, code cards win per component, failing tool falls back, no shell, three drift findings, --strict, stale runbook warned). Part 4 closure (every command, flag and path the runbook and the workflow cite exists)."
+        "1.0.0: feat(EVOL-052) — initial. Part 1 validator (self-test, golden green via --dir/--zip, mutated red, hostile archive blocked, unresolved config refused). Part 2 builder (nothing written into the repo, no unresolved variable, cards well-formed, strict substitution, staging inside the repo refused). Part 2b language (per-file override, English fallback, literal canonical headings, EN/ES parity). Part 3 cases 6A/6B/6C (runbook header truthful, code cards win per component, failing tool falls back, no shell, three drift findings, --strict, stale runbook warned). Part 4 closure (every command, flag and path the runbook and the workflow cite exists). Part 4 also asserts the registry schema parity between the vision instruction and the tooling, the byte-identical guard at the 4 authoring entry points, and the existence of every function --sync reuses by reference."
+      ]
+    },
+    "instructions/Factory-codesign-sync.instructions.md": {
+      "version": "1.0.0",
+      "path": ".claude/instructions/Factory-codesign-sync.instructions.md",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. `/codesign --sync {VISION|ID}`: entry point for CODESIGN authored outside the repo. Adopts ONE ratified target verbatim; adds only what the factory owns (gates, frontmatter, iteration ledger, change classification, cascade, auto-approval checks as validation) — every piece reused BY REFERENCE from the feature/vision instructions and the iteration-model / IPP skills (existence CI-asserted). Never generates, never edits PO content: findings return the target as NEEDS_INFO. Owns the external-authoring guard text. Authoring mode read from docs/setup.md `codesign.authoring`; absent ⇒ internal (back-compat by construction)."
       ]
     }
   },

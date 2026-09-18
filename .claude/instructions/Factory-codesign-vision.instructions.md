@@ -170,6 +170,15 @@ All vision artifacts MUST comply with these directives. They define the differen
 
 ## Command: `--vision`
 
+**First step — external-authoring guard** (contract: `Factory-codesign-sync.instructions.md`):
+
+```yaml
+# EXTERNAL-AUTHORING GUARD (EVOL-052) — runs first, before any gate or generation
+IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-commands: AND po_package.mode == "full"
+  ❌ BLOCK (humanised, LAW-08): "CODESIGN authoring for this project lives in the Product Owner package, not in this command. Send the change to the PO, validate the return, then run `/codesign --sync {target}`. Steps: subproducts/po-package/RUNBOOK.md."
+  STOP
+```
+
 **Branch:** Creates `feature/UX-VISION-global-app-design`
 **Lock:** `.context/locks/ux-vision.lock` (project-scoped)
 
@@ -305,6 +314,15 @@ Framework-aware, architecture-agnostic detection of existing layout in codebase.
 ---
 
 ## Command: `--vision-refine "[FEEDBACK]"`
+
+**First step — external-authoring guard** (contract: `Factory-codesign-sync.instructions.md`):
+
+```yaml
+# EXTERNAL-AUTHORING GUARD (EVOL-052) — runs first, before any gate or generation
+IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-commands: AND po_package.mode == "full"
+  ❌ BLOCK (humanised, LAW-08): "CODESIGN authoring for this project lives in the Product Owner package, not in this command. Send the change to the PO, validate the return, then run `/codesign --sync {target}`. Steps: subproducts/po-package/RUNBOOK.md."
+  STOP
+```
 
 - Load all 6 vision artifacts
 - Apply feedback changes

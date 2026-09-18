@@ -530,6 +530,15 @@ When any check fails:
 
 ## Command: `--start {{FEATURE_ID}}`
 
+**First step — external-authoring guard** (contract: `Factory-codesign-sync.instructions.md`):
+
+```yaml
+# EXTERNAL-AUTHORING GUARD (EVOL-052) — runs first, before any gate or generation
+IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-commands: AND po_package.mode == "full"
+  ❌ BLOCK (humanised, LAW-08): "CODESIGN authoring for this project lives in the Product Owner package, not in this command. Send the change to the PO, validate the return, then run `/codesign --sync {target}`. Steps: subproducts/po-package/RUNBOOK.md."
+  STOP
+```
+
 **Branch Strategy:** CREATES new feature branch from main. REQUIRES explicit Feature ID from user.
 
 **Scope input:** Accepts `--scope={full-stack|backend-only|frontend-only|integration}`. When omitted, defaults to `project_scope` from the governance snapshot. The Scope Compatibility Gate below validates the combination before any artifact is generated.
@@ -681,6 +690,15 @@ FUNCTION codesign_auto_approve(FEATURE_ID):
 ---
 
 ## Command: `--refine {{FEATURE_ID}} "{{FEEDBACK}}"`
+
+**First step — external-authoring guard** (contract: `Factory-codesign-sync.instructions.md`):
+
+```yaml
+# EXTERNAL-AUTHORING GUARD (EVOL-052) — runs first, before any gate or generation
+IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-commands: AND po_package.mode == "full"
+  ❌ BLOCK (humanised, LAW-08): "CODESIGN authoring for this project lives in the Product Owner package, not in this command. Send the change to the PO, validate the return, then run `/codesign --sync {target}`. Steps: subproducts/po-package/RUNBOOK.md."
+  STOP
+```
 
 ### Refine Execution Sequence
 ```yaml
