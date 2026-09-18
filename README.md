@@ -41,6 +41,7 @@ Adoption and Federation are complementary — the cultural-governance pair: one 
 4. [Architecture](#architecture)
 5. [Workflow Sequence](#workflow-sequence-preset-full-sdlc)
 6. [Command Reference](#command-reference)
+   - [External CODESIGN Authoring (PO Package)](#external-codesign-authoring-po-package)
 7. [Recommended Pipeline](#recommended-pipeline)
 8. [Complete Workflow Diagram](#complete-workflow-diagram)
 9. [Exception Routes and Recovery](#exception-routes-and-recovery)
@@ -120,7 +121,7 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── devops.md                            # /devops — Infrastructure & Deployment
 │   ├── qa.md                                # /qa — Post-Staging Verification
 │   └── backlog.md                           # /backlog — Project Tracking & Issues
-├── instructions/                            # 23 detailed instructions (contextual load)
+├── instructions/                            # 24 detailed instructions (contextual load)
 │   ├── Factory-protocol-smart-redirect.instructions.md
 │   ├── Factory-protocol-iop-intent-map.instructions.md
 │   ├── Factory-protocol-cwd-discipline.instructions.md
@@ -140,11 +141,12 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── Factory-implement-review-checks.instructions.md
 │   ├── Factory-devops-configure.instructions.md
 │   ├── Factory-devops-provision-deploy.instructions.md
+│   ├── Factory-codesign-sync.instructions.md    # /codesign --sync — adopts an externally authored CODESIGN return
 │   ├── Factory-qa-verify.instructions.md
 │   ├── Factory-backlog-operations.instructions.md
 │   ├── Factory-backlog-execution-plan.instructions.md
 │   └── Factory-backlog-next-task.instructions.md
-├── skills/                                  # 22 cross-cutting skills (reusable protocols)
+├── skills/                                  # 23 cross-cutting skills (reusable protocols)
 │   ├── factory-applicability-discovery/     # ADP — governance Roll-Call (command Step 0)
 │   ├── factory-governance-loading/          # GCRP — Zero Trust context recovery
 │   ├── factory-incremental-persistence/     # IPP — incremental persistence
@@ -166,6 +168,7 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── factory-mcp-docs-scan/               # MCP docs-scan banner
 │   ├── factory-complexity-check/            # Cyclomatic complexity gate (DC-28)
 │   ├── factory-code-review/                 # Agentic code review engine (Block 20, LAW-13)
+│   ├── factory-po-intake/                   # External CODESIGN authoring — validate, ratify, sync, plan the component catalog
 │   └── factory-pr-review/                   # Seven-axis PR review + push gate (20 hard blocks)
 ├── hooks/                                   # 6 deterministic enforcement hooks
 │   ├── check-branch-protection.sh           # PreToolUse — blocks edits on protected branches
@@ -176,7 +179,7 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   └── check-push-preflight.sh              # PreToolUse Bash — factory-pr-review push gate
 └── settings.json                            # Hook wiring + permission configuration
 .context/
-├── templates/                               # Materialization templates (SETUP --generate)
+├── templates/                               # Materialization templates (SETUP --generate) — incl. setup/subproducts/po-package/ (PO package)
 └── schemas/                                 # JSON schemas (worklog log, …)
 config/                                      # Framework config — coherence-context, quality, protected-paths
 scripts/                                     # Governance + CI scripts — manifest-driven delivery (validate-governance, security-scan dispatcher, auto-tag, lock-step, test-* suites incl. T3 materialization-surface, …)
@@ -325,9 +328,13 @@ Role: Dual personality (🎩 PO hat ↔ 🎨 UX hat). Co-creates the functional 
 | `/codesign --vision-propagate` | — | Propagates vision changes to existing mocks. |
 | `/codesign --start {ID}` | Feature ID | Starts co-creation. Vision Gate for UI features. Event Storming → spec ↔ mock ↔ journey until convergence. When `slicing_strategy: incremental`, also emits `slice_map.md` (capability-VALUE slices via the slicing-VALUE RDR, ≥3 alternatives). Auto-approves when all validations pass (incl. slice_map coverage). |
 | `/codesign --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement. Classifies changes as DELTA or BREAKING. Auto-approves when 12/12 validations pass. |
+| `/codesign --sync {VISION\|ID}` | Target | **External authoring only.** Adopts ONE ratified Product Owner return verbatim — the design system or a feature — and adds only what the factory owns (gates, header, iteration ledger, change classification, cascade, auto-approval checks as validation). Never generates, never edits PO content: a finding returns the target as `NEEDS_INFO`. See [External CODESIGN Authoring](#external-codesign-authoring-po-package). |
 
 Per-feature artifacts: `docs/spec/{ID}/spec.feature`, `mock.html`, `user_journey.md`.
 Global vision artifacts: `docs/ux/vision/vision.md`, `app_shell.html`, `style_guide.html`, `page_templates.html`, `component_library.html`, `navigation_map.md`.
+Design-system ↔ build alignment: `docs/ux/component-registry.json` (one entry per `data-component` anchor of the component library).
+
+**Authoring surface (SETUP Q29, `docs/setup.md` `codesign.authoring`).** `internal` — co-created in the CLI with the commands above. `external` — authored by the PO in a Claude Desktop project; `--start`, `--refine` (and `--vision`, `--vision-refine` when the package covers the design system) are **guarded** and point to `--sync`. State commands (`--vision-approve`, `--vision-propagate`, `--revise`, `--cancel`, `--deprecate`, `--reset`) behave the same in both. An absent key means `internal`.
 
 ### 2. BLUEPRINT (Co-Design: ARCH ↔ QA)
 
@@ -420,6 +427,39 @@ Artifacts (local mode): `docs/backlog/state.md`, `docs/backlog/issue-bodies/*.md
 
 ---
 
+## External CODESIGN Authoring (PO Package)
+
+CODESIGN is the phase whose signing actor is not an engineer. When a project chooses **external authoring** (SETUP Q29), the Product Owner works in a **Claude Desktop project** — friendlier than a CLI — and the factory takes the result in without rewriting it.
+
+```
+  Factory                PO (Claude Desktop)            Factory
+  build package  ─zip→   one feature, or the     ─zip→  validate · ratify · /codesign --sync · plan catalog
+                         design system
+```
+
+| Step | Who | What |
+|---|---|---|
+| Build | `subproducts/po-package/build_po_package.py` | Reads the repo, writes OUTSIDE it. Product sheet, feature catalogue, **closed-vocabulary glossary**, route map, roadmap (exported through `/backlog`, never the tracker), the design system with one preview card per component, the feature annexes, the PO-safe templates, and the project instructions the PO pastes into Claude Desktop. |
+| Author | PO | One feature per conversation, or the design system (six vision artefacts). Returns `MANIFEST.yaml` + `VISION/` and/or `{ID}/` with an **evolution request** (what changes and why, what was looked up before inventing a name or a component). |
+| Validate | `validate_po_return.py` | **Form and coherence, never merit.** Journey form is delegated to `scripts/check-journey-grammar.sh` — the same gate CODESIGN applies to itself. Green means reviewable, never accepted. Red goes back unedited. `--selftest` first, always: the subproduct sits outside the governed surface and the self-test is its net. |
+| Ratify | `factory-po-intake` | One RDR per change. Never in bulk. |
+| Sync | `/codesign --sync {VISION\|ID}` | Adopts what was ratified **as written**. Adds the header, the iteration ledger, change classification and cascade. Runs the auto-approval checks as validation. Never regenerates, never repairs. |
+| Catalog | `factory-po-intake` → `/backlog` | Every component `DESIGNED` in `docs/ux/component-registry.json` with no backlog reference becomes build work: a foundational **Component Catalog** feature with one sub-issue per component the first time, refinement issues afterwards. |
+
+**Written instructions after materialisation.** `SETUP --generate` leaves `subproducts/po-package/RUNBOOK.md` (and `RUNBOOK.es.md`): the full operator procedure, self-sufficient before the skill arrives with `factory-sync.sh`. It carries all three design-system cases and a header SETUP resolves to name the one that applies; `MATERIALIZATION_REPORT.md` repeats it.
+
+**Design system from code.** Tool-agnostic, like LAW-11: the process is the framework's, the tool is the project's (SETUP Q29.1 → `design_system.code_cards.dir` + `rebuild_command` in `po-package.config.json`).
+
+| Case | Cards come from | What runs |
+|---|---|---|
+| 6A | The vision only | Nothing extra |
+| 6B | Code, per component; the vision for components not built yet | `build_po_package.py --rebuild` by hand |
+| 6C | Same as 6B | Also an **optional, advisory** GitHub Actions job (`design-system-rebuild.yml`) on push to main and on demand |
+
+The rebuild command runs without a shell and with a timeout; a missing or failing tool falls back to vision cards with a loud warning and never blocks. `--check-drift` reports `code-card-unregistered`, `implemented-without-code-card` and `candidate-implemented` — the mechanical signal that the design system and what is built are still the same thing. Claude Design is a one-way mirror published by the user-started `/design-sync`; no gate depends on it.
+
+**Language.** PO-facing prose ships in English with a Spanish override, selected by the project language at build time. Canonical section headings and field labels are never translated.
+
 ## Incremental Dev Plan (Vertical Slicing)
 
 Every feature ships as a sequence of **vertical increments**. Each increment is a single PR that leaves the product 100% functional and production-deployable on merge — no feature-flag-OFF escape, no half-done slices. This replaces the legacy "one big implementation branch per feature" model with a serial chain of small, mergeable, user-observable deliverables.
@@ -472,10 +512,21 @@ When AUDIT runs, SETUP auto-detects Brownfield and pre-fills data.
 /codesign --vision-approve   → Approves the vision
 ```
 
+With **external authoring** the PO creates the design system in Claude Desktop instead:
+
+```
+python3 subproducts/po-package/build_po_package.py            → Package for the PO (design-system project instructions included)
+python3 subproducts/po-package/validate_po_return.py --zip …  → Form and coherence; then one RDR per change (factory-po-intake)
+/codesign --sync VISION      → Adopts the ratified design system as written; refreshes docs/ux/component-registry.json
+/codesign --vision-approve   → Approves the vision
+(factory-po-intake)          → Plans the Component Catalog: one backlog issue per component no code materialises yet
+```
+
 ### Phase 1: Definition and Co-Creation (Pre-Code)
 
 ```
 /codesign --start USR-001 "OAuth login"     → Co-creates spec + mock + journey (auto-approves when 12/12 OK)
+/codesign --sync USR-001                    → External authoring: adopts the PO's ratified journey + spec + mock as written (same checks, as validation)
 
 /blueprint --start USR-001    → Co-designs design.md + test_plan.md
 /blueprint --approve USR-001  → Enables IMPLEMENT (the only mandatory manual checkpoint)
@@ -899,6 +950,7 @@ The framework ships protocols reusable by every command:
 | **Coherence Validation (CVP)** | Cross-artifact traceability and completeness validation. |
 | **Backlog Next-Task Resolver** | Dual-mode resolver: push (`--next-task`, single item) and pull (`--eligible`, full pool). Shared filters: intra-feature prereq + `blocked-by:#{N}` + gate-mode fallback (enforce/warn/off). Fast path via cache at `/memories/repo/`. |
 | **Defect Prevention Catalog (DPC)** | Living catalog of runtime defect patterns invisible to static gates. Consumed by 7 agents (CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT) filtered by `applicable_to`. Discover-catalog-prevent loop closed by the `[EPIC-{N}] RETROSPECTIVE` write-back. Universal starter DCs (pipeline SIGPIPE, identity no-op, framework validation invisible, mutation replace semantics, composite network triage) + stack-conditional DCs. |
+| **PO Intake** | External CODESIGN authoring. Builds the PO package, validates a return (self-test first; form and coherence, never merit), drives one RDR per change, writes the drop zone, calls `/codesign --sync` per ratified target, and turns every designed-but-unbuilt component into backlog issues (`kind:component-catalog`). |
 | **Preventive Sweep** | Pre-deploy runtime defect scan via parallel Explore sub-agents — one per non-overlapping scope derived from the DPC. Zero open C-severity findings required to approve. |
 
 ### Rule Categories
@@ -1013,12 +1065,16 @@ docs/
 │   ├── state.md                    #   Local mode: feature issue registry + Kanban
 │   └── issue-bodies/               #   Local mode: issue body markdown files
 ├── ux/vision/                      # Global UX vision artifacts
+├── ux/component-registry.json      # Design-system ↔ build alignment (component, code primitive, status, backlog ref)
+├── ux/po-return/                   # TRANSIENT drop zone of a ratified PO return — emptied by /codesign --sync
 └── project_log/                    # Worklog, migration reports
     └── adr/                        #   Architecture Decision Records (project-wide → constitution)
 contracts/                          # API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI)
 config/                             # system_resources.json, infrastructure_registry.json
 infra/                              # Infrastructure as Code (modules/ + features/)
 scripts/                            # Automation & CI/CD scripts
+subproducts/po-package/             # PO package (external CODESIGN authoring): builder, return validator + self-test,
+                                    #   config, RUNBOOK.md (operator instructions, resolved by SETUP). Outside the governed trees.
 src/ (or apps/)                     # Source code (created by IMPLEMENT, not by scaffolding)
 tests/                              # Test infrastructure (config only — tests created by IMPLEMENT)
 ```

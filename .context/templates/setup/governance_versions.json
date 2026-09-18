@@ -843,11 +843,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.9.1",
+      "version": "3.10.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.10.0: feat(EVOL-052) — Workflow: CODESIGN authoring surface (internal vs external, `/codesign --sync`, guarded authoring sub-commands, RUNBOOK pointer). Core Protocols: PO Intake row. Living Governance Catalogs: Component Registry. Templates: `subproducts/` class with its self-test obligation. Universal H2 sections and the LAW corpus untouched (lock-step verified).",
         "3.9.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: template-root row drops the now-empty ux/*.md glob; auto-approval N/A wording names the 6 mock-dependent CHECKs.",
         "3.9.0: feat(EVOL-041) — SMOKE-E2E gate row → Path→Scenario→TC transitive; § Scope Taxonomy: single journey template all scopes (integration variant retired); Framework Editor Invariants enum row updated.",
         "3.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041), byte-identical with meta corpus via law_corpus_mirror.",
@@ -1733,9 +1734,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.9.0",
+      "version": "2.10.0",
       "path": "README.md",
       "changelog": [
+        "2.10.0: feat(EVOL-052) — NEW § External CODESIGN Authoring (PO Package): the loop, validate/ratify/sync/catalog table, written instructions after materialisation, design system from code (cases 6A/6B/6C, drift, optional workflow, one-way mirror), language. File-structure tree (24 instructions, 23 skills, subproducts template), CODESIGN command table gains `--sync` + authoring-surface note, skills table gains PO Intake, recommended pipeline gains the external path, project structure gains `subproducts/po-package/`, `docs/ux/component-registry.json`, `docs/ux/po-return/`.",
         "2.9.0: feat(EVOL-041) — SMOKE-E2E wording → Path→Scenario→TC transitive; journey artefact description journey-first; integration-variant mentions removed.",
         "2.8.0: fix(EVOL-040 pr-review loop i3) — skills catalog gains factory-code-review (was 21-listed vs 22-on-disk), count 21→22, pr-review line seven-axis/20-blocks, scripts line manifest-driven + T3. Caught by the i3-hardened CHECK 1b local-branch fallback — the gate's own fix detected the gate author's miss.",
         "2.7.1: fix(EVOL-036) coherence — command table /codesign --start emits slice_map.md (incremental); /blueprint --start refines authoritative slices (no invention); /blueprint --approve + Enforcement list the slice CVP checks 0d/18/19/20. Removes the residual 'BLUEPRINT runs the slicing RDR' claim + stale check counts.",
@@ -2214,9 +2216,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.10.0: feat(EVOL-052) — catalog component issue class: title pattern `[{ID}] COMPONENT: {name}`, label `kind:component-catalog` (lazy create_label), label-applicability row, body template with registry/inventory DoD. Feature Issue `## Factory command` becomes authoring-aware for codesign issues (external ⇒ PO package + `/codesign --sync {ID}`).",
         "1.9.0: feat(EVOL-041) — suffix-8 table + gate row + DoD checklists re-anchored: one SMOKE block per journey § 3 Path, single smoke template with scope modes; integration variant refs die.",
         "1.8.2: fix(coherence) — broken markdown link to iteration-model skill (line 543): wrong path + case `Factory-iteration-model/SKILL.md` → `.claude/skills/factory-iteration-model/SKILL.md` (repo root-relative convention). Caught by framework coherence sweep (reference coherence / Block 13).",
         "1.8.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -3691,6 +3694,15 @@
       "changelog": [
         "1.0.0: feat(EVOL-052) — initial. `/codesign --sync {VISION|ID}`: entry point for CODESIGN authored outside the repo. Adopts ONE ratified target verbatim; adds only what the factory owns (gates, frontmatter, iteration ledger, change classification, cascade, auto-approval checks as validation) — every piece reused BY REFERENCE from the feature/vision instructions and the iteration-model / IPP skills (existence CI-asserted). Never generates, never edits PO content: findings return the target as NEEDS_INFO. Owns the external-authoring guard text. Authoring mode read from docs/setup.md `codesign.authoring`; absent ⇒ internal (back-compat by construction)."
       ]
+    },
+    "skills/factory-po-intake/SKILL.md": {
+      "version": "1.0.0",
+      "type": "skill",
+      "role": "PO Intake v1.0.0 — external CODESIGN authoring. Builds the PO package, validates a return with the subproduct's deterministic validator (self-test first, always), one RDR per change, writes the transient drop zone, calls /codesign --sync per ratified target, reconciles the component registry against the codebase inventory and plans component-catalog issues through /backlog only. Never edits docs/spec/** or docs/ux/vision/**, never fixes PO documents, never decides scope or ordering.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Generalised from a downstream project skill; materialisation no longer goes through --refine (which regenerated) but through --sync (which adopts). New catalog beat."
+      ],
+      "path": ".claude/skills/factory-po-intake/SKILL.md"
     }
   },
   "runtime_artefacts": {
