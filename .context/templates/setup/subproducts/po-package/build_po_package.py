@@ -25,28 +25,28 @@ Usage:
     python3 build_po_package.py --roadmap roadmap.json
     python3 build_po_package.py --mode ds-only --rebuild --check-drift --out DIR
 
-Exit codes: 0 built · 1 under --check-drift --strict: drift found, or drift could not be
-computed · 2 the tool could not do its job (usage, configuration, IO, or its own fault).
+Exit codes: 0 built · 1 under --check-drift --strict: drift found, or drift applies to this
+project but could not be computed (0 when drift does not apply: no code cards folder is
+configured) · 2 the tool could not do its job (usage, configuration, IO, or its own fault).
+PO_PACKAGE_DEBUG=1 adds the stack trace to an exit 2; the exit code does not change.
 """
 
 from __future__ import annotations
 
+import argparse
+import datetime
+import json
+import os
+import re
+import shlex
+import shutil
+import string
+import subprocess
 import sys
+import tempfile
+from pathlib import Path
 
-sys.dont_write_bytecode = True  # this tool never writes into the repository — bytecode included
-
-import argparse  # noqa: E402
-import datetime  # noqa: E402
-import json  # noqa: E402
-import os  # noqa: E402
-import re  # noqa: E402
-import shlex  # noqa: E402
-import shutil  # noqa: E402
-import string  # noqa: E402
-import subprocess  # noqa: E402
-import tempfile  # noqa: E402
-from pathlib import Path  # noqa: E402
-
+sys.dont_write_bytecode = True  # run as a CLI, this tool leaves no bytecode beside its sources
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import po_lib as L  # noqa: E402
 
@@ -59,7 +59,7 @@ CODESIGN_TEMPLATES = (
     "mock-feature-content-template.html", "app-shell-template.html",
 )
 STEP_FIELDS = ("Persona", "Does", "Feels", "Pain", "Ease")
-DRIFT_NOT_APPLICABLE = "not applicable — no code cards folder is configured"
+DRIFT_NOT_APPLICABLE = "not applicable — no code cards folder is configured"   # wording only: the state is `None`
 
 
 class Build:
@@ -178,6 +178,8 @@ def build_roadmap(build: Build) -> str:
         build.warn(f"{dropped} roadmap item(s) have no `id` and were dropped — expected {{id, name, summary}}")
     if not build.roadmap_given:
         lines.append("_No roadmap export was provided for this package._\n")
+    elif dropped and not items:
+        lines.append("_The roadmap export could not be read: its items carry no `id`._\n")
     elif not items:
         lines.append("_Every item of the roadmap export already has a specification._\n")
     for item in items:
@@ -249,6 +251,9 @@ def component_rows(build: Build) -> list[dict]:
     rows = []
     for comp in registry:
         artifact = inventory.get(comp.get("cip_name") or "")
+        if comp.get("cip_name") and not artifact and inventory_path.exists():
+            build.warn(f"registry component «{comp.get('id')}» names the code primitive «{comp['cip_name']}», which is "
+                       "not a ui_component of the codebase inventory — it reads as not built")
         primitive = f"{artifact['name']} — {artifact.get('path', '')}" if artifact else None
         rows.append({**comp, "primitive": primitive})
     return rows
@@ -337,28 +342,38 @@ def _code_card(path: Path, meta: dict) -> dict | None:
             "subtitle": info.get("subtitle") or "Rendered from code"}
 
 
+def _tool_manifest(build: Build, folder: Path, rel: str) -> dict[str, dict]:
+    """{file name: entry} from the project tool's own manifest. Its output never blocks the build."""
+    try:
+        manifest = L.load_json(folder / "_ds_manifest.json", None)   # None = the tool wrote no manifest
+    except L.PoPackageError as exc:
+        build.warn(f"{exc} — card names and groups fall back to the file names")
+        return {}
+    listed = manifest.get("cards") if isinstance(manifest, dict) else None
+    if manifest is not None and not isinstance(listed, list):
+        build.warn(f"`{rel}/_ds_manifest.json` is not the expected {{cards: [...]}} — card names fall back to the file names")
+    return {Path(str(c.get("path", ""))).name: c for c in listed or [] if isinstance(c, dict)}
+
+
 def code_cards(build: Build) -> dict[str, dict]:
     """Cards a project tool rebuilt from code. Assumed contract: HTML files whose first line
     is the design-system card marker, plus an optional compiled manifest. Every way this
     can yield nothing is said out loud — a silent fallback would show the PO the wrong cards."""
     rel = build.cfg["design_system"]["code_cards"].get("dir")
-    folder = build.repo / rel
+    folder = L.inside_repo(build.repo, rel, "design_system.code_cards.dir")
     if not folder.is_dir():
         build.warn(f"code cards were expected in `{rel}` but the folder does not exist — vision cards are used")
         return {}
-    try:
-        manifest = L.load_json(folder / "_ds_manifest.json", {})
-    except L.PoPackageError as exc:
-        build.warn(f"{exc} — card names and groups fall back to the file names")
-        manifest = {}
-    meta = {Path(c.get("path", "")).name: c for c in (manifest.get("cards") or []) if isinstance(c, dict)}
+    meta = _tool_manifest(build, folder, rel)
     cards: dict[str, dict] = {}
     for path in sorted(folder.rglob("*.html")):
-        card = _code_card(path, meta)
-        if card:
-            cards[card["id"]] = card
+        card, shown = _code_card(path, meta), path.relative_to(folder).as_posix()
+        if not card:
+            build.warn(f"`{rel}/{shown}` does not open with the card marker — skipped")
+        elif card["id"] in cards:
+            build.warn(f"`{rel}/{shown}` renders «{card['id']}» a second time — the first one is kept")
         else:
-            build.warn(f"`{path.relative_to(build.repo)}` does not open with the card marker — skipped")
+            cards[card["id"]] = card
     if not cards:
         build.warn(f"`{rel}` holds no card — vision cards are used")
     return cards
@@ -412,8 +427,9 @@ def _copy_design_sources(build: Build, root: Path) -> None:
             build.warn(f"extra design-system file `{rel}` does not exist — check design_system.extra_files")
 
 
-def build_design_system(build: Build, trust_code: bool) -> tuple[int, list[str] | str]:
-    """(cards shipped, drift). Drift is a list when computed, else the reason it was not."""
+def build_design_system(build: Build, trust_code: bool, refreshed: bool) -> tuple[int, list[str] | str | None]:
+    """(cards shipped, drift). Drift: a list when computed · None when it does not apply to
+    this project · a text — the reason — when it applies but could not be computed."""
     ds = build.cfg["design_system"]
     root = build.repo / ds["vision_root"]
     if not root.is_dir():
@@ -433,9 +449,11 @@ def build_design_system(build: Build, trust_code: bool) -> tuple[int, list[str] 
              for c in cards.values()]
     build.write("10-design-system/_ds_manifest.json", json.dumps({"cards": index}, indent=2, ensure_ascii=False) + "\n")
     if not configured:
-        return len(cards), DRIFT_NOT_APPLICABLE
+        return len(cards), None
     if not from_code:
         return len(cards), "NOT COMPUTED — no card rendered from code could be trusted in this run"
+    if not refreshed:
+        print(f"code cards: {len(from_code)} taken from `{ds['code_cards']['dir']}` as found — NOT refreshed (pass --rebuild)")
     return len(cards), drift(rows, from_code)
 
 
@@ -568,15 +586,19 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
                         help="auto: the whole package, shaped by the project config · ds-only: the design-system bundle only, always")
     parser.add_argument("--rebuild", action="store_true", help="run the configured design-system rebuild command first")
     parser.add_argument("--check-drift", action="store_true", help="report card-to-registry drift")
-    parser.add_argument("--strict", action="store_true", help="with --check-drift: exit 1 when drift is found or could not be computed")
+    parser.add_argument("--strict", action="store_true",
+                        help="with --check-drift: exit 1 when drift is found, or applies but could not be computed")
     parser.add_argument("--no-zip", action="store_true", help="leave the staging tree only")
     return parser.parse_args(argv)
 
 
-def _report_drift(drifted: list[str] | str, strict: bool) -> int:
+def _report_drift(drifted: list[str] | str | None, strict: bool) -> int:
+    if drifted is None:
+        print(f"drift: {DRIFT_NOT_APPLICABLE}")
+        return 0
     if isinstance(drifted, str):
         print(f"drift: {drifted}")
-        return 1 if strict and drifted != DRIFT_NOT_APPLICABLE else 0
+        return 1 if strict else 0
     print(f"drift: {len(drifted)} finding(s)")
     for line in drifted:
         print(f"  · {line}")
@@ -594,8 +616,15 @@ def run(args: argparse.Namespace) -> int:
     check_runbook(build)
     ds_only = args.mode == "ds-only"
     with_vision = ds_only or vision_allowed(cfg)
+    configured = bool(cfg["design_system"]["code_cards"].get("dir"))
     trust_code = run_rebuild(build) if args.rebuild else True
-    cards, drifted = build_design_system(build, trust_code) if with_vision else (0, "NOT COMPUTED — this project authors no design system")
+    if args.rebuild and trust_code and not configured:
+        build.warn("the rebuild command ran, but no code cards folder is configured — its output is not used "
+                   "(set design_system.code_cards.dir)")
+    if with_vision:
+        cards, drifted = build_design_system(build, trust_code, refreshed=args.rebuild)
+    else:   # a project that authors no design system has no drift unless it still configured code cards
+        cards, drifted = 0, ("NOT COMPUTED — this project authors no design system" if configured else None)
     if not ds_only:
         variables = {"project_name": cfg["project"]["name"], "business_goal": cfg["project"].get("business_goal", ""),
                      "project_scope": cfg["project"].get("scope", ""),
@@ -618,16 +647,7 @@ def run(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
-    try:
-        return run(args)
-    except L.PoPackageError as exc:
-        print(f"Cannot build the package: {exc}", file=sys.stderr)
-    except Exception as exc:  # noqa: BLE001 - boundary: a tool fault must never read as "drift found"
-        if os.environ.get("PO_PACKAGE_DEBUG"):
-            raise
-        print(f"Cannot build the package: the tool itself failed ({type(exc).__name__}: {exc}). "
-              "Set PO_PACKAGE_DEBUG=1 to see the trace.", file=sys.stderr)
-    return 2
+    return L.cli_main(lambda: run(args), "Cannot build the package")
 
 
 if __name__ == "__main__":

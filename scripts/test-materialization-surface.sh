@@ -25,7 +25,8 @@
 #      setup|both resolves to an existing template source (the factory-sync
 #      query and the SETUP auto-scan both depend on it).
 #   6. Subproduct closure (EVOL-052): disk ↔ manifest both ways with target ==
-#      key; universal files carry no {{TOKEN}} (they must land byte-identical),
+#      key; content_type is universal or stack_configured, nothing else; universal
+#      files carry no {{TOKEN}} (they must land byte-identical),
 #      stack_configured ones carry at least one; every subproduct file a
 #      template workflow invokes exists; the materialization instruction owns
 #      the step and its written-instructions invariant.

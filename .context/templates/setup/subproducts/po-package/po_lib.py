@@ -18,6 +18,8 @@ import json
 import os
 import re
 import subprocess
+import sys
+import traceback
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
@@ -104,7 +106,7 @@ def merge_config(base: dict, over: dict) -> dict:
 
 
 def _check_shapes(defaults: dict, data: dict, name: str, prefix: str = "") -> None:
-    """A mapping or a list in the defaults must stay one: a wrong shape fails silently later."""
+    """A mapping, a list or a text in the defaults must stay one: a wrong shape fails silently later."""
     for key, default in defaults.items():
         if key not in data or default is None:
             continue
@@ -271,16 +273,26 @@ def load_glossary(repo: Path, cfg: dict) -> dict[str, set[str]]:
 # ── HTML: external references and nesting-safe section scanner ───────────────
 
 
-_REF_ATTRS = ("src", "href", "data-src", "poster")
-_CSS_REF_RE = re.compile(r"""(?:url\(\s*|@import\s+)["']?(https?://[^"')\s;]+)""", re.I)
+_CSS_REF_RE = re.compile(r"""(?:url\(\s*|@import\s+)["']?((?:https?:)?//[^"')\s;]+)""", re.I)
 LANDMARKS = ("header", "nav", "main")
+# attribute → the tags on which it LOADS something (None = any tag). An <a href> navigates; it loads nothing.
+_LOADING_ATTRS = {"src": None, "data-src": None, "poster": None, "href": ("link", "base"), "data": ("object",)}
+
+
+def _absolute(value: str) -> str | None:
+    value = value.strip()
+    if value.startswith("//"):
+        return "https:" + value
+    return value if value.lower().startswith(("http://", "https://")) else None
 
 
 class _HtmlFacts(HTMLParser):
     """One pass over a page: what it loads and the cheap accessibility signals.
 
-    A parser, not a regex: browsers load unquoted attribute values too, and a gate that
-    only sees quoted ones can be walked around."""
+    A parser, not a regex: browsers load unquoted attribute values, `srcset` candidates,
+    `<object data>`, a `<base href>` and stylesheet `url()` / `@import` too, and a gate that
+    sees only some of them can be walked around. Style rules are read where they live
+    (`<style>` blocks and `style=` attributes), never in prose."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -288,21 +300,22 @@ class _HtmlFacts(HTMLParser):
         self.has_lang = False
         self.images_without_alt = 0
         self.landmarks: set[str] = set()
+        self._in_style = False
 
     @staticmethod
-    def _loaded(tag: str, attributes: dict) -> list[str]:
-        refs = []
-        for name in _REF_ATTRS:
-            if name == "href" and tag != "link":   # an <a href> navigates; only <link> loads
-                continue
-            value = (attributes.get(name) or "").strip()
-            if value.lower().startswith(("http://", "https://", "//")):
-                refs.append("https:" + value if value.startswith("//") else value)
-        return refs
+    def _candidates(tag: str, attributes: dict) -> list[str]:
+        """Every attribute value that would make the browser fetch something for this tag."""
+        values = [attributes.get(name) or "" for name, tags in _LOADING_ATTRS.items() if tags is None or tag in tags]
+        srcset = (attributes.get("srcset") or "").split(",")
+        return values + [parts[0] for parts in map(str.split, srcset) if parts] + _CSS_REF_RE.findall(attributes.get("style") or "")
+
+    def _loaded(self, tag: str, attributes: dict) -> list[str]:
+        return [ref for ref in map(_absolute, self._candidates(tag, attributes)) if ref]
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
         self.refs += self._loaded(tag, attributes)
+        self._in_style = tag == "style"
         if tag == "html" and (attributes.get("lang") or "").strip():
             self.has_lang = True
         if tag == "img" and "alt" not in attributes:
@@ -310,14 +323,19 @@ class _HtmlFacts(HTMLParser):
         if tag in LANDMARKS:
             self.landmarks.add(tag)
 
-    handle_startendtag = handle_starttag
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "style":
+            self._in_style = False
+
+    def handle_data(self, data: str) -> None:
+        if self._in_style:
+            self.refs += [_absolute(m) or m for m in _CSS_REF_RE.findall(data)]
 
 
 def html_facts(html: str) -> _HtmlFacts:
     facts = _HtmlFacts()
     facts.feed(html)
     facts.close()
-    facts.refs += _CSS_REF_RE.findall(html)   # stylesheets load too: url(…) and @import
     return facts
 
 
@@ -408,7 +426,7 @@ def scan_sections_full(html: str, attr: str) -> tuple[list[dict], str | None]:
     scanner = _SectionScanner(html, attr)
     scanner.feed(html)
     scanner.close()
-    unclosed = scanner._open["name"] or scanner._open["id"] if scanner._open else None
+    unclosed = (scanner._open["name"] or scanner._open["id"] or "(unnamed)") if scanner._open else None
     return scanner.blocks, unclosed
 
 
@@ -443,9 +461,13 @@ def load_json(path: Path, default):
 
 
 def registry_components(repo: Path, cfg: dict) -> list[dict]:
-    data = load_json(repo / cfg["design_system"]["component_registry"], {})
-    components = data.get("components") if isinstance(data, dict) else None
-    return [c for c in components or [] if isinstance(c, dict)]
+    path = cfg["design_system"]["component_registry"]
+    data = load_json(repo / path, {})
+    components = data.get("components", []) if isinstance(data, dict) else None
+    if not isinstance(components, list) or not all(isinstance(c, dict) for c in components):
+        # The operator's own file: a silent filter would read as "empty registry" and as false drift.
+        raise PoPackageError(f"{path}: `components` must be a list of entries (see the Component Registry schema).")
+    return components
 
 
 def inventory_ui_components(repo: Path, cfg: dict) -> dict[str, dict]:
@@ -475,16 +497,52 @@ def _member_problem(info: zipfile.ZipInfo) -> str | None:
     return None
 
 
+def _content_problems(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) -> list[str]:
+    """Read every member without writing it: a password or a damaged member shows here."""
+    protected = [i.filename for i in infos if i.flag_bits & 0x1]
+    if protected:
+        return [f"password-protected member: {protected[0]}"]
+    try:
+        damaged = archive.testzip()
+    except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError, EOFError):
+        return ["a member cannot be read — the archive is damaged or uses an unsupported compression"]
+    return [f"damaged member: {damaged}"] if damaged else []
+
+
 def zip_problems(zip_path: Path) -> list[str]:
-    """Reasons this archive must not be extracted. Empty list = safe."""
+    """Reasons this archive must not be extracted. Empty list = safe to extract."""
     try:
         with zipfile.ZipFile(zip_path) as archive:
             infos = archive.infolist()
+            problems = [problem for info in infos if (problem := _member_problem(info))]
+            if len(infos) > MAX_ZIP_ENTRIES:
+                problems.append(f"too many entries ({len(infos)} > {MAX_ZIP_ENTRIES})")
+            if sum(i.file_size for i in infos) > MAX_TOTAL_BYTES:
+                problems.append(f"archive expands beyond {MAX_TOTAL_BYTES} bytes")
+            return problems or _content_problems(archive, infos)   # contents are read only once size is bounded
     except (zipfile.BadZipFile, OSError) as exc:
         return [f"not a readable zip: {exc}"]
-    problems = [problem for info in infos if (problem := _member_problem(info))]
-    if len(infos) > MAX_ZIP_ENTRIES:
-        problems.append(f"too many entries ({len(infos)} > {MAX_ZIP_ENTRIES})")
-    if sum(i.file_size for i in infos) > MAX_TOTAL_BYTES:
-        problems.append(f"archive expands beyond {MAX_TOTAL_BYTES} bytes")
-    return problems
+
+
+def inside_repo(repo: Path, rel: str, label: str) -> Path:
+    """A configured path the tool READS must stay inside the repository."""
+    path = (repo / rel).resolve()
+    if path != repo.resolve() and repo.resolve() not in path.parents:
+        raise PoPackageError(f"`{label}` must be a path inside the repository (got {rel}).")
+    return path
+
+
+def cli_main(action, prefix: str) -> int:
+    """Boundary shared by both tools: a fault of the tool must never read as a verdict.
+
+    Exit 2, plain language (LAW-08). PO_PACKAGE_DEBUG=1 adds the trace; the exit code stays 2."""
+    try:
+        return action()
+    except PoPackageError as exc:
+        print(f"{prefix}: {exc}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 - the boundary
+        if os.environ.get("PO_PACKAGE_DEBUG"):
+            traceback.print_exc()
+        print(f"{prefix}: the tool itself failed ({type(exc).__name__}: {exc}). This is a tooling fault, "
+              "not a finding about the input. Set PO_PACKAGE_DEBUG=1 to see the trace.", file=sys.stderr)
+    return 2

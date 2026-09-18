@@ -27,7 +27,9 @@ python3 subproducts/po-package/validate_po_return.py --zip {return.zip}
 ```
 
 - Self-test not green ⇒ STOP. The tooling is broken; judge nothing with it.
-- RED ⇒ return the report to the PO **unedited**. NEVER fix the PO's documents to turn red into green: their errors are signal (a translated heading = the instructions did not land).
+- **Exit 2 ⇒ STOP. It is NOT a verdict**: the tool could not do its job (config, repository, its own fault). Fix that, run again. NOTHING goes to the PO.
+- RED whose blocking finding is `journey-grammar-infra` (JSON: `returnable_to_po: false`) ⇒ the LOCAL gate is broken: restore `scripts/check-journey-grammar.sh`. Nothing goes to the PO.
+- Any other RED ⇒ return the report to the PO **unedited**. NEVER fix the PO's documents to turn red into green: their errors are signal (a translated heading = the instructions did not land).
 - GREEN ⇒ reviewable. Not accepted.
 
 ## Beat 2 — Read the evolution request BEFORE the artefacts

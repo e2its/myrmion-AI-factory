@@ -64,7 +64,7 @@ Ejecuta `--selftest` primero, siempre: estas herramientas están fuera de la sup
 | RED que nombra la infraestructura de la puerta de journey | Nada vuelve al PO: restaura `scripts/check-journey-grammar.sh` y ejecuta de nuevo. |
 | GREEN con avisos `…-new-undeclared` | Un nombre que no está en el glosario ni declarado. Contrástalo con el glosario junto al PO antes de ratificar: un nombre inventado donde ya existe uno es el defecto más caro que puede traer un retorno. |
 | GREEN con preguntas abiertas | Resuélvelas con el PO antes del apartado 5. |
-| Código de salida 2 | La herramienta no pudo hacer su trabajo (configuración, repositorio, un fallo propio). No es un veredicto sobre el retorno. |
+| Código de salida 2 | La herramienta no pudo hacer su trabajo (configuración, repositorio, un fallo propio). No es un veredicto sobre el retorno: nada va al PO. `PO_PACKAGE_DEBUG=1` añade la traza; el código de salida sigue siendo 2. |
 
 Nunca arregles los documentos del PO para convertir un rojo en verde. Un título traducido significa que las instrucciones no calaron; parchearlo en silencio garantiza el mismo error en la siguiente ronda.
 
@@ -114,6 +114,9 @@ Igual que 6B, y además `.github/workflows/design-system-rebuild.yml` ejecuta la
 | `code-card-unregistered` | El código renderiza un componente que el design system no conoce | Añádelo al design system, o quítalo del código |
 | `implemented-without-code-card` | El registro dice construido y nada se renderiza | La herramienta no lo cubre, o el estado está mal |
 | `candidate-implemented` | El registro dice diseñado o planificado, y el código ya lo renderiza | Reconcilia el registro a `IMPLEMENTED` (apartado 5.6) |
+| `drift: not applicable` | No hay carpeta de tarjetas desde código configurada (caso 6A, o un proyecto sin design system) | Nada. `--strict` no tiene sobre qué fallar |
+| `drift: NOT COMPUTED — …` | Aquí la deriva aplica pero no se pudo medir en esta ejecución (falló la reconstrucción, la carpeta no dio ninguna tarjeta, no hay visión) | Lee las líneas `WARNING` que la preceden. Con `--strict` sale con 1: una deriva sin medir no es un aprobado |
+| `code cards: N taken … as found — NOT refreshed` | Se usaron las tarjetas que había en disco sin ejecutar la herramienta | Pasa `--rebuild` antes de fiarte de las líneas de deriva |
 
 ### Espejo en Claude Design (opcional)
 

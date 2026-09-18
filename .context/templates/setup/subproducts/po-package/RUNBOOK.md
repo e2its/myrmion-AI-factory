@@ -64,7 +64,7 @@ Run `--selftest` first, every time: this tooling sits outside the governed surfa
 | RED that names the journey gate's infrastructure | Nothing goes back to the PO: restore `scripts/check-journey-grammar.sh` and run again. |
 | GREEN with `…-new-undeclared` warnings | A name not in the glossary and not declared. Check it against the glossary with the PO before ratifying: an invented name where one exists is the most expensive defect a return can carry. |
 | GREEN with open questions | Settle them with the PO before section 5. |
-| Exit code 2 | The tool could not do its job (configuration, repository, a fault of its own). It is not a verdict about the return. |
+| Exit code 2 | The tool could not do its job (configuration, repository, a fault of its own). It is not a verdict about the return: nothing goes to the PO. `PO_PACKAGE_DEBUG=1` adds the stack trace; the exit code stays 2. |
 
 Never fix the PO's documents to turn a red into a green. A translated heading means the instructions did not land; patching it silently guarantees the same error next round.
 
@@ -114,6 +114,9 @@ Same as 6B, and `.github/workflows/design-system-rebuild.yml` runs the rebuild a
 | `code-card-unregistered` | Code renders a component the design system does not know | Add it to the design system, or remove it from code |
 | `implemented-without-code-card` | The registry says built, nothing renders | The rebuild tool does not cover it, or the status is wrong |
 | `candidate-implemented` | The registry says designed or planned, and code already renders it | Reconcile the registry to `IMPLEMENTED` (section 5.6) |
+| `drift: not applicable` | No code cards folder is configured (case 6A, or a project with no design system) | Nothing. `--strict` has nothing to fail on |
+| `drift: NOT COMPUTED — …` | Drift applies here but could not be measured in this run (the rebuild failed, the folder yielded no card, there is no vision) | Read the `WARNING` lines above it. Under `--strict` this exits 1: an unmeasured drift is not a pass |
+| `code cards: N taken … as found — NOT refreshed` | Cards on disk were used without running the tool | Pass `--rebuild` before trusting the drift lines |
 
 ### Mirror in Claude Design (optional)
 

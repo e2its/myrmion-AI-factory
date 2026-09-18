@@ -9,15 +9,18 @@
 #   Part 1  — validator CLI: self-test, exit-code contract (0 GREEN · 1 RED · 2 tool could
 #             not do its job), repository resolution the way operators invoke it, golden
 #             return green (folder, zip with wrapper, archive-tool litter), RED as JSON,
-#             hostile and unreadable archives, tool faults never reading as a verdict.
+#             the verdict line a human reads, hostile / damaged / unreadable archives,
+#             a fault of the tool itself never reading as a verdict (with and without the trace).
 #   Part 2  — builder: nothing written into the repo (bytecode included), tree and content,
 #             no unresolved variable, cards well-formed, strict substitution, staging and
 #             zip refused inside the repo, config faults in plain language, mode matrix,
-#             include/exclude, hostile section id confined.
+#             include/exclude, hostile section id confined, same-day rebuild starts clean,
+#             config paths that point nowhere said out loud.
 #   Part 2b — language: per-file override, English fallback, EN/ES parity.
 #   Part 3  — the three design-system cases (6A vision only · 6B code rebuild by hand ·
 #             6C code rebuild in CI): runbook header truthful, code cards win per
-#             component, every fallback said out loud, no shell, timeout, drift states.
+#             component, every fallback said out loud, no shell, timeout, the three drift
+#             states and what --strict does with each.
 #   Part 4  — closure: commands, flags and paths the runbooks and the workflow cite;
 #             registry example vs fixture; the --sync contract.
 #
@@ -141,8 +144,11 @@ expect_exit 0 "golden return: GREEN and not one finding (--dir)" "No findings." 
 # The way operators and the CI job really invoke it: no --repo, no --config.
 git -C "$PROJ" init -q 2>/dev/null
 expect_exit 0 "repository found from the tool's own location (no --repo, run from elsewhere)" "VERDICT: GREEN" \
-  env -C / python3 "$VAL" --dir "$RET"
-expect_exit 0 "repository taken from PO_PACKAGE_REPO" "VERDICT: GREEN" env PO_PACKAGE_REPO="$PROJ" python3 "$VAL" --dir "$RET"
+  sh -c 'cd / && exec "$@"' sh python3 "$VAL" --dir "$RET"
+# The TEMPLATE copy of the tool sits in another repository: only the variable can point it at the project.
+cp "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX/alt0.json"
+expect_exit 0 "repository taken from PO_PACKAGE_REPO" "No findings." \
+  env PO_PACKAGE_REPO="$PROJ" python3 "$SRC/validate_po_return.py" --dir "$RET" --config "$SANDBOX/alt0.json"
 expect_exit 2 "a repository path that does not exist is refused in plain language" "does not exist" \
   python3 "$VAL" --dir "$RET" --repo "$SANDBOX/nope"
 cp "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX/alt.json"
@@ -164,8 +170,16 @@ import json, sys
 d = json.load(sys.stdin)
 assert d["verdict"] == "RED", d["verdict"]
 assert any(f["check"] == "journey-grammar" and f["severity"] == "ERROR" for f in d["findings"]), d["findings"]
-' && ok "machine-readable report parses, says RED and carries the finding with its severity" \
+assert d["returnable_to_po"] is True, d
+' && ok "machine-readable report parses, says RED, carries the finding with its severity, and is returnable to the PO" \
   || bad "machine-readable report is wrong" "$JSON"
+expect_exit 1 "the line a human reads says RED and sends it back to the PO" "VERDICT: RED — goes back to the PO" \
+  python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ"
+mv "$PROJ/scripts/check-journey-grammar.sh" "$SANDBOX/gate.bak"
+expect_exit 1 "a broken LOCAL gate is RED but is NOT sent back to the PO" "fix the local journey gate" python3 "$VAL" --dir "$RET" --repo "$PROJ"
+python3 "$VAL" --dir "$RET" --repo "$PROJ" --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["verdict"]=="RED" and d["returnable_to_po"] is False, d' \
+  && ok "machine-readable report says a local gate fault is NOT returnable to the PO" || bad "JSON sends a local gate fault to the PO"
+mv "$SANDBOX/gate.bak" "$PROJ/scripts/check-journey-grammar.sh"
 
 python3 - "$SANDBOX/fx" <<'PY'
 import sys, zipfile
@@ -173,20 +187,44 @@ root = sys.argv[1]
 with zipfile.ZipFile(f"{root}/slip.zip", "w") as z:
     z.writestr("MANIFEST.yaml", "features: []\n"); z.writestr("../escaped.txt", "out")
 open(f"{root}/truncated.zip", "wb").write(open(f"{root}/golden.zip", "rb").read()[:200])
+with zipfile.ZipFile(f"{root}/crc.zip", "w", zipfile.ZIP_STORED) as z:
+    z.writestr("MANIFEST.yaml", "features: []\n"); z.writestr("FEAT-999/spec.feature", "Feature: PAYLOADPAYLOAD\n")
+data = bytearray(open(f"{root}/crc.zip", "rb").read()); data[data.find(b"PAYLOADPAYLOAD")] ^= 0xFF
+open(f"{root}/crc.zip", "wb").write(bytes(data))
 PY
 expect_exit 1 "hostile archive is RED and is never extracted" "the archive was not extracted" \
   python3 "$VAL" --zip "$SANDBOX/fx/slip.zip" --repo "$PROJ"
 expect_exit 1 "truncated download is RED in plain language" "not a readable zip" \
   python3 "$VAL" --zip "$SANDBOX/fx/truncated.zip" --repo "$PROJ"
+expect_exit 1 "a damaged archive is RED in plain language and is never extracted" "damaged member: FEAT-999/spec.feature — the archive was not extracted" \
+  python3 "$VAL" --zip "$SANDBOX/fx/crc.zip" --repo "$PROJ"
 expect_exit 2 "--dir on a file is a usage fault (exit 2), never a RED verdict" "Not a folder" \
   python3 "$VAL" --dir "$SANDBOX/fx/golden.zip" --repo "$PROJ"
+expect_exit 2 "a return path that does not exist is a usage fault, never RED" "Not found" python3 "$VAL" --zip "$SANDBOX/nope.zip" --repo "$PROJ"
+cp -R "$RET" "$SANDBOX/fx/faulty"; rm "$SANDBOX/fx/faulty/MANIFEST.yaml"; mkdir "$SANDBOX/fx/faulty/MANIFEST.yaml"
+expect_exit 2 "a fault of the tool itself is exit 2 in plain language, never a verdict" "the tool itself failed" \
+  python3 "$VAL" --dir "$SANDBOX/fx/faulty" --repo "$PROJ"
+OUT=$(PO_PACKAGE_DEBUG=1 python3 "$VAL" --dir "$SANDBOX/fx/faulty" --repo "$PROJ" 2>&1); RC=$?
+[ "$RC" -eq 2 ] && has 'Traceback' && ok "the debug switch adds the trace and the exit code stays 2" || bad "the debug switch changed the exit code (got $RC)" "$OUT"
+python3 - "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX/allow.json" <<'PY'
+import json, sys
+c = json.load(open(sys.argv[1])); c["mock"]["allowed_external_hosts"] = ["CDN.Project.example"]; json.dump(c, open(sys.argv[2], "w"))
+PY
+cp -R "$RET" "$SANDBOX/fx/allowed"
+sed 's#<style>#<script src="https://cdn.project.example/x.js"></script><style>#' "$RET/FEAT-999/mock.html" > "$SANDBOX/fx/allowed/FEAT-999/mock.html"
+expect_exit 0 "a host on the project allowlist is not a finding, whatever its letter case" "No findings." \
+  python3 "$VAL" --dir "$SANDBOX/fx/allowed" --repo "$PROJ" --config "$SANDBOX/allow.json"
 
 echo "── Part 2: package builder ──"
 snapshot() { ( cd "$1" && find . -type f -not -path './.git/*' -exec cksum {} + | sort ); }
+find "$PROJ" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null
 BEFORE=$(snapshot "$PROJ")
-run_build out --zip-dir "$SANDBOX/zips" --roadmap "$PROJ/roadmap.json"
+# Without the variable this script exports: what is proven is the TOOL's own no-bytecode flag.
+OUT=$(env -u PYTHONDONTWRITEBYTECODE python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/out" --zip-dir "$SANDBOX/zips" --roadmap "$PROJ/roadmap.json" 2>&1); RC=$?
+PKGDIR=$(find "$SANDBOX/out" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
+env -u PYTHONDONTWRITEBYTECODE python3 "$VAL" --dir "$RET" --repo "$PROJ" >/dev/null 2>&1
 [ "$RC" -eq 0 ] && ok "package builds from the materialised copy" || bad "package build failed (exit $RC)" "$OUT"
-[ "$(snapshot "$PROJ")" = "$BEFORE" ] && ok "the builder wrote nothing into the repository — bytecode included" \
+[ "$RC" -eq 0 ] && [ "$(snapshot "$PROJ")" = "$BEFORE" ] && ok "builder and validator wrote nothing into the repository — bytecode included" \
   || bad "the builder changed the repository" "$(diff <(echo "$BEFORE") <(snapshot "$PROJ") | head -5)"
 PKG=$PKGDIR
 MISSING=""
@@ -201,11 +239,11 @@ for f in README.md PROJECT-INSTRUCTIONS.md PROJECT-INSTRUCTIONS-VISION.md PACKAG
 done
 [ -z "$MISSING" ] && ok "package tree complete" || bad "package tree incomplete:$MISSING"
 LEFT=$(grep -rlE '\$\{[a-z_]+\}|\{\{[A-Z0-9_]+\}\}' "$PKG" | grep -v '/30-templates/' | grep -v '/20-features/' || true)
-[ -z "$LEFT" ] && ok "no unresolved variable outside the templates folder" || bad "unresolved variables remain" "$LEFT"
+[ -n "$PKG" ] && [ -z "$LEFT" ] && ok "no unresolved variable outside the templates folder" || bad "unresolved variables remain" "$LEFT"
 check "journey template is the PO-safe cut (no factory header)" \
   sh -c "head -1 '$PKG/30-templates/user_journey-TEMPLATE.md' | grep -q '^# User Journey:'"
 BADCARD=""; for c in "$PKG"/10-design-system/cards/*.html; do head -1 "$c" | grep -q '^<!-- @dsCard group="[^"]*" -->$' || BADCARD="$BADCARD $(basename "$c")"; done
-[ -z "$BADCARD" ] && ok "every card opens with the card marker" || bad "cards without marker:$BADCARD"
+[ -n "$PKG" ] && [ -z "$BADCARD" ] && ok "every card opens with the card marker" || bad "cards without marker:$BADCARD"
 python3 - "$PKG/10-design-system" <<'PY' && ok "card manifest is valid and matches the cards on disk" || bad "card manifest does not match the cards on disk"
 import json, sys
 from pathlib import Path
@@ -225,7 +263,7 @@ expect_exit 2 "staging inside the repository is refused" "outside the repository
   python3 "$BLD" --repo "$PROJ" --out "$PROJ/inside" --no-zip
 expect_exit 2 "zip folder inside the repository is refused" "zip folder must be outside" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o9" --zip-dir "$PROJ/dist"
-[ ! -e "$PROJ/dist" ] && [ ! -e "$PROJ/inside" ] && ok "neither refused folder was created" || bad "a refused folder was created"
+[ -d "$PROJ" ] && [ ! -e "$PROJ/dist" ] && [ ! -e "$PROJ/inside" ] && ok "neither refused folder was created" || bad "a refused folder was created"
 expect_exit 2 "a roadmap path that does not exist says so" "Roadmap file not found" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o10" --no-zip --roadmap "$SANDBOX/no-roadmap.json"
 echo '[{"key":"FEAT-500","name":"x"}]' > "$SANDBOX/badroadmap.json"
@@ -260,12 +298,31 @@ for name, patch in {"exclude": ("features", "exclude", ["FEAT-998"]), "include":
     if patch[1] is None: cfg[patch[0]] = patch[2]
     else: cfg[patch[0]][patch[1]] = patch[2]
     json.dump(cfg, open(f"{box}/cfg-{name}.json", "w"))
+c = json.load(open(src)); c["features"]["include"] = ["FEAT-000"]; json.dump(c, open(f"{box}/cfg-include-other.json", "w"))
+c = json.load(open(src)); c["design_system"].update(tokens_sources=["docs/nope.html"], extra_files=["docs/nope.pdf"], codebase_inventory="config/nope.json")
+json.dump(c, open(f"{box}/cfg-typos.json", "w"))
+c = json.load(open(src)); c["design_system"]["tokens_sources"] = ["docs/ux/vision"]; json.dump(c, open(f"{box}/cfg-dirtok.json", "w"))
+c = json.load(open(src)); c["design_system"]["code_cards"]["dir"] = "../outside-cards"; json.dump(c, open(f"{box}/cfg-escape.json", "w"))
 PY
 run_build o-ex --no-zip --config "$SANDBOX/cfg-exclude.json"
 [ "$RC" -eq 0 ] && [ ! -e "$PKGDIR/20-features/FEAT-998" ] && grep -q '"features": \[\]' "$PKGDIR/PACKAGE.json" \
   && ok "an excluded feature stays out of the deliverable" || bad "exclude did not keep the feature out" "$OUT"
 run_build o-in --no-zip --config "$SANDBOX/cfg-include.json"
 [ "$RC" -eq 0 ] && [ -s "$PKGDIR/20-features/FEAT-998/user_journey.md" ] && ok "an included feature is packaged" || bad "include dropped the feature" "$OUT"
+run_build o-in2 --no-zip --config "$SANDBOX/cfg-include-other.json"
+[ "$RC" -eq 0 ] && grep -q '"features": \[\]' "$PKGDIR/PACKAGE.json" && ok "include keeps every other feature out" || bad "include did not filter" "$OUT"
+expect_exit 0 "a project that authors no design system has no drift to fail on, even under --strict" "drift: not applicable" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-bk" --no-zip --check-drift --strict --config "$SANDBOX/cfg-backend.json"
+run_build o-typo --no-zip --config "$SANDBOX/cfg-typos.json"
+[ "$RC" -eq 0 ] && has 'tokens source `docs/nope.html` does not exist' && has 'extra design-system file `docs/nope.pdf` does not exist' \
+  && has 'the codebase inventory is not at' && grep -q 'token sources were not found' "$PKGDIR/10-design-system/tokens.md" \
+  && ok "config paths that point nowhere are said out loud, in the run and in the package" || bad "a wrong config path degraded the package silently" "$OUT"
+expect_exit 2 "a fault of the builder itself is exit 2, never 'drift found'" "the tool itself failed" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-fault" --no-zip --check-drift --strict --config "$SANDBOX/cfg-dirtok.json"
+expect_exit 2 "a code cards folder outside the repository is refused in plain language" "inside the repository" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-esc" --no-zip --config "$SANDBOX/cfg-escape.json"
+run_build ost --no-zip; : > "$PKGDIR/STALE.md"; run_build ost --no-zip
+[ "$RC" -eq 0 ] && [ ! -e "$PKGDIR/STALE.md" ] && ok "a second build the same day starts from an empty staging folder" || bad "stale files survive a rebuild" "$OUT"
 for variant in features-only backend; do
   run_build "o-$variant" --no-zip --config "$SANDBOX/cfg-$variant.json"
   if [ "$RC" -eq 0 ] && [ ! -e "$PKGDIR/10-design-system" ] && [ ! -e "$PKGDIR/PROJECT-INSTRUCTIONS-VISION.md" ] \
@@ -397,6 +454,41 @@ run_build o6e --no-zip --mode ds-only --rebuild
 reset_cards
 run_build o6m --no-zip --mode ds-only
 [ "$RC" -eq 0 ] && has 'the folder does not exist' && ok "6B: a configured cards folder that is absent is said out loud" || bad "6B: a missing cards folder fell back silently" "$OUT"
+
+reset_cards; materialise "$PROJ" design-cards "python3 tools/render_cards.py" no
+run_build o6r --no-zip --mode ds-only --rebuild
+run_build o6u --no-zip --mode ds-only --check-drift
+[ "$RC" -eq 0 ] && has 'as found — NOT refreshed (pass --rebuild)' && ok "6B: cards used without a rebuild are said to be unrefreshed" || bad "6B: stale cards were trusted silently" "$OUT"
+printf '[]' > "$PROJ/design-cards/_ds_manifest.json"
+run_build o6j --no-zip --mode ds-only
+[ "$RC" -eq 0 ] && has 'is not the expected {cards: [...]}' && grep -q 'RENDERED-FROM-CODE button' "$PKGDIR/10-design-system/cards/button.html" \
+  && ok "6B: a wrong-shaped manifest from the project tool never blocks the build" || bad "6B: the project tool's manifest blocked the build (exit $RC)" "$OUT"
+mkdir -p "$PROJ/design-cards/again" && cp "$PROJ/design-cards/button.html" "$PROJ/design-cards/again/button.html"
+run_build o6k --no-zip --mode ds-only
+[ "$RC" -eq 0 ] && has 'a second time' && ok "6B: two code cards for one component are said out loud" || bad "6B: a card collision was resolved silently" "$OUT"
+
+reset_cards; materialise "$PROJ" null "python3 tools/render_cards.py" no
+run_build o6q --no-zip --mode ds-only --rebuild
+[ "$RC" -eq 0 ] && has 'its output is not used' && ok "a rebuild command with no cards folder configured is said out loud" || bad "a rebuild's output was discarded silently" "$OUT"
+reset_cards
+
+cat > "$PROJ/tools/render_aligned.py" <<'PY'
+import pathlib
+out = pathlib.Path("design-cards"); out.mkdir(exist_ok=True)
+(out / "button.html").write_text('<!-- @dsCard group="Components" -->\n<html lang="en"><body>btn</body></html>\n')
+PY
+cp "$PROJ/docs/ux/component-registry.json" "$SANDBOX/registry.bak"
+python3 - "$PROJ/docs/ux/component-registry.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+for c in d["components"]:
+    if c["id"] == "input": c["status"] = "DESIGNED"
+json.dump(d, open(p, "w"), indent=2)
+PY
+materialise "$PROJ" design-cards "python3 tools/render_aligned.py" no
+expect_exit 0 "6B: an aligned design system passes --check-drift --strict" "drift: 0 finding(s)" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-al" --no-zip --mode ds-only --rebuild --check-drift --strict
+cp "$SANDBOX/registry.bak" "$PROJ/docs/ux/component-registry.json"
 
 python3 - "$PROJ/subproducts/po-package/po-package.config.json" <<'PY'
 import json, sys

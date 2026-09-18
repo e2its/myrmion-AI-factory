@@ -81,6 +81,31 @@ def _scope_from_repo(repo: Path, ret: Path) -> None:
     _write(repo / "docs" / "spec" / "FEAT-999" / "user_journey.md", F.journey("FEAT-999", "backend-only", True))
 
 
+def _tailwind_tokens(_repo: Path, ret: Path) -> None:
+    """Tokens declared the way the framework's own templates do it: no root CSS block at all."""
+    _strip_tokens(_repo, ret)
+    _sub(_vis(ret, "app_shell.html"), "</head>", "<script>tailwind.config = {theme: {extend: {}}}</script></head>")
+
+
+def _with_header(scope: str, drop_erq_scope: bool = False) -> Mutation:
+    """The PO evolves an existing feature from the shipped annex, which carries the factory header."""
+    def mutate(_repo: Path, ret: Path) -> None:
+        if drop_erq_scope:
+            _sub(_feat(ret, "ERQ.md"), f'scope: "{scope}"\n', "")
+        page = _feat(ret, "user_journey.md")
+        _write(page, F.JOURNEY_FRONTMATTER.format(fid="FEAT-999", scope=scope) + page.read_text(encoding="utf-8"))
+    return mutate
+
+
+def _mock_head(markup: str) -> Mutation:
+    return lambda _repo, ret: _sub(_feat(ret, "mock.html"), "<style>", markup + "<style>")
+
+
+def _only_vision_no_manifest(repo: Path, ret: Path) -> None:
+    _only_vision(repo, ret)
+    (ret / "MANIFEST.yaml").unlink()
+
+
 def _gate(body: str) -> Mutation:
     return lambda repo, _ret: _write(repo / "scripts" / "check-journey-grammar.sh", body)
 
@@ -112,6 +137,37 @@ def _many_members(root: Path) -> Path:
     return target
 
 
+def _bulk(root: Path) -> Path:
+    target = root / "hostile.zip"
+    with zipfile.ZipFile(target, "w") as archive:
+        for index in range(4):
+            archive.writestr(f"f{index}.txt", "x" * 30)
+    return target
+
+
+def _protected(root: Path) -> Path:
+    """zipfile recomputes the header flags on write, so the "encrypted" bit is set in the bytes:
+    general-purpose flag, offset 6 of the local header and offset 8 of the central-directory entry."""
+    target = root / "hostile.zip"
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_STORED) as archive:
+        archive.writestr("MANIFEST.yaml", "x")
+    data = bytearray(target.read_bytes())
+    data[data.find(b"PK\x03\x04") + 6] |= 0x1
+    data[data.find(b"PK\x01\x02") + 8] |= 0x1
+    target.write_bytes(bytes(data))
+    return target
+
+
+def _damaged(root: Path) -> Path:
+    target = root / "hostile.zip"
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_STORED) as archive:
+        archive.writestr("MANIFEST.yaml", "PAYLOADPAYLOAD")
+    data = bytearray(target.read_bytes())
+    data[data.find(b"PAYLOADPAYLOAD")] ^= 0xFF
+    target.write_bytes(bytes(data))
+    return target
+
+
 def _garbage(root: Path) -> Path:
     target = root / "hostile.zip"
     target.write_bytes(b"this is not a zip archive at all")
@@ -136,6 +192,20 @@ CASES: list[Case] = [
          mutate=lambda r, t: (_sub(_vis(t, "component_library.html"), "</main>", _STEPPER),
                               _sub(_vis(t, "ERQ.md"), "new_components: []", 'new_components:\n  - id: "stepper"\n'
                                    '    name: "Stepper"\n    why_not_reused: "Tabs do not show an ordered sequence."'))),
+    Case("G10 tokens declared the way the framework templates do (no root CSS block)", mutate=_tailwind_tokens),
+    Case("G11 journey returned with the factory header it was shipped with", with_vision=False,
+         mutate=_with_header("full-stack")),
+    Case("G12 scope read from the returned journey header", with_vision=False, scope="backend-only",
+         mutate=_with_header("backend-only", drop_erq_scope=True)),
+    Case("G13 archive-tool litter next to the manifest, no wrapper",
+         mutate=lambda r, t: ((t / "__MACOSX" / "FEAT-999").mkdir(parents=True), _write(t / ".DS_Store", ""),
+                              (t / ".hidden").mkdir())),
+    Case("G14 first design system of a project: nothing to compare against",
+         mutate=lambda r, t: ((r / "docs" / "ux" / "component-registry.json").unlink(),
+                              (r / "docs" / "ux" / "vision" / "component_library.html").unlink())),
+    Case("G15 a URL quoted in prose is not a load", with_vision=False,
+         mutate=lambda r, t: _sub(_feat(t, "mock.html"), "<h1>Pick a day</h1>",
+                                  "<h1>Pick a day</h1><p>Write url(https://prose.example/x.png) in your notes.</p>")),
     Case("G9 a navigation link to another site is not a dependency", with_vision=False,
          mutate=lambda r, t: _sub(_feat(t, "mock.html"), "<h1>Pick a day</h1>",
                                   '<h1>Pick a day</h1><a href="https://venue.example/help">Help</a>')),
@@ -157,6 +227,8 @@ CASES: list[Case] = [
     # ── vocabulary ──
     Case("R6 undeclared new field", "field-new-undeclared", "WARN",
          lambda r, t: _sub(_feat(t, "user_journey.md"), "| party_size |", _DEPOSIT_ROW)),
+    Case("R6c undeclared persona", "name-new-undeclared", "WARN", message="Host",
+         mutate=lambda r, t: _sub(_feat(t, "user_journey.md"), "| Guest | Human |", "| Host | Human |")),
     Case("R6b undeclared new rule", "name-new-undeclared", "WARN",
          lambda r, t: _sub(_feat(t, "user_journey.md"), "| P1 | RULE-BOOK-01 |", "| P1 | RULE-BOOK-02 |"), message="RULE-BOOK-02"),
     Case("R7 undeclared new concept", "name-new-undeclared", "WARN",
@@ -170,6 +242,24 @@ CASES: list[Case] = [
     Case("R8c stylesheet import does not slip through", "external-deps", "ERROR",
          lambda r, t: _sub(_feat(t, "mock.html"), "<style>", '<style>@import "https://css.not-allowed.example/a.css";'),
          message="css.not-allowed.example"),
+    Case("R8d stylesheet link", "external-deps", "ERROR", message="fonts.not-allowed.example",
+         mutate=_mock_head('<link rel="stylesheet" href="https://fonts.not-allowed.example/a.css">')),
+    Case("R8e protocol-relative script", "external-deps", "ERROR", message="cdn.proto.example",
+         mutate=_mock_head('<script src="//cdn.proto.example/x.js"></script>')),
+    Case("R8f stylesheet url()", "external-deps", "ERROR", message="img.not-allowed.example",
+         mutate=lambda r, t: _sub(_feat(t, "mock.html"), "<style>", "<style>.x{background:url(https://img.not-allowed.example/b.png)}")),
+    Case("R8g lazy-loaded image", "external-deps", "ERROR", message="lazy.not-allowed.example",
+         mutate=_mock_head('<img alt="x" data-src="https://lazy.not-allowed.example/i.png">')),
+    Case("R8h plain-http script", "external-deps", "ERROR", message="plain.not-allowed.example",
+         mutate=_mock_head('<script src="http://plain.not-allowed.example/x.js"></script>')),
+    Case("R8i responsive image candidate", "external-deps", "ERROR", message="set.not-allowed.example",
+         mutate=_mock_head('<img alt="x" srcset="a.png 1x, https://set.not-allowed.example/a2.png 2x">')),
+    Case("R8j embedded object", "external-deps", "ERROR", message="obj.not-allowed.example",
+         mutate=_mock_head('<object data="https://obj.not-allowed.example/o.bin"></object>')),
+    Case("R8k protocol-relative stylesheet import", "external-deps", "ERROR", message="imp.not-allowed.example",
+         mutate=lambda r, t: _sub(_feat(t, "mock.html"), "<style>", '<style>@import "//imp.not-allowed.example/a.css";')),
+    Case("R8l base address re-rooting every relative URL", "external-deps", "ERROR", message="base.not-allowed.example",
+         mutate=_mock_head('<base href="https://base.not-allowed.example/">')),
     # ── evolution request ──
     Case("R9 change without a business reason", "erq-change-incomplete", "ERROR",
          lambda r, t: _sub(_feat(t, "ERQ.md"), '    business_reason: "Guests abandon when confirmation takes more than one step."\n', "")),
@@ -177,8 +267,19 @@ CASES: list[Case] = [
          lambda r, t: _sub(_feat(t, "ERQ.md"), "new_names: []", 'new_names:\n  - name: "deposit_amount"\n    kind: "field"')),
     Case("R10b new names written as bare texts is a finding, not a crash", "erq-fields", "ERROR",
          lambda r, t: _sub(_feat(t, "ERQ.md"), "new_names: []", 'new_names: ["deposit_amount"]'), message="new_names"),
-    Case("R10c changes written as a number is a finding, not a crash", "erq-fields", "ERROR",
+    Case("R10c new components written as a number is a finding, not a crash", "erq-fields", "ERROR",
          lambda r, t: _sub(_feat(t, "ERQ.md"), "new_names: []", "new_components: 3"), message="new_components"),
+    Case("R10d two names in one entry is a finding, not a tool fault", "erq-fields", "ERROR", message="ONE text",
+         mutate=lambda r, t: _sub(_feat(t, "ERQ.md"), "new_names: []", 'new_names:\n  - name: ["deposit_amount", "hold_amount"]\n'
+                                  '    why_not_reused: "Nothing in the glossary holds money."')),
+    Case("R10e changes written as a number", "erq-fields", "ERROR", message="`changes`",
+         mutate=lambda r, t: _write(_feat(t, "ERQ.md"), _feat(t, "ERQ.md").read_text(encoding="utf-8").split("changes:")[0]
+                                    + "changes: 3\nnew_names: []\n---\n")),
+    Case("R20c header with an unquoted colon in free text", "erq-header", "BLOCKER", message="unreadable YAML",
+         mutate=lambda r, t: _sub(_feat(t, "ERQ.md"), 'summary: "A single confirmation step closes the booking."',
+                                  "summary: Guests: one step closes the booking.")),
+    Case("R21e unknown scope", "erq-fields", "ERROR", message="not a known scope",
+         mutate=lambda r, t: _sub(_feat(t, "ERQ.md"), 'scope: "full-stack"', 'scope: "mobile"')),
     Case("R20 evolution request without header", "erq-header", "BLOCKER",
          lambda r, t: _write(_feat(t, "ERQ.md"), "# no header\n")),
     Case("R20b evolution request header is a list", "erq-header", "BLOCKER",
@@ -203,6 +304,12 @@ CASES: list[Case] = [
          mutate=lambda r, t: shutil.rmtree(t / "VISION")),
     Case("R11e manifest missing", "manifest", "BLOCKER", message="is missing",
          mutate=lambda r, t: (t / "MANIFEST.yaml").unlink()),
+    Case("R11f feature id written as a list is a finding, not a tool fault", "manifest", "ERROR", message="ONE text",
+         mutate=lambda r, t: _sub(t / "MANIFEST.yaml", 'feature_id: "FEAT-999"', 'feature_id: ["FEAT-999"]')),
+    Case("R11g a lone VISION folder is a target, not a wrapper: the missing manifest is named", "manifest", "BLOCKER",
+         message="is missing", mutate=_only_vision_no_manifest),
+    Case("R22b design-system checklist not walked", "self-check", "WARN", message="VISION",
+         mutate=lambda r, t: _sub(t / "MANIFEST.yaml", "  self_checked: true\n\nfeatures", "  self_checked: false\n\nfeatures")),
     Case("R22 checklist not walked", "self-check", "WARN",
          lambda r, t: _sub(t / "MANIFEST.yaml", "    self_checked: true", "    self_checked: false")),
     # ── gherkin ──
@@ -210,6 +317,8 @@ CASES: list[Case] = [
          lambda r, t: _write(_feat(t, "spec.feature"), "Feature: Empty\n"), message="no `Scenario:`"),
     Case("R12b spec without a feature line", "gherkin", "BLOCKER",
          lambda r, t: _sub(_feat(t, "spec.feature"), "Feature: Table booking", "Table booking"), message="`Feature:`"),
+    Case("R13b scenario without a title", "gherkin", "ERROR", message="no title",
+         mutate=lambda r, t: _sub(_feat(t, "spec.feature"), "Scenario: Guest opens the booking with no open days", "Scenario:")),
     Case("R13 duplicated scenario title", "gherkin", "ERROR",
          lambda r, t: _sub(_feat(t, "spec.feature"), "Scenario: Guest opens the booking with no open days",
                            "Scenario: Guest picks a fully booked day"), message="duplicated"),
@@ -223,6 +332,10 @@ CASES: list[Case] = [
     Case("R29 file that is not UTF-8", "structure", "ERROR",
          lambda r, t: _feat(t, "spec.feature").write_bytes(_feat(t, "spec.feature").read_bytes() + "# caf\xe9\n".encode("cp1252")),
          message="UTF-8"),
+    Case("R29b manifest that is not UTF-8", "structure", "ERROR", message="UTF-8",
+         mutate=lambda r, t: (t / "MANIFEST.yaml").write_bytes((t / "MANIFEST.yaml").read_bytes() + "# caf\xe9\n".encode("cp1252"))),
+    Case("R34 file that is not part of a return", "structure", "WARN", message="NOT reviewed",
+         mutate=lambda r, t: _write(t / "FEAT-1000-user_journey.md", "# stray\n")),
     Case("R32 return with nothing in it", "structure", "BLOCKER", message="neither",
          mutate=lambda r, t: (shutil.rmtree(t / "FEAT-999"), shutil.rmtree(t / "VISION"))),
     # ── mock ──
@@ -233,6 +346,8 @@ CASES: list[Case] = [
     Case("R24c shell without a navigation landmark", "a11y-basics", "WARN",
          lambda r, t: _sub(_vis(t, "app_shell.html"), '<nav aria-label="Primary"><a href="#bookings">Bookings</a></nav>', ""),
          message="<nav>"),
+    Case("R25b a state named by prefix is not the state", "mock-states", "WARN", message="error",
+         mutate=lambda r, t: _sub(_feat(t, "mock.html"), '  <div data-state="error"><p>That day', '  <div data-state="error-banner"><p>That day')),
     Case("R25 step without its error state", "mock-states", "WARN",
          lambda r, t: _sub(_feat(t, "mock.html"), _ERROR_STATE, ""), message="error"),
     # ── design system ──
@@ -260,11 +375,13 @@ CASES: list[Case] = [
          lambda r, t: _sub(_vis(t, "style_guide.html"), 'id="colors"', 'id="Brand Colors"'), message="slug"),
     Case("R31 component section never closed", "vision-components-parseable", "ERROR",
          lambda r, t: _sub(_vis(t, "component_library.html"), "<div>Body</div></section>", "<div>Body</div>"), message="never closed"),
+    Case("R31b unnamed section never closed", "vision-components-parseable", "ERROR", message="(unnamed)",
+         mutate=lambda r, t: _sub(_vis(t, "component_library.html"), "</main>", '<section data-component=""><div></main>')),
     Case("R17 undeclared new component", "vision-component-undeclared", "WARN",
          lambda r, t: _sub(_vis(t, "component_library.html"), "</main>", _STEPPER)),
     Case("R23 factory-owned header returned in the vision", "vision-frontmatter-leak", "WARN",
          lambda r, t: _write(_vis(t, "vision.md"), "---\nstatus: APPROVED\n---\n\n# Vision\n")),
-    # ── hostile archives: never extracted ──
+    # ── hostile archives: found by READING them, never extracted (extractall is patched to prove it) ──
     Case("R18 archive escapes its folder", "zip-safety", "BLOCKER", archive=_member("../escaped.txt"), message="escapes"),
     Case("R18b absolute path", "zip-safety", "BLOCKER", archive=_member("/etc/owned.txt"), message="absolute"),
     Case("R18c drive-letter path", "zip-safety", "BLOCKER", archive=_member("C:\\owned.txt"), message="absolute"),
@@ -272,9 +389,14 @@ CASES: list[Case] = [
     Case("R18e oversized member", "zip-safety", "BLOCKER", archive=_member("big.txt", size=64), message="oversized"),
     Case("R18f too many entries", "zip-safety", "BLOCKER", archive=_many_members, message="too many"),
     Case("R18g not an archive", "zip-safety", "BLOCKER", archive=_garbage, message="not a readable zip"),
+    Case("R18h many small members beyond the total cap", "zip-safety", "BLOCKER", archive=_bulk, message="expands beyond"),
+    Case("R18i password-protected archive is found by reading, never by extracting", "zip-safety", "BLOCKER",
+         archive=_protected, message="password-protected"),
+    Case("R18j damaged member is found by reading, never by extracting", "zip-safety", "BLOCKER",
+         archive=_damaged, message="damaged"),
 ]
 
-_LIMITS = {"MAX_MEMBER_BYTES": 32, "MAX_ZIP_ENTRIES": 5}   # small caps so the hostile archives stay tiny
+_LIMITS = {"MAX_MEMBER_BYTES": 32, "MAX_ZIP_ENTRIES": 5, "MAX_TOTAL_BYTES": 100}   # small caps so the hostile archives stay tiny
 
 
 def _validate(case: Case, root: Path, grammar: Path, cfg: dict) -> tuple[V.Report, str | None]:
@@ -323,34 +445,73 @@ def _run_case(case: Case, grammar: Path, cfg: dict) -> str | None:
     return fault or _verdict(case, rep)
 
 
-def _check_ids_in_source() -> tuple[set[str], set[str]]:
-    """(ids passed literally as the 3rd argument of `.add`, every string constant of the module).
-
-    Helpers receive the check id as a parameter, so a literal scan of `.add` alone would
-    miss them; any declared id must at least appear somewhere as a constant."""
+def _ids_raised_literally() -> set[str]:
+    """Check ids passed as a literal 3rd argument of `.add`, read from the syntax tree.
+    (Ids handed to a helper as a parameter are caught at run time by `Finding.__post_init__`.)"""
     tree = ast.parse(Path(V.__file__).read_text(encoding="utf-8"))
-    direct: set[str] = set()
-    constants: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            constants.add(node.value)
-        is_add = isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "add"
-        if is_add and len(node.args) >= 3 and isinstance(node.args[2], ast.Constant):
-            direct.add(node.args[2].value)
-    return direct, constants
+    return {node.args[2].value for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "add"
+            and len(node.args) >= 3 and isinstance(node.args[2], ast.Constant)}
+
+
+def _case_gaps(declared: set[str]) -> list[str]:
+    covered = {c.expect for c in CASES if c.expect}
+    named = {c.expect for c in CASES} | {c.forbid for c in CASES}
+    gaps = [f"check «{c}» has no red case — a check that only sees green is decoration" for c in sorted(declared - covered)]
+    gaps += [f"a case names «{c}», which is not a check id — it would pass vacuously" for c in sorted(named - declared - {None})]
+    gaps += [f"case «{c.name}» expects a finding but states no severity" for c in CASES if c.expect and c.severity not in V.SEVERITIES]
+    return gaps
 
 
 def _coverage_gaps() -> list[str]:
     declared = set(V.ALL_CHECKS)
-    direct, constants = _check_ids_in_source()
-    covered = {c.expect for c in CASES if c.expect}
-    named = {c.expect for c in CASES} | {c.forbid for c in CASES}
-    gaps = [f"check «{c}» is raised but not declared in ALL_CHECKS" for c in sorted(direct - declared)]
-    gaps += [f"check «{c}» is declared but nothing in the validator names it" for c in sorted(declared - constants)]
-    gaps += [f"check «{c}» has no red case — a check that only sees green is decoration" for c in sorted(declared - covered)]
-    gaps += [f"a case names «{c}», which is not a check id — it would pass vacuously" for c in sorted(named - declared - {None})]
-    gaps += [f"case «{c.name}» expects a finding but states no severity" for c in CASES if c.expect and c.severity not in V.SEVERITIES]
+    gaps = [f"check «{c}» is raised but not declared in ALL_CHECKS" for c in sorted(_ids_raised_literally() - declared)]
+    gaps += _case_gaps(declared)
+    for bad in (("ERORR", "x", "structure", "m"), ("ERROR", "x", "no-such-check", "m")):
+        try:
+            V.Finding(*bad)
+            gaps.append(f"Finding accepted {bad[:3]} — a typo must fail loudly at construction")
+        except ValueError:
+            pass
     return gaps
+
+
+_ODD = (None, 3, True, "x", [], ["a"], {}, {"a": 1}, [["a"]], [3], [{"name": ["a"], "id": {"b": 1}}])
+_ERQ_KEYS = ("erq_id", "target", "feature_id", "scope", "classification", "changes", "new_names", "new_components", "open_questions")
+_MANIFEST_KEYS = ("package", "vision", "features", "reviewed_no_change")
+
+
+def _fuzz_one(path: Path, original: str, data: dict, header: bool, repo: Path, ret: Path, cfg: dict) -> str | None:
+    import yaml
+    body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    path.write_text(f"---\n{body}---\n" if header else body, encoding="utf-8")
+    try:
+        V.validate_dir(ret, repo, cfg)
+    except Exception as exc:  # noqa: BLE001 - that is the point: nothing may escape
+        return f"{type(exc).__name__}: {exc}"
+    finally:
+        path.write_text(original, encoding="utf-8")
+    return None
+
+
+def _shape_fuzz(grammar: Path, cfg: dict) -> list[str]:
+    """No shape a PO can author may raise: a crash reads as a tool fault and the PO never hears."""
+    import yaml
+    failures: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="po-fuzz-") as tmp, mock.patch.object(V, "_run_grammar", return_value=(0, "")):
+        repo, ret = F.emit_repo(Path(tmp), grammar), F.emit_return(Path(tmp))
+        for path, keys, header in ((_feat(ret, "ERQ.md"), _ERQ_KEYS, True), (_vis(ret, "ERQ.md"), _ERQ_KEYS, True),
+                                   (ret / "MANIFEST.yaml", _MANIFEST_KEYS, False)):
+            original = path.read_text(encoding="utf-8")
+            base = yaml.safe_load(L.split_frontmatter(original)[0] if header else original)
+            variants = [{**base, key: odd} for key in keys for odd in _ODD]
+            variants += [{**base, "features": [{"feature_id": odd, "self_checked": odd}]} for odd in _ODD] if not header else []
+            variants += [{**base, "changes": [{"id": odd, "kind": odd}]} for odd in _ODD] if header else []
+            for data in variants:
+                fault = _fuzz_one(path, original, data, header, repo, ret, cfg)
+                if fault:
+                    failures.append(f"{path.relative_to(ret)} with {data!r:.90} raised {fault}")
+    return failures
 
 
 def run(grammar: Path) -> int:
@@ -366,5 +527,10 @@ def run(grammar: Path) -> int:
     for gap in _coverage_gaps():
         failures += 1
         print(f"  FAIL  coverage — {gap}")
+    crashes = _shape_fuzz(grammar, cfg)
+    for crash in crashes[:10]:
+        failures += 1
+        print(f"  FAIL  shape fuzz — {crash}")
+    print(f"  {'FAIL' if crashes else 'ok  '}  shape fuzz — no PO-authored YAML shape may raise ({len(crashes)} crash(es))")
     print(f"\nselftest: {len(CASES)} cases, {failures} failure(s)")
     return 1 if failures else 0

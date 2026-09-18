@@ -7,10 +7,10 @@ Judges FORM and COHERENCE, never merit. Green means "this is reviewable"; it nev
 
 Checks (BLOCKER and ERROR make the return RED; WARN never does):
 
-  zip-safety                   an archive that escapes its folder, is oversized, encrypted
-                               or damaged is never extracted
-  structure / manifest         a return nobody can index cannot be reviewed; an empty or
-                               non-UTF-8 file and an unrecognised folder are named, never skipped
+  zip-safety                   an archive that escapes its folder, is oversized, password-protected
+                               or damaged is found by READING it and is never extracted
+  structure / manifest         a return nobody can index cannot be reviewed; an empty or non-UTF-8
+                               file, an unrecognised folder or file are named, never skipped
   self-check                   the PO attests the checklist was walked (WARN)
   erq-*                        the evolution request is what makes the artefacts readable
   new-name-unjustified         a name declared new must say what was looked up first
@@ -23,6 +23,7 @@ Checks (BLOCKER and ERROR make the return RED; WARN never does):
   a11y-basics                  cheap signals only; WCAG stays authoritative at the gates (WARN)
   mock-states                  the sync gate wants four states per step; said BEFORE the round-trip (WARN)
   vision-*                     the design system arrives whole, tokenised, anchored and parseable
+                               (component-undeclared, frontmatter-leak and a missing core component are WARN)
 
 Usage:
     python3 validate_po_return.py --zip ~/Downloads/return.zip
@@ -32,26 +33,25 @@ Usage:
 
 Exit codes: 0 GREEN (no BLOCKER/ERROR; WARN allowed) · 1 RED · 2 the tool could not do its
 job (usage, configuration, repository, IO, or a fault of the tool itself) — never a verdict.
+With --selftest: 0 every case passes · 1 a case failed · 2 the journey gate is missing.
+PO_PACKAGE_DEBUG=1 adds the stack trace to an exit 2; the exit code does not change.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
+import re
+import shutil
+import subprocess
 import sys
+import tempfile
+import zipfile
+from collections import Counter
+from dataclasses import dataclass, field
+from pathlib import Path
 
-sys.dont_write_bytecode = True  # this tool never writes into the repository — bytecode included
-
-import argparse  # noqa: E402
-import json  # noqa: E402
-import os  # noqa: E402
-import re  # noqa: E402
-import shutil  # noqa: E402
-import subprocess  # noqa: E402
-import tempfile  # noqa: E402
-import zipfile  # noqa: E402
-from collections import Counter  # noqa: E402
-from dataclasses import dataclass, field  # noqa: E402
-from pathlib import Path  # noqa: E402
-
+sys.dont_write_bytecode = True  # run as a CLI, this tool leaves no bytecode beside its sources
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import po_lib as L  # noqa: E402
 
@@ -61,6 +61,7 @@ CORE_COMPONENTS = ("button", "input", "card")
 MOCK_STATES = ("default", "empty", "loading", "error")
 TEXT_SUFFIXES = (".md", ".feature", ".html", ".yaml", ".yml")
 IGNORED_FOLDERS = ("__MACOSX",)
+FEATURE_FILES = ("ERQ.md", "user_journey.md", "spec.feature", "mock.html", "slice_map.md")
 ALL_CHECKS = (
     "zip-safety", "structure", "manifest", "self-check",
     "erq-header", "erq-fields", "erq-change-incomplete", "new-name-unjustified",
@@ -82,7 +83,8 @@ class Finding:
     message: str
 
     def __post_init__(self) -> None:
-        # A typo here would fail OPEN: an unknown severity is not blocking, so RED reads GREEN.
+        # A typo must fail loudly, here: downstream it would either crash the report or be
+        # read as one more blocking finding nobody can find in the check list.
         if self.severity not in SEVERITIES:
             raise ValueError(f"unknown severity {self.severity!r}")
         if self.check not in ALL_CHECKS:
@@ -178,8 +180,11 @@ def _check_change_entries(fm: dict, where: str, rep: Report) -> None:
 
 
 def _check_new_declarations(fm: dict, where: str, rep: Report) -> None:
-    for bucket in ("new_names", "new_components"):
+    for bucket, key in (("new_names", "name"), ("new_components", "id")):
         for entry in _mappings(fm.get(bucket), bucket, where, rep):
+            if not isinstance(entry.get(key), str):
+                rep.add("ERROR", where, "erq-fields",
+                        f"every `{bucket}` entry needs `{key}` as ONE text — one entry per name, never a list")
             if not entry.get("why_not_reused"):
                 rep.add("ERROR", where, "new-name-unjustified",
                         f"«{entry.get('name') or entry.get('id') or '?'}» is declared new but does not say what was looked up first")
@@ -199,7 +204,9 @@ def check_erq(path: Path, target: str, folder: str, rep: Report) -> dict:
 
 def _declared(fm: dict, bucket: str, key: str) -> set[str]:
     entries = fm.get(bucket)
-    return {e[key] for e in entries if isinstance(e, dict) and e.get(key)} if isinstance(entries, list) else set()
+    if not isinstance(entries, list):
+        return set()
+    return {e[key] for e in entries if isinstance(e, dict) and isinstance(e.get(key), str) and e[key]}
 
 
 # ── Feature artefacts ────────────────────────────────────────────────────────
@@ -242,7 +249,8 @@ def check_mock_states(html: str, where: str, rep: Report) -> None:
     for block in L.scan_sections(html, "id"):
         if not re.fullmatch(r"step-\d+", block["id"]):
             continue
-        missing = [s for s in MOCK_STATES if not re.search(rf'data-state\s*=\s*["\']?{s}\b', block["html"])]
+        missing = [s for s in MOCK_STATES
+                   if not re.search(rf'data-state\s*=\s*(?:"{s}"|\'{s}\'|{s}(?=[\s/>]))', block["html"])]
         if missing:
             rep.add("WARN", where, "mock-states",
                     f"{block['id']} lacks the state block(s) {', '.join(missing)} — it will come back from the sync gate")
@@ -406,10 +414,12 @@ def validate_vision(vision: Path, ctx: Context, rep: Report) -> None:
 
 def _manifest_coverage(manifest: dict, features: list[dict], present: set[str], has_vision: bool, rep: Report) -> None:
     where = "MANIFEST.yaml"
-    listed = {f.get("feature_id") for f in features}
+    if any(not isinstance(f.get("feature_id"), str) for f in features):
+        rep.add("ERROR", where, "manifest", "every `features` entry needs `feature_id` as ONE text")
+    listed = {f["feature_id"] for f in features if isinstance(f.get("feature_id"), str)}
     for folder in sorted(present - listed):
         rep.add("ERROR", where, "manifest", f"folder {folder} is in the return but not listed")
-    for ghost in sorted(x for x in listed - present if x):
+    for ghost in sorted(listed - present):
         rep.add("ERROR", where, "manifest", f"{ghost} is listed but has no folder")
     if bool(manifest.get("vision")) != has_vision:
         rep.add("ERROR", where, "manifest", "the `vision:` block and the VISION/ folder must come together")
@@ -442,21 +452,40 @@ def build_context(repo: Path, cfg: dict) -> Context:
     return Context(repo, cfg, L.load_glossary(repo, cfg), frozenset(L.allowed_hosts(repo, cfg)), frozenset(known))
 
 
-def _return_root(root: Path) -> Path:
-    """Tolerate the single wrapping directory most zip tools add (and their hidden litter)."""
+def _return_root(root: Path, cfg: dict) -> Path:
+    """Tolerate the single wrapping directory most zip tools add (and their hidden litter).
+    A lone VISION/ or feature folder is a target, not a wrapper: unwrapping it would hide
+    the real defect (the manifest is missing) behind a false one."""
     entries = [p for p in root.iterdir() if not p.name.startswith(".") and p.name not in IGNORED_FOLDERS]
-    if len(entries) == 1 and entries[0].is_dir() and not (root / "MANIFEST.yaml").exists():
-        return entries[0]
-    return root
+    if len(entries) != 1 or not entries[0].is_dir() or (root / "MANIFEST.yaml").exists():
+        return root
+    name = entries[0].name
+    return root if name == "VISION" or L.feature_id_re(cfg).match(name) else entries[0]
 
 
-def _check_encoding(target: Path, rep: Report) -> None:
-    for path in sorted(p for p in target.rglob("*") if p.is_file() and p.suffix.lower() in TEXT_SUFFIXES):
+def _check_encoding(root: Path, rep: Report) -> None:
+    """Every text file of the return, the manifest at the root included."""
+    for path in sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in TEXT_SUFFIXES):
+        rel = path.relative_to(root)
+        if any(part.startswith(".") or part in IGNORED_FOLDERS for part in rel.parts):
+            continue
         try:
             path.read_bytes().decode("utf-8")
         except UnicodeDecodeError:
-            rep.add("ERROR", f"{target.name}/{path.relative_to(target).as_posix()}", "structure",
+            rep.add("ERROR", rel.as_posix(), "structure",
                     "this file is not UTF-8 — names would be silently mangled; save it as UTF-8")
+
+
+def _check_strays(root: Path, vision: Path | None, feature_dirs: list[Path], rep: Report) -> None:
+    """A file that is not part of a return is said so: silence would read as "reviewed"."""
+    expected = {root / "MANIFEST.yaml"}
+    expected |= {vision / n for n in ("ERQ.md",) + L.VISION_FILES} if vision else set()
+    expected |= {d / n for d in feature_dirs for n in FEATURE_FILES}
+    for target in [root] + ([vision] if vision else []) + feature_dirs:
+        for path in sorted(p for p in target.iterdir() if p.is_file() and not p.name.startswith(".")):
+            if path not in expected:
+                rep.add("WARN", path.relative_to(root).as_posix(), "structure",
+                        "this file is not part of a return — it was NOT reviewed")
 
 
 def _targets(root: Path, cfg: dict, rep: Report) -> tuple[Path | None, list[Path]]:
@@ -480,15 +509,15 @@ def validate_dir(root: Path, repo: Path, cfg: dict) -> Report:
     if not root.is_dir():
         raise L.PoPackageError(f"Not a folder: {root} (use --zip for an archive)")
     rep = Report()
-    root = _return_root(root)
+    root = _return_root(root, cfg)
     vision, feature_dirs = _targets(root, cfg, rep)
     if vision is None and not feature_dirs:
         rep.add("BLOCKER", ".", "structure", "the return carries neither a VISION/ folder nor a feature folder")
         return rep
     check_manifest(root, feature_dirs, vision is not None, rep)
     ctx = build_context(repo, cfg)
-    for target in ([vision] if vision else []) + feature_dirs:
-        _check_encoding(target, rep)
+    _check_encoding(root, rep)
+    _check_strays(root, vision, feature_dirs, rep)
     if vision:
         validate_vision(vision, ctx, rep)
     for feature_dir in feature_dirs:
@@ -497,19 +526,19 @@ def validate_dir(root: Path, repo: Path, cfg: dict) -> Report:
 
 
 def validate_zip(zip_path: Path, repo: Path, cfg: dict) -> Report:
-    problems = L.zip_problems(zip_path)
+    problems = [f"{p} — the archive was not extracted" for p in L.zip_problems(zip_path)]
     with tempfile.TemporaryDirectory(prefix="po-return-") as tmp:
         if not problems:
             try:
                 with zipfile.ZipFile(zip_path) as archive:
                     archive.extractall(tmp)
-            except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError) as exc:
-                problems = [f"encrypted or damaged ({exc})"]
+            except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError):
+                problems = ["the archive could not be unpacked — what was unpacked was discarded and nothing was reviewed"]
         if not problems:
             return validate_dir(Path(tmp), repo, cfg)
     rep = Report()
     for problem in problems:
-        rep.add("BLOCKER", zip_path.name, "zip-safety", f"{problem} — the archive was not extracted")
+        rep.add("BLOCKER", zip_path.name, "zip-safety", problem)
     return rep
 
 
@@ -523,8 +552,10 @@ def verdict_line(rep: Report) -> str:
 
 def render(rep: Report, as_json: bool) -> str:
     if as_json:
+        infra = any(f.check == "journey-grammar-infra" for f in rep.blocking)
         return json.dumps({"checked": rep.checked, "findings": [f.__dict__ for f in rep.findings],
-                           "verdict": "RED" if rep.blocking else "GREEN"}, indent=2, ensure_ascii=False)
+                           "verdict": "RED" if rep.blocking else "GREEN",
+                           "returnable_to_po": bool(rep.blocking) and not infra}, indent=2, ensure_ascii=False)
     lines = ["", "═══ PO return validation ═══", ""]
     if not rep.findings:
         lines.append("  No findings.")
@@ -576,16 +607,7 @@ def _dispatch(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
-    try:
-        return _dispatch(args)
-    except L.PoPackageError as exc:
-        print(f"Cannot validate: {exc}", file=sys.stderr)
-    except Exception as exc:  # noqa: BLE001 - boundary: a tool fault must never read as a RED verdict
-        if os.environ.get("PO_PACKAGE_DEBUG"):
-            raise
-        print(f"Cannot validate: the tool itself failed ({type(exc).__name__}: {exc}). This is a tooling "
-              "fault, not a finding about the return. Set PO_PACKAGE_DEBUG=1 to see the trace.", file=sys.stderr)
-    return 2
+    return L.cli_main(lambda: _dispatch(args), "Cannot validate")
 
 
 if __name__ == "__main__":
