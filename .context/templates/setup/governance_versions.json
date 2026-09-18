@@ -1316,6 +1316,96 @@
       "changelog": [
         "1.0.0: feat(EVOL-052) — initial. Project config of the PO package — the file SETUP resolves placeholders in (project name, goal, scope, language, feature id pattern, package mode, design-system code-cards dir and rebuild command; JSON null where a key does not apply)."
       ]
+    },
+    "subproducts/po-package/build_po_package.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/build_po_package.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "PO package builder: reads the repo, stages OUTSIDE it, zips. Offline (roadmap arrives as a file exported through /backlog). 00-core product sheet, feature catalogue, closed-vocabulary glossary, route map, roadmap; 10-design-system tokens, component base (registry joined with the codebase inventory), one preview card per component; 20-features annexes; 30-templates PO-safe cuts. Design-system cards from code per component when the project configures a rebuild tool (no shell, timeout, fail-open), card-to-registry drift report, ds-only mode for CI, stale-runbook warning. Names no third-party tool.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. PO package builder: reads the repo, stages OUTSIDE it, zips. Offline (roadmap arrives as a file exported through /backlog). 00-core product sheet, feature catalogue, closed-vocabulary glossary, route map, roadmap; 10-design-system tokens, component base (registry joined with the codebase inventory), one preview card per component; 20-features annexes; 30-templates PO-safe cuts. Design-system cards from code per component when the project configures a rebuild tool (no shell, timeout, fail-open), card-to-registry drift report, ds-only mode for CI, stale-runbook warning. Names no third-party tool."
+      ]
+    },
+    "subproducts/po-package/RUNBOOK.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "subproducts/po-package/RUNBOOK.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse."
+      ]
+    },
+    "subproducts/po-package/static/en/README.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/README.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "PO-facing guide shipped at the zip root (build-time variables, no SETUP placeholders).",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. PO-facing guide shipped at the zip root (build-time variables, no SETUP placeholders)."
+      ]
+    },
+    "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "System prompt pasted into the PO's Claude Desktop project — feature mode. Journey-first grammar, LAW-16 zero technical types, closed vocabulary, literal headings, scope not decided here, 15 pre-delivery checks mirroring the validator.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. System prompt pasted into the PO's Claude Desktop project — feature mode. Journey-first grammar, LAW-16 zero technical types, closed vocabulary, literal headings, scope not decided here, 15 pre-delivery checks mirroring the validator."
+      ]
+    },
+    "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS-VISION.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/PROJECT-INSTRUCTIONS-VISION.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "System prompt for the design-system project: the six vision artefacts, the `data-component` / `data-token-group` anchor contract the component catalogue is built from, reuse-first, WCAG 2.1 AA.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. System prompt for the design-system project: the six vision artefacts, the `data-component` / `data-token-group` anchor contract the component catalogue is built from, reuse-first, WCAG 2.1 AA."
+      ]
+    },
+    "subproducts/po-package/static/en/00-core/rules-of-the-game.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/00-core/rules-of-the-game.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "What the PO may and may not propose, and the cost table per kind of change.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. What the PO may and may not propose, and the cost table per kind of change."
+      ]
+    },
+    "subproducts/po-package/static/en/30-templates/ERQ-TEMPLATE.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/30-templates/ERQ-TEMPLATE.md",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Evolution request template: target feature|vision, scope, classification, changes[], new_names[], new_components[], open_questions[].",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Evolution request template: target feature|vision, scope, classification, changes[], new_names[], new_components[], open_questions[]."
+      ]
+    },
+    "subproducts/po-package/static/en/30-templates/MANIFEST-TEMPLATE.yaml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/static/en/30-templates/MANIFEST-TEMPLATE.yaml",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Return index template: package block, optional vision block, ordered features, reviewed_no_change, self_checked attestation.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Return index template: package block, optional vision block, ordered features, reviewed_no_change, self_checked attestation."
+      ]
+    },
+    "workflows/design-system-rebuild.github-actions.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".github/workflows/design-system-rebuild.yml",
+      "stack_conditional": "ci_cd_platform == \"GitHub Actions\" AND po_package.ds_rebuild_command != null",
+      "role": "OPTIONAL advisory GitHub Actions job (EVOL-052 DEC-6): rebuilds design-system cards from code through the PO package builder, reports card-to-registry drift, uploads the bundle. Materialised only when a rebuild command is configured. Push-to-main and manual only — never on pull requests. Names no third-party tool; reads the command from the package config at run time.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial."
+      ]
     }
   },
   "agent_templates": {
@@ -3525,10 +3615,10 @@
     "scripts/test-po-package.sh": {
       "version": "1.0.0",
       "type": "script",
-      "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project. Wired into governance-check.yml T2 loop.",
+      "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-po-package.sh",
       "changelog": [
-        "1.0.0: feat(EVOL-052) — initial. Part 1: validator self-test, golden return green via --dir and --zip, mutated return red, hostile archive blocked, unresolved config refused in plain language, no placeholder token in Python."
+        "1.0.0: feat(EVOL-052) — initial. Part 1 validator (self-test, golden green via --dir/--zip, mutated red, hostile archive blocked, unresolved config refused). Part 2 builder (nothing written into the repo, no unresolved variable, cards well-formed, strict substitution, staging inside the repo refused). Part 3 cases 6A/6B/6C (runbook header truthful, code cards win per component, failing tool falls back, no shell, three drift findings, --strict, stale runbook warned). Part 4 closure (every command, flag and path the runbook and the workflow cite exists)."
       ]
     }
   },

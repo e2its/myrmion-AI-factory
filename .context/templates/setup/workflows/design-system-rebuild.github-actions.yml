@@ -1,0 +1,73 @@
+name: Design System Rebuild
+
+# ============================================================================
+# Design System Rebuild — ADVISORY job, never fails the pipeline
+# ============================================================================
+# Materialised by SETUP --generate ONLY when the project configured a
+# design-system rebuild command (docs/setup.md § po_package.ds_rebuild_command).
+#
+# Rebuilds the design-system preview cards from code through the PO package
+# builder, reports card-to-registry drift, and uploads the bundle:
+#
+#   - code-card-unregistered        code renders a component the registry lacks
+#   - implemented-without-code-card the registry says built, nothing renders
+#   - candidate-implemented         designed/planned, and code already renders it
+#
+# The rebuild tool is the project's own — this workflow names none. It reads the
+# command from subproducts/po-package/po-package.config.json at run time, runs it
+# WITHOUT a shell and with a timeout. A missing or failing tool degrades to the
+# vision cards with a loud warning; it never blocks.
+#
+# Runs on pushes to the main branch and on demand — never on pull requests, so a
+# fork can never make this job run a command it supplies.
+#
+# If your rebuild command needs a toolchain (for example a package install),
+# add that step where marked below.
+# ============================================================================
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  design-system-rebuild:
+    runs-on: ubuntu-latest
+    name: Design system rebuild (advisory)
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      # ── Add here whatever your rebuild command needs (toolchain, dependencies). ──
+
+      - name: Rebuild cards from code and report drift
+        id: rebuild
+        run: |
+          python3 subproducts/po-package/build_po_package.py \
+            --mode ds-only --rebuild --check-drift --no-zip --out "$RUNNER_TEMP/ds-bundle"
+
+      - name: Upload the design-system bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-bundle
+          path: ${{ runner.temp }}/ds-bundle
+          if-no-files-found: warn
+
+      - name: Surface result
+        if: always()
+        run: |
+          if [ "${{ steps.rebuild.outcome }}" = "success" ]; then
+            echo "::notice::Design-system bundle rebuilt. Read the drift lines in the step above; publish the mirror with /design-sync when you want it refreshed."
+          else
+            echo "::warning::The design-system rebuild did not complete. See subproducts/po-package/RUNBOOK.md section 9. This job is advisory."
+          fi
