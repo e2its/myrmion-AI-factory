@@ -5,7 +5,8 @@
 Subproduct, not product: deliverable-generation tooling imported by no framework or
 product module. It reads the repository and never writes into it.
 
-Nothing here is tied to a stack, a product or a tracker:
+Nothing here is tied to a product or a tracker, and the only stack knowledge is the
+utility framework the framework's own CODESIGN templates load:
   · the closed vocabulary comes from the journey-first grammar (Sections 1, 6, 7)
   · components come from `<section data-component>` anchors in the vision library
   · allowed external hosts come from the framework's own CODESIGN templates + config
@@ -29,6 +30,8 @@ MAX_ZIP_ENTRIES = 2000
 MAX_MEMBER_BYTES = 20 * 1024 * 1024
 MAX_TOTAL_BYTES = 200 * 1024 * 1024
 
+PACKAGE_MODES = ("full", "features-only", "off")
+VOCAB_KINDS = ("personas", "concepts", "fields", "rules")
 UI_SCOPES = ("full-stack", "frontend-only")
 ALL_SCOPES = UI_SCOPES + ("backend-only", "integration")
 
@@ -52,7 +55,6 @@ DEFAULT_CONFIG: dict = {
     },
     "design_system": {
         "vision_root": "docs/ux/vision",
-        "external_ds_root": "docs/ux/design-system",
         "component_registry": "docs/ux/component-registry.json",
         "codebase_inventory": "config/codebase_inventory.json",
         "tokens_sources": ["docs/ux/vision/style_guide.html"],
@@ -101,6 +103,19 @@ def merge_config(base: dict, over: dict) -> dict:
     return out
 
 
+def _check_shapes(defaults: dict, data: dict, name: str, prefix: str = "") -> None:
+    """A mapping or a list in the defaults must stay one: a wrong shape fails silently later."""
+    for key, default in defaults.items():
+        if key not in data or default is None:
+            continue
+        value, label = data[key], f"{prefix}{key}"
+        for kind, word in ((dict, "an object"), (list, "a list"), (str, "a string")):
+            if isinstance(default, kind) and not isinstance(value, kind):
+                raise PoPackageError(f"{name}: `{label}` must be {word}.")
+        if isinstance(default, dict):
+            _check_shapes(default, value, name, f"{label}.")
+
+
 def load_config(path: Path | None = None) -> dict:
     """Defaults overlaid with the project config. Unresolved placeholders are an error."""
     cfg_path = path or (HERE / CONFIG_NAME)
@@ -119,7 +134,10 @@ def load_config(path: Path | None = None) -> dict:
         raise PoPackageError(f"{cfg_path.name} is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise PoPackageError(f"{cfg_path.name} must hold a JSON object.")
+    _check_shapes(DEFAULT_CONFIG, data, cfg_path.name)
     cfg = merge_config(DEFAULT_CONFIG, data)
+    if cfg.get("mode") not in PACKAGE_MODES:
+        raise PoPackageError(f"{cfg_path.name}: `mode` must be one of {', '.join(PACKAGE_MODES)} (got {cfg.get('mode')!r}).")
     cards = cfg["design_system"]["code_cards"]
     for key in ("dir", "rebuild_command"):  # tolerate the string "null" where JSON null was meant
         if isinstance(cards.get(key), str) and cards[key].strip().lower() in ("", "null", "none"):
@@ -130,7 +148,7 @@ def load_config(path: Path | None = None) -> dict:
 def feature_id_re(cfg: dict) -> re.Pattern[str]:
     try:
         return re.compile(cfg["features"]["id_pattern"])
-    except re.error as exc:
+    except (re.error, TypeError) as exc:
         raise PoPackageError(f"features.id_pattern is not a valid pattern: {exc}") from exc
 
 
@@ -174,8 +192,13 @@ def section_body(text: str, heading_prefix: str) -> str:
     return "\n".join(out)
 
 
-def _table_column(body: str, index: int) -> list[str]:
-    values: list[str] = []
+def strip_comments(text: str) -> str:
+    return _COMMENT_RE.sub("", text)
+
+
+def table_rows(body: str) -> list[list[str]]:
+    """Data rows of every markdown table in `body`; header and separator rows dropped."""
+    rows: list[list[str]] = []
     seen_separator = False
     for line in body.splitlines():
         stripped = line.strip()
@@ -185,19 +208,20 @@ def _table_column(body: str, index: int) -> list[str]:
         cells = [c.strip() for c in stripped.strip("|").split("|")]
         if all(re.fullmatch(r":?-{2,}:?", c) for c in cells if c):
             seen_separator = True
-            continue
-        if not seen_separator or index >= len(cells):
-            continue
-        cell = cells[index].strip("` ")
-        if cell and cell != "—":
-            values.append(cell)
-    return values
+        elif seen_separator:
+            rows.append(cells)
+    return rows
+
+
+def _table_column(body: str, index: int) -> list[str]:
+    cells = (row[index].strip("` ") for row in table_rows(body) if index < len(row))
+    return [cell for cell in cells if cell and cell != "—"]
 
 
 def journey_vocab(text: str) -> dict[str, set[str]]:
     """Closed vocabulary a journey declares: personas (§1), concepts + fields (§6), rules (§7)."""
     _fm, body = split_frontmatter(text)
-    body = _COMMENT_RE.sub("", body)
+    body = strip_comments(body)
     sec6 = section_body(body, "## Section 6:")
     return {
         "personas": set(_table_column(section_body(body, "## Section 1:"), 0)),
@@ -208,7 +232,7 @@ def journey_vocab(text: str) -> dict[str, set[str]]:
 
 
 def empty_vocab() -> dict[str, set[str]]:
-    return {"personas": set(), "concepts": set(), "fields": set(), "rules": set()}
+    return {kind: set() for kind in VOCAB_KINDS}
 
 
 def spec_features(repo: Path, cfg: dict) -> list[str]:
@@ -217,13 +241,15 @@ def spec_features(repo: Path, cfg: dict) -> list[str]:
     pattern = feature_id_re(cfg)
     include = set(cfg["features"].get("include") or [])
     exclude = set(cfg["features"].get("exclude") or [])
-    found: list[str] = []
     if not root.is_dir():
-        return found
+        return []
+    found: list[str] = []
     for entry in sorted(root.iterdir()):
         if not entry.is_dir() or not pattern.match(entry.name):
             continue
-        if (include and entry.name not in include) or entry.name in exclude:
+        if include and entry.name not in include:
+            continue
+        if entry.name in exclude:
             continue
         if (entry / "user_journey.md").exists():
             found.append(entry.name)
@@ -231,7 +257,8 @@ def spec_features(repo: Path, cfg: dict) -> list[str]:
 
 
 def load_glossary(repo: Path, cfg: dict) -> dict[str, set[str]]:
-    """Union of the vocabulary of every journey currently in the repo — the live truth."""
+    """Union of the vocabulary of every journey the config selects (id_pattern, include,
+    exclude) — read live from the repo. An excluded feature contributes no names."""
     glossary = empty_vocab()
     root = repo / cfg["features"]["spec_root"]
     for feature_id in spec_features(repo, cfg):
@@ -244,8 +271,58 @@ def load_glossary(repo: Path, cfg: dict) -> dict[str, set[str]]:
 # ── HTML: external references and nesting-safe section scanner ───────────────
 
 
+_REF_ATTRS = ("src", "href", "data-src", "poster")
+_CSS_REF_RE = re.compile(r"""(?:url\(\s*|@import\s+)["']?(https?://[^"')\s;]+)""", re.I)
+LANDMARKS = ("header", "nav", "main")
+
+
+class _HtmlFacts(HTMLParser):
+    """One pass over a page: what it loads and the cheap accessibility signals.
+
+    A parser, not a regex: browsers load unquoted attribute values too, and a gate that
+    only sees quoted ones can be walked around."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.refs: list[str] = []
+        self.has_lang = False
+        self.images_without_alt = 0
+        self.landmarks: set[str] = set()
+
+    @staticmethod
+    def _loaded(tag: str, attributes: dict) -> list[str]:
+        refs = []
+        for name in _REF_ATTRS:
+            if name == "href" and tag != "link":   # an <a href> navigates; only <link> loads
+                continue
+            value = (attributes.get(name) or "").strip()
+            if value.lower().startswith(("http://", "https://", "//")):
+                refs.append("https:" + value if value.startswith("//") else value)
+        return refs
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        self.refs += self._loaded(tag, attributes)
+        if tag == "html" and (attributes.get("lang") or "").strip():
+            self.has_lang = True
+        if tag == "img" and "alt" not in attributes:
+            self.images_without_alt += 1
+        if tag in LANDMARKS:
+            self.landmarks.add(tag)
+
+    handle_startendtag = handle_starttag
+
+
+def html_facts(html: str) -> _HtmlFacts:
+    facts = _HtmlFacts()
+    facts.feed(html)
+    facts.close()
+    facts.refs += _CSS_REF_RE.findall(html)   # stylesheets load too: url(…) and @import
+    return facts
+
+
 def external_refs(html: str) -> list[str]:
-    return re.findall(r"""(?:src|href)\s*=\s*["'](https?://[^"']+)["']""", html, re.I)
+    return html_facts(html).refs
 
 
 def allowed_hosts(repo: Path, cfg: dict) -> set[str]:
@@ -280,9 +357,11 @@ class _SectionScanner(HTMLParser):
         super().__init__(convert_charrefs=True)
         self._source = source
         self._attr = attr
+        # HTMLParser counts "\n" only. str.splitlines() also splits on form feed, NEL and
+        # U+2028/9 — one of those in the page would shift every later offset.
         self._starts = [0]
-        for line in source.splitlines(keepends=True):
-            self._starts.append(self._starts[-1] + len(line))
+        for line in source.split("\n"):
+            self._starts.append(self._starts[-1] + len(line) + 1)
         self._depth = 0
         self._open: dict | None = None
         self.blocks: list[dict] = []
@@ -323,16 +402,29 @@ class _SectionScanner(HTMLParser):
         self._open = None
 
 
-def scan_sections(html: str, attr: str) -> list[dict]:
-    """[{id, name, group, html}] for each top-level `<section {attr}="…">`."""
+def scan_sections_full(html: str, attr: str) -> tuple[list[dict], str | None]:
+    """(blocks, unclosed). `unclosed` names a top-level section that never closes: the
+    browser auto-closes it, the scanner cannot — everything after it is unreadable."""
     scanner = _SectionScanner(html, attr)
     scanner.feed(html)
     scanner.close()
-    return scanner.blocks
+    unclosed = scanner._open["name"] or scanner._open["id"] if scanner._open else None
+    return scanner.blocks, unclosed
+
+
+def scan_sections(html: str, attr: str) -> list[dict]:
+    """[{id, name, group, html}] for each top-level `<section {attr}="…">`."""
+    return scan_sections_full(html, attr)[0]
+
+
+def is_slug(value: str) -> bool:
+    """Ids become file names and join keys: lowercase slug, nothing else."""
+    return bool(value) and value == slugify(value)
 
 
 def tokens_declared(html: str) -> bool:
-    """Design tokens may live in a root CSS block or in a utility-framework config block."""
+    """Tokens are declared in a root CSS block, or in the `tailwind.config` block of the
+    utility framework the CODESIGN templates load."""
     if re.search(r":root\s*\{[^}]*--[a-zA-Z]", html, re.S):
         return True
     return bool(re.search(r"tailwind\.config\s*=", html))
@@ -352,7 +444,8 @@ def load_json(path: Path, default):
 
 def registry_components(repo: Path, cfg: dict) -> list[dict]:
     data = load_json(repo / cfg["design_system"]["component_registry"], {})
-    return list(data.get("components") or []) if isinstance(data, dict) else []
+    components = data.get("components") if isinstance(data, dict) else None
+    return [c for c in components or [] if isinstance(c, dict)]
 
 
 def inventory_ui_components(repo: Path, cfg: dict) -> dict[str, dict]:
@@ -389,7 +482,7 @@ def zip_problems(zip_path: Path) -> list[str]:
             infos = archive.infolist()
     except (zipfile.BadZipFile, OSError) as exc:
         return [f"not a readable zip: {exc}"]
-    problems = [p for p in (_member_problem(i) for i in infos) if p]
+    problems = [problem for info in infos if (problem := _member_problem(info))]
     if len(infos) > MAX_ZIP_ENTRIES:
         problems.append(f"too many entries ({len(infos)} > {MAX_ZIP_ENTRIES})")
     if sum(i.file_size for i in infos) > MAX_TOTAL_BYTES:

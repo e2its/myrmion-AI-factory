@@ -6,19 +6,20 @@
 # SYNTHETIC MATERIALISATION: copy the template subproduct into a sandbox project, resolve
 # its placeholders with sample values, then run it for real against a fixture project.
 #
-#   Part 1 — validator: self-test (every check red-proved), golden return green,
-#            mutated return red, hostile archive blocked, unresolved config humanised.
-#   Part 2 — builder: package built from the fixture project, nothing written into the
-#            repo, no unresolved variable, cards well-formed, strict substitution.
-#   Part 2b — language: per-file override, English fallback, EN/ES parity of variables and headings.
-#   Part 3 — the three design-system cases a project can be materialised in
-#            (6A vision only · 6B code rebuild by hand · 6C code rebuild in CI):
-#            runbook header resolved and truthful, code cards win per component,
-#            failing tool falls back, no shell, drift reported, stale runbook warned.
-#   Part 4 — closure: every command and flag the runbook and the workflow cite exists; the
-#            registry schema the vision instruction owns matches what the tooling uses; the
-#            --sync guard is byte-identical at the 4 authoring entry points and every function
-#            --sync reuses by reference still exists.
+#   Part 1  — validator CLI: self-test, exit-code contract (0 GREEN · 1 RED · 2 tool could
+#             not do its job), repository resolution the way operators invoke it, golden
+#             return green (folder, zip with wrapper, archive-tool litter), RED as JSON,
+#             hostile and unreadable archives, tool faults never reading as a verdict.
+#   Part 2  — builder: nothing written into the repo (bytecode included), tree and content,
+#             no unresolved variable, cards well-formed, strict substitution, staging and
+#             zip refused inside the repo, config faults in plain language, mode matrix,
+#             include/exclude, hostile section id confined.
+#   Part 2b — language: per-file override, English fallback, EN/ES parity.
+#   Part 3  — the three design-system cases (6A vision only · 6B code rebuild by hand ·
+#             6C code rebuild in CI): runbook header truthful, code cards win per
+#             component, every fallback said out loud, no shell, timeout, drift states.
+#   Part 4  — closure: commands, flags and paths the runbooks and the workflow cite;
+#             registry example vs fixture; the --sync contract.
 #
 # Exit codes: 0 all assertions pass · 1 any failure · 2 infrastructure (never a silent pass).
 set -u
@@ -28,14 +29,19 @@ SRC="$ROOT/.context/templates/setup/subproducts/po-package"
 [ -d "$SRC" ] || { echo "test-po-package: subproduct template tree absent at $SRC" >&2; exit 2; }
 command -v python3 >/dev/null || { echo "test-po-package: python3 not available" >&2; exit 2; }
 python3 -c 'import yaml' 2>/dev/null || { echo "test-po-package: PyYAML not available (pip install pyyaml)" >&2; exit 2; }
+export PYTHONDONTWRITEBYTECODE=1
 
 SANDBOX=$(mktemp -d) || { echo "test-po-package: mktemp failed" >&2; exit 2; }
 trap 'rm -rf "$SANDBOX"' EXIT
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); echo "  ✓ $1"; }
-bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; [ -n "${2:-}" ] && echo "$2" | sed 's/^/      /' | head -12; }
+bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; [ -n "${2:-}" ] && echo "$2" | sed 's/^/      /' | head -12; return 0; }
+check() { # check <label> <command...> — passes when the command succeeds
+  local label=$1; shift
+  if "$@" >/dev/null 2>&1; then ok "$label"; else bad "$label"; fi
+}
 
-expect_exit() { # expect_exit <want> <label> <substring-or-empty> -- cmd...
+expect_exit() { # expect_exit <want> <label> <substring-or-empty> cmd...
   local want=$1 label=$2 substr=$3; shift 3
   local out got
   out=$("$@" 2>&1); got=$?
@@ -43,12 +49,23 @@ expect_exit() { # expect_exit <want> <label> <substring-or-empty> -- cmd...
   if [ -n "$substr" ] && ! printf '%s' "$out" | grep -qF -- "$substr"; then
     bad "$label (exit ok, expected text not found: '$substr')" "$out"; return
   fi
+  if printf '%s' "$out" | grep -q 'Traceback (most recent call last)'; then
+    bad "$label (a raw stack trace reached the operator — LAW-08)" "$out"; return
+  fi
   ok "$label"
 }
 
-# materialise <project-dir> <code-cards-dir|null> <rebuild-command|null> <workflow: yes|no> [language: en|es]
+run_build() { # run_build <out-name> args... — sets OUT, RC, PKGDIR
+  local name=$1; shift
+  OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/$name" "$@" 2>&1); RC=$?
+  PKGDIR=$(find "$SANDBOX/$name" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
+}
+has() { printf '%s' "$OUT" | grep -qF -- "$1"; }
+
+# materialise <project-dir> <code-cards-dir|null> <rebuild-command|null> <workflow: yes|no> [language]
 # Mirrors the SETUP step: copy the tree, resolve placeholders (JSON null where a key does not
 # apply), derive the runbook's active section, install the optional workflow.
+# Knobs: PO_T_SCOPE (full-stack) · PO_T_MODE (full) · PO_T_NULLSTR=1 keeps the quotes ("null" string).
 materialise() {
   local proj=$1 cards=$2 cmd=$3 workflow=$4 lang=${5:-en}
   rm -rf "$proj/subproducts/po-package"; mkdir -p "$proj/subproducts"
@@ -61,27 +78,29 @@ materialise() {
   else
     rm -f "$proj/.github/workflows/design-system-rebuild.yml"
   fi
+  PO_T_SCOPE=${PO_T_SCOPE:-full-stack} PO_T_MODE=${PO_T_MODE:-full} PO_T_NULLSTR=${PO_T_NULLSTR:-0} \
   python3 - "$proj/subproducts/po-package" "$cards" "$cmd" "$workflow" "$lang" <<'PY'
-import json, sys
+import json, os, sys
 from pathlib import Path
-root, cards, cmd, workflow, lang = Path(sys.argv[1]), *sys.argv[2:6]
+root = Path(sys.argv[1])
+cards, cmd, workflow, lang = sys.argv[2:6]
 has_cmd = cmd != "null"
 section = "6A" if not has_cmd else ("6C" if workflow == "yes" else "6B")
 status = ("installed at .github/workflows/design-system-rebuild.yml" if section == "6C"
           else "not installed — " + ("no rebuild command configured" if not has_cmd else "added by hand later, see section 8"))
-common = {
-    "{{PROJECT_NAME}}": "Fixture Project",
-    "{{PO_PACKAGE_MODE}}": "full",
-}
+common = {"{{PROJECT_NAME}}": "Fixture Project", "{{PO_PACKAGE_MODE}}": os.environ["PO_T_MODE"]}
 cfg = root / "po-package.config.json"
 text = cfg.read_text(encoding="utf-8")
 for token, value in {**common,
                      "{{BUSINESS_GOAL}}": "Guests book a table without calling the venue.",
-                     "{{PROJECT_SCOPE}}": "full-stack", "{{PROJECT_LANGUAGE}}": lang,
+                     "{{PROJECT_SCOPE}}": os.environ["PO_T_SCOPE"], "{{PROJECT_LANGUAGE}}": lang,
                      "{{FEATURE_ID_PATTERN}}": "^FEAT-\\\\d{3,}$"}.items():
     text = text.replace(token, value)
 for token, value in (("{{DS_CODE_CARDS_DIR}}", cards), ("{{DS_REBUILD_COMMAND}}", cmd)):
-    text = text.replace(f'"{token}"', "null" if value == "null" else json.dumps(value))
+    if value == "null" and os.environ["PO_T_NULLSTR"] == "1":
+        text = text.replace(token, "null")                 # the likeliest slip: token replaced INSIDE its quotes
+    else:
+        text = text.replace(f'"{token}"', "null" if value == "null" else json.dumps(value))
 cfg.write_text(text, encoding="utf-8")
 json.loads(text)  # a materialised config that is not JSON is a broken delivery
 for runbook in root.glob("RUNBOOK*.md"):
@@ -96,75 +115,95 @@ PY
 
 echo "── Part 1: return validator ──"
 
-expect_exit 0 "self-test: every check red-proved against the real journey gate" "0 failure(s)" \
+expect_exit 0 "self-test: every check red-proved, with its severity, against the real journey gate" "0 failure(s)" \
   python3 "$SRC/validate_po_return.py" --selftest --repo "$ROOT"
-
 expect_exit 2 "unresolved template config is refused in plain language" "unresolved placeholders" \
   python3 "$SRC/validate_po_return.py" --dir "$SANDBOX" --repo "$ROOT"
 
-python3 "$SRC/validate_po_return.py" --emit-fixture "$SANDBOX/fx" --repo "$ROOT" >/dev/null 2>&1 \
-  || { echo "test-po-package: could not emit the fixture" >&2; exit 2; }
+EMIT=$(python3 "$SRC/validate_po_return.py" --emit-fixture "$SANDBOX/fx" --repo "$ROOT" 2>&1) \
+  || { echo "test-po-package: could not emit the fixture:" >&2; echo "$EMIT" >&2; exit 2; }
 PROJ="$SANDBOX/fx/repo"
+RET="$SANDBOX/fx/return"
 mkdir -p "$PROJ/.context/templates/codesign" && cp "$ROOT"/.context/templates/codesign/* "$PROJ/.context/templates/codesign/"
-materialise "$PROJ" null null no || { bad "synthetic materialisation produced invalid JSON"; }
+materialise "$PROJ" null null no || bad "synthetic materialisation produced invalid JSON"
 VAL="$PROJ/subproducts/po-package/validate_po_return.py"
+BLD="$PROJ/subproducts/po-package/build_po_package.py"
 
 if grep -rlE '\{\{[A-Z0-9_]+\}\}' "$PROJ/subproducts/po-package/po-package.config.json" "$PROJ"/subproducts/po-package/RUNBOOK*.md >/dev/null; then
   bad "materialised config or runbook still carries placeholders"
 else ok "materialised config and runbook: zero unresolved placeholders, valid JSON"; fi
-
 if grep -lE '\{\{[A-Z0-9_]+\}\}' "$SRC"/*.py >/dev/null 2>&1; then
   bad "a Python file carries a literal placeholder token" "$(grep -lE '\{\{[A-Z0-9_]+\}\}' "$SRC"/*.py)"
 else ok "no Python file carries a placeholder token"; fi
 
-expect_exit 0 "golden return is GREEN from the materialised copy (--dir)" "VERDICT: GREEN" \
-  python3 "$VAL" --dir "$SANDBOX/fx/return" --repo "$PROJ"
+expect_exit 0 "golden return: GREEN and not one finding (--dir)" "No findings." python3 "$VAL" --dir "$RET" --repo "$PROJ"
 
-( cd "$SANDBOX/fx" && mkdir wrap && cp -R return wrap/po-return \
-  && cd wrap && python3 -c "import shutil; shutil.make_archive('../golden', 'zip', '.', 'po-return')" )
-expect_exit 0 "golden return is GREEN as a zip with a wrapping folder (--zip)" "VERDICT: GREEN" \
+# The way operators and the CI job really invoke it: no --repo, no --config.
+git -C "$PROJ" init -q 2>/dev/null
+expect_exit 0 "repository found from the tool's own location (no --repo, run from elsewhere)" "VERDICT: GREEN" \
+  env -C / python3 "$VAL" --dir "$RET"
+expect_exit 0 "repository taken from PO_PACKAGE_REPO" "VERDICT: GREEN" env PO_PACKAGE_REPO="$PROJ" python3 "$VAL" --dir "$RET"
+expect_exit 2 "a repository path that does not exist is refused in plain language" "does not exist" \
+  python3 "$VAL" --dir "$RET" --repo "$SANDBOX/nope"
+cp "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX/alt.json"
+expect_exit 0 "--config overrides the config next to the tool" "VERDICT: GREEN" \
+  python3 "$SRC/validate_po_return.py" --dir "$RET" --repo "$PROJ" --config "$SANDBOX/alt.json"
+
+( cd "$SANDBOX/fx" && mkdir -p wrap/po-return wrap/__MACOSX && cp -R return/. wrap/po-return/ && : > wrap/.DS_Store \
+  && cd wrap && python3 -c "import shutil; shutil.make_archive('../golden', 'zip', '.')" )
+expect_exit 0 "golden zip with a wrapping folder and archive-tool litter is GREEN" "No findings." \
   python3 "$VAL" --zip "$SANDBOX/fx/golden.zip" --repo "$PROJ"
 
-cp -R "$SANDBOX/fx/return" "$SANDBOX/fx/mutated"
-sed -i.bak 's/^## Section 2: Journey Steps/## Seccion 2: Pasos/' "$SANDBOX/fx/mutated/FEAT-999/user_journey.md"
-expect_exit 1 "mutated return is RED and names the delegated gate" "journey-grammar" \
+cp -R "$RET" "$SANDBOX/fx/mutated"
+sed 's/^## Section 2: Journey Steps/## Seccion 2: Pasos/' "$RET/FEAT-999/user_journey.md" > "$SANDBOX/fx/mutated/FEAT-999/user_journey.md"
+expect_exit 1 "mutated return is RED and names the delegated gate, not its infrastructure" "[journey-grammar]" \
   python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ"
+JSON=$(python3 "$VAL" --dir "$SANDBOX/fx/mutated" --repo "$PROJ" --json 2>/dev/null)
+printf '%s' "$JSON" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert d["verdict"] == "RED", d["verdict"]
+assert any(f["check"] == "journey-grammar" and f["severity"] == "ERROR" for f in d["findings"]), d["findings"]
+' && ok "machine-readable report parses, says RED and carries the finding with its severity" \
+  || bad "machine-readable report is wrong" "$JSON"
 
-python3 - "$SANDBOX/fx/slip.zip" <<'PY'
+python3 - "$SANDBOX/fx" <<'PY'
 import sys, zipfile
-with zipfile.ZipFile(sys.argv[1], "w") as z:
-    z.writestr("MANIFEST.yaml", "features: []\n")
-    z.writestr("../escaped.txt", "out")
+root = sys.argv[1]
+with zipfile.ZipFile(f"{root}/slip.zip", "w") as z:
+    z.writestr("MANIFEST.yaml", "features: []\n"); z.writestr("../escaped.txt", "out")
+open(f"{root}/truncated.zip", "wb").write(open(f"{root}/golden.zip", "rb").read()[:200])
 PY
-expect_exit 1 "hostile archive is blocked before extraction" "zip-safety" \
+expect_exit 1 "hostile archive is RED and is never extracted" "the archive was not extracted" \
   python3 "$VAL" --zip "$SANDBOX/fx/slip.zip" --repo "$PROJ"
-[ -e "$SANDBOX/escaped.txt" ] && bad "the hostile archive wrote outside its folder" || ok "nothing written outside the archive folder"
-
-expect_exit 0 "machine-readable report parses and says GREEN" '"verdict": "GREEN"' \
-  python3 "$VAL" --dir "$SANDBOX/fx/return" --repo "$PROJ" --json
+expect_exit 1 "truncated download is RED in plain language" "not a readable zip" \
+  python3 "$VAL" --zip "$SANDBOX/fx/truncated.zip" --repo "$PROJ"
+expect_exit 2 "--dir on a file is a usage fault (exit 2), never a RED verdict" "Not a folder" \
+  python3 "$VAL" --dir "$SANDBOX/fx/golden.zip" --repo "$PROJ"
 
 echo "── Part 2: package builder ──"
-BLD="$PROJ/subproducts/po-package/build_po_package.py"
-snapshot() { ( cd "$1" && find . -type f -not -path '*/__pycache__/*' | sort | xargs -r cksum ); }
+snapshot() { ( cd "$1" && find . -type f -not -path './.git/*' -exec cksum {} + | sort ); }
 BEFORE=$(snapshot "$PROJ")
-OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/out" --zip-dir "$SANDBOX/zips" --roadmap "$PROJ/roadmap.json" 2>&1); RC=$?
+run_build out --zip-dir "$SANDBOX/zips" --roadmap "$PROJ/roadmap.json"
 [ "$RC" -eq 0 ] && ok "package builds from the materialised copy" || bad "package build failed (exit $RC)" "$OUT"
-[ "$(snapshot "$PROJ")" = "$BEFORE" ] && ok "the builder wrote nothing into the repository" || bad "the builder changed the repository"
-PKG=$(find "$SANDBOX/out" -mindepth 1 -maxdepth 1 -type d | head -1)
+[ "$(snapshot "$PROJ")" = "$BEFORE" ] && ok "the builder wrote nothing into the repository — bytecode included" \
+  || bad "the builder changed the repository" "$(diff <(echo "$BEFORE") <(snapshot "$PROJ") | head -5)"
+PKG=$PKGDIR
 MISSING=""
 for f in README.md PROJECT-INSTRUCTIONS.md PROJECT-INSTRUCTIONS-VISION.md PACKAGE.json \
          00-core/product.md 00-core/feature-catalogue.md 00-core/domain-glossary.md 00-core/roadmap.md \
          00-core/route-map.md 00-core/rules-of-the-game.md 10-design-system/tokens.md \
          10-design-system/components.md 10-design-system/_ds_manifest.json 10-design-system/cards/button.html \
-         20-features/FEAT-998/user_journey.md 30-templates/ERQ-TEMPLATE.md 30-templates/MANIFEST-TEMPLATE.yaml \
+         20-features/FEAT-998/user_journey.md 20-features/FEAT-998/spec.feature 20-features/FEAT-998/mock.html \
+         30-templates/ERQ-TEMPLATE.md 30-templates/MANIFEST-TEMPLATE.yaml \
          30-templates/user_journey-TEMPLATE.md 30-templates/slice_map-TEMPLATE.md; do
   [ -s "$PKG/$f" ] || MISSING="$MISSING $f"
 done
 [ -z "$MISSING" ] && ok "package tree complete" || bad "package tree incomplete:$MISSING"
 LEFT=$(grep -rlE '\$\{[a-z_]+\}|\{\{[A-Z0-9_]+\}\}' "$PKG" | grep -v '/30-templates/' | grep -v '/20-features/' || true)
 [ -z "$LEFT" ] && ok "no unresolved variable outside the templates folder" || bad "unresolved variables remain" "$LEFT"
-head -1 "$PKG/30-templates/user_journey-TEMPLATE.md" | grep -q '^# User Journey:' \
-  && ok "journey template is the PO-safe cut (no factory header)" || bad "journey template still carries a header block"
+check "journey template is the PO-safe cut (no factory header)" \
+  sh -c "head -1 '$PKG/30-templates/user_journey-TEMPLATE.md' | grep -q '^# User Journey:'"
 BADCARD=""; for c in "$PKG"/10-design-system/cards/*.html; do head -1 "$c" | grep -q '^<!-- @dsCard group="[^"]*" -->$' || BADCARD="$BADCARD $(basename "$c")"; done
 [ -z "$BADCARD" ] && ok "every card opens with the card marker" || bad "cards without marker:$BADCARD"
 python3 - "$PKG/10-design-system" <<'PY' && ok "card manifest is valid and matches the cards on disk" || bad "card manifest does not match the cards on disk"
@@ -174,31 +213,96 @@ root = Path(sys.argv[1]); cards = json.loads((root / "_ds_manifest.json").read_t
 on_disk = {p.name for p in (root / "cards").glob("*.html")}
 assert {Path(c["path"]).name for c in cards} == on_disk and len(cards) == len(on_disk) >= 3
 PY
-grep -q '| Booking | concept |' "$PKG/00-core/domain-glossary.md" && grep -q '`party_size`' "$PKG/00-core/domain-glossary.md" \
-  && ok "glossary carries the fixture vocabulary" || bad "glossary lacks the fixture vocabulary"
-grep -q 'Button — src/ui/button' "$PKG/10-design-system/components.md" && grep -q 'Code primitive: Button' "$PKG/10-design-system/cards/button.html" \
-  && ok "component base and card name the code primitive (registry joined with the inventory)" || bad "code primitive not surfaced"
-grep -q 'FEAT-999' "$PKG/00-core/roadmap.md" && ! grep -q 'FEAT-998' "$PKG/00-core/roadmap.md" \
-  && ok "roadmap lists only features with no specification" || bad "roadmap content wrong"
-ls "$SANDBOX"/zips/*.zip >/dev/null 2>&1 && ok "zip produced" || bad "zip missing"
+check "glossary carries the fixture vocabulary" sh -c "grep -q '| Booking | concept |' '$PKG/00-core/domain-glossary.md' && grep -q 'party_size' '$PKG/00-core/domain-glossary.md' && grep -q '| RULE-BOOK-01 | rule |' '$PKG/00-core/domain-glossary.md'"
+check "tokens are extracted from the style guide" grep -qF 'var(--color-primary)' "$PKG/10-design-system/tokens.md"
+check "feature catalogue carries the journey steps" sh -c "grep -q '| Paso 1 | Guest |' '$PKG/00-core/feature-catalogue.md' && grep -q -- '— Table booking' '$PKG/00-core/feature-catalogue.md'"
+check "product sheet carries the personas" grep -q '| Guest | A confirmed table |' "$PKG/00-core/product.md"
+check "component base and card name the code primitive (registry joined with the inventory)" \
+  sh -c "grep -q 'Button — src/ui/button' '$PKG/10-design-system/components.md' && grep -q 'Code primitive: Button' '$PKG/10-design-system/cards/button.html'"
+check "roadmap lists only features with no specification" sh -c "grep -q 'FEAT-999' '$PKG/00-core/roadmap.md' && ! grep -q 'FEAT-998' '$PKG/00-core/roadmap.md'"
+check "zip produced" sh -c "ls '$SANDBOX'/zips/*.zip"
 expect_exit 2 "staging inside the repository is refused" "outside the repository" \
   python3 "$BLD" --repo "$PROJ" --out "$PROJ/inside" --no-zip
+expect_exit 2 "zip folder inside the repository is refused" "zip folder must be outside" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o9" --zip-dir "$PROJ/dist"
+[ ! -e "$PROJ/dist" ] && [ ! -e "$PROJ/inside" ] && ok "neither refused folder was created" || bad "a refused folder was created"
+expect_exit 2 "a roadmap path that does not exist says so" "Roadmap file not found" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o10" --no-zip --roadmap "$SANDBOX/no-roadmap.json"
+echo '[{"key":"FEAT-500","name":"x"}]' > "$SANDBOX/badroadmap.json"
+run_build o11 --no-zip --roadmap "$SANDBOX/badroadmap.json"
+[ "$RC" -eq 0 ] && has "have no \`id\` and were dropped" && ok "roadmap items without an id are dropped out loud" || bad "dropped roadmap items went unnoticed" "$OUT"
+
+for fault in 'not-json:{ broken:is not valid JSON' 'bad-pattern:"id_pattern": "^FEAT-(":not a valid pattern' \
+             'list-as-text:"include": "FEAT-998":`features.include` must be a list' 'bad-mode:"mode": "sometimes":`mode` must be one of'; do
+  name=${fault%%:*}; rest=${fault#*:}; needle=${rest##*:}; patch=${rest%:*}
+  python3 - "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX/$name.json" "$name" "$patch" <<'PY'
+import json, sys
+src, dst, name, patch = sys.argv[1:5]
+cfg = json.load(open(src))
+if name == "not-json":
+    open(dst, "w").write(patch); raise SystemExit
+if name == "bad-pattern": cfg["features"]["id_pattern"] = "^FEAT-("
+if name == "list-as-text": cfg["features"]["include"] = "FEAT-998"
+if name == "bad-mode": cfg["mode"] = "sometimes"
+json.dump(cfg, open(dst, "w"))
+PY
+  expect_exit 2 "config fault «$name» is refused in plain language" "$needle" \
+    python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/of-$name" --no-zip --config "$SANDBOX/$name.json"
+done
+
+python3 - "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX" <<'PY'
+import json, sys
+src, box = sys.argv[1:3]
+for name, patch in {"exclude": ("features", "exclude", ["FEAT-998"]), "include": ("features", "include", ["FEAT-998"]),
+                    "features-only": ("mode", None, "features-only"), "backend": ("project", "scope", "backend-only"),
+                    "off": ("mode", None, "off")}.items():
+    cfg = json.load(open(src))
+    if patch[1] is None: cfg[patch[0]] = patch[2]
+    else: cfg[patch[0]][patch[1]] = patch[2]
+    json.dump(cfg, open(f"{box}/cfg-{name}.json", "w"))
+PY
+run_build o-ex --no-zip --config "$SANDBOX/cfg-exclude.json"
+[ "$RC" -eq 0 ] && [ ! -e "$PKGDIR/20-features/FEAT-998" ] && grep -q '"features": \[\]' "$PKGDIR/PACKAGE.json" \
+  && ok "an excluded feature stays out of the deliverable" || bad "exclude did not keep the feature out" "$OUT"
+run_build o-in --no-zip --config "$SANDBOX/cfg-include.json"
+[ "$RC" -eq 0 ] && [ -s "$PKGDIR/20-features/FEAT-998/user_journey.md" ] && ok "an included feature is packaged" || bad "include dropped the feature" "$OUT"
+for variant in features-only backend; do
+  run_build "o-$variant" --no-zip --config "$SANDBOX/cfg-$variant.json"
+  if [ "$RC" -eq 0 ] && [ ! -e "$PKGDIR/10-design-system" ] && [ ! -e "$PKGDIR/PROJECT-INSTRUCTIONS-VISION.md" ] \
+     && [ -s "$PKGDIR/PROJECT-INSTRUCTIONS.md" ] && grep -q '"with_vision": false' "$PKGDIR/PACKAGE.json"; then
+    ok "«$variant» project: no design system and no design-system instructions are shipped"
+  else bad "«$variant» project shipped design-system material" "$OUT"; fi
+done
+expect_exit 2 "a switched-off package refuses to build" "switched off" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-off" --no-zip --config "$SANDBOX/cfg-off.json"
+
+cp "$PROJ/docs/ux/vision/component_library.html" "$SANDBOX/lib.bak"
+python3 - "$PROJ/docs/ux/vision/component_library.html" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p).read()
+open(p, "w").write(s.replace("</main>", '<section id="../../../escape" data-component="Evil"><h2>Evil</h2></section></main>'))
+PY
+run_build o-evil --no-zip
+ESCAPED=$(find "$SANDBOX" -name 'escape.html' -not -path "$PKGDIR/*" | head -1)
+[ "$RC" -eq 0 ] && [ -z "$ESCAPED" ] && has "is not a lowercase slug" && ok "a section id that would become a path gets no card and is said out loud" \
+  || bad "a hostile section id was not confined" "$OUT $ESCAPED"
+cp "$SANDBOX/lib.bak" "$PROJ/docs/ux/vision/component_library.html"
+
 printf '\n${not_a_variable}\n' >> "$PROJ/subproducts/po-package/static/en/README.md"
 expect_exit 2 "an unknown build variable stops the build" "unknown or malformed build variable" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/out2" --no-zip
+cp "$SRC/static/en/README.md" "$PROJ/subproducts/po-package/static/en/README.md"
 
 echo "── Part 2b: language ──"
-cp "$SRC/static/en/README.md" "$PROJ/subproducts/po-package/static/en/README.md"
 materialise "$PROJ" null null no es
-OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/oes" --no-zip 2>&1); RC=$?
-PES=$(find "$SANDBOX/oes" -mindepth 1 -maxdepth 1 -type d | head -1)
+run_build oes --no-zip
+PES=$PKGDIR
 if [ "$RC" -eq 0 ] && grep -q '^\*\*Ley 1 ' "$PES/PROJECT-INSTRUCTIONS.md" && grep -q 'en \*\*Spanish\*\*' "$PES/PROJECT-INSTRUCTIONS.md"; then
   ok "project language overrides the prose file by file"
 else bad "language override failed (exit $RC)" "$OUT"; fi
-grep -q '^# Index of the return' "$PES/30-templates/MANIFEST-TEMPLATE.yaml" \
-  && ok "a file with no translation falls back to English" || bad "English fallback failed"
-grep -q '^## Section 2: Journey Steps' "$PES/30-templates/user_journey-TEMPLATE.md" && grep -qF '`## Section 2: Journey Steps`' "$PES/PROJECT-INSTRUCTIONS.md" \
-  && ok "canonical headings stay literal in the translated package" || bad "a canonical heading was translated"
+check "a file with no translation falls back to English" grep -q '^# Index of the return' "$PES/30-templates/MANIFEST-TEMPLATE.yaml"
+check "canonical headings stay literal in the translated package" \
+  sh -c "grep -q '^## Section 2: Journey Steps' '$PES/30-templates/user_journey-TEMPLATE.md' && grep -qF '\`## Section 2: Journey Steps\`' '$PES/PROJECT-INSTRUCTIONS.md'"
 LEFT=$(grep -rlE '\$\{[a-z_]+\}' "$PES" | grep -v '/20-features/' || true)
 [ -z "$LEFT" ] && ok "no unresolved build variable in the translated package" || bad "unresolved build variables remain" "$LEFT"
 python3 - "$SRC" <<'PY' && ok "EN/ES parity: same build variables, same placeholders, same heading counts" || bad "EN and ES prose drifted apart"
@@ -219,16 +323,20 @@ if shape(src / "RUNBOOK.es.md", r"\{\{[A-Z_]+\}\}") != shape(src / "RUNBOOK.md",
     problems.append("RUNBOOK.es.md: placeholders or headings differ from RUNBOOK.md")
 print("\n".join(problems)); sys.exit(1 if problems else 0)
 PY
-materialise "$PROJ" null null no
 
 echo "── Part 3: the three design-system cases ──"
 mkdir -p "$PROJ/tools"
 cat > "$PROJ/tools/render_cards.py" <<'PY'
-import pathlib, sys
+import json, pathlib, sys
 out = pathlib.Path("design-cards"); out.mkdir(exist_ok=True)
+(out / "argv.json").write_text(json.dumps(sys.argv[1:]))
 for name in ("button", "card", "tooltip"):
     (out / f"{name}.html").write_text(f'<!-- @dsCard group="Components" -->\n<html lang="en"><body>RENDERED-FROM-CODE {name}</body></html>\n')
+(out / "notes.html").write_text("<html><body>no marker here</body></html>\n")
+(out / "_ds_manifest.json").write_text(json.dumps({"cards": [{"path": "cards/button.html", "name": "Button (live)", "subtitle": "3 variants"}]}))
 PY
+printf 'import pathlib\npathlib.Path("design-cards").mkdir(exist_ok=True)\n' > "$PROJ/tools/render_nothing.py"
+printf 'import time\ntime.sleep(30)\n' > "$PROJ/tools/render_slow.py"
 python3 - "$PROJ/docs/ux/component-registry.json" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p))
@@ -242,55 +350,92 @@ case_runbook() { # case_runbook <section> <label>
     ok "$2: runbook names section $1, the section exists, no placeholder left"
   else bad "$2: runbook header wrong"; fi
 }
+reset_cards() { rm -rf "$PROJ/design-cards"; }
 
 materialise "$PROJ" null null no
 case_runbook 6A "6A vision only"
 grep -q '^- CI workflow: not installed' "$PROJ/subproducts/po-package/RUNBOOK.md" && [ ! -e "$PROJ/.github/workflows/design-system-rebuild.yml" ] \
   && ok "6A: workflow line matches the file's absence" || bad "6A: workflow line does not match reality"
-OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6a" --no-zip --check-drift 2>&1)
-printf '%s' "$OUT" | grep -q 'RUNBOOK.md says' && bad "6A: false stale-runbook warning" "$OUT" || ok "6A: no stale-runbook warning when aligned"
-printf '%s' "$OUT" | grep -q 'drift: 0 finding' && ok "6A: no drift computed without a cards folder" || bad "6A: drift reported without a cards folder" "$OUT"
+run_build o6a --no-zip --check-drift --strict
+[ "$RC" -eq 0 ] && ! has 'RUNBOOK.md says' && ok "6A: builds, and no stale-runbook warning when aligned" || bad "6A: build or runbook check wrong (exit $RC)" "$OUT"
+has 'drift: not applicable' && ok "6A: drift is reported as not applicable, never as zero — and --strict has nothing to fail" || bad "6A: drift wording wrong" "$OUT"
+run_build o6a2 --no-zip --rebuild
+[ "$RC" -eq 0 ] && has 'no rebuild command is configured' && ok "6A: --rebuild without a command is said out loud" || bad "6A: --rebuild without a command went silent" "$OUT"
 
-materialise "$PROJ" design-cards "python3 tools/render_cards.py" no
+PO_T_NULLSTR=1 materialise "$PROJ" null null no
+run_build o6n --no-zip --check-drift --strict
+[ "$RC" -eq 0 ] && has 'drift: not applicable' && ! has 'RUNBOOK.md says' \
+  && ok "a token replaced inside its quotes (\"null\" text) is read as no value" || bad "the \"null\" text was taken for a real value" "$OUT"
+
+reset_cards; materialise "$PROJ" design-cards "python3 tools/render_cards.py" no
 case_runbook 6B "6B code rebuild by hand"
-OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6b" --no-zip --mode ds-only --rebuild --check-drift 2>&1); RC=$?
-P6B=$(find "$SANDBOX/o6b" -mindepth 1 -maxdepth 1 -type d | head -1)
+run_build o6b --no-zip --mode ds-only --rebuild --check-drift
+P6B=$PKGDIR
 [ "$RC" -eq 0 ] && grep -q 'RENDERED-FROM-CODE button' "$P6B/10-design-system/cards/button.html" \
   && ok "6B: a card rendered from code wins over the vision card" || bad "6B: code card did not win (exit $RC)" "$OUT"
-grep -q 'data-component="Input"' "$P6B/10-design-system/cards/input.html" \
-  && ok "6B: a component with no code card keeps its vision card" || bad "6B: vision fallback per component failed"
+check "6B: a component with no code card keeps its vision card" grep -q 'data-component="Input"' "$P6B/10-design-system/cards/input.html"
 [ ! -e "$P6B/00-core" ] && ok "6B: ds-only builds the design system only" || bad "6B: ds-only built more than the design system"
+check "6B: the project tool's own manifest names the card" grep -q '"name": "Button (live)"' "$P6B/10-design-system/_ds_manifest.json"
+has 'does not open with the card marker' && ok "6B: a file without the card marker is skipped out loud" || bad "6B: an unmarked file was skipped silently" "$OUT"
 for finding in code-card-unregistered implemented-without-code-card candidate-implemented; do
-  printf '%s' "$OUT" | grep -q "$finding" && ok "6B: drift reports $finding" || bad "6B: drift misses $finding" "$OUT"
+  has "$finding" && ok "6B: drift reports $finding" || bad "6B: drift misses $finding" "$OUT"
 done
-expect_exit 1 "6B: --strict turns drift into a failing exit" "drift:" \
+expect_exit 1 "6B: --strict turns drift into a failing exit" "drift: 3 finding(s)" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6b2" --no-zip --mode ds-only --rebuild --check-drift --strict
 
-materialise "$PROJ" design-cards "python3 tools/does_not_exist.py" no
-OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6f" --no-zip --mode ds-only --rebuild --check-drift 2>&1); RC=$?
-PF=$(find "$SANDBOX/o6f" -mindepth 1 -maxdepth 1 -type d | head -1)
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'rebuild command failed' && grep -q 'data-component="Button"' "$PF/10-design-system/cards/button.html"; then
-  ok "6B: a failing tool never blocks — loud warning, vision cards"
-else bad "6B: failing tool was not handled fail-open (exit $RC)" "$OUT"; fi
+reset_cards; materialise "$PROJ" design-cards "python3 tools/does_not_exist.py" no
+run_build o6f --no-zip --mode ds-only --rebuild --check-drift
+if [ "$RC" -eq 0 ] && has 'rebuild command failed' && has 'drift: NOT COMPUTED' && grep -q 'data-component="Button"' "$PKGDIR/10-design-system/cards/button.html"; then
+  ok "6B: a failing tool never blocks — loud warning, vision cards, drift NOT COMPUTED (never zero)"
+else bad "6B: failing tool was not handled fail-open and honestly (exit $RC)" "$OUT"; fi
+expect_exit 1 "6B: under --strict an uncomputed drift is not a pass" "NOT COMPUTED" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6f2" --no-zip --mode ds-only --rebuild --check-drift --strict
 
-materialise "$PROJ" design-cards "python3 tools/render_cards.py ; touch PWNED" no
-python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6s" --no-zip --mode ds-only --rebuild >/dev/null 2>&1
-[ ! -e "$PROJ/PWNED" ] && [ ! -e "$PWD/PWNED" ] && ok "6B: the rebuild command runs without a shell (metacharacters are inert)" \
-  || bad "6B: shell metacharacters were interpreted"
+reset_cards; materialise "$PROJ" design-cards "python3 tools/render_nothing.py" no
+run_build o6e --no-zip --mode ds-only --rebuild
+[ "$RC" -eq 0 ] && has 'holds no card' && ok "6B: a tool that succeeds but renders nothing is said out loud" || bad "6B: an empty cards folder fell back silently" "$OUT"
+reset_cards
+run_build o6m --no-zip --mode ds-only
+[ "$RC" -eq 0 ] && has 'the folder does not exist' && ok "6B: a configured cards folder that is absent is said out loud" || bad "6B: a missing cards folder fell back silently" "$OUT"
 
-materialise "$PROJ" design-cards "python3 tools/render_cards.py" yes
+python3 - "$PROJ/subproducts/po-package/po-package.config.json" <<'PY'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p))
+c["design_system"]["code_cards"].update(rebuild_command="python3 tools/render_slow.py", timeout_s=1)
+json.dump(c, open(p, "w"))
+PY
+START=$(date +%s); run_build o6t --no-zip --mode ds-only --rebuild; TOOK=$(( $(date +%s) - START ))
+[ "$RC" -eq 0 ] && has 'could not run' && [ "$TOOK" -lt 20 ] && ok "6B: a hung tool is cut by the timeout and never blocks" || bad "6B: timeout did not hold (exit $RC, ${TOOK}s)" "$OUT"
+
+reset_cards; materialise "$PROJ" design-cards "python3 tools/render_cards.py ; touch PWNED" no
+run_build o6s --no-zip --mode ds-only --rebuild
+if [ "$RC" -eq 0 ] && grep -q 'RENDERED-FROM-CODE button' "$PKGDIR/10-design-system/cards/button.html" \
+   && grep -qF '[";", "touch", "PWNED"]' "$PROJ/design-cards/argv.json" && [ ! -e "$PROJ/PWNED" ] && [ ! -e "$PWD/PWNED" ]; then
+  ok "6B: the rebuild command runs without a shell — the tool ran, the metacharacters arrived as plain arguments"
+else bad "6B: the no-shell property is not proven (exit $RC)" "$OUT"; fi
+
+reset_cards; materialise "$PROJ" design-cards "python3 tools/render_cards.py" yes
 case_runbook 6C "6C code rebuild in CI"
 grep -q '^- CI workflow: installed at' "$PROJ/subproducts/po-package/RUNBOOK.md" && [ -e "$PROJ/.github/workflows/design-system-rebuild.yml" ] \
   && ok "6C: workflow line matches the file's presence" || bad "6C: workflow line does not match reality"
-OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6c" --no-zip --mode ds-only 2>&1)
-printf '%s' "$OUT" | grep -q 'RUNBOOK.md says' && bad "6C: false stale-runbook warning" "$OUT" || ok "6C: no stale-runbook warning when aligned"
+run_build o6c --no-zip --mode ds-only --rebuild
+[ "$RC" -eq 0 ] && ! has 'RUNBOOK.md says' && ok "6C: builds, and no stale-runbook warning when aligned" || bad "6C: build or runbook check wrong (exit $RC)" "$OUT"
 rm -f "$PROJ/.github/workflows/design-system-rebuild.yml"
-OUT=$(python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o6d" --no-zip --mode ds-only 2>&1)
-printf '%s' "$OUT" | grep -q 'RUNBOOK.md says section 6C applies' && ok "stale runbook is called out when the project changes case" \
-  || bad "stale runbook went unnoticed" "$OUT"
+run_build o6d --no-zip --mode ds-only --rebuild
+[ "$RC" -eq 0 ] && has 'RUNBOOK.md says section 6C applies' && ok "stale runbook is called out when the project changes case" || bad "stale runbook went unnoticed" "$OUT"
+sed -i.bak 's/^Active design-system section:.*$/Section in use: see above/' "$PROJ/subproducts/po-package/RUNBOOK.md"
+run_build o6h --no-zip --mode ds-only --rebuild
+has 'no longer states its active design-system section' && ok "a runbook whose header was reworded is said out loud, not skipped" || bad "a reworded runbook header disabled the freshness check silently" "$OUT"
 
-echo "── Part 4: closure — what the runbook and the workflow cite must exist ──"
-python3 - "$SRC" "$ROOT" <<'PY' && ok "every command, flag and path cited by the runbook and the workflow exists" || bad "runbook or workflow cites something that does not exist"
+cp "$PROJ/docs/ux/vision/style_guide.html" "$SANDBOX/sg.bak"
+sed 's/ data-token-group="[^"]*"//' "$SANDBOX/sg.bak" > "$PROJ/docs/ux/vision/style_guide.html"
+run_build o6w --no-zip --mode ds-only
+[ "$RC" -eq 0 ] && [ -s "$PKGDIR/10-design-system/cards/fnd-style-guide.html" ] && has 'no usable `data-token-group` anchors' \
+  && ok "a vision file without anchors ships one whole-file card, said out loud" || bad "whole-file fallback wrong" "$OUT"
+cp "$SANDBOX/sg.bak" "$PROJ/docs/ux/vision/style_guide.html"
+
+echo "── Part 4: closure ──"
+python3 - "$SRC" "$ROOT" <<'PY' && ok "every command, flag and path cited by the runbooks and the workflow exists" || bad "a runbook or the workflow cites something that does not exist"
 import re, subprocess, sys
 from pathlib import Path
 src, root = Path(sys.argv[1]), Path(sys.argv[2])
@@ -303,11 +448,14 @@ for name, text in texts.items():
     for script, rest in re.findall(r"python3 subproducts/po-package/(\w+\.py)([^\n`]*)", joined):
         if not (src / script).exists():
             problems.append(f"{name}: cites missing script {script}"); continue
-        helps.setdefault(script, subprocess.run([sys.executable, str(src / script), "--help"],
+        helps.setdefault(script, subprocess.run([sys.executable, "-B", str(src / script), "--help"],
                                                 capture_output=True, text=True).stdout)
         for flag in re.findall(r"(--[a-z][a-z-]*)", rest):
             if flag not in helps[script]:
                 problems.append(f"{name}: {script} has no flag {flag}")
+        for mode in re.findall(r"--mode ([a-z-]+)", rest):
+            if mode not in helps[script]:
+                problems.append(f"{name}: {script} has no mode {mode}")
     for rel in re.findall(r"`(\.context/templates/[^`]+)`", text):
         if not (root / rel).exists():
             problems.append(f"{name}: cites missing path {rel}")
@@ -317,14 +465,14 @@ for name, text in texts.items():
 print("\n".join(problems)); sys.exit(1 if problems else 0)
 PY
 
-python3 - "$SRC" "$ROOT" <<'PY' && ok "registry schema in the vision instruction matches what the tooling reads and writes" || bad "registry schema drifted between the instruction and the tooling"
+python3 - "$SRC" "$ROOT" <<'PY' && ok "registry example in the vision instruction and the fixture registry share keys and schema id; the builder's keys are among them" || bad "registry schema drifted between the instruction, the fixture and the builder"
 import json, re, sys
 from pathlib import Path
+sys.dont_write_bytecode = True
 sys.path.insert(0, sys.argv[1])
 import po_fixtures
 text = (Path(sys.argv[2]) / ".claude/instructions/Factory-codesign-vision.instructions.md").read_text(encoding="utf-8")
-section = text.split("## Component Registry", 1)[1]
-example = json.loads(re.search(r"```json\n(.*?)\n```", section, re.S).group(1))
+example = json.loads(re.search(r"```json\n(.*?)\n```", text.split("## Component Registry", 1)[1], re.S).group(1))
 problems = []
 if set(example) != set(po_fixtures.REGISTRY):
     problems.append(f"top-level keys differ: {sorted(set(example) ^ set(po_fixtures.REGISTRY))}")
@@ -332,6 +480,10 @@ if set(example["components"][0]) != set(po_fixtures.REGISTRY["components"][0]):
     problems.append(f"component keys differ: {sorted(set(example['components'][0]) ^ set(po_fixtures.REGISTRY['components'][0]))}")
 if example["$schema"] != po_fixtures.REGISTRY["$schema"]:
     problems.append("schema id differs")
+builder = (Path(sys.argv[1]) / "build_po_package.py").read_text(encoding="utf-8")
+for key in ("id", "name", "status", "cip_name", "ds_anchor"):
+    if key not in example["components"][0] or not re.search(rf"""['"]{key}['"]""", builder):
+        problems.append(f"the builder reads registry key «{key}», which the schema does not carry (or the reverse)")
 for anchor in ("data-component", "data-token-group"):
     if anchor not in text:
         problems.append(f"the instruction no longer states the `{anchor}` anchor the scanner depends on")
@@ -341,6 +493,7 @@ PY
 python3 - "$ROOT" <<'PY' && ok "--sync contract: identical guard at the 4 authoring entry points; every function it reuses by reference exists" || bad "--sync contract is broken"
 import re, sys
 from pathlib import Path
+sys.dont_write_bytecode = True
 root = Path(sys.argv[1]); ins = root / ".claude/instructions"
 sync = (ins / "Factory-codesign-sync.instructions.md").read_text(encoding="utf-8")
 feature = (ins / "Factory-codesign-feature.instructions.md").read_text(encoding="utf-8")
@@ -355,8 +508,7 @@ for name, text, want in (("feature", feature, 2), ("vision", vision, 2)):
         problems.append(f"{name} instruction carries the guard {text.count(guard)} time(s), byte-identical, expected {want}")
 for heading, text in (("## Command: `--start", feature), ("## Command: `--refine", feature),
                       ("## Command: `--vision`", vision), ("## Command: `--vision-refine", vision)):
-    after = text.split(heading, 1)[1][:400]
-    if "EXTERNAL-AUTHORING GUARD" not in after:
+    if "EXTERNAL-AUTHORING GUARD" not in text.split(heading, 1)[1][:400]:
         problems.append(f"the guard is not the first step under {heading}")
 for heading in ("## Command: `--vision-approve`", "## Command: `--vision-propagate`"):
     if "EXTERNAL-AUTHORING GUARD" in vision.split(heading, 1)[1].split("\n## ", 1)[0]:
@@ -369,26 +521,28 @@ for ref, where in (("FUNCTION scope_compatibility_gate(", feature), ("### Vision
                    ("## Component Registry", vision), ("FUNCTION append_iteration_entry(", skills),
                    ("FUNCTION check_slice_immutability(", skills), ("FUNCTION CASCADE_PENDING_ITERATION(", skills),
                    ("FUNCTION CASCADE_SLICE_INTERNAL(", skills), ("**Level 2: Cross-Reference Downstream**", feature),
-                   ("### Blocking Validations", vision), ("rdr-ratification", skills),
-                   ("## Iteration {id}", skills)):
+                   ("### Blocking Validations", vision), ("rdr-ratification", skills), ("## Iteration {id}", skills)):
     if ref not in where:
         problems.append(f"--sync reuses «{ref}» by reference, but it no longer exists")
 for needle in ("--sync", "Factory-codesign-sync.instructions.md"):
     if needle not in command:
         problems.append(f"codesign.md does not mention {needle}")
 branching = (root / ".claude/skills/factory-branching-strategy/SKILL.md").read_text(encoding="utf-8")
-creation = re.search(r"branch_creation_commands = \[(.*?)\]", branching).group(1)
-if "CODESIGN --sync" not in creation:
+if "CODESIGN --sync" not in re.search(r"branch_creation_commands = \[(.*?)\]", branching).group(1):
     problems.append("`CODESIGN --sync` is not a branch-creation command — a new target deadlocks (--start is guarded)")
-for needle in ("# ## Iteration {id}", "<!-- iter:{id}", "NO separator line", "STAGE EXPLICIT PATHS", "EXACT name"):
+for needle, why in (("TARGET NOT IN INTAKE.rejected", "a target with no rejected key must pass the precondition"),
+                    ("# ## Iteration {id}", "the .feature appendix must be Gherkin comment lines"),
+                    ("<!-- iter:{id}", "the mock appendix shape must be stated"),
+                    ("NO separator line", "byte-identity needs whole-line boundaries"),
+                    ("STAGE EXPLICIT PATHS", "`git add -A` would commit lock files"),
+                    ("EXACT name", "fuzzy concept matching raises spurious RDRs")):
     if needle not in sync:
-        problems.append(f"the sync instruction no longer states «{needle}» (smoke-run lesson)")
-if "TARGET NOT IN INTAKE.rejected" not in sync:
-    problems.append("the rejected-changes precondition no longer tolerates a target with no rejected key")
+        problems.append(f"the sync instruction no longer states «{needle}» — {why}")
 sys.path.insert(0, str(root / ".context/templates/setup/subproducts/po-package"))
 import validate_po_return as V
+template = (root / ".context/templates/codesign/mock-template.html").read_text(encoding="utf-8")
 for state in V.MOCK_STATES:
-    if f'data-state="{state}"' not in (root / ".context/templates/codesign/mock-template.html").read_text(encoding="utf-8"):
+    if f'data-state="{state}"' not in template:
         problems.append(f"validator expects mock state «{state}» that the framework mock template does not define")
 print("\n".join(problems)); sys.exit(1 if problems else 0)
 PY

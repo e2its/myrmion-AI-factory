@@ -206,6 +206,9 @@ for k, v in sorted(entries.items()):
         print(f'{k}: universal file carries a placeholder — it would not land byte-identical')
     if v.get('content_type') == 'stack_configured' and not has:
         print(f'{k}: stack_configured but carries no placeholder')
+    if v.get('content_type') not in ('universal', 'stack_configured'):
+        print(f'{k}: content_type {v.get("content_type")!r} — a subproduct file is universal or stack_configured; '
+              'anything else escapes both the byte-identity and the placeholder-rule checks')
 for wf in glob.glob(root + 'workflows/*'):
     for ref in set(re.findall(r'(subproducts/[A-Za-z0-9_./-]+\.(?:py|sh))', open(wf, errors='replace').read())):
         if not os.path.exists(root + ref):

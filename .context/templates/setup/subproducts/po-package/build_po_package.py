@@ -3,41 +3,49 @@
 """Build the Product Owner package for a Claude Desktop project.
 
 Subproduct, not product: reads the repository, assembles a staging tree OUTSIDE it and
-zips it. It never writes into the repository and never calls a tracker.
+zips it. Its own writes never land in the repository and it never calls a tracker. The one
+in-repo write that can happen under this tool is the project's own design-system rebuild
+command (--rebuild), which renders cards into the folder the project configured.
 
 Package shape:
-  00-core/           distilled product model: product sheet, feature catalogue, closed
-                     vocabulary (glossary), route map, roadmap
+  (root)             README, the project instructions to paste into Claude Desktop, PACKAGE.json
+  00-core/           product sheet, feature catalogue, closed vocabulary (glossary), route
+                     map, roadmap, rules of the game
   10-design-system/  vision artefacts, tokens, component base (registry joined with the
-                     codebase inventory) and one preview card per component
+                     codebase inventory), one preview card per component and per token group
   20-features/       raw CODESIGN annexes, one folder per specified feature
   30-templates/      evolution-request + manifest templates and the PO-safe artefact templates
 
-Design-system cards come from code when the project configures a rebuild tool, per
-component, and from the vision otherwise. The tool is the project's; this file names none.
+Cards come from code, per component, when a cards folder is configured (code_cards.dir) —
+refreshed first under --rebuild, and replaced by vision cards when that rebuild fails or
+the folder yields nothing. Vision cards otherwise. The tool is the project's; this file names none.
 
 Usage:
     python3 build_po_package.py                       # package from the configured project
     python3 build_po_package.py --roadmap roadmap.json
     python3 build_po_package.py --mode ds-only --rebuild --check-drift --out DIR
 
-Exit codes: 0 built · 1 drift found under --strict · 2 usage / IO / configuration error.
+Exit codes: 0 built · 1 under --check-drift --strict: drift found, or drift could not be
+computed · 2 the tool could not do its job (usage, configuration, IO, or its own fault).
 """
 
 from __future__ import annotations
 
-import argparse
-import datetime
-import json
-import os
-import re
-import shlex
-import shutil
-import string
-import subprocess
 import sys
-import tempfile
-from pathlib import Path
+
+sys.dont_write_bytecode = True  # this tool never writes into the repository — bytecode included
+
+import argparse  # noqa: E402
+import datetime  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import re  # noqa: E402
+import shlex  # noqa: E402
+import shutil  # noqa: E402
+import string  # noqa: E402
+import subprocess  # noqa: E402
+import tempfile  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import po_lib as L  # noqa: E402
@@ -51,26 +59,31 @@ CODESIGN_TEMPLATES = (
     "mock-feature-content-template.html", "app-shell-template.html",
 )
 STEP_FIELDS = ("Persona", "Does", "Feels", "Pain", "Ease")
+DRIFT_NOT_APPLICABLE = "not applicable — no code cards folder is configured"
 
 
 class Build:
     """Everything one run needs, resolved once."""
 
-    def __init__(self, repo: Path, cfg: dict, out: Path, roadmap: list[dict]) -> None:
-        self.repo, self.cfg, self.roadmap = repo, cfg, roadmap
+    def __init__(self, repo: Path, cfg: dict, out: Path, roadmap: list[dict] | None) -> None:
+        self.repo, self.cfg = repo, cfg
+        self.roadmap_given = roadmap is not None
+        self.roadmap = roadmap or []
         self.language = (cfg["project"].get("language") or "en").lower()
-        self.warnings: list[str] = []
+        self.warnings = 0
         self.features = L.spec_features(repo, cfg)
-        self.package_id = f"{L.slugify(cfg['project']['name']) or 'project'}-po-package-" \
-                          f"{datetime.date.today().strftime('%Y%m%d')}"
+        stamp = datetime.date.today().strftime("%Y%m%d")
+        self.package_id = f"{L.slugify(cfg['project']['name']) or 'project'}-po-package-{stamp}"
         self.stage = out / self.package_id
 
     def warn(self, message: str) -> None:
-        self.warnings.append(message)
+        self.warnings += 1
         print(f"  WARNING: {message}", file=sys.stderr)
 
     def write(self, rel: str, text: str) -> None:
-        path = self.stage / rel
+        path = (self.stage / rel).resolve()
+        if self.stage.resolve() not in path.parents:
+            raise L.PoPackageError(f"Refusing to write outside the package folder: {rel}")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
 
@@ -104,7 +117,7 @@ def _feature_sheet(build: Build, feature_id: str) -> str:
              "| Step | Who | What they do | Feels | Pain | What eases it |", "|---|---|---|---|---|---|"]
     for step in _steps(body):
         cells = [step[k].replace("|", "/") for k in STEP_FIELDS]
-        lines.append(f"| Paso {step['n']} | {cells[0]} | {cells[1]} | {cells[2]} | {cells[3]} | {cells[4]} |")
+        lines.append(f"| Paso {step['n']} | {' | '.join(cells)} |")
     lines += ["", f"Concepts: {', '.join(sorted(vocab['concepts'])) or '—'}  ",
               f"Fields: {', '.join(f'`{f}`' for f in sorted(vocab['fields'])) or '—'}  ",
               f"Rules: {', '.join(sorted(vocab['rules'])) or '—'}"]
@@ -113,19 +126,16 @@ def _feature_sheet(build: Build, feature_id: str) -> str:
 
 def build_catalogue(build: Build) -> str:
     head = ["# Feature catalogue\n",
-            "Every feature that already has a specification. Derived from the journeys in the "
+            "Every specified feature this package covers. Derived from the journeys in the "
             "repository — this is what exists, not a proposal.\n"]
     return "\n".join(head) + "".join(_feature_sheet(build, f) for f in build.features)
 
 
 def _field_meanings(body: str) -> dict[str, str]:
     meanings: dict[str, str] = {}
-    sec6 = L.section_body(re.sub(r"<!--.*?-->", "", body, flags=re.S), "## Section 6:")
-    for line in sec6.splitlines():
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if line.strip().startswith("|") and len(cells) >= 2 and not re.fullmatch(r":?-{2,}:?", cells[0]):
-            if cells[0].lower() != "field":
-                meanings.setdefault(cells[0].strip("` "), cells[1])
+    for cells in L.table_rows(L.section_body(L.strip_comments(body), "## Section 6:")):
+        if len(cells) >= 2:
+            meanings.setdefault(cells[0].strip("` "), cells[1])
     return meanings
 
 
@@ -139,8 +149,7 @@ def build_glossary(build: Build) -> str:
             for name in vocab[kind]:
                 names.setdefault((name, kind[:-1]), []).append(feature_id)
         for name, meaning in _field_meanings(body).items():
-            entry = fields.setdefault(name, {"meaning": meaning, "features": []})
-            entry["features"].append(feature_id)
+            fields.setdefault(name, {"meaning": meaning, "features": []})["features"].append(feature_id)
     lines = ["# Domain glossary — the closed vocabulary\n",
              "Before naming anything, look it up here. If it exists, use that exact name. "
              "Anything not listed is new and must be declared in the evolution request.\n",
@@ -164,8 +173,13 @@ def build_roadmap(build: Build) -> str:
              "Exported from the project board. Changing these is almost free: nothing is built. "
              "When they are built is decided on the board, never here.\n"]
     items = roadmap_only(build)
-    if not items:
+    dropped = sum(1 for r in build.roadmap if not (isinstance(r, dict) and r.get("id")))
+    if dropped:
+        build.warn(f"{dropped} roadmap item(s) have no `id` and were dropped — expected {{id, name, summary}}")
+    if not build.roadmap_given:
         lines.append("_No roadmap export was provided for this package._\n")
+    elif not items:
+        lines.append("_Every item of the roadmap export already has a specification._\n")
     for item in items:
         lines += [f"\n## {item['id']} — {item.get('name', '')}\n", str(item.get("summary", "")).strip(), ""]
         if item.get("body"):
@@ -177,19 +191,14 @@ def build_product(build: Build) -> str:
     project = build.cfg["project"]
     personas: dict[str, str] = {}
     for feature_id in build.features:
-        sec1 = L.section_body(_journey(build, feature_id), "## Section 1:")
-        for line in sec1.splitlines():
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) >= 4 and cells[0] not in ("Persona", "") and not cells[0].startswith(("-", ":")):
+        for cells in L.table_rows(L.section_body(_journey(build, feature_id), "## Section 1:")):
+            if len(cells) >= 4:
                 personas.setdefault(cells[0], cells[3])
     lines = [f"# {project['name']} — the product in one page\n", f"**Goal.** {project.get('business_goal', '')}\n",
              f"**Scope.** {project.get('scope', '')}\n",
              f"**State.** {len(build.features)} specified feature(s), {len(roadmap_only(build))} on the roadmap.\n",
              "## Who uses it\n", "| Persona | Wants |", "|---|---|"]
     lines += [f"| {name} | {wants.replace('|', '/')} |" for name, wants in sorted(personas.items())]
-    notes = HERE / "product-notes.md"
-    if notes.exists():
-        lines += ["", "## Notes from the team\n", L.read_text(notes).strip()]
     return "\n".join(lines) + "\n"
 
 
@@ -208,41 +217,49 @@ def build_core(build: Build) -> None:
 
 def build_tokens(build: Build) -> str:
     found: list[tuple[str, str, str]] = []
+    missing: list[str] = []
     for rel in build.cfg["design_system"]["tokens_sources"]:
         source = build.repo / rel
         if not source.exists():
+            missing.append(rel)
+            build.warn(f"tokens source `{rel}` does not exist — check design_system.tokens_sources")
             continue
         for block in re.findall(r":root\s*\{(.*?)\}", L.read_text(source), re.S):
             found += [(n, v.strip(), rel) for n, v in re.findall(r"(--[a-zA-Z0-9-]+)\s*:\s*([^;]+);", block)]
     lines = ["# Design tokens\n", "Never write a raw colour, size or spacing: use the token.\n"]
-    if not found:
-        lines.append("_No CSS custom properties were found in the configured sources. If the design "
-                     "system declares its tokens in a utility-framework config block, read them in "
-                     "`style_guide.html`._\n")
-        return "\n".join(lines)
-    lines += ["| Token | Value | Source |", "|---|---|---|"]
-    lines += [f"| `var({n})` | `{v}` | {src} |" for n, v, src in dict.fromkeys(found)]
+    if found:
+        lines += ["| Token | Value | Source |", "|---|---|---|"]
+        lines += [f"| `var({n})` | `{v}` | {src} |" for n, v, src in dict.fromkeys(found)]
+    elif missing:
+        lines.append(f"_The configured token sources were not found ({', '.join(missing)}). Read the tokens in `style_guide.html`._\n")
+    else:
+        lines.append("_The configured sources declare no CSS custom properties. If the design system declares "
+                     "its tokens in the utility framework's config block, read them in `style_guide.html`._\n")
     return "\n".join(lines) + "\n"
 
 
 def component_rows(build: Build) -> list[dict]:
     """Registry joined with the codebase inventory. The inventory owns the code truth."""
+    registry = L.registry_components(build.repo, build.cfg)
+    inventory_path = build.repo / build.cfg["design_system"]["codebase_inventory"]
+    if any(c.get("cip_name") for c in registry) and not inventory_path.exists():
+        build.warn(f"the codebase inventory is not at `{build.cfg['design_system']['codebase_inventory']}` — "
+                   "built components will read as not built")
     inventory = L.inventory_ui_components(build.repo, build.cfg)
     rows = []
-    for comp in L.registry_components(build.repo, build.cfg):
+    for comp in registry:
         artifact = inventory.get(comp.get("cip_name") or "")
         primitive = f"{artifact['name']} — {artifact.get('path', '')}" if artifact else None
         rows.append({**comp, "primitive": primitive})
     return rows
 
 
-def build_components(build: Build) -> str:
+def build_components(build: Build, rows: list[dict]) -> str:
     lines = ["# Established component base\n",
              "Compose every screen with these. Asking for a new widget when one of these solves the "
              "case is the fastest way to have a proposal cut in review. A component with no code "
              "primitive yet is designed but not built: using it is fine, it is already in the plan.\n",
              "| Component | Status | Code primitive | In the library |", "|---|---|---|---|"]
-    rows = component_rows(build)
     for row in rows:
         lines.append(f"| {row.get('name', row.get('id'))} | {row.get('status', '—')} | "
                      f"{row['primitive'] or '— not built yet'} | `{row.get('ds_anchor', '—')}` |")
@@ -266,59 +283,84 @@ def _card(build: Build, group: str, title: str, assets: str, inner: str, footer:
             f"  <body>\n    <main>\n{inner}\n    </main>\n    <!-- {footer} -->\n  </body>\n</html>\n")
 
 
-def vision_cards(build: Build) -> dict[str, dict]:
-    """{id: card} from the vision anchors; whole-file cards when a file carries none."""
+def _vision_footer(block_id: str, row: dict, is_foundation: bool) -> str:
+    if is_foundation:
+        return f"Design tokens · {block_id}"
+    if row.get("primitive"):
+        return f"Code primitive: {row['primitive']}"
+    return f"No code primitive yet (status: {row.get('status', 'not in the registry')})"
+
+
+def _vision_blocks(build: Build, filename: str, attr: str, group: str, html: str) -> list[dict]:
+    blocks, unclosed = L.scan_sections_full(html, attr)
+    if unclosed:
+        build.warn(f"{filename}: section «{unclosed}» is never closed — it and everything after it got no card")
+    for bad in [b["id"] for b in blocks if not L.is_slug(b["id"])]:   # an id becomes a file name: slug or nothing
+        build.warn(f"{filename}: section id «{bad}» is not a lowercase slug — it got no card")
+    blocks = [b for b in blocks if L.is_slug(b["id"])]
+    if blocks:
+        return blocks
+    build.warn(f"{filename} carries no usable `{attr}` anchors — one whole-file card is shipped instead")
+    return [{"id": L.slugify(Path(filename).stem), "name": Path(filename).stem, "group": group,
+             "html": re.sub(r"(?is).*<body[^>]*>|</body>.*", "", html)}]
+
+
+def vision_cards(build: Build, rows: list[dict]) -> dict[str, dict]:
+    """{id: card} from the vision anchors; a whole-file card when a file carries none."""
     root = build.repo / build.cfg["design_system"]["vision_root"]
-    primitives = {r["id"]: r for r in component_rows(build) if r.get("id")}
+    by_id = {L.slugify(r["id"]): r for r in rows if r.get("id")}
     cards: dict[str, dict] = {}
     for filename, attr, group, prefix in (("component_library.html", "data-component", "Components", ""),
                                           ("style_guide.html", "data-token-group", "Foundations", "fnd-")):
-        source = root / filename
-        if not source.exists():
+        if not (root / filename).exists():
+            build.warn(f"the vision has no {filename} — no cards are cut from it")
             continue
-        html = L.read_text(source)
-        blocks = L.scan_sections(html, attr)
-        if not blocks:
-            build.warn(f"{filename} carries no `{attr}` anchors — one whole-file card is shipped instead")
-            blocks = [{"id": L.slugify(Path(filename).stem), "name": Path(filename).stem, "group": group,
-                       "html": re.sub(r"(?is).*<body[^>]*>|</body>.*", "", html)}]
-        for block in blocks:
-            row = primitives.get(block["id"], {})
-            if prefix:
-                footer = f"Design tokens · {block['id']}"
-            elif row.get("primitive"):
-                footer = f"Code primitive: {row['primitive']}"
-            else:
-                footer = f"No code primitive yet (status: {row.get('status', 'not in the registry')})"
-            cid = prefix + block["id"]
-            cards[cid] = {"id": cid, "name": block["name"] or block["id"], "group": block["group"] or group,
+        html = L.read_text(root / filename)
+        for block in _vision_blocks(build, filename, attr, group, html):
+            footer = _vision_footer(block["id"], by_id.get(block["id"], {}), bool(prefix))
+            cid, card_group = prefix + block["id"], block["group"] or group
+            cards[cid] = {"id": cid, "name": block["name"] or block["id"], "group": card_group,
                           "subtitle": footer, "source": "vision",
-                          "html": _card(build, block["group"] or group, block["name"], _head_assets(html),
-                                        block["html"], footer)}
+                          "html": _card(build, card_group, block["name"], _head_assets(html), block["html"], footer)}
     return cards
 
 
+def _code_card(path: Path, meta: dict) -> dict | None:
+    html = L.read_text(path)
+    marker = CARD_MARKER_RE.match(html)
+    if not marker:
+        return None
+    group = re.search(r'group="([^"]*)"', marker.group(1))
+    info = meta.get(path.name, {})
+    return {"id": L.slugify(path.stem), "name": info.get("name") or path.stem, "source": "code", "html": html,
+            "group": info.get("group") or (group.group(1) if group else "Components"),
+            "subtitle": info.get("subtitle") or "Rendered from code"}
+
+
 def code_cards(build: Build) -> dict[str, dict]:
-    """Cards a project tool rebuilt from code. Assumed contract: HTML files whose first
-    line is the design-system card marker, plus an optional compiled manifest."""
+    """Cards a project tool rebuilt from code. Assumed contract: HTML files whose first line
+    is the design-system card marker, plus an optional compiled manifest. Every way this
+    can yield nothing is said out loud — a silent fallback would show the PO the wrong cards."""
     rel = build.cfg["design_system"]["code_cards"].get("dir")
-    folder = build.repo / rel if rel else None
-    if not folder or not folder.is_dir():
+    folder = build.repo / rel
+    if not folder.is_dir():
+        build.warn(f"code cards were expected in `{rel}` but the folder does not exist — vision cards are used")
         return {}
-    manifest = L.load_json(folder / "_ds_manifest.json", {})
+    try:
+        manifest = L.load_json(folder / "_ds_manifest.json", {})
+    except L.PoPackageError as exc:
+        build.warn(f"{exc} — card names and groups fall back to the file names")
+        manifest = {}
     meta = {Path(c.get("path", "")).name: c for c in (manifest.get("cards") or []) if isinstance(c, dict)}
     cards: dict[str, dict] = {}
     for path in sorted(folder.rglob("*.html")):
-        html = L.read_text(path)
-        marker = CARD_MARKER_RE.match(html)
-        if not marker:
-            continue
-        group = re.search(r'group="([^"]*)"', marker.group(1))
-        info = meta.get(path.name, {})
-        cid = L.slugify(path.stem)
-        cards[cid] = {"id": cid, "name": info.get("name") or path.stem, "source": "code", "html": html,
-                      "group": info.get("group") or (group.group(1) if group else "Components"),
-                      "subtitle": info.get("subtitle") or "Rendered from code"}
+        card = _code_card(path, meta)
+        if card:
+            cards[card["id"]] = card
+        else:
+            build.warn(f"`{path.relative_to(build.repo)}` does not open with the card marker — skipped")
+    if not cards:
+        build.warn(f"`{rel}` holds no card — vision cards are used")
     return cards
 
 
@@ -330,9 +372,8 @@ def run_rebuild(build: Build) -> bool:
         build.warn("--rebuild was asked but no rebuild command is configured — vision cards are used")
         return False
     try:
-        args = shlex.split(command)
-        proc = subprocess.run(args, cwd=build.repo, shell=False, capture_output=True, text=True,
-                              timeout=int(conf.get("timeout_s") or 600), check=False)
+        proc = subprocess.run(shlex.split(command), cwd=build.repo, shell=False, capture_output=True,
+                              text=True, timeout=int(conf.get("timeout_s") or 600), check=False)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         build.warn(f"the design-system rebuild command could not run ({exc}) — vision cards are used")
         return False
@@ -343,11 +384,9 @@ def run_rebuild(build: Build) -> bool:
     return True
 
 
-def drift(build: Build, from_code: dict[str, dict]) -> list[str]:
+def drift(rows: list[dict], from_code: dict[str, dict]) -> list[str]:
     """Card-to-registry drift: the mechanical signal of design-system / build alignment."""
-    if not build.cfg["design_system"]["code_cards"].get("dir"):
-        return []
-    registry = {c["id"]: c for c in L.registry_components(build.repo, build.cfg) if c.get("id")}
+    registry = {L.slugify(c["id"]): c for c in rows if c.get("id")}
     found = [f"code-card-unregistered: «{cid}» is rendered from code but is not in the component registry"
              for cid in sorted(set(from_code) - set(registry))]
     for cid, comp in sorted(registry.items()):
@@ -359,31 +398,45 @@ def drift(build: Build, from_code: dict[str, dict]) -> list[str]:
     return found
 
 
-def build_design_system(build: Build, use_code: bool) -> tuple[int, list[str]]:
+def _copy_design_sources(build: Build, root: Path) -> None:
+    target = _ensure(build.stage / "10-design-system")
+    for name in (n for n in L.VISION_FILES if n.endswith(".html")):
+        if (root / name).exists():
+            shutil.copy2(root / name, target / name)
+        else:
+            build.warn(f"the vision has no {name} — it is not shipped")
+    for rel in build.cfg["design_system"].get("extra_files") or []:
+        if (build.repo / rel).is_file():
+            shutil.copy2(build.repo / rel, target / Path(rel).name)
+        else:
+            build.warn(f"extra design-system file `{rel}` does not exist — check design_system.extra_files")
+
+
+def build_design_system(build: Build, trust_code: bool) -> tuple[int, list[str] | str]:
+    """(cards shipped, drift). Drift is a list when computed, else the reason it was not."""
     ds = build.cfg["design_system"]
     root = build.repo / ds["vision_root"]
     if not root.is_dir():
         build.warn(f"no vision at {ds['vision_root']} — the design-system folder is not shipped")
-        return 0, []
-    for name in L.VISION_FILES:
-        if name.endswith(".html") and (root / name).exists():
-            shutil.copy2(root / name, _ensure(build.stage / "10-design-system") / name)
-    for rel in ds.get("extra_files") or []:
-        if (build.repo / rel).is_file():
-            shutil.copy2(build.repo / rel, _ensure(build.stage / "10-design-system") / Path(rel).name)
+        return 0, "NOT COMPUTED — there is no vision to build a design system from"
+    _copy_design_sources(build, root)
+    rows = component_rows(build)
     build.write("10-design-system/tokens.md", build_tokens(build))
-    build.write("10-design-system/components.md", build_components(build))
-    from_code = code_cards(build) if use_code else {}
-    if not use_code and ds["code_cards"].get("dir"):
-        build.warn("code cards are not trusted in this run — drift is not computed")
-    cards = {**vision_cards(build), **from_code}  # code wins per component
+    build.write("10-design-system/components.md", build_components(build, rows))
+    configured = bool(ds["code_cards"].get("dir"))
+    from_code = code_cards(build) if configured and trust_code else {}
+    cards = {**vision_cards(build, rows), **from_code}  # code wins per component
     for card in cards.values():
         build.write(f"10-design-system/cards/{card['id']}.html", card["html"])
     index = [{"name": c["name"], "path": f"cards/{c['id']}.html", "group": c["group"],
               "subtitle": c["subtitle"], "source": c["source"], "viewport": {"width": 960, "height": 600}}
              for c in cards.values()]
     build.write("10-design-system/_ds_manifest.json", json.dumps({"cards": index}, indent=2, ensure_ascii=False) + "\n")
-    return len(cards), (drift(build, from_code) if use_code else [])
+    if not configured:
+        return len(cards), DRIFT_NOT_APPLICABLE
+    if not from_code:
+        return len(cards), "NOT COMPUTED — no card rendered from code could be trusted in this run"
+    return len(cards), drift(rows, from_code)
 
 
 def _ensure(path: Path) -> Path:
@@ -403,7 +456,7 @@ def build_features(build: Build) -> None:
                 shutil.copy2(root / feature_id / name, target / name)
 
 
-def build_templates(build: Build, with_vision: bool) -> None:
+def build_templates(build: Build) -> None:
     source = build.repo / ".context" / "templates" / "codesign"
     target = _ensure(build.stage / "30-templates")
     for name, out in (("user_journey_template.md", "user_journey-TEMPLATE.md"),
@@ -412,10 +465,9 @@ def build_templates(build: Build, with_vision: bool) -> None:
             (target / out).write_text(L.split_frontmatter(L.read_text(source / name))[1].lstrip(), encoding="utf-8")
         elif name.startswith("user_journey"):
             build.warn("the journey template is missing from the repository — the PO has no mould to start from")
-    if with_vision or build.features:
-        for name in CODESIGN_TEMPLATES:
-            if (source / name).exists():
-                shutil.copy2(source / name, target / name)
+    for name in CODESIGN_TEMPLATES:
+        if (source / name).exists():
+            shutil.copy2(source / name, target / name)
 
 
 def copy_static(build: Build, with_vision: bool, variables: dict[str, str]) -> None:
@@ -427,9 +479,8 @@ def copy_static(build: Build, with_vision: bool, variables: dict[str, str]) -> N
         if not with_vision and rel.name == "PROJECT-INSTRUCTIONS-VISION.md":
             continue
         chosen = override / rel if (override / rel).is_file() else path
-        text = L.read_text(chosen)
         try:
-            rendered = string.Template(text).substitute(variables)
+            rendered = string.Template(L.read_text(chosen)).substitute(variables)
         except (KeyError, ValueError) as exc:
             raise L.PoPackageError(f"static/{chosen.relative_to(HERE / 'static')} uses an unknown or "
                                    f"malformed build variable: {exc}") from exc
@@ -451,66 +502,85 @@ def check_runbook(build: Build) -> None:
         return
     stated = re.search(r"^Active design-system section:\s*\*\*(6[ABC])\*\*", L.read_text(runbook), re.M)
     expected = expected_runbook_section(build)
-    if stated and stated.group(1) != expected:
+    if not stated:
+        build.warn("RUNBOOK.md no longer states its active design-system section — its freshness was not checked")
+    elif stated.group(1) != expected:
         build.warn(f"RUNBOOK.md says section {stated.group(1)} applies, but the configuration and the CI "
                    f"workflow say {expected} — update its 'This project' block")
 
 
+def _outside(repo: Path, folder: Path, label: str) -> Path:
+    folder = folder.expanduser().resolve()
+    if folder == repo.resolve() or repo.resolve() in folder.parents:
+        raise L.PoPackageError(f"The {label} must be outside the repository (got {folder}).")
+    return folder
+
+
 def staging_root(repo: Path, cli_out: Path | None) -> Path:
-    out = (cli_out or Path(os.environ.get("PO_PACKAGE_OUT") or tempfile.gettempdir())).expanduser().resolve()
-    if out == repo.resolve() or repo.resolve() in out.parents:
-        raise L.PoPackageError(f"The staging folder must be outside the repository (got {out}).")
-    return out
+    return _outside(repo, cli_out or Path(os.environ.get("PO_PACKAGE_OUT") or tempfile.gettempdir()), "staging folder")
 
 
 def zip_folder(cfg: dict, cli_zip_dir: Path | None, fallback: Path, repo: Path) -> Path:
     configured = cli_zip_dir or (Path(cfg["output"]["zip_dir"]) if cfg["output"].get("zip_dir") else None)
     downloads = Path.home() / "Downloads"
-    folder = (configured or (downloads if downloads.is_dir() else fallback)).expanduser().resolve()
-    if folder == repo.resolve() or repo.resolve() in folder.parents:
-        raise L.PoPackageError(f"The zip folder must be outside the repository (got {folder}).")
+    folder = _outside(repo, configured or (downloads if downloads.is_dir() else fallback), "zip folder")
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 
 
-def load_roadmap(path: Path | None) -> list[dict]:
+def load_roadmap(path: Path | None) -> list[dict] | None:
     if not path:
-        return []
+        return None
+    if not path.is_file():
+        raise L.PoPackageError(f"Roadmap file not found: {path}")
     data = L.load_json(path, None)
     if not isinstance(data, list):
         raise L.PoPackageError(f"{path} must hold a JSON list of {{id, name, summary}} items.")
     return data
 
 
-def resolve_mode(cli_mode: str, cfg: dict, repo: Path) -> tuple[bool, bool]:
-    """(with_features, with_vision). Non-UI scopes and features-only projects carry no vision."""
-    ui = cfg["project"].get("scope") in L.UI_SCOPES
-    vision_allowed = ui and cfg.get("mode", "full") == "full"
-    if cli_mode == "ds-only":
-        return False, True
-    if cli_mode == "features":
-        return True, False
-    if cli_mode == "vision":
-        return False, vision_allowed
-    return True, vision_allowed
+def vision_allowed(cfg: dict) -> bool:
+    """Non-UI scopes and features-only projects author no design system."""
+    return cfg["project"].get("scope") in L.UI_SCOPES and cfg.get("mode") == "full"
+
+
+def fresh_stage(build: Build) -> None:
+    try:
+        if build.stage.exists():
+            shutil.rmtree(build.stage)
+        build.stage.mkdir(parents=True)
+    except OSError as exc:
+        raise L.PoPackageError(f"Cannot prepare the staging folder {build.stage}: {exc}") from exc
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 
 def _parse(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build the Product Owner package (reads the repo, writes outside it).")
+    parser = argparse.ArgumentParser(
+        description="Build the Product Owner package. Reads the repo; its own output lands outside it.")
     parser.add_argument("--repo", help="repository root (default: PO_PACKAGE_REPO, then git toplevel)")
     parser.add_argument("--config", type=Path, help="config file (default: next to this script)")
     parser.add_argument("--out", type=Path, help="staging folder, outside the repo (default: PO_PACKAGE_OUT, then the system temp folder)")
-    parser.add_argument("--zip-dir", type=Path, help="where the zip lands (default: config, then ~/Downloads, then --out)")
+    parser.add_argument("--zip-dir", type=Path, help="where the zip lands (default: config, then ~/Downloads, then the staging folder)")
     parser.add_argument("--roadmap", type=Path, help="roadmap export: a JSON list of {id, name, summary}")
-    parser.add_argument("--mode", choices=("auto", "vision", "features", "ds-only"), default="auto")
+    parser.add_argument("--mode", choices=("auto", "ds-only"), default="auto",
+                        help="auto: the whole package, shaped by the project config · ds-only: the design-system bundle only, always")
     parser.add_argument("--rebuild", action="store_true", help="run the configured design-system rebuild command first")
     parser.add_argument("--check-drift", action="store_true", help="report card-to-registry drift")
-    parser.add_argument("--strict", action="store_true", help="with --check-drift: exit 1 when drift is found")
+    parser.add_argument("--strict", action="store_true", help="with --check-drift: exit 1 when drift is found or could not be computed")
     parser.add_argument("--no-zip", action="store_true", help="leave the staging tree only")
     return parser.parse_args(argv)
+
+
+def _report_drift(drifted: list[str] | str, strict: bool) -> int:
+    if isinstance(drifted, str):
+        print(f"drift: {drifted}")
+        return 1 if strict and drifted != DRIFT_NOT_APPLICABLE else 0
+    print(f"drift: {len(drifted)} finding(s)")
+    for line in drifted:
+        print(f"  · {line}")
+    return 1 if drifted and strict else 0
 
 
 def run(args: argparse.Namespace) -> int:
@@ -520,45 +590,44 @@ def run(args: argparse.Namespace) -> int:
         raise L.PoPackageError("The PO package is switched off for this project (mode: off).")
     out = staging_root(repo, args.out)
     build = Build(repo, cfg, out, load_roadmap(args.roadmap))
-    shutil.rmtree(build.stage, ignore_errors=True)
-    build.stage.mkdir(parents=True)
+    fresh_stage(build)
     check_runbook(build)
-    with_features, with_vision = resolve_mode(args.mode, cfg, repo)
-    use_code = run_rebuild(build) if args.rebuild else bool(cfg["design_system"]["code_cards"].get("dir"))
-    cards, drifted = build_design_system(build, use_code) if with_vision else (0, [])
-    if args.mode != "ds-only":
+    ds_only = args.mode == "ds-only"
+    with_vision = ds_only or vision_allowed(cfg)
+    trust_code = run_rebuild(build) if args.rebuild else True
+    cards, drifted = build_design_system(build, trust_code) if with_vision else (0, "NOT COMPUTED — this project authors no design system")
+    if not ds_only:
         variables = {"project_name": cfg["project"]["name"], "business_goal": cfg["project"].get("business_goal", ""),
                      "project_scope": cfg["project"].get("scope", ""),
                      "po_language_name": LANGUAGE_NAMES.get(build.language, build.language),
                      "n_specified": str(len(build.features)), "n_roadmap": str(len(roadmap_only(build))),
                      "package_id": build.package_id}
         build_core(build)
-        if with_features:
-            build_features(build)
-        build_templates(build, with_vision)
+        build_features(build)
+        build_templates(build)
         copy_static(build, with_vision, variables)
         build.write("PACKAGE.json", json.dumps({"package_id": build.package_id, "mode": args.mode,
                                                "with_vision": with_vision, "features": build.features}, indent=2) + "\n")
     print(f"staging: {build.stage}")
-    print(f"features: {len(build.features)} · roadmap: {len(roadmap_only(build))} · cards: {cards}")
+    print(f"features: {len(build.features)} · roadmap: {len(roadmap_only(build))} · cards: {cards} · warnings: {build.warnings}")
     if not args.no_zip:
         folder = zip_folder(cfg, args.zip_dir, out, repo)
         print(f"zip: {shutil.make_archive(str(folder / build.package_id), 'zip', build.stage.parent, build.stage.name)}")
-    if args.check_drift:
-        print(f"drift: {len(drifted)} finding(s)")
-        for line in drifted:
-            print(f"  · {line}")
-        if drifted and args.strict:
-            return 1
-    return 0
+    return _report_drift(drifted, args.strict) if args.check_drift else 0
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = _parse(argv)
     try:
-        return run(_parse(argv))
+        return run(args)
     except L.PoPackageError as exc:
         print(f"Cannot build the package: {exc}", file=sys.stderr)
-        return 2
+    except Exception as exc:  # noqa: BLE001 - boundary: a tool fault must never read as "drift found"
+        if os.environ.get("PO_PACKAGE_DEBUG"):
+            raise
+        print(f"Cannot build the package: the tool itself failed ({type(exc).__name__}: {exc}). "
+              "Set PO_PACKAGE_DEBUG=1 to see the trace.", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

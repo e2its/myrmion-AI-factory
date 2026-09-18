@@ -5,19 +5,24 @@
 Judges FORM and COHERENCE, never merit. Green means "this is reviewable"; it never means
 "accepted" — acceptance is a per-change ratification the user makes (RDR).
 
-What it enforces, and why each check exists:
+Checks (BLOCKER and ERROR make the return RED; WARN never does):
 
-  zip-safety                   an archive that escapes its folder is never extracted
-  structure / manifest         a return nobody can index cannot be reviewed
+  zip-safety                   an archive that escapes its folder, is oversized, encrypted
+                               or damaged is never extracted
+  structure / manifest         a return nobody can index cannot be reviewed; an empty or
+                               non-UTF-8 file and an unrecognised folder are named, never skipped
+  self-check                   the PO attests the checklist was walked (WARN)
   erq-*                        the evolution request is what makes the artefacts readable
+  new-name-unjustified         a name declared new must say what was looked up first
   journey-grammar              DELEGATED to scripts/check-journey-grammar.sh — the same gate
                                CODESIGN applies to its own output; never duplicated here
+  journey-grammar-infra        that gate missing or unrunnable is a BLOCKER, never a pass
   gherkin                      anchors are exact titles, so duplicates are ambiguous
-  name-/field-new-undeclared   an invented name where one exists forces a contract rewrite
+  name-/field-new-undeclared   an invented name where one exists forces a contract rewrite (WARN)
   external-deps                artefacts may load only what the framework templates load
-  a11y-basics                  cheap signals only; WCAG stays authoritative at the gates
-  mock-states                  the sync gate wants four states per step; say so BEFORE the round-trip
-  vision-*                     the design system arrives whole, tokenised and parseable
+  a11y-basics                  cheap signals only; WCAG stays authoritative at the gates (WARN)
+  mock-states                  the sync gate wants four states per step; said BEFORE the round-trip (WARN)
+  vision-*                     the design system arrives whole, tokenised, anchored and parseable
 
 Usage:
     python3 validate_po_return.py --zip ~/Downloads/return.zip
@@ -25,30 +30,37 @@ Usage:
     python3 validate_po_return.py --selftest          # proves every check can fail
     python3 validate_po_return.py --emit-fixture DIR  # golden project + golden return
 
-Exit codes: 0 clean · 1 findings · 2 usage / IO / infrastructure error.
+Exit codes: 0 GREEN (no BLOCKER/ERROR; WARN allowed) · 1 RED · 2 the tool could not do its
+job (usage, configuration, repository, IO, or a fault of the tool itself) — never a verdict.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
-import re
-import shutil
-import subprocess
 import sys
-import tempfile
-import zipfile
-from dataclasses import dataclass, field
-from pathlib import Path
+
+sys.dont_write_bytecode = True  # this tool never writes into the repository — bytecode included
+
+import argparse  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import re  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+import tempfile  # noqa: E402
+import zipfile  # noqa: E402
+from collections import Counter  # noqa: E402
+from dataclasses import dataclass, field  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import po_lib as L  # noqa: E402
 
-SEVERITY_ORDER = {"BLOCKER": 0, "ERROR": 1, "WARN": 2}
-MARKS = {"BLOCKER": "■", "ERROR": "▲", "WARN": "·"}
+SEVERITIES = {"BLOCKER": (0, "■"), "ERROR": (1, "▲"), "WARN": (2, "·")}
 CLASSIFICATIONS = ("delta", "breaking")
 CORE_COMPONENTS = ("button", "input", "card")
 MOCK_STATES = ("default", "empty", "loading", "error")
+TEXT_SUFFIXES = (".md", ".feature", ".html", ".yaml", ".yml")
+IGNORED_FOLDERS = ("__MACOSX",)
 ALL_CHECKS = (
     "zip-safety", "structure", "manifest", "self-check",
     "erq-header", "erq-fields", "erq-change-incomplete", "new-name-unjustified",
@@ -58,15 +70,23 @@ ALL_CHECKS = (
     "vision-files", "vision-tokens-declared", "vision-components-parseable",
     "vision-component-undeclared", "vision-frontmatter-leak",
 )
-NEW_NAME_KIND = {"personas": "name", "concepts": "name", "rules": "name", "fields": "field"}
+NEW_NAME_CHECK = {kind: ("field-new-undeclared" if kind == "fields" else "name-new-undeclared")
+                  for kind in L.VOCAB_KINDS}
 
 
-@dataclass
+@dataclass(frozen=True)
 class Finding:
     severity: str
     where: str
     check: str
     message: str
+
+    def __post_init__(self) -> None:
+        # A typo here would fail OPEN: an unknown severity is not blocking, so RED reads GREEN.
+        if self.severity not in SEVERITIES:
+            raise ValueError(f"unknown severity {self.severity!r}")
+        if self.check not in ALL_CHECKS:
+            raise ValueError(f"undeclared check id {self.check!r}")
 
 
 @dataclass
@@ -79,16 +99,16 @@ class Report:
 
     @property
     def blocking(self) -> list[Finding]:
-        return [f for f in self.findings if f.severity in ("BLOCKER", "ERROR")]
+        return [f for f in self.findings if f.severity != "WARN"]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Context:
     repo: Path
     cfg: dict
-    glossary: dict[str, set[str]]
-    hosts: set[str]
-    known_components: set[str]
+    glossary: dict
+    hosts: frozenset
+    known_components: frozenset
 
 
 def _yaml():
@@ -99,6 +119,30 @@ def _yaml():
     return yaml
 
 
+def _safe_yaml(text: str, where: str, check: str, rep: Report) -> dict | None:
+    yaml = _yaml()
+    try:
+        data = yaml.safe_load(text) or {}
+    except yaml.YAMLError as exc:
+        rep.add("BLOCKER", where, check, f"unreadable YAML: {exc}")
+        return None
+    if not isinstance(data, dict):
+        rep.add("BLOCKER", where, check, "the YAML must be a mapping (key: value), not a list or a text")
+        return None
+    return data
+
+
+def _mappings(value, label: str, where: str, rep: Report) -> list[dict]:
+    """PO-authored lists: anything that is not a list of mappings is a finding, never a crash."""
+    if value in (None, []):
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        rep.add("ERROR", where, "erq-fields",
+                f"`{label}` must be a list of entries, each with its own keys — a bare text or number is not one")
+        return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+    return value
+
+
 # ── Evolution request ────────────────────────────────────────────────────────
 
 
@@ -107,16 +151,7 @@ def _erq_frontmatter(path: Path, where: str, rep: Report) -> dict | None:
     if not frontmatter:
         rep.add("BLOCKER", where, "erq-header", "the evolution request has no YAML header")
         return None
-    yaml = _yaml()
-    try:
-        data = yaml.safe_load(frontmatter) or {}
-    except yaml.YAMLError as exc:
-        rep.add("BLOCKER", where, "erq-header", f"unreadable YAML header: {exc}")
-        return None
-    if not isinstance(data, dict):
-        rep.add("BLOCKER", where, "erq-header", "the YAML header must be a mapping")
-        return None
-    return data
+    return _safe_yaml(frontmatter, where, "erq-header", rep)
 
 
 def _check_erq_fields(fm: dict, target: str, folder: str, where: str, rep: Report) -> None:
@@ -134,19 +169,20 @@ def _check_erq_fields(fm: dict, target: str, folder: str, where: str, rep: Repor
         rep.add("ERROR", where, "erq-fields", f"`scope` «{fm['scope']}» is not a known scope")
 
 
-def _check_erq_changes(fm: dict, where: str, rep: Report) -> None:
-    for change in fm.get("changes") or []:
-        cid = change.get("id", "?") if isinstance(change, dict) else "?"
+def _check_change_entries(fm: dict, where: str, rep: Report) -> None:
+    for change in _mappings(fm.get("changes"), "changes", where, rep):
         for key in ("kind", "summary", "business_reason", "reuse_checked"):
-            if not (isinstance(change, dict) and change.get(key)):
+            if not change.get(key):
                 rep.add("ERROR", where, "erq-change-incomplete",
-                        f"change {cid} does not state `{key}` — without it the change cannot be weighed")
+                        f"change {change.get('id', '?')} does not state `{key}` — without it the change cannot be weighed")
+
+
+def _check_new_declarations(fm: dict, where: str, rep: Report) -> None:
     for bucket in ("new_names", "new_components"):
-        for entry in fm.get(bucket) or []:
-            if not (isinstance(entry, dict) and entry.get("why_not_reused")):
-                label = (entry or {}).get("name") or (entry or {}).get("id") or "?"
+        for entry in _mappings(fm.get(bucket), bucket, where, rep):
+            if not entry.get("why_not_reused"):
                 rep.add("ERROR", where, "new-name-unjustified",
-                        f"«{label}» is declared new but does not say what was looked up first")
+                        f"«{entry.get('name') or entry.get('id') or '?'}» is declared new but does not say what was looked up first")
 
 
 def check_erq(path: Path, target: str, folder: str, rep: Report) -> dict:
@@ -155,13 +191,15 @@ def check_erq(path: Path, target: str, folder: str, rep: Report) -> dict:
     if fm is None:
         return {}
     _check_erq_fields(fm, target, folder, where, rep)
-    _check_erq_changes(fm, where, rep)
+    _check_change_entries(fm, where, rep)
+    _check_new_declarations(fm, where, rep)
     rep.checked.append(where)
     return fm
 
 
 def _declared(fm: dict, bucket: str, key: str) -> set[str]:
-    return {e.get(key) for e in (fm.get(bucket) or []) if isinstance(e, dict) and e.get(key)}
+    entries = fm.get(bucket)
+    return {e[key] for e in entries if isinstance(e, dict) and e.get(key)} if isinstance(entries, list) else set()
 
 
 # ── Feature artefacts ────────────────────────────────────────────────────────
@@ -177,23 +215,24 @@ def check_spec(path: Path, folder: str, rep: Report) -> None:
         rep.add("BLOCKER", where, "gherkin", "there is no `Scenario:`")
     if any(not t for t in titles):
         rep.add("ERROR", where, "gherkin", "a scenario has no title")
-    for title in sorted({t for t in titles if t and titles.count(t) > 1}):
-        rep.add("ERROR", where, "gherkin", f"scenario title «{title}» is duplicated — journey anchors match titles exactly")
+    for title, count in sorted(Counter(t for t in titles if t).items()):
+        if count > 1:
+            rep.add("ERROR", where, "gherkin", f"scenario title «{title}» is duplicated — journey anchors match titles exactly")
     rep.checked.append(where)
 
 
 def check_html(path: Path, where: str, ctx: Context, rep: Report, landmarks: bool = False) -> str:
     text = L.read_text(path)
-    for url in L.disallowed_refs(text, ctx.hosts):
+    facts = L.html_facts(text)
+    for url in L.disallowed_refs(text, set(ctx.hosts)):
         rep.add("ERROR", where, "external-deps", f"external reference not allowed: {url}")
-    if not re.search(r"<html[^>]*\blang\s*=", text, re.I):
+    if not facts.has_lang:
         rep.add("WARN", where, "a11y-basics", "`<html>` declares no `lang`")
-    if re.search(r"<img(?![^>]*\balt\s*=)[^>]*>", text, re.I):
+    if facts.images_without_alt:
         rep.add("WARN", where, "a11y-basics", "an `<img>` has no `alt`")
-    if landmarks:
-        for tag in ("header", "nav", "main"):
-            if not re.search(rf"<{tag}\b", text, re.I):
-                rep.add("WARN", where, "a11y-basics", f"no `<{tag}>` landmark")
+    for tag in L.LANDMARKS if landmarks else ():
+        if tag not in facts.landmarks:
+            rep.add("WARN", where, "a11y-basics", f"no `<{tag}>` landmark")
     rep.checked.append(where)
     return text
 
@@ -203,22 +242,20 @@ def check_mock_states(html: str, where: str, rep: Report) -> None:
     for block in L.scan_sections(html, "id"):
         if not re.fullmatch(r"step-\d+", block["id"]):
             continue
-        missing = [s for s in MOCK_STATES if not re.search(rf'data-state\s*=\s*["\']{s}["\']', block["html"])]
+        missing = [s for s in MOCK_STATES if not re.search(rf'data-state\s*=\s*["\']?{s}\b', block["html"])]
         if missing:
             rep.add("WARN", where, "mock-states",
                     f"{block['id']} lacks the state block(s) {', '.join(missing)} — it will come back from the sync gate")
 
 
 def _resolve_scope(erq: dict, journey_text: str, folder: str, ctx: Context) -> str:
+    """ERQ, then the returned journey, then the journey already in the repo, then the project."""
     candidates = [erq.get("scope"), L.frontmatter_value(L.split_frontmatter(journey_text)[0], "scope")]
     existing = ctx.repo / ctx.cfg["features"]["spec_root"] / folder / "user_journey.md"
     if existing.exists():
         candidates.append(L.frontmatter_value(L.split_frontmatter(L.read_text(existing))[0], "scope"))
     candidates.append(ctx.cfg["project"].get("scope"))
-    for candidate in candidates:
-        if candidate in L.ALL_SCOPES:
-            return candidate
-    return "full-stack"
+    return next((c for c in candidates if c in L.ALL_SCOPES), "full-stack")
 
 
 def _run_grammar(script: Path, workdir: Path) -> tuple[int, str]:
@@ -228,6 +265,19 @@ def _run_grammar(script: Path, workdir: Path) -> tuple[int, str]:
     except (OSError, subprocess.SubprocessError) as exc:
         return 2, str(exc)
     return proc.returncode, proc.stdout + proc.stderr
+
+
+def _report_grammar(code: int, output: str, where: str, rep: Report) -> None:
+    """The delegated gate's contract: 0 valid · 1 violations (❌ lines) · anything else is infra."""
+    if code == 0:
+        return
+    violations = [ln.strip()[1:].strip() for ln in output.splitlines() if ln.strip().startswith("❌")]
+    if code == 1 and violations:
+        for violation in violations:
+            rep.add("ERROR", where, "journey-grammar", violation)
+        return
+    rep.add("BLOCKER", where, "journey-grammar-infra",
+            f"the journey gate could not run (exit {code}): {output.strip()[:200] or 'no output'}")
 
 
 def check_journey_grammar(feature_dir: Path, folder: str, scope: str, ctx: Context, rep: Report) -> None:
@@ -248,25 +298,30 @@ def check_journey_grammar(feature_dir: Path, folder: str, scope: str, ctx: Conte
             if (feature_dir / name).exists():
                 shutil.copy2(feature_dir / name, work / name)
         code, output = _run_grammar(script, work)
-    if code == 0:
-        return
-    violations = [ln.strip()[1:].strip() for ln in output.splitlines() if ln.strip().startswith("❌")]
-    if code == 1 and violations:
-        for violation in violations:
-            rep.add("ERROR", where, "journey-grammar", violation)
-        return
-    rep.add("BLOCKER", where, "journey-grammar-infra",
-            f"the journey gate could not run (exit {code}): {output.strip()[:200] or 'no output'}")
+    _report_grammar(code, output, where, rep)
 
 
 def check_vocabulary(journey_text: str, folder: str, erq: dict, ctx: Context, rep: Report) -> None:
     where = f"{folder}/user_journey.md"
     declared = _declared(erq, "new_names", "name")
     vocab = L.journey_vocab(journey_text)
-    for bucket, kind in NEW_NAME_KIND.items():
-        for name in sorted(vocab[bucket] - ctx.glossary[bucket] - declared):
-            rep.add("WARN", where, f"{kind}-new-undeclared",
-                    f"«{name}» is not in the glossary and is not declared in `new_names`")
+    for kind, check in NEW_NAME_CHECK.items():
+        for name in sorted(vocab[kind] - ctx.glossary[kind] - declared):
+            rep.add("WARN", where, check, f"«{name}» is not in the glossary and is not declared in `new_names`")
+
+
+def _require_files(folder_path: Path, names: list[str], label: str, check: str, rep: Report) -> list[str]:
+    """Missing AND empty are both blocking: an empty file would skip every check silently."""
+    present = []
+    for name in names:
+        path = folder_path / name
+        if not path.exists():
+            rep.add("BLOCKER", f"{label}/{name}", check, "this file is missing")
+        elif not L.read_text(path).strip():
+            rep.add("BLOCKER", f"{label}/{name}", check, "this file is empty")
+        else:
+            present.append(name)
+    return present
 
 
 def validate_feature(feature_dir: Path, ctx: Context, rep: Report) -> None:
@@ -276,15 +331,13 @@ def validate_feature(feature_dir: Path, ctx: Context, rep: Report) -> None:
     journey_text = L.read_text(journey_path) if journey_path.exists() else ""
     scope = _resolve_scope(erq, journey_text, folder, ctx)
     required = ["ERQ.md", "user_journey.md", "spec.feature"] + (["mock.html"] if scope in L.UI_SCOPES else [])
-    for name in required:
-        if not (feature_dir / name).exists():
-            rep.add("BLOCKER", f"{folder}/{name}", "structure", f"this file is missing (scope {scope})")
-    if (feature_dir / "spec.feature").exists():
+    present = _require_files(feature_dir, required, folder, "structure", rep)
+    if "spec.feature" in present:
         check_spec(feature_dir / "spec.feature", folder, rep)
     if (feature_dir / "mock.html").exists():
         check_mock_states(check_html(feature_dir / "mock.html", f"{folder}/mock.html", ctx, rep),
                           f"{folder}/mock.html", rep)
-    if journey_text:
+    if "user_journey.md" in present:
         check_journey_grammar(feature_dir, folder, scope, ctx, rep)
         check_vocabulary(journey_text, folder, erq, ctx, rep)
         rep.checked.append(f"{folder}/user_journey.md")
@@ -293,21 +346,35 @@ def validate_feature(feature_dir: Path, ctx: Context, rep: Report) -> None:
 # ── Vision return ────────────────────────────────────────────────────────────
 
 
+def _check_anchors(path: Path, attr: str, where: str, rep: Report) -> list[str]:
+    """Ids become file names and join keys downstream: slug or nothing. Returns the ids."""
+    blocks, unclosed = L.scan_sections_full(L.read_text(path), attr)
+    if unclosed:
+        rep.add("ERROR", where, "vision-components-parseable",
+                f"section «{unclosed}» is never closed — everything after it cannot be catalogued")
+    ids = [b["id"] for b in blocks]
+    for bad in sorted({i for i in ids if not L.is_slug(i)}):
+        rep.add("ERROR", where, "vision-components-parseable",
+                f"section id «{bad}» must be a short lowercase slug (letters, digits, hyphens)")
+    for dup, count in sorted(Counter(ids).items()):
+        if count > 1:
+            rep.add("ERROR", where, "vision-components-parseable", f"section id «{dup}» appears more than once")
+    return ids
+
+
 def _check_vision_components(vision: Path, erq: dict, ctx: Context, rep: Report) -> None:
     where = "VISION/component_library.html"
-    blocks = L.scan_sections(L.read_text(vision / "component_library.html"), "data-component")
-    ids = [b["id"] for b in blocks]
-    if not blocks:
+    ids = _check_anchors(vision / "component_library.html", "data-component", where, rep)
+    _check_anchors(vision / "style_guide.html", "data-token-group", "VISION/style_guide.html", rep)
+    if not ids:
         rep.add("ERROR", where, "vision-components-parseable",
                 "no top-level `<section data-component=\"…\">` found — components cannot be catalogued")
         return
-    for dup in sorted({i for i in ids if ids.count(i) > 1}):
-        rep.add("ERROR", where, "vision-components-parseable", f"component id «{dup}» appears more than once")
     for core in CORE_COMPONENTS:
         if core not in ids:
             rep.add("WARN", where, "vision-components-parseable", f"no «{core}» component in the library")
     if not ctx.known_components:
-        return
+        return  # first design system of the project: nothing to compare against yet
     declared = _declared(erq, "new_components", "id")
     for cid in sorted(set(ids) - ctx.known_components - declared):
         rep.add("WARN", where, "vision-component-undeclared",
@@ -315,51 +382,50 @@ def _check_vision_components(vision: Path, erq: dict, ctx: Context, rep: Report)
 
 
 def validate_vision(vision: Path, ctx: Context, rep: Report) -> None:
-    erq = check_erq(vision / "ERQ.md", "vision", "VISION", rep) if (vision / "ERQ.md").exists() else {}
-    if not (vision / "ERQ.md").exists():
-        rep.add("BLOCKER", "VISION/ERQ.md", "structure", "this file is missing")
-    missing = [n for n in L.VISION_FILES if not (vision / n).exists() or not L.read_text(vision / n).strip()]
-    for name in missing:
-        rep.add("BLOCKER", f"VISION/{name}", "vision-files", "this design-system file is missing or empty")
-    if missing:
+    erq = {}
+    if _require_files(vision, ["ERQ.md"], "VISION", "structure", rep):
+        erq = check_erq(vision / "ERQ.md", "vision", "VISION", rep)
+    if len(_require_files(vision, list(L.VISION_FILES), "VISION", "vision-files", rep)) < len(L.VISION_FILES):
         return
     if L.split_frontmatter(L.read_text(vision / "vision.md"))[0]:
         rep.add("WARN", "VISION/vision.md", "vision-frontmatter-leak",
                 "the header is factory-owned; what the return carries is ignored")
-    rep.checked.append("VISION/vision.md")
-    rep.checked.append("VISION/navigation_map.md")
-    html = {n: check_html(vision / n, f"VISION/{n}", ctx, rep, landmarks=(n == "app_shell.html"))
-            for n in L.VISION_FILES if n.endswith(".html")}
-    if not any(L.tokens_declared(html[n]) for n in ("style_guide.html", "app_shell.html")):
+    rep.checked += ["VISION/vision.md", "VISION/navigation_map.md"]
+    pages: dict[str, str] = {}
+    for name in L.VISION_FILES:
+        if name.endswith(".html"):
+            pages[name] = check_html(vision / name, f"VISION/{name}", ctx, rep, landmarks=(name == "app_shell.html"))
+    if not any(L.tokens_declared(pages[n]) for n in ("style_guide.html", "app_shell.html")):
         rep.add("ERROR", "VISION/style_guide.html", "vision-tokens-declared",
-                "no design tokens declared (a root CSS block or a utility-framework config block)")
+                "no design tokens declared (a root CSS block, or the `tailwind.config` block the templates use)")
     _check_vision_components(vision, erq, ctx, rep)
 
 
 # ── Manifest and driver ──────────────────────────────────────────────────────
 
 
-def check_manifest(root: Path, feature_dirs: list[Path], has_vision: bool, rep: Report) -> None:
+def _manifest_coverage(manifest: dict, features: list[dict], present: set[str], has_vision: bool, rep: Report) -> None:
     where = "MANIFEST.yaml"
-    path = root / where
-    if not path.exists():
-        rep.add("BLOCKER", where, "manifest", "MANIFEST.yaml is missing at the root of the return")
-        return
-    yaml = _yaml()
-    try:
-        manifest = yaml.safe_load(L.read_text(path)) or {}
-    except yaml.YAMLError as exc:
-        rep.add("BLOCKER", where, "manifest", f"unreadable YAML: {exc}")
-        return
-    features = [f for f in (manifest.get("features") or []) if isinstance(f, dict)]
     listed = {f.get("feature_id") for f in features}
-    present = {d.name for d in feature_dirs}
     for folder in sorted(present - listed):
         rep.add("ERROR", where, "manifest", f"folder {folder} is in the return but not listed")
     for ghost in sorted(x for x in listed - present if x):
         rep.add("ERROR", where, "manifest", f"{ghost} is listed but has no folder")
     if bool(manifest.get("vision")) != has_vision:
         rep.add("ERROR", where, "manifest", "the `vision:` block and the VISION/ folder must come together")
+
+
+def check_manifest(root: Path, feature_dirs: list[Path], has_vision: bool, rep: Report) -> None:
+    where = "MANIFEST.yaml"
+    if not (root / where).exists():
+        rep.add("BLOCKER", where, "manifest", "MANIFEST.yaml is missing at the root of the return")
+        return
+    manifest = _safe_yaml(L.read_text(root / where), where, "manifest", rep)
+    if manifest is None:
+        return
+    raw = manifest.get("features")
+    features = [f for f in raw if isinstance(f, dict)] if isinstance(raw, list) else []
+    _manifest_coverage(manifest, features, {d.name for d in feature_dirs}, has_vision, rep)
     entries = features + ([manifest["vision"]] if isinstance(manifest.get("vision"), dict) else [])
     for entry in entries:
         if entry.get("self_checked") is not True:
@@ -373,23 +439,57 @@ def build_context(repo: Path, cfg: dict) -> Context:
     library = repo / cfg["design_system"]["vision_root"] / "component_library.html"
     if library.exists():
         known |= {b["id"] for b in L.scan_sections(L.read_text(library), "data-component")}
-    return Context(repo, cfg, L.load_glossary(repo, cfg), L.allowed_hosts(repo, cfg), known)
+    return Context(repo, cfg, L.load_glossary(repo, cfg), frozenset(L.allowed_hosts(repo, cfg)), frozenset(known))
+
+
+def _return_root(root: Path) -> Path:
+    """Tolerate the single wrapping directory most zip tools add (and their hidden litter)."""
+    entries = [p for p in root.iterdir() if not p.name.startswith(".") and p.name not in IGNORED_FOLDERS]
+    if len(entries) == 1 and entries[0].is_dir() and not (root / "MANIFEST.yaml").exists():
+        return entries[0]
+    return root
+
+
+def _check_encoding(target: Path, rep: Report) -> None:
+    for path in sorted(p for p in target.rglob("*") if p.is_file() and p.suffix.lower() in TEXT_SUFFIXES):
+        try:
+            path.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            rep.add("ERROR", f"{target.name}/{path.relative_to(target).as_posix()}", "structure",
+                    "this file is not UTF-8 — names would be silently mangled; save it as UTF-8")
+
+
+def _targets(root: Path, cfg: dict, rep: Report) -> tuple[Path | None, list[Path]]:
+    """(VISION folder or None, feature folders). Any other folder is named, never skipped."""
+    pattern = L.feature_id_re(cfg)
+    vision, features = None, []
+    for folder in sorted(d for d in root.iterdir() if d.is_dir()):
+        if folder.name.startswith(".") or folder.name in IGNORED_FOLDERS:
+            continue
+        if folder.name == "VISION":
+            vision = folder
+        elif pattern.match(folder.name):
+            features.append(folder)
+        else:
+            rep.add("ERROR", folder.name, "structure",
+                    f"this folder is neither VISION/ nor a feature id ({pattern.pattern}) — it was NOT reviewed")
+    return vision, features
 
 
 def validate_dir(root: Path, repo: Path, cfg: dict) -> Report:
+    if not root.is_dir():
+        raise L.PoPackageError(f"Not a folder: {root} (use --zip for an archive)")
     rep = Report()
-    entries = [p for p in root.iterdir() if not p.name.startswith((".", "__"))]
-    if len(entries) == 1 and entries[0].is_dir() and not (root / "MANIFEST.yaml").exists():
-        root = entries[0]  # tolerate a single wrapping directory
-    pattern = L.feature_id_re(cfg)
-    feature_dirs = sorted(d for d in root.iterdir() if d.is_dir() and pattern.match(d.name))
-    vision = root / "VISION"
-    if not feature_dirs and not vision.is_dir():
+    root = _return_root(root)
+    vision, feature_dirs = _targets(root, cfg, rep)
+    if vision is None and not feature_dirs:
         rep.add("BLOCKER", ".", "structure", "the return carries neither a VISION/ folder nor a feature folder")
         return rep
-    check_manifest(root, feature_dirs, vision.is_dir(), rep)
+    check_manifest(root, feature_dirs, vision is not None, rep)
     ctx = build_context(repo, cfg)
-    if vision.is_dir():
+    for target in ([vision] if vision else []) + feature_dirs:
+        _check_encoding(target, rep)
+    if vision:
         validate_vision(vision, ctx, rep)
     for feature_dir in feature_dirs:
         validate_feature(feature_dir, ctx, rep)
@@ -398,31 +498,41 @@ def validate_dir(root: Path, repo: Path, cfg: dict) -> Report:
 
 def validate_zip(zip_path: Path, repo: Path, cfg: dict) -> Report:
     problems = L.zip_problems(zip_path)
-    if problems:
-        rep = Report()
-        for problem in problems:
-            rep.add("BLOCKER", zip_path.name, "zip-safety", f"{problem} — the archive was not extracted")
-        return rep
     with tempfile.TemporaryDirectory(prefix="po-return-") as tmp:
-        with zipfile.ZipFile(zip_path) as archive:
-            archive.extractall(tmp)
-        return validate_dir(Path(tmp), repo, cfg)
+        if not problems:
+            try:
+                with zipfile.ZipFile(zip_path) as archive:
+                    archive.extractall(tmp)
+            except (zipfile.BadZipFile, RuntimeError, NotImplementedError, OSError) as exc:
+                problems = [f"encrypted or damaged ({exc})"]
+        if not problems:
+            return validate_dir(Path(tmp), repo, cfg)
+    rep = Report()
+    for problem in problems:
+        rep.add("BLOCKER", zip_path.name, "zip-safety", f"{problem} — the archive was not extracted")
+    return rep
+
+
+def verdict_line(rep: Report) -> str:
+    if not rep.blocking:
+        return "GREEN — reviewable (reviewable is not accepted)"
+    if any(f.check == "journey-grammar-infra" for f in rep.blocking):
+        return "RED — fix the local journey gate and run again; nothing goes back to the PO yet"
+    return "RED — goes back to the PO, unedited"
 
 
 def render(rep: Report, as_json: bool) -> str:
-    verdict = "RED" if rep.blocking else "GREEN"
     if as_json:
         return json.dumps({"checked": rep.checked, "findings": [f.__dict__ for f in rep.findings],
-                           "verdict": verdict}, indent=2, ensure_ascii=False)
+                           "verdict": "RED" if rep.blocking else "GREEN"}, indent=2, ensure_ascii=False)
     lines = ["", "═══ PO return validation ═══", ""]
     if not rep.findings:
         lines.append("  No findings.")
-    for f in sorted(rep.findings, key=lambda x: (SEVERITY_ORDER[x.severity], x.where)):
-        lines += [f"  {MARKS[f.severity]} {f.severity:<7} {f.where}", f"            [{f.check}] {f.message}"]
+    for f in sorted(rep.findings, key=lambda x: (SEVERITIES[x.severity][0], x.where)):
+        lines += [f"  {SEVERITIES[f.severity][1]} {f.severity:<7} {f.where}", f"            [{f.check}] {f.message}"]
     warns = len(rep.findings) - len(rep.blocking)
     lines += ["", f"  {len(rep.checked)} files reviewed · {len(rep.blocking)} blocking · {warns} warnings", ""]
-    lines.append("  VERDICT: " + ("RED — goes back to the PO, unedited" if rep.blocking
-                                  else "GREEN — reviewable (reviewable is not accepted)"))
+    lines.append("  VERDICT: " + verdict_line(rep))
     return "\n".join(lines + [""])
 
 
@@ -442,29 +552,40 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _dispatch(args: argparse.Namespace) -> int:
+    if args.selftest or args.emit_fixture:
+        grammar = L.resolve_repo(args.repo) / "scripts" / "check-journey-grammar.sh"
+        if args.emit_fixture:
+            import po_fixtures
+            if not grammar.exists():
+                raise L.PoPackageError(f"The journey gate is missing at {grammar}; a fixture without it is useless.")
+            po_fixtures.emit_fixture(args.emit_fixture, grammar)
+            print(f"fixture written to {args.emit_fixture}")
+            return 0
+        import po_selftest
+        return po_selftest.run(grammar)
+    repo = L.resolve_repo(args.repo)
+    cfg = L.load_config(args.config)
+    target = args.zip or args.dir
+    if not target.exists():
+        raise L.PoPackageError(f"Not found: {target}")
+    rep = validate_zip(target, repo, cfg) if args.zip else validate_dir(target, repo, cfg)
+    print(render(rep, args.json))
+    return 1 if rep.blocking else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
     try:
-        if args.selftest or args.emit_fixture:
-            import po_selftest
-            grammar = L.resolve_repo(args.repo) / "scripts" / "check-journey-grammar.sh"
-            if args.emit_fixture:
-                import po_fixtures
-                po_fixtures.emit_fixture(args.emit_fixture, grammar)
-                print(f"fixture written to {args.emit_fixture}")
-                return 0
-            return po_selftest.run(grammar)
-        repo = L.resolve_repo(args.repo)
-        cfg = L.load_config(args.config)
-        target = args.zip or args.dir
-        if not target.exists():
-            raise L.PoPackageError(f"Not found: {target}")
-        rep = validate_zip(target, repo, cfg) if args.zip else validate_dir(target, repo, cfg)
+        return _dispatch(args)
     except L.PoPackageError as exc:
         print(f"Cannot validate: {exc}", file=sys.stderr)
-        return 2
-    print(render(rep, args.json))
-    return 1 if rep.blocking else 0
+    except Exception as exc:  # noqa: BLE001 - boundary: a tool fault must never read as a RED verdict
+        if os.environ.get("PO_PACKAGE_DEBUG"):
+            raise
+        print(f"Cannot validate: the tool itself failed ({type(exc).__name__}: {exc}). This is a tooling "
+              "fault, not a finding about the return. Set PO_PACKAGE_DEBUG=1 to see the trace.", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

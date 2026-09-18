@@ -61,8 +61,10 @@ Run `--selftest` first, every time: this tooling sits outside the governed surfa
 |---|---|
 | GREEN | Reviewable. Go to section 5. Green is not accepted. |
 | RED on form | Send the report back to the PO, unedited. |
-| RED on an invented name | Send it back pointing at the glossary name. |
+| RED that names the journey gate's infrastructure | Nothing goes back to the PO: restore `scripts/check-journey-grammar.sh` and run again. |
+| GREEN with `…-new-undeclared` warnings | A name not in the glossary and not declared. Check it against the glossary with the PO before ratifying: an invented name where one exists is the most expensive defect a return can carry. |
 | GREEN with open questions | Settle them with the PO before section 5. |
+| Exit code 2 | The tool could not do its job (configuration, repository, a fault of its own). It is not a verdict about the return. |
 
 Never fix the PO's documents to turn a red into a green. A translated heading means the instructions did not land; patching it silently guarantees the same error next round.
 

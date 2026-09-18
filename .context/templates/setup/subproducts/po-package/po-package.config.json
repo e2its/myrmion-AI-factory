@@ -15,7 +15,6 @@
   },
   "design_system": {
     "vision_root": "docs/ux/vision",
-    "external_ds_root": "docs/ux/design-system",
     "component_registry": "docs/ux/component-registry.json",
     "codebase_inventory": "config/codebase_inventory.json",
     "tokens_sources": ["docs/ux/vision/style_guide.html"],

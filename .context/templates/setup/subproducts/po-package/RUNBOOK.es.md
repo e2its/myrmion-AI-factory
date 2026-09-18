@@ -61,8 +61,10 @@ Ejecuta `--selftest` primero, siempre: estas herramientas están fuera de la sup
 |---|---|
 | GREEN | Se puede revisar. Pasa al apartado 5. Verde no es aceptado. |
 | RED por forma | Devuelve el informe al PO, sin editar. |
-| RED por un nombre inventado | Devuélvelo señalando el nombre del glosario. |
+| RED que nombra la infraestructura de la puerta de journey | Nada vuelve al PO: restaura `scripts/check-journey-grammar.sh` y ejecuta de nuevo. |
+| GREEN con avisos `…-new-undeclared` | Un nombre que no está en el glosario ni declarado. Contrástalo con el glosario junto al PO antes de ratificar: un nombre inventado donde ya existe uno es el defecto más caro que puede traer un retorno. |
 | GREEN con preguntas abiertas | Resuélvelas con el PO antes del apartado 5. |
+| Código de salida 2 | La herramienta no pudo hacer su trabajo (configuración, repositorio, un fallo propio). No es un veredicto sobre el retorno. |
 
 Nunca arregles los documentos del PO para convertir un rojo en verde. Un título traducido significa que las instrucciones no calaron; parchearlo en silencio garantiza el mismo error en la siguiente ronda.
 
