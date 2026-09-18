@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "6.1.0",
+  "framework_version": "6.1.1",
   "last_updated": "2026-09-18",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
@@ -880,10 +880,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.4.0: fix(po-package-card-tool-cases) — Q29.1 gains `code-manual` (cards from code, tool run by asking Claude, no command).",
         "2.3.0: feat(EVOL-052) — § E gains CODESIGN Authoring Surface (Q29) and Design-System Cards Source (Q29.1) with their persisted keys. Duplicated `### E. Operational Decisions` heading removed.",
         "2.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
         "1.0.0: feat(EVOL-019) phase 1: initial governance registration — previously untracked. Canonical template for docs/setup.md; consumed by SETUP --generate to materialise the per-project architecture roadmap & decisions log.",
@@ -1321,22 +1322,24 @@
       ]
     },
     "subproducts/po-package/build_po_package.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "subproducts/po-package/build_po_package.py",
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "PO package builder: reads the repo, stages OUTSIDE it, zips. Offline (roadmap arrives as a file exported through /backlog). 00-core product sheet, feature catalogue, closed-vocabulary glossary, route map, roadmap; 10-design-system tokens, component base (registry joined with the codebase inventory), one preview card per component; 20-features annexes; 30-templates PO-safe cuts. Design-system cards from code per component when the project configures a rebuild tool (no shell, timeout, fail-open), card-to-registry drift report, ds-only mode for CI, stale-runbook warning. Names no third-party tool.",
       "changelog": [
+        "1.1.0: fix(po-package-card-tool-cases) — cards refreshed by a tool the operator runs (usually asked of Claude) are first-class: the runbook section follows the cards folder, not the command (no folder → 6A, command + workflow → 6C, else 6B); `--rebuild` with no command keeps the cards on disk instead of dropping them; the unrefreshed notice says how to refresh without a command; `--rebuild` with no command leaves drift NOT COMPUTED, so `--strict` never passes on cards nobody refreshed.",
         "1.0.0: feat(EVOL-052) — initial. PO package builder: reads the repo, stages OUTSIDE it, zips. Offline (roadmap arrives as a file exported through /backlog). 00-core product sheet, feature catalogue, closed-vocabulary glossary, route map, roadmap; 10-design-system tokens, component base (registry joined with the codebase inventory), one preview card per component; 20-features annexes; 30-templates PO-safe cuts. Design-system cards from code per component when the project configures a rebuild tool (no shell, timeout, fail-open), card-to-registry drift report, ds-only mode for CI, stale-runbook warning. Names no third-party tool. Code-review pass: writes confined to the package folder; boundary handler (a tool fault is exit 2, never 'drift found'); drift has three honest states — findings, NOT COMPUTED, not applicable — and --strict fails on an uncomputed drift; every fallback to vision cards is said out loud (folder missing, tool rendered nothing, file without the marker, broken tool manifest); missing configured paths warned; roadmap file errors named; modes trimmed to the two that are documented and tested (auto, ds-only); bytecode never written next to the tool; speculative product-notes hook removed. Second review pass: drift is `None` when it does not apply (a project with no design system can pass --strict), a text when it applies but could not be computed, a list otherwise — no more control flow on message wording; cards used without --rebuild are said to be unrefreshed; a rebuild whose output has no configured folder is said; a wrong-shaped manifest from the project tool never blocks; two code cards for one component are said; a code cards folder outside the repository is refused; IMPLEMENTED components whose join key resolves to nothing are said. Third review pass: the rule 'no code cards folder ⇒ drift does not apply' lives in ONE place (it was enforced per producer and one of them skipped it, so a project before its first vision failed --strict); documents building extracted from `run`; a tokens source that is a folder is a warning; any shape of the project tool's manifest is tolerated; library import guarded. Fourth review pass: the library import guard also covers a truncated po_lib.py. Fifth review pass: the import guard refuses a library cut short that still parses."
       ]
     },
     "subproducts/po-package/RUNBOOK.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "subproducts/po-package/RUNBOOK.md",
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse.",
       "changelog": [
+        "1.1.0: fix(po-package-card-tool-cases) — Requirements section (Python 3.10+, PyYAML, self-test as the readiness check); 6B covers both ways — ask Claude to run the tool (the usual) or a configured rebuild command; 6C needs a command; section 8 and 9 updated, with the card-marker contract as a symptom row; the drift table names `--rebuild` without a command as a NOT COMPUTED cause.",
         "1.0.0: feat(EVOL-052) — initial. Operator runbook, in-repo, self-sufficient without the factory-po-intake skill. Carries all three design-system branches (6A vision only / 6B code rebuild by hand / 6C code rebuild in CI) plus a 'This project' block SETUP resolves to name the active one. Every command and flag it cites is closure-tested against the real argparse. States where findings, the evolution request and the decisions are kept, and that the drop zone is committed by --sync. Verdict table corrected: an undeclared name is a warning on a GREEN return, not a RED; a RED naming the gate's infrastructure does not go back to the PO; exit code 2 is not a verdict. Drift report rows for `not applicable`, `NOT COMPUTED` and unrefreshed cards; the debug switch. NOT COMPUTED row states that it only appears when a code cards folder is configured."
       ]
     },
@@ -1461,12 +1464,13 @@
       ]
     },
     "subproducts/po-package/RUNBOOK.es.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "subproducts/po-package/RUNBOOK.es.md",
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted).",
       "changelog": [
+        "1.1.0: fix(po-package-card-tool-cases) — Spanish mirror: Requisitos, 6B with both ways, 6C needs a command, sections 8 and 9, the drift table.",
         "1.0.0: feat(EVOL-052) — initial. Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted). States where findings, the evolution request and the decisions are kept, and that the drop zone is committed by --sync. Tabla de veredictos corregida en el mismo sentido que RUNBOOK.md. Filas del informe de deriva para `not applicable`, `NOT COMPUTED` y tarjetas sin refrescar; el interruptor de depuración. La fila NOT COMPUTED aclara que solo aparece con una carpeta de tarjetas configurada."
       ]
     }
@@ -1736,9 +1740,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.10.0",
+      "version": "2.10.1",
       "path": "README.md",
       "changelog": [
+        "2.10.1: fix(po-package-card-tool-cases) — Prerequisites list Python (3.10+ with PyYAML for the PO package); design system from code names both ways to run the tool and the card contract; fallback wording says which tool faults fall back to vision cards.",
         "2.10.0: feat(EVOL-052) — NEW § External CODESIGN Authoring (PO Package): the loop, validate/ratify/sync/catalog table, written instructions after materialisation, design system from code (cases 6A/6B/6C, drift, optional workflow, one-way mirror), language. File-structure tree (24 instructions, 23 skills, subproducts template), CODESIGN command table gains `--sync` + authoring-surface note, skills table gains PO Intake, recommended pipeline gains the external path, project structure gains `subproducts/po-package/`, `docs/ux/component-registry.json`, `docs/ux/po-return/`.",
         "2.9.0: feat(EVOL-041) — SMOKE-E2E wording → Path→Scenario→TC transitive; journey artefact description journey-first; integration-variant mentions removed.",
         "2.8.0: fix(EVOL-040 pr-review loop i3) — skills catalog gains factory-code-review (was 21-listed vs 22-on-disk), count 21→22, pr-review line seven-axis/20-blocks, scripts line manifest-driven + T3. Caught by the i3-hardened CHECK 1b local-branch fallback — the gate's own fix detected the gate author's miss.",
@@ -2277,9 +2282,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.15.0",
+      "version": "2.16.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.16.0: fix(po-package-card-tool-cases) — Q29.1 option `code-manual` (a tool run by asking Claude: folder only) next to `code-rebuild` (terminal command: folder + command, the only one CI can run); recommendation and persist rules updated.",
         "2.15.0: feat(EVOL-052) — NEW Q29 CODESIGN Authoring Surface (external-full | external-features | internal → `codesign.authoring` + `po_package.mode`; 3 options for every scope) and Q29.1 Design-System Cards Source (vision | code-rebuild | defer → `po_package.ds_*`; conditional on external authoring AND UI scope; tool-agnostic — the framework names no tool). TIER_2 list extended.",
         "2.14.0: feat(EVOL-040 RDR-2) — NEW Q23.2 Security Scanner (5-field mirror of Q23.1; gitleaks default / trufflehog / Custom / Skip; persists quality.security_scan.*; resolution table is the only home of scanner commands besides materialization; two-layer note: regex floor always on). TIER_2 array += Q23.1 (backfill — was missing, pre-existing bug) + Q23.2.",
         "2.13.0: feat(EVOL-033) phase 2 — Q23.1 Code-Quality MCP (cyclomatic complexity scanner) added after Q23 (Testing Strategy). Three options via RDR: Semgrep MCP (default, multi-lang official server) | Custom MCP (project declares server+tool returning {file, function, ccn}[]) | Skip (disable gate, enable later by editing config/quality.json). Persists quality.complexity.{mcp_server, mcp_tool_name, enabled, thresholds.{soft=10, hard=15}, bvl_gate=true, pr_blocker=false}. Defaults are McCabe industry baseline. Materialization consumer: Factory-setup-materialization § Quality Configuration resolves placeholders {{COMPLEXITY_MCP_SERVER}} + {{COMPLEXITY_MCP_TOOL_NAME}} in config/quality.json.",
@@ -2306,9 +2312,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.10.0",
+      "version": "3.11.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.11.0: fix(po-package-card-tool-cases) — `DS_CARDS_SOURCE` accepts `code-manual`; `DS_ACTIVE_SECTION` derived from the cards folder (no folder → 6A, command + workflow → 6C, else 6B).",
         "3.10.0: feat(EVOL-052) — External-DS Component Migration now points at the registry schema owner (Factory-codesign-vision § Component Registry) instead of a dangling file reference. NEW step Subproducts Materialization (`.context/templates/setup/subproducts/` → `subproducts/`): whole-tree copy, universal files byte-identical, placeholders resolved only in the stack_configured files (11-row table incl. the two DERIVED runbook tokens), JSON `null` rule, optional design-system-rebuild workflow (GitHub Actions AND a configured command), invariant RUNBOOK.md present with zero placeholders else BLOCK, self-test run, MANDATORY written next steps in MATERIALIZATION_REPORT.md and the closing briefing.",
         "3.9.0: feat(EVOL-040 RDR-2) — Quality Configuration resolves the three {{SECURITY_SCANNER*}} placeholders from Q23.2 with the same Skip null-literal semantics as complexity; consumers list extended (security-scan dispatcher, factory-code-review).",
         "3.8.0: feat(EVOL-040 root cause B) — § 4.2.2 constitution template path fixed (missing constitution/ segment — SETUP constitution generation read a non-existent path); § 4.2.3 config artefacts += coherence-context.json (template + manifest entry existed, instruction never materialised it — pr-review Phase 0 degraded in every downstream project); § Scripts Materialization gains the delivery-closure Invariant (every templates::scripts entry with delivery setup|both must exist post-copy → BLOCK, mirrors hooks Invariant).",
@@ -3686,11 +3693,12 @@
       ]
     },
     "scripts/test-po-package.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project — in the three design-system cases a project can be materialised in. Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-po-package.sh",
       "changelog": [
+        "1.1.0: fix(po-package-card-tool-cases) — case 6B with no command (cards left by a tool run by asking Claude); requirements stated by both runbooks and the README; materialisation mirror follows the new derivation; every new decision in the builder has an assertion that fails on revert (code review); 126 assertions.",
         "1.0.0: feat(EVOL-052) — initial. Part 1 validator (self-test, golden green via --dir/--zip, mutated red, hostile archive blocked, unresolved config refused). Part 2 builder (nothing written into the repo, no unresolved variable, cards well-formed, strict substitution, staging inside the repo refused). Part 2b language (per-file override, English fallback, literal canonical headings, EN/ES parity). Part 3 cases 6A/6B/6C (runbook header truthful, code cards win per component, failing tool falls back, no shell, three drift findings, --strict, stale runbook warned). Part 4 closure (every command, flag and path the runbook and the workflow cite exists). Part 4 also asserts the registry schema parity between the vision instruction and the tooling, the byte-identical guard at the 4 authoring entry points, and the existence of every function --sync reuses by reference. Code-review pass: rewritten around the mutants that survived — exit-code contract incl. tool faults and stack-trace detection, repository resolution the way operators invoke it, archive-tool litter, RED asserted as parsed JSON, builder content not just existence, zip and staging refused inside the repo, config faults, mode matrix, include/exclude, hostile section id confined, the \"null\"-text slip, timeout, every silent fallback, no-shell proven with the tool's own argv, honest drift states; vacuous assertions removed; 81 assertions. Second review pass (mutation-driven): the text verdict line, a broken local gate not returnable to the PO (text and JSON), damaged archive, tool-fault boundary for both tools with and without the trace, project host allowlist, PO_PACKAGE_REPO proven from another repository, the no-bytecode proof run WITHOUT the test's own environment variable, include filtering others out, no-design-system project under --strict, wrong config paths, code cards outside the repo, same-day rebuild, unrefreshed cards, tool manifest shape, card collision, discarded rebuild output, aligned design system under --strict; POSIX-only constructs; 100 assertions. Third review pass: the tool-fault boundary is proven by BREAKING the sandbox copy of the tool (never by leaning on a product defect), for both tools, with the debug trace, and with the library missing; damaged COMPRESSED archive; GREEN JSON returnability; a project before its first vision under --strict; tokens source that is a folder; the no-op gate removed; 106 assertions. Fourth review pass: truncated library, unreadable archive as a local fault, malformed registry, dangling join key; absence-only assertions gated on the build having run; 110 assertions. Fifth review pass: unwritable names and a damaged directory are RED; injected disk, share, timeout and race faults are exit 2 and say what to do, while a corrupt stream and a made-up offset stay RED; a library cut short that still parses is exit 2 for both tools; the permission test that could count a skip as a pass replaced by one no user can bypass; 116 assertions."
       ]
     },
@@ -3702,10 +3710,11 @@
       ]
     },
     "skills/factory-po-intake/SKILL.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "skill",
       "role": "PO Intake v1.0.0 — external CODESIGN authoring. Builds the PO package, validates a return with the subproduct's deterministic validator (self-test first, always), one RDR per change, writes the transient drop zone, calls /codesign --sync per ratified target, reconciles the component registry against the codebase inventory and plans component-catalog issues through /backlog only. Never edits docs/spec/** or docs/ux/vision/**, never fixes PO documents, never decides scope or ordering.",
       "changelog": [
+        "1.1.0: fix(po-package-card-tool-cases) — Beat 0 outbound: without a rebuild command the cards are refreshed by asking Claude to run the project's tool before building.",
         "1.0.0: feat(EVOL-052) — initial. Generalised from a downstream project skill; materialisation no longer goes through --refine (which regenerated) but through --sync (which adopts). New catalog beat. Beat 4 reordered after the smoke run: eligibility and rejection are settled BEFORE a target enters `ratified`; INTAKE.md frontmatter shape fixed (`synced: []`, rejected key omitted when empty); drop zone left uncommitted; NEEDS_INFO findings file returned to the PO unedited. Beat 1 states the exit-2 branch (not a verdict, nothing goes to the PO) and the broken-local-gate RED (`returnable_to_po: false`)."
       ],
       "path": ".claude/skills/factory-po-intake/SKILL.md"

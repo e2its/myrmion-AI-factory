@@ -16,9 +16,11 @@ Package shape:
   20-features/       raw CODESIGN annexes, one folder per specified feature
   30-templates/      evolution-request + manifest templates and the PO-safe artefact templates
 
-Cards come from code, per component, when a cards folder is configured (code_cards.dir) —
-refreshed first under --rebuild, and replaced by vision cards when that rebuild fails or
-the folder yields nothing. Vision cards otherwise. The tool is the project's; this file names none.
+Cards come from code, per component, when a cards folder is configured (code_cards.dir). The
+project's tool refreshes that folder: run by the operator (usually asked of Claude) and taken as
+found, or by its terminal command (code_cards.rebuild_command) under --rebuild — replaced by vision
+cards when that command fails or the folder yields nothing. Vision cards otherwise. The tool is the
+project's; this file names none.
 
 Usage:
     python3 build_po_package.py                       # package from the configured project
@@ -398,8 +400,10 @@ def run_rebuild(build: Build) -> bool:
     conf = build.cfg["design_system"]["code_cards"]
     command = conf.get("rebuild_command")
     if not command:
-        build.warn("--rebuild was asked but no rebuild command is configured — vision cards are used")
-        return False
+        folder = conf.get("dir")
+        build.warn("--rebuild was asked but no rebuild command is configured — nothing was refreshed"
+                   + (f"; the cards in `{folder}` are taken as found (refresh them with your tool first)" if folder else ""))
+        return True
     try:
         proc = subprocess.run(shlex.split(command), cwd=build.repo, shell=False, capture_output=True,
                               text=True, timeout=int(conf.get("timeout_s") or 600), check=False)
@@ -465,7 +469,8 @@ def build_design_system(build: Build, trust_code: bool, refreshed: bool) -> tupl
     if not from_code:
         return len(cards), "NOT COMPUTED — no card rendered from code could be trusted in this run"
     if not refreshed:
-        print(f"code cards: {len(from_code)} taken from `{ds['code_cards']['dir']}` as found — NOT refreshed (pass --rebuild)")
+        how = "pass --rebuild" if ds["code_cards"].get("rebuild_command") else "refresh them with your tool first — ask Claude to run it"
+        print(f"code cards: {len(from_code)} taken from `{ds['code_cards']['dir']}` as found — NOT refreshed ({how})")
     return len(cards), drift(rows, from_code)
 
 
@@ -521,9 +526,10 @@ def copy_static(build: Build, with_vision: bool, variables: dict[str, str]) -> N
 
 
 def expected_runbook_section(build: Build) -> str:
-    if not build.cfg["design_system"]["code_cards"].get("rebuild_command"):
+    cards = build.cfg["design_system"]["code_cards"]
+    if not cards.get("dir"):
         return "6A"
-    return "6C" if (build.repo / WORKFLOW_PATH).exists() else "6B"
+    return "6C" if cards.get("rebuild_command") and (build.repo / WORKFLOW_PATH).exists() else "6B"
 
 
 def check_runbook(build: Build) -> None:
@@ -644,13 +650,17 @@ def run(args: argparse.Namespace) -> int:
     ds_only = args.mode == "ds-only"
     with_vision = ds_only or vision_allowed(cfg)
     configured = bool(cfg["design_system"]["code_cards"].get("dir"))
+    refreshed = args.rebuild and bool(cfg["design_system"]["code_cards"].get("rebuild_command"))
     trust_code = run_rebuild(build) if args.rebuild else True
-    if args.rebuild and trust_code and not configured:
+    if refreshed and trust_code and not configured:
         build.warn("the rebuild command ran, but no code cards folder is configured — its output is not used "
                    "(set design_system.code_cards.dir)")
     cards, drifted = 0, "NOT COMPUTED — this project authors no design system"
     if with_vision:
-        cards, drifted = build_design_system(build, trust_code, refreshed=args.rebuild)
+        cards, drifted = build_design_system(build, trust_code, refreshed=refreshed)
+        if args.rebuild and not refreshed and isinstance(drifted, list):   # asked to refresh, then measure: nothing was refreshed
+            drifted = ("NOT COMPUTED — --rebuild was asked, but with no rebuild command nothing was refreshed "
+                       "(refresh the cards with your tool, then build without --rebuild)")
     if not configured:
         drifted = None   # the ONE place the rule lives: no code cards folder ⇒ drift does not apply
     if not ds_only:
