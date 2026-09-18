@@ -14,6 +14,12 @@ Lo resuelve `SETUP --generate`. Actualiza este bloque a mano si la configuració
 
 Apartado de design system activo: **{{DS_ACTIVE_SECTION}}**
 
+## Requisitos
+
+- Python 3.10 o posterior, con PyYAML: `python3 -m pip install pyyaml`.
+- Comprueba ambos a la vez: `python3 subproducts/po-package/validate_po_return.py --selftest` — `0 failure(s)` quiere decir listo.
+- El PO sólo necesita Claude Desktop.
+
 ## El bucle
 
 ```
@@ -90,22 +96,31 @@ El paquete lleva una tarjeta de previsualización por componente en `10-design-s
 
 ### 6A — tarjetas sólo desde la visión
 
-No hay herramienta de reconstrucción configurada. Las tarjetas se cortan de `docs/ux/vision/component_library.html` y `style_guide.html`, una por cada ancla `data-component` / `data-token-group`. No hay nada más que ejecutar. El pie de cada tarjeta nombra la primitiva de código que materializa el componente, tomada del registro cruzado con el inventario de código.
+No hay carpeta de tarjetas desde código configurada. Las tarjetas se cortan de `docs/ux/vision/component_library.html` y `style_guide.html`, una por cada ancla `data-component` / `data-token-group`. No hay nada más que ejecutar. El pie de cada tarjeta nombra la primitiva de código que materializa el componente, tomada del registro cruzado con el inventario de código.
 
-### 6B — tarjetas reconstruidas desde el código, a mano (sin workflow de CI)
+### 6B — tarjetas reconstruidas desde el código, fuera de CI
 
-Una herramienta del proyecto renderiza los componentes reales en una carpeta de tarjetas dentro del repositorio. Ejecútala a través del generador cada vez que cambien los componentes, y siempre antes de generar un paquete:
+Una herramienta del proyecto renderiza los componentes reales en la carpeta de tarjetas que nombra la configuración (`design_system.code_cards.dir`). Refresca esa carpeta cada vez que cambien los componentes, y siempre antes de generar un paquete. Hay dos maneras; **Este proyecto** dice cuál aplica.
+
+**Comando de reconstrucción `none` — se lo pides a Claude (lo habitual).** Pide a Claude que ejecute tu herramienta de design system desde código sobre esa carpeta, y después genera. El generador dirá que las tarjetas se tomaron `as found — NOT refreshed`: aquí es lo esperado, sólo te recuerda refrescarlas antes.
+
+```bash
+python3 subproducts/po-package/build_po_package.py --mode ds-only --check-drift --out ../ds-bundle
+python3 subproducts/po-package/build_po_package.py --roadmap ../roadmap.json
+```
+
+**Hay un comando de reconstrucción configurado — lo ejecuta el generador.** `--rebuild` ejecuta primero la herramienta:
 
 ```bash
 python3 subproducts/po-package/build_po_package.py --mode ds-only --rebuild --check-drift --out ../ds-bundle
 python3 subproducts/po-package/build_po_package.py --rebuild --roadmap ../roadmap.json
 ```
 
-Por componente, una tarjeta renderizada desde el código gana a la de la visión, así el PO ve lo que la aplicación renderiza de verdad en cuanto el componente existe. Los componentes aún sin código conservan su tarjeta de la visión. Si el comando falta, falla o agota el tiempo, el generador avisa con ruido y usa las tarjetas de la visión: nunca bloquea. El comando se ejecuta sin shell, desde la raíz del repositorio.
+Por componente, una tarjeta renderizada desde el código gana a la de la visión, así el PO ve lo que la aplicación renderiza de verdad en cuanto el componente existe. Los componentes aún sin código conservan su tarjeta de la visión. Si el comando falla o agota el tiempo, el generador avisa con ruido y usa las tarjetas de la visión: nunca bloquea. El comando se ejecuta sin shell, desde la raíz del repositorio.
 
 ### 6C — tarjetas reconstruidas en CI (workflow instalado)
 
-Igual que 6B, y además `.github/workflows/design-system-rebuild.yml` ejecuta la reconstrucción y la comprobación de deriva en cada push a la rama principal y bajo demanda. Es informativo: nunca hace fallar el pipeline. Descarga el bundle de los artefactos de la ejecución, o lanza los comandos de 6B en local. Antes de generar un paquete, pasa igualmente `--rebuild` para que el paquete case con el código del día.
+Igual que 6B con comando de reconstrucción —una herramienta que sólo se lanza pidiéndoselo a Claude no puede ejecutarse en CI—, y además `.github/workflows/design-system-rebuild.yml` ejecuta la reconstrucción y la comprobación de deriva en cada push a la rama principal y bajo demanda. Es informativo: nunca hace fallar el pipeline. Descarga el bundle de los artefactos de la ejecución, o lanza los comandos de 6B en local. Antes de generar un paquete, pasa igualmente `--rebuild` para que el paquete case con el código del día.
 
 ### Cómo leer el informe de deriva
 
@@ -116,7 +131,7 @@ Igual que 6B, y además `.github/workflows/design-system-rebuild.yml` ejecuta la
 | `candidate-implemented` | El registro dice diseñado o planificado, y el código ya lo renderiza | Reconcilia el registro a `IMPLEMENTED` (apartado 5.6) |
 | `drift: not applicable` | No hay carpeta de tarjetas desde código configurada (caso 6A, o un proyecto sin design system) | Nada. `--strict` no tiene sobre qué fallar |
 | `drift: NOT COMPUTED — …` | Hay una carpeta de tarjetas desde código configurada, así que la deriva aplica, pero no se pudo medir en esta ejecución (falló la reconstrucción, la carpeta no dio ninguna tarjeta, aún no hay visión, o el proyecto no tiene design system propio) | Lee las líneas `WARNING` que la preceden. Con `--strict` sale con 1: una deriva sin medir no es un aprobado |
-| `code cards: N taken … as found — NOT refreshed` | Se usaron las tarjetas que había en disco sin ejecutar la herramienta | Pasa `--rebuild` antes de fiarte de las líneas de deriva |
+| `code cards: N taken … as found — NOT refreshed` | Se usaron las tarjetas que había en disco sin ejecutar la herramienta | Refréscalas antes de fiarte de las líneas de deriva: pide a Claude que ejecute tu herramienta, o pasa `--rebuild` si hay comando de reconstrucción configurado |
 
 ### Espejo en Claude Design (opcional)
 
@@ -128,8 +143,8 @@ Regenera el paquete para que el PO trabaje sobre el estado nuevo, no sobre el qu
 
 ## 8. Cambiar de caso más tarde
 
-- **Activar la reconstrucción tras `defer`:** rellena `design_system.code_cards.dir` y `rebuild_command` en `subproducts/po-package/po-package.config.json`. Pasas a 6B.
-- **Añadir el workflow de CI:** copia `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` a `.github/workflows/design-system-rebuild.yml`. Pasas a 6C.
+- **Activar tarjetas desde código tras `vision` o `defer`:** rellena `design_system.code_cards.dir` en `subproducts/po-package/po-package.config.json`, y `rebuild_command` sólo si tu herramienta tiene comando de terminal. Pasas a 6B.
+- **Añadir el workflow de CI** (necesita comando de reconstrucción): copia `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` a `.github/workflows/design-system-rebuild.yml`. Pasas a 6C.
 - **Después actualiza el bloque "Este proyecto" de arriba**, y el de `RUNBOOK.md`. El generador compara ese bloque con la configuración y la presencia del workflow en cada ejecución y avisa cuando no coinciden.
 
 ## 9. Qué se rompe y cómo se nota
@@ -140,5 +155,6 @@ Regenera el paquete para que el PO trabaje sobre el estado nuevo, no sobre el qu
 | `journey-grammar-infra` | Falta `scripts/check-journey-grammar.sh` o no puede ejecutarse | Restáuralo con `factory-sync.sh`; sin él no se puede juzgar un retorno |
 | Todos los mocks salen rojos por `external-deps` | El proyecto carga un host que las plantillas no cargan | Añádelo a `mock.allowed_external_hosts` en la config |
 | El paquete lleva tarjetas de fichero entero | La visión no tiene anclas `data-component` | Añádelas con un retorno de design system |
+| Todas las tarjetas desde código se saltan: `does not open with the card marker` | Tu herramienta de tarjetas escribe otro formato | Cada tarjeta debe ser un HTML cuya primera línea sea `<!-- @dsCard group="…" -->`: haz que la herramienta la escriba; si no puede, repórtalo al framework |
 | El glosario está vacío | No se pudo leer ningún journey | Pasa la puerta de journey sobre cada carpeta de feature |
 | `/codesign --sync` dice que ejecutes antes el intake | Falta `docs/ux/po-return/INTAKE.md`, no está verde, o no lista el objetivo | Vuelve al apartado 5.3 |

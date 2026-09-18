@@ -15,7 +15,7 @@ Requires `docs/setup.md` `codesign.authoring: external`. Operator-readable twin 
 ## Beat 0 — Outbound (build the package)
 
 1. Export the roadmap through `/backlog --status` (adapter; local mode: `docs/backlog/state.md`): features on the board with NO `docs/spec/{ID}/` → `roadmap.json` = `[{"id","name","summary"}]`, written OUTSIDE the repo.
-2. `python3 subproducts/po-package/build_po_package.py --roadmap {path}` — add `--rebuild` when `design_system.code_cards.rebuild_command` is configured (fail-open: a failing tool warns and falls back to vision cards).
+2. `python3 subproducts/po-package/build_po_package.py --roadmap {path}` — cards from code (`design_system.code_cards.dir` set): with a `rebuild_command`, add `--rebuild` (fail-open: a failing tool warns and falls back to vision cards); without one, the tool is run by asking Claude — first ask the user to refresh the cards (or run their design-system-from-code skill into that folder when they ask you to), then build.
 3. Read the output. STOP and fix before sending on: empty glossary (no journey could be read) · `WARNING` lines · card count ≠ component count · stale-runbook warning.
 4. Optional, user-started, never a gate: `/design-sync` publishes `10-design-system/` to Claude Design (one-way mirror).
 

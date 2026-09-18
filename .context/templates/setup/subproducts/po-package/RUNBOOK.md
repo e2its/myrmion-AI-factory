@@ -14,6 +14,12 @@ Resolved by `SETUP --generate`. Update this block by hand if the configuration c
 
 Active design-system section: **{{DS_ACTIVE_SECTION}}**
 
+## Requirements
+
+- Python 3.10 or later, with PyYAML: `python3 -m pip install pyyaml`.
+- Check both at once: `python3 subproducts/po-package/validate_po_return.py --selftest` — `0 failure(s)` means ready.
+- The PO needs only Claude Desktop.
+
 ## The loop
 
 ```
@@ -90,22 +96,31 @@ The package ships one preview card per component in `10-design-system/cards/`. O
 
 ### 6A — cards from the vision only
 
-No rebuild tool is configured. Cards are cut from `docs/ux/vision/component_library.html` and `style_guide.html`, one per `data-component` / `data-token-group` anchor. Nothing else to run. Each card's footer names the code primitive that materialises the component, taken from the registry joined with the codebase inventory.
+No code cards folder is configured. Cards are cut from `docs/ux/vision/component_library.html` and `style_guide.html`, one per `data-component` / `data-token-group` anchor. Nothing else to run. Each card's footer names the code primitive that materialises the component, taken from the registry joined with the codebase inventory.
 
-### 6B — cards rebuilt from code, by hand (no CI workflow)
+### 6B — cards rebuilt from code, outside CI
 
-A project tool renders the real components into a cards folder inside the repository. Run it through the builder whenever components change, and always before building a package:
+A project tool renders the real components into the cards folder named in the configuration (`design_system.code_cards.dir`). Refresh that folder whenever components change, and always before building a package. Two ways; **This project** says which applies.
+
+**Rebuild command `none` — you ask Claude (the usual).** Ask Claude to run your design-system-from-code tool into that folder, then build. The builder says the cards were taken `as found — NOT refreshed`: expected here, it only reminds you to refresh first.
+
+```bash
+python3 subproducts/po-package/build_po_package.py --mode ds-only --check-drift --out ../ds-bundle
+python3 subproducts/po-package/build_po_package.py --roadmap ../roadmap.json
+```
+
+**A rebuild command is configured — the builder runs it.** `--rebuild` runs the tool first:
 
 ```bash
 python3 subproducts/po-package/build_po_package.py --mode ds-only --rebuild --check-drift --out ../ds-bundle
 python3 subproducts/po-package/build_po_package.py --rebuild --roadmap ../roadmap.json
 ```
 
-Per component, a card rendered from code wins over the vision card, so the PO sees what the application really renders as soon as a component exists. Components with no code yet keep their vision card. If the command is missing, fails or times out, the builder warns loudly and uses vision cards: it never blocks. The command runs without a shell, from the repository root.
+Per component, a card rendered from code wins over the vision card, so the PO sees what the application really renders as soon as a component exists. Components with no code yet keep their vision card. If the command fails or times out, the builder warns loudly and uses vision cards: it never blocks. The command runs without a shell, from the repository root.
 
 ### 6C — cards rebuilt in CI (workflow installed)
 
-Same as 6B, and `.github/workflows/design-system-rebuild.yml` runs the rebuild and the drift check on every push to the main branch and on demand. It is advisory: it never fails the pipeline. Download the bundle from the run's artefacts, or run the 6B commands locally. Before building a package, still pass `--rebuild` so the package matches the code of the day.
+Same as 6B with a rebuild command — a tool you can only run by asking Claude cannot run in CI — and `.github/workflows/design-system-rebuild.yml` runs the rebuild and the drift check on every push to the main branch and on demand. It is advisory: it never fails the pipeline. Download the bundle from the run's artefacts, or run the 6B commands locally. Before building a package, still pass `--rebuild` so the package matches the code of the day.
 
 ### Reading the drift report
 
@@ -116,7 +131,7 @@ Same as 6B, and `.github/workflows/design-system-rebuild.yml` runs the rebuild a
 | `candidate-implemented` | The registry says designed or planned, and code already renders it | Reconcile the registry to `IMPLEMENTED` (section 5.6) |
 | `drift: not applicable` | No code cards folder is configured (case 6A, or a project with no design system) | Nothing. `--strict` has nothing to fail on |
 | `drift: NOT COMPUTED — …` | A code cards folder is configured, so drift applies, but it could not be measured in this run (the rebuild failed, the folder yielded no card, there is no vision yet, or the project authors no design system) | Read the `WARNING` lines above it. Under `--strict` this exits 1: an unmeasured drift is not a pass |
-| `code cards: N taken … as found — NOT refreshed` | Cards on disk were used without running the tool | Pass `--rebuild` before trusting the drift lines |
+| `code cards: N taken … as found — NOT refreshed` | Cards on disk were used without running the tool | Refresh them before trusting the drift lines: ask Claude to run your tool, or pass `--rebuild` when a rebuild command is configured |
 
 ### Mirror in Claude Design (optional)
 
@@ -128,8 +143,8 @@ Rebuild the package so the PO works on the new state, not on the one sent last t
 
 ## 8. Changing case later
 
-- **Turning the rebuild on after `defer`:** set `design_system.code_cards.dir` and `rebuild_command` in `subproducts/po-package/po-package.config.json`. You are now in 6B.
-- **Adding the CI workflow:** copy `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` to `.github/workflows/design-system-rebuild.yml`. You are now in 6C.
+- **Turning cards from code on after `vision` or `defer`:** set `design_system.code_cards.dir` in `subproducts/po-package/po-package.config.json`, and `rebuild_command` only if your tool has a terminal command. You are now in 6B.
+- **Adding the CI workflow** (needs a rebuild command): copy `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` to `.github/workflows/design-system-rebuild.yml`. You are now in 6C.
 - **Then update the "This project" block above.** The builder compares that block with the configuration and the workflow's presence on every run and warns when they disagree.
 
 ## 9. What breaks and how it shows
@@ -140,5 +155,6 @@ Rebuild the package so the PO works on the new state, not on the one sent last t
 | `journey-grammar-infra` | `scripts/check-journey-grammar.sh` is missing or cannot run | Restore it with `factory-sync.sh`; a return cannot be judged without it |
 | Every mock is red on `external-deps` | The project loads a host the templates do not | Add it to `mock.allowed_external_hosts` in the config |
 | The package ships whole-file cards | The vision has no `data-component` anchors | Add them through a design-system return |
+| Every code card is skipped: `does not open with the card marker` | Your cards tool writes another format | Each card must be an HTML file whose first line is `<!-- @dsCard group="…" -->`: have the tool write it; if it cannot, report it to the framework |
 | The glossary is empty | No journey could be read | Run the journey gate on each feature folder |
 | `/codesign --sync` says to run the intake first | `docs/ux/po-return/INTAKE.md` is missing, not green, or does not list the target | Go back to section 5.3 |

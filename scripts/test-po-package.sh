@@ -19,8 +19,8 @@
 #             include/exclude, hostile section id confined, same-day rebuild starts clean,
 #             config paths that point nowhere said out loud.
 #   Part 2b — language: per-file override, English fallback, EN/ES parity.
-#   Part 3  — the three design-system cases (6A vision only · 6B code rebuild by hand ·
-#             6C code rebuild in CI): runbook header truthful, code cards win per
+#   Part 3  — the three design-system cases (6A vision only · 6B code cards outside CI,
+#             refreshed by asking Claude or by a command · 6C code rebuild in CI): runbook header truthful, code cards win per
 #             component, every fallback said out loud, no shell, timeout, the three drift
 #             states and what --strict does with each.
 #   Part 4  — closure: commands, flags and paths the runbooks and the workflow cite;
@@ -89,8 +89,8 @@ import json, os, sys
 from pathlib import Path
 root = Path(sys.argv[1])
 cards, cmd, workflow, lang = sys.argv[2:6]
-has_cmd = cmd != "null"
-section = "6A" if not has_cmd else ("6C" if workflow == "yes" else "6B")
+has_cmd, has_cards = cmd != "null", cards != "null"
+section = "6A" if not has_cards else ("6C" if has_cmd and workflow == "yes" else "6B")
 status = ("installed at .github/workflows/design-system-rebuild.yml" if section == "6C"
           else "not installed — " + ("no rebuild command configured" if not has_cmd else "added by hand later, see section 8"))
 common = {"{{PROJECT_NAME}}": "Fixture Project", "{{PO_PACKAGE_MODE}}": os.environ["PO_T_MODE"]}
@@ -110,7 +110,7 @@ cfg.write_text(text, encoding="utf-8")
 json.loads(text)  # a materialised config that is not JSON is a broken delivery
 for runbook in root.glob("RUNBOOK*.md"):
     body = runbook.read_text(encoding="utf-8")
-    for token, value in {**common, "{{DS_CARDS_SOURCE}}": "code-rebuild" if has_cmd else "vision",
+    for token, value in {**common, "{{DS_CARDS_SOURCE}}": "code-rebuild" if has_cmd else ("code-manual" if has_cards else "vision"),
                          "{{DS_REBUILD_COMMAND}}": cmd if has_cmd else "none",
                          "{{DS_CI_WORKFLOW_STATUS}}": status, "{{DS_ACTIVE_SECTION}}": section}.items():
         body = body.replace(token, value)
@@ -496,6 +496,21 @@ has 'drift: not applicable' && ok "6A: drift is reported as not applicable, neve
 run_build o6a2 --no-zip --rebuild
 [ "$RC" -eq 0 ] && has 'no rebuild command is configured' && ok "6A: --rebuild without a command is said out loud" || bad "6A: --rebuild without a command went silent" "$OUT"
 
+reset_cards; materialise "$PROJ" design-cards null no          # the usual: a tool the operator asks Claude to run, no command
+case_runbook 6B "6B cards refreshed by asking Claude"
+grep -q '^- Design-system cards come from: \*\*code-manual\*\*' "$PROJ/subproducts/po-package/RUNBOOK.md" \
+  && grep -q '^- Rebuild command: `none`' "$PROJ/subproducts/po-package/RUNBOOK.md" \
+  && ok "6B by hand: the runbook says the cards come from code with no command" || bad "6B by hand: runbook header wrong"
+( cd "$PROJ" && python3 tools/render_cards.py )                     # what the tool leaves behind when Claude runs it
+run_build o6q --no-zip --mode ds-only --check-drift
+[ "$RC" -eq 0 ] && ! has 'RUNBOOK.md says' && grep -q 'RENDERED-FROM-CODE button' "$PKGDIR/10-design-system/cards/button.html" \
+  && ok "6B by hand: the cards the tool left are used, and the runbook is in step" || bad "6B by hand: cards or runbook check wrong (exit $RC)" "$OUT"
+has 'as found — NOT refreshed (refresh them with your tool first' && ! has 'pass --rebuild' \
+  && ok "6B by hand: the unrefreshed notice says how to refresh without a command" || bad "6B by hand: the notice points at a command that does not exist" "$OUT"
+run_build o6q2 --no-zip --mode ds-only --rebuild
+[ "$RC" -eq 0 ] && has 'no rebuild command is configured' && grep -q 'RENDERED-FROM-CODE button' "$PKGDIR/10-design-system/cards/button.html" \
+  && ok "6B by hand: --rebuild out of habit keeps the cards the tool left, said out loud" || bad "6B by hand: --rebuild threw the cards away (exit $RC)" "$OUT"
+
 PO_T_NULLSTR=1 materialise "$PROJ" null null no
 run_build o6n --no-zip --check-drift --strict
 [ "$RC" -eq 0 ] && has 'drift: not applicable' && ! has 'RUNBOOK.md says' \
@@ -604,6 +619,9 @@ run_build o6w --no-zip --mode ds-only
 cp "$SANDBOX/sg.bak" "$PROJ/docs/ux/vision/style_guide.html"
 
 echo "── Part 4: closure ──"
+for doc in "$SRC/RUNBOOK.md" "$SRC/RUNBOOK.es.md" "$ROOT/README.md"; do
+  grep -q 'Python 3.10' "$doc" && grep -q 'pyyaml' "$doc" && ok "$(basename "$doc") states what the tools need to run" || bad "$(basename "$doc") does not state Python and PyYAML"
+done
 python3 - "$SRC" "$ROOT" <<'PY' && ok "every command, flag and path cited by the runbooks and the workflow exists" || bad "a runbook or the workflow cites something that does not exist"
 import re, subprocess, sys
 from pathlib import Path

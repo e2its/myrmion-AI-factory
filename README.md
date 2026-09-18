@@ -88,6 +88,7 @@ At setup the framework generates its own **operational law** — `docs/constitut
 | **Claude model** | Claude Opus 4.x | Required for the framework's reasoning complexity |
 | **Git** | 2.x | Initialized repository |
 | **Bash-compatible shell** | — | Linux / macOS / WSL on Windows |
+| **Python** | 3 | Framework scripts. The PO package tools need Python 3.10 or later with PyYAML (`python3 -m pip install pyyaml`) |
 
 ---
 
@@ -448,13 +449,13 @@ CODESIGN is the phase whose signing actor is not an engineer. When a project cho
 
 **Written instructions after materialisation.** `SETUP --generate` leaves `subproducts/po-package/RUNBOOK.md` (and `RUNBOOK.es.md`): the full operator procedure, self-sufficient before the skill arrives with `factory-sync.sh`. It carries all three design-system cases and a header SETUP resolves to name the one that applies; `MATERIALIZATION_REPORT.md` repeats it.
 
-**Design system from code.** Tool-agnostic, like LAW-11: the process is the framework's, the tool is the project's (SETUP Q29.1 → `design_system.code_cards.dir` + `rebuild_command` in `po-package.config.json`).
+**Design system from code.** Tool-agnostic, like LAW-11: the process is the framework's, the tool is the project's (SETUP Q29.1 → `design_system.code_cards.dir` in `po-package.config.json`, plus `rebuild_command` when the tool has a terminal command). Usually the tool is a design-system-from-code skill the operator asks Claude to run (`code-manual`); a tool with a terminal command (`code-rebuild`) can also refresh the cards unattended. Card contract: each card is an HTML file whose first line is `<!-- @dsCard group="…" -->`; anything else is skipped out loud.
 
 | Case | Cards come from | What runs |
 |---|---|---|
 | 6A | The vision only | Nothing extra |
-| 6B | Code, per component; the vision for components not built yet | `build_po_package.py --rebuild` by hand |
-| 6C | Same as 6B | Also an **optional, advisory** GitHub Actions job (`design-system-rebuild.yml`) on push to main and on demand |
+| 6B | Code, per component; the vision for components not built yet | Ask Claude to run your tool, then build — or `build_po_package.py --rebuild` when a command is configured |
+| 6C | Same as 6B, with a rebuild command | Also an **optional, advisory** GitHub Actions job (`design-system-rebuild.yml`) on push to main and on demand |
 
 The rebuild command runs without a shell and with a timeout; a missing or failing tool falls back to vision cards with a loud warning and never blocks. `--check-drift` reports `code-card-unregistered`, `implemented-without-code-card` and `candidate-implemented` — the mechanical signal that the design system and what is built are still the same thing. Claude Design is a one-way mirror published by the user-started `/design-sync`; no gate depends on it.
 

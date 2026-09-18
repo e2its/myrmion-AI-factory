@@ -1082,8 +1082,8 @@ Deliverable-generation tooling: imported by no product or framework module, outs
   | `{{PO_PACKAGE_MODE}}` | `po_package.mode` (Q29): `full` \| `features-only` |
   | `{{DS_CODE_CARDS_DIR}}` | `po_package.ds_code_cards_dir` (Q29.1) |
   | `{{DS_REBUILD_COMMAND}}` | `po_package.ds_rebuild_command` (Q29.1) |
-  | `{{DS_CARDS_SOURCE}}` | `po_package.ds_cards_source` (Q29.1): `vision` \| `code-rebuild` \| `defer` |
-  | `{{DS_ACTIVE_SECTION}}` | DERIVED: no rebuild command → `6A` · command AND workflow materialised (below) → `6C` · command, no workflow → `6B` |
+  | `{{DS_CARDS_SOURCE}}` | `po_package.ds_cards_source` (Q29.1): `vision` \| `code-manual` \| `code-rebuild` \| `defer` |
+  | `{{DS_ACTIVE_SECTION}}` | DERIVED: no code cards folder → `6A` · command AND workflow materialised (below) → `6C` · any other folder (run by asking Claude, or a command with no workflow) → `6B` |
   | `{{DS_CI_WORKFLOW_STATUS}}` | DERIVED: `6C` → `installed at .github/workflows/design-system-rebuild.yml` · else `not installed — {reason}` (`no rebuild command configured` \| `ci_cd.platform is not GitHub Actions` \| `added by hand later, see section 8`) |
 
 - In `po-package.config.json`, when `{{DS_CODE_CARDS_DIR}}` / `{{DS_REBUILD_COMMAND}}` do not apply: write `null` (JSON literal replacing the QUOTED token, not the string `"null"`) — same rule as `config/quality.json`. In the runbooks the same absent command renders as `none`.
