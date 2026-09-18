@@ -50,7 +50,9 @@ sys.dont_write_bytecode = True  # run as a CLI, this tool leaves no bytecode bes
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     import po_lib as L  # noqa: E402
-except Exception as exc:  # noqa: BLE001 - missing OR truncated: a partial materialisation must never read as "drift found"
+    if not getattr(L, "PO_LIB_COMPLETE", False):   # a copy cut short can still be valid Python
+        raise ImportError("the file is cut short")
+except Exception as exc:  # noqa: BLE001 - missing, broken or cut short: a partial materialisation must never read as "drift found"
     print(f"Cannot build the package: po_lib.py is missing or broken next to this tool ({exc}). "
           "Re-run SETUP --generate or SETUP --upgrade.", file=sys.stderr)
     sys.exit(2)

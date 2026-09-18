@@ -198,6 +198,13 @@ with zipfile.ZipFile(f"{root}/deflate.zip", "w", zipfile.ZIP_DEFLATED) as z:
     z.writestr(name, "features: []\n" * 200)
 data = bytearray(open(f"{root}/deflate.zip", "rb").read()); data[30 + len(name)] = 0x07   # reserved deflate block type
 open(f"{root}/deflate.zip", "wb").write(bytes(data))
+with zipfile.ZipFile(f"{root}/longname.zip", "w") as z:          # reads clean, cannot be written: the archive's names
+    z.writestr("MANIFEST.yaml", "features: []\n"); z.writestr("FEAT-999/" + "a" * 300 + ".md", "x")
+with zipfile.ZipFile(f"{root}/collide.zip", "w") as z:           # a file where a folder must be
+    z.writestr("FEAT-999/spec.feature", "x"); z.writestr("FEAT-999/spec.feature/inner.md", "x")
+data = bytearray(open(f"{root}/golden.zip", "rb").read())
+data[data.find(b"PK\x01\x02") + 6] = 99                          # central directory declares a zip version no reader knows
+open(f"{root}/badver.zip", "wb").write(bytes(data))
 PY
 expect_exit 1 "hostile archive is RED and is never extracted" "the archive was not extracted" \
   python3 "$VAL" --zip "$SANDBOX/fx/slip.zip" --repo "$PROJ"
@@ -207,6 +214,25 @@ expect_exit 1 "a damaged archive is RED in plain language and is never extracted
   python3 "$VAL" --zip "$SANDBOX/fx/crc.zip" --repo "$PROJ"
 expect_exit 1 "a damaged COMPRESSED archive is RED too — a decompressor error is a finding, not a tool fault" "cannot be read" \
   python3 "$VAL" --zip "$SANDBOX/fx/deflate.zip" --repo "$PROJ"
+expect_exit 1 "an archive whose names cannot be written is RED for the PO, never a local fault" "could not be unpacked (File name too long)" \
+  python3 "$VAL" --zip "$SANDBOX/fx/longname.zip" --repo "$PROJ"
+expect_exit 1 "…a file where a folder must be, too" "could not be unpacked" python3 "$VAL" --zip "$SANDBOX/fx/collide.zip" --repo "$PROJ"
+expect_exit 1 "a damaged central directory is RED in plain language, never a tool fault" "not a readable zip" \
+  python3 "$VAL" --zip "$SANDBOX/fx/badver.zip" --repo "$PROJ"
+python3 -B - "$(dirname "$VAL")" "$SANDBOX/fx/golden.zip" "$PROJ" <<'PY' && ok "a disk or share failing while reading or unpacking is exit 2 — never a RED sent to the PO" || bad "a local IO fault reads as a verdict"
+import errno, sys, zipfile
+from pathlib import Path
+from unittest import mock
+sys.path.insert(0, sys.argv[1])
+import po_lib as L, validate_po_return as V
+zip_path, repo = Path(sys.argv[2]), Path(sys.argv[3])
+def rc(target, fault):
+    with mock.patch.object(zipfile.ZipFile, target, side_effect=fault):
+        return L.cli_main(lambda: 1 if V.validate_zip(zip_path, repo, L.load_config(None)).blocking else 0, "t")
+assert rc("extractall", OSError(errno.ENOSPC, "No space left on device")) == 2
+assert rc("testzip", OSError(errno.EIO, "Input/output error")) == 2
+assert rc("testzip", OSError("Invalid data stream")) == 1       # a corrupt bzip2 stream carries no errno: the PO's
+PY
 expect_exit 2 "--dir on a file is a usage fault (exit 2), never a RED verdict" "Not a folder" \
   python3 "$VAL" --dir "$SANDBOX/fx/golden.zip" --repo "$PROJ"
 expect_exit 2 "a return path that does not exist is a usage fault, never RED" "Not found" python3 "$VAL" --zip "$SANDBOX/nope.zip" --repo "$PROJ"
@@ -226,12 +252,13 @@ expect_exit 2 "…for the builder too" "po_lib.py is missing or broken" python3 
 head -c 400 "$SANDBOX/po_lib.bak" > "$LIBCOPY"                     # a copy cut short: a syntax error, not a missing file
 expect_exit 2 "a partial materialisation (library truncated) is exit 2 in plain language" "po_lib.py is missing or broken" \
   python3 "$VAL" --dir "$RET" --repo "$PROJ"
+sed '$d' "$SANDBOX/po_lib.bak" > "$LIBCOPY"                        # cut short and still valid Python: only the last line lost
+expect_exit 2 "a library cut short that still parses is exit 2, never a verdict" "po_lib.py is missing or broken" \
+  python3 "$VAL" --dir "$RET" --repo "$PROJ"
+expect_exit 2 "…for the builder too" "po_lib.py is missing or broken" python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-cutlib" --no-zip
 cp "$SANDBOX/po_lib.bak" "$LIBCOPY"
-cp "$SANDBOX/fx/golden.zip" "$SANDBOX/fx/locked.zip" && chmod 000 "$SANDBOX/fx/locked.zip"
-if [ -r "$SANDBOX/fx/locked.zip" ]; then ok "(skipped: running as a user that ignores file permissions)"
-else expect_exit 2 "an archive this machine cannot read is a local fault (exit 2), never a RED sent to the PO" "Cannot read" \
-  python3 "$VAL" --zip "$SANDBOX/fx/locked.zip" --repo "$PROJ"; fi
-chmod 600 "$SANDBOX/fx/locked.zip"
+expect_exit 2 "an archive path this machine cannot read as a file is a local fault (exit 2), never a RED sent to the PO" "Cannot read" \
+  python3 "$VAL" --zip "$SANDBOX/fx" --repo "$PROJ"
 python3 "$VAL" --dir "$RET" --repo "$PROJ" --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["verdict"]=="GREEN" and d["returnable_to_po"] is None, d' \
   && ok "on a GREEN return the JSON does not say whether to send it back: there is nothing to send" || bad "JSON returnability is wrong on GREEN"
 python3 - "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX/allow.json" <<'PY'

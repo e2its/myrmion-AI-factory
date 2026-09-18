@@ -14,6 +14,7 @@ utility framework the framework's own CODESIGN templates load:
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
@@ -32,6 +33,12 @@ CONFIG_NAME = "po-package.config.json"
 MAX_ZIP_ENTRIES = 2000
 MAX_MEMBER_BYTES = 20 * 1024 * 1024
 MAX_TOTAL_BYTES = 200 * 1024 * 1024
+# A system call that failed on the operator's machine. Any other OSError met while reading or unpacking a
+# PO archive comes from the archive: a name too long, a file where a folder must be, a corrupt bzip2
+# stream (which carries no errno at all).
+LOCAL_ERRNOS = frozenset(getattr(errno, name) for name in
+                         ("ENOSPC", "EDQUOT", "EROFS", "EACCES", "EPERM", "EIO", "EMFILE", "ENFILE", "ESTALE")
+                         if hasattr(errno, name))
 
 PACKAGE_MODES = ("full", "features-only", "off")
 VOCAB_KINDS = ("personas", "concepts", "fields", "rules")
@@ -503,6 +510,11 @@ def _member_problem(info: zipfile.ZipInfo) -> str | None:
     return None
 
 
+def local_io_fault(exc: BaseException) -> bool:
+    """The operator's disk, share or permissions failed: never a finding about the PO's archive."""
+    return isinstance(exc, OSError) and exc.errno in LOCAL_ERRNOS
+
+
 def _content_problems(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) -> list[str]:
     """Read every member without writing it: a password or a damaged member shows here."""
     protected = [i.filename for i in infos if i.flag_bits & 0x1]
@@ -510,8 +522,10 @@ def _content_problems(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) ->
         return [f"password-protected member: {protected[0]}"]
     try:
         damaged = archive.testzip()
-    except Exception:  # noqa: BLE001 - each decompressor raises its own type (zlib.error, LZMAError, …):
+    except Exception as exc:  # noqa: BLE001 - each decompressor raises its own type (zlib.error, LZMAError, …):
         # this boundary exists to turn an unreadable archive into a finding, so it names none of them
+        if local_io_fault(exc):   # a disk or a share failing mid-read is the operator's, never a RED for the PO
+            raise PoPackageError(f"Cannot read the archive: {exc.strerror}.") from exc
         return ["a member cannot be read — the archive is damaged or uses an unsupported compression"]
     return [f"damaged member: {damaged}"] if damaged else []
 
@@ -519,18 +533,20 @@ def _content_problems(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) ->
 def zip_problems(zip_path: Path) -> list[str]:
     """Reasons this archive must not be extracted. Empty list = safe to extract."""
     try:
-        with zipfile.ZipFile(zip_path) as archive:
-            infos = archive.infolist()
-            problems = [problem for info in infos if (problem := _member_problem(info))]
-            if len(infos) > MAX_ZIP_ENTRIES:
-                problems.append(f"too many entries ({len(infos)} > {MAX_ZIP_ENTRIES})")
-            if sum(i.file_size for i in infos) > MAX_TOTAL_BYTES:
-                problems.append(f"archive expands beyond {MAX_TOTAL_BYTES} bytes")
-            return problems or _content_problems(archive, infos)   # contents are read only once size is bounded
-    except zipfile.BadZipFile as exc:
-        return [f"not a readable zip: {exc}"]
-    except OSError as exc:   # permissions, a vanished file, a full disk: the operator's machine, not the PO's archive
+        archive = zipfile.ZipFile(zip_path)
+    except OSError as exc:   # permissions, a vanished file, a folder: the operator's machine, not the PO's archive
         raise PoPackageError(f"Cannot read {zip_path}: {exc}") from exc
+    except Exception as exc:  # noqa: BLE001 - only the archive's own directory is parsed here (BadZipFile,
+        # an unknown zip version, an undecodable name…): whatever it raises is the archive's fault
+        return [f"not a readable zip: {exc}"]
+    with archive:
+        infos = archive.infolist()
+        problems = [problem for info in infos if (problem := _member_problem(info))]
+        if len(infos) > MAX_ZIP_ENTRIES:
+            problems.append(f"too many entries ({len(infos)} > {MAX_ZIP_ENTRIES})")
+        if sum(i.file_size for i in infos) > MAX_TOTAL_BYTES:
+            problems.append(f"archive expands beyond {MAX_TOTAL_BYTES} bytes")
+        return problems or _content_problems(archive, infos)   # contents are read only once size is bounded
 
 
 def inside_repo(repo: Path, rel: str, label: str) -> Path:
@@ -555,3 +571,6 @@ def cli_main(action: Callable[[], int], prefix: str) -> int:
         print(f"{prefix}: the tool itself failed ({type(exc).__name__}: {exc}). This is a tooling fault, "
               "not a finding about the input. Set PO_PACKAGE_DEBUG=1 to see the trace.", file=sys.stderr)
     return 2
+
+
+PO_LIB_COMPLETE = True   # MUST stay the last line: the tools refuse a copy cut short above it

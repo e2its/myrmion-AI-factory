@@ -180,6 +180,17 @@ def _damaged_deflate(root: Path) -> Path:
     return target
 
 
+def _unknown_version(root: Path) -> Path:
+    """Opening the archive parses its directory: a version no reader knows raises neither BadZipFile nor OSError."""
+    target = root / "hostile.zip"
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_STORED) as archive:
+        archive.writestr("MANIFEST.yaml", "x")
+    data = bytearray(target.read_bytes())
+    data[data.find(b"PK\x01\x02") + 6] = 99                # central-directory "version needed to extract"
+    target.write_bytes(bytes(data))
+    return target
+
+
 def _garbage(root: Path) -> Path:
     target = root / "hostile.zip"
     target.write_bytes(b"this is not a zip archive at all")
@@ -423,6 +434,8 @@ CASES: list[Case] = [
          archive=_damaged, message="damaged member"),
     Case("R18k damaged COMPRESSED member is a finding, never a tool fault", "zip-safety", "BLOCKER",
          archive=_damaged_deflate, message="cannot be read"),
+    Case("R18l damaged central directory is a finding, never a tool fault", "zip-safety", "BLOCKER",
+         archive=_unknown_version, message="not a readable zip"),
 ]
 
 _LIMITS = {"MAX_MEMBER_BYTES": 32, "MAX_ZIP_ENTRIES": 5, "MAX_TOTAL_BYTES": 100}   # small caps so the hostile archives stay tiny

@@ -56,7 +56,9 @@ sys.dont_write_bytecode = True  # run as a CLI, this tool leaves no bytecode bes
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     import po_lib as L  # noqa: E402
-except Exception as exc:  # noqa: BLE001 - missing OR truncated: a partial materialisation must never read as RED (exit 1)
+    if not getattr(L, "PO_LIB_COMPLETE", False):   # a copy cut short can still be valid Python
+        raise ImportError("the file is cut short")
+except Exception as exc:  # noqa: BLE001 - missing, broken or cut short: a partial materialisation must never read as RED (exit 1)
     print(f"Cannot validate: po_lib.py is missing or broken next to this tool ({exc}). "
           "Re-run SETUP --generate or SETUP --upgrade.", file=sys.stderr)
     sys.exit(2)
@@ -546,10 +548,11 @@ def validate_zip(zip_path: Path, repo: Path, cfg: dict) -> Report:
             try:
                 with zipfile.ZipFile(zip_path) as archive:
                     archive.extractall(tmp)
-            except OSError as exc:   # it read clean a moment ago: what fails now is local (temp disk, permissions)
-                raise L.PoPackageError(f"Cannot unpack {zip_path} into the temp folder: {exc}") from exc
-            except Exception:  # noqa: BLE001 - last resort behind zip_problems: never a tool fault
-                problems = ["the archive could not be unpacked — what was unpacked was discarded and nothing was reviewed"]
+            except Exception as exc:  # noqa: BLE001 - last resort behind zip_problems: never a tool fault
+                if L.local_io_fault(exc):   # the temp disk or its permissions: the operator's to fix
+                    raise L.PoPackageError(f"Cannot unpack {zip_path.name} into the temp folder: {exc.strerror}.") from exc
+                why = f" ({exc.strerror})" if isinstance(exc, OSError) and exc.strerror else ""
+                problems = [f"the archive could not be unpacked{why} — what was unpacked was discarded and nothing was reviewed"]
         if not problems:
             return validate_dir(Path(tmp), repo, cfg)
     rep = Report()
