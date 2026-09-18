@@ -1,0 +1,35 @@
+{
+  "$schema": "po_package_config_v1",
+  "project": {
+    "name": "{{PROJECT_NAME}}",
+    "business_goal": "{{BUSINESS_GOAL}}",
+    "scope": "{{PROJECT_SCOPE}}",
+    "language": "{{PROJECT_LANGUAGE}}"
+  },
+  "mode": "{{PO_PACKAGE_MODE}}",
+  "features": {
+    "spec_root": "docs/spec",
+    "id_pattern": "{{FEATURE_ID_PATTERN}}",
+    "include": [],
+    "exclude": []
+  },
+  "design_system": {
+    "vision_root": "docs/ux/vision",
+    "external_ds_root": "docs/ux/design-system",
+    "component_registry": "docs/ux/component-registry.json",
+    "codebase_inventory": "config/codebase_inventory.json",
+    "tokens_sources": ["docs/ux/vision/style_guide.html"],
+    "extra_files": [],
+    "code_cards": {
+      "dir": "{{DS_CODE_CARDS_DIR}}",
+      "rebuild_command": "{{DS_REBUILD_COMMAND}}",
+      "timeout_s": 600
+    }
+  },
+  "mock": {
+    "allowed_external_hosts": []
+  },
+  "output": {
+    "zip_dir": null
+  }
+}

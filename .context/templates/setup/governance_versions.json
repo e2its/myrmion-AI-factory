@@ -2,7 +2,7 @@
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
   "framework_version": "6.0.0",
-  "last_updated": "2026-08-15",
+  "last_updated": "2026-09-18",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -1265,6 +1265,56 @@
         "1.2.0: fix(EVOL-041 code-review) — Block 20 gate findings remediated: mirror of meta 1.2.0.",
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: mirror of meta 1.1.0 (check 8b mermaid).",
         "1.0.0: feat(EVOL-041) — initial delivery."
+      ]
+    },
+    "subproducts/po-package/po_lib.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/po_lib.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "PO package shared helpers: repo/config resolution, journey-first closed vocabulary (§1/§6/§7), nesting-safe `<section data-component>` scanner, allowed external hosts derived from the framework CODESIGN templates, zip safety. Stack-agnostic, tracker-agnostic.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. PO package shared helpers: repo/config resolution, journey-first closed vocabulary (§1/§6/§7), nesting-safe `<section data-component>` scanner, allowed external hosts derived from the framework CODESIGN templates, zip safety. Stack-agnostic, tracker-agnostic."
+      ]
+    },
+    "subproducts/po-package/validate_po_return.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/validate_po_return.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "PO return validator — form and coherence only, never merit (green = reviewable, not accepted). Delegates journey form to scripts/check-journey-grammar.sh with a stub frontmatter; adds structure, manifest, evolution-request, Gherkin, vocabulary, external-dependency, zip-safety and vision-return checks. Exit 0 clean / 1 findings / 2 infra.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. PO return validator — form and coherence only, never merit (green = reviewable, not accepted). Delegates journey form to scripts/check-journey-grammar.sh with a stub frontmatter; adds structure, manifest, evolution-request, Gherkin, vocabulary, external-dependency, zip-safety and vision-return checks. Exit 0 clean / 1 findings / 2 infra."
+      ]
+    },
+    "subproducts/po-package/po_selftest.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/po_selftest.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Hermetic self-test of the return validator: every check id red-proved, golden returns green, plus a coverage meta-assertion (a check with no red case fails the self-test). Run by meta CI and re-run by the factory-po-intake skill before trusting a green.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Hermetic self-test of the return validator: every check id red-proved, golden returns green, plus a coverage meta-assertion (a check with no red case fails the self-test). Run by meta CI and re-run by the factory-po-intake skill before trusting a green."
+      ]
+    },
+    "subproducts/po-package/po_fixtures.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/po-package/po_fixtures.py",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh.",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh."
+      ]
+    },
+    "subproducts/po-package/po-package.config.json": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "subproducts/po-package/po-package.config.json",
+      "stack_conditional": "po_package.mode != \"off\"",
+      "role": "Project config of the PO package — the file SETUP resolves placeholders in (project name, goal, scope, language, feature id pattern, package mode, design-system code-cards dir and rebuild command; JSON null where a key does not apply).",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Project config of the PO package — the file SETUP resolves placeholders in (project name, goal, scope, language, feature id pattern, package mode, design-system code-cards dir and rebuild command; JSON null where a key does not apply)."
       ]
     }
   },
@@ -3013,11 +3063,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.8.0: feat(EVOL-052) — T2 suite gains test-po-package.sh (PO package subproduct: synthetic materialisation + validator self-test).",
         "1.7.0: feat(EVOL-041) — T2 suite gains test-check-journey-grammar.sh (journey grammar validator self-test).",
         "1.6.0: fix(EVOL-040 pr-review loop i2) — T2 suite gains test-security-scan.sh + test-validate-governance.sh (both literal lists).",
         "1.5.0: feat(EVOL-040) — T2 suite gains scripts/test-materialization-surface.sh (T3 delivery-surface, both literal lists).",
@@ -3469,6 +3520,15 @@
         "1.2.0: fix(EVOL-041 code-review) — Block 20 gate findings remediated: battery 14 → 33 cases: expect() proves WHICH gate fired (message assert); new red cases for every hardened gate (quoted scope, empty anchors, '—' BDD, duplicate Paso, matrix phantom/missing row, free-text Mock Action, non-numeric Feels, wrong mermaid type, lowercase varchar, zero-ref path, frontmatter key) + greens (inline comment trim, parenthesised title, file-mode --spec/--mock) + exit-2 contract (no journey, mktemp infra).",
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: 14th case: missing mermaid journey diagram MUST fail (red-proved).",
         "1.0.0: feat(EVOL-041) — red-proving self-test: 13 cases (2 green fixtures + 10 mutations that MUST fail + journey-first skip case). Wired into governance-check T2 suite."
+      ]
+    },
+    "scripts/test-po-package.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "T2 test of the PO package subproduct (EVOL-052, META-ONLY). Synthetic materialisation: copies the template subproduct into a sandbox project, resolves placeholders with sample values, runs it against a fixture project. Wired into governance-check.yml T2 loop.",
+      "path": "scripts/test-po-package.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-052) — initial. Part 1: validator self-test, golden return green via --dir and --zip, mutated return red, hostile archive blocked, unresolved config refused in plain language, no placeholder token in Python."
       ]
     }
   },
