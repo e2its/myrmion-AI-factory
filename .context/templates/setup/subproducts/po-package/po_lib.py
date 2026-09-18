@@ -527,8 +527,10 @@ def zip_problems(zip_path: Path) -> list[str]:
             if sum(i.file_size for i in infos) > MAX_TOTAL_BYTES:
                 problems.append(f"archive expands beyond {MAX_TOTAL_BYTES} bytes")
             return problems or _content_problems(archive, infos)   # contents are read only once size is bounded
-    except (zipfile.BadZipFile, OSError) as exc:
+    except zipfile.BadZipFile as exc:
         return [f"not a readable zip: {exc}"]
+    except OSError as exc:   # permissions, a vanished file, a full disk: the operator's machine, not the PO's archive
+        raise PoPackageError(f"Cannot read {zip_path}: {exc}") from exc
 
 
 def inside_repo(repo: Path, rel: str, label: str) -> Path:

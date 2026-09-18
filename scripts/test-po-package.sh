@@ -223,7 +223,15 @@ mv "$LIBCOPY" "$SANDBOX/po_lib.broken"
 expect_exit 2 "a partial materialisation (library missing) is exit 2 in plain language" "po_lib.py is missing or broken" \
   python3 "$VAL" --dir "$RET" --repo "$PROJ"
 expect_exit 2 "…for the builder too" "po_lib.py is missing or broken" python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-nolib" --no-zip
+head -c 400 "$SANDBOX/po_lib.bak" > "$LIBCOPY"                     # a copy cut short: a syntax error, not a missing file
+expect_exit 2 "a partial materialisation (library truncated) is exit 2 in plain language" "po_lib.py is missing or broken" \
+  python3 "$VAL" --dir "$RET" --repo "$PROJ"
 cp "$SANDBOX/po_lib.bak" "$LIBCOPY"
+cp "$SANDBOX/fx/golden.zip" "$SANDBOX/fx/locked.zip" && chmod 000 "$SANDBOX/fx/locked.zip"
+if [ -r "$SANDBOX/fx/locked.zip" ]; then ok "(skipped: running as a user that ignores file permissions)"
+else expect_exit 2 "an archive this machine cannot read is a local fault (exit 2), never a RED sent to the PO" "Cannot read" \
+  python3 "$VAL" --zip "$SANDBOX/fx/locked.zip" --repo "$PROJ"; fi
+chmod 600 "$SANDBOX/fx/locked.zip"
 python3 "$VAL" --dir "$RET" --repo "$PROJ" --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["verdict"]=="GREEN" and d["returnable_to_po"] is None, d' \
   && ok "on a GREEN return the JSON does not say whether to send it back: there is nothing to send" || bad "JSON returnability is wrong on GREEN"
 python3 - "$PROJ/subproducts/po-package/po-package.config.json" "$SANDBOX/allow.json" <<'PY'
@@ -344,6 +352,20 @@ expect_exit 0 "a project before its first vision has no drift to fail on either,
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-nov" --no-zip --check-drift --strict --config "$SANDBOX/cfg-novision.json"
 expect_exit 2 "a code cards folder outside the repository is refused in plain language" "inside the repository" \
   python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-esc" --no-zip --config "$SANDBOX/cfg-escape.json"
+cp "$PROJ/docs/ux/component-registry.json" "$SANDBOX/registry0.bak"
+printf '{"components": ["button", "card"]}' > "$PROJ/docs/ux/component-registry.json"
+expect_exit 2 "a malformed component registry is the operator's to fix, said in plain language — never read as empty" "must be a list of entries" \
+  python3 "$BLD" --repo "$PROJ" --out "$SANDBOX/o-reg" --no-zip
+python3 - "$SANDBOX/registry0.bak" "$PROJ/docs/ux/component-registry.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for c in d["components"]:
+    if c["id"] == "card": c["cip_name"] = "CardThatIsNotInTheInventory"
+json.dump(d, open(sys.argv[2], "w"), indent=2)
+PY
+run_build o-join --no-zip
+[ "$RC" -eq 0 ] && has 'which is not a ui_component of the codebase inventory' && ok "a registry join key that resolves to nothing is said out loud" || bad "a dangling join key read silently as not built" "$OUT"
+cp "$SANDBOX/registry0.bak" "$PROJ/docs/ux/component-registry.json"
 run_build ost --no-zip; : > "$PKGDIR/STALE.md"; run_build ost --no-zip
 [ "$RC" -eq 0 ] && [ ! -e "$PKGDIR/STALE.md" ] && ok "a second build the same day starts from an empty staging folder" || bad "stale files survive a rebuild" "$OUT"
 for variant in features-only backend; do
@@ -384,7 +406,7 @@ check "a file with no translation falls back to English" grep -q '^# Index of th
 check "canonical headings stay literal in the translated package" \
   sh -c "grep -q '^## Section 2: Journey Steps' '$PES/30-templates/user_journey-TEMPLATE.md' && grep -qF '\`## Section 2: Journey Steps\`' '$PES/PROJECT-INSTRUCTIONS.md'"
 LEFT=$(grep -rlE '\$\{[a-z_]+\}' "$PES" | grep -v '/20-features/' || true)
-[ -z "$LEFT" ] && ok "no unresolved build variable in the translated package" || bad "unresolved build variables remain" "$LEFT"
+[ -n "$PES" ] && [ -z "$LEFT" ] && ok "no unresolved build variable in the translated package" || bad "unresolved build variables remain" "$LEFT"
 python3 - "$SRC" <<'PY' && ok "EN/ES parity: same build variables, same placeholders, same heading counts" || bad "EN and ES prose drifted apart"
 import re, sys
 from pathlib import Path
@@ -454,7 +476,7 @@ P6B=$PKGDIR
 [ "$RC" -eq 0 ] && grep -q 'RENDERED-FROM-CODE button' "$P6B/10-design-system/cards/button.html" \
   && ok "6B: a card rendered from code wins over the vision card" || bad "6B: code card did not win (exit $RC)" "$OUT"
 check "6B: a component with no code card keeps its vision card" grep -q 'data-component="Input"' "$P6B/10-design-system/cards/input.html"
-[ ! -e "$P6B/00-core" ] && ok "6B: ds-only builds the design system only" || bad "6B: ds-only built more than the design system"
+[ -n "$P6B" ] && [ -d "$P6B/10-design-system" ] && [ ! -e "$P6B/00-core" ] && ok "6B: ds-only builds the design system only" || bad "6B: ds-only built more than the design system"
 check "6B: the project tool's own manifest names the card" grep -q '"name": "Button (live)"' "$P6B/10-design-system/_ds_manifest.json"
 has 'does not open with the card marker' && ok "6B: a file without the card marker is skipped out loud" || bad "6B: an unmarked file was skipped silently" "$OUT"
 for finding in code-card-unregistered implemented-without-code-card candidate-implemented; do

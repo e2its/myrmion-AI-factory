@@ -274,6 +274,11 @@ CASES: list[Case] = [
          mutate=_mock_head('<svg><image href="https://svg.not-allowed.example/a.png"/></svg>')),
     Case("R8n preloaded responsive image", "external-deps", "ERROR", message="pre.not-allowed.example",
          mutate=_mock_head('<link rel="preload" as="image" imagesrcset="https://pre.not-allowed.example/a.png 1x">')),
+    Case("R8o inline style attribute", "external-deps", "ERROR", message="inline.not-allowed.example",
+         mutate=lambda r, t: _sub(_feat(t, "mock.html"), "<h1>Pick a day</h1>",
+                                  '<h1 style="background:url(https://inline.not-allowed.example/i.png)">Pick a day</h1>')),
+    Case("R8p video poster", "external-deps", "ERROR", message="poster.not-allowed.example",
+         mutate=_mock_head('<video poster="https://poster.not-allowed.example/p.jpg"></video>')),
     Case("R8l base address re-rooting every relative URL", "external-deps", "ERROR", message="base.not-allowed.example",
          mutate=_mock_head('<base href="https://base.not-allowed.example/">')),
     # ── evolution request ──

@@ -56,7 +56,7 @@ sys.dont_write_bytecode = True  # run as a CLI, this tool leaves no bytecode bes
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     import po_lib as L  # noqa: E402
-except ImportError as exc:   # a partial materialisation must never read as a RED verdict (exit 1)
+except Exception as exc:  # noqa: BLE001 - missing OR truncated: a partial materialisation must never read as RED (exit 1)
     print(f"Cannot validate: po_lib.py is missing or broken next to this tool ({exc}). "
           "Re-run SETUP --generate or SETUP --upgrade.", file=sys.stderr)
     sys.exit(2)
@@ -546,6 +546,8 @@ def validate_zip(zip_path: Path, repo: Path, cfg: dict) -> Report:
             try:
                 with zipfile.ZipFile(zip_path) as archive:
                     archive.extractall(tmp)
+            except OSError as exc:   # it read clean a moment ago: what fails now is local (temp disk, permissions)
+                raise L.PoPackageError(f"Cannot unpack {zip_path} into the temp folder: {exc}") from exc
             except Exception:  # noqa: BLE001 - last resort behind zip_problems: never a tool fault
                 problems = ["the archive could not be unpacked — what was unpacked was discarded and nothing was reviewed"]
         if not problems:
