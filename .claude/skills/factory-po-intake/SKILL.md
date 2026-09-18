@@ -46,7 +46,7 @@ Per target (`VISION/ERQ.md`, `{ID}/ERQ.md`): `changes[]`, `new_names[]`, `new_co
 
 1. **Eligibility first.** New feature whose CODESIGN item is not eligible on the board ⇒ RDR: park the material in a refinement issue via `/backlog --create-issue` (recommended) / sync now / reject. Arrival is not scheduling. Only an eligible (or explicitly "sync now") target may enter `ratified`.
 2. A target with ANY rejected change is NOT syncable ⇒ it never enters `ratified`. RDR: return it to the PO (recommended) / ask the PO to split the ERQ and resubmit the ratified part / abandon the target.
-3. Write the drop zone — the ONLY place this skill writes in the repo, left UNCOMMITTED (`--sync` stages it with the adoption, one commit):
+3. Write the drop zone — the ONLY place this skill writes in the repo, left UNCOMMITTED (`--sync` adopts from it, commits the adoption, deletes it):
    - `docs/ux/po-return/VISION/` and/or `docs/ux/po-return/{ID}/` ← the returned files, verbatim.
    - `docs/ux/po-return/INTAKE.md` ← frontmatter `verdict: GREEN`, `based_on_package`, `ratified: [targets]`, `rejected: {target: [change ids]}` (omit a target with none), `synced: []` ; body: per target, one row per change — question, options, recommendation, VERBATIM user choice.
 4. Per ratified target, one at a time: `/codesign --sync VISION` · `/codesign --sync {ID}` (it creates or reuses the branch — NEVER `--start` / `--refine`). `--sync` moves the ERQ and the target's RDR rows next to the artefacts (`erq/`), so the decisions outlive the drop zone.

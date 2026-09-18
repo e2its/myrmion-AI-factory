@@ -44,14 +44,16 @@ docs/ux/po-return/{FEATURE_ID}/      ERQ.md, user_journey.md, spec.feature, mock
 
 ## Factory-owned parts (exact, per artefact)
 
-| Artefact | Header carrier | Header source — VALUES ONLY, drop every template comment | Iteration appendix starts at the first line… |
+| Artefact | Header carrier | Header source — VALUES ONLY, drop every template comment | Appendix: literal shape (its first line is the appendix start marker) |
 |---|---|---|---|
-| `user_journey.md`, `slice_map.md` | leading `---` YAML block | same-name template under `.context/templates/codesign/` | `## Iteration ITER-` |
-| `spec.feature` | leading `---` YAML block | `gherkin_master_template.feature` frontmatter keys | `## Iteration ITER-` |
-| `mock.html` | leading `<!-- CO-DESIGN FRONTMATTER … -->` comment, before `<!doctype>` | that comment of `mock-template.html`, plus `scope:`; OMIT any template line that itself contains `<!--` | `<!-- iter:ITER-` |
+| `user_journey.md`, `slice_map.md` | leading `---` YAML block | same-name template under `.context/templates/codesign/` | `## Iteration {id} {#iter-N}` ⏎ `{date} · {source} · {scope_summary}` |
+| `spec.feature` | leading `---` YAML block | `gherkin_master_template.feature` frontmatter keys | `# ## Iteration {id} {#iter-N}` ⏎ `# {date} · {source} · {scope_summary}` (Gherkin comment lines) |
+| `mock.html` | leading `<!-- CO-DESIGN FRONTMATTER … -->` comment, before `<!doctype>` | that comment of `mock-template.html`, plus `scope:`; OMIT any template line that itself contains `<!--` | `<!-- iter:{id} \| {date} \| {source} \| {scope_summary} -->` |
 | `vision.md` | leading `---` YAML block | `{status, version, input_mode: PO_PACKAGE, source_erq}` | — (no ledger) ; the 5 other vision files carry NO header |
 
-Set on every feature header: `feature_id`, `scope ← ERQ.scope`, `status: DRAFT`, `po_sign_off: true`, timestamps. `spec.feature` also: `slicing_strategy ← ERQ.slicing_strategy OR "incremental"`. A header the PO returned is discarded. **PO block** = everything after the header carrier and before the appendix start; the byte-identity guarantee applies to it. Auto-approval CHECK 1 (Gherkin) judges the PO block, not the header.
+Boundaries are WHOLE LINES. The header carrier ends with its own newline; the PO block follows byte-for-byte with NO separator line; the appendix begins on a new line (if the PO block lacks a trailing newline, the one newline added belongs to the appendix).
+
+Set on every feature header: `feature_id`, `scope ← ERQ.scope`, `status: DRAFT`, `po_sign_off: true`, and each template's OWN time keys (`created_at`/`updated_at`, `last_update`; the mock header has none — add none). `_progress.iteration_in_flight` stays: it is the IPP marker, not a comment. `spec.feature` also: `slicing_strategy ← ERQ.slicing_strategy OR "incremental"`. A header the PO returned is discarded. **PO block** = everything after the header carrier and before the appendix start; the byte-identity guarantee applies to it. Auto-approval CHECK 1 (Gherkin) judges the PO block, not the header.
 
 Iteration entry (canonical schema, factory-iteration-model): `{id, iteration, date, source: rdr-ratification, erq_id: ERQ.erq_id, scope_summary: ERQ.feature_name, changes: ERQ.changes[].id, anchor}` — `source` stays inside its closed enum; the ERQ id rides in `erq_id`. Appendix text is factory prose: keep it free of technical type tokens (the journey gate scans Section 5 → EOF).
 
@@ -83,8 +85,9 @@ FUNCTION codesign_sync(TARGET):
     IF first_adoption:                                     # what --start guards, minus generation
       CALL scope_compatibility_gate(TARGET, ERQ.scope)     # Factory-codesign-feature
       RUN Vision Gate — its BLOCK half only (vision APPROVED for UI scopes). Shell composition is authoring: skipped.
-    RUN CIP concept check (Phase 0.5 / cip_refine_recheck matching rules) with
+    RUN CIP concept check with
         concepts ← ERQ.new_names[kind == concept] + journey § 6 `###` headings
+        match = EXACT name, case-insensitive, against inventory artifacts of type `domain_entity` — name only, no fuzzy or prefix match
         overlap ⇒ RDR: REUSE_EXISTING / KEEP_BOTH / RETURN_TO_PO        # RENAME_NEW and MERGE would edit PO content ⇒ they are RETURN_TO_PO here
     IF NOT never_approved:                                 # what --refine guards, minus generation
       RUN Iteration Execution 1.1 (implementation-state probe)
@@ -94,13 +97,14 @@ FUNCTION codesign_sync(TARGET):
 
     WRITE each artefact = header + PO block (verbatim from the drop zone) + existing appendix (if any)
     CALL append_iteration_entry(artefact, entry)  per artefact, ONE shared id ITER-{TARGET}-{N+1} (first adoption ⇒ N+1 = 1)
-    § Slicing
     IF NOT never_approved:
       IF slice_map.md changed: CALL check_slice_immutability(TARGET, proposed) PRE-persist      # factory-iteration-model
       CALL CASCADE_PENDING_ITERATION(...) ; CALL CASCADE_SLICE_INTERNAL(...) when re-sliced
 
     # Validation — same bar as internal authoring, zero generation
-    RUN Tripartite Alignment Protocol ; CALL codesign_auto_approve(TARGET)      # CHECK 0–14 ; all green ⇒ it sets APPROVED
+    RUN Tripartite Alignment Protocol ; CALL codesign_auto_approve(TARGET)      # CHECK 0–14 (CHECK 14 deferred while § Slicing is pending)
+    finding = a failed CHECK or a Tripartite BLOCKER gap. Tripartite WARNINGs are listed as advisory and block nothing.
+    IF no `for: PO` finding: § Slicing ; then CHECK 14 ; all green ⇒ APPROVED
     # Reused functions speak of re-running --start / --refine: under --sync read that as "return to the PO, then --sync again"
 
   # Records — always, whatever the outcome
@@ -110,14 +114,15 @@ FUNCTION codesign_sync(TARGET):
     status ← NEEDS_INFO on every adopted artefact of TARGET
     WRITE {erq_id}.findings.md next to it — plain language, per artefact, each finding tagged `for: PO` or `for: factory`
     NEVER edit the PO block. The next return re-enters through never_approved ⇒ no classification, no cascade.
-  REMOVE docs/ux/po-return/{TARGET}/ ; INTAKE.synced += TARGET ; remove INTAKE.md when every ratified target is synced
-  STAGE adoption + records + removal together ⇒ ONE commit (factory-commit-prompt)
+  DELETE docs/ux/po-return/{TARGET}/ from disk (untracked — nothing to stage) ; INTAKE.synced += TARGET
+  every ratified target synced ⇒ delete INTAKE.md and the empty docs/ux/po-return/
   APPEND_TO_WORKLOG {action: "--sync", target, erq_id, ratified_changes, result}
+  STAGE EXPLICIT PATHS — the adopted artefacts, `erq/`, the registry (VISION), the worklog — never `git add -A` ⇒ ONE commit (factory-commit-prompt)
 ```
 
 ## Slicing — the one declared exception to "never author"
 
-`slice_map.md` returned ⇒ adopt like any artefact. Absent AND `slicing_strategy == incremental` ⇒ RUN "Slice Map Generation" (Factory-codesign-feature Execution Flow step 9.5) with ITS RDR: the factory proposes, the user ratifies, `rdr_*` fields record it. Absent AND `monolithic` ⇒ nothing (the Trivial-Heuristic is enforced later by BLUEPRINT). Never silently skipped, never generated without the RDR.
+Runs only AFTER validation shows no `for: PO` finding — never ask the user to ratify slices of content that is about to bounce. `slice_map.md` returned ⇒ adopt like any artefact. "Absent" = absent from the return AND not already in `docs/spec/{ID}/`. Absent AND `slicing_strategy == incremental` ⇒ RUN "Slice Map Generation" (Factory-codesign-feature Execution Flow step 9.5) with ITS RDR: the factory proposes, the user ratifies, `rdr_*` fields record it. Absent AND `monolithic` ⇒ nothing (the Trivial-Heuristic is enforced later by BLUEPRINT). Never silently skipped, never generated without the RDR. RDR left open ⇒ status stays `DRAFT` with one `for: factory` finding; it is not a reason to return anything to the PO.
 
 ## Forbidden
 

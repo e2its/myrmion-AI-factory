@@ -380,6 +380,9 @@ branching = (root / ".claude/skills/factory-branching-strategy/SKILL.md").read_t
 creation = re.search(r"branch_creation_commands = \[(.*?)\]", branching).group(1)
 if "CODESIGN --sync" not in creation:
     problems.append("`CODESIGN --sync` is not a branch-creation command — a new target deadlocks (--start is guarded)")
+for needle in ("# ## Iteration {id}", "<!-- iter:{id}", "NO separator line", "STAGE EXPLICIT PATHS", "EXACT name"):
+    if needle not in sync:
+        problems.append(f"the sync instruction no longer states «{needle}» (smoke-run lesson)")
 if "TARGET NOT IN INTAKE.rejected" not in sync:
     problems.append("the rejected-changes precondition no longer tolerates a target with no rejected key")
 sys.path.insert(0, str(root / ".context/templates/setup/subproducts/po-package"))
