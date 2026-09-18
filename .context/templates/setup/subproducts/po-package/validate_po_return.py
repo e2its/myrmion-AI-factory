@@ -549,8 +549,10 @@ def validate_zip(zip_path: Path, repo: Path, cfg: dict) -> Report:
                 with zipfile.ZipFile(zip_path) as archive:
                     archive.extractall(tmp)
             except Exception as exc:  # noqa: BLE001 - last resort behind zip_problems: never a tool fault
-                if L.local_io_fault(exc):   # the temp disk or its permissions: the operator's to fix
-                    raise L.PoPackageError(f"Cannot unpack {zip_path.name} into the temp folder: {exc.strerror}.") from exc
+                if L.local_io_fault(exc):   # the archive's file or the temp folder: the operator's to fix
+                    raise L.PoPackageError(
+                        f"Cannot unpack {zip_path.name} into {Path(tmp).parent} ({exc.strerror}). Check the archive "
+                        "is still there and readable and that folder has room (TMPDIR moves it), then run again.") from exc
                 why = f" ({exc.strerror})" if isinstance(exc, OSError) and exc.strerror else ""
                 problems = [f"the archive could not be unpacked{why} — what was unpacked was discarded and nothing was reviewed"]
         if not problems:

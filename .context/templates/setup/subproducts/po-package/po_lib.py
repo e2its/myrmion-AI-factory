@@ -33,12 +33,11 @@ CONFIG_NAME = "po-package.config.json"
 MAX_ZIP_ENTRIES = 2000
 MAX_MEMBER_BYTES = 20 * 1024 * 1024
 MAX_TOTAL_BYTES = 200 * 1024 * 1024
-# A system call that failed on the operator's machine. Any other OSError met while reading or unpacking a
-# PO archive comes from the archive: a name too long, a file where a folder must be, a corrupt bzip2
-# stream (which carries no errno at all).
-LOCAL_ERRNOS = frozenset(getattr(errno, name) for name in
-                         ("ENOSPC", "EDQUOT", "EROFS", "EACCES", "EPERM", "EIO", "EMFILE", "ENFILE", "ESTALE")
-                         if hasattr(errno, name))
+# The only system-call failures a PO archive can cause by itself, through the names and offsets it declares:
+# a name too long, a file where a folder must be (or the reverse), a seek to an offset it made up. A corrupt
+# compressed stream raises an OSError with no errno at all. Every other errno is the operator's machine.
+ARCHIVE_ERRNOS = frozenset(getattr(errno, name) for name in ("ENAMETOOLONG", "ENOTDIR", "EISDIR", "EEXIST", "EINVAL")
+                           if hasattr(errno, name))
 
 PACKAGE_MODES = ("full", "features-only", "off")
 VOCAB_KINDS = ("personas", "concepts", "fields", "rules")
@@ -511,8 +510,8 @@ def _member_problem(info: zipfile.ZipInfo) -> str | None:
 
 
 def local_io_fault(exc: BaseException) -> bool:
-    """The operator's disk, share or permissions failed: never a finding about the PO's archive."""
-    return isinstance(exc, OSError) and exc.errno in LOCAL_ERRNOS
+    """The operator's disk, share, limits or permissions failed: never a finding about the PO's archive."""
+    return isinstance(exc, OSError) and exc.errno is not None and exc.errno not in ARCHIVE_ERRNOS
 
 
 def _content_problems(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) -> list[str]:
@@ -525,7 +524,8 @@ def _content_problems(archive: zipfile.ZipFile, infos: list[zipfile.ZipInfo]) ->
     except Exception as exc:  # noqa: BLE001 - each decompressor raises its own type (zlib.error, LZMAError, …):
         # this boundary exists to turn an unreadable archive into a finding, so it names none of them
         if local_io_fault(exc):   # a disk or a share failing mid-read is the operator's, never a RED for the PO
-            raise PoPackageError(f"Cannot read the archive: {exc.strerror}.") from exc
+            raise PoPackageError(f"Cannot read {archive.filename} ({exc.strerror}). "
+                                 "Check the file is still there and readable, then run again.") from exc
         return ["a member cannot be read — the archive is damaged or uses an unsupported compression"]
     return [f"damaged member: {damaged}"] if damaged else []
 

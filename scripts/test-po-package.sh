@@ -220,18 +220,23 @@ expect_exit 1 "…a file where a folder must be, too" "could not be unpacked" py
 expect_exit 1 "a damaged central directory is RED in plain language, never a tool fault" "not a readable zip" \
   python3 "$VAL" --zip "$SANDBOX/fx/badver.zip" --repo "$PROJ"
 python3 -B - "$(dirname "$VAL")" "$SANDBOX/fx/golden.zip" "$PROJ" <<'PY' && ok "a disk or share failing while reading or unpacking is exit 2 — never a RED sent to the PO" || bad "a local IO fault reads as a verdict"
-import errno, sys, zipfile
+import contextlib, errno, io, sys, zipfile
 from pathlib import Path
 from unittest import mock
 sys.path.insert(0, sys.argv[1])
 import po_lib as L, validate_po_return as V
 zip_path, repo = Path(sys.argv[2]), Path(sys.argv[3])
 def rc(target, fault):
-    with mock.patch.object(zipfile.ZipFile, target, side_effect=fault):
-        return L.cli_main(lambda: 1 if V.validate_zip(zip_path, repo, L.load_config(None)).blocking else 0, "t")
-assert rc("extractall", OSError(errno.ENOSPC, "No space left on device")) == 2
-assert rc("testzip", OSError(errno.EIO, "Input/output error")) == 2
+    err = io.StringIO()
+    with mock.patch.object(zipfile.ZipFile, target, side_effect=fault), contextlib.redirect_stderr(err):
+        code = L.cli_main(lambda: 1 if V.validate_zip(zip_path, repo, L.load_config(None)).blocking else 0, "t")
+    assert code != 2 or "then run again" in err.getvalue(), err.getvalue()   # a local fault always says what to do
+    return code
+for target, code in (("extractall", errno.ENOSPC), ("extractall", errno.ETIMEDOUT), ("extractall", errno.ENOENT),
+                     ("testzip", errno.EIO), ("testzip", errno.ENOTCONN)):   # a disk, a share, a race: never the PO's
+    assert rc(target, OSError(code, "local")) == 2, (target, code)
 assert rc("testzip", OSError("Invalid data stream")) == 1       # a corrupt bzip2 stream carries no errno: the PO's
+assert rc("testzip", OSError(errno.EINVAL, "Invalid argument")) == 1   # a seek to an offset the archive declared
 PY
 expect_exit 2 "--dir on a file is a usage fault (exit 2), never a RED verdict" "Not a folder" \
   python3 "$VAL" --dir "$SANDBOX/fx/golden.zip" --repo "$PROJ"
