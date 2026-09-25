@@ -94,6 +94,27 @@ run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_pat
 assert_pass "on a working branch: passes"
 run_hook check-branch-protection.sh '{not json'
 assert_pass "malformed payload: passes (the branch is what matters)"
+# a train (EVOL-045): the per-increment branch whose increment plan declares sub-increments takes merges only
+mkdir -p "$REPO/docs/spec/FEAT-001"; printf '### INC-1 — x\n- **Sub-increments:**\n  - SUB-1-1: a · branch feature/FEAT-001-inc-1-x-sub-1\n' > "$REPO/docs/spec/FEAT-001/increment_plan.md"
+git -C "$REPO" checkout -q -b feature/FEAT-001-inc-1-x
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_block "on a train with declared sub-increments: exit 2, the sub-increment branch is named" "is a train"
+git -C "$REPO" checkout -q -b feature/FEAT-001-inc-1-x-sub-1
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_pass "on the sub-increment branch: passes"
+git -C "$REPO" checkout -q -b feature/FEAT-001-inc-2-y
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_pass "on a per-increment branch without sub-increments: passes"
+git -C "$REPO" checkout -q feature/FEAT-001-x
+git -C "$REPO" checkout -q feature/FEAT-001-inc-1-x
+mv "$REPO/scripts/gate.py" "$SANDBOX/gate.py.bak"
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_pass "on a train with the reader absent: passes (fail-open on infrastructure)"
+printf 'import sys; print("gate: broken"); sys.exit(2)\n' > "$REPO/scripts/gate.py"
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_context "on a train with the reader faulting: passes, the fault is said through the envelope" "train protection not evaluated"
+mv "$SANDBOX/gate.py.bak" "$REPO/scripts/gate.py"
+git -C "$REPO" checkout -q feature/FEAT-001-x
 
 echo "── check-concurrency-lock ──"
 mkdir -p "$REPO/.context/locks"
@@ -177,7 +198,7 @@ rm -rf "$REPO/scripts/gate.py"
 run_hook deliver-governance.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/x.py"},"session_id":"s3"}'
 if [ "$RC" -eq 0 ] && [ -z "$OUT" ]; then ok "reader missing: silent pass, never blocks"; else bad "reader missing should pass silently (rc=$RC)" "$OUT"; fi
 
-echo "── git pre-push hook · step 4 (corpus + coherence gates): exit 1 blocks, exit 2 warns ──"
+echo "── git pre-push hook · step 4 (corpus + coherence + surface gates): exit 1 blocks, exit 2 warns ──"
 PP="$ROOT/.context/templates/setup/scripts/hooks/pre-push"
 cmp -s "$PP" "$ROOT/scripts/hooks/pre-push" && ok "pre-push twins byte-identical" || bad "pre-push twins drifted"
 PR="$SANDBOX/pp"; mkdir -p "$PR/scripts/gates" "$PR/config"
@@ -198,8 +219,10 @@ OUT=$(STUB_MANIFEST_PARITY=2 run_pp); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'could not run' && ok "step 4: a reader fault (exit 2) warns and the push proceeds" || bad "reader fault blocked or was silent (rc=$RC)" "$OUT"
 OUT=$(STUB_LAWS=1 run_pp); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'laws --parity is red' && ok "step 4: \"laws --parity\" reaches the reader as two words" || bad "laws --parity not run as expected (rc=$RC)" "$OUT"
+OUT=$(STUB_SURFACE=1 run_pp); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'gate.py surface is red' && ok "step 4: an over-ceiling surface (exit 1) blocks the push" || bad "surface red did not block (rc=$RC)" "$OUT"
 OUT=$(run_pp); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'coherence gates passed' && ok "step 4: all five gates green → push proceeds" || bad "green gates did not pass (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'surface gates passed' && ok "step 4: all six gates green → push proceeds" || bad "green gates did not pass (rc=$RC)" "$OUT"
 
 echo "── channel audit over every shipped hook ──"
 for h in "$HOOKS"/*.sh; do

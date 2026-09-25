@@ -180,9 +180,29 @@ R2="$TMP_ROOT/repo2"; make_repo "$R2"
 J=$(run_preflight "$R2")
 [[ "$(sev_of "$J" code-review-missing)" == "blockers" ]] && pass "tests-only diff gated" || fail "tests-only bypass ($(find_cat "$J"))"
 
+echo "Scenario 15 — Block 21 surface ceiling (EVOL-045): over → blocker; unknown branch name → blocker even docs-only; reader fault → important; escape → pass"
+R3="$TMP_ROOT/repo3"; make_repo "$R3"
+mkdir -p "$R3/scripts"; cp "$FRAMEWORK_ROOT/scripts/gate.py" "$R3/scripts/gate.py"; cp -R "$FRAMEWORK_ROOT/scripts/gates" "$R3/scripts/gates"
+echo '{"context":"downstream","audit":{"root_sets":["."],"exclusions":[".git/"]}}' > "$R3/config/coherence-context.json"
+echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":1,"ceiling_lines":50,"escapes":["lockfile"]}}' > "$R3/config/quality.json"
+(cd "$R3" && echo 'def z(): return 5' > src/z.py && git add src/z.py && git commit -qm "feat: second file")
+J=$(run_preflight "$R3")
+[[ "$(sev_of "$J" surface-over-ceiling)" == "blockers" ]] && pass "two files over ceiling_files=1 → surface-over-ceiling blocker" || fail "over-ceiling not a blocker ($(find_cat "$J"))"
+(cd "$R3" && git checkout -qb nonsense origin/main && echo doc > only.md && git add only.md && git commit -qm docs)
+J=$(run_preflight "$R3")
+[[ "$(sev_of "$J" branch-name-unknown)" == "blockers" ]] && pass "unknown branch name on a docs-only diff → branch-name-unknown blocker (no fast-lane over a blocker)" || fail "unknown name escaped through the fast-lane ($(find_cat "$J") / $J)"
+(cd "$R3" && git checkout -q feature/T-test)
+echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":1,"escapes":["lockfile"]}}' > "$R3/config/quality.json"
+J=$(run_preflight "$R3")
+[[ "$(sev_of "$J" surface-unavailable)" == "important" && "$(sev_of "$J" surface-over-ceiling)" == "absent" ]] && pass "missing surface key → surface-unavailable important (said, not silent)" || fail "reader fault routing ($(find_cat "$J"))"
+echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":1,"ceiling_lines":50,"escapes":["lockfile"]}}' > "$R3/config/quality.json"
+(cd "$R3" && git commit -q --allow-empty -m "chore: lock" -m "Surface-Escape: lockfile")
+J=$(run_preflight "$R3")
+[[ "$(sev_of "$J" surface-over-ceiling)" == "absent" ]] && pass "a Surface-Escape trailer from the closed list → no surface finding" || fail "escape not honoured ($(find_cat "$J"))"
+
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
-  echo "L6: ok — Block 20 gate behaviour verified across 14 scenarios."
+  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across 15 scenarios."
   exit 0
 else
   echo "L6: FAIL — $FAILURES scenario assertion(s) failed."

@@ -457,6 +457,7 @@ python3 subproducts/po-package/build_po_package.py                # first packag
 ```
 
 ### Measurement — next steps
+- **Surface ceiling (Q31, EVOL-045):** `config/quality.json → surface.ceiling_files / ceiling_lines` = [30] / [800] — every push measures its diff against them (`gate.py surface`); the plan splits over-ceiling increments into sub-increments on a train.
 - **Reader:** `subproducts/measure/` — the project's SDLC cost from local transcripts and git; nothing leaves the machine. Window `{{MEASURE_REPORT_INTERVAL_DAYS}}` days, retention `{{MEASURE_RETENTION_DAYS}}` days (Q30).
 - **Before/after protocol (obligation of this project, per framework change):** baseline first, then the same report after the interval, compared on the tracking item. Procedure: `subproducts/measure/RUNBOOK.md`.
 

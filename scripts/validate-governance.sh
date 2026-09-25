@@ -203,7 +203,11 @@ TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" ".claud
 # a version-bump regress. Single member by design — extend only via EVOL.
 ORPHAN_EXEMPT=(".context/templates/setup/governance_versions.json")
 DIFF_ONLY=false
-BASE_BRANCH="main"
+# the one resolver (EVOL-045): the diff base of this branch; a red or faulting resolver is SAID (stderr) and main is used
+DB_OUT=$(python3 scripts/gate.py diff-base 2>&1) && DB_RC=0 || DB_RC=$?   # never trips set -e
+if [ "$DB_RC" -eq 0 ]; then BASE_BRANCH="${DB_OUT#origin/}"; else
+  BASE_BRANCH="main"; [ -f scripts/gate.py ] && [[ " $* " != *" --banner "* ]] && echo "validate-governance: diff base unavailable (gate.py diff-base exit $DB_RC: $DB_OUT) — comparing against main" >&2
+fi
 VIOLATIONS=0
 WARNINGS=0
 

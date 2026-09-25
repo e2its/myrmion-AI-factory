@@ -52,9 +52,8 @@ FUNCTION resolve_scope(mode, args):
       files = files declared for args.increment_id in dev_plan.md tasks + design.md §1 inventory
       RETURN { files, label: "increment {INC-N}" }
     "branch":
-      # Gate context. Same base resolution as preflight.sh (default_base_branch
-      # from .claude/rules/branching.md, fallback origin/main).
-      base  = args.base OR read_default_base() OR "origin/main"
+      # Gate context. The ONE diff base (EVOL-045): a sub-increment reviews against its train.
+      base  = args.base OR RUN("python3 scripts/gate.py diff-base")   # red on an unrecognised branch name — never a silent origin/main
       class = RUN detect_change_type.py --git-range {base}..HEAD
       files = [f for f, c in class.files if c.is_code OR c.is_test]
       RETURN { files, base, classification: class, label: "branch {base}..HEAD" }
@@ -142,7 +141,7 @@ The marker is the push gate's proof-of-execution. Increment mode NEVER writes it
 2. Write (house rules): `mkdir -p .claude/state/`; hash sanitised `tr -cd 'a-f0-9'`; atomic `> .tmp && mv`. Path: `.claude/state/code-review-${hash}.marker`.
 3. Body (single-line JSON):
    ```json
-   {"content_hash":"<64hex>","base":"origin/main","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"override":null}
+   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"override":null}
    ```
 4. Blockers found ⇒ STILL write (with counts) — preflight blocks on `findings.blocker > 0`, and the written marker is what the override path amends. Surface all findings to the user with fixes.
 

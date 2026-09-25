@@ -57,7 +57,12 @@ RC=$?
 
 case $RC in
   0)
-    # No blockers — push proceeds. Stay silent unless verbose.
+    # No blockers — push proceeds. Important findings (a gate that could not measure, an executor missing)
+    # are said through the envelope; plain stdout never reaches the model.
+    IMPORTANT=$(printf '%s' "$OUTPUT" | grep -F '🟡 Important' | tr -d '"\\' | tr '\n' ' ' | head -c 900)
+    if [ -n "$IMPORTANT" ]; then
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"Factory PR Review preflight passed with important findings: %s"}}\n' "$IMPORTANT"
+    fi
     exit 0
     ;;
   2)
@@ -72,7 +77,7 @@ case $RC in
 🛑 Push blocked by Factory PR Review (preflight).
 
 Hard-blocker findings on this branch must be fixed locally before pushing.
-This is a quality gate — it runs against \`origin/main..HEAD\` and catches
+This is a quality gate — it runs against the diff base (\`gate.py diff-base\`) and catches
 issues that would otherwise hit the PR review.
 
 $OUTPUT

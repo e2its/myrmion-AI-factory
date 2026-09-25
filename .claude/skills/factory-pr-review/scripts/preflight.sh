@@ -50,13 +50,36 @@ if [[ -z "$REPO_ROOT" ]]; then
 fi
 cd "$REPO_ROOT"
 
-# ── Resolve base ──
+# ── Detect tools (early — needed by Step 0) ──
+PYTHON=python3
+command -v python3 >/dev/null 2>&1 || PYTHON=python
+if ! command -v "$PYTHON" >/dev/null 2>&1; then
+  log "preflight: python not available — skipping (tooling failure)"
+  exit 2
+fi
+
+# ── Aggregate findings (each line: SEVERITY|CATEGORY|message) ──
+FINDINGS_FILE=$(mktemp)
+trap 'rm -f "$FINDINGS_FILE"' EXIT
+
+add_finding() {
+  printf '%s|%s|%s\n' "$1" "$2" "$3" >> "$FINDINGS_FILE"
+}
+
+# ── Resolve base: the ONE resolver (EVOL-045) — a sub-increment measures against its train; an
+# unrecognised branch name is red (exit 1 → blocker), never a silent origin/main. Reader absent → legacy read.
 if [[ -z "$BASE_REF" ]]; then
-  if [[ -f ".claude/rules/branching.md" ]]; then
+  if [[ -f "scripts/gate.py" ]]; then
+    DB_OUT=$("$PYTHON" scripts/gate.py diff-base 2>&1); DB_RC=$?
+    if [[ "$DB_RC" -eq 0 ]]; then
+      BASE_REF="$DB_OUT"
+    elif [[ "$DB_RC" -eq 1 ]]; then
+      add_finding "blocker" "branch-name-unknown" "$DB_OUT"   # Block 21 — red before any lane can exit 0
+    fi
+  fi
+  if [[ -z "$BASE_REF" ]]; then
     cfg_base=$(grep -E '^default_base_branch:' .claude/rules/branching.md 2>/dev/null | head -n1 | awk '{print $2}' | tr -d '"' | tr -d "'")
     BASE_REF="origin/${cfg_base:-main}"
-  else
-    BASE_REF="origin/main"
   fi
 fi
 
@@ -86,6 +109,18 @@ if [[ -z "$CHANGED_FILES" ]]; then
   exit 0
 fi
 
+# Block 21 — Surface ceiling (EVOL-045), before any lane can exit 0: files + lines of the diff vs the one
+# diff base within surface.ceiling_files / ceiling_lines, or a Surface-Escape trailer from the closed list.
+# A reader fault degrades to important (the ceiling was not measured — said, never silent).
+if [[ -f "scripts/gate.py" ]]; then
+  SURF_OUT=$("$PYTHON" scripts/gate.py surface --base "$BASE_REF" 2>&1); SURF_RC=$?
+  case "$SURF_RC" in
+    0) ;;
+    1) add_finding "blocker" "surface-over-ceiling" "$(printf '%s' "$SURF_OUT" | tr '\n' ' ')" ;;
+    *) add_finding "important" "surface-unavailable" "gate.py surface could not run (${SURF_OUT:-no message}) — the ceiling was not measured this push; fix config/quality.json surface.* or re-sync scripts/gates." ;;
+  esac
+fi
+
 # ── Docs-only fast-lane (matches CLAUDE.md Generation Standards §3) ──
 # Allowlist: **/*.md, docs/**, .context/templates/**, .gitignore
 # Hard exclusions (always PR + full CI, even when the path also matches *.md):
@@ -106,20 +141,16 @@ while IFS= read -r f; do
   esac
 done <<< "$CHANGED_FILES"
 
-if [[ "$fast_lane" == "true" ]]; then
+if [[ "$fast_lane" == "true" ]] && ! grep -q '^blocker|' "$FINDINGS_FILE" 2>/dev/null; then
   log "preflight: docs-only fast-lane (every changed path matches the allowlist) — exit 0"
   if [[ "$OUTPUT_JSON" == "true" ]]; then
-    echo '{"verdict":"pass","mode":"fast-lane","reason":"docs-only","blockers":[],"important":[]}'
+    "$PYTHON" - "$FINDINGS_FILE" <<'PYEOF2'
+import json, sys
+imp = [{"category": l.split("|", 2)[1], "message": l.split("|", 2)[2].rstrip("\n")} for l in open(sys.argv[1]) if l.startswith("important|")]
+print(json.dumps({"verdict": "pass", "mode": "fast-lane", "reason": "docs-only", "blockers": [], "important": imp}))
+PYEOF2
   fi
   exit 0
-fi
-
-# ── Detect tools (early — needed by Step 0) ──
-PYTHON=python3
-command -v python3 >/dev/null 2>&1 || PYTHON=python
-if ! command -v "$PYTHON" >/dev/null 2>&1; then
-  log "preflight: python not available — skipping (tooling failure)"
-  exit 2
 fi
 
 # ── Run detect_change_type.py ──
@@ -131,14 +162,6 @@ has_openapi=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.loa
 has_asyncapi=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_asyncapi") else "false")' 2>/dev/null || echo 'false')
 has_code=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_code") else "false")' 2>/dev/null || echo 'false')
 has_tests=$(echo "$CLASSIFICATION" | "$PYTHON" -c 'import sys,json; d=json.load(sys.stdin) if sys.stdin else {}; print("true" if d.get("has_tests") else "false")' 2>/dev/null || echo 'false')
-
-# ── Aggregate findings (each line: SEVERITY|CATEGORY|message) ──
-FINDINGS_FILE=$(mktemp)
-trap 'rm -f "$FINDINGS_FILE"' EXIT
-
-add_finding() {
-  printf '%s|%s|%s\n' "$1" "$2" "$3" >> "$FINDINGS_FILE"
-}
 
 # Classifier failure is a mute infra fallback that silently disables every gate
 # keyed on classification flags (secrets, Block 20). Surface it.

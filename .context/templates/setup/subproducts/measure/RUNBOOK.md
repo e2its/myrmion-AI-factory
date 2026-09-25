@@ -57,6 +57,8 @@ Exit codes: `0` report written (partial reports included) · `2` the tool could 
 |---|---|---|
 | `retention_days` | SETUP Q30 | the longest window the reader accepts |
 | `report_interval_days` | SETUP Q30 | default window; the interval of the before/after protocol |
+
+Branches: one row per branch (one branch = one pull request); sub-increment branches of a train (`…-inc-{N}-{slug}-sub-{M}`, EVOL-045) also roll up into a per-train table (commits, review rounds, sub-increment branches seen).
 | `idle_cap_s` | edit | cap on one gap when summing active clock |
 | `gates.*` | edit | regex lists naming the gate commands of this project (verification, push, deploy, e2e) |
 | `review_patterns`, `review_agent_patterns` | edit | what counts as a review round |

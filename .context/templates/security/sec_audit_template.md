@@ -6,11 +6,11 @@ id: {{FEATURE_ID}}
 status: VULNERABLE # or SECURE / APPROVED
 last_scan: [DATE]
 # Currency (EVOL-044): what this verdict certified. Written by the phase from
-#   python3 scripts/gate.py certify --subject diff --base origin/main
+#   python3 scripts/gate.py certify --subject diff      # base = gate.py diff-base (a sub-increment → its train)
 # The push gate and CI recompute it (gate.py currency); a moved subject = STALE = re-take, never re-bless.
 certifies:
   subject: diff
-  base: origin/main
+  base: "{{CERTIFY_BASE}}"   # the diff base the verdict was taken against (gate.py diff-base)
   hash: "{{CERTIFY_HASH}}"
 
 ---

@@ -11,7 +11,8 @@
 #   4. the one resolver prints a roll-call with every project law and family
 #   5. every law (universal + project) resolves its Body: pointer and quotes the identical sentence (gate.py laws --parity)
 #   6. injection budgets hold against the real producers; the retired-term ratchet is clean;
-#      manifest ↔ frontmatter parity and artefact currency hold (EVOL-044)
+#      manifest ↔ frontmatter parity and artefact currency hold (EVOL-044); branch classes, the one diff
+#      base and the surface ceiling read the project's keys — a train is protected, an over-ceiling diff is red (EVOL-045)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
@@ -65,7 +66,7 @@ if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30"}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800"}
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -160,6 +161,27 @@ OUT=$(cd "$P" && python3 scripts/gate.py currency 2>&1); RC=$?
 printf 'print(2)\n' > "$P/src/app.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm moved
 OUT=$(cd "$P" && python3 scripts/gate.py currency 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'STALE' && ok "RED: the certified file moved → the verdict is STALE" || bad "moved subject not caught (rc=$RC)" "$OUT"
+# branch grammar + the one diff base + the surface ceiling (EVOL-045) on the materialised keys
+OUT=$(cd "$P" && python3 scripts/gate.py surface 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'surface: ok' && ok "surface under the materialised ceiling: $OUT" || bad "surface gate wrong on a small diff (rc=$RC)" "$OUT"
+for i in 1 2 3 4; do printf 'x\n' > "$P/src/f$i.py"; done; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm wide
+OUT=$(cd "$P" && python3 scripts/gate.py surface 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'exceeds the ceiling' && ok "RED: a diff over surface.ceiling_files is blocked" || bad "over-ceiling diff not caught (rc=$RC)" "$OUT"
+git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m $'chore: generated\n\nSurface-Escape: generated-code'
+OUT=$(cd "$P" && python3 scripts/gate.py surface 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'escape: generated-code' && ok "a Surface-Escape trailer from the closed list passes" || bad "valid escape not honoured (rc=$RC)" "$OUT"
+mkdir -p "$P/docs/spec/FEAT-001"; printf '### INC-1 — x\n- **Sub-increments:**\n  - SUB-1-1: a · branch feature/FEAT-001-inc-1-x-sub-1\n' > "$P/docs/spec/FEAT-001/increment_plan.md"
+OUT=$(cd "$P" && python3 scripts/gate.py branch-class --branch feature/FEAT-001-inc-1-x --protected 2>&1); RC=$?
+[ "$RC" -eq 1 ] && ok "a per-increment branch with declared sub-increments is a protected train" || bad "train not protected (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py surface --base origin/main --branch feature/FEAT-001-inc-1-x 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'train' && ok "the train's closing PR (CI shape: explicit base + head ref) is green by class" || bad "train closing PR red (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py diff-base --branch feature/FEAT-001-inc-1-x-sub-2 2>&1); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'is not on origin' && ok "a train never pushed is a fault said in plain language (push -u named)" || bad "missing train ref not said (rc=$RC)" "$OUT"
+git -C "$P" update-ref refs/remotes/origin/feature/FEAT-001-inc-1-x HEAD
+OUT=$(cd "$P" && python3 scripts/gate.py diff-base --branch feature/FEAT-001-inc-1-x-sub-2 2>&1); RC=$?
+[ "$RC" -eq 0 ] && [ "$OUT" = "origin/feature/FEAT-001-inc-1-x" ] && ok "a sub-increment's diff base is its train" || bad "sub-increment diff base wrong (rc=$RC): $OUT"
+OUT=$(cd "$P" && git checkout -q -b nonsense && python3 scripts/gate.py diff-base 2>&1); RC=$?; git -C "$P" checkout -q feature/FEAT-001-smoke
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'matches no class' && ok "RED: an unrecognised branch name has no diff base (fail-closed)" || bad "unknown branch not red (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

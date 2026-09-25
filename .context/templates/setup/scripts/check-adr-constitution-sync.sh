@@ -60,7 +60,18 @@ else
 fi
 
 # ────────────────────────────────────────────────────────────────────────────
-# Resolve base ref. Priority: explicit arg > GitHub > GitLab > origin/main.
+# Resolve base ref. Priority: explicit arg > GitHub > GitLab > gate.py diff-base (origin/main when the reader is absent).
+# the ONE diff base (EVOL-045): exit 1 = the branch name is red (say it, exit 1); exit 2 with the reader present =
+# a fault (say it, exit 2); reader absent = legacy origin/main.
+resolve_diff_base() {
+  local out rc
+  out=$(python3 scripts/gate.py diff-base 2>&1); rc=$?
+  case "$rc" in
+    0) printf '%s' "$out" ;;
+    1) echo "$out" >&2; return 1 ;;
+    *) if [ -f scripts/gate.py ]; then echo "$out" >&2; return 2; fi; printf 'origin/main' ;;
+  esac
+}
 # ────────────────────────────────────────────────────────────────────────────
 BASE_REF=""
 if [ "${1:-}" != "" ]; then
@@ -70,7 +81,7 @@ elif [ -n "${GITHUB_BASE_REF:-}" ]; then
 elif [ -n "${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-}" ]; then
   BASE_REF="origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}"
 else
-  BASE_REF="origin/main"
+  BASE_REF=$(resolve_diff_base) || exit $?
 fi
 
 if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then

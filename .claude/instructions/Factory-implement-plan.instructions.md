@@ -514,6 +514,7 @@ FUNCTION generate_dev_plan_body(target_increments, fm_plan):
     WRITE "> **Depends on:** {inc.depends_on}"
     WRITE "> **Branch:** feature/{FEATURE_ID}-inc-{N}-{slug}"
     WRITE "> **Deployable target:** production (acceptance from increment_plan.md § 1)"
+    WRITE "> **Surface:** ~{inc.estimated_files} files / ~{inc.estimated_lines} lines · escape {inc.escape} · sub-increments {inc.sub_increments.length OR 'none'}"
     WRITE ""
     # Restrict task generation to THIS increment's scenario & contract scope
     inc_scope = {
@@ -526,6 +527,13 @@ FUNCTION generate_dev_plan_body(target_increments, fm_plan):
     WRITE "### Increment {inc.id} Acceptance Gate"
     FOR EACH item IN inc.acceptance_checklist:
       WRITE "- [ ] [INC-{N}.ACC.{k}] {item.description}"
+    # EVOL-045 — sub-increment groups: every task of the increment under exactly one sub; task tags + Phase A/B/C sections unchanged
+    IF inc.sub_increments:
+      FOR EACH sub IN inc.sub_increments:
+        WRITE "### Sub-increment {sub.id}"
+        WRITE "> **Branch:** feature/{FEATURE_ID}-inc-{N}-{slug}-sub-{M} (PR into the train)"
+        WRITE "> **Scope:** {sub.scope} · ~{sub.files} files / ~{sub.lines} lines"
+        FOR EACH task IN increment_tasks OWNED_BY sub.scope: WRITE "- [{task.id}]"   # references, e.g. "- [INC-1.A.3]"
 ```
 
 The task templates in Phase A / Phase B / Phase C below are authored as if for monolithic plans (no `INC-N` prefix shown). Under incremental generation, apply `tag_prefix` replacement: every `[A.M]` becomes `[INC-N.A.M]`, every `[B.M]` becomes `[INC-N.B.M]`, every `[C.M]` becomes `[INC-N.C.M]`. All reference paths (`design.md`, `contracts/**`, `test_plan.md`) stay identical — only the scoping filter changes which scenarios / ops each increment expands.
@@ -537,6 +545,7 @@ Each increment closes independently. When all `[INC-N.*]` checkboxes inside Incr
 1. UPDATE `increment_plan.md` § 1 INC-N frontmatter: `status: READY → BUILDING` at branch open; `BUILDING → MERGED` is set by the git merge hook (not by IMPLEMENT --plan).
 2. UPDATE `dev_plan.md` frontmatter `increments[]` array: `{id: "INC-N", status: "IMPLEMENTED_AND_VERIFIED"}`.
 3. Plan-level `status` transitions to `IMPLEMENTED_AND_VERIFIED` ONLY when every target increment is `IMPLEMENTED_AND_VERIFIED` AND every follow-up increment added later (if any) also closes.
+4. With sub-increments: each `SUB-N-M` closes when its listed tasks are `[x]` and its PR merged into the train (`status: MERGED` on the sub entry); the increment's gate (items 1–3) runs once, at train close.
 
 Increment branches (`feature/{FEATURE_ID}-inc-N-{slug}`) are opened by factory-branching-strategy; one PR per increment. Branch open is the trigger that flips the increment's `status` from `READY → BUILDING`. See `.claude/skills/factory-branching-strategy/SKILL.md`.
 
@@ -988,6 +997,7 @@ increments:                       # populated when slicing_strategy == increment
   - id: "INC-1"
     status: "READY"               # READY | BUILDING | IMPLEMENTED_AND_VERIFIED | INVALIDATED (mirror of increment_plan.md § 1 INC-N status; READY-or-later only — DRAFT stays in increment_plan.md)
     tasks: { A: N, B: N, C: N, ACC: N }
+    sub_increments: []             # EVOL-045 — [{id: "SUB-1-1", status: "READY", tasks: ["INC-1.A.1", …]}] when the increment plan declares them; status READY | BUILDING | MERGED — mirror of the `· status:` segment of the SUB item in increment_plan.md § 1
   - id: "INC-2"
     status: "READY"
     tasks: { A: N, B: N, C: N, ACC: N }

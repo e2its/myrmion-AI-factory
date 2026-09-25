@@ -12,7 +12,7 @@ applicable_when:
 
 ## Why a push gate, not a merge gate
 
-A merge gate (CI on PR) is too late: the work is already on the remote, the author has context-switched, and reviewers waste a round trip on findings the author could have caught locally. The push gate runs against `origin/{base}..HEAD`, exits non-zero on hard-blockers, and produces the same finding catalog the post-push review would. The assistive `--review {PR}` mode is kept for already-open PRs (ad-hoc review, second opinion, pre-merge final pass).
+A merge gate (CI on PR) is too late: the work is already on the remote, the author has context-switched, and reviewers waste a round trip on findings the author could have caught locally. The push gate runs against `{base}..HEAD`, exits non-zero on hard-blockers, and produces the same finding catalog the post-push review would. The assistive `--review {PR}` mode is kept for already-open PRs (ad-hoc review, second opinion, pre-merge final pass).
 
 Hard-blocker exit semantics:
 - exit 0 → no blockers, push proceeds
@@ -36,18 +36,18 @@ The push hook is the **default integration**. Manual invocation is for the assis
 Runs locally against the current branch's diff vs its base. NEVER touches the remote. NEVER posts to a PR.
 
 ```bash
-.claude/skills/factory-pr-review/scripts/preflight.sh [--base origin/main] [--json]
+.claude/skills/factory-pr-review/scripts/preflight.sh [--base <ref>] [--json]
 ```
 
 Steps (executed by `preflight.sh`):
-1. Resolve base (`origin/main` by default, or read from `.claude/rules/branching.md` `default_base_branch`).
-2. Compute `git diff --name-only origin/{base}..HEAD`.
+1. Resolve base: `python3 scripts/gate.py diff-base` (a sub-increment → its train; else the default base branch; unrecognised branch name → red). `--base` overrides.
+2. Compute `git diff --name-only {base}..HEAD`.
 3. **Docs-only fast-lane** — if every changed path matches `**/*.md`, `docs/**`, `.context/templates/**`, `.gitignore` (and none under `.github/workflows/**`), exit 0 with `fast-lane: docs-only` note. Skip remaining checks.
 4. Run `detect_change_type.py` → flags JSON.
-5. Run `check_docs_sync.py --git-range origin/{base}..HEAD --json` → docs findings.
-6. If any `docs/spec/*/dev_plan.md` in diff, run `check_dev_plan_task_format.py --git-range origin/{base}..HEAD --json` → IMPLEMENT plan task-format findings (orphan `### X.N` h3 vs canonical `- [ ] [X.N]` checkbox; `status: READY` plans with zero unchecked tasks).
-7. If `has_openapi: true`, run `check_openapi_diff.sh origin/{base} <spec-path>`.
-8. If `has_asyncapi: true`, run `check_asyncapi_diff.sh origin/{base} <spec-path>`.
+5. Run `check_docs_sync.py --git-range {base}..HEAD --json` → docs findings.
+6. If any `docs/spec/*/dev_plan.md` in diff, run `check_dev_plan_task_format.py --git-range {base}..HEAD --json` → IMPLEMENT plan task-format findings (orphan `### X.N` h3 vs canonical `- [ ] [X.N]` checkbox; `status: READY` plans with zero unchecked tasks).
+7. If `has_openapi: true`, run `check_openapi_diff.sh {base} <spec-path>`.
+8. If `has_asyncapi: true`, run `check_asyncapi_diff.sh {base} <spec-path>`.
 9. **Framework-aware checks** (run unconditionally — see § Framework-aware Hard Blocks below).
 10. Aggregate findings; print summary; exit 1 if any blocker, 0 otherwise.
 
@@ -82,6 +82,7 @@ These extend the generic hard blocks (`SKILL.md` Phase 4 in the upstream skill) 
 | 18 | **Bump severity ↔ change kind coherence**: `governance_versions.json` bump kind (PATCH/MINOR/MAJOR) does not match the actual nature of the diff (new feature → MINOR; breaking contract → MAJOR; bug fix only → PATCH). Inverse cross-check of Generation Standards §2 | both | Phase 0 (semantic judgment) |
 | 19 | **Cyclomatic complexity exceeds project threshold** (DC-28): one or more functions in the diff have CCN above `config/quality.json.complexity.thresholds.hard`. Blocker only when `complexity.pr_blocker=true`; otherwise classified Important (soft) / Nit (advisory) per `factory-complexity-check` skill output. Fail-open when MCP unavailable, config absent, or `complexity.enabled=false` | both | `config/quality.json` + `factory-complexity-check/SKILL.md` (axis 6) |
 | 20 | **Agentic code review not run / blockers unresolved**: `has_code OR has_tests` diff without a valid `.claude/state/code-review-${content_hash}.marker`, marker unreadable, or marker records blockers without an RDR-ratified audited override. Marker written ONLY by the factory-code-review BRANCH pass (single engine — the IMPLEMENT 🔍 REVIEW hat pass never writes it). Blocker only when `code_review.pr_blocker=true` (default); `false` downgrades to Important. Fail-open (noisy Important) when the skill is not installed or `code_review.enabled=false` | both | `factory-code-review/SKILL.md` + Step 0-bis in `scripts/preflight.sh` (axis 7) |
+| 21 | **Surface over ceiling** (EVOL-045): `gate.py surface` — files + lines of the diff vs the base over `surface.ceiling_files` / `surface.ceiling_lines` with no `Surface-Escape: <term>` trailer from the closed `surface.escapes` list ⇒ blocker; reader unavailable ⇒ Important | both | `config/quality.json` + `scripts/gate.py surface` (pre-push + CI) |
 
 Block 11 (Governance-bump miss) is the framework-meta equivalent of "missing CHANGELOG entry". It enforces the rule that lives in the root `CLAUDE.md` Generation Standards §2.
 
@@ -135,7 +136,7 @@ Read `config/coherence-context.json`. Parse:
 - `audit.manifest_paths` → manifest location for Blocks 15/18.
 
 #### Step 0.2 — Extract changed symbols from the diff
-Run `git diff --name-status origin/{base}..HEAD` and `git log --format=%B origin/{base}..HEAD`. Extract:
+Run `git diff --name-status {base}..HEAD` and `git log --format=%B {base}..HEAD`. Extract:
 - **Renamed paths** — git rename detection (`R{score}` entries).
 - **Deleted paths** — files that disappeared.
 - **Moved/renamed identifiers** — section headings changed in `.md` files (`-## OldName` paired with `+## NewName`); `name:` field changes in skill frontmatter; function/class definitions removed/added with similar names.
@@ -186,7 +187,7 @@ The marker proves Phase 0 ran for this exact tree state (commit sha). New commit
 ### Phase 1 — Branch + base resolution
 ```bash
 current=$(git branch --show-current)
-base=${BASE:-origin/main}  # or read from .claude/rules/branching.md
+base=${BASE:-$(python3 scripts/gate.py diff-base)}  # the one resolver (EVOL-045)
 git fetch origin "${base#origin/}" --quiet
 git diff --name-only "$base"..HEAD
 ```
@@ -336,7 +337,7 @@ Without persisting the analysis on the PR, the chain "I saw a failure → I diag
 | `factory-incremental-persistence` (IPP) | Block 9 is already enforced by `check-ipp-compliance.sh` at PreToolUse Write. Preflight re-asserts as defence in depth (in case the file was created outside Claude). |
 | `factory-build-verification` (BVL) | Preflight does NOT re-run BVL (tests already passed at `IMPLEMENT --build`). It checks that test files are not deleted and that new logic has accompanying tests (heuristic). |
 | `factory-governance-loading` (GCRP) | Block 11 (governance-bump miss, meta only) enforces the same rule as GCRP § Governance Write Protocol (GWP). Preflight computes the diff against `governance_versions.json` and blocks if a tracked file changed without a manifest update. |
-| `factory-commit-prompt` | Preflight runs AFTER commit (push time), so commit messages are immutable at this point. Validates Conventional Commits format on the new commits in `origin/{base}..HEAD`. |
+| `factory-commit-prompt` | Preflight runs AFTER commit (push time), so commit messages are immutable at this point. Validates Conventional Commits format on the new commits in `{base}..HEAD`. |
 
 ## Per-context behaviour
 
@@ -399,6 +400,7 @@ Honest, narrow surface — only files the preflight script actually reads (or th
 | Block / category | Authoritative file | What the push gate reads |
 |---|---|---|
 | Branch protection (Block 10), base branch | `.claude/rules/branching.md` | `default_base_branch` field (`origin/{x}`); branch-name regex (when present) for Block 10 validation. |
+| Surface ceiling (Block 21, EVOL-045) | `config/quality.json` | `surface.ceiling_files` / `surface.ceiling_lines` / `surface.escapes` — read by `gate.py surface` against `gate.py diff-base`. |
 | Protected paths (Block 12) | `config/protected-paths.json` | Glob list — every changed path is matched against it; any match → 🔴 Blocker. |
 | Protected code markers | `.claude/rules/protected-code.md` | The `PROTECTED-CODE START/END` marker convention. Push gate scans diff hunks; modifications inside a marker region → 🔴 Blocker. |
 | ADR / FDR-driven exemptions | `docs/project_log/adr/*.md` (project-wide ADRs) + `docs/spec/{ID}/fdr/*.md` (feature-scoped FDRs; legacy `adr/` read until migrated) | `pr_review_overrides:` frontmatter (see § ADR / FDR-driven exemptions below). |

@@ -75,5 +75,19 @@
       "docs/spec/*/sec_audit*.md",
       "docs/spec/*/smoke_e2e_report.md"
     ]
+  },
+  "surface": {
+    "_doc": "Per-PR surface ceiling (EVOL-045). The reviewable unit is bounded per pull request: python3 scripts/gate.py surface measures files + lines of the diff vs the one diff base (gate.py diff-base) with no exclusion list; over a ceiling blocks the push unless a commit trailer `Surface-Escape: <term>` names one of `escapes` (closed vocabulary — extending it needs a decision record). runtime_surface: globs a deployment can change — a train whose diff touches none owes no deployment ([] = every train deploys). runtime_surface is read by the build instruction at train close (agent-evaluated), not by a script. Meta ceilings are wide: an evolution ships the template tree and its meta twin in one PR.",
+    "ceiling_files": 400,
+    "ceiling_lines": 40000,
+    "escapes": [
+      "generated-code",
+      "vendored-dependency",
+      "mass-rename",
+      "lockfile",
+      "migration-baseline",
+      "framework-sync"
+    ],
+    "runtime_surface": []
   }
 }

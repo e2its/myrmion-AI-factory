@@ -33,12 +33,15 @@ PROTECTED_BRANCHES="main master develop"
 
 # Check both the local branch and the remote ref destination
 is_protected() {
-  local ref="$1"
+  local ref="${1#refs/heads/}"
   for branch in $PROTECTED_BRANCHES; do
-    if [ "$ref" = "$branch" ] || [ "$ref" = "refs/heads/$branch" ]; then
-      return 0
-    fi
+    [ "$ref" = "$branch" ] && return 0
   done
+  # the reader knows the rest of the protected set: release/*, bare hotfix, a train with declared sub-increments (EVOL-045)
+  if [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1; then
+    python3 scripts/gate.py branch-class --protected --branch "$ref" >/dev/null 2>&1
+    [ $? -eq 1 ] && return 0
+  fi
   return 1
 }
 
@@ -146,15 +149,16 @@ if [ -n "$REPO_ROOT" ] && [ -x "$GOVERNANCE_SCRIPT" ]; then
   echo -e "${GREEN}✅ Governance validation passed.${NC}"
 fi
 
-# ── 4. Corpus + coherence gates (EVOL-043 / EVOL-044) ──
+# ── 4. Corpus + coherence + surface gates (EVOL-043 / EVOL-044 / EVOL-045) ──
 # retired-terms · budget · laws --parity (body ↔ sentence) · currency (a verdict still certifies the
-# build) · manifest-parity (frontmatter version == manifest). All read the one reader (scripts/gate.py);
+# build) · manifest-parity (frontmatter version == manifest) · surface (files + lines of the diff vs the
+# one diff base within surface.ceiling_*, or a Surface-Escape trailer). All read the one reader (scripts/gate.py);
 # missing reader → skipped (delivered by SETUP / factory-sync). Same definition runs in CI.
 if [ -f "${REPO_ROOT}/scripts/gate.py" ] && command -v python3 >/dev/null 2>&1; then
-  echo -e "${YELLOW}🔍 corpus + coherence gates (retired-terms · budget · law parity · currency · manifest parity)...${NC}"
+  echo -e "${YELLOW}🔍 corpus + coherence + surface gates (retired-terms · budget · law parity · currency · manifest parity · surface)...${NC}"
   # exit 1 = the gate is red (block); exit 2 = the reader could not run (config/key missing) — warn, never
   # block on infrastructure (LAW-08: the cause is said, the push is not refused for the wrong reason)
-  for gate in retired-terms budget "laws --parity" currency manifest-parity; do
+  for gate in retired-terms budget "laws --parity" currency manifest-parity surface; do
     set +e; python3 "${REPO_ROOT}/scripts/gate.py" $gate; GRC=$?; set -e
     case "$GRC" in
       0) ;;
@@ -162,7 +166,7 @@ if [ -f "${REPO_ROOT}/scripts/gate.py" ] && command -v python3 >/dev/null 2>&1; 
       *) echo -e "${YELLOW}⚠  pre-push: gate.py ${gate} could not run (exit ${GRC}, its message is above) — push proceeds; fix config/quality.json or re-sync scripts/gates (factory-sync.sh).${NC}" ;;
     esac
   done
-  echo -e "${GREEN}✅ corpus + coherence gates passed.${NC}"
+  echo -e "${GREEN}✅ corpus + coherence + surface gates passed.${NC}"
 fi
 
 # >>> factory-pr-review begin >>>
@@ -238,7 +242,10 @@ if [[ "${FACTORY_PR_REVIEW_SKIP:-}" != "1" ]]; then
     ORCH_FPR="$REPO_ROOT_FPR/scripts/pr-review/run_capabilities.py"
     if [[ -f "$ORCH_FPR" ]]; then
         echo "🔍 factory-pr-review deterministic capabilities (feature: ${FEATURE_ID_FPR:-none}) ..."
-        ARGS_FPR=(--base "origin/main" --head "HEAD" --format markdown)
+        BASE_FPR=$(python3 "$REPO_ROOT_FPR/scripts/gate.py" diff-base 2>&1); BASE_RC=$?   # the one resolver (EVOL-045)
+        if [ "$BASE_RC" -eq 1 ]; then echo "❌ $BASE_FPR"; exit 1
+        elif [ "$BASE_RC" -ne 0 ]; then echo "⚠  diff base unavailable ($BASE_FPR) — reviewing against origin/main"; BASE_FPR="origin/main"; fi
+        ARGS_FPR=(--base "$BASE_FPR" --head "HEAD" --format markdown)
         [[ -n "$FEATURE_ID_FPR" ]] && ARGS_FPR+=(--feature "$FEATURE_ID_FPR")
         set +e
         python3 "$ORCH_FPR" "${ARGS_FPR[@]}"

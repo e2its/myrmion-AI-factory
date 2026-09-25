@@ -19,8 +19,7 @@
 name: Governance Check
 
 on:
-  pull_request:
-    branches: [main]
+  pull_request:   # every PR — a sub-increment PR targets its train, not main (EVOL-045)
 
 permissions:
   contents: read
@@ -43,13 +42,14 @@ jobs:
           chmod +x scripts/check-adr-constitution-sync.sh
           bash scripts/check-adr-constitution-sync.sh "origin/${{ github.base_ref }}"
 
-      - name: Corpus + coherence gates — law parity, budgets, retired vocabulary, artefact currency, manifest parity (EVOL-043 / EVOL-044)
+      - name: Corpus + coherence + surface gates — law parity, budgets, retired vocabulary, artefact currency, manifest parity, surface ceiling (EVOL-043 / EVOL-044 / EVOL-045)
         run: |
           python3 scripts/gate.py laws --parity
           python3 scripts/gate.py budget
           python3 scripts/gate.py retired-terms
-          python3 scripts/gate.py currency
+          python3 scripts/gate.py currency --base "origin/${{ github.base_ref }}"
           python3 scripts/gate.py manifest-parity
+          python3 scripts/gate.py surface --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
 
       - name: Post violation comment on failure
         if: failure()

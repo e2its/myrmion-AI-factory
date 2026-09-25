@@ -22,4 +22,20 @@ if echo "$branch" | grep -qE '^(main|master|develop|release(/.+)?|hotfix)$'; the
   exit 2
 fi
 
+# A train (per-increment branch whose increment plan declares sub-increments) is protected like a base
+# branch (EVOL-045): the reader classifies the name; exit 1 = protected. Reader absent or faulting → pass.
+if [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1; then
+  bc_out=$(python3 scripts/gate.py branch-class --protected 2>&1); bc_rc=$?
+  if [ "$bc_rc" -eq 1 ]; then
+    {
+      echo "BLOCKED: '$branch' is a train — its increment plan declares sub-increments, so it takes merges only."
+      echo "Commit on a sub-increment branch: git checkout -b ${branch}-sub-<M> origin/${branch}  (one PR each into the train)"
+    } >&2
+    exit 2
+  elif [ "$bc_rc" -ne 0 ]; then
+    # the reader could not classify (broken package, unreadable plan): pass, but say it through the envelope
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"check-branch-protection: train protection not evaluated — gate.py branch-class exit %s: %s"}}\n' "$bc_rc" "$(printf '%s' "$bc_out" | tr -d '"\\' | head -c 300)"
+  fi
+fi
+
 exit 0

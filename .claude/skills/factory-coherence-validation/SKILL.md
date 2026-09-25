@@ -68,6 +68,7 @@ CVP_SCOPES:
       - data_model_to_task           # design.md entities → dev_plan.md Phase A tasks
       - reliability_test_to_task     # test_plan.md § 2.2 Reliability Testing rows → dev_plan.md § Reliability Tests tasks (applicable_when scope in [backend-only, integration])
       - increment_to_task            # each increment has ≥1 [INC-N.*.M] task in dev_plan.md (applicable_when slicing_strategy==incremental)
+      - surface_declared             # EVOL-045 — every increment (and sub-increment) declares Estimated surface: (applicable_when slicing_strategy==incremental)
 
   FULL_CHAIN:
     # Invoked by: QA --verify (Pre-Verification Gate)
@@ -1233,6 +1234,30 @@ FUNCTION check_slice_immutability_consistency(elements):
             target: "freeze partition well-formed; no MERGED increment orphaned; {merged_scenarios.length} frozen scenario(s)" }
 ```
 
+### Check 21: `surface_declared` (WARNING — IMPLEMENT scope, EVOL-045)
+
+When `slicing_strategy == incremental`, every increment carries an `Estimated surface:` line (paths · ~files · ~lines, the same ruler `gate.py surface` uses at push) and every sub-increment it declares carries the `~files · ~lines` segment of its `- SUB-N-M:` item. A missing estimate means the ceiling was never compared and the train/sub-increment split was never decided.
+
+```yaml
+FUNCTION check_surface_declared(elements):
+  IF elements.increment_plan IS NULL: RETURN
+  IF elements.increment_plan.frontmatter.slicing_strategy != "incremental": RETURN
+
+  FOR EACH inc IN elements.increments:
+    missing = []
+    IF inc.estimated_surface IS NULL OR inc.estimated_surface IS EMPTY: missing.append("{inc.id}")
+    FOR EACH sub IN inc.sub_increments:
+      IF sub.estimated_surface IS NULL OR sub.estimated_surface IS EMPTY: missing.append("{inc.id}/{sub.id}")
+    FOR EACH src IN missing:
+      YIELD { check: "surface_declared", severity: WARNING,
+              source: src,
+              gap: "Increment declares no estimated surface",
+              remediation: "BLUEPRINT --refine {FEATURE_ID}: estimate the surface (Step B.4) and split into sub-increments when over the ceiling (config/quality.json surface.ceiling_*)" }
+    IF missing IS EMPTY:
+      YIELD { check: "surface_declared", severity: PASS,
+              source: inc.id, target: "estimated surface declared ({inc.sub_increments.length} sub-increment(s))" }
+```
+
 ---
 
 ## ELEMENT EXTRACTION
@@ -1302,7 +1327,10 @@ FUNCTION extract_traceable_elements(artifacts, scope):
     #   deployable,             # must be "production" under strict policy
     #   functional_definition,  # free-text "- **Functional definition:**"
     #   acceptance_checklist,   # list of {checked: bool, description: str}
-    #   branch,                 # "feature/{FEATURE_ID}-inc-N-{slug}"
+    #   branch,                 # "feature/{FEATURE_ID}-inc-N-{slug}" — the train when sub_increments is non-empty
+    #   estimated_surface,      # EVOL-045 — "- **Estimated surface:**" (paths · ~files · ~lines) or null; Check 21
+    #   escape,                 # EVOL-045 — none | one term of config/quality.json surface.escapes
+    #   sub_increments,         # EVOL-045 — [] or [{id: "SUB-N-M", scope, estimated_surface, branch: "…-sub-M", status}]
     #   merged_at,              # ISO timestamp or null — set by merge hook
     #   layer_tasks             # list of [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] task ids declared here (mirror of dev_plan tags)
     # }

@@ -101,6 +101,8 @@ Only ONE suffix-8 issue is created per feature. If `spec.feature.scope` is missi
 
 **Sub-issue nesting.** The three gate phases are logically **sub-issues of IMPLEMENT** (suffix 5). Adapters that declare `add_sub_issue: native` (e.g. `github-project.md`) materialise them as real sub-issues so holistic progress tracking on the board reflects feature completion. Adapters that declare `add_sub_issue: no-op` (e.g. `none.md`) materialise them as standalone siblings with a `> Parent: IMPLEMENT issue` cross-reference line in the body — the `--next-task` resolver reads the cross-reference to reconstruct the hierarchy.
 
+**Sub-increment items (EVOL-045).** When `increment_plan.md § 1` declares sub-increments for an increment, each sub-increment is a backlog sub-item of the increment's IMPLEMENT issue — title `[{ID}] INC-{N} / SUB-{N}-{M}: {scope}`, created via `add_sub_issue` where the adapter declares it `native`; adapters without it degrade to a first body line `> Parent: #{N}` (the existing rule) — the `--next-task` resolver reads it. One PR per sub-item into the train.
+
 **Iteration of the preset.** The 8-phase expansion was introduced (derived from the production experience of the first materialised product after months of real use: contract drift killed six features, fifteen runtime defects slipped past static gates into dev, and unstructured smoke testing produced inconsistent Done criteria). Projects materialised before EVOL-014 with the legacy 5-phase expansion keep their existing issue sets — gate issues are backfilled manually by `--plan-feature {ID}` when run on a legacy feature.
 
 ---
@@ -571,7 +573,7 @@ The tool-adapter defines commands for these abstract operations:
 | `move_to_column` | ✅ | Move an issue to a specific board column |
 | `close_issue` | ✅ | Close or delete an issue (used for rollback). Accepts issue number/ID |
 | `add_label` | ✅ | Apply an existing label to an existing issue (e.g., `stale-after-cascade`, `stale-after-slice-peer-iterated`). Used by [factory-iteration-model](.claude/skills/factory-iteration-model/SKILL.md) § CASCADE_PENDING_ITERATION to mark gate issues as stale after an upstream cascade reopens them. Distinct from `create_label` (which creates the label definition at `--init-board`). Tools MUST either implement this natively or provide a composed fallback (e.g., fetching the existing labels, appending, and issuing a full update) |
-| `add_sub_issue` | ⚠️ optional | Nest a child issue under a parent issue. Used when a preset declares sub-issue nesting (e.g. gate phases nested under IMPLEMENT). Tools without native sub-issue support SHOULD implement a fallback (e.g. Jira sub-tasks, Linear parent-child, or a prominent cross-link in the body) — or declare the operation as a no-op, in which case the gates become standalone siblings |
+| `add_sub_issue` | ⚠️ optional | Nest a child issue under a parent issue. Used when a preset declares sub-issue nesting (e.g. gate phases nested under IMPLEMENT). Tools without native sub-issue support SHOULD implement a fallback (e.g. Jira sub-tasks, Linear parent-child, or a prominent cross-link in the body) — or declare the operation as a no-op, in which case the gates become standalone siblings. Also nests EVOL-045 sub-increment items under the increment's IMPLEMENT issue. |
 
 **Query and verification operations** (called by `--next-task`, `--status`, Final Verification Gate § 6.4):
 | Operation | Required | Description |
