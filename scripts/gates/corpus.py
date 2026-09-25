@@ -411,20 +411,22 @@ def _nbytes(s: str) -> int:
     return len(s.encode("utf-8"))
 
 
-def digest(repo: Path, paths: list[str], budget: int) -> tuple[str, str]:
+def digest(repo: Path, paths: list[str], budget: int, include_always: bool = False, label: str = "") -> tuple[str, str]:
     """The slice of law that governs `paths` within `budget` BYTES: families, defect classes, path-bound rule
     pointers, unreadable rules. Never exceeds the budget; what does not fit is counted in a closing note.
+    `include_always` adds the always-on rule pointers — for a spawned agent, which gets no snapshot; at the point of
+    edit the snapshot already carries them. `label` names the paths in the head (a roster surface, not a file list).
     Returns (text, fingerprint of the delivered set — the head with the paths is excluded so an identical
     set delivered for another path dedupes)."""
     res = applicable(repo, {}, paths)
     a = res["active"]
-    head = f'<governance-at-edit paths="{", ".join(paths)}" families="{", ".join(f["name"] for f in a["families"]) or "—"}">'
+    head = f'<governance-at-edit paths="{label or ", ".join(paths)}" families="{", ".join(f["name"] for f in a["families"]) or "—"}">'
     tail = "</governance-at-edit>"
     lines = [f"family {f['name']}: {f['invariant']}" for f in a["families"]]
     for d in a["dcs"]:
         gate = f" · gate {d['gate']}" if d.get("gate") not in ("—", "-", "", None) else ""
         lines.append(f"{d['id']} [{d['family']}] {d['invariant']}{gate}")
-    lines += [f"read {r['path']} ({r['reason']})" for r in a["rules"] if not is_always(r["applicable_when"])]
+    lines += [f"read {r['path']} ({r['reason']})" for r in a["rules"] if include_always or not is_always(r["applicable_when"])]
     lines += [f"rule {e['name']} unreadable: {e['reason']}" for e in res["excluded"] if e["reason"].startswith("frontmatter-parse-error")]
     if _nbytes(head) + _nbytes(tail) + 1 > budget:   # even the path list does not fit: keep the envelope, drop the attributes
         head = "<governance-at-edit>"

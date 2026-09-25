@@ -211,8 +211,8 @@ scripts/                                     # Governance + CI scripts — manif
         (each command loads its instructions and skills on invocation)
 ```
 
-- **Claude Code** is a single agent that assumes different roles depending on the slash command invoked.
-- Each slash command defines the role's personality, protocols, and rules.
+- **Claude Code** is the orchestrator: each slash command delegates by name to a phase agent with its own context (`.claude/agents/`, policy in `rules/agents.md`).
+- Each slash command binds its phase agent's protocols and rules.
 - Detailed instructions in `.claude/instructions/` are loaded contextually per command.
 - Skills in `.claude/skills/` are cross-cutting protocols reusable by every command.
 - `CLAUDE.md` loads on EVERY conversation (contains cross-cutting governance).
@@ -319,7 +319,7 @@ Artifacts: `docs/setup.md`, `docs/constitution.md`, `.claude/rules/*`, `MATERIAL
 
 ### 1. CODESIGN (Co-Creation: PO ↔ UX)
 
-Role: Dual personality (🎩 PO hat ↔ 🎨 UX hat). Co-creates the functional specification, the visual mockup, and the user journey.
+Role: Phase agent `factory-codesign` — one context, both concerns (🎩 PO ↔ 🎨 UX). Co-creates the functional specification, the visual mockup, and the user journey.
 
 | Command | Arguments | Description |
 | --- | --- | --- |
@@ -339,7 +339,7 @@ Design-system ↔ build alignment: `docs/ux/component-registry.json` (one entry 
 
 ### 2. BLUEPRINT (Co-Design: ARCH ↔ QA)
 
-Role: Dual personality (🏗️ ARCH hat ↔ 🧪 QA hat). Co-designs architecture and test strategy simultaneously.
+Role: Phase agent `factory-blueprint` — one context, both concerns (🏗️ ARCH ↔ 🧪 QA); its plan is gated by `factory-plan-critic`. Co-designs architecture and test strategy simultaneously.
 
 | Command | Arguments | Description |
 | --- | --- | --- |
@@ -347,19 +347,19 @@ Role: Dual personality (🏗️ ARCH hat ↔ 🧪 QA hat). Co-designs architectu
 | `/blueprint --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement of design, tests and/or the Increment Plan. |
 | `/blueprint --approve {ID}` | — | Joint ARCH+QA approval. Runs CVP Coherence Gate (CODESIGN_BLUEPRINT scope, incl. `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, and the EVOL-036 slice checks `slice_map_presence` 0d / `slice_to_increment_coverage` 18 / `slice_seam_resolution` 19 / `slice_immutability_consistency` 20). Enables IMPLEMENT. |
 | `/blueprint --adr {ID} "[TITLE]" "[DECISION]"` | Title and decision | Generates a standalone ADR. |
-| `/blueprint --review-conflict {ID}` | — | Arbitration when peer review rejects 3+ times. |
+| `/blueprint --review-conflict {ID}` | — | Arbitration when the user routes an open work-round finding to the plan. |
 
 Artifacts: `docs/spec/{ID}/design.md`, `test_plan.md`, `increment_plan.md`, contracts under `contracts/`.
 
-### 3. IMPLEMENT (Implementation: DEV ↔ REVIEW ↔ SEC)
+### 3. IMPLEMENT (Implementation: workers ↔ work critics)
 
-Role: Triple personality (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC). Plans + implements + verifies + secures per phase.
+Role: Phase agent `factory-implement` — workers per surface, then read-only work critics and the security lens (EVOL-049). Plans + implements + verifies + secures per phase.
 
 | Command | Arguments | Description |
 | --- | --- | --- |
 | `/implement --plan {ID}` | — | Generates the implementation checklist (`dev_plan.md`). Requires BLUEPRINT APPROVED. Under `slicing_strategy: incremental` emits one `## Increment INC-N` section per increment with `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` tasks + `[INC-N.ACC.k]` acceptance gate; under `monolithic` preserves legacy `[A/B/C.N]` tags. |
 | `/implement --refine {ID} "[FEEDBACK]"` | Feedback | Plan refinement. Standard Refine produces `[ADJ-N]` tasks; Delta Iteration produces `[D.N]` tasks. |
-| `/implement --build {ID}` | — | Phased implementation: 💻 DEV (TDD + BVL) → 🔍 REVIEW → 🛡️ SEC (SAST). Build Verification Loop: runs tests in terminal, parses errors, auto-corrects (max 3 attempts). Full Verification Gate (tests + lint + typecheck + build) — under `slicing_strategy: incremental` runs scope-filtered per slice before flipping `dev_plan.frontmatter.increments[INC-N].status: IMPLEMENTED_AND_VERIFIED`; the global `dev_plan.status` is **derived** and only flips after the last slice closure passes a plan-level BVL aggregate. Completion Gate: every task must be `[x]` or `@skip` with justification. |
+| `/implement --build {ID}` | — | Phased implementation: the worker (TDD + BVL) → the work critics → the security lens (SAST). Build Verification Loop: runs tests in terminal, parses errors, auto-corrects (max 3 attempts). Full Verification Gate (tests + lint + typecheck + build) — under `slicing_strategy: incremental` runs scope-filtered per slice before flipping `dev_plan.frontmatter.increments[INC-N].status: IMPLEMENTED_AND_VERIFIED`; the global `dev_plan.status` is **derived** and only flips after the last slice closure passes a plan-level BVL aggregate. Completion Gate: every task must be `[x]` or `@skip` with justification. |
 | `/implement --fix {ID} "[HELP]"` | Help | Generates `[FIX-N]` tasks from QA rejection or blockers. Executes fix → marks `[x]`. |
 
 Artifacts: `docs/spec/{ID}/dev_plan.md`, source code, `peer_review_{ts}.md` (or `peer_review_{INC-N}_{ts}.md` per-slice when incremental), `sec_audit.md`, Draft PR.
@@ -390,7 +390,7 @@ Artifacts: `docs/spec/{ID}/devops_plan.md`, `infra/features/{ID}/` (IaC), `deplo
 
 ### 5. QA (Quality Assurance — Post-Staging)
 
-Role: Final post-code certification and verification in a deployed environment (includes DAST via the 🛡️ SEC hat).
+Role: Final post-code certification and verification in a deployed environment (includes DAST — the security pass).
 
 | Command | Arguments | Description |
 | --- | --- | --- |
@@ -400,7 +400,7 @@ Role: Final post-code certification and verification in a deployed environment (
 
 Artifacts: `docs/spec/{ID}/qa/qa_report_{INC-N}_{ts}.md` (per-slice, slicing_strategy=incremental) and/or `docs/spec/{ID}/qa/qa_report_final_{ts}.md` (aggregate / sole report for monolithic). The aggregate report cross-references slice reports via the `aggregates:` frontmatter.
 
-> **Note:** Test planning was absorbed by BLUEPRINT (🧪 QA hat). QA focuses on post-staging verification.
+> **Note:** Test planning was absorbed by BLUEPRINT (the 🧪 QA concern of `factory-blueprint`). QA focuses on post-staging verification.
 
 ### 6. BACKLOG (Project Tracking & Issue Management) — Independent
 
@@ -811,7 +811,7 @@ The governance snapshot covers the "what is loaded" question, but it is a passiv
 
 ### Governance corpus in layers (EVOL-043)
 
-Every rule has **exactly one body**. The constitution is the **index** (`## [PLAW-NN]` → one sentence, one `Body:` pointer, its records); `CLAUDE.md § Governance Rules` is the index of universal law (`[LAW-NN]`, same shape); bodies live once — in a rule file, a skill or an instruction — under a heading that quotes the sentence byte-identically. What a session receives is bounded and measured: `config/quality.json → budgets` holds one key per injection point (session start, prompt submit, pre-edit, snapshot, sentence and invariant lengths) and `python3 scripts/gate.py budget` measures the **real producer at its worst case** — not the file size — and fails on overflow or on a missing key. The defect catalog is **families** (surface globs + one-line invariant) and 7-column classes (family, invariant, gate, paths, agents, severity) with narratives in a cases annex read by id. Two-tier change ceremony: a sentence changes only through an accepted ADR in the same PR (`check-adr-constitution-sync.sh`, both directions); a body changes by rule-file edit + manifest bump. Three coherence gates (EVOL-044) run at every push and in CI: `gate.py laws --parity` (a body quotes its sentence byte-identically, one body per law), `gate.py currency` (a verdict artefact declares what it certified — `certifies: {subject, hash}` from `gate.py certify` — and goes STALE when the build moves under it), `gate.py manifest-parity` (a governed file's frontmatter version equals its manifest entry; the manifest is the source of truth). The per-PR surface ceiling (EVOL-045) is measured by `gate.py surface` against the one diff base (`gate.py diff-base`) at push and in CI. The deployment trigger (EVOL-047) is a positive list — `config/quality.json → surface.runtime_surface`, what a deployment can change; every deploying / release workflow (meta and the seven platform templates) asks `gate.py runtime-surface --changed` before its machinery and `gate.py runtime-surface` (parity, at push and in CI) holds the list to what the jobs and their scripts really read; the branch rule is untouched — every change ships via branch and pull request, documentation included. One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan — `gate.py plan` behind a pre-write hook, the marker written only by the harness's plan approval, documentation exempt except gate inputs, a command that owns a planning phase never entering plan mode, an advisory before the block. Gate profiles per control point (EVOL-046): one key `delivery_mode` in the governance manifest, one reader `gate.py profile` (fail-closed to production; light only for a sub-increment pushed to its train in development mode; members enumerated by property — no build, no database), one call `gate.py profile --run` in the pre-push hook and in CI with all-report semantics, and `gate.py one-definition` proving no hook or workflow keeps a second definition. One applicability resolver (`gate.py applicable`) replaces every hand-written rule list; a retired-vocabulary ratchet (`gate.py retired-terms`) keeps retired shapes out of the governed tree. `scripts/materialize-synthetic.sh` proves the whole chain on a scratch project in CI.
+Every rule has **exactly one body**. The constitution is the **index** (`## [PLAW-NN]` → one sentence, one `Body:` pointer, its records); `CLAUDE.md § Governance Rules` is the index of universal law (`[LAW-NN]`, same shape); bodies live once — in a rule file, a skill or an instruction — under a heading that quotes the sentence byte-identically. What a session receives is bounded and measured: `config/quality.json → budgets` holds one key per injection point (session start, prompt submit, pre-edit, snapshot, sentence and invariant lengths) and `python3 scripts/gate.py budget` measures the **real producer at its worst case** — not the file size — and fails on overflow or on a missing key. The defect catalog is **families** (surface globs + one-line invariant) and 7-column classes (family, invariant, gate, paths, agents, severity) with narratives in a cases annex read by id. Two-tier change ceremony: a sentence changes only through an accepted ADR in the same PR (`check-adr-constitution-sync.sh`, both directions); a body changes by rule-file edit + manifest bump. Three coherence gates (EVOL-044) run at every push and in CI: `gate.py laws --parity` (a body quotes its sentence byte-identically, one body per law), `gate.py currency` (a verdict artefact declares what it certified — `certifies: {subject, hash}` from `gate.py certify` — and goes STALE when the build moves under it), `gate.py manifest-parity` (a governed file's frontmatter version equals its manifest entry; the manifest is the source of truth). The per-PR surface ceiling (EVOL-045) is measured by `gate.py surface` against the one diff base (`gate.py diff-base`) at push and in CI. The deployment trigger (EVOL-047) is a positive list — `config/quality.json → surface.runtime_surface`, what a deployment can change; every deploying / release workflow (meta and the seven platform templates) asks `gate.py runtime-surface --changed` before its machinery and `gate.py runtime-surface` (parity, at push and in CI) holds the list to what the jobs and their scripts really read; the branch rule is untouched — every change ships via branch and pull request, documentation included. Role agents and read-only critics (EVOL-049): each phase runs in its own agent with its own surface, development workers per surface, and read-only critics that did not write the work — one data home for the class policy (`rules/agents.md`: tools per class enforced by the harness matrix, prompt budgets, model families as aliases with writers and critics on different families by construction, per-spawn model + effort, a fallback ladder that never degrades a writer, round caps), one reader (`gate.py agents`: validator in the gate profile and CI, per-spawn resolver, corpus digest, return-contract check), a bounded loop ending in the user's adjudication, the two review-time hats retired through the ratchet. One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan — `gate.py plan` behind a pre-write hook, the marker written only by the harness's plan approval, documentation exempt except gate inputs, a command that owns a planning phase never entering plan mode, an advisory before the block. Gate profiles per control point (EVOL-046): one key `delivery_mode` in the governance manifest, one reader `gate.py profile` (fail-closed to production; light only for a sub-increment pushed to its train in development mode; members enumerated by property — no build, no database), one call `gate.py profile --run` in the pre-push hook and in CI with all-report semantics, and `gate.py one-definition` proving no hook or workflow keeps a second definition. One applicability resolver (`gate.py applicable`) replaces every hand-written rule list; a retired-vocabulary ratchet (`gate.py retired-terms`) keeps retired shapes out of the governed tree. `scripts/materialize-synthetic.sh` proves the whole chain on a scratch project in CI.
 
 **Marker scoping.** Both markers (`governance-reload-{session_id}.marker` and `governance-source-edited-{session_id}.marker`) live under `.claude/state/` — inside the Claude Code hook namespace, gitignored, and suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replays.
 
@@ -964,7 +964,7 @@ The framework ships protocols reusable by every command:
 | **Backlog Next-Task Resolver** | Dual-mode resolver: push (`--next-task`, single item) and pull (`--eligible`, full pool). Shared filters: intra-feature prereq + `blocked-by:#{N}` + gate-mode fallback (enforce/warn/off). Fast path via cache at `/memories/repo/`. |
 | **Defect Prevention Catalog (DPC)** | Families (surface globs + one-line invariant) and defect classes (one-line invariant, gate mark, governed paths, applicable agents, severity); narratives in `defect-prevention-cases.md` read by id. Consumed by 7 agents (CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT) filtered by `Applicable To` + `Paths`; rows governing a file are delivered at the point of edit by the pre-edit hook. Discover-catalog-prevent loop closed by the `[EPIC-{N}] RETROSPECTIVE` write-back. Universal starter DCs + stack-conditional DCs. |
 | **PO Intake** | External CODESIGN authoring. Builds the PO package, validates a return (self-test first; form and coherence, never merit), drives one RDR per change, writes the drop zone, calls `/codesign --sync` per ratified target, and turns every designed-but-unbuilt component into backlog issues (`kind:component-catalog`). |
-| **Preventive Sweep** | Pre-deploy runtime defect scan via parallel Explore sub-agents — one per non-overlapping scope derived from the DPC. Zero open C-severity findings required to approve. |
+| **Preventive Sweep** | Pre-deploy runtime defect scan via parallel read-only critics (`factory-critic-governance`, spawned by name from the main session) — one per non-overlapping scope derived from the DPC. Zero open C-severity findings required to approve. |
 
 ### Rule Categories
 

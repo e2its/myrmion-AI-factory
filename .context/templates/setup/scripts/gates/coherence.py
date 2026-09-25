@@ -4,7 +4,7 @@
 
 currency        An artefact that certifies a build declares WHAT it certified in its frontmatter:
                     certifies:
-                      subject: diff | tree
+                      subject: diff | tree          # worktree: the on-disk guard around a read-only run, never a verdict subject
                       paths: ["src/**", …]        # tree: the globs the verdict covers · diff: the FILE SET the review
                                                   #   read (derived once at certify time from the review-hash pipeline)
                       hash: <sha256>              # sha256 over sorted `path\\0blob-sha@HEAD` of the tracked files under paths
@@ -44,8 +44,20 @@ def _git(repo: Path, *args) -> str:
     return r.stdout
 
 
+def _scope(repo: Path, paths: list[str]) -> list[str]:
+    """A bare directory (`docs/spec/FEAT-1`) covers what is below it — the glob a caller means."""
+    out = []
+    for p in paths:
+        p = str(p).strip()
+        if p and not any(ch in p for ch in "*?{[") and (repo / p).is_dir() and not p.endswith("/"):
+            p += "/"
+        out.append(p)
+    return out
+
+
 def tree_hash(repo: Path, paths: list[str]) -> str:
-    """sha256 over sorted `path\\0blob-sha` of every tracked file under `paths` at HEAD. Empty set = fault."""
+    """sha256 over sorted `path\\0blob-sha` of every tracked file under `paths` at HEAD (the index). Empty set = fault."""
+    paths = _scope(repo, paths)
     entries = []
     for line in _git(repo, "ls-files", "-s").splitlines():
         meta, _, path = line.partition("\t")
@@ -55,6 +67,22 @@ def tree_hash(repo: Path, paths: list[str]) -> str:
     if not entries:
         raise GateFault(f"no tracked file matches the certified paths {paths} — a certification over nothing would never go stale")
     return hashlib.sha256("\n".join(sorted(entries)).encode()).hexdigest()
+
+
+def worktree_hash(repo: Path, paths: list[str]) -> str:
+    """sha256 over sorted `path\\0sha256(content)` of every file under `paths` AS IT IS ON DISK — tracked, modified or
+    untracked (not ignored). The guard around a read-only run: an unstaged edit or a new file moves it, where the
+    index hash (tree_hash) would not. A path that matches nothing is still a hash (a critic may run before the
+    first file exists); a deleted file is a moved hash."""
+    paths = _scope(repo, paths)
+    names = set(_git(repo, "ls-files").splitlines()) | set(_git(repo, "ls-files", "--others", "--exclude-standard").splitlines())
+    entries = []
+    for path in sorted(n for n in names if n and any_glob(n, paths)):
+        fp = repo / path
+        if not fp.is_file():
+            continue   # deleted in the worktree: absent from the set, the hash moves
+        entries.append(f"{path}\0{hashlib.sha256(fp.read_bytes()).hexdigest()}")
+    return hashlib.sha256("\n".join(entries).encode()).hexdigest()
 
 
 def diff_paths(repo: Path, base: str) -> list[str]:
@@ -77,16 +105,17 @@ def diff_paths(repo: Path, base: str) -> list[str]:
 
 def certify(repo: Path, subject: str, base: str = "origin/main", paths: list[str] | None = None) -> dict:
     """{subject, paths, hash} — what a verdict embeds under `certifies:`."""
-    if subject == "tree":
+    if subject in ("tree", "worktree"):
         if not paths:
-            raise GateFault("certify --subject tree needs the paths the verdict covers (e.g. 'src/**' 'tests/**')")
-        return {"subject": "tree", "paths": list(paths), "hash": tree_hash(repo, list(paths))}
+            raise GateFault(f"certify --subject {subject} needs the paths it covers (e.g. 'src/**' 'tests/**')")
+        fn = tree_hash if subject == "tree" else worktree_hash
+        return {"subject": subject, "paths": list(paths), "hash": fn(repo, list(paths))}
     if subject == "diff":
         files = diff_paths(repo, base)
         if not files:
             raise GateFault(f"no code or test file in {base}..HEAD — nothing to certify (a docs-only diff owes no review certification)")
         return {"subject": "diff", "paths": files, "hash": tree_hash(repo, files)}
-    raise GateFault(f"unknown certification subject `{subject}` — use diff or tree")
+    raise GateFault(f"unknown certification subject `{subject}` — use diff, tree or worktree")
 
 
 # ─── currency ───────────────────────────────────────────────────────────────────

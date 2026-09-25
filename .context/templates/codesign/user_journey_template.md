@@ -27,7 +27,7 @@ updated_at: "{{TIMESTAMP}}"
 
 <!-- Chronological record of RDR decisions made during co-creation -->
 
-| # | Date | Hat | Question | Options | Decision | Rationale |
+| # | Date | Concern | Question | Options | Decision | Rationale |
 |---|-------|----------|----------|----------|----------|-----------|
 | 1 | {{DATE}} | 🎩 PO | — | — | — | — |
 

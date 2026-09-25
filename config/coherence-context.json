@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -35,6 +35,12 @@
         "doc": "Hook scripts must mirror between meta .claude/hooks/ and template tree.",
         "left": ".claude/hooks/*.sh",
         "right": ".context/templates/setup/claude/hooks/*.sh"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "Agent definitions (EVOL-049): the roster on two axes with the harness tool matrix per class; the template copy is what SETUP delivers. Twin drift = a project would spawn under a different matrix than meta validated.",
+        "left": ".claude/agents/*.md",
+        "right": ".context/templates/setup/claude/agents/*.md"
       },
       {
         "type": "meta_template_mirror",

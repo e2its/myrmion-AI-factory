@@ -33,8 +33,8 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 | **CODESIGN Approved (slice_map)** | `/CODESIGN --start` / `--refine` (auto-approval) | `slice_map.md` plan-level frontmatter + § 0; § 1 scenario membership frozen per-scenario as realizing increments reach MERGED (see Per-Slice Immutability) | `/CODESIGN --refine` re-slice touching a MERGED scenario | `/CODESIGN --revise` or additive follow-up slice |
 | **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --reset`, `/CODESIGN --refine`, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --revise` |
 | **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` (except per-increment allowance) | `/CODESIGN --revise` or `/BLUEPRINT --refine` (scoped to editable increments) |
-| **IMPLEMENT Approved** | `/IMPLEMENT --build` (all 3 hats pass) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) or `/IMPLEMENT --override` (emergencies) |
-| **QA Verify+DAST Approved** | `/QA --verify` (post-staging auto-approval, includes DAST 🛡️ SEC hat) | Entire chain | All previous + `/IMPLEMENT --override` | Only `/CODESIGN --revise` (creates new feature) |
+| **IMPLEMENT Approved** | `/IMPLEMENT --build` (the work critics pass — correctness, security, governance, fidelity) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) or `/IMPLEMENT --override` (emergencies) |
+| **QA Verify+DAST Approved** | `/QA --verify` (post-staging auto-approval, includes the DAST security pass) | Entire chain | All previous + `/IMPLEMENT --override` | Only `/CODESIGN --revise` (creates new feature) |
 | **Merged to main** | Git merge | **FULLY IMMUTABLE** | All commands except hotfix | `/IMPLEMENT --fix` (emergencies) |
 
 ### Phase Descriptions
@@ -149,7 +149,7 @@ def check_slice_immutability(feature_id, proposed_slice_map):
 ```
 
 #### Phase 3: IMPLEMENT APPROVED (Hard Lock - Code Implemented + Reviewed + SAST)
-- **Trigger:** `/IMPLEMENT --build USR-001` completes all phases (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC per phase)
+- **Trigger:** `/IMPLEMENT --build USR-001` completes all phases (workers → work critics → security lens per phase)
 - **Lock Cascade:**
   - All previous + `dev_plan.md` + source code → **BLOCKED**
   - BLUEPRINT cannot `/BLUEPRINT --refine` without creating `USR-001-v2`
@@ -159,10 +159,10 @@ def check_slice_immutability(feature_id, proposed_slice_map):
 - **Next Phase:** DEVOPS deploy to staging → QA verification → SEC DAST
 
 #### Fase 3.5: ~~REVIEW APPROVED~~ (DEPRECATED — Absorbed into IMPLEMENT --build)
-> Review is now inline within `/IMPLEMENT --build` (🔍 REVIEW hat per phase). No separate review phase exists.
+> Review is now inline within `/IMPLEMENT --build` (the read-only work critics per phase). No separate review phase exists.
 
 #### Phase 4: QA VERIFY+DAST APPROVED (Hard Lock - Post-Staging Certified)
-- **Trigger:** `/QA --verify USR-001` (post-staging auto-approval including DAST 🛡️ SEC hat, v8.0.0)
+- **Trigger:** `/QA --verify USR-001` (post-staging auto-approval including the DAST security pass, v8.0.0)
 - **Lock Cascade:**
   - **ENTIRE CHAIN BLOCKED** (SAST already passed in IMPLEMENT)
   - Nobody can modify code without re-certification
@@ -291,7 +291,7 @@ reused_artifacts: ["src/domain/User.ts", "src/domain/Auth.ts"]  # Do not re-impl
 
 #### SEC SAST (within `/IMPLEMENT --build USR-001-v2`)
 **Detection:** Reads `parent_dev_plan` in `dev_plan.md`
-**Inheritance:** **NONE** - Always full audit (🛡️ SEC hat per phase)
+**Inheritance:** **NONE** - Always full audit (the security lens per phase)
 **Validation:** Checks whether vulnerabilities from `USR-001` were corrected (regression check)
 
 ---

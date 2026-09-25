@@ -283,6 +283,7 @@ Verify from **artifacts** (branch name, files, git state, frontmatter) — NEVER
 | Governance Loading (GCRP) | `.claude/skills/factory-governance-loading/SKILL.md` | Zero Trust context recovery, governance snapshot |
 | Memory Cache (FMCP) | `.claude/skills/factory-memory-cache/SKILL.md` | Cross-command performance caching |
 | Agent Communication (ACP) | `.claude/skills/factory-agent-communication/SKILL.md` | Inter-agent output structuring |
+| Role agents & read-only critics | `rules/agents.md` (`.claude/rules/agents.md`) · `python3 scripts/gate.py agents` | **(EVOL-049)** One data home for the class policy — tools per class (the harness matrix: a critic cannot write), prompt budgets, model families as aliases (`config/quality.json → agents.families`, writer ≠ critic by construction), per-spawn model + effort, the fallback ladder, the round caps — and the roster on two axes (one agent per phase, workers per surface, a plan critic, four work critics by concern). Delegation by name; a corpus digest at spawn; return contracts refused when incomplete; a bounded loop ending in the user's adjudication. **No agent ratifies**: RDR, user questions and version-control operations stay in the main session — no subagent commits, no subagent decides. |
 | PO Intake | `.claude/skills/factory-po-intake/SKILL.md` | External CODESIGN authoring: build the PO package, validate a return (self-test first), one RDR per change, drop zone, `/codesign --sync` per ratified target, component-catalog issues via `/backlog`. Active only when `codesign.authoring: external` |
 
 Read the referenced SKILL.md file when executing each protocol. The protocol files contain the detailed steps.
@@ -304,9 +305,9 @@ Beyond `.claude/rules/*.instructions.md` (materialized by SETUP), the following 
   | CODESIGN | `--start` / `--refine`, before drafting Gherkin | Advisory | `spec.feature § Defect-Prevention Notes` |
   | BLUEPRINT | `--start` / `--refine`, during design; blocking at `--approve` | Advisory + Blocking | `design.md § Constraints`, `test_plan.md § Edge Cases` |
   | IMPLEMENT `--plan` | Before generating `dev_plan.md` | Mandatory task generation | `dev_plan.md § DC Compliance` |
-  | IMPLEMENT `--build` (DEV hat) | Pre-write check | Blocking | Refactors code in-flight to avoid the pattern |
+  | IMPLEMENT `--build` (the development workers) | Pre-write check | Blocking | Refactors code in-flight to avoid the pattern |
   | IMPLEMENT `--fix` | Fix classification | Advisory | Labels each `[FIX-N]` with `dc-compliance: DC-N` or proposes Discovery |
-  | REVIEW hat | Check #2d | Blocking | `peer_review_*.md § Check #2d` findings |
+  | governance lens (`factory-critic-governance`) | Check #2d | Blocking | `peer_review_*.md § Check #2d` findings |
   | DEVOPS `--configure` | Before generating `devops_plan.md` | Advisory | `devops_plan.md § Reliability Checks` |
   | QA `--verify` | Checklist generation | Blocking | `[QA-DC-N]` items in `qa_report_final_*.md` |
   | AUDIT `--audit` | During codebase scan | Evidence | "Defect Prevention" dimension in the audit report |
@@ -326,7 +327,7 @@ After every command:
 
 **Currency (EVOL-044).** A verdict artefact (`qa_report*`, `peer_review_*`, `sec_audit*`, `smoke_e2e_report`) declares what it certified in its frontmatter `certifies:` (`subject: diff|tree`, `hash` from `python3 scripts/gate.py certify`). The push gate and CI recompute it (`gate.py currency`): a moved subject is STALE and the verdict is re-taken, never re-blessed. Governed files with a frontmatter `version:` move with their manifest entry (`gate.py manifest-parity`; the manifest is the source of truth). Law bodies quote their index sentence byte-identically (`gate.py laws --parity`).
 
-- **Component Registry** (`docs/ux/component-registry.json`, schema `component_registry_v1`): SSOT of design-system ↔ build alignment — one entry per `data-component` anchor of `docs/ux/vision/component_library.html`, with its code primitive (join key into `config/codebase_inventory.json`, which stays SSOT for code), status `DESIGNED → PLANNED → IMPLEMENTED` and backlog reference. Schema, writers and lifecycle: [Factory-codesign-vision.instructions.md](.claude/instructions/Factory-codesign-vision.instructions.md) § Component Registry. A `DESIGNED` component with no backlog reference is unplanned build work: the `factory-po-intake` catalog beat turns it into issues (`kind:component-catalog`). BLUEPRINT and the REVIEW hat consult it before creating a UI component.
+- **Component Registry** (`docs/ux/component-registry.json`, schema `component_registry_v1`): SSOT of design-system ↔ build alignment — one entry per `data-component` anchor of `docs/ux/vision/component_library.html`, with its code primitive (join key into `config/codebase_inventory.json`, which stays SSOT for code), status `DESIGNED → PLANNED → IMPLEMENTED` and backlog reference. Schema, writers and lifecycle: [Factory-codesign-vision.instructions.md](.claude/instructions/Factory-codesign-vision.instructions.md) § Component Registry. A `DESIGNED` component with no backlog reference is unplanned build work: the `factory-po-intake` catalog beat turns it into issues (`kind:component-catalog`). BLUEPRINT and the work critics consult it before creating a UI component.
 
 ## Templates
 

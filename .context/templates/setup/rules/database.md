@@ -5,9 +5,10 @@ applicable_when:
     - "**/migrations/**"
     - "**/*.sql"
     - "**/models/**"
-version: 1.2.1
+version: 1.3.0
 date: 2026-01-26
 changelog:
+  - "1.3.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
   - "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "1.0.0: Initial template version"
 ---
@@ -25,7 +26,7 @@ changelog:
 
 ## Migration Safety Policy
 
-> **Enforcement:** `scripts/validate-migrations.sh` — executed by IMPLEMENT (🔍 REVIEW hat), QA --verify, and CI pipeline.
+> **Enforcement:** `scripts/validate-migrations.sh` — executed by IMPLEMENT (the work critics), QA --verify, and CI pipeline.
 
 ### Forbidden Operations (ALWAYS BLOCKED)
 

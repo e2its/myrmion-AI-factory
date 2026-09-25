@@ -290,6 +290,15 @@ else
 fi
 echo
 
+# ─── Every tree/worktree certification in the governed prose carries its paths (EVOL-049: `certify --subject tree` alone faults — a guard that faults never refuses) ───
+BARE=$(grep -rnE 'certify --subject (tree|worktree)' .claude .context/templates/setup --include=*.md --include=*.sh 2>/dev/null | grep -vE 'certify --subject (tree|worktree) --paths' | grep -vE 'certify --subject (tree|worktree)[ |]*\[--' || true)
+if [ -z "$BARE" ]; then
+  printf '  \033[32m✓\033[0m every `certify --subject tree|worktree` call in .claude/** and the template tree names its --paths\n'
+else
+  printf '  \033[31m✗\033[0m a tree/worktree certification without --paths (it faults at runtime, the guard never refuses):\n%s\n' "$BARE" >&2; failures=$((failures + 1))
+fi
+echo
+
 # ─── The runtime-surface gate line of every deploying template really skips (EVOL-047: `$?` inside `if ! cmd` is 0 — the first cut never did) ───
 STUBDIR=$(mktemp -d); printf '#!/usr/bin/env bash\nexit "${STUB_RC:-0}"\n' > "$STUBDIR/python3"; chmod +x "$STUBDIR/python3"
 for wf in .context/templates/setup/workflows/auto-tag.gitlab-ci.yml .context/templates/setup/workflows/auto-tag.azure-devops.yml .context/templates/setup/workflows/auto-tag.bitbucket.yml .context/templates/setup/workflows/auto-tag.gcp-cloudbuild.yaml .context/templates/setup/workflows/auto-tag.aws-codebuild.yml .context/templates/setup/workflows/auto-tag.jenkins.groovy; do

@@ -113,6 +113,8 @@ FUNCTION route_by_category(classification):
     After user answers → re-classify and route.
 ```
 
+**Delegation by name (EVOL-049).** A routed command delegates to its phase agent (`factory-<phase>` under `.claude/agents/`), which runs in its own context; workers are spawned per surface (`factory-dev-*`) and read-only critics review what they did not write (`factory-plan-critic`, `factory-critic-*` — `rules/agents.md`). No agent ratifies: RDR, user questions and version-control operations stay in the main session; no subagent commits, no subagent decides.
+
 ---
 
 ## Natural Language → Framework Command Mapping (INTENT_MAP)
@@ -425,11 +427,11 @@ FUNCTION execute_governance_bound_operation(user_request):
 
   # PHASE 1: PRE-CHANGE VALIDATION
   # 1a: Protected Paths Check (red zones → BLOCK, yellow zones → WARN)
-  # 1b: Determine governance hat (source code → IMPLEMENT, IaC → DEVOPS, contracts → BLUEPRINT, etc.)
+  # 1b: Determine governance phase (source code → IMPLEMENT, IaC → DEVOPS, contracts → BLUEPRINT, etc.)
   # 1c: Codebase Inventory DRY Check (if creating new artifacts)
 
-  operation_hat = DETERMINE_GOVERNANCE_HAT(user_request, target_files):
-    source code → IMPLEMENT rules (DEV + REVIEW + SEC)
+  operation_phase = DETERMINE_GOVERNANCE_PHASE(user_request, target_files):
+    source code → IMPLEMENT rules (workers + work critics: correctness, security, governance, fidelity)
     tests → IMPLEMENT rules (TDD standards)
     infrastructure/IaC → DEVOPS rules
     API contracts → BLUEPRINT rules (contract-first-policy)
@@ -441,7 +443,7 @@ FUNCTION execute_governance_bound_operation(user_request):
   # 2a: Code quality (constitution standards)
   # 2b: Security (always — no secrets, no dangerous patterns, parameterized queries)
   # 2c: Testing (recommend for logic changes)
-  # 2d: REVIEW hat checks subset ([SEC-XX], [DRY-XX], [UX-XX], [CFP-XX])
+  # 2d: work-critic checks subset ([SEC-XX], [DRY-XX], [UX-XX], [CFP-XX]) — the lenses' checklist
   # 2e: Traceability comment
 
   # PHASE 3: POST-CHANGE GOVERNANCE

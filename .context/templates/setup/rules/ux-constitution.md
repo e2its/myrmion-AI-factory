@@ -8,9 +8,10 @@ applicable_when:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/*.vue"
-version: 1.5.1
+version: 1.6.0
 date: 2026-01-26
 changelog:
+  - "1.6.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "1.0.0: Initial template version"
 ---
@@ -1142,7 +1143,7 @@ QA Verification Checklist MUST include:
 
 **Enforcement:**
 - `/CODESIGN --start`: Auto-check generated mock.html for `<style>` tags or `style=""` attributes
-- `/IMPLEMENT --build` (🔍 REVIEW hat): Add UX_DRIFT validation rule to scan for style violations
+- `/IMPLEMENT --build` (the fidelity lens — `factory-critic-fidelity`): Add UX_DRIFT validation rule to scan for style violations
 - CI/CD: `scripts/ux-validation.sh --style-check` blocks merge if violations found
 
 **Exceptions:**
@@ -1272,7 +1273,7 @@ Action: Trigger ADR, update constitution
 **Enforcement:**
 - `/CODESIGN --start`: Count JavaScript lines, WARN if >50
 - `/IMPLEMENT --plan`: Identifies mock.html JS that needs real implementation
-- `/IMPLEMENT --build` (🔍 REVIEW hat): Flags business logic in mock.html as UX_DRIFT violation
+- `/IMPLEMENT --build` (the fidelity lens — `factory-critic-fidelity`): Flags business logic in mock.html as UX_DRIFT violation
 
 **Severity:** WARNING (advisory, non-blocking)
 
@@ -1314,12 +1315,12 @@ Action: Trigger ADR, update constitution
 - Use mock.html as visual reference (NOT executable code)
 - Implement JavaScript behaviors from spec.feature scenarios + journey steps, NOT by copying mock.html script
 
-**For `/IMPLEMENT --build` (🔍 REVIEW hat):**
+**For `/IMPLEMENT --build` (the fidelity lens — `factory-critic-fidelity`):**
 - Compare implementation to mock.html for visual drift
 - Validate brand token usage matches this constitution + ux_decisions_log.md
 - Check for style violations (Rule A enforcement)
 
-**For `/IMPLEMENT --build` (🛡️ SEC hat):**
+**For `/IMPLEMENT --build` (the security lens — `factory-critic-security`):**
 - Scan mock.html for XSS vectors (user-generated content rendering)
 - Validate ARIA attributes don't leak sensitive information
 - Check localStorage/sessionStorage usage in mock.html JS

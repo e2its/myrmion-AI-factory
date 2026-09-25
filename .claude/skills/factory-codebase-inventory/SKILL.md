@@ -24,7 +24,7 @@ FUNCTION cip_consultation_gate(agent, proposed_artifacts):
   IF NOT FILE_EXISTS(inventory_path):
     ⚠️ WARN: "Codebase inventory not found. DRY Gate degraded."
     LOG: "CIP_SKIPPED — inventory missing, proceed with caution"
-    RETURN  # Proceed but REVIEW hat will catch duplicates post-build
+    RETURN  # Proceed but the governance lens will catch duplicates post-build
 
   # Step 0: Cache Fast Path (MCP)
   # Try memory cache for fast domain-group lookups before full JSON parse.
@@ -263,7 +263,7 @@ AGENT RESPONSIBILITIES:
   IMPLEMENT --build:
     - DRY Gate: Load design.md Section 0; fallback to registry check
     - Auto-fix PLANNED→IMPLEMENTED if file already exists at artifact.path
-    - REVIEW hat [DRY-XX] checks
+    - governance lens [DRY-XX] checks
     - Post-build: Update registry (PLANNED→IMPLEMENTED + new TDD artifacts)
   
   DEVOPS & QA:
@@ -272,7 +272,7 @@ AGENT RESPONSIBILITIES:
 
 ---
 
-## REVIEW Hat DRY Check Categories (Enforced in IMPLEMENT --build)
+## Governance Lens DRY Check Categories (Enforced in IMPLEMENT --build — `factory-critic-governance`)
 
 ```yaml
 # Domain-Aware Severity (reads topology from constitution.md)

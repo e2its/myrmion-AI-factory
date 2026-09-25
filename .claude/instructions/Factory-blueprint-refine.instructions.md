@@ -12,9 +12,9 @@ applicable_when:
 
 Sync `design.md`, `test_plan.md`, `increment_plan.md`, and contracts when upstream (CODESIGN) cascades, when implementation drifted from the designed shape, or when new design requirements land. Eight steps, each persisted as part of a single `ITER-{FEAT}-{N}` iteration shared across all BLUEPRINT artefacts via the canonical iteration ledger.
 
-## Hat-Switching Rules
+## Phase Agent — one context, both concerns (EVOL-049)
 
-Same as `--start`: 🏗️ ARCH leads design changes; 🧪 QA leads test plan changes; cross-pollination inline (ARCH contract change → QA contract test deltas; QA edge case → ARCH error-handling).
+Same as `--start` (`Factory-blueprint-design.instructions.md § Phase Agent`): the phase agent `factory-blueprint` carries both concerns in ONE context — no persona switch. 🏗️ ARCH leads design changes; 🧪 QA leads test plan changes; cross-pollination inline (ARCH contract change → QA contract test deltas; QA edge case → ARCH error-handling).
 
 ## Pre-Flight
 

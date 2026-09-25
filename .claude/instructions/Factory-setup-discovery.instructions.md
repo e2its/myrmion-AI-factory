@@ -1,5 +1,5 @@
 ---
-description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q33 questions. Use when: SETUP --init command execution."
+description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q34 questions. Use when: SETUP --init command execution."
 applicable_when:
   phase: [SETUP]
   command: [setup]
@@ -74,7 +74,7 @@ TIER_1_STACK:
 
 TIER_2_INFRASTRUCTURE:
   name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31, Q32, Q33]
+  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31, Q32, Q33, Q34]
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
@@ -518,6 +518,14 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Tier-filtered:** All tiers.
 - **Persist:** `surface.runtime_surface` (frontmatter of `docs/setup.md`, nested YAML `surface:`, a list) → `config/quality.json → surface.runtime_surface` at `--generate` (the `always_deploy` hard exclusions and `declared_reads` keep template defaults; extending them is a decision record)
 
+#### Q34: Model Families — writers and critics (EVOL-049)
+- **Type:** Two harness model aliases (never pinned ids)
+- **Options:** `writer` — the family the phase agents and the development workers run on · `critic` — the family the read-only critics run on. Aliases of the harness: `sonnet` | `opus` | `haiku` (or the account's equivalents)
+- **Simplified:** es: "¿Con qué modelo escriben los agentes y con qué modelo revisan los críticos? Deben ser familias distintas: un revisor del mismo modelo que el autor hereda sus puntos ciegos." / en: "Which model writes and which model reviews? They must be different families: a reviewer on the author's model inherits the author's blind spots."
+- **RDR Recommendation:** `writer: sonnet` · `critic: opus` — the writers on the writing tier, the critics on the strongest tier at full effort (the reference trial under measurement: the critics moved to the reading tier made the pass genuinely adversarial and cut rounds spent on informational findings). `writer: opus` · `critic: sonnet` inverts cost and independence for a codebase where the writing is the hard part. `haiku` as the writer only for a prototype. Whatever the pair, **the two must differ** — `python3 scripts/gate.py agents` refuses a roster where they resolve to the same alias; per-spawn effort and the fallback ladder live in `.claude/rules/agents.md` (a data edit plus a manifest bump, with its measurement window).
+- **Tier-filtered:** All tiers.
+- **Persist:** `agents.writer_model` · `agents.critic_model` (frontmatter of `docs/setup.md`, nested YAML `agents:`) → `config/quality.json → agents.families.writer / critic` at `--generate`
+
 ---
 
 ### Discovery Finalization (4.1.3)
@@ -681,14 +689,14 @@ From the persisted discovery answers, identify every cost-bearing component. Gro
 
 | Field | Typical driver |
 | --- | --- |
-| `po` | CODESIGN PO hat token spend — depends on feature volume (Q4 tier sets the cap) |
-| `arch` | BLUEPRINT ARCH hat |
-| `dev` | IMPLEMENT DEV hat — the biggest spender, scales with LOC produced per month |
-| `qa` | IMPLEMENT QA hat + QA --verify |
-| `review` | IMPLEMENT REVIEW hat |
-| `sec` | IMPLEMENT SEC hat + AUDIT |
+| `po` | CODESIGN agent (`factory-codesign`) token spend — depends on feature volume (Q4 tier sets the cap) |
+| `arch` | BLUEPRINT agent (`factory-blueprint`) + the plan critic |
+| `dev` | IMPLEMENT workers (`factory-dev-*`) — the biggest spender, scales with LOC produced per month |
+| `qa` | IMPLEMENT e2e worker + QA agent (`factory-qa`, --verify) |
+| `review` | IMPLEMENT work critics — correctness, governance, fidelity lenses |
+| `sec` | IMPLEMENT security lens + AUDIT |
 
-Use Q4 `ai_budget.tier` (Starter / Professional / Enterprise) as the ceiling. For each agent, estimate the share of the ceiling that persona consumes given the project's expected feature cadence — defaults are DEV 40%, ARCH 15%, PO 10%, QA 15%, REVIEW 10%, SEC 10%. Override per project via RDR if the user signals an unusual mix (e.g., heavy security scope → SEC 25%).
+Use Q4 `ai_budget.tier` (Starter / Professional / Enterprise) as the ceiling. For each agent, estimate the share of the ceiling it consumes given the project's expected feature cadence — defaults are DEV 40%, ARCH 15%, PO 10%, QA 15%, REVIEW 10%, SEC 10%. Override per project via RDR if the user signals an unusual mix (e.g., heavy security scope → SEC 25%).
 
 #### Step 2 — Estimate each value
 

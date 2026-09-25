@@ -1,13 +1,13 @@
 ---
 name: factory-code-review
-description: "Factory Code Review — agentic multi-perspective code review engine (6 vendored Anthropic pr-review-toolkit agents, Apache-2.0). Single engine, two invocations (RDR-3): IMPLEMENT 🔍 REVIEW hat per increment; factory-pr-review Block 20 push gate per branch (the ONLY pass that writes the marker). Use when: IMPLEMENT REVIEW hat runs Step R.1b, factory-pr-review axis 7 executes, or the user explicitly requests a code review of a branch or increment."
+description: "Factory Code Review — agentic multi-perspective code review engine (6 vendored Anthropic pr-review-toolkit agents, Apache-2.0). The correctness lens's instrument (EVOL-049 — factory-critic-correctness, class work-critic). Single engine, two invocations (RDR-3): IMPLEMENT increment mode per increment; factory-pr-review Block 20 push gate per branch (the ONLY pass that writes the marker). Use when: the IMPLEMENT per-increment review runs Step R.1b, factory-pr-review axis 7 executes, or the user explicitly requests a code review of a branch or increment."
 applicable_when:
   command: [implement, pr-review, code-review]
 ---
 
 # Factory Code Review — Single Engine, Two Invocations
 
-> **Shared Protocol** — Referenced by: IMPLEMENT 🔍 REVIEW hat (Step R.1b, scope=increment), factory-pr-review axis 7 / Block 20 (scope=branch), user standalone invocation.
+> **Shared Protocol** — Referenced by: IMPLEMENT increment mode (Step R.1b, scope=increment — the IMPLEMENT phase agent's per-increment review), factory-pr-review axis 7 / Block 20 (scope=branch), user standalone invocation.
 > **Core Principle:** the framework reviews governance with deterministic checks; generic code QUALITY (bugs, silent failures, test gaps, type design, comment rot) is reviewed by this engine. One engine, one severity vocabulary, two scopes. Proof-of-execution = the Block 20 marker, written ONLY by the branch pass.
 
 ## Output Banner — MANDATORY
@@ -19,9 +19,12 @@ First user-facing line of every invocation. Missing banner = `mal-iniciado`.
 🔎 Code Review — disabled | (config/quality.json code_review.enabled=false)
 🔎 Code Review — no-source-files | nothing to review
 🔎 Code Review — spawn-failure ({agent}) | run incomplete, NO marker written
+🔎 Code Review — tree-moved | run refused, NO marker written
 ```
 
 `rules 0 bound` is a legitimate state (framework meta, pre-SETUP) — declared, never silent (§ Governance Binding fail-soft).
+
+**Lens (EVOL-049).** This engine is the **correctness lens's instrument**: the six vendored agents run as class `work-critic`, lens `correctness` (`rules/agents.md` roster — `factory-critic-correctness`), read-only by tool matrix (`tools: Read, Grep, Glob` — no `Edit`, `Write`, `Bash`, `Agent`). Security, governance and fidelity are other critics, not this engine.
 
 ## Configuration source
 
@@ -47,7 +50,7 @@ Defaults (any key overridable in the project block):
 FUNCTION resolve_scope(mode, args):
   CASE mode:
     "increment":
-      # Hat context. BVL SKILL.md § Full Feature Scope Mandate FORBIDS git diff
+      # Increment context (the IMPLEMENT phase agent's per-increment review). BVL SKILL.md § Full Feature Scope Mandate FORBIDS git diff
       # for feature/increment scope — files come from artifacts.
       files = files declared for args.increment_id in dev_plan.md tasks + design.md §1 inventory
       RETURN { files, label: "increment {INC-N}" }
@@ -61,14 +64,16 @@ FUNCTION resolve_scope(mode, args):
 
 ## Agent roster + profiles (RDR-4)
 
-| Agent | model | Gate profile (branch) | Full profile (hat) | Condition |
-|---|---|---|---|---|
-| agents/code-reviewer.md | opus | **blocking** | run | always |
-| agents/silent-failure-hunter.md | inherit | **blocking** | run | always |
-| agents/pr-test-analyzer.md | inherit | **blocking** | run | always |
-| agents/type-design-analyzer.md | inherit | **blocking, conditional** | run | type definitions in scope (heuristic below; unsure ⇒ RUN) |
-| agents/comment-analyzer.md | inherit | advisory (never blocks) | run | always |
-| agents/code-simplifier.md | opus | advisory (never blocks) | run | always |
+| Agent | class | lens | Gate profile (branch) | Full profile (increment) | Condition |
+|---|---|---|---|---|---|
+| agents/code-reviewer.md | work-critic | correctness | **blocking** | run | always |
+| agents/silent-failure-hunter.md | work-critic | correctness | **blocking** | run | always |
+| agents/pr-test-analyzer.md | work-critic | correctness | **blocking** | run | always |
+| agents/type-design-analyzer.md | work-critic | correctness | **blocking, conditional** | run | type definitions in scope (heuristic below; unsure ⇒ RUN) |
+| agents/comment-analyzer.md | work-critic | correctness | advisory (never blocks) | run | always |
+| agents/code-simplifier.md | work-critic | correctness | advisory (never blocks) | run | always |
+
+No `model` column: the vendored agents carry no model. It is resolved per spawn from the class policy (§ Spawn contract).
 
 Type-def trigger heuristic: any scope file matching `*.d.ts`, `types/**`, `*_types.*`, OR diff hunks adding/modifying `interface |type X =|TypedDict|dataclass|BaseModel|struct {|enum `. False-negative bias forbidden — ambiguity → run the agent.
 
@@ -95,9 +100,11 @@ Per-agent packet — each agent gets its slice, never the whole tree:
 
 **Fail-soft.** No `.claude/rules/` (framework meta, pre-SETUP project) → bind CLAUDE.md only. 0 rules is never silent — the banner declares it.
 
-**Hat mode.** `context: "hat"` receives `governance_context` (GCD, design.md §7 — already bound at design time) as the primary packet source; the rules Roll-Call still runs for families the GCD does not carry.
+**Increment mode.** `context: "increment"` (the IMPLEMENT phase agent's per-increment review) receives `governance_context` (GCD, design.md §7 — already bound at design time) as the primary packet source; the rules Roll-Call still runs for families the GCD does not carry.
 
 ## Spawn contract
+
+spawn-policy: work-critic
 
 ```yaml
 FUNCTION run_code_review(mode, args, profile):
@@ -105,23 +112,40 @@ FUNCTION run_code_review(mode, args, profile):
   IF scope.files empty: RETURN { ok: true, reason: "no-source-files" }
   binding = governance_binding(scope, args.governance_context)   # § Governance Binding
   roster = select_agents(profile, type_def_trigger(scope.files))
+  n, m = COUNT(scope.files), LINES_CHANGED(scope)
+  r = args.round OR 1                                             # rules/agents.md → rounds.work = 1 on a completed diff
+  before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")   # on-disk bytes; non-zero exit ⇒ { ok: false, reason: "tree-unhashable" }, NO marker
   # ONE sub-agent per roster entry, in parallel. The runtime decides actual
   # concurrency — this skill never asserts a number.
+  degraded = false
   reports = PARALLEL_MAP(roster, LAMBDA(agent_file):
-    fm = read_frontmatter("agents/{agent_file}")
-    spawn_review_agent(
-      instructions   = body_of("agents/{agent_file}"),
-      model_override = fm.model,        # "opus" → pass as spawn model; "inherit" → omit
-      inputs = {
+    res   = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}")
+    # The vendored lens is a PROMPT; the agent type is the rostered critic — its harness matrix (Read, Grep, Glob) is the read-only guarantee.
+    report = SPAWN(subagent_type = "factory-critic-correctness",
+      model  = res.model,                                          # passed at the spawn, never read from a file; the PreToolUse Agent hook refuses it missing
+      prompt = "effort: {res.effort}\n" + body_of("agents/{agent_file}") + inputs = {
         files: scope.files,
         context: diff range or increment description,
         governance: binding.packet_for(agent),   # § Governance Binding per-agent slice, with citations
-        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding"
-      }))
+        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding; every finding on one line: file:line · severity · confidence N% · probe: <what was run>"
+      })
+    # Fallback: on a provider error a critic falls down the ladder — never to a writer class
+    IF report.provider_error:
+      fb = RUN("python3 scripts/gate.py agents --fallback --class work-critic --family critic")
+      IF NOT fb.ok: RETURN { ok: false, reason: "spawn-failure" }
+      IF NOT fb.separation: degraded = true                       # the writer's family — the run's findings go to the user's adjudication
+      report = SPAWN(... same inputs, model = fb.model)
+    # Return check: a line carrying a severity outside the shape, or a probe that names nothing, is refused
+    IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", report) refuses:
+      report = SPAWN(... same inputs, model = res.model)            # ONCE
+      IF refused again: report.findings = ALL_AS(❓)
+    RETURN report)
+  after = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")
+  IF before != after: RETURN { ok: false, reason: "tree-moved" }   # a run around which the working tree moved is refused — NO marker
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ... }   # NO marker
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
-  RETURN { ok: true, findings, counts: {blocker, important, nit, question} }
+  RETURN { ok: true, findings, degraded, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true, findings to the user
 ```
 
 ## Severity normalisation
@@ -141,7 +165,7 @@ The marker is the push gate's proof-of-execution. Increment mode NEVER writes it
 2. Write (house rules): `mkdir -p .claude/state/`; hash sanitised `tr -cd 'a-f0-9'`; atomic `> .tmp && mv`. Path: `.claude/state/code-review-${hash}.marker`.
 3. Body (single-line JSON):
    ```json
-   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"override":null}
+   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"override":null}
    ```
 4. Blockers found ⇒ STILL write (with counts) — preflight blocks on `findings.blocker > 0`, and the written marker is what the override path amends. Surface all findings to the user with fixes.
 
@@ -157,13 +181,13 @@ No per-developer escape hatch. Permanent project-level downgrade is the ADR plan
 
 | Action | Context | Fields |
 |---|---|---|
-| `IMPLEMENT.code_review.run` | hat pass | `increment_id` set; result COMPLETED/BLOCKED |
+| `IMPLEMENT.code_review.run` | increment pass | `increment_id` set; result COMPLETED/BLOCKED |
 | `SCM.code_review.run` | branch pass | inherits invoking command context (factory-worklog § internal sub-actions); no new phase string |
 | `SCM.code_review.override` | override ratified | result APPROVED; observations = reason |
 
 ## ACP rule
 
-- `context: "hat"` (invoked from IMPLEMENT 🔍 REVIEW): NO entry announcement — hat switches are internal (ACP § Entry Announcement rules). The `IMPLEMENT --build` milestone map "3/5 Peer Review (REVIEW hat)" is untouched.
+- `context: "increment"` (invoked from the IMPLEMENT per-increment review): NO entry announcement — a critic spawned inside a phase is internal (ACP § Entry Announcement rules). The `IMPLEMENT --build` milestone map entry `3/5: Work critics` (factory-agent-communication) is untouched.
 - Standalone / gate invocation: normal ACP entry announcement.
 - The 🔎 banner fires in BOTH contexts — protocol banner, not an ACP announcement.
 
@@ -175,6 +199,8 @@ No per-developer escape hatch. Permanent project-level downgrade is the ADR plan
 | `executor-missing` | skill dir / hash helper absent (consumed by preflight Step 0-bis, not by this skill) | NOISY Important finding, push passes (RDR-2 infra plane) |
 | `no-source-files` | scope resolves to zero `is_code∪is_test` files | pass, banner only |
 | `spawn-failure` | sub-agent infra error mid-run | report, NO marker — stricter than executor-missing, deliberate: "ran but incomplete" is not proof. Escape = fix and re-run, or one-shot RDR override |
+| `tree-moved` | `gate.py certify --subject worktree --paths {scope.files}` differs before/after the critic run (on-disk bytes, untracked included) | refused, NO marker — a critic that wrote is not a critic. Escape = re-run |
+| `tree-unhashable` | the worktree certification exits non-zero before the run | refused, NO marker — a guard that faults never refuses; fix the scope and re-run |
 
 Findings plane is fail-closed: marker with `findings.blocker > 0` and no override blocks the push (Block 20).
 

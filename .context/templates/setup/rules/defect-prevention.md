@@ -1,8 +1,9 @@
 ---
 description: "Defect Prevention Catalog — families, defect classes, gates, governed paths. Cases annex: defect-prevention-cases.md"
-version: 3.0.0
+version: 3.1.1
 date: 2026-09-25
 changelog:
+  - "3.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
   - "3.0.0: feat(EVOL-043) — families with surface globs; one-line invariant per DC; gate mark; governed paths; narratives moved to defect-prevention-cases.md"
   - "2.3.0: feat(EVOL-037): DC-29 over-engineering / YAGNI minimalism (ponytail discipline). Single source for the do-less ladder + 4 over-engineering categories + how-not-what scope guardrail. Consumed at decision-time by factory-adversarial-reasoning (do-less AGAINST lens) and at build-time by BVL full_verification_gate step 8 (advisory, fail-open)."
   - "2.2.0: feat(EVOL-019): feature_scope schema field added — entries can restrict to scope IN [full-stack, backend-only, frontend-only, integration]. consult_defect_catalog() gains a feature_context.feature_scope filter. Enables the 7 starter integration DCs shipped by EVOL-019 Phase 2."
@@ -87,9 +88,9 @@ Any agent proposes; the write lands through the `[EPIC-{N}] RETROSPECTIVE` gate 
 | CODESIGN | `--start` / `--refine`, after UX Vision, before Gherkin | Advisory (ignored hint = risk in next REVIEW) | `spec.feature § Defect-Prevention Notes` — `DC-{N} ({name}) — {invariant}` | `Factory-codesign-feature.instructions.md` |
 | BLUEPRINT | `--start` / `--refine` during design; `--approve` blocks when a BLOCKER row is absent from `design.md § Constraints` or `test_plan.md § 2` | Advisory + Blocking | `design.md § Constraints`, `test_plan.md § Edge Cases` | `Factory-blueprint-design` / `Factory-blueprint-validation` |
 | IMPLEMENT `--plan` | Before generating `dev_plan.md` | Mandatory tasks (BVL-tracked) | `dev_plan.md § DC Compliance` — `[DC-{N}] Verify {name}: {invariant}` | `Factory-implement-plan` |
-| IMPLEMENT `--build` (DEV hat) | Pre-write, per task, `ctx.files` = task files | Blocking — rewrite to the invariant | LOG `DC-{N} prevented` | `Factory-implement-build` |
+| IMPLEMENT `--build` (the development workers) | Pre-write, per task, `ctx.files` = task files | Blocking — rewrite to the invariant | LOG `DC-{N} prevented` | `Factory-implement-build` |
 | IMPLEMENT `--fix` | Per `[FIX-N]` task | Advisory | `dc-compliance: DC-{N}` label, or Discovery proposal | `Factory-implement-build` |
-| REVIEW hat | Check #2d, post-write per phase | BLOCKER fails, WARNING warns | `peer_review_*.md § Check #2d` `[GOV-DC-{N}]` — file:line + invariant | `Factory-implement-review-checks` |
+| governance lens (`factory-critic-governance`) | Check #2d, post-write per phase | BLOCKER fails, WARNING warns | `peer_review_*.md § Check #2d` `[GOV-DC-{N}]` — file:line + invariant | `Factory-implement-review-checks` |
 | DEVOPS `--configure` | Before generating `devops_plan.md` | Advisory → plan auto-approval criteria | `devops_plan.md § Reliability Checks` + `§ Verification Script` | `Factory-devops-configure` |
 | QA `--verify` | Checklist generation | Blocking — APPROVED needs every item `[x]` | `- [ ] [QA-DC-{N}] {name}: {invariant}` in `qa_report_final_*.md` | `Factory-qa-verify` |
 | AUDIT `--audit` | Codebase scan | Evidence — score = inverse of pattern density | "Defect Prevention" dimension of the audit report | `Factory-audit-checklist` |

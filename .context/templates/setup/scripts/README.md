@@ -120,8 +120,8 @@ TARGET_URL=https://api.staging.example.com ./scripts/security-scan.sh --dast-api
 ```
 
 **Integration with Security Agent:**
-- `/IMPLEMENT --build` (🛡️ SEC hat) performs SAST scans inline per phase.
-- `/QA --verify` (🛡️ SEC hat) performs DAST scans inline during post-staging verification (v8.0.0). Legacy: `/SEC --dast` is DEPRECATED.
+- `/IMPLEMENT --build` (the security lens — `factory-critic-security`) performs SAST scans inline per phase.
+- `/QA --verify` (the security pass) performs DAST scans inline during post-staging verification (v8.0.0). Legacy: `/SEC --dast` is DEPRECATED.
 - DAST reports are generated in `security/dast/reports/zap-report-{{timestamp}}.html`.
 - High-risk vulnerabilities block merge/deployment automatically.
 

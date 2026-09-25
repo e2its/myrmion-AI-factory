@@ -261,7 +261,7 @@ IF applicable_dcs is not empty:
       ADD task:
         "- [ ] [DC-{dc.number}] Verify {dc.name}: {dc.invariant}"
         # Every DC becomes an explicit dev_plan task tracked by the BVL loop.
-        # DEV hat pre-write check (Factory-implement-build) also reads the same catalog.
+        # The worker's pre-write check (Factory-implement-build) also reads the same catalog.
 
 LOG: "IMPLEMENT DC consult: {applicable_dcs.length} entries projected into dev_plan § DC Compliance"
 ```
@@ -486,7 +486,7 @@ FOR EACH path IN target_file_paths:
     SUGGEST: "BLUEPRINT --adr {ID} 'Red zone modification: {path}'"
   IF path IN protected-paths.yellow_zones:
     ⚠️ WARN: "Implementation targets YELLOW ZONE: {path}. Extra review required."
-    ANNOTATE: task with yellow_zone flag for REVIEW hat attention
+    ANNOTATE: task with yellow_zone flag for the work critics' attention
 ```
 
 ## Plan Generation (Phase Structure)
@@ -958,7 +958,7 @@ ANNOTATE all Phase B tasks with:
   "Vision Binding: Frontend implementation MUST faithfully materialize the approved vision.
    Source: design.md Section 7.6 UX Vision Digest (UXD) — pre-digested by BLUEPRINT.
    
-   REVIEW hat [UX-VISION] will validate:
+   the fidelity lens [UX-VISION] will validate:
    - Shell fidelity (uxd.shell_composition — regions, landmarks, CSS classes)
    - Page template adherence (uxd.page_templates.feature_template_type)
    - Component library reuse (uxd.component_library — no duplicates of vision components)

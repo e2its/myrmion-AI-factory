@@ -14,6 +14,7 @@
 #   .claude/instructions/Factory-*.instructions.md
 #   .claude/skills/factory-*/  (entire tree: SKILL.md + references/ + scripts/ + assets/)
 #   .claude/hooks/*.sh
+#   .claude/agents/*.md  (EVOL-049 roster: phases, workers per surface, read-only critics)
 #   scripts/ — MANIFEST-DRIVEN (EVOL-040): every governance_versions.json entry
 #     under scripts/ (templates + framework_core sections) whose `delivery` is
 #     `sync` or `both`, template variant preferred. No hardcoded list — add a
@@ -362,6 +363,18 @@ echo ""
 echo -e "${BOLD}[5/7] Claude Code Hooks (.claude/hooks/)${NC}"
 sync_dir "$FRAMEWORK_ROOT/.claude/hooks" "$TARGET_PROJECT/.claude/hooks" "*.sh"
 detect_orphans "$FRAMEWORK_ROOT/.claude/hooks" "$TARGET_PROJECT/.claude/hooks" "*.sh" "check-"
+echo ""
+echo -e "${BOLD}[5b/7] Role agents & critics (.claude/agents/ — EVOL-049)${NC}"
+# The roster on two axes with the harness tool matrix per class; validated by gate.py agents (rules/agents.md +
+# config/quality.json → agents.families). sync never touches config/ — the two family aliases are the project's (Q34).
+sync_dir "$FRAMEWORK_ROOT/.claude/agents" "$TARGET_PROJECT/.claude/agents" "*.md"
+detect_orphans "$FRAMEWORK_ROOT/.claude/agents" "$TARGET_PROJECT/.claude/agents" "*.md" "factory-"
+# Half a feature is a FAULT downstream: without the rule and the two aliases, `gate.py agents` cannot judge (exit 2 →
+# the profile member `agents` faults, the spawn hook blocks every factory-* spawn). Say so, loudly, at delivery time.
+if [[ ! -f "$TARGET_PROJECT/.claude/rules/agents.md" ]] || ! grep -q '"families"' "$TARGET_PROJECT/config/quality.json" 2>/dev/null; then
+  echo -e "  ${YELLOW}!${NC}  roster delivered but ${BOLD}.claude/rules/agents.md${NC} and/or ${BOLD}config/quality.json → agents.families${NC} are missing in the project"
+  echo -e "     → run ${BOLD}SETUP --upgrade${NC} (Q34: writer / critic model aliases) — until then gate.py agents faults and factory-* spawns are refused"
+fi
 echo ""
 
 echo -e "${BOLD}[6/7] Base Scripts (scripts/)${NC}"

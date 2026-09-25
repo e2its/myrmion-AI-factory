@@ -111,7 +111,7 @@ paths:
 | `x-serverless-layers` | operation | No | Lambda layer ARNs / shared dependencies |
 | `x-serverless-env` | operation | No | Extra env vars beyond global config |
 
-**Who writes these:** BLUEPRINT (🏗️ ARCH hat) during `--start` Phase 2, when constitution.md `architecture.primary == B9`. BLUEPRINT determines `x-serverless-memory` based on feature workload analysis (I/O-bound vs CPU-bound, payload size, crypto needs). Runtime is **inherited from `constitution.md → backend.runtime`** — the `x-serverless-runtime` extension is only used when a specific function needs a different runtime than the project stack.
+**Who writes these:** BLUEPRINT (the phase agent `factory-blueprint`) during `--start` Phase 2, when constitution.md `architecture.primary == B9`. BLUEPRINT determines `x-serverless-memory` based on feature workload analysis (I/O-bound vs CPU-bound, payload size, crypto needs). Runtime is **inherited from `constitution.md → backend.runtime`** — the `x-serverless-runtime` extension is only used when a specific function needs a different runtime than the project stack.
 **Who reads these:** DEVOPS during `--provision` / `--deploy` to derive function declarations.
 **Validation:** Spectral custom rule enforces `x-serverless-handler` and `x-serverless-memory` presence on all operations when `architecture == B9`.
 
@@ -220,7 +220,7 @@ Asynchronous (Event/Message-Based):
 **Prohibited Patterns (BLOCKING violations):**
 
 ```yaml
-# These patterns are detected by IMPLEMENT (🔍 REVIEW hat) and BLOCK the build.
+# These patterns are detected by IMPLEMENT (the work critics) and BLOCK the build.
 
 Pattern 1 — Direct Cross-Domain Import:
   violation: Module A imports Module B's internal service/repository/entity directly
@@ -307,8 +307,8 @@ Why this matters for monoliths:
 - `/BLUEPRINT --approve` Phase 3: Validate that `design.md` "Cross-Domain Dependencies" section lists ALL inter-domain calls with their contract references. BLOCK if any dependency lacks a contract.
 
 **IMPLEMENT Enforcement (Build-Time):**
-- `🔍 REVIEW hat` Step R.1 Check #10 `[CFP-XX]`: Scans implemented code for prohibited cross-domain import patterns (Patterns 1-4 above). Uses architecture layer paths from `constitution.md` to identify module boundaries. BLOCKER if direct cross-domain import detected without corresponding HTTP contract.
-- `💻 DEV hat` Phase A: CONTRACT VERIFICATION GATE verifies that ALL contracts referenced in `design.md` cross-domain dependencies exist in `contracts/`.
+- the governance lens (`factory-critic-governance`) Step R.1 Check #10 `[CFP-XX]`: Scans implemented code for prohibited cross-domain import patterns (Patterns 1-4 above). Uses architecture layer paths from `constitution.md` to identify module boundaries. BLOCKER if direct cross-domain import detected without corresponding HTTP contract.
+- The development worker, Phase A: CONTRACT VERIFICATION GATE verifies that ALL contracts referenced in `design.md` cross-domain dependencies exist in `contracts/`.
 
 ---
 
@@ -1512,7 +1512,7 @@ GET /api/v1/products?category=electronics&priceMin=100&priceMax=500
 
 ### Auto-Generated CRUD Contract Template
 
-During `/BLUEPRINT --start`, the ARCH hat generates contracts using this base template:
+During `/BLUEPRINT --start`, the phase agent `factory-blueprint` generates contracts using this base template:
 
 **File:** `contracts/openapi/{CONTRACT_SLUG}/v1.yaml`
 
@@ -1701,7 +1701,7 @@ paths:                              resources:                       Resources:
 
 ### Derivation Rules (BLUEPRINT → design.md Section 5)
 
-When BLUEPRINT (🏗️ ARCH hat) generates `design.md` for a B9 project:
+When BLUEPRINT (`factory-blueprint`) generates `design.md` for a B9 project:
 
 1. **Read** `contracts/openapi/{CONTRACT_SLUG}/v1.yaml`
 2. **For EACH operation** in `paths`:

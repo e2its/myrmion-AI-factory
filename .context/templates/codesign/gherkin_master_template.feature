@@ -22,11 +22,11 @@ last_iteration_scope: "Initial co-creation"
 # 📝 0. DEFINITION HISTORY AND DECISIONS (Q&A Log)
 # =========================================================================
 # This block documents resolved questions and open points.
-# Includes decisions from BOTH hats (🎩 PO and 🎨 UX).
+# Includes decisions from BOTH concerns (🎩 PO and 🎨 UX) — one agent, one context.
 #
 # Q1: [Question, e.g. How do we handle short passwords?]
 # A1: [Final decision, e.g. Any pass < 8 chars will be rejected.]
-# Hat: [🎩 PO / 🎨 UX / 🎩🎨 CO-DESIGN]
+# Concern: [🎩 PO / 🎨 UX / 🎩🎨 CO-DESIGN]
 # Rationale: [Why]
 # Journey Ref: [Paso N in user_journey.md, if applicable]
 #

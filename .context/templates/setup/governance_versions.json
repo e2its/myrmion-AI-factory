@@ -1,13 +1,13 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "7.5.0",
+  "framework_version": "8.0.0",
   "delivery_mode": "development",
   "last_updated": "2026-09-25",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted).",
+  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -16,10 +16,12 @@
   },
   "templates": {
     "rules/defect-prevention.md": {
-      "version": "3.0.0",
+      "version": "3.1.1",
       "content_type": "universal",
       "target": ".claude/rules/defect-prevention.md",
       "changelog": [
+        "3.1.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "3.1.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "3.0.0: feat(EVOL-043)! — BREAKING — families (surface globs + one-line invariant) and 7-column defect classes (Family, Invariant, Gate, Paths, Applicable To, Severity); narratives moved to defect-prevention-cases.md; applicable_when always; target retargeted to .claude/rules/ (retired legacy path). Version jumps 1.2.0 → 3.0.0 on purpose: the file frontmatter was already at 2.3.0 while the manifest lagged; both now read 3.0.0 (manifest ↔ frontmatter parity).",
         "1.2.0: feat(EVOL-037) DC-29 Over-engineering / YAGNI minimalism (WARNING, applicable_to: CODESIGN/BLUEPRINT/IMPLEMENT/REVIEW/AUDIT, all scopes). Ponytail discipline absorbed as a single-source DC: do-less ladder + 4 over-engineering categories + how-not-what scope guardrail. Decision-time consumer factory-adversarial-reasoning (do-less AGAINST lens); build-time consumer BVL full_verification_gate step 8 (advisory, fail-open). Complements DC-28 (complexity-of-code) by questioning build-vs-no-build.",
         "1.1.0: feat(EVOL-033) phase 1 — DC-28 Cyclomatic complexity exceeds project threshold (BLOCKER, applicable_to: IMPLEMENT/REVIEW/QA, all scopes). Process owned by framework via DC; tool selection delegated to project at SETUP (config/quality.json.complexity.mcp_server). BVL + factory-pr-review consume via factory-complexity-check skill.",
@@ -74,10 +76,11 @@
       ]
     },
     "rules/ai_budget_governance.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/rules/ai_budget_governance.md",
       "changelog": [
+        "1.4.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.3.0: feat(EVOL-028) backfill `applicable_when: { always: true }` (cross-cutting governance — applies always).",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.1.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -152,11 +155,12 @@
       ]
     },
     "rules/node.md": {
-      "version": "1.2.1",
+      "version": "1.2.2",
       "content_type": "universal",
       "target": ".claude/rules/node.md",
       "stack_conditional": "backend.runtime == Node.js",
       "changelog": [
+        "1.2.2: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
@@ -258,10 +262,11 @@
       ]
     },
     "rules/database.md": {
-      "version": "1.2.1",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/database.md",
       "changelog": [
+        "1.3.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
@@ -293,10 +298,11 @@
       ]
     },
     "rules/ux-constitution.md": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/ux-constitution.md",
       "changelog": [
+        "1.6.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.5.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.4.0: feat(EVOL-041) — 13 dangling design_ux.md refs redirected to living artefacts (user_journey Part I / mock.html / design.md Component Inventory / test_plan § 3 / ux_decisions_log); design_ux.md retired (DEC-6, validated 100% orphan).",
@@ -307,10 +313,12 @@
       ]
     },
     "rules/contract-first-policy.md": {
-      "version": "3.6.0",
+      "version": "3.7.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/contract-first-policy.md",
       "changelog": [
+        "3.7.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "3.7.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "3.6.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "3.5.2: fix(EVOL-041) — CONTRACT_SLUG derivation cites journey § 6 dominant concept (bounded-context wording retired with the Event-Storming template).",
         "3.5.0+: fix(EVOL-040 pr-review loop i2) — embedded security-scan example updated to the config-driven flag surface (--secrets/--contracts).",
@@ -326,10 +334,12 @@
       ]
     },
     "rules/immutability_policy.md": {
-      "version": "1.5.1",
+      "version": "1.6.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.md",
       "changelog": [
+        "1.6.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.6.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.5.1: fix(EVOL-036) coherence-2 — Lock Table increment_plan row references § 0 Refinement Record (was stale 'Slicing Rationale' — renamed in SLICE-3).",
         "1.5.0: feat(EVOL-036) SLICE-4 — NEW § Per-Slice Immutability: slice carries no scalar status; per-SCENARIO freeze partition (frozen when a realizing increment reaches MERGED, predicate = scenario-membership not slice-id); Follow-up Slice Rule (additive, Phase-4 lock window, per-feature realizers only — cross-feature deps via consumes_contract); check_slice_immutability() pre-persist pseudocode. Adds slice_map row to the Lock Table; restores Per-Increment lead-in cross-ref to § Per-Slice.",
         "1.4.0: feat(EVOL-036) SLICE-3 — § Per-Increment Immutability lead-in reworded: increment_plan is BLUEPRINT's contract-aware refinement of CODESIGN's slice_map value-slices (no slice invention). Slicing-Strategy Flip monolithic→incremental now routes through CODESIGN slice_map + BLUEPRINT refine (removed 'Increment Slicing RDR' reference).",
@@ -343,10 +353,12 @@
       ]
     },
     "rules/review-policy.md": {
-      "version": "1.3.0",
+      "version": "1.5.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/review-policy.md",
       "changelog": [
+        "1.5.0: fix(EVOL-049) — review pass — the loop is EVOL-049's: one work round, the user adjudicates, model separation by agents.families; hat vocabulary retired",
+        "1.4.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.3.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
@@ -433,11 +445,12 @@
       "delivery": "setup"
     },
     "scripts/validate-migrations.sh": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "scripts/validate-migrations.sh",
       "stack_conditional": "database exists",
       "changelog": [
+        "1.3.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template — Migration safety validator",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
@@ -587,10 +600,11 @@
       "delivery": "both"
     },
     "scripts/README.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": "scripts/README.md",
       "changelog": [
+        "1.6.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.5.0: feat(EVOL-048) — gate.py subcommands of EVOL-045…048 listed.",
         "1.4.0: feat(EVOL-046) — pre-push runs the gate profile.",
         "1.3.0: feat(EVOL-044) — coherence gates review pass (see PR).",
@@ -834,11 +848,12 @@
       "delivery": "both"
     },
     "claude/settings.json": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "content_type": "universal",
       "target": ".claude/settings.json",
       "upgrade_strategy": "merge-preserve",
       "changelog": [
+        "2.2.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "2.1.0: feat(EVOL-048) — PreToolUse Edit|Write: check-plan-approval.sh; PostToolUse ExitPlanMode: record-plan-approval.sh (EVOL-048).",
         "2.0.0: feat(EVOL-043)! — BREAKING (hook contract: blocking hooks exit 2, delivery hook wired) — deliver-governance.sh wired on PreToolUse Edit|Write (law at the point of edit).",
         "1.3.0: feat(EVOL-024): new PreToolUse Bash matcher invoking .claude/hooks/check-push-preflight.sh — Factory PR Review push gate intercepts `git push` and runs the local preflight before the command leaves the harness. Merge-preserve adds the Bash matcher without touching existing PreToolUse Edit|Write / Write blocks.",
@@ -915,11 +930,13 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.5.0",
+      "version": "4.6.1",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.6.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "4.6.0: feat(EVOL-049)! — Core Protocols — Role agents & read-only critics row; no agent ratifies.",
         "4.5.0: feat(EVOL-048) — § Pre-Action Gate — One planning stage (EVOL-048).",
         "4.4.0: feat(EVOL-047) — § Generation Standards 3 rewritten — the branch rule (every change via branch + PR) and the runtime surface (positive list, hard exclusions, parity gate, honest review allowlist); triage item reworded.",
         "4.3.0: feat(EVOL-046) — § Control points and gate profiles (EVOL-046) — one key, one reader, the table.",
@@ -960,10 +977,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.10.0",
+      "version": "2.11.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.11.0: feat(EVOL-049)! — agents: writer_model / critic_model (Q34) + summary bullet.",
         "2.10.0: feat(EVOL-047) — surface.runtime_surface slot (Q33) + summary bullet.",
         "2.9.0: feat(EVOL-046) — delivery: mode frontmatter slot (Q32) + summary bullet.",
         "2.8.0: feat(EVOL-045) — surface: frontmatter block (Q31) + § E summary bullet — the persistence slot the quality.json placeholders resolve from.",
@@ -1051,10 +1069,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.7.0",
+      "version": "1.9.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.9.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.8.0: feat(EVOL-049)! — agents.families (writer / critic aliases); the retired hat vocabulary (REVIEW Hat, SEC Hat, …).",
         "1.7.0: feat(EVOL-048) — planning block — governed_paths, docs_exempt, gate_inputs, exempt_classes (none in the framework repo), plan_artefact (the ADR), adoption_window_minutes.",
         "1.6.0: feat(EVOL-047) — surface.runtime_surface as the positive deployment list; always_deploy (hard exclusions with reasons); declared_reads.",
         "1.5.0: feat(EVOL-045) — surface block — ceiling_files / ceiling_lines / escapes (closed) / runtime_surface.",
@@ -1248,11 +1268,13 @@
       ]
     },
     "policies/dast.md": {
-      "version": "1.0.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": null,
       "role": "DAST policy reference — consumed in place by SETUP/QA.",
       "changelog": [
+        "1.1.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.1.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ]
     },
@@ -1416,12 +1438,13 @@
       ]
     },
     "subproducts/po-package/po_fixtures.py": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": "subproducts/po-package/po_fixtures.py",
       "stack_conditional": "po_package.mode != \"off\"",
       "role": "Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh.",
       "changelog": [
+        "1.0.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.0.0: feat(EVOL-052) — initial. Golden fixtures in an invented neutral domain: a tiny materialised project (specified feature, vision, component registry, codebase inventory, roadmap export) and a golden PO return. Feeds the self-test and scripts/test-po-package.sh. Smoke-run follow-up: early-warning check `mock-states` (four `data-state` blocks per step — the sync gate's CHECK 11 bar, told to the PO before the round-trip) with its red and green cases; golden fixture enriched (states, error and empty scenarios, rule → scenario ref). Code-review pass: docstring states what is emitted and for whom."
       ]
     },
@@ -1589,11 +1612,13 @@
       ]
     },
     "subproducts/measure/measure.py": {
-      "version": "1.1.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "subproducts/measure/measure.py",
       "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only.",
       "changelog": [
+        "1.3.0: fix(EVOL-049) — review pass — agent class joined from the project's roster (grammar as fallback); round by spawn order in time, never by agent id",
+        "1.2.0: feat(EVOL-049)! — each sub-agent joined to its roster class and its round; the agents table shows both (EVOL-049 report shape).",
         "1.1.0: feat(EVOL-045) — branches roll up per train (sub-increment branches grouped: commits, review rounds, sub-PRs); selftest covers a train with two subs.",
         "1.0.0: feat(EVOL-042) — initial. Report sections gates · branches · rework · governance_bytes · agents · citations; undelivered vs truncated hook firings; shell reads (cat/sed/head) on governance paths counted; hermetic --selftest with transcript + git fixtures; exit 0 partial / 2 tool fault in plain language (LAW-08)."
       ]
@@ -1681,11 +1706,13 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.5.0",
+      "version": "1.7.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.7.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.6.0: feat(EVOL-049)! — agents subcommand — validate / --resolve / --fallback / --digest / --check-return (EVOL-049).",
         "1.5.0: feat(EVOL-048) — plan --path | --status | --record subcommand (EVOL-048).",
         "1.4.0: feat(EVOL-047) — runtime-surface [--changed] subcommand (EVOL-047).",
         "1.3.0: feat(EVOL-046) — profile [--run] and one-definition subcommands (EVOL-046).",
@@ -1717,11 +1744,12 @@
       "delivery": "both"
     },
     "scripts/gates/corpus.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/gates/corpus.py",
       "role": "gates: law index parser (CLAUDE.md list form + constitution H2 form), body_section parity lookup, rule/instruction/skill universe, defect catalog (families + classes), the applicability resolver (AND across axes, OR within), roll-call renderer, digest within budget.",
       "changelog": [
+        "1.1.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.0.0: feat(EVOL-043)! — initial."
       ],
       "delivery": "both"
@@ -1747,11 +1775,13 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.5.0",
+      "version": "1.7.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.7.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.6.0: feat(EVOL-049)! — Agents class — policy parse, the validator red on every way a roster can lie (same family, a critic with a write tool, a worker without one, a model written in, no effort, over budget, a dangling pointer, roster/definition/manifest parity, a ladder rung that is not a family or that degrades a writer, a spawn site without its marker, a policy without a site), the per-spawn resolver, the fallback, the digest budget, the return contracts; CLI.",
         "1.5.0: feat(EVOL-048) — Planning class — governed precedence (gate inputs, docs exemption), classes fail closed, the marker only from the harness, adoption once from a base branch within the window and never by the advisory, the plan artefact; CLI exit codes.",
         "1.4.0: feat(EVOL-047) — Runtime class — the positive trigger (untouched/touched/hard exclusion/HEAD^1/empty list/shape faults) and the parity gate (transitive reads, comments, declared and stale reads); CLI exit codes.",
         "1.3.0: feat(EVOL-046) — Profile class — mode fail-closed (unknown / absent / unreadable / no env override), profile per control point, members by property, all-report run with one verdict, one-definition scan; CLI exit codes.",
@@ -1762,12 +1792,13 @@
       "delivery": "both"
     },
     "scripts/gates/coherence.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/gates/coherence.py",
       "delivery": "both",
       "role": "gates: coherence gates — `certify` (the certification hash a verdict embeds: diff = the factory-code-review content hash, tree = sha256 over tracked blobs under paths), `currency` (a terminal verdict artefact still certifies the current build; stale/missing/unreadable = red), `manifest_parity` (frontmatter version == manifest version; manifest is the source of truth).",
       "changelog": [
+        "1.1.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.0.0: feat(EVOL-044) — initial."
       ]
     },
@@ -1782,12 +1813,13 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override).",
       "changelog": [
+        "1.2.0: feat(EVOL-049)! — agents member (the roster validator; no build, no database).",
         "1.1.0: feat(EVOL-047) — runtime-surface member (light: no build, no database).",
         "1.0.0: feat(EVOL-046) — initial."
       ]
@@ -1838,6 +1870,164 @@
       "changelog": [
         "1.0.0: feat(EVOL-048) — initial."
       ]
+    },
+    "scripts/gates/agents.py": {
+      "version": "1.1.0",
+      "content_type": "universal",
+      "target": "scripts/gates/agents.py",
+      "delivery": "both",
+      "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes).",
+      "changelog": [
+        "1.1.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "rules/agents.md": {
+      "version": "1.1.0",
+      "content_type": "universal",
+      "target": ".claude/rules/agents.md",
+      "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents.",
+      "changelog": [
+        "1.1.0: fix(EVOL-049) — review pass — dead critic rows dropped; phase spawn sites (the five commands); worktree guard; who spawns (the main session); allowlist matrix; vendored lenses; effort precedence; separation lost on the fallback; return contract shape",
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-codesign.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-codesign.md",
+      "role": "Agent definition — phase (CODESIGN). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-blueprint.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-blueprint.md",
+      "role": "Agent definition — phase (BLUEPRINT). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-implement.md": {
+      "version": "1.0.1",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-implement.md",
+      "role": "Agent definition — phase (IMPLEMENT). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-qa.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-qa.md",
+      "role": "Agent definition — phase (QA). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-devops.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-devops.md",
+      "role": "Agent definition — phase (DEVOPS). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-dev-backend.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-dev-backend.md",
+      "role": "Agent definition — worker (backend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-dev-frontend.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-dev-frontend.md",
+      "role": "Agent definition — worker (frontend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-dev-platform.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-dev-platform.md",
+      "role": "Agent definition — worker (platform / tooling surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-dev-e2e.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-dev-e2e.md",
+      "role": "Agent definition — worker (end-to-end tests surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-plan-critic.md": {
+      "version": "1.0.1",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-plan-critic.md",
+      "role": "Agent definition — plan-critic (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-critic-security.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-critic-security.md",
+      "role": "Agent definition — work-critic — security lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-critic-correctness.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-critic-correctness.md",
+      "role": "Agent definition — work-critic — correctness lens (read-only; the vendored LAW-13 engine is its instrument). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-critic-governance.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-critic-governance.md",
+      "role": "Agent definition — work-critic — governance lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/agents/factory-critic-fidelity.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/agents/factory-critic-fidelity.md",
+      "role": "Agent definition — work-critic — fidelity lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "claude/hooks/check-agent-spawn.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-agent-spawn.sh",
+      "role": "PreToolUse hook (Agent) — a roster agent spawns on its family's alias, never on the other's: asks gate.py agents --spawn --hook-json (exit 1 = refused → exit 2 + stderr); a subagent_type outside factory-* is not ours (pass without the reader); the reader or the policy missing on a factory-* name → blocks, names SETUP --upgrade (Q34).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial: the mechanical hold of the writer/critic family separation at the spawn."
+      ]
     }
   },
   "agent_templates": {
@@ -1853,10 +2043,11 @@
       ]
     },
     "architect/design_template.md": {
-      "version": "1.2.1",
+      "version": "1.2.2",
       "content_type": "universal",
       "target": ".context/templates/architect/design_template.md",
       "changelog": [
+        "1.2.2: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.2.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: GCD stub lists 7.8 Mandatory Patterns (REVIEW reads it; was undocumented).",
         "1.2.0: feat(EVOL-041) — design.md becomes the sole technical formalisation point (LAW-16): new § 1.1 Technical Sequence Diagram (tiers migrate from journey), new § 6 Reliability Contract (migrates from user_journey.integration § 6; feeds test_plan § 2.2 + DEVOPS), new § 7 GCD skeleton with REAL § 7.4 Schema Constraints machine record (was phantom — instruction wrote it, template lacked it). §§ 3/3.1/3.2 re-anchored to journey § 6 Business Fields (existence) with ARCH-derived typing.",
         "1.1.0: feat(EVOL-032) phase 1 — frontmatter gains `iterations: []` (ITER-{FEAT}-{N} ledger) and `pending_design_items: []` (BLUEPRINT --refine impl-state probe carry-over → IMPLEMENT --refine delta tasks).",
@@ -1904,10 +2095,11 @@
       ]
     },
     "codesign/gherkin_master_template.feature": {
-      "version": "1.3.1",
+      "version": "1.3.2",
       "content_type": "universal",
       "target": ".context/templates/codesign/gherkin_master_template.feature",
       "changelog": [
+        "1.3.2: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.3.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: Journey Steps comments use Paso N grammar (old #N ordinal collided with #step-N mock anchors).",
         "1.3.0 feat(EVOL-041) — scenario titles documented as machine anchors (user_journey **BDD Scenario:** joins by exact title; renames after approval = realignment iteration).",
         "1.2.0: feat(EVOL-036) SLICE-3 — Incremental-Slicing Note flipped: scenarios assigned to a capability-VALUE slice in slice_map.md at CODESIGN --start (not direct scenario→increment at BLUEPRINT); BLUEPRINT refines slices into increments via cascade_source.",
@@ -1916,10 +2108,11 @@
       ]
     },
     "codesign/slice_map_template.md": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": ".context/templates/codesign/slice_map_template.md",
       "changelog": [
+        "1.0.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.0.0: feat(EVOL-036) SLICE-1 — NEW capability-VALUE slicing artefact emitted by CODESIGN (slices SLICE-{FEAT}-N: scenarios/journey coverage, user-value order, independence rationale, depends_on_slice / depends_on_feature + integration seam, Rule 9 iterations[] ledger). Inert foundation — producer (CODESIGN) lands SLICE-2, consumer (BLUEPRINT) SLICE-3. Cross-family cascade pair codesign/slice_map_template.md -> architect/increment_plan_template.md (SETUP --upgrade walks both)."
       ]
     },
@@ -1934,10 +2127,11 @@
       ]
     },
     "codesign/mock-template.html": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": ".context/templates/codesign/mock-template.html",
       "changelog": [
+        "1.2.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.2.0 feat(EVOL-041) — IMP markup shipped in-template (imp-flow-nav, imp-step sections with data-state divs, state bar, PROTECTED IMP engine, imp CSS); #step-N ids are machine anchors for user_journey **Mock Action:** (check-journey-grammar.sh). Phantom '/UX --mock' generator comment fixed to /CODESIGN --start.",
         "1.1.0: feat(EVOL-032) phase 1 — pseudo-frontmatter comment gains `iterations: []` field; body anchor format `<!-- iter:{id} | date | source | summary -->`.",
         "1.0.0: feat(EVOL-027) initial manifest registration — mock.html scaffold for UX drift detection."
@@ -1953,10 +2147,11 @@
       ]
     },
     "codesign/user_journey_template.md": {
-      "version": "2.0.1",
+      "version": "2.0.2",
       "content_type": "universal",
       "target": ".context/templates/codesign/user_journey_template.md",
       "changelog": [
+        "2.0.2: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "2.0.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: § 6 Reliability Contract numbering in § 8 comment; backend `—` Mock Action noted on the example step.",
         "2.0.0: feat(EVOL-041)! — journey-first rewrite under LAW-16 business purity (ADR-EVOL-041). Part I Experience (Personas, `### Paso N` steps with Persona/Goal/Does/Sees/Feels 1-5/Pain/Ease + machine anchors **BDD Scenario:**/**Mock Action:**, mermaid `journey` per persona, named Paths, Pain & Emotion Map) + Part II conceptual Domain Contract (Actions & Outcomes, Business Fields table Campo/Significado/Obligatorio/Valores/Ejemplo — NO technical types, Business Rules, Third Parties & Guarantees). Single template for ALL scopes (absorbs user_journey.integration.md). Typed Data Schemas, FE/BE sequence diagram and Reliability Contract migrate to design.md. Frontmatter drops based_on_iteration + iteration_history. Grammar validated by scripts/check-journey-grammar.sh.",
         "1.3.0: feat(EVOL-036) SLICE-3 — Incremental-slicing note flipped: CODESIGN groups scenarios into capability-value slices (slice_map.md), BLUEPRINT refines into increments. Removes 'BLUEPRINT distributes the scenarios' authority claim.",
@@ -2114,9 +2309,11 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.17.0",
+      "version": "2.18.1",
       "path": "README.md",
       "changelog": [
+        "2.18.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "2.18.0: feat(EVOL-049)! — role agents and read-only critics paragraph.",
         "2.17.0: feat(EVOL-048) — one planning stage paragraph (EVOL-048).",
         "2.16.0: feat(EVOL-047) — the deployment trigger is a positive list held by a parity gate; the branch rule untouched.",
         "2.15.0: feat(EVOL-046) — gate profiles per control point paragraph.",
@@ -2177,9 +2374,11 @@
       ]
     },
     "commands/blueprint.md": {
-      "version": "1.9.0",
+      "version": "1.10.1",
       "path": ".claude/commands/blueprint.md",
       "changelog": [
+        "1.10.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.10.0: feat(EVOL-049)! — delegates by name to factory-blueprint; the plan gate before --approve.",
         "1.9.0: feat(EVOL-048) — owns a planning phase: never enters plan mode (EVOL-048).",
         "1.8.0: feat(EVOL-045) — increment plan fields Estimated surface / Escape / Sub-increments.",
         "1.7.0: feat(EVOL-041) — prerequisites scope-aware (mock only for UI scopes); schema authority split per LAW-16 (journey § 6 existence / design §§ 3.1-3.2 + 7.4 typing).",
@@ -2194,9 +2393,11 @@
       ]
     },
     "commands/codesign.md": {
-      "version": "1.7.0",
+      "version": "1.8.1",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.8.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.8.0: feat(EVOL-049)! — delegates by name to factory-codesign.",
         "1.7.0: feat(EVOL-048) — owns a planning phase: never enters plan mode (EVOL-048).",
         "1.6.0: feat(EVOL-052) — third level of operation: External Authoring Sync (`--sync {VISION|ID}`); guard semantics for the four authoring sub-commands; branch naming for --sync. Guard ordering stated: after Step 0, before Step -1.",
         "1.5.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: journey step field list completed to the 9-field grammar.",
@@ -2210,9 +2411,11 @@
       ]
     },
     "commands/devops.md": {
-      "version": "1.4.0",
+      "version": "1.5.1",
       "path": ".claude/commands/devops.md",
       "changelog": [
+        "1.5.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.5.0: feat(EVOL-049)! — delegates by name to factory-devops.",
         "1.4.0: feat(EVOL-048) — owns a planning phase (--configure): never enters plan mode (EVOL-048).",
         "1.3.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.3.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
@@ -2222,9 +2425,11 @@
       ]
     },
     "commands/implement.md": {
-      "version": "1.7.0",
+      "version": "1.8.1",
       "path": ".claude/commands/implement.md",
       "changelog": [
+        "1.8.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.8.0: feat(EVOL-049)! — delegates by name to factory-implement; workers and critics named; no subagent commits or decides.",
         "1.7.0: feat(EVOL-048) — owns a planning phase (--plan): never enters plan mode (EVOL-048).",
         "1.6.0: feat(EVOL-032) phase 3 — `--build` bullet list gains MCP Docs Scan banner item; `--refine` step 3.4 reworded to make banner-first-line + delta-task-citation requirements explicit.",
         "1.5.0: feat(EVOL-032) phase 2 — `--refine` section rewritten with six enumerated sub-steps (3.1 locate / 3.2 dev_plan state / 3.3 CVP coherence — AFTER delta generation / 3.4 MCP-docs / 3.5 update with origin+task_class metadata / 3.6 aggregated changelog with delta_tasks checklist read by --build).",
@@ -2237,9 +2442,11 @@
       ]
     },
     "commands/qa.md": {
-      "version": "1.2.0",
+      "version": "1.3.1",
       "path": ".claude/commands/qa.md",
       "changelog": [
+        "1.3.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.3.0: feat(EVOL-049)! — delegates by name to factory-qa.",
         "1.2.0: feat(EVOL-029) /qa --verify {ID} [{INC-N}] — optional second positional argument selects per-slice verification (slice mode reads dev_plan.frontmatter.increments[INC-N].status, generates qa_report_{INC-N}_{ts}.md filtered to scenarios assigned to the increment). Aggregate mode (no INC-N) for incremental features requires every per-slice qa_report_{INC-N}_*.md APPROVED before generating qa_report_final_{ts}.md with aggregates: [...] frontmatter. Monolithic features behave unchanged.",
         "1.1.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
@@ -2284,9 +2491,11 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.9.0",
+      "version": "3.11.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "3.11.0: fix(EVOL-049) — review pass — plan gate: worktree guard, fallback separation",
+        "3.10.0: feat(EVOL-049)! — one phase agent (both concerns); the plan gate before --approve spawns factory-plan-critic (digest, per-spawn model, tree hash, return check, fallback, rounds.plan_gate) — spawn-policy: plan-critic; the phase agent never ratifies.",
         "3.9.0: feat(EVOL-045) — Step B.4 surface estimate + split ratified by RDR; Step C/D/E fields.",
         "3.8.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "3.7.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: test_plan emission covers §§ 3/4 ID families; stale 'Section 4 Edge Cases' → § 2.",
@@ -2326,17 +2535,20 @@
       ]
     },
     "instructions/Factory-blueprint-refine.instructions.md": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "path": ".claude/instructions/Factory-blueprint-refine.instructions.md",
       "changelog": [
+        "1.1.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.1.0: feat(EVOL-036) coherence — --refine ingests slice_map.md: Step 2.1 upstream diff set adds slice_map.md; Step 2.7 adds slice re-ingestion (re-run Step A0 gate, realize new/unrealized SLICE-{FEAT}-N into increments with cascade_source/seam + back-ref) — closes the additive follow-up-slice loop that CVP Check 18(a) guards.",
         "1.0.0: feat(EVOL-032) phase 2 — NEW INSTRUCTION. BLUEPRINT --refine canonical 8-step protocol (closes the long-standing stub at .claude/commands/blueprint.md:31-32). Steps: 2.1 locate changes (git diff since design.iterations[-1].cascade_timestamp); 2.2 analyze current design state; 2.3 dependencies analysis (reuses --start Step -0.5 Inter-Domain + CASCADE_CONSUMERS when needed); 2.4 implementation-state probe (auto-trigger when dev_plan has [x] tasks OR feature branch has commits since design point; classifies drift/carry-over/emergent); 2.5 update design with gaps (drift→modify with RDR, carry-over→pending_design_items[]+`## Carried-Over Gaps`, emergent→ADR via factory-adr-management); 2.6 MCP-docs consultation (consumes factory-mcp-docs-scan banner); 2.7 apply changes (IPP section-atomic, CASCADE_PENDING_ITERATION + CASCADE_CONSUMERS on contract changes); 2.8 aggregated changelog (append_iteration_entry on design.md + test_plan.md + increment_plan.md with shared ITER-{FEAT}-{N} id). Completion gate runs verify_cascade_completion + CVP CODESIGN_BLUEPRINT scope + check-iteration-id-format dry-run."
       ]
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.9.1",
+      "version": "2.11.0",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
+        "2.11.0: fix(EVOL-049) — review pass — --approve Step 0 runs the Plan Gate; one work round then the user adjudicates; concern wording",
+        "2.10.0: feat(EVOL-049)! — hat vocabulary retired (the work critics vs the worker).",
         "2.9.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: DC-coverage gate greps § 2 (Detailed Technical Test Plan) — '§ Edge Cases' anchor did not exist.",
         "2.9.0: fix(EVOL-041) — Template E lists the REAL test_plan sections (0/1/2/2.1/2.2/3/4 with canonical ID families; phantom §4 Test Environment / §5 Test Data die).",
         "2.8.0: feat(EVOL-041) — CVP scope + Mandatory Law #5 wording aligned to LAW-16 split (journey § 6 existence / design § 7.4 typing).",
@@ -2361,9 +2573,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "3.3.0",
+      "version": "3.3.1",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "3.3.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "3.3.0: feat(EVOL-043) — hosts the [LAW-16] body.",
         "3.2.0: feat(EVOL-052) — external-authoring guard as first step of `--start` and `--refine` (byte-identical to the contract in Factory-codesign-sync; CI-asserted). No other change: generation logic untouched; absent `codesign.authoring` ⇒ internal ⇒ no behaviour change.",
         "3.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: ES-concept → journey-v2 landing map (Commands/Events/ReadModels/DataSchemas now have declared destinations); Phase 4b captures all 9 step fields; CHECK 13 re-anchored (spec § External Systems was phantom); backend Tripartite denominator N/2; artefact-count prose unified (slice_map included).",
@@ -2404,9 +2617,10 @@
       ]
     },
     "instructions/Factory-codesign-vision.instructions.md": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "path": ".claude/instructions/Factory-codesign-vision.instructions.md",
       "changelog": [
+        "2.7.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "2.7.0: feat(EVOL-052) — NEW § Component Registry: owns the schema `component_registry_v1` of docs/ux/component-registry.json (previously referenced once and defined nowhere), writer table and status lifecycle DESIGNED→PLANNED→IMPLEMENTED / NO_PRIMITIVE; inventory stays SSOT for code (registry stores the join key only). V.3/V.5 gain the MANDATORY anchor contract (`data-token-group`, `data-component`) the PO package scanner and the catalog depend on. --vision-approve check 4 requires anchored base components listed in the registry. External-authoring guard as first step of `--vision` and `--vision-refine` (effective only when the PO package covers the design system); state sub-commands never guarded; `detect_vision_input_mode()` untouched.",
         "2.6.1: fix(IPP runtime binding) — new `## Incremental Persistence (IPP — MANDATORY)` section after `## Generated Vision Artifacts` wiring the 6 vision artefacts through all three IPP pillars. Pillar 1: `vision_skeleton_first()` creates all 6 skeletons in one pass with `_progress.pending_sections` filled. Pillar 2: `save_vision_section()` updates `_progress.completed_sections` and saves immediately on each artefact completion. Pillar 3: `vision_resume_or_start()` scans the 6 expected paths and resumes from the first pending section after a power-loss recovery. RDR decisions on Aesthetic Quality Directives (D0-D9) append to `vision.md._progress.decisions[]` + inline `<!-- RDR-N -->` for traceability. Previously this instruction had 0 IPP references despite the skill declaring `/codesign --vision` produces 6 artefacts under IPP.",
         "2.6.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -2448,9 +2662,10 @@
       ]
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
+        "2.7.0: feat(EVOL-049)! — hat vocabulary retired (the QA security pass).",
         "2.6.0: feat(EVOL-047) — a merge-triggered deployment asks gate.py runtime-surface --changed first (fail-closed towards deploying); an explicit --deploy always deploys.",
         "2.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -2470,9 +2685,11 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.15.0",
+      "version": "2.17.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.17.0: fix(EVOL-049) — review pass — the main session spawns (no agent carries Agent); worktree guard with the increment's files; separation lost → adjudication",
+        "2.16.0: feat(EVOL-049)! — the phase loop delegates by name — a worker per surface, the work critics and the security lens after a completed diff (tree hashed around the run, returns checked, one round then the user adjudicates); spawn-policy: worker.",
         "2.15.0: feat(EVOL-047) — train-close deployment decided by gate.py runtime-surface --changed.",
         "2.14.0: feat(EVOL-045) — build unit = the sub-increment in BUILDING; sub closure without a full loop; train close (one BVL, one deployment, closing PR).",
         "2.13.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
@@ -2518,9 +2735,11 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.14.0",
+      "version": "2.15.1",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.15.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "2.15.0: feat(EVOL-049)! — hat vocabulary retired (the work critics; the fidelity lens).",
         "2.14.0: feat(EVOL-045) — dev_plan Sub-increment groups + sub_increments frontmatter + completion gate item 4.",
         "2.13.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "2.12.0: feat(EVOL-041) — typing reads move to design.md § 7.4 (synthetic data, seed registry, B.3 form fields); existence stays journey § 6; policies → journey § 7 Business Rules (LAW-16 authority split).",
@@ -2557,9 +2776,11 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.13.0",
+      "version": "2.15.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.15.0: fix(EVOL-049) — review pass — the main session spawns; worktree guard; context:\"increment\" comment; critics at the class default on every lens",
+        "2.14.0: feat(EVOL-049)! — the review-time hats retire: the checks are re-homed onto the read-only work critics (correctness · governance · fidelity) and the security lens; one round then the user adjudicates; spawn-policy: work-critic; the engine runs in increment mode.",
         "2.13.0: feat(EVOL-045) — certify --subject diff takes its base from the resolver — no origin/main fallback taught.",
         "2.12.0: feat(EVOL-044) — peer review and sec audit stamp certifies: {subject: diff} via gate.py certify before APPROVED.",
         "2.11.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
@@ -2590,9 +2811,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.4.0",
+      "version": "3.5.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "3.5.0: feat(EVOL-049)! — the security pass replaces the hat; the DAST wording hat-free.",
         "3.4.0: feat(EVOL-044) — QA report and smoke report stamp certifies: {subject: tree} via gate.py certify before a terminal verdict.",
         "3.3.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "3.2.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: checklist derivation rewritten per ID family (template has no uniform scenario/type/description columns — killed the slice-mode empty-checklist fail-open); Gate 4 enforces overall_verdict=PASS + status=APPROVED; QA-REL aggregate-only + phantom REL-API-VER ref removed.",
@@ -2687,9 +2909,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.20.0",
+      "version": "2.21.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.21.0: feat(EVOL-049)! — Q34 model families — writers and critics on different families.",
         "2.20.0: feat(EVOL-047) — Q33 runtime surface (the positive list a deployment can change).",
         "2.19.0: feat(EVOL-046) — Q32 delivery mode (closed set; return-to-production procedure).",
         "2.18.0: feat(EVOL-045) — Q31 surface ceiling per pull request.",
@@ -2722,9 +2945,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.18.0",
+      "version": "3.19.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.19.0: feat(EVOL-049)! — {{AGENT_WRITER_MODEL}} / {{AGENT_CRITIC_MODEL}} from Q34; invariant: gate.py agents green on the materialised tree.",
         "3.18.0: feat(EVOL-048) — planning block keeps template defaults; its hooks land with settings.json (EVOL-048).",
         "3.17.0: feat(EVOL-047) — {{RUNTIME_SURFACE}} resolved from Q33 (JSON array); invariant: gate.py runtime-surface green on the materialised tree.",
         "3.16.0: feat(EVOL-046) — project manifest shape: delivery_mode (Q32).",
@@ -2775,9 +2999,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.10.0",
+      "version": "2.10.1",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.10.1: fix(EVOL-049) — review pass — .claude/agents/** delivered; Q34 asked when agents.families is missing",
         "2.10.0: feat(EVOL-048) — settings.json merge adds the framework's missing hook commands (Edit|Write, EnterPlanMode, PostToolUse ExitPlanMode); the planning key and the wiring land in the same step.",
         "2.9.0: feat(EVOL-046) — Step 8 — a project manifest without delivery_mode: ask Q32 and write it (an absent key is production).",
         "2.8.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
@@ -2831,9 +3056,10 @@
       ]
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
-      "version": "2.12.0",
+      "version": "2.13.0",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md",
       "changelog": [
+        "2.13.0: feat(EVOL-049)! — delegation by name to the phase agents; no agent ratifies.",
         "2.12.0: feat(EVOL-048) — one planning stage — never zero, never two (EVOL-048).",
         "2.11.0: feat(EVOL-047) — triage item: docs-only change — still branch + PR.",
         "2.10.0: feat(EVOL-045) — protected-branch checks read gate.py branch-class --protected (trains included).",
@@ -2859,9 +3085,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.5.0",
+      "version": "14.6.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.6.0: feat(EVOL-049)! — Core Protocols — Role agents & read-only critics row; no agent ratifies.",
         "14.5.0: feat(EVOL-048) — § Pre-Action Gate — One planning stage (EVOL-048).",
         "14.4.0: feat(EVOL-047) — § Generation Standards 3 rewritten — the branch rule (every change via branch + PR) and the runtime surface (positive list, hard exclusions, parity gate, honest review allowlist); triage item reworded.",
         "14.3.0: feat(EVOL-046) — § Pre-Action Gate — control points and gate profiles paragraph + table.",
@@ -2984,9 +3211,10 @@
       "path": ".claude/skills/factory-incremental-persistence/SKILL.md"
     },
     "skills/factory-agent-communication/SKILL.md": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "type": "skill",
       "changelog": [
+        "2.3.0: feat(EVOL-049)! — spawned workers and critics emit no entry announcement; milestones name the lenses.",
         "2.2.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "2.1.3: fix(smart-redirect) §4 reframed to single-agent — 'Factory Return Briefing (Executed by Factory after PMO Validation)' becomes 'Closing Briefing (FINAL block the agent emits after its own self-validation)'. The same command-executing agent presents the briefing + Smart Redirect next steps as its closing block; no separate Factory turn / PMO Validation stage (multi-agent vestige removed post Claude-Code migration). Anti-redundancy gate (L-01) logic unchanged, only the actor. Header + description harmonised to persona framing.",
         "2.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2997,9 +3225,10 @@
       "path": ".claude/skills/factory-agent-communication/SKILL.md"
     },
     "skills/factory-codebase-inventory/SKILL.md": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "type": "skill",
       "changelog": [
+        "2.6.0: feat(EVOL-049)! — the governance lens owns the DRY checks.",
         "2.5.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "2.4.3: fix(EVOL-041) — CIP journey write targets cite v2 sections (§ 0 Decision History, § 6 Business Fields).",
         "2.4.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -3086,10 +3315,11 @@
       "path": ".claude/skills/factory-worklog/SKILL.md"
     },
     "skills/factory-build-verification/SKILL.md": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
+        "1.11.0: feat(EVOL-049)! — loops run by the orchestrator on behalf of the critics; hat vocabulary retired.",
         "1.10.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.9.0: feat(EVOL-037) Step 8 Minimalism advisory (DC-29) added to full_verification_gate after complexity, before PASSED. LLM self-scan of scope_files for the four over-engineering categories (reinvented stdlib, unneeded dependency, single-impl abstraction, dead flexibility). NON-BLOCKING by design — advisory fail-open, never returns BLOCKED, skips silently when defect-prevention.md absent. how-not-what guardrail: scope cuts never auto-applied (route to CODESIGN via RDR). results.minimalism captures {status, findings}; final log line extended with minimalism status. Prevention/cost-saving lives at decision-time in factory-adversarial-reasoning; this step is the late quality net.",
         "1.8.0: feat(EVOL-033) phase 3 — Step 7 Complexity check added to full_verification_gate after seed alignment, before PASSED. Conditional on FILE_EXISTS(config/quality.json); invokes factory-complexity-check skill on scope_files; reads quality.complexity.{bvl_gate, thresholds}; blocks ONLY when bvl_gate==true AND hard violations present. Fail-open path: missing config, disabled gate, unavailable MCP, no source files → advisory log only, never blocks. results.complexity captures {status, mcp, violations, thresholds}; log line extended with complexity status. Maps to DC-28 (Cyclomatic complexity exceeds project threshold).",
@@ -3130,10 +3360,12 @@
       "path": ".claude/skills/factory-complexity-check/SKILL.md"
     },
     "skills/factory-code-review/SKILL.md": {
-      "version": "1.3.0",
+      "version": "1.5.0",
       "type": "skill",
-      "role": "Factory Code Review — agentic multi-perspective code review engine. 6 vendored Anthropic pr-review-toolkit agents (Apache-2.0, pinned commit in skill README § Provenance). Single engine, two invocations (RDR-3): IMPLEMENT 🔍 REVIEW hat Step R.1b (scope=increment, feeds peer_review, never writes marker) and factory-pr-review axis 7 / Block 20 (scope=branch, ONLY writer of the proof-of-execution marker .claude/state/code-review-${content_hash}.marker). RDR-1 content-hash keying (sha256 over sorted path+blob-sha of is_code∪is_test files — amend/rebase-stable). RDR-2: fail-open on infra (executor-missing → noisy Important), fail-closed on findings (blockers block push; override only via explicit RDR, recorded in marker override object + worklog SCM.code_review.override). RDR-4 gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type defs, comment-analyzer + code-simplifier advisory. Config optional in config/quality.json.code_review — ABSENT ⇒ ACTIVE (inverse of complexity-check; executor ships with the skill). Mandatory 🔎 banner. Severity normalisation orchestrator-side via references/severity-mapping.md.",
+      "role": "Factory Code Review — agentic multi-perspective code review engine. 6 vendored Anthropic pr-review-toolkit agents (Apache-2.0, pinned commit in skill README § Provenance). Single engine, two invocations (RDR-3): IMPLEMENT increment pass — work critics, Step R.1b (scope=increment, feeds peer_review, never writes marker) and factory-pr-review axis 7 / Block 20 (scope=branch, ONLY writer of the proof-of-execution marker .claude/state/code-review-${content_hash}.marker). RDR-1 content-hash keying (sha256 over sorted path+blob-sha of is_code∪is_test files — amend/rebase-stable). RDR-2: fail-open on infra (executor-missing → noisy Important), fail-closed on findings (blockers block push; override only via explicit RDR, recorded in marker override object + worklog SCM.code_review.override). RDR-4 gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type defs, comment-analyzer + code-simplifier advisory. Config optional in config/quality.json.code_review — ABSENT ⇒ ACTIVE (inverse of complexity-check; executor ships with the skill). Mandatory 🔎 banner. Severity normalisation orchestrator-side via references/severity-mapping.md.",
       "changelog": [
+        "1.5.0: fix(EVOL-049) — review pass — the six lenses run as the rostered critic factory-critic-correctness (harness matrix, model per spawn, effort in the prompt); worktree guard with paths; fallback separation → degraded marker; tree-unhashable",
+        "1.4.0: feat(EVOL-049)! — the correctness lens's instrument: class/lens columns, the model resolved per spawn, fallback, tree check, return check, increment mode; spawn-policy: work-critic.",
         "1.3.0: feat(EVOL-045) — branch scope base = gate.py diff-base.",
         "1.2.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.1.0: feat(EVOL-039 RDR-5) § Governance Binding — MANDATORY rule Roll-Call before spawn. Three mechanical gates: provenance (rules/*.md must carry a governance-manifest entry; unregistered file → ❓ foreign-rule), applicability (ADP closed-vocabulary applicable_when vs review context — CI-validated frontmatters), precedence (constitution [LAW] > ADR/FDR > rule > agent default; same-level conflict → ❓ + RDR, engine never picks). Per-agent packet slices (table). Severity anchoring: convention findings cite the bound rule and use the explicit-violation tier, no-anchor convention findings NEVER reach 🔴; correctness findings (bug/security/data-loss) keep their lane regardless. Fail-soft: no rules dir → CLAUDE.md only, banner declares 'rules 0 bound'. Banner gains 'rules {B} bound / {E} excluded / {F} foreign'. Hat mode consumes R.0 governance_context (GCD) as primary packet source. Spawn inputs.governance = binding.packet_for(agent) with mandatory citation directive.",
@@ -3143,10 +3375,11 @@
       "path": ".claude/skills/factory-code-review/SKILL.md"
     },
     "skills/factory-code-review/README.md": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "type": "skill-asset",
       "role": "Provenance table (upstream repo + pinned commit b7e93a4e + per-file adaptation log), Apache-2.0 attribution, re-sync procedure, file inventory.",
       "changelog": [
+        "1.1.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.0.1: fix(EVOL-039 dogfood) — silent-failure-hunter provenance row records the frontmatter description adaptation explicitly (no inline marker possible); code-simplifier adaptation reason completed (return types + try/catch stance); re-sync procedure covers frontmatter adaptations.",
         "1.0.0: feat(EVOL-039) — initial. Upstream pin b7e93a4e7c950ba5b22a2bdb9a61e2631f75a51e."
       ],
@@ -3162,56 +3395,68 @@
       "path": ".claude/skills/factory-code-review/LICENSE"
     },
     "skills/factory-code-review/agents/code-reviewer.md": {
-      "version": "1.0.0",
+      "version": "1.1.1",
       "type": "skill-asset",
-      "role": "Vendored review agent (model: opus) — project-guideline compliance, bug detection, code quality. Confidence 0-100, reports ≥80. Gate profile: BLOCKING.",
+      "role": "Vendored review lens — prompt for the work critic factory-critic-correctness (model per spawn) — project-guideline compliance, bug detection, code quality. Confidence 0-100, reports ≥80. Gate profile: BLOCKING.",
       "changelog": [
+        "1.1.1: fix(EVOL-049) — review pass — effort: high in the frontmatter (validated as a lens of the work critic); description quoted",
+        "1.1.0: feat(EVOL-049)! — EVOL-049 role agents and read-only critics (see ADR-EVOL-049).",
         "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
       ],
       "path": ".claude/skills/factory-code-review/agents/code-reviewer.md"
     },
     "skills/factory-code-review/agents/silent-failure-hunter.md": {
-      "version": "1.0.1",
+      "version": "1.1.1",
       "type": "skill-asset",
-      "role": "Vendored review agent (model: inherit) — silent failures, inadequate error handling, inappropriate fallbacks. CRITICAL/HIGH/MEDIUM. Gate profile: BLOCKING.",
+      "role": "Vendored review lens — prompt for the work critic factory-critic-correctness (model per spawn) — silent failures, inadequate error handling, inappropriate fallbacks. CRITICAL/HIGH/MEDIUM. Gate profile: BLOCKING.",
       "changelog": [
+        "1.1.1: fix(EVOL-049) — review pass — effort: high in the frontmatter (validated as a lens of the work critic); description quoted",
+        "1.1.0: feat(EVOL-049)! — EVOL-049 role agents and read-only critics (see ADR-EVOL-049).",
         "1.0.1: feat(EVOL-044) — frontmatter description quoted (YAML was unreadable by the one parser; manifest-parity gate).",
         "1.0.0: feat(EVOL-039) — vendored from pr-review-toolkit @ b7e93a4e; factory-adapted hunks: Daisy→user in description examples, upstream logging stack (logForDebugging/logError/logEvent, Sentry, Statsig, constants/errorIds.ts) genericised to governance-driven wording."
       ],
       "path": ".claude/skills/factory-code-review/agents/silent-failure-hunter.md"
     },
     "skills/factory-code-review/agents/pr-test-analyzer.md": {
-      "version": "1.0.0",
+      "version": "1.1.1",
       "type": "skill-asset",
-      "role": "Vendored review agent (model: inherit) — behavioral test coverage quality, critical gaps, edge cases. Gap rating 1-10. Gate profile: BLOCKING.",
+      "role": "Vendored review lens — prompt for the work critic factory-critic-correctness (model per spawn) — behavioral test coverage quality, critical gaps, edge cases. Gap rating 1-10. Gate profile: BLOCKING.",
       "changelog": [
+        "1.1.1: fix(EVOL-049) — review pass — effort: high in the frontmatter (validated as a lens of the work critic); description quoted",
+        "1.1.0: feat(EVOL-049)! — EVOL-049 role agents and read-only critics (see ADR-EVOL-049).",
         "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
       ],
       "path": ".claude/skills/factory-code-review/agents/pr-test-analyzer.md"
     },
     "skills/factory-code-review/agents/type-design-analyzer.md": {
-      "version": "1.0.0",
+      "version": "1.1.1",
       "type": "skill-asset",
-      "role": "Vendored review agent (model: inherit) — type encapsulation, invariant expression, usefulness, enforcement (4 axes 1-10). Gate profile: BLOCKING, conditional on type definitions in scope.",
+      "role": "Vendored review lens — prompt for the work critic factory-critic-correctness (model per spawn) — type encapsulation, invariant expression, usefulness, enforcement (4 axes 1-10). Gate profile: BLOCKING, conditional on type definitions in scope.",
       "changelog": [
+        "1.1.1: fix(EVOL-049) — review pass — effort: high in the frontmatter (validated as a lens of the work critic); description quoted",
+        "1.1.0: feat(EVOL-049)! — EVOL-049 role agents and read-only critics (see ADR-EVOL-049).",
         "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
       ],
       "path": ".claude/skills/factory-code-review/agents/type-design-analyzer.md"
     },
     "skills/factory-code-review/agents/comment-analyzer.md": {
-      "version": "1.0.0",
+      "version": "1.1.1",
       "type": "skill-asset",
-      "role": "Vendored review agent (model: inherit) — comment accuracy vs implementation, comment rot, technical debt. Gate profile: ADVISORY (never blocks).",
+      "role": "Vendored review lens — prompt for the work critic factory-critic-correctness (model per spawn) — comment accuracy vs implementation, comment rot, technical debt. Gate profile: ADVISORY (never blocks).",
       "changelog": [
+        "1.1.1: fix(EVOL-049) — review pass — effort: high in the frontmatter (validated as a lens of the work critic); description quoted",
+        "1.1.0: feat(EVOL-049)! — EVOL-049 role agents and read-only critics (see ADR-EVOL-049).",
         "1.0.0: feat(EVOL-039) — vendored verbatim from pr-review-toolkit @ b7e93a4e."
       ],
       "path": ".claude/skills/factory-code-review/agents/comment-analyzer.md"
     },
     "skills/factory-code-review/agents/code-simplifier.md": {
-      "version": "1.0.1",
+      "version": "1.1.1",
       "type": "skill-asset",
-      "role": "Vendored review agent (model: opus) — clarity/maintainability refactor proposals, functionality-preserving. No severity model → all 🟢. Gate profile: ADVISORY (never blocks); proposals only, never edits in review context.",
+      "role": "Vendored review lens — prompt for the work critic factory-critic-correctness (model per spawn) — clarity/maintainability refactor proposals, functionality-preserving. No severity model → all 🟢. Gate profile: ADVISORY (never blocks); proposals only, never edits in review context.",
       "changelog": [
+        "1.1.1: fix(EVOL-049) — review pass — effort: high in the frontmatter (validated as a lens of the work critic); description quoted",
+        "1.1.0: feat(EVOL-049)! — EVOL-049 role agents and read-only critics (see ADR-EVOL-049).",
         "1.0.1: fix(EVOL-039 dogfood) — factory-adapted marker reason completed: names all 5 replaced upstream bullets incl. explicit-return-types and the avoid-try/catch stance change.",
         "1.0.0: feat(EVOL-039) — vendored from pr-review-toolkit @ b7e93a4e; factory-adapted hunk: upstream stack standards (ES modules, function keyword, React Props) genericised to governance-driven lookup."
       ],
@@ -3294,10 +3539,12 @@
       "path": ".claude/skills/factory-backlog-next-task/SKILL.md"
     },
     "skills/factory-preventive-sweep/SKILL.md": {
-      "version": "1.5.0",
+      "version": "1.7.0",
       "type": "skill",
       "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
+        "1.7.0: fix(EVOL-049) — review pass — the sweep spawns factory-critic-governance by name, never a generic Explore agent",
+        "1.6.0: feat(EVOL-049)! — the Explore sub-agents are read-only work critics; model and digest per spawn; spawn-policy: work-critic.",
         "1.5.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.4.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
@@ -3333,10 +3580,12 @@
       "path": ".claude/skills/factory-rdr/SKILL.md"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.12.0",
+      "version": "1.13.1",
       "type": "skill",
-      "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .claude/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT 🔍 REVIEW hat scope, separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
+      "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .claude/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT increment pass — work critics; separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "changelog": [
+        "1.13.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
+        "1.13.0: feat(EVOL-049)! — increment mode and the push gate named through the lenses; hat vocabulary retired.",
         "1.12.0: feat(EVOL-047) — the docs-only fast-lane is about review lanes only — never a commit-to-main permit; deployment decided by surface.runtime_surface.",
         "1.11.0: feat(EVOL-046) — § Phase 1 protected check per gate.py branch-class --protected.",
         "1.10.0: feat(EVOL-045) — base = gate.py diff-base; Block 21 surface-over-ceiling.",
@@ -3518,11 +3767,13 @@
       "path": ".claude/skills/factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.11.2",
+      "version": "1.12.1",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.12.1: fix(EVOL-049) — review pass — step 5b says loudly when the target lacks rules/agents.md or agents.families (SETUP --upgrade, Q34)",
+        "1.12.0: feat(EVOL-049)! — delivers .claude/agents/*.md (the roster) — step 5b.",
         "1.11.2: fix(EVOL-041 code-review) — retired-label cites artefact names without pinned patch versions (anti-drift).",
         "1.11.1: fix(EVOL-041 code-review) — Block 20 gate findings remediated: retired-label list completed with ux/mock-template.html (4th deletion of this branch).",
         "1.11.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: orphan detector labels the 3 EVOL-041-retired templates as 'RETIRED — safe to delete' (F-01: no deletion channel exists; explicit signal for downstream operators).",
@@ -3740,11 +3991,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.11.0: feat(EVOL-049)! — lock-step pair for the agent definitions (.claude/agents/*.md ↔ the template roster).",
         "1.10.0: feat(EVOL-046) — pre-commit joins the lock-step pairs.",
         "1.9.0: feat(EVOL-043) — lock-step pairs for scripts/gate.py, scripts/gates/*.py and the snapshot generator (meta only).",
         "1.8.0: feat(EVOL-041) — new meta_template_mirror pair for scripts/check-journey-grammar.sh (journey grammar validator, D1 remediation: the validator pair is DECLARED, not implicit).",
@@ -3760,9 +4012,10 @@
       ]
     },
     "skills/factory-adr-management/SKILL.md": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "path": ".claude/skills/factory-adr-management/SKILL.md",
       "changelog": [
+        "1.2.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.2.0: feat(EVOL-043) — Accept Procedure in index form: sentence → `> sentence` of the [PLAW-NN] entry, ### Body → body_home rule file, Records appended; target_section = [PLAW-NN] | NEW:; body_home field.",
         "1.1.3: feat(EVOL-040) — PLAW-NN namespace documented for project-minted laws (regex-disjoint from framework LAW-01..99).",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -3783,9 +4036,10 @@
       "delivery": "both"
     },
     "scripts/test-templates-static.sh": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "path": "scripts/test-templates-static.sh",
       "changelog": [
+        "1.6.0: fix(EVOL-049) — review pass — every tree/worktree certification in the governed prose names its --paths",
         "1.5.0: feat(EVOL-047) — every deploying template's runtime-surface gate line runs against a stubbed reader: untouched skips the tag, a fault says so and proceeds, touched proceeds; the GitHub gate step's outputs.",
         "1.4.0: feat(EVOL-046) — every workflow file (meta + every platform template) must parse as YAML (an unquoted step name with a colon failed CI at 0 s).",
         "1.3.0: feat(EVOL-043) — rewritten/extended for the index model (see script header).",
@@ -3992,11 +4246,12 @@
       ]
     },
     "settings.json": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "type": "config",
       "role": "Claude Code harness settings — wires the full governance hook chain (SessionStart banner, UserPromptSubmit freshness, PreCompact, PreToolUse Edit|Write/Write/Bash gates, PostToolUse watcher). Lock-step pair with .context/templates/setup/claude/settings.json.",
       "path": ".claude/settings.json",
       "changelog": [
+        "2.2.0: fix(EVOL-049) — review pass — PreToolUse Agent → check-agent-spawn.sh (a roster agent spawns on its family's alias)",
         "2.1.0: feat(EVOL-048) — PreToolUse Edit|Write: check-plan-approval.sh; PostToolUse ExitPlanMode: record-plan-approval.sh (EVOL-048).",
         "2.0.0: feat(EVOL-043)! — BREAKING (hook contract: blocking hooks exit 2, delivery hook wired) — deliver-governance.sh wired on PreToolUse Edit|Write (law at the point of edit).",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
@@ -4138,11 +4393,13 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.5.0",
+      "version": "1.7.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.7.0: fix(EVOL-049) — review pass — retired_terms: the remaining hat vocabulary (DEV/ARCH/PO/UX/QA hat, hat switch, multi-hat), docs/spec/** exempt for history",
+        "1.6.0: feat(EVOL-049)! — agents.families (writer / critic aliases); the retired hat vocabulary (REVIEW Hat, SEC Hat, …).",
         "1.5.0: feat(EVOL-048) — planning block — governed_paths, docs_exempt, gate_inputs, exempt_classes (none in the framework repo), plan_artefact (the ADR), adoption_window_minutes.",
         "1.4.0: feat(EVOL-047) — surface.runtime_surface as the positive deployment list; always_deploy (hard exclusions with reasons); declared_reads.",
         "1.3.0: feat(EVOL-045) — surface block — ceiling_files / ceiling_lines / escapes (closed) / runtime_surface.",
@@ -4192,9 +4449,10 @@
       ]
     },
     "scripts/test-check-journey-grammar.sh": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "path": "scripts/test-check-journey-grammar.sh",
       "changelog": [
+        "1.2.1: fix(EVOL-049) — review pass: the Decision History fixture column is `Concern`, never `Hat`",
         "1.2.0: fix(EVOL-041 code-review) — Block 20 gate findings remediated: battery 14 → 33 cases: expect() proves WHICH gate fired (message assert); new red cases for every hardened gate (quoted scope, empty anchors, '—' BDD, duplicate Paso, matrix phantom/missing row, free-text Mock Action, non-numeric Feels, wrong mermaid type, lowercase varchar, zero-ref path, frontmatter key) + greens (inline comment trim, parenthesised title, file-mode --spec/--mock) + exit-2 contract (no journey, mktemp infra).",
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: 14th case: missing mermaid journey diagram MUST fail (red-proved).",
         "1.0.0: feat(EVOL-041) — red-proving self-test: 13 cases (2 green fixtures + 10 mutations that MUST fail + journey-first skip case). Wired into governance-check T2 suite."
@@ -4246,11 +4504,13 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.5.0",
+      "version": "1.7.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.7.0: fix(EVOL-049) — review pass — agents: manifest unreadable = fault, --spawn [--hook-json], --check-return needs --class, --resolve exit 1 over the cap; certify --subject worktree",
+        "1.6.0: feat(EVOL-049)! — agents subcommand — validate / --resolve / --fallback / --digest / --check-return (EVOL-049).",
         "1.5.0: feat(EVOL-048) — plan --path | --status | --record subcommand (EVOL-048).",
         "1.4.0: feat(EVOL-047) — runtime-surface [--changed] subcommand (EVOL-047).",
         "1.3.0: feat(EVOL-046) — profile [--run] and one-definition subcommands (EVOL-046).",
@@ -4279,11 +4539,12 @@
       ]
     },
     "scripts/gates/corpus.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "gates: law index parser (CLAUDE.md list form + constitution H2 form), body_section parity lookup, rule/instruction/skill universe, defect catalog (families + classes), the applicability resolver (AND across axes, OR within), roll-call renderer, digest within budget. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/corpus.py",
       "changelog": [
+        "1.1.0: fix(EVOL-049) — review pass — digest(include_always, label) for a spawned agent that gets no snapshot",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
     },
@@ -4306,11 +4567,13 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.5.0",
+      "version": "1.7.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.7.0: fix(EVOL-049) — review pass — red cases: class promotion, tool spellings, families, dead rows, cap, tier unknown, separation, digest lens law, spawn check, return shapes, worktree hash, CLI faults (40 tests)",
+        "1.6.0: feat(EVOL-049)! — Agents class — policy parse, the validator red on every way a roster can lie (same family, a critic with a write tool, a worker without one, a model written in, no effort, over budget, a dangling pointer, roster/definition/manifest parity, a ladder rung that is not a family or that degrades a writer, a spawn site without its marker, a policy without a site), the per-spawn resolver, the fallback, the digest budget, the return contracts; CLI.",
         "1.5.0: feat(EVOL-048) — Planning class — governed precedence (gate inputs, docs exemption), classes fail closed, the marker only from the harness, adoption once from a base branch within the window and never by the advisory, the plan artefact; CLI exit codes.",
         "1.4.0: feat(EVOL-047) — Runtime class — the positive trigger (untouched/touched/hard exclusion/HEAD^1/empty list/shape faults) and the parity gate (transitive reads, comments, declared and stale reads); CLI exit codes.",
         "1.3.0: feat(EVOL-046) — Profile class — mode fail-closed (unknown / absent / unreadable / no env override), profile per control point, members by property, all-report run with one verdict, one-definition scan; CLI exit codes.",
@@ -4320,11 +4583,13 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.5.0",
+      "version": "1.7.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.7.0: fix(EVOL-049) — review pass — the digest carries the lens's rule; spawn check and hook refuse the writer's alias; the round cap (62 checks)",
+        "1.6.0: feat(EVOL-049)! — the roster lands, gate.py agents green, a same-family roster red, a per-spawn resolution and a digest on the materialised policy.",
         "1.5.0: feat(EVOL-048) — planning gate on the scratch project: a feature passes by class, a fix is blocked, the delivered recorder's approval unblocks (EVOL-048).",
         "1.4.0: feat(EVOL-047) — runtime-surface parity on the materialised tree; docs-only merge untouched, src merge touched, stale exemption red.",
         "1.3.0: feat(EVOL-046) — profile resolution (feature full, sub-increment light, production strict), the all-report run and the one-definition scan on the scratch project; project manifest carries delivery_mode.",
@@ -4343,11 +4608,12 @@
       ]
     },
     "scripts/test-hooks.sh": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
+        "1.5.0: fix(EVOL-049) — review pass — check-agent-spawn scenarios (99 checks)",
         "1.4.0: feat(EVOL-048) — check-plan-approval and record-plan-approval cases (EVOL-048).",
         "1.3.0: feat(EVOL-046) — edit hook fail-closed cases; pre-push runs the profile as one call (red blocks, fault warns, no member outside the profile, missing reader blocks).",
         "1.2.0: feat(EVOL-045) — train protection cases; step 4 surface stub; six gates.",
@@ -4356,11 +4622,12 @@
       ]
     },
     "scripts/gates/coherence.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "gates: coherence gates — `certify` (the certification hash a verdict embeds: diff = the factory-code-review content hash, tree = sha256 over tracked blobs under paths), `currency` (a terminal verdict artefact still certifies the current build; stale/missing/unreadable = red), `manifest_parity` (frontmatter version == manifest version; manifest is the source of truth). Meta copy (lock-step pair).",
       "path": "scripts/gates/coherence.py",
       "changelog": [
+        "1.1.0: fix(EVOL-049) — review pass — `worktree` certification subject (on-disk bytes, untracked included) for the guard around a read-only run; a bare directory covers what is below it",
         "1.0.0: feat(EVOL-044) — initial."
       ]
     },
@@ -4374,11 +4641,12 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py",
       "changelog": [
+        "1.2.0: feat(EVOL-049)! — agents member (the roster validator; no build, no database).",
         "1.1.0: feat(EVOL-047) — runtime-surface member (light: no build, no database).",
         "1.0.0: feat(EVOL-046) — initial."
       ]
@@ -4426,6 +4694,153 @@
       "role": "PreToolUse hook (EnterPlanMode) — one stage, never two: a branch class whose plan a framework phase owns never enters the harness's plan mode; asks gate.py plan --enter (exit 1 = blocked → exit 2 + stderr); reader absent → pass (plan mode writes nothing). Meta copy (lock-step pair .claude/hooks/*.sh).",
       "changelog": [
         "1.0.0: feat(EVOL-048) — initial."
+      ]
+    },
+    "scripts/gates/agents.py": {
+      "version": "1.1.0",
+      "type": "script",
+      "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes). Meta copy (lock-step pair).",
+      "path": "scripts/gates/agents.py",
+      "changelog": [
+        "1.1.0: fix(EVOL-049) — review pass — roster class authoritative, critic tool allowlist (spellings, mcp, case), name = file, families real and distinct, class↔family coherence, dead resolve rows refused, round cap enforced, tier unknown at 0/0, fallback says separation lost, digest expands the surface + always-on rules, --spawn check, check-return holds every severity line and refuses fake probes; vendored lenses validated; template fallback dropped",
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-codesign.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-codesign.md",
+      "role": "Agent definition — phase (CODESIGN). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-blueprint.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-blueprint.md",
+      "role": "Agent definition — phase (BLUEPRINT). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-implement.md": {
+      "version": "1.0.1",
+      "type": "agent",
+      "path": ".claude/agents/factory-implement.md",
+      "role": "Agent definition — phase (IMPLEMENT). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.1: fix(EVOL-049) — review pass — carries no Agent tool: the main session runs the build loop",
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-qa.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-qa.md",
+      "role": "Agent definition — phase (QA). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-devops.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-devops.md",
+      "role": "Agent definition — phase (DEVOPS). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-dev-backend.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-dev-backend.md",
+      "role": "Agent definition — worker (backend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-dev-frontend.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-dev-frontend.md",
+      "role": "Agent definition — worker (frontend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-dev-platform.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-dev-platform.md",
+      "role": "Agent definition — worker (platform / tooling surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-dev-e2e.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-dev-e2e.md",
+      "role": "Agent definition — worker (end-to-end tests surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-plan-critic.md": {
+      "version": "1.0.1",
+      "type": "agent",
+      "path": ".claude/agents/factory-plan-critic.md",
+      "role": "Agent definition — plan-critic (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.1: fix(EVOL-049) — review pass — --check-return --class plan-critic; dev_plan.md dropped",
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-critic-security.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-critic-security.md",
+      "role": "Agent definition — work-critic — security lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-critic-correctness.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-critic-correctness.md",
+      "role": "Agent definition — work-critic — correctness lens (read-only; the vendored LAW-13 engine is its instrument). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-critic-governance.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-critic-governance.md",
+      "role": "Agent definition — work-critic — governance lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "agents/factory-critic-fidelity.md": {
+      "version": "1.0.0",
+      "type": "agent",
+      "path": ".claude/agents/factory-critic-fidelity.md",
+      "role": "Agent definition — work-critic — fidelity lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial."
+      ]
+    },
+    "hooks/check-agent-spawn.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/check-agent-spawn.sh",
+      "role": "PreToolUse hook (Agent) — a roster agent spawns on its family's alias, never on the other's: asks gate.py agents --spawn --hook-json (exit 1 = refused → exit 2 + stderr); a subagent_type outside factory-* is not ours (pass without the reader); the reader or the policy missing on a factory-* name → blocks, names SETUP --upgrade (Q34). Meta copy (lock-step pair .claude/hooks/*.sh).",
+      "changelog": [
+        "1.0.0: feat(EVOL-049)! — initial: the mechanical hold of the writer/critic family separation at the spawn."
       ]
     }
   },

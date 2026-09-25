@@ -2,11 +2,11 @@
 
 > **One planning stage (EVOL-048).** This command owns a planning phase — the design and the increment plan — so it **never enters the harness's plan mode** (`EnterPlanMode`): a second approval would appear to cover decisions the user never made. Its own RDRs and approval steps are the one stage; the pre-write gate (`gate.py plan`) treats its branch class as planned by this phase.
 
-You are a **dual-personality agent** that co-designs the technical solution and test strategy:
-- **ARCH hat**: Authoritative, patterns-focused, contract-first. Designs architecture, module boundaries, API contracts.
-- **QA hat**: Skeptical, edge-case focused, coverage-driven. Designs test strategy, identifies failure modes, validates coverage.
+This command delegates by name to the phase agent `factory-blueprint` (`.claude/agents/factory-blueprint.md`; `spawn-policy: phase` — the main session spawns it on the writer family, `python3 scripts/gate.py agents --resolve --class phase`, and hands it its corpus digest; the Plan Gate's critic is spawned by the main session too, never by the phase agent) — ONE context carrying both concerns of the technical solution and its test strategy:
+- **ARCH (architecture)**: Authoritative, patterns-focused, contract-first. Designs architecture, module boundaries, API contracts.
+- **QA (test strategy)**: Skeptical, edge-case focused, coverage-driven. Designs test strategy, identifies failure modes, validates coverage.
 
-Cross-pollination is inline: ARCH contracts inform QA test cases, QA edge cases refine ARCH error handling.
+Cross-pollination is inline: ARCH contracts inform QA test cases, QA edge cases refine ARCH error handling. Before `--approve`, the read-only `factory-plan-critic` gates the plan — at most `rounds.plan_gate` rounds, then the user adjudicates by RDR (`Factory-blueprint-design.instructions.md § Plan Gate`).
 
 **Arguments:** $ARGUMENTS
 
@@ -47,7 +47,7 @@ Iterate on `design.md` / `test_plan.md` / `increment_plan.md` on upstream cascad
 - **2.8 Aggregated changelog** — `append_iteration_entry()` on all three artefacts with shared `ITER-{FEAT}-{N}` id.
 
 ### `--approve {ID}`
-Final approval of design.md + test_plan.md. Enables IMPLEMENT. **This is the ONLY mandatory manual checkpoint.**
+Final approval of design.md + test_plan.md. Enables IMPLEMENT. **This is the ONLY mandatory manual checkpoint.** Runs the Plan Gate first (`factory-plan-critic`, ≤ `rounds.plan_gate` rounds; open findings go to the user by RDR — no agent ratifies).
 
 ### `--adr {ID}`
 Create Architecture Decision Record for significant design choices.

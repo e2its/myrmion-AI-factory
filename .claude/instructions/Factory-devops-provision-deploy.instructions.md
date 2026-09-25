@@ -775,7 +775,7 @@ OUTPUT global dashboard:
 QA --verify requires active environment
   IF pre-prod SUSPENDED: Suggest DEVOPS --resume --env {ENV}
   IF NOT_PROVISIONED: Suggest DEVOPS --provision {ID} --env {ENV}
-  QA SEC hat runs DAST against active deployment endpoint
+  the QA security pass runs DAST against active deployment endpoint
 ```
 
 ### QA → DEVOPS (Integration Testing)

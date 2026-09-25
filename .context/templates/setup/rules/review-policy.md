@@ -7,20 +7,20 @@ applicable_when:
 
 > **Status:** Active  
 > **Enforcement:** Mandatory for all features before QA verification  
-> **Agent:** IMPLEMENT.AGENT.MD (🔍 REVIEW hat)
+> **Agent:** IMPLEMENT — the work critics (`factory-critic-*`, read-only; EVOL-049)
 
 ---
 
 ## 🎯 Review Philosophy
 
-Peer review acts as a **quality gate** between implementation (💻 DEV hat) and certification (🧪 QA). The goal is to catch architectural violations, security issues, and code quality problems early, before they consume QA resources.
+Peer review acts as a **quality gate** between implementation (the development workers) and certification (🧪 QA). The goal is to catch architectural violations, security issues, and code quality problems early, before they consume QA resources.
 
 ### Core Principles
 
 1. **AI-Driven:** Reviews are performed automatically by AI (no human assignment required)
 2. **Sequential Blocking:** Features cannot proceed to QA until review is approved
 3. **Configurable Strictness:** Review depth adapts to environment and risk level
-4. **Retry Escalation:** After 3 rejections, automatic escalation to Architect for conflict resolution
+4. **Bounded Loop:** one worker↔critic round (`rules/agents.md → agents.rounds.work`); what stays open goes to the user by RDR — no auto-escalation (EVOL-049)
 5. **Override Capability:** Emergency bypass available with mandatory justification
 
 ---
@@ -94,37 +94,26 @@ Files matching these patterns are **automatically skipped** during peer review:
 
 ---
 
-## 🔄 Retry Policy & Escalation
+## 🔄 Bounded Loop & User Adjudication
 
-### Max Retry Attempts: 3
+### One work round
 
-After **3 rejections**, the feature automatically escalates to the Architect:
+The cap is a key, never a judgement: `rules/agents.md → agents.rounds.work` (1). One worker↔critic round on a completed diff:
 
 ```
-Attempt 1: DEV → REVIEW (REJECT) → DEV fix → REVIEW
-Attempt 2: DEV → REVIEW (REJECT) → DEV fix → REVIEW  
-Attempt 3: DEV → REVIEW (REJECT) → DEV fix → REVIEW
-Attempt 4: ⛔ MAX RETRIES → AUTO-ESCALATE to `/BLUEPRINT --review-conflict`
+Round 1: worker diff → work critics (findings) → worker cure → work critics re-check
+Open after the cap: ⛔ the user adjudicates via RDR — no auto-escalation, no agent ratifies
 ```
 
-### Escalation Triggers
+### What reaches the user
 
-Automatic escalation occurs when:
-- `review_attempt_count >= 3` in `dev_plan.md` frontmatter
-- Same BLOCKER appears in 3 consecutive reviews (systematic issue)
-- Architect receives notification with full review history
+- A finding still open after the round (accept · rework the increment · route to `/BLUEPRINT --review-conflict` when the plan is the cause)
+- A cure that seeds the next round's findings (the loop's own defect — surfaced, never looped)
+- The same BLOCKER on both passes (a systematic issue — plan, not code)
 
-### Architect Conflict Resolution
+### BLUEPRINT Conflict Resolution
 
-When escalated, ARCH agent must:
-1. Read all 3 review reports
-2. Analyze pattern of rejections
-3. Determine root cause:
-   - Design is unimplementable → Revise design
-   - Requirements are ambiguous → Escalate to PO
-   - Review is too strict → Override with justification
-4. Make **binding decision** (approve/reject/redesign)
-5. Reset retry counter if design changes
+Only when the user routes there. `/BLUEPRINT --review-conflict` reads the round's reports, names the root cause (design unimplementable → revise design · requirements ambiguous → back to CODESIGN · the bar misapplied → override with justification) and decides on the plan — never triggered by a counter.
 
 ---
 
@@ -216,9 +205,9 @@ The PEER_REVIEW agent automatically validates:
 
 ### DEV → IMPLEMENT (Unified Build)
 When DEV plan is ready, execute `/IMPLEMENT --build {{FEATURE_ID}}`:
-- 💻 DEV implements (TDD) → 🔍 REVIEW verifies (governance + quality) → 🛡️ SEC scans (SAST) per phase
-- Review is inline within `/IMPLEMENT --build` (🔍 REVIEW hat)
-- Seamless multi-hat workflow
+- the worker implements (TDD) → the work critics verify (correctness · governance · fidelity) → the security lens scans (SAST) per phase
+- Review is inline within `/IMPLEMENT --build` (the read-only work critics, spawned per phase)
+- One work round (`rules/agents.md → agents.rounds.work`), then the user adjudicates
 
 ### REVIEW → QA (Sequential Blocking)
 When QA executes `/QA --verify {{FEATURE_ID}}`:
@@ -226,11 +215,10 @@ When QA executes `/QA --verify {{FEATURE_ID}}`:
 - Blocks if review not completed
 - Allows override if `override_justification` exists
 
-### REVIEW → ARCH (Escalation)
-When retry limit exceeded:
-- Automatically calls `/BLUEPRINT --review-conflict {{FEATURE_ID}}`
-- BLUEPRINT receives full review history
-- BLUEPRINT makes binding decision
+### Work critics → BLUEPRINT (`--review-conflict`)
+When the user routes an open finding to the plan:
+- `/BLUEPRINT --review-conflict {{FEATURE_ID}}` receives the round's reports
+- BLUEPRINT decides on the design; no counter triggers it
 
 ---
 
@@ -244,7 +232,7 @@ Track in `docs/project_log/workflow_log.json`:
 |--------|-------------|--------|
 | **Pass Rate** | % of features approved on 1st attempt | >80% |
 | **Avg Attempts** | Average retries before approval | <1.5 |
-| **Escalation Rate** | % of features escalated to ARCH | <5% |
+| **Adjudication Rate** | % of increments with a finding open after the work round (user adjudicates) | <5% |
 | **Override Rate** | % of features overridden | <2% |
 | **Common Blockers** | Top 3 rejection reasons | Track patterns |
 
@@ -267,9 +255,9 @@ Add to `docs/constitution.md`:
 ### Default Configuration
 review_policy:
   default_level: STANDARD
-  enforce_model_separation: false  # Future: use different AI models for DEV vs REVIEW
-  max_retry_attempts: 3
-  auto_escalate_to_arch: true
+  enforce_model_separation: true   # writer ≠ critic by construction — config/quality.json → agents.families (gate.py agents refuses equal aliases)
+  work_rounds: 1                   # the key: rules/agents.md → agents.rounds.work
+  terminal: user_adjudication      # RDR in the main session; no auto-escalation
   override_requires_justification: true
   override_min_length: 50
 
@@ -294,11 +282,10 @@ review_exclusions:
   - "**/.next/**"
   - "**/coverage/**"
 
-### Escalation Configuration
-escalation:
-  max_attempts: 3
-  escalate_to_agent: ARCHITECT
-  escalate_command: "--review-conflict"
+### Loop Terminal (EVOL-049)
+loop:
+  work_rounds: 1                   # rules/agents.md → agents.rounds.work
+  terminal: user_adjudication      # RDR; "--review-conflict" only when the user routes there
   notify_stakeholders: true
 
 ### Override Configuration
@@ -314,7 +301,7 @@ override:
 
 ## 📚 Further Reading
 
-- [IMPLEMENT.AGENT.MD](../agents/IMPLEMENT.AGENT.MD) — Unified build (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC)
+- [IMPLEMENT.AGENT.MD](../agents/IMPLEMENT.AGENT.MD) — Unified build (workers → work critics → security lens)
 - [immutability_policy.md](./immutability_policy.md) — Phase 3.5 (Review Lock)
 - [QA.AGENT.MD](../agents/QA.AGENT.MD) — Review prerequisite checks
 - [BLUEPRINT.AGENT.MD](../agents/BLUEPRINT.AGENT.MD) — Conflict resolution

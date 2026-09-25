@@ -1,7 +1,8 @@
 ---
-version: 2.10.0
+version: 2.11.0
 date: 2026-04-21
 changelog:
+  - "2.11.0: feat(EVOL-049)! — agents: writer_model / critic_model (Q34) + summary bullet."
   - "2.10.0: feat(EVOL-047) — surface.runtime_surface slot (Q33) + summary bullet."
   - "2.9.0: feat(EVOL-046) — delivery: mode frontmatter slot (Q32) + summary bullet."
   - "2.8.0: feat(EVOL-045) — surface: frontmatter block (Q31) + § E summary bullet."
@@ -28,6 +29,9 @@ surface:
   runtime_surface: ["src/**", "tests/**", "infra/**", "scripts/**", "package.json"]   # Q33 — the POSITIVE list a deployment can change → config/quality.json surface.runtime_surface (EVOL-047)
 delivery:
   mode: development                   # Q32 — development | production → docs/project_log/governance_versions.json delivery_mode (gate profiles, EVOL-046)
+agents:
+  writer_model: sonnet                # Q34 — the writers' family (harness alias) → config/quality.json agents.families.writer (EVOL-049)
+  critic_model: opus                  # Q34 — the critics' family, must differ → agents.families.critic
 last_update: [TIMESTAMP]
 ---
 
@@ -153,6 +157,7 @@ last_update: [TIMESTAMP]
 - **Measurement Window (Q30):** `measurement.retention_days`: [90] · `measurement.report_interval_days`: [30] → `subproducts/measure/measure.config.json`
 - **Surface Ceiling per Pull Request (Q31):** `surface.ceiling_files`: [30] · `surface.ceiling_lines`: [800] → `config/quality.json → surface.*`
 - **Delivery Mode (Q32):** `delivery.mode`: [development] → `docs/project_log/governance_versions.json → delivery_mode` (the gate profile per control point; return to production = set the key to `production` in one commit)
+- **Model Families (Q34):** `agents.writer_model`: [sonnet] · `agents.critic_model`: [opus] → `config/quality.json → agents.families` — writers and critics on different families by construction (EVOL-049)
 - **Runtime Surface (Q33):** `surface.runtime_surface`: [src/**, tests/**, infra/**, scripts/**, package.json] → `config/quality.json → surface.runtime_surface` — the positive list every deploying / release workflow asks (`gate.py runtime-surface --changed`); held to reality by the parity gate (EVOL-047)
 
 ## 3.1. Budget Validation Summary
