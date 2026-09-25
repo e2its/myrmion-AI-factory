@@ -89,6 +89,9 @@ jobs:
           chmod +x scripts/check-applicability-frontmatter.sh
           bash scripts/check-applicability-frontmatter.sh
 
+      - name: Law parity (every law resolves its one body and quotes its sentence)
+        run: python3 scripts/gate.py laws --parity
+
       - name: Injection budgets (real producers at worst case)
         run: python3 scripts/gate.py budget
 

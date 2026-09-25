@@ -157,6 +157,8 @@ run_hook deliver-governance.sh '{"tool_name":"Edit","tool_input":{"file_path":"s
 assert_context "same set again in the same session: one-line pointer, not the payload" "delivered=\"earlier-this-session\""
 run_hook deliver-governance.sh '{"tool_name":"Edit","tool_input":{"file_path":"db/migrations/001.sql"},"session_id":"s1"}'
 assert_context "editing a migration: the data family is delivered" "DC-27"
+run_hook deliver-governance.sh "$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/src/abs.py"},"session_id":"s6"}' "$REPO")"
+assert_context "an absolute file_path (the real payload shape) is resolved to the repo-relative path" 'paths="src/abs.py"'
 run_hook deliver-governance.sh '{"tool_name":"Write","tool_input":{"file_path":"README.md"},"session_id":"s2"}'
 assert_context "a path no family governs: universal defect classes (paths *) are still delivered, never silent" "DC-29"
 if printf '%s' "$OUT" | grep -qF 'paths=\"README.md\"' && ! printf '%s' "$OUT" | grep -qF 'DC-18'; then ok "no path-bound class leaks to README.md"; else bad "path-bound classes leaked to README.md" "$OUT"; fi

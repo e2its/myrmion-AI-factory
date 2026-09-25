@@ -275,7 +275,7 @@ class Corpus(unittest.TestCase):
         self.assertIn("rule .claude/rules/broken.md unreadable", full, "an unreadable rule is said, never silently dropped")
         cat = self.repo / ".claude/rules/defect-prevention.md"
         cat.write_text(cat.read_text() + "| DC-40 | `runtime` | " + "— multibyte dashes — " * 12 + " | `—` | `src/**` | DEV | WARNING |\n", encoding="utf-8")
-        for b in range(150, 420, 37):
+        for b in list(range(150, 420, 37)) + [60]:   # 60 < the head with its attributes: the envelope drops them and still fits
             text, _ = corpus.digest(self.repo, ["src/migrations/001.sql"], b)
             self.assertLessEqual(len(text.encode()), b, f"budget {b} is in bytes")
             self.assertTrue(text.startswith("<governance-at-edit") and text.endswith("</governance-at-edit>"))
@@ -328,7 +328,9 @@ class Budget(unittest.TestCase):
             repo = fixture_repo(Path(tmp))
             write(repo / "scripts/validate-governance.sh", "#!/usr/bin/env bash\n[ \"$1\" = --banner ] && printf 'Governance loaded: x\\n'\n")
             write(repo / "scripts/governance-onprompt.sh", "#!/usr/bin/env bash\n[ \"${GOVERNANCE_ONPROMPT_WORST_CASE:-}\" = 1 ] && head -c 20000 /dev/zero | tr '\\0' 'y'\nexit 0\n")
-            write(repo / ".claude/hooks/deliver-governance.sh", "#!/usr/bin/env bash\nprintf '{\"hookSpecificOutput\":{\"additionalContext\":\"abc\"}}'\n")
+            import shutil; shutil.copytree(HERE, repo / "scripts/gates", ignore=shutil.ignore_patterns("__pycache__", "test_*"))
+            shutil.copy(HERE.parent / "gate.py", repo / "scripts/gate.py")
+            write(repo / ".claude/hooks/deliver-governance.sh", "#!/usr/bin/env bash\npython3 scripts/gate.py --repo . deliver --hook-json\n")   # the REAL delivery, so the dedupe pointer would be measurable
             write(repo / ".context/governance_snapshot.md", "x" * 100)
             rows = budget.measure(repo)
             self.assertEqual(rows["session_start"]["bytes"], len("Governance loaded: x\n"))
@@ -339,7 +341,9 @@ class Budget(unittest.TestCase):
             self.assertIn("OVERFLOW", budget.render(rows))
             cat = corpus.catalog(repo)
             self.assertEqual(budget.worst_case_path(cat), "src/x/migrations/x/x.py", "the path under the most globs at once")
-            self.assertEqual(budget.worst_case_path(cat), budget.worst_case_path(cat), "deterministic")
+            tie = {"families": [{"name": "a", "surface": ["**/*.zz"], "invariant": "x"}, {"name": "b", "surface": ["**/*.aa"], "invariant": "y"}], "dcs": []}
+            self.assertEqual(budget.worst_case_path(tie), "x/x.aa", "equal scores resolve to the sorted-first candidate, every run")
+            self.assertGreater(rows["pre_edit"]["bytes"], 150, "the real payload was measured")
             self.assertEqual(rows["pre_edit"]["bytes"], budget.measure(repo)["pre_edit"]["bytes"], "a fresh session per run: never the dedupe pointer")
             self.assertFalse(list((repo / ".claude/state").glob("governance-delivered-budget-*")), "no marker left behind")
             write(repo / ".claude/hooks/deliver-governance.sh", "#!/usr/bin/env bash\nexit 0\n")

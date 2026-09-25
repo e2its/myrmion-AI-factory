@@ -125,6 +125,8 @@ OUT=$(cd "$P" && python3 scripts/gate.py laws --parity 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "gate.py laws --parity: every law resolves its Body: pointer and quotes the identical sentence" || bad "law parity red in the scratch project" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py budget 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "injection budgets hold against the real producers" || bad "budget red (rc=$RC)" "$OUT"
+PS=$(printf '%s' "$OUT" | grep '| prompt_submit |' | awk -F'|' '{gsub(/ /,"",$4); print $4}'); SNAPB=$(wc -c < "$P/.context/governance_snapshot.md" | tr -d ' ')
+[ "${PS:-0}" -ge "$SNAPB" ] 2>/dev/null && ok "prompt_submit worst case measured ≥ the snapshot ($PS ≥ $SNAPB B: the reload is forced)" || bad "prompt_submit worst case smaller than the snapshot ($PS < $SNAPB) — the reload is not forced" "$OUT"
 PRE=$(printf '%s' "$OUT" | grep '| pre_edit |' | awk -F'|' '{gsub(/ /,"",$4); print $4}')
 [ "${PRE:-0}" -gt 0 ] 2>/dev/null && ok "pre-edit delivery measured on the worst-case path ($PRE B, never 0)" || bad "pre-edit measured empty — dead delivery" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_input":{"file_path":"src/app/models.py"},"session_id":"smoke"}' | bash .claude/hooks/deliver-governance.sh 2>&1)
