@@ -35,7 +35,7 @@ Also in the window: EVOL-052 (#62, PO package, 6.1.0) preceded the epic; EVOL-04
 
 1. `SETUP --upgrade` (Q32 delivery mode, Q33 runtime surface, Q34 model families; the derived `verification.gates` and `traceability.home`; the migration of `planning.docs_exempt`).
 2. `python3 scripts/gate.py profile --run --control-point push` green; `gate.py agents`, `seal --validate`, `traceability` reporting.
-3. `python3 subproducts/measure/measure.py --since <adoption>` after one `report_interval_days` window — the "after" against the "before" the project measured beforehand. **The first adopting project is MASS** (the reference implementation, whose figures are the baseline of record on #51).
+3. `python3 subproducts/measure/measure.py --since <adoption>` after one `report_interval_days` window — the "after" against the "before" the project measured beforehand. **The measurement belongs to the adopting project**: this repository claims no baseline (`CLAUDE.md` § Subproducts), and the reference implementation the axes came from runs on its own branch and does not adopt this release.
 
 ## Verification of this record
 
