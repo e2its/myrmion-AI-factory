@@ -207,7 +207,7 @@ Scan merged content for unresolved placeholders (`TODO`, `FIXME`, `XXX`, `{{...}
 
 **Step 6 — Show Diff:** Display unified diff for user confirmation.
 **Step 7 — Write:** Save merged content to file.
-**Step 8 — Update Snapshot:** Record new checksum in project `governance_versions.json`.
+**Step 8 — Update Snapshot:** Record new checksum in project `governance_versions.json`. When the project manifest carries no `delivery_mode` (a project materialised before EVOL-046), ask Q32 (Factory-setup-discovery) and write the answer at the top level — an absent key already resolves to `production` (every push owes the full profile), so say it rather than leave it implicit.
 
 ---
 

@@ -100,6 +100,19 @@ Each gate is materialised as a **backlog issue** (phase labels: `phase:contract-
 
 Gates ONLY ship when the feature uses the `full-sdlc` preset (Q27.2). Prototypes on `simplified` and spikes on `single` do not ship gates — they trade safety for velocity intentionally.
 
+### Control points and gate profiles (EVOL-046)
+
+No gate is optional — it changes its control point. One key, `delivery_mode` in `docs/project_log/governance_versions.json` (SETUP Q32; `development` | `production`), read by one definition — `python3 scripts/gate.py profile` — that fails closed: an absent key, an unknown value or an unreadable manifest is `production`, and no environment variable overrides it. The profile is derived from the mode and the branch class (`gate.py branch-class`): **light** only for a sub-increment pushed to its train in development mode; **full** for everything else. Members are enumerated by property in `scripts/gates/profile.py` (needs build · needs database · owner); `gate.py profile --run` runs every script member with all-report semantics and one verdict; `gate.py one-definition` proves that no hook, workflow or preflight keeps its own branch list or manifest read. Return to production mode: set `delivery_mode: production` in the manifest in one commit.
+
+| Control point | `development` | `production` | Seal |
+| --- | --- | --- | --- |
+| commit (`pre-commit`) | branch class through the reader; secrets on the staged files | same | none |
+| sub-increment push (to its train) | **light** profile: every member that needs no build and no database — ADR sync, retired terms, budgets, law parity, currency, manifest parity, surface (and, in the framework repo, manifest drift validation and applicability) — all report, one verdict; secrets per pushed ref; the review and coherence markers | **full** profile | writes none |
+| train close (last sub-increment) | **full**: the light members + the full verification loop (tests, lint, typecheck, build, format, SAST, complexity, seed alignment) + one deployment when the runtime surface moved | same | the loop's `bvl_result` + the push markers |
+| pull request to the main branch (CI) | **full** (the workflow runs `gate.py profile --run`; a sub-increment PR into its train owes light) | full | honours the loop's seal |
+| main branch itself | no direct commit (reader-classified, fail-closed); every merge arrives through a PR that passed the full profile | same | — |
+| deployment on demand (`DEVOPS --deploy`) | preventive sweep + smoke on the deployed build | same | the smoke verdict (`certifies:`) |
+
 ## Governance Rules
 
 Every law is an index entry: **one normative sentence**, the **one body** that details it (`Body:` — `rules/x.md` resolves against `.claude/rules/` in a project and `.context/templates/setup/rules/` in the framework repo; `inline` when the sentence is the whole rule), and the records that produced it. Bodies are read at the point of action, never re-typed here. Universal `[LAW-NN]` ids are one namespace across the lock-step pair; project law `[PLAW-NN]` lives in the constitution index.

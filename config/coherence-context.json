@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -95,6 +95,12 @@
         "doc": "pre-push git hook (EVOL-040) — delegates its secrets lane to the security-scan dispatcher with --require-scanner (fail-closed at push preserved). Deliberate carve-out: security_scan.enabled=false passes even under --require-scanner (ratified policy opt-out ≠ infra failure; regex floor stays).",
         "left": "scripts/hooks/pre-push",
         "right": ".context/templates/setup/scripts/hooks/pre-push"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "pre-commit git hook (EVOL-046) — protected-branch guard through the reader (fail-closed) + secrets on staged files. Twin drift = a project would commit under a different guard than meta tested.",
+        "left": "scripts/hooks/pre-commit",
+        "right": ".context/templates/setup/scripts/hooks/pre-commit"
       },
       {
         "type": "meta_template_mirror",

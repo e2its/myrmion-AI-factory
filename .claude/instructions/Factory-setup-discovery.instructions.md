@@ -1,5 +1,5 @@
 ---
-description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q31 questions. Use when: SETUP --init command execution."
+description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q32 questions. Use when: SETUP --init command execution."
 applicable_when:
   phase: [SETUP]
   command: [setup]
@@ -74,7 +74,7 @@ TIER_1_STACK:
 
 TIER_2_INFRASTRUCTURE:
   name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31]
+  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31, Q32]
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
@@ -501,6 +501,14 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **RDR Recommendation:** `30` / `800` — the unit a reviewer holds in one sitting; past it review quality collapses and rework grows. `15` / `400` for a team new to the codebase or under strict compliance review. `60` / `1500` for a mature team on a well-factored codebase. The plan estimates every increment against these keys and splits an over-ceiling increment into sub-increments (one PR each into its train); the push gate measures the real diff — files + lines, no exclusions — and blocks over the ceiling unless a commit carries a `Surface-Escape:` term from the closed list (`config/quality.json → surface.escapes`).
 - **Tier-filtered:** All tiers.
 - **Persist:** `surface.ceiling_files` · `surface.ceiling_lines` (frontmatter of `docs/setup.md`, nested YAML `surface:`) → `config/quality.json → surface.ceiling_files / ceiling_lines` at `--generate`
+
+#### Q32: Delivery Mode (EVOL-046)
+- **Type:** Single choice — closed set
+- **Options:** `development` | `production`
+- **Simplified:** es: "¿El proyecto está en construcción o ya en producción? En construcción, un sub-incremento hacia su tren pasa solo las puertas que no necesitan build ni base de datos; todo lo que llega a la rama principal pasa siempre todas." / en: "Is the project under construction or already in production? Under construction, a sub-increment pushed to its train owes only the gates that need no build and no database; everything that reaches the main branch always owes them all."
+- **RDR Recommendation:** `development` for a project that has not shipped to production — no gate becomes optional, it changes its control point (the light profile at a sub-increment push, the full one at the train close and at every pull request to the main branch). `production` once real users depend on the main branch: every branch owes the full profile. The key is read by one definition (`python3 scripts/gate.py profile`) that fails closed — an absent key, an unknown value or an unreadable manifest is `production`; no environment variable overrides it.
+- **Tier-filtered:** All tiers.
+- **Persist:** `delivery.mode` (frontmatter of `docs/setup.md`, nested YAML `delivery:`) → `delivery_mode` at the top level of `docs/project_log/governance_versions.json` at `--generate`. **Return to production mode:** set `delivery_mode: production` in that manifest in one `chore(governance): delivery mode → production` commit — from then every push owes the full profile.
 
 ---
 

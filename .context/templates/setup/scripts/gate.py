@@ -19,8 +19,11 @@
   gate.py branch-class [--branch B] [--protected] [--json]   protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown
   gate.py diff-base [--branch B]                   the ONE diff base (sub-increment → its train; else the default base branch); exit 1 on an unknown name
   gate.py surface [--base B] [--branch B] [--json] files + lines of base...HEAD vs surface.ceiling_*; exit 1 over the ceiling without a Surface-Escape trailer
+  gate.py profile [--branch B] [--json]            the gate profile this push owes (delivery_mode × branch class → light | full, fail-closed to full)
+  gate.py profile --run [--control-point push|ci] [--base B] [--branch B] [--json]   run every script member of the profile, all-report; exit 1 any red · 2 a member could not run
+  gate.py one-definition                           hooks / workflows / preflight keep no branch list, mode read or mode override; exit 1 on a finding
 
-Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08).
+Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08) · 3 the reader itself is missing or broken (governance not delivered).
 """
 from __future__ import annotations
 
@@ -32,11 +35,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import branch as branch_mod, budget as budget_mod, coherence, corpus, retired  # noqa: E402
+    from gates import branch as branch_mod, budget as budget_mod, coherence, corpus, profile as profile_mod, retired  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
-    sys.exit(2)
+    sys.exit(3)   # 3 = the reader itself is not delivered: hooks treat it as governance missing (block), never as one member's fault
 
 
 def cmd_key(repo, a):
@@ -179,6 +182,23 @@ def cmd_surface(repo, a):
     return 0 if s["ok"] else 1
 
 
+def cmd_profile(repo, a):
+    if a.run:
+        rep = profile_mod.run(repo, a.branch, a.base, a.control_point)
+        print(json.dumps(rep, indent=2) if a.json else profile_mod.render(rep))
+        return {"ok": 0, "RED": 1}.get(rep["verdict"], 2)
+    pr = profile_mod.profile(repo, a.branch)
+    pr["members"] = profile_mod.owed(pr["profile"])
+    print(json.dumps(pr, indent=2) if a.json else f"profile: {pr['profile']} — {pr['reason']} · {pr['mode_reason']}\n  members: " + ", ".join(m["member"] for m in pr["members"]))
+    return 0
+
+
+def cmd_one_definition(repo, a):
+    f = profile_mod.one_definition(repo)
+    print(coherence.render("one-definition", [{"path": f"{x['path']}:{x['line']}", "reason": x["reason"]} for x in f], "hooks, workflows and the preflight keep no second definition"))
+    return 1 if f else 0
+
+
 def cmd_certify(repo, a):
     try:   # a tree certification needs no base — never classify a branch for it (QA often runs on a tag / detached checkout)
         base = _base(repo, a) if a.subject == "diff" else None
@@ -236,6 +256,8 @@ def build_parser():
     p = sub.add_parser("branch-class"); p.add_argument("--branch", default=None); p.add_argument("--protected", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_branch_class)
     p = sub.add_parser("diff-base"); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_diff_base)
     p = sub.add_parser("surface"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_surface)
+    p = sub.add_parser("profile"); p.add_argument("--run", action="store_true"); p.add_argument("--control-point", choices=("push", "ci"), default="push"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_profile)
+    p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
     return ap
 
 

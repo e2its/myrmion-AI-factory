@@ -89,9 +89,17 @@ if [[ -z "$CURRENT" ]]; then
   log "preflight: detached HEAD — skipping (not on a working branch)"
   exit 2
 fi
-if echo "$CURRENT" | grep -qE '^(main|master|develop|release(/.+)?|hotfix)$'; then
-  log "preflight: on protected branch '$CURRENT' — skipping (branch-protection hook should have caught this)"
-  exit 2
+# ONE definition of "protected" (EVOL-046): the reader classifies the name; no regex here.
+if [[ -f "scripts/gate.py" ]]; then
+  "$PYTHON" scripts/gate.py branch-class --protected >/dev/null 2>&1; BP_RC=$?
+  if [[ "$BP_RC" -eq 1 ]]; then
+    log "preflight: on protected branch '$CURRENT' — skipping (branch-protection hook should have caught this)"
+    exit 2
+  elif [[ "$BP_RC" -ne 0 ]]; then
+    add_finding "important" "branch-class-unavailable" "gate.py branch-class could not classify '$CURRENT' (exit $BP_RC) — the protected-branch check did not run this push; fix scripts/gates or re-sync."
+  fi
+else
+  add_finding "important" "branch-class-unavailable" "scripts/gate.py is not delivered — the protected-branch check did not run this push; run scripts/factory-sync.sh."
 fi
 
 # ── Fetch base quietly (best-effort) ──

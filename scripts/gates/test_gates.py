@@ -13,7 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import branch, budget, coherence, corpus, retired  # noqa: E402
+from gates import branch, budget, coherence, corpus, profile, retired  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -616,6 +616,111 @@ class Branch(unittest.TestCase):
                 branch.surface(repo)
 
 
+class Profile(unittest.TestCase):
+    """EVOL-046: one mode key (fail-closed), one profile per control point, members by property, all-report, one definition."""
+
+    def _repo(self, tmp, mode="development"):
+        repo = fixture_repo(Path(tmp))
+        write(repo / "docs/spec/F-001/increment_plan.md", "### INC-1 — a\n- **Sub-increments:**\n  - SUB-1-1: x · status: READY\n")
+        if mode is not None:
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"framework_version": "7.3.0", "delivery_mode": mode, "templates": {}}))
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "plan"], check=True)
+        subprocess.run(["git", "-C", str(repo), "branch", "-M", "main"], check=True)
+        for ref in ("main", "feature/F-001-inc-1-a"):
+            subprocess.run(["git", "-C", str(repo), "update-ref", f"refs/remotes/origin/{ref}", "HEAD"], check=True)
+        return repo
+
+    def test_mode_is_one_key_and_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(profile.mode(repo)["mode"], "development")
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"delivery_mode": "fast"}))
+            m = profile.mode(repo); self.assertEqual(m["mode"], "production"); self.assertIn("not one of", m["reason"])
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"framework_version": "1"}))
+            self.assertEqual(profile.mode(repo)["mode"], "production", "absent key = strictest")
+            write(repo / "docs/project_log/governance_versions.json", "{not json")
+            m = profile.mode(repo); self.assertEqual(m["mode"], "production"); self.assertIn("not readable", m["reason"])
+            write(repo / "docs/project_log/governance_versions.json", "[1, 2]")
+            self.assertEqual(profile.mode(repo)["mode"], "production", "valid JSON that is not an object = strictest, never an exception")
+            (repo / "docs/project_log/governance_versions.json").unlink()
+            self.assertEqual(profile.mode(repo)["mode"], "production", "absent manifest = strictest")
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"delivery_mode": "production"}))
+            os.environ["DELIVERY_MODE"] = "development"; os.environ["FACTORY_MODE"] = "development"
+            try:
+                self.assertEqual(profile.mode(repo)["mode"], "production", "no environment variable overrides the key")
+            finally:
+                del os.environ["DELIVERY_MODE"]; del os.environ["FACTORY_MODE"]
+
+    def test_profile_per_control_point(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(profile.profile(repo, "feature/F-001-inc-1-a-sub-1")["profile"], "light", "a sub-increment to its train in development mode")
+            for b in ("feature/F-001-inc-1-a", "feature/F-001-login", "fix/x", "main", "weird"):
+                self.assertEqual(profile.profile(repo, b)["profile"], "full", b)
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"delivery_mode": "production"}))
+            pr = profile.profile(repo, "feature/F-001-inc-1-a-sub-1")
+            self.assertEqual(pr["profile"], "full"); self.assertIn("production mode", pr["reason"])
+            light = {m["member"] for m in profile.owed("light")}; full = {m["member"] for m in profile.owed("full")}
+            self.assertTrue(light < full)
+            self.assertFalse(any(m["needs_build"] or m["needs_database"] for m in profile.owed("light")), "light = no build, no database — by property")
+            self.assertIn("tests", full - light); self.assertIn("seed-alignment", full - light); self.assertIn("surface", light)
+
+    def test_run_reports_every_member_and_one_verdict(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-inc-1-a-sub-1"], check=True)
+            rep = profile.run(repo, only=["retired-terms", "manifest-parity", "surface"])
+            self.assertEqual(rep["profile"], "light"); self.assertEqual(rep["base"], "origin/feature/F-001-inc-1-a")
+            by = {r["member"]: r for r in rep["results"]}
+            self.assertEqual(set(by), {"retired-terms", "manifest-parity", "surface"}, "every member reports — the run never stops at the first red")
+            self.assertEqual(by["retired-terms"]["status"], "RED", "the fixture carries a retired term")
+            self.assertEqual(by["surface"]["status"], "FAULT", "surface keys absent in the fixture = could not run, said")
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("retired-terms", rep["summary"]); self.assertIn("surface", rep["summary"])
+            text = profile.render(rep)
+            self.assertIn("✗ retired-terms", text); self.assertIn("? surface", text); self.assertIn("skipped by the light profile", text); self.assertIn("tests", text)
+            self.assertTrue(any(e["member"] == "code-review" for e in rep["owed_elsewhere"]), "agent-run members are owed, never silently dropped")
+            rep = profile.run(repo, branch="nonsense", only=["retired-terms"])
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("no diff base", rep["summary"])
+            subprocess.run(["git", "-C", str(repo), "update-ref", "-d", "refs/remotes/origin/feature/F-001-inc-1-a"], check=True)
+            rep = profile.run(repo, only=["retired-terms"])
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("not on origin", rep["summary"], "a train not yet pushed: nothing measured = RED, never a pass")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "--detach"], check=True)
+            rep = profile.run(repo, only=["retired-terms"])
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("detached HEAD", rep["summary"])
+            rep = profile.run(repo, base="main", only=["retired-terms"])
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("remote ref", rep["summary"], "a local base may be stale")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "feature/F-001-inc-1-a-sub-1"], check=True)
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/feature/F-001-inc-1-a", "HEAD"], check=True)
+            rep = profile.run(repo, only=["surface"])
+            self.assertEqual(rep["verdict"], "FAULT"); self.assertNotIn(" —  · ", profile.render(rep)); self.assertTrue(rep["summary"].startswith("could not run"))
+            rep = profile.run(repo, only=["surface", "retired-terms"])
+            self.assertEqual([r["member"] for r in rep["results"]], ["retired-terms", "surface"], "a FAULT never stops the run: the later member still reports")
+            self.assertEqual(rep["verdict"], "RED")
+            rep = profile.run(repo, only=["adr-sync", "governance", "applicability"])   # the bash runner, a missing script, the meta-only member in a project
+            by = {r["member"]: r for r in rep["results"]}
+            self.assertEqual(by["adr-sync"]["status"], "RED"); self.assertIn("not delivered", by["adr-sync"]["tail"], "a member script missing in a project is a red on the delivery")
+            self.assertEqual(by["governance"]["status"], "n/a", "a framework-only member is listed, never silently dropped")
+            self.assertIn("applicability", by, "the applicability validator ships to projects and runs there")
+            self.assertEqual(profile._cmd(repo, ["bash", "x", "--base", "{base_branch}"], "origin/feature/F-001-inc-1-a", "b")[-1], "feature/F-001-inc-1-a")
+            self.assertEqual(profile._cmd(repo, ["bash", "x", "--base", "{base_branch}"], "refs/remotes/origin/main", "b")[-1], "main")
+
+    def test_one_definition_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(profile.one_definition(repo), [])
+            write(repo / ".claude/hooks/x.sh", "#!/bin/bash\nPROTECTED_BRANCHES=\"main master\"\n# a comment naming (main|master) is fine\nref=\"${1#refs/heads/}\"; case \"$ref\" in main|master) exit 1;; esac\nfor p in main master develop; do :; done\n[[ \"$b\" == \"main\" ]] && exit 1\n")
+            write(repo / ".github/workflows/ci.yml", "run: python3 -c \"import json; print(json.load(open('m.json'))['delivery_mode'])\"\n")
+            write(repo / ".github/workflows/z.yaml", "env:\n  GATE_PROFILE=light\n  X: ${DELIVERY_MODE}\n")
+            write(repo / "scripts/x.sh", "if [[ \"$b\" =~ ^(main|master|release) ]]; then exit 1; fi\n")
+            f = profile.one_definition(repo)
+            self.assertEqual(sorted((x["path"], x["line"]) for x in f),
+                             sorted([(".claude/hooks/x.sh", 2), (".claude/hooks/x.sh", 4), (".claude/hooks/x.sh", 5), (".claude/hooks/x.sh", 6),
+                                     (".github/workflows/ci.yml", 1), (".github/workflows/z.yaml", 2), (".github/workflows/z.yaml", 3), ("scripts/x.sh", 1)]))
+            by = {(x["path"], x["line"]): x["reason"] for x in f}
+            self.assertIn("branch-class --protected", by[(".claude/hooks/x.sh", 2)]); self.assertIn("gate.py profile", by[(".github/workflows/ci.yml", 1)])
+
+
 class Cli(unittest.TestCase):
     def test_cli_exit_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -657,11 +762,11 @@ class Cli(unittest.TestCase):
             self.assertIn("LAW-02\tNever modify protected code.", r.stdout)
             broken = Path(tmp) / "broken"; broken.mkdir(); (broken / "gate.py").write_text(Path(gate).read_text(), encoding="utf-8")
             r = subprocess.run([sys.executable, str(broken / "gate.py"), "--repo", str(repo), "context"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 2); self.assertIn("package is missing or broken", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            self.assertEqual(r.returncode, 3, "the reader itself missing = exit 3, never a member's fault"); self.assertIn("package is missing or broken", r.stderr); self.assertNotIn("Traceback", r.stderr)
             import shutil; shutil.copytree(HERE, broken / "gates", ignore=shutil.ignore_patterns("__pycache__", "test_*"))
             (broken / "gates" / "common.py").write_text("def (broken syntax\n", encoding="utf-8")
             r = subprocess.run([sys.executable, str(broken / "gate.py"), "--repo", str(repo), "context"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 2); self.assertIn("SyntaxError", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            self.assertEqual(r.returncode, 3, "a broken package is exit 3: the reader itself is not delivered"); self.assertIn("SyntaxError", r.stderr); self.assertNotIn("Traceback", r.stderr)
             write(repo / "scripts/validate-governance.sh", "#!/usr/bin/env bash\nexit 3\n")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "budget"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1, "a dead producer is a red verdict, exit 1")
@@ -680,7 +785,7 @@ class Cli(unittest.TestCase):
             write(repo / "config/quality.json", json.dumps({**json.loads((repo / "config/quality.json").read_text()), "surface": {"ceiling_files": 1, "ceiling_lines": 5, "escapes": []}}))
             write(repo / "docs/spec/F-001/increment_plan.md", "- SUB-1-1: x\n")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "branch-class", "--branch", "feature/F-001-inc-1-a", "--protected"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 1, "a train is protected: exit 1"); self.assertIn("protected (train)", r.stdout)
+            self.assertEqual(r.returncode, 1, "a train is protected: exit 1"); self.assertIn("protected (train)", r.stdout, "the edit hook matches this exact text")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "branch-class", "--branch", "feature/F-001-inc-1-a-sub-1", "--protected"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "diff-base", "--branch", "nonsense"], capture_output=True, text=True, env=env)
@@ -704,6 +809,19 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 0, "the CI shape — explicit base on a detached checkout — keeps working")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "certify", "--subject", "tree", "--paths", "src/**", "--json"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0, "QA certifies a tree on a tag / detached checkout")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "profile"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertIn("profile: full", r.stdout); self.assertIn("strictest mode", r.stdout, "no manifest → production, said")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "one-definition"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0)
+            write(repo / "scripts/hooks/pre-push", "PROTECTED_BRANCHES=main\n")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "one-definition"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("scripts/hooks/pre-push:1", r.stdout)
+            (repo / "scripts/hooks/pre-push").unlink()
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "--detach"], check=True)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "profile", "--run", "--control-point", "ci", "--base", "origin/main", "--branch", "feature/F-001-x", "--json"], capture_output=True, text=True, env=env)
+            rep = json.loads(r.stdout)
+            self.assertEqual((rep["base"], rep["profile"]), ("origin/main", "full"), "the CI shape: explicit base + head ref on a detached checkout")
+            self.assertTrue(rep["results"], "members ran"); self.assertEqual(r.returncode, 1 if rep["verdict"] == "RED" else 2 if rep["verdict"] == "FAULT" else 0)
 
 
 if __name__ == "__main__":

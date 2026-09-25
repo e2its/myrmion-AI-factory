@@ -265,6 +265,31 @@ if [ -f "$GH_ADAPTER" ]; then
 fi
 echo
 
+# ─── Every workflow file parses (EVOL-046: an unquoted step name with a colon failed a CI run at 0 s) ───
+YAML_RC=$(python3 - <<'PY'
+import glob, sys
+try:
+    import yaml
+except ImportError:
+    print("skip"); sys.exit(0)
+bad = []
+for f in glob.glob(".github/workflows/*.yml") + glob.glob(".context/templates/setup/workflows/*.yml") + glob.glob(".context/templates/setup/workflows/*.yaml"):
+    try:
+        yaml.safe_load(open(f, encoding="utf-8"))
+    except Exception as e:
+        bad.append(f"{f}: {str(e).splitlines()[0][:100]}")
+print("\n".join(bad) if bad else "ok")
+PY
+)
+if [ "$YAML_RC" = "ok" ]; then
+  printf '  \033[32m✓\033[0m every workflow file (meta + every platform template) parses as YAML\n'
+elif [ "$YAML_RC" = "skip" ]; then
+  printf '  \033[33m·\033[0m PyYAML absent — workflow YAML parse check skipped\n'
+else
+  printf '  \033[31m✗\033[0m a workflow file does not parse:\n%s\n' "$YAML_RC" >&2; failures=$((failures + 1))
+fi
+echo
+
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
   echo "L1: ok — all template assertions passed."

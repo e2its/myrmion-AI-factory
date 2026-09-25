@@ -6,7 +6,9 @@
 //
 // Runs the governance gates that must pass before a PR can merge to main:
 //
-//   - scripts/check-adr-constitution-sync.sh — single-source-of-truth
+//   - python3 scripts/gate.py profile --run — the gate profile this PR owes (EVOL-046: one call, all members
+//     report — ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface);
+//     plus gate.py one-definition. ADR sync was the single-source-of-truth
 //     gate. Bypass via [adr-backfill] commit message marker.
 //
 // Wire as a Multibranch Pipeline configured to build PRs (Branch Sources →
@@ -24,15 +26,15 @@ pipeline {
   stages {
     stage('Governance Check') {
       when {
-        changeRequest target: 'main'
+        changeRequest()   // every PR — a sub-increment PR targets its train, not main (EVOL-045)
       }
       steps {
         sh '''
           set -e
           BASE="${CHANGE_TARGET:-main}"
           git fetch origin "$BASE"
-          chmod +x scripts/check-adr-constitution-sync.sh
-          bash scripts/check-adr-constitution-sync.sh "origin/$BASE"
+          python3 scripts/gate.py profile --run --control-point ci --base "origin/$BASE" --branch "$CHANGE_BRANCH"
+          python3 scripts/gate.py one-definition
         '''
       }
     }

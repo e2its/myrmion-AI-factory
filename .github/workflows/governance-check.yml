@@ -4,11 +4,9 @@
 # Validates governance manifest consistency on every PR to main.
 # Blocks merge if framework_core files changed without manifest update.
 #
-# Checks:
-#   1. Drift: core files changed but manifest not updated
-#   2. Orphan: new agent/instruction files not tracked
-#   3. Stale: manifest entries pointing to deleted files
-#   4. Version: MAJOR bump requires BREAKING CHANGE commit
+# Checks: the gate profile this PR owes (gate.py profile --run — ONE definition, EVOL-046: governance
+# manifest drift/orphan/stale/version, ADR sync, applicability, law parity, budgets, retired vocabulary,
+# currency, manifest parity, surface), the one-definition scan, the T2 suite and the materialisation smoke.
 # ============================================================================
 
 name: Governance Check
@@ -36,15 +34,13 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
 
-      - name: Run governance validation
+      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (governance validation, ADR sync, applicability, law parity, budgets, retired vocabulary, currency, manifest parity, surface)"
         run: |
-          chmod +x scripts/validate-governance.sh
-          bash scripts/validate-governance.sh --base "${{ github.base_ref }}"
+          chmod +x scripts/validate-governance.sh scripts/check-adr-constitution-sync.sh scripts/check-applicability-frontmatter.sh
+          python3 scripts/gate.py profile --run --control-point ci --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
 
-      - name: ADR ↔ Constitution sync gate
-        run: |
-          chmod +x scripts/check-adr-constitution-sync.sh
-          bash scripts/check-adr-constitution-sync.sh "origin/${{ github.base_ref }}"
+      - name: "One definition — hooks, workflows and the preflight keep no branch list, mode read or mode override (EVOL-046)"
+        run: python3 scripts/gate.py one-definition
 
       - name: Run T2 governance suite (templates + extraction + ADR accept + sync gate + subproducts)
         run: |
@@ -83,28 +79,6 @@ jobs:
         run: |
           chmod +x scripts/check-inventory-drift.sh
           bash scripts/check-inventory-drift.sh --warn-only
-
-      - name: Applicability frontmatter validation (ADP)
-        run: |
-          chmod +x scripts/check-applicability-frontmatter.sh
-          bash scripts/check-applicability-frontmatter.sh
-
-      - name: Law parity (every law resolves its one body and quotes its sentence)
-        run: python3 scripts/gate.py laws --parity
-
-      - name: Injection budgets (real producers at worst case)
-        run: python3 scripts/gate.py budget
-
-      - name: Retired-vocabulary ratchet
-        run: python3 scripts/gate.py retired-terms
-
-      - name: Coherence gates — artefact currency + manifest ↔ frontmatter parity (EVOL-044)
-        run: |
-          python3 scripts/gate.py currency --base "origin/${{ github.base_ref }}"
-          python3 scripts/gate.py manifest-parity
-
-      - name: Surface ceiling — files + lines of the PR diff within surface.ceiling_* or a Surface-Escape trailer (EVOL-045)
-        run: python3 scripts/gate.py surface --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
 
       - name: Synthetic materialisation smoke (corpus, gates, hooks on a scratch project)
         run: |

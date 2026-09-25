@@ -191,7 +191,8 @@ if [ $VIOLATIONS -gt 0 ]; then
   elif [ "$BRAND_ENFORCEMENT" = "MIXED" ]; then
     # Check current branch
     CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
-    if [[ "$CURRENT_BRANCH" =~ ^(main|master|release) ]]; then
+    python3 scripts/gate.py branch-class --protected >/dev/null 2>&1; BC_RC=$?   # ONE definition (EVOL-046)
+    if [ "$BC_RC" -eq 1 ]; then
       echo "   🚫 BLOCKED: Brand violations on protected branch (enforcement: MIXED)"
       EXIT_CODE=1
     else

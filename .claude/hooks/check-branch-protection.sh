@@ -6,6 +6,7 @@
 # Reads stdin JSON from Claude Code hook protocol.
 # Exit 2 + message on stderr = the Claude Code blocking contract for PreToolUse hooks
 # (exit 1 is a NON-blocking error: the tool would run anyway — EVOL-043 hook audit).
+# EVOL-046: the protected set lives in ONE place (scripts/gates/branch.py); this hook only asks.
 # ============================================================================
 
 branch=$(git branch --show-current 2>/dev/null || echo '')
@@ -13,29 +14,42 @@ if [ -z "$branch" ]; then
   exit 0
 fi
 
-if echo "$branch" | grep -qE '^(main|master|develop|release(/.+)?|hotfix)$'; then
+# ONE definition of "protected" (EVOL-046): the reader classifies the name — main, master, develop, release/*,
+# bare hotfix, and a train (a per-increment branch whose increment plan declares sub-increments). No regex here.
+# exit 1 = protected → block. A missing or broken reader blocks too (fail-closed): governance is not delivered.
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "BLOCKED: python3 is not on PATH — the governance reader cannot run, so '$branch' cannot be classified. Install python3, then retry." >&2
+  exit 2
+fi
+if [ ! -f scripts/gate.py ]; then
   {
-    echo "BLOCKED: on protected branch '$branch'. Create a working branch first. Allowed patterns:"
-    echo "  feature/ID-slug   fix/slug   bugfix/slug   hotfix/slug   docs/slug   chore/slug"
-    echo "Example: git checkout -b hotfix/my-fix origin/main"
+    echo "BLOCKED: the governance reader (scripts/gate.py) is not delivered — the branch '$branch' cannot be classified."
+    echo "Resolution: bash scripts/factory-sync.sh (a project) or restore scripts/gate.py + scripts/gates/ (the framework repo); then retry."
   } >&2
   exit 2
 fi
-
-# A train (per-increment branch whose increment plan declares sub-increments) is protected like a base
-# branch (EVOL-045): the reader classifies the name; exit 1 = protected. Reader absent or faulting → pass.
-if [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1; then
-  bc_out=$(python3 scripts/gate.py branch-class --protected 2>&1); bc_rc=$?
-  if [ "$bc_rc" -eq 1 ]; then
+bc_out=$(python3 scripts/gate.py branch-class --protected 2>&1); bc_rc=$?
+case "$bc_rc" in
+  0) exit 0 ;;
+  1)
+    case "$bc_out" in
+      *"(train)"*)
+        {
+          echo "BLOCKED: '$branch' is a train — its increment plan declares sub-increments, so it takes merges only."
+          echo "Commit on a sub-increment branch: git checkout -b ${branch}-sub-<M> origin/${branch}  (one PR each into the train)"
+        } >&2 ;;
+      *)
+        {
+          echo "BLOCKED: on protected branch '$branch'. Create a working branch first. Allowed patterns:"
+          echo "  feature/ID-slug   fix/slug   bugfix/slug   hotfix/slug   docs/slug   chore/slug"
+          echo "Example: git checkout -b hotfix/my-fix origin/main"
+        } >&2 ;;
+    esac
+    exit 2 ;;
+  *)
     {
-      echo "BLOCKED: '$branch' is a train — its increment plan declares sub-increments, so it takes merges only."
-      echo "Commit on a sub-increment branch: git checkout -b ${branch}-sub-<M> origin/${branch}  (one PR each into the train)"
+      echo "BLOCKED: the governance reader could not classify '$branch' (gate.py branch-class exit $bc_rc): $(printf '%s' "$bc_out" | head -c 300)"
+      echo "Resolution: fix scripts/gates/ from the shell (sed / factory-sync.sh — the shell is not gated), then retry."
     } >&2
-    exit 2
-  elif [ "$bc_rc" -ne 0 ]; then
-    # the reader could not classify (broken package, unreadable plan): pass, but say it through the envelope
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"check-branch-protection: train protection not evaluated — gate.py branch-class exit %s: %s"}}\n' "$bc_rc" "$(printf '%s' "$bc_out" | tr -d '"\\' | head -c 300)"
-  fi
-fi
-
-exit 0
+    exit 2 ;;
+esac
