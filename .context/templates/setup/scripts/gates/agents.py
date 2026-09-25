@@ -39,6 +39,10 @@ POLICY_RULE = "agents.md"
 DOCS_SCAN_SKILL = ".claude/skills/factory-mcp-docs-scan/SKILL.md"   # [LAW-10]: the ONE allowlist of documentation servers
 ALLOW_MCP = "docs_mcp_allowlist"
 READ_VERBS = {"read", "get", "list", "search", "query", "resolve", "retrieve", "fetch", "describe", "lookup", "find", "show", "view"}
+WRITE_VERBS = {"create", "update", "delete", "put", "patch", "set", "write", "deploy", "up", "destroy", "send", "remove", "upload", "trash", "share",
+               "apply", "import", "publish", "run", "execute", "refresh", "move", "copy", "label", "mark", "forward", "reply", "add", "insert",
+               "edit", "modify", "rename", "install", "uninstall", "start", "stop", "restart", "kill", "invoke", "trigger", "launch", "post", "submit"}
+NEVER_SERVER_PREFIXES = ("claude_ai_",)   # the user's personal-data connectors (mail, drive, docs, office): never a documentation source, whatever a list says
 WRITE_TOOLS = {"edit", "write", "notebookedit", "multiedit", "bash", "agent", "task"}
 EFFORTS = ("low", "medium", "high", "max")
 CAPS = {"plan-critic": "plan_gate", "work-critic": "work"}   # class → rounds key
@@ -49,6 +53,7 @@ FINDING = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?P<loc>[^\s*`]+:\d+)(?:\*\*)?\s
 TRIVIAL_PROBE = re.compile(r"^(?:n/?a|none|nil|-+|—|tbd|todo|\?+|\.+)$", re.I)
 NO_FINDINGS = re.compile(r"^\s*(?:[-*]\s+)?no findings\.?\s*$", re.I | re.M)
 SOURCE = re.compile(r"^\s*(?:[-*]\s+)?(?P<kind>mcp|doc)\s*·\s*(?P<server>[\w.-]+)\s*·\s*(?P<query>.+?)\s*·\s*(?P<ref>.+?)\s*·\s*(?P<digest>.+?)\s*$")
+PLACEHOLDER = re.compile(r"^<[^>]*>$")   # the contract's own template echoed back (`<ref: …>`) is not a source
 UNKNOWN = re.compile(r"^\s*(?:[-*]\s+)?(?P<q>.+?)\s*·\s*searched:\s*(?P<s>.*?)\s*$")
 NO_SOURCES = re.compile(r"^\s*(?:[-*]\s+)?no sources\.?\s*$", re.I)
 NO_UNKNOWNS = re.compile(r"^\s*(?:[-*]\s+)?none\.?\s*$", re.I)
@@ -63,12 +68,8 @@ def _alias(v) -> str:
     return re.sub(r"\[\d+m", "", str(v)).strip().lower()
 
 
-def _server_key(s: str) -> str:
-    return str(s).strip().lower().replace("-", "_")
-
-
 def docs_servers(repo: Path) -> set[str]:
-    """The documentation servers [LAW-10] allowlists — the docs-scan skill's `docs_mcp_allowlist`, the one list."""
+    """The documentation servers [LAW-10] allowlists — the docs-scan skill's `docs_mcp_allowlist`, the one list, names exact."""
     p = repo / DOCS_SCAN_SKILL
     if not p.is_file():
         return set()
@@ -76,19 +77,29 @@ def docs_servers(repo: Path) -> set[str]:
         lst = read_frontmatter(p).get(ALLOW_MCP) or []
     except GateFault:
         return set()
-    return {_server_key(x) for x in (lst if isinstance(lst, list) else [lst]) if str(x).strip()}
+    return {str(x).strip() for x in (lst if isinstance(lst, list) else [lst]) if str(x).strip()}
 
 
 def _mcp_read_ok(tool: str, servers: set[str]) -> tuple[bool, str]:
-    """`mcp__<server>__<operation>` is admitted for a read-only class iff the server is allowlisted and the operation reads."""
-    m = re.match(r"^mcp__(?P<server>.+?)__(?P<op>.+)$", tool)
+    """`mcp__<server>__<operation>` is admitted for a read-only class iff: the server is allowlisted (exact name, no case or
+    dash folding — the harness keeps tool ids exact), is not a personal-data connector, the operation is one tool of that
+    server (no nested `__` segment), carries no write verb and carries a read verb — two closed vocabularies."""
+    m = re.match(r"^mcp__(?P<server>[^_](?:[^_]|_(?!_))*)__(?P<op>.+)$", tool)
     if not m:
         return False, "not read-only (a write tool or a permission-pattern spelling of one)"
+    server, op = m.group("server"), m.group("op")
+    if server.lower().startswith(NEVER_SERVER_PREFIXES):
+        return False, f"server `{server}` is a personal-data connector — never a documentation source, whatever the allowlist says"
     if not servers:
         return False, f"no documentation allowlist delivered ({DOCS_SCAN_SKILL} → {ALLOW_MCP})"
-    if _server_key(m.group("server")) not in servers:
-        return False, f"server `{m.group('server')}` is not in the documentation allowlist ({DOCS_SCAN_SKILL})"
-    if not (set(re.split(r"[_\-]+", m.group("op").lower())) & READ_VERBS):
+    if server not in servers:
+        return False, f"server `{server}` is not in the documentation allowlist ({DOCS_SCAN_SKILL}; names are exact)"
+    if re.search(r"[^_]__[^_]", op):
+        return False, f"`{op}` is not one tool of `{server}` (a nested `__` segment)"
+    tokens = set(re.split(r"[_\-]+", op.lower())) - {""}
+    if tokens & WRITE_VERBS:
+        return False, "not a read operation (the operation name carries a write verb: " + ", ".join(sorted(tokens & WRITE_VERBS)) + ")"
+    if not (tokens & READ_VERBS):
         return False, "not a read operation (the operation name carries none of: " + ", ".join(sorted(READ_VERBS)) + ")"
     return True, ""
 
@@ -130,7 +141,7 @@ def roster_files(repo: Path) -> dict[str, Path]:
 
 def _tools(fm: dict) -> dict[str, str]:
     """normalised name → the spelling the definition used."""
-    t = fm.get("tools", [])
+    t = fm.get("tools") or []   # `tools:` with no value is no tool, not a crash
     if isinstance(t, str):
         t = [x.strip() for x in t.split(",") if x.strip()]
     return {_norm(x): str(x).strip() for x in t if _norm(x)}
@@ -173,7 +184,7 @@ def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, 
             servers = docs_servers(repo)
             bad = []
             for spelled in extra:
-                ok, why = _mcp_read_ok(_norm(spelled), servers)
+                ok, why = _mcp_read_ok(str(spelled).split("(")[0].strip(), servers)   # the id as spelled: the harness keeps tool ids exact, case included
                 if not ok:
                     bad.append(f"{spelled} — {why}")
             if bad:
@@ -258,8 +269,8 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
         except GateFault as e:
             f.append({"path": str(p.relative_to(repo)), "reason": f"unreadable frontmatter: {e}"}); continue
         c = pol["classes"].get(cls)
-        if not c or _class_writes(c):
-            f.append({"path": str(p.relative_to(repo)), "reason": f"vendored lens declares class `{cls or '(none)'}` — a vendored lens is a prompt for a read-only critic class"}); continue
+        if not c or _class_writes(c) or c["tools"].get("allow_mcp"):
+            f.append({"path": str(p.relative_to(repo)), "reason": f"vendored lens declares class `{cls or '(none)'}` — a vendored lens is a prompt for a read-only critic class without MCP tools"}); continue
         _check_definition(repo, p, cls, c, f)
     # the ladder is keyed by families and never lands on a writer class
     fams = set(families)
@@ -392,33 +403,54 @@ def spawn_check(repo: Path, agent: str, model: str) -> dict:
 
 
 def _section(text: str, name: str) -> str | None:
+    """The body under the exact heading `## <name>` (the contract's headings carry no suffix); None when absent."""
     m = re.search(rf"^##\s+{re.escape(name)}\s*$(.*?)(?=^##\s|\Z)", text, re.M | re.S)
     return m.group(1) if m else None
 
 
+def _lines(body: str) -> list[str]:
+    return [ln for ln in body.splitlines() if ln.strip() and not ln.strip().startswith("(")]   # the template's `(or exactly: …)` hints are not lines
+
+
+def _placeholder(s: str) -> bool:
+    return bool(TRIVIAL_PROBE.match(s.strip() or "-") or PLACEHOLDER.match(s.strip()))
+
+
 def _check_reader(text: str, problems: list[str]) -> None:
+    order = [text.find(f"## {sec}") for sec in ("Sources", "Answer", "Unknowns", "Governance")]
     for sec in ("Sources", "Answer", "Unknowns"):
         if _section(text, sec) is None:
-            problems.append(f"no `## {sec}` section")
+            problems.append(f"no `## {sec}` section (the heading is exactly `## {sec}`)")
+    if all(i >= 0 for i in order) and order != sorted(order):
+        problems.append("sections out of order — `## Sources`, `## Answer`, `## Unknowns`, `## Governance`")
     src = _section(text, "Sources")
-    if src is not None and not NO_SOURCES.match(src.strip()):
-        shaped = 0
-        for line in (ln for ln in src.splitlines() if ln.strip() and not ln.strip().startswith("(")):
-            m = SOURCE.match(line)
-            if not m:
-                problems.append(f"source outside the contract shape `mcp|doc · server · query · ref · digest`: {line.strip()[:80]}")
-            elif TRIVIAL_PROBE.match(m.group("ref").strip()) or TRIVIAL_PROBE.match(m.group("digest").strip()):
-                problems.append(f"source without a ref or a digest: {line.strip()[:80]}")
-            else:
-                shaped += 1
-        if not shaped and not problems:
-            problems.append("no source in the contract shape (or a line reading exactly `no sources`)")
+    if src is not None:
+        lines = _lines(src)
+        if not (len(lines) == 1 and NO_SOURCES.match(lines[0])):
+            shaped = 0
+            for line in lines:
+                m = SOURCE.match(line)
+                if not m:
+                    problems.append(f"source outside the contract shape `mcp|doc · server · query · ref · digest`: {line.strip()[:80]}")
+                elif _placeholder(m.group("ref")) or _placeholder(m.group("digest")):
+                    problems.append(f"source without a real ref or digest (a placeholder is not a source): {line.strip()[:80]}")
+                else:
+                    shaped += 1
+            if not shaped:
+                problems.append("no source in the contract shape (or a line reading exactly `no sources`)")
+    ans = _section(text, "Answer")
+    if ans is not None and not _lines(ans):
+        problems.append("empty `## Answer` — every question is answered from the sources or marked known-cold")
     unk = _section(text, "Unknowns")
-    if unk is not None and not NO_UNKNOWNS.match(unk.strip()):
-        for line in (ln for ln in unk.splitlines() if ln.strip() and not ln.strip().startswith("(")):
-            m = UNKNOWN.match(line)
-            if not m or TRIVIAL_PROBE.match(m.group("s").strip() or "-"):
-                problems.append(f"unknown that names nothing searched (`question · searched: what`): {line.strip()[:80]}")
+    if unk is not None:
+        lines = _lines(unk)
+        if not (len(lines) == 1 and NO_UNKNOWNS.match(lines[0])):
+            if not lines:
+                problems.append("empty `## Unknowns` — list each open question with what was searched, or write exactly `none`")
+            for line in lines:
+                m = UNKNOWN.match(line)
+                if not m or _placeholder(m.group("s")):
+                    problems.append(f"unknown that names nothing searched (`question · searched: what`): {line.strip()[:80]}")
 
 
 def check_return(text: str, cls: str) -> list[str]:

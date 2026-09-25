@@ -1218,6 +1218,20 @@ class Agents(unittest.TestCase):
                 write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN.replace("  - aws-knowledge\n", "  - aws-knowledge\n  - pulumi\n"))
                 self.assertEqual(reader(READER_TOOLS + ", " + ok), "", ok)
             self.assertIn("not a read operation", reader(READER_TOOLS + ", mcp__pulumi__pulumi-cli-up"), "a deploy on an allowlisted server is red")
+            # a mutator that carries a read token is still a mutator (two closed vocabularies); a nested server segment is not a tool; names are exact; personal-data connectors never
+            for bad, why in (("mcp__context7__delete_by_query", "write verb"), ("mcp__pulumi__update-search-index", "write verb"), ("mcp__aws-knowledge__create_and_get_stack", "write verb"),
+                             ("mcp__context7__evil__get_x", "nested"), ("mcp__Context7__query-docs", "not in the documentation allowlist"), ("mcp__aws_knowledge__aws___read_documentation", "not in the documentation allowlist")):
+                self.assertIn(why, reader(READER_TOOLS + ", " + bad), bad)
+            write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN.replace("  - aws-knowledge\n", "  - aws-knowledge\n  - claude_ai_Google_Drive\n"))
+            self.assertIn("personal-data connector", reader(READER_TOOLS + ", mcp__claude_ai_Google_Drive__read_file_content"), "a listed personal-data connector is still refused")
+            write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN)
+            write(repo / ".claude/agents/factory-docs-reader.md", agent_def("factory-docs-reader", "reader", "").replace("tools: \n", "tools:\n"))
+            self.assertTrue(any("must have" in x["reason"] for x in agents.validate(repo, self.manifest)), "`tools:` with no value is a finding (the must-list), never a traceback")
+            write(repo / ".claude/agents/factory-docs-reader.md", agent_def("factory-docs-reader", "reader", READER_TOOLS))
+            # a vendored lens may not borrow the reader class
+            write(repo / ".claude/skills/factory-code-review/agents/lens.md", agent_def("lens", "reader", READER_TOOLS))
+            self.assertTrue(any("without MCP tools" in x["reason"] for x in agents.validate(repo, self.manifest)))
+            (repo / ".claude/skills/factory-code-review/agents/lens.md").unlink()
             (repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md").unlink()
             self.assertIn("no documentation allowlist delivered", reader(READER_TOOLS), "no [LAW-10] list = no mcp tool admitted, said")
             write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN); self.assertEqual(reader(READER_TOOLS), "")
@@ -1239,10 +1253,17 @@ class Agents(unittest.TestCase):
             self.assertEqual(agents.check_return("## Sources\nno sources\n## Answer\nknown-cold: nothing reachable\n## Unknowns\n- is lifespan async · searched: context7 fastapi, web\n" + gov, "reader"), [])
             self.assertTrue(any("no `## Sources`" in p for p in agents.check_return("## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
             self.assertTrue(any("outside the contract shape" in p for p in agents.check_return("## Sources\n- context7 · fastapi\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")), "a source that names no ref and no digest is refused")
-            self.assertTrue(any("without a ref or a digest" in p for p in agents.check_return("## Sources\n- doc · web · q · n/a · -\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
+            self.assertTrue(any("without a real ref or digest" in p for p in agents.check_return("## Sources\n- doc · web · q · n/a · -\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
             self.assertTrue(any("names nothing searched" in p for p in agents.check_return("## Sources\nno sources\n## Answer\nx\n## Unknowns\n- is it async\n" + gov, "reader")))
             self.assertTrue(any("names nothing searched" in p for p in agents.check_return("## Sources\nno sources\n## Answer\nx\n## Unknowns\n- is it async · searched: \n" + gov, "reader")))
             self.assertTrue(any("no `## Governance`" in p for p in agents.check_return("## Sources\nno sources\n## Answer\nx\n## Unknowns\nnone\n", "reader")))
+            # empty sections, the template echoed back, the order — refused
+            self.assertTrue(any("empty `## Answer`" in p for p in agents.check_return("## Sources\nno sources\n## Answer\n## Unknowns\nnone\n" + gov, "reader")))
+            self.assertTrue(any("empty `## Unknowns`" in p for p in agents.check_return("## Sources\nno sources\n## Answer\nx\n## Unknowns\n" + gov, "reader")))
+            self.assertTrue(any("placeholder" in p for p in agents.check_return("## Sources\n- mcp · context7 · <query> · <ref: url> · <digest>\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")), "the contract's own template is not a return")
+            self.assertTrue(any("out of order" in p for p in agents.check_return("## Answer\nx\n## Sources\nno sources\n## Unknowns\nnone\n" + gov, "reader")))
+            self.assertEqual(agents.check_return("## Sources\n(or exactly: no sources)\nno sources\n## Answer\nx\n## Unknowns\n- q · searched: web\n(or exactly: none)\n" + gov, "reader"), [], "the template's hint lines are not lines")
+            self.assertTrue(any("exactly `## Sources`" in p for p in agents.check_return("## Sources (2)\n- mcp · context7 · q · https://x · d\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
             self.assertEqual(agents.check_return("did x\n" + gov, "worker"), [], "the reader's sections are the reader's — a worker owes only its governance block")
 
 

@@ -275,7 +275,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py plan --enter 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'second stage' && ok "RED: a feature branch never enters plan mode — one stage, never two" || bad "feature plan mode not refused (rc=$RC)" "$OUT"
 # role agents and read-only critics (EVOL-049): the roster lands, the validator is green, a same-family roster is red
 N_AG=$(ls "$P/.claude/agents"/*.md 2>/dev/null | wc -l)
-[ "$N_AG" -ge 15 ] && ok "the agent roster landed ($N_AG definitions under .claude/agents, the external-facts reader among them — EVOL-056)" || bad "the agent roster did not land ($N_AG definitions)"
+[ "$N_AG" -ge 15 ] && [ -f "$P/.claude/agents/factory-docs-reader.md" ] && ok "the agent roster landed ($N_AG definitions under .claude/agents, the external-facts reader among them — EVOL-056)" || bad "the agent roster did not land ($N_AG definitions; reader present: $([ -f "$P/.claude/agents/factory-docs-reader.md" ] && echo yes || echo no))"
 OUT=$(cd "$P" && python3 scripts/gate.py agents 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "gate.py agents: roster parity, the tool matrix per class, budgets, pointers, families, ladder, spawn sites — green on the materialised tree" || bad "agents validator red in the scratch (rc=$RC)" "$OUT"
 python3 - "$P/config/quality.json" <<'PY'
@@ -302,7 +302,7 @@ OUT=$(cd "$P" && printf '%s' '{"tool_input":{"subagent_type":"factory-docs-reade
 OUT=$(cd "$P" && printf '## Sources\n- mcp · context7 · q · https://x/y · what it states\n## Answer\nx [1]\n## Unknowns\nnone\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n' | python3 scripts/gate.py agents --check-return --class reader 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "a reader return with its sources, answer and unknowns passes the contract" || bad "reader return refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '## Answer\nx\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n' | python3 scripts/gate.py agents --check-return --class reader 2>&1); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'Sources' && ok "a reader return without its sources is refused" || bad "reader return without sources not refused (rc=$RC)" "$OUT"
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'no `## Sources` section' && ok "a reader return without its sources is refused" || bad "reader return without sources not refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 2 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a second work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
 # one full verification loop (EVOL-051): the documentation class, the path-to-gate map, the seal the push honours, the digests
