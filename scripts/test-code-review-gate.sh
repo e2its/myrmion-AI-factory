@@ -100,6 +100,10 @@ H3=$(compute_hash "$R")
 H4=$(compute_hash "$R")
 [[ "$H4" != "$H1" ]] && pass "code commit → hash changed" || fail "code commit did not change hash"
 
+(cd "$R" && mkdir -p subproducts/tool && echo 'def y(): return 4' > subproducts/tool/x.py && git add -A && git commit -qm subproduct)
+H5=$(compute_hash "$R")
+[[ "$H5" == "$H4" ]] && pass "subproduct code commit → hash unchanged (outside every quality gate)" || fail "subproduct code entered the review hash"
+
 echo "Scenario 3 — EMPTY sentinel"
 E=$(echo '{"files":{"README.md":{"is_code":false,"is_test":false}}}' | "$PY" "$HELPER"; echo "rc=$?")
 [[ "$E" == "EMPTY"$'\n'"rc=0" ]] && pass "no reviewable files → EMPTY rc0" || fail "EMPTY sentinel ($E)"

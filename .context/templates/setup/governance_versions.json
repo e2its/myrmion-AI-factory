@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "6.2.0",
+  "framework_version": "6.2.1",
   "last_updated": "2026-09-25",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
@@ -881,10 +881,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.6.0: fix(subproducts-dod-closure) — frontmatter keys `codesign.authoring`, `po_package.mode` (Q29) and `measurement.*` (Q30): structured answers live in the frontmatter, which the governance snapshot copies verbatim (#61 DoD: authoring mode reaches the snapshot).",
         "2.5.0: feat(EVOL-042) — § E bullet Measurement Window (Q30).",
         "2.4.0: fix(po-package-card-tool-cases) — Q29.1 gains `code-manual` (cards from code, tool run by asking Claude, no command).",
         "2.3.0: feat(EVOL-052) — § E gains CODESIGN Authoring Surface (Q29) and Design-System Cards Source (Q29.1) with their persisted keys. Duplicated `### E. Operational Decisions` heading removed.",
@@ -955,10 +956,11 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "config/coherence-context.json",
       "changelog": [
+        "1.2.0: fix(subproducts-dod-closure) — `subproducts/` added to audit.exclusions (quality-gate surface of the subproducts exclusion class, #51 DoD).",
         "1.1.0: fix(EVOL-040) — downstream glob fixes: .claude/skills/Factory-*/ → factory-* (downstream skills are lowercase; old glob matched 0), .claude/rules/*.instructions.md → *.md (family extinct since ADR-EVOL-027).",
         "1.0.0: feat(EVOL-025) initial template — downstream variant. `context: downstream` (vs meta), root_sets adapted (no `.context/templates/`, adds `src/`), placeholder_allowlist_paths empty by default (any `{{X}}` is a finding in a materialised project). lock_step_pairs declare semantic types — `rename_propagation` (skill/rule/instruction/command renames must update all mention sites in CLAUDE.md, docs/, .claude/instructions/, .claude/rules/, .claude/commands/) and `code_doc_lock_step` (public artefact added/removed must update catalog/index in CLAUDE.md, docs/spec/, docs/project_log/). manifest_paths.primary points to `config/governance_versions.json` (project manifest, not framework manifest). Materialised at SETUP --generate; SETUP --upgrade owns delta propagation (factory-sync.sh deliberately does NOT touch `config/`)."
       ]
@@ -2314,9 +2316,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.17.0",
+      "version": "2.17.1",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.17.1: fix(subproducts-dod-closure) — Q29 / Q30 Persist lines name the frontmatter explicitly (snapshot delivery).",
         "2.17.0: feat(EVOL-042) — Q30 Measurement Window (retention_days, report_interval_days → measurement.*), TIER_2 list, header Q1-Q30.",
         "2.16.0: fix(po-package-card-tool-cases) — Q29.1 option `code-manual` (a tool run by asking Claude: folder only) next to `code-rebuild` (terminal command: folder + command, the only one CI can run); recommendation and persist rules updated.",
         "2.15.0: feat(EVOL-052) — NEW Q29 CODESIGN Authoring Surface (external-full | external-features | internal → `codesign.authoring` + `po_package.mode`; 3 options for every scope) and Q29.1 Design-System Cards Source (vision | code-rebuild | defer → `po_package.ds_*`; conditional on external authoring AND UI scope; tool-agnostic — the framework names no tool). TIER_2 list extended.",
@@ -3527,11 +3530,12 @@
       "role": ". Meta-sourced, ships via factory-sync only; not part of the SETUP materialization surface."
     },
     "scripts/test-code-review-gate.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "L6 CI gate test — validates code_review_hash.py + preflight.sh Step 0-bis against synthetic repos. 14 scenarios: hash determinism, RDR-1 invariance (docs commit stable / code commit changes), EMPTY sentinel, git-unavailable→rc2 (CRITICAL-1 regression), bad-stdin/missing-files→rc2, marker missing/blockers/override/corrupt (CRITICAL-2 regression)/clean, enabled=false, pr_blocker=false routing, executor-missing, tests-only diff gating (has_tests regression). Wired into governance-check.yml T2 step.",
       "path": "scripts/test-code-review-gate.sh",
       "changelog": [
+        "1.1.0: fix(subproducts-dod-closure) — scenario 2 red-proof: a subproduct code commit never changes the review hash.",
         "1.0.0: feat(EVOL-039 dogfood) — initial. Hard-gate validators get test suites per repo convention (pr-test-analyzer finding); regression guards for both dogfood CRITICALs."
       ]
     },
@@ -3545,11 +3549,12 @@
       ]
     },
     "skills/factory-pr-review/scripts/detect_change_type.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "skill-asset",
       "role": "Diff classifier — emits has_code/has_tests/has_openapi/has_asyncapi/potential_secrets + per-file is_code/is_test dict. The fail-closed secrets regex floor (Block 3) and the Block 20 hash input both live here. Was the single untracked file among its 7 tracked siblings (invisible to the old .md/.json/.sh CHECK-2 filter).",
       "path": ".claude/skills/factory-pr-review/scripts/detect_change_type.py",
       "changelog": [
+        "1.1.0: fix(subproducts-dod-closure) — `subproducts/**` is neither code nor test for the review surface (SUBPRODUCT_PREFIX): subproducts sit outside every quality gate; the meta template source is not excluded.",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ]
     },
@@ -3767,7 +3772,7 @@
     }
   },
   "runtime_artefacts": {
-    "_description": "Artefacts that materialise at SETUP --generate time WITHOUT a template source file. SETUP synthesises them from operational data (greenfield: empty seed; brownfield: scanned from existing codebase). Tracked here so SETUP --upgrade and CI can validate their PRESENCE in materialised projects without expecting a corresponding template source under `.context/templates/setup/`. Distinct from `templates` (which require source files) and `agent_templates` (which mirror agent-consumed scaffolds).",
+    "_description": "Artefacts that materialise WITHOUT a template source file — at SETUP --generate time, or at command time (`born_at`). SETUP synthesises them from operational data (greenfield: empty seed; brownfield: scanned from existing codebase). Tracked here so SETUP --upgrade and CI can validate their PRESENCE in materialised projects without expecting a corresponding template source under `.context/templates/setup/`. Distinct from `templates` (which require source files) and `agent_templates` (which mirror agent-consumed scaffolds).",
     "_architecture": "Each entry's `target` is the synthesised location in the materialised project. `bootstrap_synthesised: true` flags that disk-coherence checks (factory-pr-review Block 15) skip the source-existence assertion for this entry. Versioning tracks the schema/format of the synthesised artefact, not source content.",
     "config/codebase_inventory.json": {
       "version": "1.0.0",
@@ -3778,6 +3783,17 @@
         "1.0.0: CIP v1.0.0 — Persistent codebase inventory registry for cross-agent DRY enforcement. Greenfield: empty scaffold. Brownfield: bootstrapped via workspace scan. Consumed by CODESIGN, BLUEPRINT, IMPLEMENT."
       ],
       "bootstrap_synthesised": true
+    },
+    "docs/ux/component-registry.json": {
+      "version": "1.0.0",
+      "content_type": "project_data",
+      "target": "docs/ux/component-registry.json",
+      "bootstrap_synthesised": true,
+      "born_at": "/codesign --vision (approve) — absent until the first vision is approved; optional for backend-only / integration scopes",
+      "role": "Component Registry (schema `component_registry_v1`): SSOT of design-system ↔ build alignment — one entry per `data-component` anchor of the vision component library, its code primitive (join key into config/codebase_inventory.json), status DESIGNED → PLANNED → IMPLEMENTED, backlog reference. Schema and writers owned by Factory-codesign-vision.instructions.md § Component Registry.",
+      "changelog": [
+        "1.0.0: fix(subproducts-dod-closure) — entry added per #61 DoD (schema versioned here; presence optional, born at command time). Reverts the ADR-EVOL-052 'no manifest entry' agent-internal choice."
+      ]
     }
   }
 }

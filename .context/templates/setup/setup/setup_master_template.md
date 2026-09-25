@@ -11,6 +11,13 @@ retry_count: 0
 mode: GREENFIELD | BROWNFIELD
 project_scope: full-stack | backend-only | frontend-only | integration
 language: EN | ES
+codesign:
+  authoring: internal | external      # Q29 — read by the CODESIGN authoring guards and /codesign --sync; reaches the governance snapshot (Setup Configuration)
+po_package:
+  mode: off | full | features-only    # Q29 — subproducts/po-package materialisation switch
+measurement:
+  retention_days: 90                  # Q30
+  report_interval_days: 30            # Q30
 last_update: [TIMESTAMP]
 ---
 
