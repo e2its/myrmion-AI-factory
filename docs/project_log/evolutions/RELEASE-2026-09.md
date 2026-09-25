@@ -1,4 +1,4 @@
-# Framework evolution 2026-09 — release record (6.1.0 → 8.3.0)
+# Framework evolution 2026-09 — release record (6.1.0 → 8.4.0)
 
 > Epic #50. Ten axes transferred from a materialised project (the reference implementation) into the framework on three surfaces: the meta repo's own behaviour, the `.context/templates/setup/**` tree that `SETUP --generate` materialises, and the SETUP discovery questions where a threshold must be a project decision. Every axis shipped as one pull request with its ADR (`docs/project_log/evolutions/ADR-EVOL-0NN.md`, `status: accepted`), its manifest bump, both lock-step sides, its red-first tests and a review pass by four read-only reviewers whose findings were fixed at the root. This record is the index; each ADR is the body.
 
@@ -19,6 +19,7 @@
 | K — Test-case traceability | #65 | ADR-EVOL-053 | #77 | 8.2.0 | One machine-readable home for the case → test link (the pytest marker from the syntax tree, the title tag, `@DisplayName`, a custom pattern), strict `FEATURE/CASE` ids at collection and at the push, case → test never test → case, a shrink-only baseline, QA consuming the gate. |
 
 | L — Server-side branch protection per SCM platform (follow-up of the epic) | #79 | ADR-EVOL-054 | #80 | 8.3.0 | The SCM host as a SETUP answer (Q21.2), one runbook per platform materialised at `docs/scm/protection.md`, one reader (`gate.py scm-protection`, a profile member at `ci`) that verifies the protection through the platform's API with a read-only token — RED on a missing setting, n/a with the checklist without a token, a fault on an API error — and the CI templates exporting the runner's token; the rule names its server side. |
+| M — An external-facts reader agent (follow-up of the epic) | #85 | ADR-EVOL-056 | #86 | 8.4.0 | The `reader` class (read-only, the critic family, the read operations of the `[LAW-10]` documentation servers and no other — two closed verb vocabularies, exact server names, never a personal-data connector) and `factory-docs-reader`, spawned by the main session at Beat 0 of the design, the plan and the infrastructure: a source per fact, the answer, the unknowns, held to a return contract; the README rewritten against the roster. |
 
 Also in the window: EVOL-052 (#62, PO package, 6.1.0) preceded the epic; EVOL-041 journey-first (5.x) is the base.
 
@@ -35,7 +36,7 @@ Also in the window: EVOL-052 (#62, PO package, 6.1.0) preceded the epic; EVOL-04
 
 1. `SETUP --upgrade` (Q32 delivery mode, Q33 runtime surface, Q34 model families; the derived `verification.gates` and `traceability.home`; the migration of `planning.docs_exempt`).
 2. `python3 scripts/gate.py profile --run --control-point push` green; `gate.py agents`, `seal --validate`, `traceability` reporting.
-3. `python3 subproducts/measure/measure.py --since <adoption>` after one `report_interval_days` window — the "after" against the "before" the project measured beforehand. **The measurement belongs to the adopting project**: this repository claims no baseline (`CLAUDE.md` § Subproducts).
+3. `python3 subproducts/measure/measure.py --json --out ../measure-after.json --window-days <N>` after one `report_interval_days` window, then `--compare ../measure-before.json` — the "after" against the "before" the project measured beforehand. **The measurement belongs to the adopting project**: this repository claims no baseline (`CLAUDE.md` § Subproducts).
 
 ## Verification of this record
 
