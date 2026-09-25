@@ -1011,6 +1011,7 @@ agents:
     worker: {family: writer, effort: medium, budget_bytes: 6000, tools: {must: [Read, Edit, Write, Bash], never: [Agent]}}
     plan-critic: {family: critic, effort: high, budget_bytes: 8000, tools: {must: [Read, Grep, Glob], never: [Edit, Write, NotebookEdit, Bash, Agent]}}
     work-critic: {family: critic, effort: high, budget_bytes: 4000, tools: {must: [Read, Grep, Glob], never: [Edit, Write, NotebookEdit, Bash, Agent]}}
+    reader: {family: critic, effort: high, budget_bytes: 6000, tools: {must: [Read, Grep, Glob, WebFetch], allow_mcp: docs_mcp_allowlist, never: [Edit, Write, NotebookEdit, Bash, Agent]}}
   tiers: {small: {files: 5, lines: 150}, large: {files: 30, lines: 800}}
   resolve:
     - {class: worker, tier: small, effort: low}
@@ -1021,14 +1022,18 @@ agents:
     - {name: factory-dev-backend, class: worker, surface: ["src/**"]}
     - {name: factory-plan-critic, class: plan-critic, surface: ["docs/**"]}
     - {name: factory-critic-security, class: work-critic, lens: security, surface: ["**"]}
+    - {name: factory-docs-reader, class: reader, surface: ["package.json"]}
   spawn_sites:
     - {path: ".claude/commands/implement.md", policy: phase}
     - {path: ".claude/instructions/Factory-implement-build.instructions.md", policy: worker}
     - {path: ".claude/instructions/Factory-blueprint-design.instructions.md", policy: plan-critic}
     - {path: ".claude/skills/factory-code-review/SKILL.md", policy: work-critic}
+    - {path: ".claude/instructions/Factory-implement-plan.instructions.md", policy: reader}
 ---
 # agents
 """
+READER_TOOLS = "Read, Grep, Glob, WebFetch, mcp__context7__query-docs, mcp__aws-knowledge__aws___read_documentation"
+DOCS_SCAN = "---\nname: factory-mcp-docs-scan\ndocs_mcp_allowlist:\n  - context7\n  - aws-knowledge\n---\n"
 
 
 def agent_def(name, cls, tools, extra="", body=""):
@@ -1046,19 +1051,22 @@ class Agents(unittest.TestCase):
         write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash", body="see `rules/testing.md`"))
         write(repo / ".claude/agents/factory-plan-critic.md", agent_def("factory-plan-critic", "plan-critic", "Read, Grep, Glob"))
         write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob"))
+        write(repo / ".claude/agents/factory-docs-reader.md", agent_def("factory-docs-reader", "reader", READER_TOOLS))
+        write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN)
+        write(repo / ".claude/instructions/Factory-implement-plan.instructions.md", "---\ndescription: p\n---\nspawn-policy: reader\n")
         write(repo / ".claude/rules/testing.md", "---\ndescription: t\n---\n")
         write(repo / ".claude/instructions/Factory-implement-build.instructions.md", "---\ndescription: b\napplicable_when:\n  phase: [IMPLEMENT]\n---\nspawn-policy: worker\n")
         write(repo / ".claude/instructions/Factory-blueprint-design.instructions.md", "---\ndescription: d\n---\nspawn-policy: plan-critic\n")
         write(repo / ".claude/skills/factory-code-review/SKILL.md", "---\nname: cr\n---\nspawn-policy: work-critic\n")
         write(repo / ".claude/commands/implement.md", "---\ndescription: i\n---\nspawn-policy: phase\n")
-        self.manifest = {"templates": {f"claude/agents/{n}.md": {"version": "1.0.0"} for n in ("factory-dev-backend", "factory-plan-critic", "factory-critic-security")}}
+        self.manifest = {"templates": {f"claude/agents/{n}.md": {"version": "1.0.0"} for n in ("factory-dev-backend", "factory-plan-critic", "factory-critic-security", "factory-docs-reader")}}
         return repo
 
     def test_policy_and_validator_green_then_red(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             pol = agents.policy(repo)
-            self.assertEqual(set(pol["classes"]), {"phase", "worker", "plan-critic", "work-critic"}); self.assertEqual(pol["families"], {"writer": "sonnet", "critic": "opus"})
+            self.assertEqual(set(pol["classes"]), {"phase", "worker", "plan-critic", "work-critic", "reader"}); self.assertEqual(pol["families"], {"writer": "sonnet", "critic": "opus"})
             self.assertEqual(agents.validate(repo, self.manifest), [], "the fixture roster is green")
             # same family
             q = json.loads((repo / "config/quality.json").read_text()); q["agents"]["families"]["critic"] = "sonnet"; write(repo / "config/quality.json", json.dumps(q))
@@ -1096,7 +1104,7 @@ class Agents(unittest.TestCase):
             (repo / ".claude/agents/factory-plan-critic.md").unlink()
             f = agents.validate(repo, self.manifest); self.assertTrue(any("no agent definition exists" in x["reason"] for x in f))
             write(repo / ".claude/agents/factory-plan-critic.md", agent_def("factory-plan-critic", "plan-critic", "Read, Grep, Glob"))
-            f = agents.validate(repo, {"templates": {}}); self.assertEqual(sum("no manifest entry" in x["reason"] for x in f), 3, "undelivered definitions are red")
+            f = agents.validate(repo, {"templates": {}}); self.assertEqual(sum("no manifest entry" in x["reason"] for x in f), 4, "undelivered definitions are red")
             # families: a placeholder, `inherit`, a case variant of the same alias
             for w, c, needle in (("{{AGENT_WRITER_MODEL}}", "opus", "placeholder"), ("sonnet", "inherit", "placeholder"), ("Opus", "opus", "same alias")):
                 q = json.loads((repo / "config/quality.json").read_text()); q["agents"]["families"] = {"writer": w, "critic": c}; write(repo / "config/quality.json", json.dumps(q))
@@ -1194,6 +1202,69 @@ class Agents(unittest.TestCase):
             with self.assertRaisesRegex(GateFault, "needs --class"):
                 agents.check_return(critic_ok, "")
 
+
+    def test_reader_class_docs_mcp_allowlist_and_return_contract(self):
+        """EVOL-056: a read-only class may borrow the [LAW-10] allowlist — read operations of listed servers only; the reader's return has its sources, its answer, its unknowns."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(agents.validate(repo, self.manifest), [], "context7 / aws-knowledge read operations are admitted")
+            def reader(tools):
+                write(repo / ".claude/agents/factory-docs-reader.md", agent_def("factory-docs-reader", "reader", tools))
+                return " | ".join(x["reason"] for x in agents.validate(repo, self.manifest) if x["path"].endswith("factory-docs-reader.md"))
+            self.assertIn("not a read operation", reader(READER_TOOLS + ", mcp__aws-knowledge__aws___create_stack"), "a mutator on an allowlisted server is red")
+            self.assertIn("not in the documentation allowlist", reader(READER_TOOLS + ", mcp__chrome-devtools__take_snapshot"), "a server outside [LAW-10]'s list is red")
+            self.assertIn("not read-only", reader(READER_TOOLS + ", Bash(git log:*)"), "a write tool stays red whatever the allowlist")
+            for ok in ("mcp__pulumi__pulumi-registry-get-resource",):
+                write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN.replace("  - aws-knowledge\n", "  - aws-knowledge\n  - pulumi\n"))
+                self.assertEqual(reader(READER_TOOLS + ", " + ok), "", ok)
+            self.assertIn("not a read operation", reader(READER_TOOLS + ", mcp__pulumi__pulumi-cli-up"), "a deploy on an allowlisted server is red")
+            # a mutator that carries a read token is still a mutator (two closed vocabularies); a nested server segment is not a tool; names are exact; personal-data connectors never
+            for bad, why in (("mcp__context7__delete_by_query", "write verb"), ("mcp__pulumi__update-search-index", "write verb"), ("mcp__aws-knowledge__create_and_get_stack", "write verb"),
+                             ("mcp__context7__evil__get_x", "nested"), ("mcp__Context7__query-docs", "not in the documentation allowlist"), ("mcp__aws_knowledge__aws___read_documentation", "not in the documentation allowlist")):
+                self.assertIn(why, reader(READER_TOOLS + ", " + bad), bad)
+            write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN.replace("  - aws-knowledge\n", "  - aws-knowledge\n  - claude_ai_Google_Drive\n"))
+            self.assertIn("personal-data connector", reader(READER_TOOLS + ", mcp__claude_ai_Google_Drive__read_file_content"), "a listed personal-data connector is still refused")
+            write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN)
+            write(repo / ".claude/agents/factory-docs-reader.md", agent_def("factory-docs-reader", "reader", "").replace("tools: \n", "tools:\n"))
+            self.assertTrue(any("must have" in x["reason"] for x in agents.validate(repo, self.manifest)), "`tools:` with no value is a finding (the must-list), never a traceback")
+            write(repo / ".claude/agents/factory-docs-reader.md", agent_def("factory-docs-reader", "reader", READER_TOOLS))
+            # a vendored lens may not borrow the reader class
+            write(repo / ".claude/skills/factory-code-review/agents/lens.md", agent_def("lens", "reader", READER_TOOLS))
+            self.assertTrue(any("without MCP tools" in x["reason"] for x in agents.validate(repo, self.manifest)))
+            (repo / ".claude/skills/factory-code-review/agents/lens.md").unlink()
+            (repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md").unlink()
+            self.assertIn("no documentation allowlist delivered", reader(READER_TOOLS), "no [LAW-10] list = no mcp tool admitted, said")
+            write(repo / ".claude/skills/factory-mcp-docs-scan/SKILL.md", DOCS_SCAN); self.assertEqual(reader(READER_TOOLS), "")
+            # allow_mcp belongs to read-only classes only; the value is the one list
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("worker: {family: writer, effort: medium, budget_bytes: 6000, tools: {must: [Read, Edit, Write, Bash], never: [Agent]}}", "worker: {family: writer, effort: medium, budget_bytes: 6000, tools: {must: [Read, Edit, Write, Bash], allow_mcp: docs_mcp_allowlist, never: [Agent]}}"))
+            with self.assertRaisesRegex(GateFault, "class that writes"):
+                agents.policy(repo)
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("allow_mcp: docs_mcp_allowlist", "allow_mcp: anything"))
+            with self.assertRaisesRegex(GateFault, "must be `docs_mcp_allowlist`"):
+                agents.policy(repo)
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS)
+            # the reader runs on the critic family: resolve and the spawn hook
+            r = agents.resolve(repo, "reader"); self.assertEqual((r["family"], r["model"], r["effort"]), ("critic", "opus", "high"))
+            self.assertFalse(agents.spawn_check(repo, "factory-docs-reader", "sonnet")["ok"]); self.assertTrue(agents.spawn_check(repo, "factory-docs-reader", "opus")["ok"])
+            # the return contract
+            gov = "## Governance\nRules read: rules/agents.md\nLaws applied: LAW-10\nDefect classes: none\nSources: 1\n"
+            good = "## Sources\n- mcp · context7 · fastapi 0.115 lifespan · https://fastapi.tiangolo.com/advanced/events/ · lifespan replaces on_event since 0.93\n## Answer\nUse lifespan [1].\n## Unknowns\nnone\n" + gov
+            self.assertEqual(agents.check_return(good, "reader"), [])
+            self.assertEqual(agents.check_return("## Sources\nno sources\n## Answer\nknown-cold: nothing reachable\n## Unknowns\n- is lifespan async · searched: context7 fastapi, web\n" + gov, "reader"), [])
+            self.assertTrue(any("no `## Sources`" in p for p in agents.check_return("## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
+            self.assertTrue(any("outside the contract shape" in p for p in agents.check_return("## Sources\n- context7 · fastapi\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")), "a source that names no ref and no digest is refused")
+            self.assertTrue(any("without a real ref or digest" in p for p in agents.check_return("## Sources\n- doc · web · q · n/a · -\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
+            self.assertTrue(any("names nothing searched" in p for p in agents.check_return("## Sources\nno sources\n## Answer\nx\n## Unknowns\n- is it async\n" + gov, "reader")))
+            self.assertTrue(any("names nothing searched" in p for p in agents.check_return("## Sources\nno sources\n## Answer\nx\n## Unknowns\n- is it async · searched: \n" + gov, "reader")))
+            self.assertTrue(any("no `## Governance`" in p for p in agents.check_return("## Sources\nno sources\n## Answer\nx\n## Unknowns\nnone\n", "reader")))
+            # empty sections, the template echoed back, the order — refused
+            self.assertTrue(any("empty `## Answer`" in p for p in agents.check_return("## Sources\nno sources\n## Answer\n## Unknowns\nnone\n" + gov, "reader")))
+            self.assertTrue(any("empty `## Unknowns`" in p for p in agents.check_return("## Sources\nno sources\n## Answer\nx\n## Unknowns\n" + gov, "reader")))
+            self.assertTrue(any("placeholder" in p for p in agents.check_return("## Sources\n- mcp · context7 · <query> · <ref: url> · <digest>\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")), "the contract's own template is not a return")
+            self.assertTrue(any("out of order" in p for p in agents.check_return("## Answer\nx\n## Sources\nno sources\n## Unknowns\nnone\n" + gov, "reader")))
+            self.assertEqual(agents.check_return("## Sources\n(or exactly: no sources)\nno sources\n## Answer\nx\n## Unknowns\n- q · searched: web\n(or exactly: none)\n" + gov, "reader"), [], "the template's hint lines are not lines")
+            self.assertTrue(any("exactly `## Sources`" in p for p in agents.check_return("## Sources (2)\n- mcp · context7 · q · https://x · d\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
+            self.assertEqual(agents.check_return("did x\n" + gov, "worker"), [], "the reader's sections are the reader's — a worker owes only its governance block")
 
 
 class Seal(unittest.TestCase):

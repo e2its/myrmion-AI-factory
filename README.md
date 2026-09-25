@@ -7,7 +7,7 @@
 
 # Myrmion AI Factory for Claude
 
-> **Phase 2 of the Myrmion ecosystem — the product-development framework.** A single Claude Code agent orchestrates the complete Software Development Life Cycle with built-in governance, security, and quality gates via slash commands.
+> **Phase 2 of the Myrmion ecosystem — the product-development framework.** Claude Code runs the complete Software Development Life Cycle under governance: slash commands that delegate each phase to its own agent, workers per surface, read-only critics and an external-facts reader — with the security and quality gates held by one reader (`scripts/gate.py`) at every control point.
 
 </td>
 </tr>
@@ -38,45 +38,49 @@ Adoption and Federation are complementary — the cultural-governance pair: one 
 1. [Overview](#overview)
 2. [Prerequisites](#prerequisites)
 3. [Installation](#installation)
-4. [Architecture](#architecture)
+4. [Architecture](#architecture) — role agents, the roster, the one reader
 5. [Workflow Sequence](#workflow-sequence-preset-full-sdlc)
 6. [Command Reference](#command-reference)
-   - [External CODESIGN Authoring (PO Package)](#external-codesign-authoring-po-package)
-7. [Recommended Pipeline](#recommended-pipeline)
-8. [Complete Workflow Diagram](#complete-workflow-diagram)
-9. [Exception Routes and Recovery](#exception-routes-and-recovery)
-10. [State Transition Matrices](#state-transition-matrices)
-11. [State Glossary](#state-glossary)
-12. [Dynamic Governance System](#dynamic-governance-system)
-13. [Memory Cache Architecture](#memory-cache-architecture)
-14. [Immutability and Versioning](#immutability-and-versioning)
-15. [Directory Structure](#directory-structure)
-16. [Security](#security)
-17. [Troubleshooting](#troubleshooting)
-18. [License](#license)
-19. [Support](#support)
+7. [External CODESIGN Authoring (PO Package)](#external-codesign-authoring-po-package)
+8. [Measuring the SDLC (measure subproduct)](#measuring-the-sdlc-measure-subproduct)
+9. [Incremental Dev Plan (Vertical Slicing)](#incremental-dev-plan-vertical-slicing)
+10. [Recommended Pipeline](#recommended-pipeline)
+11. [Complete Workflow Diagram](#complete-workflow-diagram)
+12. [Exception Routes and Recovery](#exception-routes-and-recovery)
+13. [State Transition Matrices](#state-transition-matrices)
+14. [State Glossary](#state-glossary)
+15. [Dynamic Governance System](#dynamic-governance-system)
+16. [Gates, Control Points and CI](#gates-control-points-and-ci)
+17. [Memory Cache Architecture](#memory-cache-architecture)
+18. [Immutability and Versioning](#immutability-and-versioning)
+19. [Directory Structure](#directory-structure)
+20. [Security](#security)
+21. [Troubleshooting](#troubleshooting)
+22. [License](#license)
+23. [Support](#support)
 
 ---
 
 ## Overview
 
-Myrmion AI Factory is **phase 2 of the Myrmion ecosystem — the product-development framework**: it transforms Claude Code into a **governed SDLC orchestrator** using slash commands (`.claude/commands/`). A single agent assumes specialized roles — 6 covering the main SDLC phases plus 2 independent operational commands (AUDIT and BACKLOG) — supported by cross-cutting skill protocols and contextual instruction files.
+Myrmion AI Factory is **phase 2 of the Myrmion ecosystem — the product-development framework**: it transforms Claude Code into a **governed SDLC orchestrator** using slash commands (`.claude/commands/`). The main session delegates each phase by name to a **phase agent** with its own context — 6 SDLC phases plus 2 independent operational commands (AUDIT and BACKLOG) — and spawns the **workers** per surface, the **read-only critics** and the **external-facts reader** (15 definitions under `.claude/agents/`); cross-cutting skill protocols and contextual instruction files bind every one of them.
 
-At setup the framework generates its own **operational law** — `docs/constitution.md`. Every role, every gate, every generated artefact is validated against it, so governance is propagated into each agent move and the decision chain stays auditable.
+At setup the framework generates the project's **operational law** — `docs/constitution.md`, an index of project law (`[PLAW-NN]`) whose universal half is the `[LAW-NN]` index of `CLAUDE.md`: one sentence, one body, its records per law. Every agent, every gate, every generated artefact is validated against it, so governance is propagated into each agent move and the decision chain stays auditable.
 
 ### Key Features
 
-- **Single Agent + Slash Commands**: 8 specialized commands invoked via `/command --args` — no multi-agent coordination overhead.
+- **Role agents and read-only critics (EVOL-049, EVOL-056)**: 8 commands invoked via `/command --args`; each phase runs in its own agent, work runs in workers per surface, the work is reviewed by critics that did not write it, and an external-facts reader reads the documentation before anyone plans. Writers and critics live on different model families by construction; a critic cannot write (the harness tool matrix); no agent ratifies, commits or decides.
 - **Natural Language + Commands**: Say what you need or use explicit slash commands — Claude routes everything.
-- **Constitution-Driven**: All decisions validated against `docs/constitution.md` (generated during setup).
+- **Constitution-Driven**: all decisions validated against the law index — `docs/constitution.md` (project law, generated at setup) and `CLAUDE.md § Governance Rules` (universal law); a sentence changes only through an accepted ADR, a body through a rule-file edit, both enforced by `scripts/check-adr-constitution-sync.sh`.
 - **Contract-First Development**: API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI, webhooks) defined and linted before implementation.
-- **Build Verification Loop (BVL)**: Tests executed in terminal, errors parsed and auto-fixed (max 3 attempts). One full verification loop per change (tests + lint + typecheck + build, each suite once) after the artefacts, sealed and honoured at the push (`gate.py seal`, EVOL-051); the static round and the governance digests before the critics. Test-case traceability (EVOL-053): every test states its case at one machine-readable home; `gate.py traceability` is red at the push for a case with no test, an unknown link or a baseline that must shrink.
+- **Build Verification Loop (BVL)**: tests executed in terminal, errors parsed and auto-fixed (max 3 attempts). One full verification loop per change — tests, lint, typecheck, build, format, SAST, complexity, seed alignment — once, on the bytes the commit carries, after the artefacts; sealed and honoured at the push (`gate.py seal`, EVOL-051); the static round and the governance digests before the critics. Test-case traceability (EVOL-053): every test states its case at one machine-readable home; `gate.py traceability` is red at the push for a case with no test, an unknown link or a baseline that must shrink.
 - **Security by Design**: OWASP Top 10 + SAST/DAST built into workflow (inline, not post-facto).
 - **TDD Enforcement**: Red-Green-Refactor-**Verify** cycle mandatory for all code (BVL closes the loop).
 - **Immutable Specifications**: Version-controlled requirements with full audit trail.
-- **Anti-Drift Protection**: RED ZONES prevent modification of framework/third-party code.
+- **Anti-Drift Protection**: protected paths and code blocks are never modified (`[LAW-02]`, `rules/protected-code.md`); one planning stage covers every governed write (EVOL-048); the branch rule is defended locally by the hooks and on the server per the project's SCM runbook (EVOL-054).
 - **Project Tracking**: Integrated backlog management with external tools or local files.
-- **Defect Prevention Catalog**: Living catalog of runtime patterns invisible to static gates; consumed by every SDLC agent.
+- **Defect Prevention Catalog**: living catalog of runtime patterns invisible to static gates (the rule pair `defect-prevention.md` + `defect-prevention-cases.md`); delivered at the point of edit to every agent.
+- **One reader for every gate**: `scripts/gate.py` with `scripts/gates/*.py` is the only place a gate's semantics live; hooks, workflows and the push preflight call it, never re-implement it (exit contract 0 ok · 1 red · 2 could not judge · 3 the reader itself missing).
 
 ---
 
@@ -85,7 +89,7 @@ At setup the framework generates its own **operational law** — `docs/constitut
 | Requirement | Minimum Version | Notes |
 |-------------|-----------------|-------|
 | **Claude Code** | CLI, VS Code extension, JetBrains extension, or Desktop app | Any supported interface |
-| **Claude model** | Claude Opus 4.x | Required for the framework's reasoning complexity |
+| **Claude model** | Two model families, chosen at SETUP (Q34) | A writer alias and a critic alias, never equal (`config/quality.json → agents.families`); the model is passed per spawn by `gate.py agents --resolve` |
 | **Git** | 2.x | Initialized repository |
 | **Bash-compatible shell** | — | Linux / macOS / WSL on Windows |
 | **Python** | 3 | Framework scripts. The PO package tools need Python 3.10 or later with PyYAML (`python3 -m pip install pyyaml`) |
@@ -111,79 +115,63 @@ claude
 ### Framework File Structure
 
 ```
-CLAUDE.md                                    # Root governance (always loaded)
+CLAUDE.md                                    # Root governance (always loaded): the universal law index [LAW-NN], the gates, the control points
 .claude/
-├── commands/                                # 8 slash commands (one per SDLC phase)
-│   ├── audit.md                             # /audit — Technical Due Diligence
-│   ├── setup.md                             # /setup — Setup & Governance
-│   ├── codesign.md                          # /codesign — Co-Creation (PO ↔ UX)
-│   ├── blueprint.md                         # /blueprint — Technical Design (ARCH ↔ QA)
-│   ├── implement.md                         # /implement — Implementation (DEV ↔ REVIEW ↔ SEC)
-│   ├── devops.md                            # /devops — Infrastructure & Deployment
-│   ├── qa.md                                # /qa — Post-Staging Verification
-│   └── backlog.md                           # /backlog — Project Tracking & Issues
-├── instructions/                            # 24 detailed instructions (contextual load)
-│   ├── Factory-protocol-smart-redirect.instructions.md
-│   ├── Factory-protocol-iop-intent-map.instructions.md
-│   ├── Factory-protocol-cwd-discipline.instructions.md
-│   ├── Factory-audit-checklist.instructions.md
-│   ├── Factory-audit-complexity.instructions.md
-│   ├── Factory-setup-discovery.instructions.md
-│   ├── Factory-setup-materialization.instructions.md
-│   ├── Factory-setup-upgrade.instructions.md
-│   ├── Factory-setup-reconcile-inventory.instructions.md
-│   ├── Factory-codesign-vision.instructions.md
-│   ├── Factory-codesign-feature.instructions.md
-│   ├── Factory-blueprint-design.instructions.md
-│   ├── Factory-blueprint-refine.instructions.md
-│   ├── Factory-blueprint-validation.instructions.md
-│   ├── Factory-implement-plan.instructions.md
-│   ├── Factory-implement-build.instructions.md
-│   ├── Factory-implement-review-checks.instructions.md
-│   ├── Factory-devops-configure.instructions.md
-│   ├── Factory-devops-provision-deploy.instructions.md
-│   ├── Factory-codesign-sync.instructions.md    # /codesign --sync — adopts an externally authored CODESIGN return
+├── commands/                                # 8 slash commands (one per SDLC phase + AUDIT + BACKLOG)
+│   ├── audit.md  setup.md  codesign.md  blueprint.md  implement.md  devops.md  qa.md  backlog.md
+├── agents/                                  # 15 role agents (EVOL-049, EVOL-056) — delegated by name, never by discovery
+│   ├── factory-codesign.md  factory-blueprint.md  factory-implement.md  factory-devops.md  factory-qa.md   # phase agents (writer family)
+│   ├── factory-dev-backend.md  factory-dev-frontend.md  factory-dev-platform.md  factory-dev-e2e.md      # workers per surface (writer family)
+│   ├── factory-plan-critic.md                                                                             # the plan gate (critic family, read-only)
+│   ├── factory-critic-correctness.md  factory-critic-governance.md  factory-critic-fidelity.md  factory-critic-security.md   # work critics by concern (read-only)
+│   └── factory-docs-reader.md                                                                             # the external-facts reader — Beat 0 (read-only, documentation MCPs + web)
+├── instructions/                            # 24 detailed instructions (contextual load per command)
+│   ├── Factory-protocol-{smart-redirect,iop-intent-map,cwd-discipline}.instructions.md
+│   ├── Factory-audit-{checklist,complexity}.instructions.md
+│   ├── Factory-setup-{discovery,materialization,upgrade,reconcile-inventory}.instructions.md
+│   ├── Factory-codesign-{vision,feature,sync}.instructions.md
+│   ├── Factory-blueprint-{design,refine,validation}.instructions.md
+│   ├── Factory-implement-{plan,build,review-checks}.instructions.md
+│   ├── Factory-devops-{configure,provision-deploy}.instructions.md
 │   ├── Factory-qa-verify.instructions.md
-│   ├── Factory-backlog-operations.instructions.md
-│   ├── Factory-backlog-execution-plan.instructions.md
-│   └── Factory-backlog-next-task.instructions.md
-├── skills/                                  # 23 cross-cutting skills (reusable protocols)
-│   ├── factory-applicability-discovery/     # ADP — governance Roll-Call (command Step 0)
-│   ├── factory-governance-loading/          # GCRP — Zero Trust context recovery
-│   ├── factory-incremental-persistence/     # IPP — incremental persistence
-│   ├── factory-codebase-inventory/          # CIP — DRY inventory
-│   ├── factory-coherence-validation/        # CVP — cross-artifact validation
-│   ├── factory-build-verification/          # BVL — test execution + auto-fix loop
-│   ├── factory-branching-strategy/          # SCM — branch enforcement
-│   ├── factory-commit-prompt/               # Auto-generated conventional commits
-│   ├── factory-rdr/                         # RDR — Recommendation → Decision
-│   ├── factory-adversarial-reasoning/       # Adversarial reasoning — FOR/AGAINST double pass
-│   ├── factory-batch-interactivity/         # BIP — tiered proposal/review cycles
-│   ├── factory-agent-communication/         # ACP — controlled verbosity
-│   ├── factory-iteration-model/             # Cascading invalidation
-│   ├── factory-worklog/                     # Per-feature JSONL audit trail
-│   ├── factory-memory-cache/                # FMCP — acceleration layer at /memories/repo/
-│   ├── factory-preventive-sweep/            # Runtime defect sweep pre-deploy
-│   ├── factory-backlog-next-task/           # Next-task resolver with cache fast path
-│   ├── factory-adr-management/              # ADR / FDR lifecycle
-│   ├── factory-mcp-docs-scan/               # MCP docs-scan banner
-│   ├── factory-complexity-check/            # Cyclomatic complexity gate (DC-28)
-│   ├── factory-code-review/                 # Agentic code review engine (Block 20, LAW-13)
-│   ├── factory-po-intake/                   # External CODESIGN authoring — validate, ratify, sync, plan the component catalog
-│   └── factory-pr-review/                   # Seven-axis PR review + push gate (20 hard blocks)
-├── hooks/                                   # 9 deterministic enforcement hooks (EVOL-048 adds the planning gate, its recorder and the plan-mode entry check; EVOL-043 the pre-edit delivery)
-│   ├── check-branch-protection.sh           # PreToolUse — blocks edits on protected branches
-│   ├── check-completion-gate.sh
-│   ├── check-concurrency-lock.sh
-│   ├── check-governance-drift.sh
-│   ├── check-ipp-compliance.sh              # PreToolUse Write — IPP skeleton-first
-│   └── check-push-preflight.sh              # PreToolUse Bash — factory-pr-review push gate
-└── settings.json                            # Hook wiring + permission configuration
+│   └── Factory-backlog-{operations,execution-plan,next-task}.instructions.md
+├── skills/                                  # 23 cross-cutting skills (reusable protocols) — see § Cross-Cutting Skills
+│   ├── factory-applicability-discovery/     # ADP — the governance Roll-Call, Step 0 of every command ([LAW-15])
+│   ├── factory-governance-loading/          # GCRP — Zero Trust context recovery, the snapshot, the governance write protocol
+│   ├── factory-rdr/                         # RDR — Recommendation → Decision → Ratification, two registers
+│   ├── factory-adversarial-reasoning/       # FOR / AGAINST double pass with the do-less lens
+│   ├── factory-code-review/                 # the agentic code-review engine ([LAW-13]) — the correctness critic's instrument
+│   ├── factory-pr-review/                   # the seven-axis push gate (preflight before `git push`)
+│   ├── factory-mcp-docs-scan/               # [LAW-10] the documentation-server allowlist: the banner's and the reader's
+│   └── … (incremental-persistence, codebase-inventory, coherence-validation, build-verification, branching-strategy, commit-prompt,
+│        batch-interactivity, agent-communication, iteration-model, worklog, memory-cache, preventive-sweep, backlog-next-task,
+│        adr-management, complexity-check, po-intake)
+├── hooks/                                   # 11 deterministic enforcement hooks, wired in settings.json
+│   ├── check-branch-protection.sh           # PreToolUse Edit|Write — no write on a protected branch
+│   ├── check-plan-approval.sh               # PreToolUse Edit|Write — no governed write without an approved plan (EVOL-048)
+│   ├── check-plan-mode.sh                   # PreToolUse EnterPlanMode — a command that owns a planning phase never enters plan mode
+│   ├── record-plan-approval.sh              # PostToolUse ExitPlanMode — the only writer of the plan-approval marker
+│   ├── check-agent-spawn.sh                 # PreToolUse Agent — a roster agent spawns on its family's alias (EVOL-049)
+│   ├── check-concurrency-lock.sh  check-governance-drift.sh  check-completion-gate.sh  check-ipp-compliance.sh
+│   ├── deliver-governance.sh                # PreToolUse Edit|Write — the law governing the file being written, at the point of edit
+│   └── check-push-preflight.sh              # PreToolUse Bash — the factory-pr-review push gate
+└── settings.json                            # Hook wiring (SessionStart banner, prompt freshness, compaction reload, the PreToolUse gates)
 .context/
-├── templates/                               # Materialization templates (SETUP --generate) — incl. setup/subproducts/po-package/ (PO package)
-└── schemas/                                 # JSON schemas (worklog log, …)
-config/                                      # Framework config — coherence-context, quality, protected-paths
-scripts/                                     # Governance + CI scripts — manifest-driven delivery (validate-governance, security-scan dispatcher, auto-tag, lock-step, test-* suites incl. T3 materialization-surface, …)
+├── templates/                               # Materialisation templates (SETUP --generate), by role: architect, codesign, develop, peer_review, po, qa, security, setup
+│   └── setup/                               #   what a project inherits: claude/ (CLAUDE.md, agents, hooks), rules/, config/, scripts/, workflows/ (7 CI platforms),
+│                                            #   scm/ (protection runbooks per platform), subproducts/ (po-package, measure), governance_versions.json (the manifest)
+├── schemas/                                 # JSON schemas (workflow log, infrastructure registry)
+├── assets/  utils/  locks/
+config/                                      # coherence-context.json (audit + lock-step pairs), quality.json (every gate key: surface, planning, agents,
+                                             #   documentation, verification, traceability, scm, complexity, code_review, security_scan, retired_terms, budgets)
+scripts/
+├── gate.py + gates/*.py                     # THE one reader of every gate (exit 0 ok · 1 red · 2 could not judge · 3 reader missing)
+├── hooks/{pre-commit,pre-push,commit-msg}   # git hooks (scripts/install-hooks.sh): branch class + secrets at commit; the gate profile + the push gate at push
+├── validate-governance.sh, check-lockstep-pairs.sh, check-adr-constitution-sync.sh, check-applicability-frontmatter.sh, …
+├── materialize-synthetic.sh, test-*.sh      # the T2 suites CI runs (89-check synthetic materialisation among them)
+└── factory-sync.sh, auto-tag.sh, security-scan.sh, generate-governance-snapshot.sh, governance-on{prompt,edit,compact}.sh
+.github/workflows/                           # governance-check.yml (the gate profile at ci), lockstep-check.yml, auto-tag.yml
+docs/project_log/evolutions/                 # ADR-EVOL-* (every framework evolution's record) and the release records
 ```
 
 ### Post-Installation Verification
@@ -197,25 +185,45 @@ scripts/                                     # Governance + CI scripts — manif
 
 ## Architecture
 
-### Single Agent + Slash Commands Model
+### Role agents, one per phase — spawned by name from the main session
 
 ```
-                    ┌─────────────────┐
-        User ───────►│   Claude Code   │◄─── CLAUDE.md (always loaded)
-                    │  (single agent) │
-                    └──────┬──────────┘
-                           │ slash commands (/command --args)
-            ┌──────┬───────┼───────┬──────┬───────┬──────┬─────────┐
-            ▼      ▼       ▼       ▼      ▼       ▼      ▼         ▼
-         /audit  /setup /codesign /blueprint /implement /devops /qa /backlog
-        (each command loads its instructions and skills on invocation)
+                    ┌─────────────────────────┐
+        User ───────►│  Claude Code (main      │◄─── CLAUDE.md (always loaded) · the hooks · gate.py
+                    │  session: RDR, git, PR) │
+                    └──────────┬──────────────┘
+                               │ slash commands (/command --args) — each delegates its phase BY NAME
+        ┌──────────┬───────────┼───────────┬────────────┬──────────┐
+        ▼          ▼           ▼           ▼            ▼          ▼
+   factory-    factory-    factory-    factory-     factory-   (audit, setup,
+   codesign    blueprint   implement   devops       qa          backlog: main session)
+        │          │           │           │
+        │   plan critic     workers ↔ work critics + security lens   ← spawned by the MAIN SESSION, never by an agent
+        │   (read-only)     (backend · frontend · platform · e2e)      (a phase agent carries no Agent tool)
+        └──────────┴───────────┴───────────┘
+              Beat 0: factory-docs-reader (read-only) reads the documentation before the design, the plan, the infrastructure
 ```
 
-- **Claude Code** is the orchestrator: each slash command delegates by name to a phase agent with its own context (`.claude/agents/`, policy in `rules/agents.md`).
-- Each slash command binds its phase agent's protocols and rules.
-- Detailed instructions in `.claude/instructions/` are loaded contextually per command.
-- Skills in `.claude/skills/` are cross-cutting protocols reusable by every command.
-- `CLAUDE.md` loads on EVERY conversation (contains cross-cutting governance).
+- **The main session orchestrates.** It runs every slash command, keeps the RDR, the user questions and every git operation (**no agent ratifies, commits or decides**), and spawns the agents by name — delegation is never by applicability discovery.
+- **One agent per phase.** `/codesign`, `/blueprint`, `/implement`, `/devops`, `/qa` delegate to their phase agent (`.claude/agents/factory-<phase>.md`), which runs its instructions in its own context and writes its own surface. The IMPLEMENT build loop, the plan gate and the review passes run in the main session, which spawns the workers and the critics and hands the phase agent the results.
+- **Workers per surface, critics by concern.** `factory-dev-{backend,frontend,platform,e2e}` write; `factory-plan-critic` gates a plan before it is approved (up to two rounds, then the user adjudicates); `factory-critic-{correctness,governance,fidelity,security}` review a completed diff they did not write (one round, then the user). Read-only is the harness tool matrix, not a sentence: a critic definition lists only `Read`, `Grep`, `Glob`, and the main session hashes the working tree before and after a critic run.
+- **The external-facts reader.** `factory-docs-reader` (class `reader`, EVOL-056) reads the current official documentation of the libraries and services the work depends on — through the documentation servers `[LAW-10]` allowlists and the web — and returns a source per fact, the answer and the unknowns. Spawned at Beat 0, before the design (`Factory-blueprint-design`), the plan (`Factory-implement-plan`) and the infrastructure (`Factory-devops-configure`); a premise without a source is written `known-cold`, never assumed.
+- **The class policy has one home.** `rules/agents.md` (`.context/templates/setup/rules/agents.md` here): tools per class, prompt budgets, families, per-spawn resolution, the fallback ladder, the round caps, the roster and the spawn sites. `python3 scripts/gate.py agents` validates it (a profile member and CI); `--resolve` computes the model and effort per spawn; `--digest` hands each agent the slice of law governing its surface; `--spawn` is the PreToolUse hook's question; `--check-return` refuses an incomplete return.
+- **Two model families by construction.** `config/quality.json → agents.families` — a writer alias and a critic alias chosen at SETUP (Q34), never equal; the validator refuses equal aliases and the spawn hook refuses a roster agent spawned on the wrong family.
+
+| Agent | Class | Family | Spawned by | Surface / concern |
+|---|---|---|---|---|
+| `factory-codesign` | phase | writer | `/codesign` | `spec.feature`, `user_journey.md`, `mock.html`, `slice_map.md` |
+| `factory-blueprint` | phase | writer | `/blueprint` | `design.md`, `test_plan.md`, contracts, `increment_plan.md` |
+| `factory-implement` | phase | writer | `/implement` | `dev_plan.md`, the increment bookkeeping |
+| `factory-devops` | phase | writer | `/devops` | provisioning, the deployment the runtime surface decides, the sweep |
+| `factory-qa` | phase | writer | `/qa` | the pre-verification gate, the smoke, the certification |
+| `factory-dev-backend` · `-frontend` · `-platform` · `-e2e` | worker | writer | the build loop (main session) | `src/**` · `web/**, ui/**` · `scripts/**, infra/**, workflows, config/**` · `tests/**, e2e/**` |
+| `factory-plan-critic` | plan-critic | critic | the plan gate (main session) | `increment_plan.md`, `design.md` before approval |
+| `factory-critic-correctness` · `-governance` · `-fidelity` · `-security` | work-critic | critic | the review passes, the preventive sweep (main session) | logic and tests · laws, protected paths, the defect catalog · the diff against the spec and the plan · SAST, secrets, injection, authz |
+| `factory-docs-reader` | reader | critic | Beat 0 of BLUEPRINT, IMPLEMENT --plan, DEVOPS --configure (main session) | the dependency manifests; documentation MCPs + web |
+
+- Detailed instructions in `.claude/instructions/` are loaded contextually per command; skills in `.claude/skills/` are cross-cutting protocols every command and agent reuse; `CLAUDE.md` loads on EVERY conversation.
 
 ### How to Interact
 
@@ -253,7 +261,7 @@ SETUP (one-time)
   → BLUEPRINT (ARCH↔QA, --approve required)
   → CONTRACT-FREEZE          [hard gate — blocks IMPLEMENT --plan]
   → DEVOPS --configure
-  → IMPLEMENT (DEV↔REVIEW↔SEC + BVL)
+  → IMPLEMENT (workers ↔ work critics ↔ security lens + BVL)
   → PREVENTIVE-SWEEP         [hard gate — blocks DEVOPS --deploy dev]
   → QA (verify, auto-approves)
   → SMOKE-E2E                [hard gate — blocks QA --verify pass]
@@ -297,10 +305,12 @@ Role: Senior Technical Auditor. Evaluates the current state of an existing proje
 | Command | Arguments | Description |
 | --- | --- | --- |
 | `/audit --audit` | — | Full technical audit. Scan-First protocol. Master Checklist: Phase 0 (Language), Phase A (Governance / HR), Phase B (Architecture / Software), Phase C (Infrastructure), Phase D (Security). Atomic persistence: one section per turn. Resumable via `status: NEEDS_INFO`. |
-| `/audit --refine {SECTION_ID}` | Section ID (P0, G1-G3, S1-S4, I1-I4, SEC1-SEC5) | Refinement of a specific section. |
-| `/audit --approve` | — | Audit closure with verdict `GO` / `NO_GO` / `GO_WITH_CONDITIONS`. |
+| `/audit --software` | — | Software audit of an existing codebase (stack, architecture, complexity, tests, security) — `docs/software_audit.md`. |
+| `/audit --software --deep` | — | Extended software audit: prior-audit reconciliation, stable finding ids `{AXIS}-{N}`, deep-dive protocol. |
+| `/audit --refine {SECTION_ID}` | Section ID (P0, G1-G3, S1-S4, I1-I4, SEC1-SEC5, COMP1) | Refinement of a specific section. |
+| `/audit --approve [--scope {audit\|software}]` | Optional scope | Audit closure with verdict `GO` / `NO_GO` / `GO_WITH_CONDITIONS`. |
 
-Artifact: `docs/technical_due.md`.
+Artifacts: `docs/technical_due.md`, `docs/software_audit.md`.
 
 ### 0. SETUP (Setup & Governance)
 
@@ -314,6 +324,7 @@ Role: Architect / Governance. Defines constitution, rules, and initial scaffoldi
 | `/setup --migrate-legacy-setup` 🧪 | — | **EXPERIMENTAL.** Auto-migrates a legacy `setup.md` to the tripartite format. Requires a score > 85%. |
 | `/setup --upgrade` | — | Upgrades governance artifacts to the latest framework version. 6 safety layers. Smart Additive Merge. |
 | `/setup --rollback-upgrade {TIMESTAMP}` | Backup timestamp | Recovers the project from a failed upgrade. |
+| `/setup --reconcile-inventory` | — | Reconciles `config/codebase_inventory.json` against the tree (the CIP inventory drift and freshness checks). |
 
 Artifacts: `docs/setup.md`, `docs/constitution.md`, `.claude/rules/*`, `MATERIALIZATION_REPORT.md`.
 
@@ -353,20 +364,21 @@ Artifacts: `docs/spec/{ID}/design.md`, `test_plan.md`, `increment_plan.md`, cont
 
 ### 3. IMPLEMENT (Implementation: workers ↔ work critics)
 
-Role: Phase agent `factory-implement` — workers per surface, then read-only work critics and the security lens (EVOL-049). Plans + implements + verifies + secures per phase.
+Role: Phase agent `factory-implement` — the plan and the increment bookkeeping. The **build loop runs in the main session**, which spawns the workers per surface, then the read-only work critics and the security lens (EVOL-049), and hands the phase agent the results. Before `--plan`, Beat 0: the external-facts reader (EVOL-056).
 
 | Command | Arguments | Description |
 | --- | --- | --- |
 | `/implement --plan {ID}` | — | Generates the implementation checklist (`dev_plan.md`). Requires BLUEPRINT APPROVED. Under `slicing_strategy: incremental` emits one `## Increment INC-N` section per increment with `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` tasks + `[INC-N.ACC.k]` acceptance gate; under `monolithic` preserves legacy `[A/B/C.N]` tags. |
 | `/implement --refine {ID} "[FEEDBACK]"` | Feedback | Plan refinement. Standard Refine produces `[ADJ-N]` tasks; Delta Iteration produces `[D.N]` tasks. |
-| `/implement --build {ID}` | — | Phased implementation: the worker (TDD + BVL) → the work critics → the security lens (SAST). Build Verification Loop: runs tests in terminal, parses errors, auto-corrects (max 3 attempts). One full verification loop (tests + lint + typecheck + build, once, after the artefacts and the status flip; sealed, honoured at the push — EVOL-051) — under `slicing_strategy: incremental` runs scope-filtered per slice before flipping `dev_plan.frontmatter.increments[INC-N].status: IMPLEMENTED_AND_VERIFIED`; the global `dev_plan.status` is **derived** and only flips after the last slice closure passes a plan-level BVL aggregate. Completion Gate: every task must be `[x]` or `@skip` with justification. |
+| `/implement --build {ID} [INC-N]` | Optional increment | Phased implementation: the worker (TDD + BVL) → the work critics → the security lens (SAST). Build Verification Loop: runs tests in terminal, parses errors, auto-corrects (max 3 attempts). One full verification loop (tests, lint, typecheck, build, format, SAST, complexity, seed alignment — once, after the artefacts and the status flip; sealed, honoured at the push — EVOL-051) — under `slicing_strategy: incremental` runs scope-filtered per slice before flipping `dev_plan.frontmatter.increments[INC-N].status: IMPLEMENTED_AND_VERIFIED`; the global `dev_plan.status` is **derived** and only flips after the last slice closure passes a plan-level BVL aggregate. Completion Gate: every task must be `[x]` or `@skip` with justification. |
 | `/implement --fix {ID} "[HELP]"` | Help | Generates `[FIX-N]` tasks from QA rejection or blockers. Executes fix → marks `[x]`. |
+| `/implement --finalize {ID}` | — | Closes the feature's implementation: the last increment's verification, the aggregate, the status flip. |
 
 Artifacts: `docs/spec/{ID}/dev_plan.md`, source code, `peer_review_{ts}.md` (or `peer_review_{INC-N}_{ts}.md` per-slice when incremental), `sec_audit.md`, Draft PR.
 
 ### 4. DEVOPS (DevOps & Infrastructure)
 
-Role: SRE and Platform Engineer. Manages infrastructure, CI/CD, and environments.
+Role: Phase agent `factory-devops` — infrastructure, CI/CD and environments; the deployment on a merge is decided by `gate.py runtime-surface --changed`. Before `--configure`, Beat 0: the external-facts reader on the services and IaC resources in scope (EVOL-056).
 
 | Command | Arguments | Description |
 | --- | --- | --- |
@@ -384,17 +396,18 @@ Artifacts: `docs/spec/{ID}/devops_plan.md`, `infra/features/{ID}/` (IaC), `deplo
 
 **Execution Guardrails:**
 
-- **G0** Governance Load | **G1** Stack Coherence | **G2** Cost (> 20% warn, > 50% block)
-- **G3** Secrets (hardcoding forbidden) | **G4** HA (CRITICAL features → multi-AZ)
-- **G5** Environments (from governance, never hardcoded) | **G6** Data Protection (backup before teardown)
+- **G-1** Concurrency prevention | **G0** Governance load | **G0.5** Beat 0 — external facts (the reader, EVOL-056) | **G1** Stack coherence
+- **G2** Cost limits (thresholds from the project config) | **G3** Secrets (hardcoding forbidden — BLOCKING) | **G4** Disaster recovery
+- **G5** Environment names (from governance, never hardcoded — BLOCKING) | **G6** Downstream iteration detection | **G7** Placeholder detection
+- Provision / deploy (`Factory-devops-provision-deploy`): production requires MERGE + QA APPROVED and the server-side branch protection (`gate.py scm-protection`, EVOL-054); `data_bearing: true` requires a backup before teardown.
 
 ### 5. QA (Quality Assurance — Post-Staging)
 
-Role: Final post-code certification and verification in a deployed environment (includes DAST — the security pass).
+Role: Phase agent `factory-qa` — final post-code certification and verification in a deployed environment (includes DAST — the security pass); the certification reads the gates (`gate.py traceability`, the seal) rather than re-deriving them.
 
 | Command | Arguments | Description |
 | --- | --- | --- |
-| `/qa --verify {ID} [{INC-N}]` | Optional `INC-N` | Checkbox-driven: generates the `[ ]` checklist (`[QA-PRE-*]`, `[QA-GOV-*]`, `[QA-TC-*]`, `[QA-REG-*]`, `[QA-DAST-*]`, plus `[QA-AGG-*]` in aggregate mode for incremental features), marks `[x]` as it executes. **Slice mode** (`INC-N` provided): verifies a single increment that has reached `IMPLEMENTED_AND_VERIFIED` per-entry — checklist filtered to scenarios assigned to the slice; required for incremental features before the aggregate. **Aggregate mode** (no `INC-N`): final feature-level verification; for incremental features requires every `qa_report_{INC-N}_*.md` already APPROVED. Auto-approves when ALL `[x]` AND verdict APPROVED. Requires a deployed environment. |
+| `/qa --verify {ID} [{INC-N}]` | Optional `INC-N` | Checkbox-driven: generates the `[ ]` checklist (`[QA-PRE-*]` incl. `[QA-PRE-SCM]`, `[QA-GOV-*]`, `[QA-STATIC-*]`, `[QA-DC-*]`, `[QA-TC-*]`, `[QA-REL-*]`, `[QA-CVP-*]`, `[QA-REG-*]`, `[QA-DAST-*]`, plus `[QA-AGG-*]` in aggregate mode for incremental features), marks `[x]` as it executes. **Slice mode** (`INC-N` provided): verifies a single increment that has reached `IMPLEMENTED_AND_VERIFIED` per-entry — checklist filtered to scenarios assigned to the slice; required for incremental features before the aggregate. **Aggregate mode** (no `INC-N`): final feature-level verification; for incremental features requires every `qa_report_{INC-N}_*.md` already APPROVED. Auto-approves when ALL `[x]` AND verdict APPROVED. Requires a deployed environment. |
 | `/qa --reject {ID} "[REASON]"` | Reason | Generates remediation items `[FIX-N]` → `/implement --fix`. |
 | `/qa --e2e {ID}` | — | Runs E2E tests. |
 
@@ -662,11 +675,11 @@ graph TD
 | Missing architecture mapping | `design.md → NEEDS_INFO` | `/blueprint --refine ID "Define APIs..."` |
 | RED ZONE modification | `design.md → BLOCKED` | `/blueprint --refine ID "ADR: Justification..."` |
 | Blocked implementation | `dev_plan.md → task BLOCKED` | `/implement --fix ID "Technical hint..."` |
-| Test fails 3× (3-Strike Rule) | `dev_plan.md → NEEDS_DECISION` | Recommendation/Decision loop: retry, modify, or escalate |
+| BVL exhausts its attempts (3) | task `FLAGGED` in `dev_plan.md` | Resilience Protocol (`Factory-implement-build`): retry, modify or escalate by RDR |
 | SAST vulnerabilities | `sec_audit.md → VULNERABLE` | Inline fix loop in `/implement --build` |
-| DAST vulnerabilities | `qa_report.md → VULNERABLE` | Remediate → `/qa --verify ID [INC-N]` (slice or aggregate, depending on origin) |
-| Hardcoded config | `qa_report.md → VULNERABLE` | Fix → `/qa --verify ID [INC-N]` |
-| Drift violation | `qa_report.md → BLOCKED` | `/blueprint --refine ID` or fix and re-run |
+| DAST vulnerabilities | `qa/qa_report_*.md → REJECTED` | Remediate → `/qa --verify ID [INC-N]` (slice or aggregate, depending on origin) |
+| Hardcoded config | `qa/qa_report_*.md → REJECTED` | Fix → `/qa --verify ID [INC-N]` |
+| Drift violation | `qa/qa_report_*.md → REJECTED` | `/blueprint --refine ID` or fix and re-run |
 
 ---
 
@@ -698,14 +711,14 @@ graph TD
 | `NEEDS_INFO` | `/implement --refine ID` | `READY` |
 | `READY` | `/implement --build ID` | `BUILDING` |
 | `BUILDING` | `/implement --build ID` | `BUILDING` or `IMPLEMENTED_AND_VERIFIED` |
-| `BUILDING` | (test fails 3×) | `NEEDS_DECISION` |
+| `BUILDING` | (BVL exhausts 3 attempts) | `BUILDING` — the task is `FLAGGED`, the Resilience Protocol decides |
 | `BUILDING` | `/implement --fix ID` | `BUILDING` |
 | `IMPLEMENTED_AND_VERIFIED` | `/implement --refine ID` | `READY` (delta_mode) |
 | `IMPLEMENTED_AND_VERIFIED` | `/implement --fix ID` | `BUILDING` (fix cycle) |
 
 > Under `slicing_strategy: incremental` the plan-level state shown above is **derived**: it stays at `BUILDING` until every entry of `dev_plan.frontmatter.increments[]` has reached `IMPLEMENTED_AND_VERIFIED` AND a plan-level BVL aggregate passes. Per-slice transitions live on `increments[INC-N].status` and follow `READY → BUILDING → IMPLEMENTED_AND_VERIFIED → MERGED` (the merge is recorded by the SCM hook, not by IMPLEMENT).
 
-### `qa_report_{ts}.md` (QA)
+### `qa/qa_report_{INC-N|final}_{ts}.md` (QA)
 
 | Current State | Valid Command | Next State |
 |---------------|---------------|------------|
@@ -751,8 +764,9 @@ graph TD
 | `READY` | Plan ready for `--build`. |
 | `BUILDING` | Implementation in progress — TDD + Review + SAST per phase. |
 | `IMPLEMENTED_AND_VERIFIED` | Code complete; enables DEVOPS deploy and QA verify. |
-| `VULNERABLE` | (SEC) Blocked by active security findings. |
-| `SKIPPED` | Task temporarily omitted (must be resolved before the build completes). |
+| `BLOCKED` / `REJECTED` / `INVALIDATED` | Not achievable without help / rejected by QA (→ `--fix`) / invalidated by an upstream iteration (→ `--refine`). |
+
+> `VULNERABLE` is a `sec_audit.md` state (the security lens), not a plan state; `@skip` with a justification is a task marker, not a state.
 
 ### DEVOPS states (environments)
 
@@ -792,8 +806,8 @@ graph TD
 
 `docs/constitution.md` is an index of project law: one `## [PLAW-NN]` entry per law — normative sentence, `Body:` pointer to the rule file (or skill / instruction) that hosts the full text, `Records:` ADR ids. One body per law, under the same heading + byte-identical sentence. Universal `[LAW-NN]` law lives in `CLAUDE.md` § Governance Rules.
 
-- Rules manifest (what is loaded, per-rule `applicable_when`): `.context/governance_snapshot.md` — file-based cache, summarization-safe (see `Factory-governance-loading/SKILL.md`).
-- Verification commands: auto-derived from the stack config for BVL (test, lint, typecheck, build).
+- Rules manifest (what is loaded, per-rule `applicable_when`): `.context/governance_snapshot.md` — file-based cache, summarization-safe (see `.claude/skills/factory-governance-loading/SKILL.md`).
+- Verification commands: the path-to-gate map `config/quality.json → verification.gates` (tests, coverage, lint, typecheck, build, format, SAST, complexity, seed alignment — those the stack has) and the seal (`verification.seal`), derived at SETUP (EVOL-051).
 
 ### Governance always-on enforcement (5-tier)
 
@@ -811,7 +825,7 @@ The governance snapshot covers the "what is loaded" question, but it is a passiv
 
 ### Governance corpus in layers (EVOL-043)
 
-Every rule has **exactly one body**. The constitution is the **index** (`## [PLAW-NN]` → one sentence, one `Body:` pointer, its records); `CLAUDE.md § Governance Rules` is the index of universal law (`[LAW-NN]`, same shape); bodies live once — in a rule file, a skill or an instruction — under a heading that quotes the sentence byte-identically. What a session receives is bounded and measured: `config/quality.json → budgets` holds one key per injection point (session start, prompt submit, pre-edit, snapshot, sentence and invariant lengths) and `python3 scripts/gate.py budget` measures the **real producer at its worst case** — not the file size — and fails on overflow or on a missing key. The defect catalog is **families** (surface globs + one-line invariant) and 7-column classes (family, invariant, gate, paths, agents, severity) with narratives in a cases annex read by id. Two-tier change ceremony: a sentence changes only through an accepted ADR in the same PR (`check-adr-constitution-sync.sh`, both directions); a body changes by rule-file edit + manifest bump. Three coherence gates (EVOL-044) run at every push and in CI: `gate.py laws --parity` (a body quotes its sentence byte-identically, one body per law), `gate.py currency` (a verdict artefact declares what it certified — `certifies: {subject, hash}` from `gate.py certify` — and goes STALE when the build moves under it), `gate.py manifest-parity` (a governed file's frontmatter version equals its manifest entry; the manifest is the source of truth). The per-PR surface ceiling (EVOL-045) is measured by `gate.py surface` against the one diff base (`gate.py diff-base`) at push and in CI. The deployment trigger (EVOL-047) is a positive list — `config/quality.json → surface.runtime_surface`, what a deployment can change; every deploying / release workflow (meta and the seven platform templates) asks `gate.py runtime-surface --changed` before its machinery and `gate.py runtime-surface` (parity, at push and in CI) holds the list to what the jobs and their scripts really read; the branch rule is untouched — every change ships via branch and pull request, documentation included. Role agents and read-only critics (EVOL-049): each phase runs in its own agent with its own surface, development workers per surface, and read-only critics that did not write the work — one data home for the class policy (`rules/agents.md`: tools per class enforced by the harness matrix, prompt budgets, model families as aliases with writers and critics on different families by construction, per-spawn model + effort, a fallback ladder that never degrades a writer, round caps), one reader (`gate.py agents`: validator in the gate profile and CI, per-spawn resolver, corpus digest, return-contract check), a bounded loop ending in the user's adjudication, the two review-time hats retired through the ratchet. One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan — `gate.py plan` behind a pre-write hook, the marker written only by the harness's plan approval, documentation exempt except gate inputs, a command that owns a planning phase never entering plan mode, an advisory before the block. Gate profiles per control point (EVOL-046): one key `delivery_mode` in the governance manifest, one reader `gate.py profile` (fail-closed to production; light only for a sub-increment pushed to its train in development mode; members enumerated by property — no build, no database), one call `gate.py profile --run` in the pre-push hook and in CI with all-report semantics, and `gate.py one-definition` proving no hook or workflow keeps a second definition. One applicability resolver (`gate.py applicable`) replaces every hand-written rule list; a retired-vocabulary ratchet (`gate.py retired-terms`) keeps retired shapes out of the governed tree. `scripts/materialize-synthetic.sh` proves the whole chain on a scratch project in CI.
+Every rule has **exactly one body**. The constitution is the **index** (`## [PLAW-NN]` → one sentence, one `Body:` pointer, its records); `CLAUDE.md § Governance Rules` is the index of universal law (`[LAW-NN]`, same shape); bodies live once — in a rule file, a skill or an instruction — under a heading that quotes the sentence byte-identically. What a session receives is bounded and measured: `config/quality.json → budgets` holds one key per injection point (session start, prompt submit, pre-edit, snapshot, sentence and invariant lengths) and `python3 scripts/gate.py budget` measures the **real producer at its worst case** — not the file size — and fails on overflow or on a missing key. The defect catalog is **families** (surface globs + one-line invariant) and 7-column classes (family, invariant, gate, paths, agents, severity) with narratives in a cases annex read by id. Two-tier change ceremony: a sentence changes only through an accepted ADR in the same PR (`check-adr-constitution-sync.sh`, both directions); a body changes by rule-file edit + manifest bump. Three coherence gates (EVOL-044) run at every push and in CI: `gate.py laws --parity` (a body quotes its sentence byte-identically, one body per law), `gate.py currency` (a verdict artefact declares what it certified — `certifies: {subject, hash}` from `gate.py certify` — and goes STALE when the build moves under it), `gate.py manifest-parity` (a governed file's frontmatter version equals its manifest entry; the manifest is the source of truth). The per-PR surface ceiling (EVOL-045) is measured by `gate.py surface` against the one diff base (`gate.py diff-base`) at push and in CI. The deployment trigger (EVOL-047) is a positive list — `config/quality.json → surface.runtime_surface`, what a deployment can change; every deploying / release workflow (meta and the seven platform templates) asks `gate.py runtime-surface --changed` before its machinery and `gate.py runtime-surface` (parity, at push and in CI) holds the list to what the jobs and their scripts really read; the branch rule is untouched — every change ships via branch and pull request, documentation included. Role agents and read-only critics (EVOL-049): each phase runs in its own agent with its own surface, development workers per surface, and read-only critics that did not write the work — one data home for the class policy (`rules/agents.md`: tools per class enforced by the harness matrix, prompt budgets, model families as aliases with writers and critics on different families by construction, per-spawn model + effort, a fallback ladder that never degrades a writer, round caps), one reader (`gate.py agents`: validator in the gate profile and CI, per-spawn resolver, corpus digest, return-contract check), a bounded loop ending in the user's adjudication, the two review-time hats retired through the ratchet. One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan — `gate.py plan` behind a pre-write hook, the marker written only by the harness's plan approval, documentation exempt except gate inputs, a command that owns a planning phase never entering plan mode, an advisory before the block. Gate profiles per control point (EVOL-046): one key `delivery_mode` in the governance manifest, one reader `gate.py profile` (fail-closed to production; light only for a sub-increment pushed to its train in development mode — and always for the static round before the critics (`--control-point static`) — full for everything else; the control points are the static round, the commit, the push, the train close, the pull request (CI — the only point that asks the server, `scm-protection`), the main branch and the deployment (`CLAUDE.md` § Pre-Action Gate; § Gates, Control Points and CI below).
 
 **Marker scoping.** Both markers (`governance-reload-{session_id}.marker` and `governance-source-edited-{session_id}.marker`) live under `.claude/state/` — inside the Claude Code hook namespace, gitignored, and suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replays.
 
@@ -823,7 +837,7 @@ Every rule has **exactly one body**. The constitution is the **index** (`## [PLA
 
 See [scripts/validate-governance.sh](scripts/validate-governance.sh), [scripts/governance-onprompt.sh](scripts/governance-onprompt.sh), [scripts/governance-onedit.sh](scripts/governance-onedit.sh), [scripts/governance-oncompact.sh](scripts/governance-oncompact.sh), and [.claude/settings.json](.claude/settings.json).
 
-**Companion: IPP runtime binding.** The same PostToolUse → UserPromptSubmit marker pattern powers a parallel enforcement chain for the Incremental Persistence Protocol. `check-ipp-compliance.sh` (PreToolUse Write) drops `.claude/state/ipp-first-write-{session_id}.marker` after a legitimate skeleton write; `governance-onedit.sh` Block 2 (PostToolUse Edit\|Write) detects Pillar 2 violations (filled sections outpacing `_progress.completed_sections`) and drops `.claude/state/ipp-pillar2-{session_id}.marker`; `governance-onprompt.sh` Block 2b (UserPromptSubmit) emits `<ipp-reminder>` (teaching, post-skeleton) and `<ipp-warning reason="pillar-2-violation">` (corrective) tagged blocks on stdout, consuming the markers. The chain is independent of the four governance-source tiers and operates on artefact-integrity concerns. See [factory-incremental-persistence/SKILL.md § Runtime Binding](.claude/skills/factory-incremental-persistence/SKILL.md) for the canonical specification.
+**Companion: IPP runtime binding.** The same PostToolUse → UserPromptSubmit marker pattern powers a parallel enforcement chain for the Incremental Persistence Protocol. `check-ipp-compliance.sh` (PreToolUse Write) drops `.claude/state/ipp-first-write-{session_id}.marker` after a legitimate skeleton write; `governance-onedit.sh` Block 2 (PostToolUse Edit\|Write) detects Pillar 2 violations (filled sections outpacing `_progress.completed_sections`) and drops `.claude/state/ipp-pillar2-{session_id}.marker`; `governance-onprompt.sh` Block 2b (UserPromptSubmit) emits `<ipp-reminder>` (teaching, post-skeleton) and `<ipp-warning reason="pillar-2-violation">` (corrective) tagged blocks on stdout, consuming the markers. The chain is independent of the five governance-source tiers and operates on artefact-integrity concerns. See [factory-incremental-persistence/SKILL.md § Runtime Binding](.claude/skills/factory-incremental-persistence/SKILL.md) for the canonical specification.
 
 ### Scope model — project scope + feature scope
 
@@ -865,7 +879,7 @@ The framework governs two orthogonal scope axes:
 /blueprint --start FEAT-039
    # Reads feature.scope=backend-only from spec.feature frontmatter
    # Produces: design.md (contract-first, § 3.2 Wire-Format Mapping replaces § 3.1 Cross-Layer Type Mapping)
-   #           test_plan.md (includes § 2.2 Reliability Testing: REL-IDEMP, REL-RETRY, REL-CB, REL-DLQ, REL-SHUTDOWN, REL-OBS)
+   #           test_plan.md (includes § 2.2 Reliability Testing: REL-IDEMP, REL-RETRY, REL-TIMEOUT, REL-CB, REL-DLQ, REL-SHUTDOWN, REL-OBS)
    #           OpenAPI 3.1 webhook contract in contracts/webhooks/inbound/stripe/v1.yaml
 
 /blueprint --approve FEAT-039
@@ -901,9 +915,9 @@ The framework governs two orthogonal scope axes:
 #### Example — frontend-only feature consuming the backend-only feature's frozen contract
 
 ```
-/codesign --start FEAT-042 --scope=frontend-only --consumes-contract=FEAT-039
+/codesign --start FEAT-042 --scope=frontend-only
    # Scope Compatibility Gate: full-stack project accepts frontend-only feature ✅
-   # Declares upstream dependency on FEAT-039 (the backend integration)
+   # The upstream dependency on FEAT-039 (the backend integration) is declared in spec.feature frontmatter: consumes_contract
 
 /blueprint --start FEAT-042
    # Consumes-Contract Resolution Gate: verifies FEAT-039 design.md APPROVED + contracts/** non-empty ✅
@@ -921,8 +935,8 @@ The framework governs two orthogonal scope axes:
 
 ```
 /setup --init
-   # Q9: frontend.framework = None → Q4.5 inference: project_scope auto-resolves to backend-only
-   # SETUP skips: ux-constitution materialization, frontend rules, frontend directory scaffolding, frontend discovery Q10-Q14
+   # Q4.5 (Tier 0): project_scope = backend-only (answered, or auto-resolved from an APPROVED audit)
+   # SETUP skips: the frontend discovery Q9-Q14, ux-constitution materialization, frontend rules, frontend directory scaffolding
 
 /codesign --start FEAT-001
    # Scope Compatibility Gate: project_scope=backend-only rejects --scope=full-stack / --scope=frontend-only
@@ -946,25 +960,33 @@ The rule lives in two places depending on context (framework/project split):
 
 ### Cross-Cutting Skills (Protocols)
 
-The framework ships protocols reusable by every command:
+The framework ships 23 protocols reusable by every command and agent (`.claude/skills/`):
 
 | Skill | Purpose |
 |-------|---------|
-| **Build Verification Loop (BVL)** | Real test execution in terminal, error parsing, auto-fix (max 3 attempts), one full verification loop per change (tests + lint + typecheck + build, once, on the bytes the commit carries; the seal `gate.py seal --check` is a push-profile member; a documentation-only delta re-runs nothing, an unmapped path the whole loop — EVOL-051). Uses BVL Commands Cache (`/memories/repo/`). |
+| **Applicability Discovery (ADP)** `[LAW-15]` | Step 0 of every command: `python3 scripts/gate.py applicable …` — the Roll-Call of the laws, DCs, instructions and skills that apply, from the closed `applicable_when` vocabulary; a hand-written list is a violation. |
+| **Governance Loading (GCRP)** `[LAW-01]` | Zero Trust context recovery, the governance snapshot, the Governance Write Protocol (manifest bump on every framework-core touch). |
+| **RDR** | Recommendation → Decision → Ratification: ≥3 options, a justified recommendation, the user's verbatim choice, persisted at once — in two registers (plain language first, then technical; EVOL-050). |
+| **Adversarial Reasoning** | The FOR / AGAINST double pass before any non-trivial choice (governance axis, product axis), with the always-on do-less lens (DC-29). |
+| **Batch Interactivity (BIP)** | Tiered proposal → review → converge cycles instead of one-at-a-time Q&A. |
 | **Incremental Persistence (IPP)** | Skeleton-first write, section-atomic saves, resume-on-entry. Survives context summarization. |
-| **Codebase Inventory (CIP)** | Cross-command DRY inventory. CIP Canary gate prevents duplication post-summarization. Uses Inventory Cache (`/memories/repo/`). |
-| **Governance Loading (GCRP)** | Zero Trust context recovery. Dual-hash snapshot (constitution + setup). Summarization-safe. |
-| **Iteration Model** | Domain-driven incremental development. Cascading invalidation on upstream spec changes. |
-| **Branching Strategy (SCM)** | Branch enforcement, merge policy, concurrency locks, auto-checkout protocol. |
-| **Agent Communication (ACP)** | Controlled verbosity: entry announcement, phase milestones, completion summary. |
-| **Commit Prompt** | Auto-generated conventional commit messages post-command. |
-| **Worklog** | Per-feature JSONL audit trail. Action registration and phase mapping. |
-| **Memory Cache Protocol (MCP)** | Unified acceleration layer via `/memories/repo/`. Caches for Feature State, BVL Commands, CIP Inventory, and the Execution Plan. |
-| **Coherence Validation (CVP)** | Cross-artifact traceability and completeness validation. |
-| **Backlog Next-Task Resolver** | Dual-mode resolver: push (`--next-task`, single item) and pull (`--eligible`, full pool). Shared filters: intra-feature prereq + `blocked-by:#{N}` + gate-mode fallback (enforce/warn/off). Fast path via cache at `/memories/repo/`. |
-| **Defect Prevention Catalog (DPC)** | Families (surface globs + one-line invariant) and defect classes (one-line invariant, gate mark, governed paths, applicable agents, severity); narratives in `defect-prevention-cases.md` read by id. Consumed by 7 agents (CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT) filtered by `Applicable To` + `Paths`; rows governing a file are delivered at the point of edit by the pre-edit hook. Discover-catalog-prevent loop closed by the `[EPIC-{N}] RETROSPECTIVE` write-back. Universal starter DCs + stack-conditional DCs. |
-| **PO Intake** | External CODESIGN authoring. Builds the PO package, validates a return (self-test first; form and coherence, never merit), drives one RDR per change, writes the drop zone, calls `/codesign --sync` per ratified target, and turns every designed-but-unbuilt component into backlog issues (`kind:component-catalog`). |
-| **Preventive Sweep** | Pre-deploy runtime defect scan via parallel read-only critics (`factory-critic-governance`, spawned by name from the main session) — one per non-overlapping scope derived from the DPC. Zero open C-severity findings required to approve. |
+| **Codebase Inventory (CIP)** `[LAW-03]` | Cross-command DRY inventory; the CIP Canary gate prevents duplication post-summarization. |
+| **Coherence Validation (CVP)** | Cross-artifact traceability and completeness validation before a downstream phase consumes an artefact. |
+| **Build Verification Loop (BVL)** `[LAW-05]` | Real test execution, error parsing, auto-fix (max 3 attempts); one full verification loop per change (8 members), sealed and honoured at the push. |
+| **Complexity Check** `[LAW-11]` | Cyclomatic complexity through a project-configured tool, thresholds as keys, fail-open on infrastructure faults (DC-28). |
+| **Code Review** `[LAW-13]` | The agentic code-review engine (six vendored lenses run by `factory-critic-correctness`); per increment and as the push gate, proven by a content-hash marker. |
+| **PR Review (push gate)** | Seven axes (code, code↔docs, contracts, ADR, traceability, complexity, agentic review) as a preflight before `git push` and an assistive reviewer of an open PR. |
+| **Preventive Sweep** | Pre-deploy runtime defect scan by parallel read-only critics (`factory-critic-governance`), one per non-overlapping scope of the defect catalog. |
+| **MCP Docs Scan** `[LAW-10]` | The documentation-server allowlist: the banner design and build invocations open with, and the read tools the external-facts reader may hold. |
+| **ADR / FDR Management** | Proposing, ratifying and querying decision records; an accepted ADR amends the law index in the same PR. |
+| **Iteration Model** `[LAW-09]` | Domain-driven incremental development; canonical iteration ids; cascading invalidation on upstream changes. |
+| **Branching Strategy (SCM)** | Branch enforcement, the diff base, merge policy, concurrency locks — defended locally by the hooks and on the server (EVOL-054). |
+| **Commit Prompt** | Conventional commit messages after every command with file changes. |
+| **Agent Communication (ACP)** `[LAW-08]` | Controlled verbosity; a blocked action explained in plain business language with a resolution path. |
+| **Worklog** | Per-feature JSONL audit trail. |
+| **Memory Cache (FMCP)** | The acceleration layer at `/memories/repo/` — never the source of truth. |
+| **Backlog Next-Task Resolver** | Push (`--next-task`) and pull (`--eligible`) modes over the board or the local plan. |
+| **PO Intake** | External CODESIGN authoring: the PO package, the return validator, one RDR per change, `/codesign --sync`. |
 
 ### Rule Categories
 
@@ -974,7 +996,7 @@ The framework ships protocols reusable by every command:
 
 **Tech-Specific (only when the stack matches):** `python.md`, `React.md`, `java.md`, `node.md`, `csharp.md`, …
 
-> **Philosophy:** if a rule file exists in `.claude/rules/` → it applies to EVERY feature (project-level, not feature-level).
+> **Applicability, not presence:** every rule, instruction and skill declares where it applies through the closed `applicable_when` vocabulary (`[LAW-15]`), and one resolver decides — `python3 scripts/gate.py applicable`. `testing.md` and `protected-code.md` apply by path glob, `python.md` to `**/*.py`, `architecture.md` always. The defect catalog is the rule pair `defect-prevention.md` + `defect-prevention-cases.md`, delivered at the point of edit.
 
 ### Hybrid Validation
 
@@ -988,14 +1010,45 @@ The framework ships protocols reusable by every command:
 | Checkpoint | What it Validates |
 |-----------|-------------------|
 | `/blueprint --approve` | Contracts, UX compliance, protected code, system resources |
-| `/implement --build` (REVIEW) | Security patterns, architecture, accessibility, protected paths |
-| `/implement --build` (SEC) | SAST patterns, secrets, vulnerabilities |
+| `/implement --build` (work critics) | Correctness, governance and fidelity lenses: logic, laws, protected paths, the diff against the spec |
+| `/implement --build` (security lens) | SAST patterns, secrets, vulnerabilities |
 | `/qa --verify` | dependency-allowlist (BLOCKING), integration config, DAST |
 
 ### Zero-Tolerance Model
 
 - **GREEN ZONES (new code):** CRITICAL / HIGH violations → BLOCK immediately with a YAML report.
 - **RED ZONES (legacy code):** no validation (exempt). Modifications require ADR approval.
+
+---
+
+## Gates, Control Points and CI
+
+**One reader.** `python3 scripts/gate.py` (with `scripts/gates/*.py`) is the only place a gate's semantics live; the hooks, the workflows and the push preflight call it and never re-implement it. Exit contract: 0 ok · 1 red · 2 could not judge · 3 the reader itself missing.
+
+| Subcommand | What it answers |
+|---|---|
+| `applicable`, `digest`, `deliver`, `snapshot-sections`, `budget` | what governs a path or a command, within a byte budget; the law delivered at the point of edit |
+| `laws`, `law-sentences`, `retired-terms`, `manifest-parity` | the law index and its parity; the retired-vocabulary ratchet; frontmatter version = manifest version |
+| `branch-class`, `diff-base`, `surface` | the branch class (protected · sub-increment · train · increment · fix …), the ONE diff base, the diff's size against the ceiling |
+| `profile`, `profile --run --control-point static\|push\|ci`, `one-definition` | the gate profile a push owes (delivery mode × branch class), every member run all-report with one verdict; no hook or workflow keeps a second definition |
+| `plan`, `documentation` | one planning stage: may this write happen? the ONE definition of a documentation path |
+| `seal`, `digests`, `certify`, `currency` | the verification loop's seal (read-set hashes) the push honours; the planning artefacts' governance digests; what a verdict certified |
+| `runtime-surface`, `runtime-surface --changed` | parity between the deploying workflows and the positive path list; did this merge touch the runtime surface |
+| `traceability` | every declared test case has a linked test at its one home; the shrink-only baseline |
+| `scm-protection` | the server defends the branch rule (rulesets, protected branches, restrictions, policies) — asked at `ci` with the CI token |
+| `agents` | the roster and the class policy; `--resolve`, `--fallback`, `--digest`, `--spawn`, `--check-return` |
+
+**Control points** (`CLAUDE.md` § Pre-Action Gate): the static round before the critics → the commit (`pre-commit`: branch class, secrets on the staged files) → the push (`pre-push`: the gate profile — light for a sub-increment on its train in development mode, full otherwise — the secrets scan on the pushed range, the review and coherence markers, the push preflight) → the train close (the full verification loop, the seal) → the pull request (`governance-check.yml` runs the same `gate.py profile --run --control-point ci`, the only point that asks the server) → the main branch (no direct commit) → the deployment (`DEVOPS --deploy`: sweep + smoke). No gate is optional — it changes its control point.
+
+**Planning.** Every change to a governed path is covered by exactly one approved plan (EVOL-048): `config/quality.json → planning` names the governed paths and the gate-input carve-out; `check-plan-approval.sh` blocks a governed write without one; the approval marker is written only by the harness's plan approval (`record-plan-approval.sh`), or the branch's plan artefact stands in — in this repo an evolution's accepted ADR.
+
+**The manifest.** `.context/templates/setup/governance_versions.json` (`framework_version`, one entry per framework-core file and per template, `delivery_mode`) — every touch of a tracked file bumps its entry in the same commit (Generation Standards §2); `validate-governance.sh` and `manifest-parity` hold it. A materialised project carries its own copy at `docs/project_log/governance_versions.json`.
+
+**Lock-step pairs** `[LAW-12]`: meta scripts, hooks and agents and their template counterparts stay byte-identical per pair (`config/coherence-context.json → audit.lock_step_pairs`, `scripts/check-lockstep-pairs.sh`, `lockstep-check.yml` on every PR); the universal clauses and the universal law bodies of the two `CLAUDE.md` files are mirrored the same way.
+
+**CI.** `governance-check.yml` (the gate profile at `ci`, `one-definition`, the T2 suites `scripts/test-*.sh`, the synthetic materialisation, the inventory and iteration-id checks), `lockstep-check.yml`, `auto-tag.yml` (a tag and a release when a merge touched the runtime surface). Seven platform templates ship the governance workflow to projects (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, AWS CodeBuild, GCP Cloud Build, Jenkins).
+
+**Server-side branch protection** (EVOL-054): SETUP asks the SCM host (Q21.2) and materialises `docs/scm/protection.md` — the exact settings for the protected branch in the platform's vocabulary and a checklist; `gate.py scm-protection` verifies them at `ci` where the platform has an API (GitHub, GitLab, Bitbucket, Azure DevOps), n/a with the checklist where it has not.
 
 ---
 
@@ -1021,7 +1074,7 @@ The framework uses `/memories/repo/` as an acceleration layer to eliminate redun
 4. **Graceful degradation.** Cache failures fall back to the slow path (direct read). NEVER block a command on a cache failure.
 5. **No cross dependencies.** Caches read from sources, NEVER from other caches.
 
-See `Factory-memory-cache/SKILL.md` for the complete protocol.
+See `.claude/skills/factory-memory-cache/SKILL.md` for the complete protocol (the four registered caches; the project-board cache is BACKLOG's, external mode).
 
 ---
 
@@ -1058,38 +1111,42 @@ See `.claude/rules/immutability_policy.md` for the full rules.
 ### Project Structure (after `/setup --generate`)
 
 ```
+CLAUDE.md                           # The project's root governance (from the template; SDLC-first triage)
+.claude/
+├── commands/  instructions/  skills/   # The framework, delivered (factory-sync.sh / SETUP --upgrade keep them current)
+├── agents/                         # The 15 role agents
+├── rules/                          # Governance rules — one body per law, applicable_when per rule (architecture, testing, security_policy,
+│                                   #   protected-code, branching, agents, defect-prevention + cases, stack-specific rules, …)
+├── hooks/  settings.json           # The enforcement hooks, wired
 docs/
-├── technical_due.md                # (optional) AUDIT report
-├── setup.md                        # Setup state tracker
-├── constitution.md                 # Project constitution (tech stack, rules)
-├── rules/                          # Technology-specific governance rules
+├── technical_due.md                # (optional) AUDIT report · software_audit.md for --software
+├── setup.md                        # Setup state tracker (the discovery answers)
+├── constitution.md                 # Project law index ([PLAW-NN] → sentence, Body:, Records:)
+├── scm/protection.md               # Server-side branch protection runbook for the project's SCM platform (EVOL-054)
 ├── spec/{FEATURE_ID}/              # Per-feature workspace
-│   ├── spec.feature                #   Gherkin BDD (CODESIGN)
-│   ├── mock.html                   #   Visual mockup (CODESIGN)
-│   ├── user_journey.md             #   Journey-first: experience + business contract (CODESIGN, all scopes)
-│   ├── design.md                   #   Architecture (BLUEPRINT)
-│   ├── test_plan.md                #   Test strategy (BLUEPRINT)
-│   ├── dev_plan.md                 #   Implementation plan (IMPLEMENT)
-│   ├── devops_plan.md              #   Infrastructure plan (DEVOPS)
+│   ├── spec.feature  mock.html  user_journey.md  slice_map.md          # CODESIGN
+│   ├── design.md  test_plan.md  increment_plan.md                      # BLUEPRINT (contracts under contracts/)
+│   ├── dev_plan.md  peer_review_*.md  sec_audit.md                     # IMPLEMENT
+│   ├── devops_plan.md                                                  # DEVOPS
 │   ├── fdr/                        #   Feature Decision Records (feature-local, never escalate)
-│   └── qa/                         #   QA verification reports
-├── backlog/                        # Project tracking (BACKLOG — SSOT mode-dependent)
-│   ├── project-config.json         #   External mode: non-sensitive connection params
-│   ├── state.md                    #   Local mode: feature issue registry + Kanban
-│   └── issue-bodies/               #   Local mode: issue body markdown files
-├── ux/vision/                      # Global UX vision artifacts
-├── ux/component-registry.json      # Design-system ↔ build alignment (component, code primitive, status, backlog ref)
-├── ux/po-return/                   # TRANSIENT drop zone of a ratified PO return — emptied by /codesign --sync
-└── project_log/                    # Worklog, migration reports
+│   └── qa/                         #   qa_report_{INC-N}_{ts}.md · qa_report_final_{ts}.md
+├── backlog/                        # Project tracking (BACKLOG — external board or local state.md + issue-bodies/ + execution-plan.md)
+├── ux/vision/  ux/component-registry.json  ux/po-return/             # Global UX vision · design-system ↔ build alignment · the PO drop zone
+└── project_log/
+    ├── governance_versions.json    #   The project's governance manifest (SETUP --upgrade reads it)
+    ├── traceability_baseline.json  #   The shrink-only debt of unlinked test cases (EVOL-053)
     └── adr/                        #   Architecture Decision Records (project-wide → constitution)
+config/                             # quality.json (every gate key), coherence-context.json, codebase_inventory.json, inventory_aliases.json,
+                                    #   protected-paths.json, system_resources.json, infrastructure_registry.json
 contracts/                          # API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI)
-config/                             # system_resources.json, infrastructure_registry.json
 infra/                              # Infrastructure as Code (modules/ + features/)
-scripts/                            # Automation & CI/CD scripts
-subproducts/po-package/             # PO package (external CODESIGN authoring): builder, return validator + self-test,
-                                    #   config, RUNBOOK.md (operator instructions, resolved by SETUP). Outside the governed trees.
+scripts/                            # gate.py + gates/ (the one reader), the git hooks, validate-governance, security-scan, …
+.github/workflows/ (or the platform's) # governance-check + auto-tag for the chosen CI platform
+subproducts/
+├── po-package/                     # External CODESIGN authoring (Claude Desktop project): builder, return validator + self-test, RUNBOOK
+└── measure/                        # The project's SDLC cost from local transcripts and git; before/after windows per framework evolution
 src/ (or apps/)                     # Source code (created by IMPLEMENT, not by scaffolding)
-tests/                              # Test infrastructure (config only — tests created by IMPLEMENT)
+tests/                              # Test infrastructure (config, the traceability plugin for Python; tests created by IMPLEMENT)
 ```
 
 ### Scaffolding Philosophy
@@ -1106,8 +1163,8 @@ This ensures CI/CD pipelines pass from day 1 (no stub code = no lint/compile err
 
 | Control | Tool | When |
 |---------|------|------|
-| **SAST** | Semgrep, custom patterns | `/implement --build` (per phase, inline) |
-| **Secret scanning** | Gitleaks, regex patterns | `/implement --build` + `/qa --verify` |
+| **SAST** | The project's SAST tool + the security lens's pattern library | `/implement --build` (per phase, inline) and the verification loop |
+| **Secret scanning** | The scanner chosen at SETUP (`config/quality.json → security_scan`) + the regex floor | `pre-commit` (staged files), `pre-push` (the pushed range), `/implement --build`, `/qa --verify` |
 | **DAST** | OWASP ZAP | `/qa --verify` (post-staging) |
 | **Dependency audit** | `dependency-allowlist.sh` | `/qa --verify` (BLOCKING) |
 | **Secret management** | `.env` (local) + Vault/cloud (prod) | Always — hardcoded secrets = BLOCK |

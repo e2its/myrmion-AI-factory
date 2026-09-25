@@ -275,7 +275,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py plan --enter 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'second stage' && ok "RED: a feature branch never enters plan mode — one stage, never two" || bad "feature plan mode not refused (rc=$RC)" "$OUT"
 # role agents and read-only critics (EVOL-049): the roster lands, the validator is green, a same-family roster is red
 N_AG=$(ls "$P/.claude/agents"/*.md 2>/dev/null | wc -l)
-[ "$N_AG" -ge 14 ] && ok "the agent roster landed ($N_AG definitions under .claude/agents)" || bad "the agent roster did not land ($N_AG definitions)"
+[ "$N_AG" -ge 15 ] && [ -f "$P/.claude/agents/factory-docs-reader.md" ] && ok "the agent roster landed ($N_AG definitions under .claude/agents, the external-facts reader among them — EVOL-056)" || bad "the agent roster did not land ($N_AG definitions; reader present: $([ -f "$P/.claude/agents/factory-docs-reader.md" ] && echo yes || echo no))"
 OUT=$(cd "$P" && python3 scripts/gate.py agents 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "gate.py agents: roster parity, the tool matrix per class, budgets, pointers, families, ladder, spawn sites — green on the materialised tree" || bad "agents validator red in the scratch (rc=$RC)" "$OUT"
 python3 - "$P/config/quality.json" <<'PY'
@@ -294,6 +294,15 @@ OUT=$(cd "$P" && printf '%s' '{"tool_input":{"subagent_type":"factory-critic-sec
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "family's alias is" && ok "RED: a critic spawned on the writer's alias is refused by the spawn check (the PreToolUse Agent hook's question)" || bad "spawn check did not refuse (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-critic-security","model":"sonnet"}}' | CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-agent-spawn.sh 2>&1 >/dev/null); RC=$?
 [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'BLOCKED' && ok "the delivered spawn hook blocks it (exit 2, humanised)" || bad "spawn hook did not block (rc=$RC)" "$OUT"
+# the external-facts reader (EVOL-056): resolved on the critic family, refused on the writer alias, its return held to the contract
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class reader --json 2>&1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["family"], d["effort"])')
+[ "$OUT" = "critic high" ] && ok "gate.py agents --resolve --class reader: the reader runs on the critic family at high effort" || bad "reader resolve wrong" "$OUT"
+OUT=$(cd "$P" && printf '%s' '{"tool_input":{"subagent_type":"factory-docs-reader","model":"sonnet"}}' | python3 scripts/gate.py agents --spawn --hook-json 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'REFUSED' && ok "the spawn hook refuses the reader on the writer alias" || bad "reader spawn on writer alias not refused (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf '## Sources\n- mcp · context7 · q · https://x/y · what it states\n## Answer\nx [1]\n## Unknowns\nnone\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n' | python3 scripts/gate.py agents --check-return --class reader 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "a reader return with its sources, answer and unknowns passes the contract" || bad "reader return refused (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf '## Answer\nx\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n' | python3 scripts/gate.py agents --check-return --class reader 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'no `## Sources` section' && ok "a reader return without its sources is refused" || bad "reader return without sources not refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 2 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a second work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
 # one full verification loop (EVOL-051): the documentation class, the path-to-gate map, the seal the push honours, the digests

@@ -7,8 +7,6 @@ docs_mcp_allowlist:
   - context7
   - aws-knowledge
   - pulumi
-  - claude_ai_Google_Drive
-  - claude_ai_Microsoft_365
 ---
 
 # MCP DOCS SCAN
@@ -65,7 +63,9 @@ Add a server name to `docs_mcp_allowlist` in this file's frontmatter when:
 - A new docs-focused MCP server is integrated (e.g. official docs MCP for a framework).
 - An existing MCP that primarily provides documentation lookup is connected (e.g. a new vendor docs MCP).
 
-Do NOT add general-purpose MCPs (chrome-devtools, pulumi for resource ops, etc.) — those are not docs sources.
+Do NOT add general-purpose MCPs (chrome-devtools, pulumi for resource ops, etc.) — those are not docs sources. Never a personal-data connector (`claude_ai_*`: mail, drive, docs, office): the validator refuses them for the reader whatever this list says, because a reader that also fetches the web must never hold the user's private files.
+
+The list is also the reader's (EVOL-056): `factory-docs-reader` (class `reader`, `rules/agents.md` § Beat 0) may carry the **read operations** of the servers named here and no other — `python3 scripts/gate.py agents` holds every definition of the class to it. Extending this list extends the banner and the reader at once.
 
 ## [LAW-10] MCP-Docs Scan Banner
 > Design and build invocations open with the MCP docs scan banner, computed per invocation from an allowlist and never cached.
