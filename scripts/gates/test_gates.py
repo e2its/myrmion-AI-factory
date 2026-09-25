@@ -13,7 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, branch, budget, coherence, corpus, planning, profile, retired, runtime  # noqa: E402
+from gates import agents, branch, budget, coherence, corpus, digests, planning, profile, retired, runtime, seal  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -841,13 +841,14 @@ class Runtime(unittest.TestCase):
 class Planning(unittest.TestCase):
     """EVOL-048: one planning stage — governed precedence, classes fail closed, the marker only from the harness, adoption once."""
 
-    PLAN = {"governed_paths": ["src/**", "config/**", ".claude/**"], "docs_exempt": ["**/*.md", "docs/**"],
+    PLAN = {"governed_paths": ["src/**", "config/**", ".claude/**"],
             "gate_inputs": ["docs/constitution.md", "config/**", ".claude/**"],
             "exempt_classes": ["feature", "increment", "train", "sub-increment", "epic"], "plan_artefact": None, "adoption_window_minutes": 30, "approval_ttl_hours": 168}
+    DOCS = {"paths": ["**/*.md", "docs/**"], "exclusions": [".github/workflows/**"]}
 
     def _repo(self, tmp, plan=None):
         repo = fixture_repo(Path(tmp))
-        q = json.loads((repo / "config/quality.json").read_text()); q["planning"] = plan or dict(self.PLAN)
+        q = json.loads((repo / "config/quality.json").read_text()); q["planning"] = plan or dict(self.PLAN); q["documentation"] = dict(self.DOCS)
         write(repo / "config/quality.json", json.dumps(q))
         write(repo / "src/docs/gen.py", "x\n")
         subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
@@ -1189,6 +1190,179 @@ class Agents(unittest.TestCase):
             self.assertTrue(agents.check_return("I found no findings of severity blocker but three majors.\n" + gov, "work-critic"), "`no findings` counts only as a whole line")
             with self.assertRaisesRegex(GateFault, "needs --class"):
                 agents.check_return(critic_ok, "")
+
+
+
+class Seal(unittest.TestCase):
+    """EVOL-051: one full verification loop — the documentation class (one definition), the path-to-gate map, the seal the push honours."""
+
+    DOCS = {"paths": ["**/*.md", "docs/**", ".gitignore"], "exclusions": [".github/workflows/**", ".claude/skills/**"]}
+    GATES = {"tests": {"reads": ["src/**", "tests/**"], "command": "pytest -q"},
+             "coverage": {"reads": ["src/**", "tests/**"], "command": "pytest -q"},     # the same suite feeds coverage: one execution
+             "lint": {"reads": ["src/**"], "command": "ruff check src"},
+             "docs-build": {"reads": ["docs/site/**"], "command": "mkdocs build"}}       # a gate that DOES read documentation
+
+    def _repo(self, tmp, required=True, gates=None):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["documentation"] = dict(self.DOCS)
+        q["verification"] = {"seal": {"required": required, "dir": ".claude/state", "reason": "" if required else "CI is the loop"}, "gates": self.GATES if gates is None else gates, "digest_artefacts": ["design.md", "dev_plan.md"]}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / "src/app.py", "print(1)\n"); write(repo / "tests/test_app.py", "def test_a(): pass\n"); write(repo / "docs/site/index.md", "# site\n")
+        write(repo / ".gitignore", ".claude/state/\n")   # as the template ships it; the seal is never part of the tree it seals either way
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "checkout", "-qb", "feature/FEAT-001-x"], check=True, capture_output=True)
+        return repo
+
+    def _commit(self, repo, msg="c"):
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", msg], check=True, capture_output=True)
+
+    def test_documentation_is_one_definition(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            cfg = seal.documentation_cfg(repo)
+            self.assertTrue(seal.is_documentation("docs/x.md", cfg)[0]); self.assertTrue(seal.is_documentation("./README.md", cfg)[0])
+            self.assertFalse(seal.is_documentation("src/docs/x.py", cfg)[0], "root-anchored: docs/** never covers src/docs")
+            self.assertFalse(seal.is_documentation(".github/workflows/ci.md", cfg)[0], "an exclusion is code whatever its extension")
+            self.assertFalse(seal.is_documentation(".claude/skills/x/SKILL.md", cfg)[0], "a behavioural contract is never documentation — even under **/*.md")
+            # the planning gate reads the same definition (docs_exempt is retired)
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["planning"] = {"governed_paths": ["src/**", "docs/**"], "gate_inputs": [], "exempt_classes": [], "plan_artefact": None}
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertEqual(planning.governed(repo, "docs/x.md")[0], False); self.assertEqual(planning.governed(repo, "src/a.py")[0], True)
+            q["planning"]["docs_exempt"] = ["**/*.md"]; write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "docs_exempt is retired"):
+                planning.governed(repo, "docs/x.md")
+            # docs-only over a diff (the config edits above are committed first: config is code)
+            self._commit(repo, "cfg")
+            write(repo / "docs/new.md", "x\n"); self._commit(repo, "docs")
+            self.assertTrue(seal.docs_only(repo, "HEAD~1")["ok"], "the delta since the last commit is documentation")
+            self.assertFalse(seal.docs_only(repo, "main")["ok"], "the branch as a whole carries the config edit: code")
+            write(repo / "src/app.py", "print(2)\n"); self._commit(repo, "code")
+            r = seal.docs_only(repo, "HEAD~1"); self.assertFalse(r["ok"]); self.assertEqual(r["code"], ["src/app.py"])
+            del q["documentation"]; write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "`documentation` is missing"):
+                seal.docs_only(repo, "main")
+
+    def test_seal_plan_write_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            B = "main"
+            # no seal, nothing moved since the base: nothing owed (a branch that changed nothing a gate reads pays no loop)
+            r = seal.check(repo, base=B); self.assertTrue(r["ok"], r["reason"]); self.assertIn("no full seal", r["reason"])
+            self.assertEqual(seal.plan(repo, base=B)["owed"], [])
+            # a code change on the branch: the readers of src are owed, judged against the base — a shared command is ONE execution feeding two gates
+            write(repo / "src/app.py", "print(2)\n"); self._commit(repo, "code")
+            pl = seal.plan(repo, base=B)
+            self.assertFalse(pl["full"]); self.assertEqual(pl["owed"], ["coverage", "lint", "tests"])
+            ex = {e["command"]: e["gates"] for e in pl["executions"]}
+            self.assertEqual(ex["pytest -q"], ["coverage", "tests"], "a suite that feeds coverage is executed once inside the loop")
+            self.assertEqual(len(pl["executions"]), 2)
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertIn("judged against main", r["reason"])
+            # an unmapped path with no seal: the full loop
+            write(repo / "config/x.json", "{}\n"); self._commit(repo, "cfg")
+            pl = seal.plan(repo, base=B); self.assertTrue(pl["full"]); self.assertEqual(pl["owed"], ["coverage", "docs-build", "lint", "tests"]); self.assertEqual(len(pl["executions"]), 3)
+            # at CI the seal is not on the runner: n/a with the reason (the push honoured it; CI runs the loop in its own job)
+            r = seal.check(repo, control_point="ci", base=B); self.assertTrue(r["ok"]); self.assertFalse(r["required"]); self.assertIn("local state", r["reason"])
+            with self.assertRaisesRegex(GateFault, "a full loop records every gate"):
+                seal.write(repo, ["tests"], ok=True, full=True)
+            with self.assertRaisesRegex(GateFault, "unknown gate"):
+                seal.write(repo, ["nope"], ok=True)
+            # a green full loop on the tree ON DISK (an uncommitted edit included), then the commit carries those bytes: the push honours the seal
+            write(repo / "src/app.py", "print(2)  # sealed before the commit\n")
+            w = seal.write(repo, ["tests", "coverage", "lint", "docs-build"], ok=True, summary="green", full=True)
+            self.assertTrue(w["full"]); self.assertTrue((repo / w["path"]).is_file())
+            self.assertFalse(seal.check(repo, base=B)["ok"], "HEAD does not carry the sealed bytes yet")
+            self._commit(repo, "sealed bytes")
+            self.assertTrue(seal.check(repo, base=B)["ok"], "the commit carries exactly the bytes the loop sealed"); self.assertEqual(seal.plan(repo, base=B)["owed"], [])
+            # a documentation-only delta owes nothing — docs are in no read-set…
+            write(repo / "docs/notes.md", "notes\n"); self._commit(repo, "docs")
+            r = seal.check(repo, base=B); self.assertTrue(r["ok"], r["reason"])
+            # …unless a gate declares it reads them (the red the issue asks for)
+            write(repo / "docs/site/index.md", "# site v2\n"); self._commit(repo, "site docs")
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertEqual(r["owed"], ["docs-build"]); self.assertFalse(r["full"])
+            seal.write(repo, ["docs-build"], ok=True); self.assertTrue(seal.check(repo, base=B)["ok"], "the incremental seal: only the gate whose read-set moved re-ran")
+            # a code delta owes exactly the gates that read it
+            write(repo / "src/app.py", "print(3)\n"); self._commit(repo, "code")
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertEqual(r["owed"], ["coverage", "lint", "tests"])
+            pl = seal.plan(repo, base=B); self.assertEqual({e["command"] for e in pl["executions"]}, {"pytest -q", "ruff check src"})
+            seal.write(repo, ["tests", "coverage"], ok=True)
+            r = seal.check(repo, base=B); self.assertEqual(r["owed"], ["lint"], "a partial re-run leaves the rest owed")
+            seal.write(repo, ["lint"], ok=False, summary="ruff red")
+            r = seal.check(repo, base=B); self.assertEqual(r["owed"], ["lint"], "a red run is not a seal")
+            seal.write(repo, ["lint"], ok=True); self.assertTrue(seal.check(repo, base=B)["ok"])
+            # the gate-that-stops-firing defect: a changed path no gate reads and no documentation covers owes the FULL loop, fail closed
+            write(repo / "config/feature.json", "{}\n"); self._commit(repo, "config")
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertTrue(r["full"]); self.assertEqual(r["unmapped"], ["config/feature.json"])
+            self.assertEqual(seal.plan(repo, base=B)["owed"], ["coverage", "docs-build", "lint", "tests"])
+            # an unstaged edit is seen: the seal hashes the tree the NEXT commit carries
+            seal.write(repo, ["tests", "coverage", "lint", "docs-build"], ok=True, full=True)
+            self.assertTrue(seal.check(repo, base=B)["ok"], "sealed on the committed bytes")
+            write(repo / "src/app.py", "print(4)\n")
+            self.assertEqual(seal.plan(repo, base=B)["owed"], ["coverage", "lint", "tests"], "the plan reads the disk, not HEAD")
+            self.assertTrue(seal.check(repo, base=B)["ok"], "the check reads HEAD: an uncommitted edit is not what the push carries")
+            # not required: n/a with the reason; required without a map: red
+            q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["seal"] = {"required": False, "reason": "CI is the loop"}; write(repo / "config/quality.json", json.dumps(q))
+            r = seal.check(repo, base=B); self.assertTrue(r["ok"]); self.assertFalse(r["required"]); self.assertIn("CI is the loop", seal.render(r))
+            q["verification"]["seal"] = {"required": True}; q["verification"]["gates"] = {}; write(repo / "config/quality.json", json.dumps(q))
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertIn("gates is empty", r["reason"])
+            self.assertTrue(any("gates is empty" in x["reason"] for x in seal.validate(repo)))
+            q["verification"]["gates"] = {"tests": {"reads": []}}; write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "non-empty `reads`"):
+                seal.vcfg(repo)
+            (repo / ".claude/state/seal-feature-FEAT-001-x.json").write_text("{nope", encoding="utf-8")
+            q["verification"]["gates"] = self.GATES; write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "unreadable"):
+                seal.check(repo, base=B)
+
+
+class Digests(unittest.TestCase):
+    """EVOL-051: the loop checks what the push checks — every planning artefact of the feature carries a current, complete governance digest."""
+
+    def _repo(self, tmp):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["documentation"] = {"paths": ["**/*.md", "docs/**"], "exclusions": []}
+        q["verification"] = {"seal": {"required": False, "reason": "n/a"}, "gates": {}, "digest_artefacts": ["design.md", "dev_plan.md"]}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / ".context/governance_snapshot.md", "---\nconstitution_hash: abcdef1234567890\nsetup_hash: x\n---\n")
+        write(repo / ".claude/rules/security_policy.md", "---\ndescription: s\napplicable_when:\n  path_glob: [\"src/**\"]\n---\n")
+        write(repo / ".claude/rules/testing.md", "---\ndescription: t\napplicable_when:\n  always: true\n---\n")
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "checkout", "-qb", "feature/FEAT-001-x"], check=True, capture_output=True)
+        write(repo / "src/app.py", "print(2)  # the change under review\n")
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "code"], check=True, capture_output=True)
+        return repo
+
+    def test_digest_currency_and_completeness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(digests.feature_id("feature/FEAT-001-x"), "FEAT-001"); self.assertEqual(digests.feature_id("feature/FEAT-001-inc-1-x-sub-2"), "FEAT-001"); self.assertIsNone(digests.feature_id("fix/x"))
+            self.assertEqual(digests.fingerprint(repo), "abcdef12")
+            r = digests.check(repo, "main"); self.assertTrue(r["ok"]); self.assertIn("nothing to judge", r["reason"])
+            self.assertLessEqual({"security_policy", "testing"}, set(digests.bound_rules(repo, "main")), "path-bound and always-on rules bind this change")
+            # a complete, current design: every bound rule named
+            write(repo / "docs/spec/FEAT-001/design.md", "---\ngovernance_digest_version: \"abcdef12\"\n---\n## 7. GCD\n" + "".join(f"- rules/{r}.md\n" for r in digests.bound_rules(repo, "main")))
+            r = digests.check(repo, "main"); self.assertTrue(r["ok"], r)
+            # a stale fingerprint
+            write(repo / ".context/governance_snapshot.md", "---\nconstitution_hash: 9999999999\n---\n")
+            r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("stale", r["artefacts"][0]["reason"])
+            write(repo / ".context/governance_snapshot.md", "---\nconstitution_hash: abcdef1234567890\n---\n")
+            # THE red the issue asks for: a corpus item appears (a new rule bound to this surface) — an UNTOUCHED artefact's digest is incomplete
+            write(repo / ".claude/rules/privacy.md", "---\ndescription: p\napplicable_when:\n  path_glob: [\"src/**\"]\n---\n")
+            r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("incomplete", r["artefacts"][0]["reason"]); self.assertIn("privacy", r["artefacts"][0]["reason"])
+            (repo / ".claude/rules/privacy.md").unlink()
+            # a second artefact without any digest; a missing snapshot downstream is a fault
+            write(repo / "docs/spec/FEAT-001/dev_plan.md", "---\nstatus: READY\n---\nsecurity_policy testing\n")
+            r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("never generated", [a for a in r["artefacts"] if a["artefact"].endswith("dev_plan.md")][0]["reason"])
+            self.assertIn("✗ docs/spec/FEAT-001/dev_plan.md", digests.render(r))
+            (repo / ".context/governance_snapshot.md").unlink()
+            with self.assertRaisesRegex(GateFault, "governance snapshot"):
+                digests.check(repo, "main")
 
 
 class Cli(unittest.TestCase):

@@ -70,7 +70,7 @@ At setup the framework generates its own **operational law** — `docs/constitut
 - **Natural Language + Commands**: Say what you need or use explicit slash commands — Claude routes everything.
 - **Constitution-Driven**: All decisions validated against `docs/constitution.md` (generated during setup).
 - **Contract-First Development**: API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI, webhooks) defined and linted before implementation.
-- **Build Verification Loop (BVL)**: Tests executed in terminal, errors parsed and auto-fixed (max 3 attempts). Full Verification Gate (tests + lint + typecheck + build) before completion.
+- **Build Verification Loop (BVL)**: Tests executed in terminal, errors parsed and auto-fixed (max 3 attempts). One full verification loop per change (tests + lint + typecheck + build, each suite once) after the artefacts, sealed and honoured at the push (`gate.py seal`, EVOL-051); the static round and the governance digests before the critics.
 - **Security by Design**: OWASP Top 10 + SAST/DAST built into workflow (inline, not post-facto).
 - **TDD Enforcement**: Red-Green-Refactor-**Verify** cycle mandatory for all code (BVL closes the loop).
 - **Immutable Specifications**: Version-controlled requirements with full audit trail.
@@ -950,7 +950,7 @@ The framework ships protocols reusable by every command:
 
 | Skill | Purpose |
 |-------|---------|
-| **Build Verification Loop (BVL)** | Real test execution in terminal, error parsing, auto-fix (max 3 attempts), Full Verification Gate (tests + lint + typecheck + build). Uses BVL Commands Cache (`/memories/repo/`). |
+| **Build Verification Loop (BVL)** | Real test execution in terminal, error parsing, auto-fix (max 3 attempts), one full verification loop per change (tests + lint + typecheck + build, once, on the bytes the commit carries; the seal `gate.py seal --check` is a push-profile member; a documentation-only delta re-runs nothing, an unmapped path the whole loop — EVOL-051). Uses BVL Commands Cache (`/memories/repo/`). |
 | **Incremental Persistence (IPP)** | Skeleton-first write, section-atomic saves, resume-on-entry. Survives context summarization. |
 | **Codebase Inventory (CIP)** | Cross-command DRY inventory. CIP Canary gate prevents duplication post-summarization. Uses Inventory Cache (`/memories/repo/`). |
 | **Governance Loading (GCRP)** | Zero Trust context recovery. Dual-hash snapshot (constitution + setup). Summarization-safe. |

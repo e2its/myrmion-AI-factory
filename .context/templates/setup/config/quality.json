@@ -133,12 +133,8 @@
     "deploying_workflows": {{DEPLOYING_WORKFLOWS}}
   },
   "planning": {
-    "_doc": "One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan (python3 scripts/gate.py plan --path P; the PreToolUse hook check-plan-approval.sh asks it). governed_paths minus docs_exempt, except gate_inputs (documents a gate reads — governed like code). exempt_classes: the classes whose plan a framework phase owns; every other class is gated (fail-closed). plan_artefact: the branch's own plan artefact ({ID} = feature id) counts when its frontmatter status is approved. The approval marker is written only by the harness's plan approval (PostToolUse ExitPlanMode → gate.py plan --record); a marker approved on a base branch is adopted once, within adoption_window_minutes; an approval older than approval_ttl_hours no longer counts. The behavioural contracts under .claude/ and the workflow files are gate inputs — never documentation. Project: feature, increment, train, sub-increment and epic branches are planned by CODESIGN / BLUEPRINT / IMPLEMENT --plan; a fix, a chore, a docs or a breaking branch is gated. governed_paths is resolved at SETUP as the runtime surface (Q33) plus the governance paths; the plan artefact is never a gate input; increment_plan.md is one (it decides whether a branch is a protected train).",
+    "_doc": "One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan (python3 scripts/gate.py plan --path P; the PreToolUse hook check-plan-approval.sh asks it). governed_paths minus the documentation class (config → documentation, EVOL-051), except gate_inputs (documents a gate reads — governed like code). exempt_classes: the classes whose plan a framework phase owns; every other class is gated (fail-closed). plan_artefact: the branch's own plan artefact ({ID} = feature id) counts when its frontmatter status is approved. The approval marker is written only by the harness's plan approval (PostToolUse ExitPlanMode → gate.py plan --record); a marker approved on a base branch is adopted once, within adoption_window_minutes; an approval older than approval_ttl_hours no longer counts. The behavioural contracts under .claude/ and the workflow files are gate inputs — never documentation. Project: feature, increment, train, sub-increment and epic branches are planned by CODESIGN / BLUEPRINT / IMPLEMENT --plan; a fix, a chore, a docs or a breaking branch is gated. governed_paths is resolved at SETUP as the runtime surface (Q33) plus the governance paths; the plan artefact is never a gate input; increment_plan.md is one (it decides whether a branch is a protected train).",
     "governed_paths": {{PLANNING_GOVERNED_PATHS}},
-    "docs_exempt": [
-      "**/*.md",
-      "docs/**"
-    ],
     "gate_inputs": [
       "docs/constitution.md",
       "docs/setup.md",
@@ -159,5 +155,26 @@
     "plan_artefact": null,
     "adoption_window_minutes": 30,
     "approval_ttl_hours": 168
+  },
+  "documentation": {
+    "_doc": "The ONE definition of a documentation path (EVOL-051): root-anchored globs in `paths`, minus `exclusions` (code whatever the extension). Read by python3 scripts/gate.py documentation — the push-gate preflight's review-lane skip, the planning gate's exemption (planning.docs_exempt is retired) and the seal's classification. A workflow or a behavioural contract (.claude/{instructions,skills,commands,hooks}) is never documentation.",
+    "paths": [
+      "**/*.md",
+      "docs/**",
+      ".gitignore"
+    ],
+    "exclusions": [
+      ".github/workflows/**",
+      ".claude/instructions/**",
+      ".claude/skills/**",
+      ".claude/commands/**",
+      ".claude/hooks/**"
+    ]
+  },
+  "verification": {
+    "_doc": "One full verification loop per change (EVOL-051): `gates` is the path-to-gate map (what each full-loop gate READS, and the command that runs it — a command shared by two gates, e.g. tests and coverage, is executed once and feeds both); `seal` is where python3 scripts/gate.py seal records a green loop per branch (untracked, .claude/state/) — the push refuses a tree the seal does not cover (gate.py seal --check, a profile member); a changed path no gate reads and no documentation class covers owes the full loop (fail closed: declare its reader). `digest_artefacts` are the planning artefacts gate.py digests judges under docs/spec/{ID}/ (fingerprint = the snapshot's constitution_hash[:8]; every bound rule named).",
+    "seal": {"required": true, "dir": ".claude/state"},
+    "gates": {{VERIFICATION_GATES}},
+    "digest_artefacts": ["design.md", "dev_plan.md"]
   }
 }

@@ -6,7 +6,7 @@ applicable_when:
     - "**/tests/**"
     - "**/*.test.*"
     - "**/*.spec.*"
-version: 1.5.1
+version: 1.6.0
 date: 2026-09-25
 changelog:
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -100,4 +100,4 @@ changelog:
 ## [LAW-05] Testing
 > Every unit of logic has its unit test, written red first: red, green, refactor, verify.
 
-1 Logic = 1 Unit Test. TDD cycle per task: Red (a failing test names the behaviour) → Green (the least code that passes) → Refactor (under the tests) → Verify (the scoped suite, then the one full verification loop per increment). A unit of logic without its test does not reach review.
+1 Logic = 1 Unit Test. TDD cycle per task: Red (a failing test names the behaviour) → Green (the least code that passes) → Refactor (under the tests) → Verify (the scoped suite, then the one full verification loop per change). A unit of logic without its test does not reach review. **One full loop per change (EVOL-051):** the static round (no build, no database) and the workers' scoped runs before the critics; the artefacts written; then the full loop once, on the bytes the commit carries, each suite executed once (the suite that feeds coverage feeds both), its green sealed (`python3 scripts/gate.py seal`) and honoured at the push; after a green seal a delta re-runs only the gates whose read-set it touched, a documentation-only delta none, an unmapped path the whole loop.

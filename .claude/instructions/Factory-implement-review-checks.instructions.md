@@ -24,7 +24,7 @@ Spawned by name by the **main session** (no agent carries `Agent`; the phase age
 | fidelity (`factory-critic-fidelity`) | #7 UX, #14 DESIGN |
 | security (`factory-critic-security`) | § Security lens — SAST scan, pattern library, verification loop, verdict |
 
-All 14 checks run per phase, filtered by feature scope. The verification loops (`review_verification_loop`, `sec_verification_loop`) execute tools — the orchestrator runs them (critics carry no Bash) and hands the results to the lens that reads them.
+All 14 checks run per phase, filtered by feature scope. The verification loops (`review_verification_loop`, `sec_verification_loop`) execute tools — the main session runs them (critics carry no Bash) and hands the results to the lens that reads them. **Before the critics only the static round runs (EVOL-051)**: `python3 scripts/gate.py profile --run --control-point static` (every gate that needs no build and no database — the retired vocabulary, the budgets, law and manifest parity, currency, the surface, the agents, the seal's state and the planning artefacts' governance digests) plus the workers' red-first scoped runs as the test evidence. No full suite, no coverage run, no typecheck, no build before the critics: the one full loop runs after the artefacts are written (Factory-implement-build § Completion Gate) and seals the bytes the commit carries. A cure is re-checked by its scoped gate (`gate.py seal --plan`).
 
 ### Scope Dispatch (runs BEFORE Step R.0)
 
@@ -888,9 +888,20 @@ Step R.1b: Agentic Code Review
 FUNCTION review_verification_loop(phase, source_files, governance_context):
   commands = resolve_verification_commands()  # From BVL SKILL.md
   results = {}
-  
-  # 1. Test Coverage Verification (MANDATORY — closes GOV-TEST gap)
-  IF commands.coverage IS NOT NULL:
+
+  # 0. The static round (EVOL-051) — every gate that needs no build and no database, one call, all report.
+  #    An incomplete or stale governance digest in any planning artefact of the feature fails HERE (member `digests`),
+  #    before the critics — the same predicate the push runs (gate.py profile --run at push / CI).
+  static = RUN("python3 scripts/gate.py profile --run --control-point static --json")
+  FOR member IN static.results WHERE member.verdict == "RED":
+    results[member.name] = { status: "BLOCKER", finding: "[STATIC-{member.name}] {member.summary}", remediation: member.output }
+
+  # 1. Test evidence = the workers' red-first scoped runs (task_verification_loop, BVL § TASK-LEVEL) — already executed,
+  #    their results carried in the worker's return. Coverage is measured ONCE, in the full loop, by the same
+  #    execution that runs the suite (verification.gates: tests and coverage share the command); the GOV-TEST
+  #    threshold is judged there. No suite, no coverage command runs before the critics.
+  results.coverage = { status: "DEFERRED", reason: "measured once in the full loop (EVOL-051)" }
+  IF FALSE:   # retained for the record of what the pre-EVOL-051 loop ran here; never executed
     result = RUN_IN_TERMINAL(commands.coverage, timeout: 120000)
     
     IF result.exit_code == 0 OR result.output CONTAINS "%":
@@ -922,7 +933,7 @@ FUNCTION review_verification_loop(phase, source_files, governance_context):
   ELSE:
     results.coverage = { status: "SKIPPED", reason: "No coverage command for stack" }
   
-  # 2. Lint Re-Verification (MANDATORY — confirms BVL phase results still hold)
+  # 2. Lint on the phase files — a scoped gate (no build): re-checks the cures while working (gate.py seal --plan names it)
   IF commands.lint IS NOT NULL:
     phase_files = COLLECT_SOURCE_FILES(phase)
     lint_cmd = INTERPOLATE(commands.lint, {files: phase_files})
@@ -941,8 +952,9 @@ FUNCTION review_verification_loop(phase, source_files, governance_context):
   ELSE:
     results.lint = { status: "SKIPPED", reason: "No lint command for stack" }
   
-  # 3. Type Check Verification (if available)
-  IF commands.typecheck IS NOT NULL:
+  # 3. Type check — needs a build: runs ONCE in the full loop (EVOL-051), never here
+  results.typecheck = { status: "DEFERRED", reason: "runs once in the full loop" }
+  IF FALSE:
     result = RUN_IN_TERMINAL(commands.typecheck, timeout: 60000)
     
     IF result.exit_code != 0:
@@ -958,8 +970,10 @@ FUNCTION review_verification_loop(phase, source_files, governance_context):
   ELSE:
     results.typecheck = { status: "SKIPPED", reason: "No typecheck command for stack" }
   
-  # 4. Full Test Suite Re-Run (confirms no regressions from REVIEW-triggered fixes)
-  IF commands.test_suite IS NOT NULL:
+  # 4. Full test suite — ONCE, in the full loop after the artefacts (EVOL-051); a cure's regression is caught by the
+  #    worker's scoped red-first run and by the loop on the sealed bytes, never by a suite run per critic round
+  results.test_suite = { status: "DEFERRED", reason: "runs once in the full loop" }
+  IF FALSE:
     result = RUN_IN_TERMINAL(commands.test_suite, timeout: 180000)
     
     IF result.exit_code != 0:

@@ -2,7 +2,8 @@
 """One planning stage — never zero, never two (EVOL-048).
 
 Every change to a governed path is covered by exactly one approved plan.
-  governed   `planning.governed_paths` (globs) minus `planning.docs_exempt` — except `planning.gate_inputs`, documents a
+  governed   `planning.governed_paths` (globs) minus the documentation class (`config/quality.json → documentation`,
+             the ONE definition — EVOL-051; `planning.docs_exempt` is retired) — except `planning.gate_inputs`, documents a
              gate reads, governed like code whatever their extension.
   classes    `planning.exempt_classes` — the branch classes whose plan a framework phase owns (a feature's CODESIGN /
              BLUEPRINT / IMPLEMENT --plan artefacts). Every unlisted class is gated — fail closed.
@@ -36,11 +37,18 @@ def _cfg(repo: Path) -> dict:
     if not isinstance(p, dict):
         raise GateFault("config key `planning` is missing from config/quality.json — governed paths, exempt classes and the plan artefact live there (SETUP materialises it)")
     out = {}
-    for k in ("governed_paths", "docs_exempt", "gate_inputs", "exempt_classes"):
+    if "docs_exempt" in p:
+        raise GateFault("planning.docs_exempt is retired (EVOL-051): the documentation class has one definition — config/quality.json → documentation.paths / exclusions (SETUP --upgrade moves it)")
+    for k in ("governed_paths", "gate_inputs", "exempt_classes"):
         v = p.get(k, [])
         if not isinstance(v, list):
             raise GateFault(f"planning.{k} must be a list")
         out[k] = [str(x) for x in v]
+    from .seal import documentation_cfg   # the one definition; a missing class exempts nothing (fail closed)
+    try:
+        out["documentation"] = documentation_cfg(repo)
+    except GateFault:
+        out["documentation"] = {"paths": [], "exclusions": []}
     out["plan_artefact"] = p.get("plan_artefact") or None
     try:
         out["window"] = int(p.get("adoption_window_minutes", 30))
@@ -60,7 +68,8 @@ def governed(repo: Path, path: str, cfg: dict | None = None) -> tuple[bool, str]
             return False, "outside the repository — not a governed write"
     if any_glob(rel, cfg["gate_inputs"]):
         return True, "an input of a gate — governed like code whatever its extension"
-    if any(_re.fullmatch(_glob_regex(g), rel) for g in cfg["docs_exempt"]):   # root-anchored: docs/** never exempts src/docs/x.py
+    from .seal import is_documentation   # root-anchored, exclusions first: docs/** never exempts src/docs/x.py; a workflow .md is code
+    if is_documentation(rel, cfg["documentation"])[0]:
         return False, "a documentation target — no plan owed"
     if any_glob(rel, cfg["governed_paths"]):
         return True, "a governed path"

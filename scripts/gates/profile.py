@@ -38,6 +38,8 @@ MEMBERS = [
     ("surface",          False, False, "gate.py",                 ["gate", "surface", "--base", "{base}", "--branch", "{branch}"], False),
     ("runtime-surface",  False, False, "gate.py",                 ["gate", "runtime-surface"], False),
     ("agents",           False, False, "gate.py",                 ["gate", "agents"], False),
+    ("seal",             False, False, "gate.py",                 ["gate", "seal", "--check", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
+    ("digests",          False, False, "gate.py",                 ["gate", "digests", "--base", "{base}", "--branch", "{branch}"], False),
     ("governance",       False, False, "validate-governance.sh (framework repo: manifest drift / orphan / stale)", ["bash", "scripts/validate-governance.sh", "--base", "{base_branch}"], True),   # a project has no framework manifest; manifest-parity covers its own
     ("adr-sync",         False, False, "check-adr-constitution-sync.sh", ["bash", "scripts/check-adr-constitution-sync.sh", "{base}"], False),
     ("applicability",    False, False, "check-applicability-frontmatter.sh", ["bash", "scripts/check-applicability-frontmatter.sh"], False),
@@ -76,7 +78,7 @@ def mode(repo: Path) -> dict:
     return {"mode": v, "reason": f"delivery_mode: {v} ({p.relative_to(repo)})"}
 
 
-def profile(repo: Path, branch: str | None = None) -> dict:
+def profile(repo: Path, branch: str | None = None, control_point: str = "push") -> dict:
     m = mode(repo)
     try:
         info = branch_mod.branch_class(repo, branch)
@@ -86,7 +88,10 @@ def profile(repo: Path, branch: str | None = None) -> dict:
     else:
         why = ""
     light = m["mode"] == "development" and info["class"] == "sub-increment"
-    reason = (f"sub-increment pushed to its train ({info.get('train')}) in development mode" if light else
+    if control_point == "static":   # the static round before the critics (EVOL-051): every member that needs no build and no database, whatever the class or the mode
+        light = True
+    reason = ("the static round before the critics: every member that needs no build and no database" if control_point == "static" else
+              f"sub-increment pushed to its train ({info.get('train')}) in development mode" if light else
               why or (f"{info['class']} branch" if m["mode"] == "development" else f"{m['mode']} mode: every branch owes the full profile"))
     return {"mode": m["mode"], "mode_reason": m["reason"], "branch": info["branch"], "class": info["class"],
             "profile": "light" if light else "full", "reason": reason}
@@ -101,13 +106,13 @@ def owed(prof: str) -> list[dict]:
     return out
 
 
-def _cmd(repo: Path, runner: list[str], base: str, branch: str) -> list[str]:
+def _cmd(repo: Path, runner: list[str], base: str, branch: str, control_point: str = "push") -> list[str]:
     gate = str(Path(__file__).resolve().parent.parent / "gate.py")   # the reader that is running — the delivered one
     out = []
     for tok in runner:
         bb = re.sub(r"^refs/remotes/", "", base)
         bb = bb.split("/", 1)[1] if "/" in bb else bb   # origin/x → x (validate-governance re-qualifies it)
-        tok = tok.replace("{base}", base).replace("{base_branch}", bb).replace("{branch}", branch)
+        tok = tok.replace("{base}", base).replace("{base_branch}", bb).replace("{branch}", branch).replace("{control_point}", control_point)
         out.append(tok)
     if out[0] == "gate":
         out = [sys.executable, gate, "--repo", str(repo)] + out[1:]
@@ -116,7 +121,7 @@ def _cmd(repo: Path, runner: list[str], base: str, branch: str) -> list[str]:
 
 def run(repo: Path, branch: str | None = None, base: str | None = None, control_point: str = "push", only: list[str] | None = None) -> dict:
     """All-report run of the script members owed at this control point. Never stops at the first red."""
-    pr = profile(repo, branch)
+    pr = profile(repo, branch, control_point)
     br = pr["branch"] or ""
     try:
         base = base or branch_mod.diff_base(repo, branch)
@@ -138,7 +143,7 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
         if meta_only and ctx != "meta":
             results.append({"member": name, "rc": 0, "status": "n/a", "tail": "framework repo only", "output": ""})
             continue
-        cmd = _cmd(repo, runner, base, br)
+        cmd = _cmd(repo, runner, base, br, control_point)
         if cmd[0] == "bash" and not (repo / cmd[1]).is_file():   # governance not delivered is a red on the delivery, never an infra pass
             results.append({"member": name, "rc": 1, "status": "RED", "tail": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh", "output": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh"})
             continue

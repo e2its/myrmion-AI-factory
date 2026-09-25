@@ -278,10 +278,6 @@
       "CLAUDE.md",
       ".github/workflows/**"
     ],
-    "docs_exempt": [
-      "**/*.md",
-      "docs/**"
-    ],
     "gate_inputs": [
       ".context/templates/**",
       ".claude/**",
@@ -301,5 +297,34 @@
       "writer": "sonnet",
       "critic": "opus"
     }
+  },
+  "documentation": {
+    "_doc": "The ONE definition of a documentation path (EVOL-051): root-anchored globs in `paths`, minus `exclusions` (code whatever the extension). Read by python3 scripts/gate.py documentation — the push-gate preflight's review-lane skip, the planning gate's exemption (planning.docs_exempt is retired) and the seal's classification. A workflow or a behavioural contract (.claude/{instructions,skills,commands,hooks}) is never documentation.",
+    "paths": [
+      "**/*.md",
+      "docs/**",
+      ".context/templates/**",
+      ".gitignore"
+    ],
+    "exclusions": [
+      ".github/workflows/**",
+      ".claude/instructions/**",
+      ".claude/skills/**",
+      ".claude/commands/**",
+      ".claude/hooks/**"
+    ]
+  },
+  "verification": {
+    "_doc": "One full verification loop per change (EVOL-051): `gates` is the path-to-gate map (what each full-loop gate READS, and the command that runs it — a command shared by two gates is executed once); `seal` is where python3 scripts/gate.py seal records a green loop per branch (untracked) and whether this repo owes one; `digest_artefacts` are the planning artefacts gate.py digests judges under docs/spec/{ID}/. The framework repo owes no local seal: its loop is the T2 suite CI runs on every pull request.",
+    "seal": {
+      "required": false,
+      "dir": ".claude/state",
+      "reason": "the framework repo's full loop is the T2 suite governance-check.yml runs on every pull request; no product build, no local seal"
+    },
+    "gates": {},
+    "digest_artefacts": [
+      "design.md",
+      "dev_plan.md"
+    ]
   }
 }

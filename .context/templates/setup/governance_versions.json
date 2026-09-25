@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.0.0",
+  "framework_version": "8.1.0",
   "delivery_mode": "development",
   "last_updated": "2026-09-25",
   "governance_features": {
@@ -232,10 +232,11 @@
       ]
     },
     "rules/testing.md": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/testing.md",
       "changelog": [
+        "1.6.0: feat(EVOL-051) — [LAW-05] body: one full loop per change — the static round before the critics, the artefacts, the loop once on the bytes the commit carries, sealed and honoured at the push; the incremental seal",
         "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.5.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.4.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: backticked DataIn/DataOut line actually replaced (previous edit missed the literal).",
@@ -930,11 +931,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.6.1",
+      "version": "4.7.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.7.0: feat(EVOL-051) — control points: the static round row; the seal (gate.py seal --check) in the train-close and PR rows; seal and digests among the light members",
         "4.6.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "4.6.0: feat(EVOL-049)! — Core Protocols — Role agents & read-only critics row; no agent ratifies.",
         "4.5.0: feat(EVOL-048) — § Pre-Action Gate — One planning stage (EVOL-048).",
@@ -1069,10 +1071,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.10.0: feat(EVOL-051) — documentation block (paths, exclusions — one definition) and verification block (seal not required in the framework repo: CI's T2 suite is its loop; gates {}; digest_artefacts); planning.docs_exempt retired",
         "1.9.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.8.0: feat(EVOL-049)! — agents.families (writer / critic aliases); the retired hat vocabulary (REVIEW Hat, SEC Hat, …).",
         "1.7.0: feat(EVOL-048) — planning block — governed_paths, docs_exempt, gate_inputs, exempt_classes (none in the framework repo), plan_artefact (the ADR), adoption_window_minutes.",
@@ -1706,11 +1709,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.8.0: feat(EVOL-051) — seal (--plan/--write/--check/--validate), documentation (--path/--changed), digests subcommands; profile --control-point static",
         "1.7.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.6.0: feat(EVOL-049)! — agents subcommand — validate / --resolve / --fallback / --digest / --check-return (EVOL-049).",
         "1.5.0: feat(EVOL-048) — plan --path | --status | --record subcommand (EVOL-048).",
@@ -1775,11 +1779,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.8.0: feat(EVOL-051) — Seal + Digests test classes: one definition of documentation, the seal plan/write/check (shared command = one execution, docs-only owes nothing, a declared docs reader is owed, unmapped path owes the full loop, on-disk seal honoured by the commit), digest fingerprint + completeness red on an untouched artefact (43 tests)",
         "1.7.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.6.0: feat(EVOL-049)! — Agents class — policy parse, the validator red on every way a roster can lie (same family, a critic with a write tool, a worker without one, a model written in, no effort, over budget, a dangling pointer, roster/definition/manifest parity, a ladder rung that is not a family or that degrades a writer, a spawn site without its marker, a policy without a site), the per-spawn resolver, the fallback, the digest budget, the return contracts; CLI.",
         "1.5.0: feat(EVOL-048) — Planning class — governed precedence (gate inputs, docs exemption), classes fail closed, the marker only from the harness, adoption once from a base branch within the window and never by the advisory, the plan artefact; CLI exit codes.",
@@ -1813,12 +1818,13 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override).",
       "changelog": [
+        "1.3.0: feat(EVOL-051) — members seal and digests (light); control point static = the light members whatever the class or the mode; {control_point} runner token",
         "1.2.0: feat(EVOL-049)! — agents member (the roster validator; no build, no database).",
         "1.1.0: feat(EVOL-047) — runtime-surface member (light: no build, no database).",
         "1.0.0: feat(EVOL-046) — initial."
@@ -1835,12 +1841,13 @@
       ]
     },
     "scripts/gates/planning.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/gates/planning.py",
       "delivery": "both",
       "role": "gates: one planning stage (EVOL-048) — `governed` (governed_paths minus docs_exempt, except gate_inputs), `approval` (exempt classes by phase; the branch's plan artefact in an approved state; the marker written only by the harness's plan approval; adoption once from a base branch within the window), `gate` (block with a humanised reason + resolution), `status` (the advisory), `record` (refuses anything but the PostToolUse ExitPlanMode event).",
       "changelog": [
+        "1.1.0: feat(EVOL-051) — the documentation class is the one definition (config → documentation); planning.docs_exempt retired (fault when present)",
         "1.0.0: feat(EVOL-048) — initial."
       ]
     },
@@ -2027,6 +2034,26 @@
       "role": "PreToolUse hook (Agent) — a roster agent spawns on its family's alias, never on the other's: asks gate.py agents --spawn --hook-json (exit 1 = refused → exit 2 + stderr); a subagent_type outside factory-* is not ours (pass without the reader); the reader or the policy missing on a factory-* name → blocks, names SETUP --upgrade (Q34).",
       "changelog": [
         "1.0.0: feat(EVOL-049)! — initial: the mechanical hold of the writer/critic family separation at the spawn."
+      ]
+    },
+    "scripts/gates/seal.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/seal.py",
+      "delivery": "both",
+      "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map.",
+      "changelog": [
+        "1.0.0: feat(EVOL-051) — initial."
+      ]
+    },
+    "scripts/gates/digests.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/digests.py",
+      "delivery": "both",
+      "role": "gates: governance digest currency of the feature's planning artefacts (EVOL-051) — for docs/spec/{ID}/ (verification.digest_artefacts): frontmatter governance_digest_version equals the snapshot's constitution_hash[:8] and the artefact names every rule the corpus binds to the branch's change (applicable — the one resolver); red in the static round and at the push, one predicate.",
+      "changelog": [
+        "1.0.0: feat(EVOL-051) — initial."
       ]
     }
   },
@@ -2309,9 +2336,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.18.1",
+      "version": "2.18.2",
       "path": "README.md",
       "changelog": [
+        "2.18.2: feat(EVOL-051) — BVL: one full verification loop per change, sealed and honoured at the push (EVOL-051)",
         "2.18.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "2.18.0: feat(EVOL-049)! — role agents and read-only critics paragraph.",
         "2.17.0: feat(EVOL-048) — one planning stage paragraph (EVOL-048).",
@@ -2685,9 +2713,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.17.0",
+      "version": "2.18.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.18.0: feat(EVOL-051) — the order stated at the spawn protocol; the completion gate writes the plan's status and verification record BEFORE the loop (last tracked write), the loop seals, the commit follows; a red loop reverts the status write; bvl_result replaced by verification: {gates, seal}",
         "2.17.0: fix(EVOL-049) — review pass — the main session spawns (no agent carries Agent); worktree guard with the increment's files; separation lost → adjudication",
         "2.16.0: feat(EVOL-049)! — the phase loop delegates by name — a worker per surface, the work critics and the security lens after a completed diff (tree hashed around the run, returns checked, one round then the user adjudicates); spawn-policy: worker.",
         "2.15.0: feat(EVOL-047) — train-close deployment decided by gate.py runtime-surface --changed.",
@@ -2735,9 +2764,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.15.1",
+      "version": "2.16.0",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.16.0: feat(EVOL-051) — dev_plan.md frontmatter carries governance_digest_version (copied from design.md) — gate.py digests judges it",
         "2.15.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "2.15.0: feat(EVOL-049)! — hat vocabulary retired (the work critics; the fidelity lens).",
         "2.14.0: feat(EVOL-045) — dev_plan Sub-increment groups + sub_increments frontmatter + completion gate item 4.",
@@ -2776,9 +2806,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.15.0",
+      "version": "2.16.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.16.0: feat(EVOL-051) — before the critics only the static round (gate.py profile --run --control-point static, digests included) + the workers' scoped runs; coverage, typecheck and the full suite deferred to the one loop; lint stays scoped",
         "2.15.0: fix(EVOL-049) — review pass — the main session spawns; worktree guard; context:\"increment\" comment; critics at the class default on every lens",
         "2.14.0: feat(EVOL-049)! — the review-time hats retire: the checks are re-homed onto the read-only work critics (correctness · governance · fidelity) and the security lens; one round then the user adjudicates; spawn-policy: work-critic; the engine runs in increment mode.",
         "2.13.0: feat(EVOL-045) — certify --subject diff takes its base from the resolver — no origin/main fallback taught.",
@@ -2945,9 +2976,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.19.0",
+      "version": "3.20.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.20.0: feat(EVOL-051) — {{VERIFICATION_GATES}} (the path-to-gate map from the stack + Q33) and the documentation defaults",
         "3.19.0: feat(EVOL-049)! — {{AGENT_WRITER_MODEL}} / {{AGENT_CRITIC_MODEL}} from Q34; invariant: gate.py agents green on the materialised tree.",
         "3.18.0: feat(EVOL-048) — planning block keeps template defaults; its hooks land with settings.json (EVOL-048).",
         "3.17.0: feat(EVOL-047) — {{RUNTIME_SURFACE}} resolved from Q33 (JSON array); invariant: gate.py runtime-surface green on the materialised tree.",
@@ -3085,9 +3117,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.6.0",
+      "version": "14.7.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.7.0: feat(EVOL-051) — control points: the static round row; the seal (gate.py seal --check) in the train-close and PR rows; seal and digests among the light members",
         "14.6.0: feat(EVOL-049)! — Core Protocols — Role agents & read-only critics row; no agent ratifies.",
         "14.5.0: feat(EVOL-048) — § Pre-Action Gate — One planning stage (EVOL-048).",
         "14.4.0: feat(EVOL-047) — § Generation Standards 3 rewritten — the branch rule (every change via branch + PR) and the runtime surface (positive list, hard exclusions, parity gate, honest review allowlist); triage item reworded.",
@@ -3315,10 +3348,11 @@
       "path": ".claude/skills/factory-worklog/SKILL.md"
     },
     "skills/factory-build-verification/SKILL.md": {
-      "version": "1.11.0",
+      "version": "1.12.0",
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
+        "1.12.0: feat(EVOL-051) — one full loop per change: the order (static round → critics → artefacts → one loop → commit), the plan from gate.py seal --plan, one execution per command, the seal written per gate and --full, nothing tracked after the green",
         "1.11.0: feat(EVOL-049)! — loops run by the orchestrator on behalf of the critics; hat vocabulary retired.",
         "1.10.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.9.0: feat(EVOL-037) Step 8 Minimalism advisory (DC-29) added to full_verification_gate after complexity, before PASSED. LLM self-scan of scope_files for the four over-engineering categories (reinvented stdlib, unneeded dependency, single-impl abstraction, dead flexibility). NON-BLOCKING by design — advisory fail-open, never returns BLOCKED, skips silently when defect-prevention.md absent. how-not-what guardrail: scope cuts never auto-applied (route to CODESIGN via RDR). results.minimalism captures {status, findings}; final log line extended with minimalism status. Prevention/cost-saving lives at decision-time in factory-adversarial-reasoning; this step is the late quality net.",
@@ -3693,10 +3727,11 @@
       "path": ".claude/skills/factory-pr-review/references/changelog-policy.md"
     },
     "skills/factory-pr-review/scripts/preflight.sh": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "type": "skill-asset",
       "role": "Factory PR Review push-gate orchestrator — wraps detect_change_type.py + check_docs_sync.py + check_openapi_diff.sh + check_asyncapi_diff.sh + check_dev_plan_task_format.py + framework-aware checks (governance-bump miss, protected-paths) + Step 0 coherence-audit marker check (v1.1.0). Exit 0 silent pass, 1 blocker found, 2 environment failure (warn-not-block). Honours docs-only fast-lane (CLAUDE.md Generation Standards §3 verbatim allowlist). Reads `default_base_branch` from `.claude/rules/branching.md` when present, and `config/coherence-context.json` for Step 0 governance-sensitivity computation + marker location.",
       "changelog": [
+        "1.8.0: feat(EVOL-051) — the docs-only fast-lane reads the ONE definition (gate.py documentation --changed --base) — no allowlist in the preflight; documentation-class-unavailable is an important finding",
         "1.7.0: feat(EVOL-046) — protected-branch check through the reader (no regex).",
         "1.6.0: feat(EVOL-045) — base from the one resolver (unknown branch name = blocker branch-name-unknown); Block 21 surface-over-ceiling (blocker) / surface-unavailable (important).",
         "1.5.0: fix(EVOL-039 dogfood) — Block 20 self-review findings applied. FAIL-CLOSED: corrupt/unreadable marker → sentinel -1 → NEW blocker code-review-marker-corrupt (was: parsed as 0 blockers → silent pass on the fail-closed plane; CRITICAL-2, 2 agents converged); same fix applied to Step 0 coherence marker (coherence-audit-marker-corrupt). GUARD WIDENED: has_tests joins has_code (tests-only diffs bypassed Block 20 while pr-test-analyzer is a blocking agent). pr_blocker consumed: false → Block 20 findings degrade to Important (was dead config on an enforcement path). NOISY DEGRADES: classification-failure Important when detect_change_type returns {} (mute infra fallback silently disabled secrets + Block 20); helper stderr first line captured into code-review-hash-failure message; EMPTY branch logs. SHAPE ALLOWLIST: regex ^([0-9a-f]{64}|EMPTY)$ replaces tr char-filter (char soup could fabricate a marker path → misrouted blocker). DC-29: Step 0 relocated below add_finding — DEFERRED_COHERENCE_FINDING machinery deleted, Step 0/0-bis now structurally identical. Nits: redundant isinstance guard dropped, ${CR_OVERRIDE_AT:-unknown}.",
@@ -4393,11 +4428,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.8.0: feat(EVOL-051) — documentation block (paths, exclusions — one definition) and verification block (seal not required in the framework repo: CI's T2 suite is its loop; gates {}; digest_artefacts); planning.docs_exempt retired",
         "1.7.0: fix(EVOL-049) — review pass — retired_terms: the remaining hat vocabulary (DEV/ARCH/PO/UX/QA hat, hat switch, multi-hat), docs/spec/** exempt for history",
         "1.6.0: feat(EVOL-049)! — agents.families (writer / critic aliases); the retired hat vocabulary (REVIEW Hat, SEC Hat, …).",
         "1.5.0: feat(EVOL-048) — planning block — governed_paths, docs_exempt, gate_inputs, exempt_classes (none in the framework repo), plan_artefact (the ADR), adoption_window_minutes.",
@@ -4504,11 +4540,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.8.0: feat(EVOL-051) — seal (--plan/--write/--check/--validate), documentation (--path/--changed), digests subcommands; profile --control-point static",
         "1.7.0: fix(EVOL-049) — review pass — agents: manifest unreadable = fault, --spawn [--hook-json], --check-return needs --class, --resolve exit 1 over the cap; certify --subject worktree",
         "1.6.0: feat(EVOL-049)! — agents subcommand — validate / --resolve / --fallback / --digest / --check-return (EVOL-049).",
         "1.5.0: feat(EVOL-048) — plan --path | --status | --record subcommand (EVOL-048).",
@@ -4567,11 +4604,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.8.0: feat(EVOL-051) — Seal + Digests test classes: one definition of documentation, the seal plan/write/check (shared command = one execution, docs-only owes nothing, a declared docs reader is owed, unmapped path owes the full loop, on-disk seal honoured by the commit), digest fingerprint + completeness red on an untouched artefact (43 tests)",
         "1.7.0: fix(EVOL-049) — review pass — red cases: class promotion, tool spellings, families, dead rows, cap, tier unknown, separation, digest lens law, spawn check, return shapes, worktree hash, CLI faults (40 tests)",
         "1.6.0: feat(EVOL-049)! — Agents class — policy parse, the validator red on every way a roster can lie (same family, a critic with a write tool, a worker without one, a model written in, no effort, over budget, a dangling pointer, roster/definition/manifest parity, a ladder rung that is not a family or that degrades a writer, a spawn site without its marker, a policy without a site), the per-spawn resolver, the fallback, the digest budget, the return contracts; CLI.",
         "1.5.0: feat(EVOL-048) — Planning class — governed precedence (gate inputs, docs exemption), classes fail closed, the marker only from the harness, adoption once from a base branch within the window and never by the advisory, the plan artefact; CLI exit codes.",
@@ -4583,11 +4621,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.8.0: feat(EVOL-051) — one-loop checks: seal --validate, documentation exclusions, unsealed tree refused, one execution per command, sealed tree honoured, docs delta owes nothing, code delta owes its readers, digests n/a and red, the static control point (72 checks)",
         "1.7.0: fix(EVOL-049) — review pass — the digest carries the lens's rule; spawn check and hook refuse the writer's alias; the round cap (62 checks)",
         "1.6.0: feat(EVOL-049)! — the roster lands, gate.py agents green, a same-family roster red, a per-spawn resolution and a digest on the materialised policy.",
         "1.5.0: feat(EVOL-048) — planning gate on the scratch project: a feature passes by class, a fix is blocked, the delivered recorder's approval unblocks (EVOL-048).",
@@ -4608,11 +4647,12 @@
       ]
     },
     "scripts/test-hooks.sh": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
+        "1.6.0: feat(EVOL-051) — sandbox config carries the documentation block (planning.docs_exempt retired)",
         "1.5.0: fix(EVOL-049) — review pass — check-agent-spawn scenarios (99 checks)",
         "1.4.0: feat(EVOL-048) — check-plan-approval and record-plan-approval cases (EVOL-048).",
         "1.3.0: feat(EVOL-046) — edit hook fail-closed cases; pre-push runs the profile as one call (red blocks, fault warns, no member outside the profile, missing reader blocks).",
@@ -4641,11 +4681,12 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py",
       "changelog": [
+        "1.3.0: feat(EVOL-051) — members seal and digests (light); control point static = the light members whatever the class or the mode; {control_point} runner token",
         "1.2.0: feat(EVOL-049)! — agents member (the roster validator; no build, no database).",
         "1.1.0: feat(EVOL-047) — runtime-surface member (light: no build, no database).",
         "1.0.0: feat(EVOL-046) — initial."
@@ -4661,11 +4702,12 @@
       ]
     },
     "scripts/gates/planning.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "gates: one planning stage (EVOL-048) — `governed` (governed_paths minus docs_exempt, except gate_inputs), `approval` (exempt classes by phase; the branch's plan artefact in an approved state; the marker written only by the harness's plan approval; adoption once from a base branch within the window), `gate` (block with a humanised reason + resolution), `status` (the advisory), `record` (refuses anything but the PostToolUse ExitPlanMode event). Meta copy (lock-step pair).",
       "path": "scripts/gates/planning.py",
       "changelog": [
+        "1.1.0: feat(EVOL-051) — the documentation class is the one definition (config → documentation); planning.docs_exempt retired (fault when present)",
         "1.0.0: feat(EVOL-048) — initial."
       ]
     },
@@ -4841,6 +4883,24 @@
       "role": "PreToolUse hook (Agent) — a roster agent spawns on its family's alias, never on the other's: asks gate.py agents --spawn --hook-json (exit 1 = refused → exit 2 + stderr); a subagent_type outside factory-* is not ours (pass without the reader); the reader or the policy missing on a factory-* name → blocks, names SETUP --upgrade (Q34). Meta copy (lock-step pair .claude/hooks/*.sh).",
       "changelog": [
         "1.0.0: feat(EVOL-049)! — initial: the mechanical hold of the writer/critic family separation at the spawn."
+      ]
+    },
+    "scripts/gates/seal.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map. Meta copy (lock-step pair scripts/gates/*.py).",
+      "path": "scripts/gates/seal.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-051) — initial."
+      ]
+    },
+    "scripts/gates/digests.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: governance digest currency of the feature's planning artefacts (EVOL-051) — for docs/spec/{ID}/ (verification.digest_artefacts): frontmatter governance_digest_version equals the snapshot's constitution_hash[:8] and the artefact names every rule the corpus binds to the branch's change (applicable — the one resolver); red in the static round and at the push, one predicate. Meta copy (lock-step pair scripts/gates/*.py).",
+      "path": "scripts/gates/digests.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-051) — initial."
       ]
     }
   },

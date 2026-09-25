@@ -59,7 +59,8 @@ cat > "$REPO/config/coherence-context.json" <<'EOF'
 EOF
 cat > "$REPO/config/quality.json" <<'EOF'
 {"budgets": {"session_start": 2000, "prompt_submit": 16000, "pre_edit": 6000, "snapshot": 16000, "law_sentence_max_chars": 240, "dc_invariant_max_chars": 160},
- "planning": {"governed_paths": ["src/**", "config/**", ".claude/rules/**"], "docs_exempt": ["**/*.md", "docs/**"], "gate_inputs": ["docs/constitution.md", "config/**", ".claude/rules/**"], "exempt_classes": ["feature", "increment", "train", "sub-increment", "epic"], "plan_artefact": null, "adoption_window_minutes": 30}
+ "documentation": {"paths": ["**/*.md", "docs/**"], "exclusions": [".github/workflows/**"]},
+ "planning": {"governed_paths": ["src/**", "config/**", ".claude/rules/**"], "gate_inputs": ["docs/constitution.md", "config/**", ".claude/rules/**"], "exempt_classes": ["feature", "increment", "train", "sub-increment", "epic"], "plan_artefact": null, "adoption_window_minutes": 30}
 }
 EOF
 mkdir -p "$REPO/.claude/skills/factory-pr-review" "$REPO/.claude/instructions"

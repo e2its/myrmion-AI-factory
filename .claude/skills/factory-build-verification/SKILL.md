@@ -439,13 +439,25 @@ FUNCTION phase_verification(phase, all_test_files):
 
 ## FULL VERIFICATION GATE (Pre-IMPLEMENTED_AND_VERIFIED)
 
-Runs after all phases complete, before status → IMPLEMENTED_AND_VERIFIED. Accepts an optional `increment_id` to restrict scope to a single slice (see § v1.5.0 — Per-Increment Verification Scope).
+**One full loop per change (EVOL-051).** The order per completed diff is: the **static round** (`python3 scripts/gate.py profile --run --control-point static` — every member that needs no build and no database, `digests` included — plus the workers' red-first scoped runs as the test evidence) → the **critics** (one round) → the **artefacts** (the review and security reports, the plan's ticks and its status: every tracked write) → **this loop, once**, on those bytes → the **commit** on its green. Cures found by the critics are re-checked by their scoped gate (`python3 scripts/gate.py seal --plan` names the gates the tree on disk owes), never by a full loop per cure. Each suite runs **once** per loop: the plan groups the gates by command — the suite that feeds coverage is one execution whose result feeds both `tests` and `coverage`. The outcome is recorded in the **seal** (`python3 scripts/gate.py seal --write --gates … [--full]`, an untracked state file the push honours through `gate.py seal --check`): nothing tracked is written after the green — a tracked write would move the tree the commit carries. After a green seal, a delta whose paths only documentation covers owes nothing; a delta that touches a gate's read-set owes that gate (`verification.gates` in `config/quality.json`); a changed path no gate reads owes the full loop (fail closed: declare its reader).
+
+Runs after all phases complete, after the completion gate wrote the plan's status (§ Completion Gate, Factory-implement-build), before the commit. Accepts an optional `increment_id` to restrict scope to a single slice (see § v1.5.0 — Per-Increment Verification Scope).
 
 ```yaml
 FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   commands = resolve_verification_commands()
   results = {}
   scope_label = increment_id IS NOT NULL ? "increment {increment_id}" : "feature aggregate"
+
+  # EVOL-051 — the loop runs what the seal reader says the tree on disk owes: every gate after a change the seal
+  # never covered (the full loop), only the gates whose read-set moved after a green seal (the incremental seal),
+  # nothing after a documentation-only delta. One execution per distinct command; a red execution is recorded red.
+  plan = RUN("python3 scripts/gate.py seal --plan --json")
+  IF NOT plan.required: LOG "seal: n/a — {plan.reason}"          # a repo whose loop runs elsewhere (config says so)
+  owed = SET(plan.owed)                                              # empty ⇒ the seal already covers this tree: RETURN PASSED(sealed)
+  # Every step below runs only when its gate is owed; the seal is written per gate right after its execution:
+  #   RUN("python3 scripts/gate.py seal --write --gates <gates of the execution> [--red] --summary '<one line>'")
+  # and, when every gate of the map ran green in this call, once more with --full (the tree is sealed).
 
   # Resolve scope-filtered file set ONCE — reused by every gate that takes `files`.
   # When increment_id is null this returns the feature-level set (legacy behaviour).
@@ -590,7 +602,8 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
       LOG: "ℹ️ BVL Minimalism (DC-29, advisory): {minimalism_findings.length} simplification(s) possible, net -{SUM(net_lines)} lines. Author decides — no block."
     # No RETURN BLOCKED from this step — ever.
 
-  # All checks passed
+  # All checks passed — seal the tree (untracked); the commit follows; nothing tracked is written after this line
+  RUN("python3 scripts/gate.py seal --write --gates {JOIN(plan.owed, ',')} --full --summary '{scope_label}: green'") IF owed == SET(ALL gates of the map) ELSE RUN("… --gates {JOIN(plan.owed, ',')}")
   LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}, complexity={results.complexity.status}, minimalism={results.minimalism.status}"
 
   RETURN PASSED(results)

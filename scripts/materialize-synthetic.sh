@@ -70,7 +70,7 @@ if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus"}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "VERIFICATION_GATES": '{"tests": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "coverage": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "lint": {"reads": ["src/**", "scripts/**"], "command": "ruff check"}}'}
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -203,6 +203,9 @@ PY
 CERT=$(cd "$P" && python3 scripts/gate.py certify --subject tree --paths 'src/**')
 printf -- '---\nstatus: APPROVED\nverdict: APPROVED\ncertifies:\n%s\n---\n' "$CERT" > "$P/docs/spec/FEAT-001/qa/qa_report_final_20260925.md"
 git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm "manifest + re-taken verdict"
+# the full loop ran on these bytes (EVOL-051): its seal is what the push profile honours
+OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates tests,coverage,lint --full --summary green 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "the full loop sealed the branch's tree (gate.py seal --write --full)" || bad "seal write failed (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'verdict: ok' && ok "the profile runs every script member in the scratch project, one verdict: $(printf '%s' "$OUT" | grep -c '✓') green" || bad "profile run not green in the scratch (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py one-definition 2>&1); RC=$?
@@ -292,6 +295,31 @@ OUT=$(cd "$P" && printf '%s' '{"tool_name":"Agent","tool_input":{"subagent_type"
 [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'BLOCKED' && ok "the delivered spawn hook blocks it (exit 2, humanised)" || bad "spawn hook did not block (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 2 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a second work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
+# one full verification loop (EVOL-051): the documentation class, the path-to-gate map, the seal the push honours, the digests
+OUT=$(cd "$P" && python3 scripts/gate.py seal --validate 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "gate.py seal --validate: documentation defined, every materialised gate reads something" || bad "seal map invalid (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py documentation --path .github/workflows/ci.md 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'exclusions' && ok "one definition of documentation: a workflow .md is code (exclusions first)" || bad "documentation class wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: the full loop' && printf '%s' "$OUT" | grep -q 'no gate reads' && ok "RED: paths no gate reads changed since the last green seal (a workflow, the config) — the full loop is owed, fail closed" || bad "unmapped delta not refused (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py seal --plan --base origin/main 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'run: pytest  →  coverage, tests' && ok "the loop's plan: the suite that feeds coverage is one execution" || bad "seal plan wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates tests,coverage,lint --full --summary green 2>&1 && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'seal: ok' && ok "a green full loop sealed the tree the commit carries — the push honours it" || bad "sealed tree refused (rc=$RC)" "$OUT"
+printf 'notes\n' > "$P/docs/notes.md"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'docs' >/dev/null
+OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "a documentation-only delta after a green seal owes no test, security or build gate" || bad "docs delta owed a gate (rc=$RC)" "$OUT"
+mkdir -p "$P/src"; printf 'x = 1\n' > "$P/src/new.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'code' >/dev/null
+OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: coverage, lint, tests' && ok "RED: a code delta owes exactly the gates that read it (incremental seal)" || bad "code delta not owed (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py digests 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "digests: $OUT" || bad "digests failed (rc=$RC)" "$OUT"
+mkdir -p "$P/docs/spec/FEAT-001"; printf -- '---\nstatus: DRAFT\n---\n# design\n' > "$P/docs/spec/FEAT-001/design.md"
+OUT=$(cd "$P" && python3 scripts/gate.py digests 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'never generated' && ok "RED: a planning artefact without its governance digest fails the static round and the push alike" || bad "digest absence not refused (rc=$RC)" "$OUT"
+rm -rf "$P/docs/spec/FEAT-001"
+OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point static 2>&1); RC=$?
+printf '%s' "$OUT" | grep -q 'static round' && printf '%s' "$OUT" | grep -qE '(✓|✗) seal' && printf '%s' "$OUT" | grep -qE '(✓|✗) digests' && ok "the static round is a control point: light members incl. seal and digests, all report" || bad "static round profile wrong (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]
