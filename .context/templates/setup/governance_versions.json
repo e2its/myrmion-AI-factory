@@ -3241,9 +3241,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.7.2",
+      "version": "14.7.3",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.7.3: fix(EVOL-055) — [LAW-07] records ADR-EVOL-055 (no concrete project names anywhere in the framework — the hygiene ruling that extends the law's spirit to records and code comments).",
         "14.7.2: feat(EVOL-054) — Pre-Action Gate: the merge rule names its server side (EVOL-054)",
         "14.7.1: feat(EVOL-053) — traceability among the light members",
         "14.7.0: feat(EVOL-051) — control points: the static round row; the seal (gate.py seal --check) in the train-close and PR rows; seal and digests among the light members",
