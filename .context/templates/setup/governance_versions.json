@@ -4449,9 +4449,10 @@
       ]
     },
     "scripts/test-check-journey-grammar.sh": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "path": "scripts/test-check-journey-grammar.sh",
       "changelog": [
+        "1.2.1: fix(EVOL-049) — review pass: the Decision History fixture column is `Concern`, never `Hat`",
         "1.2.0: fix(EVOL-041 code-review) — Block 20 gate findings remediated: battery 14 → 33 cases: expect() proves WHICH gate fired (message assert); new red cases for every hardened gate (quoted scope, empty anchors, '—' BDD, duplicate Paso, matrix phantom/missing row, free-text Mock Action, non-numeric Feels, wrong mermaid type, lowercase varchar, zero-ref path, frontmatter key) + greens (inline comment trim, parenthesised title, file-mode --spec/--mock) + exit-2 contract (no journey, mktemp infra).",
         "1.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: 14th case: missing mermaid journey diagram MUST fail (red-proved).",
         "1.0.0: feat(EVOL-041) — red-proving self-test: 13 cases (2 green fixtures + 10 mutations that MUST fail + journey-first skip case). Wired into governance-check T2 suite."
