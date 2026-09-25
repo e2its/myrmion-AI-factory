@@ -133,6 +133,7 @@ last_update: [TIMESTAMP]
 - **Documentation Standard:** [Python: Google Docstrings | JS/TS: TSDoc | Java: Javadoc | C#: XML Comments | Go: Godoc]
 - **CODESIGN Authoring Surface (Q29):** [external-full | external-features | internal] → `codesign.authoring`: [external | internal] · `po_package.mode`: [full | features-only | off]
 - **Design-System Cards Source (Q29.1 — IF Q29 != internal AND UI scope):** [vision | code-manual | code-rebuild | defer] → `po_package.ds_cards_source` · `po_package.ds_code_cards_dir`: [repo-relative folder | null] · `po_package.ds_rebuild_command`: [one command | null]
+- **Measurement Window (Q30):** `measurement.retention_days`: [90] · `measurement.report_interval_days`: [30] → `subproducts/measure/measure.config.json`
 
 ## 3.1. Budget Validation Summary
 > Calculated automatically before materialization.

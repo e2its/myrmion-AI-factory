@@ -1,0 +1,17 @@
+{
+  "$schema": "measure_config_v1",
+  "retention_days": {{MEASURE_RETENTION_DAYS}},
+  "report_interval_days": {{MEASURE_REPORT_INTERVAL_DAYS}},
+  "idle_cap_s": 300,
+  "gates": {
+    "verification": ["validate-governance\\.sh", "check-[a-z-]+\\.sh", "test-[a-z-]+\\.sh", "\\bpytest\\b", "\\bnpm (run )?test\\b", "\\bnpx (vitest|jest|playwright)\\b", "\\bgo test\\b", "\\bmvn (test|verify)\\b", "\\bdotnet test\\b", "\\bcargo test\\b", "\\btsc\\b", "\\bruff\\b", "\\beslint\\b"],
+    "push": ["\\bgit\\s+push\\b", "preflight\\.sh"],
+    "deploy": ["\\bpulumi (up|preview)\\b", "\\bterraform (apply|plan)\\b", "\\bcdk deploy\\b", "\\bdocker (build|push)\\b", "\\bhelm (upgrade|install)\\b", "\\bkubectl apply\\b", "\\bgh workflow run\\b"],
+    "e2e": ["\\bplaywright test\\b", "\\bcypress run\\b"]
+  },
+  "review_patterns": ["preflight\\.sh", "code_review", "pr-review"],
+  "review_agent_patterns": ["critic", "review"],
+  "governance_paths": ["CLAUDE.md", "docs/constitution.md", "docs/setup.md", ".context/governance_snapshot.md", ".claude/rules/", ".claude/instructions/", ".claude/skills/", ".claude/commands/", ".claude/agents/", "docs/project_log/adr/"],
+  "corpus_files": ["CLAUDE.md", "docs/constitution.md", ".claude/rules/defect-prevention.md"],
+  "rework_commit_types": ["fix", "revert"]
+}

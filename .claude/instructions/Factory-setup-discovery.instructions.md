@@ -1,5 +1,5 @@
 ---
-description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q28 questions. Use when: SETUP --init command execution."
+description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q30 questions. Use when: SETUP --init command execution."
 applicable_when:
   phase: [SETUP]
   command: [setup]
@@ -74,7 +74,7 @@ TIER_1_STACK:
 
 TIER_2_INFRASTRUCTURE:
   name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1]
+  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30]
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
@@ -485,6 +485,14 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Simplified:** es: "¿Las fichas del design system salen sólo del diseño, o tienes una herramienta que las reconstruye desde el código real? ¿La lanzas pidiéndoselo a Claude, o también tiene un comando de terminal?" / en: "Do the design-system cards come from the design only, or do you have a tool that rebuilds them from the real code? Do you run it by asking Claude, or does it also have a terminal command?"
 - **RDR Recommendation:** `vision` for greenfield (no components exist yet). Brownfield with an existing component library — the PO then sees what the application really renders: `code-manual` when the tool is run by asking Claude (the usual), `code-rebuild` when it also has a terminal command and the cards should refresh unattended (builder `--rebuild`, CI). `defer` when a tool is planned but not chosen. The framework names no tool: any tool that leaves HTML preview files opening with the design-system card marker qualifies.
 - **Persist:** `po_package.ds_cards_source` · `po_package.ds_code_cards_dir` · `po_package.ds_rebuild_command` (the folder `null` unless `code-manual` or `code-rebuild`; the command `null` unless `code-rebuild`)
+
+#### Q30: Measurement Window (EVOL-042)
+- **Type:** Two integers (days)
+- **Options:** `retention_days` — the longest window the reader accepts (default `90`) · `report_interval_days` — the default report window and the interval of the before/after protocol (default `30`)
+- **Simplified:** es: "¿Cuántos días de historial de sesiones quieres poder medir, y cada cuántos días quieres el informe de coste del SDLC?" / en: "How many days of session history do you want to be able to measure, and every how many days do you want the SDLC cost report?"
+- **RDR Recommendation:** `90` / `30` — one quarter of history, one monthly report: long enough for a before/after window per framework change, short enough that the numbers describe the current way of working. `180` / `60` for a small team with sparse sessions. `30` / `14` for a project in a fast evolution cycle. Zero infrastructure cost: the reader (`subproducts/measure/`) reads local transcripts and git only; nothing leaves the machine.
+- **Tier-filtered:** All tiers.
+- **Persist:** `measurement.retention_days` · `measurement.report_interval_days`
 
 ---
 
