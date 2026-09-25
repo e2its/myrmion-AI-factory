@@ -463,7 +463,7 @@ CODESIGN is the phase whose signing actor is not an engineer. When a project cho
 
 ```
   Factory                PO (Claude Desktop)            Factory
-  build package  ─zip→   one feature, or the     ─zip→  validate · ratify · /codesign --sync · plan catalog
+  build package  ─zip→   one feature, or the     ─zip→  validate · ratify · sync · catalog
                          design system
 ```
 
@@ -537,10 +537,12 @@ When AUDIT runs, SETUP auto-detects Brownfield and pre-fills data.
 ### Phase 0.1 (optional): Bootstrap Project Board and Backlog
 
 ```
-/backlog --init-board                              → Creates the project on the configured tool (or local)
+/backlog --init-board                              → Creates the project on the configured tool
+                                                     (or local)
 /backlog --plan-feature USR-001 "OAuth login"      → Feature issue set
 /backlog --plan-feature USR-002 "Dashboard"        → Feature issue set
-/backlog --plan-execution                          → Analyzes dependencies → generates execution plan by Epics
+/backlog --plan-execution                          → Analyzes dependencies → generates
+                                                     execution plan by Epics
 ```
 
 ### Phase 0.5: Global Vision (mandatory for frontend projects)
@@ -553,18 +555,27 @@ When AUDIT runs, SETUP auto-detects Brownfield and pre-fills data.
 With **external authoring** the PO creates the design system in Claude Desktop instead:
 
 ```
-python3 subproducts/po-package/build_po_package.py            → Package for the PO (design-system project instructions included)
-python3 subproducts/po-package/validate_po_return.py --zip …  → Form and coherence; then one RDR per change (factory-po-intake)
-/codesign --sync VISION      → Adopts the ratified design system as written; refreshes docs/ux/component-registry.json
+python3 subproducts/po-package/build_po_package.py            → Package for the PO
+                                                                (design-system project
+                                                                instructions included)
+python3 subproducts/po-package/validate_po_return.py --zip …  → Form and coherence; then one
+                                                                RDR per change
+                                                                (factory-po-intake)
+/codesign --sync VISION      → Adopts the ratified design system as written; refreshes
+                               docs/ux/component-registry.json
 /codesign --vision-approve   → Approves the vision
-(factory-po-intake)          → Plans the Component Catalog: one backlog issue per component no code materialises yet
+(factory-po-intake)          → Plans the Component Catalog: one backlog issue per component no
+                               code materialises yet
 ```
 
 ### Phase 1: Definition and Co-Creation (Pre-Code)
 
 ```
-/codesign --start USR-001 "OAuth login"     → Co-creates spec + mock + journey (auto-approves when 12/12 OK)
-/codesign --sync USR-001                    → External authoring: adopts the PO's ratified journey + spec + mock as written (same checks, as validation)
+/codesign --start USR-001 "OAuth login"     → Co-creates spec + mock + journey (auto-approves
+                                              when 12/12 OK)
+/codesign --sync USR-001                    → External authoring: adopts the PO's ratified
+                                              journey + spec + mock as written (same checks, as
+                                              validation)
 
 /blueprint --start USR-001    → Co-designs design.md + test_plan.md
 /blueprint --approve USR-001  → Enables IMPLEMENT (the only mandatory manual checkpoint)
@@ -577,7 +588,8 @@ python3 subproducts/po-package/validate_po_return.py --zip …  → Form and coh
 /implement --build USR-001         → TDD + BVL (real execution) + Review + SAST per phase
                                      Under slicing_strategy: incremental, run once per slice
                                      (one open INC-N branch at a time). BVL runs scope-filtered
-                                     per slice; the plan-level aggregate runs on the last closure.
+                                     per slice; the plan-level aggregate runs on the last
+                                     closure.
 ```
 
 ### Phase 2.5: Infrastructure (flexible — post-BLUEPRINT)
@@ -591,8 +603,10 @@ python3 subproducts/po-package/validate_po_return.py --zip …  → Form and coh
 
 ```
 /devops --deploy USR-001 --env staging   → Deploys to pre-production
-/qa --verify USR-001 INC-1               → Per-slice verification (slicing_strategy=incremental)
-                                           Repeat for each slice; required before the aggregate.
+/qa --verify USR-001 INC-1               → Per-slice verification
+                                           (slicing_strategy=incremental)
+                                           Repeat for each slice; required before the
+                                           aggregate.
 /qa --verify USR-001                     → Aggregate / final verification
                                            For monolithic features this is the only QA call.
 ```
@@ -894,23 +908,28 @@ The framework governs two orthogonal scope axes:
 
 /blueprint --start FEAT-039
    # Reads feature.scope=backend-only from spec.feature frontmatter
-   # Produces: design.md (contract-first, § 3.2 Wire-Format Mapping replaces § 3.1 Cross-Layer Type Mapping)
-   #           test_plan.md (includes § 2.2 Reliability Testing: REL-IDEMP, REL-RETRY, REL-TIMEOUT, REL-CB, REL-DLQ, REL-SHUTDOWN, REL-OBS)
+   # Produces: design.md (contract-first, § 3.2 Wire-Format Mapping replaces § 3.1 Cross-Layer
+   # Type Mapping)
+   #           test_plan.md (includes § 2.2 Reliability Testing: REL-IDEMP, REL-RETRY,
+   #           REL-TIMEOUT, REL-CB, REL-DLQ, REL-SHUTDOWN, REL-OBS)
    #           OpenAPI 3.1 webhook contract in contracts/webhooks/inbound/stripe/v1.yaml
 
 /blueprint --approve FEAT-039
-   # Part 1 ARCH elevates contract-completeness (backend-only has no UI surface to fall back on)
+   # Part 1 ARCH elevates contract-completeness (backend-only has no UI surface to fall back
+   # on)
    # Part 2 QA: visual-consistency tests N/A; reliability tests BLOCKER if missing
 
 # CONTRACT-FREEZE issue Done → IMPLEMENT gate unlocks
 
 /backlog --plan-feature FEAT-039
-   # Materialises 8 phase issues; suffix 8 gets phase:smoke-e2e-integration label (scope=backend-only → integration variant)
+   # Materialises 8 phase issues; suffix 8 gets phase:smoke-e2e-integration label
+   # (scope=backend-only → integration variant)
    # All 8 issues also get scope:backend-only label
 
 /devops --configure FEAT-039
    # Scope-aware target derivation: function → serverless (Lambda); compute → worker
-   # Reliability DCs consulted: idempotency, retry, DLQ, graceful shutdown all projected into devops_plan.md § Reliability Checks
+   # Reliability DCs consulted: idempotency, retry, DLQ, graceful shutdown all projected into
+   # devops_plan.md § Reliability Checks
 
 /implement --plan FEAT-039
    # CONTRACT-FREEZE gate + Consumes-Contract Upstream Freeze Gate pass
@@ -918,12 +937,15 @@ The framework governs two orthogonal scope axes:
    # REVIEW dispatcher filters UX checks to N/A; contract/DRY/security/reliability all active
 
 /implement --build FEAT-039
-   # REVIEW Check #7 [UX-*] reports "N/A — skipped under scope=backend-only" in peer_review § 3.7
+   # REVIEW Check #7 [UX-*] reports "N/A — skipped under scope=backend-only" in peer_review §
+   # 3.7
 
-# PREVENTIVE-SWEEP sub-agents filter DCs by scope → only backend + cross-cutting + infra scopes swept
+# PREVENTIVE-SWEEP sub-agents filter DCs by scope → only backend + cross-cutting + infra scopes
+# swept
 
 /qa --verify FEAT-039
-   # SMOKE-E2E gate: single smoke template, scope-aware execution mode (smoke_e2e_report_template.md)
+   # SMOKE-E2E gate: single smoke template, scope-aware execution mode
+   # (smoke_e2e_report_template.md)
    # SMOKE-REL-* blocks MANDATORY (for scope=integration); test_plan § 2.2 rows verified
    # Verification checklist includes QA-REL-1..7 reliability items
 ```
@@ -933,15 +955,18 @@ The framework governs two orthogonal scope axes:
 ```
 /codesign --start FEAT-042 --scope=frontend-only
    # Scope Compatibility Gate: full-stack project accepts frontend-only feature ✅
-   # The upstream dependency on FEAT-039 (the backend integration) is declared in spec.feature frontmatter: consumes_contract
+   # The upstream dependency on FEAT-039 (the backend integration) is declared in spec.feature
+   # frontmatter: consumes_contract
 
 /blueprint --start FEAT-042
-   # Consumes-Contract Resolution Gate: verifies FEAT-039 design.md APPROVED + contracts/** non-empty ✅
+   # Consumes-Contract Resolution Gate: verifies FEAT-039 design.md APPROVED + contracts/**
+   # non-empty ✅
    # Loads FEAT-039 frozen contract, surfaces read-only into design.md § 7 GCD
    # Produces UI components against the real endpoint shape — no invented fields
 
 # If FEAT-039 contract changes later (upstream re-approval):
-#   Iteration Model ON_BLUEPRINT_CONTRACT_CHANGE → CASCADE_CONSUMERS finds FEAT-042 in consumes_contract
+#   Iteration Model ON_BLUEPRINT_CONTRACT_CHANGE → CASCADE_CONSUMERS finds FEAT-042 in
+#   consumes_contract
 #   → FEAT-042 design.md / test_plan.md / dev_plan.md marked CASCADE_PENDING_ITERATION
 #   → FEAT-042 CONTRACT-FREEZE issue re-opened with stale-after-cascade label
 #   → BLUEPRINT --refine FEAT-042 required before IMPLEMENT can continue
@@ -951,17 +976,21 @@ The framework governs two orthogonal scope axes:
 
 ```
 /setup --init
-   # Q4.5 (Tier 0): project_scope = backend-only (answered, or auto-resolved from an APPROVED audit)
-   # SETUP skips: the frontend discovery Q9-Q14, ux-constitution materialization, frontend rules, frontend directory scaffolding
+   # Q4.5 (Tier 0): project_scope = backend-only (answered, or auto-resolved from an APPROVED
+   # audit)
+   # SETUP skips: the frontend discovery Q9-Q14, ux-constitution materialization, frontend
+   # rules, frontend directory scaffolding
 
 /codesign --start FEAT-001
-   # Scope Compatibility Gate: project_scope=backend-only rejects --scope=full-stack / --scope=frontend-only
+   # Scope Compatibility Gate: project_scope=backend-only rejects --scope=full-stack /
+   # --scope=frontend-only
    # Default feature.scope = backend-only (inherited from project)
    # --scope=integration also accepted (semantic alias)
 
 # CODESIGN --vision is BLOCKED by the Scope Guard (backend-only projects have no UI surface)
 
-# ... rest of lifecycle identical to the backend-only feature flow above (every feature gets phase:smoke-e2e-integration)
+# ... rest of lifecycle identical to the backend-only feature flow above (every feature gets
+# phase:smoke-e2e-integration)
 ```
 
 ### SDLC-first triage (MANDATORY)
