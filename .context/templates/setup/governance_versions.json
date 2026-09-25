@@ -640,7 +640,7 @@
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
-        "1.5.1: fix — CHECK 1 / CHECK 2 membership tests in pure bash (in_lines): the per-file `grep -Fxq` was non-deterministic where `grep` is an exported function wrapping another tool; random orphan false positives.",
+        "1.5.1: fix — CHECK 1 / CHECK 2 membership tests in pure bash (in_lines), no pipe into grep (DC-13: a `grep -q` reader's early exit under pipefail read a present line as absent — random orphan false positives, seen through an exported grep wrapper); the manifest-changed test exact instead of a regex grep -c.",
         "1.5.0: feat(EVOL-045) — default base = gate.py diff-base.",
         "1.4.0: feat(EVOL-043) — banner counts law-index entries and defect families (lite snapshot).",
         "1.3.3: fix(EVOL-041 code-review) — same as meta.",
@@ -1384,12 +1384,13 @@
       ]
     },
     "scripts/check-adr-constitution-sync.sh": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": "scripts/check-adr-constitution-sync.sh",
       "role": "SETUP-delivery copy of check-adr-constitution-sync.sh (byte-mirror of the meta script, meta_template_mirror pair). CI-invoked in materialised projects — a fresh SETUP --generate must deliver it or the first PR fails CI (CVP CRITICAL 9-10 class).",
       "delivery": "both",
       "changelog": [
+        "1.2.1: fix — the governance-source-in-diff tests in pure bash (in_lines), no `echo | grep -q` under pipefail (DC-13): the intermittent red of this gate (scenario 3 of its suite in CI) has that signature.",
         "1.2.0: feat(EVOL-045) — last-resort base = gate.py diff-base.",
         "1.1.0: feat(EVOL-043) — direction B: a law SENTENCE change (index `> sentence` / CLAUDE.md corpus line) needs an accepted ADR in the same diff; body edits free.",
         "1.0.0: feat(EVOL-040 root cause B) — template source created (byte-copy of meta; lockstep pair declared). Closes materialised-CI-invokes-undelivered-script."
@@ -3999,7 +4000,7 @@
       "type": "utility",
       "role": "Framework governance validator — SessionStart banner, drift detection (manifest vs core files), snapshot freshness, diff-only mode for CI. Ships identically to materialized projects via factory-sync and also runs inside the framework-meta repo.",
       "changelog": [
-        "2.4.1: fix — CHECK 1 / CHECK 2 membership tests in pure bash (in_lines): the per-file `grep -Fxq` was non-deterministic where `grep` is an exported function wrapping another tool; random orphan false positives.",
+        "2.4.1: fix — CHECK 1 / CHECK 2 membership tests in pure bash (in_lines), no pipe into grep (DC-13: a `grep -q` reader's early exit under pipefail read a present line as absent — random orphan false positives, seen through an exported grep wrapper); the manifest-changed test exact instead of a regex grep -c.",
         "2.4.0: feat(EVOL-054) — CHECK 1c: colliding targets tolerated when every collider declares target_mode: merge or when the colliders are exclusive — a `key == value` stack_conditional on one key with distinct values (the per-platform runbooks).",
         "2.3.0: feat(EVOL-045) — default base = gate.py diff-base.",
         "2.2.0: feat(EVOL-043) — banner counts law-index entries and defect families (lite snapshot).",
@@ -4221,9 +4222,10 @@
       ]
     },
     "scripts/check-adr-constitution-sync.sh": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "path": "scripts/check-adr-constitution-sync.sh",
       "changelog": [
+        "1.3.1: fix — the governance-source-in-diff tests in pure bash (in_lines), no `echo | grep -q` under pipefail (DC-13): the intermittent red of this gate (scenario 3 of its suite in CI) has that signature.",
         "1.3.0: feat(EVOL-045) — last-resort base = gate.py diff-base.",
         "1.2.0: feat(EVOL-043) — direction B: a law SENTENCE change (index `> sentence` / CLAUDE.md corpus line) needs an accepted ADR in the same diff; body edits free.",
         "1.1.1: fix(EVOL-032 CI) — bypass marker grep switched from BRE pattern `\\[adr-backfill\\]` to fixed-string `grep -qF '[adr-backfill]'`. `[adr-backfill]` is a literal token, not a regex; `-F` eliminates BRE/ERE escape ambiguity across grep variants. T2 L5 scenario 3 was failing on GitHub Actions ubuntu-latest (PR #30) while passing locally — the symptom was that bypass never tripped, ADR-003-test.md was reported as offender. Locally reproducible after the fix (all 7 scenarios green).",
@@ -4633,11 +4635,12 @@
       ]
     },
     "scripts/test-validate-governance.sh": {
-      "version": "1.0.1",
+      "version": "1.0.2",
       "type": "script",
       "role": "Manifest-gate self-test (7 sandbox scenarios: clean, planted orphan, DUP-PATH, NO-TARGET, declared merge collision tolerated, stale-is-advisory pin, malformed-manifest never-green). Fail-directions run zero times per year on clean data — the pre-EVOL-040 rot mode. Wired into governance-check T2.",
       "path": "scripts/test-validate-governance.sh",
       "changelog": [
+        "1.0.2: fix — scenario 8: membership exact and pure bash — a glob-named neighbour is an orphan; a hostile exported grep changes nothing.",
         "1.0.1: feat(EVOL-054) — scenarios 5b/5c/5d: exclusive stack-conditional colliders tolerated, the same conditional twice a violation, conditionals on different keys a violation.",
         "1.0.0: feat(EVOL-040 pr-review loop i2) — initial."
       ]

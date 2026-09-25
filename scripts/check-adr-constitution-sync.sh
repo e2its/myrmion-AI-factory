@@ -133,9 +133,12 @@ read_frontmatter_value() {
 # ────────────────────────────────────────────────────────────────────────────
 constitution_in_diff="no"
 diff_files=$(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null || true)
-if echo "$diff_files" | grep -qxE 'docs/constitution\.md|CLAUDE\.md|\.context/templates/setup/constitution/constitution_template\.md'; then
-  constitution_in_diff="yes"
-fi
+# in_lines <newline-separated list> <item>: exact-line membership in pure bash — no `echo | grep -q` (DC-13: the reader's
+# early exit closes the pipe under `pipefail` and a present line reads as absent; the intermittent red of this gate).
+in_lines() { case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0 ;; *) return 1 ;; esac; }
+for src in docs/constitution.md CLAUDE.md .context/templates/setup/constitution/constitution_template.md; do
+  in_lines "$diff_files" "$src" && constitution_in_diff="yes"
+done
 
 # ────────────────────────────────────────────────────────────────────────────
 # Walk every ADR file in the diff. For each, compare status before vs after.
@@ -218,7 +221,7 @@ if [ ! -f scripts/gate.py ] || ! command -v python3 >/dev/null 2>&1; then
   echo "check-adr-constitution-sync: note — scripts/gate.py or python3 absent; the sentence-change check (direction B) is skipped."
 fi
 for src in docs/constitution.md CLAUDE.md .context/templates/setup/constitution/constitution_template.md; do
-  echo "$diff_files" | grep -qx "$src" || continue
+  in_lines "$diff_files" "$src" || continue
   before=""; git cat-file -e "$MERGE_BASE:$src" 2>/dev/null && before=$(git show "$MERGE_BASE:$src")
   after=""; git cat-file -e "HEAD:$src" 2>/dev/null && after=$(git show "HEAD:$src")
   [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1 || continue

@@ -204,8 +204,8 @@ docs/project_log/evolutions/           # ADR-EVOL-* and the release records
 
 ```
                  ┌──────────────────────────┐
-     User ──────►│ Claude Code (main session │◄── CLAUDE.md · the hooks · gate.py
-                 │ RDR · git · the PR)       │
+     User ──────►│ Claude Code (main session│◄── CLAUDE.md · the hooks · gate.py
+                 │ RDR · git · the PR)      │
                  └────────────┬─────────────┘
                               │ /command --args — each delegates its phase BY NAME
      ┌──────────┬─────────────┼─────────────┬──────────┬──────────┐
@@ -908,15 +908,15 @@ The framework governs two orthogonal scope axes:
 
 /blueprint --start FEAT-039
    # Reads feature.scope=backend-only from spec.feature frontmatter
-   # Produces: design.md (contract-first, § 3.2 Wire-Format Mapping replaces § 3.1 Cross-Layer
-   # Type Mapping)
-   #           test_plan.md (includes § 2.2 Reliability Testing: REL-IDEMP, REL-RETRY,
-   #           REL-TIMEOUT, REL-CB, REL-DLQ, REL-SHUTDOWN, REL-OBS)
+   # Produces: design.md — contract-first; § 3.2 Wire-Format Mapping
+   #             replaces § 3.1 Cross-Layer Type Mapping
+   #           test_plan.md — § 2.2 Reliability Testing: REL-IDEMP, REL-RETRY,
+   #             REL-TIMEOUT, REL-CB, REL-DLQ, REL-SHUTDOWN, REL-OBS
    #           OpenAPI 3.1 webhook contract in contracts/webhooks/inbound/stripe/v1.yaml
 
 /blueprint --approve FEAT-039
-   # Part 1 ARCH elevates contract-completeness (backend-only has no UI surface to fall back
-   # on)
+   # Part 1 ARCH elevates contract-completeness
+   #   (backend-only has no UI surface to fall back on)
    # Part 2 QA: visual-consistency tests N/A; reliability tests BLOCKER if missing
 
 # CONTRACT-FREEZE issue Done → IMPLEMENT gate unlocks
@@ -937,11 +937,11 @@ The framework governs two orthogonal scope axes:
    # REVIEW dispatcher filters UX checks to N/A; contract/DRY/security/reliability all active
 
 /implement --build FEAT-039
-   # REVIEW Check #7 [UX-*] reports "N/A — skipped under scope=backend-only" in peer_review §
-   # 3.7
+   # REVIEW Check #7 [UX-*] reports "N/A — skipped under scope=backend-only"
+   #   in peer_review § 3.7
 
-# PREVENTIVE-SWEEP sub-agents filter DCs by scope → only backend + cross-cutting + infra scopes
-# swept
+# PREVENTIVE-SWEEP critics filter DCs by scope
+#   → only the backend, cross-cutting and infra scopes are swept
 
 /qa --verify FEAT-039
    # SMOKE-E2E gate: single smoke template, scope-aware execution mode

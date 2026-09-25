@@ -141,6 +141,13 @@ d="$TMP_ROOT/s6"; make_sandbox "$d"
 manifest_edit "$d" "m['framework_core']['commands/ghost.md'] = {'version':'1.0.0','type':'command','role':'t','path':'.claude/commands/ghost.md','changelog':['1.0.0: init']}"
 assert "stale entry is advisory (exit 0)" 0 "$(run_gate "$d")"
 
+# 8. membership is exact and pure bash (DC-13): a glob-named neighbour of a tracked file is an orphan (quoting), and an
+#    exported `grep` that always fails changes nothing — the gate never pipes into grep for membership
+d="$TMP_ROOT/s8"; make_sandbox "$d"
+assert "clean sandbox passes under a hostile grep" 0 "$(grep() { return 1; }; export -f grep; run_gate "$d")"
+echo x > "$d/.claude/commands/[x].md"; ( cd "$d" && git add -A && git commit -qm t )
+assert "a glob-named neighbour of a tracked file is an orphan" 1 "$(run_gate "$d")"
+
 # 7. malformed manifest → nonzero, never green
 d="$TMP_ROOT/s7"; make_sandbox "$d"
 echo 'broken{' > "$d/.context/templates/setup/governance_versions.json"

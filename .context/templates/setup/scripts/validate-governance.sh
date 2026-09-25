@@ -244,8 +244,9 @@ info() {
   echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
-# in_lines <newline-separated list> <item>: exact-line membership in pure bash (no grep — an exported `grep` function
-# wrapping another tool made the per-file `grep -Fxq` lookup non-deterministic; bash 3.2-safe, no arrays).
+# in_lines <newline-separated list> <item>: exact-line membership in pure bash, no pipe, no grep (DC-13: `grep -q` exits
+# on its first match and closes the pipe while `echo` is still writing the list; under `pipefail` the writer's SIGPIPE
+# reads as "not found" — random false orphans, seen here through an exported `grep` wrapper; bash 3.2-safe, no arrays).
 in_lines() {
   case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0 ;; *) return 1 ;; esac
 }
@@ -283,7 +284,7 @@ else
   CHANGED_FILES=$(git diff --name-only HEAD~1 2>/dev/null || echo "")
 fi
 
-MANIFEST_CHANGED=$(echo "$CHANGED_FILES" | grep -c "$MANIFEST" || true)
+MANIFEST_CHANGED=0; in_lines "$CHANGED_FILES" "$MANIFEST" && MANIFEST_CHANGED=1   # exact, no pipe (was a regex grep -c under pipefail: fail-open on an empty result)
 
 # ── Extract tracked SOURCE paths from manifest (EVOL-040: all 3 source-bearing
 # sections, not framework_core alone; runtime_artefacts excluded — synthesized,
