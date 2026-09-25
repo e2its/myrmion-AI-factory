@@ -23,6 +23,8 @@ applicable_when:
 - `Direct: read-only, no routing` — when genuinely read-only (Category E).
 - `Direct: meta-framework — EVOL-* outside SDLC by design` — when working on the framework itself (this repo).
 - `Direct: docs-only change` — documentation only (CLAUDE.md § Generation Standards §3): still branch + PR; the review lanes and the deploy/tag machinery skip on their own (EVOL-047).
+
+**One planning stage (EVOL-048) — never zero, never two.** A command that owns a planning phase (CODESIGN, BLUEPRINT, IMPLEMENT `--plan`) never enters the harness's plan mode. A branch class with no framework planning phase (`fix/*`, `chore/*`, `docs/*`, `breaking/*`, an unrecognised name — `config/quality.json → planning.exempt_classes` lists the exempt ones) needs an approved plan before any write to a governed path: enter plan mode, the user approves, the approval writes the marker; the pre-write hook (`gate.py plan --path`) blocks otherwise and the prompt advisory says so first. Documentation targets need no plan; gate inputs always do.
 - `Direct: trivial edit (typo / config / memory)` — when the change has no SDLC surface.
 - `Direct: <reason>` — any other non-SDLC path must state its reason in one line.
 

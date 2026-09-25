@@ -108,5 +108,42 @@
     ],
     "declared_reads": [],
     "deploying_workflows": {{DEPLOYING_WORKFLOWS}}
+  },
+  "planning": {
+    "_doc": "One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan (python3 scripts/gate.py plan --path P; the PreToolUse hook check-plan-approval.sh asks it). governed_paths minus docs_exempt, except gate_inputs (documents a gate reads — governed like code). exempt_classes: the classes whose plan a framework phase owns; every other class is gated (fail-closed). plan_artefact: the branch's own plan artefact ({ID} = feature id) counts when its frontmatter status is approved. The approval marker is written only by the harness's plan approval (PostToolUse ExitPlanMode → gate.py plan --record); a marker approved on another branch is adopted once, within adoption_window_minutes. Project: feature, increment, train, sub-increment and epic branches are planned by CODESIGN / BLUEPRINT / IMPLEMENT --plan; a fix, a chore, a docs or a breaking branch is gated. Edit governed_paths at SETUP when the stack keeps runtime code elsewhere.",
+    "governed_paths": [
+      "src/**",
+      "app/**",
+      "lib/**",
+      "tests/**",
+      "infra/**",
+      "migrations/**",
+      "scripts/**",
+      "config/**",
+      ".claude/rules/**",
+      "docs/constitution.md",
+      "docs/setup.md"
+    ],
+    "docs_exempt": [
+      "**/*.md",
+      "docs/**"
+    ],
+    "gate_inputs": [
+      "docs/constitution.md",
+      "docs/setup.md",
+      ".claude/rules/**",
+      "config/**",
+      "docs/project_log/governance_versions.json",
+      "CLAUDE.md"
+    ],
+    "exempt_classes": [
+      "feature",
+      "increment",
+      "train",
+      "sub-increment",
+      "epic"
+    ],
+    "plan_artefact": null,
+    "adoption_window_minutes": 30
   }
 }

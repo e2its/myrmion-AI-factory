@@ -58,7 +58,9 @@ cat > "$REPO/config/coherence-context.json" <<'EOF'
 {"context": "downstream", "audit": {"root_sets": ["."], "exclusions": [".git/"]}}
 EOF
 cat > "$REPO/config/quality.json" <<'EOF'
-{"budgets": {"session_start": 2000, "prompt_submit": 16000, "pre_edit": 6000, "snapshot": 16000, "law_sentence_max_chars": 240, "dc_invariant_max_chars": 160}}
+{"budgets": {"session_start": 2000, "prompt_submit": 16000, "pre_edit": 6000, "snapshot": 16000, "law_sentence_max_chars": 240, "dc_invariant_max_chars": 160},
+ "planning": {"governed_paths": ["src/**", "config/**", ".claude/rules/**"], "docs_exempt": ["**/*.md", "docs/**"], "gate_inputs": ["docs/constitution.md", "config/**", ".claude/rules/**"], "exempt_classes": ["feature", "increment", "train", "sub-increment", "epic"], "plan_artefact": null, "adoption_window_minutes": 30}
+}
 EOF
 mkdir -p "$REPO/.claude/skills/factory-pr-review" "$REPO/.claude/instructions"
 printf -- '---\nname: factory-pr-review\napplicable_when:\n  command: [push]\n---\n' > "$REPO/.claude/skills/factory-pr-review/SKILL.md"
@@ -84,6 +86,40 @@ applicable_when:
 | DC-27 | `data` | A migration ships with its down step. | `scripts/validate-migrations.sh` | `**/migrations/**` | DEV | CRITICAL |
 | DC-29 | `runtime` | Build the least that satisfies the spec. | `—` | `*` | DEV, ARCH | WARNING |
 EOF
+
+echo "── check-plan-approval · one planning stage (EVOL-048) ──"
+git -C "$REPO" checkout -q -b fix/gated 2>/dev/null || git -C "$REPO" checkout -q fix/gated
+run_hook check-plan-approval.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/app.py"}}'
+assert_block "a governed write on a fix branch with no approved plan: exit 2, the resolution named" "no approved plan covers this write"
+run_hook check-plan-approval.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/notes.md"}}'
+assert_pass "a documentation write on the same branch: passes (no plan owed)"
+run_hook check-plan-approval.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/constitution.md"}}'
+assert_block "a gate input under docs/ is governed whatever its extension: exit 2" "no approved plan covers this write"
+run_hook check-plan-approval.sh '{"tool_name":"Edit","tool_input":{}}'
+assert_pass "no file path in the payload: passes silently"
+OUT=$(cd "$REPO" && printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"Edit","session_id":"s1"}' | bash "$HOOKS/record-plan-approval.sh"); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'NOT recorded' && [ ! -f "$REPO/.claude/state/plan-approved-fix-gated.json" ] && ok "a forged approval (not the ExitPlanMode event) is refused and said through the envelope" || bad "forged approval (rc=$RC)" "$OUT"
+OUT=$(cd "$REPO" && printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"ExitPlanMode","session_id":"s1"}' | bash "$HOOKS/record-plan-approval.sh"); RC=$?
+[ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -f "$REPO/.claude/state/plan-approved-fix-gated.json" ] && ok "the harness's plan approval writes the marker, silently" || bad "approval not recorded (rc=$RC)" "$OUT"
+run_hook check-plan-approval.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/app.py"}}'
+assert_pass "the same governed write after the approval: passes"
+git -C "$REPO" checkout -q feature/FEAT-001-x
+run_hook check-plan-approval.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/app.py"}}'
+assert_pass "a feature branch: a framework phase owns its plan — passes"
+mv "$REPO/scripts/gate.py" "$SANDBOX/gate.py.plan"
+run_hook check-plan-approval.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/app.py"}}'
+assert_block "reader absent: blocks (fail-closed)" "not available"
+mv "$SANDBOX/gate.py.plan" "$REPO/scripts/gate.py"
+
+echo "── governance-onprompt · the planning advisory before the block (EVOL-048) ──"
+OP="$ROOT/.context/templates/setup/scripts/governance-onprompt.sh"
+cmp -s "$OP" "$ROOT/scripts/governance-onprompt.sh" && ok "governance-onprompt twins byte-identical" || bad "governance-onprompt twins drifted"
+git -C "$REPO" checkout -q -b chore/unplanned
+OUT=$(cd "$REPO" && printf '%s' '{"session_id":"s1"}' | bash "$OP" 2>/dev/null); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '<planning-warning>' && printf '%s' "$OUT" | grep -q 'will be BLOCKED' && ok "on a gated class with no approval the prompt carries <planning-warning> (advisory, exit 0)" || bad "planning advisory missing (rc=$RC)" "$OUT"
+git -C "$REPO" checkout -q feature/FEAT-001-x
+OUT=$(cd "$REPO" && printf '%s' '{"session_id":"s1"}' | bash "$OP" 2>/dev/null); RC=$?
+[ "$RC" -eq 0 ] && ! printf '%s' "$OUT" | grep -q '<planning-warning>' && ok "on a feature branch no planning advisory" || bad "spurious planning advisory (rc=$RC)" "$OUT"
 
 echo "── check-branch-protection ──"
 git -C "$REPO" checkout -q main 2>/dev/null || git -C "$REPO" checkout -q -b main

@@ -24,6 +24,9 @@
   gate.py one-definition                           hooks / workflows / preflight keep no branch list, mode read or mode override; exit 1 on a finding
   gate.py runtime-surface [--json]                 parity: every path a deploying job or its scripts read is on surface.runtime_surface, a hard exclusion or a declared read; exit 1 on a finding
   gate.py runtime-surface --changed [--base B]     did base...HEAD touch the runtime surface (or a hard exclusion)? exit 0 touched · 1 untouched (the machinery may skip) · 2 could not judge
+  gate.py plan --path P [--branch B]               may this write happen? governed path × branch class × approved plan; exit 0 pass · 1 blocked (reason + resolution) · 2 fault
+  gate.py plan --status [--branch B]               one advisory line for the prompt hook (exit 0 always)
+  gate.py plan --record --hook-json                write the approval marker from the harness's PostToolUse ExitPlanMode payload on stdin — refuses anything else
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08) · 3 the reader itself is missing or broken (governance not delivered).
 """
@@ -37,7 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import branch as branch_mod, budget as budget_mod, coherence, corpus, profile as profile_mod, retired, runtime  # noqa: E402
+    from gates import branch as branch_mod, budget as budget_mod, coherence, corpus, planning, profile as profile_mod, retired, runtime  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -209,6 +212,30 @@ def cmd_runtime_surface(repo, a):
     return 1 if findings else 0
 
 
+def cmd_plan(repo, a):
+    if a.record:
+        try:
+            payload = json.load(sys.stdin) if a.hook_json else {}
+        except ValueError:
+            payload = {}
+        m = planning.record(repo, payload, a.branch)
+        print(f"plan: approval recorded for {m['branch']} at {m['approved_at']} ({m['source']})")
+        return 0
+    if a.status:
+        st = planning.status(repo, a.branch)
+        print(st["line"])
+        return 0
+    if not a.path:
+        print("gate: plan needs --path P, --status or --record", file=sys.stderr)
+        return 2
+    g = planning.gate(repo, a.path, a.branch)
+    if g["block"]:
+        print(f"plan: BLOCKED — {g['reason']}.\n{g['resolution']}")
+        return 1
+    print(f"plan: ok — {g['reason']}")
+    return 0
+
+
 def cmd_one_definition(repo, a):
     f = profile_mod.one_definition(repo)
     print(coherence.render("one-definition", [{"path": f"{x['path']}:{x['line']}", "reason": x["reason"]} for x in f], "hooks, workflows and the preflight keep no second definition"))
@@ -275,6 +302,7 @@ def build_parser():
     p = sub.add_parser("profile"); p.add_argument("--run", action="store_true"); p.add_argument("--control-point", choices=("push", "ci"), default="push"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_profile)
     p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
+    p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
     return ap
 
 
