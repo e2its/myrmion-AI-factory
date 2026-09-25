@@ -45,6 +45,7 @@ SAMPLE = {  # one stack sample; conditionals not matching are skipped
     "backend.runtime == Python": True, "backend.runtime == Node": False, "backend.runtime == Java": False,
     "backend.runtime == C#": False, "frontend.framework == React": True,
     'ci_cd_platform == "GitHub Actions"': True, 'po_package.mode != "off"': True,
+    "scm.platform == GitHub": True, "scm.platform == GitLab": False, "scm.platform == Bitbucket": False, "scm.platform == Azure DevOps": False, "scm.platform == Other": False,
 }
 def cond_ok(c):
     if not c: return True
@@ -70,7 +71,7 @@ if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "VERIFICATION_GATES": '{"tests": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "coverage": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "lint": {"reads": ["src/**", "scripts/**"], "command": "ruff check"}}'}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0", "VERIFICATION_GATES": '{"tests": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "coverage": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "lint": {"reads": ["src/**", "scripts/**"], "command": "ruff check"}}'}
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -335,6 +336,14 @@ OUT=$(cd "$P" && python3 scripts/gate.py traceability --json 2>&1 | python3 -c '
 [ "$OUT" = "FEAT-001/TC-01=linked,FEAT-001/TC-02=linked,FEAT-001/UX-01=manual" ] && ok "QA reads every case's status and tests from the gate's JSON — never re-derived" || bad "traceability json wrong" "$OUT"
 rm -rf "$P/docs/spec/FEAT-001/test_plan.md" "$P/tests/test_trace.py" "$P/docs/project_log/traceability_baseline.json"; git -C "$P" add -A >/dev/null
 [ -f "$P/tests/conftest_traceability.py" ] && ok "the pytest collection plugin landed for the Python stack (stack-conditional template)" || bad "conftest_traceability.py did not land"
+# server-side branch protection (EVOL-054): the runbook lands per platform; the reader is n/a where it cannot see the server and says so
+[ -f "$P/docs/scm/protection.md" ] && grep -q 'Rulesets' "$P/docs/scm/protection.md" && ! grep -q '{{SCM_' "$P/docs/scm/protection.md" && ok "the GitHub protection runbook landed (docs/scm/protection.md), placeholders resolved" || bad "protection runbook missing or unresolved"
+OUT=$(cd "$P" && python3 scripts/gate.py scm-protection 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'n/a' && printf '%s' "$OUT" | grep -q 'cannot see the server' && ok "scm-protection at the push: n/a — a local clone cannot see the server (verified at ci)" || bad "scm-protection at push wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN python3 scripts/gate.py scm-protection --control-point ci 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'no GITHUB_TOKEN' && printf '%s' "$OUT" | grep -q 'checklist:' && ok "scm-protection at ci without a token: n/a with the checklist, never a silent green" || bad "scm-protection at ci wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py scm-protection --control-point ci --json 2>&1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["status"], len(d["checklist"]))')
+[ "$OUT" = "n/a 5" ] && ok "the five settings every host expresses are the checklist the JSON carries" || bad "scm-protection json wrong" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --control-point static --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'advisory' && printf '%s' "$OUT" | grep -q 'owed now: coverage, lint, tests' && ok "at the static round the seal is advisory: it names what the loop will owe, never a blocker before the loop ran" || bad "static seal not advisory (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "

@@ -435,7 +435,8 @@ for p, keys in sorted(by_path.items()):
     if len(keys) > 1:
         print(f"DUP-PATH {p} <- {', '.join(keys)}")
 # templates: target key must be present (null allowed = consumed in place);
-# duplicate non-null targets allowed only when every collider declares target_mode: merge
+# duplicate non-null targets allowed only when every collider declares target_mode: merge, or when every collider
+# carries a DISTINCT stack_conditional (exactly one lands — e.g. the per-platform SCM runbooks, EVOL-054)
 by_target = {}
 for k, v in data.get('templates', {}).items():
     if k.startswith('_') or not isinstance(v, dict):
@@ -443,10 +444,15 @@ for k, v in data.get('templates', {}).items():
     if 'target' not in v:
         print(f"NO-TARGET templates::{k}")
     elif v['target']:
-        by_target.setdefault(v['target'], []).append((k, v.get('target_mode')))
+        by_target.setdefault(v['target'], []).append((k, v.get('target_mode'), v.get('stack_conditional')))
 for t, entries in sorted(by_target.items()):
-    if len(entries) > 1 and not all(mode == 'merge' for _, mode in entries):
-        print(f"DUP-TARGET {t} <- {', '.join(k for k, _ in entries)} (declare target_mode: merge on all, or fix)")
+    if len(entries) < 2:
+        continue
+    merge = all(mode == 'merge' for _, mode, _ in entries)
+    conds = [c for _, _, c in entries]
+    exclusive = all(conds) and len(set(conds)) == len(conds)
+    if not merge and not exclusive:
+        print(f"DUP-TARGET {t} <- {', '.join(k for k, _, _ in entries)} (declare target_mode: merge on all, give each collider a distinct stack_conditional, or fix)")
 PYEOF
 ) || { fail "CHECK 1c inspector crashed — cannot verify manifest integrity (malformed manifest?). Treated as a violation: 'printed nothing' must never read as 'no issues'."; INTEGRITY_ISSUES="__CRASHED__"; }
 

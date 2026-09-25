@@ -313,8 +313,17 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Persist:** `hosting.secrets_manager`
 
 #### Q21: CI/CD Platform
-- **Options:** GitHub Actions | GitLab CI | Jenkins | CircleCI | AWS CodePipeline | None
+- **Options:** GitHub Actions | GitLab CI | Bitbucket Pipelines | Azure Pipelines | Jenkins | CircleCI | AWS CodePipeline | GCP Cloud Build | None
 - **Persist:** `ci_cd.platform`
+
+#### Q21.2: SCM host and its branch protection (EVOL-054)
+- **Type:** the platform that hosts the repository, asked apart from the CI platform (they differ more often than not: Bitbucket + Jenkins, GitLab + GitHub Actions never, Azure Repos + Azure Pipelines usually).
+- **Options:** `GitHub` | `GitLab` | `Bitbucket` | `Azure DevOps` | `Other`
+- **Simplified:** es: "¿Dónde vive el repositorio? El framework materializa la guía exacta para que el servidor impida escribir en la rama principal sin pull request ni CI verde, y la verifica en CI donde hay API." / en: "Where does the repository live? The framework materialises the exact settings so the server refuses a write to the main branch without a pull request and green CI, and verifies them at CI where an API exists."
+- **Then:** how many approvals a pull request needs before merge — `0` for a single author, otherwise the team's number; a project decision, never a framework digit. And which CI checks the server must require: the governance check (always) and the lock-step check when the project runs one.
+- **RDR Recommendation:** the host the `origin` remote points at (derived when SETUP runs inside a clone) · approvals `0` when the project has one author, `1` when it has a team.
+- **Tier-filtered:** All tiers.
+- **Persist:** `scm.platform` · `scm.approvals` · `scm.required_checks` (frontmatter of `docs/setup.md`, nested YAML `scm:`) → `config/quality.json → scm.platform / approvals / required_checks` at `--generate`; the runbook `docs/scm/protection.md` lands from the platform's template.
 
 #### Q21.1: CI/CD Tier (derived from AI budget tier or asked)
 - **Auto-derived tiers with different pipeline capabilities:**

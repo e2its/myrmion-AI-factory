@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.2.0",
+  "framework_version": "8.3.0",
   "delivery_mode": "development",
   "last_updated": "2026-09-25",
   "governance_features": {
@@ -202,10 +202,11 @@
       ]
     },
     "rules/branching.md": {
-      "version": "2.7.0",
+      "version": "2.8.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md",
       "changelog": [
+        "2.8.0: feat(EVOL-054) — § Server-side protection; the [PLAW-11] mandate names the server side",
         "2.7.0: feat(EVOL-047) — post-merge actions and the main-branch line qualified by the runtime surface (gate.py runtime-surface --changed).",
         "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments.",
         "2.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
@@ -933,11 +934,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.7.1",
+      "version": "4.7.2",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.7.2: feat(EVOL-054) — Pre-Action Gate: the merge rule names its server side (EVOL-054)",
         "4.7.1: feat(EVOL-053) — traceability among the light members",
         "4.7.0: feat(EVOL-051) — control points: the static round row; the seal (gate.py seal --check) in the train-close and PR rows; seal and digests among the light members",
         "4.6.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -982,10 +984,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks slot (Q21.2)",
         "2.11.0: feat(EVOL-049)! — agents: writer_model / critic_model (Q34) + summary bullet.",
         "2.10.0: feat(EVOL-047) — surface.runtime_surface slot (Q33) + summary bullet.",
         "2.9.0: feat(EVOL-046) — delivery: mode frontmatter slot (Q32) + summary bullet.",
@@ -1074,10 +1077,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.11.0",
+      "version": "1.12.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.12.0: feat(EVOL-054) — scm block (GitHub, main, the two governance checks, 0 approvals) — the framework repo's own protection, applied 2026-09-25",
         "1.11.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
         "1.10.0: feat(EVOL-051) — documentation block (paths, exclusions — one definition) and verification block (seal not required in the framework repo: CI's T2 suite is its loop; gates {}; digest_artefacts); planning.docs_exempt retired",
         "1.9.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -1713,11 +1717,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.10.0: feat(EVOL-054) — scm-protection subcommand (--control-point, --json)",
         "1.9.0: fix(EVOL-053) — traceability subcommand (--declared, --baseline --init|--refresh, --json); --declared a listing with `required` and `manual`",
         "1.8.0: feat(EVOL-051) — seal (--plan/--write/--check/--validate), documentation (--path/--changed), digests subcommands; profile --control-point static",
         "1.7.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -1785,11 +1790,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.10.0: feat(EVOL-054) — Scm tests: origin parsing, tokens, the GitHub rulesets + legacy adapters green/red, evaluation rulesets defend nothing, the control points, no token n/a with the checklist, API fault, Other, config faults, GitLab / Bitbucket / Azure adapters; the profile member; CLI exit codes",
         "1.9.0: fix(EVOL-053) — Traceability tests (48)",
         "1.8.0: feat(EVOL-051) — Seal + Digests test classes: one definition of documentation, the seal plan/write/check (shared command = one execution, docs-only owes nothing, a declared docs reader is owed, unmapped path owes the full loop, on-disk seal honoured by the commit), digest fingerprint + completeness red on an untouched artefact (43 tests)",
         "1.7.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -1825,12 +1831,13 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override).",
       "changelog": [
+        "1.5.0: feat(EVOL-054) — member scm-protection (light; verifies at ci, n/a at push and static)",
         "1.4.0: fix(EVOL-053) — member traceability (light); n/a rendering for a member switched off by config",
         "1.3.0: feat(EVOL-051) — members seal and digests (light); control point static = the light members whatever the class or the mode; {control_point} runner token",
         "1.2.0: feat(EVOL-049)! — agents member (the roster validator; no build, no database).",
@@ -2082,6 +2089,66 @@
       "role": "The Python home of the case → test link at collection (EVOL-053): registers the `case` marker and refuses collection on a malformed or unknown FEATURE/CASE id, reading the declared set through gate.py traceability --declared --json. Wired once: pytest_plugins = [\"conftest_traceability\"] in tests/conftest.py.",
       "changelog": [
         "1.0.0: feat(EVOL-053) — initial."
+      ]
+    },
+    "scripts/gates/scm.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/scm.py",
+      "delivery": "both",
+      "role": "gates: server-side branch protection per SCM platform (EVOL-054) — one reader at the ci control point: with a read-only token it asks the platform's API (GitHub rulesets + legacy protection, GitLab protected branches / approvals / pipeline rule, Bitbucket branch restrictions, Azure DevOps policies) per protected branch, normalises pull-request-required / required checks / force-push / deletion / approvals and judges them against config → scm (RED on a missing setting, the runbook docs/scm/protection.md as the cure); no token, Other, push or static → n/a with the checklist; an API error is a fault.",
+      "changelog": [
+        "1.0.0: feat(EVOL-054) — initial."
+      ]
+    },
+    "scm/protection.github.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "stack_conditional": "scm.platform == GitHub",
+      "target": "docs/scm/protection.md",
+      "role": "The server-side branch protection runbook for GitHub (EVOL-054): the exact settings — pull request required, the required checks ({{SCM_REQUIRED_CHECKS}}), no force-push, no deletion, approvals ({{SCM_APPROVALS}}) — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API.",
+      "changelog": [
+        "1.0.0: feat(EVOL-054) — initial."
+      ]
+    },
+    "scm/protection.gitlab.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "stack_conditional": "scm.platform == GitLab",
+      "target": "docs/scm/protection.md",
+      "role": "The server-side branch protection runbook for GitLab (EVOL-054): the exact settings — pull request required, the required checks ({{SCM_REQUIRED_CHECKS}}), no force-push, no deletion, approvals ({{SCM_APPROVALS}}) — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API.",
+      "changelog": [
+        "1.0.0: feat(EVOL-054) — initial."
+      ]
+    },
+    "scm/protection.bitbucket.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "stack_conditional": "scm.platform == Bitbucket",
+      "target": "docs/scm/protection.md",
+      "role": "The server-side branch protection runbook for Bitbucket (EVOL-054): the exact settings — pull request required, the required checks ({{SCM_REQUIRED_CHECKS}}), no force-push, no deletion, approvals ({{SCM_APPROVALS}}) — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API.",
+      "changelog": [
+        "1.0.0: feat(EVOL-054) — initial."
+      ]
+    },
+    "scm/protection.azure-devops.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "stack_conditional": "scm.platform == Azure DevOps",
+      "target": "docs/scm/protection.md",
+      "role": "The server-side branch protection runbook for Azure DevOps (EVOL-054): the exact settings — pull request required, the required checks ({{SCM_REQUIRED_CHECKS}}), no force-push, no deletion, approvals ({{SCM_APPROVALS}}) — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API.",
+      "changelog": [
+        "1.0.0: feat(EVOL-054) — initial."
+      ]
+    },
+    "scm/protection.other.md": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "stack_conditional": "scm.platform == Other",
+      "target": "docs/scm/protection.md",
+      "role": "The server-side branch protection runbook for Other (EVOL-054): the exact settings — pull request required, the required checks ({{SCM_REQUIRED_CHECKS}}), no force-push, no deletion, approvals ({{SCM_APPROVALS}}) — and the checklist a repository administrator ticks; verified at ci by gate.py scm-protection where the platform has an API.",
+      "changelog": [
+        "1.0.0: feat(EVOL-054) — initial."
       ]
     }
   },
@@ -2722,9 +2789,10 @@
       ]
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
-      "version": "2.7.1",
+      "version": "2.7.2",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
+        "2.7.2: feat(EVOL-054) — provisioning prerequisite: scm-protection at ci (EVOL-054)",
         "2.7.1: fix(EVOL-051) — review pass — the deploy pre-gate asks gate.py seal --check --ref HEAD before trusting IMPLEMENTED_AND_VERIFIED (EVOL-051)",
         "2.7.0: feat(EVOL-049)! — hat vocabulary retired (the QA security pass).",
         "2.6.0: feat(EVOL-047) — a merge-triggered deployment asks gate.py runtime-surface --changed first (fail-closed towards deploying); an explicit --deploy always deploys.",
@@ -2876,9 +2944,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.6.0",
+      "version": "3.6.1",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "3.6.1: feat(EVOL-054) — [QA-PRE-SCM] pre-verification item (EVOL-054)",
         "3.6.0: feat(EVOL-053) — the [QA-TC-*] checklist consumes gate.py traceability --json (linked tests or UNLINKED (baseline)); a red gate blocks certification",
         "3.5.1: fix(EVOL-051) — review pass — the pre-verification gate asks gate.py seal --check --ref HEAD: a status with no covering seal is BUILDING (EVOL-051)",
         "3.5.0: feat(EVOL-049)! — the security pass replaces the hat; the DAST wording hat-free.",
@@ -2976,9 +3045,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.21.1",
+      "version": "2.22.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.22.0: feat(EVOL-054) — Q21 gains Bitbucket Pipelines / Azure Pipelines / GCP Cloud Build; Q21.2 the SCM host, approvals and required checks (EVOL-054)",
         "2.21.1: feat(EVOL-053) — derived, no question: verification.gates and traceability.home come from the stack",
         "2.21.0: feat(EVOL-049)! — Q34 model families — writers and critics on different families.",
         "2.20.0: feat(EVOL-047) — Q33 runtime surface (the positive list a deployment can change).",
@@ -3013,9 +3083,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.21.0",
+      "version": "3.22.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.22.0: feat(EVOL-054) — {{SCM_PLATFORM}} / {{SCM_REQUIRED_CHECKS}} / {{SCM_APPROVALS}}; docs/scm/protection.md from the platform's template; the materialisation never writes the protection",
         "3.21.0: feat(EVOL-053) — {{TRACEABILITY_HOME}} from the runtime; the pytest plugin lands for Python; baseline --init on a brownfield adoption",
         "3.20.0: feat(EVOL-051) — {{VERIFICATION_GATES}} (the path-to-gate map from the stack + Q33) and the documentation defaults",
         "3.19.0: feat(EVOL-049)! — {{AGENT_WRITER_MODEL}} / {{AGENT_CRITIC_MODEL}} from Q34; invariant: gate.py agents green on the materialised tree.",
@@ -3069,9 +3140,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.11.0",
+      "version": "2.11.1",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.11.1: feat(EVOL-054) — Step 8: the scm block and the runbook for a pre-EVOL-054 project",
         "2.11.0: feat(EVOL-053) — Step 8 adds the traceability block, delivers the pytest plugin for Python, records the baseline once",
         "2.10.2: fix(EVOL-051) — review pass — Step 8 migrates planning.docs_exempt into documentation.paths and adds the verification block (gates derived as materialization does); seal.py + digests.py arrive with the scripts/gates refresh",
         "2.10.1: fix(EVOL-049) — review pass — .claude/agents/** delivered; Q34 asked when agents.families is missing",
@@ -3158,9 +3230,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.7.1",
+      "version": "14.7.2",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.7.2: feat(EVOL-054) — Pre-Action Gate: the merge rule names its server side (EVOL-054)",
         "14.7.1: feat(EVOL-053) — traceability among the light members",
         "14.7.0: feat(EVOL-051) — control points: the static round row; the seal (gate.py seal --check) in the train-close and PR rows; seal and digests among the light members",
         "14.6.0: feat(EVOL-049)! — Core Protocols — Role agents & read-only critics row; no agent ratifies.",
@@ -3845,11 +3918,12 @@
       "path": ".claude/skills/factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.12.2",
+      "version": "1.12.3",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.12.3: feat(EVOL-054) — the half-delivery note names scm.py, the scm block and docs/scm/protection.md",
         "1.12.2: fix(EVOL-053) — EVOL-051 / EVOL-053 half-delivery said: the config blocks, the plugin and the baseline come with SETUP --upgrade",
         "1.12.1: fix(EVOL-049) — review pass — step 5b says loudly when the target lacks rules/agents.md or agents.families (SETUP --upgrade, Q34)",
         "1.12.0: feat(EVOL-049)! — delivers .claude/agents/*.md (the roster) — step 5b.",
@@ -3880,11 +3954,12 @@
       "delivery": "sync"
     },
     "scripts/validate-governance.sh": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "path": "scripts/validate-governance.sh",
       "type": "utility",
       "role": "Framework governance validator — SessionStart banner, drift detection (manifest vs core files), snapshot freshness, diff-only mode for CI. Ships identically to materialized projects via factory-sync and also runs inside the framework-meta repo.",
       "changelog": [
+        "2.4.0: feat(EVOL-054) — CHECK 1c: colliding targets tolerated when every collider carries a distinct stack_conditional (exactly one lands — the EVOL-054 runbooks)",
         "2.3.0: feat(EVOL-045) — default base = gate.py diff-base.",
         "2.2.0: feat(EVOL-043) — banner counts law-index entries and defect families (lite snapshot).",
         "2.1.4: fix(EVOL-041 code-review) — ACTION message names the BREAKING-CHANGE synonym.",
@@ -4031,11 +4106,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.15.0",
+      "version": "1.16.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.16.0: feat(EVOL-054) — GH_TOKEN exported to the profile step — the scm-protection member reads this repository's ruleset at ci (metadata read)",
         "1.15.0: fix(EVOL-053) — pytest installed before the T2 loop — the EVOL-053 collection plugin test runs in CI, never skipped",
         "1.14.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
         "1.13.0: feat(EVOL-046) — one profile step (gate.py profile --run) replaces the per-gate steps; one-definition step.",
@@ -4476,11 +4552,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.10.0: feat(EVOL-054) — scm block (GitHub, main, the two governance checks, 0 approvals) — the framework repo's own protection, applied 2026-09-25",
         "1.9.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
         "1.8.0: feat(EVOL-051) — documentation block (paths, exclusions — one definition) and verification block (seal not required in the framework repo: CI's T2 suite is its loop; gates {}; digest_artefacts); planning.docs_exempt retired",
         "1.7.0: fix(EVOL-049) — review pass — retired_terms: the remaining hat vocabulary (DEV/ARCH/PO/UX/QA hat, hat switch, multi-hat), docs/spec/** exempt for history",
@@ -4514,11 +4591,12 @@
       ]
     },
     "scripts/test-validate-governance.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "type": "script",
       "role": "Manifest-gate self-test (7 sandbox scenarios: clean, planted orphan, DUP-PATH, NO-TARGET, declared merge collision tolerated, stale-is-advisory pin, malformed-manifest never-green). Fail-directions run zero times per year on clean data — the pre-EVOL-040 rot mode. Wired into governance-check T2.",
       "path": "scripts/test-validate-governance.sh",
       "changelog": [
+        "1.0.1: feat(EVOL-054) — scenarios 5b/5c: exclusive stack-conditional colliders tolerated, the same conditional twice a violation (9 checks)",
         "1.0.0: feat(EVOL-040 pr-review loop i2) — initial."
       ]
     },
@@ -4589,11 +4667,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.10.0: feat(EVOL-054) — scm-protection subcommand (--control-point, --json)",
         "1.9.0: feat(EVOL-053) — traceability subcommand (--declared, --baseline --init|--refresh, --json)",
         "1.8.0: feat(EVOL-051) — seal (--plan/--write/--check/--validate), documentation (--path/--changed), digests subcommands; profile --control-point static",
         "1.7.0: fix(EVOL-049) — review pass — agents: manifest unreadable = fault, --spawn [--hook-json], --check-return needs --class, --resolve exit 1 over the cap; certify --subject worktree",
@@ -4655,11 +4734,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.10.0: feat(EVOL-054) — Scm tests: origin parsing, tokens, the GitHub rulesets + legacy adapters green/red, evaluation rulesets defend nothing, the control points, no token n/a with the checklist, API fault, Other, config faults, GitLab / Bitbucket / Azure adapters; the profile member; CLI exit codes",
         "1.9.0: feat(EVOL-053) — Traceability tests: declared cases, the two homes and a custom pattern, unknown / malformed links, case → test never test → case, the shrink-only baseline, stale debt, config faults; the pytest plugin refuses collection on an unknown id (skipped where pytest is absent)",
         "1.8.0: feat(EVOL-051) — Seal + Digests test classes: one definition of documentation, the seal plan/write/check (shared command = one execution, docs-only owes nothing, a declared docs reader is owed, unmapped path owes the full loop, on-disk seal honoured by the commit), digest fingerprint + completeness red on an untouched artefact (43 tests)",
         "1.7.0: fix(EVOL-049) — review pass — red cases: class promotion, tool spellings, families, dead rows, cap, tier unknown, separation, digest lens law, spawn check, return shapes, worktree hash, CLI faults (40 tests)",
@@ -4673,11 +4753,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.10.0: feat(EVOL-054) — the GitHub runbook lands with its placeholders resolved; scm-protection n/a at push and at ci without a token, the five-item checklist in the JSON",
         "1.9.0: feat(EVOL-053) — traceability checks on the materialised config: unlinked case red, baseline once, unknown link + shrink red, QA JSON, the plugin lands",
         "1.8.0: feat(EVOL-051) — one-loop checks: seal --validate, documentation exclusions, unsealed tree refused, one execution per command, sealed tree honoured, docs delta owes nothing, code delta owes its readers, digests n/a and red, the static control point (74 checks)",
         "1.7.0: fix(EVOL-049) — review pass — the digest carries the lens's rule; spawn check and hook refuse the writer's alias; the round cap (62 checks)",
@@ -4734,11 +4815,12 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py",
       "changelog": [
+        "1.5.0: feat(EVOL-054) — member scm-protection (light; verifies at ci, n/a at push and static)",
         "1.4.0: feat(EVOL-053) — member traceability (light: static round, push, CI)",
         "1.3.0: feat(EVOL-051) — members seal and digests (light); control point static = the light members whatever the class or the mode; {control_point} runner token",
         "1.2.0: feat(EVOL-049)! — agents member (the roster validator; no build, no database).",
@@ -4964,6 +5046,15 @@
       "path": "scripts/gates/traceability.py",
       "changelog": [
         "1.0.0: feat(EVOL-053) — initial."
+      ]
+    },
+    "scripts/gates/scm.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: server-side branch protection per SCM platform (EVOL-054) — one reader at the ci control point: with a read-only token it asks the platform's API (GitHub rulesets + legacy protection, GitLab protected branches / approvals / pipeline rule, Bitbucket branch restrictions, Azure DevOps policies) per protected branch, normalises pull-request-required / required checks / force-push / deletion / approvals and judges them against config → scm (RED on a missing setting, the runbook docs/scm/protection.md as the cure); no token, Other, push or static → n/a with the checklist; an API error is a fault. Meta copy (lock-step pair scripts/gates/*.py).",
+      "path": "scripts/gates/scm.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-054) — initial."
       ]
     }
   },

@@ -28,7 +28,7 @@ In this framework the same three defects are latent: `full_verification_gate` (f
 - `planning.docs_exempt` is retired (breaking for a project that edited it: SETUP --upgrade moves the list to `documentation.paths`); the preflight's allowlist is a call, not a list.
 - The gate map, the documentation class, the digest artefacts and the seal location are project configuration (SETUP materialises defaults from the stack: sources, tests, config, workflows); a project without a map is fail-closed — every non-documentation delta owes the full loop until the map exists.
 - The train-close and push profiles of EVOL-046 do not change: `seal` and `digests` join the light members.
-- **The seal is a local claim.** Like the LAW-13 review marker, it is written by the loop that ran and honoured by the push; nothing re-runs the gates to verify it, CI does not run the loop (no template CI job does) and reports the member n/a with that reason; a push that bypasses the hook bypasses the loop; the project's own CI test job, when it has one, is the compensating control.
+- **The seal is a local claim.** Like the LAW-13 review marker, it is written by the loop that ran and honoured by the push; nothing re-runs the gates to verify it, CI does not run the loop (no template CI job does) and reports the member n/a with that reason; a push that bypasses the hook bypasses the loop; the project's own CI test job, when it has one, is the compensating control. The server side of that push — no direct write to the protected branch without a pull request and green CI — is ADR-EVOL-054.
 
 ## Alternatives considered
 

@@ -186,5 +186,12 @@
     "plans": "docs/spec/*/test_plan.md",
     "test_roots": ["tests/**", "e2e/**", "src/**/*.test.*", "src/**/*.spec.*"],
     "baseline": "docs/project_log/traceability_baseline.json"
+  },
+  "scm": {
+    "_doc": "Server-side branch protection (EVOL-054): the SCM host (`platform`: GitHub | GitLab | Bitbucket | Azure DevOps | Other — SETUP Q21.2), the protected branches, the checks the server must require before a merge and the approvals the project decided (Q21.2, 0 for a single author — never invented). python3 scripts/gate.py scm-protection is a member of the gate profile at the ci control point: with a read-only token in the CI environment (GITHUB_TOKEN / GH_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN as user:app_password, AZURE_DEVOPS_TOKEN) it asks the platform's API per protected branch and is RED on a missing setting; without a token, for `Other`, at push or at the static round it is n/a with the checklist. The runbook with the exact settings is docs/scm/protection.md (materialised per platform).",
+    "platform": {{SCM_PLATFORM}},
+    "protected_branches": ["main"],
+    "required_checks": {{SCM_REQUIRED_CHECKS}},
+    "approvals": {{SCM_APPROVALS}}
   }
 }

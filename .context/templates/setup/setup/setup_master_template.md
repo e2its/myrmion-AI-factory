@@ -1,7 +1,8 @@
 ---
-version: 2.11.0
+version: 2.12.0
 date: 2026-04-21
 changelog:
+  - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
   - "2.11.0: feat(EVOL-049)! — agents: writer_model / critic_model (Q34) + summary bullet."
   - "2.10.0: feat(EVOL-047) — surface.runtime_surface slot (Q33) + summary bullet."
   - "2.9.0: feat(EVOL-046) — delivery: mode frontmatter slot (Q32) + summary bullet."
@@ -32,6 +33,10 @@ delivery:
 agents:
   writer_model: sonnet                # Q34 — the writers' family (harness alias) → config/quality.json agents.families.writer (EVOL-049)
   critic_model: opus                  # Q34 — the critics' family, must differ → agents.families.critic
+scm:
+  platform: GitHub                    # Q21.2 — GitHub | GitLab | Bitbucket | Azure DevOps | Other → config/quality.json scm.platform; the runbook docs/scm/protection.md lands per platform (EVOL-054)
+  approvals: 0                        # Q21.2 — approvals a pull request needs (a project decision; 0 for a single author) → scm.approvals
+  required_checks: ["governance-check"]   # Q21.2 — the checks the server must require before merge → scm.required_checks
 last_update: [TIMESTAMP]
 ---
 
