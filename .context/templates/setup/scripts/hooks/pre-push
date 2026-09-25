@@ -238,9 +238,13 @@ if [[ "${FACTORY_PR_REVIEW_SKIP:-}" != "1" ]]; then
     # Run unit tests for the review scripts first — a failing test means
     # the deterministic capabilities themselves are broken; reviewing with
     # broken tools is worse than not reviewing.
-    if command -v pytest >/dev/null 2>&1; then
+    # Only the folders that exist are collected: a project without them (or this framework) owes nothing here —
+    # pytest on a missing folder is "no tests ran", never a red (EVOL-053 review: a runner present must not invent a gate).
+    FPR_TEST_DIRS=()
+    for d in "$REPO_ROOT_FPR/tests/blueprint" "$REPO_ROOT_FPR/tests/pr_review"; do [ -d "$d" ] && FPR_TEST_DIRS+=("$d"); done
+    if command -v pytest >/dev/null 2>&1 && [ "${#FPR_TEST_DIRS[@]}" -gt 0 ]; then
         echo "🧪 factory-pr-review unit tests ..."
-        if ! pytest -q "$REPO_ROOT_FPR/tests/blueprint" "$REPO_ROOT_FPR/tests/pr_review"; then
+        if ! pytest -q -p no:cacheprovider "${FPR_TEST_DIRS[@]}"; then
             echo "❌ factory-pr-review unit tests failed — push blocked. Fix tests before pushing."
             exit 1
         fi

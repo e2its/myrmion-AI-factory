@@ -135,6 +135,52 @@ def _split_inline(s: str) -> list[str]:
     return [x.strip() for x in out]
 
 
+def _flow(s: str, i: int, key: bool = False):
+    """Flow collections as this framework's frontmatter writes them: `{k: v, k2: [a, "b"]}`, `[x, {k: v}]`,
+    nested, quoted strings, bare scalars (a mapping key stops at `:`). Returns (value, index after it)."""
+    n = len(s)
+    while i < n and s[i] in " \t":
+        i += 1
+    if i >= n:
+        raise GateFault("frontmatter subset parser: unterminated flow collection")
+    ch = s[i]
+    if ch == "[":
+        items, i = [], i + 1
+        while True:
+            while i < n and s[i] in " \t,":
+                i += 1
+            if i < n and s[i] == "]":
+                return items, i + 1
+            if i >= n:
+                raise GateFault("frontmatter subset parser: unterminated `[`")
+            v, i = _flow(s, i); items.append(v)
+    if ch == "{":
+        d, i = {}, i + 1
+        while True:
+            while i < n and s[i] in " \t,":
+                i += 1
+            if i < n and s[i] == "}":
+                return d, i + 1
+            if i >= n:
+                raise GateFault("frontmatter subset parser: unterminated `{`")
+            k, i = _flow(s, i, key=True)
+            while i < n and s[i] in " \t":
+                i += 1
+            if i >= n or s[i] != ":":
+                raise GateFault(f"frontmatter subset parser: expected `:` after key `{k}` in a flow mapping")
+            v, i = _flow(s, i + 1); d[str(k)] = v
+    if ch in "\"'":
+        end = s.find(ch, i + 1)
+        if end == -1:
+            raise GateFault(f"frontmatter subset parser: unterminated quote in `{s[i:i+40]}`")
+        return s[i + 1:end], end + 1
+    j = i
+    stop = ",]}:" if key else ",]}"
+    while j < n and s[j] not in stop:
+        j += 1
+    return _scalar(s[i:j]), j
+
+
 def _scalar(v: str):
     v = v.strip()
     if v[:1] in "\"'":
@@ -144,9 +190,11 @@ def _scalar(v: str):
         return v[1:end]
     if " #" in v:   # inline comment outside quotes
         v = v[:v.index(" #")].rstrip()
-    if v.startswith("[") and v.endswith("]"):
-        inner = v[1:-1].strip()
-        return [_scalar(x) for x in _split_inline(inner)] if inner else []
+    if v[:1] in "[{":   # a flow collection — unterminated or trailing text is a fault, as PyYAML would say
+        value, end = _flow(v, 0)
+        if v[end:].strip():
+            raise GateFault(f"frontmatter subset parser: trailing text after the flow collection in `{v[:60]}`")
+        return value
     if v in ("true", "True"):
         return True
     if v in ("false", "False"):
@@ -182,7 +230,12 @@ def _mini_yaml(text: str):
                 raise GateFault(f"frontmatter subset parser: expected `key: value`, got `{body}`")
             k, _, v = body.partition(":")
             i += 1
-            if v.strip() in ("", "|", ">"):
+            if v.strip() in ("|", ">", "|-", ">-"):   # a block scalar: the deeper-indented lines are one string
+                block = []
+                while i < len(lines) and _indent(lines[i]) > indent:
+                    block.append(lines[i].strip()); i += 1
+                mapping[k.strip()] = ("\n" if v.strip().startswith("|") else " ").join(block)
+            elif v.strip() == "":
                 if i < len(lines) and _indent(lines[i]) > indent:
                     child, i = parse_block(i, _indent(lines[i]))
                     mapping[k.strip()] = child

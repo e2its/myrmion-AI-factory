@@ -284,7 +284,7 @@ class Corpus(unittest.TestCase):
             self.assertLessEqual(len(text.encode()), b, f"budget {b} is in bytes")
             self.assertTrue(text.startswith("<governance-at-edit") and text.endswith("</governance-at-edit>"))
         text, _ = corpus.digest(self.repo, ["src/app.py"], 400)
-        self.assertIn("more — read", text, "what was cut is counted, never silent")
+        self.assertTrue("more — read" in text or "\n…\n" in text, "what was cut is counted, never silent (the note, or its one-glyph form when even the note does not fit)")
         _, fp_a = corpus.digest(self.repo, ["src/a.py"], 6000)
         _, fp_b = corpus.digest(self.repo, ["src/b.py"], 6000)
         self.assertEqual(fp_a, fp_b, "the same delivered set dedupes across paths")
@@ -1585,6 +1585,40 @@ class Traceability(unittest.TestCase):
             (repo / "tests/test_ghost.py").unlink()
             q = json.loads((repo / "config/quality.json").read_text()); q["traceability"] = {"required": False, "reason": "switched off"}; write(repo / "config/quality.json", json.dumps(q))
             r = run("--strict-markers"); self.assertEqual(r.returncode, 0, "required: false — the plugin does nothing, the suite runs")
+
+
+class MiniYaml(unittest.TestCase):
+    """The subset parser reads what this framework's frontmatter writes — flow mappings and lists included — so a project
+    without PyYAML gets the same policy, never a silently empty roster."""
+
+    def test_flow_collections_match_pyyaml(self):
+        from gates.common import _mini_yaml
+        text = RULE_AGENTS.split("---")[1]
+        got = _mini_yaml(text)
+        self.assertEqual(got["agents"]["roster"][0], {"name": "factory-dev-backend", "class": "worker", "surface": ["src/**"]})
+        self.assertEqual(got["agents"]["classes"]["worker"]["tools"], {"must": ["Read", "Edit", "Write", "Bash"], "never": ["Agent"]})
+        self.assertEqual(got["agents"]["tiers"], {"small": {"files": 5, "lines": 150}, "large": {"files": 30, "lines": 800}})
+        self.assertEqual(got["agents"]["ladder"], {"critic": ["writer"], "writer": []})
+        self.assertEqual(got["agents"]["resolve"][1], {"class": "plan-critic", "round": 2, "effort": "max"})
+        self.assertEqual(_mini_yaml('x: [1, "a, b", {k: [true, null]}]')["x"], [1, "a, b", {"k": [True, None]}])
+        try:
+            import yaml
+            self.assertEqual(got, yaml.safe_load(text), "the subset parser and PyYAML read the same structure")
+        except ImportError:
+            pass
+        with self.assertRaisesRegex(GateFault, "unterminated"):
+            _mini_yaml("x: [1, 2")
+
+    def test_real_roster_without_pyyaml(self):
+        """The delivered reader on the framework's own roster with PyYAML hidden: the validator is green and the spawn hook refuses — never a silently empty roster."""
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp) / "yaml.py", "raise ImportError('PyYAML hidden for the test')\n")
+            env = {**os.environ, "PYTHONPATH": tmp, "PYTHONDONTWRITEBYTECODE": "1"}
+            root = HERE.parent.parent; gate = str(HERE.parent / "gate.py")
+            r = subprocess.run([sys.executable, gate, "--repo", str(root), "agents"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            r = subprocess.run([sys.executable, gate, "--repo", str(root), "agents", "--spawn", "--agent", "factory-critic-security", "--model", "sonnet"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1, "a critic on the writer's alias is refused with the subset parser too"); self.assertIn("its family's alias", r.stdout)
 
 
 class Cli(unittest.TestCase):

@@ -831,10 +831,11 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "2.6.0",
+      "version": "2.6.1",
       "type": "script",
       "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, the gate profile (`gate.py profile --run`, EVOL-046). Honors the actual push remote ($1) instead of hardcoding origin.",
       "changelog": [
+        "2.6.1: fix(EVOL-053) — the review-scripts pytest step collects only the folders that exist (pytest present + tests/blueprint absent was a red on nothing)",
         "2.6.0: feat(EVOL-046) — force-push guard through the reader (no list, fail-closed); steps 3+4 replaced by the one call gate.py profile --run (all members report, one verdict); reader missing blocks the push.",
         "2.5.0: feat(EVOL-045) — step 4 runs the surface gate; the factory-pr-review lane takes its base from gate.py diff-base.",
         "2.4.0: feat(EVOL-044) — step 4 runs laws --parity, currency, manifest-parity next to retired-terms and budget.",
@@ -1741,11 +1742,12 @@
       "delivery": "both"
     },
     "scripts/gates/common.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "scripts/gates/common.py",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files.",
       "changelog": [
+        "1.2.0: fix(EVOL-053) — the subset YAML parser reads flow collections ({k: v, k2: [a, b]}, nested) and block scalars (|, >) and faults on an unterminated flow — a project without PyYAML gets the same roster and policy, never a silently empty one (the spawn hook passed everything without PyYAML)",
         "1.1.0: feat(EVOL-044) — subset parser: inline comments stripped, unterminated quotes refused; tracked_files is a fault when git fails inside a repository.",
         "1.0.0: feat(EVOL-043)! — initial."
       ],
@@ -4424,11 +4426,12 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "1.6.0",
+      "version": "1.6.1",
       "type": "config",
       "role": "Meta copy of the pre-push git hook (protected-branch force-push block + secrets scan + governance validation + factory-pr-review sentinel block). Extensionless.",
       "path": "scripts/hooks/pre-push",
       "changelog": [
+        "1.6.1: fix(EVOL-053) — the review-scripts pytest step collects only the folders that exist (pytest present + tests/blueprint absent was a red on nothing)",
         "1.6.0: feat(EVOL-046) — force-push guard through the reader (no list, fail-closed); steps 3+4 replaced by the one call gate.py profile --run (all members report, one verdict); reader missing blocks the push.",
         "1.5.0: feat(EVOL-045) — step 4 runs the surface gate; the factory-pr-review lane takes its base from gate.py diff-base.",
         "1.4.0: feat(EVOL-044) — step 4 runs laws --parity, currency, manifest-parity next to retired-terms and budget.",
@@ -4613,11 +4616,12 @@
       ]
     },
     "scripts/gates/common.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/common.py",
       "changelog": [
+        "1.2.0: fix(EVOL-053) — the subset YAML parser reads flow collections ({k: v, k2: [a, b]}, nested) and block scalars (|, >) and faults on an unterminated flow — a project without PyYAML gets the same roster and policy, never a silently empty one (the spawn hook passed everything without PyYAML)",
         "1.1.0: feat(EVOL-044) — subset parser: inline comments stripped, unterminated quotes refused; tracked_files is a fault when git fails inside a repository.",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
