@@ -636,10 +636,11 @@
       "delivery": "both"
     },
     "scripts/validate-governance.sh": {
-      "version": "1.5.0",
+      "version": "1.5.1",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
+        "1.5.1: fix — CHECK 1 / CHECK 2 membership tests in pure bash (in_lines): the per-file `grep -Fxq` was non-deterministic where `grep` is an exported function wrapping another tool; random orphan false positives.",
         "1.5.0: feat(EVOL-045) — default base = gate.py diff-base.",
         "1.4.0: feat(EVOL-043) — banner counts law-index entries and defect families (lite snapshot).",
         "1.3.3: fix(EVOL-041 code-review) — same as meta.",
@@ -3993,11 +3994,12 @@
       "delivery": "sync"
     },
     "scripts/validate-governance.sh": {
-      "version": "2.4.0",
+      "version": "2.4.1",
       "path": "scripts/validate-governance.sh",
       "type": "utility",
       "role": "Framework governance validator — SessionStart banner, drift detection (manifest vs core files), snapshot freshness, diff-only mode for CI. Ships identically to materialized projects via factory-sync and also runs inside the framework-meta repo.",
       "changelog": [
+        "2.4.1: fix — CHECK 1 / CHECK 2 membership tests in pure bash (in_lines): the per-file `grep -Fxq` was non-deterministic where `grep` is an exported function wrapping another tool; random orphan false positives.",
         "2.4.0: feat(EVOL-054) — CHECK 1c: colliding targets tolerated when every collider declares target_mode: merge or when the colliders are exclusive — a `key == value` stack_conditional on one key with distinct values (the per-platform runbooks).",
         "2.3.0: feat(EVOL-045) — default base = gate.py diff-base.",
         "2.2.0: feat(EVOL-043) — banner counts law-index entries and defect families (lite snapshot).",

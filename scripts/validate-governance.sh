@@ -244,6 +244,12 @@ info() {
   echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
+# in_lines <newline-separated list> <item>: exact-line membership in pure bash (no grep — an exported `grep` function
+# wrapping another tool made the per-file `grep -Fxq` lookup non-deterministic; bash 3.2-safe, no arrays).
+in_lines() {
+  case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0 ;; *) return 1 ;; esac
+}
+
 header() {
   echo ""
   echo -e "${MAGENTA}━━━ $1 ━━━${NC}"
@@ -323,7 +329,7 @@ DRIFTED_FILES=()
 
 while IFS= read -r tracked_path; do
   [ -z "$tracked_path" ] && continue
-  if echo "$CHANGED_FILES" | grep -Fxq "$tracked_path"; then
+  if in_lines "$CHANGED_FILES" "$tracked_path"; then
     CORE_FILES_CHANGED=$((CORE_FILES_CHANGED + 1))
     DRIFTED_FILES+=("$tracked_path")
   fi
@@ -496,7 +502,7 @@ for dir in "${TRACKED_DIRS[@]}"; do
       [ "$file" = "$ex" ] && exempt=true && break
     done
     [ "$exempt" = "true" ] && continue
-    if ! echo "$TRACKED_PATHS" | grep -Fxq "$file"; then
+    if ! in_lines "$TRACKED_PATHS" "$file"; then
       fail "File in governed tree NOT tracked in governance manifest: ${file}"
       ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
     fi
