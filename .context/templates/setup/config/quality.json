@@ -143,6 +143,7 @@
       ".github/workflows/**",
       "config/**",
       "docs/project_log/governance_versions.json",
+      "docs/project_log/traceability_baseline.json",
       "CLAUDE.md"
     ],
     "exempt_classes": [
@@ -175,6 +176,15 @@
     "_doc": "One full verification loop per change (EVOL-051): `gates` is the path-to-gate map (what each full-loop gate READS, and the command that runs it — a command shared by two gates, e.g. tests and coverage, is executed once and feeds both); `seal` is where python3 scripts/gate.py seal records a green loop per branch (untracked, .claude/state/) — the push refuses a tree the seal does not cover (gate.py seal --check, a profile member); a changed path no gate reads and no documentation class covers owes the full loop (fail closed: declare its reader). `digest_artefacts` are the planning artefacts gate.py digests judges under docs/spec/{ID}/ (fingerprint = the snapshot's constitution_hash[:8]; every bound rule named).",
     "seal": {"required": true, "dir": ".claude/state"},
     "gates": {{VERIFICATION_GATES}},
-    "digest_artefacts": ["design.md", "dev_plan.md"]
+    "digest_artefacts": ["design.md"]
+  },
+  "traceability": {
+    "_doc": "Test-case traceability (EVOL-053): the ONE machine-readable home of the case → test link (`home`: kind pytest-marker | title-tag, or a custom `pattern` with a named group `id`), the case grammar (`id_pattern`; a link is FEATURE/CASE — the plan folder and the id its test_plan.md declares), the plans, the test roots and the shrink-only baseline (docs/project_log/traceability_baseline.json — `gate.py traceability --baseline --init` records the debt once, `--refresh` shrinks it, never adds). python3 scripts/gate.py traceability is a light member of the gate profile (static round, push, CI): every declared case has a linking test or sits in the baseline; a link naming no declared case is red; QA consumes `--json` instead of re-deriving the linkage.",
+    "required": true,
+    "home": {{TRACEABILITY_HOME}},
+    "id_pattern": "^(?:AC|TC-API|TC|REL-[A-Z]+|UX|A11Y|BRAND|LAYOUT)-\\d{2,}$",
+    "plans": "docs/spec/*/test_plan.md",
+    "test_roots": ["tests/**", "e2e/**", "src/**/*.test.*", "src/**/*.spec.*"],
+    "baseline": "docs/project_log/traceability_baseline.json"
   }
 }

@@ -526,6 +526,8 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Tier-filtered:** All tiers.
 - **Persist:** `agents.writer_model` · `agents.critic_model` (frontmatter of `docs/setup.md`, nested YAML `agents:`) → `config/quality.json → agents.families.writer / critic` at `--generate`
 
+> **Derived, no question (EVOL-051 / EVOL-053):** `verification.gates` (the path-to-gate map) and `traceability.home` (the one place a test states its case: the pytest `case` marker for Python, the title tag otherwise) are derived from the stack answers (Q5 runtime, Q33 runtime surface) at `--generate` — see Factory-setup-materialization. They are project configuration, editable after materialisation; they are never asked.
+
 ---
 
 ### Discovery Finalization (4.1.3)

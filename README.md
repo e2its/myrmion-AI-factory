@@ -70,7 +70,7 @@ At setup the framework generates its own **operational law** — `docs/constitut
 - **Natural Language + Commands**: Say what you need or use explicit slash commands — Claude routes everything.
 - **Constitution-Driven**: All decisions validated against `docs/constitution.md` (generated during setup).
 - **Contract-First Development**: API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI, webhooks) defined and linted before implementation.
-- **Build Verification Loop (BVL)**: Tests executed in terminal, errors parsed and auto-fixed (max 3 attempts). One full verification loop per change (tests + lint + typecheck + build, each suite once) after the artefacts, sealed and honoured at the push (`gate.py seal`, EVOL-051); the static round and the governance digests before the critics.
+- **Build Verification Loop (BVL)**: Tests executed in terminal, errors parsed and auto-fixed (max 3 attempts). One full verification loop per change (tests + lint + typecheck + build, each suite once) after the artefacts, sealed and honoured at the push (`gate.py seal`, EVOL-051); the static round and the governance digests before the critics. Test-case traceability (EVOL-053): every test states its case at one machine-readable home; `gate.py traceability` is red at the push for a case with no test, an unknown link or a baseline that must shrink.
 - **Security by Design**: OWASP Top 10 + SAST/DAST built into workflow (inline, not post-facto).
 - **TDD Enforcement**: Red-Green-Refactor-**Verify** cycle mandatory for all code (BVL closes the loop).
 - **Immutable Specifications**: Version-controlled requirements with full audit trail.

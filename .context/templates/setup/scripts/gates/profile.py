@@ -40,6 +40,7 @@ MEMBERS = [
     ("agents",           False, False, "gate.py",                 ["gate", "agents"], False),
     ("seal",             False, False, "gate.py",                 ["gate", "seal", "--check", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
     ("digests",          False, False, "gate.py",                 ["gate", "digests", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
+    ("traceability",     False, False, "gate.py",                 ["gate", "traceability"], False),
     ("governance",       False, False, "validate-governance.sh (framework repo: manifest drift / orphan / stale)", ["bash", "scripts/validate-governance.sh", "--base", "{base_branch}"], True),   # a project has no framework manifest; manifest-parity covers its own
     ("adr-sync",         False, False, "check-adr-constitution-sync.sh", ["bash", "scripts/check-adr-constitution-sync.sh", "{base}"], False),
     ("applicability",    False, False, "check-applicability-frontmatter.sh", ["bash", "scripts/check-applicability-frontmatter.sh"], False),
@@ -154,7 +155,8 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
             rc, text = 2, f"could not run: {e}"
         clean = re.sub(r"\x1b\[[0-9;]*m", "", text).strip()
         tail = " ".join(ln.strip() for ln in clean.splitlines()[-3:])
-        results.append({"member": name, "rc": rc, "status": "ok" if rc == 0 else ("RED" if rc == 1 else "FAULT"), "tail": tail[:400],
+        na = rc == 0 and re.match(rf"^{re.escape(name)}: n/a\b", clean)   # a member switched off by config says so on the board, never a plain ✓
+        results.append({"member": name, "rc": rc, "status": "n/a" if na else ("ok" if rc == 0 else ("RED" if rc == 1 else "FAULT")), "tail": tail[:400],
                         "output": "" if rc == 0 else clean[-6000:]})   # a red member keeps its evidence
     red = [r["member"] for r in results if r["rc"] == 1]
     faults = [r["member"] for r in results if r["rc"] not in (0, 1)]

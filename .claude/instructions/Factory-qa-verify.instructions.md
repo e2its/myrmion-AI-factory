@@ -397,6 +397,15 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   #   REL-*-XX   → scenario_ref = null;              label = `Scenario`
   #   UX/A11Y/BRAND/LAYOUT-XX → scenario_ref = null; label = `Test Case`
   # family is derived from the ID prefix — no `type` column exists outside § 2/§ 2.2.
+  # EVOL-053 — the case → test linkage is READ from the gate, never re-derived: one reader, one home
+  trace_rc, trace = RUN("python3 scripts/gate.py traceability --json")
+  IF trace_rc >= 2:
+    ❌ BLOCK: "Test-case traceability could not be judged ({trace.reason}) — a fault is never a pass; fix it before certification."
+    STOP
+  IF trace.required AND NOT trace.ok:
+    ❌ BLOCK: "Test-case traceability is red: {trace.reason}. A case with no linking test, an unknown link or a baseline that must shrink — fix at the source (gate.py traceability) before certification."
+    STOP
+  linked = { c.id: c FOR c IN trace.cases }            # qualified FEATURE/CASE → {tests: [file:line], status: linked | unlinked-baseline | manual}
   FOR EACH test_case IN test_plan.test_cases:
     family = ID_PREFIX(test_case.id)   # AC | TC | TC-API | REL | UX | A11Y | BRAND | LAYOUT
     scenario_ref = (family == "AC") ? test_case.gherkin_ref : null
@@ -406,8 +415,14 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
       IF family == "AC" AND scenario_ref NOT IN scenario_filter: CONTINUE
       IF family != "AC" AND family != "TC-API": CONTINUE          # feature-level families → aggregate
       IF family == "TC-API" AND contract_filter IS NOT NULL AND NOT MATCHES(test_case.endpoint_method, contract_filter): CONTINUE
-    checklist.push("- [ ] [QA-TC-{test_case.id}]: {test_case.label}")
-    checklist[-1].metadata = { family: family, scenario_ref: scenario_ref }
+    link = linked.get("{FEATURE_ID}/{test_case.id}")
+    proof = "not traced — {trace.reason}"      IF NOT trace.required
+          ELSE "not declared by the gate"       IF link IS NULL              # the gate parsed no such row: check the ID table
+          ELSE link.tests                       IF link.status == "linked"
+          ELSE "MANUAL (no test owed)"          IF link.status == "manual"
+          ELSE "UNLINKED (baseline)"                                          # the debt on the board
+    checklist.push("- [ ] [QA-TC-{test_case.id}]: {test_case.label} — {proof}")
+    checklist[-1].metadata = { family: family, scenario_ref: scenario_ref, tests: link.tests IF link ELSE [] }
 
   # Regression suite
   checklist.push("- [ ] [QA-REG-1]: Unit test suite execution")
@@ -702,7 +717,7 @@ reviewed_by: QA
 
 ### Test Cases (from test_plan.md)
 {{FOR EACH test_case IN test_plan.test_cases:}}
-- [ ] [QA-TC-{{test_case.id}}]: {{test_case.label}}
+- [ ] [QA-TC-{{test_case.id}}]: {{test_case.label}} — {{proof}}
 {{END FOR}}
 
 ### Regression Suite

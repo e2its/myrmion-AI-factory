@@ -2,6 +2,7 @@
 """Unit tests of the gates package — every gate seen red at least once. Run: bash scripts/test-gates.sh"""
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -13,7 +14,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, branch, budget, coherence, corpus, digests, planning, profile, retired, runtime, seal  # noqa: E402
+from gates import agents, branch, budget, coherence, corpus, digests, planning, profile, retired, runtime, seal, traceability  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -283,7 +284,7 @@ class Corpus(unittest.TestCase):
             self.assertLessEqual(len(text.encode()), b, f"budget {b} is in bytes")
             self.assertTrue(text.startswith("<governance-at-edit") and text.endswith("</governance-at-edit>"))
         text, _ = corpus.digest(self.repo, ["src/app.py"], 400)
-        self.assertIn("more — read", text, "what was cut is counted, never silent")
+        self.assertTrue("more — read" in text or "\n…\n" in text, "what was cut is counted, never silent (the note, or its one-glyph form when even the note does not fit)")
         _, fp_a = corpus.digest(self.repo, ["src/a.py"], 6000)
         _, fp_b = corpus.digest(self.repo, ["src/b.py"], 6000)
         self.assertEqual(fp_a, fp_b, "the same delivered set dedupes across paths")
@@ -1368,6 +1369,9 @@ class Seal(unittest.TestCase):
             with self.assertRaisesRegex(GateFault, "not a commit this clone knows"):
                 seal.plan(repo, base="nowhere/nope")
 
+    def test_traceability_is_a_light_member(self):
+        self.assertIn("traceability", {m["member"] for m in profile.owed("light")}, "the traceability gate runs at the static round, the push and CI")
+
     def test_static_round_is_light_whatever_the_mode(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
@@ -1435,6 +1439,186 @@ class Digests(unittest.TestCase):
             r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("governance_snapshot.md is missing", r["artefacts"][0]["reason"])
             q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]; write(repo / "config/quality.json", json.dumps(q))
             r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("`verification` is missing", r["reason"]); self.assertIn("RED", digests.render(r))
+
+
+
+class Traceability(unittest.TestCase):
+    """EVOL-053: one machine-readable home for the case → test link — strict ids, case → test, a shrink-only baseline."""
+
+    PLAN = """---\nid: FEAT-001\nstatus: APPROVED\n---\n# Test Cases\n\n## 1. Acceptance\n| ID | Gherkin Ref | Business Scenario | Expected |\n|----|---|---|---|\n| AC-01 | Happy path | Login | Dashboard |\n\n## 2. Technical\n| ID | Type | Technical Scenario | Input | Expected |\n|----|---|---|---|---|\n| TC-01 | Edge | DB timeout | down | 503 |\n| TC-API-01 | /login | POST | ok | 200 |\n\n## 3. Standards (not cases)\n| Standard | Notes |\n|---|---|\n| ISO-8601 | dates |\n| HTTP-401 | unauthenticated |\n\n```markdown\n| ID | Type |\n|---|---|\n| TC-99 | a sample inside a fence declares nothing |\n```\n"""
+
+    def _repo(self, tmp, kind="pytest-marker", required=True):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["traceability"] = {"required": required, "reason": "" if required else "no plans here", "home": {"kind": kind}, "plans": "docs/spec/*/test_plan.md",
+                             "test_roots": ["tests/**", "src/**/*.test.*", "src/test/**"], "baseline": "docs/project_log/traceability_baseline.json"}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / "docs/spec/FEAT-001/test_plan.md", self.PLAN)
+        self._commit(repo, "plan")
+        return repo
+
+    def _commit(self, repo, msg="c"):
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", msg, "--allow-empty"], check=True, capture_output=True)
+
+    def test_declared_links_and_the_ratchet(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            c = traceability.cfg(repo)
+            dec, bad = traceability.declared(repo, c)
+            self.assertEqual(sorted(dec), ["FEAT-001/AC-01", "FEAT-001/TC-01", "FEAT-001/TC-API-01"], "only ID tables outside fences declare; a standards table is not a plan")
+            self.assertEqual(bad, [])
+            # no test yet: every case unlinked, none in the baseline → red, each named; --init refuses when NOTHING links (a misconfiguration, not debt)
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertEqual(r["unlinked"], sorted(dec)); self.assertEqual(len(r["new_debt"]), 3)
+            with self.assertRaisesRegex(GateFault, "no test links any"):
+                traceability.baseline(repo, init=True)
+            # an UNTRACKED test on disk links (the static round runs before git add); a comment or a docstring is text, not a marker
+            write(repo / "tests/test_login.py", 'import pytest\n\n@pytest.mark.case("FEAT-001/AC-01")\ndef test_login(): pass\n\n# @pytest.mark.case("FEAT-001/TC-01")\ndef test_commented():\n    """@pytest.mark.case("FEAT-001/TC-API-01") lives in a docstring: not a marker"""\n    pass\n')
+            r = traceability.check(repo); self.assertEqual(r["linked"], 1); self.assertIn("FEAT-001/TC-01", r["unlinked"]); self.assertIn("FEAT-001/TC-API-01", r["unlinked"])
+            # the baseline records the debt ONCE; the file must be committed (CI reads the commit); then green with the debt on the board
+            b = traceability.baseline(repo, init=True); self.assertEqual(b["unlinked"], ["FEAT-001/TC-01", "FEAT-001/TC-API-01"]); self.assertIn("commit", b["note"])
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertTrue(any("git does not track it" in f["reason"] for f in r["findings"]))
+            self._commit(repo, "baseline + test")
+            with self.assertRaisesRegex(GateFault, "only shrinks"):
+                traceability.baseline(repo, init=True)
+            r = traceability.check(repo); self.assertTrue(r["ok"], r["findings"]); self.assertEqual(r["linked"], 1)
+            self.assertEqual({x["id"]: x["status"] for x in r["cases"]}, {"FEAT-001/AC-01": "linked", "FEAT-001/TC-01": "unlinked-baseline", "FEAT-001/TC-API-01": "unlinked-baseline"})
+            self.assertEqual([x["tests"] for x in r["cases"] if x["id"] == "FEAT-001/AC-01"], [["tests/test_login.py:3"]], "QA reads the linked test from the gate, never re-derives it")
+            # more marker forms: a class marker, the module's pytestmark, `from pytest import mark`, pytest.param(marks=…); a skipped test proves no case
+            write(repo / "tests/test_more.py", 'import pytest\nfrom pytest import mark\n\npytestmark = pytest.mark.case("FEAT-001/TC-01")\n\n@mark.case("FEAT-001/TC-API-01")\nclass TestApi:\n    def test_ok(self): pass\n\n@pytest.mark.skip(reason="wip")\n@pytest.mark.case("FEAT-001/AC-01")\ndef test_skipped(): pass\n')
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertEqual(r["shrink"], ["FEAT-001/TC-01", "FEAT-001/TC-API-01"]); self.assertEqual(r["linked"], 3)
+            self.assertEqual([x["tests"] for x in r["cases"] if x["id"] == "FEAT-001/AC-01"], [["tests/test_login.py:3"]], "the skipped test is not a link")
+            b = traceability.baseline(repo, refresh=True); self.assertEqual(b["removed"], ["FEAT-001/TC-01", "FEAT-001/TC-API-01"]); self.assertEqual(b["unlinked"], [])
+            self._commit(repo, "linked"); r = traceability.check(repo); self.assertTrue(r["ok"], r["findings"])
+            # a NEW case declared after the baseline must link — the baseline never grows; a MANUAL case (Tool: Manual …) is never owed
+            write(repo / "docs/spec/FEAT-001/test_plan.md", self.PLAN + "\n## 4. UX\n| ID | Test Case | Tool | Expected |\n|---|---|---|---|\n| UX-01 | Responsive | Manual + Lighthouse | adapts |\n| TC-02 | Edge | pytest | 200 |\n")
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertEqual(r["new_debt"], ["FEAT-001/TC-02"]); self.assertEqual(r["manual"], 1)
+            self.assertEqual([x["status"] for x in r["cases"] if x["id"] == "FEAT-001/UX-01"], ["manual"])
+            b = traceability.baseline(repo, refresh=True); self.assertEqual(b["unlinked"], [], "refresh never adds")
+            write(repo / "tests/test_cache.py", 'import pytest\n\n@pytest.mark.case("FEAT-001/TC-02")\ndef test_cache(): pass\n')
+            self._commit(repo, "tc-02"); self.assertTrue(traceability.check(repo)["ok"])
+            # a case → test link is required; test → case never is: a helper test with no marker is not a finding; a conftest is never scanned
+            write(repo / "tests/test_helper.py", "def test_helper(): pass\n"); write(repo / "tests/conftest.py", 'import pytest\n\n@pytest.mark.case("FEAT-001/AC-01")\ndef fixture_like(): pass\n')
+            r = traceability.check(repo); self.assertTrue(r["ok"], r["findings"]); self.assertEqual([x["tests"] for x in r["cases"] if x["id"] == "FEAT-001/AC-01"], [["tests/test_login.py:3"]])
+            # an unknown link is as wrong as a case with no test; a malformed id is red; an unparseable test file is red
+            write(repo / "tests/test_bad.py", 'import pytest\n\n@pytest.mark.case("FEAT-001/TC-99")\ndef test_ghost(): pass\n\n@pytest.mark.case("tc01")\ndef test_typo(): pass\n')
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertEqual(r["unknown"], ["FEAT-001/TC-99"])
+            self.assertEqual(sorted(f["path"] for f in r["findings"]), ["tests/test_bad.py:3", "tests/test_bad.py:6"])
+            write(repo / "tests/test_bad.py", "def broken(:\n")
+            r = traceability.check(repo); self.assertTrue(any("does not parse" in f["reason"] for f in r["findings"]))
+            (repo / "tests/test_bad.py").unlink()
+            # a tracked test deleted on disk is simply gone (never a crash): its case is unlinked again
+            (repo / "tests/test_cache.py").unlink()
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertEqual(r["new_debt"], ["FEAT-001/TC-02"])
+            self._commit(repo, "tc-02 test gone")
+            # a stale baseline entry (its case gone from the plan) is red until removed; a duplicate row is red; a grammar-failing id in an ID table is red
+            write(repo / "docs/project_log/traceability_baseline.json", json.dumps({"unlinked": ["FEAT-001/TC-02", "FEAT-001/GONE-01"]}))
+            r = traceability.check(repo); self.assertEqual(r["stale"], ["FEAT-001/GONE-01"])
+            b = traceability.baseline(repo, refresh=True); self.assertEqual(b["unlinked"], ["FEAT-001/TC-02"]); self._commit(repo, "baseline")
+            self.assertTrue(traceability.check(repo)["ok"])
+            write(repo / "docs/spec/FEAT-001/test_plan.md", self.PLAN + "\n| ID | Type |\n|---|---|\n| TC-01 | again |\n| TC-1 | x |\n")
+            r = traceability.check(repo)
+            self.assertTrue(any("declared twice" in f["reason"] for f in r["findings"])); self.assertTrue(any("fails the grammar" in f["reason"] for f in r["findings"]))
+            # a plans glob that names nothing while a plan exists is red; no plan at all is ok ("no test plan declares a case yet")
+            q = json.loads((repo / "config/quality.json").read_text()); q["traceability"]["plans"] = "docs/plans/*/test_plan.md"; write(repo / "config/quality.json", json.dumps(q))
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertTrue(any("matches nothing while a test plan exists" in f["reason"] for f in r["findings"]))
+            (repo / "docs/spec/FEAT-001/test_plan.md").unlink(); (repo / "docs/project_log/traceability_baseline.json").unlink(); self._commit(repo, "no plan")
+            q["traceability"]["plans"] = "docs/spec/*/test_plan.md"; write(repo / "config/quality.json", json.dumps(q))
+            for f in (repo / "tests").glob("test_*.py"):
+                f.unlink()
+            r = traceability.check(repo); self.assertTrue(r["ok"]); self.assertIn("no test plan declares", r["reason"])
+            # a corrupt baseline is a fault; a missing config block is RED, never a fault; not required = n/a with its reason, red without one
+            write(repo / "docs/project_log/traceability_baseline.json", "{nope")
+            with self.assertRaisesRegex(GateFault, "unreadable"):
+                traceability.check(repo)
+            (repo / "docs/project_log/traceability_baseline.json").unlink()
+            q["traceability"]["required"] = False; q["traceability"]["reason"] = ""; write(repo / "config/quality.json", json.dumps(q))
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertIn("without a `reason`", r["reason"])
+            q["traceability"]["reason"] = "no plans here"; write(repo / "config/quality.json", json.dumps(q))
+            r = traceability.check(repo); self.assertTrue(r["ok"]); self.assertFalse(r["required"]); self.assertIn("n/a", traceability.render(r))
+            del q["traceability"]; write(repo / "config/quality.json", json.dumps(q))
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertIn("`traceability` is missing", r["reason"])
+
+    def test_title_tag_and_junit_homes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, kind="title-tag")
+            write(repo / "src/login.test.ts", 'import { test } from "vitest";\ntest("[FEAT-001/AC-01] logs in", () => {});\nit.only("[FEAT-001/TC-01] times out", () => {});\ndescribe("[FEAT-001/TC-API-01] POST /login", () => { it("ok", () => {}); });\n// test("[FEAT-001/TC-API-01] commented out", () => {});\ntest.skip("[FEAT-001/TC-API-01] skipped", () => {});\n')
+            r = traceability.check(repo); self.assertEqual(r["linked"], 2, "a describe, a comment and a skipped test link nothing"); self.assertEqual(r["unlinked"], ["FEAT-001/TC-API-01"])
+            write(repo / "src/api.test.ts", 'test.each([1, 2])("[FEAT-001/TC-API-01] status %i", (i) => {});\n')
+            r = traceability.check(repo); self.assertEqual(r["linked"], 3, "test.each links")
+            write(repo / "src/other.test.ts", 'test("[FEAT-001/tc-01] lower", () => {});\n')
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertTrue(any("is not a case link" in f["reason"] for f in r["findings"]))
+            (repo / "src/other.test.ts").unlink()
+            # JUnit: @DisplayName is the home
+            q = json.loads((repo / "config/quality.json").read_text()); q["traceability"]["home"] = {"kind": "junit-displayname"}; write(repo / "config/quality.json", json.dumps(q))
+            write(repo / "src/test/LoginTest.java", 'class LoginTest {\n  @Test\n  @DisplayName("[FEAT-001/AC-01] logs in")\n  void login() {}\n  // @DisplayName("[FEAT-001/TC-01] commented")\n}\n')
+            r = traceability.check(repo); self.assertEqual([x["status"] for x in r["cases"] if x["id"] == "FEAT-001/AC-01"], ["linked"]); self.assertIn("FEAT-001/TC-01", r["unlinked"])
+            # custom: a pattern with a named group id is the ONLY home; an unknown kind is red
+            q["traceability"]["home"] = {"kind": "custom"}; write(repo / "config/quality.json", json.dumps(q))
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertIn("needs a `pattern`", r["reason"])
+            q["traceability"]["home"] = {"kind": "custom", "pattern": "case=(?P<id>[^ ]+)"}; write(repo / "config/quality.json", json.dumps(q))
+            write(repo / "src/test/x.swift", "// case=FEAT-001/TC-01\n")
+            r = traceability.check(repo); self.assertEqual([x["id"] for x in r["cases"] if x["status"] == "linked"], ["FEAT-001/TC-01"], "a custom home scans every text file under the roots")
+            q["traceability"]["home"] = {"kind": "nope"}; write(repo / "config/quality.json", json.dumps(q))
+            r = traceability.check(repo); self.assertFalse(r["ok"]); self.assertIn("not one of", r["reason"])
+
+    def test_pytest_plugin_refuses_collection_on_an_unknown_id(self):
+        if not importlib.util.find_spec("pytest"):
+            if os.environ.get("CI"):
+                self.fail("pytest is not installed on the CI runner — the collection plugin's red must run there (governance-check.yml installs pytest)")
+            self.skipTest("pytest is not installed here")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            import shutil
+            (repo / "tests").mkdir(exist_ok=True); (repo / "scripts").mkdir(exist_ok=True)
+            shutil.copy(HERE.parent / "gate.py", repo / "scripts/gate.py"); shutil.copytree(HERE, repo / "scripts/gates", ignore=shutil.ignore_patterns("test_*", "__pycache__"))
+            shutil.copy(HERE.parent.parent / ".context/templates/setup/tests/conftest_traceability.py", repo / "tests/conftest_traceability.py")
+            write(repo / "tests/conftest.py", 'pytest_plugins = ["conftest_traceability"]\n')
+            write(repo / "tests/test_ok.py", 'import pytest\n\n@pytest.mark.case("FEAT-001/AC-01")\ndef test_ok(): pass\n')
+            env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+            def run(*extra):
+                return subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *extra, "tests"], cwd=str(repo), capture_output=True, text=True, env=env)
+            r = run(); self.assertNotEqual(r.returncode, 0); self.assertIn("--strict-markers", r.stdout + r.stderr, "the plugin refuses to run without strict markers")
+            r = run("--strict-markers"); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            write(repo / "tests/test_ghost.py", 'import pytest\n\n@pytest.mark.case("FEAT-001/TC-99")\ndef test_ghost(): pass\n')
+            r = run("--strict-markers"); self.assertNotEqual(r.returncode, 0); self.assertIn("collection refused", r.stdout + r.stderr); self.assertIn("FEAT-001/TC-99", r.stdout + r.stderr)
+            (repo / "tests/test_ghost.py").unlink()
+            q = json.loads((repo / "config/quality.json").read_text()); q["traceability"] = {"required": False, "reason": "switched off"}; write(repo / "config/quality.json", json.dumps(q))
+            r = run("--strict-markers"); self.assertEqual(r.returncode, 0, "required: false — the plugin does nothing, the suite runs")
+
+
+class MiniYaml(unittest.TestCase):
+    """The subset parser reads what this framework's frontmatter writes — flow mappings and lists included — so a project
+    without PyYAML gets the same policy, never a silently empty roster."""
+
+    def test_flow_collections_match_pyyaml(self):
+        from gates.common import _mini_yaml
+        text = RULE_AGENTS.split("---")[1]
+        got = _mini_yaml(text)
+        self.assertEqual(got["agents"]["roster"][0], {"name": "factory-dev-backend", "class": "worker", "surface": ["src/**"]})
+        self.assertEqual(got["agents"]["classes"]["worker"]["tools"], {"must": ["Read", "Edit", "Write", "Bash"], "never": ["Agent"]})
+        self.assertEqual(got["agents"]["tiers"], {"small": {"files": 5, "lines": 150}, "large": {"files": 30, "lines": 800}})
+        self.assertEqual(got["agents"]["ladder"], {"critic": ["writer"], "writer": []})
+        self.assertEqual(got["agents"]["resolve"][1], {"class": "plan-critic", "round": 2, "effort": "max"})
+        self.assertEqual(_mini_yaml('x: [1, "a, b", {k: [true, null]}]')["x"], [1, "a, b", {"k": [True, None]}])
+        try:
+            import yaml
+            self.assertEqual(got, yaml.safe_load(text), "the subset parser and PyYAML read the same structure")
+        except ImportError:
+            pass
+        with self.assertRaisesRegex(GateFault, "unterminated"):
+            _mini_yaml("x: [1, 2")
+
+    def test_real_roster_without_pyyaml(self):
+        """The delivered reader on the framework's own roster with PyYAML hidden: the validator is green and the spawn hook refuses — never a silently empty roster."""
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp) / "yaml.py", "raise ImportError('PyYAML hidden for the test')\n")
+            env = {**os.environ, "PYTHONPATH": tmp, "PYTHONDONTWRITEBYTECODE": "1"}
+            root = HERE.parent.parent; gate = str(HERE.parent / "gate.py")
+            r = subprocess.run([sys.executable, gate, "--repo", str(root), "agents"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            r = subprocess.run([sys.executable, gate, "--repo", str(root), "agents", "--spawn", "--agent", "factory-critic-security", "--model", "sonnet"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1, "a critic on the writer's alias is refused with the subset parser too"); self.assertIn("its family's alias", r.stdout)
 
 
 class Cli(unittest.TestCase):
@@ -1516,6 +1700,19 @@ class Cli(unittest.TestCase):
             self.assertEqual(gp("documentation").returncode, 2, "no question asked is a fault")
             self.assertEqual(gp("digests", "--base", "main").returncode, 0, "no artefact: nothing to judge")
             r = gp("seal", "--check", "--base", "nowhere/nope"); self.assertEqual(r.returncode, 2); self.assertIn("not a commit this clone knows", r.stderr); self.assertNotIn("fatal:", r.stderr)
+            # EVOL-053: the --declared JSON the pytest plugin lives on; the rc table
+            os.makedirs(tmp + "/trace_cli"); trepo = Traceability()._repo(tmp + "/trace_cli")
+            def gt(*args, **kw):
+                return subprocess.run([sys.executable, gate, "--repo", str(trepo), *args], capture_output=True, text=True, env=env, **kw)
+            r = gt("traceability", "--declared", "--json"); self.assertEqual(r.returncode, 0)
+            d = json.loads(r.stdout); self.assertEqual(d["declared"], ["FEAT-001/AC-01", "FEAT-001/TC-01", "FEAT-001/TC-API-01"]); self.assertTrue(d["required"]); self.assertEqual(d["malformed"], [])
+            self.assertEqual(gt("traceability").returncode, 1, "three cases, no test: red")
+            self.assertEqual(gt("traceability", "--baseline").returncode, 2, "--baseline needs --init or --refresh")
+            write(trepo / "docs/project_log/traceability_baseline.json", "{nope")
+            r = gt("traceability"); self.assertEqual(r.returncode, 2); self.assertIn("unreadable", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            (trepo / "docs/project_log/traceability_baseline.json").unlink()
+            write(trepo / "docs/spec/FEAT-001/test_plan.md", Traceability.PLAN + "\n| ID | Type |\n|---|---|\n| TC-1 | x |\n")
+            r = gt("traceability", "--declared", "--json"); self.assertEqual(r.returncode, 0, "a listing, never a verdict"); self.assertEqual(len(json.loads(r.stdout)["malformed"]), 1)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "law-sentences", "--file", str(repo / "CLAUDE.md")], capture_output=True, text=True, env=env)
             self.assertIn("LAW-02\tNever modify protected code.", r.stdout)
             broken = Path(tmp) / "broken"; broken.mkdir(); (broken / "gate.py").write_text(Path(gate).read_text(), encoding="utf-8")
