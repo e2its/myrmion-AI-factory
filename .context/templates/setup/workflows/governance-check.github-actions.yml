@@ -34,11 +34,11 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
 
-      - name: Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface)
+      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface)"
         run: |
           python3 scripts/gate.py profile --run --control-point ci --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
 
-      - name: One definition — hooks, workflows and the preflight keep no branch list, mode read or mode override (EVOL-046)
+      - name: "One definition — hooks, workflows and the preflight keep no branch list, mode read or mode override (EVOL-046)"
         run: python3 scripts/gate.py one-definition
 
       - name: Post violation comment on failure

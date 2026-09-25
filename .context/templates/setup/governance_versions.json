@@ -3687,9 +3687,10 @@
       "delivery": "both"
     },
     "scripts/test-templates-static.sh": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "path": "scripts/test-templates-static.sh",
       "changelog": [
+        "1.4.0: feat(EVOL-046) — every workflow file (meta + every platform template) must parse as YAML (an unquoted step name with a colon failed CI at 0 s).",
         "1.3.0: feat(EVOL-043) — rewritten/extended for the index model (see script header).",
         "1.2.0: fix(github-project-link-repo) — assertion 7: the GitHub Projects adapter's `create_project` links the board to the repository. The link command is matched as a whole line; the project-side verification and the no-second-board rule are asserted; a missing adapter file fails as an assertion, not an awk abort.",
         "1.1.0: feat(EVOL-027) review close (Q1) — new L1 assertion block validating every agent_templates manifest entry has a source file at `.context/templates/{key}`. Closes the gap surfaced by factory-pr-review Q1 (no static check that target paths resolve).",
