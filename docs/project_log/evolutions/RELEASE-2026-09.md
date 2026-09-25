@@ -1,12 +1,12 @@
 # Framework evolution 2026-09 — release record (6.1.0 → 8.3.0)
 
-> Epic #50. Ten axes transferred from a materialised project (the reference implementation, **MASS**) into the framework on three surfaces: the meta repo's own behaviour, the `.context/templates/setup/**` tree that `SETUP --generate` materialises, and the SETUP discovery questions where a threshold must be a project decision. Every axis shipped as one pull request with its ADR (`docs/project_log/evolutions/ADR-EVOL-0NN.md`, `status: accepted`), its manifest bump, both lock-step sides, its red-first tests and a review pass by four read-only reviewers whose findings were fixed at the root. This record is the index; each ADR is the body.
+> Epic #50. Ten axes transferred from a materialised project (the reference implementation) into the framework on three surfaces: the meta repo's own behaviour, the `.context/templates/setup/**` tree that `SETUP --generate` materialises, and the SETUP discovery questions where a threshold must be a project decision. Every axis shipped as one pull request with its ADR (`docs/project_log/evolutions/ADR-EVOL-0NN.md`, `status: accepted`), its manifest bump, both lock-step sides, its red-first tests and a review pass by four read-only reviewers whose findings were fixed at the root. This record is the index; each ADR is the body.
 
 ## The shape of the framework after the evolution
 
 | Axis | Issue | ADR | PR | Framework | What a project now has |
 |---|---|---|---|---|---|
-| G — Measurement subproduct + baseline | #51 | ADR-EVOL-042 | #66 (+ #67) | 6.2.0 (6.2.1) | `subproducts/measure/`: its own SDLC cost per window — clock under gates, rounds and commits per PR, rework, governance bytes injected vs read; the before/after protocol as the adopting project's obligation; the baseline of record stays MASS's (#51). |
+| G — Measurement subproduct + baseline | #51 | ADR-EVOL-042 | #66 (+ #67) | 6.2.0 (6.2.1) | `subproducts/measure/`: its own SDLC cost per window — clock under gates, rounds and commits per PR, rework, governance bytes injected vs read; the before/after protocol as the adopting project's obligation; this repository claims no baseline (#51). |
 | I — RDR in two registers | #59 | ADR-EVOL-050 | #68 | 6.3.0 | Every RDR opens in plain language, then the technical decision; both name the same options and costs; malformed otherwise. |
 | D — Governance corpus in layers | #52 | ADR-EVOL-043 | #69 | 7.0.0 | One index (a sentence, one body, its records per law), one resolver (`gate.py applicable`), the hook delivery channel (`deliver-governance.sh` → `gate.py deliver`) with a byte budget, the digest at the point of edit. |
 | H — Coherence gates | #53 | ADR-EVOL-044 | #70 | 7.1.0 | Body ↔ sentence parity, artefact currency (`certifies:` hashes), manifest ↔ frontmatter parity — one reader, red in the profile. |

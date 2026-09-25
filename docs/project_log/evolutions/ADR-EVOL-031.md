@@ -39,7 +39,7 @@ Rename mechanics:
 - Downstream `factory-sync.sh` glob no longer silently misses skills (the post-rename glob change in this PR closes the regression that would have surfaced on the next sync run).
 
 **Negatives / Trade-offs:**
-- Mass rename diff (~90+ files in meta, ~125+ in MASS) — git history preserves rename via `git mv`, but blame walks an extra hop.
+- Mass rename diff (~90+ files in meta, ~125+ in a downstream fork) — git history preserves rename via `git mv`, but blame walks an extra hop.
 - Bare prose refs to `Factory-X` in skill SKILL.md bodies kept as historical context — readers unfamiliar with the lockstep rename may briefly assume drift; the path-prefixed form (`.claude/skills/factory-x/`) is the authoritative reference.
 - The `Factory-backlog-next-task` collision is permanently asymmetric (skill lowercase, instruction PascalCase) and depends on the path prefix to disambiguate. Future collisions of the same shape would replicate the asymmetry.
 

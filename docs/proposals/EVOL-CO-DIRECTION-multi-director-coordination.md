@@ -5,7 +5,7 @@ date: 2026-05-18
 author: Claude (spawned from EVOL-034 split, session 2026-05-18)
 parent_proposal: EVOL-034-framework-downstream-awareness.md
 empirical_inputs:
-  - e2its/Nexus-Tech-Link ADR-0003 (cross_territory_scope local convention)
+  - a downstream project's ADR-0003 (cross_territory_scope local convention)
   - EVOL-034 deferred findings: 1-axis (cross_territory_scope), 3 (Check 3 false-positives), 4 (changelog re-introduction)
 subsumed_primitives:
   - field: framework_core_excluded_in_downstream
@@ -34,14 +34,14 @@ This document captures the design surface, the empirical inputs, and the open qu
 
 ## Genesis
 
-- **Empirical trigger:** nexus session 2026-05-18 surfaced 7 framework defects (EVOL-034). Three of them (Theme C: #1-axis, #3, #4) were originally framed as "downstream-awareness contract" but reflected a deeper pattern.
-- **Trigger event for split:** during EVOL-034 RDR ratification, user noted that nexus + MASS are going independent forks → Theme C loses immediate driver → recognized that the underlying pattern (Factory + co-director on nested repos) is a class of usage that the framework does not natively support.
+- **Empirical trigger:** a downstream project session 2026-05-18 surfaced 7 framework defects (EVOL-034). Three of them (Theme C: #1-axis, #3, #4) were originally framed as "downstream-awareness contract" but reflected a deeper pattern.
+- **Trigger event for split:** during EVOL-034 RDR ratification, user noted that the downstream projects are going independent forks → Theme C loses immediate driver → recognized that the underlying pattern (Factory + co-director on nested repos) is a class of usage that the framework does not natively support.
 - **Insight:** Theme C primitives (`changelog_policy`, `adr_exemption_axes`, `framework_core_excluded_in_downstream`) are **workarounds for a missing abstraction**. The abstraction itself is the co-director protocol.
 
-## The pattern (as observed in nexus)
+## The pattern (as observed in a downstream project)
 
 ```
-~/dev/products/Nexus-Tech-Link/             ← Factory's project root
+~/dev/products/<project>/             ← Factory's project root
 ├── .git/                                    (Factory authors here)
 ├── CLAUDE.md                                (Factory's project-level constitution)
 ├── docs/                                    (Factory's territory: governance, ADRs, specs)
@@ -56,7 +56,7 @@ This document captures the design surface, the empirical inputs, and the open qu
 
 Two directors operate on the SAME git tree. Each has natural ownership of a subtree. Some files (root-level config, README, certain docs) live in soft-shared territory and need explicit cross-territory authorisation.
 
-nexus' [ADR-0003 cross_territory_scope](nexus-side) was the local solution: ADRs declare `cross_territory_scope:` listing the authorised paths; either director MAY author in the other's default territory IF an accepted ADR grants the crossing.
+The downstream project's ADR-0003 `cross_territory_scope` (project-side) was the local solution: ADRs declare `cross_territory_scope:` listing the authorised paths; either director MAY author in the other's default territory IF an accepted ADR grants the crossing.
 
 ## Empirical inputs re-interpreted
 
@@ -77,7 +77,7 @@ Each finding is a manifestation of "Factory assumes sole authority; in reality i
 - **Declaration:** ADR (heavy ceremony, audit trail) vs `coherence-context.json` (single-file, mechanical) vs per-file frontmatter (distributed)?
 - **Inheritance:** does ownership of `src/` imply ownership of all children? Override mechanism?
 - **Default ownership:** what happens to a new file no rule covers?
-- **Soft vs hard boundaries:** nexus' "soft" model allows ADR-authorised crossings; a "hard" model would forbid them entirely.
+- **Soft vs hard boundaries:** the downstream project's "soft" model allows ADR-authorised crossings; a "hard" model would forbid them entirely.
 
 ### 2. Conflict resolution
 - Both directors want to author the same file in the same session: who wins?
@@ -96,7 +96,7 @@ Each finding is a manifestation of "Factory assumes sole authority; in reality i
 - Do the syncs see each other (e.g. factory-sync detects Lovable territory and skips, vs runs naively and corrupts)?
 
 ### 5. Branching strategy
-- Single git tree with two directors editing different subtrees (current nexus model).
+- Single git tree with two directors editing different subtrees (the downstream project's current model).
 - Git submodules (Lovable's territory as separate repo).
 - Nested independent repos (Factory at `~/dev/products/X/`, project at `~/dev/products/X/project/` with own `.git`) — the topology already mentioned in [Factory-protocol-cwd-discipline.instructions.md](../../.claude/instructions/Factory-protocol-cwd-discipline.instructions.md).
 - Working trees (one repo, two checkouts).
@@ -152,10 +152,10 @@ Probable order:
 
 ## Open invitations
 
-- **Empirical data needed:** sample Lovable workflow on a real co-director project. Do we have access to nexus' Lovable side, or another project? Without traces, the territory model is guesswork.
+- **Empirical data needed:** sample Lovable workflow on a real co-director project. Do we have access to the downstream project's Lovable side, or another project? Without traces, the territory model is guesswork.
 - **Stakeholder alignment:** is the framework owner commercially interested in supporting Lovable + Factory as a first-class combo, or is this exploration value-without-immediate-deployment?
-- **Co-director scope:** which ones in scope? Lovable confirmed by nexus; Bolt / V0 / Replit / custom — optional or out?
-- **Hard vs soft authority model:** nexus picked "soft" (ADR-authorised crossings). Is that the framework's preferred default, or do we want "hard" boundaries with explicit delegation?
+- **Co-director scope:** which ones in scope? Lovable confirmed by a downstream project; Bolt / V0 / Replit / custom — optional or out?
+- **Hard vs soft authority model:** a downstream project picked "soft" (ADR-authorised crossings). Is that the framework's preferred default, or do we want "hard" boundaries with explicit delegation?
 
 ## Status
 
@@ -166,4 +166,4 @@ Probable order:
 - Parent proposal: [EVOL-034-framework-downstream-awareness.md](EVOL-034-framework-downstream-awareness.md) — deferred Theme C, RDR-4 + RDR-5
 - Existing partial foundation: [Factory-protocol-cwd-discipline.instructions.md](../../.claude/instructions/Factory-protocol-cwd-discipline.instructions.md) — nested-repo CWD discipline already cataloged
 - Existing schema: [config/coherence-context.json](../../config/coherence-context.json) — `context: meta|downstream` discriminator already exists; needs extension for `context: co-director-project` or similar
-- nexus' local convention: e2its/Nexus-Tech-Link ADR-0003 (private repo) — primary empirical reference
+- a downstream project's local convention: its ADR-0003 (private repo) — primary empirical reference

@@ -11,7 +11,7 @@ status: accepted
 
 A three-agent diagnostic @ main fcef19d confirmed the thesis: the artefacts named "user journey" are not user journeys. `user_journey_template.md` (184 L) and `user_journey.integration.md` (203 L) are Event-Storming data-contract documents — step = Actor/Command/Event/Screen/DataIn/DataOut, saturated with implementation detail (`decimal(18,2)`, `JWT`, `mTLS`, FE/BE tiers in mermaid, SIGTERM). Experience vocabulary across ~30k lines of governance: `pain point` 0, `emotion` 0, `empathy` 0, `delight` 0. The only personas live in `design_ux.md` — a template verified 100% orphaned (0 generators, 2 self-labelled "legacy" readers, 18 dangling refs, untouched since the initial commit). The `### Paso N` anchor shipped as "parser-canonical" (EVOL-027) is validated by no executable. E2E/smoke runs on 4 disjoint anchoring models, including an invented `US-N.M` grammar matching nothing upstream. 20 concrete drifts catalogued (D1-D20), several hard-blocking backend-only features today (smart-redirect dead-lock, ~15 gates hard-coded to `user_journey.md`). Zero generated instances exist in this repo.
 
-Binding user principle (PRINCIPIO-0, verbatim): "quien usa codesign solo sabe y puede validar negocio. el resto de cosas que se generen fuera de ahi van a ser validaciones falsas." MASS-fork convergence explicitly discarded as a criterion.
+Binding user principle (PRINCIPIO-0, verbatim): "quien usa codesign solo sabe y puede validar negocio. el resto de cosas que se generen fuera de ahi van a ser validaciones falsas." Convergence with the reference implementation's fork explicitly discarded as a criterion.
 
 ## Decision
 
