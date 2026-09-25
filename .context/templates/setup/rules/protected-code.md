@@ -16,7 +16,6 @@ version: 1.4.1
 date: 2026-01-26
 changelog:
   - "1.4.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
-  - "1.4.0: chore(EVOL-044) — frontmatter version realigned to the governance manifest (the manifest is the source of truth; gate: gate.py manifest-parity)"
   - "1.0.0: Initial template version"
 ---
 

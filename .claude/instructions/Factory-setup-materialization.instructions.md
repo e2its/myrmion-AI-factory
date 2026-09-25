@@ -1156,7 +1156,7 @@ This ensures that even operations outside the slash command are blocked from com
 **Governance Versions Snapshot (5 steps):**
 1. Read `.context/templates/setup/governance_versions.json` (framework reference)
 2. For each file in snapshot, compute MD5 of the materialized version
-3. Create `docs/project_log/governance_versions.json` with project-specific checksums
+3. Create `docs/project_log/governance_versions.json` — the project manifest. Shape (declared, EVOL-044): `framework_version` (the framework version materialised), `templates` (the framework manifest's `templates` map, key → `{version, target, content_type, stack_conditional}`, filtered to the entries that landed — the source of truth every governed file's frontmatter `version:` must equal; `gate.py manifest-parity` reads it) and `files` (target → `{template_source, checksum}`, what `validate-upgrade-integrity.sh` compares at upgrade).
 4. Record framework version, materialization timestamp
 5. This snapshot enables future `--upgrade` to detect drift vs customization
 

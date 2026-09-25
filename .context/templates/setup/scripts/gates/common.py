@@ -137,6 +137,13 @@ def _split_inline(s: str) -> list[str]:
 
 def _scalar(v: str):
     v = v.strip()
+    if v[:1] in "\"'":
+        end = v.find(v[0], 1)
+        if end == -1:
+            raise GateFault(f"frontmatter subset parser: unterminated quote in `{v[:40]}`")
+        return v[1:end]
+    if " #" in v:   # inline comment outside quotes
+        v = v[:v.index(" #")].rstrip()
     if v.startswith("[") and v.endswith("]"):
         inner = v[1:-1].strip()
         return [_scalar(x) for x in _split_inline(inner)] if inner else []
@@ -146,8 +153,6 @@ def _scalar(v: str):
         return False
     if v in ("null", "~", ""):
         return None
-    if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
-        return v[1:-1]
     if re.fullmatch(r"-?\d+", v):
         return int(v)
     return v
@@ -271,12 +276,18 @@ def any_glob(path: str, patterns) -> bool:
 
 
 def tracked_files(repo: Path) -> list[str]:
+    """Tracked files of a git repo; a plain folder (no .git) is walked. Git failing inside a repo is a fault,
+    never a silent walk over untracked files."""
     try:
         out = subprocess.run(["git", "-C", str(repo), "ls-files"], capture_output=True, text=True, timeout=60)
-        if out.returncode == 0:
-            return [ln for ln in out.stdout.splitlines() if ln]
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+    except (OSError, subprocess.TimeoutExpired) as e:
+        if (repo / ".git").exists():
+            raise GateFault(f"git ls-files could not run: {e}") from None
+        out = None
+    if out is not None and out.returncode == 0:
+        return [ln for ln in out.stdout.splitlines() if ln]
+    if (repo / ".git").exists():
+        raise GateFault("git ls-files failed inside a git repository — the scan set cannot be trusted")
     return [str(p.relative_to(repo)) for p in repo.rglob("*") if p.is_file() and ".git" not in p.parts]
 
 

@@ -159,7 +159,7 @@ if [ -f "${REPO_ROOT}/scripts/gate.py" ] && command -v python3 >/dev/null 2>&1; 
     case "$GRC" in
       0) ;;
       1) echo -e "${RED}❌ pre-push: gate.py ${gate} is red (see above).${NC}"; exit 1 ;;
-      *) echo -e "${YELLOW}⚠  pre-push: gate.py ${gate} could not run (exit ${GRC}, see above) — push proceeds; fix config/quality.json.${NC}" ;;
+      *) echo -e "${YELLOW}⚠  pre-push: gate.py ${gate} could not run (exit ${GRC}, its message is above) — push proceeds; fix config/quality.json or re-sync scripts/gates (factory-sync.sh).${NC}" ;;
     esac
   done
   echo -e "${GREEN}✅ corpus + coherence gates passed.${NC}"

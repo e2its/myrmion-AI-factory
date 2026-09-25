@@ -239,5 +239,5 @@ All validations passed successfully!
 
 ## The one governance reader (EVOL-043)
 
-- `gate.py` + `gates/` — law index and defect-catalog parser, applicability resolver (`applicable`, the roll-call), digest and pre-edit delivery envelope (`deliver --hook-json`), injection budgets measured on the real producers (`budget`), retired-vocabulary ratchet (`retired-terms`), snapshot sections, law parity (`laws --parity`), law sentences for the ADR ceremony gate. Every hook, gate and pre-flight asks it; none re-derives.
+- `gate.py` + `gates/` — law index and defect-catalog parser, applicability resolver (`applicable`, the roll-call), digest and pre-edit delivery envelope (`deliver --hook-json`), injection budgets measured on the real producers (`budget`), retired-vocabulary ratchet (`retired-terms`), snapshot sections, law parity (`laws --parity`), law sentences for the ADR ceremony gate, the certification block a verdict embeds (`certify --subject diff|tree`), artefact currency (`currency`) and manifest ↔ frontmatter parity (`manifest-parity`). Every hook, gate and pre-flight asks it; none re-derives.
 - `generate-governance-snapshot.sh` — lite/full snapshot; hashes, protected paths and setup flags here, every corpus section from `gate.py snapshot-sections`; exit 3 when the lite profile overflows `budgets.snapshot`.

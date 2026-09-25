@@ -144,8 +144,22 @@ p = pathlib.Path(sys.argv[2]); p.parent.mkdir(parents=True, exist_ok=True); p.wr
 PY
 OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "manifest ↔ frontmatter parity holds for every materialised governed file" || bad "manifest parity red in the scratch project" "$OUT"
+printf '%s' "$OUT" | grep -qE 'ok \([1-9][0-9]* compared' && ok "manifest parity compared real entries ($(printf '%s' "$OUT" | grep -oE '[0-9]+ compared'))" || bad "manifest parity compared nothing (vacuous)" "$OUT"
+sed -i '0,/^version: /s//version: 9.9.9\nx_drift: /' "$P/.claude/rules/architecture.md"
+OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'architecture.md' && ok "RED: an injected frontmatter drift is caught in the scratch project" || bad "injected drift not caught (rc=$RC)" "$OUT"
+sed -i '/^x_drift: /d; 0,/^version: 9.9.9/s//version: '"$(cd "$P" && python3 -c "import json;print(json.load(open('docs/project_log/governance_versions.json'))['templates']['rules/architecture.md']['version'])")"'/' "$P/.claude/rules/architecture.md"
+# a real verdict on a feature branch: certified → ok; its certified file moves → STALE
+git -C "$P" checkout -q -b feature/FEAT-001-smoke; mkdir -p "$P/src" "$P/docs/spec/FEAT-001/qa"; printf 'print(1)\n' > "$P/src/app.py"
+git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm src; git -C "$P" update-ref refs/remotes/origin/main HEAD
+CERT=$(cd "$P" && python3 scripts/gate.py certify --subject tree --paths 'src/**')
+printf -- '---\nstatus: APPROVED\nverdict: APPROVED\ncertifies:\n%s\n---\n' "$CERT" > "$P/docs/spec/FEAT-001/qa/qa_report_final_20260925.md"
+git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm verdict
 OUT=$(cd "$P" && python3 scripts/gate.py currency 2>&1); RC=$?
-[ "$RC" -eq 0 ] && ok "artefact currency: no stale verdict (none yet — the gate runs)" || bad "currency red in the scratch project" "$OUT"
+[ "$RC" -eq 0 ] && ok "artefact currency: a verdict certified with gate.py certify is fresh" || bad "fresh verdict judged red (rc=$RC)" "$OUT"
+printf 'print(2)\n' > "$P/src/app.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm moved
+OUT=$(cd "$P" && python3 scripts/gate.py currency 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'STALE' && ok "RED: the certified file moved → the verdict is STALE" || bad "moved subject not caught (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

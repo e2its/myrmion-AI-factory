@@ -5,22 +5,24 @@
 currency        An artefact that certifies a build declares WHAT it certified in its frontmatter:
                     certifies:
                       subject: diff | tree
-                      base: origin/main          # diff only — the range base the review ran on
-                      paths: ["src/**", …]       # tree only — the paths the verdict covers
-                      hash: <sha256>
-                The gate recomputes the hash THE WAY THE TOOLCHAIN COMPUTES IT (`certify()` below — the
-                same function the writer calls through `gate.py certify`) and reports STALE when it differs:
-                the artefact must be re-taken, not re-blessed. A certifying artefact (config key
-                `coherence.certifying_artefacts` globs) whose status is terminal and carries no `certifies:`
-                is red too. Frontmatter is read by the one parser (gates.common.read_frontmatter).
+                      paths: ["src/**", …]        # tree: the globs the verdict covers · diff: the FILE SET the review
+                                                  #   read (derived once at certify time from the review-hash pipeline)
+                      hash: <sha256>              # sha256 over sorted `path\\0blob-sha@HEAD` of the tracked files under paths
+                ONE hash function for both subjects; `diff` only decides the paths at certify time. A later change to
+                any certified file moves the hash; a change elsewhere does not. The gate judges only the verdicts in
+                scope of the push — the feature the branch names (`docs/spec/{ID}/…`) and every verdict artefact touched
+                in the diff — and, per kind, only the NEWEST verdict (an older report is superseded, not stale). A
+                terminal verdict without `certifies`, whose paths match nothing, or whose hash moved is red: re-take,
+                never re-bless. Infrastructure faults (pipeline not delivered, git down) are reported apart (exit 2).
 manifest-parity A governed file whose frontmatter carries `version:` and its manifest entry are one digit and
-                move together; divergence is reported with the manifest as the source of truth. Unreadable
-                frontmatter is red (it cannot be compared).
+                move together; drift is red with the manifest as the source of truth; unreadable frontmatter is red.
+                Files with no frontmatter `version:` are counted, not compared.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -28,80 +30,143 @@ from .common import GateFault, any_glob, key, load_coherence, read_frontmatter, 
 
 TERMINAL = {"APPROVED", "PASSED", "PASS", "SECURE", "IMPLEMENTED_AND_VERIFIED"}
 DEFAULT_CERTIFYING = ["docs/spec/*/qa/qa_report*.md", "docs/spec/*/review/peer_review_*.md",
-                      "docs/spec/*/review/sec_audit*.md", "docs/spec/*/smoke_e2e_report.md"]
+                      "docs/spec/*/review/sec_audit*.md", "docs/spec/*/sec_audit*.md", "docs/spec/*/smoke_e2e_report.md"]
+FEATURE_IN_BRANCH = re.compile(r"^(?:feature|epic)/([A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*)")
 
 
-# ─── the hash, computed once for writers and checkers ────────────────────────────
+def _git(repo: Path, *args) -> str:
+    try:
+        r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise GateFault(f"git {' '.join(args)} could not run: {e}") from None
+    if r.returncode != 0:
+        raise GateFault(f"git {' '.join(args)} failed: {(r.stderr.strip().splitlines() or ['(no message)'])[-1]}")
+    return r.stdout
 
-def certify(repo: Path, subject: str, base: str = "origin/main", paths: list[str] | None = None) -> str:
-    """The certification hash. `diff`: the factory-code-review content hash (sha256 over sorted path\\0blob-sha
-    of is_code ∪ is_test files in base..HEAD — the same pipeline the push gate verifies), or `EMPTY`.
-    `tree`: sha256 over sorted path\\0blob-sha of every tracked file under `paths` at HEAD."""
-    if subject == "diff":
-        dct = repo / ".claude/skills/factory-pr-review/scripts/detect_change_type.py"
-        crh = repo / ".claude/skills/factory-code-review/scripts/code_review_hash.py"
-        if not dct.is_file() or not crh.is_file():
-            raise GateFault("the review-hash pipeline (factory-pr-review detect_change_type.py + factory-code-review code_review_hash.py) is not delivered — run factory-sync.sh")
-        try:
-            classified = subprocess.run(["python3", str(dct), "--git-range", f"{base}..HEAD"], cwd=str(repo), capture_output=True, text=True, timeout=120)
-            hashed = subprocess.run(["python3", str(crh)], cwd=str(repo), input=classified.stdout, capture_output=True, text=True, timeout=120)
-        except (OSError, subprocess.TimeoutExpired) as e:
-            raise GateFault(f"the review-hash pipeline could not run: {e}") from None
-        if classified.returncode != 0 or hashed.returncode != 0:
-            raise GateFault(f"the review-hash pipeline failed on {base}..HEAD: {(hashed.stderr or classified.stderr).strip().splitlines()[-1:] or ['(no message)']}")
-        return hashed.stdout.strip()
+
+def tree_hash(repo: Path, paths: list[str]) -> str:
+    """sha256 over sorted `path\\0blob-sha` of every tracked file under `paths` at HEAD. Empty set = fault."""
+    entries = []
+    for line in _git(repo, "ls-files", "-s").splitlines():
+        meta, _, path = line.partition("\t")
+        blob = meta.split()[1] if len(meta.split()) > 1 else ""
+        if any_glob(path, paths):
+            entries.append(f"{path}\0{blob}")
+    if not entries:
+        raise GateFault(f"no tracked file matches the certified paths {paths} — a certification over nothing would never go stale")
+    return hashlib.sha256("\n".join(sorted(entries)).encode()).hexdigest()
+
+
+def diff_paths(repo: Path, base: str) -> list[str]:
+    """The file set a review reads: is_code ∪ is_test of base...HEAD, from the factory-pr-review classifier."""
+    dct = repo / ".claude/skills/factory-pr-review/scripts/detect_change_type.py"
+    if not dct.is_file():
+        raise GateFault("the review classifier (factory-pr-review detect_change_type.py) is not delivered — run factory-sync.sh")
+    try:
+        r = subprocess.run(["python3", str(dct), "--git-range", f"{base}..HEAD"], cwd=str(repo), capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise GateFault(f"the review classifier could not run: {e}") from None
+    if r.returncode != 0:
+        raise GateFault(f"the review classifier failed on {base}..HEAD: {(r.stderr.strip().splitlines() or ['(no message)'])[-1]}")
+    try:
+        files = json.loads(r.stdout).get("files") or {}
+    except json.JSONDecodeError:
+        raise GateFault("the review classifier returned no JSON") from None
+    return sorted(p for p, c in files.items() if c.get("is_code") or c.get("is_test"))
+
+
+def certify(repo: Path, subject: str, base: str = "origin/main", paths: list[str] | None = None) -> dict:
+    """{subject, paths, hash} — what a verdict embeds under `certifies:`."""
     if subject == "tree":
         if not paths:
-            raise GateFault("certify --subject tree needs the paths the verdict covers (e.g. src/** tests/**)")
-        try:
-            out = subprocess.run(["git", "-C", str(repo), "ls-files", "-s"], capture_output=True, text=True, timeout=60)
-        except (OSError, subprocess.TimeoutExpired) as e:
-            raise GateFault(f"git ls-files could not run: {e}") from None
-        if out.returncode != 0:
-            raise GateFault("not a git repository — a tree certification needs tracked files")
-        entries = []
-        for line in out.stdout.splitlines():
-            meta, _, path = line.partition("\t")
-            blob = meta.split()[1] if len(meta.split()) > 1 else ""
-            if any_glob(path, paths):
-                entries.append(f"{path}\0{blob}")
-        return hashlib.sha256("\n".join(sorted(entries)).encode()).hexdigest()
+            raise GateFault("certify --subject tree needs the paths the verdict covers (e.g. 'src/**' 'tests/**')")
+        return {"subject": "tree", "paths": list(paths), "hash": tree_hash(repo, list(paths))}
+    if subject == "diff":
+        files = diff_paths(repo, base)
+        if not files:
+            raise GateFault(f"no code or test file in {base}..HEAD — nothing to certify (a docs-only diff owes no review certification)")
+        return {"subject": "diff", "paths": files, "hash": tree_hash(repo, files)}
     raise GateFault(f"unknown certification subject `{subject}` — use diff or tree")
 
 
 # ─── currency ───────────────────────────────────────────────────────────────────
 
-def _is_terminal(fm: dict) -> bool:
-    return any(str(fm.get(k, "")).upper() in TERMINAL for k in ("status", "verdict", "overall_verdict"))
+def _terminal(fm: dict) -> bool:
+    for k in ("status", "verdict", "overall_verdict"):
+        v = str(fm.get(k, "")).upper()
+        head = re.sub(r"[^A-Z_]", " ", v).split()
+        if head and head[0] in TERMINAL:
+            return True
+    return False
 
 
-def currency(repo: Path) -> list[dict]:
-    """Every certifying artefact in a terminal state: `certifies` present and its hash equal to a fresh
-    computation. Returns findings [{path, reason}]; empty = green."""
-    globs = key(repo, "coherence.certifying_artefacts", default=DEFAULT_CERTIFYING) or DEFAULT_CERTIFYING
+def _kind(rel: str) -> str:
+    """qa_report_final_20260925.md → qa_report_final; peer_review_INC-1_x.md → peer_review_INC-1."""
+    name = Path(rel).stem
+    return re.sub(r"[_-]?\d{4,}.*$", "", name) or name
+
+
+def in_scope(repo: Path, globs: list[str], base: str | None) -> list[str]:
+    """Verdict artefacts this push is accountable for: those touched in base..HEAD, plus every artefact of the
+    feature the branch names. Newest per (folder, kind); older ones are superseded."""
+    candidates = [rel for rel in tracked_files(repo) if any_glob(rel, globs)]
+    touched: set[str] = set()
+    if base:
+        try:
+            touched = {ln for ln in _git(repo, "diff", "--name-only", f"{base}...HEAD").splitlines() if ln}
+        except GateFault:
+            touched = set()
+    try:
+        branch = _git(repo, "branch", "--show-current").strip()
+    except GateFault:
+        branch = ""
+    m = FEATURE_IN_BRANCH.match(branch)
+    feature_root = f"docs/spec/{m.group(1)}/" if m else None
+    scoped = [c for c in candidates if c in touched or (feature_root and c.startswith(feature_root))]
+    newest: dict[tuple[str, str], str] = {}
+    for c in sorted(scoped):
+        newest[(str(Path(c).parent), _kind(c))] = c   # sorted → the lexicographically last (timestamp) wins
+    return sorted(newest.values())
+
+
+def currency(repo: Path, base: str | None = "origin/main") -> tuple[list[dict], list[dict]]:
+    """(findings, faults). findings = stale / missing / unreadable / paths-match-nothing (exit 1);
+    faults = the gate could not judge an artefact (exit 2)."""
+    configured = key(repo, "coherence.certifying_artefacts", default=None)
+    globs = DEFAULT_CERTIFYING if configured is None else list(configured)
     findings: list[dict] = []
-    for rel in tracked_files(repo):
-        if not any_glob(rel, globs):
-            continue
+    faults: list[dict] = []
+    tracked = set(tracked_files(repo))
+    for p in repo.glob("docs/spec/*/**/*.md"):
+        rel = str(p.relative_to(repo))
+        if any_glob(rel, globs) and rel not in tracked:
+            findings.append({"path": rel, "reason": "not tracked by git (ignored?) — a verdict of record must be versioned; remove it from .gitignore and commit it"})
+    for rel in in_scope(repo, globs, base):
         try:
             fm = read_frontmatter(repo / rel)
         except GateFault as e:
             findings.append({"path": rel, "reason": f"frontmatter unreadable: {e}"})
             continue
-        if not _is_terminal(fm):
+        if not _terminal(fm):
             continue
         cert = fm.get("certifies")
         if not isinstance(cert, dict) or not cert.get("subject") or not cert.get("hash"):
-            findings.append({"path": rel, "reason": "certifies-missing: a terminal verdict must declare what it certified (certifies.subject + hash)"})
+            findings.append({"path": rel, "reason": "certifies-missing: a terminal verdict must declare what it certified (certifies.subject + paths + hash from `gate.py certify`)"})
+            continue
+        paths = cert.get("paths")
+        if isinstance(paths, str):
+            paths = [paths]
+        if not isinstance(paths, list) or not paths:
+            findings.append({"path": rel, "reason": "certifies.paths must be a non-empty list of globs or files"})
             continue
         try:
-            fresh = certify(repo, str(cert["subject"]), str(cert.get("base") or "origin/main"), cert.get("paths") or None)
+            fresh = tree_hash(repo, [str(p) for p in paths])
         except GateFault as e:
-            findings.append({"path": rel, "reason": f"cannot recompute: {e}"})
+            (findings if "matches the certified paths" in str(e) else faults).append({"path": rel, "reason": str(e)})
             continue
         if fresh != str(cert["hash"]):
-            findings.append({"path": rel, "reason": f"STALE: certified {cert['subject']} {str(cert['hash'])[:12]}… but the subject is now {fresh[:12]}… — re-take the verdict, never re-bless it"})
-    return findings
+            findings.append({"path": rel, "reason": f"STALE: certified {cert['subject']} {str(cert['hash'])[:12]}… but the certified files are now {fresh[:12]}… — re-take the verdict, never re-bless it"})
+    return findings, faults
 
 
 # ─── manifest ↔ frontmatter parity ───────────────────────────────────────────────
@@ -117,14 +182,17 @@ def manifest_path(repo: Path) -> Path:
 ROOTS = {"templates": ".context/templates/setup/", "agent_templates": ".context/templates/", "framework_core": ""}
 
 
-def manifest_parity(repo: Path) -> list[dict]:
-    """Every manifest entry whose file carries a frontmatter `version:` must equal the manifest version."""
+def manifest_parity(repo: Path) -> tuple[list[dict], dict]:
+    """(findings, stats). Every manifest entry whose file carries a frontmatter `version:` must equal it."""
     mp = manifest_path(repo)
     try:
         m = json.loads(mp.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise GateFault(f"{mp.relative_to(repo)} is not readable JSON ({e})") from None
+    if not isinstance(m.get("templates"), dict) or not m["templates"]:
+        raise GateFault(f"{mp.relative_to(repo)} has no `templates` section — the governance manifest keeps the framework's `templates` map (key → version, target); nothing can be compared")
     findings: list[dict] = []
+    stats = {"compared": 0, "no_version": 0, "absent": 0}
     for section, root in ROOTS.items():
         for k, e in (m.get(section) or {}).items():
             if k.startswith("_") or not isinstance(e, dict) or "version" not in e:
@@ -133,6 +201,7 @@ def manifest_parity(repo: Path) -> list[dict]:
             if section == "templates" and not p.is_file():
                 p = repo / (e.get("target") or "")   # downstream: the materialised target
             if not p.is_file() or p.suffix != ".md":
+                stats["absent"] += 1
                 continue
             try:
                 fm = read_frontmatter(p)
@@ -141,14 +210,16 @@ def manifest_parity(repo: Path) -> list[dict]:
                 continue
             fv = fm.get("version")
             if fv is None:
+                stats["no_version"] += 1
                 continue
+            stats["compared"] += 1
             if str(fv) != str(e["version"]):
                 findings.append({"path": str(p.relative_to(repo)), "reason": f"frontmatter version {fv} ≠ manifest {e['version']} — the manifest is the source of truth: set the frontmatter to {e['version']} (or bump both in one commit)"})
-    return findings
+    return findings, stats
 
 
-def render(name: str, findings: list[dict]) -> str:
+def render(name: str, findings: list[dict], note: str = "") -> str:
     if not findings:
-        return f"{name}: ok"
+        return f"{name}: ok" + (f" ({note})" if note else "")
     out = [f"{name}: FAIL — {len(findings)} finding(s):"] + [f"  {f['path']}: {f['reason']}" for f in findings]
     return "\n".join(out)
