@@ -2456,9 +2456,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.18.3",
+      "version": "2.19.0",
       "path": "README.md",
       "changelog": [
+        "2.19.0: docs(EVOL-056) — the README against reality (framework 8.4.0): role agents and the roster incl. the external-facts reader, the file structure, the one reader and its control points (new § Gates, Control Points and CI), the 23 skills, the command reference aligned with the command files, every audited mismatch corrected (40).",
         "2.18.3: feat(EVOL-053) — test-case traceability (EVOL-053)",
         "2.18.2: feat(EVOL-051) — BVL: one full verification loop per change, sealed and honoured at the push (EVOL-051)",
         "2.18.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
