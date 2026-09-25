@@ -16,8 +16,8 @@
 #                the record id; the parity between both is preserved.
 #   3. RED     — an empty sentence fails before any write; a sentence over
 #                budgets.law_sentence_max_chars fails before any write.
-#   4. The same reader the framework uses (scripts/gate.py laws) parses the
-#                result and body_section() finds the identical sentence.
+#   4. The framework's own parity gate (scripts/gate.py laws --parity) is green
+#                after every accept.
 #
 # Exit codes: 0 ok · 1 assertion failed · 2 infrastructure
 # ============================================================================
@@ -127,17 +127,8 @@ adr.write_text(text)
 PY
 }
 
-parity() { # parity <project> → 0 when every index sentence equals its body quote (the framework's own reader)
-  python3 - "$1" <<'PY'
-import sys; sys.path.insert(0, sys.argv[1] + "/scripts")
-from pathlib import Path
-from gates import corpus
-r = Path(sys.argv[1]); bad = []
-for l in corpus.laws(r)["project"]:
-    p, h, q = corpus.body_section(r, l)
-    if q != l["sentence"]: bad.append(l["id"])
-print(",".join(bad)); sys.exit(1 if bad else 0)
-PY
+parity() { # parity <project> → the framework's own gate (gate.py laws --parity); prints its report
+  (cd "$1" && python3 scripts/gate.py laws --parity 2>&1)
 }
 
 echo "L4 Accept Procedure test (index form)"; echo
@@ -167,7 +158,7 @@ grep -q '^Body: `rules/observability.md` · Records: `ADR-003`$' "$P/docs/consti
 grep -q '^## \[PLAW-03\] Mandatory request tracing$' "$P/.claude/rules/observability.md" && grep -q 'X-Request-Id' "$P/.claude/rules/observability.md" && pass "body section written in body_home (file created with frontmatter)" || fail "body section missing"
 grep -q '^status: accepted$' "$P/docs/project_log/adr/ADR-003-tracing.md" && pass "status flipped" || fail "status not flipped"
 [ "$(grep -c 'correlation id' "$P/docs/constitution.md")" = "1" ] && pass "the index carries the sentence once, never the body" || fail "body leaked into the index"
-if out=$(parity "$P"); then pass "reader parity: every index sentence equals its body quote"; else fail "parity broken for $out"; fi
+if out=$(parity "$P"); then pass "gate.py laws --parity: every index sentence equals its body quote"; else fail "parity red: $out"; fi
 
 echo "Test 2 — REPLACE"
 cat > "$P/docs/project_log/adr/ADR-004-kiss.md" <<'EOF'
@@ -191,9 +182,9 @@ if accept_adr "$P/docs/project_log/adr/ADR-004-kiss.md" "$P"; then pass "REPLACE
 grep -q '^> Every technical decision is the simplest one that meets the current requirement, and nothing more.$' "$P/docs/constitution.md" && pass "index sentence replaced" || fail "index sentence not replaced"
 grep -q 'Records: `ADR-0000`, `ADR-004`$' "$P/docs/constitution.md" && pass "record appended, earlier record kept" || fail "records wrong"
 grep -q '^> Every technical decision is the simplest one that meets the current requirement, and nothing more.$' "$P/.claude/rules/architecture.md" && grep -q 'Three similar lines' "$P/.claude/rules/architecture.md" && pass "body home quote + body replaced" || fail "body home not updated"
-! grep -q 'Delete before adding.$' "$P/.claude/rules/architecture.md" || grep -q 'Three similar lines' "$P/.claude/rules/architecture.md" && pass "old body text gone" || fail "old body text remains"
+if grep -q 'Delete before adding\.$' "$P/.claude/rules/architecture.md"; then fail "old body text remains"; else pass "old body text gone"; fi
 [ "$(grep -c '^## \[PLAW-01\]' "$P/.claude/rules/architecture.md")" = "1" ] && pass "one body section per law" || fail "duplicate body section"
-if out=$(parity "$P"); then pass "reader parity holds after REPLACE"; else fail "parity broken for $out"; fi
+if out=$(parity "$P"); then pass "gate.py laws --parity holds after REPLACE"; else fail "parity red: $out"; fi
 grep -q '^> Every service scales horizontally without session affinity.$' "$P/docs/constitution.md" && pass "untouched law unchanged" || fail "collateral edit"
 
 echo "Test 3 — RED: refused before any write"

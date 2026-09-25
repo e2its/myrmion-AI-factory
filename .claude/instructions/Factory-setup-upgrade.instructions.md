@@ -252,7 +252,7 @@ After ALL script files are merged, run 6 validation checks:
 3. **Regenerate governance snapshot** (`.context/governance_snapshot.md`):
    - Constitution / defect-prevention.md / setup.md may have changed during upgrade → snapshot must reflect new state
    - Call `generate_governance_snapshot()` from setup-materialization.md Checkpoint 3.1
-   - The current format embeds operational law verbatim: `## [PLAW-NN]` index entries of the constitution (sentence + `Body:` pointer + `Records:`) + universal DCs (`applicable_when: always`). If the upgraded constitution still carries the pre-4.0.0 `## [LAW] {title}` section form, the upgrade MUST convert it to the index form per the materialization template (bodies to their `.claude/rules/` homes, `> sentence` byte-identical on both sides) before regen, otherwise the snapshot's `## Active Constitution` section will be empty and CI will fail
+   - The current format embeds the law INDEX: `## [PLAW-NN]` entries of the constitution (sentence + `Body:` pointer + `Records:`) + the defect families table (classes are delivered at the point of edit). If the upgraded constitution still carries the pre-4.0.0 `## [LAW] {title}` section form, the upgrade MUST convert it to the index form per the materialization template (bodies to their `.claude/rules/` homes, `> sentence` byte-identical on both sides) before regen, otherwise the snapshot's `## Law Index` section will be empty and CI will fail
    - Frontmatter freshness fields are: `constitution_hash`, `setup_hash`, `dcs_hash` — all three are recomputed
    - This ensures post-upgrade agent commands use fresh governance context
 4. Generate `UPGRADE_REPORT_{timestamp}.md` with:

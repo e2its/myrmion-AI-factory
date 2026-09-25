@@ -20,7 +20,7 @@ applicable_when:
 LLM context windows are finite (128K in Copilot). When conversation history is summarized:
 1. **All governance context loaded in previous turns is EVICTED** — constitution content, rule details, stack config
 2. **The LLM doesn't receive a signal** that summarization occurred — it simply lacks context it had before
-3. **In-memory caches are destroyed** — any "cached Governance Index" ceases to exist
+3. **In-memory caches are destroyed** — any "cached law index" ceases to exist
 4. **The agent CANNOT know** whether it has governance context or not — it must ALWAYS reload
 
 **Solution:** Governance context lives in a **file-based snapshot** (`.context/governance_snapshot.md`). Agents read THIS FILE at the start of every command. Reading 1 file (the lite snapshot, held under `budgets.snapshot`) is cheap. Assuming context from memory is dangerous.
@@ -49,9 +49,9 @@ LLM context windows are finite (128K in Copilot). When conversation history is s
 > **On WARNING:** The agent MUST run `bash scripts/generate-governance-snapshot.sh` (Step 1 → POST-LOAD).
 > This does **NOT** require running `SETUP --generate`, and the snapshot is never hand-written.
 
-### Always-On Enforcement (4-Tier Hooks)
+### Always-On Enforcement (5-Tier Hooks)
 
-The PreToolUse drift hook above catches edits in progress, but agents can *read* governance for an entire session without ever triggering an Edit/Write — and the snapshot can go stale silently across context compaction. The 4-tier enforcement closes those gaps:
+The PreToolUse drift hook above catches edits in progress, but agents can *read* governance for an entire session without ever triggering an Edit/Write — and the snapshot can go stale silently across context compaction. The 5-tier enforcement closes those gaps:
 
 | Tier | Trigger | Script | What it does | Failure mode |
 |------|---------|--------|--------------|--------------|
@@ -60,7 +60,7 @@ The PreToolUse drift hook above catches edits in progress, but agents can *read*
 | **3 — Attribution** | `PostToolUse Edit\|Write` → `UserPromptSubmit` | `scripts/governance-onedit.sh` writes `.claude/state/governance-source-edited-{session_id}.marker` listing the changed paths when Edit/Write touched `docs/constitution.md` or `docs/setup.md`. The next `scripts/governance-onprompt.sh` emits `<governance-source-edited paths="...">` with cause attribution + explicit instruction to regenerate via Step 1 → POST-LOAD, then consumes the marker. Suppresses the tier-2 `<governance-warning>` for that prompt — the agent already knows why the snapshot is stale. | Marker write degrades silently when neither `jq` nor `python3` is available; tier 2 then fires its plain warning instead. |
 | **4 — Resilient** | `PreCompact` → `UserPromptSubmit` | `scripts/governance-oncompact.sh` writes `.claude/state/governance-reload-{session_id}.marker`; the next `scripts/governance-onprompt.sh` emits the snapshot wrapped in `<governance-reload>...</governance-reload>` on stdout, which Claude Code appends to the next turn as additional context, then consumes the marker. | Post-compaction re-injection is lossy if `PreCompact` never fires (some IDE harnesses). Tiers 1 + 2 + 3 still operate. |
 
-**Hook wiring** lives in `.claude/settings.json` (materialized by `SETUP --generate` from `.context/templates/setup/claude/settings.json`). The 4-tier coexists with the PreToolUse drift hook: tier 2 surfaces drift as an advisory, tier 3 attributes the cause when self-inflicted, and the drift hook warns at the moment of the edit.
+**Hook wiring** lives in `.claude/settings.json` (materialized by `SETUP --generate` from `.context/templates/setup/claude/settings.json`). The 5-tier coexists with the PreToolUse drift hook: tier 2 surfaces drift as an advisory, tier 3 attributes the cause when self-inflicted, and the drift hook warns at the moment of the edit.
 
 **Marker scoping.** Both markers (`governance-reload-{session_id}.marker` and `governance-source-edited-{session_id}.marker`) live under `.claude/state/` — inside the Claude Code hook namespace, gitignored, suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replays.
 
@@ -175,12 +175,12 @@ IF exists:
   Verify constitution_hash matches governance_snapshot.constitution_hash
   IF hash matches:
     Load template with constitution-based validations
-    Merge with applicable_rules from Governance Index
+    Merge with applicable_rules from the resolver
   ELSE:
     ⚠️ Templates outdated: "Constitution changed. Run `SETUP --regenerate-templates`"
-    Continue with Governance Index rules only (degraded mode)
+    Continue with the resolver rules only (degraded mode)
 ELSE:
-  Continue with Governance Index rules only
+  Continue with the resolver rules only
 ```
 
 ### Step 5: On-Demand Rule Content Loading (Token-Efficient)

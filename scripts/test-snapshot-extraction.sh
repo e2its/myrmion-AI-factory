@@ -151,6 +151,23 @@ OUT=$(run_gen --quiet); RC=$?
 [ "$RC" -eq 3 ] && printf '%s' "$OUT" | grep -q 'over budgets.snapshot' && pass "RED: lite snapshot over budgets.snapshot → exit 3, plain language" || fail "budget overflow not caught (rc=$RC): $OUT"
 sed -i 's/"snapshot": 300/"snapshot": 16000/' "$P/config/quality.json"
 
+# RED: budget key missing → exit 2, nothing claimed
+python3 - "$P/config/quality.json" <<'PY'
+import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["budgets"].pop("snapshot"); json.dump(d, open(p,"w"))
+PY
+OUT=$(run_gen --quiet); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'budgets.snapshot' && pass "RED: missing budgets.snapshot key → exit 2 in plain language (fail-closed)" || fail "missing budget key not refused (rc=$RC): $OUT"
+python3 - "$P/config/quality.json" <<'PY'
+import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["budgets"]["snapshot"]=16000; json.dump(d, open(p,"w"))
+PY
+# RED: the reader breaks mid-write → no partial snapshot with fresh hashes is left behind (atomic)
+run_gen --quiet >/dev/null; BEFORE=$(md5sum "$S" | cut -d' ' -f1)
+mv "$P/scripts/gates" "$P/scripts/gates.off"
+OUT=$(run_gen --quiet); RC=$?
+[ "$RC" -ne 0 ] && [ "$(md5sum "$S" | cut -d' ' -f1)" = "$BEFORE" ] && [ -z "$(ls "$P/.context"/governance_snapshot.md.tmp.* 2>/dev/null)" ] \
+  && pass "RED: reader broken mid-write → non-zero exit, previous snapshot untouched, no temp file left" || fail "partial snapshot or temp file left after a mid-write failure (rc=$RC)"
+mv "$P/scripts/gates.off" "$P/scripts/gates"
+
 # idempotency
 run_gen --quiet >/dev/null; A=$(grep -v '^generated_at' "$S")
 run_gen --quiet >/dev/null; B=$(grep -v '^generated_at' "$S")

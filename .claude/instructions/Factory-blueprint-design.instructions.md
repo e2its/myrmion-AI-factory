@@ -1185,7 +1185,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   #
   # SOURCES:
   #   A) Constitution `[LAW]` sections — already loaded in the governance snapshot at
-  #      `.context/governance_snapshot.md` § Active Constitution. Read from there directly
+  #      `.context/governance_snapshot.md` § Law Index (sentences + Body: pointers). Read from there directly
   #      (no need to re-scan constitution.md). Universal architectural law lives here.
   #   B) Feature Decision Records (FDR) at `docs/spec/{FEATURE_ID}/fdr/*.md` with
   #      `status: accepted` — feature-local binding patterns.

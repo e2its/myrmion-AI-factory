@@ -5,11 +5,15 @@
 # ============================================================================
 # Delivers the families, defect classes and rule pointers that govern THE FILE
 # BEING WRITTEN, narrowed by the one applicability resolver (scripts/gate.py
-# deliver), within the `budgets.pre_edit` key. The payload travels through the
-# only channel a pre-tool hook has to the model: stdout JSON
+# deliver --hook-json, which reads this hook's own stdin payload), within the
+# `budgets.pre_edit` key. The payload travels through the only channel a
+# pre-tool hook has to the model: stdout JSON
 # {"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":…}}.
 # A set already delivered in this session is replaced by a one-line pointer.
-# Never blocks (exit 0). Missing reader or config → silent pass.
+# Never blocks (exit 0). Reader absent → silent pass (it ships with SETUP /
+# factory-sync). Reader present but unable to run (bad config, missing key) →
+# the failure itself is delivered, so a dead channel is never mistaken for
+# "nothing governs this file".
 # ============================================================================
 set -u
 INPUT="$(cat)"
@@ -18,17 +22,11 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo '')"
 GATE="$REPO_ROOT/scripts/gate.py"
 [ -f "$GATE" ] || exit 0
 command -v python3 >/dev/null 2>&1 || exit 0
-FIELDS=$(printf '%s' "$INPUT" | python3 -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    print((d.get("tool_input") or {}).get("file_path", ""))
-    print(d.get("session_id", "") or "none")
-except Exception:
-    print(""); print("none")
-' 2>/dev/null) || exit 0
-FILE_PATH=$(printf '%s\n' "$FIELDS" | sed -n '1p')
-SESSION_ID=$(printf '%s\n' "$FIELDS" | sed -n '2p')
-[ -n "$FILE_PATH" ] || exit 0
-python3 "$GATE" --repo "$REPO_ROOT" deliver --path "$FILE_PATH" --session "$SESSION_ID" 2>/dev/null || exit 0
+ERR="$(mktemp 2>/dev/null || echo /dev/null)"
+if ! printf '%s' "$INPUT" | python3 "$GATE" --repo "$REPO_ROOT" deliver --hook-json 2>"$ERR"; then
+  REASON="$(head -1 "$ERR" 2>/dev/null)"
+  printf '%s' "governance delivery failed: ${REASON:-the reader exited without a message} — law at the point of edit is NOT available; fix config/quality.json (budgets.pre_edit) or re-run SETUP" \
+    | python3 -c 'import json,sys; print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":sys.stdin.read()}}))'
+fi
+[ "$ERR" = /dev/null ] || rm -f "$ERR"
 exit 0

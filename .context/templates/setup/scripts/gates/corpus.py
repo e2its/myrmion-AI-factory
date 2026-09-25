@@ -4,9 +4,12 @@
 Shapes (SPEC EVOL-043):
   law index entry   `N. **[LAW-NN] Title** — sentence. Body: `pointer`. Records: `…`.`  (CLAUDE.md)
                     `## [PLAW-NN] Title` / `> sentence` / `Body: `pointer` · Records: `…``  (constitution)
-  body home         `## [X-NN] Title` heading followed by `> sentence` in the pointed file
+  body home         a `##`–`####` `[X-NN] Title` heading followed by `> sentence` in the pointed file
   DC catalog        `## Families` table (Family | Surface | Invariant) and
                     `## Defect Classes` table (DC | Family | Invariant | Gate | Paths | Applicable To | Severity)
+
+Every entry is fail-closed at parse: a law without a `Body:` pointer, a defect class row with the wrong
+column count, an unknown family or empty paths is a GateFault — never a silently shorter roll-call.
 """
 from __future__ import annotations
 
@@ -15,29 +18,38 @@ import json
 import re
 from pathlib import Path
 
-from .common import (GateFault, any_glob, body_after_frontmatter, constitution_path, context, glob_match,
-                     read_frontmatter, resolve_pointer, rules_root, tracked_files)
+from .common import (GateFault, any_glob, body_after_frontmatter, constitution_path, context, read_frontmatter,
+                     resolve_pointer, rules_root, tracked_files)
 
 LAW_LIST_RE = re.compile(r"^\s*\d+\.\s+\*\*\[(?P<id>P?LAW-\d{2})\]\s*(?P<title>[^*]+?)\*\*\s*[—–-]\s*(?P<rest>.*)$")
 LAW_H2_RE = re.compile(r"^##\s+\[(?P<id>P?LAW-\d{2})\]\s*(?P<title>.+?)\s*$")
 POINTER_RE = re.compile(r"Body:\s*`(?P<body>[^`]+)`")
 RECORDS_RE = re.compile(r"Records:\s*(?P<records>.+?)\.?\s*$")
+BODY_HEADING_RE = r"^#{2,4}\s+\[%s\]"
 AXES = ("phase", "scope", "change_type", "command", "path_glob", "framework", "always")
+DC_COLUMNS = 7
 
 
 # ─── law index ──────────────────────────────────────────────────────────────────
 
 def _entry_from_rest(rest: str) -> tuple[str, str, list[str]]:
-    """sentence, pointer, records from the tail of a list entry (`sentence. Body: `x`. Records: a, b.`)."""
+    """(sentence, pointer, records) from `sentence. Body: `x`. Records: a, b.` — records are read only
+    after the pointer so a sentence that mentions "Records:" cannot pollute them."""
     pointer = POINTER_RE.search(rest)
-    records = RECORDS_RE.search(rest)
-    sentence = rest[:pointer.start()].strip() if pointer else rest.strip()
-    sentence = sentence.rstrip(". ").strip() + "."
+    sentence = (rest[:pointer.start()] if pointer else rest).strip().rstrip(". ").strip() + "."
+    tail = rest[pointer.end():] if pointer else ""
+    records = RECORDS_RE.search(tail)
     recs = [r.strip().strip("`") for r in records.group("records").split(",")] if records else []
     return sentence, (pointer.group("body").strip() if pointer else ""), [r for r in recs if r]
 
 
-def parse_law_list(text: str, section: str = "## Governance Rules") -> list[dict]:
+def _law(id_: str, title: str, sentence: str, body: str, records: list[str], source: str) -> dict:
+    if not body:
+        raise GateFault(f"{source}: law {id_} has no `Body:` pointer — every law names its one body (`inline` when the sentence is the whole rule)")
+    return {"id": id_, "title": title.strip(), "sentence": sentence, "body": body, "records": records, "addendum": []}
+
+
+def parse_law_list(text: str, section: str = "## Governance Rules", source: str = "CLAUDE.md") -> list[dict]:
     """Universal laws from a CLAUDE.md § Governance Rules numbered list."""
     laws: list[dict] = []
     in_section = False
@@ -55,17 +67,15 @@ def parse_law_list(text: str, section: str = "## Governance Rules") -> list[dict
         if m:
             if current:
                 laws.append(current)
-            sentence, pointer, records = _entry_from_rest(m.group("rest"))
-            current = {"id": m.group("id"), "title": m.group("title").strip(), "sentence": sentence,
-                       "body": pointer, "records": records, "line": line}
+            current = _law(m.group("id"), m.group("title"), *_entry_from_rest(m.group("rest")), source=source)
         elif current and line.strip() and line.startswith("   "):
-            current.setdefault("addendum", []).append(line.strip())
+            current["addendum"].append(line.strip())
     if current:
         laws.append(current)
     return laws
 
 
-def parse_law_index(text: str) -> list[dict]:
+def parse_law_index(text: str, source: str = "docs/constitution.md") -> list[dict]:
     """Project laws from a constitution in index form (`## [PLAW-NN]` three-line entries)."""
     laws: list[dict] = []
     lines = text.splitlines()
@@ -75,81 +85,156 @@ def parse_law_index(text: str) -> list[dict]:
         if not m:
             i += 1
             continue
-        entry = {"id": m.group("id"), "title": m.group("title").strip(), "sentence": "", "body": "", "records": [],
-                 "line": lines[i]}
+        sentence, body, records = "", "", []
         j = i + 1
         while j < len(lines) and not lines[j].startswith("## "):
             s = lines[j].strip()
-            if s.startswith("> ") and not entry["sentence"]:
-                entry["sentence"] = s[2:].strip()
+            if s.startswith("> ") and not sentence:
+                sentence = s[2:].strip()
             elif s.startswith("Body:"):
-                sentence_unused, pointer, records = _entry_from_rest("x. " + s)
-                entry["body"], entry["records"] = pointer, records
+                _, body, records = _entry_from_rest("x. " + s)
             j += 1
-        laws.append(entry)
+        laws.append(_law(m.group("id"), m.group("title"), sentence, body, records, source))
         i = j
     return laws
 
 
+def law_sentences(text: str) -> list[tuple[str, str]]:
+    """(id, sentence) pairs of a governance source in either shape — the ONE definition the ADR ceremony
+    gate (check-adr-constitution-sync.sh direction B) compares before/after."""
+    pairs = []
+    if "## Governance Rules" in text:
+        pairs += [(l["id"], l["sentence"]) for l in _lenient(parse_law_list, text)]
+    pairs += [(l["id"], l["sentence"]) for l in _lenient(parse_law_index, text)]
+    return pairs
+
+
+def _lenient(parser, text):
+    """Parse for comparison purposes: an entry missing its pointer still yields its sentence."""
+    try:
+        return parser(text)
+    except GateFault:
+        out = []
+        for ln in text.splitlines():
+            m = LAW_LIST_RE.match(ln)
+            if m:
+                out.append({"id": m.group("id"), "sentence": _entry_from_rest(m.group("rest"))[0]})
+        lines = text.splitlines()
+        for i, ln in enumerate(lines):
+            m = LAW_H2_RE.match(ln)
+            if m:
+                s = next((x.strip()[2:].strip() for x in lines[i + 1:i + 4] if x.strip().startswith("> ")), "")
+                out.append({"id": m.group("id"), "sentence": s})
+        return out
+
+
 def laws(repo: Path) -> dict:
-    """{"universal": [...] from CLAUDE.md, "project": [...] from the constitution (empty in meta when the
-    template is the only source: still parsed so the template's own shape is validated)}."""
+    """{"universal": from CLAUDE.md § Governance Rules, "project": from docs/constitution.md downstream and
+    from the constitution template in meta (its shape is validated the same way)}."""
     out = {"universal": [], "project": []}
     claude = repo / "CLAUDE.md"
     if claude.is_file():
         out["universal"] = parse_law_list(claude.read_text(encoding="utf-8", errors="replace"))
     const = constitution_path(repo)
     if const:
-        out["project"] = parse_law_index(const.read_text(encoding="utf-8", errors="replace"))
+        out["project"] = parse_law_index(const.read_text(encoding="utf-8", errors="replace"), str(const.relative_to(repo)))
     return out
 
 
-def body_section(repo: Path, law: dict) -> tuple[Path | None, str | None, str | None]:
-    """(file, heading line, quoted sentence) of a law's body home; (None, None, None) for inline."""
-    if not law.get("body") or law["body"] == "inline":
-        return None, None, None
+def body_section(repo: Path, law: dict) -> tuple[Path | None, str | None, str | None, list[str]]:
+    """(file, heading line, quoted sentence, body lines) of a law's body home; all None/empty for `inline`."""
+    if law["body"] == "inline":
+        return None, None, None, []
     p = resolve_pointer(repo, law["body"])
     if p is None or not p.is_file():
-        return p, None, None
-    text = p.read_text(encoding="utf-8", errors="replace")
-    heading = None
-    quoted = None
-    lines = text.splitlines()
+        return p, None, None, []
+    lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+    pat = re.compile(BODY_HEADING_RE % re.escape(law["id"]))
     for idx, line in enumerate(lines):
-        if re.match(r"^#{2,4}\s+\[" + re.escape(law["id"]) + r"\]", line):
-            heading = line
-            for nxt in lines[idx + 1: idx + 4]:
-                if nxt.strip().startswith("> "):
-                    quoted = nxt.strip()[2:].strip()
-                    break
-            break
-    return p, heading, quoted
+        if not pat.match(line):
+            continue
+        quoted = next((n.strip()[2:].strip() for n in lines[idx + 1: idx + 4] if n.strip().startswith("> ")), None)
+        body = []
+        for ln in lines[idx + 1:]:
+            if ln.startswith("## "):
+                break
+            body.append(ln)
+        return p, line, quoted, body
+    return p, None, None, []
+
+
+def body_homes(repo: Path) -> dict[str, list[str]]:
+    """law id → every file in the corpus carrying a `[ID]` body heading (one body per law is an invariant)."""
+    homes: dict[str, list[str]] = {}
+    roots = [rules_root(repo), repo / ".claude/skills", repo / ".claude/instructions"]
+    pat = re.compile(r"^#{2,4}\s+\[(P?LAW-\d{2})\]", re.M)
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for p in root.rglob("*.md"):
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for id_ in pat.findall(text):
+                homes.setdefault(id_, []).append(str(p.relative_to(repo)))
+    return homes
+
+
+def parity(repo: Path) -> list[str]:
+    """Body ↔ sentence parity over every law: pointer resolves, heading present, quoted sentence byte-identical,
+    exactly one body home per law, no body section without an index entry. Empty list = green."""
+    allv = laws(repo)
+    problems: list[str] = []
+    ids: set[str] = set()
+    # in the framework repo the project-only universal laws (e.g. LAW-14) are indexed in the TEMPLATE CLAUDE.md,
+    # while their body lives in a shipped instruction: those ids are not orphans here
+    tpl = repo / ".context/templates/setup/claude/CLAUDE.md"
+    if context(repo) == "meta" and tpl.is_file():
+        ids |= {l["id"] for l in _lenient(parse_law_list, tpl.read_text(encoding="utf-8", errors="replace"))}
+    for l in allv["universal"] + allv["project"]:
+        ids.add(l["id"])
+        if l["body"] == "inline":
+            continue
+        p, heading, quoted, _ = body_section(repo, l)
+        if p is None or not p.is_file():
+            problems.append(f"{l['id']}: Body pointer `{l['body']}` does not resolve to a file")
+        elif heading is None:
+            problems.append(f"{l['id']}: no `## [{l['id']}]` heading in {l['body']}")
+        elif quoted != l["sentence"]:
+            problems.append(f"{l['id']}: body quote differs from the index sentence in {l['body']}")
+    homes = body_homes(repo)
+    for id_, files in sorted(homes.items()):
+        if len(files) > 1:
+            problems.append(f"{id_}: {len(files)} body sections ({', '.join(files)}) — one body per law")
+        if id_ not in ids:
+            problems.append(f"{id_}: body section in {files[0]} but no index entry (orphan body)")
+    return problems
 
 
 # ─── rule files, instructions, skills ───────────────────────────────────────────
 
-def _entries(repo: Path, paths: list[Path], kind: str) -> list[dict]:
-    out = []
-    for p in sorted(paths):
-        try:
-            fm = read_frontmatter(p)
-            error = None
-        except GateFault as e:
-            fm, error = {}, str(e)
-        aw = fm.get("applicable_when") if isinstance(fm, dict) else None
-        out.append({"kind": kind, "path": str(p.relative_to(repo)), "name": p.name if kind == "rule" else p.parent.name
-                    if kind == "skill" else p.name.replace(".instructions.md", ""),
-                    "applicable_when": aw if isinstance(aw, dict) else {"always": True}, "error": error})
-    return out
+def _entry(repo: Path, p: Path, kind: str) -> dict:
+    try:
+        fm = read_frontmatter(p)
+        error = None
+    except GateFault as e:
+        fm, error = {}, str(e)
+    aw = fm.get("applicable_when")
+    name = {"rule": p.name, "skill": p.parent.name, "instruction": p.name.replace(".instructions.md", "")}[kind]
+    return {"kind": kind, "path": str(p.relative_to(repo)), "name": name,
+            "applicable_when": aw if isinstance(aw, dict) else {"always": True}, "error": error}
+
+
+NOT_RULES = ("README.md", "defect-prevention.md", "defect-prevention-cases.md")
 
 
 def universe(repo: Path) -> dict:
     rr = rules_root(repo)
-    rules = [p for p in rr.glob("*.md") if p.name not in ("README.md", "defect-prevention.md", "defect-prevention-cases.md")] if rr.is_dir() else []
-    instructions = list((repo / ".claude/instructions").glob("*.instructions.md"))
-    skills = list((repo / ".claude/skills").glob("factory-*/SKILL.md"))
-    return {"rules": _entries(repo, rules, "rule"), "instructions": _entries(repo, instructions, "instruction"),
-            "skills": _entries(repo, skills, "skill")}
+    rules = [p for p in rr.glob("*.md") if p.name not in NOT_RULES] if rr.is_dir() else []
+    return {"rules": [_entry(repo, p, "rule") for p in sorted(rules)],
+            "instructions": [_entry(repo, p, "instruction") for p in sorted((repo / ".claude/instructions").glob("*.instructions.md"))],
+            "skills": [_entry(repo, p, "skill") for p in sorted((repo / ".claude/skills").glob("factory-*/SKILL.md"))]}
 
 
 # ─── defect catalog (families + classes) ────────────────────────────────────────
@@ -158,10 +243,8 @@ def _table_rows(section_text: str) -> list[list[str]]:
     rows = []
     for line in section_text.splitlines():
         s = line.strip()
-        if not s.startswith("|") or re.match(r"^\|\s*-", s):
-            continue
-        cells = [c.strip() for c in s.strip("|").split("|")]
-        rows.append(cells)
+        if s.startswith("|") and not re.match(r"^\|\s*-", s):
+            rows.append([c.strip() for c in s.strip("|").split("|")])
     return rows
 
 
@@ -172,68 +255,100 @@ def _section(text: str, heading: str) -> str:
 
 def _globs(cell: str) -> list[str]:
     cell = cell.strip().strip("`")
-    if cell in ("", "*", "—", "-"):
-        return ["*"] if cell == "*" else []
+    if cell in ("", "—", "-"):
+        return []
     return [g.strip().strip("`") for g in cell.split(",") if g.strip()]
 
 
 def catalog(repo: Path) -> dict:
-    """Families and defect classes. Missing catalog → empty (the framework meta has no .claude/rules)."""
+    """Families and defect classes. Missing catalog → empty (a project before SETUP --generate).
+    Fail-closed on shape: a DC row with the wrong column count, an unknown family or empty paths."""
     p = rules_root(repo) / "defect-prevention.md"
     if not p.is_file():
         return {"path": None, "families": [], "dcs": []}
+    rel = str(p.relative_to(repo))
     text = body_after_frontmatter(p.read_text(encoding="utf-8", errors="replace"))
-    fam_rows = _table_rows(_section(text, "Families"))
     families = [{"name": r[0].strip("`"), "surface": _globs(r[1]), "invariant": r[2]}
-                for r in fam_rows[1:] if len(r) >= 3 and r[0] and not r[0].lower().startswith("family")]
-    dc_rows = _table_rows(_section(text, "Defect Classes"))
+                for r in _table_rows(_section(text, "Families")) if len(r) >= 3 and not r[0].lower().startswith("family")]
+    names = {f["name"] for f in families}
     dcs = []
-    for r in dc_rows:
-        if len(r) < 7 or not re.match(r"^DC-\d+$", r[0]):
+    for r in _table_rows(_section(text, "Defect Classes")):
+        if not re.match(r"^DC-\d+$", r[0]):
             continue
-        dcs.append({"id": r[0], "family": r[1].strip("`"), "invariant": r[2], "gate": r[3].strip("`"),
-                    "paths": _globs(r[4]), "applicable_to": [a.strip() for a in r[5].split(",") if a.strip()],
-                    "severity": r[6]})
-    return {"path": str(p.relative_to(repo)), "families": families, "dcs": dcs}
+        if len(r) != DC_COLUMNS:
+            raise GateFault(f"{rel}: {r[0]} has {len(r)} columns, the catalog row shape has {DC_COLUMNS} (DC | Family | Invariant | Gate | Paths | Applicable To | Severity)")
+        family, paths = r[1].strip("`"), _globs(r[4])
+        if family not in names:
+            raise GateFault(f"{rel}: {r[0]} names family `{family}`, not in § Families ({', '.join(sorted(names)) or 'none'})")
+        if not paths:
+            raise GateFault(f"{rel}: {r[0]} has no Paths — declare the globs it governs, or `*` for universal")
+        dcs.append({"id": r[0], "family": family, "invariant": r[2], "gate": r[3].strip("`"), "paths": paths,
+                    "applicable_to": [a.strip() for a in r[5].split(",") if a.strip()], "severity": r[6]})
+    return {"path": rel, "families": families, "dcs": dcs}
 
 
 # ─── applicability (the single resolver) ────────────────────────────────────────
 
+def is_always(aw: dict) -> bool:
+    return not aw or aw.get("always") is True
+
+
+def _command_head(value: str) -> str:
+    """`/implement --build` and `implement` name the same command."""
+    head = (value.strip().split() or [""])[0]
+    return head.lstrip("/")
+
+
+def _axis_miss(axis: str, vals: list[str], ctx: dict, files: list[str]) -> str:
+    """Why this axis does NOT match ('' when it matches)."""
+    if axis == "path_glob":
+        return "" if any(any_glob(f, vals) for f in files) else f"path_glob={','.join(vals)} matches no file"
+    if axis == "command":
+        cur = str(ctx.get("command") or "")
+        if cur and any(_command_head(cur) == _command_head(v) for v in vals if v.strip()):
+            return ""
+        return f"command={','.join(vals)} ≠ {cur or '—'}"
+    if axis == "framework":
+        have = [str(x).lower() for x in (ctx.get("framework") or [])]
+        return "" if set(v.lower() for v in vals) & set(have) else f"framework={','.join(vals)} ∉ {','.join(have) or '—'}"
+    cur = ctx.get(axis)
+    return "" if cur is not None and str(cur) in vals else f"{axis}={','.join(vals)} ≠ {cur or '—'}"
+
+
 def matches(aw: dict, ctx: dict, files: list[str]) -> tuple[bool, str]:
     """AND across axes, OR within an axis. Returns (active, reason)."""
-    if not aw or aw.get("always") is True:
+    if is_always(aw):
         return True, "always"
     for axis, values in aw.items():
         if axis == "always":
             continue
         if axis not in AXES:
             return False, f"applicable-when-invalid: {axis}"
-        vals = values if isinstance(values, list) else [values]
-        vals = [str(v) for v in vals]
-        if axis == "path_glob":
-            if not any(any_glob(f, vals) for f in files):
-                return False, f"path_glob={','.join(vals)} matches no file"
-        elif axis == "command":
-            cur = ctx.get("command") or ""
-            if not any(cur == v or cur.split()[0] == v.split()[0] for v in vals if v):
-                return False, f"command={','.join(vals)} ≠ {cur or '—'}"
-        elif axis == "framework":
-            if not set(vals) & set(ctx.get("framework") or []):
-                return False, f"framework={','.join(vals)} ∉ {','.join(ctx.get('framework') or []) or '—'}"
+        vals = [str(v) for v in (values if isinstance(values, list) else [values])]
+        why = _axis_miss(axis, vals, ctx, files)
+        if why:
+            return False, why
+    return True, "; ".join(f"{a}={'paths' if a == 'path_glob' else ctx.get(a)}" for a in aw if a != "always")
+
+
+def _resolve_dcs(cat: dict, family_names: set[str], touched: list[str], agent: str | None) -> tuple[list[dict], list[dict]]:
+    active, excluded = [], []
+    for dc in cat["dcs"]:
+        universal = dc["paths"] == ["*"]
+        hit = universal or (not touched and dc["family"] in family_names) or any(any_glob(f, dc["paths"]) for f in touched)
+        agent_ok = not agent or not dc["applicable_to"] or agent in dc["applicable_to"]
+        if hit and agent_ok:
+            active.append(dc)
         else:
-            cur = ctx.get(axis)
-            if cur is None or str(cur) not in vals:
-                return False, f"{axis}={','.join(vals)} ≠ {cur or '—'}"
-    return True, "; ".join(f"{a}={ctx.get(a) if a != 'path_glob' else 'paths'}" for a in aw if a != "always")
+            excluded.append({"name": dc["id"], "reason": "agent not in applicable_to" if hit else "paths/family do not match"})
+    return active, excluded
 
 
 def applicable(repo: Path, ctx: dict, paths: list[str] | None = None) -> dict:
-    """The ONE resolver. ctx keys: phase, scope, change_type, command, framework (list).
-    paths: files touched (relative). When None, path_glob axes are resolved against the tracked tree."""
+    """The ONE resolver. ctx keys: phase, scope, change_type, command, framework (list), agent.
+    paths: files touched (relative). When None, path_glob axes resolve against the tracked tree."""
     files = paths if paths else tracked_files(repo)
-    uni = universe(repo)
-    cat = catalog(repo)
-    law = laws(repo)
+    uni, cat, law = universe(repo), catalog(repo), laws(repo)
     active: dict = {"laws": law["universal"] + law["project"], "families": [], "dcs": [], "rules": [],
                     "instructions": [], "skills": []}
     excluded: list[dict] = []
@@ -243,28 +358,24 @@ def applicable(repo: Path, ctx: dict, paths: list[str] | None = None) -> dict:
                 excluded.append({"name": e["path"], "reason": f"frontmatter-parse-error: {e['error']}"})
                 continue
             ok, why = matches(e["applicable_when"], ctx, files)
-            (active[kind].append({**e, "reason": why}) if ok else excluded.append({"name": e["path"], "reason": why}))
+            if ok:
+                active[kind].append({**e, "reason": why})
+            else:
+                excluded.append({"name": e["path"], "reason": why})
     touched = paths or []
-    for fam in cat["families"]:
-        if not touched or any(any_glob(f, fam["surface"]) for f in touched):
-            active["families"].append(fam)
-    fam_names = {f["name"] for f in active["families"]}
-    for dc in cat["dcs"]:
-        universal = dc["paths"] == ["*"]
-        hit = universal or (dc["family"] in fam_names and not touched) or any(any_glob(f, dc["paths"]) for f in touched)
-        if hit and (not ctx.get("agent") or ctx["agent"] in dc["applicable_to"] or not dc["applicable_to"]):
-            active["dcs"].append(dc)
-        else:
-            excluded.append({"name": dc["id"], "reason": "paths/family do not match" if not universal else "agent not in applicable_to"})
+    active["families"] = [f for f in cat["families"] if not touched or any(any_glob(p, f["surface"]) for p in touched)]
+    dcs, dc_excluded = _resolve_dcs(cat, {f["name"] for f in active["families"]}, touched, ctx.get("agent"))
+    active["dcs"] = dcs
+    excluded += dc_excluded
     scanned = [e["path"] + json.dumps(e["applicable_when"], sort_keys=True) for k in uni for e in uni[k]]
-    digest = hashlib.sha256("\n".join(sorted(scanned)).encode()).hexdigest()[:8]
+    scanned += [f"{l['id']}:{l['sentence']}" for l in active["laws"]] + [json.dumps(d, sort_keys=True) for d in cat["dcs"]]
+    digest_ = hashlib.sha256("\n".join(sorted(scanned)).encode()).hexdigest()[:8]
     return {"context": context(repo), "inputs": {**ctx, "paths": touched}, "active": active, "excluded": excluded,
-            "discovery_hash": digest, "scanned": len(scanned)}
+            "discovery_hash": digest_, "scanned": len(uni["rules"]) + len(uni["instructions"]) + len(uni["skills"])}
 
 
 def rollcall(result: dict, command: str = "", feature_id: str = "") -> str:
-    a = result["active"]
-    ins = result["inputs"]
+    a, ins, ex = result["active"], result["inputs"], result["excluded"]
     out = [f"📋 Applicability Roll-Call — {command or ins.get('command') or '—'} · {feature_id or '—'} · "
            f"phase={ins.get('phase') or '—'} scope={ins.get('scope') or '—'} change_type={ins.get('change_type') or '—'}", ""]
     out.append(f"  ACTIVE LAWS ({len(a['laws'])})")
@@ -273,13 +384,10 @@ def rollcall(result: dict, command: str = "", feature_id: str = "") -> str:
     out += [f"    • {d['id']} {d['invariant'][:80]} ({d['family']})" for d in a["dcs"]]
     out.append(f"  ACTIVE RULES ({len(a['rules'])})")
     out += [f"    • {r['name']} ({r['reason']})" for r in a["rules"]]
-    out.append(f"  ACTIVE INSTRUCTIONS ({len(a['instructions'])})")
-    if a["instructions"]:
-        out.append("    • " + ", ".join(r["name"] for r in a["instructions"]))
-    out.append(f"  ACTIVE SKILLS ({len(a['skills'])})")
-    if a["skills"]:
-        out.append("    • " + ", ".join(r["name"] for r in a["skills"]))
-    ex = result["excluded"]
+    for kind, label in (("instructions", "ACTIVE INSTRUCTIONS"), ("skills", "ACTIVE SKILLS")):
+        out.append(f"  {label} ({len(a[kind])})")
+        if a[kind]:
+            out.append("    • " + ", ".join(r["name"] for r in a[kind]))
     out.append(f"  EXCLUDED ({len(ex)})")
     out += [f"    • {e['name']} — {e['reason']}" for e in ex[:6]]
     if len(ex) > 6:
@@ -292,33 +400,89 @@ def rollcall(result: dict, command: str = "", feature_id: str = "") -> str:
 
 # ─── digest at the point of edit / at agent spawn ───────────────────────────────
 
-def digest(repo: Path, paths: list[str], budget: int) -> str:
-    """The slice of law that governs `paths`, within `budget` bytes: families, defect classes, rule pointers.
-    Never exceeds the budget; what does not fit is named as a pointer."""
+def _nbytes(s: str) -> int:
+    return len(s.encode("utf-8"))
+
+
+def digest(repo: Path, paths: list[str], budget: int) -> tuple[str, str]:
+    """The slice of law that governs `paths` within `budget` BYTES: families, defect classes, path-bound rule
+    pointers, unreadable rules. Never exceeds the budget; what does not fit is counted in a closing note.
+    Returns (text, fingerprint of the delivered set — the head with the paths is excluded so an identical
+    set delivered for another path dedupes)."""
     res = applicable(repo, {}, paths)
     a = res["active"]
     head = f'<governance-at-edit paths="{", ".join(paths)}" families="{", ".join(f["name"] for f in a["families"]) or "—"}">'
     tail = "</governance-at-edit>"
-    lines: list[str] = []
-    for f in a["families"]:
-        lines.append(f"family {f['name']}: {f['invariant']}")
+    lines = [f"family {f['name']}: {f['invariant']}" for f in a["families"]]
     for d in a["dcs"]:
-        gate = f" · gate {d['gate']}" if d.get("gate") and d["gate"] not in ("—", "-", "") else ""
+        gate = f" · gate {d['gate']}" if d.get("gate") not in ("—", "-", "", None) else ""
         lines.append(f"{d['id']} [{d['family']}] {d['invariant']}{gate}")
-    for r in a["rules"]:
-        if r["reason"] != "always":
-            lines.append(f"read {r['path']} ({r['reason']})")
-    body, used, dropped = [], len(head) + len(tail) + 2, 0
+    lines += [f"read {r['path']} ({r['reason']})" for r in a["rules"] if not is_always(r["applicable_when"])]
+    lines += [f"rule {e['name']} unreadable: {e['reason']}" for e in res["excluded"] if e["reason"].startswith("frontmatter-parse-error")]
+    if _nbytes(head) + _nbytes(tail) + 1 > budget:   # even the path list does not fit: keep the envelope, drop the attributes
+        head = "<governance-at-edit>"
+    body, used, dropped = [], _nbytes(head) + _nbytes(tail) + 1, 0
+    if not lines:
+        lines = ["no path-bound rule or defect class governs these paths; universal law is in the snapshot"]
     for ln in lines:
-        if used + len(ln) + 1 > budget:
+        if used + _nbytes(ln) + 1 > budget:
             dropped += 1
-            continue
-        body.append(ln)
-        used += len(ln) + 1
+        else:
+            body.append(ln)
+            used += _nbytes(ln) + 1
     if dropped:
         note = f"… {dropped} more — read {rules_root(repo).name}/defect-prevention.md by id"
-        if used + len(note) + 1 <= budget:
-            body.append(note)
-    if not body:
-        body = ["no path-bound rule or defect class governs these paths; universal law is in the snapshot"]
-    return "\n".join([head, *body, tail])
+        for candidate in (note, "…"):
+            if used + _nbytes(candidate) + 1 <= budget:
+                body.append(candidate)
+                break
+    fingerprint = hashlib.sha256("\n".join(body).encode()).hexdigest()[:16]
+    return "\n".join([head, *body, tail]), fingerprint
+
+
+# ─── snapshot sections (the generator delegates every corpus read here) ───────────
+
+STACK_KEYS = ("project_scope", "backend", "frontend", "architecture", "database", "ci_cd", "iac", "cloud", "project_mode")
+
+
+def _yaml_lines(key: str, value, indent: int = 0) -> list[str]:
+    pad = "  " * indent
+    if isinstance(value, dict):
+        return [f"{pad}{key}:"] + [ln for k, v in value.items() for ln in _yaml_lines(k, v, indent + 1)]
+    return [f"{pad}{key}: {value}"]
+
+
+def snapshot_sections(repo: Path, profile: str = "lite") -> str:
+    const = constitution_path(repo)
+    stack = read_frontmatter(const) if const else {}
+    law, cat, uni = laws(repo), catalog(repo), universe(repo)
+    src = "docs/constitution.md" if context(repo) == "downstream" else "constitution template"
+    out = ["## Stack Configuration", f"> Source: {src} frontmatter.", "", "```yaml"]
+    out += [ln for k in STACK_KEYS if k in stack for ln in _yaml_lines(k, stack[k])] or ["# (no stack keys in the constitution frontmatter)"]
+    out += ["```", "", "## Rules Manifest",
+            "> Source: rule-file frontmatter. Applicability is resolved by `scripts/gate.py applicable` — never by hand.", "",
+            "| Rule File | Applies When |", "|-----------|--------------|"]
+    out += [f"| {r['name']} | {('unreadable: ' + r['error']) if r['error'] else json.dumps(r['applicable_when'], ensure_ascii=False)} |" for r in uni["rules"]] \
+        or ["| (no rule files) | — |"]
+    out += ["", "## Law Index", f"> Source: {src} (project laws) — one sentence, one body, its records. Universal laws live in CLAUDE.md § Governance Rules.", ""]
+    for l in law["project"]:
+        out += [f"### [{l['id']}] {l['title']}", f"> {l['sentence']}", f"Body: `{l['body']}` · Records: {', '.join('`' + r + '`' for r in l['records']) or '—'}", ""]
+    if not law["project"]:
+        out.append("> (no project law index found)\n")
+    if not law["universal"]:
+        out.append("> (no universal law index found in CLAUDE.md § Governance Rules)\n")
+    out += ["## Defect Families", f"> Source: {cat['path'] or 'defect-prevention.md (absent)'} § Families. Defect classes are delivered at the point of edit by the pre-edit hook; read the catalog by id.", ""]
+    if cat["families"]:
+        out += ["| Family | Surface | Invariant |", "|---|---|---|"]
+        out += [f"| `{f['name']}` | {', '.join('`' + g + '`' for g in f['surface'])} | {f['invariant']} |" for f in cat["families"]]
+    else:
+        out.append("> (no families)")
+    if profile == "full":
+        out += ["", "## Law Bodies (full profile — never injected)", ""]
+        for l in law["project"] + law["universal"]:
+            p, heading, _, body = body_section(repo, l)
+            out.append(f"### [{l['id']}] → {l['body']}" + ("" if heading or l["body"] == "inline" else "  (body section not found)"))
+            out += body + [""]
+        out += ["## Defect Classes (full profile)", "", "| DC | Family | Invariant | Gate | Paths |", "|---|---|---|---|---|"]
+        out += [f"| {d['id']} | `{d['family']}` | {d['invariant']} | {d['gate']} | {', '.join(d['paths'])} |" for d in cat["dcs"]]
+    return "\n".join(out)

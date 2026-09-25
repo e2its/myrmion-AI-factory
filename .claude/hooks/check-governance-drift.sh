@@ -72,16 +72,24 @@ SNAP_SETUP_HASH=$(extract_frontmatter_value "$SNAPSHOT" "setup_hash")
 SNAP_DCS_HASH=$(extract_frontmatter_value "$SNAPSHOT" "dcs_hash")
 DC_FILE="$REPO_ROOT/.claude/rules/defect-prevention.md"
 
-# If snapshot has no constitution_hash, it's malformed — skip silently
+command -v python3 >/dev/null 2>&1 || exit 0   # the envelope needs a JSON encoder; without one the hook stays silent by design
+
+say() {  # say <message> — the only channel that reaches the model from a PreToolUse hook (never blocks)
+  python3 -c 'import json,sys; print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":sys.argv[1]}}))' "$1"
+}
+
+# A snapshot without constitution_hash is malformed — that IS drift worth saying.
 if [ -z "$SNAP_CONST_HASH" ]; then
+  say "WARNING: .context/governance_snapshot.md has no constitution_hash (malformed). Regenerate now: bash scripts/generate-governance-snapshot.sh"
   exit 0
 fi
 
 # ── Compute current hashes ───────────────────────────────────────────────
 CURRENT_CONST_HASH=$(compute_md5 "$CONSTITUTION")
 
-# If hash tool unavailable, skip silently (non-blocking)
+# No md5 tool — freshness cannot be verified; say so rather than pretend.
 if [ -z "$CURRENT_CONST_HASH" ]; then
+  say "WARNING: cannot verify governance snapshot freshness (no md5sum / md5 / openssl on PATH)."
   exit 0
 fi
 
@@ -115,10 +123,8 @@ if [ ${#DRIFT_SOURCES[@]} -gt 0 ]; then
   for source in "${DRIFT_SOURCES[@]:1}"; do
     JOINED+=", ${source}"
   done
-  MSG="WARNING: Governance snapshot drift — ${JOINED} changed since the snapshot was generated. The context in .context/governance_snapshot.md is STALE. Regenerate now: bash scripts/generate-governance-snapshot.sh (no SETUP needed; GCRP Step 1 → POST-LOAD)."
   # Non-blocking (exit 0). The envelope is the only channel that reaches the model from here.
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' \
-    "$(printf '%s' "$MSG" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
+  say "WARNING: Governance snapshot drift — ${JOINED} changed since the snapshot was generated. The context in .context/governance_snapshot.md is STALE. Regenerate now: bash scripts/generate-governance-snapshot.sh (no SETUP needed; GCRP Step 1 → POST-LOAD)."
 fi
 
 exit 0

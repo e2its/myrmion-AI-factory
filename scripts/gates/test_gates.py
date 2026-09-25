@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime so this file never writes the retired term
+RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
 from gates import budget, corpus, retired  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
@@ -94,6 +94,10 @@ def fixture_repo(root: Path, context_: str = "downstream") -> Path:
     write(repo / ".claude/instructions/Factory-implement-build.instructions.md", "---\ndescription: b\napplicable_when:\n  phase: [IMPLEMENT]\n  command: [implement]\n---\n")
     write(repo / ".claude/instructions/Factory-qa-verify.instructions.md", "---\ndescription: q\napplicable_when:\n  phase: [QA]\n---\n")
     write(repo / ".claude/skills/factory-rdr/SKILL.md", "---\nname: factory-rdr\napplicable_when:\n  always: true\n---\n")
+    write(repo / ".claude/skills/factory-pr-review/SKILL.md", "---\nname: factory-pr-review\napplicable_when:\n  command: [push, /implement --build]\n---\n")
+    write(repo / ".claude/rules/React.md", "---\ndescription: r\napplicable_when:\n  scope: [frontend-only, full-stack]\n  change_type: [feature]\n---\n")
+    write(repo / ".claude/rules/ci-cd.md", "---\ndescription: ci\napplicable_when:\n  path_glob: [\".github/**\"]\n---\n")
+    write(repo / ".github/workflows/ci.yml", "name: ci\n")
     write(repo / ".claude/skills/factory-governance-loading/SKILL.md", "---\nname: g\n---\n## [LAW-01] Constitutional Supremacy\n> Operational law lives in one index and every law has one body.\n")
     write(repo / "src/app.py", "print(1)\n")
     write(repo / "src/migrations/001.sql", "select 1;\n")
@@ -107,6 +111,10 @@ def fixture_repo(root: Path, context_: str = "downstream") -> Path:
 
 class Common(unittest.TestCase):
     def test_glob(self):
+        self.assertTrue(glob_match(".github/workflows/ci.yml", ".github/**"), "a dot-directory is an ordinary path")
+        self.assertTrue(glob_match(".env", "**/.env"))
+        self.assertTrue(glob_match(".claude/state/x.txt", ".claude/state/**"))
+        self.assertTrue(glob_match("./src/a.py", "src/**"), "only a literal ./ prefix is removed")
         self.assertTrue(glob_match("src/a/b.py", "src/**"))
         self.assertTrue(glob_match("x/migrations/1.sql", "**/migrations/**"))
         self.assertTrue(glob_match("a.py", "**/*.py"))
@@ -146,14 +154,15 @@ class Corpus(unittest.TestCase):
     def test_body_section_resolution(self):
         laws = corpus.laws(self.repo)
         plaw1 = next(l for l in laws["project"] if l["id"] == "PLAW-01")
-        f, heading, quoted = corpus.body_section(self.repo, plaw1)
+        f, heading, quoted, body = corpus.body_section(self.repo, plaw1)
         self.assertEqual(f, self.repo / ".claude/rules/architecture.md")
         self.assertEqual(quoted, plaw1["sentence"])
+        self.assertIn("body", body)
         plaw2 = next(l for l in laws["project"] if l["id"] == "PLAW-02")
-        _, _, quoted2 = corpus.body_section(self.repo, plaw2)
+        _, _, quoted2, _ = corpus.body_section(self.repo, plaw2)
         self.assertNotEqual(quoted2, plaw2["sentence"], "the contradicting body must be visible to the parity gate")
         law7 = next(l for l in laws["universal"] if l["id"] == "LAW-07")
-        self.assertEqual(corpus.body_section(self.repo, law7), (None, None, None))
+        self.assertEqual(corpus.body_section(self.repo, law7), (None, None, None, []))
         self.assertEqual(resolve_pointer(self.repo, "rules/x.md"), self.repo / ".claude/rules/x.md")
 
     def test_catalog_families_and_classes(self):
@@ -178,6 +187,68 @@ class Corpus(unittest.TestCase):
         self.assertEqual(len(res["active"]["laws"]), 5)
         self.assertEqual(len(res["discovery_hash"]), 8)
 
+    def test_command_axis_with_empty_context_never_raises(self):
+        # the pre-edit delivery passes an empty context: an entry whose first axis is `command` must simply not match
+        active, why = corpus.matches({"command": ["push"]}, {}, [])
+        self.assertFalse(active); self.assertIn("command=push", why)
+        text, _ = corpus.digest(self.repo, ["src/app.py"], 6000)
+        self.assertIn("DC-18", text)
+        self.assertTrue(corpus.matches({"command": ["/implement --build"]}, {"command": "implement"}, [])[0], "documented form matches the command name")
+        self.assertTrue(corpus.matches({"command": ["implement"]}, {"command": "/implement --refine"}, [])[0])
+        self.assertEqual(corpus.matches({"bogus": ["x"]}, {"phase": "QA"}, [])[1], "applicable-when-invalid: bogus")
+
+    def test_scope_and_change_type_axes(self):
+        rules = lambda ctx: {r["name"] for r in corpus.applicable(self.repo, ctx)["active"]["rules"]}
+        self.assertIn("React.md", rules({"scope": "frontend-only", "change_type": "feature"}))
+        self.assertNotIn("React.md", rules({"scope": "backend-only", "change_type": "feature"}))
+        self.assertNotIn("React.md", rules({"scope": "frontend-only", "change_type": "fix"}), "axes AND together")
+        self.assertIn("ci-cd.md", rules({}), "path_glob .github/** resolved against the tracked tree")
+
+    def test_excluded_reason_names_the_filter_that_failed(self):
+        res = corpus.applicable(self.repo, {"agent": "ARCH"}, ["src/app.py"])
+        reasons = {e["name"]: e["reason"] for e in res["excluded"]}
+        self.assertEqual(reasons["DC-18"], "agent not in applicable_to")
+        self.assertEqual(reasons["DC-27"], "paths/family do not match")
+
+    def test_discovery_hash_covers_laws_and_classes(self):
+        before = corpus.applicable(self.repo, {"phase": "QA"})["discovery_hash"]
+        cat = self.repo / ".claude/rules/defect-prevention.md"
+        cat.write_text(cat.read_text() + "| DC-30 | `runtime` | A new class. | `—` | `src/**` | DEV | WARNING |\n", encoding="utf-8")
+        self.assertNotEqual(before, corpus.applicable(self.repo, {"phase": "QA"})["discovery_hash"], "a new DC changes the roll-call hash")
+
+    def test_catalog_shape_is_fail_closed(self):
+        cat = self.repo / ".claude/rules/defect-prevention.md"
+        base = cat.read_text()
+        cat.write_text(base + "| DC-31 | `runtime` | six columns | `—` | `src/**` | DEV |\n", encoding="utf-8")
+        with self.assertRaisesRegex(GateFault, "DC-31 has 6 columns"):
+            corpus.catalog(self.repo)
+        cat.write_text(base + "| DC-32 | `ghost` | unknown family | `—` | `src/**` | DEV | WARNING |\n", encoding="utf-8")
+        with self.assertRaisesRegex(GateFault, "family `ghost`"):
+            corpus.catalog(self.repo)
+        cat.write_text(base + "| DC-33 | `runtime` | no paths | `—` | — | DEV | WARNING |\n", encoding="utf-8")
+        with self.assertRaisesRegex(GateFault, "no Paths"):
+            corpus.catalog(self.repo)
+
+    def test_law_without_pointer_is_refused_and_records_read_after_pointer(self):
+        with self.assertRaisesRegex(GateFault, "no `Body:` pointer"):
+            corpus.parse_law_list("## Governance Rules\n1. **[LAW-99] X** — S.\n## Y\n")
+        s, b, r = corpus._entry_from_rest("Sentence mentions Records: nothing. Body: `inline`. Records: `ADR-1`.")
+        self.assertEqual((b, r), ("inline", ["ADR-1"]))
+        self.assertTrue(s.startswith("Sentence mentions Records: nothing"))
+        pairs = corpus.law_sentences("## Governance Rules\n1. **[LAW-99] X** — No pointer here.\n## Y\n")
+        self.assertEqual(pairs, [("LAW-99", "No pointer here.")], "the ceremony gate still sees the sentence of a malformed entry")
+
+    def test_parity_finds_every_way_a_body_can_lie(self):
+        problems = corpus.parity(self.repo)
+        self.assertTrue(any(p.startswith("PLAW-02") and "differs" in p for p in problems), "contradicting quote")
+        write(self.repo / ".claude/rules/dup.md", "---\ndescription: d\napplicable_when:\n  always: true\n---\n## [PLAW-01] KISS & DRY\n> Every solution is the simplest one that satisfies the specification, written once.\n")
+        write(self.repo / ".claude/rules/orphan.md", "---\ndescription: o\napplicable_when:\n  always: true\n---\n## [PLAW-09] Ghost\n> A body with no index entry.\n")
+        problems = corpus.parity(self.repo)
+        self.assertTrue(any("PLAW-01: 2 body sections" in p for p in problems), "one body per law")
+        self.assertTrue(any("PLAW-09" in p and "orphan" in p for p in problems))
+        (self.repo / ".claude/rules/stateless.md").unlink()
+        self.assertTrue(any("PLAW-02" in p and "does not resolve" in p for p in corpus.parity(self.repo)))
+
     def test_resolver_by_paths(self):
         res = corpus.applicable(self.repo, {}, ["src/app.py"])
         self.assertEqual([f["name"] for f in res["active"]["families"]], ["runtime"])
@@ -193,16 +264,24 @@ class Corpus(unittest.TestCase):
         for needle in ("📋 Applicability Roll-Call — qa · FEAT-1", "ACTIVE LAWS (5)", "ACTIVE DCs", "EXCLUDED (", "Discovery hash:"):
             self.assertIn(needle, text)
 
-    def test_digest_respects_budget(self):
-        full = corpus.digest(self.repo, ["src/app.py", "src/migrations/001.sql"], 6000)
+    def test_digest_respects_budget_in_bytes(self):
+        full, fp_full = corpus.digest(self.repo, ["src/app.py", "src/migrations/001.sql"], 6000)
         self.assertIn("family runtime", full)
         self.assertIn("DC-27", full)
         self.assertIn("read .claude/rules/protected-code.md", full, "path-bound rule pointer for the .py file")
         self.assertNotIn("architecture.md", full, "always-rules are in the snapshot, not re-delivered")
-        tiny = corpus.digest(self.repo, ["src/migrations/001.sql"], 200)
-        self.assertLessEqual(len(tiny.encode()), 200)
-        self.assertIn("<governance-at-edit", tiny)
-        self.assertIn("</governance-at-edit>", tiny)
+        self.assertIn("rule .claude/rules/broken.md unreadable", full, "an unreadable rule is said, never silently dropped")
+        cat = self.repo / ".claude/rules/defect-prevention.md"
+        cat.write_text(cat.read_text() + "| DC-40 | `runtime` | " + "— multibyte dashes — " * 12 + " | `—` | `src/**` | DEV | WARNING |\n", encoding="utf-8")
+        for b in range(150, 420, 37):
+            text, _ = corpus.digest(self.repo, ["src/migrations/001.sql"], b)
+            self.assertLessEqual(len(text.encode()), b, f"budget {b} is in bytes")
+            self.assertTrue(text.startswith("<governance-at-edit") and text.endswith("</governance-at-edit>"))
+        text, _ = corpus.digest(self.repo, ["src/app.py"], 400)
+        self.assertIn("more — read", text, "what was cut is counted, never silent")
+        _, fp_a = corpus.digest(self.repo, ["src/a.py"], 6000)
+        _, fp_b = corpus.digest(self.repo, ["src/b.py"], 6000)
+        self.assertEqual(fp_a, fp_b, "the same delivered set dedupes across paths")
 
 
 class Retired(unittest.TestCase):
@@ -218,6 +297,15 @@ class Retired(unittest.TestCase):
             self.assertIn("FAIL", retired.render(hits))
             (repo / "docs/old.md").write_text("clean\n", encoding="utf-8")
             self.assertEqual(retired.scan(repo), [])
+            write(repo / "src/note.md", f"{RETIRED} in src\n")
+            write(repo / "vendor/x.lock", f"{RETIRED} in a lock\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            self.assertIn("src/note.md", {h["path"] for h in retired.scan(repo)})
+            (repo / "config/coherence-context.json").write_text(json.dumps({"context": "downstream", "audit": {"root_sets": ["docs/"], "exclusions": ["*.lock"]}}), encoding="utf-8")
+            self.assertEqual({h["path"] for h in retired.scan(repo)}, set(), "roots limit the scan; *.lock excluded")
+            (repo / "config/quality.json").write_text(json.dumps({"retired_terms": [{"term": "x"}]}), encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "needs `term` and `record`"):
+                retired.scan(repo)
 
 
 class Budget(unittest.TestCase):
@@ -245,7 +333,18 @@ class Budget(unittest.TestCase):
             self.assertFalse(rows["prompt_submit"]["ok"], "the real producer overflowed its key — red")
             self.assertEqual(rows["snapshot"]["bytes"], 100)
             self.assertIn("OVERFLOW", budget.render(rows))
-            self.assertEqual(budget.worst_case_path(repo), "src/x/migrations/x/x.py", "the path under the most globs at once")
+            cat = corpus.catalog(repo)
+            self.assertEqual(budget.worst_case_path(cat), "src/x/migrations/x/x.py", "the path under the most globs at once")
+            self.assertEqual(budget.worst_case_path(cat), budget.worst_case_path(cat), "deterministic")
+            self.assertEqual(rows["pre_edit"]["bytes"], budget.measure(repo)["pre_edit"]["bytes"], "a fresh session per run: never the dedupe pointer")
+            self.assertFalse(list((repo / ".claude/state").glob("governance-delivered-budget-*")), "no marker left behind")
+            write(repo / ".claude/hooks/deliver-governance.sh", "#!/usr/bin/env bash\nexit 0\n")
+            rows = budget.measure(repo)
+            self.assertFalse(rows["pre_edit"]["ok"], "an empty pre-edit delivery is a dead producer, never within budget")
+            self.assertIn("EMPTY", budget.render(rows))
+            write(repo / "scripts/validate-governance.sh", "#!/usr/bin/env bash\necho boom >&2\nexit 1\n")
+            with self.assertRaisesRegex(GateFault, "exited 1: boom"):
+                budget.measure(repo)
 
 
 class Cli(unittest.TestCase):
@@ -265,13 +364,29 @@ class Cli(unittest.TestCase):
             env_out = json.loads(r.stdout)
             self.assertEqual(env_out["hookSpecificOutput"]["hookEventName"], "PreToolUse")
             self.assertIn("DC-18", env_out["hookSpecificOutput"]["additionalContext"])
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "deliver", "--hook-json"], input=json.dumps({"tool_input": {"file_path": "src/app.py"}, "session_id": "h"}), capture_output=True, text=True, env=env)
+            self.assertIn("DC-18", json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"])
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "deliver", "--hook-json"], input="{not json", capture_output=True, text=True, env=env)
+            self.assertEqual((r.returncode, r.stdout), (0, ""), "malformed hook payload: silent pass")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "laws", "--parity"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("PLAW-02", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "law-sentences", "--file", str(repo / "CLAUDE.md")], capture_output=True, text=True, env=env)
+            self.assertIn("LAW-02\tNever modify protected code.", r.stdout)
+            broken = Path(tmp) / "broken"; broken.mkdir(); (broken / "gate.py").write_text(Path(gate).read_text(), encoding="utf-8")
+            r = subprocess.run([sys.executable, str(broken / "gate.py"), "--repo", str(repo), "context"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2); self.assertIn("package is missing", r.stderr); self.assertNotIn("Traceback", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "snapshot-sections"], capture_output=True, text=True, env=env)
             self.assertIn("### [PLAW-01] KISS & DRY", r.stdout)
             self.assertIn("| `runtime` |", r.stdout)
+            self.assertIn("runtime: Python", r.stdout, "stack configuration comes from the one reader")
+            self.assertIn("| python.md | {", r.stdout, "rules manifest comes from the one reader")
             self.assertNotIn("Law Bodies", r.stdout)
+            const = repo / "docs/constitution.md"
+            const.write_text(const.read_text().replace("Body: `rules/stateless.md`", "Body: `rules/python.md`"), encoding="utf-8")  # a file without the heading
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "snapshot-sections", "--profile", "full"], capture_output=True, text=True, env=env)
             self.assertIn("Law Bodies", r.stdout)
             self.assertIn("DC-27", r.stdout)
+            self.assertIn("### [PLAW-02] → rules/python.md  (body section not found)", r.stdout)
 
 
 if __name__ == "__main__":

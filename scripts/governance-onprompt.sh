@@ -129,9 +129,10 @@ elif [ -f "$MARKER_LEGACY" ]; then
   MARKER="$MARKER_LEGACY"
 fi
 
-# GOVERNANCE_ONPROMPT_WORST_CASE=1 (budget reader, EVOL-043): behave as if every marker
-# were present — emit the reload block and skip marker consumption — so the measured
-# bytes are what a session receives at its worst, not the file size.
+# GOVERNANCE_ONPROMPT_WORST_CASE=1 (budget reader, EVOL-043): force the two largest
+# producers — the snapshot reload block and the stale-freshness warning — and keep the
+# marker, so the measured bytes are what a session receives at its worst, not the file
+# size. The IPP / source-edited blocks are small and not simulated.
 WORST_CASE="${GOVERNANCE_ONPROMPT_WORST_CASE:-0}"
 if { [ -n "$MARKER" ] || [ "$WORST_CASE" = "1" ]; } && [ -f "$SNAPSHOT" ]; then
   echo "<governance-reload>"
@@ -281,7 +282,7 @@ if [ -z "$EDIT_PATHS_CSV" ]; then
   FRESHNESS_EXIT=$?
   set -e
 
-  if [ "$FRESHNESS_EXIT" -ne 0 ]; then
+  if [ "$FRESHNESS_EXIT" -ne 0 ] || [ "$WORST_CASE" = "1" ]; then
     echo "<governance-warning reason=\"snapshot-stale\">"
     echo "$FRESHNESS_OUTPUT"
     echo "</governance-warning>"

@@ -115,3 +115,8 @@ changelog:
 
 **Maintained by:** SETUP Agent  
 **Last Updated:** 2026-01-26
+
+## Defect catalog files (EVOL-043)
+
+- `defect-prevention.md` — families (surface globs + one-line invariant) and 7-column defect classes; the families embed in the snapshot, the rows governing a file are delivered at the point of edit.
+- `defect-prevention-cases.md` — the cases annex (Origin / Story / Detection per DC), read on demand by id, never in a roll-call.

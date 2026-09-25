@@ -187,21 +187,24 @@ done < <(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null | grep -E "^docs/p
 # `N. **[LAW-NN] …** — …` list entries (CLAUDE.md corpus). Any other line of
 # the governance source (preamble, pointers, records, prose) is free to move.
 # ────────────────────────────────────────────────────────────────────────────
+# The ONE definition of "law sentence" is the reader's (scripts/gate.py law-sentences); this script never
+# parses the shape itself. Reader absent → the sentence check is skipped with a note (direction A still runs).
 law_sentences() {  # law_sentences <content> → "ID<TAB>sentence" per law
-  printf '%s' "$1" | awk '
-    /^## \[P?LAW-[0-9]+\]/ { id=$2; gsub(/[\[\]]/, "", id); want=1; next }
-    want && /^> / { s=$0; sub(/^> /, "", s); print id "\t" s; want=0; next }
-    /^[0-9]+\. \*\*\[LAW-[0-9]+\]/ {
-      line=$0; match(line, /\[LAW-[0-9]+\]/); id=substr(line, RSTART+1, RLENGTH-2)
-      s=line; sub(/^[0-9]+\. \*\*\[LAW-[0-9]+\][^*]*\*\*[[:space:]]*[—–:-][[:space:]]*/, "", s)
-      sub(/[[:space:]]*Body:.*$/, "", s); print id "\t" s; next }
-  '
+  local tmp
+  tmp=$(mktemp) || return 0
+  printf '%s\n' "$1" > "$tmp"
+  python3 scripts/gate.py law-sentences --file "$tmp" 2>/dev/null || true
+  rm -f "$tmp"
 }
 sentence_diff="no"
+if [ ! -f scripts/gate.py ] || ! command -v python3 >/dev/null 2>&1; then
+  echo "check-adr-constitution-sync: note — scripts/gate.py or python3 absent; the sentence-change check (direction B) is skipped."
+fi
 for src in docs/constitution.md CLAUDE.md .context/templates/setup/constitution/constitution_template.md; do
   echo "$diff_files" | grep -qx "$src" || continue
   before=""; git cat-file -e "$MERGE_BASE:$src" 2>/dev/null && before=$(git show "$MERGE_BASE:$src")
   after=""; git cat-file -e "HEAD:$src" 2>/dev/null && after=$(git show "HEAD:$src")
+  [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1 || continue
   if [ "$(law_sentences "$before")" != "$(law_sentences "$after")" ]; then
     sentence_diff="yes"; sentence_src="$src"
   fi

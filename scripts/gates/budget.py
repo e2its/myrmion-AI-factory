@@ -3,58 +3,40 @@
 against its worst-case input and measures what it emits. Not the file size — the bytes a session receives.
 
   session_start  scripts/validate-governance.sh --banner
-  prompt_submit  scripts/governance-onprompt.sh under GOVERNANCE_ONPROMPT_WORST_CASE=1 (snapshot reload + warning)
-  pre_edit       .claude/hooks/deliver-governance.sh on the path that matches the most defect classes
+  prompt_submit  scripts/governance-onprompt.sh under GOVERNANCE_ONPROMPT_WORST_CASE=1 (reload + stale warning forced)
+  pre_edit       .claude/hooks/deliver-governance.sh on the path that matches the most families and classes
   snapshot       .context/governance_snapshot.md (bytes on disk; n/a where no snapshot exists)
   law_sentence_max_chars / dc_invariant_max_chars  shape budgets, checked over the corpus
+
+A producer that exits non-zero, or a banner / pre-edit delivery that emits nothing, is RED: a dead producer is
+exactly the failure the gate exists to catch. A missing budget key is red too.
 """
 from __future__ import annotations
 
 import json
 import os
 import subprocess
+import uuid
 from pathlib import Path
 
 from .common import GateFault, any_glob, key
 from .corpus import catalog, laws
 
 REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars")
+MUST_EMIT = ("session_start", "pre_edit")   # an empty emission from these is a dead producer, never "within budget"
 
 
 def _run(repo: Path, cmd: list[str], stdin: str = "", env: dict | None = None) -> str:
+    """Stdout of a producer; a non-zero exit is a GateFault naming the producer and its first stderr line."""
     try:
         r = subprocess.run(cmd, cwd=str(repo), input=stdin, capture_output=True, text=True, timeout=120,
                            env={**os.environ, **(env or {})})
     except (OSError, subprocess.TimeoutExpired) as e:
         raise GateFault(f"producer {' '.join(cmd)} could not run: {e}") from None
+    if r.returncode != 0:
+        first = (r.stderr.strip().splitlines() or ["(no stderr)"])[0]
+        raise GateFault(f"producer {' '.join(cmd)} exited {r.returncode}: {first}")
     return r.stdout
-
-
-def worst_case_path(repo: Path) -> str:
-    """The path that the most defect classes and families govern (sample paths derived from their globs)."""
-    cat = catalog(repo)
-    candidates: set[str] = set()
-    for f in cat["families"]:
-        for g in f["surface"]:
-            candidates.add(_sample(g))
-    for d in cat["dcs"]:
-        for g in d["paths"]:
-            if g != "*":
-                candidates.add(_sample(g))
-    # a path can sit under several globs at once (src/** AND **/migrations/**): combine directory prefixes
-    globs = [g.strip().strip("`") for f in cat["families"] for g in f["surface"]] + \
-            [g.strip().strip("`") for d in cat["dcs"] for g in d["paths"]]
-    prefixes = {g[:-3] + "/" for g in globs if g.endswith("/**") and "*" not in g[:-3]}
-    for pre in prefixes:
-        for c in list(candidates):
-            if not c.startswith(pre):
-                candidates.add(pre + c)
-    if not candidates:
-        return "src/example.py"
-    def score(p: str) -> int:
-        return sum(1 for d in cat["dcs"] if d["paths"] == ["*"] or any_glob(p, d["paths"])) \
-            + sum(1 for f in cat["families"] if any_glob(p, f["surface"]))
-    return max(sorted(candidates), key=score)
 
 
 def _sample(glob: str) -> str:
@@ -62,9 +44,8 @@ def _sample(glob: str) -> str:
     g = glob.strip().strip("`")
     if g.endswith("/"):
         return g + "x"
-    parts = g.split("/")
     out = []
-    for p in parts:
+    for p in g.split("/"):
         if p == "**":
             out.append("x")
         elif "*" in p:
@@ -75,46 +56,69 @@ def _sample(glob: str) -> str:
     return path if "." in Path(path).name else path + "/x.py"
 
 
+def worst_case_path(cat: dict) -> str:
+    """The path that the most defect classes and families govern (sample paths derived from their globs).
+    Deterministic: candidates are sorted before the max."""
+    globs = [g for f in cat["families"] for g in f["surface"]] + [g for d in cat["dcs"] for g in d["paths"]]
+    candidates = {_sample(g) for g in globs if g != "*"}
+    # a path can sit under several globs at once (src/** AND **/migrations/**): prepend literal directory
+    # prefixes only — a wildcard prefix such as `**/migrations/` is not a directory to prepend
+    prefixes = sorted({g[:-3] + "/" for g in globs if g.endswith("/**") and "*" not in g[:-3]})
+    for pre in prefixes:
+        candidates |= {pre + c for c in sorted(candidates) if not c.startswith(pre)}
+    if not candidates:
+        return "src/example.py"
+
+    def score(p: str) -> int:
+        return sum(1 for d in cat["dcs"] if d["paths"] == ["*"] or any_glob(p, d["paths"])) \
+            + sum(1 for f in cat["families"] if any_glob(p, f["surface"]))
+    return max(sorted(candidates), key=score)
+
+
 def measure(repo: Path) -> dict:
-    """Bytes emitted by each producer. Raises GateFault when a required key is missing."""
+    """Bytes emitted by each producer against its key. GateFault on a missing key or a dead producer."""
     budgets = key(repo, "budgets", required=True)
-    missing = [k for k in REQUIRED if not isinstance(budgets.get(k), int)]
+    missing = [k for k in REQUIRED if type(budgets.get(k)) is not int]
     if missing:
         raise GateFault(f"config/quality.json budgets missing integer keys: {', '.join(missing)}")
+    cat = catalog(repo)
     rows: dict[str, dict] = {}
+
+    def row(name: str, nbytes: int | None, producer: str):
+        rows[name] = {"budget": budgets[name], "bytes": nbytes, "producer": producer,
+                      "ok": nbytes is None or (nbytes <= budgets[name] and (nbytes > 0 or name not in MUST_EMIT))}
+
     banner = repo / "scripts/validate-governance.sh"
-    rows["session_start"] = {"budget": budgets["session_start"],
-                             "bytes": len(_run(repo, ["bash", str(banner), "--banner"]).encode()) if banner.is_file() else 0,
-                             "producer": "scripts/validate-governance.sh --banner"}
+    row("session_start", len(_run(repo, ["bash", str(banner), "--banner"]).encode()) if banner.is_file() else 0,
+        "scripts/validate-governance.sh --banner")
     onprompt = repo / "scripts/governance-onprompt.sh"
-    rows["prompt_submit"] = {"budget": budgets["prompt_submit"],
-                             "bytes": len(_run(repo, ["bash", str(onprompt)], '{"session_id":"budget","prompt":"x"}',
-                                              {"GOVERNANCE_ONPROMPT_WORST_CASE": "1"}).encode()) if onprompt.is_file() else 0,
-                             "producer": "scripts/governance-onprompt.sh (worst case: reload + warning)"}
+    row("prompt_submit", len(_run(repo, ["bash", str(onprompt)], '{"session_id":"budget","prompt":"x"}',
+                                  {"GOVERNANCE_ONPROMPT_WORST_CASE": "1"}).encode()) if onprompt.is_file() else 0,
+        "scripts/governance-onprompt.sh (worst case: snapshot reload + stale warning forced)")
     deliver = repo / ".claude/hooks/deliver-governance.sh"
-    wpath = worst_case_path(repo)
-    rows["pre_edit"] = {"budget": budgets["pre_edit"],
-                        "bytes": len(_run(repo, ["bash", str(deliver)],
-                                          json.dumps({"tool_input": {"file_path": wpath}, "session_id": "budget-fresh"})).encode())
-                        if deliver.is_file() else 0,
-                        "producer": f".claude/hooks/deliver-governance.sh on {wpath}"}
+    wpath = worst_case_path(cat)
+    session = f"budget-{uuid.uuid4().hex}"   # a fresh session per run: the dedupe pointer must never be what is measured
+    try:
+        row("pre_edit", len(_run(repo, ["bash", str(deliver)],
+                                  json.dumps({"tool_input": {"file_path": wpath}, "session_id": session})).encode())
+            if deliver.is_file() else 0, f".claude/hooks/deliver-governance.sh on {wpath}")
+    finally:
+        marker = repo / ".claude/state" / f"governance-delivered-{session}.txt"
+        if marker.is_file():
+            marker.unlink()
     snap = repo / ".context/governance_snapshot.md"
-    rows["snapshot"] = {"budget": budgets["snapshot"], "bytes": snap.stat().st_size if snap.is_file() else None,
-                        "producer": ".context/governance_snapshot.md" + ("" if snap.is_file() else " (absent — n/a here)")}
+    row("snapshot", snap.stat().st_size if snap.is_file() else None,
+        ".context/governance_snapshot.md" + ("" if snap.is_file() else " (absent — n/a here)"))
     allv = laws(repo)
-    longest_law = max((len(l["sentence"]) for l in allv["universal"] + allv["project"]), default=0)
-    rows["law_sentence_max_chars"] = {"budget": budgets["law_sentence_max_chars"], "bytes": longest_law,
-                                      "producer": "longest law sentence in the index"}
-    longest_dc = max((len(d["invariant"]) for d in catalog(repo)["dcs"]), default=0)
-    rows["dc_invariant_max_chars"] = {"budget": budgets["dc_invariant_max_chars"], "bytes": longest_dc,
-                                      "producer": "longest defect-class invariant"}
-    for r in rows.values():
-        r["ok"] = r["bytes"] is None or r["bytes"] <= r["budget"]
+    row("law_sentence_max_chars", max((len(l["sentence"]) for l in allv["universal"] + allv["project"]), default=0),
+        "longest law sentence in the index")
+    row("dc_invariant_max_chars", max((len(d["invariant"]) for d in cat["dcs"]), default=0), "longest defect-class invariant")
     return rows
 
 
 def render(rows: dict) -> str:
     out = ["| injection point | budget | measured | producer | |", "|---|---|---|---|---|"]
     for k, r in rows.items():
-        out.append(f"| {k} | {r['budget']} | {'n/a' if r['bytes'] is None else r['bytes']} | {r['producer']} | {'ok' if r['ok'] else 'OVERFLOW'} |")
+        state = "ok" if r["ok"] else ("EMPTY — dead producer" if r["bytes"] == 0 else "OVERFLOW")
+        out.append(f"| {k} | {r['budget']} | {'n/a' if r['bytes'] is None else r['bytes']} | {r['producer']} | {state} |")
     return "\n".join(out)

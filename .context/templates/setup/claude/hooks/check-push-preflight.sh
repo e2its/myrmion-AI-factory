@@ -93,7 +93,8 @@ EOF
     exit 2
     ;;
   *)
-    # Unknown exit — fail open (don't block on unexpected behaviour).
+    # Unknown exit (crash, unexecutable) — fail open, but say it: an unreviewed push is not a silent one.
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"Factory PR Review preflight exited %s unexpectedly — push proceeds UNREVIEWED; run bash .claude/skills/factory-pr-review/scripts/preflight.sh to see why."}}\n' "$RC"
     exit 0
     ;;
 esac
