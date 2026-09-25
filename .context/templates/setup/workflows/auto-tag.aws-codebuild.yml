@@ -15,6 +15,8 @@
 #     and reference it as GITHUB_TOKEN env var.
 #   - GIT_CREDENTIAL_HELPER env var set if using CodeCommit.
 # ============================================================================
+# EVOL-047: the first step asks `python3 scripts/gate.py runtime-surface --changed --base HEAD^1` — outside the
+# positive runtime surface (config/quality.json) = no tag, no release. The branch rule is untouched.
 
 version: 0.2
 
@@ -63,6 +65,7 @@ phases:
           git remote set-url origin "$REPO_URL"
         fi
 
+        BASE="${CODEBUILD_WEBHOOK_PREV_COMMIT:-}"; case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="HEAD^1";; esac; rc=0; python3 scripts/gate.py runtime-surface --changed --base "$BASE" || rc=$?; if [ "$rc" -eq 1 ]; then echo "outside the runtime surface — no tag, no release (the branch rule is untouched)"; exit 0; elif [ "$rc" -ne 0 ]; then echo "gate.py runtime-surface could not judge (exit $rc) — tagging to be safe"; fi
         chmod +x scripts/auto-tag.sh
         OUTPUT=$(bash scripts/auto-tag.sh --apply --ci 2>&1)
         echo "$OUTPUT"

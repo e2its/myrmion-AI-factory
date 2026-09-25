@@ -290,6 +290,36 @@ else
 fi
 echo
 
+# ─── The runtime-surface gate line of every deploying template really skips (EVOL-047: `$?` inside `if ! cmd` is 0 — the first cut never did) ───
+STUBDIR=$(mktemp -d); printf '#!/usr/bin/env bash\nexit "${STUB_RC:-0}"\n' > "$STUBDIR/python3"; chmod +x "$STUBDIR/python3"
+for wf in .context/templates/setup/workflows/auto-tag.gitlab-ci.yml .context/templates/setup/workflows/auto-tag.azure-devops.yml .context/templates/setup/workflows/auto-tag.bitbucket.yml .context/templates/setup/workflows/auto-tag.gcp-cloudbuild.yaml .context/templates/setup/workflows/auto-tag.aws-codebuild.yml .context/templates/setup/workflows/auto-tag.jenkins.groovy; do
+  LINE=$(grep -m1 'runtime-surface --changed.*|| rc=' "$wf" | sed -E "s/^[[:space:]]*(- )?'?//; s/'$//; s/\\\$\\\$/\$/g")
+  OUT=$(cd "$STUBDIR" && PATH="$STUBDIR:$PATH" STUB_RC=1 bash -c "$LINE; echo REACHED-THE-TAG" 2>&1); RC=$?
+  if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'outside the runtime surface' && ! printf '%s' "$OUT" | grep -q 'REACHED-THE-TAG'; then
+    printf '  \033[32m✓\033[0m %s: untouched (exit 1) skips the tag script\n' "$(basename "$wf")"
+  else printf '  \033[31m✗\033[0m %s: untouched did not skip (rc=%s): %s\n' "$(basename "$wf")" "$RC" "$OUT" >&2; failures=$((failures + 1)); fi
+  OUT=$(cd "$STUBDIR" && PATH="$STUBDIR:$PATH" STUB_RC=2 bash -c "$LINE; echo REACHED-THE-TAG" 2>&1); RC=$?
+  if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'could not judge (exit 2)' && printf '%s' "$OUT" | grep -q 'REACHED-THE-TAG'; then
+    printf '  \033[32m✓\033[0m %s: a fault (exit 2) says so and tags to be safe\n' "$(basename "$wf")"
+  else printf '  \033[31m✗\033[0m %s: fault lane wrong (rc=%s): %s\n' "$(basename "$wf")" "$RC" "$OUT" >&2; failures=$((failures + 1)); fi
+  OUT=$(cd "$STUBDIR" && PATH="$STUBDIR:$PATH" STUB_RC=0 bash -c "$LINE; echo REACHED-THE-TAG" 2>&1); RC=$?
+  if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'REACHED-THE-TAG' && ! printf '%s' "$OUT" | grep -qE 'outside|could not'; then
+    printf '  \033[32m✓\033[0m %s: touched (exit 0) proceeds silently\n' "$(basename "$wf")"
+  else printf '  \033[31m✗\033[0m %s: touched lane wrong (rc=%s): %s\n' "$(basename "$wf")" "$RC" "$OUT" >&2; failures=$((failures + 1)); fi
+done
+for wf in .github/workflows/auto-tag.yml .context/templates/setup/workflows/auto-tag.github-actions.yml; do
+  BLOCK=$(awk '/set \+e; python3 scripts\/gate.py runtime-surface/{p=1} p{print} /esac/{if(p){exit}}' "$wf")
+  OUTF=$(mktemp); OUT=$(cd "$STUBDIR" && PATH="$STUBDIR:$PATH" STUB_RC=1 GITHUB_OUTPUT="$OUTF" BASE=HEAD^1 bash -c "$BLOCK" 2>&1); RC=$?
+  if [ "$RC" -eq 0 ] && grep -q 'touched=false' "$OUTF"; then printf '  \033[32m✓\033[0m %s: untouched → touched=false (the machinery steps are skipped by if:)\n' "$(basename "$wf")"
+  else printf '  \033[31m✗\033[0m %s: GitHub gate step wrong (rc=%s): %s\n' "$(basename "$wf")" "$RC" "$OUT $(cat "$OUTF")" >&2; failures=$((failures + 1)); fi
+  : > "$OUTF"; OUT=$(cd "$STUBDIR" && PATH="$STUBDIR:$PATH" STUB_RC=2 GITHUB_OUTPUT="$OUTF" BASE=HEAD^1 bash -c "$BLOCK" 2>&1); RC=$?
+  if [ "$RC" -eq 0 ] && grep -q 'touched=true' "$OUTF"; then printf '  \033[32m✓\033[0m %s: a fault → touched=true (tag to be safe)\n' "$(basename "$wf")"
+  else printf '  \033[31m✗\033[0m %s: GitHub fault lane wrong (rc=%s)\n' "$(basename "$wf")" "$RC" >&2; failures=$((failures + 1)); fi
+  rm -f "$OUTF"
+done
+rm -rf "$STUBDIR"
+echo
+
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
   echo "L1: ok — all template assertions passed."

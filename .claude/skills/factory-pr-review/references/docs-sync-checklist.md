@@ -52,7 +52,7 @@ Drives Hard Block 11 (governance-bump miss).
 | Touch any file tracked in `.context/templates/setup/governance_versions.json` | matching manifest entry bump (PATCH/MINOR/MAJOR) + per-file changelog line | **Blocker** |
 | New framework-core file (`.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, etc.) | new manifest entry at `1.0.0` | **Blocker** |
 | New tracked template under `.context/templates/**` | new manifest entry at `1.0.0` | **Blocker** |
-| Workflow YAML under `.github/workflows/**` | full PR + CI flow (NEVER docs-only fast-lane) | **Blocker** if attempted via fast-lane |
+| Workflow YAML under `.github/workflows/**` | full PR + CI flow; a hard exclusion of the runtime surface (`surface.always_deploy`) — the machinery always runs | **Blocker** if the review lanes were skipped |
 
 ## Automatic detection
 

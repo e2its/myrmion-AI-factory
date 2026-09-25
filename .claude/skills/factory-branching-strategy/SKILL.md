@@ -447,7 +447,7 @@ SUB-INCREMENT MERGE (BUILDING → MERGED on the sub entry):
 
 TRAIN CLOSE (every sub-increment MERGED):
   # ONE full verification loop (BVL full_verification_gate over the train's diff vs base_branch),
-  # ONE deployment — only when that diff touches a surface.runtime_surface glob ([] = every train deploys) —,
+  # ONE deployment — only when `python3 scripts/gate.py runtime-surface --changed --base origin/{base_branch}` exits 0 (the positive list, EVOL-047) —,
   # then ONE closing PR train → base_branch. Closure artefacts land through the last sub-increment
   # branch (rebased on the train) before its PR; the train receives no direct commit.
   # ON_PR_MERGED_TO_MAIN flips INC-N BUILDING → MERGED as today.

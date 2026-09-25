@@ -10,6 +10,8 @@
 // Required: Jenkins credentials with Git push permissions.
 //   Configure: Manage Jenkins → Credentials → git-push-credentials
 // ============================================================================
+// EVOL-047: the first step asks `python3 scripts/gate.py runtime-surface --changed --base HEAD^1` — outside the
+// positive runtime surface (config/quality.json) = no tag, no release. The branch rule is untouched.
 
 pipeline {
     agent any
@@ -49,6 +51,7 @@ pipeline {
             steps {
                 sshagent(credentials: ['git-push-credentials']) {
                     sh '''
+                        rc=0; python3 scripts/gate.py runtime-surface --changed --base HEAD^1 || rc=$?; if [ "$rc" -eq 1 ]; then echo "outside the runtime surface — no tag, no release (the branch rule is untouched)"; exit 0; elif [ "$rc" -ne 0 ]; then echo "gate.py runtime-surface could not judge (exit $rc) — tagging to be safe"; fi
                         chmod +x scripts/auto-tag.sh
                         OUTPUT=$(bash scripts/auto-tag.sh --apply --ci 2>&1)
                         echo "$OUTPUT"

@@ -54,7 +54,7 @@ On the first thought of every turn, classify the user's request against the SDLC
 Carve-outs (proceed directly, single-line rationale required):
 
 - **Read-only questions / exploration** — "read-only, no routing".
-- **Docs-only fast-lane** (see Generation Standards §3) — "docs-only fast-lane".
+- **Docs-only change** (Generation Standards §3) — "docs-only change": branch + PR like everything else; the review lanes and the deploy machinery skip on their own.
 - **Trivial operations**: typo fixes, memory saves, permission/config edits via `/update-config`, one-line README clarifications — "trivial, direct edit".
 - **Any code or design change in this project not matching the above** — SDLC routing is mandatory.
 
@@ -224,26 +224,16 @@ Only relevant if editing the framework repo itself. The strategy, thresholds, li
 
    These files are **on-demand**: read them when you are about to generate the matching artefact, never at session start.
 
-2. **Governance version bump — MANDATORY on every tracked file touch.** Touch a file tracked in `docs/project_log/governance_versions.json` (this project's manifest) → bump its entry + add changelog line in the SAME commit. Bump kind: PATCH (typo / doc clarification), MINOR (new feature / section), MAJOR (breaking contract). New tracked files → add entry at `1.0.0`. Fast-lane (§3) bypasses CI workflows, NOT this rule. Canonical procedure: [Factory-governance-loading/SKILL.md](.claude/skills/factory-governance-loading/SKILL.md) § GOVERNANCE WRITE PROTOCOL (GWP).
+2. **Governance version bump — MANDATORY on every tracked file touch.** Touch a file tracked in `docs/project_log/governance_versions.json` (this project's manifest) → bump its entry + add changelog line in the SAME commit. Bump kind: PATCH (typo / doc clarification), MINOR (new feature / section), MAJOR (breaking contract). New tracked files → add entry at `1.0.0`. A change outside the runtime surface (§3) skips the deploy / tag machinery, NOT this rule. Canonical procedure: [Factory-governance-loading/SKILL.md](.claude/skills/factory-governance-loading/SKILL.md) § GOVERNANCE WRITE PROTOCOL (GWP).
 
    Framework-shipped files (`.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, and the whole `.context/templates/**` tree) are NOT tracked in this project's manifest — they evolve upstream in the framework repo. Changes to those files flow in via `SETUP --upgrade` or `factory-sync.sh`, not direct edits. If you need a local override, copy the file and document the deviation in an ADR.
 
-3. **Docs-only fast-lane (commit-on-main + CI skip)** — Documentation-only changes may be committed directly to `main` without a feature branch and without triggering the full CI / Deploy / Tag workflows. A change qualifies as docs-only when **every** path in the diff matches the allowlist:
+3. **The branch rule and the runtime surface (EVOL-047)** — **Every change ships via branch and pull request, documentation included.** There is no commit-to-main permit for any class of change; the Pre-Action Gate below applies to a README typo exactly as to a migration. What a change *outside the runtime surface* saves is the **machinery**, never the branch rule — the two concerns are orthogonal:
 
-   - any `**/*.md`
-   - `docs/**` (the entire docs tree — constitution, rules, setup, UX, project log)
-   - `.gitignore`
-
-   Hard exclusions (ALWAYS PR + full CI, even when the path also matches `**/*.md`):
-
-   - `.github/workflows/**` (or the CI-platform equivalent). Workflow YAML executes in CI/CD — a typo there breaks the build for everyone, so workflow changes ALWAYS go through PR + full CI regardless.
-   - `.claude/instructions/**`, `.claude/skills/**`, `.claude/commands/**`, `.claude/hooks/**` — framework-core **behavioral contracts**. Editing an agent instruction, skill, command, or hook changes runtime agent behaviour; it is never "docs", even though instruction/skill/command files carry the `.md` extension.
-
-   Mixed diffs (one or more non-allowlist paths, or any hard-exclusion path) follow the normal feature-branch + PR + CI flow. The fast-lane is all-or-nothing: even a one-line code touch alongside docs reverts to the standard flow.
-
-   The rule only relaxes the "no direct commit to main" branch rule and the workflow trigger filters. Other governance constraints still apply: constitution/red-zone changes still need an ADR; `governance_versions.json` still needs a version bump when a rule file changes; memory-significant changes still need a feedback-memory update.
-
-   Enforcement: the CI platform chosen at Q21 materialises the skip filter natively (GitHub Actions `paths-ignore`, GitLab CI `rules:changes`, Jenkins `when changeset`, etc.). The framework never inlines a platform-specific expression in CLAUDE.md — `SETUP --generate` writes the correct filter into each workflow based on Q21.
+   - **Deploying and release-cutting workflows fire on a positive path list** — `config/quality.json → surface.runtime_surface` (SETUP Q33): what a deployment can actually change. Every such workflow asks `python3 scripts/gate.py runtime-surface --changed` first and skips its machinery when the merge touched nothing on the list. No exclusion list anywhere: a new path defaults to *not deploying* and the parity gate says so.
+   - **Hard exclusions that always run regardless of match**, enumerated with their reason in `surface.always_deploy`: workflow definitions (`.github/workflows/**` or the CI platform's equivalent — they execute in CI/CD) and the inputs a deployment-time gate reads (`config/quality.json`, `docs/project_log/governance_versions.json`).
+   - **A parity gate holds the list to reality** — `python3 scripts/gate.py runtime-surface` (a member of the gate profile at push, and in CI): every path literal in the deploying jobs and, transitively, in the scripts they run must match the list or a hard exclusion, or be a declared read with a reason (`surface.declared_reads`); a declared read nothing reads any more is a stale exemption and a finding.
+   - **Non-deploying machinery keeps its own honest allowlist**: the push-gate preflight skips its review lanes when every changed path is documentation (`**/*.md`, `docs/**`, `.gitignore`; never `.github/workflows/**` nor the `.claude/{instructions,skills,commands,hooks}/**` behavioural contracts, which are never "docs"). That skip is about review lanes — the branch and the pull request still apply.
 
 ## Pre-Action Gate
 
