@@ -24,6 +24,12 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 `ARCH` / `QA` below name the concern, never a role change.
 
+## Beat 0 — External facts (MANDATORY before the design — EVOL-056)
+
+spawn-policy: reader
+
+Before design.md is written, the **main session** spawns the read-only `factory-docs-reader` by name — `rules/agents.md` § Beat 0: the libraries and services of the surface with their pinned versions and the questions the work rests on; the model from `python3 scripts/gate.py agents --resolve --class reader`; the return held to its contract (`python3 scripts/gate.py agents --check-return --class reader < return.md`) and handed to `factory-blueprint` in its spawn prompt. Every external claim in design.md cites its source index; a premise without a source is written `known-cold`; the sources land under `## External sources` at the end of design.md. No documentation MCP and no web: the unknowns are named, nothing is guessed.
+
 ## Plan Gate — before `--approve` (MANDATORY)
 
 spawn-policy: plan-critic

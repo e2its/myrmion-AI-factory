@@ -67,6 +67,8 @@ Add a server name to `docs_mcp_allowlist` in this file's frontmatter when:
 
 Do NOT add general-purpose MCPs (chrome-devtools, pulumi for resource ops, etc.) — those are not docs sources.
 
+The list is also the reader's (EVOL-056): `factory-docs-reader` (class `reader`, `rules/agents.md` § Beat 0) may carry the **read operations** of the servers named here and no other — `python3 scripts/gate.py agents` holds every definition of the class to it. Extending this list extends the banner and the reader at once.
+
 ## [LAW-10] MCP-Docs Scan Banner
 > Design and build invocations open with the MCP docs scan banner, computed per invocation from an allowlist and never cached.
 

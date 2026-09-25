@@ -95,6 +95,12 @@ IF command requires FEATURE_ID:
   IF missing: ❌ BLOCK: "Run BLUEPRINT --approve {ID} first"
 ```
 
+## Beat 0 — External facts (Guardrail 0.5 — MANDATORY before the configuration — EVOL-056)
+
+spawn-policy: reader
+
+Before devops_plan.md is written, the **main session** spawns the read-only `factory-docs-reader` by name — `rules/agents.md` § Beat 0: the libraries and services of the surface with their pinned versions and the questions the work rests on; the model from `python3 scripts/gate.py agents --resolve --class reader`; the return held to its contract (`python3 scripts/gate.py agents --check-return --class reader < return.md`) and handed to `factory-devops` in its spawn prompt. Every external claim in devops_plan.md cites its source index; a premise without a source is written `known-cold`; the sources land under `## External sources` at the end of devops_plan.md. No documentation MCP and no web: the unknowns are named, nothing is guessed.
+
 ## Guardrail 1: Stack Coherence
 
 ```yaml

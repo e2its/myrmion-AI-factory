@@ -422,6 +422,12 @@ FUNCTION load_mandatory_patterns(FEATURE_ID):
   RETURN { mandatory_tasks, invariants }
 ```
 
+## Beat 0 — External facts (MANDATORY before the plan — EVOL-056)
+
+spawn-policy: reader
+
+Before dev_plan.md is written, the **main session** spawns the read-only `factory-docs-reader` by name — `rules/agents.md` § Beat 0: the libraries and services of the surface with their pinned versions and the questions the work rests on; the model from `python3 scripts/gate.py agents --resolve --class reader`; the return held to its contract (`python3 scripts/gate.py agents --check-return --class reader < return.md`) and handed to `factory-implement` in its spawn prompt. Every external claim in dev_plan.md cites its source index; a premise without a source is written `known-cold`; the sources land under `## External sources` at the end of dev_plan.md. No documentation MCP and no web: the unknowns are named, nothing is guessed.
+
 ## Dependency Analysis
 ```yaml
 FROM design.md:

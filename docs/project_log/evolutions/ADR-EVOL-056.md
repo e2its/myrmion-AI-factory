@@ -1,0 +1,41 @@
+---
+id: ADR-EVOL-056
+title: An external-facts reader agent — the documentation read before the design, the plan and the infrastructure
+date: 2026-09-25
+status: accepted
+---
+
+# ADR-EVOL-056: An external-facts reader agent
+
+## Context
+
+Issue #85, follow-up of #58 (EVOL-049). The roster on two axes exists — phase agents, workers per surface, a plan critic, four work critics — and every command delegates by name. What the reference model has and this framework lacks is the **reader**: a read-only agent that reads the current official documentation of the libraries and services a piece of work depends on, before anyone designs or plans, and returns a source per fact. `[LAW-10]` (the MCP docs scan banner) announces which documentation servers are reachable; nothing reads them. A design or a plan built on a remembered API becomes a wrong signature in code — a defect the critics find late, when the fix costs a round. User ruling (RDR, 2026-09-25): option A — the reader now, as an evolution.
+
+## Decision
+
+- **A `reader` class in the class policy** (`rules/agents.md`): read-only, family `critic` (the validator's own rule: a read-only class is a critic; no third family — the writer/critic separation is the invariant, the reader stands on the critic side of it). Harness matrix `must: Read, Grep, Glob, WebFetch, WebSearch, ToolSearch`; `never: Edit, Write, NotebookEdit, Bash, Agent`; and, new to the matrix, an **`allow_mcp: docs_mcp_allowlist`** clause: a definition of a read-only class may carry `mcp__<server>__<operation>` tools only for a server named in `factory-mcp-docs-scan`'s `docs_mcp_allowlist` (one definition, `[LAW-10]`'s) and only when the operation is a read — a closed vocabulary of read verbs (`read, get, list, search, query, resolve, retrieve, fetch, describe, lookup, find, show, view`) as a token of the operation name; `create_file` on an allowlisted server is red, `pulumi-cli-up` is red, `search_documentation` is green. Effort `high`, budget 6000 B.
+- **`factory-docs-reader`**, one roster agent of that class; surface: the dependency manifests (`package.json`, `pyproject.toml`, `uv.lock`, `requirements*.txt`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle*`, `infra/**`). Inputs: the libraries and services in scope with their pinned versions and the questions the work rests on. Return: `## Sources` (one line per call: `mcp|doc · <server> · <query> · <ref> · <digest>`, or exactly `no sources`), `## Answer` (each claim with its source index), `## Unknowns` (`<question> · searched: <what>`, or exactly `none`), `## Governance`. `gate.py agents --check-return --class reader` refuses a return without the three sections, a source line outside the shape, or an unknown that names nothing searched. The reader gets no corpus digest — it reads documentation, not the corpus.
+- **Beat 0 fan-out** at three spawn sites, each declaring `spawn-policy: reader`: `Factory-blueprint-design` (before the design), `Factory-implement-plan` (before the dependency analysis), `Factory-devops-configure` (before the stack coherence guardrail). The **main session** spawns the reader by name on the model the resolver hands it (`gate.py agents --resolve --class reader`), checks the return, and hands the sources to the phase agent's spawn prompt. An external-fact premise without a source is written as `known-cold` in the artefact, never silently assumed; the phase agent cites the source index beside each external claim and appends `## External sources` to the artefact. No documentation MCP and no web: the reader says so per tool and returns unknowns — nothing is guessed. The three commands name the beat.
+- **Held mechanically**: `gate.py agents` validates the class, the allowlisted servers and the read-verb rule; the spawn hook holds the reader to the critic family; the synthetic materialisation proves the definition lands, the resolver answers and the return check reds and greens.
+
+## Consequences
+
+- Every design, plan and infrastructure configuration carries its external sources; a reviewer can follow each external claim to the page and the version it came from.
+- The roster grows to 15; the class policy to five classes. A project that has no documentation MCP still runs the beat — through the web, or with the unknowns named.
+- Extending the documentation servers is one edit in `factory-mcp-docs-scan` (the banner and the reader read the same list).
+
+## Alternatives considered
+
+- **A third model family for readers**: rejected — a read-only class is a critic by the validator's own rule; a third alias adds a SETUP question for nothing.
+- **Let the phase agents call the documentation MCPs themselves**: rejected — a writer with `mcp__*` tools is a writer with an unbounded tool list; the read-only reader with a checked return is the auditable shape.
+- **The banner is enough (`[LAW-10]`)**: rejected by the user — it announces, it does not read.
+
+## Operational Rule
+
+No universal sentence changes. The body of the agents policy (`rules/agents.md`) gains the `reader` class and the roster entry; `[LAW-10]`'s allowlist gains a second reader. Recorded on the class policy's rule, not on a law sentence.
+
+## Verification record
+
+`scripts/test-gates.sh` (59 unit tests; new in `Agents`: the reader class — allowlisted documentation MCP read operations green; a mutator on an allowlisted server, a server outside the allowlist, a write tool, a missing allowlist, `allow_mcp` on a class that writes or with another value — red; the reader resolved on the critic family at high effort and refused on the writer alias by the spawn check; the return contract — sources / answer / unknowns present, `no sources` and `none` accepted, a source without ref or digest, an unknown that names nothing searched, a missing governance block — refused; the fixture roster of four delivered or red). `scripts/materialize-synthetic.sh` (89 checks: the roster lands with the reader — 15; the resolver answers `critic high` for class `reader`; the spawn hook refuses the reader on the writer alias; a reader return with its sections passes, one without its sources is refused). `check-lockstep-pairs` 73 files / 16 pairs (the agent definition and `agents.py` are pairs), `validate-governance --base origin/main`, ADR sync both directions, applicability 47, `manifest-parity`, `retired-terms`, `one-definition`, `runtime-surface`, `agents`, `seal --validate`, `digests`, `gate.py profile --run` at push — green; `test-hooks.sh` 99, `test-code-review-gate.sh` 16, `test-templates-static.sh`, `test-validate-governance.sh` 10 — green locally.
+
+{{REVIEW}}

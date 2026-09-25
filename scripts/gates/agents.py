@@ -12,7 +12,9 @@ validate   roster parity (every roster name has a definition, every definition i
            aliases and a class that writes is a writer; critic alias ≠ writer alias (no placeholder, no `inherit`);
            the ladder keyed by families and never reaching a writer class; resolve rows name known classes and tiers
            and never restate a class default; every spawn site declares its policy and every class has a site (both
-           directions); the vendored engine lenses (prompts run by a rostered critic) carry no write tool.
+           directions); the vendored engine lenses (prompts run by a rostered critic) carry no write tool; a read-only
+           class with `tools.allow_mcp: docs_mcp_allowlist` (the reader, EVOL-056) may carry `mcp__<server>__<op>` tools
+           only for a server the [LAW-10] docs-scan allowlist names and only for a read operation (a closed verb list).
 resolve    per-spawn model alias + effort from class × surface × tier × round — first matching row, class default;
            a round over the class cap is refused; a size nobody measured (0 files, 0 lines) is `unknown`, never small.
 fallback   the next rung for a resolved family; refused for a writer class (an agent that writes never degrades);
@@ -20,7 +22,8 @@ fallback   the next rung for a resolved family; refused for a writer class (an a
 digest     the slice of law governing the agent's surface (its roster globs expanded over the tracked tree, always-on
            rules included — the agent gets no snapshot), within its class budget (corpus.digest).
 spawn      the model passed at a spawn of a roster agent is its class family's alias — the PreToolUse hook's question.
-check      a worker return without its governance block, a critic finding without a real probe: refused.
+check      a worker return without its governance block, a critic finding without a real probe, a reader return
+           without its sources / answer / unknowns sections or with a source or an unknown that names nothing: refused.
 """
 from __future__ import annotations
 
@@ -33,6 +36,9 @@ from .common import GateFault, any_glob, key, read_frontmatter, resolve_pointer,
 AGENTS_DIR = ".claude/agents"
 ENGINE_AGENTS = ".claude/skills/factory-code-review/agents"   # vendored lenses: prompts for a rostered critic, never spawned as themselves
 POLICY_RULE = "agents.md"
+DOCS_SCAN_SKILL = ".claude/skills/factory-mcp-docs-scan/SKILL.md"   # [LAW-10]: the ONE allowlist of documentation servers
+ALLOW_MCP = "docs_mcp_allowlist"
+READ_VERBS = {"read", "get", "list", "search", "query", "resolve", "retrieve", "fetch", "describe", "lookup", "find", "show", "view"}
 WRITE_TOOLS = {"edit", "write", "notebookedit", "multiedit", "bash", "agent", "task"}
 EFFORTS = ("low", "medium", "high", "max")
 CAPS = {"plan-critic": "plan_gate", "work-critic": "work"}   # class → rounds key
@@ -42,6 +48,10 @@ SEVERITY = re.compile(r"[🔴🟡🟢❓]")
 FINDING = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?P<loc>[^\s*`]+:\d+)(?:\*\*)?\s*·\s*(?P<sev>🔴|🟡|🟢|❓)\s*·\s*confidence\s*\d+%\s*·\s*probe:\s*(?P<probe>.+?)\s*$")
 TRIVIAL_PROBE = re.compile(r"^(?:n/?a|none|nil|-+|—|tbd|todo|\?+|\.+)$", re.I)
 NO_FINDINGS = re.compile(r"^\s*(?:[-*]\s+)?no findings\.?\s*$", re.I | re.M)
+SOURCE = re.compile(r"^\s*(?:[-*]\s+)?(?P<kind>mcp|doc)\s*·\s*(?P<server>[\w.-]+)\s*·\s*(?P<query>.+?)\s*·\s*(?P<ref>.+?)\s*·\s*(?P<digest>.+?)\s*$")
+UNKNOWN = re.compile(r"^\s*(?:[-*]\s+)?(?P<q>.+?)\s*·\s*searched:\s*(?P<s>.*?)\s*$")
+NO_SOURCES = re.compile(r"^\s*(?:[-*]\s+)?no sources\.?\s*$", re.I)
+NO_UNKNOWNS = re.compile(r"^\s*(?:[-*]\s+)?none\.?\s*$", re.I)
 
 
 def _norm(tool) -> str:
@@ -51,6 +61,36 @@ def _norm(tool) -> str:
 
 def _alias(v) -> str:
     return re.sub(r"\[\d+m", "", str(v)).strip().lower()
+
+
+def _server_key(s: str) -> str:
+    return str(s).strip().lower().replace("-", "_")
+
+
+def docs_servers(repo: Path) -> set[str]:
+    """The documentation servers [LAW-10] allowlists — the docs-scan skill's `docs_mcp_allowlist`, the one list."""
+    p = repo / DOCS_SCAN_SKILL
+    if not p.is_file():
+        return set()
+    try:
+        lst = read_frontmatter(p).get(ALLOW_MCP) or []
+    except GateFault:
+        return set()
+    return {_server_key(x) for x in (lst if isinstance(lst, list) else [lst]) if str(x).strip()}
+
+
+def _mcp_read_ok(tool: str, servers: set[str]) -> tuple[bool, str]:
+    """`mcp__<server>__<operation>` is admitted for a read-only class iff the server is allowlisted and the operation reads."""
+    m = re.match(r"^mcp__(?P<server>.+?)__(?P<op>.+)$", tool)
+    if not m:
+        return False, "not read-only (a write tool or a permission-pattern spelling of one)"
+    if not servers:
+        return False, f"no documentation allowlist delivered ({DOCS_SCAN_SKILL} → {ALLOW_MCP})"
+    if _server_key(m.group("server")) not in servers:
+        return False, f"server `{m.group('server')}` is not in the documentation allowlist ({DOCS_SCAN_SKILL})"
+    if not (set(re.split(r"[_\-]+", m.group("op").lower())) & READ_VERBS):
+        return False, "not a read operation (the operation name carries none of: " + ", ".join(sorted(READ_VERBS)) + ")"
+    return True, ""
 
 
 def policy(repo: Path) -> dict:
@@ -69,6 +109,11 @@ def policy(repo: Path) -> dict:
                 raise GateFault(f"agents.classes.{name} lacks `{k}`")
         if not isinstance(c["tools"], dict) or "must" not in c["tools"] or "never" not in c["tools"]:
             raise GateFault(f"agents.classes.{name}.tools must carry `must` and `never` lists")
+        if "allow_mcp" in c["tools"]:
+            if str(c["tools"]["allow_mcp"]) != ALLOW_MCP:
+                raise GateFault(f"agents.classes.{name}.tools.allow_mcp must be `{ALLOW_MCP}` (the [LAW-10] list) — the only allowlist a read-only class may borrow")
+            if {_norm(t) for t in c["tools"]["must"]} & WRITE_TOOLS:
+                raise GateFault(f"agents.classes.{name}.tools.allow_mcp on a class that writes — the documentation servers are read by read-only classes only")
     fam = key(repo, "agents.families", default=None)
     if not isinstance(fam, dict) or not fam.get("writer") or not fam.get("critic"):
         raise GateFault("config/quality.json → agents.families must name the `writer` and `critic` model aliases (SETUP Q34)")
@@ -124,7 +169,16 @@ def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, 
             f.append({"path": rel, "reason": f"class `{cls}` must never have {', '.join(forbidden)}"})
     else:   # a critic class is an allowlist: only its must-list, whatever the spelling
         extra = [tools[t] for t in tools if t not in must]
-        if extra:
+        if extra and c["tools"].get("allow_mcp") == ALLOW_MCP:   # the reader: the [LAW-10] servers, read operations only
+            servers = docs_servers(repo)
+            bad = []
+            for spelled in extra:
+                ok, why = _mcp_read_ok(_norm(spelled), servers)
+                if not ok:
+                    bad.append(f"{spelled} — {why}")
+            if bad:
+                f.append({"path": rel, "reason": f"class `{cls}` admits, beyond {', '.join(must.values())}, only read operations of the documentation servers [LAW-10] allowlists: " + "; ".join(bad)})
+        elif extra:
             f.append({"path": rel, "reason": f"class `{cls}` carries only {', '.join(must.values())} — {', '.join(extra)} is not read-only (a write tool, an `mcp__*` mutator or a permission-pattern spelling of one)"})
     if fm.get("model"):
         f.append({"path": rel, "reason": "`model` written into the definition — the model is computed per spawn (gate.py agents --resolve) and passed at the call; aliases live in config, never here"})
@@ -337,15 +391,47 @@ def spawn_check(repo: Path, agent: str, model: str) -> dict:
     return {"ok": True, "expected": want, "reason": f"`{agent}` on `{want}` ({fam})"}
 
 
+def _section(text: str, name: str) -> str | None:
+    m = re.search(rf"^##\s+{re.escape(name)}\s*$(.*?)(?=^##\s|\Z)", text, re.M | re.S)
+    return m.group(1) if m else None
+
+
+def _check_reader(text: str, problems: list[str]) -> None:
+    for sec in ("Sources", "Answer", "Unknowns"):
+        if _section(text, sec) is None:
+            problems.append(f"no `## {sec}` section")
+    src = _section(text, "Sources")
+    if src is not None and not NO_SOURCES.match(src.strip()):
+        shaped = 0
+        for line in (ln for ln in src.splitlines() if ln.strip() and not ln.strip().startswith("(")):
+            m = SOURCE.match(line)
+            if not m:
+                problems.append(f"source outside the contract shape `mcp|doc · server · query · ref · digest`: {line.strip()[:80]}")
+            elif TRIVIAL_PROBE.match(m.group("ref").strip()) or TRIVIAL_PROBE.match(m.group("digest").strip()):
+                problems.append(f"source without a ref or a digest: {line.strip()[:80]}")
+            else:
+                shaped += 1
+        if not shaped and not problems:
+            problems.append("no source in the contract shape (or a line reading exactly `no sources`)")
+    unk = _section(text, "Unknowns")
+    if unk is not None and not NO_UNKNOWNS.match(unk.strip()):
+        for line in (ln for ln in unk.splitlines() if ln.strip() and not ln.strip().startswith("(")):
+            m = UNKNOWN.match(line)
+            if not m or TRIVIAL_PROBE.match(m.group("s").strip() or "-"):
+                problems.append(f"unknown that names nothing searched (`question · searched: what`): {line.strip()[:80]}")
+
+
 def check_return(text: str, cls: str) -> list[str]:
     if not cls:
-        raise GateFault("--check-return needs --class: a worker and a critic owe different contracts")
+        raise GateFault("--check-return needs --class: a worker, a critic and a reader owe different contracts")
     problems = []
     if "## Governance" not in text:
         problems.append("no `## Governance` block")
     for k in GOV_BLOCK:
         if k not in text:
             problems.append(f"missing `{k}`")
+    if cls == "reader":
+        _check_reader(text, problems)
     if "critic" in cls:
         shaped = 0
         for line in text.splitlines():

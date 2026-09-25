@@ -24,7 +24,7 @@ Before any command-specific logic, the FIRST user-facing output of this command 
 Interactive requirements gathering. Creates `docs/setup.md` and generates `ADR-0000`.
 
 **Full protocol:** See `.claude/instructions/Factory-setup-discovery.instructions.md`
-- **Tiers:** Tier 0 (Foundational: Q1-Q4) → Tier 1 (Stack: Q5-Q14) → Tier 2 (Infrastructure: Q15-Q26) → Finalization
+- **Tiers:** Tier 0 (Foundational: Q1-Q4) → Tier 1 (Stack: Q5-Q14) → Tier 2 (Infrastructure: Q15-Q34) → Finalization
 - AUDIT Detection Protocol (pre-populate from `docs/technical_due.md` if available)
 - Template Scanning Protocol (scan `.context/templates/`)
 - Universal Option Protocol ("Other" + "Help me decide" on every question)

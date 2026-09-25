@@ -21,6 +21,8 @@ Before any command-specific logic, the FIRST user-facing output of this command 
 ## Commands
 
 ### `--configure {ID}`
+
+Beat 0 (EVOL-056): before the configuration, the main session spawns the read-only `factory-docs-reader` on the services and IaC resources in scope and hands its sources to `factory-devops`; every external claim in devops_plan.md cites its source (`Factory-devops-configure` § Guardrail 0.5).
 Create infrastructure plan. PREREQUISITE: design.md + test_plan.md APPROVED.
 
 **Full protocol:** See `.claude/instructions/Factory-devops-configure.instructions.md`

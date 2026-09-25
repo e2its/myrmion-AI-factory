@@ -24,6 +24,8 @@ Before any command-specific logic, the FIRST user-facing output of this command 
 ## Commands
 
 ### `--plan {ID}`
+
+Beat 0 (EVOL-056): before the plan, the main session spawns the read-only `factory-docs-reader` on the libraries and services of the surface and hands its sources to `factory-implement`; every external claim in dev_plan.md cites its source (`Factory-implement-plan` § Beat 0).
 Create implementation plan. PREREQUISITE: design.md + test_plan.md APPROVED. Vision APPROVED for frontend.
 
 **Full protocol:** See `.claude/instructions/Factory-implement-plan.instructions.md`

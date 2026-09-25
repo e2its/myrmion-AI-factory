@@ -8,6 +8,8 @@ This command delegates by name to the phase agent `factory-blueprint` (`.claude/
 
 Cross-pollination is inline: ARCH contracts inform QA test cases, QA edge cases refine ARCH error handling. Before `--approve`, the read-only `factory-plan-critic` gates the plan — at most `rounds.plan_gate` rounds, then the user adjudicates by RDR (`Factory-blueprint-design.instructions.md § Plan Gate`).
 
+Beat 0 (EVOL-056): before the design, the main session spawns the read-only `factory-docs-reader` on the libraries and services of the surface and hands its sources to `factory-blueprint`; every external claim in design.md cites its source (`Factory-blueprint-design` § Beat 0).
+
 **Arguments:** $ARGUMENTS
 
 ## Step 0 — Applicability Roll-Call (MANDATORY)
