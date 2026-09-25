@@ -60,7 +60,7 @@ When a feature uses incremental slicing (the default), each **increment** declar
 ```
 feature/{FEATURE_ID}-inc-{N}-{short-description}
 
-Regex: ^feature/[A-Z]+-[0-9]+-inc-[0-9]+-[a-z0-9-]+$
+Regex: ^feature/[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*-inc-[0-9]+-[a-z0-9-]+$   (canonical: python3 scripts/gate.py branch-class)
 Examples:
   feature/USR-001-inc-1-submit-claim
   feature/USR-001-inc-2-edit-claim

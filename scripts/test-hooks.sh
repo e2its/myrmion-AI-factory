@@ -106,6 +106,15 @@ git -C "$REPO" checkout -q -b feature/FEAT-001-inc-2-y
 run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
 assert_pass "on a per-increment branch without sub-increments: passes"
 git -C "$REPO" checkout -q feature/FEAT-001-x
+git -C "$REPO" checkout -q feature/FEAT-001-inc-1-x
+mv "$REPO/scripts/gate.py" "$SANDBOX/gate.py.bak"
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_pass "on a train with the reader absent: passes (fail-open on infrastructure)"
+printf 'import sys; print("gate: broken"); sys.exit(2)\n' > "$REPO/scripts/gate.py"
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
+assert_context "on a train with the reader faulting: passes, the fault is said through the envelope" "train protection not evaluated"
+mv "$SANDBOX/gate.py.bak" "$REPO/scripts/gate.py"
+git -C "$REPO" checkout -q feature/FEAT-001-x
 
 echo "── check-concurrency-lock ──"
 mkdir -p "$REPO/.context/locks"

@@ -1236,7 +1236,7 @@ FUNCTION check_slice_immutability_consistency(elements):
 
 ### Check 21: `surface_declared` (WARNING — IMPLEMENT scope, EVOL-045)
 
-When `slicing_strategy == incremental`, every increment — and every sub-increment it declares — carries an `Estimated surface:` line (paths · ~files · ~lines, the same ruler `gate.py surface` uses at push). A missing estimate means the ceiling was never compared and the train/sub-increment split was never decided.
+When `slicing_strategy == incremental`, every increment carries an `Estimated surface:` line (paths · ~files · ~lines, the same ruler `gate.py surface` uses at push) and every sub-increment it declares carries the `~files · ~lines` segment of its `- SUB-N-M:` item. A missing estimate means the ceiling was never compared and the train/sub-increment split was never decided.
 
 ```yaml
 FUNCTION check_surface_declared(elements):

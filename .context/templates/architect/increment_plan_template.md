@@ -75,7 +75,7 @@ iterations: []
 - **Contract surface:** [{{POST /api/v1/foo}}, {{GET /api/v1/bar/:id}}] (or GraphQL fields / AsyncAPI topics / gRPC RPCs)
 - **Estimated surface:** paths [{{src/claims/**}}, {{tests/claims/**}}] · ~{{files}} files · ~{{lines}} lines   *(the same ruler the push gate uses — files + lines of the diff, no exclusions; compare with config/quality.json surface.ceiling_files / ceiling_lines; ratified by RDR — see Factory-blueprint-design Step B.4)*
 - **Escape:** none   *(none | one term of surface.escapes — the closed vocabulary; the commit trailer Surface-Escape: <term> repeats it)*
-- **Sub-increments:** none   *(only when the estimate exceeds a ceiling — then a list: `- SUB-1-{M}: {scope: task groups / scenarios} · ~files · ~lines · branch feature/{{FEATURE_ID}}-inc-1-{{slug}}-sub-{M}`; the per-increment branch becomes a train, one PR per sub-increment into it, one closing PR; `gate.py branch-class` reads this list)*
+- **Sub-increments:** none   *(only when the estimate exceeds a ceiling — then a list: `- SUB-1-{M}: {scope: task groups / scenarios} · ~files · ~lines · branch feature/{{FEATURE_ID}}-inc-1-{{slug}}-sub-{M} · status: READY` (status READY | BUILDING | MERGED — written by the branching skill § Trains; mirrored in dev_plan.md `sub_increments[]`); the per-increment branch becomes a train, one PR per sub-increment into it, one closing PR; `gate.py branch-class` reads this list)*
 - **Depends on:** []   *(INC-1 always empty — intra-feature INC→INC DAG edge)*
 - **cascade_source:** `SLICE-{{FEATURE_ID}}-1`   *(Rule 9 join key → the slice_map.md slice this increment realizes; CVP Check 18 resolves it)*
 - **depends_on_slice:** []        *(inherited from the realized slice — intra-feature slice ordering; `[SLICE-{{FEATURE_ID}}-X]`)*

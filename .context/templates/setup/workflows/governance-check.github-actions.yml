@@ -19,8 +19,7 @@
 name: Governance Check
 
 on:
-  pull_request:
-    branches: [main]
+  pull_request:   # every PR — a sub-increment PR targets its train, not main (EVOL-045)
 
 permissions:
   contents: read
@@ -50,7 +49,7 @@ jobs:
           python3 scripts/gate.py retired-terms
           python3 scripts/gate.py currency --base "origin/${{ github.base_ref }}"
           python3 scripts/gate.py manifest-parity
-          python3 scripts/gate.py surface --base "origin/${{ github.base_ref }}"
+          python3 scripts/gate.py surface --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
 
       - name: Post violation comment on failure
         if: failure()

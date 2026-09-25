@@ -1315,7 +1315,7 @@ Execute AFTER all phases verified + mock compliance + visual inspection.
 #  - monolithic feature OR plan-level aggregate: docs/spec/{FEATURE_ID}/review/peer_review_{timestamp}.md
 #  - per-increment closure (build_scope.mode == "incremental"): docs/spec/{FEATURE_ID}/review/peer_review_{INC-N}_{timestamp}.md
 #  Currency (EVOL-044): before status/verdict turn APPROVED, stamp the files the review read —
-#    certifies = RUN python3 scripts/gate.py certify --subject diff --base $(python3 scripts/gate.py diff-base 2>/dev/null || echo origin/main)
+#    certifies = RUN python3 scripts/gate.py certify --subject diff   # base = gate.py diff-base; an unrecognised branch name is red — rename, never fall back
 #    WRITE the printed block (subject, paths = the code/test files of the diff, hash) under frontmatter `certifies:`
 #  (a later change to any of those files makes the review STALE — gate.py currency blocks the push until it is re-taken).
 #    where {INC-N} == build_scope.target_increment.id (e.g. peer_review_INC-2_2026-05-08T10-30-00.md)
@@ -1343,7 +1343,7 @@ CREATE docs/spec/{FEATURE_ID}/sec_audit.md:
   - Remaining findings (MEDIUM/LOW with risk acceptance)
   - Compliance status per security_policy.md
   - Currency (EVOL-044): when status turns SECURE / APPROVED, RUN
-      python3 scripts/gate.py certify --subject diff --base $(python3 scripts/gate.py diff-base 2>/dev/null || echo origin/main)
+      python3 scripts/gate.py certify --subject diff   # base = gate.py diff-base; an unrecognised branch name is red — rename, never fall back
     and WRITE the printed block under frontmatter `certifies:` — the audit certifies the files it scanned
     (gate.py currency: a later change to any of them = STALE = re-scan)
 ```

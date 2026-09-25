@@ -6,16 +6,17 @@ Grammar (factory-branching-strategy SKILL § Trains):
   sub-increment  feature/{ID}-inc-{N}-{slug}-sub-{M}   → one PR into its train
   train          feature/{ID}-inc-{N}-{slug} whose increment plan declares sub-increments (protected: no direct commits)
   increment      feature/{ID}-inc-{N}-{slug} without sub-increments (one PR to the base branch)
-  feature        feature/{ID}-{slug} · epic/{EPIC}-{slug}
+  feature        feature/{ID}-{slug} · feat/* · epic/{EPIC}-{slug}
   fix            fix/* | bugfix/* | hotfix/*
-  docs · chore   docs/* | chore/*
+  docs · chore · breaking   docs/* | chore/* | breaking/*
   unknown        anything else → every consumer fails closed
 
 Diff base: a sub-increment measures against its train; everything else against the project's default base
 branch (`default_base_branch:` in the branching rule's frontmatter, else `main`). The base is a remote ref.
 Surface: files + lines of `git diff --numstat base...HEAD` — no exclusion list. Over a ceiling
 (`surface.ceiling_files` / `surface.ceiling_lines`) is red unless a commit in the range carries the trailer
-`Surface-Escape: <term>` with a term from the closed `surface.escapes` list.
+`Surface-Escape: <term>` with a term from the closed `surface.escapes` list. A train is exempt by class: its
+surface was measured per sub-increment PR and its closing PR is the sum by construction.
 """
 from __future__ import annotations
 
@@ -27,10 +28,11 @@ from .common import GateFault, key, read_frontmatter, rules_root
 
 PROTECTED_RE = re.compile(r"^(main|master|develop|release(/.+)?|hotfix)$")
 FEATURE_ID = r"[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*"          # stops before the lowercase `-inc-` / `-slug`
-INC_RE = re.compile(rf"^feature/(?P<id>{FEATURE_ID})-inc-(?P<n>\d+)-(?P<slug>[a-z0-9-]+?)(?:-sub-(?P<m>\d+))?$")
-FEATURE_RE = re.compile(rf"^feature/{FEATURE_ID}(?:-[a-z0-9-]+)?$")
-EPIC_RE = re.compile(rf"^epic/{FEATURE_ID}(?:-[a-z0-9-]+)?$")
-SIMPLE_RE = re.compile(r"^(fix|bugfix|hotfix|docs|chore)/[A-Za-z0-9._-]+$")
+INC_RE = re.compile(rf"^feature/(?P<id>{FEATURE_ID})-inc-(?P<n>\d+)-(?P<slug>[a-z0-9-]+?)(?:-sub-(?P<m>[1-9]\d*))?$")   # a slug never ends in -sub-<digits>
+FEATURE_RE = re.compile(rf"^feature/{FEATURE_ID}(?:-[a-z0-9._-]+)?$")
+EPIC_RE = re.compile(rf"^epic/{FEATURE_ID}(?:-[a-z0-9._-]+)?$")
+SIMPLE_RE = re.compile(r"^(fix|bugfix|hotfix|docs|chore|feat|breaking)/[A-Za-z0-9._-]+$")   # the kinds CLAUDE.md INVARIANT 1 names
+SIMPLE_CLASS = {"fix": "fix", "bugfix": "fix", "hotfix": "fix", "docs": "docs", "chore": "chore", "feat": "feature", "breaking": "breaking"}
 ESCAPE_RE = re.compile(r"(?m)^Surface-Escape:[ \t]*([a-z0-9-]+)[ \t]*$")
 
 
@@ -56,13 +58,13 @@ def current_branch(repo: Path) -> str:
 
 
 def default_base(repo: Path) -> str:
-    """`default_base_branch:` from the branching rule's frontmatter, else main."""
+    """`default_base_branch:` from the branching rule's frontmatter, else main. An unreadable rule is a fault, never main."""
     for p in (rules_root(repo) / "branching.md", repo / ".claude/rules/branching.md"):
         if p.is_file():
             try:
                 v = read_frontmatter(p).get("default_base_branch")
-            except GateFault:
-                v = None
+            except GateFault as e:
+                raise GateFault(f"the branching rule {p.relative_to(repo)} cannot be read ({e}) — the default base branch comes from its frontmatter") from None
             if v:
                 return str(v)
     return "main"
@@ -82,7 +84,7 @@ def declares_sub_increments(repo: Path, branch: str) -> bool:
     if not plan.is_file():
         return False
     text = plan.read_text(encoding="utf-8", errors="replace")
-    return re.search(rf"(?m)^\s*-\s*\**SUB-{m.group('n')}-\d+\**\s*:", text) is not None
+    return re.search(rf"(?m)^\s*-\s*\**SUB-{m.group('n')}-\d+\**\s*(?::|—)", text) is not None
 
 
 def branch_class(repo: Path, branch: str | None = None) -> dict:
@@ -99,8 +101,7 @@ def branch_class(repo: Path, branch: str | None = None) -> dict:
         return {"branch": b, "class": "epic" if b.startswith("epic/") else "feature", "protected": False}
     sm = SIMPLE_RE.match(b)
     if sm:
-        kind = sm.group(1)
-        return {"branch": b, "class": "fix" if kind in ("fix", "bugfix", "hotfix") else kind, "protected": False}
+        return {"branch": b, "class": SIMPLE_CLASS[sm.group(1)], "protected": False}
     return {"branch": b, "class": "unknown", "protected": False}
 
 
@@ -112,10 +113,16 @@ def diff_base(repo: Path, branch: str | None = None, remote: str = "origin") -> 
                             f"from the name; rename it (feature/{{ID}}-{{slug}}, feature/{{ID}}-inc-{{N}}-{{slug}}[-sub-{{M}}], "
                             f"fix/*, bugfix/*, hotfix/*, docs/*, chore/*, epic/*)")
     if info["class"] == "protected":
-        return f"{remote}/{info['branch']}"
-    if info["class"] == "sub-increment":
-        return f"{remote}/{info['train']}"
-    return f"{remote}/{default_base(repo)}"
+        ref = f"{remote}/{info['branch']}"
+    elif info["class"] == "sub-increment":
+        ref = f"{remote}/{info['train']}"
+    else:
+        ref = f"{remote}/{default_base(repo)}"
+    r = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", ref + "^{commit}"], capture_output=True, text=True)
+    if r.returncode != 0:
+        what = f"the train `{info['train']}`" if info["class"] == "sub-increment" else f"the base branch `{ref.split('/', 1)[1]}`"
+        raise GateFault(f"{what} is not on {remote} — push it first (`git push -u {remote} {ref.split('/', 1)[1]}`) or fetch it (`git fetch {remote}`); nothing can be measured against a ref that does not exist")
+    return ref
 
 
 def surface(repo: Path, base: str | None = None, branch: str | None = None) -> dict:
@@ -123,7 +130,16 @@ def surface(repo: Path, base: str | None = None, branch: str | None = None) -> d
     ceiling_files = int(key(repo, "surface.ceiling_files", required=True))
     ceiling_lines = int(key(repo, "surface.ceiling_lines", required=True))
     escapes = [str(t) for t in (key(repo, "surface.escapes", default=[]) or [])]
+    try:
+        cls = branch_class(repo, branch)["class"]
+    except GateFault:          # detached HEAD with an explicit base (CI): no class, no exemption
+        if base is None:
+            raise
+        cls = None
     base = base or diff_base(repo, branch)
+    if cls == "train":         # measured per sub-increment PR; the closing PR is the sum by construction
+        return {"base": base, "files": None, "lines": None, "ceiling_files": ceiling_files, "ceiling_lines": ceiling_lines,
+                "escape": None, "over": False, "ok": True, "class": cls, "reason": "train: the ceiling was applied to each sub-increment PR; the closing PR is their sum"}
     files, lines = 0, 0
     for row in _git(repo, "diff", "--numstat", f"{base}...HEAD").splitlines():
         parts = row.split("\t")
@@ -146,10 +162,12 @@ def surface(repo: Path, base: str | None = None, branch: str | None = None) -> d
                   f"into its train) or declare a legitimate escape as a commit trailer `Surface-Escape: <term>` "
                   f"({', '.join(escapes) or 'none declared'})")
     return {"base": base, "files": files, "lines": lines, "ceiling_files": ceiling_files, "ceiling_lines": ceiling_lines,
-            "escape": escape, "over": over, "ok": not reason, "reason": reason}
+            "escape": escape, "over": over, "ok": not reason, "class": cls, "reason": reason}
 
 
 def render_surface(s: dict) -> str:
+    if s.get("class") == "train":
+        return f"surface: ok — {s['reason']} (base {s['base']})"
     line = (f"surface: {'ok' if s['ok'] else 'RED'} — {s['files']} files / {s['lines']} lines vs ceiling "
             f"{s['ceiling_files']} / {s['ceiling_lines']} (base {s['base']})")
     if s["escape"]:

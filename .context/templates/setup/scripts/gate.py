@@ -13,8 +13,8 @@
   gate.py snapshot-sections [--profile lite|full]  stack config + rules manifest + law index + families (+ bodies)
   gate.py budget                                   run every producer at worst case; exit 1 on overflow, dead/absent producer or missing key
   gate.py retired-terms                            the retired-vocabulary ratchet; exit 1 on a hit
-  gate.py certify --subject diff|tree [--base B] [--paths p…] [--json]   the certifies: block a verdict embeds (paths + hash)
-  gate.py currency [--base B]                      the push's verdict artefacts still certify their files; exit 1 stale/missing · 2 could not judge
+  gate.py certify --subject diff|tree [--base B] [--branch B] [--paths p…] [--json]   the certifies: block a verdict embeds (paths + hash); diff base = gate.py diff-base
+  gate.py currency [--base B] [--branch B]         the push's verdict artefacts still certify their files; exit 1 stale/missing/unknown branch · 2 could not judge
   gate.py manifest-parity                          frontmatter version == manifest version for every governed file; exit 1 on drift
   gate.py branch-class [--branch B] [--protected] [--json]   protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown
   gate.py diff-base [--branch B]                   the ONE diff base (sub-increment → its train; else the default base branch); exit 1 on an unknown name
@@ -180,7 +180,12 @@ def cmd_surface(repo, a):
 
 
 def cmd_certify(repo, a):
-    c = coherence.certify(repo, a.subject, _base(repo, a), a.paths)
+    try:   # a tree certification needs no base — never classify a branch for it (QA often runs on a tag / detached checkout)
+        base = _base(repo, a) if a.subject == "diff" else None
+    except branch_mod.UnknownBranch as e:
+        print(f"certify: RED — {e}", file=sys.stderr)
+        return 1
+    c = coherence.certify(repo, a.subject, base, a.paths)
     if a.json:
         print(json.dumps(c))
     else:  # ready to paste under `certifies:` in the artefact frontmatter

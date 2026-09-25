@@ -173,6 +173,11 @@ OUT=$(cd "$P" && python3 scripts/gate.py surface 2>&1); RC=$?
 mkdir -p "$P/docs/spec/FEAT-001"; printf '### INC-1 — x\n- **Sub-increments:**\n  - SUB-1-1: a · branch feature/FEAT-001-inc-1-x-sub-1\n' > "$P/docs/spec/FEAT-001/increment_plan.md"
 OUT=$(cd "$P" && python3 scripts/gate.py branch-class --branch feature/FEAT-001-inc-1-x --protected 2>&1); RC=$?
 [ "$RC" -eq 1 ] && ok "a per-increment branch with declared sub-increments is a protected train" || bad "train not protected (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py surface --base origin/main --branch feature/FEAT-001-inc-1-x 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'train' && ok "the train's closing PR (CI shape: explicit base + head ref) is green by class" || bad "train closing PR red (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py diff-base --branch feature/FEAT-001-inc-1-x-sub-2 2>&1); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'is not on origin' && ok "a train never pushed is a fault said in plain language (push -u named)" || bad "missing train ref not said (rc=$RC)" "$OUT"
+git -C "$P" update-ref refs/remotes/origin/feature/FEAT-001-inc-1-x HEAD
 OUT=$(cd "$P" && python3 scripts/gate.py diff-base --branch feature/FEAT-001-inc-1-x-sub-2 2>&1); RC=$?
 [ "$RC" -eq 0 ] && [ "$OUT" = "origin/feature/FEAT-001-inc-1-x" ] && ok "a sub-increment's diff base is its train" || bad "sub-increment diff base wrong (rc=$RC): $OUT"
 OUT=$(cd "$P" && git checkout -q -b nonsense && python3 scripts/gate.py diff-base 2>&1); RC=$?; git -C "$P" checkout -q feature/FEAT-001-smoke

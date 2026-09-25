@@ -65,7 +65,7 @@ PRE_SETUP_GOVERNANCE:
   # They are structural git hygiene — not framework-specific governance.
 
   branch_protection:
-    - NEVER commit directly to main/master/develop/release/*/hotfix/*
+    - NEVER commit directly to main/master/develop/release/*/hotfix (bare) or a train — gate.py branch-class --protected
     - ALL work happens in dedicated branches
     - Branch naming: {type}/{ID-or-description} (feature/, fix/, setup/, audit/, maintenance/)
 
@@ -198,7 +198,7 @@ IF command_modifies_files:
   # Uses exact ID parsing (not substring) to avoid false matches (e.g., USR-001 vs USR-0010).
   current_branch = git branch --show-current
   current_feature_id = PARSE_FEATURE_ID_FROM_BRANCH(current_branch)  # extracts ID from {type}/{ID}-{slug} convention
-  IF current_branch NOT IN [main, master, develop] AND NOT current_branch MATCHES "release/*|hotfix/*":
+  IF RUN("python3 scripts/gate.py branch-class --protected") != 1:   # not main/master/develop/release/*/bare hotfix/a train
     # Currently on a non-protected feature branch — check if it matches the requested feature
     IF current_feature_id IS NOT NULL AND current_feature_id != feature_id:
       # MISMATCH: current branch belongs to a DIFFERENT feature
@@ -297,7 +297,7 @@ ELSE:
 
 ```yaml
 current_branch = git branch --show-current
-IF current_branch IN [main, master, develop, release/*, hotfix/*]:
+IF RUN("python3 scripts/gate.py branch-class --protected") == 1:   # main, master, develop, release/*, bare hotfix, a train
   ❌ BLOCK: "Cannot modify files on protected branch '{current_branch}'."
   STOP — Do not proceed with ANY file modification
 ```
@@ -347,7 +347,7 @@ BRANCH NAMING (incremental):
     feature/USR-001-inc-2-edit-claim
     feature/USR-001-inc-3-policy-check
   Parent: main (direct) — NOT a feature/{FEATURE_ID}-* umbrella branch
-  Regex:  ^feature/[A-Z]+-[0-9]+-inc-[0-9]+-[a-z0-9-]+$
+  Regex:  ^feature/[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*-inc-[0-9]+-[a-z0-9-]+$   # canonical: python3 scripts/gate.py branch-class
 
 CONCURRENCY (reuse of existing LOCK PROTOCOL):
   # Only ONE increment branch per feature may be open simultaneously. This
@@ -369,7 +369,11 @@ BRANCH OPEN TRIGGER (READY → BUILDING):
     READ increment_plan.md § 1 → increment_id
     REQUIRE status IN [READY, INVALIDATED]  # DRAFT not yet promoted; BUILDING/MERGED rejected
     REQUIRE all depends_on predecessors have status == MERGED
-    UPDATE_INCREMENT_FIELD(increment_plan.md, increment_id, "status", "BUILDING")
+    IF increment declares Sub-increments (a train, EVOL-045):
+      git push -u origin feature/{FEATURE_ID}-inc-{N}-{slug}   # the train must be on origin before any sub-increment gate runs
+      # no edit on the train (protected): the READY → BUILDING flip lands on the first sub-increment branch (SUB-INCREMENT OPEN)
+    ELSE:
+      UPDATE_INCREMENT_FIELD(increment_plan.md, increment_id, "status", "BUILDING")
 
 BRANCH MERGE HOOK (BUILDING → MERGED):
   # When the increment PR merges into main, the merge hook (post-merge on main)
@@ -419,7 +423,8 @@ An increment whose `increment_plan.md § 1` entry declares `Sub-increments:` shi
 ```yaml
 BRANCH NAMING (sub-increment):
   Pattern: feature/{FEATURE_ID}-inc-{N}-{slug}-sub-{M}      # M ≥ 1, created FROM the train
-  Regex:   ^feature/[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*-inc-[0-9]+-[a-z0-9-]+-sub-[0-9]+$
+  Regex:   ^feature/[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*-inc-[0-9]+-[a-z0-9-]+-sub-[1-9][0-9]*$
+  # Reserved: an increment slug never ends in -sub-<digits> (it would read as a sub-increment of a shorter slug).
   # The feature id stops before the lowercase -inc-; -sub-{M} never enters it.
   # The increment regex above also matches this name — classify sub first: python3 scripts/gate.py branch-class
 
@@ -430,9 +435,10 @@ TRAIN PROTECTION:
 
 SUB-INCREMENT OPEN (READY → BUILDING on the sub entry):
   ON_SUB_INCREMENT_BRANCH_CREATED(FEATURE_ID, increment_id, sub_id):
-    REQUIRE increment_plan.md § 1 → increment_id.status == BUILDING   # the train is open
+    REQUIRE increment_plan.md § 1 → increment_id.status IN [READY, BUILDING]   # the train is open (pushed)
     git checkout -b feature/{FEATURE_ID}-inc-{N}-{slug}-sub-{M} origin/{train}   # never from base_branch
-    UPDATE_SUB_INCREMENT_FIELD(increment_plan.md, increment_id, sub_id, "status", "BUILDING")
+    IF increment_id.status == READY: UPDATE_INCREMENT_FIELD(increment_plan.md, increment_id, "status", "BUILDING")   # the first sub opens the train
+    UPDATE_SUB_INCREMENT_FIELD(increment_plan.md, increment_id, sub_id, "status", "BUILDING")   # the sub item's `· status:` segment
 
 SUB-INCREMENT MERGE (BUILDING → MERGED on the sub entry):
   # One PR per sub-increment INTO the train. Scoped task tests + review only — never a full loop.

@@ -344,8 +344,22 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
     exit 0
   fi
   
-  # Base branch: the one resolver (EVOL-045); legacy probing only when the reader is absent
-  BASE_BRANCH="$(python3 scripts/gate.py diff-base 2>/dev/null || echo origin/main)"
+  # Base branch: the one resolver (EVOL-045); legacy probing (master / develop) only when the reader is absent
+  # the ONE diff base (EVOL-045): exit 1 = the branch name is red (say it, exit 1); exit 2 with the reader present =
+  # a fault (say it, exit 2); reader absent = legacy origin/main.
+  resolve_diff_base() {
+    local out rc
+    out=$(python3 scripts/gate.py diff-base 2>&1); rc=$?
+    case "$rc" in
+      0) printf '%s' "$out" ;;
+      1) echo "$out" >&2; return 1 ;;
+      *) if [ -f scripts/gate.py ]; then echo "$out" >&2; return 2; fi; printf 'origin/main' ;;
+    esac
+  }
+  BASE_BRANCH=$(resolve_diff_base) || exit $?
+  if [ -f scripts/gate.py ] && ! git rev-parse --verify "$BASE_BRANCH" > /dev/null 2>&1; then
+    echo "❌ diff base $BASE_BRANCH is not on the remote — fetch or push it first; the drift check cannot run against a ref that does not exist"; exit 2
+  fi
   if ! git rev-parse --verify "$BASE_BRANCH" > /dev/null 2>&1; then
     BASE_BRANCH="origin/master"
   fi
@@ -353,7 +367,7 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
     BASE_BRANCH="origin/develop"
   fi
   if ! git rev-parse --verify "$BASE_BRANCH" > /dev/null 2>&1; then
-    echo "⚠️  No base branch found (tried origin/main, origin/master, origin/develop). Skipping drift check."
+    echo "⚠️  No base branch found (reader absent; tried origin/main, origin/master, origin/develop). Skipping drift check."
     exit 0
   fi
   

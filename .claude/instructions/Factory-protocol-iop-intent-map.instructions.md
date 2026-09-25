@@ -496,8 +496,8 @@ FUNCTION execute_scm_operation(user_request):
     # Step 3: BRANCH PROTECTION CHECK
     current_branch = git branch --show-current
     IF RUN("python3 scripts/gate.py branch-class --protected") == 1:   # main, master, develop, release/*, hotfix, or a train with declared sub-increments (EVOL-045)
-      ❌ BLOCK: "Destructive operations on protected branches (main, master, develop, release/*, hotfix/*, or a train with declared sub-increments) require branch protection toggle."
-      SUGGEST: "Create a maintenance branch first: git checkout -b maintenance/repo-cleanup"
+      ❌ BLOCK: "Destructive operations on protected branches (main, master, develop, release/*, bare hotfix, or a train with declared sub-increments) require branch protection toggle."
+      SUGGEST: "Create a maintenance branch first: git checkout -b chore/repo-cleanup"
       STOP
 
     # Step 4: EXECUTE with audit trail

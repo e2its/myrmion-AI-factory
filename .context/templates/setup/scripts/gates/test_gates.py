@@ -521,6 +521,8 @@ class Branch(unittest.TestCase):
                      "feature/F-001-inc-2-b": ("increment", False), "feature/F-001-inc-3-c": ("increment", False),
                      "feature/F-001-login": ("feature", False), "feature/EVOL-045-increment-trains": ("feature", False),
                      "epic/EPIC-1-foundation": ("epic", False), "fix/x": ("fix", False), "bugfix/x": ("fix", False),
+                     "feat/x": ("feature", False), "breaking/x": ("breaking", False),   # the kinds CLAUDE.md INVARIANT 1 names
+                     "feature/F-001-inc-1-add-sub-1": ("sub-increment", False),         # a slug never ends in -sub-<digits>: reserved
                      "hotfix/x": ("fix", False), "docs/x": ("docs", False), "chore/x": ("chore", False),
                      "weird": ("unknown", False), "feature/lowercase-id": ("unknown", False)}
             for name, (cls, prot) in cases.items():
@@ -529,10 +531,22 @@ class Branch(unittest.TestCase):
             self.assertEqual(branch.branch_class(repo, "feature/F-001-inc-1-a-sub-2")["train"], "feature/F-001-inc-1-a")
             self.assertEqual(branch.branch_class(repo, "feature/F-001-inc-1-a-sub-2")["feature_id"], "F-001", "the id stops before -inc-")
             self.assertEqual(branch.train_of("feature/F-001-inc-1-a"), None)
+            self.assertNotEqual(branch.branch_class(repo, "feature/F-001-inc-1-a-sub-0")["class"], "sub-increment", "M starts at 1")
+            # the template's own example line must be read as a declaration (the regex is tested against the shape BLUEPRINT copies)
+            tmpl = (HERE.parent.parent / ".context/templates/architect/increment_plan_template.md").read_text(encoding="utf-8")
+            example = [seg for seg in tmpl.split("`") if seg.startswith("- SUB-1-{M}:")][0]
+            example = example.replace("{M}", "1").replace("{{FEATURE_ID}}", "F-002").replace("{{slug}}", "a")
+            write(repo / "docs/spec/F-002/increment_plan.md", "### INC-1 — a\n- **Sub-increments:**\n  " + example + "\n")
+            self.assertEqual(branch.branch_class(repo, "feature/F-002-inc-1-a")["class"], "train", "the template example declares a train")
+            write(repo / "docs/spec/F-003/increment_plan.md", "### INC-1 — a\n- **Sub-increments:**\n  - **SUB-1-1** — scope\n")
+            self.assertEqual(branch.branch_class(repo, "feature/F-003-inc-1-a")["class"], "train", "a bold id with an em dash declares too")
 
     def test_diff_base_is_one_and_fail_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
+            with self.assertRaisesRegex(GateFault, "train `feature/F-001-inc-1-a` is not on origin.*push -u origin feature/F-001-inc-1-a"):
+                branch.diff_base(repo, "feature/F-001-inc-1-a-sub-1")   # the train exists nowhere on the remote: said in plain language
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/feature/F-001-inc-1-a", "HEAD"], check=True)
             self.assertEqual(branch.diff_base(repo, "feature/F-001-inc-1-a-sub-2"), "origin/feature/F-001-inc-1-a", "a sub-increment measures against its train")
             for b in ("feature/F-001-inc-1-a", "feature/F-001-inc-2-b", "feature/F-001-login", "fix/x", "docs/x", "chore/x", "epic/EPIC-1-x"):
                 self.assertEqual(branch.diff_base(repo, b), "origin/main", b)
@@ -540,7 +554,14 @@ class Branch(unittest.TestCase):
             with self.assertRaisesRegex(branch.UnknownBranch, "matches no class"):
                 branch.diff_base(repo, "weird")
             write(repo / ".claude/rules/branching.md", "---\ndefault_base_branch: develop\n---\n")
+            with self.assertRaisesRegex(GateFault, "base branch `develop` is not on origin"):
+                branch.diff_base(repo, "fix/x")
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/develop", "HEAD"], check=True)
             self.assertEqual(branch.diff_base(repo, "fix/x"), "origin/develop", "default_base_branch from the branching rule is honoured")
+            write(repo / ".claude/rules/branching.md", "---\ndefault_base_branch: [unclosed\n---\n")
+            with self.assertRaisesRegex(GateFault, "branching.md cannot be read"):
+                branch.diff_base(repo, "fix/x")   # an unreadable rule is a fault, never a silent main
+            write(repo / ".claude/rules/branching.md", "---\ndefault_base_branch: develop\n---\n")
             subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-inc-1-a-sub-1"], check=True)
             self.assertEqual(branch.diff_base(repo), "origin/feature/F-001-inc-1-a", "the current branch is classified when none is given")
 
@@ -582,6 +603,13 @@ class Branch(unittest.TestCase):
             s = branch.surface(repo)
             self.assertEqual((s["base"], s["files"], s["ok"]), ("origin/feature/F-001-inc-1-a", 1, True))
             self.assertEqual(branch.surface(repo, base="origin/main")["files"], 5, "against main the train content would count")
+            # the train itself is exempt by class: its closing PR is the sum of gated sub-increment PRs
+            t = branch.surface(repo, base="origin/main", branch="feature/F-001-inc-1-a")
+            self.assertTrue(t["ok"]); self.assertEqual(t["class"], "train"); self.assertIn("each sub-increment PR", t["reason"])
+            self.assertTrue(branch.render_surface(t).startswith("surface: ok — train"))
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "feature/F-001-inc-1-a"], check=True)
+            self.assertTrue(branch.surface(repo)["ok"], "on the train, no --base: exempt")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "feature/F-001-inc-1-a-sub-1"], check=True)
             q = json.loads((repo / "config/quality.json").read_text()); del q["surface"]["ceiling_lines"]
             write(repo / "config/quality.json", json.dumps(q))
             with self.assertRaisesRegex(GateFault, "surface.ceiling_lines"):
@@ -617,6 +645,10 @@ class Cli(unittest.TestCase):
             write(repo / ".claude/rules/architecture.md", "---\nversion: 1.0.0\napplicable_when:\n  always: true\n---\n## [PLAW-01] KISS & DRY\n> Every solution is the simplest one that satisfies the specification, written once.\n\nbody\n")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "manifest-parity"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr); self.assertTrue(r.stdout.startswith("manifest-parity: ok (1 compared"), r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "currency"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2, "no base on the remote: the gate cannot judge and says so"); self.assertIn("is not on origin", r.stderr)
+            cur = subprocess.run(["git", "-C", str(repo), "branch", "--show-current"], capture_output=True, text=True).stdout.strip()
+            subprocess.run(["git", "-C", str(repo), "update-ref", f"refs/remotes/origin/{cur}", "HEAD"], check=True)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "currency"], capture_output=True, text=True, env=env)
             self.assertEqual((r.returncode, r.stdout.strip()), (0, "currency: ok"))
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "certify", "--subject", "tree", "--paths", "src/**"], capture_output=True, text=True, env=env)
@@ -657,8 +689,21 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 1); self.assertIn("RED", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "currency", "--branch", "nonsense"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1, "currency without a diff base is red too")
-            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "surface", "--base", "HEAD", "--json"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 0); self.assertEqual(json.loads(r.stdout)["files"], 0)
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/main", "HEAD"], check=True)
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-x"], check=True)
+            write(repo / "src/new.py", "1\n"); subprocess.run(["git", "-C", str(repo), "add", "src/new.py"], check=True)   # only this file: the fixture edits above stay unstaged
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "one"], check=True)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "surface", "--base", "origin/main", "--json"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertEqual((json.loads(r.stdout)["files"], json.loads(r.stdout)["ok"]), (1, True))
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "certify", "--subject", "tree", "--paths", "src/**", "--json", "--branch", "nonsense"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, "a tree certification needs no base — never classifies a branch")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "--detach"], check=True)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "diff-base"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2); self.assertIn("detached HEAD", r.stderr)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "surface", "--base", "origin/main"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, "the CI shape — explicit base on a detached checkout — keeps working")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "certify", "--subject", "tree", "--paths", "src/**", "--json"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, "QA certifies a tree on a tag / detached checkout")
 
 
 if __name__ == "__main__":

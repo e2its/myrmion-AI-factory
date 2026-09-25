@@ -937,10 +937,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.7.1",
+      "version": "2.8.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.8.0: feat(EVOL-045) — surface: frontmatter block (Q31) + § E summary bullet — the persistence slot the quality.json placeholders resolve from.",
         "2.7.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "2.7.0: feat(EVOL-043) — EVOL-043 touch (see PR).",
         "2.6.0: fix(subproducts-dod-closure) — frontmatter keys `codesign.authoring`, `po_package.mode` (Q29) and `measurement.*` (Q30): structured answers live in the frontmatter, which the governance snapshot copies verbatim (#61 DoD: authoring mode reaches the snapshot).",
@@ -1153,10 +1154,11 @@
       ]
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md",
       "changelog": [
+        "1.5.0: feat(EVOL-045) — surface ceiling line (Q31).",
         "1.4.0: feat(EVOL-043) — EVOL-043 touch (see PR).",
         "1.3.0: feat(EVOL-042) — `### Measurement — next steps` block (reader, window, before/after protocol, first commands).",
         "1.2.0: feat(EVOL-052) — NEW `### PO package — next steps` block (rendered only with external authoring): authoring mode, active design-system case 6A/6B/6C and why, runbook path, first two commands. The materialisation must leave written operating instructions.",
@@ -1572,11 +1574,12 @@
       ]
     },
     "subproducts/measure/RUNBOOK.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "subproducts/measure/RUNBOOK.md",
       "role": "Operator runbook of the measurement subproduct: signal definitions, the before/after protocol as an obligation of the adopting project, options, config keys. Every flag it cites is closure-tested against the real parser.",
       "changelog": [
+        "1.1.0: feat(EVOL-045) — per-train roll-up of sub-increment branches.",
         "1.0.0: feat(EVOL-042) — initial."
       ]
     },
@@ -2073,9 +2076,10 @@
       ]
     },
     "commands/blueprint.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "path": ".claude/commands/blueprint.md",
       "changelog": [
+        "1.8.0: feat(EVOL-045) — increment plan fields Estimated surface / Escape / Sub-increments.",
         "1.7.0: feat(EVOL-041) — prerequisites scope-aware (mock only for UI scopes); schema authority split per LAW-16 (journey § 6 existence / design §§ 3.1-3.2 + 7.4 typing).",
         "1.6.0: feat(EVOL-036) SLICE-3 — --start prereq adds slice_map.md APPROVED (incremental); Output increment_plan.md re-described as contract-aware refinement of slice_map slices (cascade_source: SLICE-{FEAT}-N, depends_on_slice/feature/seam, no slice invention); IPP bullet §0 Slicing Rationale → Refinement Record.",
         "1.5.1: fix(increment-plan-rule) — § Output entry for increment_plan.md re-describes the DAG location (canonical § 1 `depends_on:`; § 3 Mermaid mirror non-authoritative). IPP bullet updated to list § 2 Monolithic Escape + § 3 Mermaid diagram in the section-atomic order.",
@@ -2445,9 +2449,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.12.0",
+      "version": "2.13.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.13.0: feat(EVOL-045) — certify --subject diff takes its base from the resolver — no origin/main fallback taught.",
         "2.12.0: feat(EVOL-044) — peer review and sec audit stamp certifies: {subject: diff} via gate.py certify before APPROVED.",
         "2.11.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "2.10.0: feat(EVOL-041) — Check #5 fallback + DoD reworded to the LAW-16 split (journey § 6 existence / design § 7.4 typing); Check #13 reads journey § 7 Business Rules.",
@@ -3840,11 +3845,12 @@
       "role": ". Meta-sourced, ships via factory-sync only; not part of the SETUP materialization surface."
     },
     "scripts/test-code-review-gate.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "role": "L6 CI gate test — validates code_review_hash.py + preflight.sh Step 0-bis against synthetic repos. 14 scenarios: hash determinism, RDR-1 invariance (docs commit stable / code commit changes), EMPTY sentinel, git-unavailable→rc2 (CRITICAL-1 regression), bad-stdin/missing-files→rc2, marker missing/blockers/override/corrupt (CRITICAL-2 regression)/clean, enabled=false, pr_blocker=false routing, executor-missing, tests-only diff gating (has_tests regression). Wired into governance-check.yml T2 step.",
       "path": "scripts/test-code-review-gate.sh",
       "changelog": [
+        "1.2.0: feat(EVOL-045) — scenario 15 — preflight Block 21 (over ceiling, unknown branch name on a docs-only diff, reader fault, escape).",
         "1.1.0: fix(subproducts-dod-closure) — scenario 2 red-proof: a subproduct code commit never changes the review hash.",
         "1.0.0: feat(EVOL-039 dogfood) — initial. Hard-gate validators get test suites per repo convention (pr-test-analyzer finding); regression guards for both dogfood CRITICALs."
       ]

@@ -997,7 +997,7 @@ increments:                       # populated when slicing_strategy == increment
   - id: "INC-1"
     status: "READY"               # READY | BUILDING | IMPLEMENTED_AND_VERIFIED | INVALIDATED (mirror of increment_plan.md § 1 INC-N status; READY-or-later only — DRAFT stays in increment_plan.md)
     tasks: { A: N, B: N, C: N, ACC: N }
-    sub_increments: []             # EVOL-045 — [{id: "SUB-1-1", status: "READY", tasks: ["INC-1.A.1", …]}] when the increment plan declares them; status READY | BUILDING | MERGED
+    sub_increments: []             # EVOL-045 — [{id: "SUB-1-1", status: "READY", tasks: ["INC-1.A.1", …]}] when the increment plan declares them; status READY | BUILDING | MERGED — mirror of the `· status:` segment of the SUB item in increment_plan.md § 1
   - id: "INC-2"
     status: "READY"
     tasks: { A: N, B: N, C: N, ACC: N }

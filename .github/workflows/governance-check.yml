@@ -104,7 +104,7 @@ jobs:
           python3 scripts/gate.py manifest-parity
 
       - name: Surface ceiling — files + lines of the PR diff within surface.ceiling_* or a Surface-Escape trailer (EVOL-045)
-        run: python3 scripts/gate.py surface --base "origin/${{ github.base_ref }}"
+        run: python3 scripts/gate.py surface --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
 
       - name: Synthetic materialisation smoke (corpus, gates, hooks on a scratch project)
         run: |
