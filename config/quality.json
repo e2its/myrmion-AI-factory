@@ -323,8 +323,12 @@
     },
     "gates": {},
     "digest_artefacts": [
-      "design.md",
-      "dev_plan.md"
+      "design.md"
     ]
+  },
+  "traceability": {
+    "_doc": "Test-case traceability (EVOL-053): the ONE machine-readable home of the case → test link (`home`: kind pytest-marker | title-tag, or a custom `pattern` with a named group `id`), the case grammar (`id_pattern`; a link is FEATURE/CASE — the plan folder and the id its test_plan.md declares), the plans, the test roots and the shrink-only baseline. python3 scripts/gate.py traceability — a light member of the gate profile (static round, push, CI): case → test, never test → case; unknown or malformed links red; the baseline only shrinks. The framework repo declares no test plan: its tests are the T2 suites.",
+    "required": false,
+    "reason": "the framework repo declares no test plan (docs/spec/*/test_plan.md does not exist here); its tests are the T2 suites CI runs on every pull request"
   }
 }

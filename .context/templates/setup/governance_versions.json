@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.1.0",
+  "framework_version": "8.2.0",
   "delivery_mode": "development",
   "last_updated": "2026-09-25",
   "governance_features": {
@@ -232,10 +232,11 @@
       ]
     },
     "rules/testing.md": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/testing.md",
       "changelog": [
+        "1.7.0: feat(EVOL-053) — § Test-case traceability: one home, strict ids, case → test, the shrink-only baseline, one gate at two control points",
         "1.6.0: feat(EVOL-051) — [LAW-05] body: one full loop per change — the static round before the critics, the artefacts, the loop once on the bytes the commit carries, sealed and honoured at the push; the incremental seal",
         "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.5.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
@@ -931,11 +932,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.7.0",
+      "version": "4.7.1",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.7.1: feat(EVOL-053) — traceability among the light members",
         "4.7.0: feat(EVOL-051) — control points: the static round row; the seal (gate.py seal --check) in the train-close and PR rows; seal and digests among the light members",
         "4.6.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "4.6.0: feat(EVOL-049)! — Core Protocols — Role agents & read-only critics row; no agent ratifies.",
@@ -1071,10 +1073,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.11.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
         "1.10.0: feat(EVOL-051) — documentation block (paths, exclusions — one definition) and verification block (seal not required in the framework repo: CI's T2 suite is its loop; gates {}; digest_artefacts); planning.docs_exempt retired",
         "1.9.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.8.0: feat(EVOL-049)! — agents.families (writer / critic aliases); the retired hat vocabulary (REVIEW Hat, SEC Hat, …).",
@@ -2055,6 +2058,26 @@
       "changelog": [
         "1.0.0: feat(EVOL-051) — initial."
       ]
+    },
+    "scripts/gates/traceability.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/traceability.py",
+      "delivery": "both",
+      "role": "gates: test-case traceability (EVOL-053) — the ONE home of the case → test link (config → traceability.home: pytest-marker | title-tag | custom pattern), strict FEATURE/CASE ids, `declared` from docs/spec/*/test_plan.md, `links` from the test roots, `check` (case → test, never test → case; unknown or malformed links red; the baseline only shrinks), `baseline --init|--refresh`; a light profile member; QA consumes --json.",
+      "changelog": [
+        "1.0.0: feat(EVOL-053) — initial."
+      ]
+    },
+    "tests/conftest_traceability.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "stack_conditional": "backend.runtime == Python",
+      "target": "tests/conftest_traceability.py",
+      "role": "The Python home of the case → test link at collection (EVOL-053): registers the `case` marker and refuses collection on a malformed or unknown FEATURE/CASE id, reading the declared set through gate.py traceability --declared --json. Wired once: pytest_plugins = [\"conftest_traceability\"] in tests/conftest.py.",
+      "changelog": [
+        "1.0.0: feat(EVOL-053) — initial."
+      ]
     }
   },
   "agent_templates": {
@@ -2337,9 +2360,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.18.2",
+      "version": "2.18.3",
       "path": "README.md",
       "changelog": [
+        "2.18.3: feat(EVOL-053) — test-case traceability (EVOL-053)",
         "2.18.2: feat(EVOL-051) — BVL: one full verification loop per change, sealed and honoured at the push (EVOL-051)",
         "2.18.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "2.18.0: feat(EVOL-049)! — role agents and read-only critics paragraph.",
@@ -2716,9 +2740,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.18.0",
+      "version": "2.18.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.18.1: feat(EVOL-053) — every test a worker writes states its case at the one home",
         "2.18.0: feat(EVOL-051) — the order stated at the spawn protocol; the completion gate writes the plan's status and verification record BEFORE the loop (last tracked write), the loop seals, the commit follows; a red loop reverts the status write; bvl_result replaced by verification: {gates, seal}",
         "2.17.0: fix(EVOL-049) — review pass — the main session spawns (no agent carries Agent); worktree guard with the increment's files; separation lost → adjudication",
         "2.16.0: feat(EVOL-049)! — the phase loop delegates by name — a worker per surface, the work critics and the security lens after a completed diff (tree hashed around the run, returns checked, one round then the user adjudicates); spawn-policy: worker.",
@@ -2845,9 +2870,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.5.1",
+      "version": "3.6.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "3.6.0: feat(EVOL-053) — the [QA-TC-*] checklist consumes gate.py traceability --json (linked tests or UNLINKED (baseline)); a red gate blocks certification",
         "3.5.1: fix(EVOL-051) — review pass — the pre-verification gate asks gate.py seal --check --ref HEAD: a status with no covering seal is BUILDING (EVOL-051)",
         "3.5.0: feat(EVOL-049)! — the security pass replaces the hat; the DAST wording hat-free.",
         "3.4.0: feat(EVOL-044) — QA report and smoke report stamp certifies: {subject: tree} via gate.py certify before a terminal verdict.",
@@ -2944,9 +2970,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.21.0",
+      "version": "2.21.1",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.21.1: feat(EVOL-053) — derived, no question: verification.gates and traceability.home come from the stack",
         "2.21.0: feat(EVOL-049)! — Q34 model families — writers and critics on different families.",
         "2.20.0: feat(EVOL-047) — Q33 runtime surface (the positive list a deployment can change).",
         "2.19.0: feat(EVOL-046) — Q32 delivery mode (closed set; return-to-production procedure).",
@@ -2980,9 +3007,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.20.0",
+      "version": "3.21.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.21.0: feat(EVOL-053) — {{TRACEABILITY_HOME}} from the runtime; the pytest plugin lands for Python; baseline --init on a brownfield adoption",
         "3.20.0: feat(EVOL-051) — {{VERIFICATION_GATES}} (the path-to-gate map from the stack + Q33) and the documentation defaults",
         "3.19.0: feat(EVOL-049)! — {{AGENT_WRITER_MODEL}} / {{AGENT_CRITIC_MODEL}} from Q34; invariant: gate.py agents green on the materialised tree.",
         "3.18.0: feat(EVOL-048) — planning block keeps template defaults; its hooks land with settings.json (EVOL-048).",
@@ -3035,9 +3063,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.10.2",
+      "version": "2.11.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.11.0: feat(EVOL-053) — Step 8 adds the traceability block, delivers the pytest plugin for Python, records the baseline once",
         "2.10.2: fix(EVOL-051) — review pass — Step 8 migrates planning.docs_exempt into documentation.paths and adds the verification block (gates derived as materialization does); seal.py + digests.py arrive with the scripts/gates refresh",
         "2.10.1: fix(EVOL-049) — review pass — .claude/agents/** delivered; Q34 asked when agents.families is missing",
         "2.10.0: feat(EVOL-048) — settings.json merge adds the framework's missing hook commands (Edit|Write, EnterPlanMode, PostToolUse ExitPlanMode); the planning key and the wiring land in the same step.",
@@ -3123,9 +3152,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.7.0",
+      "version": "14.7.1",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.7.1: feat(EVOL-053) — traceability among the light members",
         "14.7.0: feat(EVOL-051) — control points: the static round row; the seal (gate.py seal --check) in the train-close and PR rows; seal and digests among the light members",
         "14.6.0: feat(EVOL-049)! — Core Protocols — Role agents & read-only critics row; no agent ratifies.",
         "14.5.0: feat(EVOL-048) — § Pre-Action Gate — One planning stage (EVOL-048).",
@@ -4437,11 +4467,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.9.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
         "1.8.0: feat(EVOL-051) — documentation block (paths, exclusions — one definition) and verification block (seal not required in the framework repo: CI's T2 suite is its loop; gates {}; digest_artefacts); planning.docs_exempt retired",
         "1.7.0: fix(EVOL-049) — review pass — retired_terms: the remaining hat vocabulary (DEV/ARCH/PO/UX/QA hat, hat switch, multi-hat), docs/spec/** exempt for history",
         "1.6.0: feat(EVOL-049)! — agents.families (writer / critic aliases); the retired hat vocabulary (REVIEW Hat, SEC Hat, …).",
@@ -4549,11 +4580,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.9.0: feat(EVOL-053) — traceability subcommand (--declared, --baseline --init|--refresh, --json)",
         "1.8.0: feat(EVOL-051) — seal (--plan/--write/--check/--validate), documentation (--path/--changed), digests subcommands; profile --control-point static",
         "1.7.0: fix(EVOL-049) — review pass — agents: manifest unreadable = fault, --spawn [--hook-json], --check-return needs --class, --resolve exit 1 over the cap; certify --subject worktree",
         "1.6.0: feat(EVOL-049)! — agents subcommand — validate / --resolve / --fallback / --digest / --check-return (EVOL-049).",
@@ -4613,11 +4645,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.9.0: feat(EVOL-053) — Traceability tests: declared cases, the two homes and a custom pattern, unknown / malformed links, case → test never test → case, the shrink-only baseline, stale debt, config faults; the pytest plugin refuses collection on an unknown id (skipped where pytest is absent)",
         "1.8.0: feat(EVOL-051) — Seal + Digests test classes: one definition of documentation, the seal plan/write/check (shared command = one execution, docs-only owes nothing, a declared docs reader is owed, unmapped path owes the full loop, on-disk seal honoured by the commit), digest fingerprint + completeness red on an untouched artefact (43 tests)",
         "1.7.0: fix(EVOL-049) — review pass — red cases: class promotion, tool spellings, families, dead rows, cap, tier unknown, separation, digest lens law, spawn check, return shapes, worktree hash, CLI faults (40 tests)",
         "1.6.0: feat(EVOL-049)! — Agents class — policy parse, the validator red on every way a roster can lie (same family, a critic with a write tool, a worker without one, a model written in, no effort, over budget, a dangling pointer, roster/definition/manifest parity, a ladder rung that is not a family or that degrades a writer, a spawn site without its marker, a policy without a site), the per-spawn resolver, the fallback, the digest budget, the return contracts; CLI.",
@@ -4630,11 +4663,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.9.0: feat(EVOL-053) — traceability checks on the materialised config: unlinked case red, baseline once, unknown link + shrink red, QA JSON, the plugin lands",
         "1.8.0: feat(EVOL-051) — one-loop checks: seal --validate, documentation exclusions, unsealed tree refused, one execution per command, sealed tree honoured, docs delta owes nothing, code delta owes its readers, digests n/a and red, the static control point (74 checks)",
         "1.7.0: fix(EVOL-049) — review pass — the digest carries the lens's rule; spawn check and hook refuse the writer's alias; the round cap (62 checks)",
         "1.6.0: feat(EVOL-049)! — the roster lands, gate.py agents green, a same-family roster red, a per-spawn resolution and a digest on the materialised policy.",
@@ -4690,11 +4724,12 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py",
       "changelog": [
+        "1.4.0: feat(EVOL-053) — member traceability (light: static round, push, CI)",
         "1.3.0: feat(EVOL-051) — members seal and digests (light); control point static = the light members whatever the class or the mode; {control_point} runner token",
         "1.2.0: feat(EVOL-049)! — agents member (the roster validator; no build, no database).",
         "1.1.0: feat(EVOL-047) — runtime-surface member (light: no build, no database).",
@@ -4910,6 +4945,15 @@
       "path": "scripts/gates/digests.py",
       "changelog": [
         "1.0.0: feat(EVOL-051) — initial."
+      ]
+    },
+    "scripts/gates/traceability.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: test-case traceability (EVOL-053) — the ONE home of the case → test link (config → traceability.home: pytest-marker | title-tag | custom pattern), strict FEATURE/CASE ids, `declared` from docs/spec/*/test_plan.md, `links` from the test roots, `check` (case → test, never test → case; unknown or malformed links red; the baseline only shrinks), `baseline --init|--refresh`; a light profile member; QA consumes --json. Meta copy (lock-step pair scripts/gates/*.py).",
+      "path": "scripts/gates/traceability.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-053) — initial."
       ]
     }
   },

@@ -6,7 +6,7 @@ applicable_when:
     - "**/tests/**"
     - "**/*.test.*"
     - "**/*.spec.*"
-version: 1.6.0
+version: 1.7.0
 date: 2026-09-25
 changelog:
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -73,6 +73,13 @@ changelog:
 - Coverage gate: **80%** minimum, measured in CI
 - Mutation testing (optional): enable if mutation score <90%
 - Block merge on failing tests or coverage regression
+
+## Test-case traceability (EVOL-053)
+- **One home.** A test states the case it proves in ONE machine-readable place — `config/quality.json → traceability.home`: the `case` marker for pytest (`@pytest.mark.case("FEAT-001/TC-01")`), the title tag for runners without markers (`test("[FEAT-001/TC-01] …")`). A comment, a docstring or a bare name is never a home.
+- **Strict ids.** A link is `FEATURE/CASE` — the plan folder under `docs/spec/` and the id its `test_plan.md` declares (`traceability.id_pattern`). A malformed id or one that names no declared case is red — at collection for pytest (`tests/conftest_traceability.py`), and at the gate for every stack.
+- **Case → test, never test → case.** Every declared case has at least one linking test; a helper's test with no link is never a finding.
+- **The baseline only shrinks.** `docs/project_log/traceability_baseline.json` records the cases unlinked at adoption (`python3 scripts/gate.py traceability --baseline --init`, once); a new case must link; an entry now linked is removed (`--refresh`), never added. The number is on the board.
+- **One gate, two control points.** `python3 scripts/gate.py traceability` is a light member of the gate profile (the static round, the push, CI); QA builds its `[QA-TC-*]` checklist from `--json` and never re-derives the linkage.
 
 ## Security Testing
 - Include OWASP Top 10 test cases (injection, authz, XSS/CSRF, SSRF)

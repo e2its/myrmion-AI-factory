@@ -35,6 +35,9 @@
   gate.py seal --check [--branch B --base B --ref R --control-point P]   the push's question: the seal covers the tree the commit carries; exit 1 gates owed · n/a when not required
   gate.py seal --validate                          the map is sound (documentation defined, every gate reads something)
   gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
+  gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
+  gate.py traceability --declared --json           the declared qualified case ids (FEATURE/CASE) — what the pytest plugin validates at collection
+  gate.py traceability --baseline --init|--refresh   record the unlinked debt once / shrink it (never adds)
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
   gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort; exit 1 when the round is over the class cap
   gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class; `separation: false` when a critic lands on the writer's family
@@ -54,7 +57,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, coherence, corpus, digests as digests_mod, planning, profile as profile_mod, retired, runtime, seal as seal_mod  # noqa: E402
+    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, coherence, corpus, digests as digests_mod, planning, profile as profile_mod, retired, runtime, seal as seal_mod, traceability as trace_mod  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -354,6 +357,23 @@ def cmd_digests(repo, a):
     return 0 if r["ok"] else 1
 
 
+def cmd_traceability(repo, a):
+    if a.declared:
+        c = trace_mod.cfg(repo)
+        if not c["required"]:
+            print(json.dumps({"declared": [], "required": False, "reason": c["reason"]}) if a.json else f"traceability: n/a — {c['reason']}"); return 0
+        dec, bad = trace_mod.declared(repo, c)
+        print(json.dumps({"declared": sorted(dec), "malformed": bad}) if a.json else "\n".join(sorted(dec)))
+        return 1 if bad else 0
+    if a.baseline:
+        r = trace_mod.baseline(repo, init=a.init, refresh=a.refresh)
+        print(json.dumps(r) if a.json else f"traceability: baseline {'recorded' if a.init else 'shrunk'} → {r['path']} ({len(r['unlinked'])} unlinked{', removed ' + ', '.join(r['removed']) if r['removed'] else ''})")
+        return 0
+    r = trace_mod.check(repo)
+    print(json.dumps(r) if a.json else trace_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
 def cmd_one_definition(repo, a):
     f = profile_mod.one_definition(repo)
     print(coherence.render("one-definition", [{"path": f"{x['path']}:{x['line']}", "reason": x["reason"]} for x in f], "hooks, workflows and the preflight keep no second definition"))
@@ -422,6 +442,7 @@ def build_parser():
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
     p = sub.add_parser("documentation"); p.add_argument("--path", default=None); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_documentation)
     p = sub.add_parser("seal"); p.add_argument("--base", default=None); p.add_argument("--plan", action="store_true"); p.add_argument("--write", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--validate", action="store_true"); p.add_argument("--gates", default=""); p.add_argument("--ok", action="store_true"); p.add_argument("--red", action="store_true"); p.add_argument("--summary", default=""); p.add_argument("--full", action="store_true"); p.add_argument("--branch", default=None); p.add_argument("--ref", default="HEAD"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_seal)
+    p = sub.add_parser("traceability"); p.add_argument("--declared", action="store_true"); p.add_argument("--baseline", action="store_true"); p.add_argument("--init", action="store_true"); p.add_argument("--refresh", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_traceability)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
     p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--spawn", action="store_true"); p.add_argument("--model", default=""); p.add_argument("--hook-json", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
