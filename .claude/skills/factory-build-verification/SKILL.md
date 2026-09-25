@@ -96,7 +96,7 @@ The test suite verifies:
 
 The `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` resolver MUST consult `design.md` Section 1 (module/bounded context) and `dev_plan.md` frontmatter to compute scope, NOT a git diff.
 
-**Critics' verdict compliance:** the work critics' verdict MUST NOT be `APPROVED` until `full_verification_gate(FEATURE_ID)` returns PASSED.
+**Order compliance (EVOL-051):** the critics' verdict precedes the loop — it is written as an artefact BEFORE `full_verification_gate` runs; the **commit** MUST NOT follow until the loop's seal is green (`python3 scripts/gate.py seal --check`). Never run the loop to earn a verdict and again after it.
 
 **Security lens compliance:** the security lens MUST NOT issue `verdict: PASS` until SAST tools run against the FULL module scope.
 
@@ -381,20 +381,20 @@ FUNCTION apply_targeted_fix(source_files, test_files, errors, attempt):
 
 ## PHASE VERIFICATION (Post-Phase — Before the work critics)
 
-Runs after all tasks in a phase are complete, before the work critics are spawned.
+Runs after all tasks in a phase are complete, before the work critics are spawned. **Scoped, never the full suite (EVOL-051):** the phase's own test files (the workers' red-first evidence, re-run together) plus lint and format on the phase's files — no build, no typecheck, no coverage run. The full suite runs once, in `full_verification_gate`, after the artefacts.
 
 ```yaml
 FUNCTION phase_verification(phase, all_test_files):
   commands = resolve_verification_commands()
-  IF commands.test_suite IS NULL:
+  IF commands.test_single IS NULL OR all_test_files IS EMPTY:
     RETURN SKIPPED
-  
-  # Run full test suite for this phase
-  result = RUN_IN_TERMINAL(commands.test_suite, timeout: 120000)
-  
+
+  # The phase's scoped tests — the files its tasks wrote or touched (the same selection task_verification_loop used)
+  result = RUN_IN_TERMINAL(INTERPOLATE(commands.test_single, {test_file: JOIN(all_test_files, " ")}), timeout: 120000)
+
   IF result.exit_code != 0:
     errors = parse_test_output(result.output, commands)
-    LOG: "❌ BVL Phase {phase}: Suite regression detected — {errors.summary}"
+    LOG: "❌ BVL Phase {phase}: scoped regression detected — {errors.summary}"
     RETURN REGRESSION(errors)
     # Caller (Phase Loop) handles regression fix loop
   
@@ -431,7 +431,7 @@ FUNCTION phase_verification(phase, all_test_files):
       ELSE:
         RETURN FORMAT_ISSUES(format_result.output)
   
-  LOG: "BVL Phase {phase}: Suite GREEN + Lint clean + Format clean"
+  LOG: "BVL Phase {phase}: scoped tests GREEN + Lint clean + Format clean"
   RETURN GREEN
 ```
 
@@ -454,10 +454,15 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   # nothing after a documentation-only delta. One execution per distinct command; a red execution is recorded red.
   plan = RUN("python3 scripts/gate.py seal --plan --json")
   IF NOT plan.required: LOG "seal: n/a — {plan.reason}"          # a repo whose loop runs elsewhere (config says so)
-  owed = SET(plan.owed)                                              # empty ⇒ the seal already covers this tree: RETURN PASSED(sealed)
-  # Every step below runs only when its gate is owed; the seal is written per gate right after its execution:
-  #   RUN("python3 scripts/gate.py seal --write --gates <gates of the execution> [--red] --summary '<one line>'")
-  # and, when every gate of the map ran green in this call, once more with --full (the tree is sealed).
+  IF NOT plan.ok: RETURN BLOCKED(plan.reason)                       # no map, no config: nothing can run — never "nothing owed"
+  owed = SET(plan.owed)                                              # empty AND plan.ok ⇒ the seal already covers this tree: RETURN PASSED(sealed)
+  # Every step below runs only when its gate is owed. The seal is written per execution RIGHT AFTER it, before any
+  # auto-fix touches the tree (lint / format auto-fix rewrite sources: an execution recorded after that sealed bytes
+  # it never saw — gate.py seal --write --full refuses a read-set that moved after its run; re-run that gate):
+  #   RUN("python3 scripts/gate.py seal --write --gates <gates of the execution> --ok|--red --summary '<one line>'")
+  #   a shared execution with a split outcome (the suite green, coverage under its threshold) records
+  #   `--gates tests --ok` and `--gates coverage --red` separately.
+  # When every gate of the map holds a green record on the tree as it stands: `seal --write --full` (the tree is sealed).
 
   # Resolve scope-filtered file set ONCE — reused by every gate that takes `files`.
   # When increment_id is null this returns the feature-level set (legacy behaviour).
@@ -754,10 +759,10 @@ DEGRADATION_SCENARIOS:
 | Where | How BVL Integrates |
 |-------|-------------------|
 | **TDD Cycle (per task)** | After GREEN phase → `task_verification_loop()` → marks [x] only if GREEN or SKIPPED |
-| **Phase Loop (per phase)** | After all task [x] → `phase_verification()` → before the work critics |
-| **Work critics (per phase)** | `review_verification_loop()` (run by the orchestrator) → coverage + lint + typecheck → blockers feed the critics' verdict |
-| **Security lens (per phase)** | `sec_verification_loop()` (run by the orchestrator) → dependency_audit + secret_scan → blockers feed the security verdict |
-| **Completion Gate** | After all phases → `full_verification_gate()` → before IMPLEMENTED_AND_VERIFIED |
+| **Phase Loop (per phase)** | After all task [x] → `phase_verification()` (the phase's scoped tests + lint + format; no build) → before the work critics |
+| **Work critics (per phase)** | `review_verification_loop()` (run by the main session) → the static round (`gate.py profile --run --control-point static`, digests included) + scoped lint → blockers feed the critics' verdict; coverage, typecheck and the full suite are deferred to the one loop |
+| **Security lens (per phase)** | `sec_verification_loop()` (run by the main session) → dependency_audit + secret_scan → blockers feed the security verdict |
+| **Completion Gate** | After the artefacts (reports, ticks, the plan's status — the last tracked writes) → `full_verification_gate()` ONCE → the seal → the commit on its green (EVOL-051) |
 | **--fix execution** | Same loop: write regression test → fix → `task_verification_loop()` |
 | **Escalation** | FLAGGED tasks → Resilience Protocol (user choice: retry/modify/escalate/skip) |
 

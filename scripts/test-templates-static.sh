@@ -290,6 +290,14 @@ else
 fi
 echo
 
+# ─── dev_plan carries the governance digest key IMPLEMENT --plan writes (EVOL-051: one source for the key, judged by gate.py digests when listed) ───
+if grep -q '^governance_digest_version:' .context/templates/develop/dev_plan_template.md; then
+  printf '  \033[32m✓\033[0m dev_plan_template.md frontmatter carries governance_digest_version\n'
+else
+  printf '  \033[31m✗\033[0m dev_plan_template.md frontmatter lacks governance_digest_version (Factory-implement-plan writes it; two sources)\n' >&2; failures=$((failures + 1))
+fi
+echo
+
 # ─── Every tree/worktree certification in the governed prose carries its paths (EVOL-049: `certify --subject tree` alone faults — a guard that faults never refuses) ───
 BARE=$(grep -rnE 'certify --subject (tree|worktree)' .claude .context/templates/setup --include=*.md --include=*.sh 2>/dev/null | grep -vE 'certify --subject (tree|worktree) --paths' | grep -vE 'certify --subject (tree|worktree)[ |]*\[--' || true)
 if [ -z "$BARE" ]; then

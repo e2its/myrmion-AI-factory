@@ -135,7 +135,7 @@ fi
 # Exit 0 = every changed path is documentation; anything else (code in the diff, reader absent, config missing) = no lane.
 fast_lane=false
 if [[ -f "$REPO_ROOT/scripts/gate.py" ]]; then
-  set +e; DOC_OUT=$("$PYTHON" "$REPO_ROOT/scripts/gate.py" documentation --changed --base "$BASE_REF" 2>&1); DOC_RC=$?; set -e
+  DOC_OUT=$("$PYTHON" "$REPO_ROOT/scripts/gate.py" documentation --changed --base "$BASE_REF" 2>&1); DOC_RC=$?   # never `set -e` here: the script runs under -uo pipefail and counts with grep
   case "$DOC_RC" in
     0) fast_lane=true ;;
     1) ;;

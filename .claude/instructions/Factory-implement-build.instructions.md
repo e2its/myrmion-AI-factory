@@ -660,10 +660,9 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
     # Task marked [x] only if BVL returns GREEN or SKIPPED
     MARK task [x] in dev_plan.md (atomic save)
 
-  # BVL Phase Verification (post-worker, pre-critics)
+  # BVL Phase Verification (post-worker, pre-critics) — the phase's SCOPED tests + lint + format; never the full suite (EVOL-051)
   bvl_phase = EXECUTE phase_verification(phase, all_phase_test_files)
   # See: Factory-build-verification/SKILL.md → Phase Verification
-  # Runs full test suite for phase + lint check
   IF bvl_phase == REGRESSION:
     # Fix regression before the critics run
     FOR attempt IN 1..3:
@@ -815,6 +814,10 @@ FUNCTION verify_completion_gate(FEATURE_ID):
   # EVOL-051 — the artefacts come FIRST: the plan's status and its verification record are the last tracked
   # writes; the full loop runs on those bytes and seals them (untracked); the commit follows its green; a red
   # loop reverts the status write (uncommitted) and returns to the cure → scoped re-check → loop again.
+  # The loop hashes the WHOLE tree on disk (tracked and untracked, not ignored): the commit must carry it all —
+  # a stray untracked file left out of the commit moves the tree and the push refuses (gate.py seal --check names it).
+  # A crash between the status write and the loop leaves a tracked IMPLEMENTED_AND_VERIFIED with no covering seal:
+  # the push refuses it (seal member) and QA / DEVOPS pre-gates ask `gate.py seal --check --ref HEAD` before trusting the status.
   bvl_increment_id = build_scope.mode == "incremental" ? build_scope.target_increment.id : null
   verification_record = {                                        # written INTO the plan before the loop, never after
     gates: RUN("python3 scripts/gate.py seal --plan --json").owed,   # what this loop will run on the tree on disk
@@ -841,7 +844,7 @@ FUNCTION verify_completion_gate(FEATURE_ID):
     SAVE dev_plan.md                                             # the LAST tracked write of this closure
     bvl_result = EXECUTE full_verification_gate(FEATURE_ID, bvl_increment_id)   # ONE full loop on these bytes; writes the seal
     IF bvl_result == BLOCKED:
-      REVERT the status write above (git checkout -- docs/spec/{FEATURE_ID}/dev_plan.md is NOT it — restore the fields in place: status BUILDING, no completed_at)
+      REVERT the status write above: remove every field this closure added to the entry (status back to BUILDING; completed_at, tasks_completed, tasks_skipped, verification removed) and SAVE dev_plan.md — git checkout of the file is NOT it (the ticks stay)
       ❌ BLOCK: "Full verification loop failed (scope={bvl_increment_id OR 'feature'}). Cure → scoped re-check (gate.py seal --plan) → loop again."
       SHOW: bvl_result.details
       STOP
@@ -863,7 +866,7 @@ FUNCTION verify_completion_gate(FEATURE_ID):
         verification: {verification_record}
       bvl_aggregate = EXECUTE full_verification_gate(FEATURE_ID, null)
       IF bvl_aggregate == BLOCKED:
-        REVERT the global status write (fields restored in place: status BUILDING)
+        REVERT the global status write: remove every field it added (status back to BUILDING; completed_at, tasks_*, verification removed) and SAVE dev_plan.md
         ❌ BLOCK: "Plan-level full loop failed. Fix cross-slice regressions, then run IMPLEMENT --finalize {FEATURE_ID} to retry."
         SHOW: bvl_aggregate.details
         STOP — per-increment status remains IMPLEMENTED_AND_VERIFIED; operator commits cross-slice fixes on the last slice's branch and re-tries
@@ -883,7 +886,7 @@ FUNCTION verify_completion_gate(FEATURE_ID):
       verification: {verification_record}   # the gates the loop runs + the seal's home; the outcome is the seal
     bvl_result = EXECUTE full_verification_gate(FEATURE_ID, null)   # ONE full loop on these bytes; writes the seal
     IF bvl_result == BLOCKED:
-      REVERT the status write (fields restored in place: status BUILDING)
+      REVERT the status write: remove every field it added (status back to BUILDING; completed_at, tasks_*, verification removed) and SAVE dev_plan.md
       ❌ BLOCK: "Full verification loop failed. Cure → scoped re-check (gate.py seal --plan) → loop again."
       SHOW: bvl_result.details
       STOP
@@ -929,7 +932,7 @@ FUNCTION finalize_plan_aggregate(FEATURE_ID):
   LOG: "finalize: running the plan-level loop for {FEATURE_ID} on the sealed bytes"
   bvl_aggregate = EXECUTE full_verification_gate(FEATURE_ID, null)
   IF bvl_aggregate == BLOCKED:
-    REVERT the global status write (fields restored in place: status BUILDING)
+    REVERT the global status write: remove every field it added (status back to BUILDING; completed_at, verification removed) and SAVE dev_plan.md
     ❌ BLOCK: "Plan-level loop still failing. Fix remaining cross-slice regressions and re-run IMPLEMENT --finalize {FEATURE_ID}."
     SHOW: bvl_aggregate.details
     STOP — per-increment statuses untouched

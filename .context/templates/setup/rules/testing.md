@@ -32,7 +32,7 @@ changelog:
 - ✅ **QA slice mode REQUIRED:** Each slice that has reached per-entry `IMPLEMENTED_AND_VERIFIED` REQUIRES `/qa --verify {FEATURE_ID} {INC-N}` before the aggregate may run. The slice report path is `docs/spec/{FEATURE_ID}/qa/qa_report_{INC-N}_{ts}.md` with checklist filtered to the scenarios assigned to that increment in `increment_plan.md § 1`.
 - ✅ **Aggregate gate:** `/qa --verify {FEATURE_ID}` (no `INC-N`) is BLOCKED until every per-slice `qa_report_{INC-N}_*.md` exists with `status: APPROVED`. The aggregate report (`qa_report_final_{ts}.md`) cross-references every slice report via the `aggregates: [...]` frontmatter field.
 - ✅ **Plan-level derivation:** `dev_plan.status` flips to `IMPLEMENTED_AND_VERIFIED` ONLY when (a) every entry in `dev_plan.frontmatter.increments[]` has `status: IMPLEMENTED_AND_VERIFIED` AND (b) the plan-level aggregate `BVL full_verification_gate(FEATURE_ID, null)` passes — run automatically on the last slice closure.
-- ✅ **Monolithic compatibility:** When `slicing_strategy: monolithic`, the gate is single-level: all `[ ]` → `[x]` plus BVL aggregate, then `dev_plan.status` flips. `/qa --verify {ID}` without `INC-N` reads global status — exactly as before.
+- ✅ **Monolithic compatibility:** When `slicing_strategy: monolithic`, the gate is single-level: all `[ ]` → `[x]`, then `dev_plan.status` flips (the last tracked write), then the one full loop seals the bytes (EVOL-051). `/qa --verify {ID}` without `INC-N` reads global status — exactly as before.
 
 ### Anti-Patterns (PROHIBITED)
 

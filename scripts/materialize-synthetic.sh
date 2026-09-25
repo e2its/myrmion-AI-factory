@@ -204,7 +204,7 @@ CERT=$(cd "$P" && python3 scripts/gate.py certify --subject tree --paths 'src/**
 printf -- '---\nstatus: APPROVED\nverdict: APPROVED\ncertifies:\n%s\n---\n' "$CERT" > "$P/docs/spec/FEAT-001/qa/qa_report_final_20260925.md"
 git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm "manifest + re-taken verdict"
 # the full loop ran on these bytes (EVOL-051): its seal is what the push profile honours
-OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates tests,coverage,lint --full --summary green 2>&1); RC=$?
+OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates tests,coverage,lint --ok --full --summary green 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "the full loop sealed the branch's tree (gate.py seal --write --full)" || bad "seal write failed (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'verdict: ok' && ok "the profile runs every script member in the scratch project, one verdict: $(printf '%s' "$OUT" | grep -c '✓') green" || bad "profile run not green in the scratch (rc=$RC)" "$OUT"
@@ -304,14 +304,14 @@ OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); 
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: the full loop' && printf '%s' "$OUT" | grep -q 'no gate reads' && ok "RED: paths no gate reads changed since the last green seal (a workflow, the config) — the full loop is owed, fail closed" || bad "unmapped delta not refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py seal --plan --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'run: pytest  →  coverage, tests' && ok "the loop's plan: the suite that feeds coverage is one execution" || bad "seal plan wrong (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates tests,coverage,lint --full --summary green 2>&1 && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
+OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates tests,coverage,lint --ok --full --summary green 2>&1 && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'seal: ok' && ok "a green full loop sealed the tree the commit carries — the push honours it" || bad "sealed tree refused (rc=$RC)" "$OUT"
 printf 'notes\n' > "$P/docs/notes.md"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'docs' >/dev/null
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "a documentation-only delta after a green seal owes no test, security or build gate" || bad "docs delta owed a gate (rc=$RC)" "$OUT"
 mkdir -p "$P/src"; printf 'x = 1\n' > "$P/src/new.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'code' >/dev/null
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: coverage, lint, tests' && ok "RED: a code delta owes exactly the gates that read it (incremental seal)" || bad "code delta not owed (rc=$RC)" "$OUT"
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: coverage, lint, tests' && printf '%s' "$OUT" | grep -q 'moved: src/new.py' && ok "RED: a code delta owes exactly the gates that read it and names the path (incremental seal)" || bad "code delta not owed (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py digests 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "digests: $OUT" || bad "digests failed (rc=$RC)" "$OUT"
 mkdir -p "$P/docs/spec/FEAT-001"; printf -- '---\nstatus: DRAFT\n---\n# design\n' > "$P/docs/spec/FEAT-001/design.md"
@@ -319,7 +319,10 @@ OUT=$(cd "$P" && python3 scripts/gate.py digests 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'never generated' && ok "RED: a planning artefact without its governance digest fails the static round and the push alike" || bad "digest absence not refused (rc=$RC)" "$OUT"
 rm -rf "$P/docs/spec/FEAT-001"
 OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point static 2>&1); RC=$?
-printf '%s' "$OUT" | grep -q 'static round' && printf '%s' "$OUT" | grep -qE '(✓|✗) seal' && printf '%s' "$OUT" | grep -qE '(✓|✗) digests' && ok "the static round is a control point: light members incl. seal and digests, all report" || bad "static round profile wrong (rc=$RC)" "$OUT"
+# (this branch's verdict artefact and surface are stale by now — currency and surface report RED on their own account; the point here is the control point's shape)
+printf '%s' "$OUT" | grep -q 'static round' && printf '%s' "$OUT" | grep -q 'skipped by the light profile' && printf '%s' "$OUT" | grep -q '✓ seal' && printf '%s' "$OUT" | grep -q '✓ digests' && ok "the static round is a control point: the light members whatever the class (build members skipped), seal and digests report" || bad "static round profile wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py seal --check --control-point static --base origin/main 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'advisory' && printf '%s' "$OUT" | grep -q 'owed now: coverage, lint, tests' && ok "at the static round the seal is advisory: it names what the loop will owe, never a blocker before the loop ran" || bad "static seal not advisory (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

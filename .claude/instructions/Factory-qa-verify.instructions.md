@@ -182,6 +182,10 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       STOP
     IF target.status != "IMPLEMENTED_AND_VERIFIED":
       ❌ BLOCK: "Increment {INCREMENT_ID} status is '{target.status}', expected 'IMPLEMENTED_AND_VERIFIED'."
+    # EVOL-051 — the status is written BEFORE the loop; the seal is the proof. A status with no covering seal is BUILDING.
+    IF RUN("python3 scripts/gate.py seal --check --ref HEAD") != 0:
+      ❌ BLOCK: "IMPLEMENTED_AND_VERIFIED without a covering seal (gate.py seal --check): the full loop did not seal these bytes. Run IMPLEMENT --build {FEATURE_ID} to close the increment."
+      STOP
       REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} (with branch feature/{FEATURE_ID}-inc-N-* in BUILDING) to close this increment first."
       STOP
   ELSE:
@@ -190,6 +194,9 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
       IF dev_status != "IMPLEMENTED_AND_VERIFIED":
         ❌ BLOCK: "dev_plan.md status is '{dev_status}', expected 'IMPLEMENTED_AND_VERIFIED'"
         REDIRECT: "Run IMPLEMENT --build {FEATURE_ID} to complete implementation."
+        STOP
+      IF RUN("python3 scripts/gate.py seal --check --ref HEAD") != 0:   # EVOL-051: the seal is the proof, the status is a write
+        ❌ BLOCK: "IMPLEMENTED_AND_VERIFIED without a covering seal — the full loop did not seal these bytes. Run IMPLEMENT --build {FEATURE_ID}."
         STOP
     ELSE:  # incremental
       pending = FILTER(increments, inc.status != "IMPLEMENTED_AND_VERIFIED")

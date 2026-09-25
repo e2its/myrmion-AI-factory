@@ -540,7 +540,7 @@ FUNCTION derive_current_phase(state):
   # Map artifact state → current phase. First match wins (most advanced).
   IF state.qa_report.status == "APPROVED" AND state.pr_state.pr_merged: RETURN "complete"
   IF state.qa_report.status == "APPROVED":                             RETURN "deploy"
-  IF state.dev_plan.status == "IMPLEMENTED_AND_VERIFIED":              RETURN "qa"
+  IF state.dev_plan.status == "IMPLEMENTED_AND_VERIFIED":              RETURN "qa"   # EVOL-051: when `gate.py seal --check --ref HEAD` is red the status has no covering seal — treat as BUILDING: RETURN "implement"
   IF state.devops_plan.exists AND NOT state.dev_plan.exists:           RETURN "devops"
   IF state.dev_plan.exists:                                            RETURN "implement"
   IF state.design_md.status == "APPROVED":                             RETURN "devops"

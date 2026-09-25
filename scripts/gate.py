@@ -31,10 +31,10 @@
   gate.py plan --record --hook-json                write the approval marker from the harness's PostToolUse ExitPlanMode payload on stdin — refuses anything else
   gate.py documentation --path P | --changed [--base B]   the ONE definition of a documentation path (config: documentation); --changed exit 0 = every path of base...HEAD is documentation
   gate.py seal --plan [--branch B --base B]        the gates the loop owes NOW on the tree on disk, grouped into executions (one per command); full when unmapped
-  gate.py seal --write --gates a,b [--ok|--red] [--summary S] [--full]   record a run (read-set hashes on disk); --full also seals the tree
+  gate.py seal --write --gates a,b --ok|--red [--summary S] [--full]   record a run (read-set hashes on disk, right after the execution); --full seals the tree over green records (refused when a read-set moved after its run)
   gate.py seal --check [--branch B --base B --ref R --control-point P]   the push's question: the seal covers the tree the commit carries; exit 1 gates owed · n/a when not required
   gate.py seal --validate                          the map is sound (documentation defined, every gate reads something)
-  gate.py digests [--base B --branch B] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint + every bound rule named); exit 1 stale/incomplete
+  gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
   gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort; exit 1 when the round is over the class cap
   gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class; `separation: false` when a critic lands on the writer's family
@@ -320,9 +320,11 @@ def cmd_seal(repo, a):
     if a.plan:
         r = seal_mod.plan(repo, a.branch, a.base)
         if a.json:
-            print(json.dumps(r)); return 0
+            print(json.dumps(r)); return 0 if r["ok"] else 1
         if not r["required"]:
             print(f"seal: n/a — {r['reason']}"); return 0
+        if not r["ok"]:
+            print(f"seal: RED — {r['reason']}"); return 1
         print(f"seal: plan — {r['reason']}")
         for e in r["executions"]:
             print(f"  run: {e['command']}  →  {', '.join(e['gates'])}")
@@ -331,10 +333,10 @@ def cmd_seal(repo, a):
         return 0
     if a.write:
         gates = [g.strip() for g in (a.gates or "").split(",") if g.strip()]
-        if not gates:
-            raise GateFault("seal --write needs --gates a,b")
-        r = seal_mod.write(repo, gates, ok=not a.red, summary=a.summary or "", full=a.full, branch=a.branch)
-        print(json.dumps(r) if a.json else f"seal: recorded {', '.join(gates)} {'ok' if not a.red else 'RED'}{' · full loop sealed' if r['full'] else ''} → {r['path']}")
+        if a.ok == a.red:
+            raise GateFault("seal --write needs the outcome: --ok or --red (a forgotten flag is never a green)")
+        r = seal_mod.write(repo, gates, ok=a.ok, summary=a.summary or "", full=a.full, branch=a.branch)
+        print(json.dumps(r) if a.json else f"seal: recorded {', '.join(gates) or '(no gate)'} {'ok' if not a.red else 'RED'}{' · full loop sealed' if r['full'] else ''} → {r['path']}")
         return 0
     if a.validate:
         f = seal_mod.validate(repo)
@@ -347,7 +349,7 @@ def cmd_seal(repo, a):
 
 def cmd_digests(repo, a):
     base = _base(repo, a)
-    r = digests_mod.check(repo, base, a.branch)
+    r = digests_mod.check(repo, base, a.branch, a.control_point)
     print(json.dumps(r) if a.json else digests_mod.render(r))
     return 0 if r["ok"] else 1
 
@@ -420,7 +422,7 @@ def build_parser():
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
     p = sub.add_parser("documentation"); p.add_argument("--path", default=None); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_documentation)
     p = sub.add_parser("seal"); p.add_argument("--base", default=None); p.add_argument("--plan", action="store_true"); p.add_argument("--write", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--validate", action="store_true"); p.add_argument("--gates", default=""); p.add_argument("--ok", action="store_true"); p.add_argument("--red", action="store_true"); p.add_argument("--summary", default=""); p.add_argument("--full", action="store_true"); p.add_argument("--branch", default=None); p.add_argument("--ref", default="HEAD"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_seal)
-    p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
+    p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
     p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--spawn", action="store_true"); p.add_argument("--model", default=""); p.add_argument("--hook-json", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
     return ap

@@ -1206,18 +1206,17 @@ class Seal(unittest.TestCase):
         repo = fixture_repo(Path(tmp))
         q = json.loads((repo / "config/quality.json").read_text())
         q["documentation"] = dict(self.DOCS)
-        q["verification"] = {"seal": {"required": required, "dir": ".claude/state", "reason": "" if required else "CI is the loop"}, "gates": self.GATES if gates is None else gates, "digest_artefacts": ["design.md", "dev_plan.md"]}
+        q["verification"] = {"seal": {"required": required, "dir": ".claude/state", "reason": "" if required else "CI is the loop"}, "gates": self.GATES if gates is None else gates, "digest_artefacts": ["design.md"]}
         write(repo / "config/quality.json", json.dumps(q))
         write(repo / "src/app.py", "print(1)\n"); write(repo / "tests/test_app.py", "def test_a(): pass\n"); write(repo / "docs/site/index.md", "# site\n")
         write(repo / ".gitignore", ".claude/state/\n")   # as the template ships it; the seal is never part of the tree it seals either way
-        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], check=True, capture_output=True)
+        self._commit(repo, "base")
         subprocess.run(["git", "-C", str(repo), "checkout", "-qb", "feature/FEAT-001-x"], check=True, capture_output=True)
         return repo
 
     def _commit(self, repo, msg="c"):
         subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", msg], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", msg, "--allow-empty"], check=True, capture_output=True)
 
     def test_documentation_is_one_definition(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1246,43 +1245,68 @@ class Seal(unittest.TestCase):
             with self.assertRaisesRegex(GateFault, "`documentation` is missing"):
                 seal.docs_only(repo, "main")
 
+    def test_tree_entries_hash_as_git_commits(self):
+        """mode + blob id as the commit carries them: clean filters applied, a symlink by its target, the executable bit seen."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / ".gitattributes", "*.txt text=auto\n"); (repo / "src" / "crlf.txt").write_bytes(b"a\r\nb\r\n")
+            os.symlink("app.py", repo / "src" / "link.py"); (repo / "src" / "run.sh").write_text("#!/bin/sh\n"); os.chmod(repo / "src" / "run.sh", 0o755)
+            disk = seal.tree_entries(repo)
+            self._commit(repo, "special files")
+            head = seal.tree_entries(repo, "HEAD")
+            for path in ("src/crlf.txt", "src/link.py", "src/run.sh", "src/app.py"):
+                self.assertEqual(disk[path], head[path], path)
+            self.assertTrue(head["src/link.py"].startswith("120000:")); self.assertTrue(head["src/run.sh"].startswith("100755:"))
+            os.chmod(repo / "src" / "run.sh", 0o644)
+            self.assertNotEqual(seal.tree_entries(repo)["src/run.sh"], head["src/run.sh"], "a mode change moves the entry")
+            self.assertNotIn(".claude/state/x", seal.tree_entries(repo, skip=".claude/state"))
+
     def test_seal_plan_write_check(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             B = "main"
-            # no seal, nothing moved since the base: nothing owed (a branch that changed nothing a gate reads pays no loop)
-            r = seal.check(repo, base=B); self.assertTrue(r["ok"], r["reason"]); self.assertIn("no full seal", r["reason"])
+            # no seal, nothing moved since the merge-base: nothing owed (a branch that changed nothing a gate reads pays no loop)
+            r = seal.check(repo, base=B); self.assertTrue(r["ok"], r["reason"]); self.assertEqual(r["against"], "merge-base")
             self.assertEqual(seal.plan(repo, base=B)["owed"], [])
-            # a code change on the branch: the readers of src are owed, judged against the base — a shared command is ONE execution feeding two gates
+            # main moves under the branch (someone else's src change): the reference is the MERGE-BASE, the branch still owes nothing
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "main"], check=True, capture_output=True)
+            write(repo / "src/other.py", "other\n"); self._commit(repo, "on main")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "feature/FEAT-001-x"], check=True, capture_output=True)
+            r = seal.check(repo, base=B); self.assertTrue(r["ok"], r["reason"])
+            # a code change on the branch: the readers of src are owed — a shared command is ONE execution feeding two gates
             write(repo / "src/app.py", "print(2)\n"); self._commit(repo, "code")
             pl = seal.plan(repo, base=B)
-            self.assertFalse(pl["full"]); self.assertEqual(pl["owed"], ["coverage", "lint", "tests"])
+            self.assertFalse(pl["full"]); self.assertEqual(pl["owed"], ["coverage", "lint", "tests"]); self.assertEqual(pl["paths"], ["src/app.py"], "an owed gate names the paths that moved")
             ex = {e["command"]: e["gates"] for e in pl["executions"]}
             self.assertEqual(ex["pytest -q"], ["coverage", "tests"], "a suite that feeds coverage is executed once inside the loop")
             self.assertEqual(len(pl["executions"]), 2)
-            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertIn("judged against main", r["reason"])
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertEqual(r["against"], "merge-base"); self.assertIn("src/app.py", seal.render(r))
             # an unmapped path with no seal: the full loop
             write(repo / "config/x.json", "{}\n"); self._commit(repo, "cfg")
             pl = seal.plan(repo, base=B); self.assertTrue(pl["full"]); self.assertEqual(pl["owed"], ["coverage", "docs-build", "lint", "tests"]); self.assertEqual(len(pl["executions"]), 3)
-            # at CI the seal is not on the runner: n/a with the reason (the push honoured it; CI runs the loop in its own job)
-            r = seal.check(repo, control_point="ci", base=B); self.assertTrue(r["ok"]); self.assertFalse(r["required"]); self.assertIn("local state", r["reason"])
-            with self.assertRaisesRegex(GateFault, "a full loop records every gate"):
+            # at CI the seal is not on the runner: n/a with the honest reason (CI does not run the loop)
+            r = seal.check(repo, control_point="ci", base=B); self.assertTrue(r["ok"]); self.assertFalse(r["required"]); self.assertIn("CI does not run the loop", r["reason"])
+            # at the static round the answer is the plan's, advisory — never a blocker before the loop ran
+            r = seal.check(repo, control_point="static", base=B); self.assertTrue(r["ok"]); self.assertTrue(r["advisory"]); self.assertEqual(r["owed"], ["coverage", "docs-build", "lint", "tests"])
+            with self.assertRaisesRegex(GateFault, "not green yet"):
                 seal.write(repo, ["tests"], ok=True, full=True)
             with self.assertRaisesRegex(GateFault, "unknown gate"):
                 seal.write(repo, ["nope"], ok=True)
+            with self.assertRaisesRegex(GateFault, "seals a green loop"):
+                seal.write(repo, ["tests"], ok=False, full=True)
             # a green full loop on the tree ON DISK (an uncommitted edit included), then the commit carries those bytes: the push honours the seal
             write(repo / "src/app.py", "print(2)  # sealed before the commit\n")
             w = seal.write(repo, ["tests", "coverage", "lint", "docs-build"], ok=True, summary="green", full=True)
             self.assertTrue(w["full"]); self.assertTrue((repo / w["path"]).is_file())
             self.assertFalse(seal.check(repo, base=B)["ok"], "HEAD does not carry the sealed bytes yet")
             self._commit(repo, "sealed bytes")
-            self.assertTrue(seal.check(repo, base=B)["ok"], "the commit carries exactly the bytes the loop sealed"); self.assertEqual(seal.plan(repo, base=B)["owed"], [])
+            r = seal.check(repo, base=B); self.assertTrue(r["ok"], "the commit carries exactly the bytes the loop sealed"); self.assertEqual(r["against"], "seal"); self.assertEqual(seal.plan(repo, base=B)["owed"], [])
             # a documentation-only delta owes nothing — docs are in no read-set…
             write(repo / "docs/notes.md", "notes\n"); self._commit(repo, "docs")
             r = seal.check(repo, base=B); self.assertTrue(r["ok"], r["reason"])
             # …unless a gate declares it reads them (the red the issue asks for)
             write(repo / "docs/site/index.md", "# site v2\n"); self._commit(repo, "site docs")
-            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertEqual(r["owed"], ["docs-build"]); self.assertFalse(r["full"])
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertEqual(r["owed"], ["docs-build"]); self.assertFalse(r["full"]); self.assertEqual(r["paths"], ["docs/site/index.md"])
             seal.write(repo, ["docs-build"], ok=True); self.assertTrue(seal.check(repo, base=B)["ok"], "the incremental seal: only the gate whose read-set moved re-ran")
             # a code delta owes exactly the gates that read it
             write(repo / "src/app.py", "print(3)\n"); self._commit(repo, "code")
@@ -1293,29 +1317,62 @@ class Seal(unittest.TestCase):
             seal.write(repo, ["lint"], ok=False, summary="ruff red")
             r = seal.check(repo, base=B); self.assertEqual(r["owed"], ["lint"], "a red run is not a seal")
             seal.write(repo, ["lint"], ok=True); self.assertTrue(seal.check(repo, base=B)["ok"])
+            # --full must not re-hash: a read-set moved after its run (an auto-fix) is refused, never sealed
+            write(repo / "src/app.py", "print(3)  # lint auto-fix after the suite ran\n")
+            with self.assertRaisesRegex(GateFault, "read-set moved after its run.*re-run coverage, lint, tests"):
+                seal.write(repo, [], ok=True, full=True)
+            seal.write(repo, ["tests", "coverage", "lint"], ok=True); seal.write(repo, [], ok=True, full=True)
+            self._commit(repo, "auto-fixed"); self.assertTrue(seal.check(repo, base=B)["ok"])
             # the gate-that-stops-firing defect: a changed path no gate reads and no documentation covers owes the FULL loop, fail closed
             write(repo / "config/feature.json", "{}\n"); self._commit(repo, "config")
             r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertTrue(r["full"]); self.assertEqual(r["unmapped"], ["config/feature.json"])
             self.assertEqual(seal.plan(repo, base=B)["owed"], ["coverage", "docs-build", "lint", "tests"])
-            # an unstaged edit is seen: the seal hashes the tree the NEXT commit carries
+            # reads are root-anchored like the documentation class: vendor/src is not src
+            write(repo / "vendor/src/x.py", "v\n"); self._commit(repo, "vendor")
+            r = seal.check(repo, base=B); self.assertIn("vendor/src/x.py", r["unmapped"], "src/** never covers vendor/src/x.py")
+            (repo / "vendor/src/x.py").unlink(); (repo / "vendor/src").rmdir(); (repo / "vendor").rmdir(); self._commit(repo, "vendor gone")
+            # an unstaged edit is seen by the plan (the disk) and not by the check (HEAD)
             seal.write(repo, ["tests", "coverage", "lint", "docs-build"], ok=True, full=True)
             self.assertTrue(seal.check(repo, base=B)["ok"], "sealed on the committed bytes")
             write(repo / "src/app.py", "print(4)\n")
             self.assertEqual(seal.plan(repo, base=B)["owed"], ["coverage", "lint", "tests"], "the plan reads the disk, not HEAD")
             self.assertTrue(seal.check(repo, base=B)["ok"], "the check reads HEAD: an uncommitted edit is not what the push carries")
-            # not required: n/a with the reason; required without a map: red
+            # the seal belongs to its branch
+            subprocess.run(["git", "-C", str(repo), "checkout", "-qb", "feature/FEAT-002-y"], check=True, capture_output=True)
+            sp = repo / ".claude/state/seal-feature-FEAT-002-y.json"; sp.write_text((repo / ".claude/state/seal-feature-FEAT-001-x.json").read_text())
+            with self.assertRaisesRegex(GateFault, "written for branch"):
+                seal.check(repo, base=B)
+            sp.unlink(); subprocess.run(["git", "-C", str(repo), "checkout", "-q", "feature/FEAT-001-x"], check=True, capture_output=True)
+            # not required: n/a with the reason; without a reason: RED (fail closed); required without a map: RED; config absent: RED, never a fault
             q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["seal"] = {"required": False, "reason": "CI is the loop"}; write(repo / "config/quality.json", json.dumps(q))
             r = seal.check(repo, base=B); self.assertTrue(r["ok"]); self.assertFalse(r["required"]); self.assertIn("CI is the loop", seal.render(r))
+            q["verification"]["seal"] = {"required": False}; write(repo / "config/quality.json", json.dumps(q))
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertIn("without a `reason`", r["reason"])
             q["verification"]["seal"] = {"required": True}; q["verification"]["gates"] = {}; write(repo / "config/quality.json", json.dumps(q))
             r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertIn("gates is empty", r["reason"])
+            pl = seal.plan(repo, base=B); self.assertFalse(pl["ok"], "an empty map never plans 'nothing owed'")
             self.assertTrue(any("gates is empty" in x["reason"] for x in seal.validate(repo)))
             q["verification"]["gates"] = {"tests": {"reads": []}}; write(repo / "config/quality.json", json.dumps(q))
-            with self.assertRaisesRegex(GateFault, "non-empty `reads`"):
-                seal.vcfg(repo)
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertIn("non-empty `reads`", r["reason"])
+            q["verification"]["seal"] = {"required": True, "dir": "/tmp/elsewhere"}; q["verification"]["gates"] = self.GATES; write(repo / "config/quality.json", json.dumps(q))
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertIn("inside the repository", r["reason"])
+            del q["verification"]; write(repo / "config/quality.json", json.dumps(q))
+            r = seal.check(repo, base=B); self.assertFalse(r["ok"]); self.assertIn("`verification` is missing", r["reason"])
+            q["verification"] = {"seal": {"required": True, "dir": "./.claude/state/"}, "gates": self.GATES}; write(repo / "config/quality.json", json.dumps(q))
+            self.assertEqual(seal.vcfg(repo)["dir"], ".claude/state", "the seal dir is normalised so its own folder is skipped")
             (repo / ".claude/state/seal-feature-FEAT-001-x.json").write_text("{nope", encoding="utf-8")
-            q["verification"]["gates"] = self.GATES; write(repo / "config/quality.json", json.dumps(q))
             with self.assertRaisesRegex(GateFault, "unreadable"):
                 seal.check(repo, base=B)
+            (repo / ".claude/state/seal-feature-FEAT-001-x.json").unlink()
+            with self.assertRaisesRegex(GateFault, "not a commit this clone knows"):
+                seal.plan(repo, base="nowhere/nope")
+
+    def test_static_round_is_light_whatever_the_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"delivery_mode": "production", "templates": {}}))
+            self.assertEqual(profile.profile(repo, "feature/FEAT-001-x", "static")["profile"], "light", "the static round: no build, no database, whatever the class or the mode")
+            self.assertEqual(profile.profile(repo, "feature/FEAT-001-x", "push")["profile"], "full")
 
 
 class Digests(unittest.TestCase):
@@ -1330,13 +1387,16 @@ class Digests(unittest.TestCase):
         write(repo / ".context/governance_snapshot.md", "---\nconstitution_hash: abcdef1234567890\nsetup_hash: x\n---\n")
         write(repo / ".claude/rules/security_policy.md", "---\ndescription: s\napplicable_when:\n  path_glob: [\"src/**\"]\n---\n")
         write(repo / ".claude/rules/testing.md", "---\ndescription: t\napplicable_when:\n  always: true\n---\n")
+        write(repo / ".claude/rules/ci-cd.md", "---\ndescription: c\napplicable_when:\n  path_glob: [\".github/workflows/**\"]\n---\n")
+        write(repo / ".github/workflows/ci.yml", "on: push\n")
         subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
         subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], check=True, capture_output=True)
         subprocess.run(["git", "-C", str(repo), "checkout", "-qb", "feature/FEAT-001-x"], check=True, capture_output=True)
-        write(repo / "src/app.py", "print(2)  # the change under review\n")
-        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "code"], check=True, capture_output=True)
         return repo
+
+    def _commit(self, repo, msg="c"):
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", msg], check=True, capture_output=True)
 
     def test_digest_currency_and_completeness(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1344,25 +1404,35 @@ class Digests(unittest.TestCase):
             self.assertEqual(digests.feature_id("feature/FEAT-001-x"), "FEAT-001"); self.assertEqual(digests.feature_id("feature/FEAT-001-inc-1-x-sub-2"), "FEAT-001"); self.assertIsNone(digests.feature_id("fix/x"))
             self.assertEqual(digests.fingerprint(repo), "abcdef12")
             r = digests.check(repo, "main"); self.assertTrue(r["ok"]); self.assertIn("nothing to judge", r["reason"])
-            self.assertLessEqual({"security_policy", "testing"}, set(digests.bound_rules(repo, "main")), "path-bound and always-on rules bind this change")
-            # a complete, current design: every bound rule named
+            # an empty change binds the always-on rules only — never the whole tree (ci-cd is NOT bound: no workflow changed)
+            self.assertNotIn("ci-cd", digests.bound_rules(repo, "main")); self.assertIn("testing", digests.bound_rules(repo, "main"))
+            # the change on DISK binds — the static round runs before the commit
+            write(repo / "src/app.py", "print(2)\n")
+            self.assertIn("security_policy", digests.bound_rules(repo, "main"), "an uncommitted src change binds security_policy")
+            # completeness is a REFERENCE (rules/<name>.md), never a bare word in prose
+            write(repo / "docs/spec/FEAT-001/design.md", "---\ngovernance_digest_version: \"abcdef12\"\n---\n## 7. GCD\nWe defer testing to QA; security_policy applies.\n```\nrules/testing.md\n```\n")
+            r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("incomplete", r["artefacts"][0]["reason"]); self.assertIn("testing", r["artefacts"][0]["reason"]); self.assertIn("security_policy", r["artefacts"][0]["reason"])
             write(repo / "docs/spec/FEAT-001/design.md", "---\ngovernance_digest_version: \"abcdef12\"\n---\n## 7. GCD\n" + "".join(f"- rules/{r}.md\n" for r in digests.bound_rules(repo, "main")))
             r = digests.check(repo, "main"); self.assertTrue(r["ok"], r)
-            # a stale fingerprint
+            self._commit(repo, "code + design")
+            r = digests.check(repo, "main"); self.assertTrue(r["ok"], r)
+            # a stale fingerprint; at CI the fingerprint is n/a (no snapshot on the runner), completeness still judged
             write(repo / ".context/governance_snapshot.md", "---\nconstitution_hash: 9999999999\n---\n")
             r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("stale", r["artefacts"][0]["reason"])
+            r = digests.check(repo, "main", control_point="ci"); self.assertTrue(r["ok"], r); self.assertIn("fingerprint n/a at ci", r["reason"])
             write(repo / ".context/governance_snapshot.md", "---\nconstitution_hash: abcdef1234567890\n---\n")
             # THE red the issue asks for: a corpus item appears (a new rule bound to this surface) — an UNTOUCHED artefact's digest is incomplete
             write(repo / ".claude/rules/privacy.md", "---\ndescription: p\napplicable_when:\n  path_glob: [\"src/**\"]\n---\n")
             r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("incomplete", r["artefacts"][0]["reason"]); self.assertIn("privacy", r["artefacts"][0]["reason"])
             (repo / ".claude/rules/privacy.md").unlink()
-            # a second artefact without any digest; a missing snapshot downstream is a fault
-            write(repo / "docs/spec/FEAT-001/dev_plan.md", "---\nstatus: READY\n---\nsecurity_policy testing\n")
+            # a second artefact without any digest; a missing snapshot downstream is RED (governance not delivered), never a fault the push walks past
+            write(repo / "docs/spec/FEAT-001/dev_plan.md", "---\nstatus: READY\n---\n- rules/security_policy.md\n- rules/testing.md\n")
             r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("never generated", [a for a in r["artefacts"] if a["artefact"].endswith("dev_plan.md")][0]["reason"])
             self.assertIn("✗ docs/spec/FEAT-001/dev_plan.md", digests.render(r))
             (repo / ".context/governance_snapshot.md").unlink()
-            with self.assertRaisesRegex(GateFault, "governance snapshot"):
-                digests.check(repo, "main")
+            r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("governance_snapshot.md is missing", r["artefacts"][0]["reason"])
+            q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]; write(repo / "config/quality.json", json.dumps(q))
+            r = digests.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("`verification` is missing", r["reason"]); self.assertIn("RED", digests.render(r))
 
 
 class Cli(unittest.TestCase):
@@ -1425,6 +1495,25 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 1); self.assertIn("over the cap", r.stdout)
             r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--check-return"], input="x", capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 2); self.assertIn("needs --class", r.stderr)
+            # EVOL-051: seal / documentation / digests exit codes
+            srepo = Seal()._repo(tmp + "/seal_cli") if os.makedirs(tmp + "/seal_cli") is None else None
+            def gp(*args, **kw):
+                return subprocess.run([sys.executable, gate, "--repo", str(srepo), *args], capture_output=True, text=True, env=env, **kw)
+            self.assertEqual(gp("seal", "--check", "--base", "main").returncode, 0, "nothing moved: ok")
+            write(srepo / "src/app.py", "print(2)\n"); subprocess.run(["git", "-C", str(srepo), "add", "-A"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(srepo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "code"], check=True, capture_output=True)
+            r = gp("seal", "--check", "--base", "main"); self.assertEqual(r.returncode, 1); self.assertIn("moved: src/app.py", r.stdout)
+            self.assertEqual(gp("seal", "--plan", "--base", "main").returncode, 0)
+            r = gp("seal", "--write", "--gates", "tests"); self.assertEqual(r.returncode, 2, "no outcome flag is never a green"); self.assertIn("--ok or --red", r.stderr)
+            self.assertEqual(gp("seal", "--write", "--gates", "tests,coverage,lint,docs-build", "--ok", "--full", "--base", "main").returncode, 0)
+            self.assertEqual(gp("seal", "--check", "--base", "main").returncode, 0)
+            self.assertEqual(gp("seal", "--check", "--base", "main", "--control-point", "ci").returncode, 0)
+            self.assertEqual(gp("seal", "--validate").returncode, 0)
+            self.assertEqual(gp("documentation", "--path", "docs/x.md").returncode, 0); self.assertEqual(gp("documentation", "--path", "src/x.py").returncode, 1)
+            self.assertEqual(gp("documentation", "--changed", "--base", "main").returncode, 1, "a code diff: no lane")
+            self.assertEqual(gp("documentation").returncode, 2, "no question asked is a fault")
+            self.assertEqual(gp("digests", "--base", "main").returncode, 0, "no artefact: nothing to judge")
+            r = gp("seal", "--check", "--base", "nowhere/nope"); self.assertEqual(r.returncode, 2); self.assertIn("not a commit this clone knows", r.stderr); self.assertNotIn("fatal:", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "law-sentences", "--file", str(repo / "CLAUDE.md")], capture_output=True, text=True, env=env)
             self.assertIn("LAW-02\tNever modify protected code.", r.stdout)
             broken = Path(tmp) / "broken"; broken.mkdir(); (broken / "gate.py").write_text(Path(gate).read_text(), encoding="utf-8")
