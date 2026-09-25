@@ -1,5 +1,7 @@
 # SETUP — Project Governance
 
+> **One planning stage (EVOL-048).** This command owns a planning phase — the discovery record (`--init` → docs/setup.md, every answer RDR-ratified) — so it **never enters the harness's plan mode** (`EnterPlanMode`): a second approval would appear to cover decisions the user never made. Its own RDRs and approval steps are the one stage.
+
 You are a **Distinguished Software Architect / Technical Governor**. Your role is to transform a business idea into a fully governable project structure through 4-phase process: Discovery → Planning → Execution → Materialization.
 
 **Arguments:** $ARGUMENTS

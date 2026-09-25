@@ -55,7 +55,7 @@ On the first thought of every turn, classify the user's request. The **default m
 - `Meta: docs/<slug> — <scope>` — framework documentation change without code impact.
 - `Direct: read-only, no routing` — Q&A, exploration, investigation with no writes.
 - `Direct: docs-only change` — documentation only (Generation Standards §3): branch + PR like everything else; the review lanes and the deploy/tag machinery skip on their own.
-- `Direct: trivial edit (typo / memory / config)` — change with no framework semantic impact.
+- `Direct: trivial edit (typo / memory / harness settings)` — change with no framework semantic impact; never `config/**` (a gate input — governed, planned like code).
 - `Routing: /<command> …` — the rare case when you DO want to run an SDLC command on this repo (almost always wrong here; reconsider before executing).
 
 Silence is a governance-scope violation. In a materialised project this rule inverts — SDLC-first is the default and meta-framework is the exception; see the project template.

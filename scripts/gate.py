@@ -26,6 +26,7 @@
   gate.py runtime-surface --changed [--base B]     did base...HEAD touch the runtime surface (or a hard exclusion)? exit 0 touched · 1 untouched (the machinery may skip) · 2 could not judge
   gate.py plan --path P [--branch B]               may this write happen? governed path × branch class × approved plan; exit 0 pass · 1 blocked (reason + resolution) · 2 fault
   gate.py plan --status [--branch B]               one advisory line for the prompt hook (exit 0 always)
+  gate.py plan --enter [--branch B]                may this session enter plan mode? exit 1 on a class a framework phase already plans (one stage, never two)
   gate.py plan --record --hook-json                write the approval marker from the harness's PostToolUse ExitPlanMode payload on stdin — refuses anything else
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08) · 3 the reader itself is missing or broken (governance not delivered).
@@ -222,9 +223,16 @@ def cmd_plan(repo, a):
         print(f"plan: approval recorded for {m['branch']} at {m['approved_at']} ({m['source']})")
         return 0
     if a.status:
-        st = planning.status(repo, a.branch)
+        try:
+            st = planning.status(repo, a.branch)
+        except Exception as e:   # the advisory never fails the prompt
+            st = {"line": f"planning: the reader could not judge ({type(e).__name__}: {e}). A write to a governed path will be BLOCKED until this is fixed."}
         print(st["line"])
         return 0
+    if a.enter:
+        e = planning.enter(repo, a.branch)
+        print(("plan: BLOCKED — " if e["block"] else "plan: ok — ") + e["reason"])
+        return 1 if e["block"] else 0
     if not a.path:
         print("gate: plan needs --path P, --status or --record", file=sys.stderr)
         return 2
@@ -302,7 +310,7 @@ def build_parser():
     p = sub.add_parser("profile"); p.add_argument("--run", action="store_true"); p.add_argument("--control-point", choices=("push", "ci"), default="push"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_profile)
     p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
-    p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
+    p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
     return ap
 
 

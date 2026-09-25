@@ -55,7 +55,7 @@ Carve-outs (proceed directly, single-line rationale required):
 
 - **Read-only questions / exploration** — "read-only, no routing".
 - **Docs-only change** (Generation Standards §3) — "docs-only change": branch + PR like everything else; the review lanes and the deploy machinery skip on their own.
-- **Trivial operations**: typo fixes, memory saves, permission/config edits via `/update-config`, one-line README clarifications — "trivial, direct edit".
+- **Trivial operations**: typo fixes, memory saves, harness-settings edits via `/update-config`, one-line README clarifications — "trivial, direct edit"; never `config/**` (a gate input — governed, planned like code).
 - **Any code or design change in this project not matching the above** — SDLC routing is mandatory.
 
 > Rare exception: if the user explicitly asks to edit files under `.claude/**` (framework-shipped instructions/skills/hooks) or `.context/templates/**`, announce `Direct: meta-framework override (user-requested)` and proceed. That scope normally belongs to the framework repo itself — mention it only when the user asks for it by name.

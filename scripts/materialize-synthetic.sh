@@ -69,7 +69,7 @@ if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]'}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]'}
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -252,10 +252,22 @@ OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'plan: BLOCKED' && ok "RED: a fix branch's governed write is blocked — no framework planning phase, no approved plan" || bad "fix governed write not blocked (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py plan --path docs/notes.md 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "a documentation write on the fix branch passes" || bad "docs write blocked (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"ExitPlanMode","session_id":"smoke"}' | bash .claude/hooks/record-plan-approval.sh 2>&1); RC=$?
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path .claude/settings.json 2>&1); RC=$?
+[ "$RC" -eq 1 ] && ok "RED: the gate's own wiring (.claude/settings.json) is governed on a fix branch" || bad "settings.json not governed (rc=$RC)" "$OUT"
+printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_smoke","name":"ExitPlanMode","input":{}}]}}\n' > "$P/.claude/state/transcript.jsonl"
+OUT=$(cd "$P" && printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"ExitPlanMode","session_id":"smoke","permission_mode":"default","transcript_path":"'"$P"'/.claude/state/transcript.jsonl","tool_use_id":"toolu_smoke"}' | bash .claude/hooks/record-plan-approval.sh 2>&1); RC=$?
+[ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -f "$P/.claude/state/plan-approved-fix-gated.json" ] && ok "the delivered recorder writes the marker silently from the harness's payload" || bad "recorder (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'plan approved on this branch' && ok "the harness's approval (recorded by the delivered hook) unblocks the governed write" || bad "approval did not unblock (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'plan approved on this branch' && ok "the harness's approval unblocks the governed write" || bad "approval did not unblock (rc=$RC)" "$OUT"
+(cd "$P" && git check-ignore -q .claude/state/plan-approved-fix-gated.json) && ok "the marker is ignored by the materialised .gitignore — it never rides a PR" || bad "the plan-approval marker is not gitignored in the project"
+git -C "$P" checkout -q -b docs/only
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path docs/setup.md 2>&1); RC=$?
+[ "$RC" -eq 1 ] && ok "RED: a docs branch writing a gate input (docs/setup.md) is blocked" || bad "docs branch gate input (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py plan --enter 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "a docs branch may enter plan mode — its one stage" || bad "docs plan mode (rc=$RC)" "$OUT"
 git -C "$P" checkout -q feature/FEAT-001-smoke
+OUT=$(cd "$P" && python3 scripts/gate.py plan --enter 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'second stage' && ok "RED: a feature branch never enters plan mode — one stage, never two" || bad "feature plan mode not refused (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

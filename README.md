@@ -171,7 +171,7 @@ CLAUDE.md                                    # Root governance (always loaded)
 │   ├── factory-code-review/                 # Agentic code review engine (Block 20, LAW-13)
 │   ├── factory-po-intake/                   # External CODESIGN authoring — validate, ratify, sync, plan the component catalog
 │   └── factory-pr-review/                   # Seven-axis PR review + push gate (20 hard blocks)
-├── hooks/                                   # 6 deterministic enforcement hooks
+├── hooks/                                   # 9 deterministic enforcement hooks (EVOL-048 adds the planning gate, its recorder and the plan-mode entry check; EVOL-043 the pre-edit delivery)
 │   ├── check-branch-protection.sh           # PreToolUse — blocks edits on protected branches
 │   ├── check-completion-gate.sh
 │   ├── check-concurrency-lock.sh

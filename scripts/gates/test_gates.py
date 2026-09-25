@@ -817,16 +817,24 @@ class Runtime(unittest.TestCase):
 class Planning(unittest.TestCase):
     """EVOL-048: one planning stage — governed precedence, classes fail closed, the marker only from the harness, adoption once."""
 
-    PLAN = {"governed_paths": ["src/**", "config/**", ".claude/rules/**"], "docs_exempt": ["**/*.md", "docs/**"],
-            "gate_inputs": ["docs/constitution.md", "config/**", ".claude/rules/**"],
-            "exempt_classes": ["feature", "increment", "train", "sub-increment", "epic"], "plan_artefact": None, "adoption_window_minutes": 30}
+    PLAN = {"governed_paths": ["src/**", "config/**", ".claude/**"], "docs_exempt": ["**/*.md", "docs/**"],
+            "gate_inputs": ["docs/constitution.md", "config/**", ".claude/**"],
+            "exempt_classes": ["feature", "increment", "train", "sub-increment", "epic"], "plan_artefact": None, "adoption_window_minutes": 30, "approval_ttl_hours": 168}
 
     def _repo(self, tmp, plan=None):
         repo = fixture_repo(Path(tmp))
         q = json.loads((repo / "config/quality.json").read_text()); q["planning"] = plan or dict(self.PLAN)
         write(repo / "config/quality.json", json.dumps(q))
+        write(repo / "src/docs/gen.py", "x\n")
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "plan cfg"], check=True)
         subprocess.run(["git", "-C", str(repo), "branch", "-M", "main"], check=True)
+        subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/main", "HEAD"], check=True)
+        write(repo / "transcript.jsonl", '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_ok","name":"ExitPlanMode","input":{}}]}}\n')
         return repo
+
+    def _payload(self, repo, **kw):
+        return {"hook_event_name": "PostToolUse", "tool_name": "ExitPlanMode", "session_id": "s1", "transcript_path": str(repo / "transcript.jsonl"), "tool_use_id": "toolu_ok", **kw}
 
     def _on(self, repo, b):
         subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-B", b], check=True)
@@ -839,66 +847,116 @@ class Planning(unittest.TestCase):
             self.assertEqual(planning.governed(repo, "README.md")[0], False)
             self.assertEqual(planning.governed(repo, "docs/constitution.md"), (True, "an input of a gate — governed like code whatever its extension"))
             self.assertEqual(planning.governed(repo, ".claude/rules/python.md")[0], True, "a rule is a gate input even as .md")
+            self.assertEqual(planning.governed(repo, ".claude/skills/factory-rdr/SKILL.md")[0], True, "a skill is a behavioural contract, never documentation")
+            self.assertEqual(planning.governed(repo, "src/docs/gen.py")[0], True, "docs/** is root-anchored: code under a docs/ folder is code")
             self.assertEqual(planning.governed(repo, "assets/logo.png")[0], False)
-            self.assertEqual(planning.governed(repo, str(repo / "src/x.py"))[0], True, "absolute paths are relativised")
+            self.assertEqual(planning.governed(repo, str(repo / "src/x.py"))[0], True, "absolute paths inside the repo are relativised")
+            self.assertEqual(planning.governed(repo, "/outside/config/x.json"), (False, "outside the repository — not a governed write"))
+            self.assertEqual(planning.governed(repo, "../sibling/src/x.py")[0], False)
             q = json.loads((repo / "config/quality.json").read_text()); del q["planning"]; write(repo / "config/quality.json", json.dumps(q))
             with self.assertRaisesRegex(GateFault, "`planning` is missing"):
                 planning.governed(repo, "src/app.py")
+            g = planning.gate(repo, "config/quality.json", "fix/x")
+            self.assertFalse(g["block"]); self.assertIn("may add it", g["reason"], "the one write that can add the missing block passes")
+            with self.assertRaisesRegex(GateFault, "`planning` is missing"):
+                planning.gate(repo, "src/app.py", "fix/x")
+            st = planning.status(repo, "fix/x"); self.assertTrue(st["warn"]); self.assertIn("will be BLOCKED", st["line"], "the advisory never faults")
+
+    def test_meta_config_governs_the_framework_product(self):
+        real = HERE.parent.parent
+        if not (real / "config/quality.json").is_file() or not (real / ".context/templates/setup").is_dir():
+            self.skipTest("not the framework repo")
+        for rel in (".claude/skills/factory-rdr/SKILL.md", ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md", ".claude/commands/implement.md",
+                    ".context/templates/setup/claude/CLAUDE.md", ".context/templates/architect/increment_plan_template.md", "config/quality.json", "scripts/gate.py", ".github/workflows/governance-check.yml"):
+            self.assertEqual(planning.governed(real, rel)[0], True, f"{rel}: the framework's product is a gate input, never documentation")
+        for rel in ("docs/project_log/evolutions/ADR-EVOL-048.md", "README.md", "docs/constitution.md"):
+            self.assertEqual(planning.governed(real, rel)[0], False, f"{rel}: documentation — the plan artefact itself is never a gate input")
+        self.assertEqual(planning._cfg(real)["exempt_classes"], [], "no class is exempt in the framework repo")
 
     def test_classes_fail_closed_and_the_marker_comes_only_from_the_harness(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             self._on(repo, "feature/F-001-login")
             self.assertEqual(planning.approval(repo)["source"], "phase", "a feature is planned by the framework's phases")
+            with self.assertRaisesRegex(GateFault, "second receipt"):
+                planning.record(repo, self._payload(repo))
+            self.assertTrue(planning.enter(repo)["block"], "plan mode on a phase-planned class is a second stage")
             self._on(repo, "fix/x")
+            self.assertFalse(planning.enter(repo)["block"], "a fix has no phase: plan mode is its one stage")
             a = planning.approval(repo)
             self.assertFalse(a["approved"]); self.assertIn("no framework planning phase and no approved plan", a["reason"])
             g = planning.gate(repo, "src/app.py")
             self.assertTrue(g["block"]); self.assertIn("plan mode", g["resolution"])
             self.assertFalse(planning.gate(repo, "docs/x.md")["block"], "a documentation write on a gated class passes")
             self.assertTrue(planning.gate(repo, "docs/constitution.md")["block"], "a gate input on a gated class blocks")
-            with self.assertRaisesRegex(GateFault, "only from the harness"):
-                planning.record(repo, {"hook_event_name": "PostToolUse", "tool_name": "Edit"})
-            with self.assertRaisesRegex(GateFault, "only from the harness"):
-                planning.record(repo, {"tool_name": "ExitPlanMode"})
-            m = planning.record(repo, {"hook_event_name": "PostToolUse", "tool_name": "ExitPlanMode", "session_id": "s1"})
-            self.assertEqual(m["branch"], "fix/x"); self.assertTrue(planning.marker_path(repo, "fix/x").is_file())
+            for bad, why in (({"hook_event_name": "PostToolUse", "tool_name": "Edit"}, "only from the harness"),
+                             ({"tool_name": "ExitPlanMode"}, "only from the harness"),
+                             (self._payload(repo, permission_mode="bypassPermissions"), "no human ratified"),
+                             (self._payload(repo, transcript_path=str(repo / "nope.jsonl")), "transcript_path"),
+                             (self._payload(repo, tool_use_id="toolu_other"), "not this session's approval")):
+                with self.assertRaisesRegex(GateFault, why):
+                    planning.record(repo, bad)
+            self.assertFalse(planning.marker_path(repo, "fix/x").exists(), "nothing written by a refused payload")
+            m = planning.record(repo, self._payload(repo, permission_mode="default", cwd="/w"))
+            self.assertEqual((m["branch"], m["permission_mode"], m["tool_use_id"]), ("fix/x", "default", "toolu_ok")); self.assertTrue(planning.marker_path(repo, "fix/x").is_file())
             a = planning.approval(repo)
             self.assertTrue(a["approved"]); self.assertEqual(a["source"], "harness:ExitPlanMode")
             self.assertFalse(planning.gate(repo, "src/app.py")["block"])
-            for b in ("chore/x", "docs/x", "breaking/x", "weird", "main"):
-                self._on(repo, b) if b != "main" else subprocess.run(["git", "-C", str(repo), "checkout", "-q", "main"], check=True)
+            # the own marker names its branch (no slug collision) and expires with the TTL
+            self._on(repo, "fix-x")
+            self.assertFalse(planning.approval(repo)["approved"], "fix-x does not inherit fix/x's marker through the slug")
+            self._on(repo, "fix/x")
+            old = json.loads(planning.marker_path(repo, "fix/x").read_text()); old["approved_at"] = "2020-01-01T00:00:00Z"
+            planning.marker_path(repo, "fix/x").write_text(json.dumps(old))
+            a = planning.approval(repo); self.assertFalse(a["approved"]); self.assertIn("older than planning.approval_ttl_hours", a["reason"])
+            old["approved_at"] = "2099-01-01T00:00:00Z"; planning.marker_path(repo, "fix/x").write_text(json.dumps(old))
+            a = planning.approval(repo); self.assertFalse(a["approved"]); self.assertIn("future timestamp", a["reason"])
+            planning.marker_path(repo, "fix/x").unlink()
+            for b in ("chore/x", "docs/x", "breaking/x", "weird"):
+                self._on(repo, b)
                 self.assertFalse(planning.approval(repo)["approved"], f"{b}: an unlisted class is gated")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "main"], check=True)
+            self.assertFalse(planning.approval(repo)["approved"], "main: gated")
             st = planning.status(repo, "chore/x")
             self.assertTrue(st["warn"]); self.assertIn("BLOCKED", st["line"])
             self.assertFalse(planning.status(repo, "feature/F-001-login")["warn"])
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "--detach"], check=True)
+            st = planning.status(repo); self.assertTrue(st["warn"]); self.assertIn("detached HEAD", st["line"], "the advisory says it even on a detached HEAD")
+            with self.assertRaisesRegex(GateFault, "check out the branch"):
+                planning.record(repo, self._payload(repo))
 
     def test_adoption_once_within_the_window_and_the_plan_artefact(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             subprocess.run(["git", "-C", str(repo), "checkout", "-q", "main"], check=True)
-            planning.record(repo, {"hook_event_name": "PostToolUse", "tool_name": "ExitPlanMode"})   # approved on main, before the branch is cut
+            planning.record(repo, self._payload(repo))   # approved on main, before the branch is cut
             self._on(repo, "fix/one")
             a = planning.approval(repo)
             self.assertTrue(a["approved"]); self.assertEqual(a["source"], "adopted"); self.assertIn("adopted by this branch", a["reason"])
+            own = json.loads(planning.marker_path(repo, "fix/one").read_text()); self.assertIsNone(own["adopted_by"]); self.assertEqual(own["branch"], "fix/one")
             self.assertTrue(planning.approval(repo)["approved"], "the adopting branch keeps its own marker")
             self._on(repo, "fix/two")
-            a = planning.approval(repo)
-            self.assertFalse(a["approved"], "single use: a second branch cannot adopt the same approval")
-            self.assertFalse(planning.approval(repo)["approved"], "another working branch's own marker (fix/one) is never adopted — only a base branch's")
-            m = json.loads(planning.marker_path(repo, "main").read_text()); self.assertEqual(m["adopted_by"], "fix/one")
-            planning.record(repo, {"hook_event_name": "PostToolUse", "tool_name": "ExitPlanMode"}, branch="main")   # a fresh approval on main
+            self.assertFalse(planning.approval(repo)["approved"], "single use: a second branch cannot adopt the same approval")
+            planning.record(repo, self._payload(repo), branch="fix/one")   # a fresh, unadopted approval on another WORKING branch
+            self.assertFalse(planning.approval(repo)["approved"], "another working branch's own marker is never adopted — only a base branch's")
+            self.assertEqual(json.loads(planning.marker_path(repo, "main").read_text())["adopted_by"], "fix/one")
+            planning.record(repo, self._payload(repo), branch="main")   # a fresh approval on main
             st = planning.status(repo); self.assertFalse(st["warn"]); self.assertIn("will be adopted", st["line"])
             self.assertIsNone(json.loads(planning.marker_path(repo, "main").read_text())["adopted_by"], "the advisory never consumes the adoption")
-            self.assertEqual(planning.approval(repo)["source"], "adopted", "the real write adopts it")
-            self.assertEqual(json.loads(planning.marker_path(repo, "main").read_text())["adopted_by"], "fix/two")
+            planning.record(repo, self._payload(repo), branch="develop")   # two base approvals: the branch's own base wins
+            self.assertIn("main", planning.approval(repo)["reason"]); self.assertEqual(json.loads(planning.marker_path(repo, "main").read_text())["adopted_by"], "fix/two")
+            planning.marker_path(repo, "develop").unlink()   # the other base's approval stays adoptable by design; out of this test's way
             old = {"branch": "main", "approved_at": "2020-01-01T00:00:00Z", "source": "harness:ExitPlanMode", "adopted_by": None}
             planning.marker_path(repo, "main").write_text(json.dumps(old))
             self._on(repo, "fix/three")
             a = planning.approval(repo)
             self.assertFalse(a["approved"]); self.assertIn("outside the 30-minute adoption window", a["reason"], "an expired approval is said, never used")
+            planning.marker_path(repo, "main").write_text(json.dumps({**old, "approved_at": "2026-09-25T10:00:00"}))   # naive: UTC, never a crash
+            self.assertFalse(planning.approval(repo)["approved"])
+            planning.marker_path(repo, "main").write_text(json.dumps({**old, "approved_at": "2099-01-01T00:00:00Z"}))
+            self.assertFalse(planning.approval(repo)["approved"], "a future-dated approval is clock skew, never adopted")
             planning.marker_path(repo, "fix/three").write_text("{not json"); self.assertFalse(planning.approval(repo)["approved"], "an unreadable marker is no approval")
-            # the branch's own plan artefact in an approved state (the framework repo's ADR; a project's FIX plan)
+            # the branch's own plan artefact in an approved state — new or changed on the branch
             plan = dict(self.PLAN); plan["exempt_classes"] = []; plan["plan_artefact"] = "docs/project_log/evolutions/ADR-{ID}.md"
             q = json.loads((repo / "config/quality.json").read_text()); q["planning"] = plan; write(repo / "config/quality.json", json.dumps(q))
             self._on(repo, "feature/EVOL-099-x")
@@ -908,6 +966,11 @@ class Planning(unittest.TestCase):
             write(repo / "docs/project_log/evolutions/ADR-EVOL-099.md", "---\nid: ADR-EVOL-099\nstatus: accepted\n---\n")
             a = planning.approval(repo); self.assertTrue(a["approved"]); self.assertEqual(a["source"], "artefact")
             self.assertFalse(planning.approval(repo, "feature/EVOL-098-y")["approved"], "another evolution's ADR does not cover this branch")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "adr"], check=True)
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/main", "HEAD"], check=True)   # the ADR ships to main
+            self._on(repo, "fix/EVOL-099-typo")
+            a = planning.approval(repo); self.assertFalse(a["approved"]); self.assertIn("already on main unchanged", a["reason"], "a shipped ADR is another change's plan")
 
 
 class Cli(unittest.TestCase):
@@ -1028,8 +1091,13 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 0)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--record", "--hook-json", "--branch", "fix/x"], input=json.dumps({"hook_event_name": "PostToolUse", "tool_name": "Edit"}), capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 2, "a forged approval is refused"); self.assertIn("only from the harness", r.stderr)
-            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--record", "--hook-json", "--branch", "fix/x"], input=json.dumps({"hook_event_name": "PostToolUse", "tool_name": "ExitPlanMode", "session_id": "s"}), capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 0); self.assertIn("approval recorded for fix/x", r.stdout)
+            write(repo / "t.jsonl", '{"name":"ExitPlanMode","id":"toolu_1"}\n')
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--record", "--hook-json", "--branch", "fix/x"], input=json.dumps({"hook_event_name": "PostToolUse", "tool_name": "ExitPlanMode", "session_id": "s", "transcript_path": str(repo / "t.jsonl"), "tool_use_id": "toolu_1"}), capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, r.stderr); self.assertIn("approval recorded for fix/x", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--enter", "--branch", "feature/F-001-x"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("second stage", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--enter", "--branch", "fix/x"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--path", "src/app.py", "--branch", "fix/x"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--status", "--branch", "chore/z"], capture_output=True, text=True, env=env)
