@@ -1,7 +1,7 @@
 # Template: Feature Decision Record (`docs/spec/{{FEATURE_ID}}/fdr/FDR-{{NUMERO}}-{{TITULO-SLUG}}.md`)
 
 > Feature-scoped Decision Record. Used for binding decisions that apply WITHIN a single feature's scope.
-> An FDR is read by BLUEPRINT § 7.8 alongside the relevant constitution `[LAW]` sections — it is binding for that feature only and does NOT amend the universal `docs/constitution.md`.
+> An FDR is read by BLUEPRINT § 7.8 alongside the relevant constitution `[PLAW-NN]` entries (bodies in `.claude/rules/`) — it is binding for that feature only and does NOT amend the universal `docs/constitution.md`.
 > For decisions that should change project-wide law, use `adr_template.md` instead.
 > Lifecycle: `status: proposed` → `status: accepted` (flipped manually with the same RDR ceremony as ADRs but WITHOUT constitution amendment — the FDR text is itself the binding artefact).
 
@@ -51,7 +51,7 @@ status: proposed
 
 ## Compliance
 > Verification of alignment with the universal constitution and project rules.
-> An FDR cannot contradict `docs/constitution.md` `[LAW]` sections — if your decision
+> An FDR cannot contradict `docs/constitution.md` `[PLAW-NN]` entries — if your decision
 > requires changing project-wide law, escalate to a project-wide ADR instead.
 
 - ✅ Compatible with `docs/constitution.md`: {{JUSTIFICACION}}

@@ -107,7 +107,7 @@ All provisioned resources MUST include these tags:
 | `managed_by` | Yes | IaC tool name from descriptor |
 | `feature_id` | Yes (if feature-scoped) | Feature ID from branch |
 | `scope` | Yes | `system` or `feature` |
-| `cost_center` | If budget tracking enabled | From `ci-cd.instructions.md` |
+| `cost_center` | If budget tracking enabled | From `ci-cd.md` |
 | `created_at` | Recommended | ISO 8601 timestamp |
 
 ## Testing & Validation
@@ -121,7 +121,7 @@ All provisioned resources MUST include these tags:
 ## Data Protection in IaC
 
 - Resources flagged as `data_bearing: true` in Infrastructure Registry require:
-  - Backup configuration (retention per `database.instructions.md` Backup & DR policy)
+  - Backup configuration (retention per `database.md` Backup & DR policy)
   - Encryption at rest enabled
   - Deletion protection enabled in production
   - Snapshot before any destructive operation (`--teardown`, `--rollback`)

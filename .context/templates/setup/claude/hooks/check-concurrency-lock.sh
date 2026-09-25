@@ -10,7 +10,8 @@
 # Behavior:
 #   - If no lock exists: create it with current PPID, allow tool execution.
 #   - If lock exists with same PID (or dead process): overwrite, allow.
-#   - If lock exists with different live PID: block with error.
+#   - If lock exists with different live PID: block (exit 2, message on stderr — the
+#     Claude Code blocking contract; exit 1 would not block. EVOL-043 hook audit).
 # ============================================================================
 
 set -euo pipefail
@@ -42,10 +43,12 @@ if [ -f "$LOCK_FILE" ]; then
   if [ -n "$LOCK_PID" ] && [ "$LOCK_PID" != "$SESSION_PID" ]; then
     if kill -0 "$LOCK_PID" 2>/dev/null; then
       LOCK_TIME=$(tail -1 "$LOCK_FILE" 2>/dev/null || echo 'unknown')
-      echo "BLOCKED: Branch '$BRANCH' is locked by another session (PID $LOCK_PID, since $LOCK_TIME)."
-      echo "  If that session is no longer active, remove the lock:"
-      echo "    rm '$LOCK_FILE'"
-      exit 1
+      {
+        echo "BLOCKED: Branch '$BRANCH' is locked by another session (PID $LOCK_PID, since $LOCK_TIME)."
+        echo "  If that session is no longer active, remove the lock:"
+        echo "    rm '$LOCK_FILE'"
+      } >&2
+      exit 2
     fi
     # Process is dead — stale lock, fall through to overwrite
   fi
@@ -53,8 +56,8 @@ fi
 
 # Acquire or refresh lock
 if ! printf '%s\n%s\n' "$SESSION_PID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$LOCK_FILE"; then
-  echo "BLOCKED: Failed to acquire lock at '$LOCK_FILE' (permission error or disk full)."
-  exit 1
+  echo "BLOCKED: Failed to acquire lock at '$LOCK_FILE' (permission error or disk full)." >&2
+  exit 2
 fi
 
 exit 0

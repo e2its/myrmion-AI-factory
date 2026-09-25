@@ -20,10 +20,10 @@ applicable_when:
 LLM context windows are finite (128K in Copilot). When conversation history is summarized:
 1. **All governance context loaded in previous turns is EVICTED** — constitution content, rule details, stack config
 2. **The LLM doesn't receive a signal** that summarization occurred — it simply lacks context it had before
-3. **In-memory caches are destroyed** — any "cached Governance Index" ceases to exist
+3. **In-memory caches are destroyed** — any "cached law index" ceases to exist
 4. **The agent CANNOT know** whether it has governance context or not — it must ALWAYS reload
 
-**Solution:** Governance context lives in a **file-based snapshot** (`.context/governance_snapshot.md`). Agents read THIS FILE at the start of every command. Reading 1 file (~50-80 lines) is cheap. Assuming context from memory is dangerous.
+**Solution:** Governance context lives in a **file-based snapshot** (`.context/governance_snapshot.md`). Agents read THIS FILE at the start of every command. Reading 1 file (the lite snapshot, held under `budgets.snapshot`) is cheap. Assuming context from memory is dangerous.
 
 ---
 
@@ -39,20 +39,19 @@ LLM context windows are finite (128K in Copilot). When conversation history is s
 ### Deterministic Drift Detection (PreToolUse Hook)
 
 > **Hook:** `.claude/hooks/check-governance-drift.sh` — registered as PreToolUse on `Edit|Write`.
-> Computes MD5 of `docs/constitution.md` and `docs/setup.md`, compares against snapshot frontmatter hashes.
-> **Non-blocking** (exit 0): emits WARNING so the agent can act. Blocking would create a circular dependency
+> Computes MD5 of `docs/constitution.md`, `docs/setup.md` and `.claude/rules/defect-prevention.md`, compares against snapshot frontmatter hashes.
+> **Non-blocking** (exit 0): emits the WARNING through the PreToolUse envelope (`hookSpecificOutput.additionalContext` — plain stdout from a pre-tool hook never reaches the model). Blocking would create a circular dependency
 > (agent can't write the regenerated snapshot if edits are blocked).
 >
 > This hook ensures drift is **always visible** regardless of whether the agent remembers to execute Step 0.
 > Step 0 was purely instructional — agents could skip it after context summarization.
 >
-> **On WARNING:** The agent MUST execute Step 1 → POST-LOAD (`generate_governance_snapshot()`) inline.
-> This does **NOT** require running `SETUP --generate`. Any agent can regenerate the snapshot directly
-> by reading `docs/constitution.md` + `.claude/rules/` + `docs/setup.md` and writing `.context/governance_snapshot.md`.
+> **On WARNING:** The agent MUST run `bash scripts/generate-governance-snapshot.sh` (Step 1 → POST-LOAD).
+> This does **NOT** require running `SETUP --generate`, and the snapshot is never hand-written.
 
-### Always-On Enforcement (4-Tier Hooks)
+### Always-On Enforcement (5-Tier Hooks)
 
-The PreToolUse drift hook above catches edits in progress, but agents can *read* governance for an entire session without ever triggering an Edit/Write — and the snapshot can go stale silently across context compaction. The 4-tier enforcement closes those gaps:
+The PreToolUse drift hook above catches edits in progress, but agents can *read* governance for an entire session without ever triggering an Edit/Write — and the snapshot can go stale silently across context compaction. The 5-tier enforcement closes those gaps:
 
 | Tier | Trigger | Script | What it does | Failure mode |
 |------|---------|--------|--------------|--------------|
@@ -61,14 +60,14 @@ The PreToolUse drift hook above catches edits in progress, but agents can *read*
 | **3 — Attribution** | `PostToolUse Edit\|Write` → `UserPromptSubmit` | `scripts/governance-onedit.sh` writes `.claude/state/governance-source-edited-{session_id}.marker` listing the changed paths when Edit/Write touched `docs/constitution.md` or `docs/setup.md`. The next `scripts/governance-onprompt.sh` emits `<governance-source-edited paths="...">` with cause attribution + explicit instruction to regenerate via Step 1 → POST-LOAD, then consumes the marker. Suppresses the tier-2 `<governance-warning>` for that prompt — the agent already knows why the snapshot is stale. | Marker write degrades silently when neither `jq` nor `python3` is available; tier 2 then fires its plain warning instead. |
 | **4 — Resilient** | `PreCompact` → `UserPromptSubmit` | `scripts/governance-oncompact.sh` writes `.claude/state/governance-reload-{session_id}.marker`; the next `scripts/governance-onprompt.sh` emits the snapshot wrapped in `<governance-reload>...</governance-reload>` on stdout, which Claude Code appends to the next turn as additional context, then consumes the marker. | Post-compaction re-injection is lossy if `PreCompact` never fires (some IDE harnesses). Tiers 1 + 2 + 3 still operate. |
 
-**Hook wiring** lives in `.claude/settings.json` (materialized by `SETUP --generate` from `.context/templates/setup/claude/settings.json`). The 4-tier coexists with the PreToolUse drift hook: tier 2 surfaces drift as an advisory, tier 3 attributes the cause when self-inflicted, and the drift hook warns at the moment of the edit.
+**Hook wiring** lives in `.claude/settings.json` (materialized by `SETUP --generate` from `.context/templates/setup/claude/settings.json`). The 5-tier coexists with the PreToolUse drift hook: tier 2 surfaces drift as an advisory, tier 3 attributes the cause when self-inflicted, and the drift hook warns at the moment of the edit.
 
 **Marker scoping.** Both markers (`governance-reload-{session_id}.marker` and `governance-source-edited-{session_id}.marker`) live under `.claude/state/` — inside the Claude Code hook namespace, gitignored, suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replays.
 
 **Smoke tests** (run in any repo that has `docs/constitution.md` + `.context/governance_snapshot.md`):
 
 1. Open a fresh session → the banner line is printed.
-2. Edit `docs/constitution.md` without regenerating the snapshot → the next prompt is rejected with `Governance snapshot stale — …`.
+2. Edit `docs/constitution.md` without regenerating the snapshot → the next prompt carries an advisory `<governance-warning reason="snapshot-stale">` block (never rejected).
 3. Force a conversation long enough to trigger `PreCompact` → the following turn contains `<governance-reload>…</governance-reload>` with the full snapshot in context.
 
 ### Step 0: Governance Snapshot Recovery (FILE-BASED — summarization-safe)
@@ -82,7 +81,7 @@ FUNCTION load_governance_context():
   snapshot_path = ".context/governance_snapshot.md"
   
   IF FILE_EXISTS(snapshot_path):
-    snapshot = READ(snapshot_path)  # ~60-100 lines, cheap
+    snapshot = READ(snapshot_path)  # lite profile, held under budgets.snapshot
     constitution_hash = snapshot.frontmatter.constitution_hash
     setup_hash = snapshot.frontmatter.setup_hash  # may be absent in legacy snapshots
     current_constitution_hash = MD5(docs/constitution.md)
@@ -93,9 +92,9 @@ FUNCTION load_governance_context():
     
     IF constitution_valid AND setup_valid:
       ✅ Snapshot VALID
-      # Snapshot contains: stack config, rules manifest, protected paths, env names,
-      #   AND setup.md operational fields (synthetic_data, project_tracking, ai_budget)
-      # This is the COMPLETE governance + setup index — no further loading needed
+      # Snapshot contains: stack config, rules manifest, protected paths, setup.md operational
+      #   fields, the LAW INDEX and the DEFECT FAMILIES — the index, never the bodies
+      # Bodies are read at the point of action (pre-edit hook / resolver), never at start
       GOVERNANCE_CONTEXT = PARSE(snapshot)
       LOG: "Governance loaded from snapshot (const: {constitution_hash}, setup: {setup_hash})"
       PROCEED to Step 2  # Skip Step 1 — snapshot has everything
@@ -116,142 +115,56 @@ FUNCTION load_governance_context():
     PROCEED to Step 1  # Full reload + generate snapshot
 ```
 
-### Step 1: Load Constitution & Governance Index
+### Step 1: Load the law index (and regenerate the snapshot)
 
 ```yaml
-Read: docs/constitution.md
-Locate section: "## 📚 Governance Index (Auto-Generated)"
-
-IF section missing OR status: PLACEHOLDER:
+Read: docs/constitution.md   # the INDEX of project law (EVOL-043): per law, one `## [PLAW-NN] Title`,
+                              # one `> sentence`, one `Body:` pointer into .claude/rules/, its Records.
+IF the file is missing OR has no `## [PLAW-` entry:
   ❌ BLOCK: "Run `SETUP --generate` first"
-  STOP: Do not proceed with agent command
-
-Parse Governance Index:
-  - Extract stack configuration (backend.runtime, frontend.framework, etc.)
-  - Parse all <!-- METADATA --> comments:
-      type: narrative|structured_config
-      validation_method: semantic|script
-      applies_when: [stack conditions]
-      severity: CRITICAL|HIGH|MEDIUM
-      agents: [DEV, ARCH, REVIEW, QA, SEC]
-      validation_sections: [code sections to check]
-      validation_script: [script path if script-based]
-
-# After parsing, PERSIST to governance snapshot (see POST-LOAD below)
-# DO NOT rely on session memory — summarization destroys it
+Universal law: CLAUDE.md § Governance Rules — one `N. **[LAW-NN] Title** — sentence. Body: … Records: …` per law.
+Bodies are NOT loaded here. They are read at the point of action: the pre-edit hook delivers the families
+and defect classes that govern the file being written; a body is opened only when the sentence is not enough.
 ```
 
-> **POST-LOAD: Snapshot Generation** — After a full load (Steps 1-3), generate/update the governance snapshot file so future loads (including post-summarization) can use the fast path (Step 0):
+> **POST-LOAD: Snapshot Generation.** The snapshot is produced by ONE script — never hand-written by an agent:
+
+```bash
+bash scripts/generate-governance-snapshot.sh            # lite profile: what a session receives
+bash scripts/generate-governance-snapshot.sh --profile full   # + law bodies + defect-class table (review only)
+```
+
+What the lite snapshot contains (the script is the contract; this list is descriptive):
 
 ```yaml
-FUNCTION generate_governance_snapshot(governance_context):
-  snapshot_path = ".context/governance_snapshot.md"
-  constitution_hash = MD5(docs/constitution.md)
-  setup_hash = MD5(docs/setup.md) IF FILE_EXISTS(docs/setup.md) ELSE NULL
-  setup_config = EXTRACT_SETUP_CONFIG(docs/setup.md) IF FILE_EXISTS(docs/setup.md) ELSE {}
-  
-  WRITE(snapshot_path):
-    ---
-    constitution_hash: "{constitution_hash}"
-    setup_hash: "{setup_hash}"
-    generated_at: "{ISO_8601}"
-    generated_by: "{AGENT} --{COMMAND}"
-    framework_version: "{from_governance_versions.json}"
-    ---
-    
-    # Governance Snapshot (Auto-Generated — DO NOT EDIT MANUALLY)
-    > Re-generated when constitution.md or setup.md changes. Read by agents at every command start.
-    > Source of truth: docs/constitution.md + .claude/rules/ + docs/setup.md
-    
-    ## Stack Configuration
-    {EXTRACT from constitution.md: backend.runtime, backend.framework, frontend.framework,
-     architecture.pattern, architecture.topology, database.type, ci_cd.platform,
-     iac.tool, cloud.provider, testing.framework, deployment.strategy}
-    
-    ## Rules Manifest
-    | Rule File | Severity | Validation | Applies When |
-    |-----------|----------|------------|--------------|
-    {FOR EACH rule IN governance_index:
-      | {rule.file} | {rule.severity} | {rule.validation_method} | {rule.applies_when} |
-    }
-    
-    ## Protected Paths
-    {EXTRACT from config/protected-paths.json: paths[], yellow_zones[]}
-    
-    ## Environments
-    {EXTRACT from .claude/rules/ci-cd.md: environments[]}
-    
-    ## Constitutional Boundaries
-    - Pattern: {architecture.pattern}
-    - Topology: {architecture.topology}
-    - Comm Style: {architecture.comm_style}
-    - Project Mode: {project.mode}
-    
-    ## Key Constraints (from constitution)
-    {EXTRACT: any explicit prohibitions, mandatory patterns, technology boundaries}
-    
-    ## Setup Configuration
-    > Source: docs/setup.md — operational flags read by downstream agents.
-    > Included in snapshot so they survive context summarization.
-    > If docs/setup.md does not exist yet, this section is omitted.
-    project_mode: {setup_config.project_mode}
-    ai_budget:
-      tier: {setup_config.ai_budget.tier}
-    project_tracking:
-      tool: {setup_config.project_tracking.tool}
-      feature_phases: {setup_config.project_tracking.feature_phases}
-      milestone_strategy: {setup_config.project_tracking.milestone_strategy}
-    synthetic_data:
-      enabled: {setup_config.synthetic_data.enabled}
-      id_strategy: {setup_config.synthetic_data.id_strategy}
-    
-    ## Verification Commands
-    > Auto-derived from Stack Configuration via BVL derive_commands_from_stack(stack_config).
-    > Used by IMPLEMENT --build (Build Verification Loop). Override manually if non-standard tooling.
-    > See: factory-build-verification/SKILL.md
-    test_single: {derive_commands_from_stack(stack_config).test_single}
-    test_suite: {derive_commands_from_stack(stack_config).test_suite}
-    lint: {derive_commands_from_stack(stack_config).lint}
-    typecheck: {derive_commands_from_stack(stack_config).typecheck}
-    build: {derive_commands_from_stack(stack_config).build}
-  
-  SAVE(snapshot_path)
-  LOG: "Governance snapshot generated at {snapshot_path} (const: {constitution_hash}, setup: {setup_hash})"
+frontmatter: constitution_hash, setup_hash, dcs_hash, generated_at, generated_by, framework_version, profile
+## Stack Configuration      # constitution frontmatter keys (project_scope, backend, frontend, architecture, database, ci_cd, iac, cloud, project_mode)
+## Rules Manifest           # every .claude/rules/*.md with its applicable_when (parsed, nested)
+## Protected Paths          # config/protected-paths.json paths + yellow_zones
+## Setup Configuration      # docs/setup.md frontmatter verbatim (project_mode, ai_budget, project_tracking, synthetic_data, codesign.authoring, measurement …)
+## Law Index                # per project law: ### [PLAW-NN] Title / > sentence / Body: pointer · Records
+## Defect Families          # the families table (name, surface globs, one-line invariant) — defect classes are delivered at edit time
 ```
+
+Size is held by `budgets.snapshot` (`config/quality.json`): the generator exits 3 when the lite profile overflows — a session would otherwise receive a truncated law. `python3 scripts/gate.py budget` measures every injection point against the real producer.
 
 ### Step 2: Determine Feature Context
 
 ```yaml
-Analyze current command and feature files:
-  - feature.language: Detect .py, .ts, .java files in implementation
-  - feature.stack: Parse from docs/constitution.md (backend.runtime, frontend.framework)
-
-# NOTE: Do NOT use feature context for filtering rules
-# Feature characteristics (has_ui, modifies_db, etc.) are NOT used for rule selection
-# All generated rules apply to ALL features
+command, phase, change_type: from the runtime (command name, branch name)
+scope: _progress.scope of the feature spec, else project_scope in docs/setup.md
+framework: backend.framework / frontend.framework from docs/setup.md
+paths: the files this command will touch, when known (pre-flight over a diff)
 ```
 
-### Step 3: Query Applicable Rules (Simplified Logic)
+### Step 3: Query Applicable Rules — ONE resolver
 
-```yaml
-applicable_rules = []
-
-# LOAD ALL GENERATED RULES (Critical + Technology-Specific that were materialized)
-FOR EACH rule IN governance_index:
-
-  # Technology-Specific Rules: ONLY load if file exists (was generated during materialization)
-  IF rule.type == "technology_specific":
-    IF file_exists(rule.file_path):
-      applicable_rules.push(rule) # Stack match confirmed by file existence
-
-  # ALL OTHER RULES: Load unconditionally
-  ELSE:
-    applicable_rules.push(rule)
-
-# NO feature-level filtering: if rule was generated during SETUP, it applies to ALL features.
-
-RESULT: All project-level rules enforced consistently across all features
+```bash
+python3 scripts/gate.py applicable --phase {phase} --command {command} --change-type {change_type} \
+        [--scope {scope}] [--framework …] [--paths …] --format json
 ```
+
+The resolver (factory-applicability-discovery SKILL) returns the active laws, families, defect classes, rules, instructions and skills with the reason each matched, and the excluded ones with the reason each did not. A hand-written rule list, or "all rules apply", is a violation: a phase pre-flight that loaded 30 of 31 rule files measured 18 once applicability was resolved by one reader.
 
 ### Step 4: Load Dynamic Validation Templates (IF applicable)
 
@@ -262,12 +175,12 @@ IF exists:
   Verify constitution_hash matches governance_snapshot.constitution_hash
   IF hash matches:
     Load template with constitution-based validations
-    Merge with applicable_rules from Governance Index
+    Merge with applicable_rules from the resolver
   ELSE:
     ⚠️ Templates outdated: "Constitution changed. Run `SETUP --regenerate-templates`"
-    Continue with Governance Index rules only (degraded mode)
+    Continue with the resolver rules only (degraded mode)
 ELSE:
-  Continue with Governance Index rules only
+  Continue with the resolver rules only
 ```
 
 ### Step 5: On-Demand Rule Content Loading (Token-Efficient)
@@ -437,3 +350,12 @@ WRITE manifest
 **Does not apply.** Untracked files (`/memories/**`, worklog JSONL, test fixtures, `.gitignore`). Pure `git mv` within same dir if manifest key unchanged.
 
 **Safety net.** `.github/workflows/governance-check.yml` runs `scripts/validate-governance.sh` on every PR to main and blocks missing bumps. GWP prevents drift at commit time; CI catches drift at PR time.
+
+## [LAW-01] Constitutional Supremacy (single source of truth)
+> Operational law lives in one governance source as an index — one sentence, one body, its records per law — and changes only by ceremony: a sentence through an accepted ADR, a body through a rule-file edit.
+
+Operational law lives in a single governance source — `docs/constitution.md` in materialised projects, `CLAUDE.md` in the framework meta — in **index form**: per law one `[ID]` heading, one `> sentence`, one `Body:` pointer and its `Records:`. Agents read the index from the snapshot (`## Law Index`); the body lives in exactly one place (a rule file, a skill or an instruction) and is read at the point of action. `.claude/rules/` holds the bodies and the detailed regulations; the defect catalog's families embed in the snapshot and its classes are delivered at the point of edit.
+
+**Two-tier ceremony (EVOL-043).** The normative *sentence* is born, changed or removed only by a decision record accepted in the same PR — gated in both directions by `scripts/check-adr-constitution-sync.sh` (an ADR flipping to accepted needs a governance-source diff; a sentence change needs an accepted ADR). A *body*, a threshold, a procedure, a defect-class family, an instruction or a skill changes by rule-file edit plus manifest bump (`validate-governance.sh` CHECK 1), with no record. Bypass for one-shot historical migration: `[adr-backfill]` in a commit message.
+
+ADRs are **historical records** of why a sentence changed — context, alternatives, consequences — never active law. Modifying a sentence outside the ceremony is a governance-scope violation.

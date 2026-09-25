@@ -66,3 +66,8 @@ Add a server name to `docs_mcp_allowlist` in this file's frontmatter when:
 - An existing MCP that primarily provides documentation lookup is connected (e.g. a new vendor docs MCP).
 
 Do NOT add general-purpose MCPs (chrome-devtools, pulumi for resource ops, etc.) — those are not docs sources.
+
+## [LAW-10] MCP-Docs Scan Banner
+> Design and build invocations open with the MCP docs scan banner, computed per invocation from an allowlist and never cached.
+
+BLUEPRINT `--start` / `--refine` and IMPLEMENT `--build` / `--refine` MUST emit the banner (`🔌 MCP Docs Scan — ...`) as the first user-facing line of every invocation. Missing banner = `mal-iniciado`. Per-invocation scan, never cached across turns. Allowlist-based detection, no heuristics — extending it means editing this skill's frontmatter `docs_mcp_allowlist`.

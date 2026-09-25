@@ -49,7 +49,7 @@ FUNCTION defect_discovery_hook(errors, task, attempt):
       pattern_signature = CLASSIFY_ERROR_PATTERN(errors)
 
       FOR EACH dc IN existing_dcs:
-        IF pattern_signature SEMANTICALLY_MATCHES dc.applicable_when AND dc.prevention_check:
+        IF pattern_signature SEMANTICALLY_MATCHES dc.invariant:
           LOG: "Known DC-{dc.number} ({dc.name}) — already cataloged"
           RETURN  # Already known, no action needed
 

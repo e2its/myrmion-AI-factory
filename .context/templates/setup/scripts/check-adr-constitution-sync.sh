@@ -27,6 +27,14 @@
 # FDRs (docs/spec/{FEAT-ID}/fdr/*.md) are NOT subject to this gate — they
 # are feature-local and never amend constitution.
 #
+# Direction B (EVOL-043, two-tier ceremony): a normative SENTENCE born, changed
+# or removed in the law index — the `> sentence` line under a `## [PLAW-NN]`
+# entry of docs/constitution.md (or of the constitution template in meta), or
+# the `N. **[LAW-NN] …** — sentence.` line of CLAUDE.md § Governance Rules —
+# MUST be accompanied by an ADR that is `status: accepted` in the same diff
+# (added or modified). A BODY changes by rule-file edit + manifest bump, with
+# no record: rule files are never inspected here. Same [adr-backfill] bypass.
+#
 # Inputs:
 #   $1 (optional) — base ref to compare against. Defaults to:
 #                   $GITHUB_BASE_REF (GitHub Actions PR context),
@@ -172,6 +180,60 @@ while IFS= read -r path; do
       ;;
   esac
 done < <(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null | grep -E "^docs/project_log/(adr/ADR-|evolutions/ADR-EVOL-).*\.md$" || true)
+
+# ────────────────────────────────────────────────────────────────────────────
+# Direction B: a law SENTENCE changed without an accepted ADR in the diff.
+# Sentence lines: `> …` directly under `## [P?LAW-NN]` (index form) and
+# `N. **[LAW-NN] …** — …` list entries (CLAUDE.md corpus). Any other line of
+# the governance source (preamble, pointers, records, prose) is free to move.
+# ────────────────────────────────────────────────────────────────────────────
+# The ONE definition of "law sentence" is the reader's (scripts/gate.py law-sentences); this script never
+# parses the shape itself. Reader absent → the sentence check is skipped with a note (direction A still runs).
+law_sentences() {  # law_sentences <content> → "ID<TAB>sentence" per law; a reader fault is exit 2, never an empty list
+  local tmp out rc
+  tmp=$(mktemp) || { echo "check-adr-constitution-sync: mktemp failed" >&2; exit 2; }
+  printf '%s\n' "$1" > "$tmp"
+  out=$(python3 scripts/gate.py law-sentences --file "$tmp" 2>&1); rc=$?
+  rm -f "$tmp"
+  if [ "$rc" -ne 0 ]; then
+    echo "check-adr-constitution-sync: the law reader could not run (scripts/gate.py law-sentences exit $rc): $(printf '%s' "$out" | tail -1)" >&2
+    echo "The sentence-change check cannot decide without it — fix scripts/gates/ (re-run SETUP --generate or factory-sync.sh)." >&2
+    exit 2
+  fi
+  printf '%s\n' "$out"
+}
+sentence_diff="no"
+if [ ! -f scripts/gate.py ] || ! command -v python3 >/dev/null 2>&1; then
+  echo "check-adr-constitution-sync: note — scripts/gate.py or python3 absent; the sentence-change check (direction B) is skipped."
+fi
+for src in docs/constitution.md CLAUDE.md .context/templates/setup/constitution/constitution_template.md; do
+  echo "$diff_files" | grep -qx "$src" || continue
+  before=""; git cat-file -e "$MERGE_BASE:$src" 2>/dev/null && before=$(git show "$MERGE_BASE:$src")
+  after=""; git cat-file -e "HEAD:$src" 2>/dev/null && after=$(git show "HEAD:$src")
+  [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1 || continue
+  before_s=$(law_sentences "$before") || exit 2   # the function exits 2 inside the substitution: propagate it
+  after_s=$(law_sentences "$after") || exit 2
+  if [ "$before_s" != "$after_s" ]; then
+    sentence_diff="yes"; sentence_src="$src"
+  fi
+done
+if [ "$sentence_diff" = "yes" ]; then
+  accepted_adr_in_diff="no"
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    case "$path" in docs/project_log/adr/ADR-*.md|docs/project_log/evolutions/ADR-EVOL-*.md) ;; *) continue ;; esac
+    if git cat-file -e "HEAD:$path" 2>/dev/null && [ "$(read_frontmatter_value "$(git show "HEAD:$path")" status)" = "accepted" ]; then
+      accepted_adr_in_diff="yes"
+    fi
+  done < <(echo "$diff_files")
+  if [ "$accepted_adr_in_diff" != "yes" ]; then
+    echo "check-adr-constitution-sync: FAIL — a law SENTENCE changed in $sentence_src but no ADR with status: accepted is in the same diff." >&2
+    echo "The normative sentence of a law is born, changed or removed only by a decision record accepted in the same PR (two-tier ceremony)." >&2
+    echo "A law BODY (rule file) changes by rule-file edit + manifest bump, with no record." >&2
+    echo "Resolution: add the ADR (status: accepted) that records the sentence change, or revert the sentence." >&2
+    exit 1
+  fi
+fi
 
 # ────────────────────────────────────────────────────────────────────────────
 # Report.

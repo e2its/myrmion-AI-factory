@@ -316,17 +316,12 @@ fi
 if [ "$DRIFT_CHECK" -eq 1 ]; then
   echo "🔍 Checking for RED ZONE modifications..."
   
-  # Prefer materialized governance location, fall back to legacy .context path
+  # One materialised location (EVOL-043: the legacy rules-tree path is retired)
   PROTECTED_PATHS_FILE="config/protected-paths.json"
   if [ ! -f "$PROTECTED_PATHS_FILE" ]; then
-    LEGACY_PROTECTED_PATHS_FILE="docs/rules/protected-paths.json"
-    if [ -f "$LEGACY_PROTECTED_PATHS_FILE" ]; then
-      PROTECTED_PATHS_FILE="$LEGACY_PROTECTED_PATHS_FILE"
-    else
-      echo "⚠️  config/protected-paths.json not found. Skipping drift check."
-      echo "    Run /SETUP --generate to create protected paths configuration."
-      exit 0
-    fi
+    echo "⚠️  config/protected-paths.json not found. Skipping drift check."
+    echo "    Run /SETUP --generate to create protected paths configuration."
+    exit 0
   fi
   
   # Extract RED ZONE paths from JSON (requires jq)

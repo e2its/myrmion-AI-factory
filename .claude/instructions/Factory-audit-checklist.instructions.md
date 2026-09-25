@@ -171,7 +171,7 @@ IF FILE_EXISTS(".claude/rules/defect-prevention.md"):
     FOR EACH dc IN applicable_dcs:
       # Search the codebase for evidence of the DC pattern.
       # Positive evidence = the pattern is present = governance debt.
-      occurrences = grep_search(dc.pattern_signature, scope=code_search_roots)
+      occurrences = grep_search(CASE(dc.number).detection, scope=code_search_roots ∩ dc.paths)   # case: defect-prevention-cases.md § DC-{dc.number}
       dc_signals.push({
         dc_number: dc.number,
         name: dc.name,

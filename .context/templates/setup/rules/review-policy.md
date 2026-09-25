@@ -315,7 +315,7 @@ override:
 ## 📚 Further Reading
 
 - [IMPLEMENT.AGENT.MD](../agents/IMPLEMENT.AGENT.MD) — Unified build (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC)
-- [immutability_policy.instructions.md](./immutability_policy.instructions.md) — Phase 3.5 (Review Lock)
+- [immutability_policy.md](./immutability_policy.md) — Phase 3.5 (Review Lock)
 - [QA.AGENT.MD](../agents/QA.AGENT.MD) — Review prerequisite checks
 - [BLUEPRINT.AGENT.MD](../agents/BLUEPRINT.AGENT.MD) — Conflict resolution
 

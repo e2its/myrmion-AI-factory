@@ -1,395 +1,226 @@
 #!/usr/bin/env bash
 # ============================================================================
-# scripts/test-adr-accept.sh — L4 ADR Accept Procedure simulation
+# scripts/test-adr-accept.sh — L4 Accept Procedure test (EVOL-043 index form)
 # ============================================================================
-# Validates the mechanical contract of factory-adr-management Accept Procedure
-# against fixtures. The Accept Procedure (per the skill's pseudocode) is
-# language-agnostic — this test implements a reference shell version of the
-# steps and asserts:
+# The factory-adr-management Accept Procedure is executed by an LLM. This test
+# pins its mechanical contract with a shell reference implementation over a
+# synthetic project whose constitution is the INDEX of project law:
 #
-#   1. ADD   — appending a new [LAW] section copies the ADR's Operational Rule
-#              verbatim into constitution.md and flips ADR status to accepted.
-#   2. REPLACE — substituting the body of an existing [LAW] section preserves
-#                its heading.
-#   3. Amendment record — the ADR's `## Constitution Amendment` section is
-#                         populated with before/after content (non-empty after
-#                         flip; empty before).
-#   4. Validation — empty Operational Rule fails before any edit (no half-state).
-#   5. ADR status flip is atomic with the constitution amendment (no flip if
-#      the constitution edit fails).
+#   ## [PLAW-NN] Title
+#   > sentence
+#   Body: `rules/x.md` · Records: `ADR-0000`
 #
-# The agent implementing the actual Accept Procedure is free to use any tooling;
-# what matters is the observable contract verified here.
+#   1. ADD     — mints the next PLAW id, appends the three-line entry, writes the
+#                body section (`## [PLAW-NN]` + `> sentence` + body) in body_home.
+#   2. REPLACE — swaps the `> sentence` in the index AND in the body home, appends
+#                the record id; the parity between both is preserved.
+#   3. RED     — an empty sentence fails before any write; a sentence over
+#                budgets.law_sentence_max_chars fails before any write.
+#   4. The framework's own parity gate (scripts/gate.py laws --parity) is green
+#                after every accept.
 #
-# Exit codes:
-#   0 = ok
-#   1 = at least one assertion failed
+# Exit codes: 0 ok · 1 assertion failed · 2 infrastructure
 # ============================================================================
-
-set -euo pipefail
-
-if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
-  cd "$CLAUDE_PROJECT_DIR"
-elif REPO_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null); then
-  cd "$REPO_TOPLEVEL"
-fi
-
-WORK=$(mktemp -d -t evol026-l4-XXXXXX)
-trap 'rm -rf "$WORK"' EXIT
-
+set -u
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+command -v python3 >/dev/null || { echo "L4: python3 required" >&2; exit 2; }
+export PYTHONDONTWRITEBYTECODE=1
 failures=0
 fail() { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; failures=$((failures + 1)); }
 pass() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+W=$(mktemp -d) || exit 2
+trap 'rm -rf "$W"' EXIT
+P="$W/proj"; mkdir -p "$P/docs/project_log/adr" "$P/.claude/rules" "$P/config" "$P/scripts"
+cp -R "$ROOT/scripts/gates" "$P/scripts/gates"; cp "$ROOT/scripts/gate.py" "$P/scripts/gate.py"
+printf '{"context": "downstream"}\n' > "$P/config/coherence-context.json"
+printf '{"budgets": {"law_sentence_max_chars": 240}}\n' > "$P/config/quality.json"
+cat > "$P/docs/constitution.md" <<'EOF'
+---
+version: 4.0.0
+---
+# Constitution
 
-echo "L4 ADR Accept Procedure simulation"
-echo
+## [PLAW-01] Fundamental Principles (KISS & DRY)
+> Every technical decision is the simplest one that meets the current requirement.
+Body: `rules/architecture.md` · Records: `ADR-0000`
 
-# ─── Reference helper: read frontmatter value ───────────────────────────────
-read_fm() {
-  local file="$1" key="$2"
-  awk -v key="$key" '
-    BEGIN { in_fm = 0; seen = 0 }
-    /^---$/ { seen++; if (seen == 1) { in_fm = 1; next } if (seen == 2) exit }
-    in_fm && $0 ~ "^" key ":[[:space:]]*" {
-      sub("^" key ":[[:space:]]*", "", $0)
-      gsub(/^["'\'']/, "", $0)
-      gsub(/["'\'']$/, "", $0)
-      gsub(/[[:space:]]+$/, "", $0)
-      print $0
-      exit
-    }
-  ' "$file"
-}
+## [PLAW-02] Stateless Design Policy
+> Every service scales horizontally without session affinity.
+Body: `rules/stateless.md` · Records: `ADR-0000`
+EOF
+cat > "$P/.claude/rules/architecture.md" <<'EOF'
+---
+description: "arch"
+applicable_when:
+  always: true
+---
+# Architecture
 
-# ─── Reference helper: extract body of a heading ────────────────────────────
-read_section_body() {
-  local file="$1" heading_pattern="$2"
-  awk -v hp="$heading_pattern" '
-    BEGIN { in_sec = 0 }
-    $0 ~ hp { in_sec = 1; next }
-    /^## / { in_sec = 0 }
-    in_sec { print }
-  ' "$file"
-}
+## [PLAW-01] Fundamental Principles (KISS & DRY)
+> Every technical decision is the simplest one that meets the current requirement.
 
-# ─── Reference Accept Procedure (shell, ADD/REPLACE only) ───────────────────
-# Inputs: $1 = adr path, $2 = constitution path
-# Side effects: edits constitution + ADR per the procedure spec.
-# Validates: empty Operational Rule → fail before any write.
-accept_adr() {
-  local adr="$1" constitution="$2"
+Prefer composition. Delete before adding.
+EOF
+cat > "$P/.claude/rules/stateless.md" <<'EOF'
+---
+description: "stateless"
+applicable_when:
+  always: true
+---
+## [PLAW-02] Stateless Design Policy
+> Every service scales horizontally without session affinity.
 
-  local target_section status amendment_kind title
-  status=$(read_fm "$adr" status)
-  target_section=$(read_fm "$adr" target_section)
-  amendment_kind=$(read_fm "$adr" amendment_kind)
-  title=$(read_fm "$adr" title)
+No instance-local state.
+EOF
 
-  if [ "$status" != "proposed" ]; then
-    echo "accept_adr: status is '$status', not 'proposed'" >&2
-    return 1
-  fi
-
-  local op_rule
-  op_rule=$(read_section_body "$adr" "^## Operational Rule")
-  # Strip leading blockquote lines (template guidance) so the body is the rule itself.
-  op_rule=$(printf '%s\n' "$op_rule" | sed '/^>/d' | awk 'NF { found=1 } found' | sed -e :a -e '/^$/{$d;N;ba' -e '}')
-
-  if [ -z "$(printf '%s' "$op_rule" | tr -d '[:space:]')" ]; then
-    echo "accept_adr: Operational Rule is empty — FAIL before any edit" >&2
-    return 1
-  fi
-
-  # Capture before snapshot of the target section in constitution.
-  local before_block=""
-  case "$amendment_kind" in
-    ADD)
-      # Append new [LAW] section
-      printf '\n## [LAW] %s\n\n%s\n' "$title" "$op_rule" >> "$constitution"
-      ;;
-    REPLACE)
-      # Substitute body of the existing [LAW] section identified by target_section.
-      before_block=$(read_section_body "$constitution" "^## \[LAW\] .*${target_section}")
-      python3 - "$constitution" "$target_section" "$op_rule" <<'PY'
-import sys, re, pathlib
-path, target, rule = sys.argv[1], sys.argv[2], sys.argv[3]
-text = pathlib.Path(path).read_text()
-# Heading captured line-bound ([^\n]*) so DOTALL does not spill across sections;
-# body is non-greedy with DOTALL to cross newlines until the next ^## boundary.
-pattern = re.compile(
-    rf'(^## \[LAW\][^\n]*{re.escape(target)}[^\n]*\n)(.*?)(?=^## |\Z)',
-    re.MULTILINE | re.DOTALL,
-)
-new = pattern.sub(lambda m: f"{m.group(1)}\n{rule}\n\n", text)
-pathlib.Path(path).write_text(new)
+# ─── Reference Accept Procedure (python; ADD / REPLACE) ──────────────────────
+accept_adr() { # accept_adr <adr> <project>  → exit 0 accepted · 1 refused before any write
+  python3 - "$1" "$2" <<'PY'
+import re, sys, json, pathlib, subprocess
+adr, proj = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+text = adr.read_text()
+fm = dict(re.findall(r"^([a-z_]+):\s*\"?([^\"\n]*)\"?$", text.split("---")[1], re.M))
+if fm.get("status") != "proposed":
+    print("accept: status is not proposed", file=sys.stderr); sys.exit(1)
+rule = re.search(r"^## Operational Rule\n(.*?)(?=^## |\Z)", text, re.M | re.S).group(1)
+body_m = re.search(r"^### Body\n(.*)", rule, re.M | re.S)
+sentence_block = rule[:body_m.start()] if body_m else rule
+sentence = next((l.strip() for l in sentence_block.splitlines() if l.strip() and not l.startswith(">")), "")
+body = (body_m.group(1).strip() if body_m else "")
+budget = json.loads((proj / "config/quality.json").read_text())["budgets"]["law_sentence_max_chars"]
+if not sentence:
+    print("accept: Operational Rule sentence is empty — refused before any write", file=sys.stderr); sys.exit(1)
+if len(sentence) > budget:
+    print(f"accept: sentence is {len(sentence)} chars, over budgets.law_sentence_max_chars={budget} — refused before any write", file=sys.stderr); sys.exit(1)
+const = proj / "docs/constitution.md"; ctext = const.read_text()
+kind, target, home, title, n = fm["amendment_kind"], fm["target_section"], fm.get("body_home", ""), fm["title"], fm["adr_number"]
+if kind == "ADD":
+    ids = [int(x) for x in re.findall(r"^## \[PLAW-(\d+)\]", ctext, re.M)]
+    lid = f"PLAW-{max(ids, default=0) + 1:02d}"
+    ctext = ctext.rstrip("\n") + f"\n\n## [{lid}] {title}\n> {sentence}\nBody: `{home}` · Records: `ADR-{n}`\n"
+    hp = proj / ".claude/rules" / home[len("rules/"):]
+    if not hp.is_file():
+        hp.write_text(f'---\ndescription: "{title}"\napplicable_when:\n  always: true\n---\n')
+    hp.write_text(hp.read_text().rstrip("\n") + f"\n\n## [{lid}] {title}\n> {sentence}\n\n{body}\n")
+elif kind == "REPLACE":
+    lid = target.strip("[]")
+    m = re.search(r"^## \[" + re.escape(lid) + r"\] (.+)\n> (.+)\nBody: `([^`]+)` · Records: (.+)$", ctext, re.M)
+    if not m:
+        print(f"accept: {lid} not in the index", file=sys.stderr); sys.exit(1)
+    old_sentence, old_home = m.group(2), m.group(3)
+    home = home or old_home
+    new_entry = f"## [{lid}] {m.group(1)}\n> {sentence}\nBody: `{home}` · Records: {m.group(4)}, `ADR-{n}`"
+    ctext = ctext[:m.start()] + new_entry + ctext[m.end():]
+    hp = proj / ".claude/rules" / home[len("rules/"):]
+    htext = hp.read_text()
+    sec = re.search(r"(^## \[" + re.escape(lid) + r"\][^\n]*\n)> [^\n]*\n(.*?)(?=^## |\Z)", htext, re.M | re.S)
+    if not sec:
+        print(f"accept: body section {lid} not in {home}", file=sys.stderr); sys.exit(1)
+    new_body = ("\n" + body + "\n") if body else sec.group(2)
+    htext = htext[:sec.start()] + sec.group(1) + f"> {sentence}\n" + new_body + htext[sec.end():]
+    hp.write_text(htext)
+else:
+    print(f"accept: {kind} not covered by this reference", file=sys.stderr); sys.exit(1)
+const.write_text(ctext)
+text = re.sub(r"^status:\s*proposed", "status: accepted", text, flags=re.M)
+adr.write_text(text)
 PY
-      ;;
-    *)
-      echo "accept_adr: amendment_kind '$amendment_kind' not handled by this reference (ADD/REPLACE only)" >&2
-      return 1
-      ;;
-  esac
-
-  # Write Constitution Amendment section (replace placeholder).
-  python3 - "$adr" "$amendment_kind" "$target_section" "$before_block" "$op_rule" <<'PY'
-import sys, pathlib, re
-adr_path, kind, target, before, after = sys.argv[1:]
-text = pathlib.Path(adr_path).read_text()
-amendment = f"\n**Amendment kind:** {kind}\n**Target section:** {target}\n\n**Before:**\n```\n{before.rstrip()}\n```\n\n**After:**\n```\n{after.rstrip()}\n```\n"
-text = re.sub(
-    r'(## Constitution Amendment\n(?:>.*\n)*\n?){{POBLAR_POR_ACCEPT_PROCEDURE}}',
-    rf'\1{amendment}',
-    text,
-)
-# Also handle the case without literal placeholder (cleaner template).
-if "{{POBLAR_POR_ACCEPT_PROCEDURE}}" not in text and amendment.strip() not in text:
-    text = re.sub(
-        r'(## Constitution Amendment\n)((?:>.*\n)*)',
-        rf'\1\2{amendment}',
-        text,
-    )
-pathlib.Path(adr_path).write_text(text)
-PY
-
-  # Flip status: proposed → accepted
-  sed -i.bak -E 's/^status:[[:space:]]*proposed/status: accepted/' "$adr"
-  rm -f "$adr.bak"
 }
 
-# ─── Test 1: ADD — happy path ───────────────────────────────────────────────
-echo "Test 1 — ADD: append new [LAW] section"
-cat > "$WORK/constitution_1.md" <<'EOF'
----
-version: 3.0.0
----
+parity() { # parity <project> → the framework's own gate (gate.py laws --parity); prints its report
+  (cd "$1" && python3 scripts/gate.py laws --parity 2>&1)
+}
 
-# Project Constitution
-
-## [LAW] 🛡️ Security by Design
-
-OWASP enforcement.
-
-## Governance Index
-
-Inventory placeholder.
-EOF
-
-cat > "$WORK/adr_1.md" <<'EOF'
----
-adr_number: "001"
-title: "Mandatory request tracing"
-date: "2026-05-05"
-status: proposed
-target_section: "NEW: Request Tracing"
-amendment_kind: ADD
----
-
-# ADR-001: Mandatory request tracing
-
-## Context
-Distributed tracing was inconsistent.
-
-## Decision
-All services emit a trace_id per request.
-
-## Operational Rule
-> Boilerplate guidance line one.
-> Boilerplate guidance line two.
-
-All services MUST emit a trace_id header on every request and propagate it across calls.
-Trace IDs MUST be UUIDv4.
-
-## Constitution Amendment
-> Auto-managed.
-{{POBLAR_POR_ACCEPT_PROCEDURE}}
-EOF
-
-if accept_adr "$WORK/adr_1.md" "$WORK/constitution_1.md"; then
-  pass "accept_adr completed without error"
-else
-  fail "accept_adr failed unexpectedly"
-fi
-
-if grep -qE "^## \[LAW\] Mandatory request tracing" "$WORK/constitution_1.md"; then
-  pass "constitution gained new [LAW] section"
-else
-  fail "constitution did NOT gain new [LAW] section"
-fi
-
-if grep -qF "All services MUST emit a trace_id" "$WORK/constitution_1.md"; then
-  pass "Operational Rule body copied verbatim into constitution"
-else
-  fail "Operational Rule body not present in constitution"
-fi
-
-# Boilerplate guidance lines must NOT be copied.
-if grep -qF "Boilerplate guidance line" "$WORK/constitution_1.md"; then
-  fail "boilerplate guidance leaked into constitution"
-else
-  pass "boilerplate guidance excluded from constitution"
-fi
-
-if [ "$(read_fm "$WORK/adr_1.md" status)" = "accepted" ]; then
-  pass "ADR status flipped to accepted"
-else
-  fail "ADR status did NOT flip (still: $(read_fm "$WORK/adr_1.md" status))"
-fi
-
-if grep -qF "**Amendment kind:** ADD" "$WORK/adr_1.md"; then
-  pass "Constitution Amendment section populated"
-else
-  fail "Constitution Amendment section not populated"
-fi
-
-echo
-
-# ─── Test 2: REPLACE — substitute existing [LAW] body ───────────────────────
-echo "Test 2 — REPLACE: substitute existing [LAW] body"
-cat > "$WORK/constitution_2.md" <<'EOF'
----
-version: 3.0.0
----
-
-# Project Constitution
-
-## [LAW] 🌳 Branching Strategy
-
-Old rule: feature/X only.
-
-## [LAW] 🛡️ Security by Design
-
-OWASP.
-EOF
-
-cat > "$WORK/adr_2.md" <<'EOF'
----
-adr_number: "002"
-title: "Refined branching"
-date: "2026-05-05"
-status: proposed
-target_section: "Branching Strategy"
-amendment_kind: REPLACE
----
-
-# ADR-002: Refined branching
-
-## Context
-We need fix/* branches too.
-
-## Decision
-Allow feature/, fix/, hotfix/.
-
-## Operational Rule
-Working branches: feature/{slug}, fix/{slug}, hotfix/{slug}.
-Base is main, never HEAD.
-
-## Constitution Amendment
-> Auto-managed.
-{{POBLAR_POR_ACCEPT_PROCEDURE}}
-EOF
-
-if accept_adr "$WORK/adr_2.md" "$WORK/constitution_2.md"; then
-  pass "accept_adr (REPLACE) completed"
-else
-  fail "accept_adr (REPLACE) failed"
-fi
-
-if grep -qF "Working branches: feature/{slug}, fix/{slug}, hotfix/{slug}" "$WORK/constitution_2.md"; then
-  pass "constitution body replaced with new Operational Rule"
-else
-  fail "new Operational Rule not present in constitution"
-fi
-
-if grep -qF "Old rule: feature/X only" "$WORK/constitution_2.md"; then
-  fail "old body not removed (REPLACE should substitute)"
-else
-  pass "old body removed"
-fi
-
-# Heading must remain after REPLACE.
-if grep -qE "^## \[LAW\] 🌳 Branching Strategy" "$WORK/constitution_2.md"; then
-  pass "[LAW] heading preserved across REPLACE"
-else
-  fail "[LAW] heading lost during REPLACE"
-fi
-
-# Other [LAW] sections must be untouched.
-if grep -qE "^## \[LAW\] 🛡️ Security by Design" "$WORK/constitution_2.md"; then
-  pass "unrelated [LAW] section untouched"
-else
-  fail "unrelated [LAW] section damaged"
-fi
-
-echo
-
-# ─── Test 3: empty Operational Rule fails fast ──────────────────────────────
-echo "Test 3 — validation: empty Operational Rule"
-cat > "$WORK/constitution_3.md" <<'EOF'
----
-version: 3.0.0
----
-
-# Project Constitution
-
-## [LAW] 🛡️ Security by Design
-
-OWASP.
-EOF
-
-cat > "$WORK/adr_3.md" <<'EOF'
+echo "L4 Accept Procedure test (index form)"; echo
+echo "Test 1 — ADD"
+cat > "$P/docs/project_log/adr/ADR-003-tracing.md" <<'EOF'
 ---
 adr_number: "003"
-title: "Empty rule"
-date: "2026-05-05"
+title: "Mandatory request tracing"
+date: "2026-09-25"
 status: proposed
-target_section: "NEW: Empty"
+target_section: "NEW: Mandatory request tracing"
+body_home: "rules/observability.md"
 amendment_kind: ADD
 ---
-
-# ADR-003: Empty rule
-
-## Context
-n/a
-
-## Decision
-n/a
+# ADR-003
 
 ## Operational Rule
-> Boilerplate only — no actual rule below.
+> guidance line, ignored
+Every inbound request carries a correlation id that every log line and outbound call propagates.
 
-## Constitution Amendment
-{{POBLAR_POR_ACCEPT_PROCEDURE}}
+### Body
+Header `X-Request-Id`, generated at the edge when absent. Logged as `request_id`.
 EOF
+if accept_adr "$P/docs/project_log/adr/ADR-003-tracing.md" "$P"; then pass "ADD accepted"; else fail "ADD refused"; fi
+grep -q '^## \[PLAW-03\] Mandatory request tracing$' "$P/docs/constitution.md" && pass "next id minted (PLAW-03) in the index" || fail "id not minted"
+grep -q '^Body: `rules/observability.md` · Records: `ADR-003`$' "$P/docs/constitution.md" && pass "pointer + record written" || fail "pointer/record line wrong"
+grep -q '^## \[PLAW-03\] Mandatory request tracing$' "$P/.claude/rules/observability.md" && grep -q 'X-Request-Id' "$P/.claude/rules/observability.md" && pass "body section written in body_home (file created with frontmatter)" || fail "body section missing"
+grep -q '^status: accepted$' "$P/docs/project_log/adr/ADR-003-tracing.md" && pass "status flipped" || fail "status not flipped"
+[ "$(grep -c 'correlation id' "$P/docs/constitution.md")" = "1" ] && pass "the index carries the sentence once, never the body" || fail "body leaked into the index"
+if out=$(parity "$P"); then pass "gate.py laws --parity: every index sentence equals its body quote"; else fail "parity red: $out"; fi
 
-constitution_3_before=$(cat "$WORK/constitution_3.md")
-adr_3_before=$(cat "$WORK/adr_3.md")
+echo "Test 2 — REPLACE"
+cat > "$P/docs/project_log/adr/ADR-004-kiss.md" <<'EOF'
+---
+adr_number: "004"
+title: "Sharpen KISS"
+date: "2026-09-25"
+status: proposed
+target_section: "[PLAW-01]"
+amendment_kind: REPLACE
+---
+# ADR-004
 
-if accept_adr "$WORK/adr_3.md" "$WORK/constitution_3.md" 2>/dev/null; then
-  fail "accept_adr should have failed on empty Operational Rule"
-else
-  pass "accept_adr correctly failed on empty Operational Rule"
-fi
+## Operational Rule
+Every technical decision is the simplest one that meets the current requirement, and nothing more.
 
-# State unchanged: status still proposed, constitution unchanged.
-if [ "$(cat "$WORK/constitution_3.md")" = "$constitution_3_before" ]; then
-  pass "constitution unchanged after failed accept (atomic)"
-else
-  fail "constitution was modified despite Operational Rule validation failure"
-fi
+### Body
+Prefer composition. Delete before adding. Three similar lines are not yet an abstraction.
+EOF
+if accept_adr "$P/docs/project_log/adr/ADR-004-kiss.md" "$P"; then pass "REPLACE accepted"; else fail "REPLACE refused"; fi
+grep -q '^> Every technical decision is the simplest one that meets the current requirement, and nothing more.$' "$P/docs/constitution.md" && pass "index sentence replaced" || fail "index sentence not replaced"
+grep -q 'Records: `ADR-0000`, `ADR-004`$' "$P/docs/constitution.md" && pass "record appended, earlier record kept" || fail "records wrong"
+grep -q '^> Every technical decision is the simplest one that meets the current requirement, and nothing more.$' "$P/.claude/rules/architecture.md" && grep -q 'Three similar lines' "$P/.claude/rules/architecture.md" && pass "body home quote + body replaced" || fail "body home not updated"
+if grep -q 'Delete before adding\.$' "$P/.claude/rules/architecture.md"; then fail "old body text remains"; else pass "old body text gone"; fi
+[ "$(grep -c '^## \[PLAW-01\]' "$P/.claude/rules/architecture.md")" = "1" ] && pass "one body section per law" || fail "duplicate body section"
+if out=$(parity "$P"); then pass "gate.py laws --parity holds after REPLACE"; else fail "parity red: $out"; fi
+grep -q '^> Every service scales horizontally without session affinity.$' "$P/docs/constitution.md" && pass "untouched law unchanged" || fail "collateral edit"
 
-if [ "$(read_fm "$WORK/adr_3.md" status)" = "proposed" ]; then
-  pass "ADR status remained proposed (atomic)"
-else
-  fail "ADR status flipped despite validation failure"
-fi
+echo "Test 3 — RED: refused before any write"
+cp "$P/docs/constitution.md" "$W/const.before"
+cat > "$P/docs/project_log/adr/ADR-005-empty.md" <<'EOF'
+---
+adr_number: "005"
+title: "Empty"
+date: "2026-09-25"
+status: proposed
+target_section: "NEW: Empty"
+body_home: "rules/x.md"
+amendment_kind: ADD
+---
+## Operational Rule
+> only guidance, no sentence
+EOF
+if accept_adr "$P/docs/project_log/adr/ADR-005-empty.md" "$P" 2>"$W/err"; then fail "empty sentence accepted"; else grep -q 'empty' "$W/err" && pass "empty sentence refused in plain language" || fail "refusal message unclear"; fi
+cmp -s "$P/docs/constitution.md" "$W/const.before" && pass "no write happened on refusal" || fail "index modified on refusal"
+LONG=$(python3 -c 'print("Every " + "very " * 60 + "long sentence.")')
+cat > "$P/docs/project_log/adr/ADR-006-long.md" <<EOF
+---
+adr_number: "006"
+title: "Long"
+date: "2026-09-25"
+status: proposed
+target_section: "NEW: Long"
+body_home: "rules/x.md"
+amendment_kind: ADD
+---
+## Operational Rule
+$LONG
+EOF
+if accept_adr "$P/docs/project_log/adr/ADR-006-long.md" "$P" 2>"$W/err"; then fail "over-budget sentence accepted"; else grep -q 'law_sentence_max_chars' "$W/err" && pass "sentence over budgets.law_sentence_max_chars refused" || fail "budget refusal message unclear"; fi
+cmp -s "$P/docs/constitution.md" "$W/const.before" && pass "no write on the budget refusal" || fail "index modified on budget refusal"
+grep -q '^status: proposed$' "$P/docs/project_log/adr/ADR-006-long.md" && pass "ADR status untouched on refusal" || fail "status flipped on refusal"
 
 echo
-
-# ─── Summary ────────────────────────────────────────────────────────────────
-if [ "$failures" -eq 0 ]; then
-  echo "L4: ok — Accept Procedure contract verified across ADD / REPLACE / validation."
-  exit 0
-else
-  echo "L4: FAIL — $failures assertion(s) failed." >&2
-  exit 1
-fi
+if [ "$failures" -eq 0 ]; then echo "L4: ok — Accept Procedure contract verified (index form)."; exit 0; else echo "L4: FAIL — $failures assertion(s)." >&2; exit 1; fi

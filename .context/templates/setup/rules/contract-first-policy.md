@@ -1784,7 +1784,7 @@ Scenarios where Contract-First can be deferred:
 
 ## 📚 See Also
 
-- `.context/constitution.md` § Contract-First Development
+- `docs/constitution.md` — project law index (`[PLAW-NN]` entries)
 - `.context/agents/BLUEPRINT.AGENT.MD` § Contract Generation
 - `.context/agents/IMPLEMENT.AGENT.MD` § Contract Validation
 - `.claude/rules/api-standards.md` § REST/GraphQL conventions

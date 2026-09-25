@@ -5,17 +5,32 @@
     "enabled": false,
     "mcp_server": null,
     "mcp_tool_name": null,
-    "thresholds": { "soft": 10, "hard": 15 },
+    "thresholds": {
+      "soft": 10,
+      "hard": 15
+    },
     "bvl_gate": false,
     "pr_blocker": false,
-    "source_extensions": [".py", ".sh"]
+    "source_extensions": [
+      ".py",
+      ".sh"
+    ]
   },
   "code_review": {
     "enabled": true,
     "pr_blocker": true,
-    "gate_blocking_agents": ["code-reviewer", "silent-failure-hunter", "pr-test-analyzer"],
-    "conditional_agents": ["type-design-analyzer"],
-    "advisory_agents": ["comment-analyzer", "code-simplifier"]
+    "gate_blocking_agents": [
+      "code-reviewer",
+      "silent-failure-hunter",
+      "pr-test-analyzer"
+    ],
+    "conditional_agents": [
+      "type-design-analyzer"
+    ],
+    "advisory_agents": [
+      "comment-analyzer",
+      "code-simplifier"
+    ]
   },
   "security_scan": {
     "enabled": true,
@@ -24,5 +39,31 @@
     "report_format": "exit-code",
     "fail_on": "any",
     "install_hint": "brew install gitleaks | apt: see github.com/gitleaks/gitleaks/releases"
-  }
+  },
+  "budgets": {
+    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the changelog. prompt_submit ≥ snapshot + the reload wrapper + the stale warning (the worst case forces both).",
+    "session_start": 2000,
+    "prompt_submit": 20000,
+    "pre_edit": 6000,
+    "snapshot": 16000,
+    "law_sentence_max_chars": 240,
+    "dc_invariant_max_chars": 160
+  },
+  "retired_terms": [
+    {
+      "term": "Governance Index (Auto-Generated)",
+      "record": "ADR-EVOL-043",
+      "exempt": []
+    },
+    {
+      "term": "applicability_context.json",
+      "record": "ADR-EVOL-043",
+      "exempt": []
+    },
+    {
+      "term": "docs/rules/",
+      "record": "ADR-EVOL-043",
+      "exempt": []
+    }
+  ]
 }

@@ -129,11 +129,16 @@ elif [ -f "$MARKER_LEGACY" ]; then
   MARKER="$MARKER_LEGACY"
 fi
 
-if [ -n "$MARKER" ] && [ -f "$SNAPSHOT" ]; then
+# GOVERNANCE_ONPROMPT_WORST_CASE=1 (budget reader, EVOL-043): force the two largest
+# producers — the snapshot reload block and the stale-freshness warning — and keep the
+# marker, so the measured bytes are what a session receives at its worst, not the file
+# size. The IPP / source-edited blocks are small and not simulated.
+WORST_CASE="${GOVERNANCE_ONPROMPT_WORST_CASE:-0}"
+if { [ -n "$MARKER" ] || [ "$WORST_CASE" = "1" ]; } && [ -f "$SNAPSHOT" ]; then
   echo "<governance-reload>"
   cat "$SNAPSHOT"
   echo "</governance-reload>"
-  rm -f "$MARKER"
+  [ "$WORST_CASE" = "1" ] || rm -f "$MARKER"
 fi
 
 # ── 2) Source-edit attribution (PostToolUse → onprompt) ─────────────────────
@@ -168,7 +173,7 @@ if [ -n "$EDIT_MARKER" ] && [ -f "$EDIT_MARKER" ]; then
     echo "(generate_governance_snapshot()). This does NOT require running /setup --upgrade."
     echo "</governance-source-edited>"
   fi
-  rm -f "$EDIT_MARKER"
+  [ "$WORST_CASE" = "1" ] || rm -f "$EDIT_MARKER"
 fi
 
 # ── 2b) IPP reminders ───────────────────────────────────────────────────────
@@ -211,7 +216,7 @@ if [ -n "$IPP_FIRST_MARKER" ] && [ -f "$IPP_FIRST_MARKER" ]; then
     echo "Spec: .claude/skills/factory-incremental-persistence/SKILL.md § Pillars 2-3."
     echo "</ipp-reminder>"
   fi
-  rm -f "$IPP_FIRST_MARKER"
+  [ "$WORST_CASE" = "1" ] || rm -f "$IPP_FIRST_MARKER"
 fi
 
 IPP_P2_MARKER_SCOPED=""
@@ -253,7 +258,7 @@ if [ -n "$IPP_P2_MARKER" ] && [ -f "$IPP_P2_MARKER" ]; then
     echo "Spec: .claude/skills/factory-incremental-persistence/SKILL.md § Pillar 2."
     echo "</ipp-warning>"
   fi
-  rm -f "$IPP_P2_MARKER"
+  [ "$WORST_CASE" = "1" ] || rm -f "$IPP_P2_MARKER"
 fi
 
 # ── 3) Livelock carve-out ───────────────────────────────────────────────────
@@ -277,7 +282,7 @@ if [ -z "$EDIT_PATHS_CSV" ]; then
   FRESHNESS_EXIT=$?
   set -e
 
-  if [ "$FRESHNESS_EXIT" -ne 0 ]; then
+  if [ "$FRESHNESS_EXIT" -ne 0 ] || [ "$WORST_CASE" = "1" ]; then
     echo "<governance-warning reason=\"snapshot-stale\">"
     echo "$FRESHNESS_OUTPUT"
     echo "</governance-warning>"
@@ -288,9 +293,9 @@ if [ -z "$EDIT_PATHS_CSV" ]; then
     # Counts mirror the SessionStart banner so the agent sees the same digest
     # mid-session as the user sees on screen.
     if [ -f "$SNAPSHOT" ]; then
-      law_count=$(grep -cE '^## \[LAW\] ' "$SNAPSHOT" 2>/dev/null || printf '0')
-      dcs_count=$(awk '/^## Defect Prevention Catalog/{f=1; next} f && /^## /{f=0} f && /^### DC-/{c++} END{print c+0}' "$SNAPSHOT" 2>/dev/null || printf '0')
-      echo "<governance-loaded snapshot=\"fresh\" law-sections=\"${law_count}\" universal-dcs=\"${dcs_count}\" />"
+      law_count=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT" 2>/dev/null || true)   # grep -c prints 0 itself on no match
+      fam_count=$(awk '/^## Defect Families/{f=1; next} f && /^## /{f=0} f && /^\| `/{c++} END{print c+0}' "$SNAPSHOT" 2>/dev/null || printf '0')
+      echo "<governance-loaded snapshot=\"fresh\" laws=\"${law_count}\" defect-families=\"${fam_count}\" />"
     elif [ -f "CLAUDE.md" ] && [ ! -f "docs/constitution.md" ]; then
       # Meta context — no snapshot by design, root CLAUDE.md is the source.
       echo "<governance-loaded context=\"meta\" />"

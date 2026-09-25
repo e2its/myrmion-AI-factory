@@ -5,9 +5,9 @@
 # Validates that the templates shipped to materialised projects are well-formed
 # under the single-source-of-truth model:
 #
-#   1. constitution_template.md has at least N `## [LAW]` markers in expected
+#   1. constitution_template.md is the INDEX: ≥ N `## [PLAW-NN]` entries in the expected
 #      operational sections (whitelist).
-#   2. constitution_template.md does NOT mark Governance Index as `[LAW]`
+#   2. every entry = heading + `> sentence` + Body/Records line; every pointer resolves and quotes the sentence
 #      (informational, would pollute the snapshot if embedded).
 #   3. adr_template.md frontmatter requires target_section + amendment_kind.
 #   4. adr_template.md has the mandatory `## Operational Rule` section.
@@ -52,31 +52,60 @@ assert() {
 echo "L1 static template validation"
 echo
 
-# ─── constitution_template.md ───────────────────────────────────────────────
+# ─── constitution_template.md — the INDEX of project law (EVOL-043) ──────────
 echo "constitution_template.md"
-assert "[ -f '$CONSTITUTION_TPL' ]" "file exists"
-
-if [ -f "$CONSTITUTION_TPL" ]; then
-  law_count=$(grep -c '^## \[LAW\] ' "$CONSTITUTION_TPL" || echo 0)
-  assert "[ '$law_count' -ge 8 ]" "has at least 8 [LAW] sections (operational law sections — found $law_count)"
-
-  # Whitelist of operational sections that MUST be marked [LAW]. Each entry is a
-  # substring that should appear inside a `## [LAW] {something} {topic}` heading.
-  for topic in "Fundamental Principles" "Stateless Design" "Project Mode" "Code Readability" "Configuration Hardcoding" "Security by Design" "Privacy" "Documentation Standards" "Dependency Management" "Branching Strategy" "Deployment"; do
-    if grep -qE "^## \[LAW\] .*${topic}" "$CONSTITUTION_TPL"; then
-      printf '  \033[32m✓\033[0m operational section "%s" is marked [LAW]\n' "$topic"
+if [ ! -f "$CONSTITUTION_TPL" ]; then
+  fail "missing $CONSTITUTION_TPL"
+else
+  law_count=$(grep -cE '^## \[PLAW-[0-9]{2}\] ' "$CONSTITUTION_TPL" || echo 0)
+  assert "[ '$law_count' -ge 8 ]" "has at least 8 [PLAW-NN] index entries (found $law_count)"
+  # shape: heading → `> sentence` → `Body: \`pointer\` · Records: \`ids\``
+  shape_bad=$(awk '
+    /^## \[PLAW-[0-9][0-9]\] / { id=$2; getline s; getline b;
+      if (s !~ /^> ./) print id " sentence line missing";
+      if (b !~ /^Body: `(rules\/[A-Za-z0-9_.-]+\.md|\.claude\/(skills|instructions)\/[^`]+\.md|inline)` · Records: `[A-Z0-9-]+`(, `[A-Z0-9-]+`)*$/) print id " body/records line malformed: " b }
+  ' "$CONSTITUTION_TPL")
+  assert "[ -z '$shape_bad' ]" "every entry is heading + sentence + Body/Records line${shape_bad:+ — $shape_bad}"
+  # every Body: pointer resolves to a file that carries the identical sentence under the same id
+  ptr_bad=$(python3 - "$CONSTITUTION_TPL" <<'PY'
+import sys, re, pathlib
+text = pathlib.Path(sys.argv[1]).read_text()
+lines = text.splitlines(); bad = []
+for i, ln in enumerate(lines):
+    m = re.match(r"^## \[(PLAW-\d\d)\] (.+)$", ln)
+    if not m: continue
+    sent = lines[i+1][2:].strip(); ptr = re.search(r"Body: `([^`]+)`", lines[i+2]).group(1)
+    if ptr == "inline": continue
+    f = pathlib.Path(".context/templates/setup/" + ptr if ptr.startswith("rules/") else ptr)
+    if not f.is_file(): bad.append(f"{m.group(1)} → {ptr} missing"); continue
+    body = f.read_text().splitlines()
+    hit = [j for j, l in enumerate(body) if re.match(r"^#{2,4} \[" + m.group(1) + r"\]", l)]
+    if not hit: bad.append(f"{m.group(1)} heading absent in {ptr}"); continue
+    quoted = next((l[2:].strip() for l in body[hit[0]+1:hit[0]+4] if l.startswith("> ")), None)
+    if quoted != sent: bad.append(f"{m.group(1)} sentence differs in {ptr}")
+    if len(sent) > 240: bad.append(f"{m.group(1)} sentence over 240 chars")
+print("; ".join(bad))
+PY
+)
+  assert "[ -z '$ptr_bad' ]" "every Body: pointer resolves and quotes the identical sentence${ptr_bad:+ — $ptr_bad}"
+  for topic in "KISS" "Stateless" "Security" "Privacy" "Branching" "Deployment" "QA Per-Increment" "Configuration"; do
+    if grep -qE "^## \[PLAW-[0-9]{2}\] .*${topic}" "$CONSTITUTION_TPL"; then
+      printf '  \033[32m✓\033[0m law "%s" indexed\n' "$topic"
     else
-      printf '  \033[31m✗\033[0m operational section "%s" missing [LAW] marker\n' "$topic" >&2
-      failures=$((failures + 1))
+      printf '  \033[31m✗\033[0m law "%s" missing from the index\n' "$topic" >&2; failures=$((failures + 1))
     fi
   done
-
-  # Negative: Governance Index must NOT be marked [LAW] (it's an inventory).
-  if grep -qE "^## \[LAW\] .*Governance Index" "$CONSTITUTION_TPL"; then
-    printf '  \033[31m✗\033[0m "Governance Index" is incorrectly marked [LAW] (must stay informational)\n' >&2
-    failures=$((failures + 1))
+  # retired shapes never come back
+  if grep -qE '^## \[LAW\] |Governance Index \(Auto' "$CONSTITUTION_TPL"; then
+    printf '  \033[31m✗\033[0m retired shape present (`## [LAW]` bodies or the auto-generated index)\n' >&2; failures=$((failures + 1))
   else
-    printf '  \033[32m✓\033[0m "Governance Index" stays informational (no [LAW] marker)\n'
+    printf '  \033[32m✓\033[0m no retired shape (bodies live in rules/, the constitution is the index)\n'
+  fi
+  # placeholders only inside frontmatter / template blocks
+  if awk 'NR>1 && /^---$/ && !d {d=1; next} d && /\{\{[A-Z_]+\}\}/ {bad=1} END {exit bad}' "$CONSTITUTION_TPL"; then
+    printf '  \033[32m✓\033[0m no placeholder token outside the frontmatter\n'
+  else
+    printf '  \033[31m✗\033[0m placeholder token in the index body\n' >&2; failures=$((failures + 1))
   fi
 fi
 echo

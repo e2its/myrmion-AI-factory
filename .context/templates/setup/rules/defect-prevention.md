@@ -1,298 +1,99 @@
 ---
-description: "Defect Prevention Catalog (DPC) — living catalog of runtime defect patterns invisible to static gates. Consulted by every SDLC agent filtered by each entry's applicable_to + feature_scope fields. Managed by the discover-catalog-prevent loop across all agents."
-version: 2.3.0
-date: {{TIMESTAMP}}
+description: "Defect Prevention Catalog — families, defect classes, gates, governed paths. Cases annex: defect-prevention-cases.md"
+version: 3.0.0
+date: 2026-09-25
 changelog:
-  - "1.0.0: Initial — starter defect classes materialized from SETUP stack detection. Process integration: DEV pre-write check, REVIEW Check #2d, Discovery Protocol."
-  - "2.0.0: Universal consumption — every SDLC agent consults the catalog filtered by applicable_to. Added applicable_to schema field, 8 consumer sections, expanded relationship table."
-  - "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/."
-  - "2.2.0: feat(EVOL-019): feature_scope schema field added — entries can restrict to scope IN [full-stack, backend-only, frontend-only, integration]. consult_defect_catalog() gains a feature_context.feature_scope filter. Enables the 7 starter integration DCs shipped by EVOL-019 Phase 2."
+  - "3.0.0: feat(EVOL-043) — families with surface globs; one-line invariant per DC; gate mark; governed paths; narratives moved to defect-prevention-cases.md"
   - "2.3.0: feat(EVOL-037): DC-29 over-engineering / YAGNI minimalism (ponytail discipline). Single source for the do-less ladder + 4 over-engineering categories + how-not-what scope guardrail. Consumed at decision-time by factory-adversarial-reasoning (do-less AGAINST lens) and at build-time by BVL full_verification_gate step 8 (advisory, fail-open)."
+  - "2.2.0: feat(EVOL-019): feature_scope schema field added — entries can restrict to scope IN [full-stack, backend-only, frontend-only, integration]. consult_defect_catalog() gains a feature_context.feature_scope filter. Enables the 7 starter integration DCs shipped by EVOL-019 Phase 2."
+  - "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/."
+  - "2.0.0: Universal consumption — every SDLC agent consults the catalog filtered by applicable_to. Added applicable_to schema field, 8 consumer sections, expanded relationship table."
+  - "1.0.0: Initial — starter defect classes materialized from SETUP stack detection. Process integration: DEV pre-write check, REVIEW Check #2d, Discovery Protocol."
+applicable_when:
+  always: true
 ---
 
-# Defect Prevention Catalog (DPC)
+# Defect Prevention Catalog
 
-> **Version:** 2.0.0
-> **Created:** {{TIMESTAMP}}
-> **Scope:** ALL modules, ALL features, ALL agents
-> **Enforcement:** Universal — every SDLC agent consults the catalog filtered by the `applicable_to` field of each entry.
+Runtime defect patterns that pass every static gate (lint, typecheck, SAST, unit tests) and break only under real infrastructure. Every SDLC agent reads the rows whose `Applicable To` names it and whose `Paths` touch its surface; the pre-edit hook delivers the rows governing a file at the point of edit. Every defect found feeds back here: discover → catalog → prevent → never again.
 
-## Purpose
+## Families
 
-Static gates (lint, typecheck, SAST, unit tests) form a strong Build Verification Loop but **cannot catch defects that only appear under real infrastructure execution** — real auth providers, real databases, real CDNs, real browsers. This rule maintains a living catalog of empirically-discovered defect patterns and mandates that every agent consults it at the points in the lifecycle where it can actually prevent or detect the defect.
+| Family | Surface (globs) | Invariant |
+|---|---|---|
+| `runtime` | `src/**` | Code under the source root does at runtime exactly what its types and tests claim — no silent no-op, no unawaited entry point, no complexity overrun. |
+| `ui` | `src/**/frontend/**`, `src/**/components/**`, `src/**/pages/**`, `**/*.tsx`, `**/*.jsx`, `**/*.vue`, `**/*.svelte` | Every rendered surface is identical on server and client, reaches every viewport, and is wired to the providers, routes and session it depends on. |
+| `boundary` | `src/**/api/**`, `src/**/handlers/**`, `src/**/adapters/**`, `src/**/clients/**`, `src/**/consumers/**`, `src/**/workers/**`, `**/contracts/**` | Every hop across a service boundary matches a published contract, is idempotent under retry, bounded, observable, and never silently loses a message. |
+| `data` | `**/migrations/**`, `**/*.sql`, `src/**/repositories/**`, `src/**/models/**` | Every read or write goes through the owning module and resolves identifiers against the right key. |
+| `tests` | `tests/**`, `**/*.test.*`, `**/*.spec.*`, `**/factories/**`, `**/fixtures/**` | Every test passes for the right reason: production-shaped data, every rendered element asserted. |
+| `infra` | `infra/**`, `.github/**`, `scripts/**`, `**/Dockerfile*`, `**/*.tf`, `**/serverless.*`, `**/*.sh` | Every gate, pipeline and deploy fails loudly when its precondition is unmet; every env var is declared where it is injected. |
+| `process` | `*` | Every decision to build, debug or mutate is the smallest one that meets the specified need and follows captured evidence before edits. |
 
-The goal is **continuous process improvement**: every runtime defect discovered during development, fix, or evolution feeds back into this catalog, making future development cycles progressively cleaner.
+## Defect Classes
 
----
-
-## The Defect Prevention Catalog
-
-Each entry has the following schema:
-
-| Field | Meaning |
-| --- | --- |
-| **DC** | Unique sequential id (DC-1, DC-2, …) |
-| **Name** | Short descriptive title |
-| **Applicable When** | Scope condition (which stacks, topologies, or feature types this pattern applies to). Uses free-form prose for human readability; the canonical filter is `Applicable To` + `Feature Scope` + per-entry stack conditionals evaluated at materialisation time. |
-| **Applicable To** | **[v2.0.0]** Enum list of SDLC agents that MUST consult this entry. Values: `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`. (SETUP is never a consumer — it materializes the catalog, does not consume it.) An entry can list multiple agents. |
-| **Feature Scope** | Optional enum list from `[full-stack, backend-only, frontend-only, integration]`. When omitted OR empty → entry applies to ALL scopes (backward-compatible). When present → entry is consulted ONLY when the feature's `scope` is in the list. Enables scope-aware DCs: integration patterns (idempotency, retry, DLQ, graceful shutdown) filter to `[backend-only, integration]`; UI patterns (WCAG, hook ordering, responsive gaps) filter to `[full-stack, frontend-only]`; universal patterns (mutation semantics, CORS, pipeline short-circuit) omit the field. |
-| **Severity** | `BLOCKER` or `WARNING` when the entry is violated by a consumer |
-| **Check (per consumer)** | What each listed consumer verifies. May be a single check when one agent owns it, or a table mapping agent→check when multiple consume |
-
-The authoritative detailed search methodology for the runtime sweep lives in `.claude/skills/factory-preventive-sweep/SKILL.md`.
-
-> **SETUP materialization note:** The starter DCs below were selected based on the project's stack configuration. Extend this catalog with project-specific discoveries using the Discovery Protocol (§ 8).
-
-| DC | Name | Applicable When | Applicable To | Feature Scope | Severity | Check |
-|----|------|-----------------|---------------|---------------|----------|-------|
-| DC-18 | SSR/CSR hydration mismatch from window reads in initial render | A component reads browser-only state (`window`, `document`, `localStorage`, `navigator`, `matchMedia`) inside its initial render and the route is server-rendered. The common attempt `useState(() => typeof window !== "undefined" ? readWindow() : default)` is insufficient — server returns one render, first client render returns another, hydration check throws React error #418. Fix pattern: `useState(<serverValue>)` + `useEffect(() => setX(readWindow()), [])`. | IMPLEMENT, REVIEW, QA | frontend-only, full-stack | BLOCKER | Static `grep -rn 'useState(() => .*window\.' <frontend-app-root>/` MUST return zero matches; Chrome DevTools MCP smoke during SMOKE-E2E gate asserts zero `#418` errors in browser console across every SSR-rendered page |
-| DC-27 | Synthetic test data shape doesn't match production schema | Test factories or module-level constants synthesise values that satisfy `dict[str, Any]` but not the production parser. Patterns: single-char-repeating UUIDs, sequential zero-padded numerics for backup codes / external IDs, non-RFC-2606 fake emails (`test@test.com`), naive datetimes for `TIMESTAMPTZ` columns, plain strings for JSON-in-`TEXT` columns, plain strings for PHC-format columns. Production parsers reject; tests pass for the wrong reason. Fix (prevention, not detection): the same Pydantic semantic type production uses MUST be the constraint test factories build against. | IMPLEMENT, REVIEW, QA | full-stack, backend-only | BLOCKER | Pydantic row model bound to factory via `_row_model` ClassVar (auto-validation hook); module-level realistic deterministic constants (`ANY_USER_ID`, `ANY_TENANT_ID`, etc.) for placeholders; lint script flags fake-pattern literals at module scope (single-char-repeating UUIDs, sequential zero-padded numerics, non-RFC-2606 emails) |
-| DC-28 | Cyclomatic complexity exceeds project threshold | A source file under the project's code root contains a function whose cyclomatic complexity exceeds `config/quality.json.complexity.thresholds.hard` (default 15) or `.thresholds.soft` (default 10). High CCN correlates with bug density, regression risk, and review fatigue; the catalog entry exists to enforce a quantitative budget rather than ad-hoc reviewer judgment. The check is MCP-driven: the project picks a complexity scanner (Semgrep or compatible) at SETUP and the scanner returns `{ file, function, ccn }` violations, which are classified `hard` (> hard threshold) or `soft` (> soft threshold). The skill itself is tool-agnostic; the MCP is chosen via RDR at SETUP. | IMPLEMENT, REVIEW, QA | | BLOCKER | BVL `full_verification_gate` invokes `factory-complexity-check` on `git diff --name-only $BASE..HEAD` after tests pass; factory-pr-review axis 6 invokes the same on the cumulative branch diff. `hard` violations block when `config/quality.json.complexity.bvl_gate==true` (BVL) or `.pr_blocker==true` (PR-review); `soft` always advisory. Fail-open when MCP unavailable or config absent. |
-| DC-29 | Over-engineering — code that exceeds task need (YAGNI / minimalism) | Any code-bearing change in any phase. The LLM tends to over-build: speculative abstractions, wrappers, config flags, dependencies, and boilerplate the task never asked for. DC-28 caps *complexity* of code that exists; DC-29 questions whether the code should exist at all. The discipline (the "ponytail" ladder) is prevention-first: walk a decision ladder and stop at the first viable rung BEFORE writing code. Complementary, not redundant — DC-28 is quantitative on written code, DC-29 is qualitative on the build/no-build decision. | CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, AUDIT | | WARNING | YAGNI ladder, stop at first viable rung: (1) does it need to exist? (2) stdlib? (3) native platform feature? (4) already-installed dependency? (5) one-liner? (6) only then minimal code. Four over-engineering categories flagged: **reinvented stdlib**, **unneeded dependency**, **single-implementation abstraction**, **dead flexibility** (config/flags/params with no caller). **Guardrail — how, not what:** the discipline argues a simpler *implementation*, NEVER cuts *specified scope* — a scope reduction is an RDR decision routed to CODESIGN, never a silent omission. NEVER simplifies input validation, error handling, security, or accessibility. Deliberate shortcuts marked with a `ponytail:` comment naming the ceiling + upgrade path. Consumed at decision-time by `factory-adversarial-reasoning` (do-less AGAINST lens, all phases) and at build-time by BVL `full_verification_gate` step 8 (advisory self-scan, fail-open, never blocks). |
+| DC | Family | Invariant | Gate | Paths | Applicable To | Severity |
+|---|---|---|---|---|---|---|
+| DC-18 | `ui` | A server-rendered component never reads browser state (`window`, `document`, `localStorage`, `navigator`, `matchMedia`) in its initial render. | `grep -rn 'useState(() => .*window\.' <frontend-root>` → 0 · QA SMOKE-E2E console: zero React `#418` | `src/**/frontend/**`, `**/*.tsx`, `**/*.jsx`, `**/*.vue`, `**/*.svelte` | IMPLEMENT, REVIEW, QA | BLOCKER |
+| DC-27 | `tests` | Test factories build every value through the production semantic type; no fake-pattern literal survives at module scope. | factory `_row_model` auto-validation · module-scope fake-literal lint (project script) | `tests/**`, `**/factories/**`, `**/fixtures/**`, `**/conftest.py` | IMPLEMENT, REVIEW, QA | BLOCKER |
+| DC-28 | `runtime` | No function in the diff exceeds `config/quality.json.complexity.thresholds.hard` (block) or `.soft` (advisory) McCabe complexity. | BVL `full_verification_gate` Step 7 · factory-pr-review axis 6 / Block 19 (`factory-complexity-check`) | `src/**` | IMPLEMENT, REVIEW, QA | BLOCKER |
+| DC-29 | `process` | Code exists only after the YAGNI ladder stops at its first viable rung — a simpler *how*, never a cut of the specified *what*. | BVL `full_verification_gate` Step 8 (advisory, fail-open) · factory-adversarial-reasoning do-less lens | `*` | CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, AUDIT | WARNING |
 {{DC_ENTRIES}}
 
----
+Columns. `Invariant`: one line, ≤ `budgets.dc_invariant_max_chars`. `Gate`: the mechanical check that proves the DC (`scripts/` script, BVL step, CVP check id, pr-review Block, named test) or `—`. `Paths`: globs the DC governs; `*` = universal — delivered everywhere and embedded in the governance snapshot. `Applicable To`: agents that MUST consult — CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT (SETUP materialises, never consumes). `Severity`: BLOCKER or WARNING when a consumer finds the pattern.
 
-## Canonical Consultation Protocol
+## Cases
 
-Every consumer (CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT) implements the same read pattern:
+Narratives by id in `defect-prevention-cases.md` (`### DC-NN — Title`: Origin, Story, Detection). Read on demand by id, never at session start.
+
+## Consultation
 
 ```yaml
-FUNCTION consult_defect_catalog(current_agent, feature_context):
+FUNCTION consult_defect_catalog(agent, ctx):
   IF NOT FILE_EXISTS(".claude/rules/defect-prevention.md"):
-    ⚠️ WARN: "Defect Prevention Catalog not found — SETUP may not have materialised it."
-    RETURN []  # Non-blocking: missing catalog is a SETUP problem, not a feature problem
+    ⚠️ WARN "Defect Prevention Catalog not found — SETUP may not have materialised it."; RETURN []   # SETUP problem, not a feature problem
+  rows = PARSE_TABLE(".claude/rules/defect-prevention.md" § Defect Classes)
+  RETURN [dc FOR dc IN rows
+          IF agent IN dc.applicable_to                                                   # Filter 1 — agent
+          AND (dc.paths == "*"                                                           # Filter 2 — surface
+               OR (ctx.files AND ANY(GLOB_MATCH(dc.paths, f) FOR f IN ctx.files))
+               OR (NOT ctx.files AND dc.family IN FAMILIES_OF(ctx.feature_scope)))]
 
-  catalog = READ ".claude/rules/defect-prevention.md" → parse DC entries
-  applicable = []
-  FOR EACH dc IN catalog:
-    # Filter 1: Is this agent in the DC's applicable_to list?
-    IF current_agent NOT IN dc.applicable_to:
-      CONTINUE
-    # Filter 2: Feature scope match?
-    # When dc.feature_scope is omitted or empty → entry applies to ALL scopes (backward-compatible).
-    # When present → entry is consulted ONLY when feature_context.feature_scope is in the list.
-    IF dc.feature_scope IS NOT NULL AND dc.feature_scope IS NOT EMPTY:
-      IF feature_context.feature_scope NOT IN dc.feature_scope:
-        CONTINUE
-    # Filter 3: Does the feature's context match "Applicable When"? (free-form — stack conditions)
-    IF evaluate_scope_condition(dc.applicable_when, feature_context) == false:
-      CONTINUE
-    applicable.append(dc)
-
-  RETURN applicable
+FAMILIES_OF(scope):
+  "frontend-only"               → [runtime, ui, tests, infra, process]
+  "backend-only", "integration" → [runtime, boundary, data, tests, infra, process]
+  "full-stack", absent          → all families
 ```
 
-**Caller contract.** Every consumer MUST pass `feature_context.feature_scope` read from `docs/spec/{ID}/spec.feature` frontmatter — OR fall back to `project_scope` from the governance snapshot when invoked pre-feature (e.g. AUDIT at project level). Consumers without `feature_scope` in `feature_context` degrade gracefully: Filter 2 skips when `feature_scope` is undefined, matching the legacy behaviour.
+Caller contract: pass `ctx.files` when the touched files are known (IMPLEMENT `--build`, REVIEW, BVL, sweep); otherwise pass `ctx.feature_scope` from `docs/spec/{ID}/spec.feature` frontmatter, or the snapshot `project_scope` pre-feature (AUDIT). Stack conditionals are resolved at materialisation: a row exists or it does not. Outputs per agent: table below.
 
-**Outputs** (what the agent does with the filtered list) are agent-specific and documented in the per-agent sections below.
-
----
-
-## Mandatory Process Integration (by agent)
-
-### 1. CODESIGN — Pre-Spec Advisory (NON-BLOCKING)
-
-**When:** `CODESIGN --start {ID}` and `CODESIGN --refine {ID}`, after loading the UX Vision and BEFORE drafting Gherkin scenarios.
-
-**What:** Consult the catalog, project applicable DCs into the spec as acceptance hints.
+## Discovery Protocol
 
 ```yaml
-applicable_dcs = consult_defect_catalog("CODESIGN", feature_context)
-FOR EACH dc IN applicable_dcs:
-  IF dc.type == "ux_pattern" OR dc.type == "accessibility" OR dc.type == "business_rule":
-    ADD to spec.feature § Notes:
-      "⚠️ DC-{N} ({dc.name}): acceptance criteria should cover this scenario.
-       Prevention: {dc.check}"
+WHEN a runtime defect surfaces that no row covers:
+  1. novel → id = DC-{last+1}
+     ADD row (Family, Invariant ≤ budget, Gate or `—`, Paths, Applicable To, Severity) to § Defect Classes
+     ADD `### DC-{N} — {name}` (Origin, Story, Detection) to defect-prevention-cases.md
+     ADD search methodology to factory-preventive-sweep/SKILL.md
+     BUMP this rule in governance_versions.json · SAVE feedback memory · LOG "New defect class DC-{N} cataloged: {name}"
+  2. variant of an existing DC → extend its row / case · BUMP version
 ```
 
-**Output artefact:** `docs/spec/{ID}/spec.feature` gains a `## Defect-Prevention Notes` section (when non-empty) listing applicable DCs as drafting hints. Advisory only — the CODESIGN agent does NOT block on this. Ignoring a hint is tracked as a risk in the next REVIEW cycle, not as a spec violation.
+Any agent proposes; the write lands through the `[EPIC-{N}] RETROSPECTIVE` gate (Factory-backlog-operations § 3.4.1) or an emergency hotfix commit when the defect is critical and recurrent. Rationale lives on the ticket; the row and the case carry the prevention.
 
-### 2. BLUEPRINT — Pre-Design Advisory + Design Gate (BLOCKING at `--approve`)
+## Mandatory Process Integration
 
-**When:** `BLUEPRINT --start {ID}` and `BLUEPRINT --refine {ID}` read the catalog during design. `BLUEPRINT --approve {ID}` blocks if applicable architectural DCs are not explicitly addressed in `design.md`.
-
-**What:**
-
-```yaml
-applicable_dcs = consult_defect_catalog("BLUEPRINT", feature_context)
-FOR EACH dc IN applicable_dcs:
-  ADD to design.md § Constraints:
-    "DC-{N} ({dc.name}) — {dc.check}"
-  ADD to test_plan.md § Edge Cases:
-    "Verify DC-{N} is not introduced: {dc.check}"
-
-# At --approve time:
-FOR EACH dc IN applicable_dcs WHERE dc.severity == "BLOCKER":
-  IF "DC-{N}" NOT present in design.md § Constraints:
-    ❌ BLOCK: "Blueprint missing required DC-{N} constraint. Run --refine to add."
-    STOP
-```
-
-**Output artefact:** `design.md § Constraints` and `test_plan.md § Edge Cases` are populated with DC references. `--approve` is blocking.
-
-### 3. IMPLEMENT — Plan Compliance + Pre-Write Check + Fix Classification
-
-**When:**
-
-- `IMPLEMENT --plan {ID}`: read catalog, project into `dev_plan.md § DC Compliance` section as mandatory tasks.
-- `IMPLEMENT --build {ID}`: DEV hat pre-write check.
-- `IMPLEMENT --fix {ID}`: classify each FIX-N task against the catalog — is this fix addressing a known DC, or is it a Discovery Protocol candidate (new DC)?
-
-**What:**
-
-```yaml
-# --plan
-applicable_dcs = consult_defect_catalog("IMPLEMENT", feature_context)
-dev_plan.md § DC Compliance:
-  FOR EACH dc IN applicable_dcs:
-    ADD task:
-      "[DC-{N}] Verify {dc.name}: {dc.check}"
-      # Every DC becomes an explicit dev_plan task tracked in the BVL loop
-
-# --build (unchanged — pre-write check)
-BEFORE writing code:
-  applicable_dcs = consult_defect_catalog("IMPLEMENT", file_context)
-  FOR EACH dc IN applicable_dcs:
-    VERIFY the code about to be written does NOT introduce the DC pattern
-    IF pattern detected in planned code:
-      REWRITE to use the documented prevention approach
-      LOG: "DC-{N} prevented: {description}"
-
-# --fix
-FOR EACH fix_task:
-  IF fix addresses an existing DC:
-    LABEL fix_task with "dc-compliance: DC-{N}"
-  ELSE IF fix pattern is novel and recurring:
-    TRIGGER Discovery Protocol (§ 8) — propose new DC entry
-```
-
-**Output artefact:** `dev_plan.md § DC Compliance` is populated. BVL tracks each DC task as a mandatory item.
-
-### 4. REVIEW — Post-Write Verification (BLOCKING)
-
-**When:** During REVIEW hat check cycle, after DEV hat completes each phase. Existing Check #2d, filter expanded.
-
-**What:**
-
-```yaml
-applicable_dcs = consult_defect_catalog("REVIEW", file_context)
-FOR EACH modified_file in phase:
-  FOR EACH dc IN applicable_dcs:
-    IF dc.pattern detected in modified_file:
-      severity = dc.severity  # BLOCKER or WARNING
-      IF severity == BLOCKER:
-        FAIL [GOV-DC-{N}]:
-          "Known defect pattern DC-{N} ({dc.name}) detected in {file}:{line}.
-           Prevention: {dc.check}.
-           Reference: .claude/rules/defect-prevention.md"
-      ELSE:
-        WARN [GOV-DC-{N}]:
-          "Potential defect pattern DC-{N} ({dc.name}) in {file}:{line}. Verify."
-```
-
-**Output artefact:** `peer_review_*.md § Check #2d` lists DC findings.
-
-### 5. DEVOPS — Pre-Configure Advisory (NON-BLOCKING)
-
-**When:** `DEVOPS --configure {ID}` reads the catalog and pre-populates `devops_plan.md` with equivalent deploy/infra checks.
-
-**What:**
-
-```yaml
-applicable_dcs = consult_defect_catalog("DEVOPS", feature_context)
-FOR EACH dc IN applicable_dcs:
-  # Typical DCs applicable to DEVOPS: missing health checks, wrong probe timing,
-  # env-var drift, missing SIGTERM handling, observability gaps
-  ADD to devops_plan.md § Reliability Checks:
-    "DC-{N} ({dc.name}) — {dc.check}"
-  ADD to devops_plan.md § Verification Script:
-    # Shell snippet that exercises the check at deploy time
-```
-
-**Output artefact:** `devops_plan.md § Reliability Checks` populated. Advisory, but once materialised into the plan it becomes part of the plan's auto-approval criteria.
-
-### 6. QA — Verify Checklist Expansion (BLOCKING)
-
-**When:** `QA --verify {ID}` generates its checkbox-driven checklist. For every applicable DC, a `[QA-DC-{N}]` line is appended.
-
-**What:**
-
-```yaml
-applicable_dcs = consult_defect_catalog("QA", feature_context)
-FOR EACH dc IN applicable_dcs:
-  APPEND checklist item:
-    "- [ ] [QA-DC-{N}] {dc.name}: {dc.check}"
-  # Must be marked [x] before QA can auto-approve
-```
-
-**Output artefact:** `qa_report_final_*.md` includes `[QA-DC-N]` lines. Verdict `APPROVED` requires all `[QA-DC-N]` items checked.
-
-### 7. AUDIT — Evidence Signal (ADVISORY)
-
-**When:** `AUDIT --audit` scans the codebase for evidence of existing governance maturity.
-
-**What:**
-
-```yaml
-applicable_dcs = consult_defect_catalog("AUDIT", project_context)
-FOR EACH dc IN applicable_dcs:
-  evidence = SEARCH codebase for the DC pattern
-  audit_report.add_signal({
-    dimension: "Defect Prevention",
-    evidence: evidence,
-    score: inverse_of(pattern_density)  # fewer occurrences = higher score
-  })
-```
-
-**Output artefact:** Audit report gains a "Defect Prevention" dimension contributing to the overall maturity score.
-
-### 8. Discovery Protocol — Adding New Entries
-
-**When:** Any agent discovers a runtime defect that is NOT already in the catalog.
-
-```yaml
-WHEN a runtime defect is discovered during any phase:
-  1. DETERMINE if the defect pattern is novel (not covered by existing DC-1..DC-N)
-  2. IF novel:
-     a. Assign next DC number (DC-{last+1})
-     b. ADD entry to this file with:
-        - Name, Applicable When, Applicable To (enum list), Severity, Check
-     c. ADD detailed search methodology to Factory-preventive-sweep/SKILL.md
-     d. BUMP version of this rule in governance_versions.json
-     e. SAVE feedback memory for cross-session awareness
-     f. LOG: "New defect class DC-{N} cataloged: {name}"
-  3. IF existing DC but new variant:
-     a. UPDATE the existing DC entry with the new variant
-     b. BUMP version of this rule
-```
-
-**Who triggers Discovery:** Any agent can propose a new DC, but the write happens through the RETROSPECTIVE gate (`[EPIC-{N}] RETROSPECTIVE` issue) or an emergency hotfix commit if the defect is critical and recurrent. The issue body on the retrospective ticket documents the rationale; the DC entry in this file captures the actionable prevention.
-
----
-
-## Relationship to Other Governance Artifacts
-
-| Artifact | Role |
-|----------|------|
-| This rule (`defect-prevention.md`) | **What** to check + **when** each agent checks it (canonical consultation protocol, per-consumer integration) |
-| `Factory-preventive-sweep/SKILL.md` | **How** to search — detailed patterns, parallel scope strategy (one sub-agent per non-overlapping scope derived from this catalog), report template |
-| `Factory-build-verification/SKILL.md` | **Pre-test** and **BVL fail-recurrence** consumer — reads catalog when a test failure pattern recurs. Also DC-29 build-time consumer: `full_verification_gate` step 8 runs the minimalism advisory self-scan (fail-open, never blocks) |
-| `Factory-adversarial-reasoning/SKILL.md` | DC-29 decision-time consumer — the do-less AGAINST lens walks the YAGNI ladder on every non-trivial choice (all phases), arguing a simpler *how* without cutting *specified scope* |
-| `Factory-codesign-feature.instructions.md` | CODESIGN consumer — advisory hints projected into `spec.feature § Defect-Prevention Notes` |
-| `Factory-blueprint-design.instructions.md` | BLUEPRINT consumer — constraint population in `design.md` + `--approve` blocker for BLOCKER-severity DCs |
-| `Factory-implement-plan.instructions.md` | IMPLEMENT --plan consumer — `dev_plan.md § DC Compliance` task generation |
-| `Factory-implement-build.instructions.md` | IMPLEMENT --build / --fix consumer — DEV hat pre-write check + fix classification |
-| `Factory-implement-review-checks.instructions.md` | REVIEW hat enforcer — Check #2d (existing) |
-| `Factory-devops-configure.instructions.md` | DEVOPS --configure consumer — `devops_plan.md § Reliability Checks` population |
-| `Factory-qa-verify.instructions.md` | QA --verify consumer — `[QA-DC-N]` checklist expansion |
-| `Factory-audit-checklist.instructions.md` | AUDIT consumer — "Defect Prevention" maturity signal |
-| `Factory-backlog-operations.instructions.md` | RETROSPECTIVE gate writes new entries back into this file (Discovery Protocol) |
-
----
-
-## Project Discoveries
-
-> This section is populated during development as new defect patterns are discovered via the Discovery Protocol (§ 8). Each entry follows the same schema as the starter DCs above.
-
-<!-- New DC entries discovered during development go here -->
+| Agent | When | Mode | Output | Where |
+|---|---|---|---|---|
+| CODESIGN | `--start` / `--refine`, after UX Vision, before Gherkin | Advisory (ignored hint = risk in next REVIEW) | `spec.feature § Defect-Prevention Notes` — `DC-{N} ({name}) — {invariant}` | `Factory-codesign-feature.instructions.md` |
+| BLUEPRINT | `--start` / `--refine` during design; `--approve` blocks when a BLOCKER row is absent from `design.md § Constraints` or `test_plan.md § 2` | Advisory + Blocking | `design.md § Constraints`, `test_plan.md § Edge Cases` | `Factory-blueprint-design` / `Factory-blueprint-validation` |
+| IMPLEMENT `--plan` | Before generating `dev_plan.md` | Mandatory tasks (BVL-tracked) | `dev_plan.md § DC Compliance` — `[DC-{N}] Verify {name}: {invariant}` | `Factory-implement-plan` |
+| IMPLEMENT `--build` (DEV hat) | Pre-write, per task, `ctx.files` = task files | Blocking — rewrite to the invariant | LOG `DC-{N} prevented` | `Factory-implement-build` |
+| IMPLEMENT `--fix` | Per `[FIX-N]` task | Advisory | `dc-compliance: DC-{N}` label, or Discovery proposal | `Factory-implement-build` |
+| REVIEW hat | Check #2d, post-write per phase | BLOCKER fails, WARNING warns | `peer_review_*.md § Check #2d` `[GOV-DC-{N}]` — file:line + invariant | `Factory-implement-review-checks` |
+| DEVOPS `--configure` | Before generating `devops_plan.md` | Advisory → plan auto-approval criteria | `devops_plan.md § Reliability Checks` + `§ Verification Script` | `Factory-devops-configure` |
+| QA `--verify` | Checklist generation | Blocking — APPROVED needs every item `[x]` | `- [ ] [QA-DC-{N}] {name}: {invariant}` in `qa_report_final_*.md` | `Factory-qa-verify` |
+| AUDIT `--audit` | Codebase scan | Evidence — score = inverse of pattern density | "Defect Prevention" dimension of the audit report | `Factory-audit-checklist` |
+| BVL | Recurring failure (same class in 2+ files or attempts exhausted); Step 7 / Step 8 | Discovery · DC-28 gate · DC-29 advisory | Match a row or propose a new DC | `factory-build-verification/SKILL.md` |
+| Adversarial reasoning | Every non-trivial choice, all phases | Decision-time | Do-less AGAINST lens (DC-29) | `factory-adversarial-reasoning/SKILL.md` |
+| Preventive sweep | First deploy, major change, on request | Runtime scan — one sub-agent per family | Search plan from Gate + case Detection | `factory-preventive-sweep/SKILL.md` |
+| BACKLOG RETROSPECTIVE | `[EPIC-{N}] RETROSPECTIVE` closes | Write | New rows + cases (Discovery Protocol) | `Factory-backlog-operations` |

@@ -19,7 +19,7 @@ Read these files before doing anything else:
 
 1. `.claude/skills/factory-codebase-inventory/SKILL.md` — full reconciliation protocol (Phases 1–5).
 2. `config/codebase_inventory.json` — current state (especially `version` + `changelog` for context on the last reconcile).
-3. `docs/constitution.md` § Architecture Stack Definition — for the BC list (which BCs the orphan scan covers).
+3. `.context/governance_snapshot.md` § Stack Configuration (rendered from `docs/constitution.md` frontmatter) — for the BC list (which BCs the orphan scan covers).
 4. `scripts/reconcile_inventory.py` — the reusable Python helper this command orchestrates.
 
 ## Pre-conditions (BLOCKING)

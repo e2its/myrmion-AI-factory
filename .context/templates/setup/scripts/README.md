@@ -235,4 +235,9 @@ All validations passed successfully!
 **Related Documentation:**
 - Schema Reference: `.context/templates/setup/config/system_resources_schema.md`
 - Template: `.context/templates/setup/config/system_resources.template.json`
-- Constitution: `.context/constitution.md` (Configuration Hardcoding Prohibition section)
+- Rule: `.claude/rules/configuration.md` (`[PLAW-05]` Configuration Hardcoding Prohibition)
+
+## The one governance reader (EVOL-043)
+
+- `gate.py` + `gates/` — law index and defect-catalog parser, applicability resolver (`applicable`, the roll-call), digest and pre-edit delivery envelope (`deliver --hook-json`), injection budgets measured on the real producers (`budget`), retired-vocabulary ratchet (`retired-terms`), snapshot sections, law parity (`laws --parity`), law sentences for the ADR ceremony gate. Every hook, gate and pre-flight asks it; none re-derives.
+- `generate-governance-snapshot.sh` — lite/full snapshot; hashes, protected paths and setup flags here, every corpus section from `gate.py snapshot-sections`; exit 3 when the lite profile overflows `budgets.snapshot`.

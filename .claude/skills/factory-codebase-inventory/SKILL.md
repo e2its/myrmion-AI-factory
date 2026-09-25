@@ -663,3 +663,8 @@ CONTEXT BUDGET:
   - Contract Canary per contract creation: ~100-300 tokens (feature_map.md read)
   - NO full workspace scans during BLUEPRINT or IMPLEMENT
 ```
+
+## [LAW-03] DRY Enforcement
+> Before creating any code artefact the codebase inventory is consulted, and an existing component is reused over a new one.
+
+Consult `config/codebase_inventory.json` before creating any code artefact (component, module, endpoint, helper). The CIP Canary gate and the 4-criteria match decide reuse vs creation; a new artefact that duplicates an inventoried one is a violation. This skill is the body of the law: the protocol below is the procedure.

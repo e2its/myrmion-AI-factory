@@ -17,6 +17,13 @@
 #   6. New ADR file lands already-accepted, no constitution change → expect FAIL.
 #   7. FDR file (under docs/spec/{ID}/fdr/) transitions to accepted, no
 #      constitution change → expect PASS (FDRs are not subject to the gate).
+#   8. (EVOL-043 direction B) A law SENTENCE of the constitution index changes,
+#      no accepted ADR in the diff → expect FAIL.
+#   9. Same sentence change WITH an ADR landing accepted → expect PASS.
+#  10. Constitution edited outside any sentence (preamble, Body pointer) → PASS.
+#  11. A universal sentence in CLAUDE.md § Governance Rules changes, no ADR → FAIL.
+#  12. A sentence changes with an ADR that stays proposed → FAIL.
+#  13. The law reader is broken and a sentence changed → exit 2 (cannot decide ≠ ok).
 #
 # Exit codes:
 #   0 = ok
@@ -32,6 +39,8 @@ elif REPO_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null); then
 fi
 
 GATE_SCRIPT="$(pwd)/scripts/check-adr-constitution-sync.sh"
+GATES_SRC="$(pwd)/scripts/gates"; GATE_SRC="$(pwd)/scripts/gate.py"
+export GATES_SRC GATE_SRC PYTHONDONTWRITEBYTECODE=1
 if [ ! -x "$GATE_SCRIPT" ]; then
   echo "L5: gate script not found or not executable at $GATE_SCRIPT" >&2
   exit 2
@@ -57,9 +66,13 @@ run_scenario() {
     git config user.email "test@evol026.local"
     git config user.name "L5 test"
 
-    # Base commit: representative project layout.
-    mkdir -p docs/project_log/adr docs/spec/FEAT-001/fdr
-    echo "# Initial constitution" > docs/constitution.md
+    # Base commit: representative project layout (constitution in index form, CLAUDE.md corpus,
+    # and the one reader the gate delegates the sentence shape to).
+    mkdir -p docs/project_log/adr docs/spec/FEAT-001/fdr scripts config
+    cp -R "$GATES_SRC" scripts/gates; cp "$GATE_SRC" scripts/gate.py
+    printf '{"context": "downstream"}\n' > config/coherence-context.json
+    printf '# Constitution\n\n## [PLAW-01] KISS\n> Build the simplest thing that works.\nBody: `rules/architecture.md` · Records: `ADR-0000`\n' > docs/constitution.md
+    printf '# Project\n\n## Governance Rules\n\n1. **[LAW-02] Protected Code** — Protected code blocks are never modified. Body: `rules/protected-code.md`. Records: `ADR-EVOL-040`.\n\n## Other\n' > CLAUDE.md
     echo "placeholder" > README.md
     git add -A && git commit -q -m "init"
     git tag base
@@ -160,7 +173,7 @@ run_scenario "scenario 2: ADR accepted with constitution diff" 0 bash -c '
   write_adr_proposed 002
   git add -A && git commit -q -m "propose ADR-002"
   flip_adr_to_accepted 002
-  echo "## [LAW] Test rule" >> docs/constitution.md
+  printf "\n## [PLAW-02] Test rule\n> A test sentence.\nBody: \`rules/test.md\` · Records: \`ADR-002\`\n" >> docs/constitution.md
   git add -A && git commit -q -m "accept ADR-002 + amend constitution"
 '
 
@@ -216,11 +229,65 @@ run_scenario "scenario 7: FDR transitions to accepted (not subject to gate)" 0 b
   git add -A && git commit -q -m "accept FDR-001"
 '
 
+# ─── Scenario 8: law SENTENCE changed, no accepted ADR → FAIL (EVOL-043 direction B) ───
+run_scenario "scenario 8: law sentence changed without an accepted ADR" 1 bash -c '
+  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./" docs/constitution.md
+  git add -A && git commit -q -m "reword PLAW-01 sentence"
+'
+
+# ─── Scenario 9: same sentence change WITH an ADR landing accepted → PASS ───
+run_scenario "scenario 9: law sentence changed with an accepted ADR in the diff" 0 bash -c '
+  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./" docs/constitution.md
+  cat > docs/project_log/adr/ADR-009-test.md <<"EOF"
+---
+adr_number: "009"
+title: "Sharpen PLAW-01"
+date: "2026-09-25"
+status: accepted
+target_section: "PLAW-01"
+amendment_kind: MODIFY
+---
+# ADR-009
+
+## Operational Rule
+Build the simplest thing that works, and nothing more.
+EOF
+  git add -A && git commit -q -m "accept ADR-009 with the sentence change"
+'
+
+# ─── Scenario 10: constitution edited outside any sentence (pointer, preamble) → PASS ───
+run_scenario "scenario 10: body pointer and preamble edits need no record" 0 bash -c '
+  sed -i "s#Body: \`rules/architecture.md\`#Body: \`rules/kiss.md\`#" docs/constitution.md
+  printf "\n> Preamble note: bodies live in .claude/rules/.\n" >> docs/constitution.md
+  git add -A && git commit -q -m "move PLAW-01 body pointer"
+'
+
+# ─── Scenario 11: a universal law sentence in CLAUDE.md § Governance Rules changes, no ADR → FAIL ───
+run_scenario "scenario 11: CLAUDE.md corpus sentence changed without an accepted ADR" 1 bash -c '
+  sed -i "s/Protected code blocks are never modified\./Protected code blocks and protected paths are never modified./" CLAUDE.md
+  git add -A && git commit -q -m "reword LAW-02"
+'
+
+# ─── Scenario 12: sentence changed, ADR present but still proposed → FAIL ───
+run_scenario "scenario 12: sentence changed with an ADR that is only proposed" 1 bash -c '
+  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./" docs/constitution.md
+  '"$(declare -f write_adr_proposed)"'
+  write_adr_proposed 012
+  git add -A && git commit -q -m "reword PLAW-01 with a proposed ADR"
+'
+
+# ─── Scenario 13: the reader is broken and a sentence changed → exit 2 (a gate that cannot decide never says ok) ───
+run_scenario "scenario 13: broken law reader + sentence change → infrastructure fault, never a pass" 2 bash -c '
+  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./" docs/constitution.md
+  printf "def (broken\n" > scripts/gates/common.py
+  git add -A && git commit -q -m "reword with a broken reader"
+'
+
 echo
 
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
-  echo "L5: ok — gate behaviour verified across 7 scenarios."
+  echo "L5: ok — gate behaviour verified across 13 scenarios."
   exit 0
 else
   echo "L5: FAIL — $failures scenario(s) produced unexpected outcome." >&2

@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "context": "meta",
   "_doc": "Single source of truth for which context this repo runs as (meta = framework repo authoring the templates; downstream = materialised project consuming the framework). Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. To extend: bump version, add keys under audit.* — never break existing keys.",
   "audit": {
@@ -47,6 +47,24 @@
         "doc": "Governance scripts (governance-onedit, governance-onprompt, governance-oncompact) must mirror between meta scripts/ and template scripts/ trees.",
         "left": "scripts/governance-*.sh",
         "right": ".context/templates/setup/scripts/governance-*.sh"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "The ONE governance reader (EVOL-043): scripts/gate.py CLI + scripts/gates/*.py package — applicability resolver, law/catalog parser, budgets, retired-term ratchet, pre-edit delivery. Hooks, the snapshot generator and the parity gates all import it; the template copy is what SETUP delivers.",
+        "left": "scripts/gate.py",
+        "right": ".context/templates/setup/scripts/gate.py"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "gates package (EVOL-043) — see the gate.py pair.",
+        "left": "scripts/gates/*.py",
+        "right": ".context/templates/setup/scripts/gates/*.py"
+      },
+      {
+        "type": "meta_template_mirror",
+        "doc": "Snapshot generator (EVOL-043): lite/full profiles, delegates corpus parsing to gate.py. Twin drift = a project would receive a different law shape than meta CI tested.",
+        "left": "scripts/generate-governance-snapshot.sh",
+        "right": ".context/templates/setup/scripts/generate-governance-snapshot.sh"
       },
       {
         "type": "meta_template_mirror",

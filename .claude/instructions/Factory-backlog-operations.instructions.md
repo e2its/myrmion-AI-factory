@@ -213,10 +213,13 @@ Closing an `[EPIC-{N}] RETROSPECTIVE` gate issue is NOT a single "move to Done" 
    ### Candidate DC
 
    - **Name:** {short title}
-   - **Applicable When:** {scope condition}
+   - **Family:** {one id from defect-prevention.md § Families}
+   - **Invariant:** {one line, ≤ budgets.dc_invariant_max_chars}
+   - **Gate:** {mechanical check that proves it, or —}
+   - **Paths:** {globs the DC governs, or *}
    - **Applicable To:** [{enum list from CODESIGN | BLUEPRINT | IMPLEMENT | REVIEW | DEVOPS | QA | AUDIT}]
    - **Severity:** {BLOCKER | WARNING}
-   - **Check:** {what the prevention step verifies}
+   - **Origin / Story / Detection:** {the narrative — lands in defect-prevention-cases.md}
    - **Evidence:** {link to the feature / commit / issue where this pattern surfaced}
    ```
 
@@ -246,11 +249,13 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
       CONTINUE
 
     # Materialise the entry
-    APPEND to .claude/rules/defect-prevention.md § The Defect Prevention Catalog (table):
-      | DC-{next_dc_number} | {name} | {applicable_when} | {applicable_to} | {severity} | {check} |
-    APPEND to § Project Discoveries section:
+    APPEND to .claude/rules/defect-prevention.md § Defect Classes (table, 7 columns):
+      | DC-{next_dc_number} | `{family}` | {invariant} | {gate} | {paths} | {applicable_to} | {severity} |
+    APPEND to .claude/rules/defect-prevention-cases.md:
       ### DC-{next_dc_number} — {name}
-      {full body: evidence link, when discovered, epic retrospective reference, worked example}
+      **Origin:** {evidence link, when discovered, epic retrospective reference}
+      **Story:** {story}
+      **Detection:** {detection, worked example}
 
     next_dc_number += 1
 
