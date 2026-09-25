@@ -653,11 +653,12 @@
       "delivery": "both"
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.0.1",
+      "version": "2.1.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
+        "2.1.0: feat(EVOL-043) — step `Corpus gates`: gate.py laws --parity, budget, retired-terms run in every materialised project's CI (the corpus gates had no downstream caller).",
         "2.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "2.0.0: feat(EVOL-026) BREAKING — repurposed from framework-core manifest validator to materialised-project EVOL-026 ADR ↔ constitution sync gate. Runs scripts/check-adr-constitution-sync.sh on every PR to main; bypass via [adr-backfill] commit marker. Posts violation comment with resolution path on failure.",
         "1.0.0: Initial template — CI gate on PRs: blocks merge if framework_core files changed without manifest update (GOV-001)"
