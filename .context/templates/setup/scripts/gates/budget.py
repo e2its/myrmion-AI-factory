@@ -8,8 +8,9 @@ against its worst-case input and measures what it emits. Not the file size — t
   snapshot       .context/governance_snapshot.md (bytes on disk; n/a where no snapshot exists)
   law_sentence_max_chars / dc_invariant_max_chars  shape budgets, checked over the corpus
 
-A producer that exits non-zero, or a banner / pre-edit delivery that emits nothing, is RED: a dead producer is
-exactly the failure the gate exists to catch. A missing budget key is red too.
+A producer that is absent, exits non-zero, or emits nothing (banner, prompt, pre-edit delivery) is a RED row:
+a dead producer is exactly the failure the gate exists to catch. A missing budget key is a red row too.
+The caller (gate.py budget) exits 1 on any red row; only an unreadable config/quality.json is exit 2.
 """
 from __future__ import annotations
 
@@ -23,7 +24,11 @@ from .common import GateFault, any_glob, key
 from .corpus import catalog, laws
 
 REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars")
-MUST_EMIT = ("session_start", "pre_edit")   # an empty emission from these is a dead producer, never "within budget"
+MUST_EMIT = ("session_start", "prompt_submit", "pre_edit")   # an empty emission from these is a dead producer, never "within budget"
+
+
+class ProducerFault(GateFault):
+    """A producer exited non-zero or is absent: a RED row (verdict), not an infrastructure fault."""
 
 
 def _run(repo: Path, cmd: list[str], stdin: str = "", env: dict | None = None) -> str:
@@ -32,10 +37,10 @@ def _run(repo: Path, cmd: list[str], stdin: str = "", env: dict | None = None) -
         r = subprocess.run(cmd, cwd=str(repo), input=stdin, capture_output=True, text=True, timeout=120,
                            env={**os.environ, **(env or {})})
     except (OSError, subprocess.TimeoutExpired) as e:
-        raise GateFault(f"producer {' '.join(cmd)} could not run: {e}") from None
+        raise ProducerFault(f"producer {' '.join(cmd)} could not run: {e}") from None
     if r.returncode != 0:
         first = (r.stderr.strip().splitlines() or ["(no stderr)"])[0]
-        raise GateFault(f"producer {' '.join(cmd)} exited {r.returncode}: {first}")
+        raise ProducerFault(f"producer {' '.join(cmd)} exited {r.returncode}: {first}")
     return r.stdout
 
 
@@ -76,32 +81,39 @@ def worst_case_path(cat: dict) -> str:
 
 
 def measure(repo: Path) -> dict:
-    """Bytes emitted by each producer against its key. GateFault on a missing key or a dead producer."""
-    budgets = key(repo, "budgets", required=True)
-    missing = [k for k in REQUIRED if type(budgets.get(k)) is not int]
-    if missing:
-        raise GateFault(f"config/quality.json budgets missing integer keys: {', '.join(missing)}")
+    """Bytes emitted by each producer against its key. Every failure is a RED ROW (missing key, absent or
+    dead producer, empty emission, overflow) — the caller exits 1. Only an unreadable config is a GateFault."""
+    budgets = key(repo, "budgets", default={}) or {}
     cat = catalog(repo)
     rows: dict[str, dict] = {}
 
-    def row(name: str, nbytes: int | None, producer: str):
-        rows[name] = {"budget": budgets[name], "bytes": nbytes, "producer": producer,
-                      "ok": nbytes is None or (nbytes <= budgets[name] and (nbytes > 0 or name not in MUST_EMIT))}
+    def row(name: str, nbytes: int | None, producer: str, fault: str | None = None):
+        cap = budgets.get(name)
+        if type(cap) is not int:
+            rows[name] = {"budget": None, "bytes": nbytes, "producer": producer, "ok": False, "fault": f"key budgets.{name} missing from config/quality.json"}
+            return
+        ok = fault is None and (nbytes is None or (nbytes <= cap and (nbytes > 0 or name not in MUST_EMIT)))
+        rows[name] = {"budget": cap, "bytes": nbytes, "producer": producer, "ok": ok, "fault": fault}
 
-    banner = repo / "scripts/validate-governance.sh"
-    row("session_start", len(_run(repo, ["bash", str(banner), "--banner"]).encode()) if banner.is_file() else 0,
-        "scripts/validate-governance.sh --banner")
-    onprompt = repo / "scripts/governance-onprompt.sh"
-    row("prompt_submit", len(_run(repo, ["bash", str(onprompt)], '{"session_id":"budget","prompt":"x"}',
-                                  {"GOVERNANCE_ONPROMPT_WORST_CASE": "1"}).encode()) if onprompt.is_file() else 0,
-        "scripts/governance-onprompt.sh (worst case: snapshot reload + stale warning forced)")
-    deliver = repo / ".claude/hooks/deliver-governance.sh"
+    def produce(name: str, path: Path, cmd: list[str], producer: str, stdin: str = "", env: dict | None = None):
+        if not path.is_file():
+            row(name, None, producer, fault=f"producer absent: {path.relative_to(repo)}")
+            return
+        try:
+            row(name, len(_run(repo, cmd, stdin, env).encode()), producer)
+        except ProducerFault as e:
+            row(name, None, producer, fault=str(e))
+
+    produce("session_start", repo / "scripts/validate-governance.sh", ["bash", "scripts/validate-governance.sh", "--banner"],
+            "scripts/validate-governance.sh --banner")
+    produce("prompt_submit", repo / "scripts/governance-onprompt.sh", ["bash", "scripts/governance-onprompt.sh"],
+            "scripts/governance-onprompt.sh (worst case: snapshot reload + stale warning forced)",
+            '{"session_id":"budget","prompt":"x"}', {"GOVERNANCE_ONPROMPT_WORST_CASE": "1"})
     wpath = worst_case_path(cat)
     session = f"budget-{uuid.uuid4().hex}"   # a fresh session per run: the dedupe pointer must never be what is measured
     try:
-        row("pre_edit", len(_run(repo, ["bash", str(deliver)],
-                                  json.dumps({"tool_input": {"file_path": wpath}, "session_id": session})).encode())
-            if deliver.is_file() else 0, f".claude/hooks/deliver-governance.sh on {wpath}")
+        produce("pre_edit", repo / ".claude/hooks/deliver-governance.sh", ["bash", ".claude/hooks/deliver-governance.sh"],
+                f".claude/hooks/deliver-governance.sh on {wpath}", json.dumps({"tool_input": {"file_path": wpath}, "session_id": session}))
     finally:
         marker = repo / ".claude/state" / f"governance-delivered-{session}.txt"
         if marker.is_file():
@@ -119,6 +131,6 @@ def measure(repo: Path) -> dict:
 def render(rows: dict) -> str:
     out = ["| injection point | budget | measured | producer | |", "|---|---|---|---|---|"]
     for k, r in rows.items():
-        state = "ok" if r["ok"] else ("EMPTY — dead producer" if r["bytes"] == 0 else "OVERFLOW")
-        out.append(f"| {k} | {r['budget']} | {'n/a' if r['bytes'] is None else r['bytes']} | {r['producer']} | {state} |")
+        state = "ok" if r["ok"] else (f"RED — {r['fault']}" if r.get("fault") else ("EMPTY — dead producer" if r["bytes"] == 0 else "OVERFLOW"))
+        out.append(f"| {k} | {r['budget'] if r['budget'] is not None else '—'} | {'n/a' if r['bytes'] is None else r['bytes']} | {r['producer']} | {state} |")
     return "\n".join(out)

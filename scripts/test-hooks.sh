@@ -167,6 +167,10 @@ run_hook deliver-governance.sh '{"tool_name":"Edit","tool_input":{"file_path":"s
 assert_context "reader present but unable to run (missing budgets.pre_edit): the FAILURE is delivered, never a silent 0 B" "governance delivery failed"
 if [ "$RC" -eq 0 ]; then ok "a broken reader never blocks the edit"; else bad "broken reader blocked (rc=$RC)"; fi
 cp "$SANDBOX/quality.bak" "$REPO/config/quality.json"
+printf 'def (broken\n' > "$REPO/scripts/gates/common.py"
+run_hook deliver-governance.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/x.py"},"session_id":"s5"}'
+assert_context "reader package broken (SyntaxError): the reason delivered is the reader's own line, not a traceback" "package is missing or broken (SyntaxError"
+cp "$ROOT/scripts/gates/common.py" "$REPO/scripts/gates/common.py"
 rm -rf "$REPO/scripts/gate.py"
 run_hook deliver-governance.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/x.py"},"session_id":"s3"}'
 if [ "$RC" -eq 0 ] && [ -z "$OUT" ]; then ok "reader missing: silent pass, never blocks"; else bad "reader missing should pass silently (rc=$RC)" "$OUT"; fi

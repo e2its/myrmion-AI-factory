@@ -64,6 +64,8 @@ def parse_law_list(text: str, section: str = "## Governance Rules", source: str 
         if not in_section:
             continue
         m = LAW_LIST_RE.match(line)
+        if not m and re.match(r"^\s*\d+\.\s+\*\*\[P?LAW-\d{2}\][^*]*\*\*\s*:", line):
+            raise GateFault(f"{source}: `{line.strip()[:60]}…` uses the pre-index law shape (`**Title**:`); the index form is `**[LAW-NN] Title** — sentence. Body: `…`. Records: `…`.` (SETUP --upgrade migrates it)")
         if m:
             if current:
                 laws.append(current)
@@ -388,10 +390,15 @@ def rollcall(result: dict, command: str = "", feature_id: str = "") -> str:
         out.append(f"  {label} ({len(a[kind])})")
         if a[kind]:
             out.append("    • " + ", ".join(r["name"] for r in a[kind]))
-    out.append(f"  EXCLUDED ({len(ex)})")
-    out += [f"    • {e['name']} — {e['reason']}" for e in ex[:6]]
-    if len(ex) > 6:
-        out.append(f"    … and {len(ex) - 6} more (see hash)")
+    unreadable = [e for e in ex if e["reason"].startswith("frontmatter-parse-error")]
+    if unreadable:  # never hidden by the cap: an unreadable rule stops governing and must be seen
+        out.append(f"  UNREADABLE ({len(unreadable)})")
+        out += [f"    • {e['name']} — {e['reason']}" for e in unreadable]
+    rest = [e for e in ex if e not in unreadable]
+    out.append(f"  EXCLUDED ({len(rest)})")
+    out += [f"    • {e['name']} — {e['reason']}" for e in rest[:6]]
+    if len(rest) > 6:
+        out.append(f"    … and {len(rest) - 6} more (see hash)")
     total_active = sum(len(a[k]) for k in ("laws", "dcs", "rules", "instructions", "skills"))
     out.append(f"  Discovery hash: {result['discovery_hash']} · {result['scanned']} frontmatters scanned · "
                f"{total_active} active · {len(ex)} excluded")

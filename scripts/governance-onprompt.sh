@@ -173,7 +173,7 @@ if [ -n "$EDIT_MARKER" ] && [ -f "$EDIT_MARKER" ]; then
     echo "(generate_governance_snapshot()). This does NOT require running /setup --upgrade."
     echo "</governance-source-edited>"
   fi
-  rm -f "$EDIT_MARKER"
+  [ "$WORST_CASE" = "1" ] || rm -f "$EDIT_MARKER"
 fi
 
 # ── 2b) IPP reminders ───────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ if [ -n "$IPP_FIRST_MARKER" ] && [ -f "$IPP_FIRST_MARKER" ]; then
     echo "Spec: .claude/skills/factory-incremental-persistence/SKILL.md § Pillars 2-3."
     echo "</ipp-reminder>"
   fi
-  rm -f "$IPP_FIRST_MARKER"
+  [ "$WORST_CASE" = "1" ] || rm -f "$IPP_FIRST_MARKER"
 fi
 
 IPP_P2_MARKER_SCOPED=""
@@ -258,7 +258,7 @@ if [ -n "$IPP_P2_MARKER" ] && [ -f "$IPP_P2_MARKER" ]; then
     echo "Spec: .claude/skills/factory-incremental-persistence/SKILL.md § Pillar 2."
     echo "</ipp-warning>"
   fi
-  rm -f "$IPP_P2_MARKER"
+  [ "$WORST_CASE" = "1" ] || rm -f "$IPP_P2_MARKER"
 fi
 
 # ── 3) Livelock carve-out ───────────────────────────────────────────────────
@@ -293,7 +293,7 @@ if [ -z "$EDIT_PATHS_CSV" ]; then
     # Counts mirror the SessionStart banner so the agent sees the same digest
     # mid-session as the user sees on screen.
     if [ -f "$SNAPSHOT" ]; then
-      law_count=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT" 2>/dev/null || printf '0')
+      law_count=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT" 2>/dev/null || true)   # grep -c prints 0 itself on no match
       fam_count=$(awk '/^## Defect Families/{f=1; next} f && /^## /{f=0} f && /^\| `/{c++} END{print c+0}' "$SNAPSHOT" 2>/dev/null || printf '0')
       echo "<governance-loaded snapshot=\"fresh\" laws=\"${law_count}\" defect-families=\"${fam_count}\" />"
     elif [ -f "CLAUDE.md" ] && [ ! -f "docs/constitution.md" ]; then

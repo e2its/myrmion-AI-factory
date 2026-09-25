@@ -53,9 +53,9 @@
     "install_hint": "{{SECURITY_SCANNER_INSTALL_HINT}}"
   },
   "budgets": {
-    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the changelog.",
+    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the changelog. prompt_submit ≥ snapshot + the reload wrapper + the stale warning (the worst case forces both).",
     "session_start": 2000,
-    "prompt_submit": 16000,
+    "prompt_submit": 20000,
     "pre_edit": 6000,
     "snapshot": 16000,
     "law_sentence_max_chars": 240,

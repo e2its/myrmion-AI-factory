@@ -43,6 +43,12 @@ jobs:
           chmod +x scripts/check-adr-constitution-sync.sh
           bash scripts/check-adr-constitution-sync.sh "origin/${{ github.base_ref }}"
 
+      - name: Corpus gates — law parity, injection budgets, retired vocabulary (EVOL-043)
+        run: |
+          python3 scripts/gate.py laws --parity
+          python3 scripts/gate.py budget
+          python3 scripts/gate.py retired-terms
+
       - name: Post violation comment on failure
         if: failure()
         env:

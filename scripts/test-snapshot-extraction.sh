@@ -160,13 +160,19 @@ OUT=$(run_gen --quiet); RC=$?
 python3 - "$P/config/quality.json" <<'PY'
 import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["budgets"]["snapshot"]=16000; json.dump(d, open(p,"w"))
 PY
-# RED: the reader breaks mid-write → no partial snapshot with fresh hashes is left behind (atomic)
+# RED: a corpus fault surfaces MID-WRITE (the header was already emitted) → no partial snapshot with fresh
+# hashes is left behind (atomic). The fault: a law without its Body: pointer, refused by the one reader.
 run_gen --quiet >/dev/null; BEFORE=$(md5sum "$S" | cut -d' ' -f1)
-mv "$P/scripts/gates" "$P/scripts/gates.off"
+cp "$P/docs/constitution.md" "$SANDBOX/const.bak"; sed -i '/^Body: `rules\/stateless.md`/d' "$P/docs/constitution.md"
 OUT=$(run_gen --quiet); RC=$?
-[ "$RC" -ne 0 ] && [ "$(md5sum "$S" | cut -d' ' -f1)" = "$BEFORE" ] && [ -z "$(ls "$P/.context"/governance_snapshot.md.tmp.* 2>/dev/null)" ] \
-  && pass "RED: reader broken mid-write → non-zero exit, previous snapshot untouched, no temp file left" || fail "partial snapshot or temp file left after a mid-write failure (rc=$RC)"
-mv "$P/scripts/gates.off" "$P/scripts/gates"
+[ "$RC" -eq 2 ] && [ "$(md5sum "$S" | cut -d' ' -f1)" = "$BEFORE" ] && [ -z "$(ls "$P/.context"/governance_snapshot.md.tmp.* 2>/dev/null)" ] \
+  && pass "RED: corpus fault mid-write → exit 2, previous snapshot untouched, no temp file left (atomic)" || fail "partial snapshot or temp file left after a mid-write failure (rc=$RC): $OUT"
+cp "$SANDBOX/const.bak" "$P/docs/constitution.md"
+# RED: corrupt protected-paths.json → exit 2 (protected paths would be silently absent otherwise)
+cp "$P/config/protected-paths.json" "$SANDBOX/pp.bak"; printf '{not json' > "$P/config/protected-paths.json"
+OUT=$(run_gen --quiet); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'not readable JSON' && pass "RED: corrupt protected-paths.json → exit 2 in plain language" || fail "corrupt protected paths not refused (rc=$RC): $OUT"
+cp "$SANDBOX/pp.bak" "$P/config/protected-paths.json"
 
 # idempotency
 run_gen --quiet >/dev/null; A=$(grep -v '^generated_at' "$S")

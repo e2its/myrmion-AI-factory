@@ -11,7 +11,7 @@
   gate.py digest --paths p… [--budget N]           the slice of law governing paths, within budget (bytes)
   gate.py deliver --path p [--session SID] | --hook-json    PreToolUse envelope (additionalContext), deduped per session
   gate.py snapshot-sections [--profile lite|full]  stack config + rules manifest + law index + families (+ bodies)
-  gate.py budget                                   run every producer at worst case; exit 1 on overflow, empty or missing key
+  gate.py budget                                   run every producer at worst case; exit 1 on overflow, dead/absent producer or missing key
   gate.py retired-terms                            the retired-vocabulary ratchet; exit 1 on a hit
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08).
@@ -28,8 +28,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     from gates import budget as budget_mod, corpus, retired  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
-except ImportError as e:  # the package ships next to this file (SETUP --generate / factory-sync)
-    print(f"gate: the scripts/gates package is missing or broken ({e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
+except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
+    print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
     sys.exit(2)
 
 

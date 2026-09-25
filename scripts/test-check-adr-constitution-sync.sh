@@ -23,6 +23,7 @@
 #  10. Constitution edited outside any sentence (preamble, Body pointer) → PASS.
 #  11. A universal sentence in CLAUDE.md § Governance Rules changes, no ADR → FAIL.
 #  12. A sentence changes with an ADR that stays proposed → FAIL.
+#  13. The law reader is broken and a sentence changed → exit 2 (cannot decide ≠ ok).
 #
 # Exit codes:
 #   0 = ok
@@ -275,11 +276,18 @@ run_scenario "scenario 12: sentence changed with an ADR that is only proposed" 1
   git add -A && git commit -q -m "reword PLAW-01 with a proposed ADR"
 '
 
+# ─── Scenario 13: the reader is broken and a sentence changed → exit 2 (a gate that cannot decide never says ok) ───
+run_scenario "scenario 13: broken law reader + sentence change → infrastructure fault, never a pass" 2 bash -c '
+  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./" docs/constitution.md
+  printf "def (broken\n" > scripts/gates/common.py
+  git add -A && git commit -q -m "reword with a broken reader"
+'
+
 echo
 
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
-  echo "L5: ok — gate behaviour verified across 12 scenarios."
+  echo "L5: ok — gate behaviour verified across 13 scenarios."
   exit 0
 else
   echo "L5: FAIL — $failures scenario(s) produced unexpected outcome." >&2

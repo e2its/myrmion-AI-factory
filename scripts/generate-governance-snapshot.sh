@@ -112,7 +112,7 @@ import json, sys
 try:
     p = json.load(open(sys.argv[1]))
 except Exception as e:
-    print(f"> Failed to parse {sys.argv[1]}: {e}"); raise SystemExit(0)
+    print(f"Error: {sys.argv[1]} is not readable JSON ({e}) — protected paths would be absent from every session.", file=sys.stderr); raise SystemExit(2)
 print("### Protected Paths (BLOCKING — ADR required)")
 print("\n".join(f"- {x}" for x in (p.get("paths") or [])) or "> (none)")
 print()
@@ -149,7 +149,7 @@ profile: "${PROFILE}"
 > Source: ${PROTECTED_PATHS}.
 
 EOF
-  render_protected_paths
+  render_protected_paths || exit 2
   cat <<EOF
 
 ## Setup Configuration

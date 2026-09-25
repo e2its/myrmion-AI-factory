@@ -120,7 +120,7 @@ if [ "${1:-}" = "--banner" ]; then
   # Counts derived from the snapshot body — `### [PLAW-NN]` law-index entries and
   # family rows of the Defect Families table (EVOL-043 lite profile). Both are best-effort
   # observational figures; absent values render as 0 without blocking.
-  law_count=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
+  law_count=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT_FILE" 2>/dev/null || true)
   fam_count=$(awk '/^## Defect Families/{f=1; next} f && /^## /{f=0} f && /^\| `/{c++} END{print c+0}' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
 
   if [ "$CONTEXT_LABEL" = "meta" ]; then

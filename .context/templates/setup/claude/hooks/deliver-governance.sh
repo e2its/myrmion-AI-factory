@@ -24,7 +24,7 @@ GATE="$REPO_ROOT/scripts/gate.py"
 command -v python3 >/dev/null 2>&1 || exit 0
 ERR="$(mktemp 2>/dev/null || echo /dev/null)"
 if ! printf '%s' "$INPUT" | python3 "$GATE" --repo "$REPO_ROOT" deliver --hook-json 2>"$ERR"; then
-  REASON="$(head -1 "$ERR" 2>/dev/null)"
+  REASON="$(grep -m1 '^gate:' "$ERR" 2>/dev/null || tail -1 "$ERR" 2>/dev/null)"
   printf '%s' "governance delivery failed: ${REASON:-the reader exited without a message} — law at the point of edit is NOT available; fix config/quality.json (budgets.pre_edit) or re-run SETUP" \
     | python3 -c 'import json,sys; print(json.dumps({"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":sys.stdin.read()}}))'
 fi

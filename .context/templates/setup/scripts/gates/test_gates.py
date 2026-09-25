@@ -232,6 +232,8 @@ class Corpus(unittest.TestCase):
     def test_law_without_pointer_is_refused_and_records_read_after_pointer(self):
         with self.assertRaisesRegex(GateFault, "no `Body:` pointer"):
             corpus.parse_law_list("## Governance Rules\n1. **[LAW-99] X** — S.\n## Y\n")
+        with self.assertRaisesRegex(GateFault, "pre-index law shape"):
+            corpus.parse_law_list("## Governance Rules\n1. **[LAW-99] X**: old shape body.\n## Y\n")
         s, b, r = corpus._entry_from_rest("Sentence mentions Records: nothing. Body: `inline`. Records: `ADR-1`.")
         self.assertEqual((b, r), ("inline", ["ADR-1"]))
         self.assertTrue(s.startswith("Sentence mentions Records: nothing"))
@@ -261,7 +263,7 @@ class Corpus(unittest.TestCase):
 
     def test_rollcall_shape(self):
         text = corpus.rollcall(corpus.applicable(self.repo, {"phase": "QA"}), "qa", "FEAT-1")
-        for needle in ("📋 Applicability Roll-Call — qa · FEAT-1", "ACTIVE LAWS (5)", "ACTIVE DCs", "EXCLUDED (", "Discovery hash:"):
+        for needle in ("📋 Applicability Roll-Call — qa · FEAT-1", "ACTIVE LAWS (5)", "ACTIVE DCs", "UNREADABLE (1)", "broken.md", "EXCLUDED (", "Discovery hash:"):
             self.assertIn(needle, text)
 
     def test_digest_respects_budget_in_bytes(self):
@@ -309,15 +311,17 @@ class Retired(unittest.TestCase):
 
 
 class Budget(unittest.TestCase):
-    def test_missing_key_fails_closed(self):
+    def test_missing_key_is_a_red_verdict_and_corrupt_config_a_fault(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = fixture_repo(Path(tmp))
-            (repo / "config/quality.json").write_text(json.dumps({"budgets": {"session_start": 1}}), encoding="utf-8")
-            with self.assertRaises(GateFault):
-                budget.measure(repo)
             (repo / "config/quality.json").write_text("{}", encoding="utf-8")
+            rows = budget.measure(repo)
+            self.assertTrue(all(not r["ok"] and "missing" in r["fault"] for r in rows.values()), "every missing key is a red row")
             with self.assertRaises(GateFault):
                 key(repo, "budgets", required=True)
+            (repo / "config/quality.json").write_text("{not json", encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "not readable JSON"):
+                budget.measure(repo)
 
     def test_measures_real_producers_and_flags_overflow(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -343,8 +347,15 @@ class Budget(unittest.TestCase):
             self.assertFalse(rows["pre_edit"]["ok"], "an empty pre-edit delivery is a dead producer, never within budget")
             self.assertIn("EMPTY", budget.render(rows))
             write(repo / "scripts/validate-governance.sh", "#!/usr/bin/env bash\necho boom >&2\nexit 1\n")
-            with self.assertRaisesRegex(GateFault, "exited 1: boom"):
-                budget.measure(repo)
+            rows = budget.measure(repo)
+            self.assertFalse(rows["session_start"]["ok"]); self.assertIn("exited 1: boom", rows["session_start"]["fault"])
+            self.assertIn("RED — producer", budget.render(rows))
+            (repo / "scripts/governance-onprompt.sh").unlink()
+            rows = budget.measure(repo)
+            self.assertFalse(rows["prompt_submit"]["ok"]); self.assertIn("producer absent", rows["prompt_submit"]["fault"])
+            (repo / "config/quality.json").write_text(json.dumps({"budgets": {"session_start": 1}}), encoding="utf-8")
+            rows = budget.measure(repo)
+            self.assertFalse(rows["pre_edit"]["ok"]); self.assertIn("key budgets.pre_edit missing", rows["pre_edit"]["fault"])
 
 
 class Cli(unittest.TestCase):
@@ -374,7 +385,14 @@ class Cli(unittest.TestCase):
             self.assertIn("LAW-02\tNever modify protected code.", r.stdout)
             broken = Path(tmp) / "broken"; broken.mkdir(); (broken / "gate.py").write_text(Path(gate).read_text(), encoding="utf-8")
             r = subprocess.run([sys.executable, str(broken / "gate.py"), "--repo", str(repo), "context"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 2); self.assertIn("package is missing", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            self.assertEqual(r.returncode, 2); self.assertIn("package is missing or broken", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            import shutil; shutil.copytree(HERE, broken / "gates", ignore=shutil.ignore_patterns("__pycache__", "test_*"))
+            (broken / "gates" / "common.py").write_text("def (broken syntax\n", encoding="utf-8")
+            r = subprocess.run([sys.executable, str(broken / "gate.py"), "--repo", str(repo), "context"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2); self.assertIn("SyntaxError", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            write(repo / "scripts/validate-governance.sh", "#!/usr/bin/env bash\nexit 3\n")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "budget"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1, "a dead producer is a red verdict, exit 1")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "snapshot-sections"], capture_output=True, text=True, env=env)
             self.assertIn("### [PLAW-01] KISS & DRY", r.stdout)
             self.assertIn("| `runtime` |", r.stdout)
