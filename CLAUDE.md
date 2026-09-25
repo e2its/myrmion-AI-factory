@@ -24,6 +24,8 @@ Any question to the user with alternatives follows RDR ([Factory-rdr/SKILL.md](.
 
 The only legitimate binary question without RDR is **factual** (asking for a datum, not a decision). Decisions need RDR; lookups don't.
 
+**Two registers, in this order (EVOL-050).** Every RDR opens with a **plain-language** section — what is being decided, why now, what each path costs in everyday terms; no jargon, no file paths, no identifiers; in the language of the person deciding — and only then the **technical** section: evidence anchored at source, the adversarial pass, options with pros and cons per axis, the recommendation, the ratification. Both sections name the same options and the same costs; an option or a cost present in one and absent from the other makes the RDR malformed. Applies wherever an RDR is posed: commands, plan-mode decision queues, free-form turns, sub-agents returning open decisions to the main session.
+
 Persistence path is context-specific — see Core Protocols table below.
 
 ## Adversarial Reasoning — MANDATORY

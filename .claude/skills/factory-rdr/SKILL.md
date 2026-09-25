@@ -14,11 +14,26 @@ applicable_when:
 
 ---
 
+## Two Registers (EVOL-050)
+
+The person who decides is not always the person who reads code. Every RDR is written in two registers, **in this order**:
+
+1. **Plain language first.** What is being decided, why it matters now, and what each path costs in everyday terms. No jargon, no file paths, no identifiers, no version numbers. Written in the language of the person deciding (the project language; technical identifiers, when they must appear, stay as they are). One short paragraph, or one line per option.
+2. **Technical second.** Everything Beat 1 requires today: the investigation before recommending (evidence anchored at source — file, line, artefact), the adversarial FOR/AGAINST pass, the options with pros and cons per axis, the recommendation, then Beat 2 and Beat 3 as usual.
+
+**Agreement rule.** The two sections describe the same decision: the same set of options, the same costs, the same recommendation. An option or a cost that appears in one section and not in the other makes the RDR **malformed** — re-pose it; do not let the user decide on a split picture.
+
+**Scope.** Wherever an RDR is posed: commands, plan-mode decision queues, free-form turns, and sub-agents that return open decisions to the main session (the main session re-poses them in both registers; a sub-agent never ratifies).
+
+One extra paragraph per decision costs less than one extra round.
+
+---
+
 ## The Three Beats
 
 ### Beat 1 — Recommendation
 
-The agent presents the decision with:
+The agent presents the decision in the two registers of § Two Registers — the plain-language section first, then the technical section — with:
 
 1. **Question** — unambiguous, single-topic. "What testing framework?" not "How do we handle tests?".
 2. **Recommended option** — ONE option marked as the recommendation, with a one-line justification grounded in: project context (from `setup.md`), governance rules (from `constitution.md` / `.claude/rules/`), prior RDR decisions, or well-established industry defaults.
@@ -133,6 +148,8 @@ If the trigger you face is not listed but meets the core principle (agent needs 
 | Skipped RDR because "obvious" | Bypasses user agency | If ≥2 viable options exist, RDR is mandatory |
 | Options framed only positively (no AGAINST) | User cannot weigh the real tradeoff | Run the [adversarial double pass](../factory-adversarial-reasoning/SKILL.md); each option carries its counter-case |
 | "Registration" used as the third R | Terminology drift | Canonical third beat is **Ratification** (persistence + artifact commit) |
+| Technical-only RDR (no plain-language section, or the technical section comes first) | The person deciding cannot read it; the decision gets posed again | Open with the plain-language section (§ Two Registers), then the technical one |
+| Plain section that contradicts the technical one (an option or a cost in one and not the other) | The user decides on a split picture | Malformed RDR — re-pose with both sections in agreement |
 
 ---
 
@@ -155,8 +172,8 @@ If the trigger you face is not listed but meets the core principle (agent needs 
 CONTEXT BUDGET:
   Per RDR entry in _progress.decisions[]: ~80-150 tokens
   Per inline RDR comment: ~20 tokens
-  Per RDR recommendation block presented to user: ~120-200 tokens (question + 3 options + justifications)
-  Total overhead per decision: <400 tokens
+  Per RDR recommendation block presented to user: ~200-300 tokens (plain-language section + question + 3 options + justifications)
+  Total overhead per decision: <500 tokens
   # Long-term cost is minimal: _progress.decisions[] persists but inline comments are the primary trail.
   # On finalization (status → APPROVED), _progress is cleared; inline comments remain for traceability.
 ```
@@ -172,5 +189,6 @@ This protocol is **MANDATORY** for ALL agents posing decisions to the user. Viol
 - Paraphrasing `user_choice` instead of capturing verbatim → **VIOLATION**
 - Using "Registration" as the third R in agent-facing prose → **VIOLATION** (terminology drift)
 - Bypassing RDR because "the answer is obvious" when ≥2 viable options exist → **VIOLATION**
+- Posing an RDR in the technical register only, or with a plain-language section that disagrees with the technical one → **VIOLATION** (§ Two Registers)
 
 Enforcement is currently **prompt-level** (agents self-comply by reading this skill). A future deterministic gate may inspect `_progress.decisions[]` for malformed entries post-command.
