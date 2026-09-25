@@ -1,4 +1,4 @@
-# Framework evolution 2026-09 — release record (6.1.0 → 8.2.0)
+# Framework evolution 2026-09 — release record (6.1.0 → 8.3.0)
 
 > Epic #50. Ten axes transferred from a materialised project (the reference implementation, **MASS**) into the framework on three surfaces: the meta repo's own behaviour, the `.context/templates/setup/**` tree that `SETUP --generate` materialises, and the SETUP discovery questions where a threshold must be a project decision. Every axis shipped as one pull request with its ADR (`docs/project_log/evolutions/ADR-EVOL-0NN.md`, `status: accepted`), its manifest bump, both lock-step sides, its red-first tests and a review pass by four read-only reviewers whose findings were fixed at the root. This record is the index; each ADR is the body.
 
@@ -17,6 +17,8 @@
 | E — Role agents + read-only critics | #58 | ADR-EVOL-049 | #75 | **8.0.0** | The roster on two axes, the harness tool matrix as the read-only guarantee, model families as aliases with a spawn hook, a corpus digest per spawn, the bounded loop ending in the user's adjudication; the hats retired. |
 | J — One full verification loop per change | #60 | ADR-EVOL-051 | #76 | 8.1.0 | Static round → critics → artefacts → one loop → commit; a content-addressed seal the push honours; one definition of documentation; the planning digests judged before the critics. |
 | K — Test-case traceability | #65 | ADR-EVOL-053 | #77 | 8.2.0 | One machine-readable home for the case → test link (the pytest marker from the syntax tree, the title tag, `@DisplayName`, a custom pattern), strict `FEATURE/CASE` ids at collection and at the push, case → test never test → case, a shrink-only baseline, QA consuming the gate. |
+
+| L — Server-side branch protection per SCM platform (follow-up of the epic) | #79 | ADR-EVOL-054 | #80 | 8.3.0 | The SCM host as a SETUP answer (Q21.2), one runbook per platform materialised at `docs/scm/protection.md`, one reader (`gate.py scm-protection`, a profile member at `ci`) that verifies the protection through the platform's API with a read-only token — RED on a missing setting, n/a with the checklist without a token, a fault on an API error — and the CI templates exporting the runner's token; the rule names its server side. |
 
 Also in the window: EVOL-052 (#62, PO package, 6.1.0) preceded the epic; EVOL-041 journey-first (5.x) is the base.
 
