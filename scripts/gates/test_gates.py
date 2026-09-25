@@ -1211,6 +1211,7 @@ class Seal(unittest.TestCase):
         write(repo / "src/app.py", "print(1)\n"); write(repo / "tests/test_app.py", "def test_a(): pass\n"); write(repo / "docs/site/index.md", "# site\n")
         write(repo / ".gitignore", ".claude/state/\n")   # as the template ships it; the seal is never part of the tree it seals either way
         self._commit(repo, "base")
+        subprocess.run(["git", "-C", str(repo), "branch", "-M", "main"], check=True, capture_output=True)   # the base is `main` whatever init.defaultBranch says (CI runners default to master)
         subprocess.run(["git", "-C", str(repo), "checkout", "-qb", "feature/FEAT-001-x"], check=True, capture_output=True)
         return repo
 
@@ -1391,6 +1392,7 @@ class Digests(unittest.TestCase):
         write(repo / ".github/workflows/ci.yml", "on: push\n")
         subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
         subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "branch", "-M", "main"], check=True, capture_output=True)
         subprocess.run(["git", "-C", str(repo), "checkout", "-qb", "feature/FEAT-001-x"], check=True, capture_output=True)
         return repo
 
