@@ -8,7 +8,7 @@ applicable_when:
 # BLUEPRINT Agent — Validation, Commands & Cross-Agent Workflows
 
 ## Purpose
-This instruction file defines the **Phase 3 Governance Validation**, remaining commands (`--refine`, `--approve`, `--adr`, `--review-conflict`), templates, and cross-agent workflows for the BLUEPRINT agent (🏗️ ARCH Hat + 🧪 QA Hat).
+This instruction file defines the **Phase 3 Governance Validation**, remaining commands (`--refine`, `--approve`, `--adr`, `--review-conflict`), templates, and cross-agent workflows for the phase agent `factory-blueprint` — ONE context, both concerns (🏗️ ARCH, 🧪 QA), no persona switch.
 
 ---
 
@@ -106,13 +106,13 @@ FUNCTION blueprint_coherence_gate(FEATURE_ID):
 # Step 4: CIP Artifact Re-Check (CONDITIONAL — if new artifacts detected):
 #         CALL cip_refine_artifact_recheck(refine_changes, FEATURE_ID)
 # Step 5: Endpoint Rescan Gate (if new endpoints)
-# Step 6: Apply changes (ARCH hat for design.md, QA hat for test_plan.md)
+# Step 6: Apply changes (ARCH concern for design.md, QA concern for test_plan.md)
 # Step 7: Changelog append + CASCADE_PENDING_ITERATION
 ```
 
 ### Feedback Integration
 - Classify feedback: affects design only, tests only, or both
-- Route to appropriate hat(s) for processing
+- Route to the concern(s) it touches — same context, no persona switch
 
 ### Immutability Guard for test_plan.md
 - If test_plan.md has sections marked as frozen: do NOT modify them
@@ -190,7 +190,7 @@ FUNCTION endpoint_rescan_gate(refine_changes, FEATURE_ID):
 ### Re-Evaluation
 - **Architecture-only**: 🏗️ ARCH updates design.md sections, re-validates contracts
 - **Testing-only**: 🧪 QA updates test_plan.md, re-validates coverage
-- **Mixed**: Both hats update their respective artifacts
+- **Mixed**: both concerns, each on its artifact
 
 ### Traceability Update (10-Step Governance Update Protocol)
 1. Read current design.md + test_plan.md frontmatter
@@ -289,7 +289,11 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, new_iteration, affected_sections)
 
 ## Command: `--approve {{ID}}`
 
-### Scope Context Loading (runs FIRST)
+### Step 0: Plan Gate (before any validation)
+
+Run `Factory-blueprint-design.instructions.md § Plan Gate` — the plan critic `factory-plan-critic` on `increment_plan.md` + `design.md`, at most `rules/agents.md → agents.rounds.plan_gate` rounds; what stays open the user adjudicates by RDR. Validation below starts only on that adjudication.
+
+### Scope Context Loading (runs FIRST after the Plan Gate)
 
 ```yaml
 feature_scope = READ("docs/spec/{ID}/spec.feature").frontmatter.scope OR "full-stack"  # default when legacy artefact
@@ -302,7 +306,7 @@ The Part 1-4 checks below are gated by these flags. Checks whose applicability m
 
 ### 4-Part Validation (scope-aware)
 
-**Part 1: ARCH Design Validation (🏗️ hat)**
+**Part 1: ARCH Design Validation (🏗️ ARCH concern)**
 - All design.md sections complete (no TODO/TBD)
 - Contract files valid (Phase 3.1 passed) — **ELEVATED** when `has_ui == false`: contract completeness is the primary design output for backend-only/integration features; BLOCK if any contract file is missing, incomplete, or declared without `x-feature-id` metadata
 - No endpoint collisions (Phase 3.2 passed)
@@ -313,7 +317,7 @@ The Part 1-4 checks below are gated by these flags. Checks whose applicability m
 - Infrastructure Needs declared (Section 5)
 - Extension Strategy documented (if brownfield)
 
-**Part 2: QA Test Plan Validation (🧪 hat)**
+**Part 2: QA Test Plan Validation (🧪 QA concern)**
 - All scenarios covered by test cases
 - Edge cases documented
 - Security test cases present
@@ -322,7 +326,7 @@ The Part 1-4 checks below are gated by these flags. Checks whose applicability m
 - Accessibility tests present (WCAG 2.1 AA) — **applicable_when `has_ui == true`**; N/A for backend-only/integration
 - Visual-consistency tests (BRAND-*, LAYOUT-*, UX-*) — **applicable_when `has_ui == true`**; N/A for backend-only/integration (no visual surface to verify)
 
-**Part 3: Cross-Validation (Both hats)**
+**Part 3: Cross-Validation (both concerns)**
 - Every contract endpoint has ≥1 test case (applies to ALL scopes — universal)
 - Every error in design.md has test scenario (applies to ALL scopes — universal)
 - Test preconditions match design constraints (applies to ALL scopes — universal)
@@ -466,7 +470,7 @@ PROPOSED | ACCEPTED | DEPRECATED | SUPERSEDED
 ## Command: `--review-conflict {{ID}}`
 
 ### Trigger
-- Escalation after 3 IMPLEMENT rejections for the same section
+- The user routes an increment here after the one work round (`rules/agents.md → agents.rounds.work`) left a finding open that the plan caused — never a counter, never automatic
 - the work critics cannot resolve a disagreement with the worker
 
 ### Process

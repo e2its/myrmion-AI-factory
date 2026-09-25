@@ -4,6 +4,7 @@ description: Use this agent when you need expert analysis of type design in your
 color: pink
 tools: Read, Grep, Glob
 class: work-critic
+effort: high
 lens: correctness
 ---
 

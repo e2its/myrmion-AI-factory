@@ -2,7 +2,7 @@
 
 > **One planning stage (EVOL-048).** This command owns a planning phase — the implementation plan (`--plan` → dev_plan.md) — so it **never enters the harness's plan mode** (`EnterPlanMode`): a second approval would appear to cover decisions the user never made. Its own RDRs and approval steps are the one stage; the pre-write gate (`gate.py plan`) treats its branch class as planned by this phase.
 
-You are the **orchestrating phase agent** (`factory-implement`) that owns the complete implementation lifecycle. You spawn by name (`rules/agents.md`):
+This command delegates by name to the phase agent `factory-implement` (`.claude/agents/factory-implement.md`; `spawn-policy: phase` — the main session spawns it on the writer family, `python3 scripts/gate.py agents --resolve --class phase`, and hands it its corpus digest) for the plan and the increment bookkeeping. The build loop runs in the **main session** — no agent carries `Agent`, a subagent does not nest — which spawns by name (`rules/agents.md`):
 - **the workers** (`factory-dev-backend` / `-frontend` / `-platform` / `-e2e`): pragmatic, TDD-first. Write code per surface.
 - **the work critics** (`factory-critic-correctness` / `-governance` / `-fidelity`): read-only, pedantic governance guardians. Verify code quality, architecture compliance, and standards — they did not write the code.
 - **the security lens** (`factory-critic-security`): read-only, paranoid, Zero Trust. Scans for vulnerabilities, enforces security policies.

@@ -8,7 +8,7 @@ applicable_when:
 # CODESIGN Agent — Level 1: Global Vision Protocol
 
 ## Purpose
-This instruction file defines the **Global UX Vision** protocols for the CODESIGN agent (🎩 PO Hat + 🎨 UX Hat). Vision is the first visual layer: before any feature is co-created, the application needs a unified visual identity.
+This instruction file defines the **Global UX Vision** protocols for the phase agent `factory-codesign` — ONE context, both concerns (🎩 PO, 🎨 UX), no persona switch. Vision is the first visual layer: before any feature is co-created, the application needs a unified visual identity.
 
 **Vision artifacts** live in `docs/ux/vision/` and define the global visual contract that ALL frontend implementation MUST follow.
 
@@ -262,19 +262,19 @@ Framework-aware, architecture-agnostic detection of existing layout in codebase.
 
 ### Vision Phases (V.1-V.7)
 
-#### Phase V.1: Business Context + Input Ingestion (🎩 PO hat) — BIP Harvest
+#### Phase V.1: Business Context + Input Ingestion (🎩 PO concern) — BIP Harvest
 - Read `docs/setup.md` for project context (industry, target users, brand info)
 - Load available inputs per detected MODE
 - Extract color palette, typography, component inventory from available sources
 - If FROM_SCRATCH: Generate a **BIP Decision Batch** with all foundational visual decisions (industry feel, density preference, color mood, spacing rhythm, icon library) + Conditional Navigation Matrix. Mark pivotal questions (`pivotal: true`). Write to `docs/.bip/UX-VISION_tier_visual_dna.md`. Return to Factory for RDR mediation. Factory presents each visual decision to the user one-by-one via RDR.
 
-#### Phase V.2: App Shell (🎨 UX hat)
+#### Phase V.2: App Shell (🎨 UX concern)
 - Generate `app_shell.html` — the base visual skeleton
 - Define: header (logo, nav, user menu), sidebar (if applicable), main content area, footer
 - Responsive breakpoints (mobile-first)
 - Apply Directives D0-D9 to shell
 
-#### Phase V.3: Style Guide (🎨 UX hat)
+#### Phase V.3: Style Guide (🎨 UX concern)
 - Generate `style_guide.html` — interactive token reference
 - Sections: Colors (palette + semantic), Typography (scale + samples), Spacing (scale + examples), Borders, Shadows, Icons
 - Each token has: name, CSS variable, visual sample, usage notes
@@ -289,7 +289,7 @@ Framework-aware, architecture-agnostic detection of existing layout in codebase.
 - Optional: Error page, Empty state, Loading skeleton
 - Templates inherit app_shell structure
 
-#### Phase V.5: Component Library (🎨 UX hat)
+#### Phase V.5: Component Library (🎨 UX concern)
 - Generate `component_library.html` — reusable base components
 - MUST include: Button (variants), Input (types), Card, Modal, Table, Badge/Tag, Alert/Toast, Dropdown/Select
 - Each component: default + hover + active + disabled states
@@ -297,13 +297,13 @@ Framework-aware, architecture-agnostic detection of existing layout in codebase.
 - **Anchor (MANDATORY):** each component = ONE top-level `<section id="{slug}" data-component="{Name}" data-group="{Group}">`. `id` = lowercase slug, unique in the file. Nested `<section>` allowed inside. No anchor ⇒ invisible to the registry ⇒ no build work planned.
 - Then write/refresh `docs/ux/component-registry.json` (§ Component Registry)
 
-#### Phase V.6: Navigation Map (🎩 PO hat)
+#### Phase V.6: Navigation Map (🎩 PO concern)
 - Generate `navigation_map.md` — application navigation structure
 - Map pages/sections with links between them
 - Define primary nav, secondary nav, breadcrumbs strategy
 - Must have ≥3 pages/sections
 
-#### Phase V.7: WCAG Convergence (Both hats)
+#### Phase V.7: WCAG Convergence (both concerns)
 - Validate ALL vision artifacts against WCAG 2.1 AA
 - Color contrast verification (4.5:1 text, 3:1 UI)
 - Touch target sizes (≥44px)

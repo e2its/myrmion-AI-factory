@@ -3,16 +3,24 @@
 
 policy     `rules/agents.md` frontmatter (classes: tools must/never, budget_bytes, family, effort; tiers; resolve rows;
            ladder; rounds; roster; spawn_sites) + `config/quality.json → agents.families` (the project's two aliases).
-validate   roster parity (every roster name has a definition, every definition is in the roster, every delivered
-           definition has its manifest entry); tools per class (must present, never absent — the harness matrix);
-           model never written into a definition (it is passed per spawn); effort present; prompt bytes ≤ budget;
-           every `rules/x.md` / repo pointer in a body resolves; critic family ≠ writer family; the ladder keyed by
-           families and never reaching a writer class; every spawn site declares a policy that exists and every
-           policy has a site (both directions).
-resolve    per-spawn model alias + effort from class × surface × tier × round — first matching row, class default.
-fallback   the next rung for a resolved family; refused for a writer class (an agent that writes never degrades).
-digest     the slice of law governing the agent's surface, within its class budget (corpus.digest).
-check      a worker return without its governance block, a critic finding without a probe: refused.
+validate   roster parity (every roster name has a definition, every definition is in the roster and is named by its
+           file, every delivered definition has its manifest entry); the roster class is the class (a definition that
+           says otherwise is red); tools per class — a writer class must carry its must-list and never its never-list,
+           a critic class carries ONLY its must-list (allowlist: no `mcp__*`, no permission-pattern spelling, no case
+           variant slips through); model never written into a definition (it is passed per spawn); effort present;
+           prompt bytes ≤ budget; every `rules/x.md` / repo pointer in a body resolves; the class families are the two
+           aliases and a class that writes is a writer; critic alias ≠ writer alias (no placeholder, no `inherit`);
+           the ladder keyed by families and never reaching a writer class; resolve rows name known classes and tiers
+           and never restate a class default; every spawn site declares its policy and every class has a site (both
+           directions); the vendored engine lenses (prompts run by a rostered critic) carry no write tool.
+resolve    per-spawn model alias + effort from class × surface × tier × round — first matching row, class default;
+           a round over the class cap is refused; a size nobody measured (0 files, 0 lines) is `unknown`, never small.
+fallback   the next rung for a resolved family; refused for a writer class (an agent that writes never degrades);
+           a critic landing on the writer's family says so (`separation: false`) — the call site surfaces it.
+digest     the slice of law governing the agent's surface (its roster globs expanded over the tracked tree, always-on
+           rules included — the agent gets no snapshot), within its class budget (corpus.digest).
+spawn      the model passed at a spawn of a roster agent is its class family's alias — the PreToolUse hook's question.
+check      a worker return without its governance block, a critic finding without a real probe: refused.
 """
 from __future__ import annotations
 
@@ -20,15 +28,29 @@ import re
 from pathlib import Path
 
 from . import corpus
-from .common import GateFault, key, read_frontmatter, resolve_pointer, rules_root
+from .common import GateFault, any_glob, key, read_frontmatter, resolve_pointer, rules_root, tracked_files
 
 AGENTS_DIR = ".claude/agents"
-TEMPLATE_AGENTS = ".context/templates/setup/claude/agents"
+ENGINE_AGENTS = ".claude/skills/factory-code-review/agents"   # vendored lenses: prompts for a rostered critic, never spawned as themselves
 POLICY_RULE = "agents.md"
-WRITE_TOOLS = {"Edit", "Write", "NotebookEdit", "Bash", "Agent"}
+WRITE_TOOLS = {"edit", "write", "notebookedit", "multiedit", "bash", "agent", "task"}
+EFFORTS = ("low", "medium", "high", "max")
+CAPS = {"plan-critic": "plan_gate", "work-critic": "work"}   # class → rounds key
 POINTER = re.compile(r"`((?:rules/|\.claude/|scripts/|\.context/)[\w./-]+\.(?:md|py|sh))`")
 GOV_BLOCK = ("Rules read:", "Laws applied:", "Defect classes:", "Sources:")
-FINDING = re.compile(r"^\S+:\d+\s*·\s*(🔴|🟡|🟢|❓)\s*·\s*confidence\s*\d+%\s*·\s*probe:\s*\S", re.M)
+SEVERITY = re.compile(r"[🔴🟡🟢❓]")
+FINDING = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?P<loc>[^\s*`]+:\d+)(?:\*\*)?\s*·\s*(?P<sev>🔴|🟡|🟢|❓)\s*·\s*confidence\s*\d+%\s*·\s*probe:\s*(?P<probe>.+?)\s*$")
+TRIVIAL_PROBE = re.compile(r"^(?:n/?a|none|nil|-+|—|tbd|todo|\?+|\.+)$", re.I)
+NO_FINDINGS = re.compile(r"^\s*(?:[-*]\s+)?no findings\.?\s*$", re.I | re.M)
+
+
+def _norm(tool) -> str:
+    """`Bash(git diff:*)` → `bash`; `Write(*)` → `write`; case folded. The harness matrix compares names, not spellings."""
+    return str(tool).split("(")[0].strip().lower()
+
+
+def _alias(v) -> str:
+    return re.sub(r"\[\d+m", "", str(v)).strip().lower()
 
 
 def policy(repo: Path) -> dict:
@@ -40,6 +62,8 @@ def policy(repo: Path) -> dict:
     if not isinstance(a, dict) or not isinstance(a.get("classes"), dict) or not a["classes"]:
         raise GateFault(f"{p.relative_to(repo)} carries no `agents.classes` block")
     for name, c in a["classes"].items():
+        if not isinstance(c, dict):
+            raise GateFault(f"agents.classes.{name} is not a mapping")
         for k in ("family", "effort", "budget_bytes", "tools"):
             if k not in c:
                 raise GateFault(f"agents.classes.{name} lacks `{k}`")
@@ -56,23 +80,98 @@ def policy(repo: Path) -> dict:
 
 def roster_files(repo: Path) -> dict[str, Path]:
     d = repo / AGENTS_DIR
-    if not d.is_dir():
-        d = repo / TEMPLATE_AGENTS
     return {p.stem: p for p in sorted(d.glob("*.md"))} if d.is_dir() else {}
 
 
-def _tools(fm: dict) -> set[str]:
+def _tools(fm: dict) -> dict[str, str]:
+    """normalised name → the spelling the definition used."""
     t = fm.get("tools", [])
     if isinstance(t, str):
         t = [x.strip() for x in t.split(",") if x.strip()]
-    return set(str(x) for x in t)
+    return {_norm(x): str(x).strip() for x in t if _norm(x)}
+
+
+def _class_writes(c: dict) -> bool:
+    return bool({_norm(t) for t in c["tools"]["must"]} & WRITE_TOOLS)
+
+
+def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, roster_class: str | None = None) -> None:
+    """One definition against its class: name = file, description, class agreement, the tool matrix, no model, effort,
+    budget, pointers. Appends findings."""
+    rel = str(p.relative_to(repo))
+    try:
+        fm = read_frontmatter(p)
+    except GateFault as e:
+        f.append({"path": rel, "reason": f"unreadable frontmatter: {e}"}); return
+    def fv(k: str) -> str:   # a key present with no value (`description:`) is empty, never the string `None`
+        v = fm.get(k)
+        return "" if v is None else str(v).strip()
+    if fv("name") != p.stem:
+        f.append({"path": rel, "reason": f"`name: {fv('name') or '(none)'}` is not the file name `{p.stem}` — the harness registers by `name`, the roster and every spawn use the file name"})
+    if not fv("description"):
+        f.append({"path": rel, "reason": "no `description` — the harness lists an agent by it"})
+    if roster_class is not None and fv("class") != roster_class:
+        f.append({"path": rel, "reason": f"`class: {fv('class') or '(none)'}` — the roster says `{roster_class}`; the roster is the class, a definition never promotes itself"})
+    tools = _tools(fm)
+    must = {_norm(t): str(t) for t in c["tools"]["must"]}
+    never = {_norm(t) for t in c["tools"]["never"]}
+    missing = [must[t] for t in must if t not in tools]
+    if missing:
+        f.append({"path": rel, "reason": f"class `{cls}` must have {', '.join(missing)} — the harness matrix is the guarantee, not the prompt"})
+    if _class_writes(c):
+        forbidden = [tools[t] for t in tools if t in never]
+        if forbidden:
+            f.append({"path": rel, "reason": f"class `{cls}` must never have {', '.join(forbidden)}"})
+    else:   # a critic class is an allowlist: only its must-list, whatever the spelling
+        extra = [tools[t] for t in tools if t not in must]
+        if extra:
+            f.append({"path": rel, "reason": f"class `{cls}` carries only {', '.join(must.values())} — {', '.join(extra)} is not read-only (a write tool, an `mcp__*` mutator or a permission-pattern spelling of one)"})
+    if fm.get("model"):
+        f.append({"path": rel, "reason": "`model` written into the definition — the model is computed per spawn (gate.py agents --resolve) and passed at the call; aliases live in config, never here"})
+    eff = fv("effort").lower()
+    if eff not in EFFORTS:
+        f.append({"path": rel, "reason": f"`effort: {eff or '(none)'}` — every definition declares one of {', '.join(EFFORTS)} (the harness default; the resolver's effort overrides it per spawn)"})
+    text = p.read_text(encoding="utf-8", errors="replace")
+    size = len(text.encode("utf-8"))
+    if size > int(c["budget_bytes"]):
+        f.append({"path": rel, "reason": f"prompt is {size} B, over the class budget {c['budget_bytes']} B (agents.classes.{cls}.budget_bytes)"})
+    for ptr in set(POINTER.findall(text)):
+        target = resolve_pointer(repo, ptr) if ptr.startswith("rules/") else repo / ptr
+        if target is not None and not target.exists():
+            f.append({"path": rel, "reason": f"pointer `{ptr}` resolves to nothing"})
 
 
 def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
     pol = policy(repo)
     f: list[dict] = []
+    rule = pol["_path"]
+    families = pol["families"]
+    # the two aliases: real, distinct, never a placeholder or the parent's model
+    for role in ("writer", "critic"):
+        v = families[role]
+        if "{{" in v or _alias(v) in ("", "inherit", "default", "none"):
+            f.append({"path": "config/quality.json", "reason": f"agents.families.{role} is `{v}` — a harness alias chosen at SETUP (Q34), never a placeholder or `inherit` (the parent's model = the writer's)"})
+    if _alias(families["writer"]) == _alias(families["critic"]):
+        f.append({"path": "config/quality.json", "reason": f"agents.families: writer and critic resolve to the same alias `{families['writer']}` — a critic on the author's family inherits the author's blind spots; the separation is the invariant"})
+    # classes: a known family, and the family a class's tools imply
+    for name, c in pol["classes"].items():
+        if c["family"] not in families:
+            f.append({"path": rule, "reason": f"agents.classes.{name}.family `{c['family']}` is not one of {', '.join(sorted(families))}"})
+        elif _class_writes(c) and c["family"] != "writer":
+            f.append({"path": rule, "reason": f"agents.classes.{name} carries a write tool in `must` and is family `{c['family']}` — a class that writes is a writer"})
+        elif not _class_writes(c) and c["family"] != "critic":
+            f.append({"path": rule, "reason": f"agents.classes.{name} carries no write tool and is family `{c['family']}` — a read-only class is a critic"})
+        if str(c["effort"]).lower() not in EFFORTS:
+            f.append({"path": rule, "reason": f"agents.classes.{name}.effort `{c['effort']}` is not one of {', '.join(EFFORTS)}"})
+    for k in ("plan_gate", "work"):
+        if not str(pol["rounds"].get(k, "")).isdigit() or int(pol["rounds"][k]) < 1:
+            f.append({"path": rule, "reason": f"agents.rounds.{k} must be a positive integer — the loop's cap is a key"})
+    # roster ↔ definitions ↔ manifest
     files = roster_files(repo)
     roster = {r["name"]: r for r in pol["roster"] if isinstance(r, dict) and r.get("name")}
+    for name, r in roster.items():
+        if r.get("class") not in pol["classes"]:
+            f.append({"path": rule, "reason": f"roster entry `{name}` has class `{r.get('class', '(none)')}`, not one of {', '.join(pol['classes'])}"})
     for name in sorted(set(roster) - set(files)):
         f.append({"path": f"{AGENTS_DIR}/{name}.md", "reason": "in the roster but no agent definition exists"})
     for name in sorted(set(files) - set(roster)):
@@ -82,52 +181,57 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
         for name in files:
             if f"claude/agents/{name}.md" not in tmpl:
                 f.append({"path": str(files[name].relative_to(repo)), "reason": "no manifest entry (templates → claude/agents/<name>.md) — the definition would not be delivered"})
-    families = pol["families"]
-    if families["writer"] == families["critic"]:
-        f.append({"path": "config/quality.json", "reason": f"agents.families: writer and critic resolve to the same alias `{families['writer']}` — a critic on the author's family inherits the author's blind spots; the separation is the invariant"})
     for name, p in files.items():
-        rel = str(p.relative_to(repo))
-        try:
-            fm = read_frontmatter(p)
-        except GateFault as e:
-            f.append({"path": rel, "reason": f"unreadable frontmatter: {e}"}); continue
-        cls = str(fm.get("class") or roster.get(name, {}).get("class") or "")
+        cls = str(roster.get(name, {}).get("class") or "")
         c = pol["classes"].get(cls)
         if not c:
-            f.append({"path": rel, "reason": f"class `{cls or '(none)'}` is not one of {', '.join(pol['classes'])}"}); continue
-        tools = _tools(fm)
-        missing = [t for t in c["tools"]["must"] if t not in tools]
-        forbidden = [t for t in c["tools"]["never"] if t in tools]
-        if missing:
-            f.append({"path": rel, "reason": f"class `{cls}` must have {', '.join(missing)} — the harness matrix is the guarantee, not the prompt"})
-        if forbidden:
-            f.append({"path": rel, "reason": f"class `{cls}` must never have {', '.join(forbidden)} — a critic that can write is not read-only"})
-        if "critic" in cls and (tools & WRITE_TOOLS):
-            f.append({"path": rel, "reason": f"a critic lists a write tool ({', '.join(sorted(tools & WRITE_TOOLS))}) — read-only is a tool-matrix guarantee"})
-        if fm.get("model"):
-            f.append({"path": rel, "reason": "`model` written into the definition — the model is computed per spawn (gate.py agents --resolve) and passed at the call; aliases live in config, never here"})
-        if not fm.get("effort"):
-            f.append({"path": rel, "reason": "no `effort` — every definition declares the effort its class resolves to"})
-        text = p.read_text(encoding="utf-8", errors="replace")
-        size = len(text.encode("utf-8"))
-        if size > int(c["budget_bytes"]):
-            f.append({"path": rel, "reason": f"prompt is {size} B, over the class budget {c['budget_bytes']} B (agents.classes.{cls}.budget_bytes)"})
-        for ptr in set(POINTER.findall(text)):
-            target = resolve_pointer(repo, ptr) if ptr.startswith("rules/") else repo / ptr
-            if target is not None and not target.exists():
-                f.append({"path": rel, "reason": f"pointer `{ptr}` resolves to nothing"})
+            if name in roster:
+                continue   # already red above
+            try:
+                cls = str(read_frontmatter(p).get("class") or "")
+            except GateFault:
+                cls = ""
+            c = pol["classes"].get(cls)
+            if not c:
+                continue
+            _check_definition(repo, p, cls, c, f); continue
+        _check_definition(repo, p, cls, c, f, roster_class=cls)
+    # vendored engine lenses: prompts a rostered critic runs — their frontmatter may not lie about the matrix
+    eng = repo / ENGINE_AGENTS
+    for p in (sorted(eng.glob("*.md")) if eng.is_dir() else []):
+        try:
+            cls = str(read_frontmatter(p).get("class") or "")
+        except GateFault as e:
+            f.append({"path": str(p.relative_to(repo)), "reason": f"unreadable frontmatter: {e}"}); continue
+        c = pol["classes"].get(cls)
+        if not c or _class_writes(c):
+            f.append({"path": str(p.relative_to(repo)), "reason": f"vendored lens declares class `{cls or '(none)'}` — a vendored lens is a prompt for a read-only critic class"}); continue
+        _check_definition(repo, p, cls, c, f)
     # the ladder is keyed by families and never lands on a writer class
     fams = set(families)
     for k, rungs in (pol["ladder"] or {}).items():
         if k not in fams:
-            f.append({"path": pol["_path"], "reason": f"ladder key `{k}` is not a family ({', '.join(sorted(fams))}) — the ladder is keyed by the resolved family"})
+            f.append({"path": rule, "reason": f"ladder key `{k}` is not a family ({', '.join(sorted(fams))}) — the ladder is keyed by the resolved family"})
         for r in (rungs or []):
             if r not in fams:
-                f.append({"path": pol["_path"], "reason": f"ladder rung `{r}` under `{k}` is not a family"})
+                f.append({"path": rule, "reason": f"ladder rung `{r}` under `{k}` is not a family"})
     writer_classes = {n for n, c in pol["classes"].items() if c["family"] == "writer"}
     for n in writer_classes:
         if (pol["ladder"] or {}).get("writer"):
-            f.append({"path": pol["_path"], "reason": f"ladder.writer is not empty — an agent that writes (class `{n}`) never degrades"}); break
+            f.append({"path": rule, "reason": f"ladder.writer is not empty — an agent that writes (class `{n}`) never degrades"}); break
+    # resolve rows: known class and tier, a real effort, never a restated default
+    tiers = set(pol["tiers"] or {}) | {"medium"}
+    for row in pol["resolve"]:
+        if not isinstance(row, dict) or row.get("class") not in pol["classes"]:
+            f.append({"path": rule, "reason": f"resolve row {row} names no known class — dead data"}); continue
+        if row.get("tier") and str(row["tier"]) not in tiers:
+            f.append({"path": rule, "reason": f"resolve row {row}: tier `{row['tier']}` is not one of {', '.join(sorted(tiers))}"})
+        if str(row.get("effort", "")).lower() not in EFFORTS:
+            f.append({"path": rule, "reason": f"resolve row {row}: effort `{row.get('effort', '(none)')}` is not one of {', '.join(EFFORTS)}"})
+        elif str(row["effort"]).lower() == str(pol["classes"][row["class"]]["effort"]).lower():
+            f.append({"path": rule, "reason": f"resolve row {row} restates the class default `{row['effort']}` — a row that changes nothing is dead data"})
+        if "round" in row and (not str(row["round"]).isdigit() or int(row["round"]) < 1):
+            f.append({"path": rule, "reason": f"resolve row {row}: round must be a positive integer"})
     # spawn sites ↔ policies, both directions
     sites = [s for s in pol["spawn_sites"] if isinstance(s, dict)]
     for s in sites:
@@ -141,12 +245,15 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
                 f.append({"path": str(s["path"]), "reason": f"spawn site does not declare `spawn-policy: {s['policy']}` in its text — a site that spawns says which policy it follows"})
     declared = {s.get("policy") for s in sites}
     for cls in pol["classes"]:
-        if cls not in declared and cls != "phase":
-            f.append({"path": pol["_path"], "reason": f"class `{cls}` has no spawn site (spawn_sites) — a policy nobody spawns is dead data"})
+        if cls not in declared:
+            f.append({"path": rule, "reason": f"class `{cls}` has no spawn site (spawn_sites) — a policy nobody spawns is dead data"})
     return f
 
 
 def tier(pol: dict, files: int, lines: int) -> str:
+    """small | medium | large from the tiers keys; `unknown` when nobody measured (0 files, 0 lines) — never small by default."""
+    if files <= 0 and lines <= 0:
+        return "unknown"
     tiers = pol.get("tiers") or {}
     small = tiers.get("small", {}); large = tiers.get("large", {})
     if files <= int(small.get("files", 5)) and lines <= int(small.get("lines", 150)):
@@ -161,20 +268,23 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
     c = pol["classes"].get(cls)
     if not c:
         raise GateFault(f"class `{cls}` is not one of {', '.join(pol['classes'])}")
+    cap = pol["rounds"].get(CAPS.get(cls, ""))
+    if cap is not None and int(round_) > int(cap):
+        return {"ok": False, "class": cls, "round": round_, "reason": f"round {round_} is over the cap {cap} (agents.rounds.{CAPS[cls]}) — the loop ends in the user's adjudication, never in another round"}
     t = tier(pol, files, lines)
     effort = c["effort"]; matched = "class default"
     for row in pol["resolve"]:
         if not isinstance(row, dict) or row.get("class") != cls:
             continue
-        if row.get("surface") and row["surface"] != surface:
+        if row.get("surface") and str(row["surface"]).lower() != str(surface).lower():
             continue
-        if row.get("tier") and row["tier"] != t:
+        if row.get("tier") and (t == "unknown" or str(row["tier"]) != t):
             continue
-        if row.get("round") and int(row["round"]) > round_:
+        if row.get("round") and int(row["round"]) > int(round_):   # a round row matches its round and every later one
             continue
-        effort = row.get("effort", effort); matched = str({k: v for k, v in row.items() if k != "class"}); break
+        effort = row.get("effort", effort); matched = ", ".join(f"{k}: {v}" for k, v in row.items() if k != "class"); break
     fam = c["family"]
-    return {"class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched}
+    return {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched}
 
 
 def fallback(repo: Path, cls: str, family: str) -> dict:
@@ -184,11 +294,17 @@ def fallback(repo: Path, cls: str, family: str) -> dict:
         raise GateFault(f"class `{cls}` is not one of {', '.join(pol['classes'])}")
     if c["family"] == "writer":
         return {"ok": False, "reason": f"class `{cls}` writes — an agent that writes never degrades; retry the spawn or surface the provider error"}
+    if family not in pol["families"]:
+        return {"ok": False, "reason": f"`{family}` is not a family ({', '.join(sorted(pol['families']))}) — pass the family the spawn resolved to"}
     rungs = (pol["ladder"] or {}).get(family) or []
     if not rungs:
         return {"ok": False, "reason": f"no rung below family `{family}` — surface the provider error"}
     nxt = rungs[0]
-    return {"ok": True, "family": nxt, "model": pol["families"][nxt], "reason": f"provider error on `{family}` ({pol['families'][family]}): the reader/critic falls to `{nxt}` ({pol['families'][nxt]})"}
+    sep = nxt != "writer"
+    reason = f"provider error on `{family}` ({pol['families'][family]}): the critic falls to `{nxt}` ({pol['families'][nxt]})"
+    if not sep:
+        reason += " — the writer's family: the separation is lost for this round, its findings need the user's adjudication and the marker records `degraded`"
+    return {"ok": True, "family": nxt, "model": pol["families"][nxt], "separation": sep, "reason": reason}
 
 
 def digest(repo: Path, name: str) -> tuple[str, str, int]:
@@ -197,12 +313,33 @@ def digest(repo: Path, name: str) -> tuple[str, str, int]:
     if not entry:
         raise GateFault(f"agent `{name}` is not in the roster ({pol['_path']})")
     budget = int(pol["classes"][entry["class"]]["budget_bytes"])
-    globs = entry.get("surface") or ["**"]
-    text, fp = corpus.digest(repo, [str(g) for g in globs], budget)
+    globs = [str(g) for g in (entry.get("surface") or ["**"])]
+    paths = [p for p in tracked_files(repo) if any_glob(p, globs)] or globs   # the surface as files; a surface with no file yet stays a glob
+    text, fp = corpus.digest(repo, paths, budget, include_always=True, label=", ".join(globs))
     return text, fp, budget
 
 
+def spawn_check(repo: Path, agent: str, model: str) -> dict:
+    """The model handed to a roster agent at its spawn is its class family's alias. Not a roster name → not ours."""
+    pol = policy(repo)
+    entry = next((r for r in pol["roster"] if isinstance(r, dict) and r.get("name") == agent), None)
+    if not entry:
+        return {"ok": True, "reason": f"`{agent}` is not in the roster — the class policy does not govern it"}
+    c = pol["classes"].get(entry.get("class"))
+    if not c or c["family"] not in pol["families"]:
+        raise GateFault(f"roster entry `{agent}` has no valid class/family — run python3 scripts/gate.py agents")
+    fam = c["family"]
+    want = pol["families"][fam]
+    if not str(model or "").strip():
+        return {"ok": False, "expected": want, "reason": f"`{agent}` (class `{entry['class']}`, family `{fam}`) spawned without a model — pass model: {want} (python3 scripts/gate.py agents --resolve --class {entry['class']}); the definition carries none by design"}
+    if _alias(model) != _alias(want):
+        return {"ok": False, "expected": want, "reason": f"`{agent}` (class `{entry['class']}`, family `{fam}`) spawned on `{model}` — its family's alias is `{want}`; a critic on the writer's family inherits the writer's blind spots"}
+    return {"ok": True, "expected": want, "reason": f"`{agent}` on `{want}` ({fam})"}
+
+
 def check_return(text: str, cls: str) -> list[str]:
+    if not cls:
+        raise GateFault("--check-return needs --class: a worker and a critic owe different contracts")
     problems = []
     if "## Governance" not in text:
         problems.append("no `## Governance` block")
@@ -210,9 +347,17 @@ def check_return(text: str, cls: str) -> list[str]:
         if k not in text:
             problems.append(f"missing `{k}`")
     if "critic" in cls:
-        if not FINDING.search(text) and "no findings" not in text.lower():
-            problems.append("no finding in the contract shape `file:line · severity · confidence N% · probe: …` (or the words `no findings`)")
-        for m in re.finditer(r"^(\S+:\d+\s*·\s*(?:🔴|🟡|🟢|❓)[^\n]*)$", text, re.M):
-            if "probe:" not in m.group(1):
-                problems.append(f"finding without an executed probe: {m.group(1)[:80]}")
+        shaped = 0
+        for line in text.splitlines():
+            if not SEVERITY.search(line):
+                continue
+            m = FINDING.match(line)
+            if not m:
+                problems.append(f"finding outside the contract shape `file:line · severity · confidence N% · probe: …`: {line.strip()[:80]}")
+            elif TRIVIAL_PROBE.match(m.group("probe").strip()):
+                problems.append(f"finding without an executed probe: {line.strip()[:80]}")
+            else:
+                shaped += 1
+        if not shaped and not NO_FINDINGS.search(text):
+            problems.append("no finding in the contract shape (or a line reading exactly `no findings`)")
     return problems

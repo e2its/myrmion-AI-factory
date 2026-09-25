@@ -69,42 +69,152 @@
       "term": "REVIEW Hat",
       "record": "ADR-EVOL-049",
       "exempt": [
-        "docs/proposals/**"
+        "docs/proposals/**",
+        "docs/spec/**"
       ]
     },
     {
       "term": "SEC Hat",
       "record": "ADR-EVOL-049",
       "exempt": [
-        "docs/proposals/**"
+        "docs/proposals/**",
+        "docs/spec/**"
       ]
     },
     {
       "term": "REVIEW hat",
       "record": "ADR-EVOL-049",
       "exempt": [
-        "docs/proposals/**"
+        "docs/proposals/**",
+        "docs/spec/**"
       ]
     },
     {
       "term": "SEC hat",
       "record": "ADR-EVOL-049",
       "exempt": [
-        "docs/proposals/**"
+        "docs/proposals/**",
+        "docs/spec/**"
       ]
     },
     {
       "term": "reviewer hat",
       "record": "ADR-EVOL-049",
       "exempt": [
-        "docs/proposals/**"
+        "docs/proposals/**",
+        "docs/spec/**"
       ]
     },
     {
       "term": "security hat",
       "record": "ADR-EVOL-049",
       "exempt": [
-        "docs/proposals/**"
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "DEV hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "DEV Hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "ARCH hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "ARCH Hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "PO hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "PO Hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "UX hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "UX Hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "QA hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "QA Hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "hat switch",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "Hat-Switching",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
+      ]
+    },
+    {
+      "term": "multi-hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**"
       ]
     }
   ],

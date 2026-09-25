@@ -39,6 +39,7 @@ description: |
   </example>
 tools: Read, Grep, Glob
 class: work-critic
+effort: high
 lens: correctness
 ---
 

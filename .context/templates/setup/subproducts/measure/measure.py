@@ -235,10 +235,33 @@ class Session:
                         break
 
 
-def agent_class(name: str) -> str:
-    """The roster class from the agent name (EVOL-049 naming grammar): factory-dev-* worker · factory-plan-critic ·
-    factory-critic-* work-critic · factory-<phase> phase · anything else = main-session / vendored (unclassed)."""
+_ROSTER: dict[str, str] | None = None
+
+
+def roster_classes(repo: Path) -> dict[str, str]:
+    """name → class from the project's `.claude/rules/agents.md` frontmatter roster (EVOL-049) — the join measure.py
+    makes; read once. No rule, no roster block: empty (the naming grammar below is then the fallback)."""
+    global _ROSTER
+    if _ROSTER is None:
+        _ROSTER = {}
+        p = repo / ".claude/rules/agents.md"
+        try:
+            text = p.read_text(encoding="utf-8") if p.is_file() else ""
+        except OSError:
+            text = ""
+        for m in re.finditer(r"^\s*-\s*\{name:\s*([\w-]+),\s*class:\s*([\w-]+)", text, re.M):
+            _ROSTER[m.group(1)] = m.group(2)
+    return _ROSTER
+
+
+def agent_class(name: str, repo: Path | None = None) -> str:
+    """The roster class of an agent type: the roster of `.claude/rules/agents.md` when the project has one, the
+    EVOL-049 naming grammar otherwise (factory-dev-* worker · factory-plan-critic · factory-critic-* work-critic ·
+    factory-<phase> phase); anything else = main-session / generic (unclassed)."""
     n = str(name or "")
+    roster = roster_classes(repo) if repo is not None else {}
+    if roster:
+        return roster.get(n, "unclassed")
     if n.startswith("factory-dev-"):
         return "worker"
     if n == "factory-plan-critic":
@@ -250,9 +273,8 @@ def agent_class(name: str) -> str:
     return "unclassed"
 
 
-def load_subagents(transcripts: Path, session_id: str, cfg, since, until) -> list[dict]:
-    out = []
-    rounds: dict[str, int] = {}
+def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: Path | None = None) -> list[dict]:
+    loaded = []
     for f in sorted((transcripts / session_id / "subagents").glob("agent-*.jsonl")):
         meta = {}
         mp = f.with_suffix(".meta.json")
@@ -264,9 +286,14 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until) -> lis
         s = Session(f, cfg, since, until)
         if s.entries == 0:
             continue
+        loaded.append((f, meta, s))
+    out = []
+    rounds: dict[str, int] = {}
+    # spawn order = first timestamp, never the file name (agent ids are not chronological)
+    for f, meta, s in sorted(loaded, key=lambda t: (t[2].first_ts or dt.datetime.min.replace(tzinfo=dt.timezone.utc), t[0].name)):
         atype = meta.get("agentType") or "?"
         rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
-        out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype), "round": rounds[atype],
+        out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype, repo), "round": rounds[atype],
                     "description": meta.get("description") or "", "model": _top(s.models),
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
                     "bytes_read": sum(b for _, b in s.reads),
@@ -336,7 +363,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
             s = Session(f, cfg, since, until)
             if s.entries:
                 sessions.append(s)
-                agents.extend(load_subagents(transcripts, s.id, cfg, since, until))
+                agents.extend(load_subagents(transcripts, s.id, cfg, since, until, repo))
         report["window"]["sources"]["transcripts"] = f"ok ({transcripts})" if sessions else \
             f"unavailable: no session in window under {transcripts}"
     else:
@@ -630,6 +657,11 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
     ]
     (tdir / session / "subagents" / "agent-c1.jsonl").write_text("\n".join(json.dumps(e) for e in sub) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-c1.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review"}), encoding="utf-8")
+    # a second spawn of the same type, LATER in time but with an id that sorts FIRST — the round follows time, never the id
+    sub2 = [_entry("assistant", ts(200), message={"role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1},
+                                                  "content": [{"type": "text", "text": "second look"}]})]
+    (tdir / session / "subagents" / "agent-a0.jsonl").write_text("\n".join(json.dumps(e) for e in sub2) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-a0.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 2"}), encoding="utf-8")
     return tdir
 
 
@@ -646,6 +678,8 @@ def _fixture_repo(root: Path) -> Path:
     (repo / "CLAUDE.md").write_text("1. **[LAW-01] a**\n2. **[LAW-04] b**\n3. **[LAW-09] c**\n", encoding="utf-8")
     (repo / ".claude" / "rules").mkdir(parents=True)
     (repo / ".claude" / "rules" / "defect-prevention.md").write_text("| DC-18 | x |\n| DC-27 | y |\n", encoding="utf-8")
+    (repo / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  roster:\n    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n"
+                                                         "    - {name: my-critic, class: work-critic, surface: [\"**\"]}\n---\n", encoding="utf-8")
     for msg in ("feat(FEAT-001): a", "fix(FEAT-001): b", "docs: c"):
         (repo / "f").write_text(msg, encoding="utf-8")
         run("add", "-A")
@@ -699,9 +733,10 @@ def selftest() -> int:
         expect(ag["main"]["model"] == "claude-x-writer" and ag["c1"]["model"] == "claude-y-critic", "model per agent")
         expect(ag["c1"]["type"] == "factory-critic-security" and ag["c1"]["bytes_read"] == 40 and ag["c1"]["tokens_in"] == 100,
                "subagent type, bytes read and tokens from its own transcript")
-        expect(ag["c1"]["class"] == "work-critic" and ag["c1"]["round"] == 1, "the roster class from the agent name and the round from the spawn order (EVOL-049)")
-        expect("| class | round |" in render_markdown(r) and "| work-critic | 1 |" in render_markdown(r), "the agents table shows class and round")
-        expect(agent_class("factory-dev-backend") == "worker" and agent_class("factory-plan-critic") == "plan-critic" and agent_class("factory-qa") == "phase" and agent_class("code-reviewer") == "unclassed", "the naming grammar of the roster")
+        expect(ag["c1"]["class"] == "work-critic" and ag["c1"]["round"] == 1 and ag["a0"]["round"] == 2, "the roster class joined from rules/agents.md and the round from the spawn ORDER IN TIME, never the agent id (EVOL-049)")
+        expect("| class | round |" in render_markdown(r) and "| work-critic | 1 |" in render_markdown(r) and "| work-critic | 2 |" in render_markdown(r), "the agents table shows class and round")
+        expect(agent_class("my-critic", repo) == "work-critic" and agent_class("factory-dev-backend", repo) == "unclassed", "with a roster the roster is the class: a project's own critic is classed, a name the roster lacks is not")
+        expect(agent_class("factory-dev-backend") == "worker" and agent_class("factory-plan-critic") == "plan-critic" and agent_class("factory-qa") == "phase" and agent_class("code-reviewer") == "unclassed", "without a roster the naming grammar is the fallback")
         expect(ag["c1"]["citations"] == {"LAW-04": 2}, "citations per agent")
         c = r["citations"]
         expect(c["by_id"].get("LAW-01") == 10 and c["by_id"].get("LAW-04") == 2, "citations aggregated across agents")

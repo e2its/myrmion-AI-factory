@@ -2,7 +2,7 @@
 
 > **One planning stage (EVOL-048).** This command owns a planning phase — the design and the increment plan — so it **never enters the harness's plan mode** (`EnterPlanMode`): a second approval would appear to cover decisions the user never made. Its own RDRs and approval steps are the one stage; the pre-write gate (`gate.py plan`) treats its branch class as planned by this phase.
 
-This command delegates by name to the phase agent `factory-blueprint` (`.claude/agents/factory-blueprint.md`) — ONE context carrying both concerns of the technical solution and its test strategy:
+This command delegates by name to the phase agent `factory-blueprint` (`.claude/agents/factory-blueprint.md`; `spawn-policy: phase` — the main session spawns it on the writer family, `python3 scripts/gate.py agents --resolve --class phase`, and hands it its corpus digest; the Plan Gate's critic is spawned by the main session too, never by the phase agent) — ONE context carrying both concerns of the technical solution and its test strategy:
 - **ARCH (architecture)**: Authoritative, patterns-focused, contract-first. Designs architecture, module boundaries, API contracts.
 - **QA (test strategy)**: Skeptical, edge-case focused, coverage-driven. Designs test strategy, identifies failure modes, validates coverage.
 

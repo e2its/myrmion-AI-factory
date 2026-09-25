@@ -4,6 +4,7 @@ description: Use this agent when you need to review a pull request for test cove
 color: cyan
 tools: Read, Grep, Glob
 class: work-critic
+effort: high
 lens: correctness
 ---
 

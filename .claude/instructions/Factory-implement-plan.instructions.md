@@ -261,7 +261,7 @@ IF applicable_dcs is not empty:
       ADD task:
         "- [ ] [DC-{dc.number}] Verify {dc.name}: {dc.invariant}"
         # Every DC becomes an explicit dev_plan task tracked by the BVL loop.
-        # DEV hat pre-write check (Factory-implement-build) also reads the same catalog.
+        # The worker's pre-write check (Factory-implement-build) also reads the same catalog.
 
 LOG: "IMPLEMENT DC consult: {applicable_dcs.length} entries projected into dev_plan § DC Compliance"
 ```

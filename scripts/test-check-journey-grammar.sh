@@ -57,7 +57,7 @@ iterations: []
 
 ## Section 0: Decision History
 
-| # | Date | Hat | Question | Options | Decision | Rationale |
+| # | Date | Concern | Question | Options | Decision | Rationale |
 |---|------|-----|----------|---------|----------|-----------|
 
 ## Section 1: Personas

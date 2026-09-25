@@ -1,5 +1,5 @@
 ---
-version: 1.1.0
+version: 1.1.1
 date: 2026-01-26
 changelog:
   - "1.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -33,7 +33,7 @@ Strategy, scan modes, vulnerability classification, and remediation workflow for
 | Low | Log for backlog | Fix next sprint |
 | Info | No action | Optional |
 
-False positives: document in `security/dast/false-positives.md`, update exclusions in `zap-config.yaml`, require the security pass's hat approval (via /QA).
+False positives: document in `security/dast/false-positives.md`, update exclusions in `zap-config.yaml`, require the security lens's approval (`factory-critic-security`, via /QA).
 
 ## 5. Remediation Workflow
 1. /QA --verify (security pass) runs scan, generates report in `security/dast/reports/`.

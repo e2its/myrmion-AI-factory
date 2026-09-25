@@ -626,10 +626,11 @@ FUNCTION determine_build_scope(FEATURE_ID):
 > **Scope filter:** All `phase.unchecked_tasks` references in the loop below are filtered by `build_scope.all_tasks_filter`. Under `incremental`, this restricts the loop to tasks inside `## Increment {target.id}:` — the other increments' sections are invisible to this --build invocation.
 
 > **Spawn protocol (EVOL-049).** `spawn-policy: worker`
-> The orchestrator (`factory-implement`) spawns by name — never a generic sub-agent:
+> The **main session** spawns by name — never a generic sub-agent; no agent carries `Agent` (the phase agent `factory-implement` owns dev_plan.md and the bookkeeping, and receives the loop's results):
 > - the worker per surface: `factory-dev-backend`, `factory-dev-frontend`, `factory-dev-platform`, `factory-dev-e2e` — chosen by the task's files against the roster globs in `rules/agents.md`;
 > - per spawn: paste the corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) under the agent's `## Your law`; pass the model + effort resolved by `python3 scripts/gate.py agents --resolve --class worker --surface <s> --files N --lines M` — never chosen at the call site;
-> - after a completed diff: spawn the four work critics (`factory-critic-correctness`, `-governance`, `-fidelity`, `-security`), one round (`rounds.work`), then the user adjudicates; hash the tree before and after each critic run (`python3 scripts/gate.py certify --subject tree`) and refuse a run around which the tree moved;
+> - after a completed diff: spawn the four work critics (`factory-critic-correctness`, `-governance`, `-fidelity`, `-security`), one round (`rounds.work`), then the user adjudicates; hash the working tree before and after each critic run (`python3 scripts/gate.py certify --subject worktree --paths <the increment's files>` — on-disk bytes, tracked and untracked) and refuse a run around which it moved; a non-zero exit of that call is a refusal, never a value to compare;
+> - pass the model the resolver returns (`python3 scripts/gate.py agents --resolve --class work-critic`) — the PreToolUse hook on `Agent` refuses a roster agent spawned without its family's alias; a fallback that lands on the writer's family (`separation: false`) sends the round's findings to the user's adjudication;
 > - refuse a worker return without its `## Governance` block and a critic return without probes (`python3 scripts/gate.py agents --check-return --class <class>`);
 > - a provider error on a critic falls down the ladder (`python3 scripts/gate.py agents --fallback`); a writer never degrades — retry or surface;
 > - no subagent commits, no subagent decides: RDR and version-control operations return to the main session.
@@ -670,12 +671,13 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
     IF bvl_phase != GREEN: ESCALATE (see Resilience Protocol)
 
   # The work critics verify the phase (read-only, did not write it) — Static + Real Execution
-  tree_before = RUN python3 scripts/gate.py certify --subject tree
-  EXECUTE WORK_CRITICS(phase, governance_context, gcd_loaded)   # factory-critic-correctness / -governance / -fidelity, spawned by name
-  REFUSE the run IF (RUN python3 scripts/gate.py certify --subject tree) != tree_before   # the tree moved around a read-only run
+  scope = FILES_OF(build_scope)                                  # the increment's files (dev_plan tasks + design.md §1)
+  tree_before = RUN python3 scripts/gate.py certify --subject worktree --paths {scope}   # non-zero exit ⇒ REFUSE, never compare
+  EXECUTE WORK_CRITICS(phase, governance_context, gcd_loaded)   # factory-critic-correctness / -governance / -fidelity, spawned by name by the main session
+  REFUSE the run IF (RUN python3 scripts/gate.py certify --subject worktree --paths {scope}) != tree_before   # the working tree moved around a read-only run
   # See implement-review-checks.md for the 14-check protocol per lens + verification loop
   # governance_context passed in — Step R.0 uses it directly (no re-read of Section 7)
-  # review_verification_loop() (coverage, lint, typecheck via BVL commands) is run by this orchestrator —
+  # review_verification_loop() (coverage, lint, typecheck via BVL commands) is run by the main session —
   #   critics carry no Bash. Blockers from real execution merge with the critics' findings.
 
   IF review_verdict == BLOCKER:

@@ -146,6 +146,38 @@ PY
 done
 grep -q 'APPROVAL_TOOL = "ExitPlanMode"' "$ROOT/scripts/gates/planning.py" && ok "the matcher string equals the tool the recorder checks (one constant, two sides)" || bad "recorder tool constant drifted from the matcher"
 
+echo "── check-agent-spawn · a roster agent spawns on its family's alias (EVOL-049) ──"
+python3 - "$REPO/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["agents"] = {"families": {"writer": "sonnet", "critic": "opus"}}; json.dump(d, open(p, "w"))
+PY
+cp "$ROOT/.context/templates/setup/rules/agents.md" "$REPO/.claude/rules/agents.md"
+run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","prompt":"x"}}'
+assert_pass "a type outside the roster (general-purpose): not ours — passes without the reader"
+run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-critic-security","model":"opus","prompt":"x"}}'
+assert_pass "a critic on the critic family: passes"
+run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-critic-security","model":"sonnet","prompt":"x"}}'
+assert_block "a critic on the writer's family: exit 2, the alias named" "family's alias is"
+run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-dev-backend","prompt":"x"}}'
+assert_block "a roster agent spawned without a model: exit 2 (the definition carries none by design)" "without a model"
+run_hook check-agent-spawn.sh '{not json'
+assert_pass "an unreadable payload names no type: passes (the reader is asked only for factory-* names)"
+rm "$REPO/.claude/rules/agents.md"
+run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-dev-backend","model":"sonnet","prompt":"x"}}'
+assert_block "the policy absent (rules/agents.md not delivered): a factory-* spawn blocks and names SETUP --upgrade" "SETUP --upgrade"
+mv "$REPO/scripts/gate.py" "$SANDBOX/gate.py.spawn"
+run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-dev-backend","model":"sonnet","prompt":"x"}}'
+assert_block "reader absent: a factory-* spawn blocks (fail-closed)" "not delivered"
+mv "$SANDBOX/gate.py.spawn" "$REPO/scripts/gate.py"
+for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/settings.json"; do
+  python3 - "$sj" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))["hooks"]
+def cmds(ev, matcher): return [h["command"] for g in d.get(ev, []) if g.get("matcher") == matcher for h in g["hooks"]]
+assert cmds("PreToolUse", "Agent") == ["bash .claude/hooks/check-agent-spawn.sh"], "check-agent-spawn not wired on Agent"
+PY
+  [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json wires check-agent-spawn on Agent" || bad "spawn hook not wired in $sj"
+done
+
 echo "── governance-onprompt · the planning advisory before the block (EVOL-048) ──"
 OP="$ROOT/.context/templates/setup/scripts/governance-onprompt.sh"
 cmp -s "$OP" "$ROOT/scripts/governance-onprompt.sh" && ok "governance-onprompt twins byte-identical" || bad "governance-onprompt twins drifted"

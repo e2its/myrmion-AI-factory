@@ -13,7 +13,7 @@ applicable_when:
 
 spawn-policy: work-critic
 
-Spawned by name by the orchestrator (`factory-implement`) after the worker completes each phase — `factory-critic-correctness`, `factory-critic-governance`, `factory-critic-fidelity` (and `factory-critic-security`, § Security lens below). Each receives its corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) and the model resolved per spawn (`python3 scripts/gate.py agents --resolve --class work-critic --surface <s> --files N --lines M`). Read-only by tool matrix; the orchestrator hashes the tree before and after each run (`python3 scripts/gate.py certify --subject tree`) and refuses a run around which the tree moved; a return without probes is refused (`python3 scripts/gate.py agents --check-return --class work-critic`). One round (`rounds.work`, `rules/agents.md`), then the user adjudicates. No critic edits, commits or decides.
+Spawned by name by the **main session** (no agent carries `Agent`; the phase agent `factory-implement` receives the results) after the worker completes each phase — `factory-critic-correctness`, `factory-critic-governance`, `factory-critic-fidelity` (and `factory-critic-security`, § Security lens below). Each receives its corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) and the model resolved per spawn (`python3 scripts/gate.py agents --resolve --class work-critic --surface <lens> --files N --lines M`; the PreToolUse hook on `Agent` refuses a spawn without it). Read-only by tool matrix; the main session hashes the working tree before and after each run (`python3 scripts/gate.py certify --subject worktree --paths <the increment's files>` — a non-zero exit is a refusal) and refuses a run around which it moved; a return outside the finding shape or without a real probe is refused (`python3 scripts/gate.py agents --check-return --class work-critic`). One round (`rounds.work`, `rules/agents.md`), then the user adjudicates. No critic edits, commits or decides.
 
 **Check ownership per lens:**
 
@@ -860,7 +860,7 @@ SEVERITY: BLOCKER for confirmed violations, WARNING for suspected
 
 ```yaml
 Step R.1b: Agentic Code Review
-  # context:"hat" = the engine's increment-pass key (its API, unchanged) → no ACP entry announcement (spawned critics are internal); 🔎 banner still emitted.
+  # context:"increment" = the engine's increment-pass key → no ACP entry announcement (spawned critics are internal); 🔎 banner still emitted.
   result = INVOKE_SKILL("factory-code-review", {
     scope: "increment",
     feature_id: FEATURE_ID,
@@ -1029,7 +1029,7 @@ Step R.5: Fix Loop Control
 
 ## Security lens — factory-critic-security (read-only)
 
-Execute AFTER the work critics pass for each phase. Spawned by name by the orchestrator (`factory-critic-security`, class `work-critic`, `--surface security` — the resolver steps effort up); same digest, tree hash, probe contract and one-round cap as the lenses above. The lens reads; the orchestrator runs `sec_verification_loop()` and hands it the results.
+Execute AFTER the work critics pass for each phase. Spawned by name by the main session (`factory-critic-security`, class `work-critic`, `--surface security`; critics run at the class default effort on every lens); same digest, working-tree hash, probe contract and one-round cap as the lenses above. The lens reads; the main session runs `sec_verification_loop()` and hands it the results.
 
 ### SAST Scan (GCD)
 ```yaml

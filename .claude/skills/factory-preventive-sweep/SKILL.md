@@ -115,20 +115,18 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   IF scopes is empty:
     LOG: "No DCs applicable to this feature (scope={feature_scope}) — sweep completes CLEAN by vacuity"
     RETURN empty_report
-  # Spawn ONE Explore sub-agent per sweep-scope, in parallel — read-only critics of
-  # class work-critic (rules/agents.md: tools Read/Grep/Glob, never Edit/Write/Bash/Agent).
-  # The runtime decides actual concurrency; this skill never asserts a number.
-  digest = RUN("python3 scripts/gate.py agents --digest --agent factory-critic-correctness")
+  # Spawn ONE rostered critic per sweep-scope, in parallel — `factory-critic-governance` (the DC catalog is its
+  # lens), class work-critic: the harness matrix (Read, Grep, Glob) is the read-only guarantee — never a generic
+  # Explore agent (it carries Bash). The runtime decides actual concurrency; this skill never asserts a number.
+  digest = RUN("python3 scripts/gate.py agents --digest --agent factory-critic-governance")
   reports = PARALLEL_MAP(scopes, LAMBDA(scope):
-    model = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface {scope.scope}").model
-    spawn_explore_agent(
-      model = model,                      # per spawn, from the reader — never chosen here
-      digest = SLICE(digest, scope.dcs),  # the DC rows of this scope, within the class budget
-      scope = scope.scope,
-      dcs = scope.dcs,
-      search_roots = resolve_search_roots(scope.scope),
-      feature_scope = feature_scope   # pass through to the sub-agent for logging / report header
+    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files under scope)} --lines 0")
+    SPAWN(subagent_type = "factory-critic-governance",
+      model = res.model,                  # per spawn, from the reader — never chosen here; the PreToolUse Agent hook refuses it missing
+      prompt = "effort: {res.effort}\n" + SLICE(digest, scope.dcs) +   # the DC rows of this scope, within the class budget
+               { scope: scope.scope, dcs: scope.dcs, search_roots: resolve_search_roots(scope.scope), feature_scope: feature_scope }
     )
+    # a return outside the finding shape is refused: RUN("python3 scripts/gate.py agents --check-return --class work-critic", report)
   )
   RETURN consolidate(reports)
 ```
@@ -185,7 +183,7 @@ feature_ids: ["{{FEATURE_ID}}"]
 title: "Preventive Defect Sweep — {{Feature Name}}"
 sweep_date: "YYYY-MM-DD"
 trigger: "{{why the sweep was triggered}}"
-methodology: "Parallel Explore sub-agents — one per non-overlapping scope derived from applicable DC catalog"
+methodology: "Parallel read-only critics (factory-critic-governance, class work-critic) — one per non-overlapping scope derived from applicable DC catalog"
 analyst: "IMPLEMENT — read-only work critics, one per sweep scope"
 total_findings: N
 critical: N

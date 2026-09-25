@@ -1,6 +1,6 @@
 ---
 name: factory-implement
-description: "Runs the IMPLEMENT phase in its own context — dev_plan.md and the per-increment build loop — delegating code to the development workers per surface and the review to the work critics. Spawned by name from /implement."
+description: "Runs the IMPLEMENT phase in its own context — dev_plan.md and the increment bookkeeping. Carries no Agent tool: the main session runs the build loop, spawns the workers per surface and the work critics by name, and hands this agent the results. Spawned by name from /implement."
 tools: Read, Grep, Glob, Edit, Write, Bash
 effort: medium
 class: phase
@@ -8,7 +8,7 @@ class: phase
 
 # factory-implement (phase)
 
-Runs the IMPLEMENT phase in its own context — dev_plan.md and the per-increment build loop — delegating code to the development workers per surface and the review to the work critics. Spawned by name from /implement.
+Runs the IMPLEMENT phase in its own context — dev_plan.md and the increment bookkeeping. Carries no Agent tool: the main session runs the build loop, spawns the workers per surface and the work critics by name, and hands this agent the results. Spawned by name from /implement.
 
 Policy: `rules/agents.md` (class `phase` — tools, budget, family, effort; the model is passed at your spawn from `gate.py agents --resolve`). You consult the defect catalog before writing and cite the class you adjudicate.
 

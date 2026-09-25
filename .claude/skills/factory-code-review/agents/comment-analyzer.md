@@ -4,6 +4,7 @@ description: Use this agent when you need to analyze code comments for accuracy,
 color: green
 tools: Read, Grep, Glob
 class: work-critic
+effort: high
 lens: correctness
 ---
 

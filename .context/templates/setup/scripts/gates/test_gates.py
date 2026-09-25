@@ -398,6 +398,30 @@ class Coherence(unittest.TestCase):
                 coherence.certify(repo, "tree", paths=["nope/**"])
             with self.assertRaisesRegex(GateFault, "unknown certification subject"):
                 coherence.certify(repo, "blob")
+            self.assertEqual(coherence.certify(repo, "tree", paths=["src"])["hash"], coherence.certify(repo, "tree", paths=["src/**"])["hash"], "a bare directory covers what is below it")
+
+    def test_worktree_hash_sees_what_a_critic_would_do(self):
+        """The guard around a read-only run: an unstaged edit, a new untracked file, a deletion — each moves the
+        worktree hash; the index hash (tree) sees none of them."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            idx = coherence.certify(repo, "tree", paths=["src/**"])["hash"]
+            w0 = coherence.certify(repo, "worktree", paths=["src/**"])["hash"]
+            self.assertEqual(w0, coherence.certify(repo, "worktree", paths=["src"])["hash"], "deterministic; a bare directory covers what is below it")
+            write(repo / "src/app.py", "print(9)  # unstaged\n")
+            w1 = coherence.certify(repo, "worktree", paths=["src/**"])["hash"]
+            self.assertNotEqual(w0, w1, "an unstaged edit moves the worktree hash")
+            self.assertEqual(idx, coherence.certify(repo, "tree", paths=["src/**"])["hash"], "…and the index hash does not — which is why the guard reads the worktree")
+            write(repo / "src/new.py", "new\n")
+            w2 = coherence.certify(repo, "worktree", paths=["src/**"])["hash"]
+            self.assertNotEqual(w1, w2, "a new untracked file moves it")
+            write(repo / "docs/x.md", "elsewhere\n")
+            self.assertEqual(w2, coherence.certify(repo, "worktree", paths=["src/**"])["hash"], "a change outside the paths does not")
+            (repo / "src/new.py").unlink(); (repo / "src/app.py").unlink()
+            self.assertNotEqual(w2, coherence.certify(repo, "worktree", paths=["src/**"])["hash"], "a deletion moves it")
+            self.assertTrue(coherence.certify(repo, "worktree", paths=["nowhere/**"])["hash"], "a scope with no file yet is a hash, not a fault: the run is still guarded")
+            with self.assertRaisesRegex(GateFault, "needs the paths"):
+                coherence.certify(repo, "worktree")
 
     def test_certify_diff_fixes_the_file_set_at_certify_time(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -985,9 +1009,8 @@ agents:
     work-critic: {family: critic, effort: high, budget_bytes: 4000, tools: {must: [Read, Grep, Glob], never: [Edit, Write, NotebookEdit, Bash, Agent]}}
   tiers: {small: {files: 5, lines: 150}, large: {files: 30, lines: 800}}
   resolve:
-    - {class: work-critic, surface: security, effort: high}
-    - {class: plan-critic, round: 2, effort: high}
     - {class: worker, tier: small, effort: low}
+    - {class: plan-critic, round: 2, effort: max}
   ladder: {critic: [writer], writer: []}
   rounds: {plan_gate: 2, work: 1}
   roster:
@@ -995,6 +1018,7 @@ agents:
     - {name: factory-plan-critic, class: plan-critic, surface: ["docs/**"]}
     - {name: factory-critic-security, class: work-critic, lens: security, surface: ["**"]}
   spawn_sites:
+    - {path: ".claude/commands/implement.md", policy: phase}
     - {path: ".claude/instructions/Factory-implement-build.instructions.md", policy: worker}
     - {path: ".claude/instructions/Factory-blueprint-design.instructions.md", policy: plan-critic}
     - {path: ".claude/skills/factory-code-review/SKILL.md", policy: work-critic}
@@ -1022,6 +1046,7 @@ class Agents(unittest.TestCase):
         write(repo / ".claude/instructions/Factory-implement-build.instructions.md", "---\ndescription: b\napplicable_when:\n  phase: [IMPLEMENT]\n---\nspawn-policy: worker\n")
         write(repo / ".claude/instructions/Factory-blueprint-design.instructions.md", "---\ndescription: d\n---\nspawn-policy: plan-critic\n")
         write(repo / ".claude/skills/factory-code-review/SKILL.md", "---\nname: cr\n---\nspawn-policy: work-critic\n")
+        write(repo / ".claude/commands/implement.md", "---\ndescription: i\n---\nspawn-policy: phase\n")
         self.manifest = {"templates": {f"claude/agents/{n}.md": {"version": "1.0.0"} for n in ("factory-dev-backend", "factory-plan-critic", "factory-critic-security")}}
         return repo
 
@@ -1037,12 +1062,24 @@ class Agents(unittest.TestCase):
             q["agents"]["families"]["critic"] = "opus"; write(repo / "config/quality.json", json.dumps(q))
             # a critic with a write tool; a worker without one; model written in; no effort; over budget; dangling pointer
             write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob, Edit"))
-            f = agents.validate(repo, self.manifest); self.assertTrue(any("must never have Edit" in x["reason"] for x in f))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("Edit is not read-only" in x["reason"] for x in f))
+            # the critic allowlist: a permission-pattern spelling, a case variant, an mcp mutator, the old Task name — none slips through
+            for spelled in ("Bash(git diff:*)", "bash", "mcp__filesystem__write_file", "Task", "Write(*)"):
+                write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", f"Read, Grep, Glob, {spelled}"))
+                f = agents.validate(repo, self.manifest); self.assertTrue(any(f"{spelled} is not read-only" in x["reason"] for x in f), spelled)
+            # the roster class is the class: a definition promoting itself to a writer is red
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "worker", "Read, Grep, Glob, Edit, Write, Bash"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("the roster says `work-critic`" in x["reason"] for x in f), "a definition never promotes itself")
+            self.assertTrue(any("is not read-only" in x["reason"] for x in f), "and it is still held to the roster class's matrix")
+            # name ≠ file, no description
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-securty", "work-critic", "Read, Grep, Glob").replace("description: x", "description:"))
+            f = agents.validate(repo, self.manifest)
+            self.assertTrue(any("is not the file name" in x["reason"] for x in f)); self.assertTrue(any("no `description`" in x["reason"] for x in f))
             write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob", extra="model: opus\n", body="x" * 5000))
             f = agents.validate(repo, self.manifest)
             self.assertTrue(any("`model` written into the definition" in x["reason"] for x in f)); self.assertTrue(any("over the class budget" in x["reason"] for x in f))
             write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob").replace("effort: high\n", ""))
-            f = agents.validate(repo, self.manifest); self.assertTrue(any("no `effort`" in x["reason"] for x in f))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("`effort: (none)`" in x["reason"] for x in f))
             write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob"))
             write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Bash", body="see `rules/nope.md`"))
             f = agents.validate(repo, self.manifest)
@@ -1056,6 +1093,28 @@ class Agents(unittest.TestCase):
             f = agents.validate(repo, self.manifest); self.assertTrue(any("no agent definition exists" in x["reason"] for x in f))
             write(repo / ".claude/agents/factory-plan-critic.md", agent_def("factory-plan-critic", "plan-critic", "Read, Grep, Glob"))
             f = agents.validate(repo, {"templates": {}}); self.assertEqual(sum("no manifest entry" in x["reason"] for x in f), 3, "undelivered definitions are red")
+            # families: a placeholder, `inherit`, a case variant of the same alias
+            for w, c, needle in (("{{AGENT_WRITER_MODEL}}", "opus", "placeholder"), ("sonnet", "inherit", "placeholder"), ("Opus", "opus", "same alias")):
+                q = json.loads((repo / "config/quality.json").read_text()); q["agents"]["families"] = {"writer": w, "critic": c}; write(repo / "config/quality.json", json.dumps(q))
+                f = agents.validate(repo, self.manifest); self.assertTrue(any(needle in x["reason"] for x in f), (w, c))
+            q["agents"]["families"] = {"writer": "sonnet", "critic": "opus"}; write(repo / "config/quality.json", json.dumps(q))
+            # class policy: an unknown family; a family the tools contradict; a dead resolve row; a bad cap
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("work-critic: {family: critic", "work-critic: {family: reader"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("is not one of critic, writer" in x["reason"] for x in f))
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("work-critic: {family: critic", "work-critic: {family: writer"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("a read-only class is a critic" in x["reason"] for x in f))
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("- {class: worker, tier: small, effort: low}", "- {class: worker, tier: small, effort: medium}\n    - {class: sorcerer, effort: low}\n    - {class: worker, tier: gigantic, effort: low}"))
+            f = agents.validate(repo, self.manifest)
+            self.assertTrue(any("restates the class default" in x["reason"] for x in f), "a row that changes nothing is dead data")
+            self.assertTrue(any("names no known class" in x["reason"] for x in f)); self.assertTrue(any("tier `gigantic`" in x["reason"] for x in f))
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("rounds: {plan_gate: 2, work: 1}", "rounds: {plan_gate: 2}"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.rounds.work" in x["reason"] for x in f), "the cap is a key, present")
+            # the vendored engine lenses are held to the critic matrix and the budget
+            write(repo / ".claude/skills/factory-code-review/agents/code-reviewer.md", agent_def("code-reviewer", "work-critic", "Read, Grep, Glob, Bash"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("agents/code-reviewer.md" in x["path"] and "Bash is not read-only" in x["reason"] for x in f), "a vendored lens cannot carry a write tool")
+            write(repo / ".claude/skills/factory-code-review/agents/code-reviewer.md", agent_def("code-reviewer", "worker", "Read, Edit"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("a vendored lens is a prompt for a read-only critic class" in x["reason"] for x in f))
+            (repo / ".claude/skills/factory-code-review/agents/code-reviewer.md").unlink()
             # ladder and spawn sites
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("ladder: {critic: [writer], writer: []}", "ladder: {critic: [writer], writer: [critic]}"))
             f = agents.validate(repo, self.manifest); self.assertTrue(any("never degrades" in x["reason"] for x in f))
@@ -1066,6 +1125,8 @@ class Agents(unittest.TestCase):
             f = agents.validate(repo, self.manifest); self.assertTrue(any("does not declare `spawn-policy: work-critic`" in x["reason"] for x in f))
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace('    - {path: ".claude/skills/factory-code-review/SKILL.md", policy: work-critic}\n', ""))
             f = agents.validate(repo, self.manifest); self.assertTrue(any("has no spawn site" in x["reason"] for x in f), "a policy nobody spawns is dead data")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace('    - {path: ".claude/commands/implement.md", policy: phase}\n', ""))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("class `phase` has no spawn site" in x["reason"] for x in f), "the phase class is spawned too — by the commands")
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("agents:\n  classes:", "agents:\n  classes_x:"))
             with self.assertRaisesRegex(GateFault, "agents.classes"):
                 agents.policy(repo)
@@ -1073,31 +1134,61 @@ class Agents(unittest.TestCase):
     def test_resolve_fallback_digest_and_return_contracts(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
-            r = agents.resolve(repo, "work-critic", surface="security", files=2, lines=10)
-            self.assertEqual((r["model"], r["family"], r["effort"]), ("opus", "critic", "high"))
+            r = agents.resolve(repo, "work-critic", surface="Security", files=2, lines=10)
+            self.assertEqual((r["model"], r["family"], r["effort"], r["matched"]), ("opus", "critic", "high", "class default"), "critics run at the class default on every lens")
             r = agents.resolve(repo, "worker", surface="backend", files=2, lines=10)
             self.assertEqual((r["model"], r["effort"], r["tier"]), ("sonnet", "low", "small"), "a small diff steps the effort down")
             r = agents.resolve(repo, "worker", files=40, lines=2000)
             self.assertEqual((r["effort"], r["tier"]), ("medium", "large"), "no row for a large worker diff: the class default")
+            r = agents.resolve(repo, "worker")
+            self.assertEqual((r["effort"], r["tier"], r["matched"]), ("medium", "unknown", "class default"), "a size nobody measured is unknown, never small")
             self.assertEqual(agents.resolve(repo, "plan-critic", round_=1)["matched"], "class default")
-            self.assertIn("'round': 2", agents.resolve(repo, "plan-critic", round_=2)["matched"], "the second round steps up by its row")
+            self.assertEqual((agents.resolve(repo, "plan-critic", round_=2)["effort"], agents.resolve(repo, "plan-critic", round_=2)["matched"]), ("max", "round: 2, effort: max"), "the second round steps up by its row")
+            r = agents.resolve(repo, "plan-critic", round_=3); self.assertFalse(r["ok"]); self.assertIn("over the cap 2", r["reason"])
+            r = agents.resolve(repo, "work-critic", round_=2); self.assertFalse(r["ok"]); self.assertIn("agents.rounds.work", r["reason"], "one work round — the cap is enforced by the resolver, not by prose")
+            self.assertTrue(agents.resolve(repo, "worker", round_=9)["ok"], "writers have no round cap")
             with self.assertRaisesRegex(GateFault, "not one of"):
                 agents.resolve(repo, "sorcerer")
             f = agents.fallback(repo, "worker", "writer"); self.assertFalse(f["ok"]); self.assertIn("never degrades", f["reason"])
-            f = agents.fallback(repo, "work-critic", "critic"); self.assertTrue(f["ok"]); self.assertEqual(f["model"], "sonnet", "a critic falls to the other family")
+            f = agents.fallback(repo, "work-critic", "critic"); self.assertTrue(f["ok"]); self.assertEqual(f["model"], "sonnet")
+            self.assertFalse(f["separation"], "the only other family is the writer's: the reader says the separation is lost"); self.assertIn("adjudication", f["reason"])
             f = agents.fallback(repo, "work-critic", "writer"); self.assertFalse(f["ok"])
+            f = agents.fallback(repo, "work-critic", "reader"); self.assertFalse(f["ok"]); self.assertIn("is not a family", f["reason"])
+            # digest: the roster surface expanded over the tracked tree — a path-bound rule of the lens lands; always-on rules too
+            write(repo / ".claude/rules/security.md", "---\ndescription: s\napplicable_when:\n  path_glob: [\"src/**\"]\n---\n")
+            write(repo / ".claude/rules/always.md", "---\ndescription: a\napplicable_when:\n  always: true\n---\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+            text, fp, budget = agents.digest(repo, "factory-critic-security")
+            self.assertIn("security.md", text, "a `**` surface reaches the path-bound rules of the tree, not the literal `**`")
+            self.assertIn("always.md", text, "a spawned agent gets no snapshot: the always-on rules ride in the digest")
+            self.assertIn('paths="**"', text, "the head names the surface, never the file list")
             text, fp, budget = agents.digest(repo, "factory-dev-backend")
-            self.assertLessEqual(len(text.encode()), budget); self.assertEqual(budget, 6000); self.assertTrue(fp)
+            self.assertLessEqual(len(text.encode()), budget); self.assertEqual(budget, 6000); self.assertTrue(fp); self.assertIn("security.md", text)
             with self.assertRaisesRegex(GateFault, "not in the roster"):
                 agents.digest(repo, "nobody")
+            # spawn: a roster agent on its family's alias; not ours otherwise
+            self.assertTrue(agents.spawn_check(repo, "factory-critic-security", "opus")["ok"])
+            self.assertTrue(agents.spawn_check(repo, "factory-critic-security", "Opus")["ok"], "aliases compare case-folded")
+            r = agents.spawn_check(repo, "factory-critic-security", "sonnet"); self.assertFalse(r["ok"]); self.assertEqual(r["expected"], "opus")
+            r = agents.spawn_check(repo, "factory-dev-backend", ""); self.assertFalse(r["ok"]); self.assertIn("without a model", r["reason"])
+            self.assertTrue(agents.spawn_check(repo, "general-purpose", "")["ok"], "a type outside the roster is not governed")
             worker_ok = "did x\n## Governance\nRules read: testing.md\nLaws applied: LAW-05\nDefect classes: DC-01\nSources: src/a.py:1\n"
             self.assertEqual(agents.check_return(worker_ok, "worker"), [])
             self.assertTrue(agents.check_return("did x", "worker"), "a worker without its governance block is refused")
-            critic_ok = "src/a.py:12 · 🔴 · confidence 90% · probe: ran pytest -k a\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\n"
+            gov = "## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\n"
+            critic_ok = "src/a.py:12 · 🔴 · confidence 90% · probe: ran pytest -k a\n" + gov
             self.assertEqual(agents.check_return(critic_ok, "work-critic"), [])
-            bad = "src/a.py:12 · 🔴 · confidence 90%\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\n"
-            self.assertTrue(any("probe" in p for p in agents.check_return(bad, "work-critic")), "a finding without an executed probe is refused")
-            self.assertEqual(agents.check_return("no findings\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\n", "work-critic"), [])
+            self.assertEqual(agents.check_return("- **src/a.py:12** · 🟡 · confidence 80% · probe: read the handler\n" + gov, "work-critic"), [], "a bulleted, bolded finding is in shape")
+            bad = "src/a.py:12 · 🔴 · confidence 90%\n" + gov
+            self.assertTrue(any("outside the contract shape" in p for p in agents.check_return(bad, "work-critic")), "a finding without an executed probe is refused")
+            for fake in ("n/a", "none", "—", "-", "tbd"):
+                self.assertTrue(any("without an executed probe" in p for p in agents.check_return(f"src/a.py:12 · 🔴 · confidence 90% · probe: {fake}\n" + gov, "work-critic")), fake)
+            mixed = critic_ok.replace(gov, "") + "- src/b.py:3 · 🔴 · confidence 90%\n" + gov
+            self.assertTrue(any("src/b.py:3" in p for p in agents.check_return(mixed, "work-critic")), "every line carrying a severity is held to the shape, not only the first")
+            self.assertEqual(agents.check_return("no findings\n" + gov, "work-critic"), [])
+            self.assertTrue(agents.check_return("I found no findings of severity blocker but three majors.\n" + gov, "work-critic"), "`no findings` counts only as a whole line")
+            with self.assertRaisesRegex(GateFault, "needs --class"):
+                agents.check_return(critic_ok, "")
 
 
 class Cli(unittest.TestCase):
@@ -1137,6 +1228,29 @@ class Cli(unittest.TestCase):
             self.assertEqual((r.returncode, r.stdout.strip()), (0, "currency: ok"))
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "certify", "--subject", "tree", "--paths", "src/**"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0); self.assertIn("  subject: tree\n  paths: [\"src/**\"]\n  hash: \"", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "certify", "--subject", "worktree", "--paths", "src/**"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertIn("  subject: worktree\n", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "certify", "--subject", "worktree"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2, "a worktree guard without its paths is a fault the caller must not compare")
+            # agents: the roster reader through the CLI — manifest unreadable = fault; spawn check; return check needs its class
+            ag = Agents(); os.makedirs(tmp + "/agents_cli"); arepo = ag._repo(tmp + "/agents_cli")
+            write(arepo / "docs/project_log/governance_versions.json", json.dumps(ag.manifest))
+            r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents"], capture_output=True, text=True, env=env)
+            self.assertEqual((r.returncode, r.stdout.strip()[:10]), (0, "agents: ok"), r.stdout + r.stderr)
+            write(arepo / "docs/project_log/governance_versions.json", "{ not json")
+            r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2, "a corrupt manifest is a fault, never a green with the delivery check dropped"); self.assertIn("unreadable", r.stderr)
+            write(arepo / "docs/project_log/governance_versions.json", json.dumps(ag.manifest))
+            r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--spawn", "--hook-json"], input=json.dumps({"tool_input": {"subagent_type": "factory-critic-security", "model": "sonnet"}}), capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("its family's alias is `opus`", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--spawn", "--hook-json"], input=json.dumps({"tool_input": {"subagent_type": "factory-critic-security", "model": "opus"}}), capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0)
+            r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--spawn", "--hook-json"], input="{not json", capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, "an unreadable spawn payload names no agent: not ours")
+            r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--resolve", "--class", "work-critic", "--round", "2"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("over the cap", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--check-return"], input="x", capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2); self.assertIn("needs --class", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "law-sentences", "--file", str(repo / "CLAUDE.md")], capture_output=True, text=True, env=env)
             self.assertIn("LAW-02\tNever modify protected code.", r.stdout)
             broken = Path(tmp) / "broken"; broken.mkdir(); (broken / "gate.py").write_text(Path(gate).read_text(), encoding="utf-8")

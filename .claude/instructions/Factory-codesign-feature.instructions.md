@@ -8,7 +8,7 @@ applicable_when:
 # CODESIGN Agent — Level 2: Feature Co-Creation Protocol
 
 ## Purpose
-This instruction file defines the **Per-Feature Co-Creation** protocols for the CODESIGN agent (🎩 PO Hat + 🎨 UX Hat). A single agent with dual personality iterates dynamically producing the co-created feature artifacts (3-4 files).
+This instruction file defines the **Per-Feature Co-Creation** protocols for the phase agent `factory-codesign` (`.claude/agents/factory-codesign.md`, class `phase` — `rules/agents.md`): ONE context carrying both concerns, 🎩 PO (product) and 🎨 UX (experience) — no persona switch. It iterates dynamically producing the co-created feature artifacts (3-4 files).
 
 **Feature artifacts** live in `docs/spec/{{FEATURE_ID}}/`.
 
@@ -137,12 +137,12 @@ BUSINESS_LANGUAGE:
 # Example (en): "User action (Command): The user submits an order → SubmitOrder"
 ```
 
-### Phase 1: Actor Discovery (🎩 PO hat)
+### Phase 1: Actor Discovery (🎩 PO concern)
 - Identify ALL actors who interact with this feature
 - Actor types: Human (end user, admin, etc.), System (cron, event bus), External (third-party API)
 - Each actor gets a name and brief role description
 
-### Phase 2: Command Discovery (🎩 PO hat)
+### Phase 2: Command Discovery (🎩 PO concern)
 - For each actor: what actions can they perform?
 - Commands = intentions/verbs (e.g., "Submit Order", "Approve Request")
 - Each command has: actor, trigger, input data schema ref
@@ -157,21 +157,21 @@ BUSINESS_LANGUAGE:
 - Read Models = derived/projected data for display
 - 🎩 defines business content, 🎨 defines display structure
 
-### Phase 4b: Experience Walk (🎨 UX hat; PO hat for backend callers)
+### Phase 4b: Experience Walk (🎨 UX concern; PO concern for backend callers)
 - Walk each persona through the feature: for every step capture the NINE step fields — **Persona / Goal / Does / Sees / Feels (1-5 + expected emotion + why) / Pain / Ease / BDD Scenario (exact spec.feature title — assigned when the spec lands) / Mock Action (#step-N — assigned when the mock lands; `—` for backend scopes)**
 - Feels scale (comparable across features): 1 frustration/abandonment risk · 2 notable friction · 3 neutral · 4 confidence · 5 delight
 - Every Pain gets an Ease (what the design does to soften it) — this is the usability-maximisation lens
 - Name the Paths (ordered Paso sequences per persona): happy, recovery, abandonment
 - Backend scopes: personas are business callers (partner, operator, system acting FOR an actor); Sees = what the caller observes in business terms
 
-### Phase 5: Business Field Definition (🎩 PO hat) — LAW-16
+### Phase 5: Business Field Definition (🎩 PO concern) — LAW-16
 - For each business concept surfaced during Phases 2-4 (what the personas act on and see): define the fields in PLAIN LANGUAGE
 - Table per concept: `Field | Meaning | Required | Allowed values (plain language) | Example`
 - Business states in plain words ("settled, declined, or pending") — the technical enum lives in design.md
 - NO types, NO constraint syntax, NO formats — ARCH derives typing in design.md §§ 3.1/3.2 + § 7.4 (ambiguity → RDR)
 - **ALL fields must be complete** — no `TODO` or `TBD` cells allowed at approval time
 
-### Phase 6: Policy Discovery (🎩 PO hat)
+### Phase 6: Policy Discovery (🎩 PO concern)
 - Business rules triggered by events
 - Policies = "When X happens, then Y must occur"
 - Cross-domain policies flagged for BLUEPRINT attention
@@ -611,7 +611,7 @@ When `feature_scope IN [backend-only, integration]`: Vision Gate is **N/A**. No 
    ```
    See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 1 for the canonical consultation protocol. Phase 2 adds integration DCs (idempotency, retry/backoff, circuit breaker, DLQ, graceful shutdown) for `feature_scope IN [backend-only, integration]`.
 5. **BIP Tier PROPOSAL:** Generate complete Event Storming proposal (scope-aware: all 7 phases for `full-stack`/`frontend-only`; phases 1-3 + 5-7 for `backend-only`/`integration`, **Phase 4 Read Model Discovery is N/A** — there is no UI consuming the read model). Write to `docs/.bip/{FEATURE_ID}_tier_proposal.md`. Return to Factory for RDR mediation with user.
-6. **BIP Tier ARTIFACTS:** After proposal accepted, generate artifacts per scope in dependency order (Template Selector above). For `full-stack`/`frontend-only`: user_journey.md → spec.feature → mock.html (three artifacts, PO↔UX iteration cycle). For `backend-only`/`integration`: user_journey.md → spec.feature (two artifacts, PO-only cycle — UX hat is inactive; journey personas = business callers). Re-apply the Phase 0.6 DC hints to the generated `spec.feature` if they were not preserved.
+6. **BIP Tier ARTIFACTS:** After proposal accepted, generate artifacts per scope in dependency order (Template Selector above). For `full-stack`/`frontend-only`: user_journey.md → spec.feature → mock.html (three artifacts, PO↔UX iteration cycle). For `backend-only`/`integration`: user_journey.md → spec.feature (two artifacts, PO-only cycle — the UX concern is inactive; journey personas = business callers). Re-apply the Phase 0.6 DC hints to the generated `spec.feature` if they were not preserved.
 7. Run completeness check (every journey Paso has its 9 fields; every § 6 concept table complete — no TODO/TBD)
 8. Save all artifacts with `status: DRAFT`
 9. **BIP Tier ALIGNMENT:** Run Tripartite Alignment check (scope-aware — when mock.html is N/A, only SPEC↔JOURNEY + JOURNEY↔SPEC bidirectional checks apply; see § Tripartite Alignment Protocol). Present gaps to user via RDR for resolution.
@@ -702,7 +702,7 @@ IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-comman
 
 ### Refine Execution Sequence
 ```yaml
-# Step 1: Apply feedback (classify, route to PO/UX hats)
+# Step 1: Apply feedback (classify by concern, PO / UX — same context)
 # Step 2: Compute refine_changes (diff of new vs existing concepts)
 # Step 3: CIP Domain Concept Re-Check (CONDITIONAL — if new concepts detected):
 #         CALL cip_refine_recheck(FEATURE_ID, refine_changes)
@@ -988,7 +988,7 @@ On every `--refine`:
 - If drift detected (hardcoded colors, non-token fonts, shell mismatch):
   - ⚠️ WARN with specific drift locations
   - AUTO_FIX where possible (replace hardcoded value with token)
-  - Flag remaining drift for UX hat review
+  - Flag remaining drift for UX review
 
 ---
 

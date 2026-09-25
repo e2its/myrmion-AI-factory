@@ -14,6 +14,7 @@
   gate.py budget                                   run every producer at worst case; exit 1 on overflow, dead/absent producer or missing key
   gate.py retired-terms                            the retired-vocabulary ratchet; exit 1 on a hit
   gate.py certify --subject diff|tree [--base B] [--branch B] [--paths p…] [--json]   the certifies: block a verdict embeds (paths + hash); diff base = gate.py diff-base
+  gate.py certify --subject worktree --paths p…   the on-disk hash (tracked + untracked) taken before and after a read-only run — the guard, never a verdict subject
   gate.py currency [--base B] [--branch B]         the push's verdict artefacts still certify their files; exit 1 stale/missing/unknown branch · 2 could not judge
   gate.py manifest-parity                          frontmatter version == manifest version for every governed file; exit 1 on drift
   gate.py branch-class [--branch B] [--protected] [--json]   protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown
@@ -28,11 +29,12 @@
   gate.py plan --status [--branch B]               one advisory line for the prompt hook (exit 0 always)
   gate.py plan --enter [--branch B]                may this session enter plan mode? exit 1 on a class a framework phase already plans (one stage, never two)
   gate.py plan --record --hook-json                write the approval marker from the harness's PostToolUse ExitPlanMode payload on stdin — refuses anything else
-  gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, spawn sites; exit 1 on a finding
-  gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort
-  gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class
-  gate.py agents --digest --agent NAME             the slice of law governing the agent's surface, within its class budget
-  gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a finding without a probe
+  gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
+  gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort; exit 1 when the round is over the class cap
+  gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class; `separation: false` when a critic lands on the writer's family
+  gate.py agents --digest --agent NAME             the slice of law governing the agent's surface (always-on rules included), within its class budget
+  gate.py agents --spawn --agent NAME --model M [--hook-json]   the model handed to a roster agent is its family's alias; exit 1 refused (the PreToolUse Agent hook)
+  gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a critic finding outside the shape or without a real probe
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08) · 3 the reader itself is missing or broken (governance not delivered).
 """
@@ -252,6 +254,9 @@ def cmd_plan(repo, a):
 def cmd_agents(repo, a):
     if a.resolve:
         r = agents_mod.resolve(repo, a.cls, a.surface or "", a.files or 0, a.lines or 0, a.round or 1)
+        if not r["ok"]:
+            print(json.dumps(r) if a.json else f"agents: REFUSED — {r['reason']}")
+            return 1
         print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']} · round {r['round']} · {r['matched']}")
         return 0
     if a.fallback:
@@ -262,16 +267,28 @@ def cmd_agents(repo, a):
         text, fp, budget = agents_mod.digest(repo, a.agent)
         print(text); print(f"\n<!-- digest {fp} · {len(text.encode())} B within {budget} B -->")
         return 0
+    if a.spawn:
+        agent, model = a.agent, a.model
+        if a.hook_json:   # the PreToolUse Agent payload: {"tool_input": {"subagent_type": …, "model": …}}
+            try:
+                ti = (json.loads(sys.stdin.read() or "{}") or {}).get("tool_input") or {}
+            except (json.JSONDecodeError, AttributeError):
+                ti = {}
+            agent = str(ti.get("subagent_type") or agent or ""); model = str(ti.get("model") or model or "")
+        r = agents_mod.spawn_check(repo, agent, model)
+        print(json.dumps(r) if a.json else f"agents: spawn {'ok' if r['ok'] else 'REFUSED'} — {r['reason']}")
+        return 0 if r["ok"] else 1
     if a.check_return:
+        if a.cls not in agents_mod.policy(repo)["classes"]:
+            raise GateFault(f"--check-return needs --class, one of {', '.join(agents_mod.policy(repo)['classes'])}")
         problems = agents_mod.check_return(sys.stdin.read(), a.cls)
         print("agents: return ok" if not problems else "agents: return REFUSED — " + "; ".join(problems))
         return 1 if problems else 0
-    manifest = None
     mp = coherence.manifest_path(repo)
     try:
         manifest = json.loads(mp.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        manifest = None
+    except (OSError, ValueError) as e:
+        raise GateFault(f"the governance manifest {mp} is unreadable ({e}) — roster delivery cannot be judged") from None
     findings = agents_mod.validate(repo, manifest)
     if a.json:
         print(json.dumps(findings))
@@ -287,7 +304,7 @@ def cmd_one_definition(repo, a):
 
 
 def cmd_certify(repo, a):
-    try:   # a tree certification needs no base — never classify a branch for it (QA often runs on a tag / detached checkout)
+    try:   # a tree / worktree certification needs no base — never classify a branch for it (QA often runs on a tag / detached checkout)
         base = _base(repo, a) if a.subject == "diff" else None
     except branch_mod.UnknownBranch as e:
         print(f"certify: RED — {e}", file=sys.stderr)
@@ -337,7 +354,7 @@ def build_parser():
     p = sub.add_parser("snapshot-sections"); p.add_argument("--profile", choices=("lite", "full"), default="lite"); p.set_defaults(fn=cmd_snapshot_sections)
     p = sub.add_parser("budget"); p.set_defaults(fn=cmd_budget)
     p = sub.add_parser("retired-terms"); p.set_defaults(fn=cmd_retired)
-    p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree"), required=True); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
+    p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree", "worktree"), required=True); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
     p = sub.add_parser("currency"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_currency)
     p = sub.add_parser("manifest-parity"); p.set_defaults(fn=cmd_manifest_parity)
     p = sub.add_parser("branch-class"); p.add_argument("--branch", default=None); p.add_argument("--protected", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_branch_class)
@@ -347,7 +364,7 @@ def build_parser():
     p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
-    p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
+    p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--spawn", action="store_true"); p.add_argument("--model", default=""); p.add_argument("--hook-json", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
     return ap
 
 

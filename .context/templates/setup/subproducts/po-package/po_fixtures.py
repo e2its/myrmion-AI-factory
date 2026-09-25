@@ -45,7 +45,7 @@ JOURNEY_BODY = """# User Journey: {fid} — Table booking
 
 ## Section 0: Decision History
 
-| # | Date | Hat | Question | Options | Decision | Rationale |
+| # | Date | Concern | Question | Options | Decision | Rationale |
 |---|------|-----|----------|---------|----------|-----------|
 | 1 | 2026-01-01 | PO | — | — | — | — |
 

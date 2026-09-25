@@ -114,37 +114,38 @@ FUNCTION run_code_review(mode, args, profile):
   roster = select_agents(profile, type_def_trigger(scope.files))
   n, m = COUNT(scope.files), LINES_CHANGED(scope)
   r = args.round OR 1                                             # rules/agents.md → rounds.work = 1 on a completed diff
-  before = RUN("python3 scripts/gate.py certify --subject tree --paths {scope.files}")
+  before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")   # on-disk bytes; non-zero exit ⇒ { ok: false, reason: "tree-unhashable" }, NO marker
   # ONE sub-agent per roster entry, in parallel. The runtime decides actual
   # concurrency — this skill never asserts a number.
+  degraded = false
   reports = PARALLEL_MAP(roster, LAMBDA(agent_file):
-    fm = read_frontmatter("agents/{agent_file}")                  # tools + class + lens — no model
-    model = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}").model
-    report = spawn_review_agent(
-      instructions = body_of("agents/{agent_file}"),
-      model        = model,                                        # passed at the spawn, never read from the file
-      tools        = fm.tools,                                     # Read, Grep, Glob — read-only by matrix
-      inputs = {
+    res   = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}")
+    # The vendored lens is a PROMPT; the agent type is the rostered critic — its harness matrix (Read, Grep, Glob) is the read-only guarantee.
+    report = SPAWN(subagent_type = "factory-critic-correctness",
+      model  = res.model,                                          # passed at the spawn, never read from a file; the PreToolUse Agent hook refuses it missing
+      prompt = "effort: {res.effort}\n" + body_of("agents/{agent_file}") + inputs = {
         files: scope.files,
         context: diff range or increment description,
         governance: binding.packet_for(agent),   # § Governance Binding per-agent slice, with citations
-        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding; every finding: file:line · severity · confidence N% · probe"
+        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding; every finding on one line: file:line · severity · confidence N% · probe: <what was run>"
       })
-    # Fallback: on a provider error a critic falls to the other family — never to a writer class
+    # Fallback: on a provider error a critic falls down the ladder — never to a writer class
     IF report.provider_error:
-      model  = RUN("python3 scripts/gate.py agents --fallback --class work-critic --family critic").model
-      report = spawn_review_agent(... same inputs, model = model)
-    # Return check: a finding without file, line, severity, confidence and an executed probe is refused
+      fb = RUN("python3 scripts/gate.py agents --fallback --class work-critic --family critic")
+      IF NOT fb.ok: RETURN { ok: false, reason: "spawn-failure" }
+      IF NOT fb.separation: degraded = true                       # the writer's family — the run's findings go to the user's adjudication
+      report = SPAWN(... same inputs, model = fb.model)
+    # Return check: a line carrying a severity outside the shape, or a probe that names nothing, is refused
     IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", report) refuses:
-      report = spawn_review_agent(... same inputs, model = model)   # ONCE
+      report = SPAWN(... same inputs, model = res.model)            # ONCE
       IF refused again: report.findings = ALL_AS(❓)
     RETURN report)
-  after = RUN("python3 scripts/gate.py certify --subject tree --paths {scope.files}")
-  IF before != after: RETURN { ok: false, reason: "tree-moved" }   # a run around which the tree moved is refused — NO marker
+  after = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")
+  IF before != after: RETURN { ok: false, reason: "tree-moved" }   # a run around which the working tree moved is refused — NO marker
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ... }   # NO marker
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
-  RETURN { ok: true, findings, counts: {blocker, important, nit, question} }
+  RETURN { ok: true, findings, degraded, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true, findings to the user
 ```
 
 ## Severity normalisation
@@ -164,7 +165,7 @@ The marker is the push gate's proof-of-execution. Increment mode NEVER writes it
 2. Write (house rules): `mkdir -p .claude/state/`; hash sanitised `tr -cd 'a-f0-9'`; atomic `> .tmp && mv`. Path: `.claude/state/code-review-${hash}.marker`.
 3. Body (single-line JSON):
    ```json
-   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"override":null}
+   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"override":null}
    ```
 4. Blockers found ⇒ STILL write (with counts) — preflight blocks on `findings.blocker > 0`, and the written marker is what the override path amends. Surface all findings to the user with fixes.
 
@@ -186,7 +187,7 @@ No per-developer escape hatch. Permanent project-level downgrade is the ADR plan
 
 ## ACP rule
 
-- `context: "increment"` (invoked from the IMPLEMENT per-increment review): NO entry announcement — a critic spawned inside a phase is internal (ACP § Entry Announcement rules). The `IMPLEMENT --build` milestone map "3/5 Peer Review" is untouched.
+- `context: "increment"` (invoked from the IMPLEMENT per-increment review): NO entry announcement — a critic spawned inside a phase is internal (ACP § Entry Announcement rules). The `IMPLEMENT --build` milestone map entry `3/5: Work critics` (factory-agent-communication) is untouched.
 - Standalone / gate invocation: normal ACP entry announcement.
 - The 🔎 banner fires in BOTH contexts — protocol banner, not an ACP announcement.
 
@@ -198,7 +199,8 @@ No per-developer escape hatch. Permanent project-level downgrade is the ADR plan
 | `executor-missing` | skill dir / hash helper absent (consumed by preflight Step 0-bis, not by this skill) | NOISY Important finding, push passes (RDR-2 infra plane) |
 | `no-source-files` | scope resolves to zero `is_code∪is_test` files | pass, banner only |
 | `spawn-failure` | sub-agent infra error mid-run | report, NO marker — stricter than executor-missing, deliberate: "ran but incomplete" is not proof. Escape = fix and re-run, or one-shot RDR override |
-| `tree-moved` | `gate.py certify --subject tree` differs before/after the critic run | refused, NO marker — a critic that wrote is not a critic. Escape = re-run |
+| `tree-moved` | `gate.py certify --subject worktree --paths {scope.files}` differs before/after the critic run (on-disk bytes, untracked included) | refused, NO marker — a critic that wrote is not a critic. Escape = re-run |
+| `tree-unhashable` | the worktree certification exits non-zero before the run | refused, NO marker — a guard that faults never refuses; fix the scope and re-run |
 
 Findings plane is fail-closed: marker with `findings.blocker > 0` and no override blocks the push (Block 20).
 

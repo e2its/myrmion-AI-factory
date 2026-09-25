@@ -211,8 +211,8 @@ scripts/                                     # Governance + CI scripts — manif
         (each command loads its instructions and skills on invocation)
 ```
 
-- **Claude Code** is a single agent that assumes different roles depending on the slash command invoked.
-- Each slash command defines the role's personality, protocols, and rules.
+- **Claude Code** is the orchestrator: each slash command delegates by name to a phase agent with its own context (`.claude/agents/`, policy in `rules/agents.md`).
+- Each slash command binds its phase agent's protocols and rules.
 - Detailed instructions in `.claude/instructions/` are loaded contextually per command.
 - Skills in `.claude/skills/` are cross-cutting protocols reusable by every command.
 - `CLAUDE.md` loads on EVERY conversation (contains cross-cutting governance).
@@ -319,7 +319,7 @@ Artifacts: `docs/setup.md`, `docs/constitution.md`, `.claude/rules/*`, `MATERIAL
 
 ### 1. CODESIGN (Co-Creation: PO ↔ UX)
 
-Role: Dual personality (🎩 PO hat ↔ 🎨 UX hat). Co-creates the functional specification, the visual mockup, and the user journey.
+Role: Phase agent `factory-codesign` — one context, both concerns (🎩 PO ↔ 🎨 UX). Co-creates the functional specification, the visual mockup, and the user journey.
 
 | Command | Arguments | Description |
 | --- | --- | --- |
@@ -339,7 +339,7 @@ Design-system ↔ build alignment: `docs/ux/component-registry.json` (one entry 
 
 ### 2. BLUEPRINT (Co-Design: ARCH ↔ QA)
 
-Role: Dual personality (🏗️ ARCH hat ↔ 🧪 QA hat). Co-designs architecture and test strategy simultaneously.
+Role: Phase agent `factory-blueprint` — one context, both concerns (🏗️ ARCH ↔ 🧪 QA); its plan is gated by `factory-plan-critic`. Co-designs architecture and test strategy simultaneously.
 
 | Command | Arguments | Description |
 | --- | --- | --- |
@@ -347,11 +347,11 @@ Role: Dual personality (🏗️ ARCH hat ↔ 🧪 QA hat). Co-designs architectu
 | `/blueprint --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement of design, tests and/or the Increment Plan. |
 | `/blueprint --approve {ID}` | — | Joint ARCH+QA approval. Runs CVP Coherence Gate (CODESIGN_BLUEPRINT scope, incl. `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage`, and the EVOL-036 slice checks `slice_map_presence` 0d / `slice_to_increment_coverage` 18 / `slice_seam_resolution` 19 / `slice_immutability_consistency` 20). Enables IMPLEMENT. |
 | `/blueprint --adr {ID} "[TITLE]" "[DECISION]"` | Title and decision | Generates a standalone ADR. |
-| `/blueprint --review-conflict {ID}` | — | Arbitration when peer review rejects 3+ times. |
+| `/blueprint --review-conflict {ID}` | — | Arbitration when the user routes an open work-round finding to the plan. |
 
 Artifacts: `docs/spec/{ID}/design.md`, `test_plan.md`, `increment_plan.md`, contracts under `contracts/`.
 
-### 3. IMPLEMENT (Implementation: DEV ↔ REVIEW ↔ SEC)
+### 3. IMPLEMENT (Implementation: workers ↔ work critics)
 
 Role: Phase agent `factory-implement` — workers per surface, then read-only work critics and the security lens (EVOL-049). Plans + implements + verifies + secures per phase.
 
@@ -400,7 +400,7 @@ Role: Final post-code certification and verification in a deployed environment (
 
 Artifacts: `docs/spec/{ID}/qa/qa_report_{INC-N}_{ts}.md` (per-slice, slicing_strategy=incremental) and/or `docs/spec/{ID}/qa/qa_report_final_{ts}.md` (aggregate / sole report for monolithic). The aggregate report cross-references slice reports via the `aggregates:` frontmatter.
 
-> **Note:** Test planning was absorbed by BLUEPRINT (🧪 QA hat). QA focuses on post-staging verification.
+> **Note:** Test planning was absorbed by BLUEPRINT (the 🧪 QA concern of `factory-blueprint`). QA focuses on post-staging verification.
 
 ### 6. BACKLOG (Project Tracking & Issue Management) — Independent
 
@@ -964,7 +964,7 @@ The framework ships protocols reusable by every command:
 | **Backlog Next-Task Resolver** | Dual-mode resolver: push (`--next-task`, single item) and pull (`--eligible`, full pool). Shared filters: intra-feature prereq + `blocked-by:#{N}` + gate-mode fallback (enforce/warn/off). Fast path via cache at `/memories/repo/`. |
 | **Defect Prevention Catalog (DPC)** | Families (surface globs + one-line invariant) and defect classes (one-line invariant, gate mark, governed paths, applicable agents, severity); narratives in `defect-prevention-cases.md` read by id. Consumed by 7 agents (CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT) filtered by `Applicable To` + `Paths`; rows governing a file are delivered at the point of edit by the pre-edit hook. Discover-catalog-prevent loop closed by the `[EPIC-{N}] RETROSPECTIVE` write-back. Universal starter DCs + stack-conditional DCs. |
 | **PO Intake** | External CODESIGN authoring. Builds the PO package, validates a return (self-test first; form and coherence, never merit), drives one RDR per change, writes the drop zone, calls `/codesign --sync` per ratified target, and turns every designed-but-unbuilt component into backlog issues (`kind:component-catalog`). |
-| **Preventive Sweep** | Pre-deploy runtime defect scan via parallel Explore sub-agents — one per non-overlapping scope derived from the DPC. Zero open C-severity findings required to approve. |
+| **Preventive Sweep** | Pre-deploy runtime defect scan via parallel read-only critics (`factory-critic-governance`, spawned by name from the main session) — one per non-overlapping scope derived from the DPC. Zero open C-severity findings required to approve. |
 
 ### Rule Categories
 

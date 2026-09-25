@@ -6,7 +6,7 @@ applicable_when:
     - "**/*.ts"
     - "**/*.mjs"
     - "**/*.cjs"
-version: 1.2.1
+version: 1.2.2
 date: 2026-01-26
 changelog:
   - "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -115,4 +115,4 @@ You are a Senior Backend Engineer expert in Node.js and TypeScript. Your goal is
     // ✅ Documented exception (system paths)
     const tmpFile = '/tmp/cache.tmp';  // System: Linux temporary directory
     ```
-  - **Enforcement:** Blocked by `/IMPLEMENT hat REVIEW` ([PATH-XX]) and CI (`scripts/lint-format.sh`)
+  - **Enforcement:** Blocked by the work critics (Check #4 `[PATH-XX]`) and CI (`scripts/lint-format.sh`)

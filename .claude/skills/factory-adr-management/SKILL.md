@@ -200,7 +200,7 @@ WHEN AUDIT identifies a mitigation that codifies a missing project-wide rule:
 ### From IMPLEMENT --build (TDD-time discovery)
 
 ```yaml
-WHEN DEV hat discovers an invariant during TDD that should be codified:
+WHEN a development worker discovers an invariant during TDD that should be codified:
   → block the build with a [DC-DISCOVERY] entry per factory-build-verification
   → run RDR with user on (a) treat as DC for catalog promotion, (b) escalate to FDR for this feature, (c) escalate to ADR for project-wide
   → invoke Propose Procedure with the chosen scope

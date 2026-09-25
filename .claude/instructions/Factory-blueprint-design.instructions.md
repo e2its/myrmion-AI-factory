@@ -37,13 +37,13 @@ FUNCTION plan_gate(FEATURE_ID):
   FOR round IN 1..cap:
     digest = RUN("python3 scripts/gate.py agents --digest --agent factory-plan-critic")
     model  = RUN("python3 scripts/gate.py agents --resolve --class plan-critic --round {round}").model
-    before = RUN("python3 scripts/gate.py certify --subject tree --paths {scope}")
+    before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope}")   # on-disk bytes, untracked included; non-zero exit ⇒ REFUSE
     report = SPAWN("factory-plan-critic", model = model, digest = digest,
                    inputs = [design.md, test_plan.md, increment_plan.md, spec.feature, slice_map.md, contracts/**])
-      # provider error ⇒ model = RUN("python3 scripts/gate.py agents --fallback --class plan-critic --family critic").model
-      #                  — the other family, never a writer
-    after  = RUN("python3 scripts/gate.py certify --subject tree --paths {scope}")
-    IF before != after: REFUSE "tree moved around a critic run" — the round is void
+      # provider error ⇒ fb = RUN("python3 scripts/gate.py agents --fallback --class plan-critic --family critic")
+      #                  model = fb.model; IF NOT fb.separation: the round's findings go to the user's adjudication (the critic ran on the writer's family)
+    after  = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope}")
+    IF before != after: REFUSE "working tree moved around a critic run" — the round is void
     IF RUN("python3 scripts/gate.py agents --check-return --class plan-critic", report) refuses:
       re-spawn ONCE; refused again ⇒ every finding of the round is ❓
     open = report.findings WHERE severity > 🟢

@@ -285,7 +285,13 @@ PY
 OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --surface security --files 3 --lines 40 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'model opus' && ok "per-spawn resolution on the materialised policy: the security critic on the critics' family" || bad "resolve wrong (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --digest --agent factory-critic-security 2>&1); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'digest' && ok "the corpus digest for a critic is produced within its class budget" || bad "digest failed (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'read .claude/rules/security_policy.md' && printf '%s' "$OUT" | grep -qE 'B within [0-9]+ B' && ok "the security critic's digest carries the security rule of the materialised tree, within its class budget" || bad "digest lacks the lens's law (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf '%s' '{"tool_input":{"subagent_type":"factory-critic-security","model":"sonnet"}}' | python3 scripts/gate.py agents --spawn --hook-json 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "family's alias is" && ok "RED: a critic spawned on the writer's alias is refused by the spawn check (the PreToolUse Agent hook's question)" || bad "spawn check did not refuse (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf '%s' '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-critic-security","model":"sonnet"}}' | CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-agent-spawn.sh 2>&1 >/dev/null); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'BLOCKED' && ok "the delivered spawn hook blocks it (exit 2, humanised)" || bad "spawn hook did not block (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 2 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a second work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

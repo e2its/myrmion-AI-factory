@@ -116,7 +116,7 @@ For each ADR in `docs/project_log/adr/`:
 |---------|--------------|----------------|
 | `templates` | `.claude/rules/**`, `docs/constitution.md`, `docs/setup.md`, `.context/templates/setup/**` materialised paths, CI/CD workflow YAML | Smart Additive Merge (Step 2) — placeholders resolved via Smart Discovery Cascade |
 | `agent_templates` | `.context/templates/{architect,codesign,develop,peer_review,po,qa,security,ux}/**` | Smart Additive Merge (Step 2) — placeholders are runtime-resolved by agents at feature time and ship verbatim; merge preserves any local customisations of headings, sections, or structural prose |
-| `framework_core` | `.claude/{commands,instructions,skills,hooks}/**`, `scripts/**`, `.github/workflows/**`, root `CLAUDE.md`, `README.md`, `config/coherence-context.json` | Script Semantic Merge for `.sh`/`.py` (Step 1b); Smart Additive Merge for everything else |
+| `framework_core` | `.claude/{commands,instructions,skills,hooks,agents}/**`, `scripts/**`, `.github/workflows/**`, root `CLAUDE.md`, `README.md`, `config/coherence-context.json` | Script Semantic Merge for `.sh`/`.py` (Step 1b); Smart Additive Merge for everything else |
 
 The three sections are mutually exclusive on target paths — a file appears in exactly one section. Walk all three in a single pass; do not deduplicate by checksum across sections.
 
@@ -207,7 +207,7 @@ Scan merged content for unresolved placeholders (`TODO`, `FIXME`, `XXX`, `{{...}
 
 **Step 6 — Show Diff:** Display unified diff for user confirmation.
 **Step 7 — Write:** Save merged content to file.
-**Step 8 — Update Snapshot:** Record new checksum in project `governance_versions.json`. When the project manifest carries no `delivery_mode` (a project materialised before EVOL-046), ask Q32 (Factory-setup-discovery) and write the answer at the top level — an absent key already resolves to `production` (every push owes the full profile), so say it rather than leave it implicit.
+**Step 8 — Update Snapshot:** Record new checksum in project `governance_versions.json`. When the project manifest carries no `delivery_mode` (a project materialised before EVOL-046), ask Q32 (Factory-setup-discovery) and write the answer at the top level — an absent key already resolves to `production` (every push owes the full profile), so say it rather than leave it implicit. When the project `config/quality.json` carries no `agents.families` (a project materialised before EVOL-049), ask Q34 (writer / critic model aliases — two different families) and materialise `.claude/rules/agents.md` + `.claude/agents/*.md` from the template tree.
 
 ---
 

@@ -39,7 +39,7 @@ updated_at: "{{TIMESTAMP}}"
 <!-- Chronological record of RDR decisions made during slicing. Each slicing decision carries the
      factory-adversarial-reasoning FOR/AGAINST one-liner in Rationale. -->
 
-| # | Date | Hat | Question | Options | Decision | Rationale |
+| # | Date | Concern | Question | Options | Decision | Rationale |
 |---|------|-----|----------|---------|----------|-----------|
 | 1 | {{DATE}} | 🎩 PO | — | — | — | — |
 

@@ -4,6 +4,7 @@ description: Use this agent when you need to review code for adherence to projec
 color: green
 tools: Read, Grep, Glob
 class: work-critic
+effort: high
 lens: correctness
 ---
 
