@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "7.4.0",
+  "framework_version": "7.5.0",
   "delivery_mode": "development",
   "last_updated": "2026-09-25",
   "governance_features": {
@@ -587,10 +587,11 @@
       "delivery": "both"
     },
     "scripts/README.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": "scripts/README.md",
       "changelog": [
+        "1.5.0: feat(EVOL-048) — gate.py subcommands of EVOL-045…048 listed.",
         "1.4.0: feat(EVOL-046) — pre-push runs the gate profile.",
         "1.3.0: feat(EVOL-044) — coherence gates review pass (see PR).",
         "1.2.0: feat(EVOL-043) — EVOL-043 touch (see PR).",
@@ -652,10 +653,11 @@
       "delivery": "both"
     },
     "scripts/governance-onprompt.sh": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "content_type": "universal",
       "target": "scripts/governance-onprompt.sh",
       "changelog": [
+        "2.4.0: feat(EVOL-048) — <planning-warning> advisory before the pre-write block (gate.py plan --status).",
         "2.3.0: feat(EVOL-043) — GOVERNANCE_ONPROMPT_WORST_CASE=1 for the budget reader; fresh line counts laws + defect families.",
         "2.2.1: fix(IPP runtime binding) — adds Block 2b IPP marker consumer between source-edit attribution and the livelock carve-out. Two new model-facing tagged blocks emitted on stdout: `<ipp-reminder paths=\"...\">` consumes `.claude/state/ipp-first-write-${session_id}.marker` (written by check-ipp-compliance.sh after a legitimate skeleton write) and emits Pillars 2/3 teaching text with SKILL pointer. `<ipp-warning reason=\"pillar-2-violation\" entries=\"...\">` consumes `.claude/state/ipp-pillar2-${session_id}.marker` (written by governance-onedit.sh Block 2 when filled sections outpace `_progress`) and emits a backfill instruction. Both markers session-scoped with legacy-unscoped fallback; consumed (deleted) after emission. Allowlist filters reject anything not under `docs/spec/*` or `docs/setup.md`. Freshness gate (Block 3) is NOT suppressed by IPP blocks — they are independent advisories. Lock-step with framework_core.scripts/governance-onprompt.sh.",
         "2.2.0: synced from meta — positive governance-loaded confirmation tag mid-session.",
@@ -832,11 +834,12 @@
       "delivery": "both"
     },
     "claude/settings.json": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "content_type": "universal",
       "target": ".claude/settings.json",
       "upgrade_strategy": "merge-preserve",
       "changelog": [
+        "2.1.0: feat(EVOL-048) — PreToolUse Edit|Write: check-plan-approval.sh; PostToolUse ExitPlanMode: record-plan-approval.sh (EVOL-048).",
         "2.0.0: feat(EVOL-043)! — BREAKING (hook contract: blocking hooks exit 2, delivery hook wired) — deliver-governance.sh wired on PreToolUse Edit|Write (law at the point of edit).",
         "1.3.0: feat(EVOL-024): new PreToolUse Bash matcher invoking .claude/hooks/check-push-preflight.sh — Factory PR Review push gate intercepts `git push` and runs the local preflight before the command leaves the harness. Merge-preserve adds the Bash matcher without touching existing PreToolUse Edit|Write / Write blocks.",
         "1.2.0: feat(EVOL-023): new PostToolUse Edit|Write block invoking scripts/governance-onedit.sh — emits a session-scoped marker when docs/constitution.md or docs/setup.md is edited so the next UserPromptSubmit can attribute the cause and instruct inline regen. Merge-preserve adds the PostToolUse entry without touching existing PreToolUse / UserPromptSubmit / PreCompact / SessionStart blocks or user permissions.",
@@ -912,11 +915,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.4.0",
+      "version": "4.5.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.5.0: feat(EVOL-048) — § Pre-Action Gate — One planning stage (EVOL-048).",
         "4.4.0: feat(EVOL-047) — § Generation Standards 3 rewritten — the branch rule (every change via branch + PR) and the runtime surface (positive list, hard exclusions, parity gate, honest review allowlist); triage item reworded.",
         "4.3.0: feat(EVOL-046) — § Control points and gate profiles (EVOL-046) — one key, one reader, the table.",
         "4.2.0: feat(EVOL-045) — § Incremental Dev Plan — Trains and the surface ceiling paragraph.",
@@ -1047,10 +1051,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.7.0: feat(EVOL-048) — planning block — governed_paths, docs_exempt, gate_inputs, exempt_classes (none in the framework repo), plan_artefact (the ADR), adoption_window_minutes.",
         "1.6.0: feat(EVOL-047) — surface.runtime_surface as the positive deployment list; always_deploy (hard exclusions with reasons); declared_reads.",
         "1.5.0: feat(EVOL-045) — surface block — ceiling_files / ceiling_lines / escapes (closed) / runtime_surface.",
         "1.4.0: feat(EVOL-044) — coherence.certifying_artefacts key (the verdict artefacts gate.py currency judges; both sec_audit paths).",
@@ -1270,11 +1275,12 @@
       ]
     },
     "setup/gitignore.hbs": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": ".gitignore",
       "role": "Gitignore handlebars template — rendered at materialization.",
       "changelog": [
+        "1.2.0: feat(EVOL-048) — .claude/state/ ignored — the governance markers (plan approvals, delivery dedupe, audit markers) never ride a PR.",
         "1.1.0: feat(EVOL-044) — verdict artefacts (qa_report_*, sec_audit_*) are VERSIONED — a verdict of record certifies a build; the ignore lines and their comments removed.",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ]
@@ -1675,11 +1681,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.5.0: feat(EVOL-048) — plan --path | --status | --record subcommand (EVOL-048).",
         "1.4.0: feat(EVOL-047) — runtime-surface [--changed] subcommand (EVOL-047).",
         "1.3.0: feat(EVOL-046) — profile [--run] and one-definition subcommands (EVOL-046).",
         "1.2.0: feat(EVOL-045) — branch-class / diff-base / surface subcommands; certify and currency default to the one diff base; an unrecognised branch name is exit 1 (red), never a silent origin/main.",
@@ -1740,11 +1747,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.5.0: feat(EVOL-048) — Planning class — governed precedence (gate inputs, docs exemption), classes fail closed, the marker only from the harness, adoption once from a base branch within the window and never by the advisory, the plan artefact; CLI exit codes.",
         "1.4.0: feat(EVOL-047) — Runtime class — the positive trigger (untouched/touched/hard exclusion/HEAD^1/empty list/shape faults) and the parity gate (transitive reads, comments, declared and stale reads); CLI exit codes.",
         "1.3.0: feat(EVOL-046) — Profile class — mode fail-closed (unknown / absent / unreadable / no env override), profile per control point, members by property, all-report run with one verdict, one-definition scan; CLI exit codes.",
         "1.2.0: feat(EVOL-045) — Branch class (every grammar class, train protection, the one diff base fail-closed + default_base_branch, surface under/over files/over lines, closed escape vocabulary, a sub-increment measured against its train) + CLI exit codes.",
@@ -1792,6 +1800,43 @@
       "role": "gates: the deployment trigger by positive runtime surface (EVOL-047) — `changed` (did base...HEAD touch surface.runtime_surface or a hard exclusion in surface.always_deploy; an empty list deploys everything and says so), `parity` (every path literal the deploying workflows and, transitively, their scripts read is on the list, a hard exclusion or a declared read; a stale declared read is a finding).",
       "changelog": [
         "1.0.0: feat(EVOL-047) — initial."
+      ]
+    },
+    "scripts/gates/planning.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/planning.py",
+      "delivery": "both",
+      "role": "gates: one planning stage (EVOL-048) — `governed` (governed_paths minus docs_exempt, except gate_inputs), `approval` (exempt classes by phase; the branch's plan artefact in an approved state; the marker written only by the harness's plan approval; adoption once from a base branch within the window), `gate` (block with a humanised reason + resolution), `status` (the advisory), `record` (refuses anything but the PostToolUse ExitPlanMode event).",
+      "changelog": [
+        "1.0.0: feat(EVOL-048) — initial."
+      ]
+    },
+    "claude/hooks/check-plan-approval.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-plan-approval.sh",
+      "role": "PreToolUse hook (Edit|Write) — a governed write on a branch class with no framework planning phase needs an approved plan; asks gate.py plan --path; exit 2 + a humanised reason and resolution; a missing or broken reader blocks (fail-closed).",
+      "changelog": [
+        "1.0.0: feat(EVOL-048) — initial."
+      ]
+    },
+    "claude/hooks/record-plan-approval.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/record-plan-approval.sh",
+      "role": "PostToolUse hook (ExitPlanMode) — the only writer of the plan-approval marker (gate.py plan --record from the harness's payload); never blocks; a failure is said through the envelope.",
+      "changelog": [
+        "1.0.0: feat(EVOL-048) — initial."
+      ]
+    },
+    "claude/hooks/check-plan-mode.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/check-plan-mode.sh",
+      "role": "PreToolUse hook (EnterPlanMode) — one stage, never two: a branch class whose plan a framework phase owns never enters the harness's plan mode; asks gate.py plan --enter (exit 1 = blocked → exit 2 + stderr); reader absent → pass (plan mode writes nothing).",
+      "changelog": [
+        "1.0.0: feat(EVOL-048) — initial."
       ]
     }
   },
@@ -2069,9 +2114,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.16.0",
+      "version": "2.17.0",
       "path": "README.md",
       "changelog": [
+        "2.17.0: feat(EVOL-048) — one planning stage paragraph (EVOL-048).",
         "2.16.0: feat(EVOL-047) — the deployment trigger is a positive list held by a parity gate; the branch rule untouched.",
         "2.15.0: feat(EVOL-046) — gate profiles per control point paragraph.",
         "2.14.0: feat(EVOL-045) — § Incremental Dev Plan — trains and the surface ceiling; gate list mentions gate.py surface.",
@@ -2131,9 +2177,10 @@
       ]
     },
     "commands/blueprint.md": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "path": ".claude/commands/blueprint.md",
       "changelog": [
+        "1.9.0: feat(EVOL-048) — owns a planning phase: never enters plan mode (EVOL-048).",
         "1.8.0: feat(EVOL-045) — increment plan fields Estimated surface / Escape / Sub-increments.",
         "1.7.0: feat(EVOL-041) — prerequisites scope-aware (mock only for UI scopes); schema authority split per LAW-16 (journey § 6 existence / design §§ 3.1-3.2 + 7.4 typing).",
         "1.6.0: feat(EVOL-036) SLICE-3 — --start prereq adds slice_map.md APPROVED (incremental); Output increment_plan.md re-described as contract-aware refinement of slice_map slices (cascade_source: SLICE-{FEAT}-N, depends_on_slice/feature/seam, no slice invention); IPP bullet §0 Slicing Rationale → Refinement Record.",
@@ -2147,9 +2194,10 @@
       ]
     },
     "commands/codesign.md": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.7.0: feat(EVOL-048) — owns a planning phase: never enters plan mode (EVOL-048).",
         "1.6.0: feat(EVOL-052) — third level of operation: External Authoring Sync (`--sync {VISION|ID}`); guard semantics for the four authoring sub-commands; branch naming for --sync. Guard ordering stated: after Step 0, before Step -1.",
         "1.5.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: journey step field list completed to the 9-field grammar.",
         "1.5.0: feat(EVOL-041) — artefact list journey-first with machine-anchor contract; single journey template all scopes; § 6 existence authority + check-journey-grammar.sh in Key Principles.",
@@ -2162,9 +2210,10 @@
       ]
     },
     "commands/devops.md": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "path": ".claude/commands/devops.md",
       "changelog": [
+        "1.4.0: feat(EVOL-048) — owns a planning phase (--configure): never enters plan mode (EVOL-048).",
         "1.3.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.3.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
@@ -2173,9 +2222,10 @@
       ]
     },
     "commands/implement.md": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "path": ".claude/commands/implement.md",
       "changelog": [
+        "1.7.0: feat(EVOL-048) — owns a planning phase (--plan): never enters plan mode (EVOL-048).",
         "1.6.0: feat(EVOL-032) phase 3 — `--build` bullet list gains MCP Docs Scan banner item; `--refine` step 3.4 reworded to make banner-first-line + delta-task-citation requirements explicit.",
         "1.5.0: feat(EVOL-032) phase 2 — `--refine` section rewritten with six enumerated sub-steps (3.1 locate / 3.2 dev_plan state / 3.3 CVP coherence — AFTER delta generation / 3.4 MCP-docs / 3.5 update with origin+task_class metadata / 3.6 aggregated changelog with delta_tasks checklist read by --build).",
         "1.4.0: feat(EVOL-029) post-review fix — new sub-command --finalize {ID} for plan-level aggregate retry under slicing_strategy: incremental. Triggered when every increments[].status == IMPLEMENTED_AND_VERIFIED but global dev_plan.status remains BUILDING because the last-slice closure's plan-level BVL aggregate failed. Re-runs full_verification_gate(FEATURE_ID, null), flips global on PASSED. Idempotent (no-op when already finalized) and slicing-strategy-guarded (errors under monolithic).",
@@ -2196,9 +2246,10 @@
       ]
     },
     "commands/setup.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": ".claude/commands/setup.md",
       "changelog": [
+        "1.3.0: feat(EVOL-048) — owns a planning phase (--init): never enters plan mode (EVOL-048).",
         "1.2.0: feat(EVOL-043) — EVOL-043 touch (see PR).",
         "1.1.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
@@ -2671,9 +2722,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.17.0",
+      "version": "3.18.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.18.0: feat(EVOL-048) — planning block keeps template defaults; its hooks land with settings.json (EVOL-048).",
         "3.17.0: feat(EVOL-047) — {{RUNTIME_SURFACE}} resolved from Q33 (JSON array); invariant: gate.py runtime-surface green on the materialised tree.",
         "3.16.0: feat(EVOL-046) — project manifest shape: delivery_mode (Q32).",
         "3.15.0: feat(EVOL-045) — quality.json surface placeholders resolved from Q31.",
@@ -2723,9 +2775,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.9.0",
+      "version": "2.10.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.10.0: feat(EVOL-048) — settings.json merge adds the framework's missing hook commands (Edit|Write, EnterPlanMode, PostToolUse ExitPlanMode); the planning key and the wiring land in the same step.",
         "2.9.0: feat(EVOL-046) — Step 8 — a project manifest without delivery_mode: ask Q32 and write it (an absent key is production).",
         "2.8.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "2.7.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2778,9 +2831,10 @@
       ]
     },
     "instructions/Factory-protocol-iop-intent-map.instructions.md": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "path": ".claude/instructions/Factory-protocol-iop-intent-map.instructions.md",
       "changelog": [
+        "2.12.0: feat(EVOL-048) — one planning stage — never zero, never two (EVOL-048).",
         "2.11.0: feat(EVOL-047) — triage item: docs-only change — still branch + PR.",
         "2.10.0: feat(EVOL-045) — protected-branch checks read gate.py branch-class --protected (trains included).",
         "2.9.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2805,9 +2859,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.4.0",
+      "version": "14.5.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.5.0: feat(EVOL-048) — § Pre-Action Gate — One planning stage (EVOL-048).",
         "14.4.0: feat(EVOL-047) — § Generation Standards 3 rewritten — the branch rule (every change via branch + PR) and the runtime surface (positive list, hard exclusions, parity gate, honest review allowlist); triage item reworded.",
         "14.3.0: feat(EVOL-046) — § Pre-Action Gate — control points and gate profiles paragraph + table.",
         "14.2.0: feat(EVOL-045) — § Pre-Action Gate — trains protected, sub-increment pattern, the one diff base and the surface ceiling.",
@@ -2982,10 +3037,11 @@
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
     "skills/factory-branching-strategy/SKILL.md": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "type": "skill",
       "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse, per-increment branching.",
       "changelog": [
+        "1.11.0: feat(EVOL-048) — branch naming line matches the reader's grammar (no setup/ audit/ maintenance/ prefixes).",
         "1.10.0: feat(EVOL-047) — TRAIN CLOSE deployment decided by gate.py runtime-surface --changed.",
         "1.9.0: feat(EVOL-046) — pre-push step 3 (gate.py profile --run).",
         "1.8.0: feat(EVOL-045) — § Trains and Sub-increments — grammar, protection, open/merge/close, the one diff base, surface.",
@@ -3531,11 +3587,12 @@
       "delivery": "both"
     },
     "scripts/governance-onprompt.sh": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "path": "scripts/governance-onprompt.sh",
       "type": "utility",
       "role": "UserPromptSubmit hook companion — four jobs per prompt: (1) post-compact re-inject of governance snapshot via `<governance-reload>` (sibling PreCompact marker); (2) source-edit attribution — reads marker written by PostToolUse governance-onedit.sh Block 1 and emits `<governance-source-edited paths=\"...\">` with explicit regen instruction; (2b) IPP marker consumer — reads `ipp-first-write` and `ipp-pillar2` markers and emits `<ipp-reminder>` / `<ipp-warning>` tagged blocks; (3) advisory freshness gate — emits `<governance-warning reason=\"snapshot-stale\">` on stale (suppressed when (2) fired). Always exits 0.",
       "changelog": [
+        "2.4.0: feat(EVOL-048) — <planning-warning> advisory before the pre-write block (gate.py plan --status).",
         "2.3.0: feat(EVOL-043) — GOVERNANCE_ONPROMPT_WORST_CASE=1 for the budget reader; fresh line counts laws + defect families.",
         "2.2.1: fix(IPP runtime binding) — Block 2b IPP marker consumer added (lock-step with templates entry). Emits `<ipp-reminder paths=\"...\">` after the source-edit attribution block and before the livelock carve-out, then `<ipp-warning reason=\"pillar-2-violation\" entries=\"...\">` when the post-edit detector flagged a tracker mismatch. Existing jobs preserved verbatim; freshness gate is NOT suppressed by IPP blocks.",
         "2.2.0: feat — emits a positive `<governance-loaded snapshot=\"fresh\" law-sections=\"N\" universal-dcs=\"M\" />` tag mid-session when the freshness gate passes. Counterpart to the existing `<governance-warning reason=\"snapshot-stale\">` block; same observational discipline, opposite signal. Meta-context fallback emits `<governance-loaded context=\"meta\" />` (no snapshot by design in the framework repo).",
@@ -3935,11 +3992,12 @@
       ]
     },
     "settings.json": {
-      "version": "2.0.0",
+      "version": "2.1.0",
       "type": "config",
       "role": "Claude Code harness settings — wires the full governance hook chain (SessionStart banner, UserPromptSubmit freshness, PreCompact, PreToolUse Edit|Write/Write/Bash gates, PostToolUse watcher). Lock-step pair with .context/templates/setup/claude/settings.json.",
       "path": ".claude/settings.json",
       "changelog": [
+        "2.1.0: feat(EVOL-048) — PreToolUse Edit|Write: check-plan-approval.sh; PostToolUse ExitPlanMode: record-plan-approval.sh (EVOL-048).",
         "2.0.0: feat(EVOL-043)! — BREAKING (hook contract: blocking hooks exit 2, delivery hook wired) — deliver-governance.sh wired on PreToolUse Edit|Write (law at the point of edit).",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ]
@@ -4080,11 +4138,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.5.0: feat(EVOL-048) — planning block — governed_paths, docs_exempt, gate_inputs, exempt_classes (none in the framework repo), plan_artefact (the ADR), adoption_window_minutes.",
         "1.4.0: feat(EVOL-047) — surface.runtime_surface as the positive deployment list; always_deploy (hard exclusions with reasons); declared_reads.",
         "1.3.0: feat(EVOL-045) — surface block — ceiling_files / ceiling_lines / escapes (closed) / runtime_surface.",
         "1.2.0: feat(EVOL-044) — coherence.certifying_artefacts key (the verdict artefacts gate.py currency judges; both sec_audit paths).",
@@ -4187,11 +4246,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.5.0: feat(EVOL-048) — plan --path | --status | --record subcommand (EVOL-048).",
         "1.4.0: feat(EVOL-047) — runtime-surface [--changed] subcommand (EVOL-047).",
         "1.3.0: feat(EVOL-046) — profile [--run] and one-definition subcommands (EVOL-046).",
         "1.2.0: feat(EVOL-045) — branch-class / diff-base / surface subcommands; certify and currency default to the one diff base; an unrecognised branch name is exit 1 (red), never a silent origin/main.",
@@ -4246,11 +4306,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.5.0: feat(EVOL-048) — Planning class — governed precedence (gate inputs, docs exemption), classes fail closed, the marker only from the harness, adoption once from a base branch within the window and never by the advisory, the plan artefact; CLI exit codes.",
         "1.4.0: feat(EVOL-047) — Runtime class — the positive trigger (untouched/touched/hard exclusion/HEAD^1/empty list/shape faults) and the parity gate (transitive reads, comments, declared and stale reads); CLI exit codes.",
         "1.3.0: feat(EVOL-046) — Profile class — mode fail-closed (unknown / absent / unreadable / no env override), profile per control point, members by property, all-report run with one verdict, one-definition scan; CLI exit codes.",
         "1.2.0: feat(EVOL-045) — Branch class (every grammar class, train protection, the one diff base fail-closed + default_base_branch, surface under/over files/over lines, closed escape vocabulary, a sub-increment measured against its train) + CLI exit codes.",
@@ -4259,11 +4320,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.5.0: feat(EVOL-048) — planning gate on the scratch project: a feature passes by class, a fix is blocked, the delivered recorder's approval unblocks (EVOL-048).",
         "1.4.0: feat(EVOL-047) — runtime-surface parity on the materialised tree; docs-only merge untouched, src merge touched, stale exemption red.",
         "1.3.0: feat(EVOL-046) — profile resolution (feature full, sub-increment light, production strict), the all-report run and the one-definition scan on the scratch project; project manifest carries delivery_mode.",
         "1.2.0: feat(EVOL-045) — surface / branch-class / diff-base checks on the materialised keys (over-ceiling red, escape honoured, train protected, sub-increment base, unknown name red).",
@@ -4281,11 +4343,12 @@
       ]
     },
     "scripts/test-hooks.sh": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
+        "1.4.0: feat(EVOL-048) — check-plan-approval and record-plan-approval cases (EVOL-048).",
         "1.3.0: feat(EVOL-046) — edit hook fail-closed cases; pre-push runs the profile as one call (red blocks, fault warns, no member outside the profile, missing reader blocks).",
         "1.2.0: feat(EVOL-045) — train protection cases; step 4 surface stub; six gates.",
         "1.1.0: feat(EVOL-044) — git pre-push step 4 with a stub reader: exit 1 blocks, exit 2 warns, `laws --parity` as two words.",
@@ -4327,6 +4390,42 @@
       "path": "scripts/gates/runtime.py",
       "changelog": [
         "1.0.0: feat(EVOL-047) — initial."
+      ]
+    },
+    "scripts/gates/planning.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: one planning stage (EVOL-048) — `governed` (governed_paths minus docs_exempt, except gate_inputs), `approval` (exempt classes by phase; the branch's plan artefact in an approved state; the marker written only by the harness's plan approval; adoption once from a base branch within the window), `gate` (block with a humanised reason + resolution), `status` (the advisory), `record` (refuses anything but the PostToolUse ExitPlanMode event). Meta copy (lock-step pair).",
+      "path": "scripts/gates/planning.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-048) — initial."
+      ]
+    },
+    "hooks/check-plan-approval.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/check-plan-approval.sh",
+      "role": "PreToolUse hook (Edit|Write) — a governed write on a branch class with no framework planning phase needs an approved plan; asks gate.py plan --path; exit 2 + a humanised reason and resolution; a missing or broken reader blocks (fail-closed). Meta copy (lock-step pair .claude/hooks/*.sh).",
+      "changelog": [
+        "1.0.0: feat(EVOL-048) — initial."
+      ]
+    },
+    "hooks/record-plan-approval.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/record-plan-approval.sh",
+      "role": "PostToolUse hook (ExitPlanMode) — the only writer of the plan-approval marker (gate.py plan --record from the harness's payload); never blocks; a failure is said through the envelope. Meta copy (lock-step pair .claude/hooks/*.sh).",
+      "changelog": [
+        "1.0.0: feat(EVOL-048) — initial."
+      ]
+    },
+    "hooks/check-plan-mode.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/check-plan-mode.sh",
+      "role": "PreToolUse hook (EnterPlanMode) — one stage, never two: a branch class whose plan a framework phase owns never enters the harness's plan mode; asks gate.py plan --enter (exit 1 = blocked → exit 2 + stderr); reader absent → pass (plan mode writes nothing). Meta copy (lock-step pair .claude/hooks/*.sh).",
+      "changelog": [
+        "1.0.0: feat(EVOL-048) — initial."
       ]
     }
   },

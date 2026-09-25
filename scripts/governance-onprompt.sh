@@ -176,6 +176,20 @@ if [ -n "$EDIT_MARKER" ] && [ -f "$EDIT_MARKER" ]; then
   [ "$WORST_CASE" = "1" ] || rm -f "$EDIT_MARKER"
 fi
 
+# ── 2a) One planning stage — the advisory before the block (EVOL-048) ──────
+# The pre-write hook will refuse a governed write on a gated branch class with no approved plan; say it here
+# first so the refusal never surprises. One reader: gate.py plan --status (exit 0 always; advisory only).
+if [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1; then
+  PLAN_LINE=$(python3 scripts/gate.py plan --status 2>&1) || PLAN_LINE="planning: the governance reader could not run (gate.py plan --status exit $?) — a write to a governed path will be BLOCKED until it is fixed (scripts/factory-sync.sh)."
+  [ "$WORST_CASE" = "1" ] && PLAN_LINE="planning: worst case — a write to a governed path will be BLOCKED until a plan is approved."
+  case "$PLAN_LINE" in
+    *"will be BLOCKED"*)
+      echo "<planning-warning>"
+      echo "$PLAN_LINE"
+      echo "</planning-warning>" ;;
+  esac
+fi
+
 # ── 2b) IPP reminders ───────────────────────────────────────────────────────
 # Consumes markers dropped by check-ipp-compliance.sh (Pillar 1 skeleton just
 # written) and governance-onedit.sh (Pillar 2 violation detected post-write).

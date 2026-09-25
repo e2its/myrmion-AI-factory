@@ -55,7 +55,7 @@ Carve-outs (proceed directly, single-line rationale required):
 
 - **Read-only questions / exploration** — "read-only, no routing".
 - **Docs-only change** (Generation Standards §3) — "docs-only change": branch + PR like everything else; the review lanes and the deploy machinery skip on their own.
-- **Trivial operations**: typo fixes, memory saves, permission/config edits via `/update-config`, one-line README clarifications — "trivial, direct edit".
+- **Trivial operations**: typo fixes, memory saves, harness-settings edits via `/update-config`, one-line README clarifications — "trivial, direct edit"; never `config/**` (a gate input — governed, planned like code).
 - **Any code or design change in this project not matching the above** — SDLC routing is mandatory.
 
 > Rare exception: if the user explicitly asks to edit files under `.claude/**` (framework-shipped instructions/skills/hooks) or `.context/templates/**`, announce `Direct: meta-framework override (user-requested)` and proceed. That scope normally belongs to the framework repo itself — mention it only when the user asks for it by name.
@@ -248,6 +248,8 @@ BEFORE any file modification:
 3. Create from `origin/{base_branch}`, NEVER from HEAD.
 4. All merges to protected branches via Pull Requests only.
 5. Full protocol: `.claude/skills/factory-branching-strategy/SKILL.md`
+
+**One planning stage (EVOL-048).** Every change to a governed path is covered by exactly one approved plan — never zero, never two. `config/quality.json → planning` names the governed paths (the runtime code, the rules, the config), the documentation exemption and its gate-input carve-out (`docs/constitution.md`, `docs/setup.md`, the rules, the config, the manifest are governed whatever their extension), and the exempt branch classes — `feature`, `increment`, `train`, `sub-increment`, `epic`, whose plan CODESIGN, BLUEPRINT and IMPLEMENT `--plan` own. **Every other class is gated** (`fix/*`, `chore/*`, `docs/*`, `breaking/*`, an unrecognised name): `python3 scripts/gate.py plan --path <file>` is the one reader behind the PreToolUse hook `check-plan-approval.sh`, which blocks (exit 2, a humanised reason) a governed write without an approved plan. The approval marker is written only by the harness's plan approval (PostToolUse `ExitPlanMode` → `record-plan-approval.sh`); a plan approved just before the branch is cut is adopted once by the first gated branch, within `planning.adoption_window_minutes`. A command that owns a planning phase never enters plan mode (one stage, never two). The prompt-submit hook warns before the block lands.
 
 **Additionally — when the workspace contains nested or sibling git repositories** (any topology where more than one `.git` is reachable along the filesystem path): apply the CWD discipline rules in [`Factory-protocol-cwd-discipline.instructions.md`](.claude/instructions/Factory-protocol-cwd-discipline.instructions.md) before any destructive git op (`commit`, `push`, `reset`, `branch -D`, `rebase`, `merge`). Always prefix `cd <absolute-path>` to the Bash command — never trust a previous Bash call's cwd to persist. Known operational hazard catalogued because the Claude Code Bash tool does not persist `cd` between tool invocations.
 

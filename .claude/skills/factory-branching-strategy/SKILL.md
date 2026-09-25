@@ -67,7 +67,7 @@ PRE_SETUP_GOVERNANCE:
   branch_protection:
     - NEVER commit directly to main/master/develop/release/*/hotfix (bare) or a train — gate.py branch-class --protected
     - ALL work happens in dedicated branches
-    - Branch naming: {type}/{ID-or-description} (feature/, fix/, setup/, audit/, maintenance/)
+    - Branch naming: the grammar of `gate.py branch-class` — `feature/`, `fix/` | `bugfix/` | `hotfix/`, `docs/`, `chore/`, `breaking/`, `epic/` (a SETUP or AUDIT run is a `chore/` or `feature/` branch by its id)
 
   commit_conventions:
     - Conventional commits format: {type}({scope}): {description}

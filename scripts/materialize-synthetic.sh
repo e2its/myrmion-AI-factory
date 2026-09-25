@@ -14,7 +14,8 @@
 #      manifest ↔ frontmatter parity and artefact currency hold (EVOL-044); branch classes, the one diff
 #      base and the surface ceiling read the project's keys — a train is protected, an over-ceiling diff is red (EVOL-045);
 #      the gate profile resolves from the one mode key and runs every member in one call; no second definition (EVOL-046);
-#      the deployment trigger is the positive runtime surface, held by the parity gate (EVOL-047)
+#      the deployment trigger is the positive runtime surface, held by the parity gate (EVOL-047);
+#      one planning stage — a gated class blocks a governed write until the harness records an approval (EVOL-048)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
@@ -68,7 +69,7 @@ if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]'}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]'}
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -243,6 +244,30 @@ PY
 git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm gitlab
 OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'docs/fixture.md: read by scripts/deploy.sh' && ok "RED: a root-level GitLab release file is scanned and its ./scripts/deploy.sh read outside the surface is named" || bad "gitlab transitive read not caught (rc=$RC)" "$OUT"
+# one planning stage (EVOL-048): a feature is planned by its phases; a fix is gated until the harness records an approval
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'a framework phase owns its plan' && ok "planning gate: a feature branch's governed write passes by class" || bad "feature governed write blocked (rc=$RC)" "$OUT"
+git -C "$P" checkout -q -b fix/gated
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'plan: BLOCKED' && ok "RED: a fix branch's governed write is blocked — no framework planning phase, no approved plan" || bad "fix governed write not blocked (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path docs/notes.md 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "a documentation write on the fix branch passes" || bad "docs write blocked (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path .claude/settings.json 2>&1); RC=$?
+[ "$RC" -eq 1 ] && ok "RED: the gate's own wiring (.claude/settings.json) is governed on a fix branch" || bad "settings.json not governed (rc=$RC)" "$OUT"
+printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_smoke","name":"ExitPlanMode","input":{}}]}}\n' > "$P/.claude/state/transcript.jsonl"
+OUT=$(cd "$P" && printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"ExitPlanMode","session_id":"smoke","permission_mode":"default","transcript_path":"'"$P"'/.claude/state/transcript.jsonl","tool_use_id":"toolu_smoke"}' | bash .claude/hooks/record-plan-approval.sh 2>&1); RC=$?
+[ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -f "$P/.claude/state/plan-approved-fix-gated.json" ] && ok "the delivered recorder writes the marker silently from the harness's payload" || bad "recorder (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'plan approved on this branch' && ok "the harness's approval unblocks the governed write" || bad "approval did not unblock (rc=$RC)" "$OUT"
+(cd "$P" && git check-ignore -q .claude/state/plan-approved-fix-gated.json) && ok "the marker is ignored by the materialised .gitignore — it never rides a PR" || bad "the plan-approval marker is not gitignored in the project"
+git -C "$P" checkout -q -b docs/only
+OUT=$(cd "$P" && python3 scripts/gate.py plan --path docs/setup.md 2>&1); RC=$?
+[ "$RC" -eq 1 ] && ok "RED: a docs branch writing a gate input (docs/setup.md) is blocked" || bad "docs branch gate input (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py plan --enter 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "a docs branch may enter plan mode — its one stage" || bad "docs plan mode (rc=$RC)" "$OUT"
+git -C "$P" checkout -q feature/FEAT-001-smoke
+OUT=$(cd "$P" && python3 scripts/gate.py plan --enter 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'second stage' && ok "RED: a feature branch never enters plan mode — one stage, never two" || bad "feature plan mode not refused (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]
