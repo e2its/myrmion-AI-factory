@@ -346,9 +346,11 @@ steps = d["jobs"]["governance-check"]["steps"]
 sys.exit(0 if any("profile --run" in (s.get("run") or "") and (s.get("env") or {}).get("GH_TOKEN") == "${{ github.token }}" for s in steps) else 1)' "$WF" 2>/dev/null && ok "the landed governance workflow exports GH_TOKEN on the profile step (scm-protection can see the server at ci)" || bad "landed workflow does not export GH_TOKEN on the profile step" "$WF"
 OUT=$(cd "$P" && python3 scripts/gate.py scm-protection 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'n/a' && printf '%s' "$OUT" | grep -q 'cannot see the server' && ok "scm-protection at the push: n/a — a local clone cannot see the server (verified at ci)" || bad "scm-protection at push wrong (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN python3 scripts/gate.py scm-protection --control-point ci 2>&1); RC=$?
+OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_ACTIONS python3 scripts/gate.py scm-protection --control-point ci 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'no GITHUB_TOKEN' && printf '%s' "$OUT" | grep -q 'checklist:' && ok "scm-protection at ci without a token: n/a with the checklist, never a silent green" || bad "scm-protection at ci wrong (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && python3 scripts/gate.py scm-protection --control-point ci --json 2>&1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["status"], len(d["checklist"]))')
+OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN GITHUB_ACTIONS=true python3 scripts/gate.py scm-protection --control-point ci 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'does not export it' && ok "scm-protection on a runner that has a token and hides it: RED — a wiring finding, never n/a" || bad "scm-protection on a token-hiding runner wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_ACTIONS python3 scripts/gate.py scm-protection --control-point ci --json 2>&1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["status"], len(d["checklist"]))')
 [ "$OUT" = "n/a 5" ] && ok "the five settings every host expresses are the checklist the JSON carries" || bad "scm-protection json wrong" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --control-point static --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'advisory' && printf '%s' "$OUT" | grep -q 'owed now: coverage, lint, tests' && ok "at the static round the seal is advisory: it names what the loop will owe, never a blocker before the loop ran" || bad "static seal not advisory (rc=$RC)" "$OUT"
