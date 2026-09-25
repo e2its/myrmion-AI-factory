@@ -1674,7 +1674,7 @@ class Scm(unittest.TestCase):
             self.assertEqual(joined.count(n), 1, f"{n!r} expected exactly once in {r['findings']}")
 
     def test_remote_and_tokens(self):
-        r = scm.remote(Path("."), "git@github.com:e2its/myrmion-AI-factory.git"); self.assertEqual((r["host"], r["owner"], r["repo"]), ("github.com", "e2its", "myrmion-AI-factory"))
+        r = scm.remote(Path("."), "git@github.com:acme/app.git"); self.assertEqual((r["host"], r["owner"], r["repo"]), ("github.com", "acme", "app"))
         r = scm.remote(Path("."), "https://gitlab.com/group/sub/proj.git"); self.assertEqual((r["owner"], r["repo"]), ("group/sub", "proj"))
         r = scm.remote(Path("."), "https://user@bitbucket.org/ws/slug"); self.assertEqual((r["host"], r["owner"], r["repo"]), ("bitbucket.org", "ws", "slug"))
         r = scm.remote(Path("."), "https://dev.azure.com/org/Proj/_git/repo"); self.assertEqual((r["owner"], r["project"], r["repo"]), ("org", "Proj", "repo"))
