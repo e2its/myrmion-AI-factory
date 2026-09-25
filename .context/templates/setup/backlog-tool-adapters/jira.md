@@ -169,7 +169,7 @@ jira issue list \
 Returns structured issue list. Parse into `{key, title, status, labels, parent}` rows.
 
 #### `get_item_id` — **STUB**
-Jira issue keys (e.g., `MASS-42`) are the native ID — return the key directly.
+Jira issue keys (e.g., `PROJ-42`) are the native ID — return the key directly.
 
 #### `read_issue` — **STUB**
 ```bash

@@ -106,7 +106,7 @@ IS_GREENFIELD=false
 #         work was already in progress). ERROR unless --greenfield.
 #     (b) otherwise → legitimate "framework-installed but instantiation-pending" state.
 #         Auto-greenfield. Common case: a previous factory-sync seeded skills/hooks/
-#         CLAUDE.md on a target before /setup ran (Nexus-Tech-Link is canonical).
+#         CLAUDE.md on a target before /setup ran (a materialised project is canonical).
 if [[ ! -f "$TARGET_PROJECT/docs/setup.md" ]]; then
   HAS_SPEC_DIRS=false
   if [[ -d "$TARGET_PROJECT/docs/spec" ]] && [[ -n "$(find "$TARGET_PROJECT/docs/spec" -mindepth 1 -maxdepth 1 -type d -print -quit 2>/dev/null)" ]]; then

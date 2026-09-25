@@ -9,12 +9,12 @@ source of truth for completion tracking. Tasks written as `### X.N — title`
 h3 headers (without a matching checkbox) are operationally inert: the plan
 looks structured but `--build` has nothing to advance.
 
-Background — Why this script exists (MASS PR #331 retrospective):
+Background — Why this script exists (a downstream project's retrospective):
 The iter-7 `IMPLEMENT --plan` re-authoring of FEAT-002 Phase H wrote 10
 tasks as `### H.0 — title` through `### H.9 — title` h3 headers. ALL
 existing review gates passed green because none validated dev_plan task
-format. The plan was operationally unusable. The fix shipped as MASS
-capability 29; this file is the meta-framework adaptation following the
+format. The plan was operationally unusable. The fix shipped downstream
+first; this file is the framework adaptation following the
 existing `check_*.py` script convention (skill-bundled, no orchestrator
 needed).
 
@@ -40,7 +40,7 @@ Output (JSON with --json, prose without it):
       }
     }
 
-Severity mapping (meta convention ↔ MASS):
+Severity mapping (meta convention ↔ downstream convention):
     blocker   ↔ CRITICAL (push-blocking)
     important ↔ WARNING
     nit       ↔ INFO
@@ -80,7 +80,7 @@ H3_TASK_RE = re.compile(
 )
 
 # Checkbox-form task: list form `- [ ] [X.N]` / `- [x] [X.N]` OR
-# table-cell form `| [ ] [X.N]` / `| [x] [X.N]` (MASS Phase D UI mock
+# table-cell form `| [ ] [X.N]` / `| [x] [X.N]` (a downstream UI-mock plan
 # alignment uses the table form). Both shapes are valid completion
 # markers for `IMPLEMENT --build`.
 CHECKBOX_TASK_RE = re.compile(

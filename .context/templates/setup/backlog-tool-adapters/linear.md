@@ -145,7 +145,7 @@ mcp: linear__listIssues(teamId, projectId, first=500)
 Returns a paginated list — the adapter MUST handle pagination until all items are retrieved.
 
 #### `get_item_id` — **STUB**
-Linear issue IDs are UUIDs. The agent typically references issues by **identifier** (e.g., `MASS-42`) which is a human-friendly slug. Use `linear__getIssue(identifier)` to resolve.
+Linear issue IDs are UUIDs. The agent typically references issues by **identifier** (e.g., `PROJ-42`) which is a human-friendly slug. Use `linear__getIssue(identifier)` to resolve.
 
 #### `read_issue` — **STUB**
 ```

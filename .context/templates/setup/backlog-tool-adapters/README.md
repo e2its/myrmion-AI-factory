@@ -37,8 +37,8 @@ Templates use `{{PLACEHOLDER}}` notation for values resolved by SETUP --generate
 | Placeholder | Source | Example |
 | --- | --- | --- |
 | `{{PROJECT_NAME}}` | Q1 / `docs/setup.md` `project_name` | `mass` |
-| `{{REPO_SLUG}}` | Derived from git remote / Q1 | `e2its/mass` |
-| `{{ORG_OR_USER}}` | Derived from git remote / user input | `e2its` |
+| `{{REPO_SLUG}}` | Derived from git remote / Q1 | `acme/app` |
+| `{{ORG_OR_USER}}` | Derived from git remote / user input | `acme` |
 | `{{PROJECT_NUMBER}}` | Captured post-`create_project` during `--init-board` (not known at SETUP time — adapter includes capture instructions) | `4` |
 | `{{CLI_BINARY}}` | Inferred from tool choice | `gh`, `jira`, `linear` |
 | `{{MILESTONE_STRATEGY}}` | Q27.3 | `epic-based` |
