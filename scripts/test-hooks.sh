@@ -177,6 +177,30 @@ rm -rf "$REPO/scripts/gate.py"
 run_hook deliver-governance.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/x.py"},"session_id":"s3"}'
 if [ "$RC" -eq 0 ] && [ -z "$OUT" ]; then ok "reader missing: silent pass, never blocks"; else bad "reader missing should pass silently (rc=$RC)" "$OUT"; fi
 
+echo "── git pre-push hook · step 4 (corpus + coherence gates): exit 1 blocks, exit 2 warns ──"
+PP="$ROOT/.context/templates/setup/scripts/hooks/pre-push"
+cmp -s "$PP" "$ROOT/scripts/hooks/pre-push" && ok "pre-push twins byte-identical" || bad "pre-push twins drifted"
+PR="$SANDBOX/pp"; mkdir -p "$PR/scripts/gates" "$PR/config"
+git -C "$PR" init -q; git -C "$PR" checkout -q -b feature/FEAT-002-y; printf '{}' > "$PR/config/quality.json"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$PR/scripts/security-scan.sh"
+cat > "$PR/scripts/gate.py" <<'EOF'
+import sys
+sub = sys.argv[1] if len(sys.argv) > 1 else ""
+import os
+rc = int(os.environ.get("STUB_" + sub.replace("-", "_").upper(), "0"))
+print(f"{sub}: stub rc {rc}"); sys.exit(rc)
+EOF
+git -C "$PR" add -A; git -C "$PR" -c user.name=t -c user.email=t@t commit -qm init
+run_pp() { (cd "$PR" && bash "$PP" origin git@x:y.git </dev/null 2>&1); }
+OUT=$(STUB_CURRENCY=1 run_pp); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'gate.py currency is red' && ok "step 4: a red gate (exit 1) blocks the push" || bad "red gate did not block (rc=$RC)" "$OUT"
+OUT=$(STUB_MANIFEST_PARITY=2 run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'could not run' && ok "step 4: a reader fault (exit 2) warns and the push proceeds" || bad "reader fault blocked or was silent (rc=$RC)" "$OUT"
+OUT=$(STUB_LAWS=1 run_pp); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'laws --parity is red' && ok "step 4: \"laws --parity\" reaches the reader as two words" || bad "laws --parity not run as expected (rc=$RC)" "$OUT"
+OUT=$(run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'coherence gates passed' && ok "step 4: all five gates green → push proceeds" || bad "green gates did not pass (rc=$RC)" "$OUT"
+
 echo "── channel audit over every shipped hook ──"
 for h in "$HOOKS"/*.sh; do
   n=$(basename "$h")

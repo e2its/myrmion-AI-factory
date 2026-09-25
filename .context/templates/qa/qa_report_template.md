@@ -17,6 +17,14 @@ report_kind: "qa_report_final" | "qa_report_increment"
 report_scope: feature | increment-{{INC-N}}  # slice or aggregate (report-level scope; distinct from feature_scope inherited from spec.feature)
 increment_id: null | "{{INC-N}}"             # populated when report_scope == increment-*
 aggregates: []                                # list of qa_report_{{INC-N}}_*.md paths consumed (aggregate mode + slicing_strategy=incremental only)
+# Currency (EVOL-044): what this verdict certified. Written by the phase from
+#   python3 scripts/gate.py certify --subject tree --paths {{RUNTIME_PATHS}}
+# The push gate and CI recompute it (gate.py currency); a moved subject = STALE = re-take, never re-bless.
+certifies:
+  subject: tree
+  paths: ["{{RUNTIME_PATHS}}"]   # the runtime roots the verdict covers, e.g. "src/**", "tests/**"
+  hash: "{{CERTIFY_HASH}}"
+
 
 # Iteration model tracking
 based_on_iteration: 1

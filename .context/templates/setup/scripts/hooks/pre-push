@@ -146,21 +146,23 @@ if [ -n "$REPO_ROOT" ] && [ -x "$GOVERNANCE_SCRIPT" ]; then
   echo -e "${GREEN}✅ Governance validation passed.${NC}"
 fi
 
-# ── 4. Corpus gates (EVOL-043): retired vocabulary + injection budgets ──
-# Both read the one reader (scripts/gate.py). Missing reader → skipped (delivered by SETUP / factory-sync).
+# ── 4. Corpus + coherence gates (EVOL-043 / EVOL-044) ──
+# retired-terms · budget · laws --parity (body ↔ sentence) · currency (a verdict still certifies the
+# build) · manifest-parity (frontmatter version == manifest). All read the one reader (scripts/gate.py);
+# missing reader → skipped (delivered by SETUP / factory-sync). Same definition runs in CI.
 if [ -f "${REPO_ROOT}/scripts/gate.py" ] && command -v python3 >/dev/null 2>&1; then
-  echo -e "${YELLOW}🔍 retired-vocabulary ratchet + injection budgets...${NC}"
+  echo -e "${YELLOW}🔍 corpus + coherence gates (retired-terms · budget · law parity · currency · manifest parity)...${NC}"
   # exit 1 = the gate is red (block); exit 2 = the reader could not run (config/key missing) — warn, never
   # block on infrastructure (LAW-08: the cause is said, the push is not refused for the wrong reason)
-  for gate in retired-terms budget; do
-    set +e; python3 "${REPO_ROOT}/scripts/gate.py" "$gate"; GRC=$?; set -e
+  for gate in retired-terms budget "laws --parity" currency manifest-parity; do
+    set +e; python3 "${REPO_ROOT}/scripts/gate.py" $gate; GRC=$?; set -e
     case "$GRC" in
       0) ;;
       1) echo -e "${RED}❌ pre-push: gate.py ${gate} is red (see above).${NC}"; exit 1 ;;
-      *) echo -e "${YELLOW}⚠  pre-push: gate.py ${gate} could not run (exit ${GRC}, see above) — push proceeds; fix config/quality.json.${NC}" ;;
+      *) echo -e "${YELLOW}⚠  pre-push: gate.py ${gate} could not run (exit ${GRC}, its message is above) — push proceeds; fix config/quality.json or re-sync scripts/gates (factory-sync.sh).${NC}" ;;
     esac
   done
-  echo -e "${GREEN}✅ corpus gates passed.${NC}"
+  echo -e "${GREEN}✅ corpus + coherence gates passed.${NC}"
 fi
 
 # >>> factory-pr-review begin >>>

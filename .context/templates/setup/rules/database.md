@@ -5,9 +5,10 @@ applicable_when:
     - "**/migrations/**"
     - "**/*.sql"
     - "**/models/**"
-version: 1.0.0
+version: 1.2.1
 date: 2026-01-26
 changelog:
+  - "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "1.0.0: Initial template version"
 ---
 

@@ -13,6 +13,9 @@
   gate.py snapshot-sections [--profile lite|full]  stack config + rules manifest + law index + families (+ bodies)
   gate.py budget                                   run every producer at worst case; exit 1 on overflow, dead/absent producer or missing key
   gate.py retired-terms                            the retired-vocabulary ratchet; exit 1 on a hit
+  gate.py certify --subject diff|tree [--base B] [--paths p…] [--json]   the certifies: block a verdict embeds (paths + hash)
+  gate.py currency [--base B]                      the push's verdict artefacts still certify their files; exit 1 stale/missing · 2 could not judge
+  gate.py manifest-parity                          frontmatter version == manifest version for every governed file; exit 1 on drift
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08).
 """
@@ -26,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import budget as budget_mod, corpus, retired  # noqa: E402
+    from gates import budget as budget_mod, coherence, corpus, retired  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -138,6 +141,29 @@ def cmd_retired(repo, a):
     return 1 if hits else 0
 
 
+def cmd_certify(repo, a):
+    c = coherence.certify(repo, a.subject, a.base, a.paths)
+    if a.json:
+        print(json.dumps(c))
+    else:  # ready to paste under `certifies:` in the artefact frontmatter
+        print(f"  subject: {c['subject']}\n  paths: {json.dumps(c['paths'])}\n  hash: \"{c['hash']}\"")
+    return 0
+
+
+def cmd_currency(repo, a):
+    findings, faults = coherence.currency(repo, a.base)
+    print(coherence.render("currency", findings))
+    for f in faults:
+        print(f"currency: could not judge {f['path']}: {f['reason']}", file=sys.stderr)
+    return 1 if findings else (2 if faults else 0)
+
+
+def cmd_manifest_parity(repo, a):
+    findings, stats = coherence.manifest_parity(repo)
+    print(coherence.render("manifest-parity", findings, f"{stats['compared']} compared, {stats['no_version']} without a frontmatter version"))
+    return 1 if findings else 0
+
+
 def build_parser():
     ap = argparse.ArgumentParser(prog="gate.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", default=None)
@@ -156,6 +182,9 @@ def build_parser():
     p = sub.add_parser("snapshot-sections"); p.add_argument("--profile", choices=("lite", "full"), default="lite"); p.set_defaults(fn=cmd_snapshot_sections)
     p = sub.add_parser("budget"); p.set_defaults(fn=cmd_budget)
     p = sub.add_parser("retired-terms"); p.set_defaults(fn=cmd_retired)
+    p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree"), required=True); p.add_argument("--base", default="origin/main"); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
+    p = sub.add_parser("currency"); p.add_argument("--base", default="origin/main"); p.set_defaults(fn=cmd_currency)
+    p = sub.add_parser("manifest-parity"); p.set_defaults(fn=cmd_manifest_parity)
     return ap
 
 

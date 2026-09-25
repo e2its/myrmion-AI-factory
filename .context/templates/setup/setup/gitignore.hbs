@@ -167,10 +167,8 @@ security/dast/.zap/
 # ================================================
 # FEATURE WORKFLOW ARTIFACTS (AGENTIC SDLC)
 # ================================================
-# QA reports are timestamped logs, not source-controlled
-docs/spec/**/qa/qa_report_*.md
-# Security audits are timestamped logs, not source-controlled
-docs/spec/**/sec/sec_audit_*.md
+# Verdict artefacts (qa_report_*, sec_audit_*, peer_review_*, smoke_e2e_report) are VERSIONED:
+# a verdict of record certifies a build (EVOL-044, gate.py currency). Only run logs are ignored.
 # Temporary dev plans and execution logs
 docs/spec/**/dev/execution_log_*.md
 

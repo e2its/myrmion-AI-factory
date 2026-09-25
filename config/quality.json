@@ -65,5 +65,15 @@
       "record": "ADR-EVOL-043",
       "exempt": []
     }
-  ]
+  ],
+  "coherence": {
+    "_doc": "Coherence gates (EVOL-044). certifying_artefacts: the verdict artefacts gate.py currency judges (terminal status/verdict must carry certifies: from gate.py certify). Empty list = a ratified opt-out.",
+    "certifying_artefacts": [
+      "docs/spec/*/qa/qa_report*.md",
+      "docs/spec/*/review/peer_review_*.md",
+      "docs/spec/*/review/sec_audit*.md",
+      "docs/spec/*/sec_audit*.md",
+      "docs/spec/*/smoke_e2e_report.md"
+    ]
+  }
 }

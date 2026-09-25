@@ -98,6 +98,11 @@ jobs:
       - name: Retired-vocabulary ratchet
         run: python3 scripts/gate.py retired-terms
 
+      - name: Coherence gates — artefact currency + manifest ↔ frontmatter parity (EVOL-044)
+        run: |
+          python3 scripts/gate.py currency
+          python3 scripts/gate.py manifest-parity
+
       - name: Synthetic materialisation smoke (corpus, gates, hooks on a scratch project)
         run: |
           chmod +x scripts/materialize-synthetic.sh

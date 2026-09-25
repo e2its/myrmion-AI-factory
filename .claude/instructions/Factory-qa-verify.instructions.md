@@ -298,6 +298,8 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
           2. Execute each numbered smoke block against the dev deployment (browser steps for UI scope; caller-harness + state + observability for backend-only/integration; HYBRID combines both for full-stack)
           3. For scope in [backend-only, integration]: additionally execute SMOKE-REL-* blocks (test_plan § 2.2 REL-XX families; mechanisms per design.md § 6 Reliability Contract)
           4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
+          5. When overall_verdict turns PASS: certifies = RUN python3 scripts/gate.py certify --subject tree --paths '{src_root}/**' '{tests_root}/**'
+             and WRITE the printed block under frontmatter `certifies:` (EVOL-044 — the smoke certifies the build it ran on)
           5. Move the SMOKE-E2E issue to Done
           6. Re-run QA --verify {FEATURE_ID}
       STOP
@@ -478,6 +480,10 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     ? "docs/spec/{FEATURE_ID}/qa/qa_report_{INCREMENT_ID}_{ts}.md"
     : "docs/spec/{FEATURE_ID}/qa/qa_report_final_{ts}.md"
   WRITE checklist to qa_report_path under "## Verification Checklist"
+  # Currency (EVOL-044): before the verdict turns terminal, stamp what it certifies — the tree the
+  # checks ran on. One definition, the gate's own: the same call the push gate re-runs.
+  certifies = RUN python3 scripts/gate.py certify --subject tree --paths '{src_root}/**' '{tests_root}/**'   # QUOTE every glob — the shell must not expand it
+  WRITE the printed block verbatim under frontmatter `certifies:`   # gate.py currency recomputes it; a moved tree = STALE = re-verify
   IF mode == "aggregate" AND slicing_strategy == "incremental":
     UPDATE_FRONTMATTER(qa_report_path, "aggregates", LIST(LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_{inc.id}_*.md") FOR inc IN increments))
   UPDATE_FRONTMATTER(qa_report_path, "report_scope", mode == "slice" ? "increment-{INCREMENT_ID}" : "feature")

@@ -13,6 +13,14 @@ warning_count: 0
 nitpick_count: 0
 na_count: 0                       # count of checks marked N/A under scope dispatch
 override_justification: null
+# Currency (EVOL-044): what this verdict certified. Written by the phase from
+#   python3 scripts/gate.py certify --subject diff --base origin/main
+# The push gate and CI recompute it (gate.py currency); a moved subject = STALE = re-take, never re-bless.
+certifies:
+  subject: diff
+  base: origin/main
+  hash: "{{CERTIFY_HASH}}"
+
 
 # Iteration model tracking
 based_on_iteration: 1

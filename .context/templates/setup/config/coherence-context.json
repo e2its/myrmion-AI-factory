@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "context": "downstream",
   "_doc": "Single source of truth for which context this repo runs as. Materialised at SETUP --generate. Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. Project owners may extend audit.* keys via ADR — never edit context field.",
   "audit": {
@@ -56,12 +56,12 @@
       },
       {
         "type": "manifest_disk_coherence",
-        "doc": "Every entry under config/governance_versions.json templates.* must point to a file that exists in the repo. Every tracked file change must bump its manifest entry in the same diff.",
-        "manifest": "config/governance_versions.json"
+        "doc": "Every entry under docs/project_log/governance_versions.json templates.* must point to a file that exists in the repo. Every tracked file change must bump its manifest entry in the same diff.",
+        "manifest": "docs/project_log/governance_versions.json"
       }
     ],
     "manifest_paths": {
-      "primary": "config/governance_versions.json",
+      "primary": "docs/project_log/governance_versions.json",
       "framework_core_section": null,
       "templates_section": "templates"
     }

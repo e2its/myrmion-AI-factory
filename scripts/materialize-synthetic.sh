@@ -10,7 +10,8 @@
 #   3. the snapshot generator produces a lite snapshot within budgets.snapshot
 #   4. the one resolver prints a roll-call with every project law and family
 #   5. every law (universal + project) resolves its Body: pointer and quotes the identical sentence (gate.py laws --parity)
-#   6. injection budgets hold against the real producers; the retired-term ratchet is clean
+#   6. injection budgets hold against the real producers; the retired-term ratchet is clean;
+#      manifest ↔ frontmatter parity and artefact currency hold (EVOL-044)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
@@ -133,6 +134,32 @@ OUT=$(cd "$P" && printf '%s' '{"tool_input":{"file_path":"src/app/models.py"},"s
 printf '%s' "$OUT" | grep -q '"additionalContext"' && printf '%s' "$OUT" | grep -q 'DC-' && ok "a real edit payload gets its defect classes delivered through the envelope" || bad "delivery hook delivered nothing for src/app/models.py" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "retired-term ratchet clean in the materialised tree" || bad "retired terms in the materialised tree" "$OUT"
+# the project manifest SETUP writes (targets keyed by template path, versions carried over) — then parity must hold
+python3 - "$MANIFEST" "$P/docs/project_log/governance_versions.json" <<'PY'
+import json, sys, pathlib
+m = json.load(open(sys.argv[1])); out = {"framework_version": m["framework_version"], "templates": {}}
+for k, e in m["templates"].items():
+    if isinstance(e, dict) and e.get("target"): out["templates"][k] = {"version": e["version"], "target": e["target"]}
+p = pathlib.Path(sys.argv[2]); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(out, indent=1))
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "manifest ↔ frontmatter parity holds for every materialised governed file" || bad "manifest parity red in the scratch project" "$OUT"
+printf '%s' "$OUT" | grep -qE 'ok \([1-9][0-9]* compared' && ok "manifest parity compared real entries ($(printf '%s' "$OUT" | grep -oE '[0-9]+ compared'))" || bad "manifest parity compared nothing (vacuous)" "$OUT"
+sed -i '0,/^version: /s//version: 9.9.9\nx_drift: /' "$P/.claude/rules/architecture.md"
+OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'architecture.md' && ok "RED: an injected frontmatter drift is caught in the scratch project" || bad "injected drift not caught (rc=$RC)" "$OUT"
+sed -i '/^x_drift: /d; 0,/^version: 9.9.9/s//version: '"$(cd "$P" && python3 -c "import json;print(json.load(open('docs/project_log/governance_versions.json'))['templates']['rules/architecture.md']['version'])")"'/' "$P/.claude/rules/architecture.md"
+# a real verdict on a feature branch: certified → ok; its certified file moves → STALE
+git -C "$P" checkout -q -b feature/FEAT-001-smoke; mkdir -p "$P/src" "$P/docs/spec/FEAT-001/qa"; printf 'print(1)\n' > "$P/src/app.py"
+git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm src; git -C "$P" update-ref refs/remotes/origin/main HEAD
+CERT=$(cd "$P" && python3 scripts/gate.py certify --subject tree --paths 'src/**')
+printf -- '---\nstatus: APPROVED\nverdict: APPROVED\ncertifies:\n%s\n---\n' "$CERT" > "$P/docs/spec/FEAT-001/qa/qa_report_final_20260925.md"
+git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm verdict
+OUT=$(cd "$P" && python3 scripts/gate.py currency 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "artefact currency: a verdict certified with gate.py certify is fresh" || bad "fresh verdict judged red (rc=$RC)" "$OUT"
+printf 'print(2)\n' > "$P/src/app.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm moved
+OUT=$(cd "$P" && python3 scripts/gate.py currency 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'STALE' && ok "RED: the certified file moved → the verdict is STALE" || bad "moved subject not caught (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]
