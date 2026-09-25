@@ -696,12 +696,11 @@
       "delivery": "both"
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.6.0",
+      "version": "2.5.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
-        "2.6.0: fix(EVOL-053) — pytest installed before the T2 loop — the EVOL-053 collection plugin test runs in CI, never skipped",
         "2.5.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
         "2.4.0: feat(EVOL-046) — one profile step (gate.py profile --run) replaces the per-gate steps; one-definition step; header explains the profile.",
         "2.3.0: feat(EVOL-045) — surface gate step; currency and surface measured against the PR base ref.",
@@ -4030,11 +4029,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.14.0",
+      "version": "1.15.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.15.0: fix(EVOL-053) — pytest installed before the T2 loop — the EVOL-053 collection plugin test runs in CI, never skipped",
         "1.14.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
         "1.13.0: feat(EVOL-046) — one profile step (gate.py profile --run) replaces the per-gate steps; one-definition step.",
         "1.12.0: feat(EVOL-045) — surface gate step; currency and surface measured against the PR base ref.",
