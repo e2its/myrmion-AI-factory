@@ -88,7 +88,7 @@ EOF
 echo "── check-branch-protection ──"
 git -C "$REPO" checkout -q main 2>/dev/null || git -C "$REPO" checkout -q -b main
 run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
-assert_block "on main: exit 2, BLOCKED on stderr, nothing on stdout" "BLOCKED: on protected branch"
+assert_block "on main: exit 2, BLOCKED on stderr, nothing on stdout (the reader classifies — no regex in the hook)" "BLOCKED: on protected branch"
 git -C "$REPO" checkout -q feature/FEAT-001-x
 run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
 assert_pass "on a working branch: passes"
@@ -109,10 +109,10 @@ git -C "$REPO" checkout -q feature/FEAT-001-x
 git -C "$REPO" checkout -q feature/FEAT-001-inc-1-x
 mv "$REPO/scripts/gate.py" "$SANDBOX/gate.py.bak"
 run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
-assert_pass "on a train with the reader absent: passes (fail-open on infrastructure)"
+assert_block "reader absent: blocks (fail-closed — governance not delivered), names factory-sync" "not delivered"
 printf 'import sys; print("gate: broken"); sys.exit(2)\n' > "$REPO/scripts/gate.py"
 run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_path":"x"}}'
-assert_context "on a train with the reader faulting: passes, the fault is said through the envelope" "train protection not evaluated"
+assert_block "reader faulting: blocks, the fault and the shell-side fix are named" "could not classify"
 mv "$SANDBOX/gate.py.bak" "$REPO/scripts/gate.py"
 git -C "$REPO" checkout -q feature/FEAT-001-x
 
@@ -198,7 +198,7 @@ rm -rf "$REPO/scripts/gate.py"
 run_hook deliver-governance.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/x.py"},"session_id":"s3"}'
 if [ "$RC" -eq 0 ] && [ -z "$OUT" ]; then ok "reader missing: silent pass, never blocks"; else bad "reader missing should pass silently (rc=$RC)" "$OUT"; fi
 
-echo "── git pre-push hook · step 4 (corpus + coherence + surface gates): exit 1 blocks, exit 2 warns ──"
+echo "── git pre-push hook · step 3 (the gate profile — one run): exit 1 blocks, exit 2 warns, reader absent blocks ──"
 PP="$ROOT/.context/templates/setup/scripts/hooks/pre-push"
 cmp -s "$PP" "$ROOT/scripts/hooks/pre-push" && ok "pre-push twins byte-identical" || bad "pre-push twins drifted"
 PR="$SANDBOX/pp"; mkdir -p "$PR/scripts/gates" "$PR/config"
@@ -213,16 +213,17 @@ print(f"{sub}: stub rc {rc}"); sys.exit(rc)
 EOF
 git -C "$PR" add -A; git -C "$PR" -c user.name=t -c user.email=t@t commit -qm init
 run_pp() { (cd "$PR" && bash "$PP" origin git@x:y.git </dev/null 2>&1); }
-OUT=$(STUB_CURRENCY=1 run_pp); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'gate.py currency is red' && ok "step 4: a red gate (exit 1) blocks the push" || bad "red gate did not block (rc=$RC)" "$OUT"
-OUT=$(STUB_MANIFEST_PARITY=2 run_pp); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'could not run' && ok "step 4: a reader fault (exit 2) warns and the push proceeds" || bad "reader fault blocked or was silent (rc=$RC)" "$OUT"
-OUT=$(STUB_LAWS=1 run_pp); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'laws --parity is red' && ok "step 4: \"laws --parity\" reaches the reader as two words" || bad "laws --parity not run as expected (rc=$RC)" "$OUT"
-OUT=$(STUB_SURFACE=1 run_pp); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'gate.py surface is red' && ok "step 4: an over-ceiling surface (exit 1) blocks the push" || bad "surface red did not block (rc=$RC)" "$OUT"
+OUT=$(STUB_PROFILE=1 run_pp); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'gate profile is red' && ok "step 3: a red profile (exit 1) blocks the push" || bad "red profile did not block (rc=$RC)" "$OUT"
+OUT=$(STUB_PROFILE=2 run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'could not run' && ok "step 3: a member that could not run (exit 2) warns and the push proceeds" || bad "profile fault blocked or was silent (rc=$RC)" "$OUT"
 OUT=$(run_pp); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'surface gates passed' && ok "step 4: all six gates green → push proceeds" || bad "green gates did not pass (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'profile: stub rc 0' && printf '%s' "$OUT" | grep -q 'gate profile passed' && ok "step 3: the profile runs as ONE call (profile --run) and a green run proceeds" || bad "green profile did not pass (rc=$RC)" "$OUT"
+printf '%s' "$OUT" | grep -qE 'retired-terms: stub|budget: stub|laws: stub|currency: stub|manifest-parity: stub|surface: stub' && bad "pre-push still runs gate members one by one — the profile is the one definition" || ok "step 3: no member is run outside the profile"
+mv "$PR/scripts/gate.py" "$PR/gate.py.away"
+OUT=$(run_pp); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'not delivered' && ok "step 3: reader absent → the push is blocked (fail-closed)" || bad "reader absent did not block (rc=$RC)" "$OUT"
+mv "$PR/gate.py.away" "$PR/scripts/gate.py"
 
 echo "── channel audit over every shipped hook ──"
 for h in "$HOOKS"/*.sh; do

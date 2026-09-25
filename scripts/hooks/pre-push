@@ -28,21 +28,15 @@ ZERO_SHA="0000000000000000000000000000000000000000"
 # script manually without the expected positional args.
 PUSH_REMOTE="${1:-origin}"
 
-# ── 1. Block force-push to protected branches ──
-PROTECTED_BRANCHES="main master develop"
-
-# Check both the local branch and the remote ref destination
+# ── 1. Block force-push to protected branches — ONE definition (EVOL-046): the reader classifies the ref
+#      (main, master, develop, release/*, bare hotfix, a train with declared sub-increments). No list here.
+#      Reader absent or faulting = protected (fail-closed: a force-push is never let through unclassified).
 is_protected() {
   local ref="${1#refs/heads/}"
-  for branch in $PROTECTED_BRANCHES; do
-    [ "$ref" = "$branch" ] && return 0
-  done
-  # the reader knows the rest of the protected set: release/*, bare hotfix, a train with declared sub-increments (EVOL-045)
-  if [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1; then
-    python3 scripts/gate.py branch-class --protected --branch "$ref" >/dev/null 2>&1
-    [ $? -eq 1 ] && return 0
-  fi
-  return 1
+  [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1 || return 0
+  python3 scripts/gate.py branch-class --protected --branch "$ref" >/dev/null 2>&1
+  [ $? -eq 0 ] && return 1
+  return 0
 }
 
 # Read push info from stdin: <local ref> <local sha> <remote ref> <remote sha>
@@ -138,36 +132,24 @@ if [ "${#PUSH_SPECS[@]}" -gt 0 ]; then
   echo -e "${GREEN}✅ secrets scan: no findings in pushed commits.${NC}"
 fi
 
-# ── 3. Full governance validation (optional) ──
-GOVERNANCE_SCRIPT="${REPO_ROOT}/scripts/validate-governance.sh"
-if [ -n "$REPO_ROOT" ] && [ -x "$GOVERNANCE_SCRIPT" ]; then
-  echo -e "${YELLOW}🔍 Running governance validation before push...${NC}"
-  if ! bash "$GOVERNANCE_SCRIPT" 2>/dev/null; then
-    echo -e "${RED}❌ Governance validation failed. Fix issues before pushing.${NC}"
-    exit 1
-  fi
-  echo -e "${GREEN}✅ Governance validation passed.${NC}"
+# ── 3. The gate profile this push owes (EVOL-046) ──
+# ONE definition: python3 scripts/gate.py profile --run — delivery_mode (governance manifest, fail-closed to
+# production) × branch class → light (a sub-increment to its train in development mode: the members that need
+# no build and no database) | full (everything else). Every script member reports (governance validation,
+# ADR sync, retired-terms, budget, law parity, currency, manifest parity, surface); one verdict names every red
+# member and what was skipped. exit 1 = red (block) · exit 2 = a member could not run (warn, never block on
+# infrastructure — LAW-08: the cause is said). Reader missing → the push is blocked (governance not delivered).
+if [ ! -f "${REPO_ROOT}/scripts/gate.py" ] || ! command -v python3 >/dev/null 2>&1; then
+  echo -e "${RED}❌ pre-push: the governance reader (scripts/gate.py) is not delivered — run scripts/factory-sync.sh.${NC}"
+  exit 1
 fi
-
-# ── 4. Corpus + coherence + surface gates (EVOL-043 / EVOL-044 / EVOL-045) ──
-# retired-terms · budget · laws --parity (body ↔ sentence) · currency (a verdict still certifies the
-# build) · manifest-parity (frontmatter version == manifest) · surface (files + lines of the diff vs the
-# one diff base within surface.ceiling_*, or a Surface-Escape trailer). All read the one reader (scripts/gate.py);
-# missing reader → skipped (delivered by SETUP / factory-sync). Same definition runs in CI.
-if [ -f "${REPO_ROOT}/scripts/gate.py" ] && command -v python3 >/dev/null 2>&1; then
-  echo -e "${YELLOW}🔍 corpus + coherence + surface gates (retired-terms · budget · law parity · currency · manifest parity · surface)...${NC}"
-  # exit 1 = the gate is red (block); exit 2 = the reader could not run (config/key missing) — warn, never
-  # block on infrastructure (LAW-08: the cause is said, the push is not refused for the wrong reason)
-  for gate in retired-terms budget "laws --parity" currency manifest-parity surface; do
-    set +e; python3 "${REPO_ROOT}/scripts/gate.py" $gate; GRC=$?; set -e
-    case "$GRC" in
-      0) ;;
-      1) echo -e "${RED}❌ pre-push: gate.py ${gate} is red (see above).${NC}"; exit 1 ;;
-      *) echo -e "${YELLOW}⚠  pre-push: gate.py ${gate} could not run (exit ${GRC}, its message is above) — push proceeds; fix config/quality.json or re-sync scripts/gates (factory-sync.sh).${NC}" ;;
-    esac
-  done
-  echo -e "${GREEN}✅ corpus + coherence + surface gates passed.${NC}"
-fi
+echo -e "${YELLOW}🔍 gate profile for this push...${NC}"
+set +e; python3 "${REPO_ROOT}/scripts/gate.py" profile --run --control-point push; PRC=$?; set -e
+case "$PRC" in
+  0) echo -e "${GREEN}✅ gate profile passed.${NC}" ;;
+  1) echo -e "${RED}❌ pre-push: the gate profile is red (see the verdict above).${NC}"; exit 1 ;;
+  *) echo -e "${YELLOW}⚠  pre-push: a member of the profile could not run (exit ${PRC}, said above) — push proceeds; fix the cause before the next push.${NC}" ;;
+esac
 
 # >>> factory-pr-review begin >>>
 # Generated by scripts/pr-review/install_pre_push_hook.sh — do not edit between sentinels.

@@ -1,7 +1,8 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "7.2.0",
+  "framework_version": "7.3.0",
+  "delivery_mode": "development",
   "last_updated": "2026-09-25",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
@@ -673,11 +674,12 @@
       "delivery": "both"
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
+        "2.4.0: feat(EVOL-046) — one profile step (gate.py profile --run) replaces the per-gate steps; one-definition step; header explains the profile.",
         "2.3.0: feat(EVOL-045) — surface gate step; currency and surface measured against the PR base ref.",
         "2.2.0: feat(EVOL-044) — currency + manifest-parity steps.",
         "2.1.0: feat(EVOL-043) — step `Corpus gates`: gate.py laws --parity, budget, retired-terms run in every materialised project's CI (the corpus gates had no downstream caller).",
@@ -786,10 +788,11 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-commit": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "Git hook — protected branch guard, secret detection, governance validation.",
       "changelog": [
+        "1.1.0: feat(EVOL-046) — protected-branch guard through the reader (no list); reader absent = fail-closed.",
         "1.0.0: fix(EVOL-040) — target + content_type + delivery declared (was the only 4 target-less templates entries; dead for SETUP --upgrade).",
         "1.0.0: feat: pre-commit hook with branch guard and secret scan"
       ],
@@ -798,10 +801,11 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "type": "script",
       "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, full governance validation. Honors the actual push remote ($1) instead of hardcoding origin.",
       "changelog": [
+        "2.6.0: feat(EVOL-046) — force-push guard through the reader (no list, fail-closed); steps 3+4 replaced by the one call gate.py profile --run (all members report, one verdict); reader missing blocks the push.",
         "2.5.0: feat(EVOL-045) — step 4 runs the surface gate; the factory-pr-review lane takes its base from gate.py diff-base.",
         "2.4.0: feat(EVOL-044) — step 4 runs laws --parity, currency, manifest-parity next to retired-terms and budget.",
         "2.3.0: feat(EVOL-043) — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
@@ -829,10 +833,11 @@
       ]
     },
     "claude/hooks/check-branch-protection.sh": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-branch-protection.sh",
       "changelog": [
+        "2.2.0: feat(EVOL-046) — no regex — the reader classifies (main, master, develop, release/*, bare hotfix, a train); reader absent or faulting blocks with the resolution named (fail-closed).",
         "2.1.0: feat(EVOL-045) — a train (per-increment branch with declared sub-increments) is protected like a base branch — asks gate.py branch-class --protected.",
         "2.0.0: feat(EVOL-043)! — BREAKING (blocking hooks exit 2 + stderr (exit 1 never blocked); context through the envelope) — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.2: fix(EVOL-022) PR #10 review: block message lists all allowed working patterns (feature/fix/bugfix/hotfix/docs/chore) with `hotfix/my-fix` as example. Lock-step with meta counterpart.",
@@ -895,11 +900,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.2.0",
+      "version": "4.3.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.3.0: feat(EVOL-046) — § Control points and gate profiles (EVOL-046) — one key, one reader, the table.",
         "4.2.0: feat(EVOL-045) — § Incremental Dev Plan — Trains and the surface ceiling paragraph.",
         "4.1.0: feat(EVOL-044) — § Artifact States: Currency paragraph (certifies:, currency, manifest-parity, laws --parity).",
         "4.0.0: feat(EVOL-043)! — BREAKING (the LAW corpus takes the index form; readers require `**[LAW-NN] Title** —` entries) — § Governance Rules in INDEX form (mirror of meta; LAW-14 project-only; LAW-01 project addendum names the [PLAW-NN] index); § Living Governance Catalogs: families shape, cases annex, delivery at the point of edit; ADP subsection → one resolver.",
@@ -937,10 +943,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.8.0",
+      "version": "2.9.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.9.0: feat(EVOL-046) — delivery: mode frontmatter slot (Q32) + summary bullet.",
         "2.8.0: feat(EVOL-045) — surface: frontmatter block (Q31) + § E summary bullet — the persistence slot the quality.json placeholders resolve from.",
         "2.7.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "2.7.0: feat(EVOL-043) — EVOL-043 touch (see PR).",
@@ -1647,11 +1654,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.3.0: feat(EVOL-046) — profile [--run] and one-definition subcommands (EVOL-046).",
         "1.2.0: feat(EVOL-045) — branch-class / diff-base / surface subcommands; certify and currency default to the one diff base; an unrecognised branch name is exit 1 (red), never a silent origin/main.",
         "1.1.0: feat(EVOL-044) — certify / currency / manifest-parity subcommands.",
         "1.0.0: feat(EVOL-043)! — initial."
@@ -1710,11 +1718,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.3.0: feat(EVOL-046) — Profile class — mode fail-closed (unknown / absent / unreadable / no env override), profile per control point, members by property, all-report run with one verdict, one-definition scan; CLI exit codes.",
         "1.2.0: feat(EVOL-045) — Branch class (every grammar class, train protection, the one diff base fail-closed + default_base_branch, surface under/over files/over lines, closed escape vocabulary, a sub-increment measured against its train) + CLI exit codes.",
         "1.1.0: feat(EVOL-044) — coherence tests: certify tree moves with the subject, currency stale/missing/fresh/unreadable, manifest parity drift/unreadable/missing manifest.",
         "1.0.0: feat(EVOL-043)! — initial."
@@ -1739,6 +1748,16 @@
       "role": "gates: branch classes, the ONE diff-base resolver and the per-PR surface ceiling (EVOL-045) — `branch_class` (protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown; a train = per-increment branch whose increment plan declares sub-increments, protected), `diff_base` (sub-increment → its train, else the default base branch; unknown name → red, fail-closed), `surface` (files + lines of base...HEAD vs surface.ceiling_*, Surface-Escape trailer from the closed surface.escapes list).",
       "changelog": [
         "1.0.0: feat(EVOL-045) — initial."
+      ]
+    },
+    "scripts/gates/profile.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/profile.py",
+      "delivery": "both",
+      "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override).",
+      "changelog": [
+        "1.0.0: feat(EVOL-046) — initial."
       ]
     }
   },
@@ -2016,9 +2035,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.14.0",
+      "version": "2.15.0",
       "path": "README.md",
       "changelog": [
+        "2.15.0: feat(EVOL-046) — gate profiles per control point paragraph.",
         "2.14.0: feat(EVOL-045) — § Incremental Dev Plan — trains and the surface ceiling; gate list mentions gate.py surface.",
         "2.13.0: feat(EVOL-044) — § Governance corpus in layers names the three coherence gates (laws --parity, currency, manifest-parity).",
         "2.12.0: feat(EVOL-043) — governance sections describe the corpus in layers (index + bodies, families, delivery at the point of edit, budgets, ratchet).",
@@ -2579,9 +2599,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.18.0",
+      "version": "2.19.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.19.0: feat(EVOL-046) — Q32 delivery mode (closed set; return-to-production procedure).",
         "2.18.0: feat(EVOL-045) — Q31 surface ceiling per pull request.",
         "2.17.1: fix(subproducts-dod-closure) — Q29 / Q30 Persist lines name the frontmatter explicitly (snapshot delivery).",
         "2.17.0: feat(EVOL-042) — Q30 Measurement Window (retention_days, report_interval_days → measurement.*), TIER_2 list, header Q1-Q30.",
@@ -2612,9 +2633,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.15.0",
+      "version": "3.16.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.16.0: feat(EVOL-046) — project manifest shape: delivery_mode (Q32).",
         "3.15.0: feat(EVOL-045) — quality.json surface placeholders resolved from Q31.",
         "3.14.0: feat(EVOL-044) — the project manifest shape declared (framework_version, templates map = source of truth for manifest-parity, files map for upgrade checksums).",
         "3.13.0: feat(EVOL-043) — Subproducts (measure always); Phase D retired (resolver reads docs/setup.md); ADD DC blocks in the 7-column shape + cases annex; snapshot pseudocode → rows with Paths *; hosts the [LAW-14] body; Checkpoint 3.1 regex → [PLAW-NN].",
@@ -2742,9 +2764,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.2.0",
+      "version": "14.3.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.3.0: feat(EVOL-046) — § Pre-Action Gate — control points and gate profiles paragraph + table.",
         "14.2.0: feat(EVOL-045) — § Pre-Action Gate — trains protected, sub-increment pattern, the one diff base and the surface ceiling.",
         "14.1.0: feat(EVOL-044) — Generation Standards §2: manifest ↔ frontmatter parity gate.",
         "14.0.0: feat(EVOL-043)! — BREAKING (the LAW corpus takes the index form; an un-upgraded project CLAUDE.md yields 0 universal laws to the reader) — § Governance Rules in INDEX form: per law one sentence + Body: pointer + Records (bodies moved to skills/instructions/rules; LAW-15 joins the corpus); LAW-01 sentence = two-tier ceremony; § Core Protocols ADP subsection → one resolver (gate.py applicable). Universal H2 sections untouched; law_corpus_mirror green.",
@@ -3317,10 +3340,11 @@
       "path": ".claude/skills/factory-pr-review/references/changelog-policy.md"
     },
     "skills/factory-pr-review/scripts/preflight.sh": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "type": "skill-asset",
       "role": "Factory PR Review push-gate orchestrator — wraps detect_change_type.py + check_docs_sync.py + check_openapi_diff.sh + check_asyncapi_diff.sh + check_dev_plan_task_format.py + framework-aware checks (governance-bump miss, protected-paths) + Step 0 coherence-audit marker check (v1.1.0). Exit 0 silent pass, 1 blocker found, 2 environment failure (warn-not-block). Honours docs-only fast-lane (CLAUDE.md Generation Standards §3 verbatim allowlist). Reads `default_base_branch` from `.claude/rules/branching.md` when present, and `config/coherence-context.json` for Step 0 governance-sensitivity computation + marker location.",
       "changelog": [
+        "1.7.0: feat(EVOL-046) — protected-branch check through the reader (no regex).",
         "1.6.0: feat(EVOL-045) — base from the one resolver (unknown branch name = blocker branch-name-unknown); Block 21 surface-over-ceiling (blocker) / surface-unavailable (important).",
         "1.5.0: fix(EVOL-039 dogfood) — Block 20 self-review findings applied. FAIL-CLOSED: corrupt/unreadable marker → sentinel -1 → NEW blocker code-review-marker-corrupt (was: parsed as 0 blockers → silent pass on the fail-closed plane; CRITICAL-2, 2 agents converged); same fix applied to Step 0 coherence marker (coherence-audit-marker-corrupt). GUARD WIDENED: has_tests joins has_code (tests-only diffs bypassed Block 20 while pr-test-analyzer is a blocking agent). pr_blocker consumed: false → Block 20 findings degrade to Important (was dead config on an enforcement path). NOISY DEGRADES: classification-failure Important when detect_change_type returns {} (mute infra fallback silently disabled secrets + Block 20); helper stderr first line captured into code-review-hash-failure message; EMPTY branch logs. SHAPE ALLOWLIST: regex ^([0-9a-f]{64}|EMPTY)$ replaces tr char-filter (char soup could fabricate a marker path → misrouted blocker). DC-29: Step 0 relocated below add_finding — DEFERRED_COHERENCE_FINDING machinery deleted, Step 0/0-bis now structurally identical. Nits: redundant isinstance guard dropped, ${CR_OVERRIDE_AT:-unknown}.",
         "1.4.0: feat(EVOL-039) Step 0-bis — Block 20 marker check after the deferred-coherence flush (has_code + $CLASSIFICATION + live add_finding available; no deferred-string dance; consumes the previously dead has_code parse). RDR-2 semantics: code_review.enabled=false → log skip; code_review_hash.py absent → important code-review-executor-missing (noisy, non-blocking); hash failure → important code-review-hash-failure (advisory degrade); EMPTY → skip; marker missing → blocker code-review-missing; findings.blocker>0 without override → blocker code-review-blockers; with override → important code-review-overridden. Content-allowlist discipline: only int-cast counts + tr-filtered timestamp/hash echoed; override reason text never echoed. Drive-by: dead Step 0 comment removed (CLAUDE_SESSION_ID advisory degradation was never implemented).",
@@ -3499,11 +3523,12 @@
       ]
     },
     "hooks/check-branch-protection.sh": {
-      "version": "2.1.0",
+      "version": "2.2.0",
       "type": "hook",
       "path": ".claude/hooks/check-branch-protection.sh",
       "role": "PreToolUse hook — blocks Edit/Write on protected branches before tool execution. Protected set: bare `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`). Working-pattern branches matching `{type}/{slug}` (feature/*, fix/*, bugfix/*, hotfix/*, docs/*, chore/*) are allowed.",
       "changelog": [
+        "2.2.0: feat(EVOL-046) — no regex — the reader classifies (main, master, develop, release/*, bare hotfix, a train); reader absent or faulting blocks with the resolution named (fail-closed).",
         "2.1.0: feat(EVOL-045) — a train (per-increment branch with declared sub-increments) is protected like a base branch — asks gate.py branch-class --protected.",
         "2.0.0: feat(EVOL-043)! — BREAKING (blocking hooks exit 2 + stderr (exit 1 never blocked); context through the envelope) — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.2: fix(EVOL-022) PR #10 review: block message now lists all allowed working patterns (feature/fix/bugfix/hotfix/docs/chore) and uses `hotfix/my-fix` as the example, instead of misleadingly suggesting only `feature/ID-slug`. Lock-step with template counterpart.",
@@ -3571,11 +3596,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.13.0: feat(EVOL-046) — one profile step (gate.py profile --run) replaces the per-gate steps; one-definition step.",
         "1.12.0: feat(EVOL-045) — surface gate step; currency and surface measured against the PR base ref.",
         "1.11.0: feat(EVOL-044) — currency + manifest-parity steps.",
         "1.10.0: feat(EVOL-043) — T2 loop runs test-hooks.sh + test-gates.sh; steps for gate.py budget, gate.py retired-terms and materialize-synthetic.sh.",
@@ -3941,21 +3967,23 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-commit": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "config",
       "role": "Meta copy of the pre-commit git hook. Extensionless.",
       "path": "scripts/hooks/pre-commit",
       "changelog": [
+        "1.1.0: feat(EVOL-046) — protected-branch guard through the reader (no list); reader absent = fail-closed.",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ],
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "type": "config",
       "role": "Meta copy of the pre-push git hook (protected-branch force-push block + secrets scan + governance validation + factory-pr-review sentinel block). Extensionless.",
       "path": "scripts/hooks/pre-push",
       "changelog": [
+        "1.6.0: feat(EVOL-046) — force-push guard through the reader (no list, fail-closed); steps 3+4 replaced by the one call gate.py profile --run (all members report, one verdict); reader missing blocks the push.",
         "1.5.0: feat(EVOL-045) — step 4 runs the surface gate; the factory-pr-review lane takes its base from gate.py diff-base.",
         "1.4.0: feat(EVOL-044) — step 4 runs laws --parity, currency, manifest-parity next to retired-terms and budget.",
         "1.3.0: feat(EVOL-043) — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
@@ -4105,11 +4133,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.3.0: feat(EVOL-046) — profile [--run] and one-definition subcommands (EVOL-046).",
         "1.2.0: feat(EVOL-045) — branch-class / diff-base / surface subcommands; certify and currency default to the one diff base; an unrecognised branch name is exit 1 (red), never a silent origin/main.",
         "1.1.0: feat(EVOL-044) — certify / currency / manifest-parity subcommands.",
         "1.0.0: feat(EVOL-043)! — initial."
@@ -4162,22 +4191,24 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.3.0: feat(EVOL-046) — Profile class — mode fail-closed (unknown / absent / unreadable / no env override), profile per control point, members by property, all-report run with one verdict, one-definition scan; CLI exit codes.",
         "1.2.0: feat(EVOL-045) — Branch class (every grammar class, train protection, the one diff base fail-closed + default_base_branch, surface under/over files/over lines, closed escape vocabulary, a sub-increment measured against its train) + CLI exit codes.",
         "1.1.0: feat(EVOL-044) — coherence tests: certify tree moves with the subject, currency stale/missing/fresh/unreadable, manifest parity drift/unreadable/missing manifest.",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.3.0: feat(EVOL-046) — profile resolution (feature full, sub-increment light, production strict), the all-report run and the one-definition scan on the scratch project; project manifest carries delivery_mode.",
         "1.2.0: feat(EVOL-045) — surface / branch-class / diff-base checks on the materialised keys (over-ceiling red, escape honoured, train protected, sub-increment base, unknown name red).",
         "1.1.0: feat(EVOL-044) — writes the project manifest the way SETUP does and runs manifest-parity + currency in the scratch project.",
         "1.0.0: feat(EVOL-043)! — initial."
@@ -4193,11 +4224,12 @@
       ]
     },
     "scripts/test-hooks.sh": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
+        "1.3.0: feat(EVOL-046) — edit hook fail-closed cases; pre-push runs the profile as one call (red blocks, fault warns, no member outside the profile, missing reader blocks).",
         "1.2.0: feat(EVOL-045) — train protection cases; step 4 surface stub; six gates.",
         "1.1.0: feat(EVOL-044) — git pre-push step 4 with a stub reader: exit 1 blocks, exit 2 warns, `laws --parity` as two words.",
         "1.0.0: feat(EVOL-043)! — initial."
@@ -4219,6 +4251,15 @@
       "path": "scripts/gates/branch.py",
       "changelog": [
         "1.0.0: feat(EVOL-045) — initial."
+      ]
+    },
+    "scripts/gates/profile.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
+      "path": "scripts/gates/profile.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-046) — initial."
       ]
     }
   },

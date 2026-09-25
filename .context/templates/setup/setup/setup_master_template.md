@@ -1,7 +1,8 @@
 ---
-version: 2.8.0
+version: 2.9.0
 date: 2026-04-21
 changelog:
+  - "2.9.0: feat(EVOL-046) — delivery: mode frontmatter slot (Q32) + summary bullet."
   - "2.8.0: feat(EVOL-045) — surface: frontmatter block (Q31) + § E summary bullet."
   - "2.7.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "2.1.0: feat(EVOL-019): project_scope field added (dual-axis scope model) — full-stack | backend-only | frontend-only | integration"
@@ -23,6 +24,8 @@ measurement:
 surface:
   ceiling_files: 30                   # Q31 — the most files one pull request may touch → config/quality.json surface.ceiling_files
   ceiling_lines: 800                  # Q31 — the most lines added + deleted → config/quality.json surface.ceiling_lines
+delivery:
+  mode: development                   # Q32 — development | production → docs/project_log/governance_versions.json delivery_mode (gate profiles, EVOL-046)
 last_update: [TIMESTAMP]
 ---
 
@@ -147,6 +150,7 @@ last_update: [TIMESTAMP]
 - **Design-System Cards Source (Q29.1 — IF Q29 != internal AND UI scope):** [vision | code-manual | code-rebuild | defer] → `po_package.ds_cards_source` · `po_package.ds_code_cards_dir`: [repo-relative folder | null] · `po_package.ds_rebuild_command`: [one command | null]
 - **Measurement Window (Q30):** `measurement.retention_days`: [90] · `measurement.report_interval_days`: [30] → `subproducts/measure/measure.config.json`
 - **Surface Ceiling per Pull Request (Q31):** `surface.ceiling_files`: [30] · `surface.ceiling_lines`: [800] → `config/quality.json → surface.*`
+- **Delivery Mode (Q32):** `delivery.mode`: [development] → `docs/project_log/governance_versions.json → delivery_mode` (the gate profile per control point; return to production = set the key to `production` in one commit)
 
 ## 3.1. Budget Validation Summary
 > Calculated automatically before materialization.

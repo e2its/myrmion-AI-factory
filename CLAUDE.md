@@ -115,6 +115,17 @@ BEFORE any file modification:
 3. All merges to `main` via Pull Requests only.
 4. Full protocol: `.claude/skills/factory-branching-strategy/SKILL.md`
 
+**Control points and gate profiles (EVOL-046).** No gate is optional — it changes its control point. One key, `delivery_mode` in `.context/templates/setup/governance_versions.json` (`development` | `production`), read by one definition — `python3 scripts/gate.py profile` — that fails closed to `production` (absent key, unknown value, unreadable manifest; no environment override). Profile = mode × branch class (`gate.py branch-class`): **light** only for a sub-increment pushed to its train in development mode, **full** for everything else — in this repo every branch is a plain feature/fix branch, so every push and every PR owes the full profile. Members live once, by property, in `scripts/gates/profile.py`; `gate.py profile --run` is the one call the pre-push hook and both CI workflows make (all members report, one verdict); `gate.py one-definition` (CI) proves that no hook, workflow or preflight keeps its own branch list, mode read or mode override.
+
+| Control point | `development` | `production` | Seal |
+| --- | --- | --- | --- |
+| commit (`pre-commit`) | branch class through the reader; secrets on the staged files | same | none |
+| sub-increment push (to its train) | **light** profile: every member that needs no build and no database — ADR sync, retired terms, budgets, law parity, currency, manifest parity, surface (and, in the framework repo, manifest drift validation and applicability) — all report, one verdict; secrets per pushed ref; the review and coherence markers | **full** profile | writes none |
+| train close (last sub-increment) | **full**: the light members + the full verification loop (tests, lint, typecheck, build, format, SAST, complexity, seed alignment) + one deployment when the runtime surface moved | same | the loop's `bvl_result` + the push markers |
+| pull request to the main branch (CI) | **full** (the workflow runs `gate.py profile --run`; a sub-increment PR into its train owes light) | full | honours the loop's seal |
+| main branch itself | no direct commit (reader-classified, fail-closed); every merge arrives through a PR that passed the full profile | same | — |
+| deployment on demand (`DEVOPS --deploy`) | preventive sweep + smoke on the deployed build | same | the smoke verdict (`certifies:`) |
+
 **Additionally — when the workspace contains nested or sibling git repositories** (any topology where more than one `.git` is reachable along the filesystem path): apply the CWD discipline rules in [`Factory-protocol-cwd-discipline.instructions.md`](.claude/instructions/Factory-protocol-cwd-discipline.instructions.md) before any destructive git op (`commit`, `push`, `reset`, `branch -D`, `rebase`, `merge`). Always prefix `cd <absolute-path>` to the Bash command — never trust a previous Bash call's cwd to persist. Known operational hazard catalogued because the Claude Code Bash tool does not persist `cd` between tool invocations.
 
 ## Context Preservation Invariants

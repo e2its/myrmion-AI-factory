@@ -16,16 +16,25 @@ YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-# ── 1. Protected branch guard ──
+# ── 1. Protected branch guard — ONE definition (EVOL-046): the reader classifies the name (main, master,
+#      develop, release/*, bare hotfix, a train with declared sub-increments). Reader absent = fail-closed.
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
-PROTECTED_BRANCHES="main master develop"
-for branch in $PROTECTED_BRANCHES; do
-  if [ "$CURRENT_BRANCH" = "$branch" ]; then
-    echo -e "${RED}❌ Direct commits to '$branch' are blocked.${NC}"
-    echo "   Create a feature branch: git checkout -b feature/YOUR-ID-description"
+if [ -n "$CURRENT_BRANCH" ]; then
+  if [ ! -f scripts/gate.py ]; then
+    echo -e "${RED}❌ The governance reader (scripts/gate.py) is not delivered — '$CURRENT_BRANCH' cannot be classified.${NC}"
+    echo "   Resolution: bash scripts/factory-sync.sh, then retry the commit."
     exit 1
   fi
-done
+  BC_OUT=$(python3 scripts/gate.py branch-class --protected 2>&1) && BC_RC=0 || BC_RC=$?
+  if [ "$BC_RC" -eq 1 ]; then
+    echo -e "${RED}❌ Direct commits to '$CURRENT_BRANCH' are blocked ($BC_OUT).${NC}"
+    echo "   Create a working branch: git checkout -b feature/YOUR-ID-description  (a train takes sub-increment PRs only)"
+    exit 1
+  elif [ "$BC_RC" -ne 0 ]; then
+    echo -e "${RED}❌ The governance reader could not classify '$CURRENT_BRANCH' (exit $BC_RC): $BC_OUT${NC}"
+    exit 1
+  fi
+fi
 
 # ── 2. Secret leak detection (optional — skips if gitleaks not installed) ──
 if command -v gitleaks &>/dev/null; then

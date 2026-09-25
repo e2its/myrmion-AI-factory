@@ -13,7 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import branch, budget, coherence, corpus, retired  # noqa: E402
+from gates import branch, budget, coherence, corpus, profile, retired  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -616,6 +616,82 @@ class Branch(unittest.TestCase):
                 branch.surface(repo)
 
 
+class Profile(unittest.TestCase):
+    """EVOL-046: one mode key (fail-closed), one profile per control point, members by property, all-report, one definition."""
+
+    def _repo(self, tmp, mode="development"):
+        repo = fixture_repo(Path(tmp))
+        write(repo / "docs/spec/F-001/increment_plan.md", "### INC-1 — a\n- **Sub-increments:**\n  - SUB-1-1: x · status: READY\n")
+        if mode is not None:
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"framework_version": "7.3.0", "delivery_mode": mode, "templates": {}}))
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "plan"], check=True)
+        subprocess.run(["git", "-C", str(repo), "branch", "-M", "main"], check=True)
+        for ref in ("main", "feature/F-001-inc-1-a"):
+            subprocess.run(["git", "-C", str(repo), "update-ref", f"refs/remotes/origin/{ref}", "HEAD"], check=True)
+        return repo
+
+    def test_mode_is_one_key_and_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(profile.mode(repo)["mode"], "development")
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"delivery_mode": "fast"}))
+            m = profile.mode(repo); self.assertEqual(m["mode"], "production"); self.assertIn("not one of", m["reason"])
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"framework_version": "1"}))
+            self.assertEqual(profile.mode(repo)["mode"], "production", "absent key = strictest")
+            write(repo / "docs/project_log/governance_versions.json", "{not json")
+            m = profile.mode(repo); self.assertEqual(m["mode"], "production"); self.assertIn("not readable", m["reason"])
+            (repo / "docs/project_log/governance_versions.json").unlink()
+            self.assertEqual(profile.mode(repo)["mode"], "production", "absent manifest = strictest")
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"delivery_mode": "production"}))
+            os.environ["DELIVERY_MODE"] = "development"; os.environ["FACTORY_MODE"] = "development"
+            try:
+                self.assertEqual(profile.mode(repo)["mode"], "production", "no environment variable overrides the key")
+            finally:
+                del os.environ["DELIVERY_MODE"]; del os.environ["FACTORY_MODE"]
+
+    def test_profile_per_control_point(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(profile.profile(repo, "feature/F-001-inc-1-a-sub-1")["profile"], "light", "a sub-increment to its train in development mode")
+            for b in ("feature/F-001-inc-1-a", "feature/F-001-login", "fix/x", "main", "weird"):
+                self.assertEqual(profile.profile(repo, b)["profile"], "full", b)
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"delivery_mode": "production"}))
+            pr = profile.profile(repo, "feature/F-001-inc-1-a-sub-1")
+            self.assertEqual(pr["profile"], "full"); self.assertIn("production mode", pr["reason"])
+            light = {m["member"] for m in profile.owed("light")}; full = {m["member"] for m in profile.owed("full")}
+            self.assertTrue(light < full)
+            self.assertFalse(any(m["needs_build"] or m["needs_database"] for m in profile.owed("light")), "light = no build, no database — by property")
+            self.assertIn("tests", full - light); self.assertIn("seed-alignment", full - light); self.assertIn("surface", light)
+
+    def test_run_reports_every_member_and_one_verdict(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-inc-1-a-sub-1"], check=True)
+            rep = profile.run(repo, only=["retired-terms", "manifest-parity", "surface"])
+            self.assertEqual(rep["profile"], "light"); self.assertEqual(rep["base"], "origin/feature/F-001-inc-1-a")
+            by = {r["member"]: r for r in rep["results"]}
+            self.assertEqual(set(by), {"retired-terms", "manifest-parity", "surface"}, "every member reports — the run never stops at the first red")
+            self.assertEqual(by["retired-terms"]["status"], "RED", "the fixture carries a retired term")
+            self.assertEqual(by["surface"]["status"], "FAULT", "surface keys absent in the fixture = could not run, said")
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("retired-terms", rep["summary"]); self.assertIn("surface", rep["summary"])
+            text = profile.render(rep)
+            self.assertIn("✗ retired-terms", text); self.assertIn("? surface", text); self.assertIn("skipped by the light profile", text); self.assertIn("tests", text)
+            self.assertTrue(any(e["member"] == "code-review" for e in rep["owed_elsewhere"]), "agent-run members are owed, never silently dropped")
+            rep = profile.run(repo, branch="nonsense", only=["retired-terms"])
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("no diff base", rep["summary"])
+
+    def test_one_definition_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(profile.one_definition(repo), [])
+            write(repo / ".claude/hooks/x.sh", "#!/bin/bash\nPROTECTED_BRANCHES=\"main master\"\n# a comment naming (main|master) is fine\n")
+            write(repo / ".github/workflows/ci.yml", "run: python3 -c \"import json; print(json.load(open('m.json'))['delivery_mode'])\"\n")
+            f = profile.one_definition(repo)
+            self.assertEqual([(x["path"], x["line"]) for x in f], [(".claude/hooks/x.sh", 2), (".github/workflows/ci.yml", 1)])
+            self.assertIn("branch-class --protected", f[0]["reason"]); self.assertIn("gate.py profile", f[1]["reason"])
+
+
 class Cli(unittest.TestCase):
     def test_cli_exit_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -704,6 +780,13 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 0, "the CI shape — explicit base on a detached checkout — keeps working")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "certify", "--subject", "tree", "--paths", "src/**", "--json"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0, "QA certifies a tree on a tag / detached checkout")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "profile"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertIn("profile: full", r.stdout); self.assertIn("strictest mode", r.stdout, "no manifest → production, said")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "one-definition"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0)
+            write(repo / "scripts/hooks/pre-push", "PROTECTED_BRANCHES=main\n")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "one-definition"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("scripts/hooks/pre-push:1", r.stdout)
 
 
 if __name__ == "__main__":

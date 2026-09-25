@@ -12,7 +12,8 @@
 #   5. every law (universal + project) resolves its Body: pointer and quotes the identical sentence (gate.py laws --parity)
 #   6. injection budgets hold against the real producers; the retired-term ratchet is clean;
 #      manifest ↔ frontmatter parity and artefact currency hold (EVOL-044); branch classes, the one diff
-#      base and the surface ceiling read the project's keys — a train is protected, an over-ceiling diff is red (EVOL-045)
+#      base and the surface ceiling read the project's keys — a train is protected, an over-ceiling diff is red (EVOL-045);
+#      the gate profile resolves from the one mode key and runs every member in one call; no second definition (EVOL-046)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
@@ -138,7 +139,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?
 # the project manifest SETUP writes (targets keyed by template path, versions carried over) — then parity must hold
 python3 - "$MANIFEST" "$P/docs/project_log/governance_versions.json" <<'PY'
 import json, sys, pathlib
-m = json.load(open(sys.argv[1])); out = {"framework_version": m["framework_version"], "templates": {}}
+m = json.load(open(sys.argv[1])); out = {"framework_version": m["framework_version"], "delivery_mode": "development", "templates": {}}   # Q32 sample
 for k, e in m["templates"].items():
     if isinstance(e, dict) and e.get("target"): out["templates"][k] = {"version": e["version"], "target": e["target"]}
 p = pathlib.Path(sys.argv[2]); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(out, indent=1))
@@ -182,6 +183,27 @@ OUT=$(cd "$P" && python3 scripts/gate.py diff-base --branch feature/FEAT-001-inc
 [ "$RC" -eq 0 ] && [ "$OUT" = "origin/feature/FEAT-001-inc-1-x" ] && ok "a sub-increment's diff base is its train" || bad "sub-increment diff base wrong (rc=$RC): $OUT"
 OUT=$(cd "$P" && git checkout -q -b nonsense && python3 scripts/gate.py diff-base 2>&1); RC=$?; git -C "$P" checkout -q feature/FEAT-001-smoke
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'matches no class' && ok "RED: an unrecognised branch name has no diff base (fail-closed)" || bad "unknown branch not red (rc=$RC)" "$OUT"
+# gate profiles per control point (EVOL-046): one mode key, one reader, light only for a sub-increment in development mode
+OUT=$(cd "$P" && python3 scripts/gate.py profile 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^profile: full' && ok "a feature branch owes the full profile" || bad "feature profile wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py profile --branch feature/FEAT-001-inc-1-x-sub-2 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^profile: light' && ok "a sub-increment to its train in development mode owes the light profile" || bad "sub-increment profile wrong (rc=$RC)" "$OUT"
+python3 - "$P/docs/project_log/governance_versions.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["delivery_mode"] = "production"; json.dump(d, open(p, "w"), indent=1)
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py profile --branch feature/FEAT-001-inc-1-x-sub-2 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^profile: full' && ok "in production mode the same sub-increment owes the full profile" || bad "production mode not strict (rc=$RC)" "$OUT"
+python3 - "$P/docs/project_log/governance_versions.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["delivery_mode"] = "development"; json.dump(d, open(p, "w"), indent=1)
+PY
+# the verdict left STALE above is re-taken (never re-blessed) before the profile run — the currency member must see a fresh one
+CERT=$(cd "$P" && python3 scripts/gate.py certify --subject tree --paths 'src/**')
+printf -- '---\nstatus: APPROVED\nverdict: APPROVED\ncertifies:\n%s\n---\n' "$CERT" > "$P/docs/spec/FEAT-001/qa/qa_report_final_20260925.md"
+git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm "manifest + re-taken verdict"
+OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push --base origin/main 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'verdict: ok' && ok "the profile runs every script member in the scratch project, one verdict: $(printf '%s' "$OUT" | grep -c '✓') green" || bad "profile run not green in the scratch (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py one-definition 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "the materialised hooks and workflow keep no second definition" || bad "second definition in the materialised tree (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

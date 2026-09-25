@@ -89,9 +89,13 @@ if [[ -z "$CURRENT" ]]; then
   log "preflight: detached HEAD — skipping (not on a working branch)"
   exit 2
 fi
-if echo "$CURRENT" | grep -qE '^(main|master|develop|release(/.+)?|hotfix)$'; then
-  log "preflight: on protected branch '$CURRENT' — skipping (branch-protection hook should have caught this)"
-  exit 2
+# ONE definition of "protected" (EVOL-046): the reader classifies the name; no regex here.
+if [[ -f "scripts/gate.py" ]]; then
+  "$PYTHON" scripts/gate.py branch-class --protected >/dev/null 2>&1; BP_RC=$?
+  if [[ "$BP_RC" -eq 1 ]]; then
+    log "preflight: on protected branch '$CURRENT' — skipping (branch-protection hook should have caught this)"
+    exit 2
+  fi
 fi
 
 # ── Fetch base quietly (best-effort) ──
