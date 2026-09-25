@@ -304,6 +304,8 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
 
     # Verify the smoke report exists on disk and is still valid
     smoke_report = "docs/spec/{FEATURE_ID}/smoke_e2e_report.md"
+    # Currency (EVOL-044): when overall_verdict turns PASS, stamp certifies: {subject: tree, paths: runtime roots,
+    # hash: python3 scripts/gate.py certify --subject tree --paths …} — the smoke certifies the build it ran on.
     IF FILE_EXISTS(smoke_report):
       fm = READ_FRONTMATTER(smoke_report)
       IF fm.status == "INVALIDATED":
@@ -478,6 +480,11 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     ? "docs/spec/{FEATURE_ID}/qa/qa_report_{INCREMENT_ID}_{ts}.md"
     : "docs/spec/{FEATURE_ID}/qa/qa_report_final_{ts}.md"
   WRITE checklist to qa_report_path under "## Verification Checklist"
+  # Currency (EVOL-044): before the verdict turns terminal, stamp what it certifies — the tree the
+  # checks ran on. One definition, the gate's own: the same call the push gate re-runs.
+  certifies.paths = runtime source roots (setup.md paths.* — e.g. src/** tests/**)
+  certifies.hash  = RUN python3 scripts/gate.py certify --subject tree --paths {certifies.paths}
+  WRITE frontmatter certifies: {subject: tree, paths, hash}   # gate.py currency reads it; a moved tree = STALE = re-verify
   IF mode == "aggregate" AND slicing_strategy == "incremental":
     UPDATE_FRONTMATTER(qa_report_path, "aggregates", LIST(LATEST("docs/spec/{FEATURE_ID}/qa/qa_report_{inc.id}_*.md") FOR inc IN increments))
   UPDATE_FRONTMATTER(qa_report_path, "report_scope", mode == "slice" ? "increment-{INCREMENT_ID}" : "feature")

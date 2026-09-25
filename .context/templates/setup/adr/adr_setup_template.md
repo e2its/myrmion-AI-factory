@@ -1,11 +1,13 @@
 ---
-version: 1.0.0
-date: 2026-01-29
+version: 1.2.1
+template_date: 2026-01-29
 changelog:
+  - "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
+  - "1.2.0: chore(EVOL-044) — frontmatter version realigned to the governance manifest (the manifest is the source of truth; gate: gate.py manifest-parity)"
   - "1.0.0: Initial ADR template for setup phase decisions"
-adr_number: {{NUMBER}}
-title: {{TITLE}}
-date: {{DATE}}
+adr_number: "{{NUMBER}}"
+title: "{{TITLE}}"
+date: "{{DATE}}"
 status: accepted
 type: setup  # setup, architectural, process, refactoring, feature
 scope: global  # project-wide setup decisions

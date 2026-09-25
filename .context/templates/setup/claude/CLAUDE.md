@@ -317,6 +317,8 @@ After every command:
 
 `DRAFT` → `APPROVED` (via approval/auto-approval), `NEEDS_INFO` (paused, needs `--refine`), `BLOCKED`, `BUILDING` → `IMPLEMENTED_AND_VERIFIED`, `CASCADE_PENDING_ITERATION`, `REJECTED` (QA).
 
+**Currency (EVOL-044).** A verdict artefact (`qa_report*`, `peer_review_*`, `sec_audit*`, `smoke_e2e_report`) declares what it certified in its frontmatter `certifies:` (`subject: diff|tree`, `hash` from `python3 scripts/gate.py certify`). The push gate and CI recompute it (`gate.py currency`): a moved subject is STALE and the verdict is re-taken, never re-blessed. Governed files with a frontmatter `version:` move with their manifest entry (`gate.py manifest-parity`; the manifest is the source of truth). Law bodies quote their index sentence byte-identically (`gate.py laws --parity`).
+
 - **Component Registry** (`docs/ux/component-registry.json`, schema `component_registry_v1`): SSOT of design-system ↔ build alignment — one entry per `data-component` anchor of `docs/ux/vision/component_library.html`, with its code primitive (join key into `config/codebase_inventory.json`, which stays SSOT for code), status `DESIGNED → PLANNED → IMPLEMENTED` and backlog reference. Schema, writers and lifecycle: [Factory-codesign-vision.instructions.md](.claude/instructions/Factory-codesign-vision.instructions.md) § Component Registry. A `DESIGNED` component with no backlog reference is unplanned build work: the `factory-po-intake` catalog beat turns it into issues (`kind:component-catalog`). BLUEPRINT and the REVIEW hat consult it before creating a UI component.
 
 ## Templates

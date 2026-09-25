@@ -16,6 +16,14 @@ by_verdict:
   skipped: 0
   blocked: 0
 overall_verdict: null   # PASS | FAIL — only PASS closes the SMOKE-E2E gate
+# Currency (EVOL-044): what this verdict certified. Written by the phase from
+#   python3 scripts/gate.py certify --subject tree --paths {{RUNTIME_PATHS}}
+# The push gate and CI recompute it (gate.py currency); a moved subject = STALE = re-take, never re-bless.
+certifies:
+  subject: tree
+  paths: ["{{RUNTIME_PATHS}}"]   # the runtime roots the verdict covers, e.g. "src/**", "tests/**"
+  hash: "{{CERTIFY_HASH}}"
+
 
 # Iteration model tracking
 based_on_iteration: 1

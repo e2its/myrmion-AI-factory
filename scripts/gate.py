@@ -13,6 +13,9 @@
   gate.py snapshot-sections [--profile lite|full]  stack config + rules manifest + law index + families (+ bodies)
   gate.py budget                                   run every producer at worst case; exit 1 on overflow, dead/absent producer or missing key
   gate.py retired-terms                            the retired-vocabulary ratchet; exit 1 on a hit
+  gate.py certify --subject diff|tree [--base B] [--paths p…]   the certification hash a verdict artefact embeds (certifies.hash)
+  gate.py currency                                 every terminal verdict artefact still certifies the current build; exit 1 on stale/missing
+  gate.py manifest-parity                          frontmatter version == manifest version for every governed file; exit 1 on drift
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08).
 """
@@ -26,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import budget as budget_mod, corpus, retired  # noqa: E402
+    from gates import budget as budget_mod, coherence, corpus, retired  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -138,6 +141,23 @@ def cmd_retired(repo, a):
     return 1 if hits else 0
 
 
+def cmd_certify(repo, a):
+    print(coherence.certify(repo, a.subject, a.base, a.paths))
+    return 0
+
+
+def cmd_currency(repo, a):
+    findings = coherence.currency(repo)
+    print(coherence.render("currency", findings))
+    return 1 if findings else 0
+
+
+def cmd_manifest_parity(repo, a):
+    findings = coherence.manifest_parity(repo)
+    print(coherence.render("manifest-parity", findings))
+    return 1 if findings else 0
+
+
 def build_parser():
     ap = argparse.ArgumentParser(prog="gate.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", default=None)
@@ -156,6 +176,9 @@ def build_parser():
     p = sub.add_parser("snapshot-sections"); p.add_argument("--profile", choices=("lite", "full"), default="lite"); p.set_defaults(fn=cmd_snapshot_sections)
     p = sub.add_parser("budget"); p.set_defaults(fn=cmd_budget)
     p = sub.add_parser("retired-terms"); p.set_defaults(fn=cmd_retired)
+    p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree"), required=True); p.add_argument("--base", default="origin/main"); p.add_argument("--paths", nargs="*", default=None); p.set_defaults(fn=cmd_certify)
+    p = sub.add_parser("currency"); p.set_defaults(fn=cmd_currency)
+    p = sub.add_parser("manifest-parity"); p.set_defaults(fn=cmd_manifest_parity)
     return ap
 
 

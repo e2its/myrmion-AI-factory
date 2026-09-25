@@ -1,6 +1,6 @@
 {
   "$schema": "coherence_context_v1",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "context": "downstream",
   "_doc": "Single source of truth for which context this repo runs as. Materialised at SETUP --generate. Read by factory-pr-review Phase 0 (coherence audit) and by any future consumer that needs context-aware behaviour. Project owners may extend audit.* keys via ADR — never edit context field.",
   "audit": {
@@ -61,7 +61,7 @@
       }
     ],
     "manifest_paths": {
-      "primary": "config/governance_versions.json",
+      "primary": "docs/project_log/governance_versions.json",
       "framework_core_section": null,
       "templates_section": "templates"
     }

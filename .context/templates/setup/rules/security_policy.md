@@ -2,9 +2,11 @@
 description: "Security policy — OWASP Top 10 compliance, secret management, Zero Trust principles, vulnerability remediation."
 applicable_when:
   always: true
-version: 1.1.0
+version: 1.4.1
 date: 2026-09-25
 changelog:
+  - "1.4.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
+  - "1.4.0: chore(EVOL-044) — frontmatter version realigned to the governance manifest (the manifest is the source of truth; gate: gate.py manifest-parity)"
   - "1.1.0: feat(EVOL-043) — hosts [PLAW-06] body (merged from the constitution template)"
   - "1.0.0: Initial template version"
 last_updated: "{{TIMESTAMP}}"

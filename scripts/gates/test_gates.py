@@ -13,7 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import budget, corpus, retired  # noqa: E402
+from gates import budget, coherence, corpus, retired  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -362,6 +362,70 @@ class Budget(unittest.TestCase):
             self.assertFalse(rows["pre_edit"]["ok"]); self.assertIn("key budgets.pre_edit missing", rows["pre_edit"]["fault"])
 
 
+class Coherence(unittest.TestCase):
+    def _repo(self, tmp):
+        repo = fixture_repo(Path(tmp))
+        # the review-hash pipeline the diff subject delegates to (real scripts, copied)
+        for rel in (".claude/skills/factory-pr-review/scripts/detect_change_type.py", ".claude/skills/factory-code-review/scripts/code_review_hash.py"):
+            src = HERE.parent.parent / rel
+            if src.is_file():
+                write(repo / rel, src.read_text(encoding="utf-8"))
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "pipeline"], check=True)
+        return repo
+
+    def test_certify_tree_moves_with_the_subject(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            h1 = coherence.certify(repo, "tree", paths=["src/**"])
+            self.assertEqual(h1, coherence.certify(repo, "tree", paths=["src/**"]), "deterministic")
+            write(repo / "docs/x.md", "docs only\n"); subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            self.assertEqual(h1, coherence.certify(repo, "tree", paths=["src/**"]), "a change outside the paths does not move the subject")
+            write(repo / "src/app.py", "print(2)\n"); subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            self.assertNotEqual(h1, coherence.certify(repo, "tree", paths=["src/**"]), "a change under the paths moves the subject")
+            with self.assertRaisesRegex(GateFault, "needs the paths"):
+                coherence.certify(repo, "tree")
+            with self.assertRaisesRegex(GateFault, "unknown certification subject"):
+                coherence.certify(repo, "blob")
+
+    def test_currency_stale_missing_fresh_unreadable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            fresh = coherence.certify(repo, "tree", paths=["src/**"])
+            write(repo / "docs/spec/F/qa/qa_report_final_1.md", f"---\nstatus: APPROVED\nverdict: APPROVED\ncertifies:\n  subject: tree\n  paths: [\"src/**\"]\n  hash: \"{fresh}\"\n---\n")
+            write(repo / "docs/spec/F/qa/qa_report_draft.md", "---\nstatus: DRAFT\n---\n")            # not terminal: no certification owed
+            write(repo / "docs/spec/F/review/peer_review_1.md", "---\nstatus: APPROVED\n---\n")       # terminal, no certifies
+            write(repo / "docs/spec/F/smoke_e2e_report.md", "---\noverall_verdict: PASS\ncertifies: [broken\n---\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            reasons = {f["path"]: f["reason"] for f in coherence.currency(repo)}
+            self.assertNotIn("docs/spec/F/qa/qa_report_final_1.md", reasons, "fresh certification is green")
+            self.assertNotIn("docs/spec/F/qa/qa_report_draft.md", reasons)
+            self.assertIn("certifies-missing", reasons["docs/spec/F/review/peer_review_1.md"])
+            self.assertIn("unreadable", reasons["docs/spec/F/smoke_e2e_report.md"])
+            write(repo / "src/app.py", "print(3)\n"); subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            reasons = {f["path"]: f["reason"] for f in coherence.currency(repo)}
+            self.assertIn("STALE", reasons["docs/spec/F/qa/qa_report_final_1.md"], "the build moved under the verdict")
+            self.assertIn("FAIL", coherence.render("currency", coherence.currency(repo)))
+
+    def test_manifest_parity_red_on_drift_and_unreadable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "config/coherence-context.json", json.dumps({"context": "downstream", "audit": {"manifest_paths": {"primary": "docs/project_log/governance_versions.json"}}}))
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {
+                "rules/architecture.md": {"version": "1.2.0", "target": ".claude/rules/architecture.md"},
+                "rules/stateless.md": {"version": "1.0.0", "target": ".claude/rules/stateless.md"},
+                "rules/broken.md": {"version": "1.0.0", "target": ".claude/rules/broken.md"}}}))
+            write(repo / ".claude/rules/architecture.md", "---\nversion: 1.1.0\napplicable_when:\n  always: true\n---\n")
+            write(repo / ".claude/rules/stateless.md", "---\nversion: 1.0.0\napplicable_when:\n  always: true\n---\n")
+            reasons = {f["path"]: f["reason"] for f in coherence.manifest_parity(repo)}
+            self.assertIn("1.1.0 ≠ manifest 1.2.0", reasons[".claude/rules/architecture.md"])
+            self.assertNotIn(".claude/rules/stateless.md", reasons)
+            self.assertIn("unreadable", reasons[".claude/rules/broken.md"])
+            (repo / "docs/project_log/governance_versions.json").write_text("{nope", encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "not readable JSON"):
+                coherence.manifest_parity(repo)
+
+
 class Cli(unittest.TestCase):
     def test_cli_exit_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -385,6 +449,14 @@ class Cli(unittest.TestCase):
             self.assertEqual((r.returncode, r.stdout), (0, ""), "malformed hook payload: silent pass")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "laws", "--parity"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1); self.assertIn("PLAW-02", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "manifest-parity"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2, "no manifest at all is a fault, never a pass")
+            write(repo / "docs/project_log/governance_versions.json", json.dumps({"templates": {"rules/architecture.md": {"version": "1.0.0", "target": ".claude/rules/architecture.md"}}}))
+            write(repo / ".claude/rules/architecture.md", "---\nversion: 1.0.0\napplicable_when:\n  always: true\n---\n## [PLAW-01] KISS & DRY\n> Every solution is the simplest one that satisfies the specification, written once.\n\nbody\n")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "manifest-parity"], capture_output=True, text=True, env=env)
+            self.assertEqual((r.returncode, r.stdout.strip()), (0, "manifest-parity: ok"), r.stdout + r.stderr)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "currency"], capture_output=True, text=True, env=env)
+            self.assertEqual((r.returncode, r.stdout.strip()), (0, "currency: ok"))
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "law-sentences", "--file", str(repo / "CLAUDE.md")], capture_output=True, text=True, env=env)
             self.assertIn("LAW-02\tNever modify protected code.", r.stdout)
             broken = Path(tmp) / "broken"; broken.mkdir(); (broken / "gate.py").write_text(Path(gate).read_text(), encoding="utf-8")

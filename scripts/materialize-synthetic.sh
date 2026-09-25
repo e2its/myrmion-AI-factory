@@ -10,7 +10,8 @@
 #   3. the snapshot generator produces a lite snapshot within budgets.snapshot
 #   4. the one resolver prints a roll-call with every project law and family
 #   5. every law (universal + project) resolves its Body: pointer and quotes the identical sentence (gate.py laws --parity)
-#   6. injection budgets hold against the real producers; the retired-term ratchet is clean
+#   6. injection budgets hold against the real producers; the retired-term ratchet is clean;
+#      manifest ↔ frontmatter parity and artefact currency hold (EVOL-044)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
@@ -133,6 +134,18 @@ OUT=$(cd "$P" && printf '%s' '{"tool_input":{"file_path":"src/app/models.py"},"s
 printf '%s' "$OUT" | grep -q '"additionalContext"' && printf '%s' "$OUT" | grep -q 'DC-' && ok "a real edit payload gets its defect classes delivered through the envelope" || bad "delivery hook delivered nothing for src/app/models.py" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "retired-term ratchet clean in the materialised tree" || bad "retired terms in the materialised tree" "$OUT"
+# the project manifest SETUP writes (targets keyed by template path, versions carried over) — then parity must hold
+python3 - "$MANIFEST" "$P/docs/project_log/governance_versions.json" <<'PY'
+import json, sys, pathlib
+m = json.load(open(sys.argv[1])); out = {"framework_version": m["framework_version"], "templates": {}}
+for k, e in m["templates"].items():
+    if isinstance(e, dict) and e.get("target"): out["templates"][k] = {"version": e["version"], "target": e["target"]}
+p = pathlib.Path(sys.argv[2]); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(out, indent=1))
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py manifest-parity 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "manifest ↔ frontmatter parity holds for every materialised governed file" || bad "manifest parity red in the scratch project" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py currency 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "artefact currency: no stale verdict (none yet — the gate runs)" || bad "currency red in the scratch project" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

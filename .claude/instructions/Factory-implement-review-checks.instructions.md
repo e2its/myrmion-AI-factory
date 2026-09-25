@@ -1314,6 +1314,10 @@ Execute AFTER all phases verified + mock compliance + visual inspection.
 # File path is scope-aware:
 #  - monolithic feature OR plan-level aggregate: docs/spec/{FEATURE_ID}/review/peer_review_{timestamp}.md
 #  - per-increment closure (build_scope.mode == "incremental"): docs/spec/{FEATURE_ID}/review/peer_review_{INC-N}_{timestamp}.md
+#  Currency (EVOL-044): before status/verdict turn APPROVED, stamp the diff the review read —
+#    certifies: {subject: diff, base: origin/main, hash: python3 scripts/gate.py certify --subject diff --base origin/main}
+#  (the factory-code-review content hash: docs-only commits keep it valid; a code change makes the review STALE —
+#  gate.py currency blocks the push until the review is re-taken). Same stamp on sec_audit.md when it turns SECURE/APPROVED.
 #    where {INC-N} == build_scope.target_increment.id (e.g. peer_review_INC-2_2026-05-08T10-30-00.md)
 # QA --verify {ID} INC-N reads the latest peer_review_{INC-N}_*.md for the slice;
 # QA --verify {ID} (aggregator) reads the latest peer_review_*.md (any) — typically the final aggregate
