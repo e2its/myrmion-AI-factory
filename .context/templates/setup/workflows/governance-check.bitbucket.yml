@@ -27,5 +27,6 @@ pipelines:
           script:
             - apk add --no-cache bash git python3
             - git fetch origin "$BITBUCKET_PR_DESTINATION_BRANCH"
+            # EVOL-054: BITBUCKET_TOKEN (user:app_password with repository:read) as a secured repository variable lets the scm-protection member read the branch restrictions at the ci control point; without it the member is n/a with the checklist (never a silent green)
             - python3 scripts/gate.py profile --run --control-point ci --base "origin/$BITBUCKET_PR_DESTINATION_BRANCH" --branch "$BITBUCKET_BRANCH"
             - python3 scripts/gate.py one-definition

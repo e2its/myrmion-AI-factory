@@ -418,6 +418,7 @@ fi
 header "CHECK 1c: Manifest integrity (dup paths / dup targets / target keys)"
 
 INTEGRITY_ISSUES=$(python3 - "$MANIFEST" <<'PYEOF'
+import re
 import json, sys
 data = json.load(open(sys.argv[1]))
 resolvers = {
@@ -435,7 +436,9 @@ for p, keys in sorted(by_path.items()):
     if len(keys) > 1:
         print(f"DUP-PATH {p} <- {', '.join(keys)}")
 # templates: target key must be present (null allowed = consumed in place);
-# duplicate non-null targets allowed only when every collider declares target_mode: merge
+# duplicate non-null targets allowed only when every collider declares target_mode: merge, or when the colliders are
+# EXCLUSIVE: every one carries a stack_conditional of the shape `key == value` on the SAME key with DISTINCT values
+# (exactly one lands — e.g. the per-platform SCM runbooks, EVOL-054); `a == X` next to `b == Y` can both be true
 by_target = {}
 for k, v in data.get('templates', {}).items():
     if k.startswith('_') or not isinstance(v, dict):
@@ -443,10 +446,17 @@ for k, v in data.get('templates', {}).items():
     if 'target' not in v:
         print(f"NO-TARGET templates::{k}")
     elif v['target']:
-        by_target.setdefault(v['target'], []).append((k, v.get('target_mode')))
+        by_target.setdefault(v['target'], []).append((k, v.get('target_mode'), v.get('stack_conditional')))
 for t, entries in sorted(by_target.items()):
-    if len(entries) > 1 and not all(mode == 'merge' for _, mode in entries):
-        print(f"DUP-TARGET {t} <- {', '.join(k for k, _ in entries)} (declare target_mode: merge on all, or fix)")
+    if len(entries) < 2:
+        continue
+    merge = all(mode == 'merge' for _, mode, _ in entries)
+    parsed = [re.match(r'^\s*([A-Za-z_][\w.]*)\s*==\s*"?([^"]+?)"?\s*$', c or '') for _, _, c in entries]
+    keys = {m.group(1) for m in parsed if m}
+    values = [m.group(2) for m in parsed if m]
+    exclusive = all(parsed) and len(keys) == 1 and len(set(values)) == len(values)
+    if not merge and not exclusive:
+        print(f"DUP-TARGET {t} <- {', '.join(k for k, _, _ in entries)} (declare target_mode: merge on all, or give every collider a `key == value` stack_conditional on one key with distinct values, or fix)")
 PYEOF
 ) || { fail "CHECK 1c inspector crashed — cannot verify manifest integrity (malformed manifest?). Treated as a violation: 'printed nothing' must never read as 'no issues'."; INTEGRITY_ISSUES="__CRASHED__"; }
 

@@ -456,6 +456,11 @@ python3 subproducts/po-package/validate_po_return.py --selftest   # the subprodu
 python3 subproducts/po-package/build_po_package.py                # first package for the PO
 ```
 
+### Server-side protection — next steps (EVOL-054)
+- **SCM host (Q21.2):** [GitHub | GitLab | Bitbucket | Azure DevOps | Other] — protected branches `[main]`, required checks `[…]`, approvals `[0]` (`config/quality.json → scm`).
+- **Runbook:** `docs/scm/protection.md` — the exact settings for the protected branch; applied by a repository administrator, never by the materialisation.
+- **Token wired in CI:** [yes — the profile step exports the platform token | no — the runbook checklist is the record until it does]. Verified by `python3 scripts/gate.py scm-protection --control-point ci` on the first pull request (RED = apply the runbook; n/a = no token).
+
 ### Measurement — next steps
 - **Surface ceiling (Q31, EVOL-045):** `config/quality.json → surface.ceiling_files / ceiling_lines` = [30] / [800] — every push measures its diff against them (`gate.py surface`); the plan splits over-ceiling increments into sub-increments on a train.
 - **Reader:** `subproducts/measure/` — the project's SDLC cost from local transcripts and git; nothing leaves the machine. Window `{{MEASURE_REPORT_INTERVAL_DAYS}}` days, retention `{{MEASURE_RETENTION_DAYS}}` days (Q30).

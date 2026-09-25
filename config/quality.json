@@ -331,5 +331,17 @@
     "_doc": "Test-case traceability (EVOL-053): the ONE machine-readable home of the case → test link (`home`: kind pytest-marker | title-tag, or a custom `pattern` with a named group `id`), the case grammar (`id_pattern`; a link is FEATURE/CASE — the plan folder and the id its test_plan.md declares), the plans, the test roots and the shrink-only baseline. python3 scripts/gate.py traceability — a light member of the gate profile (static round, push, CI): case → test, never test → case; unknown or malformed links red; the baseline only shrinks. The framework repo declares no test plan: its tests are the T2 suites.",
     "required": false,
     "reason": "the framework repo declares no test plan (docs/spec/*/test_plan.md does not exist here); its tests are the T2 suites CI runs on every pull request"
+  },
+  "scm": {
+    "_doc": "Server-side branch protection (EVOL-054): the SCM host (`platform`: GitHub | GitLab | Bitbucket | Azure DevOps | Other), the protected branches, the checks the server must require and the approvals the project decided. python3 scripts/gate.py scm-protection asks the platform's API at the ci control point (a read-only token in the CI environment) and is RED on a missing setting; without a token, at push or at the static round it is n/a with the checklist of docs/scm/protection.md. The runbook per platform is materialised by SETUP (Q21.2). protected_branches names the default branch — the same name rules/branching.md carries as default_base_branch.",
+    "platform": "GitHub",
+    "protected_branches": [
+      "main"
+    ],
+    "required_checks": [
+      "governance-check",
+      "Verify lock-step pair integrity"
+    ],
+    "approvals": 0
   }
 }

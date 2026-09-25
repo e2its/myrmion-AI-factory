@@ -40,4 +40,6 @@ stages:
           - script: |
               python3 scripts/gate.py profile --run --control-point ci --base "origin/$(System.PullRequest.TargetBranch)" --branch "$(echo "$(System.PullRequest.SourceBranch)" | sed "s#^refs/heads/##")"
               python3 scripts/gate.py one-definition
-            displayName: 'ADR ↔ Constitution sync'
+            displayName: 'Gate profile (one definition) + one-definition'
+            env:
+              AZURE_DEVOPS_TOKEN: $(System.AccessToken)   # EVOL-054: the scm-protection member reads the branch policies at the ci control point (Code: read); a runner whose token is not exported is a RED wiring finding

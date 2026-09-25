@@ -191,6 +191,7 @@ Env-scoped: infrastructure_registry.json with resources for {ENV}
 BOTH: {ENV} must exist in ci-cd.md environments[]
 BOTH: on a merge-triggered deployment, `python3 scripts/gate.py runtime-surface --changed --base HEAD^1` decides first (EVOL-047): exit 1 = the merge touched nothing on `surface.runtime_surface` nor a hard exclusion → no deployment is owed (say so, exit 0); exit 0 = deploy; exit 2 = could not judge → deploy (fail-closed towards deploying). An explicit `DEVOPS --deploy` by the user always deploys.
 BLOCKER: Production env requires MERGE to main + QA APPROVED (via --verify auto-approval or legacy --approve)
+BLOCKER (EVOL-054): Production env requires the protected branch defended on the server — `python3 scripts/gate.py scm-protection --control-point ci` green with the project's read-only token, or (n/a without a token) the runbook's checklist in docs/scm/protection.md ticked by an administrator
 ```
 
 ### Feature-Scoped Provisioning

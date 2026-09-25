@@ -3,9 +3,10 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.7.0
+version: 2.8.0
 date: 2026-09-25
 changelog:
+  - "2.8.0: feat(EVOL-054) — § Server-side protection; the [PLAW-11] mandate names the server side (the runbook docs/scm/protection.md, gate.py scm-protection at ci)."
   - "2.7.0: feat(EVOL-047) — post-merge actions and the main-branch line qualified by the runtime surface (gate.py runtime-surface --changed)."
   - "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments."
   - "2.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -26,7 +27,7 @@ changelog:
 ## [PLAW-11] Branching Strategy & Version Control
 > Every code change follows the declared branching model: no direct commits to protected branches, merges arrive through reviewed pull requests, versions are tagged by semantic rules.
 
-> **Mandate:** All code changes MUST follow the defined branching model. Direct commits to protected branches are FORBIDDEN.
+> **Mandate:** All code changes MUST follow the defined branching model. Direct commits to protected branches are FORBIDDEN — locally by the hooks and on the server per § Server-side protection (EVOL-054).
 
 ### Branch Model: {{BRANCHING_STRATEGY}}
 
@@ -153,6 +154,10 @@ Ref: USR-001
 - [GitHub Flow Guide](https://docs.github.com/en/get-started/quickstart/github-flow)
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [Semantic Versioning](https://semver.org/)
+
+## Server-side protection (EVOL-054)
+
+The hooks defend this rule **locally** (the PreToolUse hook refuses a write on a protected branch, `pre-commit` classifies the branch, `pre-push` runs the gate profile). The **server** defends it per `docs/scm/protection.md` — the runbook SETUP materialised for the project's SCM host (`config/quality.json → scm.platform`): pull request required, the governance check(s) required (`scm.required_checks`), no force-push, no deletion, approvals as the project decided (`scm.approvals`). `python3 scripts/gate.py scm-protection` — a member of the gate profile at the `ci` control point — asks the platform's API with a read-only token and is RED on a missing setting; without a token, or on a host with no adapter, it is n/a with the checklist, which a repository administrator ticks and keeps. A project whose server does not defend the rule is running on prose: a clone without hooks, a `git push --no-verify` or a web edit reaches the protected branch with no pull request and no CI.
 
 ## See Also
 - `docs/constitution.md` — `[PLAW-11]` index entry (this file is its body)

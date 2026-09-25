@@ -112,6 +112,30 @@ manifest_edit "$d" "m['templates']['workflows/a.yml'] = {'version':'1.0.0','cont
 ( cd "$d" && git add -A && git commit -qm t )
 assert "declared merge target collision tolerated" 0 "$(run_gate "$d")"
 
+# 5b. duplicate target with DISTINCT stack_conditional on every collider → tolerated (exactly one lands — EVOL-054 runbooks)
+d="$TMP_ROOT/s5b"; make_sandbox "$d"
+mkdir -p "$d/.context/templates/setup/scm"
+echo a > "$d/.context/templates/setup/scm/p.github.md"; echo b > "$d/.context/templates/setup/scm/p.gitlab.md"
+manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}; m['templates']['scm/p.gitlab.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitLab','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}"
+( cd "$d" && git add -A && git commit -qm t )
+assert "exclusive stack-conditional target collision tolerated" 0 "$(run_gate "$d")"
+
+# 5c. duplicate target where two colliders share the SAME stack_conditional → both would land: violation
+d="$TMP_ROOT/s5c"; make_sandbox "$d"
+mkdir -p "$d/.context/templates/setup/scm"
+echo a > "$d/.context/templates/setup/scm/p.github.md"; echo b > "$d/.context/templates/setup/scm/p.other.md"
+manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}; m['templates']['scm/p.other.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}"
+( cd "$d" && git add -A && git commit -qm t )
+assert "same stack_conditional on two colliders is a violation" 1 "$(run_gate "$d")"
+
+# 5d. duplicate target where the colliders' conditionals are on DIFFERENT keys (`a == X`, `b == Y` — both can be true) → violation
+d="$TMP_ROOT/s5d"; make_sandbox "$d"
+mkdir -p "$d/.context/templates/setup/scm"
+echo a > "$d/.context/templates/setup/scm/p.github.md"; echo b > "$d/.context/templates/setup/scm/p.other.md"
+manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}; m['templates']['scm/p.other.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'ci_cd_platform == GitLab CI','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}"
+( cd "$d" && git add -A && git commit -qm t )
+assert "conditionals on different keys are not exclusive: violation" 1 "$(run_gate "$d")"
+
 # 6. stale entry → warning only (contract pin)
 d="$TMP_ROOT/s6"; make_sandbox "$d"
 manifest_edit "$d" "m['framework_core']['commands/ghost.md'] = {'version':'1.0.0','type':'command','role':'t','path':'.claude/commands/ghost.md','changelog':['1.0.0: init']}"

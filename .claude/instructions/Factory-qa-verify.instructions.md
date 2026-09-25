@@ -378,6 +378,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     checklist.push("- [ ] [QA-PRE-2]: Migration safety validation")
   IF INFRA_EXISTS:
     checklist.push("- [ ] [QA-PRE-3]: IaC governance validation")
+    checklist.push("- [ ] [QA-PRE-SCM]: server-side branch protection — `python3 scripts/gate.py scm-protection --control-point ci` green in CI, or the checklist of docs/scm/protection.md ticked by a repository administrator (EVOL-054)")
   IF HAS_UI AND STAGING_DEPLOYED:
     # Read from governance snapshot (survives summarization) — see INVARIANT 5
     synthetic_enabled = READ .context/governance_snapshot.md → Setup Configuration → synthetic_data.enabled
@@ -709,6 +710,7 @@ reviewed_by: QA
 - [ ] [QA-PRE-2]: Migration safety validation (if applicable)
 - [ ] [QA-PRE-3]: IaC governance validation (if applicable)
 - [ ] [QA-PRE-DATA]: Synthetic data verification (if UI feature on staging)
+- [ ] [QA-PRE-SCM]: Server-side branch protection (`gate.py scm-protection` green at ci, or the runbook checklist ticked — EVOL-054)
 
 ### Governance
 - [ ] [QA-GOV-1]: Protected paths drift detection
