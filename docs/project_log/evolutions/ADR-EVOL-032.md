@@ -65,7 +65,7 @@ The whole EVOL ships atomically via `factory-sync.sh` (one governance bump) so a
 - Carry-over slot (`pending_design_items[]`) closes the long-standing "designed-but-never-built" leak (Plan-Agent gap #2 surfaced during exploration).
 
 **Negatives / Trade-offs:**
-- Schema migration. Existing materialised projects (Nexus-Tech-Link, MASS) must run `SETUP --upgrade`; the upgrade invokes `migrate-iteration-frontmatter.sh` (opt-in per feature, skips `status: BUILDING`). Some features will live in dual-format limbo for a minor version cycle.
+- Schema migration. Existing materialised projects (the two downstream forks) must run `SETUP --upgrade`; the upgrade invokes `migrate-iteration-frontmatter.sh` (opt-in per feature, skips `status: BUILDING`). Some features will live in dual-format limbo for a minor version cycle.
 - 38 framework artefact files received a cosmetic prose cleanup pass in the same EVOL (separate `chore` commit) to align with the long-standing "no version refs in artefact bodies" rule. Mass diff; git blame walks an extra hop on the touched files.
 - `_progress.iteration_in_flight` marker adds one more field to IPP frontmatter. Resume-on-entry logic gains a third branch (`ALREADY_PERSISTED`).
 

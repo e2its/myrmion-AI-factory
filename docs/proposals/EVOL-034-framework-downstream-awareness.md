@@ -2,8 +2,8 @@
 title: EVOL-PROPOSAL — Framework Downstream-Awareness (analysis & design)
 status: proposed
 date: 2026-05-18
-author: Claude (drafted from nexus session 2026-05-18)
-source: e2its/Nexus-Tech-Link PRs #13–#18; ADR-0003 Traceability
+author: Claude (drafted from a downstream project session 2026-05-18)
+source: a downstream project's PRs #13–#18; its ADR-0003 Traceability
 covers_findings_full: [2, 5, 6, 7]
 covers_findings_partial: [1]   # field-name half only; axis half deferred
 deferred_findings:
@@ -27,7 +27,7 @@ ratified_rdrs:
     date: 2026-05-18
     choice: "Option A (`paths`, flat array)"
     user_verbatim: "cual es tu recomendacion? → A; me encaja este split"
-    rationale: "Nexus + MASS forking off as independent forks → no legacy fleet to migrate → pick cleanest contract over backward compat."
+    rationale: "The downstream projects forking off as independent forks → no legacy fleet to migrate → pick cleanest contract over backward compat."
   - id: RDR-3
     date: 2026-05-18
     choice: "Option A (CI workflow .github/workflows/lockstep-check.yml)"
@@ -50,7 +50,7 @@ Pre-ratification proposal. RDR-1 ratified → single EVOL-034. RDR-2 ratified �
 
 ## TL;DR
 
-7 findings analyzed across 3 themes. RDR-1 ratified single-EVOL approach; further scope reduction same day when user noted nexus + MASS are going independent forks → Theme C (downstream-awareness contract) loses immediate driver → deferred to EVOL-CO-DIRECTION where its primitives are redesigned as natural building blocks of a multi-director protocol.
+7 findings analyzed across 3 themes. RDR-1 ratified single-EVOL approach; further scope reduction same day when user noted the downstream projects are going independent forks → Theme C (downstream-awareness contract) loses immediate driver → deferred to EVOL-CO-DIRECTION where its primitives are redesigned as natural building blocks of a multi-director protocol.
 
 | Theme | Findings | Nature | Disposition |
 |---|---|---|---|
@@ -120,7 +120,7 @@ Two field names. Two shape assumptions. One file. Internal contract failure that
 
 ### Theme C — Downstream-awareness contract → DEFERRED
 
-Originally framed as "framework needs explicit contract for meta-vs-downstream behaviour". Re-interpreted post nexus/MASS fork announcement as **co-director coordination pattern** — primitives belong in a multi-director model (EVOL-CO-DIRECTION), not as standalone framework contract fields.
+Originally framed as "framework needs explicit contract for meta-vs-downstream behaviour". Re-interpreted post the downstream fork announcement as **co-director coordination pattern** — primitives belong in a multi-director model (EVOL-CO-DIRECTION), not as standalone framework contract fields.
 
 ## Implementation — EVOL-034 (Themes A + B + enforcement)
 
@@ -197,7 +197,7 @@ Originally framed as "framework needs explicit contract for meta-vs-downstream b
 **None.** All RDRs are meta-only. RDR-2 (schema canon) is internal; SETUP `--generate` just materialises the chosen shape. RDR-3 (enforcement venue) is meta-CI choice with no SETUP exposure. RDR-4 + RDR-5 deferred to EVOL-CO-DIRECTION.
 
 ### Downstream migration
-- nexus + MASS announced as independent forks (2026-05-18) → no active downstream consumer → no factory-sync.sh migration impact.
+- the downstream projects announced as independent forks (2026-05-18) → no active downstream consumer → no factory-sync.sh migration impact.
 - Future materialised projects start clean on canonicalised `paths` field.
 
 ### BVL / CVP / GCRP impact
@@ -235,7 +235,7 @@ Later refinement same day: scope reduced to Themes A + B (Theme C deferred to EV
 
 **Status:** ✅ RATIFIED 2026-05-18 — user accepted recommendation **Option A (`paths`, flat array)**.
 
-**User signal:** *"cual es tu recomendacion?"* → I recommended A given nexus + MASS forking off (no legacy fleet to protect) → user replied *"me encaja este split"* batching ratification with the EVOL-034 scope reduction.
+**User signal:** *"cual es tu recomendacion?"* → I recommended A given the downstream projects forking off (no legacy fleet to protect) → user replied *"me encaja este split"* batching ratification with the EVOL-034 scope reduction.
 
 **Rationale:** without active legacy fleet, "no rompe lo desplegado" stops being a factor → pick cleanest contract. `paths` is the more natural noun, matches Block 12's current read (zero preflight change), forces single flat shape.
 
@@ -311,7 +311,7 @@ Options preserved here for historical context.
 ## Open questions (trimmed post-defer)
 
 - **Block 12 audit log.** When ADR exemption suppresses a blocker, emit `[INFO] block-12 exempted: …`? Cheap, high audit value. Carries over to EVOL-CO-DIRECTION territory-exemption design.
-- **MASS parallel findings — moot.** MASS announced as independent fork; no longer a framework consumer.
+- **Parallel downstream findings — moot.** The reference implementation announced as an independent fork; no longer a framework consumer.
 
 ## Appendix — finding-to-disposition mapping
 

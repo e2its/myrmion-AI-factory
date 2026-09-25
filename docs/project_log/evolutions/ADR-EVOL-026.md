@@ -17,13 +17,13 @@ scope: global
 
 ## Context
 
-Incident reported in MASS (downstream materialised project): agent makes scope/architecture decisions without having loaded the technical culture (KISS/DRY/RULE narrative/prohibitions). Snapshot resumes with tables + bullets but does NOT embed the body of constitution. Policy says "on-demand for detail"; the agent forgets to trigger the load. Result: cultural drift, plausible decisions but not aligned with the project.
+Incident reported in a downstream materialised project: agent makes scope/architecture decisions without having loaded the technical culture (KISS/DRY/RULE narrative/prohibitions). Snapshot resumes with tables + bullets but does NOT embed the body of constitution. Policy says "on-demand for detail"; the agent forgets to trigger the load. Result: cultural drift, plausible decisions but not aligned with the project.
 
 Root cause: model "active constitution = constitution.md base + ACCEPTED ADRs (supersede sections)" has two sources of truth. Knowing the active law requires reading N+1 files and applying mental supersession. The cache solution (snapshot) emits only summary, not body. The policy solution ("read on-demand") depends on agent discipline, not mechanism.
 
 Confirmed in framework template (not only derived project): the literal phrase "1 file = full governance context" lives in `.claude/instructions/Factory-setup-materialization.instructions.md` Checkpoint 3.1, but the snapshot generator described there only emits summary (tables + bullets). Any project generated with `SETUP --generate` inherits the bug.
 
-MASS will be patched independently due to large divergence from the framework — this EVOL closes the gap at template level for all future materialisations and for the framework itself.
+The reporting project will be patched independently due to large divergence from the framework — this EVOL closes the gap at template level for all future materialisations and for the framework itself.
 
 ## Decision
 
@@ -35,7 +35,7 @@ CI gate `scripts/check-adr-constitution-sync.sh` enforces invariant: any ADR tra
 
 ### RDR ratifications (verbatim user choices)
 
-- **Strategy:** A1 — single EVOL, single PR, all changes atomic. Rejected A2 (phased) because without MASS urgency, a phased approach creates fragile intermediate state where snapshot loads constitution mechanically while the dual-source model persists.
+- **Strategy:** A1 — single EVOL, single PR, all changes atomic. Rejected A2 (phased) because without the reporting project's urgency, a phased approach creates fragile intermediate state where snapshot loads constitution mechanically while the dual-source model persists.
 - **Embed granularity:** E2 — curated embed by `## [LAW]` section convention + DC `applicable_when: always` filter. Rejected E1 (full-body) because verbosity scales with author discipline (the failure mode we are escaping). Rejected E3 (two-tier with SessionStart hook) because under prompt caching the cost difference vs E1 is marginal and it does not address verbosity, only relocates it.
 - **ADR primitive:** SKILL with procedures, not slash command with flags. `Factory-adr-management/SKILL.md` exposes Propose Procedure, Accept Procedure, List Active ADRs API. Invoked by BLUEPRINT, AUDIT, IMPLEMENT, CODESIGN, DEVOPS, BACKLOG retrospective, or free-form turns. Authoring of `## Operational Rule` field is structured template work; Accept Procedure mechanically copies it to constitution as `## [LAW]` section. Zero agent judgement at accept time.
 - **Test scope:** T2 — L1 (static template validation) + L2 (snapshot extraction unit test) + L4 (Accept Procedure simulation) + L5 (CI gate synthetic diffs) + L6 (post-merge dogfood). Rejected T1 (no L4) because Accept Procedure is the highest-complexity new piece. Rejected T3 (adds L3 materialization integration harness) because that is a separate capability (first materialization test in repo) and warrants its own EVOL.
@@ -70,7 +70,7 @@ CI gate `scripts/check-adr-constitution-sync.sh` enforces invariant: any ADR tra
 ## Alternatives Considered
 
 - **A — Single-shot full-body embed.** All changes in one PR with ADRs as historical-only universally. Rejected (verbosity concern raised by user; full constitution body grows with author discipline).
-- **B — Phased EVOL with skill extraction.** P1 mechanical fix to close MASS quickly; P2 model flip; P3 backfill. Rejected after MASS was decoupled from this EVOL — phasing without urgency creates fragile intermediate state.
+- **B — Phased EVOL with skill extraction.** P1 mechanical fix to close the reporting project's incident quickly; P2 model flip; P3 backfill. Rejected after that project was decoupled from this EVOL — phasing without urgency creates fragile intermediate state.
 - **C — Snapshot-only mechanical fix (defer model change).** Embed bodies but keep ADR-as-binding model. Rejected because the dual-source root cause persists and the bug recurs the moment an ADR contradicts constitution without amendment.
 - **E1 — Full-body embed.** Trust constitutional authors to keep terse. Rejected (depends on author discipline; ~10-20k tokens in typical projects).
 - **E3 — Two-tier (lean snapshot + SessionStart preload).** Adds hook + path. Rejected (under prompt caching, marginal token-cost difference; relocates verbosity without addressing it).
@@ -96,7 +96,7 @@ CI gate `scripts/check-adr-constitution-sync.sh` enforces invariant: any ADR tra
 ## Traceability
 
 - Branch: `feature/EVOL-026-governance-single-source`
-- Triggered by: MASS incident report, root-cause analysis by user (5 May 2026). MASS will be patched independently due to large divergence — this EVOL closes the gap at template level for all future materialisations and for the framework itself.
+- Triggered by: a downstream project's incident report, root-cause analysis by user (5 May 2026). That project will be patched independently due to large divergence — this EVOL closes the gap at template level for all future materialisations and for the framework itself.
 - Verification: tests under `scripts/test-{templates-static,snapshot-extraction,adr-accept,check-adr-constitution-sync}.sh` (T2 scope) all green. Manual smoke runs confirmed on first or second iteration.
 - Post-merge dogfood (pending): regenerate framework's own `.context/governance_snapshot.md` with new format + verify session-start banner + governance-onprompt behaviour. The framework does not have a `docs/constitution.md` of its own (it self-governs via root `CLAUDE.md`), so the dogfood is limited to confirming the snapshot-format change does not break the materialisation paths the framework consumes.
 - Status: accepted.

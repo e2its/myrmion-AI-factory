@@ -9,13 +9,13 @@ status: accepted
 
 ## Context
 
-The nexus session on 2026-05-18 surfaced 7 framework defects in a single sweep (e2its/Nexus-Tech-Link PRs #13–#18, ADR-0003 § Traceability). Empirical validation against meta HEAD identified three distinct root-cause themes:
+A downstream project's session on 2026-05-18 surfaced 7 framework defects in a single sweep (its PRs #13–#18, its ADR-0003 § Traceability). Empirical validation against meta HEAD identified three distinct root-cause themes:
 
 - **Theme A — Lock-step drift** (Findings #5, #6, #7). Meta script fixed but template not backported (or vice versa). `coherence-context.json` v1.2.0 declares `lock_step_pairs` semantically but ships no automated check.
 - **Theme B — Schema incoherence** (Findings #1 field name, #2). `config/protected-paths.json` is read by three consumers with two different field names (`.paths` vs `.red_zones`) and two shape assumptions (flat array vs object-of-arrays).
 - **Theme C — Downstream-awareness contract** (Findings #1 axis, #3, #4). Framework assumes meta invariants; downstream needs explicit contract.
 
-Same session, the user announced that nexus and MASS are going independent forks → Theme C loses its immediate driver → deferred to a separate exploration track (EVOL-CO-DIRECTION) where its primitives are redesigned as natural building blocks of a multi-director protocol rather than retrofitted as standalone contract fields.
+Same session, the user announced that both downstream projects are going independent forks → Theme C loses its immediate driver → deferred to a separate exploration track (EVOL-CO-DIRECTION) where its primitives are redesigned as natural building blocks of a multi-director protocol rather than retrofitted as standalone contract fields.
 
 Full design analysis lives in `docs/proposals/EVOL-034-framework-downstream-awareness.md` (merged via PR #34); RFC for the deferred Theme C lives in `docs/proposals/EVOL-CO-DIRECTION-multi-director-coordination.md`.
 
@@ -44,14 +44,14 @@ RDRs renumbered within this ADR per `factory-rdr` SKILL § Algorithm (sequential
 
 | # | Question | Choice | Rationale |
 |---|---|---|---|
-| 1 | `protected-paths.json` canonical shape (proposal RDR-2) | `paths` flat array | nexus + MASS forking off as independent forks → no legacy fleet to migrate → cleanest contract over backward compat. Recommendation A accepted verbatim. |
+| 1 | `protected-paths.json` canonical shape (proposal RDR-2) | `paths` flat array | the downstream projects forking off as independent forks → no legacy fleet to migrate → cleanest contract over backward compat. Recommendation A accepted verbatim. |
 | 2 | Lock-step enforcement venue (proposal RDR-3) | CI workflow `.github/workflows/lockstep-check.yml` | Cheapest reliable enforcement; runs on every PR uniformly with no per-developer setup. Option B (BVL integration) ruled out pre-ratification as incoherent (BVL ships to downstream, gate is meta-only). |
 
 ## Alternatives Considered
 
 - Alternative 1 — Two EVOLs (proposal RDR-1 Option A): deterministic fixes + contract additions. Rejected by user on review-burden grounds.
 - Alternative 2 — Three EVOLs (proposal RDR-1 Option C): split Theme A further. Rejected as EVOL inflation.
-- Alternative 3 — Keep Theme C inside EVOL-034: rejected post nexus/MASS fork announcement (designing contract without active consumer = guesswork).
+- Alternative 3 — Keep Theme C inside EVOL-034: rejected post the downstream fork announcement (designing contract without active consumer = guesswork).
 - Alternative 4 — BVL integration for lock-step gate (proposal RDR-3 Option B): rejected — meta-only gate cannot coherently live in a downstream-shipped skill.
 - Alternative 5 — Pre-commit hook (proposal RDR-3 Option C): not chosen — bootstrap friction; may be added later as additional defense in depth.
 - Alternative 6 — Script-only with no gate (proposal RDR-3 Option D): rejected — empirical evidence (3 of 7 findings caused by drift) shows discipline alone is insufficient.
@@ -65,7 +65,7 @@ RDRs renumbered within this ADR per `factory-rdr` SKILL § Algorithm (sequential
 - Sub-task 3 is meta-only by construction — no propagation surface. Defense in depth (header `# META-ONLY` marker + self-guard) protects against future copy-paste leaks.
 
 **Negatives / Trade-offs:**
-- `protected-paths.json` field rename in template only. No live consumer thanks to nexus + MASS forking, but any new downstream project materialised before this EVOL merges would carry the old shape. Mitigation: SETUP `--upgrade` handles the delta when those future projects sync.
+- `protected-paths.json` field rename in template only. No live consumer thanks to the downstream forks, but any new downstream project materialised before this EVOL merges would carry the old shape. Mitigation: SETUP `--upgrade` handles the delta when those future projects sync.
 - Schemas of meta vs template `coherence-context.json` legitimately diverge after this EVOL (meta has `lock_step_pairs`; template does not). Future schema changes must explicitly choose meta-only vs propagating. Documented inline.
 - Theme C primitives (changelog policy, ADR exemption axes, downstream-excluded files) remain in workaround territory until EVOL-CO-DIRECTION matures.
 
