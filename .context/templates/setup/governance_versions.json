@@ -1,8 +1,8 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "6.1.2",
-  "last_updated": "2026-09-18",
+  "framework_version": "6.2.0",
+  "last_updated": "2026-09-25",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
@@ -843,11 +843,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.10.0",
+      "version": "3.11.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.11.0: feat(EVOL-042) — § Templates: subproducts exclusion invariant (imported by nobody, outside governed trees and test roots, neutral in every gate); `measure` member; Before/after windows paragraph (the adopting project's obligation per framework evolution). Universal H2 sections and the LAW corpus untouched (lock-step verified).",
         "3.10.0: feat(EVOL-052) — Workflow: CODESIGN authoring surface (internal vs external, `/codesign --sync`, guarded authoring sub-commands, RUNBOOK pointer). Core Protocols: PO Intake row. Living Governance Catalogs: Component Registry. Templates: `subproducts/` class with its self-test obligation. Universal H2 sections and the LAW corpus untouched (lock-step verified).",
         "3.9.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: template-root row drops the now-empty ux/*.md glob; auto-approval N/A wording names the 6 mock-dependent CHECKs.",
         "3.9.0: feat(EVOL-041) — SMOKE-E2E gate row → Path→Scenario→TC transitive; § Scope Taxonomy: single journey template all scopes (integration variant retired); Framework Editor Invariants enum row updated.",
@@ -880,10 +881,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.5.0: feat(EVOL-042) — § E bullet Measurement Window (Q30).",
         "2.4.0: fix(po-package-card-tool-cases) — Q29.1 gains `code-manual` (cards from code, tool run by asking Claude, no command).",
         "2.3.0: feat(EVOL-052) — § E gains CODESIGN Authoring Surface (Q29) and Design-System Cards Source (Q29.1) with their persisted keys. Duplicated `### E. Operational Decisions` heading removed.",
         "2.2.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1081,10 +1083,11 @@
       ]
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md",
       "changelog": [
+        "1.3.0: feat(EVOL-042) — `### Measurement — next steps` block (reader, window, before/after protocol, first commands).",
         "1.2.0: feat(EVOL-052) — NEW `### PO package — next steps` block (rendered only with external authoring): authoring mode, active design-system case 6A/6B/6C and why, runbook path, first two commands. The materialisation must leave written operating instructions.",
         "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified.",
         "1.0.0: backfill — materialisation report scaffold existed but was untracked."
@@ -1474,6 +1477,33 @@
         "1.1.0: fix(po-package-card-tool-cases) — Spanish mirror: Requisitos, 6B with both ways, 6C needs a command, sections 8 and 9, the drift table.",
         "1.0.0: feat(EVOL-052) — initial. Spanish operator runbook. Same placeholders, headings and cited commands as RUNBOOK.md (parity and closure CI-asserted). States where findings, the evolution request and the decisions are kept, and that the drop zone is committed by --sync. Tabla de veredictos corregida en el mismo sentido que RUNBOOK.md. Filas del informe de deriva para `not applicable`, `NOT COMPUTED` y tarjetas sin refrescar; el interruptor de depuración. La fila NOT COMPUTED aclara que solo aparece con una carpeta de tarjetas configurada."
       ]
+    },
+    "subproducts/measure/measure.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/measure/measure.py",
+      "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only.",
+      "changelog": [
+        "1.0.0: feat(EVOL-042) — initial. Report sections gates · branches · rework · governance_bytes · agents · citations; undelivered vs truncated hook firings; shell reads (cat/sed/head) on governance paths counted; hermetic --selftest with transcript + git fixtures; exit 0 partial / 2 tool fault in plain language (LAW-08)."
+      ]
+    },
+    "subproducts/measure/measure.config.json": {
+      "version": "1.0.0",
+      "content_type": "stack_configured",
+      "target": "subproducts/measure/measure.config.json",
+      "role": "Project config of the measurement subproduct — the file SETUP resolves placeholders in (retention_days, report_interval_days from Q30; unquoted integer tokens). Gate / review / governance-path / corpus regex lists are project-editable data.",
+      "changelog": [
+        "1.0.0: feat(EVOL-042) — initial."
+      ]
+    },
+    "subproducts/measure/RUNBOOK.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "subproducts/measure/RUNBOOK.md",
+      "role": "Operator runbook of the measurement subproduct: signal definitions, the before/after protocol as an obligation of the adopting project, options, config keys. Every flag it cites is closure-tested against the real parser.",
+      "changelog": [
+        "1.0.0: feat(EVOL-042) — initial."
+      ]
     }
   },
   "agent_templates": {
@@ -1741,9 +1771,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.10.1",
+      "version": "2.11.0",
       "path": "README.md",
       "changelog": [
+        "2.11.0: feat(EVOL-042) — NEW § Measuring the SDLC (measure subproduct): what it reports, local data only, before/after windows as the standard shape of a framework evolution executed in the adopting project.",
         "2.10.1: fix(po-package-card-tool-cases) — Prerequisites list Python (3.10+ with PyYAML for the PO package); design system from code names both ways to run the tool and the card contract; fallback wording says which tool faults fall back to vision cards.",
         "2.10.0: feat(EVOL-052) — NEW § External CODESIGN Authoring (PO Package): the loop, validate/ratify/sync/catalog table, written instructions after materialisation, design system from code (cases 6A/6B/6C, drift, optional workflow, one-way mirror), language. File-structure tree (24 instructions, 23 skills, subproducts template), CODESIGN command table gains `--sync` + authoring-surface note, skills table gains PO Intake, recommended pipeline gains the external path, project structure gains `subproducts/po-package/`, `docs/ux/component-registry.json`, `docs/ux/po-return/`.",
         "2.9.0: feat(EVOL-041) — SMOKE-E2E wording → Path→Scenario→TC transitive; journey artefact description journey-first; integration-variant mentions removed.",
@@ -2283,9 +2314,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.16.0",
+      "version": "2.17.0",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.17.0: feat(EVOL-042) — Q30 Measurement Window (retention_days, report_interval_days → measurement.*), TIER_2 list, header Q1-Q30.",
         "2.16.0: fix(po-package-card-tool-cases) — Q29.1 option `code-manual` (a tool run by asking Claude: folder only) next to `code-rebuild` (terminal command: folder + command, the only one CI can run); recommendation and persist rules updated.",
         "2.15.0: feat(EVOL-052) — NEW Q29 CODESIGN Authoring Surface (external-full | external-features | internal → `codesign.authoring` + `po_package.mode`; 3 options for every scope) and Q29.1 Design-System Cards Source (vision | code-rebuild | defer → `po_package.ds_*`; conditional on external authoring AND UI scope; tool-agnostic — the framework names no tool). TIER_2 list extended.",
         "2.14.0: feat(EVOL-040 RDR-2) — NEW Q23.2 Security Scanner (5-field mirror of Q23.1; gitleaks default / trufflehog / Custom / Skip; persists quality.security_scan.*; resolution table is the only home of scanner commands besides materialization; two-layer note: regex floor always on). TIER_2 array += Q23.1 (backfill — was missing, pre-existing bug) + Q23.2.",
@@ -2313,9 +2345,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.11.0",
+      "version": "3.12.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.12.0: feat(EVOL-042) — Subproducts Materialization generalised to members (`measure` always, `po-package` conditional): measure placeholder map (unquoted integer tokens), JSON + zero-placeholder invariant, self-test BLOCK, `## Measurement — next steps` block.",
         "3.11.0: fix(po-package-card-tool-cases) — `DS_CARDS_SOURCE` accepts `code-manual`; `DS_ACTIVE_SECTION` derived from the cards folder (no folder → 6A, command + workflow → 6C, else 6B).",
         "3.10.0: feat(EVOL-052) — External-DS Component Migration now points at the registry schema owner (Factory-codesign-vision § Component Registry) instead of a dangling file reference. NEW step Subproducts Materialization (`.context/templates/setup/subproducts/` → `subproducts/`): whole-tree copy, universal files byte-identical, placeholders resolved only in the stack_configured files (11-row table incl. the two DERIVED runbook tokens), JSON `null` rule, optional design-system-rebuild workflow (GitHub Actions AND a configured command), invariant RUNBOOK.md present with zero placeholders else BLOCK, self-test run, MANDATORY written next steps in MATERIALIZATION_REPORT.md and the closing briefing.",
         "3.9.0: feat(EVOL-040 RDR-2) — Quality Configuration resolves the three {{SECURITY_SCANNER*}} placeholders from Q23.2 with the same Skip null-literal semantics as complexity; consumers list extended (security-scan dispatcher, factory-code-review).",
@@ -2437,9 +2470,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.9.0",
+      "version": "13.10.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.10.0: feat(EVOL-042) — § Templates: Subproducts class restated with the exclusion invariant (imported by nobody, outside governed trees and test roots, neutral in every gate, manifest entries = delivery channel only); second member `measure`; before/after windows run in the adopting project, this repo never claims a baseline (ADR-EVOL-042).",
         "13.9.0: feat(EVOL-052) — § Templates: Subproducts class (ADR-EVOL-052 Operational Rule). `.context/templates/setup/subproducts/**` → project-root `subproducts/**`; deliverable-generation tooling outside the project's governed trees; mandatory `--selftest` run by meta CI through a synthetic materialisation and re-run by the consuming skill; only `stack_configured` files carry placeholders, the rest land byte-identical. No LAW added; universal sections and LAW corpus untouched.",
         "13.8.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: § Templates role list matches the tree (ux/ removed, peer_review added).",
         "13.8.0: feat(EVOL-041) — new universal [LAW-16] CODESIGN Business Purity (ADR-EVOL-041): CODESIGN artefacts carry only business-validatable content; technical formalisation lives in BLUEPRINT (design.md §3.1/3.2, §7.4, Reliability Contract). Mirrored via law_corpus_mirror.",
@@ -3233,11 +3267,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.9.0: feat(EVOL-042) — T2 loop runs scripts/test-measure.sh.",
         "1.8.0: feat(EVOL-052) — T2 suite gains test-po-package.sh (PO package subproduct: synthetic materialisation + validator self-test).",
         "1.7.0: feat(EVOL-041) — T2 suite gains test-check-journey-grammar.sh (journey grammar validator self-test).",
         "1.6.0: fix(EVOL-040 pr-review loop i2) — T2 suite gains test-security-scan.sh + test-validate-governance.sh (both literal lists).",
@@ -3720,6 +3755,15 @@
         "1.0.0: feat(EVOL-052) — initial. Generalised from a downstream project skill; materialisation no longer goes through --refine (which regenerated) but through --sync (which adopts). New catalog beat. Beat 4 reordered after the smoke run: eligibility and rejection are settled BEFORE a target enters `ratified`; INTAKE.md frontmatter shape fixed (`synced: []`, rejected key omitted when empty); drop zone left uncommitted; NEEDS_INFO findings file returned to the PO unedited. Beat 1 states the exit-2 branch (not a verdict, nothing goes to the PO) and the broken-local-gate RED (`returnable_to_po: false`)."
       ],
       "path": ".claude/skills/factory-po-intake/SKILL.md"
+    },
+    "scripts/test-measure.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "T2 test of the measurement subproduct (EVOL-042, META-ONLY). Self-test of the template source, synthetic materialisation (placeholders → JSON, universal files byte-identical, real reports from fixtures, degradation, plain-language faults), exclusion class (imported by nobody, runbook closure). Wired into governance-check.yml T2 loop.",
+      "path": "scripts/test-measure.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-042) — initial."
+      ]
     }
   },
   "runtime_artefacts": {

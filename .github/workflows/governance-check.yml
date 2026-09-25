@@ -46,7 +46,7 @@ jobs:
           chmod +x scripts/check-adr-constitution-sync.sh
           bash scripts/check-adr-constitution-sync.sh "origin/${{ github.base_ref }}"
 
-      - name: Run T2 governance suite (templates + extraction + ADR accept + sync gate)
+      - name: Run T2 governance suite (templates + extraction + ADR accept + sync gate + subproducts)
         run: |
           chmod +x scripts/test-templates-static.sh \
                    scripts/test-snapshot-extraction.sh \
@@ -57,7 +57,8 @@ jobs:
                    scripts/test-security-scan.sh \
                    scripts/test-check-journey-grammar.sh \
                    scripts/test-validate-governance.sh \
-                   scripts/test-po-package.sh
+                   scripts/test-po-package.sh \
+                   scripts/test-measure.sh
           set -e
           for t in scripts/test-templates-static.sh \
                    scripts/test-snapshot-extraction.sh \
@@ -68,7 +69,8 @@ jobs:
                    scripts/test-security-scan.sh \
                    scripts/test-check-journey-grammar.sh \
                    scripts/test-validate-governance.sh \
-                   scripts/test-po-package.sh; do
+                   scripts/test-po-package.sh \
+                   scripts/test-measure.sh; do
             echo "════════ Running $t ════════"
             bash "$t"
           done

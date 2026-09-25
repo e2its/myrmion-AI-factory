@@ -1067,9 +1067,10 @@ Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/`:
 - `chmod +x` for all `.sh` files
 - **Invariant (EVOL-040):** after the copy, every `templates::scripts/**` manifest entry with `delivery` ∈ {`setup`, `both`} MUST exist under the target `scripts/` path. If any is missing → BLOCK with the entry key and the expected path. This mirrors the hooks Invariant below — a materialised workflow invoking a script SETUP did not deliver is a broken-first-CI defect class (CVP CRITICAL 9-10).
 
-**Subproducts Materialization (`.context/templates/setup/subproducts/` → `subproducts/`) — EVOL-052:**
-Deliverable-generation tooling: imported by no product or framework module, outside the project's governed trees, each with a `--selftest`. Today: the PO package.
-- SKIP entirely when `po_package.mode == "off"` (Q29 `internal`). Otherwise copy the WHOLE `subproducts/po-package/` tree — auto-scan, no hardcoded list. `universal` files are copied BYTE-IDENTICAL (never translate, never reword: the zip prose carries build-time `${var}` variables the builder fills; canonical headings must stay literal).
+**Subproducts Materialization (`.context/templates/setup/subproducts/` → `subproducts/`) — EVOL-052 / EVOL-042:**
+Deliverable-generation tooling: imported by no product or framework module, outside the project's governed trees and test roots, each with a `--selftest`. Members: `po-package` (conditional on Q29), `measure` (always).
+- **`measure/` (EVOL-042, always):** copy the WHOLE `subproducts/measure/` tree; `universal` files byte-identical; resolve placeholders ONLY in `measure.config.json`: `{{MEASURE_RETENTION_DAYS}}` ← `measurement.retention_days` (Q30) · `{{MEASURE_REPORT_INTERVAL_DAYS}}` ← `measurement.report_interval_days` (Q30) — bare integers replacing the token (the token is unquoted JSON). **Invariant:** `measure.config.json` parses as JSON with zero `{{…}}`; `python3 subproducts/measure/measure.py --selftest` prints `0 failure(s)`, else BLOCK. **Written next steps (MANDATORY):** fill the `## Measurement — next steps` block of `MATERIALIZATION_REPORT.md` (baseline command, interval, where the before/after table goes).
+- **`po-package/`:** SKIP entirely when `po_package.mode == "off"` (Q29 `internal`). Otherwise copy the WHOLE `subproducts/po-package/` tree — auto-scan, no hardcoded list. `universal` files are copied BYTE-IDENTICAL (never translate, never reword: the zip prose carries build-time `${var}` variables the builder fills; canonical headings must stay literal).
 - Resolve placeholders ONLY in the `stack_configured` files — `po-package.config.json`, `RUNBOOK.md`, `RUNBOOK.es.md`:
 
   | Placeholder | Source (`docs/setup.md`) |

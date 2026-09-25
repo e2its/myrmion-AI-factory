@@ -329,4 +329,6 @@ After every command:
 
 All templates live in `.context/templates/` organized by role (architect, codesign, develop, po, qa, security, setup, ux). Always READ templates before generating — never rewrite from scratch.
 
-`subproducts/` (project root) holds deliverable-generation tooling materialised by SETUP — today the PO package. It is imported by no product or framework module and sits outside the governed trees; each subproduct ships a `--selftest`, run before trusting any green it reports.
+`subproducts/` (project root) holds deliverable-generation tooling materialised by SETUP: `po-package` (external CODESIGN authoring) and `measure` (this project's SDLC cost from local transcripts and git). A subproduct is **imported by nobody** — no product module, no framework module, no test root; the moment product code imports it, it moves out — sits outside the governed trees and is neutral in every gate (governance, quality, verification loop). Its manifest entries are only the upgrade channel. Each subproduct ships a `--selftest`, run before trusting any green it reports.
+
+**Before/after windows (EVOL-042).** Every framework evolution this project adopts is measured here, not in the framework repo: `python3 subproducts/measure/measure.py --json --out ../measure-before.json` before the change, `--compare ../measure-before.json` after `measurement.report_interval_days`, the table on the tracking item. Procedure: `subproducts/measure/RUNBOOK.md`.

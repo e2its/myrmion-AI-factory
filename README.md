@@ -461,6 +461,12 @@ The rebuild command runs without a shell and with a timeout; a tool that is not 
 
 **Language.** PO-facing prose ships in English with a Spanish override, selected by the project language at build time. Canonical section headings and field labels are never translated.
 
+## Measuring the SDLC (measure subproduct)
+
+The framework ships the instrument and the protocol; it never claims a measurement of itself (this repository delivers no product — no feature clock, no deployment, no review loop over a product diff). `SETUP --generate` materialises `subproducts/measure/`: a reader over **local data only** — Claude Code session transcripts, the git log, the worklog — reporting per window the share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted by hooks vs delivered to the model vs read by agents, per-agent model / tokens / bytes / citations, and the law and defect-class ids nobody cited (pruning candidates, decided by the user through RDR, never by a script). Nothing leaves the machine; a missing source degrades a section to `unavailable`, never fails the report.
+
+**Before/after windows are the standard shape of a framework evolution**, executed in the adopting project: baseline before the change, the same report after `measurement.report_interval_days` (SETUP Q30), compared on the tracking item. Procedure: `subproducts/measure/RUNBOOK.md`. Self-test first, always: `python3 subproducts/measure/measure.py --selftest`.
+
 ## Incremental Dev Plan (Vertical Slicing)
 
 Every feature ships as a sequence of **vertical increments**. Each increment is a single PR that leaves the product 100% functional and production-deployable on merge — no feature-flag-OFF escape, no half-done slices. This replaces the legacy "one big implementation branch per feature" model with a serial chain of small, mergeable, user-observable deliverables.
