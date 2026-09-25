@@ -72,7 +72,7 @@ case $RC in
 🛑 Push blocked by Factory PR Review (preflight).
 
 Hard-blocker findings on this branch must be fixed locally before pushing.
-This is a quality gate — it runs against \`origin/main..HEAD\` and catches
+This is a quality gate — it runs against the diff base (\`gate.py diff-base\`) and catches
 issues that would otherwise hit the PR review.
 
 $OUTPUT

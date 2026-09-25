@@ -786,6 +786,10 @@ CODESIGN owns capability-VALUE slicing and emits it as `slice_map.md`. BLUEPRINT
    - BLUEPRINT recommends **one** with a one-line justification citing which axis drove the choice. User MUST ratify **verbatim** (per factory-rdr); unratified = INCOMPLETE → BLOCK.
    - Store ratification in feature worklog: action `BLUEPRINT.increment_plan.rdr_ratified` with payload `{slice: "SLICE-{FEAT}-N", layering_alternatives_presented: N, user_choice: "alt-k", rdr_ratified_at: iso}`. A slice mapped 1:1 (no split) carries no layering RDR.
 3. **Contract-feasibility veto (recorded, never silent).** If contract reality forces a re-order or re-group of CODESIGN's value-order (e.g. an operation a slice needs is owned by a later slice), BLUEPRINT does NOT silently override — it records the deviation in § 0 (refinement record) with the contract reason, preserving single-authority discipline. A deviation is a feasibility signal CODESIGN may revisit via `--refine`.
+4. **Surface estimate + split (EVOL-045).** Per increment, estimate the surface its diff will touch (paths globs · ~files · ~lines — the same ruler the push gate uses: `gate.py surface`, files + lines, no exclusion list) against `config/quality.json → surface.ceiling_files` / `surface.ceiling_lines` (read the keys — never a digit). Over either ceiling ⇒ split into sub-increments at task-group / scenario boundaries, each with its own estimate.
+   - Estimate and split are ratified by RDR (`.claude/skills/factory-rdr/SKILL.md`): ≥3 splits offered, the recommended one justified by the seam; two registers per EVOL-050. An escape only from `surface.escapes`, justified in one line.
+   - Write `Estimated surface:` / `Escape:` / `Sub-increments:` on each `### INC-N` (template § 1: `- SUB-{N}-{M}: {scope: task groups / scenarios} · ~files · ~lines · branch feature/{ID}-inc-{N}-{slug}-sub-{M}`).
+   - Worklog action `BLUEPRINT.increment_plan.surface_ratified` payload `{increment, estimated_files, estimated_lines, sub_increments: N, escape, rdr_ratified_at}`.
 
 **Step C — Increment Plan Emission (IPP-compliant):**
 
@@ -796,6 +800,7 @@ CODESIGN owns capability-VALUE slicing and emits it as `slice_map.md`. BLUEPRINT
    - § 1 **Increments** populated from the Step B refinement: title, scenarios_covered, contract_surface, depends_on, functional_definition, acceptance checklist, branch convention, layer tasks left as placeholders for IMPLEMENT `--plan`. **The canonical INC→INC dependency DAG is encoded by each increment's `depends_on:` field — CVP reads only this.** ADDITIONALLY set, on each `### INC-N`:
      - `cascade_source: SLICE-{{FEATURE_ID}}-N` — the authoritative slice this increment realizes (LAW-09 join key; CVP Check 18 resolves it).
      - `depends_on_slice` / `depends_on_feature` / `seam` — inherited from the realized slice (null-defaulted; empty stays a one-liner). These mirror the slice_map fields; `depends_on` stays the intra-feature INC→INC edge.
+     - `Estimated surface` / `Escape` / `Sub-increments` — from Step B.4 (`Sub-increments:` only when over a ceiling; `Escape: none` otherwise).
    - For each realized slice, fill its `**Realized by increments:**` back-ref in slice_map.md with the citing INC ids. (slice_map.md stays APPROVED — this back-ref is the only field BLUEPRINT writes to it.)
    - § 0 **Refinement Record** — populate with: which SLICE each INC realizes; intra-slice layering justification (when a slice split, cite the surviving Recommendation Selection axis); any contract-forced deviation from CODESIGN's value-order (Step B.3) with its reason + ratification timestamp. BLUEPRINT does NOT author a slice-invention rationale (that authority moved to CODESIGN's slice_map § 0).
    - § 2 **Monolithic Escape Declaration** — emit ONLY when `slicing_strategy == monolithic`; include heuristic metrics.
@@ -814,12 +819,13 @@ BLUEPRINT MUST self-verify before exit:
 - **DAG:** `depends_on` across all increments is acyclic (topological sort succeeds). INC-1 has `depends_on: []`. Every referenced ID exists.
 - **Deployability:** every increment declares `deployable: production`. Any other value (e.g., `flagged_off`, `experimental`) → BLOCK. Feature-flag-OFF merges are NOT a valid escape. If the user argues for a flagged rollout, that MUST be expressed as an explicit follow-up increment with its own scenarios, not as an escape on a half-done slice.
 - **Acceptance checklist shape:** each increment's acceptance block contains the template's standard checklist (E2E / API / Reliability / CVP / no-TODO).
+- **Surface declared:** every increment carries `Estimated surface:`; an increment over a ceiling carries `Sub-increments:` or an `Escape:` from the closed list. (CVP Check 21.)
 
 Violations are **BUGS in the refinement** — a coverage/seam mismatch loops back to Step B; a value-order conflict that contracts cannot satisfy is recorded as a § 0 deviation and surfaced to the user (CODESIGN may need `--refine`). Do NOT silently auto-correct slice assignment.
 
 **Step E — Worklog Registration:**
 
-Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, slicing_strategy, total_increments, rdr_alternatives_considered, rdr_ratified_at}`. See `.claude/skills/factory-worklog/SKILL.md`.
+Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, slicing_strategy, total_increments, sub_increments_total, rdr_alternatives_considered, rdr_ratified_at}`. See `.claude/skills/factory-worklog/SKILL.md`.
 
 **Output invariants at step end:**
 - `docs/spec/{{FEATURE_ID}}/increment_plan.md` exists with `status: DRAFT`, well-formed frontmatter (all fields populated), § 0, § 1, and § 3 (human-readable Mermaid diagram) fully written. § 2 (Monolithic Escape Declaration) only when `slicing_strategy == monolithic`.

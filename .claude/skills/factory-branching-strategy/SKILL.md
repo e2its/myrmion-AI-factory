@@ -105,6 +105,7 @@ IF command_modifies_files:
 
   # Step -1.1b: Derive base branch ONCE (used consistently in all sub-steps)
   base_branch = READ_BASE_BRANCH_FROM(".claude/rules/branching.md") OR "main"
+  # a sub-increment branch is created FROM its train (gate.py diff-base names it), never from main
 
   # Step -1.1c: Epic-Scoped Branch Resolution (MANDATORY — CHECK BEFORE FEATURE BRANCH)
   # If the feature belongs to an epic (from execution-plan.md), the branch scope is
@@ -409,6 +410,53 @@ BACKWARD COMPATIBILITY (slicing_strategy: monolithic):
   #   feature/{FEATURE_ID}-{slug}
   # No per-increment segment. Only valid when the Trivial-Heuristic Gate passes
   # at BLUEPRINT (≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack).
+```
+
+### Trains and Sub-increments (EVOL-045)
+
+An increment whose `increment_plan.md § 1` entry declares `Sub-increments:` ships as a **train**: its per-increment branch receives sub-increment PRs only and closes to the base branch by ONE PR. Under the ceiling: no sub-increments, nothing changes.
+
+```yaml
+BRANCH NAMING (sub-increment):
+  Pattern: feature/{FEATURE_ID}-inc-{N}-{slug}-sub-{M}      # M ≥ 1, created FROM the train
+  Regex:   ^feature/[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*-inc-[0-9]+-[a-z0-9-]+-sub-[0-9]+$
+  # The feature id stops before the lowercase -inc-; -sub-{M} never enters it.
+  # The increment regex above also matches this name — classify sub first: python3 scripts/gate.py branch-class
+
+TRAIN PROTECTION:
+  # train = feature/{FEATURE_ID}-inc-{N}-{slug} with declared sub-increments. Protected like a base branch:
+  # no direct commits. Hook check-branch-protection.sh asks
+  #   python3 scripts/gate.py branch-class --protected   # exit 1 = protected → BLOCK Edit/Write/commit
+
+SUB-INCREMENT OPEN (READY → BUILDING on the sub entry):
+  ON_SUB_INCREMENT_BRANCH_CREATED(FEATURE_ID, increment_id, sub_id):
+    REQUIRE increment_plan.md § 1 → increment_id.status == BUILDING   # the train is open
+    git checkout -b feature/{FEATURE_ID}-inc-{N}-{slug}-sub-{M} origin/{train}   # never from base_branch
+    UPDATE_SUB_INCREMENT_FIELD(increment_plan.md, increment_id, sub_id, "status", "BUILDING")
+
+SUB-INCREMENT MERGE (BUILDING → MERGED on the sub entry):
+  # One PR per sub-increment INTO the train. Scoped task tests + review only — never a full loop.
+  gh pr create --base {train} --head feature/{FEATURE_ID}-inc-{N}-{slug}-sub-{M}
+  ON_PR_MERGED_TO_TRAIN(sub_branch): UPDATE_SUB_INCREMENT_FIELD(increment_plan.md, increment_id, sub_id, "status", "MERGED")
+
+TRAIN CLOSE (every sub-increment MERGED):
+  # ONE full verification loop (BVL full_verification_gate over the train's diff vs base_branch),
+  # ONE deployment — only when that diff touches a surface.runtime_surface glob ([] = every train deploys) —,
+  # then ONE closing PR train → base_branch. Closure artefacts land through the last sub-increment
+  # branch (rebased on the train) before its PR; the train receives no direct commit.
+  # ON_PR_MERGED_TO_MAIN flips INC-N BUILDING → MERGED as today.
+
+DIFF BASE (the one resolver — every gate, review and measurement calls it):
+  python3 scripts/gate.py diff-base
+  # sub-increment → origin/{train}; everything else → origin/{default_base_branch}
+  # (rules/branching.md frontmatter, else main); unknown branch name → red, fail-closed.
+
+SURFACE (measured at push — pre-push step 4, preflight Block 21 surface-over-ceiling, CI):
+  python3 scripts/gate.py surface        # files + lines of git diff --numstat {diff_base}...HEAD, no exclusions
+  # Over surface.ceiling_files OR surface.ceiling_lines (config/quality.json) → red, unless a commit trailer
+  #   Surface-Escape: <term>   with term ∈ surface.escapes (closed list: generated-code · vendored-dependency ·
+  #   mass-rename · lockfile · migration-baseline · framework-sync; extending it = a decision record).
+  # Unknown term → red.
 ```
 
 ---

@@ -6,7 +6,8 @@ Reads Claude Code session transcripts (JSONL under ~/.claude/projects/<repo-slug
 the git log and the per-feature worklog, and reports for a time window:
 
   gates        wall-clock under each gate class and its share of active agent clock
-  branches     commits and review rounds per branch (one branch = one pull request)
+  branches     commits and review rounds per branch (one branch = one pull request); trains (EVOL-045) group
+               their sub-increment branches (`…-sub-{M}`): commits, review rounds and sub-PRs per train
   rework       share of rework commits and of repeated edits
   governance   bytes emitted by hooks vs bytes delivered to the model vs bytes read
   agents       per agent: model, tokens, bytes read, citations
@@ -366,8 +367,16 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
         for b, n in s.reviews.items():
             branches.setdefault(b, {"commits": 0, "review_rounds": 0})["review_rounds"] += n
     real = {b: v for b, v in branches.items() if b not in ("unknown", "main", "master")}
+    # trains (EVOL-045): a sub-increment branch `…-sub-{M}` rolls up into its train `…` (the branch without the suffix)
+    trains: dict[str, dict] = {}
+    for b, v in real.items():
+        m = re.match(r"^(.*)-sub-\d+$", b)
+        if m:
+            t = trains.setdefault(m.group(1), {"commits": 0, "review_rounds": 0, "sub_prs": 0})
+            t["commits"] += v["commits"]; t["review_rounds"] += v["review_rounds"]; t["sub_prs"] += 1
     report["branches"] = {
         "per_branch": real,
+        "per_train": trains,
         "avg_commits": round(sum(v["commits"] for v in real.values()) / len(real), 2) if real else None,
         "avg_review_rounds": round(sum(v["review_rounds"] for v in real.values()) / len(real), 2) if real else None}
 
@@ -493,7 +502,9 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
     section("Branches (one branch = one pull request)", b, [] if "unavailable" in b else
             [f"avg commits {_fmt(b['avg_commits'])} · avg review rounds {_fmt(b['avg_review_rounds'])}", "",
              "| branch | commits | review rounds |", "|---|---|---|"] +
-            [f"| {k} | {v['commits']} | {v['review_rounds']} |" for k, v in b["per_branch"].items()])
+            [f"| {k} | {v['commits']} | {v['review_rounds']} |" for k, v in b["per_branch"].items()] +
+            ([""] + ["| train | commits | review rounds | sub-PRs |", "|---|---|---|---|"] +
+             [f"| {k} | {v['commits']} | {v['review_rounds']} | {v['sub_prs']} |" for k, v in b["per_train"].items()] if b.get("per_train") else []))
     rw = r["rework"]
     gitp = rw["git"]
     ed = rw["edits"]
@@ -580,6 +591,13 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
         tool_result(8, 190),
         tool_use(9, "Bash", {"command": "git push"}, 200),
         tool_result(9, 230),                                                      # 30 s under the push gate
+        # a train with two sub-increment branches (EVOL-045)
+        _entry("assistant", ts(240), branch="feature/FEAT-002-inc-1-x-sub-1", message={"role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1},
+                                                                                    "content": [{"type": "tool_use", "id": "t11", "name": "Bash", "input": {"command": "git commit -m 'feat(FEAT-002): s1'"}}]}),
+        _entry("user", ts(241), branch="feature/FEAT-002-inc-1-x-sub-1", message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t11", "content": ""}]}),
+        _entry("assistant", ts(250), branch="feature/FEAT-002-inc-1-x-sub-2", message={"role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1},
+                                                                                    "content": [{"type": "tool_use", "id": "t12", "name": "Bash", "input": {"command": "git commit -m 'feat(FEAT-002): s2'"}}]}),
+        _entry("user", ts(251), branch="feature/FEAT-002-inc-1-x-sub-2", message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t12", "content": ""}]}),
     ]
     (tdir / f"{session}.jsonl").write_text("\n".join(json.dumps(e) for e in lines) + "\n", encoding="utf-8")
     sub = [
@@ -644,6 +662,8 @@ def selftest() -> int:
                "share of active clock under gates computed from tool wall-clock")
         b = r["branches"]["per_branch"]["feature/FEAT-001-x"]
         expect(b == {"commits": 1, "review_rounds": 1}, "commits and review rounds counted per branch")
+        expect(r["branches"]["per_train"] == {"feature/FEAT-002-inc-1-x": {"commits": 2, "review_rounds": 0, "sub_prs": 2}},
+               "sub-increment branches roll up into their train (EVOL-045)")
         expect(r["rework"]["git"] == {"commits": 3, "rework_commits": 1, "share": 0.333}, "rework share from git commit types")
         expect(r["rework"]["edits"] == {"total": 2, "repeated": 1, "share": 0.5}, "repeated-edit share from Edit tool uses")
         gb = r["governance_bytes"]

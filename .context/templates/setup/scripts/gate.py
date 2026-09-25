@@ -16,6 +16,9 @@
   gate.py certify --subject diff|tree [--base B] [--paths p…] [--json]   the certifies: block a verdict embeds (paths + hash)
   gate.py currency [--base B]                      the push's verdict artefacts still certify their files; exit 1 stale/missing · 2 could not judge
   gate.py manifest-parity                          frontmatter version == manifest version for every governed file; exit 1 on drift
+  gate.py branch-class [--branch B] [--protected] [--json]   protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown
+  gate.py diff-base [--branch B]                   the ONE diff base (sub-increment → its train; else the default base branch); exit 1 on an unknown name
+  gate.py surface [--base B] [--branch B] [--json] files + lines of base...HEAD vs surface.ceiling_*; exit 1 over the ceiling without a Surface-Escape trailer
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08).
 """
@@ -29,7 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import budget as budget_mod, coherence, corpus, retired  # noqa: E402
+    from gates import branch as branch_mod, budget as budget_mod, coherence, corpus, retired  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -141,8 +144,43 @@ def cmd_retired(repo, a):
     return 1 if hits else 0
 
 
+def _base(repo, a):
+    """--base when given, else the one resolver (a sub-increment measures against its train)."""
+    return a.base or branch_mod.diff_base(repo, a.branch)
+
+
+def cmd_branch_class(repo, a):
+    info = branch_mod.branch_class(repo, a.branch)
+    if a.protected:
+        if info["protected"]:
+            print(f"{info['branch']}: protected ({info['class']})")
+            return 1
+        return 0
+    print(json.dumps(info) if a.json else f"{info['branch']}: {info['class']}" + (f" (train {info['train']})" if info.get("train") else ""))
+    return 0
+
+
+def cmd_diff_base(repo, a):
+    try:
+        print(branch_mod.diff_base(repo, a.branch))
+    except branch_mod.UnknownBranch as e:
+        print(f"diff-base: RED — {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_surface(repo, a):
+    try:
+        s = branch_mod.surface(repo, a.base, a.branch)
+    except branch_mod.UnknownBranch as e:
+        print(f"surface: RED — {e}", file=sys.stderr)
+        return 1
+    print(json.dumps(s) if a.json else branch_mod.render_surface(s))
+    return 0 if s["ok"] else 1
+
+
 def cmd_certify(repo, a):
-    c = coherence.certify(repo, a.subject, a.base, a.paths)
+    c = coherence.certify(repo, a.subject, _base(repo, a), a.paths)
     if a.json:
         print(json.dumps(c))
     else:  # ready to paste under `certifies:` in the artefact frontmatter
@@ -151,7 +189,12 @@ def cmd_certify(repo, a):
 
 
 def cmd_currency(repo, a):
-    findings, faults = coherence.currency(repo, a.base)
+    try:
+        base = _base(repo, a)
+    except branch_mod.UnknownBranch as e:
+        print(f"currency: RED — {e}", file=sys.stderr)
+        return 1
+    findings, faults = coherence.currency(repo, base)
     print(coherence.render("currency", findings))
     for f in faults:
         print(f"currency: could not judge {f['path']}: {f['reason']}", file=sys.stderr)
@@ -182,9 +225,12 @@ def build_parser():
     p = sub.add_parser("snapshot-sections"); p.add_argument("--profile", choices=("lite", "full"), default="lite"); p.set_defaults(fn=cmd_snapshot_sections)
     p = sub.add_parser("budget"); p.set_defaults(fn=cmd_budget)
     p = sub.add_parser("retired-terms"); p.set_defaults(fn=cmd_retired)
-    p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree"), required=True); p.add_argument("--base", default="origin/main"); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
-    p = sub.add_parser("currency"); p.add_argument("--base", default="origin/main"); p.set_defaults(fn=cmd_currency)
+    p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree"), required=True); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
+    p = sub.add_parser("currency"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_currency)
     p = sub.add_parser("manifest-parity"); p.set_defaults(fn=cmd_manifest_parity)
+    p = sub.add_parser("branch-class"); p.add_argument("--branch", default=None); p.add_argument("--protected", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_branch_class)
+    p = sub.add_parser("diff-base"); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_diff_base)
+    p = sub.add_parser("surface"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_surface)
     return ap
 
 

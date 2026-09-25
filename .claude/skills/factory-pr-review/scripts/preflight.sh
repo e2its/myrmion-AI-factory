@@ -27,6 +27,7 @@ SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # ── Args ──
 BASE_REF=""
+BASE_UNKNOWN_MSG=""
 OUTPUT_JSON=false
 QUIET=false
 while [[ $# -gt 0 ]]; do
@@ -50,13 +51,20 @@ if [[ -z "$REPO_ROOT" ]]; then
 fi
 cd "$REPO_ROOT"
 
-# ── Resolve base ──
+# ── Resolve base: the ONE resolver (EVOL-045) — a sub-increment measures against its train; an
+# unrecognised branch name is red (exit 1 → blocker), never a silent origin/main. Reader absent → legacy read.
 if [[ -z "$BASE_REF" ]]; then
-  if [[ -f ".claude/rules/branching.md" ]]; then
+  if [[ -f "scripts/gate.py" ]] && command -v python3 >/dev/null 2>&1; then
+    DB_OUT=$(python3 scripts/gate.py diff-base 2>&1); DB_RC=$?
+    if [[ "$DB_RC" -eq 0 ]]; then
+      BASE_REF="$DB_OUT"
+    elif [[ "$DB_RC" -eq 1 ]]; then
+      BASE_UNKNOWN_MSG="$DB_OUT"   # recorded as a blocker once the findings file exists (Block 21)
+    fi
+  fi
+  if [[ -z "$BASE_REF" ]]; then
     cfg_base=$(grep -E '^default_base_branch:' .claude/rules/branching.md 2>/dev/null | head -n1 | awk '{print $2}' | tr -d '"' | tr -d "'")
     BASE_REF="origin/${cfg_base:-main}"
-  else
-    BASE_REF="origin/main"
   fi
 fi
 
@@ -417,6 +425,21 @@ sys.exit(0 if any(fnmatch.fnmatch('$f', p) for p in patterns) else 1)
       add_finding "blocker" "protected-path" "$f matches a pattern in config/protected-paths.json. Protected code MUST NOT be modified outside its dedicated maintenance flow."
     fi
   done <<< "$CHANGED_FILES"
+fi
+
+# Block 21 — Surface ceiling (EVOL-045): files + lines of the diff vs the one diff base within
+# surface.ceiling_files / surface.ceiling_lines, or a Surface-Escape trailer from the closed list.
+# An unrecognised branch name (no diff base) is a blocker; a reader fault degrades to important.
+if [[ -n "$BASE_UNKNOWN_MSG" ]]; then
+  add_finding "blocker" "branch-name-unknown" "$BASE_UNKNOWN_MSG"
+fi
+if [[ -f "scripts/gate.py" ]]; then
+  SURF_OUT=$("$PYTHON" scripts/gate.py surface --base "$BASE_REF" 2>&1); SURF_RC=$?
+  case "$SURF_RC" in
+    0) ;;
+    1) add_finding "blocker" "surface-over-ceiling" "$(printf '%s' "$SURF_OUT" | tr '\n' ' ')" ;;
+    *) add_finding "important" "surface-unavailable" "gate.py surface could not run (${SURF_OUT:-no message}) — the ceiling was not measured this push; fix config/quality.json surface.* or re-sync scripts/gates." ;;
+  esac
 fi
 
 # ── Tally ──

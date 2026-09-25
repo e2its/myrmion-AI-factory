@@ -65,6 +65,7 @@ iterations: []
 > - `depends_on` forms a DAG (no cycles). INC-1 has `depends_on: []`.
 > - `deployable: production` is MANDATORY. Feature-flag-OFF merges are NOT a valid escape.
 > - Each increment, taken alone with its predecessors, constitutes a **100% functional product increment** — user-observable capability delivered end-to-end.
+> - Every increment declares an estimated surface; an increment over a ceiling declares sub-increments (each one PR into the train) or a legitimate escape — never both silent.
 
 ### INC-1 — {{increment-title}}
 
@@ -72,6 +73,9 @@ iterations: []
 - **Scope:** {{one-line user-observable capability delivered by this increment}}
 - **Scenarios covered:** `spec.feature` → [{{Scenario name 1}}, {{Scenario name 2}}]
 - **Contract surface:** [{{POST /api/v1/foo}}, {{GET /api/v1/bar/:id}}] (or GraphQL fields / AsyncAPI topics / gRPC RPCs)
+- **Estimated surface:** paths [{{src/claims/**}}, {{tests/claims/**}}] · ~{{files}} files · ~{{lines}} lines   *(the same ruler the push gate uses — files + lines of the diff, no exclusions; compare with config/quality.json surface.ceiling_files / ceiling_lines; ratified by RDR — see Factory-blueprint-design Step B.4)*
+- **Escape:** none   *(none | one term of surface.escapes — the closed vocabulary; the commit trailer Surface-Escape: <term> repeats it)*
+- **Sub-increments:** none   *(only when the estimate exceeds a ceiling — then a list: `- SUB-1-{M}: {scope: task groups / scenarios} · ~files · ~lines · branch feature/{{FEATURE_ID}}-inc-1-{{slug}}-sub-{M}`; the per-increment branch becomes a train, one PR per sub-increment into it, one closing PR; `gate.py branch-class` reads this list)*
 - **Depends on:** []   *(INC-1 always empty — intra-feature INC→INC DAG edge)*
 - **cascade_source:** `SLICE-{{FEATURE_ID}}-1`   *(Rule 9 join key → the slice_map.md slice this increment realizes; CVP Check 18 resolves it)*
 - **depends_on_slice:** []        *(inherited from the realized slice — intra-feature slice ordering; `[SLICE-{{FEATURE_ID}}-X]`)*
@@ -86,7 +90,7 @@ iterations: []
   - [ ] CVP `increment_deployability` gate PASS
   - [ ] No TODO markers left in increment's code paths
   - [ ] `qa_report_INC-N_*.md` status APPROVED (run `/qa --verify {{FEATURE_ID}} INC-N` after IMPLEMENT closes the slice)
-- **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see factory-branching-strategy)
+- **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see factory-branching-strategy) — with sub-increments it is the train; sub-increments branch from it as `…-sub-{M}`
 - **Merged at:** null   *(ISO timestamp; set by the merge hook when the increment PR lands on main; trigger for status transition READY/BUILDING → MERGED)*
 - **Pending iteration:** null   *(non-null when `CASCADE_INCREMENT_INTERNAL` detects upstream change affecting this increment and status is BUILDING — operator must `IMPLEMENT --pause` then `--refine` before status can transition further; cleared by `IMPLEMENT --refine`)*
 - **Pending reason:** null   *(human-readable cascade trigger description, populated alongside `Pending iteration`)*
@@ -101,6 +105,9 @@ iterations: []
 - **Scope:** …
 - **Scenarios covered:** …
 - **Contract surface:** …
+- **Estimated surface:** …
+- **Escape:** none
+- **Sub-increments:** none
 - **Depends on:** [INC-1]
 - **cascade_source:** `SLICE-{{FEATURE_ID}}-2`
 - **depends_on_slice:** [SLICE-{{FEATURE_ID}}-1]   *(example — inherited from the realized slice)*

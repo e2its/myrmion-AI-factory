@@ -110,8 +110,8 @@ Every law is an index entry: **one normative sentence**, the **one body** that d
 **Enforced deterministically** via `.claude/settings.json` PreToolUse hook — blocks `Edit`/`Write` on protected branches before any tool call executes.
 
 BEFORE any file modification:
-1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`). Working patterns for framework work: `feature/EVOL-{NNN}-{slug}` (evolutions), `fix/{slug}` | `bugfix/{slug}` | `hotfix/{slug}` (fixes), `docs/{slug}` (documentation), `chore/{slug}` (tooling).
-2. Create from `origin/main`, NEVER from HEAD.
+1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, any `release` (including `release/{slug}`), and a train (a per-increment branch whose increment plan declares sub-increments — `gate.py branch-class --protected`). Working patterns for framework work: `feature/EVOL-{NNN}-{slug}` (evolutions), `fix/{slug}` | `bugfix/{slug}` | `hotfix/{slug}` (fixes), `docs/{slug}` (documentation), `chore/{slug}` (tooling); a sub-increment is `feature/{ID}-inc-{N}-{slug}-sub-{M}`.
+2. Create from the diff base (`python3 scripts/gate.py diff-base` — `origin/main` here; a sub-increment branches from its train), NEVER from HEAD. Every gate, review and measurement reads that one resolver; an unrecognised branch name is red. The push measures the surface (files + lines of the diff, no exclusions) against `config/quality.json → surface.ceiling_*`; over it needs a `Surface-Escape:` trailer from the closed list.
 3. All merges to `main` via Pull Requests only.
 4. Full protocol: `.claude/skills/factory-branching-strategy/SKILL.md`
 

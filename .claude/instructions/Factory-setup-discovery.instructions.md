@@ -1,5 +1,5 @@
 ---
-description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q30 questions. Use when: SETUP --init command execution."
+description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q31 questions. Use when: SETUP --init command execution."
 applicable_when:
   phase: [SETUP]
   command: [setup]
@@ -74,7 +74,7 @@ TIER_1_STACK:
 
 TIER_2_INFRASTRUCTURE:
   name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30]
+  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31]
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
@@ -493,6 +493,14 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **RDR Recommendation:** `90` / `30` — one quarter of history, one monthly report: long enough for a before/after window per framework change, short enough that the numbers describe the current way of working. `180` / `60` for a small team with sparse sessions. `30` / `14` for a project in a fast evolution cycle. Zero infrastructure cost: the reader (`subproducts/measure/`) reads local transcripts and git only; nothing leaves the machine.
 - **Tier-filtered:** All tiers.
 - **Persist:** `measurement.retention_days` · `measurement.report_interval_days` (frontmatter of `docs/setup.md`, nested YAML `measurement:`)
+
+#### Q31: Surface Ceiling per Pull Request (EVOL-045)
+- **Type:** Two integers
+- **Options:** `ceiling_files` — the most files one pull request may touch (default `30`) · `ceiling_lines` — the most lines added + deleted (default `800`)
+- **Simplified:** es: "¿Cuál es el tamaño máximo de un pull request que tu equipo puede revisar bien — en ficheros y en líneas?" / en: "What is the largest pull request your team can review well — in files and in lines?"
+- **RDR Recommendation:** `30` / `800` — the unit a reviewer holds in one sitting; past it review quality collapses and rework grows. `15` / `400` for a team new to the codebase or under strict compliance review. `60` / `1500` for a mature team on a well-factored codebase. The plan estimates every increment against these keys and splits an over-ceiling increment into sub-increments (one PR each into its train); the push gate measures the real diff — files + lines, no exclusions — and blocks over the ceiling unless a commit carries a `Surface-Escape:` term from the closed list (`config/quality.json → surface.escapes`).
+- **Tier-filtered:** All tiers.
+- **Persist:** `surface.ceiling_files` · `surface.ceiling_lines` (frontmatter of `docs/setup.md`, nested YAML `surface:`) → `config/quality.json → surface.ceiling_files / ceiling_lines` at `--generate`
 
 ---
 

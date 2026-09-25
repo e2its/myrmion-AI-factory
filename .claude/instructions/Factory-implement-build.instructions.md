@@ -586,6 +586,16 @@ FUNCTION determine_build_scope(FEATURE_ID):
     STOP
 
   target = building[0]  # e.g. {id: "INC-2", status: "BUILDING", ...}
+  sub = NULL                            # EVOL-045 — with sub-increments the build unit is the sub in BUILDING
+  IF target.sub_increments:
+    sub_building = FILTER(target.sub_increments, s.status == "BUILDING")
+    IF sub_building.length == 0:
+      ❌ BLOCK: "No sub-increment in BUILDING. Open the next sub-increment branch feature/{ID}-inc-{N}-{slug}-sub-{M} FROM the train (factory-branching-strategy § Trains) — the train takes no direct commit."
+      STOP
+    IF sub_building.length > 1:
+      ❌ BLOCK: "Concurrency violation — {sub_building.length} sub-increments in BUILDING. Only one may build at a time."
+      STOP
+    sub = sub_building[0]
   # Build the per-increment task regex from the full increment id (not a bare index).
   # target.id has the form "INC-<digits>"; escape the dash for regex literal safety.
   id_literal = REGEX_ESCAPE(target.id)    # e.g. "INC-2" → "INC\-2"
@@ -603,7 +613,8 @@ FUNCTION determine_build_scope(FEATURE_ID):
     ],
     acceptance_section: "## Increment {target.id}: … → ### Increment {target.id} Acceptance Gate",
     target_increment: target,
-    all_tasks_filter: tasks WHERE section STARTS_WITH "## Increment {target.id}:"
+    target_sub_increment: sub,
+    all_tasks_filter: tasks WHERE section STARTS_WITH "## Increment {target.id}:" AND (sub IS NULL OR task.id LISTED_UNDER "### Sub-increment {sub.id}")   # [INC-N.ACC.*] belong to the train close
   }
 ```
 
@@ -709,7 +720,7 @@ FUNCTION verify_completion_gate(FEATURE_ID):
   fix_tasks = FILTER(checked_tasks + unchecked_tasks, id MATCHES build_scope.task_regex_fix)
 
   IF build_scope.mode == "incremental":
-    LOG: "Task breakdown (increment {build_scope.target_increment.id}): {original_tasks.count} original, {acceptance_tasks.count} acceptance-gate, {delta_tasks.count} delta, {adjustment_tasks.count} adjustment, {fix_tasks.count} fix"
+    LOG: "Task breakdown (increment {build_scope.target_increment.id}, sub-increment {build_scope.target_sub_increment.id OR 'none'}): {original_tasks.count} original, {acceptance_tasks.count} acceptance-gate, {delta_tasks.count} delta, {adjustment_tasks.count} adjustment, {fix_tasks.count} fix"
   ELSE:
     LOG: "Task breakdown: {original_tasks.count} original, {delta_tasks.count} delta, {adjustment_tasks.count} adjustment, {fix_tasks.count} fix"
 
@@ -762,6 +773,18 @@ FUNCTION verify_completion_gate(FEATURE_ID):
         IF inc_phases[phase].sec_status != "PASSED":
           ❌ BLOCK: "Increment {build_scope.target_increment.id} Phase {phase} SEC scan not passed."
           STOP
+    # EVOL-045 — sub-increment closure: scoped task tests + 🔍 REVIEW hat already ran per phase; NO full loop here.
+    IF build_scope.target_sub_increment:
+      sub = build_scope.target_sub_increment
+      IF ANY(build_scope.target_increment.sub_increments, s.id != sub.id AND s.status != "MERGED"):
+        # not the last sub-increment — no ACC / BVL / deploy; the train stays open
+        UPDATE sub.status: BUILDING → (push to the train; PR into the train: gh pr create --base <train>) → MERGED on merge
+        SAVE dev_plan.md; STOP
+      # Train close — the last sub-increment carries the closure artefacts (rebased on the train; they land through its own PR into the train — the train takes no direct commit).
+      # Fall through: ACC items + ONE full_verification_gate over the train's scope (diff base = the default base branch: gate.py diff-base --branch <train>),
+      # ONE deployment only when the train diff touches a surface.runtime_surface glob ([] = always) — SUGGEST: "DEVOPS --deploy {FEATURE_ID} --env dev" —,
+      # then sub.status → MERGED via its PR into the train, then the closing PR from the train to the base branch.
+      acceptance_tasks = FIND_ALL("- [ ]" OR "- [x]") MATCHING build_scope.task_regex_acc   # train scope
     # Acceptance Gate: every [INC-N.ACC.k] item must be checked before the increment can close.
     FOR EACH acc_task IN acceptance_tasks:
       IF acc_task.status != "[x]":

@@ -60,7 +60,7 @@ else
 fi
 
 # ────────────────────────────────────────────────────────────────────────────
-# Resolve base ref. Priority: explicit arg > GitHub > GitLab > origin/main.
+# Resolve base ref. Priority: explicit arg > GitHub > GitLab > gate.py diff-base (origin/main when the reader is absent).
 # ────────────────────────────────────────────────────────────────────────────
 BASE_REF=""
 if [ "${1:-}" != "" ]; then
@@ -70,7 +70,7 @@ elif [ -n "${GITHUB_BASE_REF:-}" ]; then
 elif [ -n "${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-}" ]; then
   BASE_REF="origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}"
 else
-  BASE_REF="origin/main"
+  BASE_REF="$(python3 scripts/gate.py diff-base 2>/dev/null || echo origin/main)"   # the one resolver (EVOL-045)
 fi
 
 if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then

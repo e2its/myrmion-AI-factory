@@ -344,8 +344,8 @@ if [ "$DRIFT_CHECK" -eq 1 ]; then
     exit 0
   fi
   
-  # Get base branch (try origin/main, then origin/master, then origin/develop)
-  BASE_BRANCH="origin/main"
+  # Base branch: the one resolver (EVOL-045); legacy probing only when the reader is absent
+  BASE_BRANCH="$(python3 scripts/gate.py diff-base 2>/dev/null || echo origin/main)"
   if ! git rev-parse --verify "$BASE_BRANCH" > /dev/null 2>&1; then
     BASE_BRANCH="origin/master"
   fi

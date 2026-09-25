@@ -409,9 +409,9 @@ FUNCTION execute_governance_bound_operation(user_request):
   current_branch = git branch --show-current
   feature_id = DETECT_FEATURE_CONTEXT(user_request, current_branch)
 
-  IF current_branch IN [main, master, develop, release/*, hotfix/*]:
+  IF RUN("python3 scripts/gate.py branch-class --protected") == 1:   # main, master, develop, release/*, hotfix, or a train with declared sub-increments (EVOL-045)
     IF feature_id: Execute Auto-Branch Checkout Protocol
-    ELSE: ❌ BLOCK with options (specify feature, checkout branch, create new)
+    ELSE: ❌ BLOCK "Protected branch (base branch or a train with declared sub-increments)" with options (specify feature, checkout branch, create new)
 
   IF feature_id: acquire_feature_lock(feature_id)
 
@@ -495,8 +495,8 @@ FUNCTION execute_scm_operation(user_request):
 
     # Step 3: BRANCH PROTECTION CHECK
     current_branch = git branch --show-current
-    IF current_branch IN [main, master, develop] OR current_branch MATCHES "release/*" OR current_branch MATCHES "hotfix/*":
-      ❌ BLOCK: "Destructive operations on protected branches (main, master, develop, release/*, hotfix/*) require branch protection toggle."
+    IF RUN("python3 scripts/gate.py branch-class --protected") == 1:   # main, master, develop, release/*, hotfix, or a train with declared sub-increments (EVOL-045)
+      ❌ BLOCK: "Destructive operations on protected branches (main, master, develop, release/*, hotfix/*, or a train with declared sub-increments) require branch protection toggle."
       SUGGEST: "Create a maintenance branch first: git checkout -b maintenance/repo-cleanup"
       STOP
 

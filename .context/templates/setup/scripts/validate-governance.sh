@@ -195,7 +195,7 @@ NC='\033[0m'
 MANIFEST=".context/templates/setup/governance_versions.json"
 TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" ".claude/hooks" "CLAUDE.md")
 DIFF_ONLY=false
-BASE_BRANCH="main"
+BASE_BRANCH="$( { python3 scripts/gate.py diff-base 2>/dev/null || true; } | sed "s#^origin/##")"; BASE_BRANCH="${BASE_BRANCH:-main}"   # the one resolver (EVOL-045); reader absent → main
 VIOLATIONS=0
 WARNINGS=0
 

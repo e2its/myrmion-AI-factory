@@ -2,9 +2,11 @@
 description: "Branching strategy — branch naming, merge policy, PR requirements, commit message format, protected branches."
 applicable_when:
   always: true
-version: 2.5.1
+default_base_branch: main
+version: 2.6.0
 date: 2026-09-25
 changelog:
+  - "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments."
   - "2.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "2.1.0: feat(EVOL-043) — hosts [PLAW-11] body (merged from the constitution template; placeholder-bearing variant kept, hard-coded approval count dropped)"
   - "2.0.0: PR validation mode, approval count, merge method configurable via SETUP Q22.1"
@@ -70,6 +72,11 @@ Examples:
 **Lifecycle.** Branch open triggers the increment's status to flip `READY → BUILDING` in `increment_plan.md § 1`. Merge to `main` (via PR) triggers the post-merge hook to flip `BUILDING → MERGED` and stamp `Merged at:`. See `.claude/skills/factory-branching-strategy/SKILL.md § Per-Increment Branching`.
 
 **Monolithic escape.** When `slicing_strategy: monolithic` (permitted only if the feature satisfies the trivial-heuristic — ≤2 scenarios AND ≤3 contract operations AND `scope ≠ full-stack`), the legacy single-branch naming `feature/{FEATURE_ID}-{slug}` applies without the `-inc-N-` segment.
+
+**Trains and sub-increments (EVOL-045).** An increment whose `increment_plan.md § 1` entry declares `Sub-increments:` ships as a **train**: its per-increment branch is protected like `main` (no direct commits — hook `check-branch-protection.sh` → `python3 scripts/gate.py branch-class --protected`), receives one PR per sub-increment and closes to the base branch by ONE PR.
+Sub-increment branch: `feature/{FEATURE_ID}-inc-{N}-{slug}-sub-{M}` (M ≥ 1), created from the train, PR target = the train. Regex: `^feature/[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*-inc-[0-9]+-[a-z0-9-]+-sub-[0-9]+$`.
+Diff base for every gate, review and measurement: `python3 scripts/gate.py diff-base` (sub-increment → its train; else `default_base_branch` from this file's frontmatter).
+Surface per PR (`python3 scripts/gate.py surface`, measured at push): over `surface.ceiling_files` / `surface.ceiling_lines` (`config/quality.json`) = red unless the commit trailer `Surface-Escape: <term>` names a term of `surface.escapes` (closed list).
 
 #### Protection Rules
 **main branch:**

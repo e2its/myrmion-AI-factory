@@ -13,7 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import budget, coherence, corpus, retired  # noqa: E402
+from gates import branch, budget, coherence, corpus, retired  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -495,6 +495,99 @@ class Coherence(unittest.TestCase):
                 coherence.manifest_parity(repo)
 
 
+class Branch(unittest.TestCase):
+    """EVOL-045: every class of the grammar, the one diff base (fail-closed), the surface ceiling seen red."""
+
+    def _repo(self, tmp):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["surface"] = {"ceiling_files": 3, "ceiling_lines": 20, "escapes": ["generated-code", "lockfile"], "runtime_surface": []}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / "docs/spec/F-001/increment_plan.md", "### INC-1 — a\n- **Sub-increments:**\n  - SUB-1-1: x · branch feature/F-001-inc-1-a-sub-1\n  - SUB-1-2: y\n### INC-2 — b\n- **Sub-increments:** none\n")
+        self._commit(repo, "plan")
+        subprocess.run(["git", "-C", str(repo), "branch", "-M", "main"], check=True)
+        subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/main", "HEAD"], check=True)
+        return repo
+
+    def _commit(self, repo, msg):
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", msg], check=True)
+
+    def test_branch_classes_and_train_protection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            cases = {"main": ("protected", True), "release/1.2": ("protected", True), "hotfix": ("protected", True),
+                     "feature/F-001-inc-1-a": ("train", True), "feature/F-001-inc-1-a-sub-2": ("sub-increment", False),
+                     "feature/F-001-inc-2-b": ("increment", False), "feature/F-001-inc-3-c": ("increment", False),
+                     "feature/F-001-login": ("feature", False), "feature/EVOL-045-increment-trains": ("feature", False),
+                     "epic/EPIC-1-foundation": ("epic", False), "fix/x": ("fix", False), "bugfix/x": ("fix", False),
+                     "hotfix/x": ("fix", False), "docs/x": ("docs", False), "chore/x": ("chore", False),
+                     "weird": ("unknown", False), "feature/lowercase-id": ("unknown", False)}
+            for name, (cls, prot) in cases.items():
+                info = branch.branch_class(repo, name)
+                self.assertEqual((info["class"], info["protected"]), (cls, prot), name)
+            self.assertEqual(branch.branch_class(repo, "feature/F-001-inc-1-a-sub-2")["train"], "feature/F-001-inc-1-a")
+            self.assertEqual(branch.branch_class(repo, "feature/F-001-inc-1-a-sub-2")["feature_id"], "F-001", "the id stops before -inc-")
+            self.assertEqual(branch.train_of("feature/F-001-inc-1-a"), None)
+
+    def test_diff_base_is_one_and_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self.assertEqual(branch.diff_base(repo, "feature/F-001-inc-1-a-sub-2"), "origin/feature/F-001-inc-1-a", "a sub-increment measures against its train")
+            for b in ("feature/F-001-inc-1-a", "feature/F-001-inc-2-b", "feature/F-001-login", "fix/x", "docs/x", "chore/x", "epic/EPIC-1-x"):
+                self.assertEqual(branch.diff_base(repo, b), "origin/main", b)
+            self.assertEqual(branch.diff_base(repo, "main"), "origin/main")
+            with self.assertRaisesRegex(branch.UnknownBranch, "matches no class"):
+                branch.diff_base(repo, "weird")
+            write(repo / ".claude/rules/branching.md", "---\ndefault_base_branch: develop\n---\n")
+            self.assertEqual(branch.diff_base(repo, "fix/x"), "origin/develop", "default_base_branch from the branching rule is honoured")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-inc-1-a-sub-1"], check=True)
+            self.assertEqual(branch.diff_base(repo), "origin/feature/F-001-inc-1-a", "the current branch is classified when none is given")
+
+    def test_surface_ceiling_escapes_and_train_base(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-login"], check=True)
+            s = branch.surface(repo)
+            self.assertEqual((s["files"], s["lines"], s["ok"], s["base"]), (0, 0, True, "origin/main"))
+            write(repo / "src/a.py", "1\n"); write(repo / "src/b.py", "2\n"); self._commit(repo, "two files")
+            s = branch.surface(repo)
+            self.assertEqual((s["files"], s["lines"], s["ok"]), (2, 2, True))
+            write(repo / "src/c.py", "3\n"); write(repo / "src/d.py", "4\n"); self._commit(repo, "four files")
+            s = branch.surface(repo)
+            self.assertFalse(s["ok"]); self.assertIn("exceeds the ceiling", s["reason"]); self.assertIn("surface.ceiling_files", s["reason"])
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x\n\nSurface-Escape: nope"], check=True)
+            s = branch.surface(repo)
+            self.assertFalse(s["ok"]); self.assertIn("unknown Surface-Escape `nope`", s["reason"]); self.assertIn("generated-code, lockfile", s["reason"])
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x\n\nSurface-Escape: generated-code"], check=True)
+            s = branch.surface(repo)
+            self.assertFalse(s["ok"], "one unknown term in the range still fails — the vocabulary is closed")
+            subprocess.run(["git", "-C", str(repo), "reset", "-q", "--hard", "HEAD~2"], check=True)
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x\n\nSurface-Escape: lockfile"], check=True)
+            s = branch.surface(repo)
+            self.assertTrue(s["ok"]); self.assertEqual(s["escape"], "lockfile"); self.assertTrue(s["over"])
+            # lines ceiling, on a single file
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-inc-2-b", "main"], check=True)
+            write(repo / "src/big.py", "x\n" * 30); self._commit(repo, "big")
+            s = branch.surface(repo)
+            self.assertFalse(s["ok"]); self.assertEqual((s["files"], s["lines"]), (1, 30))
+            # a sub-increment is measured against its train, not main
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-inc-1-a", "main"], check=True)
+            for i in range(4):
+                write(repo / f"src/t{i}.py", "t\n")
+            self._commit(repo, "train content")
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/feature/F-001-inc-1-a", "HEAD"], check=True)
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-001-inc-1-a-sub-1"], check=True)
+            write(repo / "src/s.py", "s\n"); self._commit(repo, "sub")
+            s = branch.surface(repo)
+            self.assertEqual((s["base"], s["files"], s["ok"]), ("origin/feature/F-001-inc-1-a", 1, True))
+            self.assertEqual(branch.surface(repo, base="origin/main")["files"], 5, "against main the train content would count")
+            q = json.loads((repo / "config/quality.json").read_text()); del q["surface"]["ceiling_lines"]
+            write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "surface.ceiling_lines"):
+                branch.surface(repo)
+
+
 class Cli(unittest.TestCase):
     def test_cli_exit_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -552,6 +645,20 @@ class Cli(unittest.TestCase):
             self.assertIn("Law Bodies", r.stdout)
             self.assertIn("DC-27", r.stdout)
             self.assertIn("### [PLAW-02] → rules/python.md  (body section not found)", r.stdout)
+            write(repo / "config/quality.json", json.dumps({**json.loads((repo / "config/quality.json").read_text()), "surface": {"ceiling_files": 1, "ceiling_lines": 5, "escapes": []}}))
+            write(repo / "docs/spec/F-001/increment_plan.md", "- SUB-1-1: x\n")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "branch-class", "--branch", "feature/F-001-inc-1-a", "--protected"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1, "a train is protected: exit 1"); self.assertIn("protected (train)", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "branch-class", "--branch", "feature/F-001-inc-1-a-sub-1", "--protected"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "diff-base", "--branch", "nonsense"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1, "an unknown branch name is red, not an infrastructure fault"); self.assertIn("RED", r.stderr)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "surface", "--branch", "nonsense"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("RED", r.stderr)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "currency", "--branch", "nonsense"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1, "currency without a diff base is red too")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "surface", "--base", "HEAD", "--json"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertEqual(json.loads(r.stdout)["files"], 0)
 
 
 if __name__ == "__main__":
