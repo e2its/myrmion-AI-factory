@@ -14,7 +14,7 @@ All scripts use DRY_RUN=1 by default. Use `--apply` or export DRY_RUN=0 to run f
 - install-hooks.sh [--force]
 - hooks/commit-msg — Conventional commit format validation
 - hooks/pre-commit — Protected branch guard, secret detection, governance validation
-- hooks/pre-push — Force-push protection, full governance validation
+- hooks/pre-push — Force-push protection (reader-classified), secrets scan, the gate profile (`gate.py profile --run`, EVOL-046)
 
 ## Quick Start Aligned to the Agentic Workflow
 

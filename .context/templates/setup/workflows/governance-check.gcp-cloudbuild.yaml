@@ -6,7 +6,9 @@
 #
 # Runs the governance gates that must pass before a PR can merge to main:
 #
-#   - scripts/check-adr-constitution-sync.sh — single-source-of-truth
+#   - python3 scripts/gate.py profile --run — the gate profile this PR owes (EVOL-046: one call, all members
+#     report — ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface);
+#     plus gate.py one-definition. ADR sync was the single-source-of-truth
 #     gate. Bypass via [adr-backfill] commit message marker.
 #
 # Wire this cloudbuild.yaml via a Cloud Build trigger filtered to pull-request
@@ -34,8 +36,7 @@ steps:
       - '-c'
       - |
         set -e
-        chmod +x scripts/check-adr-constitution-sync.sh
-        bash scripts/check-adr-constitution-sync.sh "origin/${_BASE_BRANCH}"
-
+        python3 scripts/gate.py profile --run --control-point ci --base "origin/${_BASE_BRANCH}" --branch "$BRANCH_NAME"
+        python3 scripts/gate.py one-definition
 options:
   logging: CLOUD_LOGGING_ONLY

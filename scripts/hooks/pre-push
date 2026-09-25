@@ -6,7 +6,7 @@
 # Checks:
 #   1. Protected branch enforcement (prevent force-push to main)
 #   2. Secret leak detection (delegated to security-scan.sh --secrets; scanner per config/quality.json)
-#   3. Full governance validation (if validate-governance.sh exists)
+#   3. The gate profile this push owes — one call: python3 scripts/gate.py profile --run (EVOL-046)
 # ============================================================================
 
 set -euo pipefail
@@ -32,11 +32,18 @@ PUSH_REMOTE="${1:-origin}"
 #      (main, master, develop, release/*, bare hotfix, a train with declared sub-increments). No list here.
 #      Reader absent or faulting = protected (fail-closed: a force-push is never let through unclassified).
 is_protected() {
-  local ref="${1#refs/heads/}"
-  [ -f scripts/gate.py ] && command -v python3 >/dev/null 2>&1 || return 0
-  python3 scripts/gate.py branch-class --protected --branch "$ref" >/dev/null 2>&1
-  [ $? -eq 0 ] && return 1
-  return 0
+  local ref="${1#refs/heads/}" out rc
+  [ -n "$ref" ] || return 1
+  if [ ! -f scripts/gate.py ] || ! command -v python3 >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠  the governance reader (scripts/gate.py) is not delivered — '$ref' cannot be classified, treated as protected (run scripts/factory-sync.sh).${NC}"
+    return 0
+  fi
+  out=$(python3 scripts/gate.py branch-class --protected --branch "$ref" 2>&1); rc=$?
+  case "$rc" in
+    0) return 1 ;;
+    1) return 0 ;;
+    *) echo -e "${YELLOW}⚠  the governance reader could not classify '$ref' (exit $rc): ${out} — treated as protected; fix scripts/gates from the shell.${NC}"; return 0 ;;
+  esac
 }
 
 # Read push info from stdin: <local ref> <local sha> <remote ref> <remote sha>
@@ -45,12 +52,21 @@ PUSH_SPECS=()
 while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
   PUSH_SPECS+=("$LOCAL_REF|$LOCAL_SHA|$REMOTE_REF|$REMOTE_SHA")
 
+  # the profile (step 3) is measured on the checked-out branch: a push of another ref would be gated on the wrong diff
+  case "$REMOTE_REF" in
+    refs/heads/*)
+      if [ "$LOCAL_SHA" != "$ZERO_SHA" ] && [ "${REMOTE_REF#refs/heads/}" != "$CURRENT_BRANCH" ]; then
+        echo -e "${RED}❌ pre-push: pushing '${REMOTE_REF#refs/heads/}' while '${CURRENT_BRANCH:-a detached HEAD}' is checked out — the gate profile measures the checked-out branch. Check out '${REMOTE_REF#refs/heads/}' and push it.${NC}"
+        exit 1
+      fi ;;
+  esac
+
   if is_protected "$REMOTE_REF" || is_protected "$CURRENT_BRANCH"; then
     if [ "$REMOTE_SHA" != "$ZERO_SHA" ] && [ "$LOCAL_SHA" != "$ZERO_SHA" ]; then
       # Check if this is a force push (local doesn't contain remote)
       if ! git merge-base --is-ancestor "$REMOTE_SHA" "$LOCAL_SHA" 2>/dev/null; then
-        DEST=$(basename "$REMOTE_REF")
-        echo -e "${RED}❌ Force-push to '$DEST' is blocked.${NC}"
+        DEST="${REMOTE_REF#refs/heads/}"
+        echo -e "${RED}❌ Force-push to '$DEST' is blocked (protected per gate.py branch-class).${NC}"
         echo "   Use a feature branch and create a Pull Request."
         exit 1
       fi
@@ -135,8 +151,9 @@ fi
 # ── 3. The gate profile this push owes (EVOL-046) ──
 # ONE definition: python3 scripts/gate.py profile --run — delivery_mode (governance manifest, fail-closed to
 # production) × branch class → light (a sub-increment to its train in development mode: the members that need
-# no build and no database) | full (everything else). Every script member reports (governance validation,
-# ADR sync, retired-terms, budget, law parity, currency, manifest parity, surface); one verdict names every red
+# no build and no database) | full (everything else). Every script member reports (ADR sync, applicability,
+# retired-terms, budget, law parity, currency, manifest parity, surface; in the framework repo also the manifest
+# drift validation); one verdict names every red
 # member and what was skipped. exit 1 = red (block) · exit 2 = a member could not run (warn, never block on
 # infrastructure — LAW-08: the cause is said). Reader missing → the push is blocked (governance not delivered).
 if [ ! -f "${REPO_ROOT}/scripts/gate.py" ] || ! command -v python3 >/dev/null 2>&1; then
@@ -144,11 +161,20 @@ if [ ! -f "${REPO_ROOT}/scripts/gate.py" ] || ! command -v python3 >/dev/null 2>
   exit 1
 fi
 echo -e "${YELLOW}🔍 gate profile for this push...${NC}"
-set +e; python3 "${REPO_ROOT}/scripts/gate.py" profile --run --control-point push; PRC=$?; set -e
+set +e; PROFILE_OUT=$(python3 "${REPO_ROOT}/scripts/gate.py" profile --run --control-point push 2>&1); PRC=$?; set -e
+printf '%s\n' "$PROFILE_OUT"
 case "$PRC" in
   0) echo -e "${GREEN}✅ gate profile passed.${NC}" ;;
   1) echo -e "${RED}❌ pre-push: the gate profile is red (see the verdict above).${NC}"; exit 1 ;;
-  *) echo -e "${YELLOW}⚠  pre-push: a member of the profile could not run (exit ${PRC}, said above) — push proceeds; fix the cause before the next push.${NC}" ;;
+  2)
+    # only a RENDERED verdict may warn: a member that could not run is infrastructure (LAW-08: the cause is said);
+    # a reader that died before rendering ran no gate at all — that is not a member's fault, the push is blocked
+    if printf '%s' "$PROFILE_OUT" | grep -q '^verdict: FAULT'; then
+      echo -e "${YELLOW}⚠  pre-push: a member of the profile could not run (said above) — push proceeds; fix the cause before the next push.${NC}"
+    else
+      echo -e "${RED}❌ pre-push: the governance reader could not run the profile (no verdict rendered — said above); no gate ran, the push is blocked. Fix scripts/gates from the shell or re-run scripts/factory-sync.sh.${NC}"; exit 1
+    fi ;;
+  *) echo -e "${RED}❌ pre-push: the governance reader is broken (exit ${PRC}, said above) — no gate ran, the push is blocked. Fix scripts/gates or re-run scripts/factory-sync.sh.${NC}"; exit 1 ;;
 esac
 
 # >>> factory-pr-review begin >>>

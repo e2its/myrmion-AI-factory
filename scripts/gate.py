@@ -23,7 +23,7 @@
   gate.py profile --run [--control-point push|ci] [--base B] [--branch B] [--json]   run every script member of the profile, all-report; exit 1 any red · 2 a member could not run
   gate.py one-definition                           hooks / workflows / preflight keep no branch list, mode read or mode override; exit 1 on a finding
 
-Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08).
+Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08) · 3 the reader itself is missing or broken (governance not delivered).
 """
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ try:
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
-    sys.exit(2)
+    sys.exit(3)   # 3 = the reader itself is not delivered: hooks treat it as governance missing (block), never as one member's fault
 
 
 def cmd_key(repo, a):

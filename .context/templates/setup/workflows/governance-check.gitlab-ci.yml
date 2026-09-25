@@ -6,7 +6,9 @@
 #
 # Runs the governance gates that must pass before an MR can merge to main:
 #
-#   - scripts/check-adr-constitution-sync.sh — single-source-of-truth
+#   - python3 scripts/gate.py profile --run — the gate profile this PR owes (EVOL-046: one call, all members
+#     report — ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface);
+#     plus gate.py one-definition. ADR sync was the single-source-of-truth
 #     gate. Bypass via [adr-backfill] commit message marker.
 #
 # To wire this into an existing .gitlab-ci.yml, include this job under the
@@ -21,12 +23,12 @@ governance-check:
   stage: governance
   image: alpine:3.20
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # every MR — a sub-increment MR targets its train, not main (EVOL-045)
   before_script:
     - apk add --no-cache bash git python3
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
   script:
-    - chmod +x scripts/check-adr-constitution-sync.sh
-    - bash scripts/check-adr-constitution-sync.sh "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - python3 scripts/gate.py profile --run --control-point ci --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --branch "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+    - python3 scripts/gate.py one-definition
   variables:
     GIT_DEPTH: 0

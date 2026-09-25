@@ -36,7 +36,6 @@ jobs:
 
       - name: Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface)
         run: |
-          chmod +x scripts/check-adr-constitution-sync.sh
           python3 scripts/gate.py profile --run --control-point ci --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
 
       - name: One definition — hooks, workflows and the preflight keep no branch list, mode read or mode override (EVOL-046)
@@ -57,4 +56,4 @@ jobs:
             **Fix:** run the \`factory-adr-management\` Accept Procedure on each offending ADR — it amends constitution.md atomically and produces a single commit that passes the gate.
             **One-shot bypass (historical migration only):** include \`[adr-backfill]\` in any commit message in the PR.
 
-          Run locally to verify: \`bash scripts/check-adr-constitution-sync.sh origin/main\`"
+          Run locally to verify: \`python3 scripts/gate.py profile --run --base origin/main\` (every member reports; the verdict names the red ones)"

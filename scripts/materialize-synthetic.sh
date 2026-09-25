@@ -204,6 +204,13 @@ OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push --ba
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'verdict: ok' && ok "the profile runs every script member in the scratch project, one verdict: $(printf '%s' "$OUT" | grep -c '✓') green" || bad "profile run not green in the scratch (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py one-definition 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "the materialised hooks and workflow keep no second definition" || bad "second definition in the materialised tree (rc=$RC)" "$OUT"
+git -C "$P" update-ref refs/remotes/origin/feature/FEAT-001-inc-1-x HEAD; git -C "$P" checkout -q -b feature/FEAT-001-inc-1-x-sub-2
+mkdir -p "$P/docs/spec/FEAT-001/review"; printf 'notes\n' > "$P/docs/spec/FEAT-001/review/notes.md"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm sub   # outside the certified tree: the verdict stays fresh
+BEFORE=$(git -C "$P" status --porcelain | wc -l)
+OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^profile: light' && printf '%s' "$OUT" | grep -q 'base origin/feature/FEAT-001-inc-1-x' && printf '%s' "$OUT" | grep -q 'skipped by the light profile' && printf '%s' "$OUT" | grep -q 'writes no seal' && ok "the light profile runs end to end on a sub-increment against its train: every no-build member green, the loop members skipped and named, no seal" || bad "light profile end to end (rc=$RC)" "$OUT"
+[ "$(git -C "$P" status --porcelain | wc -l)" = "$BEFORE" ] && ok "the light run wrote nothing (no seal, no marker)" || bad "the light run left files behind" "$(git -C "$P" status --porcelain)"
+git -C "$P" checkout -q feature/FEAT-001-smoke
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

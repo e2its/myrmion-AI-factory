@@ -641,6 +641,8 @@ class Profile(unittest.TestCase):
             self.assertEqual(profile.mode(repo)["mode"], "production", "absent key = strictest")
             write(repo / "docs/project_log/governance_versions.json", "{not json")
             m = profile.mode(repo); self.assertEqual(m["mode"], "production"); self.assertIn("not readable", m["reason"])
+            write(repo / "docs/project_log/governance_versions.json", "[1, 2]")
+            self.assertEqual(profile.mode(repo)["mode"], "production", "valid JSON that is not an object = strictest, never an exception")
             (repo / "docs/project_log/governance_versions.json").unlink()
             self.assertEqual(profile.mode(repo)["mode"], "production", "absent manifest = strictest")
             write(repo / "docs/project_log/governance_versions.json", json.dumps({"delivery_mode": "production"}))
@@ -680,16 +682,43 @@ class Profile(unittest.TestCase):
             self.assertTrue(any(e["member"] == "code-review" for e in rep["owed_elsewhere"]), "agent-run members are owed, never silently dropped")
             rep = profile.run(repo, branch="nonsense", only=["retired-terms"])
             self.assertEqual(rep["verdict"], "RED"); self.assertIn("no diff base", rep["summary"])
+            subprocess.run(["git", "-C", str(repo), "update-ref", "-d", "refs/remotes/origin/feature/F-001-inc-1-a"], check=True)
+            rep = profile.run(repo, only=["retired-terms"])
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("not on origin", rep["summary"], "a train not yet pushed: nothing measured = RED, never a pass")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "--detach"], check=True)
+            rep = profile.run(repo, only=["retired-terms"])
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("detached HEAD", rep["summary"])
+            rep = profile.run(repo, base="main", only=["retired-terms"])
+            self.assertEqual(rep["verdict"], "RED"); self.assertIn("remote ref", rep["summary"], "a local base may be stale")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "feature/F-001-inc-1-a-sub-1"], check=True)
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/feature/F-001-inc-1-a", "HEAD"], check=True)
+            rep = profile.run(repo, only=["surface"])
+            self.assertEqual(rep["verdict"], "FAULT"); self.assertNotIn(" —  · ", profile.render(rep)); self.assertTrue(rep["summary"].startswith("could not run"))
+            rep = profile.run(repo, only=["surface", "retired-terms"])
+            self.assertEqual([r["member"] for r in rep["results"]], ["retired-terms", "surface"], "a FAULT never stops the run: the later member still reports")
+            self.assertEqual(rep["verdict"], "RED")
+            rep = profile.run(repo, only=["adr-sync", "governance", "applicability"])   # the bash runner, a missing script, the meta-only member in a project
+            by = {r["member"]: r for r in rep["results"]}
+            self.assertEqual(by["adr-sync"]["status"], "RED"); self.assertIn("not delivered", by["adr-sync"]["tail"], "a member script missing in a project is a red on the delivery")
+            self.assertEqual(by["governance"]["status"], "n/a", "a framework-only member is listed, never silently dropped")
+            self.assertIn("applicability", by, "the applicability validator ships to projects and runs there")
+            self.assertEqual(profile._cmd(repo, ["bash", "x", "--base", "{base_branch}"], "origin/feature/F-001-inc-1-a", "b")[-1], "feature/F-001-inc-1-a")
+            self.assertEqual(profile._cmd(repo, ["bash", "x", "--base", "{base_branch}"], "refs/remotes/origin/main", "b")[-1], "main")
 
     def test_one_definition_scan(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             self.assertEqual(profile.one_definition(repo), [])
-            write(repo / ".claude/hooks/x.sh", "#!/bin/bash\nPROTECTED_BRANCHES=\"main master\"\n# a comment naming (main|master) is fine\n")
+            write(repo / ".claude/hooks/x.sh", "#!/bin/bash\nPROTECTED_BRANCHES=\"main master\"\n# a comment naming (main|master) is fine\nref=\"${1#refs/heads/}\"; case \"$ref\" in main|master) exit 1;; esac\nfor p in main master develop; do :; done\n[[ \"$b\" == \"main\" ]] && exit 1\n")
             write(repo / ".github/workflows/ci.yml", "run: python3 -c \"import json; print(json.load(open('m.json'))['delivery_mode'])\"\n")
+            write(repo / ".github/workflows/z.yaml", "env:\n  GATE_PROFILE=light\n  X: ${DELIVERY_MODE}\n")
+            write(repo / "scripts/x.sh", "if [[ \"$b\" =~ ^(main|master|release) ]]; then exit 1; fi\n")
             f = profile.one_definition(repo)
-            self.assertEqual([(x["path"], x["line"]) for x in f], [(".claude/hooks/x.sh", 2), (".github/workflows/ci.yml", 1)])
-            self.assertIn("branch-class --protected", f[0]["reason"]); self.assertIn("gate.py profile", f[1]["reason"])
+            self.assertEqual(sorted((x["path"], x["line"]) for x in f),
+                             sorted([(".claude/hooks/x.sh", 2), (".claude/hooks/x.sh", 4), (".claude/hooks/x.sh", 5), (".claude/hooks/x.sh", 6),
+                                     (".github/workflows/ci.yml", 1), (".github/workflows/z.yaml", 2), (".github/workflows/z.yaml", 3), ("scripts/x.sh", 1)]))
+            by = {(x["path"], x["line"]): x["reason"] for x in f}
+            self.assertIn("branch-class --protected", by[(".claude/hooks/x.sh", 2)]); self.assertIn("gate.py profile", by[(".github/workflows/ci.yml", 1)])
 
 
 class Cli(unittest.TestCase):
@@ -733,11 +762,11 @@ class Cli(unittest.TestCase):
             self.assertIn("LAW-02\tNever modify protected code.", r.stdout)
             broken = Path(tmp) / "broken"; broken.mkdir(); (broken / "gate.py").write_text(Path(gate).read_text(), encoding="utf-8")
             r = subprocess.run([sys.executable, str(broken / "gate.py"), "--repo", str(repo), "context"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 2); self.assertIn("package is missing or broken", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            self.assertEqual(r.returncode, 3, "the reader itself missing = exit 3, never a member's fault"); self.assertIn("package is missing or broken", r.stderr); self.assertNotIn("Traceback", r.stderr)
             import shutil; shutil.copytree(HERE, broken / "gates", ignore=shutil.ignore_patterns("__pycache__", "test_*"))
             (broken / "gates" / "common.py").write_text("def (broken syntax\n", encoding="utf-8")
             r = subprocess.run([sys.executable, str(broken / "gate.py"), "--repo", str(repo), "context"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 2); self.assertIn("SyntaxError", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            self.assertEqual(r.returncode, 3, "a broken package is exit 3: the reader itself is not delivered"); self.assertIn("SyntaxError", r.stderr); self.assertNotIn("Traceback", r.stderr)
             write(repo / "scripts/validate-governance.sh", "#!/usr/bin/env bash\nexit 3\n")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "budget"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1, "a dead producer is a red verdict, exit 1")
@@ -756,7 +785,7 @@ class Cli(unittest.TestCase):
             write(repo / "config/quality.json", json.dumps({**json.loads((repo / "config/quality.json").read_text()), "surface": {"ceiling_files": 1, "ceiling_lines": 5, "escapes": []}}))
             write(repo / "docs/spec/F-001/increment_plan.md", "- SUB-1-1: x\n")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "branch-class", "--branch", "feature/F-001-inc-1-a", "--protected"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 1, "a train is protected: exit 1"); self.assertIn("protected (train)", r.stdout)
+            self.assertEqual(r.returncode, 1, "a train is protected: exit 1"); self.assertIn("protected (train)", r.stdout, "the edit hook matches this exact text")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "branch-class", "--branch", "feature/F-001-inc-1-a-sub-1", "--protected"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "diff-base", "--branch", "nonsense"], capture_output=True, text=True, env=env)
@@ -787,6 +816,12 @@ class Cli(unittest.TestCase):
             write(repo / "scripts/hooks/pre-push", "PROTECTED_BRANCHES=main\n")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "one-definition"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1); self.assertIn("scripts/hooks/pre-push:1", r.stdout)
+            (repo / "scripts/hooks/pre-push").unlink()
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "--detach"], check=True)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "profile", "--run", "--control-point", "ci", "--base", "origin/main", "--branch", "feature/F-001-x", "--json"], capture_output=True, text=True, env=env)
+            rep = json.loads(r.stdout)
+            self.assertEqual((rep["base"], rep["profile"]), ("origin/main", "full"), "the CI shape: explicit base + head ref on a detached checkout")
+            self.assertTrue(rep["results"], "members ran"); self.assertEqual(r.returncode, 1 if rep["verdict"] == "RED" else 2 if rep["verdict"] == "FAULT" else 0)
 
 
 if __name__ == "__main__":

@@ -38,12 +38,12 @@ MEMBERS = [
     ("surface",          False, False, "gate.py",                 ["gate", "surface", "--base", "{base}", "--branch", "{branch}"], False),
     ("governance",       False, False, "validate-governance.sh (framework repo: manifest drift / orphan / stale)", ["bash", "scripts/validate-governance.sh", "--base", "{base_branch}"], True),   # a project has no framework manifest; manifest-parity covers its own
     ("adr-sync",         False, False, "check-adr-constitution-sync.sh", ["bash", "scripts/check-adr-constitution-sync.sh", "{base}"], False),
-    ("applicability",    False, False, "check-applicability-frontmatter.sh", ["bash", "scripts/check-applicability-frontmatter.sh"], True),
+    ("applicability",    False, False, "check-applicability-frontmatter.sh", ["bash", "scripts/check-applicability-frontmatter.sh"], False),
     ("secrets",          False, False, "pre-commit / pre-push step 2 (per pushed ref)", None, False),
     ("coherence-audit",  False, False, "preflight Step 0 (marker)", None, False),
     ("code-review",      False, False, "preflight Block 20 (marker)", None, False),
-    ("sast",             False, False, "IMPLEMENT SEC hat / BVL full loop", None, False),
-    ("complexity",       False, False, "BVL full loop (MCP)", None, False),
+    ("sast",             True,  False, "BVL full loop (SEC hat per phase; repo-wide at the loop)", None, False),
+    ("complexity",       True,  False, "BVL full loop (MCP, after the tests)", None, False),
     ("tests",            True,  False, "BVL full loop", None, False),
     ("lint",             True,  False, "BVL full loop", None, False),
     ("typecheck",        True,  False, "BVL full loop", None, False),
@@ -63,7 +63,8 @@ def mode(repo: Path) -> dict:
     """{mode, reason}. Fail-closed: anything but a known value in a readable manifest is the strictest mode."""
     p = manifest_path(repo)
     try:
-        v = json.loads(p.read_text(encoding="utf-8")).get("delivery_mode")
+        doc = json.loads(p.read_text(encoding="utf-8"))
+        v = doc.get("delivery_mode") if isinstance(doc, dict) else None
     except FileNotFoundError:
         return {"mode": STRICTEST, "reason": f"{p.relative_to(repo)} is absent — strictest mode"}
     except (OSError, json.JSONDecodeError) as e:
@@ -102,7 +103,9 @@ def _cmd(repo: Path, runner: list[str], base: str, branch: str) -> list[str]:
     gate = str(Path(__file__).resolve().parent.parent / "gate.py")   # the reader that is running — the delivered one
     out = []
     for tok in runner:
-        tok = tok.replace("{base}", base).replace("{base_branch}", base.split("/", 1)[1] if "/" in base else base).replace("{branch}", branch)
+        bb = re.sub(r"^refs/remotes/", "", base)
+        bb = bb.split("/", 1)[1] if "/" in bb else bb   # origin/x → x (validate-governance re-qualifies it)
+        tok = tok.replace("{base}", base).replace("{base_branch}", bb).replace("{branch}", branch)
         out.append(tok)
     if out[0] == "gate":
         out = [sys.executable, gate, "--repo", str(repo)] + out[1:]
@@ -115,9 +118,11 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
     br = pr["branch"] or ""
     try:
         base = base or branch_mod.diff_base(repo, branch)
-    except branch_mod.UnknownBranch as e:
+        if "/" not in base:
+            raise GateFault(f"the base must be a remote ref (origin/…), not `{base}` — a local branch may be stale")
+    except GateFault as e:   # unknown name, detached HEAD, a train or base not on the remote: nothing can be measured → RED, never a pass
         return {**pr, "control_point": control_point, "base": None, "results": [], "owed_elsewhere": [],
-                "verdict": "RED", "summary": f"no diff base: {e}"}
+                "verdict": "RED", "summary": f"no diff base — nothing was measured: {e}"}
     ctx = context(repo)
     results, elsewhere = [], []
     for name, nb, nd, owner, runner, meta_only in MEMBERS:
@@ -129,23 +134,27 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
         if only and name not in only:
             continue
         if meta_only and ctx != "meta":
+            results.append({"member": name, "rc": 0, "status": "n/a", "tail": "framework repo only", "output": ""})
             continue
         cmd = _cmd(repo, runner, base, br)
-        if cmd[0] == "bash" and not (repo / cmd[1]).is_file():
-            results.append({"member": name, "rc": 2, "status": "FAULT", "tail": f"{cmd[1]} is not delivered — run factory-sync.sh"})
+        if cmd[0] == "bash" and not (repo / cmd[1]).is_file():   # governance not delivered is a red on the delivery, never an infra pass
+            results.append({"member": name, "rc": 1, "status": "RED", "tail": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh", "output": f"{cmd[1]} is not delivered — run scripts/factory-sync.sh"})
             continue
         try:
             r = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True, timeout=900)
             rc, text = r.returncode, (r.stdout + r.stderr)
         except (OSError, subprocess.TimeoutExpired) as e:
             rc, text = 2, f"could not run: {e}"
-        tail = " ".join(ln.strip() for ln in text.strip().splitlines()[-3:])
-        results.append({"member": name, "rc": rc, "status": "ok" if rc == 0 else ("RED" if rc == 1 else "FAULT"), "tail": re.sub(r"\x1b\[[0-9;]*m", "", tail)[:400]})
+        clean = re.sub(r"\x1b\[[0-9;]*m", "", text).strip()
+        tail = " ".join(ln.strip() for ln in clean.splitlines()[-3:])
+        results.append({"member": name, "rc": rc, "status": "ok" if rc == 0 else ("RED" if rc == 1 else "FAULT"), "tail": tail[:400],
+                        "output": "" if rc == 0 else clean[-6000:]})   # a red member keeps its evidence
     red = [r["member"] for r in results if r["rc"] == 1]
     faults = [r["member"] for r in results if r["rc"] not in (0, 1)]
     verdict = "RED" if red else ("FAULT" if faults else "ok")
+    parts = ([f"red: {', '.join(red)}"] if red else []) + ([f"could not run: {', '.join(faults)}"] if faults else [])
     return {**pr, "control_point": control_point, "base": base, "results": results, "owed_elsewhere": elsewhere,
-            "verdict": verdict, "summary": (f"red: {', '.join(red)}" if red else "") + (f" · could not run: {', '.join(faults)}" if faults else "")}
+            "verdict": verdict, "summary": " · ".join(parts)}
 
 
 def render(rep: dict) -> str:
@@ -154,12 +163,15 @@ def render(rep: dict) -> str:
         return "\n".join(lines + [f"  {rep['summary']}"])
     lines.append(f"  control point {rep['control_point']} · base {rep['base']} · {len(rep['results'])} member(s) ran, every one reports:")
     for r in rep["results"]:
-        lines.append(f"  {'✓' if r['rc'] == 0 else ('✗' if r['rc'] == 1 else '?')} {r['member']}" + ("" if r["rc"] == 0 else f" — {r['status']}: {r['tail']}"))
+        mark = "·" if r["status"] == "n/a" else ("✓" if r["rc"] == 0 else ("✗" if r["rc"] == 1 else "?"))
+        lines.append(f"  {mark} {r['member']}" + (f" — {r['tail']}" if r["status"] == "n/a" else ("" if r["rc"] == 0 else f" — {r['status']}")))
+        if r["rc"] != 0:
+            lines.extend("      " + ln for ln in (r.get("output") or r["tail"]).splitlines() if ln.strip())
     if rep["owed_elsewhere"]:
         lines.append("  owed at their own control point (not run here): " + ", ".join(f"{e['member']} → {e['owner']}" for e in rep["owed_elsewhere"]))
     skipped = [m for m in (n for n, nb, nd, *_ in MEMBERS if nb or nd)] if rep["profile"] == "light" else []
     if skipped:
-        lines.append("  skipped by the light profile (need a build or a database — owed at the train close): " + ", ".join(skipped))
+        lines.append("  skipped by the light profile (need a build or a database — owed at their own control point: the train close, the deployment): " + ", ".join(skipped))
     lines.append(f"verdict: {rep['verdict']}" + (f" — {rep['summary']}" if rep["summary"] else " — the light profile writes no seal" if rep["profile"] == "light" else ""))
     return "\n".join(lines)
 
@@ -167,25 +179,32 @@ def render(rep: dict) -> str:
 # ─── one definition ──────────────────────────────────────────────────────────────
 
 SECOND_DEFINITION = [
-    (re.compile(r"PROTECTED_BRANCHES\s*="), "a protected-branch list — ask `gate.py branch-class --protected`"),
-    (re.compile(r"\(main\|master"), "a branch regex — ask `gate.py branch-class`"),
-    (re.compile(r"delivery_mode"), "a read of the delivery mode — ask `gate.py profile`"),
-    (re.compile(r"(DELIVERY|FACTORY)_MODE"), "an environment override of the mode — none exists"),
+    (re.compile(r"(?i)protected[_-]?branches\s*=|\bprotected=\("), "a protected-branch list — ask `gate.py branch-class --protected`"),
+    (re.compile(r"\b(main|master|develop)\|(main|master|develop)\b|\bmain master\b|\bmaster main\b|\bin main\b|\bin master\b|== *[\"']?(main|master)[\"']?\b"),
+     "a branch regex, list or comparison — ask `gate.py branch-class`"),
+    (re.compile(r"(?i)delivery.?mode"), "a read of the delivery mode — ask `gate.py profile`"),
+    (re.compile(r"(?i)(DELIVERY|FACTORY)_MODE|\bGATE_PROFILE\s*="), "an environment override of the mode or profile — none exists"),
 ]
-SCAN = [".claude/hooks/*.sh", "scripts/hooks/*", ".github/workflows/*.yml", ".claude/skills/factory-pr-review/scripts/preflight.sh",
-        ".context/templates/setup/claude/hooks/*.sh", ".context/templates/setup/scripts/hooks/*", ".context/templates/setup/workflows/*.yml"]
+SCAN = [".claude/hooks/*.sh", "scripts/hooks/*", "scripts/*.sh", ".github/workflows/*", ".claude/skills/factory-pr-review/scripts/preflight.sh",
+        ".context/templates/setup/claude/hooks/*.sh", ".context/templates/setup/scripts/hooks/*", ".context/templates/setup/scripts/*.sh",
+        ".context/templates/setup/workflows/*"]
+
+
+# writers of the key by role, never readers: SETUP materialises it; the smoke plays SETUP on a scratch project
+WRITERS = {"scripts/materialize-synthetic.sh"}
 
 
 def one_definition(repo: Path) -> list[dict]:
-    """Hooks, workflows and the preflight never keep their own branch list, mode read or mode override."""
+    """Hooks, scripts, workflows and the preflight never keep their own branch list, mode read or mode override."""
     findings = []
     for pattern in SCAN:
         for p in sorted(repo.glob(pattern)):
-            if not p.is_file():
+            if not p.is_file() or str(p.relative_to(repo)) in WRITERS:
                 continue
             for n, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-                code = line.split("#", 1)[0]
+                code = re.split(r"(?:^|\s)#", line, 1)[0]   # a comment starts the line or follows whitespace — `${1#x}` is code
                 for rx, what in SECOND_DEFINITION:
                     if rx.search(code):
                         findings.append({"path": str(p.relative_to(repo)), "line": n, "reason": what})
+                        break   # one finding per line
     return findings

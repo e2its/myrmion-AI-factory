@@ -6,7 +6,9 @@
 #
 # Runs the governance gates that must pass before a PR can merge to main:
 #
-#   - scripts/check-adr-constitution-sync.sh — single-source-of-truth
+#   - python3 scripts/gate.py profile --run — the gate profile this PR owes (EVOL-046: one call, all members
+#     report — ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface);
+#     plus gate.py one-definition. ADR sync was the single-source-of-truth
 #     gate. Bypass via [adr-backfill] commit message marker.
 #
 # Wire this buildspec via a CodeBuild project triggered by CodeStar / CodePipeline
@@ -35,5 +37,5 @@ phases:
       - git fetch origin "$EFFECTIVE_BASE" --depth=200 || git fetch origin "$EFFECTIVE_BASE"
   build:
     commands:
-      - chmod +x scripts/check-adr-constitution-sync.sh
-      - bash scripts/check-adr-constitution-sync.sh "origin/$EFFECTIVE_BASE"
+      - python3 scripts/gate.py profile --run --control-point ci --base "origin/$EFFECTIVE_BASE" --branch "${CODEBUILD_WEBHOOK_HEAD_REF#refs/heads/}"
+      - python3 scripts/gate.py one-definition

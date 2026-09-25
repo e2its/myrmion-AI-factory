@@ -17,7 +17,11 @@ fi
 # ONE definition of "protected" (EVOL-046): the reader classifies the name — main, master, develop, release/*,
 # bare hotfix, and a train (a per-increment branch whose increment plan declares sub-increments). No regex here.
 # exit 1 = protected → block. A missing or broken reader blocks too (fail-closed): governance is not delivered.
-if [ ! -f scripts/gate.py ] || ! command -v python3 >/dev/null 2>&1; then
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "BLOCKED: python3 is not on PATH — the governance reader cannot run, so '$branch' cannot be classified. Install python3, then retry." >&2
+  exit 2
+fi
+if [ ! -f scripts/gate.py ]; then
   {
     echo "BLOCKED: the governance reader (scripts/gate.py) is not delivered — the branch '$branch' cannot be classified."
     echo "Resolution: bash scripts/factory-sync.sh (a project) or restore scripts/gate.py + scripts/gates/ (the framework repo); then retry."

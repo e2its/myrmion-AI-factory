@@ -6,7 +6,7 @@
 # Checks:
 #   1. Protected branch guard (prevent direct commits to main)
 #   2. Secret leak detection (if gitleaks available)
-#   3. Governance validation on staged governance files (if any changed)
+#   (governance validation runs at push as a member of the gate profile — EVOL-046)
 # ============================================================================
 
 set -euo pipefail
@@ -48,25 +48,4 @@ else
   :
 fi
 
-# ── 3. Governance validation (only if governance files are staged) ──
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
-STAGED_FILES=$(git diff --cached --name-only)
-GOVERNANCE_PATTERNS=".claude/commands/ .claude/instructions/ .claude/skills/ CLAUDE.md .context/templates/setup/governance_versions.json"
-
-GOVERNANCE_CHANGED=false
-for pattern in $GOVERNANCE_PATTERNS; do
-  if echo "$STAGED_FILES" | grep -qF "$pattern"; then
-    GOVERNANCE_CHANGED=true
-    break
-  fi
-done
-
-GOVERNANCE_SCRIPT="${REPO_ROOT}/scripts/validate-governance.sh"
-if [ "$GOVERNANCE_CHANGED" = true ] && [ -n "$REPO_ROOT" ] && [ -x "$GOVERNANCE_SCRIPT" ]; then
-  echo -e "${YELLOW}🔍 Governance files changed — running validation...${NC}"
-  if ! bash "$GOVERNANCE_SCRIPT" 2>/dev/null; then
-    echo -e "${RED}❌ Governance validation failed. Fix issues before committing.${NC}"
-    exit 1
-  fi
-  echo -e "${GREEN}✅ Governance validation passed.${NC}"
-fi
+# (governance validation moved to the push — it is a member of the gate profile, EVOL-046)

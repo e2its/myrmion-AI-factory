@@ -457,7 +457,7 @@ DIFF BASE (the one resolver — every gate, review and measurement calls it):
   # sub-increment → origin/{train}; everything else → origin/{default_base_branch}
   # (rules/branching.md frontmatter, else main); unknown branch name → red, fail-closed.
 
-SURFACE (measured at push — pre-push step 4, preflight Block 21 surface-over-ceiling, CI):
+SURFACE (measured at push — pre-push step 3 (`gate.py profile --run`), preflight Block 21 surface-over-ceiling, CI):
   python3 scripts/gate.py surface        # files + lines of git diff --numstat {diff_base}...HEAD, no exclusions
   # Over surface.ceiling_files OR surface.ceiling_lines (config/quality.json) → red, unless a commit trailer
   #   Surface-Escape: <term>   with term ∈ surface.escapes (closed list: generated-code · vendored-dependency ·

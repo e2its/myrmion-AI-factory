@@ -192,7 +192,7 @@ git fetch origin "${base#origin/}" --quiet
 git diff --name-only "$base"..HEAD
 ```
 
-If `current` is empty (detached HEAD) OR equals a protected branch name (`main`, `master`, `develop`, bare `hotfix`, `release/*`) → exit 2 with "preflight skipped: not on a working branch".
+If `current` is empty (detached HEAD) OR is protected per `gate.py branch-class --protected` (main, master, develop, release/*, bare hotfix, a train — one definition, EVOL-046) → exit 2 with "preflight skipped: not on a working branch".
 
 ### Phase 2 — Change classification
 Run `scripts/detect_change_type.py --git-range "$base"..HEAD --check-secrets`. The flags drive which references the agent loads when surfacing findings.
