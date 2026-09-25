@@ -202,7 +202,10 @@ def cmd_runtime_surface(repo, a):
         print(json.dumps(c) if a.json else f"runtime-surface: {'touched' if c['touched'] else 'untouched'} — {c['reason']}" + (f"\n  {' '.join(c['hits'] + c['always'])}" if c["hits"] or c["always"] else ""))
         return 0 if c["touched"] else 1
     findings, stats = runtime.parity(repo)
-    print(coherence.render("runtime-surface", findings, f"{stats['literals']} path(s) read by {len(stats['workflows'])} deploying workflow(s), {stats['declared']} declared read(s)"))
+    if a.json:
+        print(json.dumps({"findings": findings, **stats}))
+    else:
+        print(coherence.render("runtime-surface", findings, f"{stats['literals']} path(s) read by {len(stats['workflows'])} deploying workflow(s), {stats['declared']} declared read(s)"))
     return 1 if findings else 0
 
 

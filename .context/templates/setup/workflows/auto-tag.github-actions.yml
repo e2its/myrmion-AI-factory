@@ -7,6 +7,8 @@
 # Triggers on PR merge to main. Calls scripts/auto-tag.sh for SemVer tagging
 # and creates a GitHub Release with categorized release notes.
 # ============================================================================
+# EVOL-047: the first step asks `python3 scripts/gate.py runtime-surface --changed --base HEAD^1` — outside the
+# positive runtime surface (config/quality.json) = no tag, no release. The branch rule is untouched.
 
 name: Auto-Tag & Release
 
@@ -35,7 +37,8 @@ jobs:
       - name: "Runtime surface touched? (EVOL-047: the positive list in config/quality.json decides; the branch rule is untouched)"
         id: runtime_surface
         run: |
-          set +e; python3 scripts/gate.py runtime-surface --changed --base HEAD^1; rc=$?; set -e
+          BASE="${{ github.event.before }}"; case "$BASE" in ""|0000000000000000000000000000000000000000) BASE="HEAD^1";; esac   # the previous main tip — merge, squash and fast-forward alike
+          set +e; python3 scripts/gate.py runtime-surface --changed --base "$BASE"; rc=$?; set -e
           case "$rc" in
             0) echo "touched=true" >> "$GITHUB_OUTPUT" ;;
             1) echo "touched=false" >> "$GITHUB_OUTPUT"; echo "outside the runtime surface — no tag, no release" ;;

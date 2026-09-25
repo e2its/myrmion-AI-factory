@@ -968,7 +968,19 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
   - `{{SECURITY_SCANNER}}` ← `quality.security_scan.scanner` (`gitleaks` | `trufflehog` | custom name | `null` when Skip)
   - `{{SECURITY_SCANNER_COMMAND}}` ← `quality.security_scan.secrets_command` (from the Q23.2 resolution table | custom template | `null` when Skip)
   - `{{SECURITY_SCANNER_INSTALL_HINT}}` ← `quality.security_scan.install_hint`
-- Resolve the surface placeholders — bare tokens replaced by JSON values: `{{SURFACE_CEILING_FILES}}` ← `surface.ceiling_files` · `{{SURFACE_CEILING_LINES}}` ← `surface.ceiling_lines` (Q31, integers) · `{{RUNTIME_SURFACE}}` ← `surface.runtime_surface` (Q33, a JSON array of glob strings — the positive list every deploying workflow asks through `gate.py runtime-surface --changed`, EVOL-047). `surface.escapes` (the closed vocabulary), `surface.always_deploy` (hard exclusions with reasons) and `surface.declared_reads` keep template defaults. **Invariant:** `python3 scripts/gate.py runtime-surface` is green on the materialised tree (the parity gate: every path a deploying job reads is on the list, a hard exclusion or a declared read), else BLOCK. Read by `python3 scripts/gate.py surface` (pre-push, preflight Block 21, CI) and by BLUEPRINT's surface estimate.
+- Resolve the surface placeholders — bare tokens replaced by JSON values: `{{SURFACE_CEILING_FILES}}` ← `surface.ceiling_files` · `{{SURFACE_CEILING_LINES}}` ← `surface.ceiling_lines` (Q31, integers) · `{{RUNTIME_SURFACE}}` ← `surface.runtime_surface` (Q33, a JSON array of glob strings — the positive list every deploying workflow asks through `gate.py runtime-surface --changed`, EVOL-047). `surface.escapes` (the closed vocabulary) and `surface.declared_reads` keep template defaults. Two more bare tokens resolve from Q21 (`ci_cd.platform`) — the CI platform's own workflow files, one definition for the hard exclusion and for the parity scan:
+
+  | Platform | `{{CI_WORKFLOW_PATHS}}` (hard exclusion — workflow definitions) | `{{DEPLOYING_WORKFLOWS}}` (the release / deploy files the parity gate reads) |
+  |---|---|---|
+  | GitHub Actions (and None) | `[".github/workflows/**"]` | `[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml", ".github/workflows/release*.yml"]` |
+  | GitLab CI | `[".gitlab-ci*.yml", ".gitlab/**"]` | `[".gitlab-ci-auto-tag.yml"]` |
+  | Azure DevOps | `["azure-pipelines*.yml", "governance-check-pipeline.yml"]` | `["azure-pipelines-auto-tag.yml"]` |
+  | Bitbucket Pipelines | `["bitbucket-pipelines.yml"]` | `["bitbucket-pipelines.yml"]` |
+  | Jenkins | `["Jenkinsfile*"]` | `["Jenkinsfile.auto-tag"]` |
+  | AWS CodePipeline / CodeBuild | `["buildspec*.yml"]` | `["buildspec-auto-tag.yml"]` |
+  | GCP Cloud Build | `["cloudbuild*.yaml"]` | `["cloudbuild-auto-tag.yaml"]` |
+
+  Add the project's own deploy workflows to `deploying_workflows` when DEVOPS creates them. **Invariant:** `python3 scripts/gate.py runtime-surface` is green on the materialised tree (the parity gate: at least one deploying workflow found; every path it or its scripts read is on the list, a hard exclusion or a declared read), else BLOCK. Read by `python3 scripts/gate.py surface` (pre-push, preflight Block 21, CI) and by BLUEPRINT's surface estimate.
 - When user picked **Skip** on Q23.2: write `null` (JSON literal, not the string `"null"`) for all three placeholders AND set `security_scan.enabled=false`. The dispatcher `scripts/security-scan.sh --secrets` degrades to the 🔒 disabled banner; the regex floor (detect_change_type.py, pr-review Block 3) stays active. The file is still materialised so the project can enable later by editing.
 - This file is consumed by `factory-complexity-check` (BVL post-test step), `factory-pr-review` (axis 6 — complexity; Step 0-bis — code_review; Block 3 floor is config-free), `factory-code-review` (code_review block) and `scripts/security-scan.sh` (security_scan block). `factory-sync.sh` deliberately does NOT touch `config/`; `SETUP --upgrade` owns delta propagation.
 

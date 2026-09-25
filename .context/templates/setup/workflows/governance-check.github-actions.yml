@@ -34,7 +34,7 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
 
-      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface)"
+      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (ADR sync, law parity, budgets, retired vocabulary, currency, manifest parity, surface, runtime-surface parity)"
         run: |
           python3 scripts/gate.py profile --run --control-point ci --base "origin/${{ github.base_ref }}" --branch "${{ github.head_ref }}"
 

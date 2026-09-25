@@ -3,9 +3,10 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.6.0
+version: 2.7.0
 date: 2026-09-25
 changelog:
+  - "2.7.0: feat(EVOL-047) — post-merge actions and the main-branch line qualified by the runtime surface (gate.py runtime-surface --changed)."
   - "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments."
   - "2.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "2.1.0: feat(EVOL-043) — hosts [PLAW-11] body (merged from the constitution template; placeholder-bearing variant kept, hard-coded approval count dropped)"
@@ -31,7 +32,7 @@ changelog:
 
 #### GitHub Flow (Default)
 **Branches:**
-- `main`: Protected, always deployable, auto-tagged with semver on merge
+- `main`: Protected, always deployable, auto-tagged with semver on merge when the merge touches `surface.runtime_surface` (`gate.py runtime-surface --changed`, EVOL-047)
 - `feature/{FEATURE_ID}-description`: Short-lived (<2 days)
 - `hotfix/{ISSUE_ID}-description`: Urgent production fixes, fast-track to main
 
@@ -40,7 +41,7 @@ changelog:
 2. Develop with frequent commits (conventional format, see below)
 3. Open PR when ready, link to `docs/spec/{FEATURE_ID}/`
 4. {{PR_APPROVAL_COUNT}} approval(s) {{PR_VALIDATION_LABEL}}
-5. {{PR_MERGE_METHOD_LABEL}} to `main` → auto-deploy Dev → auto-tag semver
+5. {{PR_MERGE_METHOD_LABEL}} to `main` → auto-deploy Dev → auto-tag semver — both only when the merge touches the runtime surface (`gate.py runtime-surface --changed`); a documentation merge still needs the PR, it just moves no machinery
 
 #### Branch Naming Convention
 ```
@@ -143,7 +144,7 @@ Ref: USR-001
 **Pre-Merge Checks:**
 {{PR_CI_CHECKS_DETAIL}}
 
-**Post-Merge Actions:**
+**Post-Merge Actions** (only when the merge touches `surface.runtime_surface` or a hard exclusion — `gate.py runtime-surface --changed`, EVOL-047; a documentation merge moves no machinery):
 - Auto-tag with semver (based on commit analysis)
 - Auto-deploy to Development environment
 - Update changelog (auto-generated from conventional commits)

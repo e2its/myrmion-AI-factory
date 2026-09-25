@@ -724,18 +724,20 @@ class Profile(unittest.TestCase):
 class Runtime(unittest.TestCase):
     """EVOL-047: the positive trigger and the parity gate over the deploying jobs and their scripts."""
 
-    def _repo(self, tmp, surface=None):
+    def _repo(self, tmp, surface=None, workflows=None):
         repo = fixture_repo(Path(tmp))
         q = json.loads((repo / "config/quality.json").read_text())
         q["surface"] = {"ceiling_files": 30, "ceiling_lines": 800, "escapes": [],
                         "runtime_surface": ["src/**", "scripts/**"] if surface is None else surface,
-                        "always_deploy": [{"path": ".github/workflows/**", "reason": "workflow definitions"}, {"path": "config/quality.json", "reason": "gate input"}],
-                        "declared_reads": []}
+                        "always_deploy": [{"path": [".github/workflows/**", ".gitlab-ci*.yml", "Jenkinsfile*"], "reason": "workflow definitions"}, {"path": "config/quality.json", "reason": "gate input"}],
+                        "declared_reads": [],
+                        "deploying_workflows": [".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"] if workflows is None else workflows}
         write(repo / "config/quality.json", json.dumps(q))
-        write(repo / ".github/workflows/auto-tag.yml", "on: push\njobs:\n  t:\n    steps:\n      - run: |\n          bash scripts/release.sh\n          cat docs/old.md   # a comment: docs/legacy/x.md\n")
-        write(repo / "scripts/release.sh", "#!/bin/bash\npython3 scripts/version.py\ncat config/quality.json\necho https://example.com/a/b refs/heads/main origin/main /tmp/x\n")
-        write(repo / "scripts/version.py", "open('docs/setup.md')\n")
-        write(repo / ".github/workflows/governance-check.yml", "run: cat docs/legacy/x.md\n")   # not a deploying workflow: never scanned
+        write(repo / ".github/workflows/auto-tag.yml", "on: push\njobs:\n  t:\n    steps:\n      - run: |\n          bash ./scripts/release.sh\n          cat docs/old.md   # a comment: docs/legacy/x.md\n          echo \"issue #12 docs/setup.md\"\n          python3 scripts/gate.py runtime-surface\n          cat ../outside.json\n")
+        write(repo / "scripts/release.sh", "#!/bin/bash\nbash \"$ROOT/scripts/version.sh\"\ncat config/quality.json\necho https://example.com/a/b refs/heads/main origin/main /tmp/x\n")
+        write(repo / "scripts/version.sh", "cat docs/legacy/x.md\n")
+        write(repo / ".github/workflows/governance-check.yml", "run: cat docs/never.md\n")   # not a deploying workflow: never scanned
+        write(repo / "docs/never.md", "n\n"); write(repo / "outside.json", "{}")
         subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
         subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "deploy files"], check=True)
         subprocess.run(["git", "-C", str(repo), "branch", "-M", "main"], check=True)
@@ -759,7 +761,14 @@ class Runtime(unittest.TestCase):
             write(repo / ".github/workflows/auto-tag.yml", "on: push\n"); self._commit(repo, "wf")
             c = runtime.changed(repo, "origin/main")
             self.assertTrue(c["touched"]); self.assertEqual(c["always"], [".github/workflows/auto-tag.yml"], "a hard exclusion fires regardless")
-            self.assertTrue(runtime.changed(repo, "HEAD^1")["touched"], "HEAD^1 — the merge's first parent — is the CI shape")
+            self.assertTrue(runtime.changed(repo, "HEAD^1")["touched"], "HEAD^1 — the merge's first parent — is the fallback CI shape")
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/main", "HEAD"], check=True)
+            subprocess.run(["git", "-C", str(repo), "mv", "src/app.py", "docs/app.py"], check=True); self._commit(repo, "rename out")
+            c = runtime.changed(repo, "origin/main")
+            self.assertTrue(c["touched"]); self.assertIn("src/app.py", c["hits"], "a rename out of the surface removes a runtime file: seen from both sides")
+            subprocess.run(["git", "-C", str(repo), "update-ref", "refs/remotes/origin/main", "HEAD"], check=True)
+            write(repo / "src/café.py", "1\n"); self._commit(repo, "non-ascii")
+            self.assertTrue(runtime.changed(repo, "origin/main")["touched"], "a non-ASCII path on the surface is read unquoted")
             q = json.loads((repo / "config/quality.json").read_text()); q["surface"]["runtime_surface"] = []
             write(repo / "config/quality.json", json.dumps(q))
             c = runtime.changed(repo, "origin/main")
@@ -767,7 +776,7 @@ class Runtime(unittest.TestCase):
             q["surface"]["runtime_surface"] = "src/**"; write(repo / "config/quality.json", json.dumps(q))
             with self.assertRaisesRegex(GateFault, "must be a list"):
                 runtime.changed(repo, "origin/main")
-            q["surface"]["runtime_surface"] = ["src/**"]; q["surface"]["always_deploy"] = [{"path": "x"}]; write(repo / "config/quality.json", json.dumps(q))
+            q["surface"]["runtime_surface"] = ["src/**"]; q["surface"]["declared_reads"] = [{"path": "x"}]; write(repo / "config/quality.json", json.dumps(q))
             with self.assertRaisesRegex(GateFault, "names its reason"):
                 runtime.changed(repo, "origin/main")
 
@@ -775,22 +784,34 @@ class Runtime(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             f, stats = runtime.parity(repo)
-            self.assertEqual(stats["workflows"], [".github/workflows/auto-tag.yml"], "only deploying workflows are scanned")
+            self.assertEqual(stats["workflows"], [".github/workflows/auto-tag.yml"], "only the declared deploying workflows are scanned")
             by = {x["path"]: x["reason"] for x in f}
-            self.assertEqual(set(by), {"docs/old.md", "docs/setup.md"}, "reads outside the surface: the workflow's own, and a transitive one two scripts deep")
-            self.assertIn(".github/workflows/auto-tag.yml", by["docs/old.md"]); self.assertIn("scripts/version.py", by["docs/setup.md"])
-            self.assertNotIn("docs/legacy/x.md", by, "a comment is not a read; a non-deploying workflow is not scanned")
+            self.assertEqual(set(by), {"docs/old.md", "docs/setup.md", "docs/legacy/x.md"},
+                             "the workflow's own read, a read after a quoted #, and one two scripts deep via ./ and $ROOT/ calls")
+            self.assertIn(".github/workflows/auto-tag.yml", by["docs/old.md"]); self.assertIn("scripts/version.sh", by["docs/legacy/x.md"])
+            self.assertNotIn("docs/never.md", by, "a non-deploying workflow is not scanned"); self.assertNotIn("outside.json", by, "../ escapes the tree")
+            self.assertNotIn("scripts/gate.py", " ".join(by), "the gate reader is not a deploy read")
             q = json.loads((repo / "config/quality.json").read_text())
-            q["surface"]["declared_reads"] = [{"path": "docs/old.md", "reason": "release notes source"}, {"path": "docs/setup.md", "reason": "version source"}, {"path": "docs/gone.md", "reason": "old"}]
+            q["surface"]["declared_reads"] = [{"path": "docs/old.md", "reason": "release notes source"}, {"path": "docs/**", "reason": "docs are read"}, {"path": "docs/gone.md", "reason": "old"}]
             write(repo / "config/quality.json", json.dumps(q))
             f, _ = runtime.parity(repo)
-            self.assertEqual([x["path"] for x in f], ["docs/gone.md"]); self.assertIn("stale exemption", f[0]["reason"])
+            self.assertEqual([x["path"] for x in f], ["docs/gone.md"], "a glob declared read covers; an exact one too; a path nothing reads is stale"); self.assertIn("stale exemption", f[0]["reason"])
             q["surface"]["declared_reads"] = []; q["surface"]["runtime_surface"] = ["src/**", "scripts/**", "docs/**"]
             write(repo / "config/quality.json", json.dumps(q))
             self.assertEqual(runtime.parity(repo)[0], [], "widening the surface covers the reads")
             q["surface"]["runtime_surface"] = []; write(repo / "config/quality.json", json.dumps(q))
-            f, _ = runtime.parity(repo)
-            self.assertTrue(any("is empty" in x["reason"] for x in f), "an undeclared surface is a finding, not a silent deploy-everything")
+            self.assertTrue(any("is empty" in x["reason"] for x in runtime.parity(repo)[0]), "an undeclared surface is a finding, not a silent deploy-everything")
+            q["surface"]["runtime_surface"] = ["src/**", "scripts/**"]; q["surface"]["deploying_workflows"] = [".gitlab-ci-auto-tag.yml", "Jenkinsfile*"]
+            write(repo / "config/quality.json", json.dumps(q))
+            f, stats = runtime.parity(repo)
+            self.assertEqual(stats["workflows"], []); self.assertTrue(any("no deploying workflow found" in x["reason"] for x in f), "a platform whose files never land is red, never a vacuous green")
+            write(repo / ".gitlab-ci-auto-tag.yml", "script:\n  - bash scripts/release.sh\n"); write(repo / "Jenkinsfile.auto-tag", "// see docs/setup.md\nsh 'cat docs/j.md'\n"); write(repo / "docs/j.md", "j\n")
+            self._commit(repo, "platform files")
+            f, stats = runtime.parity(repo)
+            self.assertEqual(stats["workflows"], [".gitlab-ci-auto-tag.yml", "Jenkinsfile.auto-tag"], "root-level platform files are found through the key")
+            by = {x["path"]: x["reason"] for x in f}
+            self.assertIn("docs/j.md", by, "a groovy read"); self.assertIn("docs/legacy/x.md", by, "the transitive read through the gitlab file")
+            self.assertNotIn("Jenkinsfile.auto-tag", by.get("docs/setup.md", ""), "a groovy // comment is not a read (the path is read elsewhere, by the gitlab file's scripts)")
 
 
 class Cli(unittest.TestCase):
@@ -898,6 +919,10 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 0, "no surface declared in this fixture → touched (fail-closed towards deploying)"); self.assertIn("no runtime surface declared", r.stdout)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "runtime-surface"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1); self.assertIn("is empty", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "runtime-surface", "--json"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("is empty", json.loads(r.stdout)["findings"][0]["reason"])
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "runtime-surface", "--changed", "--base", "nope/ref"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2, "an unresolvable base cannot be judged — the workflows tag to be safe"); self.assertIn("gate:", r.stderr)
 
 
 if __name__ == "__main__":

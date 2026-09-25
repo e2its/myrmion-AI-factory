@@ -152,8 +152,8 @@ last_update: [TIMESTAMP]
 - **Design-System Cards Source (Q29.1 — IF Q29 != internal AND UI scope):** [vision | code-manual | code-rebuild | defer] → `po_package.ds_cards_source` · `po_package.ds_code_cards_dir`: [repo-relative folder | null] · `po_package.ds_rebuild_command`: [one command | null]
 - **Measurement Window (Q30):** `measurement.retention_days`: [90] · `measurement.report_interval_days`: [30] → `subproducts/measure/measure.config.json`
 - **Surface Ceiling per Pull Request (Q31):** `surface.ceiling_files`: [30] · `surface.ceiling_lines`: [800] → `config/quality.json → surface.*`
-- **Runtime Surface (Q33):** `surface.runtime_surface`: [src/**, tests/**, infra/**, scripts/**, package.json] → `config/quality.json → surface.runtime_surface` — the positive list every deploying / release workflow asks (`gate.py runtime-surface --changed`); held to reality by the parity gate (EVOL-047)
 - **Delivery Mode (Q32):** `delivery.mode`: [development] → `docs/project_log/governance_versions.json → delivery_mode` (the gate profile per control point; return to production = set the key to `production` in one commit)
+- **Runtime Surface (Q33):** `surface.runtime_surface`: [src/**, tests/**, infra/**, scripts/**, package.json] → `config/quality.json → surface.runtime_surface` — the positive list every deploying / release workflow asks (`gate.py runtime-surface --changed`); held to reality by the parity gate (EVOL-047)
 
 ## 3.1. Budget Validation Summary
 > Calculated automatically before materialization.

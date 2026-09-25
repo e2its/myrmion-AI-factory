@@ -3,15 +3,20 @@
 
 surface     `surface.runtime_surface` (config/quality.json) is the POSITIVE list: the paths a deployment or a release
             can change. `surface.always_deploy` are the hard exclusions that fire the machinery regardless — workflow
-            definitions and the inputs a deployment-time gate reads — each with its reason. `surface.declared_reads`
-            are paths a deploying job reads that lie outside the surface, each with its reason (a parity exemption).
+            definitions (the CI platform's own files) and the inputs a deployment-time gate reads — each with its
+            reason (`path` is one glob or a list). `surface.declared_reads` are paths a deploying job reads outside the
+            surface, each with its reason (a parity exemption, glob allowed). `surface.deploying_workflows` names the
+            deploying / release-cutting workflow files (globs), resolved at SETUP for the CI platform.
 changed     `gate.py runtime-surface --changed [--base B]`: did base...HEAD touch the surface (or a hard exclusion)?
             exit 0 = touched (deploy / tag) · 1 = untouched (the machinery may skip; the branch rule is untouched —
             every change still ships via branch and pull request) · 2 = could not judge. An empty surface fails
-            closed: everything deploys, and the parity gate says the list is missing.
+            closed: everything deploys, and the parity gate says the list is missing. Renames are seen from both
+            sides; non-ASCII paths are read unquoted.
 parity      `gate.py runtime-surface`: every path literal in the deploying workflows and, transitively, in the scripts
-            they run must match the surface or a hard exclusion, or be a declared read; a declared read nothing reads
-            any more is a stale exemption. Runs where the work happens (a member of the gate profile) and in CI.
+            they run (`scripts/x.sh`, `./scripts/x.sh`, `$ROOT/scripts/x.sh`) must match the surface or a hard
+            exclusion, or be a declared read; a declared read nothing reads any more is a stale exemption; no deploying
+            workflow found is a finding, never a vacuous green. The gate reader itself is not a deploy read. Heuristic
+            over text: a path assembled from variables is invisible — declare it.
 """
 from __future__ import annotations
 
@@ -19,15 +24,12 @@ import re
 import subprocess
 from pathlib import Path
 
-from .common import GateFault, any_glob, context, key
+from .common import GateFault, any_glob, context, key, tracked_files
 
-DEPLOYING_NAMES = re.compile(r"^(auto-tag|deploy|release)[^/]*$")
-WORKFLOW_DIRS = [".github/workflows"]
-META_TEMPLATE_WORKFLOWS = ".context/templates/setup/workflows"
-SCRIPT_CALL = re.compile(r"(?<![\w/])((?:scripts|\.claude/skills/[\w-]+/scripts)/[\w./-]+\.(?:sh|py))\b")
-LITERAL = re.compile(r"(?<![\w$@{}])((?:\.{0,2}/)?(?:[\w.-]+/)+[\w.*-]+(?:\.[\w]+)?|[\w-]+\.(?:json|toml|yaml|yml|txt|cfg|ini|lock|md))(?![\w/])")
-IGNORE_PREFIX = ("refs/", "origin/", "/dev/", "/tmp/", "http", "git@", "github.com", "docs.", "www.", "/usr/", "/bin/", "/etc/", "/opt/", "/home/", "~/")
-WELL_KNOWN = {"package.json", "package-lock.json", "pyproject.toml", "poetry.lock", "requirements.txt", "VERSION", "Cargo.toml", "go.mod", "pom.xml", "build.gradle"}
+META_TEMPLATES = ".context/templates/setup"
+LITERAL = re.compile(r"(?<![\w@{}])((?:\.{1,2}/)?(?:[\w.-]+/)+[\w.*-]+(?:\.[\w]+)?)(?![\w/])")
+IGNORE_PREFIX = ("refs/", "origin/", "/dev/", "/tmp/", "http", "git@", "github.com", "www.", "/usr/", "/bin/", "/etc/", "/opt/", "/home/", "~/", "../")
+GATE_READER = ("scripts/gate.py", "scripts/gates/")
 
 
 def _cfg(repo: Path) -> dict:
@@ -35,17 +37,24 @@ def _cfg(repo: Path) -> dict:
     rs = s.get("runtime_surface") or []
     if not isinstance(rs, list):
         raise GateFault("surface.runtime_surface must be a list of globs (config/quality.json)")
-    ad = s.get("always_deploy") or []
-    dr = s.get("declared_reads") or []
-    for name, items in (("always_deploy", ad), ("declared_reads", dr)):
+    out = {"runtime_surface": [str(g) for g in rs], "always_deploy": [], "declared_reads": [], "deploying_workflows": []}
+    for name in ("always_deploy", "declared_reads"):
+        items = s.get(name) or []
         if not isinstance(items, list) or any(not isinstance(i, dict) or not i.get("path") or not i.get("reason") for i in items):
             raise GateFault(f"surface.{name} must be a list of {{path, reason}} — every exemption names its reason")
-    return {"runtime_surface": [str(g) for g in rs], "always_deploy": ad, "declared_reads": dr}
+        for i in items:
+            paths = i["path"] if isinstance(i["path"], list) else [i["path"]]
+            out[name].append({"paths": [str(p) for p in paths], "reason": str(i["reason"])})
+    dw = s.get("deploying_workflows") or []
+    if not isinstance(dw, list):
+        raise GateFault("surface.deploying_workflows must be a list of globs naming the deploying / release workflow files")
+    out["deploying_workflows"] = [str(g) for g in dw]
+    return out
 
 
 def _git(repo: Path, *args) -> str:
     try:
-        r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, timeout=60)
+        r = subprocess.run(["git", "-C", str(repo), "-c", "core.quotepath=false", *args], capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired) as e:
         raise GateFault(f"git {' '.join(args)} could not run: {e}") from None
     if r.returncode != 0:
@@ -56,60 +65,72 @@ def _git(repo: Path, *args) -> str:
 def changed(repo: Path, base: str) -> dict:
     """{touched, hits, always, reason}. Fail-closed: no surface declared → touched."""
     cfg = _cfg(repo)
-    paths = [p for p in _git(repo, "diff", "--name-only", f"{base}...HEAD").splitlines() if p]
+    paths = [p for p in _git(repo, "diff", "--name-only", "--no-renames", f"{base}...HEAD").splitlines() if p]
     if not cfg["runtime_surface"]:
         return {"touched": True, "hits": paths, "always": [], "reason": "no runtime surface declared (surface.runtime_surface is empty) — every merge deploys until it is (SETUP Q33)"}
+    hard = [p for a in cfg["always_deploy"] for p in a["paths"]]
     hits = [p for p in paths if any_glob(p, cfg["runtime_surface"])]
-    always = [p for p in paths if any_glob(p, [a["path"] for a in cfg["always_deploy"]])]
+    always = [p for p in paths if any_glob(p, hard)]
     touched = bool(hits or always)
     if touched:
-        reason = (f"{len(hits)} path(s) on the runtime surface" if hits else "") + (" · " if hits and always else "") + (f"{len(always)} hard exclusion(s) touched" if always else "")
+        reason = " · ".join(([f"{len(hits)} path(s) on the runtime surface"] if hits else []) + ([f"{len(always)} hard exclusion(s) touched"] if always else []))
     else:
         reason = f"{len(paths)} changed path(s), none on the runtime surface nor a hard exclusion — the machinery may skip; the change still ships via branch and pull request"
     return {"touched": touched, "hits": hits, "always": always, "reason": reason}
 
 
-def deploying_workflows(repo: Path) -> list[Path]:
-    dirs = list(WORKFLOW_DIRS) + ([META_TEMPLATE_WORKFLOWS] if context(repo) == "meta" else [])
-    out = []
-    for d in dirs:
-        p = repo / d
-        if p.is_dir():
-            out += sorted(f for f in p.iterdir() if f.is_file() and DEPLOYING_NAMES.match(f.name))
-    return out
+def deploying_workflows(repo: Path, cfg: dict | None = None) -> list[str]:
+    cfg = cfg or _cfg(repo)
+    globs = list(cfg["deploying_workflows"])
+    if context(repo) == "meta":
+        globs.append(f"{META_TEMPLATES}/workflows/auto-tag.*")   # the shipped templates are audited here, before a project inherits them
+    return sorted(rel for rel in tracked_files(repo) if any_glob(rel, globs)) if globs else []
 
 
-def _literals(text: str) -> set[str]:
+def _code(line: str, groovy: bool) -> str:
+    """The line without its comment: `#` at the start or after whitespace and outside quotes (`${x#y}` is code); `//` in groovy."""
+    if groovy:
+        line = re.split(r"(?:^|\s)//", line, 1)[0]
+    out, in_q = [], None
+    for i, ch in enumerate(line):
+        if ch in "\"'" and in_q in (None, ch):
+            in_q = None if in_q else ch
+        elif ch == "#" and in_q is None and (i == 0 or line[i - 1].isspace()):
+            break
+        out.append(ch)
+    return "".join(out)
+
+
+def _literals(text: str, groovy: bool = False) -> set[str]:
     found = set()
     for line in text.splitlines():
-        code = re.split(r"(?:^|\s)#(?!\{)", line, 1)[0]   # shell / yaml comments; keep ${x#y}
+        code = re.sub(r"\$\{?\w+\}?/", "", _code(line, groovy))   # `$ROOT/scripts/x.sh` → `scripts/x.sh`: the variable is a prefix, the path is the read
         for m in LITERAL.finditer(code):
             lit = m.group(1)
             if lit.startswith("/") or any(lit.startswith(pfx) for pfx in IGNORE_PREFIX):
-                continue   # absolute, remote or URL-shaped tokens are not repository reads
+                continue   # absolute, remote, URL-shaped or escaping tokens are not repository reads
+            lit = lit[2:] if lit.startswith("./") else lit
+            if lit.startswith(GATE_READER):
+                continue   # the gate reader is a gate, not the machinery
             found.add(lit)
     return found
 
 
-def _reads(repo: Path, start: Path, seen: set[Path]) -> dict[str, set[str]]:
-    """path literal → the files that read it, following scripts/*.sh|py calls transitively."""
+def _reads(repo: Path, start: Path, seen: set[Path], template_side: bool) -> dict[str, set[str]]:
+    """path literal → the files that read it, following the scripts a job runs, transitively."""
     out: dict[str, set[str]] = {}
     if start in seen or not start.is_file():
         return out
     seen.add(start)
-    text = start.read_text(encoding="utf-8", errors="replace")
     rel = str(start.relative_to(repo))
-    for lit in _literals(text):
-        lit2 = lit[2:] if lit.startswith("./") else lit
-        target = repo / lit2
-        if not (target.exists() or any(ch in lit2 for ch in "*?") or lit2 in WELL_KNOWN):
+    for lit in _literals(start.read_text(encoding="utf-8", errors="replace"), groovy=start.suffix == ".groovy" or start.name.startswith("Jenkinsfile")):
+        target = repo / (f"{META_TEMPLATES}/{lit}" if template_side and (repo / META_TEMPLATES / lit).exists() else lit)
+        if not (target.exists() or any(ch in lit for ch in "*?")):
             continue   # a token that names nothing in this tree is not a read
-        out.setdefault(lit2, set()).add(rel)
-    for m in SCRIPT_CALL.finditer(text):
-        if m.group(1) == "scripts/gate.py" or m.group(1).startswith("scripts/gates/"):
-            continue   # the gate reader is a gate, not the machinery: its own reads (config, state markers) are not deploy reads
-        for k, v in _reads(repo, repo / m.group(1), seen).items():
-            out.setdefault(k, set()).update(v)
+        out.setdefault(lit, set()).add(rel)
+        if lit.endswith((".sh", ".py")) and (lit.startswith("scripts/") or "/scripts/" in lit):
+            for k, v in _reads(repo, target, seen, template_side).items():
+                out.setdefault(k, set()).update(v)
     return out
 
 
@@ -118,21 +139,24 @@ def parity(repo: Path) -> tuple[list[dict], dict]:
     findings: list[dict] = []
     if not cfg["runtime_surface"]:
         findings.append({"path": "config/quality.json", "reason": "surface.runtime_surface is empty — declare the positive list a deployment can change (SETUP Q33); until then every merge deploys"})
-    covered = cfg["runtime_surface"] + [a["path"] for a in cfg["always_deploy"]]
-    declared = {d["path"]: d for d in cfg["declared_reads"]}
+    wfs = deploying_workflows(repo, cfg)
+    if not wfs:
+        findings.append({"path": "config/quality.json", "reason": "no deploying workflow found — surface.deploying_workflows names none that exists in the tree; the parity gate has nothing to hold the list to (declare the platform's release / deploy files)"})
+    covered = cfg["runtime_surface"] + [p for a in cfg["always_deploy"] for p in a["paths"]]
+    declared = [(p, d["reason"]) for d in cfg["declared_reads"] for p in d["paths"]]
     used: set[str] = set()
-    wfs = deploying_workflows(repo)
     reads: dict[str, set[str]] = {}
     for wf in wfs:
-        for k, v in _reads(repo, wf, set()).items():
+        for k, v in _reads(repo, repo / wf, set(), wf.startswith(META_TEMPLATES + "/")).items():
             reads.setdefault(k, set()).update(v)
     for lit, readers in sorted(reads.items()):
-        if any_glob(lit, covered) or (any(ch in lit for ch in "*?") and any(lit == c or lit.rstrip("/*") == c.rstrip("/*") for c in covered)):
+        if any_glob(lit, covered):
             continue
-        if lit in declared:
-            used.add(lit); continue
+        match = [p for p, _ in declared if lit == p or any_glob(lit, [p])]
+        if match:
+            used.update(match); continue
         findings.append({"path": lit, "reason": f"read by {', '.join(sorted(readers))} but outside the runtime surface — a change here would not deploy: add it to surface.runtime_surface, or declare the read in surface.declared_reads with its reason"})
-    for lit in declared:
-        if lit not in used:
-            findings.append({"path": lit, "reason": f"stale exemption — surface.declared_reads names a path no deploying job or script reads any more ({declared[lit]['reason']}); remove it"})
-    return findings, {"workflows": [str(w.relative_to(repo)) for w in wfs], "literals": len(reads), "declared": len(declared)}
+    for p, reason in declared:
+        if p not in used:
+            findings.append({"path": p, "reason": f"stale exemption — surface.declared_reads names a path no deploying job or script reads any more ({reason}); remove it"})
+    return findings, {"workflows": wfs, "literals": len(reads), "declared": len(declared)}

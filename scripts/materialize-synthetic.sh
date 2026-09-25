@@ -68,7 +68,7 @@ if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]'}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]'}
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -226,6 +226,23 @@ import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["surface"]["declare
 PY
 OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'stale exemption' && ok "RED: a declared read nothing reads is a stale exemption" || bad "stale exemption not caught (rc=$RC)" "$OUT"
+python3 - "$P/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["surface"]["declared_reads"] = []; json.dump(d, open(p, "w"), indent=1)
+PY
+# a read outside the surface INSIDE the materialised deploying workflow is red — the green above is not vacuous
+sed -i 's|^\(\s*\)chmod +x scripts/auto-tag.sh$|\1cat docs/setup.md\n\1chmod +x scripts/auto-tag.sh|' "$P/.github/workflows/auto-tag.yml"
+OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'docs/setup.md: read by .github/workflows/auto-tag.yml' && ok "RED: a read outside the surface inside the materialised deploying workflow is named" || bad "read outside the surface not caught (rc=$RC)" "$OUT"
+sed -i '/^\s*cat docs\/setup.md$/d' "$P/.github/workflows/auto-tag.yml"
+# a second platform's root-level file, declared, is scanned — and its ./scripts/deploy.sh read outside the surface is red
+cp "$T/workflows/auto-tag.gitlab-ci.yml" "$P/.gitlab-ci-auto-tag.yml"; printf '#!/bin/bash\ncat docs/fixture.md\n' > "$P/scripts/deploy.sh"; printf 'f\n' > "$P/docs/fixture.md"
+sed -i 's|^\(\s*- \)chmod +x scripts/auto-tag.sh$|\1./scripts/deploy.sh\n\1chmod +x scripts/auto-tag.sh|' "$P/.gitlab-ci-auto-tag.yml"
+python3 - "$P/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["surface"]["deploying_workflows"].append(".gitlab-ci-auto-tag.yml"); json.dump(d, open(p, "w"), indent=1)
+PY
+git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm gitlab
+OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'docs/fixture.md: read by scripts/deploy.sh' && ok "RED: a root-level GitLab release file is scanned and its ./scripts/deploy.sh read outside the surface is named" || bad "gitlab transitive read not caught (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

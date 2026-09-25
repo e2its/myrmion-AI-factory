@@ -77,7 +77,7 @@
     ]
   },
   "surface": {
-    "_doc": "Per-PR surface ceiling (EVOL-045). The reviewable unit is bounded per pull request: python3 scripts/gate.py surface measures files + lines of the diff vs the one diff base (gate.py diff-base) with no exclusion list; over a ceiling blocks the push unless a commit trailer `Surface-Escape: <term>` names one of `escapes` (closed vocabulary — extending it needs a decision record).  Meta ceilings are wide: an evolution ships the template tree and its meta twin in one PR. EVOL-047: runtime_surface is the POSITIVE list every deploying / release workflow asks before running its machinery (python3 scripts/gate.py runtime-surface --changed); always_deploy = hard exclusions that fire it regardless, each with its reason (workflow definitions; inputs a deployment-time gate reads); declared_reads = paths a deploying job reads outside the surface, each with its reason (parity exemptions). gate.py runtime-surface (a member of the gate profile, CI) holds the list to what the jobs and their scripts really read. The branch rule is untouched: every change ships via branch and pull request.",
+    "_doc": "Per-PR surface ceiling (EVOL-045). The reviewable unit is bounded per pull request: python3 scripts/gate.py surface measures files + lines of the diff vs the one diff base (gate.py diff-base) with no exclusion list; over a ceiling blocks the push unless a commit trailer `Surface-Escape: <term>` names one of `escapes` (closed vocabulary — extending it needs a decision record).  Meta ceilings are wide: an evolution ships the template tree and its meta twin in one PR. EVOL-047: runtime_surface is the POSITIVE list every deploying / release workflow asks before running its machinery (python3 scripts/gate.py runtime-surface --changed); always_deploy = hard exclusions that fire it regardless, each with its reason (workflow definitions; inputs a deployment-time gate reads); declared_reads = paths a deploying job reads outside the surface, each with its reason (parity exemptions). gate.py runtime-surface (a member of the gate profile, CI) holds the list to what the jobs and their scripts really read. The branch rule is untouched: every change ships via branch and pull request. deploying_workflows: the deploying / release-cutting workflow files the parity gate reads (globs).",
     "ceiling_files": 400,
     "ceiling_lines": 40000,
     "escapes": [
@@ -109,6 +109,11 @@
         "reason": "the framework version and delivery mode the release reads"
       }
     ],
-    "declared_reads": []
+    "declared_reads": [],
+    "deploying_workflows": [
+      ".github/workflows/auto-tag.yml",
+      ".github/workflows/deploy*.yml",
+      ".github/workflows/release*.yml"
+    ]
   }
 }

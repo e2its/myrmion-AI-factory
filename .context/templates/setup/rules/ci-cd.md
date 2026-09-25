@@ -40,7 +40,9 @@ changelog:
 4. **Build:** Compile artifacts, build Docker image
 5. **Integration Tests:** API + DB tests
 6. **Deploy Dev:** Auto-deploy to development
-7. **Deploy Staging:** Auto-deploy on release/* branches — every deploying / release-cutting job asks `python3 scripts/gate.py runtime-surface --changed` first and skips its machinery when the merge touched nothing on `config/quality.json → surface.runtime_surface` (the positive list; hard exclusions in `surface.always_deploy`; EVOL-047). The branch rule is untouched: every change ships via branch and pull request.
+7. **Deploy Staging:** Auto-deploy on release/* branches
+
+> **Runtime surface (EVOL-047).** Every deploying / release-cutting stage (Deploy Dev, Deploy Staging, Deploy Prod, auto-tag) asks `python3 scripts/gate.py runtime-surface --changed` first and skips its machinery when the merge touched nothing on `config/quality.json → surface.runtime_surface` (the positive list; hard exclusions in `surface.always_deploy`; the parity gate `gate.py runtime-surface` holds the list to what the jobs read). The branch rule is untouched: every change ships via branch and pull request.
 8. **Performance Tests:** Load testing on staging
 9. **Deploy Prod:** Manual approval required
 10. **Smoke Tests:** Health checks post-deploy

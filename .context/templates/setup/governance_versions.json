@@ -198,10 +198,11 @@
       ]
     },
     "rules/branching.md": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md",
       "changelog": [
+        "2.7.0: feat(EVOL-047) — post-merge actions and the main-branch line qualified by the runtime surface (gate.py runtime-surface --changed).",
         "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments.",
         "2.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "2.5.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
@@ -677,11 +678,12 @@
       "delivery": "both"
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
+        "2.5.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
         "2.4.0: feat(EVOL-046) — one profile step (gate.py profile --run) replaces the per-gate steps; one-definition step; header explains the profile.",
         "2.3.0: feat(EVOL-045) — surface gate step; currency and surface measured against the PR base ref.",
         "2.2.0: feat(EVOL-044) — currency + manifest-parity steps.",
@@ -3642,11 +3644,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.14.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
         "1.13.0: feat(EVOL-046) — one profile step (gate.py profile --run) replaces the per-gate steps; one-definition step.",
         "1.12.0: feat(EVOL-045) — surface gate step; currency and surface measured against the PR base ref.",
         "1.11.0: feat(EVOL-044) — currency + manifest-parity steps.",
@@ -3723,9 +3726,10 @@
       "delivery": "both"
     },
     "scripts/test-templates-static.sh": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "path": "scripts/test-templates-static.sh",
       "changelog": [
+        "1.5.0: feat(EVOL-047) — every deploying template's runtime-surface gate line runs against a stubbed reader: untouched skips the tag, a fault says so and proceeds, touched proceeds; the GitHub gate step's outputs.",
         "1.4.0: feat(EVOL-046) — every workflow file (meta + every platform template) must parse as YAML (an unquoted step name with a colon failed CI at 0 s).",
         "1.3.0: feat(EVOL-043) — rewritten/extended for the index model (see script header).",
         "1.2.0: fix(github-project-link-repo) — assertion 7: the GitHub Projects adapter's `create_project` links the board to the repository. The link command is matched as a whole line; the project-side verification and the no-second-board rule are asserted; a missing adapter file fails as an assertion, not an awk abort.",
