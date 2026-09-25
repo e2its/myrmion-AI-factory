@@ -6,7 +6,7 @@ applicable_when:
     - "**/tests/**"
     - "**/*.test.*"
     - "**/*.spec.*"
-version: 1.5.1
+version: 1.6.0
 date: 2026-09-25
 changelog:
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -32,7 +32,7 @@ changelog:
 - ✅ **QA slice mode REQUIRED:** Each slice that has reached per-entry `IMPLEMENTED_AND_VERIFIED` REQUIRES `/qa --verify {FEATURE_ID} {INC-N}` before the aggregate may run. The slice report path is `docs/spec/{FEATURE_ID}/qa/qa_report_{INC-N}_{ts}.md` with checklist filtered to the scenarios assigned to that increment in `increment_plan.md § 1`.
 - ✅ **Aggregate gate:** `/qa --verify {FEATURE_ID}` (no `INC-N`) is BLOCKED until every per-slice `qa_report_{INC-N}_*.md` exists with `status: APPROVED`. The aggregate report (`qa_report_final_{ts}.md`) cross-references every slice report via the `aggregates: [...]` frontmatter field.
 - ✅ **Plan-level derivation:** `dev_plan.status` flips to `IMPLEMENTED_AND_VERIFIED` ONLY when (a) every entry in `dev_plan.frontmatter.increments[]` has `status: IMPLEMENTED_AND_VERIFIED` AND (b) the plan-level aggregate `BVL full_verification_gate(FEATURE_ID, null)` passes — run automatically on the last slice closure.
-- ✅ **Monolithic compatibility:** When `slicing_strategy: monolithic`, the gate is single-level: all `[ ]` → `[x]` plus BVL aggregate, then `dev_plan.status` flips. `/qa --verify {ID}` without `INC-N` reads global status — exactly as before.
+- ✅ **Monolithic compatibility:** When `slicing_strategy: monolithic`, the gate is single-level: all `[ ]` → `[x]`, then `dev_plan.status` flips (the last tracked write), then the one full loop seals the bytes (EVOL-051). `/qa --verify {ID}` without `INC-N` reads global status — exactly as before.
 
 ### Anti-Patterns (PROHIBITED)
 
@@ -100,4 +100,4 @@ changelog:
 ## [LAW-05] Testing
 > Every unit of logic has its unit test, written red first: red, green, refactor, verify.
 
-1 Logic = 1 Unit Test. TDD cycle per task: Red (a failing test names the behaviour) → Green (the least code that passes) → Refactor (under the tests) → Verify (the scoped suite, then the one full verification loop per increment). A unit of logic without its test does not reach review.
+1 Logic = 1 Unit Test. TDD cycle per task: Red (a failing test names the behaviour) → Green (the least code that passes) → Refactor (under the tests) → Verify (the scoped suite, then the one full verification loop per change). A unit of logic without its test does not reach review. **One full loop per change (EVOL-051):** the static round (no build, no database) and the workers' scoped runs before the critics; the artefacts written; then the full loop once, on the bytes the commit carries, each suite executed once (the suite that feeds coverage feeds both), its green sealed (`python3 scripts/gate.py seal`) and honoured at the push; after a green seal a delta re-runs only the gates whose read-set it touched, a documentation-only delta none, an unmapped path the whole loop.

@@ -29,6 +29,12 @@
   gate.py plan --status [--branch B]               one advisory line for the prompt hook (exit 0 always)
   gate.py plan --enter [--branch B]                may this session enter plan mode? exit 1 on a class a framework phase already plans (one stage, never two)
   gate.py plan --record --hook-json                write the approval marker from the harness's PostToolUse ExitPlanMode payload on stdin — refuses anything else
+  gate.py documentation --path P | --changed [--base B]   the ONE definition of a documentation path (config: documentation); --changed exit 0 = every path of base...HEAD is documentation
+  gate.py seal --plan [--branch B --base B]        the gates the loop owes NOW on the tree on disk, grouped into executions (one per command); full when unmapped
+  gate.py seal --write --gates a,b --ok|--red [--summary S] [--full]   record a run (read-set hashes on disk, right after the execution); --full seals the tree over green records (refused when a read-set moved after its run)
+  gate.py seal --check [--branch B --base B --ref R --control-point P]   the push's question: the seal covers the tree the commit carries; exit 1 gates owed · n/a when not required
+  gate.py seal --validate                          the map is sound (documentation defined, every gate reads something)
+  gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
   gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort; exit 1 when the round is over the class cap
   gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class; `separation: false` when a critic lands on the writer's family
@@ -48,7 +54,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, coherence, corpus, planning, profile as profile_mod, retired, runtime  # noqa: E402
+    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, coherence, corpus, digests as digests_mod, planning, profile as profile_mod, retired, runtime, seal as seal_mod  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -200,7 +206,7 @@ def cmd_profile(repo, a):
         rep = profile_mod.run(repo, a.branch, a.base, a.control_point)
         print(json.dumps(rep, indent=2) if a.json else profile_mod.render(rep))
         return {"ok": 0, "RED": 1}.get(rep["verdict"], 2)
-    pr = profile_mod.profile(repo, a.branch)
+    pr = profile_mod.profile(repo, a.branch, a.control_point)
     pr["members"] = profile_mod.owed(pr["profile"])
     print(json.dumps(pr, indent=2) if a.json else f"profile: {pr['profile']} — {pr['reason']} · {pr['mode_reason']}\n  members: " + ", ".join(m["member"] for m in pr["members"]))
     return 0
@@ -297,6 +303,57 @@ def cmd_agents(repo, a):
     return 1 if findings else 0
 
 
+def cmd_documentation(repo, a):
+    if a.changed:
+        base = _base(repo, a)
+        r = seal_mod.docs_only(repo, base)
+        print(json.dumps(r) if a.json else f"documentation: {'ok' if r['ok'] else 'no'} — {r['reason']}")
+        return 0 if r["ok"] else 1
+    if not a.path:
+        raise GateFault("documentation needs --path P or --changed")
+    ok, why = seal_mod.is_documentation(a.path, seal_mod.documentation_cfg(repo))
+    print(f"documentation: {'yes' if ok else 'no'} — {a.path}: {why}")
+    return 0 if ok else 1
+
+
+def cmd_seal(repo, a):
+    if a.plan:
+        r = seal_mod.plan(repo, a.branch, a.base)
+        if a.json:
+            print(json.dumps(r)); return 0 if r["ok"] else 1
+        if not r["required"]:
+            print(f"seal: n/a — {r['reason']}"); return 0
+        if not r["ok"]:
+            print(f"seal: RED — {r['reason']}"); return 1
+        print(f"seal: plan — {r['reason']}")
+        for e in r["executions"]:
+            print(f"  run: {e['command']}  →  {', '.join(e['gates'])}")
+        if not r["executions"]:
+            print("  nothing owed")
+        return 0
+    if a.write:
+        gates = [g.strip() for g in (a.gates or "").split(",") if g.strip()]
+        if a.ok == a.red:
+            raise GateFault("seal --write needs the outcome: --ok or --red (a forgotten flag is never a green)")
+        r = seal_mod.write(repo, gates, ok=a.ok, summary=a.summary or "", full=a.full, branch=a.branch)
+        print(json.dumps(r) if a.json else f"seal: recorded {', '.join(gates) or '(no gate)'} {'ok' if not a.red else 'RED'}{' · full loop sealed' if r['full'] else ''} → {r['path']}")
+        return 0
+    if a.validate:
+        f = seal_mod.validate(repo)
+        print(coherence.render("seal", f, "documentation defined, every gate reads something, the seal's home"))
+        return 1 if f else 0
+    r = seal_mod.check(repo, a.branch, a.ref or "HEAD", a.control_point, a.base)
+    print(json.dumps(r) if a.json else seal_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
+def cmd_digests(repo, a):
+    base = _base(repo, a)
+    r = digests_mod.check(repo, base, a.branch, a.control_point)
+    print(json.dumps(r) if a.json else digests_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
 def cmd_one_definition(repo, a):
     f = profile_mod.one_definition(repo)
     print(coherence.render("one-definition", [{"path": f"{x['path']}:{x['line']}", "reason": x["reason"]} for x in f], "hooks, workflows and the preflight keep no second definition"))
@@ -360,9 +417,12 @@ def build_parser():
     p = sub.add_parser("branch-class"); p.add_argument("--branch", default=None); p.add_argument("--protected", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_branch_class)
     p = sub.add_parser("diff-base"); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_diff_base)
     p = sub.add_parser("surface"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_surface)
-    p = sub.add_parser("profile"); p.add_argument("--run", action="store_true"); p.add_argument("--control-point", choices=("push", "ci"), default="push"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_profile)
+    p = sub.add_parser("profile"); p.add_argument("--run", action="store_true"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_profile)
     p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
+    p = sub.add_parser("documentation"); p.add_argument("--path", default=None); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_documentation)
+    p = sub.add_parser("seal"); p.add_argument("--base", default=None); p.add_argument("--plan", action="store_true"); p.add_argument("--write", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--validate", action="store_true"); p.add_argument("--gates", default=""); p.add_argument("--ok", action="store_true"); p.add_argument("--red", action="store_true"); p.add_argument("--summary", default=""); p.add_argument("--full", action="store_true"); p.add_argument("--branch", default=None); p.add_argument("--ref", default="HEAD"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_seal)
+    p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
     p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--spawn", action="store_true"); p.add_argument("--model", default=""); p.add_argument("--hook-json", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
     return ap

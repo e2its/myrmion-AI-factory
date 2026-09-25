@@ -300,6 +300,9 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
     IF dev_plan_status != "IMPLEMENTED_AND_VERIFIED":
       ❌ BLOCK: "dev_plan.md status is '{dev_plan_status}', expected 'IMPLEMENTED_AND_VERIFIED'. Run IMPLEMENT --build {FEATURE_ID} first."
       STOP
+    IF RUN("python3 scripts/gate.py seal --check --ref HEAD") != 0:   # EVOL-051: the status is written before the loop; the seal is the proof
+      ❌ BLOCK: "IMPLEMENTED_AND_VERIFIED without a covering seal — the full loop did not seal these bytes. Run IMPLEMENT --build {FEATURE_ID} first."
+      STOP
 
   # 3. devops_plan.md must be APPROVED (feature-scoped only)
   IF FEATURE_ID IS NOT NULL:

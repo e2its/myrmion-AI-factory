@@ -982,6 +982,7 @@ created_at: "{ISO_8601}"
 based_on_iteration: {spec.iteration}
 based_on_schemas_version: {user_journey.schemas_version}
 slicing_strategy: "{fm_plan.slicing_strategy}"   # inherited from increment_plan.md — drives plan body structure
+governance_digest_version: "{design.frontmatter.governance_digest_version}"   # EVOL-051 — copied from design.md at plan time; gate.py digests judges it (fingerprint + every bound rule named in this plan's § Governance)
 pending_iteration: null
 pending_schemas_version: null
 invalidated_sections: []

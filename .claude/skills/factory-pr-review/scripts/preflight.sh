@@ -129,25 +129,19 @@ if [[ -f "scripts/gate.py" ]]; then
   esac
 fi
 
-# ── Docs-only fast-lane (matches CLAUDE.md Generation Standards §3) ──
-# Allowlist: **/*.md, docs/**, .context/templates/**, .gitignore
-# Hard exclusions (always PR + full CI, even when the path also matches *.md):
-#   .github/workflows/**  — workflow YAML
-#   .claude/{instructions,skills,commands,hooks}/** — framework-core behavioral contracts
-# Exclusion arms MUST precede the *.md allow arm: instruction/skill/command files
-# carry the .md extension but are behaviour, not docs.
-fast_lane=true
-while IFS= read -r f; do
-  [[ -z "$f" ]] && continue
-  case "$f" in
-    .github/workflows/*|.claude/instructions/*|.claude/skills/*|.claude/commands/*|.claude/hooks/*)
-      fast_lane=false; break ;;
-    *.md|docs/*|.context/templates/*|.gitignore)
-      ;;
-    *)
-      fast_lane=false; break ;;
+# ── Docs-only fast-lane (CLAUDE.md Generation Standards §3) — ONE definition (EVOL-051) ──
+# The documentation class lives in config/quality.json → documentation (paths minus exclusions) and is read
+# through python3 scripts/gate.py documentation — the same call the planning gate and the seal make. No list here.
+# Exit 0 = every changed path is documentation; anything else (code in the diff, reader absent, config missing) = no lane.
+fast_lane=false
+if [[ -f "$REPO_ROOT/scripts/gate.py" ]]; then
+  DOC_OUT=$("$PYTHON" "$REPO_ROOT/scripts/gate.py" documentation --changed --base "$BASE_REF" 2>&1); DOC_RC=$?   # never `set -e` here: the script runs under -uo pipefail and counts with grep
+  case "$DOC_RC" in
+    0) fast_lane=true ;;
+    1) ;;
+    *) add_finding "important" "documentation-class-unavailable" "gate.py documentation could not classify the diff (${DOC_OUT:-no message}) — the review lanes run; fix config/quality.json → documentation or re-sync scripts/gates." ;;
   esac
-done <<< "$CHANGED_FILES"
+fi
 
 if [[ "$fast_lane" == "true" ]] && ! grep -q '^blocker|' "$FINDINGS_FILE" 2>/dev/null; then
   log "preflight: docs-only fast-lane (every changed path matches the allowlist) — exit 0"

@@ -200,9 +200,29 @@ echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":1,"ceiling_lin
 J=$(run_preflight "$R3")
 [[ "$(sev_of "$J" surface-over-ceiling)" == "absent" ]] && pass "a Surface-Escape trailer from the closed list → no surface finding" || fail "escape not honoured ($(find_cat "$J"))"
 
+echo "Scenario 16 — the docs-only lane reads the ONE definition (EVOL-051): a clean code push passes with its JSON (no silent exit), docs-only + config → fast-lane, docs-only without the config → the lanes run and say why"
+R4="$TMP_ROOT/repo4"; make_repo "$R4"
+mkdir -p "$R4/scripts"; cp "$FRAMEWORK_ROOT/scripts/gate.py" "$R4/scripts/gate.py"; cp -R "$FRAMEWORK_ROOT/scripts/gates" "$R4/scripts/gates"; find "$R4/scripts" -name __pycache__ -type d -exec rm -rf {} +
+printf '__pycache__/\n.claude/state/\n' > "$R4/.gitignore"; export PYTHONDONTWRITEBYTECODE=1
+echo '{"context":"downstream","audit":{"root_sets":["."],"exclusions":[".git/"]}}' > "$R4/config/coherence-context.json"
+echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":50,"ceiling_lines":5000,"escapes":["lockfile"]},"documentation":{"paths":["**/*.md","docs/**"],"exclusions":[".github/workflows/**"]}}' > "$R4/config/quality.json"
+(cd "$R4" && git checkout -q main && git add -A && git commit -qm "chore: the delivered reader and its config" && git update-ref refs/remotes/origin/main main)   # the scaffolding lives on main, as SETUP leaves it
+(cd "$R4" && git checkout -qb feature/FEAT-001-lane origin/main && echo 'def y(): return 9' > src/y.py && git add -A && git commit -qm "feat: code")
+RC=0; J=$(cd "$R4" && bash .claude/skills/factory-pr-review/scripts/preflight.sh --json 2>/dev/null) || RC=$?
+[[ "$RC" -eq 0 && "$(echo "$J" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("verdict"), d.get("mode"))' 2>/dev/null)" == "pass preflight" ]] && pass "a clean code push: verdict pass, mode preflight, rc 0 — the JSON is printed (no set -e death)" || fail "clean code push (rc=$RC, cats=$(find_cat "$J"))"
+(cd "$R4" && git checkout -qb docs/lane origin/main && echo doc > docs_note.md && git add -A && git commit -qm "docs: note")
+J=$(run_preflight "$R4")
+[[ "$(echo "$J" | "$PY" -c 'import json,sys; print(json.load(sys.stdin).get("mode"))' 2>/dev/null)" == "fast-lane" ]] && pass "docs-only diff + documentation config → fast-lane (one definition, through gate.py documentation)" || fail "docs-only lane did not engage (cats=$(find_cat "$J"))"
+echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":50,"ceiling_lines":5000,"escapes":["lockfile"]}}' > "$R4/config/quality.json"
+J=$(run_preflight "$R4")
+[[ "$(sev_of "$J" documentation-class-unavailable)" == "important" && "$(echo "$J" | "$PY" -c 'import json,sys; print(json.load(sys.stdin).get("mode"))' 2>/dev/null)" == "preflight" ]] && pass "no documentation config → no lane, said as an important finding" || fail "missing documentation config not said ($(find_cat "$J"))"
+(cd "$R4" && git checkout -q feature/FEAT-001-lane && echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":50,"ceiling_lines":5000,"escapes":["lockfile"]},"documentation":{"paths":["**/*.md","docs/**"],"exclusions":[".github/workflows/**"]}}' > config/quality.json)
+J=$(run_preflight "$R4")
+[[ "$(echo "$J" | "$PY" -c 'import json,sys; print(json.load(sys.stdin).get("mode"))' 2>/dev/null)" == "preflight" ]] && pass "a code diff with the config never takes the lane (fail-closed: the lane is documentation only)" || fail "code diff took the lane ($(echo "$J" | head -c 160))"
+
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
-  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across 15 scenarios."
+  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across 16 scenarios."
   exit 0
 else
   echo "L6: FAIL — $FAILURES scenario assertion(s) failed."

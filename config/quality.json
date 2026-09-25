@@ -269,7 +269,7 @@
     ]
   },
   "planning": {
-    "_doc": "One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan (python3 scripts/gate.py plan --path P; the PreToolUse hook check-plan-approval.sh asks it). governed_paths minus docs_exempt, except gate_inputs (documents a gate reads — governed like code). exempt_classes: the classes whose plan a framework phase owns; every other class is gated (fail-closed). plan_artefact: the branch's own plan artefact ({ID} = feature id) counts when its frontmatter status is approved. The approval marker is written only by the harness's plan approval (PostToolUse ExitPlanMode → gate.py plan --record); a marker approved on another branch is adopted once, within adoption_window_minutes. Framework repo: no class is exempt — an evolution branch has no framework phase; its ADR (status: accepted) is its plan, written first. In the framework repo every governed path is a gate input — the .md files under .claude/ and .context/templates/ ARE the product, never documentation; docs/ and README.md are the documentation.",
+    "_doc": "One planning stage (EVOL-048): a write to a governed path on a branch class with no framework planning phase needs an approved plan (python3 scripts/gate.py plan --path P; the PreToolUse hook check-plan-approval.sh asks it). governed_paths minus the documentation class (config → documentation, EVOL-051), except gate_inputs (documents a gate reads — governed like code). exempt_classes: the classes whose plan a framework phase owns; every other class is gated (fail-closed). plan_artefact: the branch's own plan artefact ({ID} = feature id) counts when its frontmatter status is approved. The approval marker is written only by the harness's plan approval (PostToolUse ExitPlanMode → gate.py plan --record); a marker approved on another branch is adopted once, within adoption_window_minutes. Framework repo: no class is exempt — an evolution branch has no framework phase; its ADR (status: accepted) is its plan, written first. In the framework repo every governed path is a gate input — the .md files under .claude/ and .context/templates/ ARE the product, never documentation; docs/ and README.md are the documentation.",
     "governed_paths": [
       ".context/templates/**",
       ".claude/**",
@@ -277,10 +277,6 @@
       "config/**",
       "CLAUDE.md",
       ".github/workflows/**"
-    ],
-    "docs_exempt": [
-      "**/*.md",
-      "docs/**"
     ],
     "gate_inputs": [
       ".context/templates/**",
@@ -301,5 +297,34 @@
       "writer": "sonnet",
       "critic": "opus"
     }
+  },
+  "documentation": {
+    "_doc": "The ONE definition of a documentation path (EVOL-051): root-anchored globs in `paths`, minus `exclusions` (code whatever the extension). Read by python3 scripts/gate.py documentation — the push-gate preflight's review-lane skip, the planning gate's exemption (planning.docs_exempt is retired) and the seal's classification. A workflow or a behavioural contract (.claude/{instructions,skills,commands,hooks}) is never documentation.",
+    "paths": [
+      "**/*.md",
+      "docs/**",
+      ".context/templates/**",
+      ".gitignore"
+    ],
+    "exclusions": [
+      ".github/workflows/**",
+      ".claude/instructions/**",
+      ".claude/skills/**",
+      ".claude/commands/**",
+      ".claude/hooks/**"
+    ]
+  },
+  "verification": {
+    "_doc": "One full verification loop per change (EVOL-051): `gates` is the path-to-gate map (what each full-loop gate READS, and the command that runs it — a command shared by two gates is executed once); `seal` is where python3 scripts/gate.py seal records a green loop per branch (untracked) and whether this repo owes one; `digest_artefacts` are the planning artefacts gate.py digests judges under docs/spec/{ID}/. The framework repo owes no local seal: its loop is the T2 suite CI runs on every pull request.",
+    "seal": {
+      "required": false,
+      "dir": ".claude/state",
+      "reason": "the framework repo's full loop is the T2 suite governance-check.yml runs on every pull request; no product build, no local seal"
+    },
+    "gates": {},
+    "digest_artefacts": [
+      "design.md",
+      "dev_plan.md"
+    ]
   }
 }
