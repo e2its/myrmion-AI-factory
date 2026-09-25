@@ -49,6 +49,7 @@ pipeline {
             steps {
                 sshagent(credentials: ['git-push-credentials']) {
                     sh '''
+                        if ! python3 scripts/gate.py runtime-surface --changed --base HEAD^1; then rc=$?; if [ "$rc" -eq 1 ]; then echo "outside the runtime surface — no tag, no release (the branch rule is untouched)"; exit 0; fi; echo "gate.py runtime-surface could not judge (exit $rc) — tagging to be safe"; fi
                         chmod +x scripts/auto-tag.sh
                         OUTPUT=$(bash scripts/auto-tag.sh --apply --ci 2>&1)
                         echo "$OUTPUT"

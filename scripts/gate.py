@@ -22,6 +22,8 @@
   gate.py profile [--branch B] [--json]            the gate profile this push owes (delivery_mode × branch class → light | full, fail-closed to full)
   gate.py profile --run [--control-point push|ci] [--base B] [--branch B] [--json]   run every script member of the profile, all-report; exit 1 any red · 2 a member could not run
   gate.py one-definition                           hooks / workflows / preflight keep no branch list, mode read or mode override; exit 1 on a finding
+  gate.py runtime-surface [--json]                 parity: every path a deploying job or its scripts read is on surface.runtime_surface, a hard exclusion or a declared read; exit 1 on a finding
+  gate.py runtime-surface --changed [--base B]     did base...HEAD touch the runtime surface (or a hard exclusion)? exit 0 touched · 1 untouched (the machinery may skip) · 2 could not judge
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08) · 3 the reader itself is missing or broken (governance not delivered).
 """
@@ -35,7 +37,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import branch as branch_mod, budget as budget_mod, coherence, corpus, profile as profile_mod, retired  # noqa: E402
+    from gates import branch as branch_mod, budget as budget_mod, coherence, corpus, profile as profile_mod, retired, runtime  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -193,6 +195,17 @@ def cmd_profile(repo, a):
     return 0
 
 
+def cmd_runtime_surface(repo, a):
+    if a.changed:
+        base = a.base or "HEAD^1"
+        c = runtime.changed(repo, base)
+        print(json.dumps(c) if a.json else f"runtime-surface: {'touched' if c['touched'] else 'untouched'} — {c['reason']}" + (f"\n  {' '.join(c['hits'] + c['always'])}" if c["hits"] or c["always"] else ""))
+        return 0 if c["touched"] else 1
+    findings, stats = runtime.parity(repo)
+    print(coherence.render("runtime-surface", findings, f"{stats['literals']} path(s) read by {len(stats['workflows'])} deploying workflow(s), {stats['declared']} declared read(s)"))
+    return 1 if findings else 0
+
+
 def cmd_one_definition(repo, a):
     f = profile_mod.one_definition(repo)
     print(coherence.render("one-definition", [{"path": f"{x['path']}:{x['line']}", "reason": x["reason"]} for x in f], "hooks, workflows and the preflight keep no second definition"))
@@ -258,6 +271,7 @@ def build_parser():
     p = sub.add_parser("surface"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_surface)
     p = sub.add_parser("profile"); p.add_argument("--run", action="store_true"); p.add_argument("--control-point", choices=("push", "ci"), default="push"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_profile)
     p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
+    p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
     return ap
 
 

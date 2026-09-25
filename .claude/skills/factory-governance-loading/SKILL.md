@@ -345,7 +345,7 @@ manifest.last_updated = TODAY
 WRITE manifest
 ```
 
-**Applies.** Every commit touching a tracked file. Docs-only fast-lane commits too — fast-lane bypasses CI workflows, NOT this rule.
+**Applies.** Every commit touching a tracked file. Docs-only changes too — a change outside the runtime surface skips the deploy / tag machinery (EVOL-047), NOT this rule, and it still ships via branch and pull request.
 
 **Does not apply.** Untracked files (`/memories/**`, worklog JSONL, test fixtures, `.gitignore`). Pure `git mv` within same dir if manifest key unchanged.
 

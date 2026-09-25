@@ -42,7 +42,7 @@ Runs locally against the current branch's diff vs its base. NEVER touches the re
 Steps (executed by `preflight.sh`):
 1. Resolve base: `python3 scripts/gate.py diff-base` (a sub-increment → its train; else the default base branch; unrecognised branch name → red). `--base` overrides.
 2. Compute `git diff --name-only {base}..HEAD`.
-3. **Docs-only fast-lane** — if every changed path matches `**/*.md`, `docs/**`, `.context/templates/**`, `.gitignore` (and none under `.github/workflows/**`), exit 0 with `fast-lane: docs-only` note. Skip remaining checks.
+3. **Docs-only fast-lane (review lanes only)** — if every changed path matches `**/*.md`, `docs/**`, `.context/templates/**`, `.gitignore` (and none under `.github/workflows/**`), exit 0 with `fast-lane: docs-only` note and skip the remaining review lanes. It never touches the branch rule (EVOL-047): the change still ships via branch and pull request; whether the deploy / tag machinery runs is decided by `gate.py runtime-surface --changed` against the positive list.
 4. Run `detect_change_type.py` → flags JSON.
 5. Run `check_docs_sync.py --git-range {base}..HEAD --json` → docs findings.
 6. If any `docs/spec/*/dev_plan.md` in diff, run `check_dev_plan_task_format.py --git-range {base}..HEAD --json` → IMPLEMENT plan task-format findings (orphan `### X.N` h3 vs canonical `- [ ] [X.N]` checkbox; `status: READY` plans with zero unchecked tasks).
@@ -350,7 +350,7 @@ Without persisting the analysis on the PR, the chain "I saw a failure → I diag
 ### Materialised projects (downstream)
 - All blocks active except the meta-only ones (Block 11, Block 16-meta).
 - Block 20 active by default; tune via optional `config/quality.json.code_review` or downgrade via ADR `pr_review_overrides.block_20_code_review`.
-- Docs-only fast-lane only when the project's own `CLAUDE.md` declares it (defaults to OFF).
+- Docs-only fast-lane (review lanes only) as CLAUDE.md § Generation Standards §3 states it — never a commit-to-main permit; deployment is decided by `surface.runtime_surface`.
 - `config/protected-paths.json` consulted for Block 12.
 - `docs/spec/{ID}/` artefacts drive Block 8 (CVP subset).
 

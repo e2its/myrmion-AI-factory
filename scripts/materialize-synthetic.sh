@@ -13,7 +13,8 @@
 #   6. injection budgets hold against the real producers; the retired-term ratchet is clean;
 #      manifest ↔ frontmatter parity and artefact currency hold (EVOL-044); branch classes, the one diff
 #      base and the surface ceiling read the project's keys — a train is protected, an over-ceiling diff is red (EVOL-045);
-#      the gate profile resolves from the one mode key and runs every member in one call; no second definition (EVOL-046)
+#      the gate profile resolves from the one mode key and runs every member in one call; no second definition (EVOL-046);
+#      the deployment trigger is the positive runtime surface, held by the parity gate (EVOL-047)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
@@ -67,7 +68,7 @@ if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800"}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]'}
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -211,6 +212,20 @@ OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push 2>&1
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^profile: light' && printf '%s' "$OUT" | grep -q 'base origin/feature/FEAT-001-inc-1-x' && printf '%s' "$OUT" | grep -q 'skipped by the light profile' && printf '%s' "$OUT" | grep -q 'writes no seal' && ok "the light profile runs end to end on a sub-increment against its train: every no-build member green, the loop members skipped and named, no seal" || bad "light profile end to end (rc=$RC)" "$OUT"
 [ "$(git -C "$P" status --porcelain | wc -l)" = "$BEFORE" ] && ok "the light run wrote nothing (no seal, no marker)" || bad "the light run left files behind" "$(git -C "$P" status --porcelain)"
 git -C "$P" checkout -q feature/FEAT-001-smoke
+# the deployment trigger (EVOL-047): a positive list, a parity gate, the branch rule untouched
+OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "runtime-surface parity: every path the materialised deploying workflow reads is on the list ($OUT)" || bad "runtime-surface parity red in the scratch (rc=$RC)" "$OUT"
+git -C "$P" update-ref refs/remotes/origin/main HEAD; printf 'doc\n' > "$P/docs/only.md"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm docs
+OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface --changed --base HEAD^1 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'branch and pull request' && ok "a docs-only merge is outside the runtime surface: the machinery may skip, the branch rule is restated" || bad "docs-only merge judged touched (rc=$RC)" "$OUT"
+printf 'print(9)\n' > "$P/src/app.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm code
+OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface --changed --base HEAD^1 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "a merge touching src/** is on the runtime surface: deploy / tag" || bad "src merge judged untouched (rc=$RC)" "$OUT"
+python3 - "$P/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["surface"]["declared_reads"] = [{"path": "docs/never.md", "reason": "gone"}]; json.dump(d, open(p, "w"), indent=1)
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py runtime-surface 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'stale exemption' && ok "RED: a declared read nothing reads is a stale exemption" || bad "stale exemption not caught (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

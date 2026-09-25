@@ -1,5 +1,5 @@
 ---
-description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q32 questions. Use when: SETUP --init command execution."
+description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q33 questions. Use when: SETUP --init command execution."
 applicable_when:
   phase: [SETUP]
   command: [setup]
@@ -74,7 +74,7 @@ TIER_1_STACK:
 
 TIER_2_INFRASTRUCTURE:
   name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31, Q32]
+  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31, Q32, Q33]
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
@@ -509,6 +509,14 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **RDR Recommendation:** `development` for a project that has not shipped to production — no gate becomes optional, it changes its control point (the light profile at a sub-increment push, the full one at the train close and at every pull request to the main branch). `production` once real users depend on the main branch: every branch owes the full profile. The key is read by one definition (`python3 scripts/gate.py profile`) that fails closed — an absent key, an unknown value or an unreadable manifest is `production`; no environment variable overrides it.
 - **Tier-filtered:** All tiers.
 - **Persist:** `delivery.mode` (frontmatter of `docs/setup.md`, nested YAML `delivery:`) → `delivery_mode` at the top level of `docs/project_log/governance_versions.json` at `--generate`. **Return to production mode:** set `delivery_mode: production` in that manifest in one `chore(governance): delivery mode → production` commit — from then every push owes the full profile.
+
+#### Q33: Runtime Surface (EVOL-047)
+- **Type:** List of path globs — the POSITIVE list of what a deployment or a release can change
+- **Options:** derived from the stack: source roots (`src/**`, `app/**`, `lib/**`), tests (`tests/**`), infrastructure (`infra/**`, `docker/**`, `Dockerfile*`), dependency manifests (`package.json`, `pyproject.toml`, lockfiles), migrations, the scripts a deployment runs (`scripts/**`), static assets served at runtime
+- **Simplified:** es: "¿Qué carpetas y ficheros cambian lo que se despliega? Un cambio fuera de esa lista (documentación, planes) sigue pasando por rama y pull request, pero no despliega ni corta versión." / en: "Which folders and files change what gets deployed? A change outside that list (documentation, plans) still ships via branch and pull request, but does not deploy or cut a release."
+- **RDR Recommendation:** the stack's source, tests, infrastructure, dependency manifests, migrations and deploy scripts — everything the deployed artefact is built from — and nothing that only humans read. An exclusion list is unbounded on the wrong side (every new path defaults to "deploys" and the one wrong default goes unnoticed); a positive list defaults new paths to "does not deploy" and the parity gate (`python3 scripts/gate.py runtime-surface`) says when a deploying job reads something outside it. Too wide (`**`) = every merge deploys (the old behaviour, safe but wasteful); too narrow = the parity gate goes red on the first deploy-time read outside it.
+- **Tier-filtered:** All tiers.
+- **Persist:** `surface.runtime_surface` (frontmatter of `docs/setup.md`, nested YAML `surface:`, a list) → `config/quality.json → surface.runtime_surface` at `--generate` (the `always_deploy` hard exclusions and `declared_reads` keep template defaults; extending them is a decision record)
 
 ---
 

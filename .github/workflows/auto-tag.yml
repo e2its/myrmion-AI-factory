@@ -42,7 +42,18 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: "Runtime surface touched? (EVOL-047: the positive list in config/quality.json decides; the branch rule is untouched)"
+        id: runtime_surface
+        run: |
+          set +e; python3 scripts/gate.py runtime-surface --changed --base HEAD^1; rc=$?; set -e
+          case "$rc" in
+            0) echo "touched=true" >> "$GITHUB_OUTPUT" ;;
+            1) echo "touched=false" >> "$GITHUB_OUTPUT"; echo "outside the runtime surface — no tag, no release" ;;
+            *) echo "gate.py runtime-surface could not judge (exit $rc) — tagging to be safe"; echo "touched=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Run auto-tag script
+        if: steps.runtime_surface.outputs.touched == 'true'
         id: autotag
         run: |
           # Configure git for tagging
@@ -71,7 +82,7 @@ jobs:
 
       - name: Generate release notes
         id: notes
-        if: steps.autotag.outputs.skip != 'true'
+        if: steps.runtime_surface.outputs.touched == 'true' && steps.autotag.outputs.skip != 'true'
         run: |
           NEW_TAG="${{ steps.autotag.outputs.new_tag }}"
           PREVIOUS="${{ steps.autotag.outputs.previous }}"
@@ -132,7 +143,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        if: steps.autotag.outputs.skip != 'true'
+        if: steps.runtime_surface.outputs.touched == 'true' && steps.autotag.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_TAG: ${{ steps.autotag.outputs.new_tag }}

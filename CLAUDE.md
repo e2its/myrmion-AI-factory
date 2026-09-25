@@ -54,7 +54,7 @@ On the first thought of every turn, classify the user's request. The **default m
 - `Meta: fix/<slug> — <scope>` — framework bugfix (contents of an instruction/skill/script are wrong or drifted).
 - `Meta: docs/<slug> — <scope>` — framework documentation change without code impact.
 - `Direct: read-only, no routing` — Q&A, exploration, investigation with no writes.
-- `Direct: docs-only fast-lane` — repo-root README / docs-only change qualifying under Generation Standards §3.
+- `Direct: docs-only change` — documentation only (Generation Standards §3): branch + PR like everything else; the review lanes and the deploy/tag machinery skip on their own.
 - `Direct: trivial edit (typo / memory / config)` — change with no framework semantic impact.
 - `Routing: /<command> …` — the rare case when you DO want to run an SDLC command on this repo (almost always wrong here; reconsider before executing).
 
@@ -91,19 +91,12 @@ Every law is an index entry: **one normative sentence**, the **one body** that d
 
 2. **Governance version bump — MANDATORY on every framework-core touch.** Touch a file tracked in `.context/templates/setup/governance_versions.json` (this repo's canonical manifest) → bump its entry + add a changelog line in the SAME commit. Applies to `CLAUDE.md`, `.claude/commands/**`, `.claude/instructions/**`, `.claude/skills/**`, `.claude/hooks/**`, `scripts/factory-*.sh`, `scripts/{validate-governance,governance-onprompt,governance-oncompact}.sh`, `.github/workflows/governance-check.yml`, `.github/workflows/auto-tag.yml`, and every tracked file under `.context/templates/**`. Bump kind: PATCH (typo / doc clarification), MINOR (new feature / section), MAJOR (breaking contract). New framework-core files → add entry at `1.0.0` in the appropriate section (`framework_core` for LLM/CI-enforced, `templates` for SETUP-materialised). Fast-lane (§3) bypasses CI workflows, NOT this rule. A file whose frontmatter carries `version:` moves with its manifest entry — `python3 scripts/gate.py manifest-parity` (pre-push + CI) reports drift with the manifest as the source of truth. Canonical procedure: [Factory-governance-loading/SKILL.md](.claude/skills/factory-governance-loading/SKILL.md) § GOVERNANCE WRITE PROTOCOL (GWP).
 
-3. **Docs-only fast-lane (commit-on-main + CI skip)** — Documentation-only changes may be committed directly to `main` without a feature branch and without triggering the full CI / Deploy / Tag workflows. A change qualifies as docs-only when **every** path in the diff matches the allowlist:
+3. **The branch rule and the runtime surface (EVOL-047)** — **Every change ships via branch and pull request, documentation included.** There is no commit-to-main permit for any class of change; the Pre-Action Gate below applies to a README typo exactly as to a script. What a change *outside the runtime surface* saves is the **machinery**, never the branch rule — the two concerns are orthogonal:
 
-   - any `**/*.md`
-   - `docs/**` (the entire docs tree — constitution, rules, setup, UX, project log)
-   - `.context/templates/**`
-   - `.gitignore`
-
-   Hard exclusions (ALWAYS PR + full CI, even when the path also matches `**/*.md`):
-
-   - `.github/workflows/**` — workflow YAML.
-   - `.claude/instructions/**`, `.claude/skills/**`, `.claude/commands/**`, `.claude/hooks/**` — framework-core **behavioral contracts**. Editing an agent instruction, skill, command, or hook changes runtime agent behaviour and downstream-materialised governance; it is never "docs", even though instruction/skill/command files carry the `.md` extension. These always go through PR + full CI + governance bump.
-
-   Mixed diffs (one or more non-allowlist paths, or any hard-exclusion path) follow the normal feature-branch + PR + CI flow. All-or-nothing.
+   - **Deploying and release-cutting workflows fire on a positive path list** — `config/quality.json → surface.runtime_surface`, what a release of this framework can change (the template tree, the framework core, the scripts, the config, `CLAUDE.md`). Every such workflow (`auto-tag`, meta and the seven platform templates) asks `python3 scripts/gate.py runtime-surface --changed` first and skips its machinery when the merge touched nothing on the list. No exclusion list anywhere: a new path defaults to *not deploying* and the parity gate says so.
+   - **Hard exclusions that always run regardless of match**, enumerated with their reason in `surface.always_deploy`: workflow definitions (`.github/workflows/**` — they execute in CI/CD) and the inputs a deployment-time gate reads (`config/quality.json`, the governance manifest).
+   - **A parity gate holds the list to reality** — `python3 scripts/gate.py runtime-surface` (a member of the gate profile at push, and in CI): every path literal in the deploying jobs and, transitively, in the scripts they run must match the list or a hard exclusion, or be a declared read with a reason (`surface.declared_reads`); a declared read nothing reads any more is a stale exemption and a finding.
+   - **Non-deploying machinery keeps its own honest allowlist**: the push-gate preflight skips its review lanes when every changed path is documentation (`**/*.md`, `docs/**`, `.context/templates/**`, `.gitignore`; never `.github/workflows/**` nor the `.claude/{instructions,skills,commands,hooks}/**` behavioural contracts, which are never "docs"). That skip is about review lanes — the branch, the pull request and the governance bump (§2) still apply.
 
 ## Pre-Action Gate
 

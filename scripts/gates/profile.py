@@ -36,6 +36,7 @@ MEMBERS = [
     ("manifest-parity",  False, False, "gate.py",                 ["gate", "manifest-parity"], False),
     ("currency",         False, False, "gate.py",                 ["gate", "currency", "--base", "{base}"], False),
     ("surface",          False, False, "gate.py",                 ["gate", "surface", "--base", "{base}", "--branch", "{branch}"], False),
+    ("runtime-surface",  False, False, "gate.py",                 ["gate", "runtime-surface"], False),
     ("governance",       False, False, "validate-governance.sh (framework repo: manifest drift / orphan / stale)", ["bash", "scripts/validate-governance.sh", "--base", "{base_branch}"], True),   # a project has no framework manifest; manifest-parity covers its own
     ("adr-sync",         False, False, "check-adr-constitution-sync.sh", ["bash", "scripts/check-adr-constitution-sync.sh", "{base}"], False),
     ("applicability",    False, False, "check-applicability-frontmatter.sh", ["bash", "scripts/check-applicability-frontmatter.sh"], False),

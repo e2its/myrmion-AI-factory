@@ -6,9 +6,10 @@ applicable_when:
     - "**/Jenkinsfile"
     - "**/.gitlab-ci.yml"
     - "**/azure-pipelines.yml"
-version: 1.5.1
+version: 1.6.0
 date: 2026-09-25
 changelog:
+  - "1.6.0: feat(EVOL-047) — deploying / release jobs ask gate.py runtime-surface --changed first; the branch rule is untouched."
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "1.1.0: feat(EVOL-043) — hosts [PLAW-12] body (merged from the constitution template)"
   - "1.0.0: Initial template version"
@@ -39,7 +40,7 @@ changelog:
 4. **Build:** Compile artifacts, build Docker image
 5. **Integration Tests:** API + DB tests
 6. **Deploy Dev:** Auto-deploy to development
-7. **Deploy Staging:** Auto-deploy on release/* branches
+7. **Deploy Staging:** Auto-deploy on release/* branches — every deploying / release-cutting job asks `python3 scripts/gate.py runtime-surface --changed` first and skips its machinery when the merge touched nothing on `config/quality.json → surface.runtime_surface` (the positive list; hard exclusions in `surface.always_deploy`; EVOL-047). The branch rule is untouched: every change ships via branch and pull request.
 8. **Performance Tests:** Load testing on staging
 9. **Deploy Prod:** Manual approval required
 10. **Smoke Tests:** Health checks post-deploy

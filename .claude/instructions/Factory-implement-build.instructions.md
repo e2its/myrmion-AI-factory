@@ -782,7 +782,7 @@ FUNCTION verify_completion_gate(FEATURE_ID):
         SAVE dev_plan.md; STOP
       # Train close — the last sub-increment carries the closure artefacts (rebased on the train; they land through its own PR into the train — the train takes no direct commit).
       # Fall through: ACC items + ONE full_verification_gate over the train's scope (diff base = the default base branch: gate.py diff-base --branch <train>),
-      # ONE deployment only when the train diff touches a surface.runtime_surface glob ([] = always) — SUGGEST: "DEVOPS --deploy {FEATURE_ID} --env dev" —,
+      # ONE deployment only when `python3 scripts/gate.py runtime-surface --changed --base <default base>` exits 0 (the positive list, EVOL-047; exit 1 = the train touched nothing a deployment can change → no deployment owed) — SUGGEST: "DEVOPS --deploy {FEATURE_ID} --env dev" —,
       # then sub.status → MERGED via its PR into the train, then the closing PR from the train to the base branch.
       acceptance_tasks = FIND_ALL("- [ ]" OR "- [x]") MATCHING build_scope.task_regex_acc   # train scope
     # Acceptance Gate: every [INC-N.ACC.k] item must be checked before the increment can close.

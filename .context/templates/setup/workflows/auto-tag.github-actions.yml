@@ -32,7 +32,18 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: "Runtime surface touched? (EVOL-047: the positive list in config/quality.json decides; the branch rule is untouched)"
+        id: runtime_surface
+        run: |
+          set +e; python3 scripts/gate.py runtime-surface --changed --base HEAD^1; rc=$?; set -e
+          case "$rc" in
+            0) echo "touched=true" >> "$GITHUB_OUTPUT" ;;
+            1) echo "touched=false" >> "$GITHUB_OUTPUT"; echo "outside the runtime surface — no tag, no release" ;;
+            *) echo "gate.py runtime-surface could not judge (exit $rc) — tagging to be safe"; echo "touched=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Auto-tag with SemVer
+        if: steps.runtime_surface.outputs.touched == 'true'
         id: tag
         run: |
           chmod +x scripts/auto-tag.sh

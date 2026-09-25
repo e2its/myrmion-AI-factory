@@ -22,7 +22,7 @@ applicable_when:
 - `Routing: /implement --fix FEAT-123 (GOVERNANCE_BOUND → FRAMEWORK_COMMAND)` — when routing to a command.
 - `Direct: read-only, no routing` — when genuinely read-only (Category E).
 - `Direct: meta-framework — EVOL-* outside SDLC by design` — when working on the framework itself (this repo).
-- `Direct: docs-only fast-lane` — when the diff qualifies under CLAUDE.md § Generation Standards §3.
+- `Direct: docs-only change` — documentation only (CLAUDE.md § Generation Standards §3): still branch + PR; the review lanes and the deploy/tag machinery skip on their own (EVOL-047).
 - `Direct: trivial edit (typo / config / memory)` — when the change has no SDLC surface.
 - `Direct: <reason>` — any other non-SDLC path must state its reason in one line.
 
