@@ -9,7 +9,7 @@ status: accepted
 
 ## Context
 
-Closing the 2026-09 evolution (#50, #79) surfaced that the framework named concrete downstream projects — two of them, and one organisation slug — as if they were part of it: in a shipped instruction's rationale, in a shipped review script's docstring, as example issue keys in the backlog adapters, in the sync script, in six changelog strings of the governance manifest every project inherits, in a test fixture, and across the historical records (ADRs, proposals, the release record — which also declared one of them the "first adopting project" and the "baseline of record"). None of it is framework behaviour; all of it is one project's business. The user's ruling, verbatim: *"si es un fleco que afecta solo a mass no es de aplicación en el framework global"*. RDR (2026-09-25): option C — total purge, records included.
+Closing the 2026-09 evolution (#50, #79) surfaced that the framework named concrete downstream projects — two of them, and one organisation slug — as if they were part of it: in a shipped instruction's rationale, in a shipped review script's docstring, as example issue keys in the backlog adapters, in the sync script, in six changelog strings of the governance manifest every project inherits, in a test fixture, and across the historical records (ADRs, proposals, the release record — which also declared one of them the "first adopting project" and the "baseline of record"). None of it is framework behaviour; all of it is one project's business. The user's ruling: *"si es un fleco que afecta solo a [un proyecto] no es de aplicación en el framework global"*. RDR (2026-09-25): option C — total purge, records included.
 
 ## Decision
 
