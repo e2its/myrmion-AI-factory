@@ -13,7 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import branch, budget, coherence, corpus, planning, profile, retired, runtime  # noqa: E402
+from gates import agents, branch, budget, coherence, corpus, planning, profile, retired, runtime  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -973,6 +973,133 @@ class Planning(unittest.TestCase):
             a = planning.approval(repo); self.assertFalse(a["approved"]); self.assertIn("already on main unchanged", a["reason"], "a shipped ADR is another change's plan")
 
 
+RULE_AGENTS = """---
+description: agents
+applicable_when:
+  always: true
+agents:
+  classes:
+    phase: {family: writer, effort: medium, budget_bytes: 8000, tools: {must: [Read, Edit, Write, Bash], never: [Agent]}}
+    worker: {family: writer, effort: medium, budget_bytes: 6000, tools: {must: [Read, Edit, Write, Bash], never: [Agent]}}
+    plan-critic: {family: critic, effort: high, budget_bytes: 8000, tools: {must: [Read, Grep, Glob], never: [Edit, Write, NotebookEdit, Bash, Agent]}}
+    work-critic: {family: critic, effort: high, budget_bytes: 4000, tools: {must: [Read, Grep, Glob], never: [Edit, Write, NotebookEdit, Bash, Agent]}}
+  tiers: {small: {files: 5, lines: 150}, large: {files: 30, lines: 800}}
+  resolve:
+    - {class: work-critic, surface: security, effort: high}
+    - {class: plan-critic, round: 2, effort: high}
+    - {class: worker, tier: small, effort: low}
+  ladder: {critic: [writer], writer: []}
+  rounds: {plan_gate: 2, work: 1}
+  roster:
+    - {name: factory-dev-backend, class: worker, surface: ["src/**"]}
+    - {name: factory-plan-critic, class: plan-critic, surface: ["docs/**"]}
+    - {name: factory-critic-security, class: work-critic, lens: security, surface: ["**"]}
+  spawn_sites:
+    - {path: ".claude/instructions/Factory-implement-build.instructions.md", policy: worker}
+    - {path: ".claude/instructions/Factory-blueprint-design.instructions.md", policy: plan-critic}
+    - {path: ".claude/skills/factory-code-review/SKILL.md", policy: work-critic}
+---
+# agents
+"""
+
+
+def agent_def(name, cls, tools, extra="", body=""):
+    return f"---\nname: {name}\ndescription: x\ntools: {tools}\neffort: high\nclass: {cls}\n{extra}---\n\n# {name}\n{body}\n"
+
+
+class Agents(unittest.TestCase):
+    """EVOL-049: the class policy and the roster — validated, resolved per spawn, digested, contracts checked; red first."""
+
+    def _repo(self, tmp, writer="sonnet", critic="opus"):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text()); q["agents"] = {"families": {"writer": writer, "critic": critic}}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / ".claude/rules/agents.md", RULE_AGENTS)
+        write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash", body="see `rules/testing.md`"))
+        write(repo / ".claude/agents/factory-plan-critic.md", agent_def("factory-plan-critic", "plan-critic", "Read, Grep, Glob"))
+        write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob"))
+        write(repo / ".claude/rules/testing.md", "---\ndescription: t\n---\n")
+        write(repo / ".claude/instructions/Factory-implement-build.instructions.md", "---\ndescription: b\napplicable_when:\n  phase: [IMPLEMENT]\n---\nspawn-policy: worker\n")
+        write(repo / ".claude/instructions/Factory-blueprint-design.instructions.md", "---\ndescription: d\n---\nspawn-policy: plan-critic\n")
+        write(repo / ".claude/skills/factory-code-review/SKILL.md", "---\nname: cr\n---\nspawn-policy: work-critic\n")
+        self.manifest = {"templates": {f"claude/agents/{n}.md": {"version": "1.0.0"} for n in ("factory-dev-backend", "factory-plan-critic", "factory-critic-security")}}
+        return repo
+
+    def test_policy_and_validator_green_then_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            pol = agents.policy(repo)
+            self.assertEqual(set(pol["classes"]), {"phase", "worker", "plan-critic", "work-critic"}); self.assertEqual(pol["families"], {"writer": "sonnet", "critic": "opus"})
+            self.assertEqual(agents.validate(repo, self.manifest), [], "the fixture roster is green")
+            # same family
+            q = json.loads((repo / "config/quality.json").read_text()); q["agents"]["families"]["critic"] = "sonnet"; write(repo / "config/quality.json", json.dumps(q))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("same alias" in x["reason"] for x in f), "critic on the writer's family is refused")
+            q["agents"]["families"]["critic"] = "opus"; write(repo / "config/quality.json", json.dumps(q))
+            # a critic with a write tool; a worker without one; model written in; no effort; over budget; dangling pointer
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob, Edit"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("must never have Edit" in x["reason"] for x in f))
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob", extra="model: opus\n", body="x" * 5000))
+            f = agents.validate(repo, self.manifest)
+            self.assertTrue(any("`model` written into the definition" in x["reason"] for x in f)); self.assertTrue(any("over the class budget" in x["reason"] for x in f))
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob").replace("effort: high\n", ""))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("no `effort`" in x["reason"] for x in f))
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob"))
+            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Bash", body="see `rules/nope.md`"))
+            f = agents.validate(repo, self.manifest)
+            self.assertTrue(any("must have Edit, Write" in x["reason"] for x in f)); self.assertTrue(any("resolves to nothing" in x["reason"] for x in f))
+            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash"))
+            # roster parity: an unlisted definition; a roster name without a file; a file without a manifest entry
+            write(repo / ".claude/agents/rogue.md", agent_def("rogue", "worker", "Read, Edit, Write, Bash"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("the roster does not name" in x["reason"] for x in f))
+            (repo / ".claude/agents/rogue.md").unlink()
+            (repo / ".claude/agents/factory-plan-critic.md").unlink()
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("no agent definition exists" in x["reason"] for x in f))
+            write(repo / ".claude/agents/factory-plan-critic.md", agent_def("factory-plan-critic", "plan-critic", "Read, Grep, Glob"))
+            f = agents.validate(repo, {"templates": {}}); self.assertEqual(sum("no manifest entry" in x["reason"] for x in f), 3, "undelivered definitions are red")
+            # ladder and spawn sites
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("ladder: {critic: [writer], writer: []}", "ladder: {critic: [writer], writer: [critic]}"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("never degrades" in x["reason"] for x in f))
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("ladder: {critic: [writer], writer: []}", "ladder: {opus: [sonnet]}"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("is not a family" in x["reason"] for x in f), "the ladder is keyed by families, never by ids")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS)
+            write(repo / ".claude/skills/factory-code-review/SKILL.md", "---\nname: cr\n---\nno marker\n")
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("does not declare `spawn-policy: work-critic`" in x["reason"] for x in f))
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace('    - {path: ".claude/skills/factory-code-review/SKILL.md", policy: work-critic}\n', ""))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("has no spawn site" in x["reason"] for x in f), "a policy nobody spawns is dead data")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("agents:\n  classes:", "agents:\n  classes_x:"))
+            with self.assertRaisesRegex(GateFault, "agents.classes"):
+                agents.policy(repo)
+
+    def test_resolve_fallback_digest_and_return_contracts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = agents.resolve(repo, "work-critic", surface="security", files=2, lines=10)
+            self.assertEqual((r["model"], r["family"], r["effort"]), ("opus", "critic", "high"))
+            r = agents.resolve(repo, "worker", surface="backend", files=2, lines=10)
+            self.assertEqual((r["model"], r["effort"], r["tier"]), ("sonnet", "low", "small"), "a small diff steps the effort down")
+            r = agents.resolve(repo, "worker", files=40, lines=2000)
+            self.assertEqual((r["effort"], r["tier"]), ("medium", "large"), "no row for a large worker diff: the class default")
+            self.assertEqual(agents.resolve(repo, "plan-critic", round_=1)["matched"], "class default")
+            self.assertIn("'round': 2", agents.resolve(repo, "plan-critic", round_=2)["matched"], "the second round steps up by its row")
+            with self.assertRaisesRegex(GateFault, "not one of"):
+                agents.resolve(repo, "sorcerer")
+            f = agents.fallback(repo, "worker", "writer"); self.assertFalse(f["ok"]); self.assertIn("never degrades", f["reason"])
+            f = agents.fallback(repo, "work-critic", "critic"); self.assertTrue(f["ok"]); self.assertEqual(f["model"], "sonnet", "a critic falls to the other family")
+            f = agents.fallback(repo, "work-critic", "writer"); self.assertFalse(f["ok"])
+            text, fp, budget = agents.digest(repo, "factory-dev-backend")
+            self.assertLessEqual(len(text.encode()), budget); self.assertEqual(budget, 6000); self.assertTrue(fp)
+            with self.assertRaisesRegex(GateFault, "not in the roster"):
+                agents.digest(repo, "nobody")
+            worker_ok = "did x\n## Governance\nRules read: testing.md\nLaws applied: LAW-05\nDefect classes: DC-01\nSources: src/a.py:1\n"
+            self.assertEqual(agents.check_return(worker_ok, "worker"), [])
+            self.assertTrue(agents.check_return("did x", "worker"), "a worker without its governance block is refused")
+            critic_ok = "src/a.py:12 · 🔴 · confidence 90% · probe: ran pytest -k a\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\n"
+            self.assertEqual(agents.check_return(critic_ok, "work-critic"), [])
+            bad = "src/a.py:12 · 🔴 · confidence 90%\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\n"
+            self.assertTrue(any("probe" in p for p in agents.check_return(bad, "work-critic")), "a finding without an executed probe is refused")
+            self.assertEqual(agents.check_return("no findings\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\n", "work-critic"), [])
+
+
 class Cli(unittest.TestCase):
     def test_cli_exit_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1098,6 +1225,18 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 1); self.assertIn("second stage", r.stdout)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--enter", "--branch", "fix/x"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2, "no agents policy in this fixture: a fault, said"); self.assertIn("agents.md is missing", r.stderr)
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS); write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash"))
+            q = json.loads((repo / "config/quality.json").read_text()); q["agents"] = {"families": {"writer": "sonnet", "critic": "sonnet"}}; write(repo / "config/quality.json", json.dumps(q))
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("same alias", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--resolve", "--class", "worker", "--files", "1", "--lines", "1", "--json"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertEqual(json.loads(r.stdout)["effort"], "low")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--fallback", "--class", "worker", "--family", "writer"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("never degrades", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--check-return", "--class", "worker"], input="did x", capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 1); self.assertIn("REFUSED", r.stdout)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--path", "src/app.py", "--branch", "fix/x"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--status", "--branch", "chore/z"], capture_output=True, text=True, env=env)

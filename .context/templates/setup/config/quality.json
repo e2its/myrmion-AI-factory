@@ -61,6 +61,10 @@
     "law_sentence_max_chars": 240,
     "dc_invariant_max_chars": 160
   },
+  "agents": {
+    "_doc": "EVOL-049: the two model FAMILIES as harness aliases (never pinned ids; SETUP Q34) — writers and critics on different families by construction (gate.py agents refuses equal aliases). The class policy, the roster and the per-spawn resolution live in .claude/rules/agents.md.",
+    "families": {"writer": "{{AGENT_WRITER_MODEL}}", "critic": "{{AGENT_CRITIC_MODEL}}"}
+  },
   "retired_terms": [
     {
       "term": "Governance Index (Auto-Generated)",
@@ -76,7 +80,13 @@
       "term": "docs/rules/",
       "record": "ADR-EVOL-043",
       "exempt": []
-    }
+    },
+    {"term": "REVIEW Hat", "record": "ADR-EVOL-049", "exempt": ["docs/proposals/**"]},
+    {"term": "SEC Hat", "record": "ADR-EVOL-049", "exempt": ["docs/proposals/**"]},
+    {"term": "REVIEW hat", "record": "ADR-EVOL-049", "exempt": ["docs/proposals/**"]},
+    {"term": "SEC hat", "record": "ADR-EVOL-049", "exempt": ["docs/proposals/**"]},
+    {"term": "reviewer hat", "record": "ADR-EVOL-049", "exempt": ["docs/proposals/**"]},
+    {"term": "security hat", "record": "ADR-EVOL-049", "exempt": ["docs/proposals/**"]}
   ],
   "coherence": {
     "_doc": "Coherence gates (EVOL-044). certifying_artefacts: the verdict artefacts gate.py currency judges (terminal status/verdict must carry certifies: from gate.py certify). Empty list = a ratified opt-out.",

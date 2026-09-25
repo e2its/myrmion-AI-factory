@@ -235,8 +235,24 @@ class Session:
                         break
 
 
+def agent_class(name: str) -> str:
+    """The roster class from the agent name (EVOL-049 naming grammar): factory-dev-* worker · factory-plan-critic ·
+    factory-critic-* work-critic · factory-<phase> phase · anything else = main-session / vendored (unclassed)."""
+    n = str(name or "")
+    if n.startswith("factory-dev-"):
+        return "worker"
+    if n == "factory-plan-critic":
+        return "plan-critic"
+    if n.startswith("factory-critic-"):
+        return "work-critic"
+    if n in ("factory-codesign", "factory-blueprint", "factory-implement", "factory-qa", "factory-devops"):
+        return "phase"
+    return "unclassed"
+
+
 def load_subagents(transcripts: Path, session_id: str, cfg, since, until) -> list[dict]:
     out = []
+    rounds: dict[str, int] = {}
     for f in sorted((transcripts / session_id / "subagents").glob("agent-*.jsonl")):
         meta = {}
         mp = f.with_suffix(".meta.json")
@@ -248,7 +264,9 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until) -> lis
         s = Session(f, cfg, since, until)
         if s.entries == 0:
             continue
-        out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": meta.get("agentType") or "?",
+        atype = meta.get("agentType") or "?"
+        rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
+        out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype), "round": rounds[atype],
                     "description": meta.get("description") or "", "model": _top(s.models),
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
                     "bytes_read": sum(b for _, b in s.reads),
@@ -415,7 +433,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
                                                 "read = tool-result bytes of Read (or cat/sed/head through Bash) on governance paths"}
 
     # agents (main sessions + subagents)
-    rows = [{"session": s.id, "agent": "main", "type": "main", "description": "", "model": _top(s.models),
+    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models),
              "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
              "bytes_read": sum(b for _, b in s.reads),
              "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
@@ -522,9 +540,9 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
             [f"| {k} | {v['fired']} | {v['emitted']:,} | {v['delivered']:,} | {v['truncated']} | {v['undelivered']} |" for k, v in gb["by_hook"].items()])
     ag = r["agents"]
     section("Agents", ag if isinstance(ag, dict) else {}, [] if isinstance(ag, dict) else
-            ["| session | agent | type | model | tokens in | tokens out | bytes read | seconds | citations |",
-             "|---|---|---|---|---|---|---|---|---|"] +
-            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a['model']} | {a['tokens_in']:,} | {a['tokens_out']:,} | "
+            ["| session | agent | type | class | round | model | tokens in | tokens out | bytes read | seconds | citations |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"] +
+            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {a['model']} | {a['tokens_in']:,} | {a['tokens_out']:,} | "
              f"{a['bytes_read']:,} | {_fmt(a['duration_s'])} | {sum(a['citations'].values())} |" for a in ag])
     c = r["citations"]
     section("Citations", c, [] if "unavailable" in c else
@@ -681,6 +699,9 @@ def selftest() -> int:
         expect(ag["main"]["model"] == "claude-x-writer" and ag["c1"]["model"] == "claude-y-critic", "model per agent")
         expect(ag["c1"]["type"] == "factory-critic-security" and ag["c1"]["bytes_read"] == 40 and ag["c1"]["tokens_in"] == 100,
                "subagent type, bytes read and tokens from its own transcript")
+        expect(ag["c1"]["class"] == "work-critic" and ag["c1"]["round"] == 1, "the roster class from the agent name and the round from the spawn order (EVOL-049)")
+        expect("| class | round |" in render_markdown(r) and "| work-critic | 1 |" in render_markdown(r), "the agents table shows class and round")
+        expect(agent_class("factory-dev-backend") == "worker" and agent_class("factory-plan-critic") == "plan-critic" and agent_class("factory-qa") == "phase" and agent_class("code-reviewer") == "unclassed", "the naming grammar of the roster")
         expect(ag["c1"]["citations"] == {"LAW-04": 2}, "citations per agent")
         c = r["citations"]
         expect(c["by_id"].get("LAW-01") == 10 and c["by_id"].get("LAW-04") == 2, "citations aggregated across agents")

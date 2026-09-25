@@ -1,7 +1,8 @@
 ---
-version: 1.0.0
+version: 1.1.0
 date: 2026-01-26
 changelog:
+  - "1.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
   - "1.0.0: Initial policy version"
 ---
 
@@ -32,13 +33,13 @@ Strategy, scan modes, vulnerability classification, and remediation workflow for
 | Low | Log for backlog | Fix next sprint |
 | Info | No action | Optional |
 
-False positives: document in `security/dast/false-positives.md`, update exclusions in `zap-config.yaml`, require 🛡️ SEC hat approval (via /QA).
+False positives: document in `security/dast/false-positives.md`, update exclusions in `zap-config.yaml`, require the security pass's hat approval (via /QA).
 
 ## 5. Remediation Workflow
-1. /QA --verify (🛡️ SEC hat) runs scan, generates report in `security/dast/reports/`.
+1. /QA --verify (security pass) runs scan, generates report in `security/dast/reports/`.
 2. Parse High/Medium findings, map to OWASP category and code areas.
-3. /QA (🛡️ SEC hat) rejects feature with details; /IMPLEMENT --fix handles fixes via TDD (add failing test → fix → re-run).
-4. Re-scan; if clean, /QA (🛡️ SEC hat) approves.
+3. /QA (security pass) rejects feature with details; /IMPLEMENT --fix handles fixes via TDD (add failing test → fix → re-run).
+4. Re-scan; if clean, /QA (security pass) approves.
 
 ## 6. Integration
 - Update CI/CD to add `--dast` stages on staging/prod as required.

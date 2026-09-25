@@ -1,5 +1,5 @@
 ---
-description: "Factory IMPLEMENT build execution — TDD, phase loop, DEV/REVIEW/SEC hats, checkpoint verification, delta iteration, fix tasks. Use when: IMPLEMENT --build, --refine, or --fix execution."
+description: "Factory IMPLEMENT build execution — TDD, phase loop, workers per surface and read-only critics, checkpoint verification, delta iteration, fix tasks. Use when: IMPLEMENT --build, --refine, or --fix execution."
 applicable_when:
   phase: [IMPLEMENT]
   command: [implement]
@@ -7,7 +7,7 @@ applicable_when:
 
 # IMPLEMENT Agent — Build, Refine, Fix & Resilience Instructions
 
-> Detailed instructions for `IMPLEMENT --build`, `--refine`, `--fix` commands, DEV Hat Protocol, Phase Loop, and Resilience Protocol.
+> Detailed instructions for `IMPLEMENT --build`, `--refine`, `--fix` commands, the Worker Protocol per surface, Phase Loop, and Resilience Protocol.
 
 ## State Machine
 
@@ -236,7 +236,7 @@ IF spec.iteration > dev_plan.based_on_iteration:
 #### Step 0—MCP: MCP Docs Scan (MANDATORY)
 - Invoke `factory-mcp-docs-scan` with `scope: "implementation"` (first user-facing turn).
 - Banner emission is BLOCKING — missing banner = `mal-iniciado`, halt and re-emit.
-- When `docs_mcps NOT EMPTY`, the DEV hat queries each named docs MCP before generating code for any task whose technology matches an available docs MCP, and cites the consulted MCPs in the task's inline traceability comment (per skill § Citation contract).
+- When `docs_mcps NOT EMPTY`, the worker queries each named docs MCP before generating code for any task whose technology matches an available docs MCP, and cites the consulted MCPs in the task's inline traceability comment (per skill § Citation contract).
 
 #### Step 0: Status Normalization
 ```yaml
@@ -280,10 +280,10 @@ IF spec.iteration > design.md.based_on_iteration:
 # GCD FAST-PATH: Read pre-digested governance rules from design.md Section 7
 
 FUNCTION load_governance_context(FEATURE_ID):
-  # Returns: governance_context object available to Phase Loop (DEV + REVIEW + SEC hats).
-  # The returned object is passed to REVIEW_HAT_PROTOCOL and SEC_HAT_PROTOCOL — they do NOT re-read Section 7.
+  # Returns: governance_context object available to Phase Loop (the worker, the work critics and the security lens).
+  # The returned object is passed to WORK_CRITICS and SECURITY_LENS — they do NOT re-read Section 7.
   
-  gcd_loaded = false  # flag consumed by Step 1 (SAST conditional) and Phase Loop (REVIEW/SEC hats)
+  gcd_loaded = false  # flag consumed by Step 1 (SAST conditional) and Phase Loop (critics)
   
   # Step 1: Attempt GCD fast-path (preferred — O(1) vs O(20+ files))
   gcd_section = READ(design.md, "## Section 7: Governance Constraints Digest")
@@ -348,7 +348,7 @@ FUNCTION load_governance_context(FEATURE_ID):
         - extension.strategy (E0-E3)
         - iac_descriptor (for serverless)
     
-    # Load applicable rule files for REVIEW + SEC hats (covers all 14 checks)
+    # Load applicable rule files for the critics (covers all 14 checks)
     READ .claude/rules/ (all applicable rules):
       - architecture.md → arch constraints
       - security_policy.md → security rules
@@ -434,7 +434,7 @@ IF frontend.framework != "None":
       - component_library.html (reusable components)
       - navigation_map.md (feature placement)
   
-  # ux_context (or raw HTML content) is available to Phase B (DEV Hat + REVIEW Hat)
+  # ux_context (or raw HTML content) is available to Phase B (the frontend worker + the fidelity lens)
 ```
 
 #### Step 0c.1: CSS Foundation Gate (BLOCKING for Phase B)
@@ -505,7 +505,7 @@ ELSE:
     ELSE:
       ⚠️ WARN: "Codebase inventory not found. DRY Gate degraded (pre-materialization)."
       LOG CIP_SKIPPED in worklog
-      # Proceed with caution — REVIEW hat will catch duplicates post-build
+      # Proceed with caution — the governance lens will catch duplicates post-build
   ELSE:
     FOR EACH artifact to be created in this build:
       EXECUTE 4-criteria matching (with domain isolation gate)
@@ -618,20 +618,30 @@ FUNCTION determine_build_scope(FEATURE_ID):
   }
 ```
 
-`build_scope` is computed ONCE at the top of --build and threaded through the Phase Loop, the task-breakdown log, the REVIEW/SEC phase gate, the completion gate, and the resume logic. Legacy monolithic behaviour is preserved exactly when `mode == "monolithic"`.
+`build_scope` is computed ONCE at the top of --build and threaded through the Phase Loop, the task-breakdown log, the critics' phase gate, the completion gate, and the resume logic. Legacy monolithic behaviour is preserved exactly when `mode == "monolithic"`.
 
 ### Phase Loop (Core Build Engine)
 
-> **Variable scope:** `governance_context` and `gcd_loaded` from Step 0b are available throughout the entire Phase Loop. REVIEW Hat (Step R.0 in implement-review-checks.md) and SEC Hat receive these as input — they do NOT re-read design.md Section 7.
+> **Variable scope:** `governance_context` and `gcd_loaded` from Step 0b are available throughout the entire Phase Loop. The work critics (Step R.0 in implement-review-checks.md) and the security lens receive these as input — they do NOT re-read design.md Section 7.
 > **Scope filter:** All `phase.unchecked_tasks` references in the loop below are filtered by `build_scope.all_tasks_filter`. Under `incremental`, this restricts the loop to tasks inside `## Increment {target.id}:` — the other increments' sections are invisible to this --build invocation.
+
+> **Spawn protocol (EVOL-049).** `spawn-policy: worker`
+> The orchestrator (`factory-implement`) spawns by name — never a generic sub-agent:
+> - the worker per surface: `factory-dev-backend`, `factory-dev-frontend`, `factory-dev-platform`, `factory-dev-e2e` — chosen by the task's files against the roster globs in `rules/agents.md`;
+> - per spawn: paste the corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) under the agent's `## Your law`; pass the model + effort resolved by `python3 scripts/gate.py agents --resolve --class worker --surface <s> --files N --lines M` — never chosen at the call site;
+> - after a completed diff: spawn the four work critics (`factory-critic-correctness`, `-governance`, `-fidelity`, `-security`), one round (`rounds.work`), then the user adjudicates; hash the tree before and after each critic run (`python3 scripts/gate.py certify --subject tree`) and refuse a run around which the tree moved;
+> - refuse a worker return without its `## Governance` block and a critic return without probes (`python3 scripts/gate.py agents --check-return --class <class>`);
+> - a provider error on a critic falls down the ladder (`python3 scripts/gate.py agents --fallback`); a writer never degrades — retry or surface;
+> - no subagent commits, no subagent decides: RDR and version-control operations return to the main session.
 
 ```yaml
 FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
-  
-  # DEV Hat: Implement (with Defect Prevention Check)
+
+  # The worker (per surface) implements — with Defect Prevention Check
   FOR EACH task IN phase.unchecked_tasks:
+    worker = SURFACE_WORKER(task.files)   # roster match on rules/agents.md surface globs: factory-dev-backend | -frontend | -platform | -e2e
     # DEFECT PREVENTION CHECK (per-task, MANDATORY)
-    # DEV Hat consults the Defect Prevention Catalog BEFORE writing code.
+    # The worker consults the Defect Prevention Catalog BEFORE writing code.
     # Catalog columns: DC | Family | Invariant | Gate | Paths | Applicable To | Severity  (cases: defect-prevention-cases.md § DC-N)
     IF FILE_EXISTS(".claude/rules/defect-prevention.md"):
       dc_catalog = READ(".claude/rules/defect-prevention.md")
@@ -642,57 +652,55 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
             REWRITE to follow the documented prevention approach
             LOG: "DC-{dc.number} prevented: {dc.name}"
     
-    EXECUTE DEV_HAT_PROTOCOL(task)
+    EXECUTE WORKER(worker, task)   # spawn by name — § Spawn protocol above; return refused without its ## Governance block
     # BVL: task_verification_loop runs inside TDD Cycle step 4 (VERIFY)
     # Task marked [x] only if BVL returns GREEN or SKIPPED
     MARK task [x] in dev_plan.md (atomic save)
-  
-  # BVL Phase Verification (post-DEV, pre-REVIEW)
+
+  # BVL Phase Verification (post-worker, pre-critics)
   bvl_phase = EXECUTE phase_verification(phase, all_phase_test_files)
   # See: Factory-build-verification/SKILL.md → Phase Verification
   # Runs full test suite for phase + lint check
   IF bvl_phase == REGRESSION:
-    # Fix regression before REVIEW proceeds
+    # Fix regression before the critics run
     FOR attempt IN 1..3:
-      DEV fixes regression identified by BVL
+      the worker fixes the regression identified by BVL
       bvl_phase = EXECUTE phase_verification(phase, all_phase_test_files)
       IF bvl_phase == GREEN: BREAK
     IF bvl_phase != GREEN: ESCALATE (see Resilience Protocol)
-  
-  # REVIEW Hat: Verify Phase (Static + Real Execution)
-  EXECUTE REVIEW_HAT_PROTOCOL(phase, governance_context, gcd_loaded)
-  # See implement-review-checks.md for full 14-check protocol + verification loop
+
+  # The work critics verify the phase (read-only, did not write it) — Static + Real Execution
+  tree_before = RUN python3 scripts/gate.py certify --subject tree
+  EXECUTE WORK_CRITICS(phase, governance_context, gcd_loaded)   # factory-critic-correctness / -governance / -fidelity, spawned by name
+  REFUSE the run IF (RUN python3 scripts/gate.py certify --subject tree) != tree_before   # the tree moved around a read-only run
+  # See implement-review-checks.md for the 14-check protocol per lens + verification loop
   # governance_context passed in — Step R.0 uses it directly (no re-read of Section 7)
-  # v1.1.1: REVIEW now includes review_verification_loop() — runs coverage, lint, typecheck
-  #   via BVL commands. Blockers from real execution merge with static check findings.
-  
+  # review_verification_loop() (coverage, lint, typecheck via BVL commands) is run by this orchestrator —
+  #   critics carry no Bash. Blockers from real execution merge with the critics' findings.
+
   IF review_verdict == BLOCKER:
-    # Fix loop (max 3 attempts per blocker)
+    # One worker↔critic round (rounds.work, rules/agents.md)
     # Blockers may come from static checks OR real execution (coverage gap, lint failure)
-    FOR attempt IN 1..3:
-      DEV fixes blockers identified by REVIEW
-      RE-EXECUTE REVIEW for affected checks only
-      # If blocker was from verification loop (coverage, lint), tools re-run automatically
-      IF all clear: BREAK
-    IF still blocked after 3: ESCALATE (see Resilience Protocol)
-  
-  # SEC Hat: SAST Scan + Real Security Verification
-  EXECUTE SEC_HAT_PROTOCOL(phase, governance_context, gcd_loaded)
-  # See implement-review-checks.md for SAST scan + sec_verification_loop() details
-  # governance_context.sast_patterns passed in — SEC Hat uses pre-compiled patterns (no re-derive)
-  # v1.1.1: SEC now includes sec_verification_loop() — runs dependency_audit + secret_scan
-  #   via BVL commands. Blockers from real execution merge with SAST pattern findings.
-  
+    the worker fixes the blockers identified by the critics
+    RE-SPAWN the affected critics for affected checks only (tree re-hashed around the run)
+    # If blocker was from verification loop (coverage, lint), tools re-run automatically
+    IF still blocked: the user adjudicates (RDR, main session — see Resilience Protocol)
+
+  # The security lens: SAST Scan + Real Security Verification
+  EXECUTE SECURITY_LENS(phase, governance_context, gcd_loaded)   # factory-critic-security, spawned by name, tree hashed around the run
+  # See implement-review-checks.md § Security lens for SAST scan + sec_verification_loop() details
+  # governance_context.sast_patterns passed in — the security lens uses pre-compiled patterns (no re-derive)
+  # sec_verification_loop() (dependency_audit + secret_scan via BVL commands) is run by this orchestrator —
+  #   blockers from real execution merge with the SAST pattern findings.
+
   IF sec_verdict == BLOCKER:
-    # Fix loop (max 3 attempts)
+    # Same single round
     # Blockers may come from SAST patterns OR real execution (CVE, leaked secret)
-    FOR attempt IN 1..3:
-      DEV fixes security issues
-      RE-EXECUTE SEC scan for affected patterns + re-run verification tools
-      IF all clear: BREAK
-    IF still blocked after 3: ESCALATE
-  
-  LOG: "Phase {phase} verified (DEV ✅ REVIEW ✅ SEC ✅)"
+    the worker fixes the security issues
+    RE-SPAWN the security lens for affected patterns + re-run verification tools
+    IF still blocked: the user adjudicates
+
+  LOG: "Phase {phase} verified (worker ✅ critics ✅ security ✅)"
   UPDATE dev_plan.md: phase_{letter}_status = VERIFIED
 ```
 
@@ -773,7 +781,7 @@ FUNCTION verify_completion_gate(FEATURE_ID):
         IF inc_phases[phase].sec_status != "PASSED":
           ❌ BLOCK: "Increment {build_scope.target_increment.id} Phase {phase} SEC scan not passed."
           STOP
-    # EVOL-045 — sub-increment closure: scoped task tests + 🔍 REVIEW hat already ran per phase; NO full loop here.
+    # EVOL-045 — sub-increment closure: scoped task tests + the work critics already ran per phase; NO full loop here.
     IF build_scope.target_sub_increment:
       sub = build_scope.target_sub_increment
       IF ANY(build_scope.target_increment.sub_increments, s.id != sub.id AND s.status != "MERGED"):
@@ -1021,7 +1029,7 @@ This changelog serves as:
 - **Reference for QA:** Which areas need re-verification
 - **Reference for DEVOPS:** Which infrastructure may be affected
 
-### DEV Hat Protocol — Phase A (Backend)
+### Worker Protocol — Phase A (Backend — `factory-dev-backend`)
 
 #### Contract Verification Gate
 ```yaml
@@ -1206,7 +1214,7 @@ AFTER implementing each task:
     LOG: "Config auto-corrected: {description}"
 ```
 
-### DEV Hat Protocol — Phase B (Frontend)
+### Worker Protocol — Phase B (Frontend — `factory-dev-frontend`)
 
 #### CSS Foundation Gate (BLOCKING)
 ```yaml
@@ -1343,7 +1351,7 @@ FOR EACH frontend component/page:
   5. Verify visual match to mock.html
 ```
 
-### DEV Hat Protocol — Phase C (Wiring)
+### Worker Protocol — Phase C (Wiring — worker by file surface; e2e tests via `factory-dev-e2e`)
 ```yaml
 TASKS:
   1. Wire frontend API client to backend endpoints
@@ -1464,7 +1472,7 @@ FUNCTION execute_fix_tasks(FEATURE_ID, fix_items):
 
   FOR EACH task IN fix_items WHERE task.checkbox == "[ ]":
 
-    # DEV Hat: TDD Fix
+    # The worker: TDD Fix
     1. RED: Write regression test that reproduces the bug
        - Test MUST fail before fix (proves bug exists)
     2. GREEN: Apply minimal fix to pass the test
@@ -1474,10 +1482,10 @@ FUNCTION execute_fix_tasks(FEATURE_ID, fix_items):
 
     LOG: "Fix task {task.id} completed ✅"
 
-  # REVIEW + SEC on fix scope
+  # Critics on fix scope (read-only, one round, tree hashed around the run)
   affected_files = COLLECT_MODIFIED_FILES(fix_items)
-  EXECUTE REVIEW_HAT_PROTOCOL(affected_files)  # Focused review
-  EXECUTE SEC_HAT_PROTOCOL(affected_files)      # SAST on changed files
+  EXECUTE WORK_CRITICS(affected_files)   # Focused review
+  EXECUTE SECURITY_LENS(affected_files)  # SAST on changed files
 
   # Completion Gate (same as --build — applies to ALL tasks)
   EXECUTE verify_completion_gate(FEATURE_ID)
@@ -1574,7 +1582,7 @@ PRESENT options to user:
   E. TEMPORARY SKIP: "Skip this task with @skip annotation"
      # Requires: justification, TODO tracking, dev_plan.md note
      # Task remains [ ] in plan, marked with skip reason
-     # REVIEW hat will flag skipped tasks
+     # the governance lens will flag skipped tasks
 
 WAIT for user choice before proceeding
 ```
@@ -1604,7 +1612,7 @@ Factory Smart Redirect computes environment from ci-cd.md (NOT hardcoded)
 IMPLEMENT --build generates: peer_review_{timestamp}.md (or peer_review_{INC-N}_{timestamp}.md when incremental) + sec_audit.md
 QA --verify {ID} INC-N reads peer_review_{INC-N}_*.md for the slice
 QA --verify {ID} (aggregator) reads the latest peer_review_*.md
-DAST absorbed by QA --verify (SEC hat in QA)
+DAST absorbed by QA --verify (its security pass on staging)
 ```
 
 ### QA → IMPLEMENT
@@ -1714,13 +1722,13 @@ FUNCTION verify_inter_domain_contracts(phase_code):
   ✅ PROCEED — no cross-domain direct imports
 ```
 
-### Law 8 — Zero Secrets (enforced by SEC hat SAST scan — see Step 1)
+### Law 8 — Zero Secrets (enforced by the security lens's SAST scan — see Step 1)
 
 ### Law 9 — Traceability Comment Gate (L-02)
 ```yaml
-FUNCTION enforce_traceability(generated_file, hat, FEATURE_ID):
+FUNCTION enforce_traceability(generated_file, agent, FEATURE_ID):
   # Every generated file MUST contain the traceability comment.
-  EXPECTED_COMMENT = "// Generated by Agent: {hat} | Feature: {FEATURE_ID}"
+  EXPECTED_COMMENT = "// Generated by Agent: {agent} | Feature: {FEATURE_ID}"
   # OR language-appropriate variant: # for Python, /* */ for CSS, etc.
 
   IF NOT FILE_CONTAINS(generated_file, "Generated by Agent:"):
@@ -1733,8 +1741,8 @@ FUNCTION enforce_traceability(generated_file, hat, FEATURE_ID):
 ### Law 10 — Phased Verification Gate (BLOCKING — H-09)
 ```yaml
 FUNCTION enforce_phase_ordering(current_phase, phase_results):
-  # DEV → REVIEW → SEC. No phase skipping. Every phase must pass all three
-  # hats before the next phase begins.
+  # worker → critics → security lens. No phase skipping. Every phase must pass all three
+  # stages before the next phase begins.
 
   IF current_phase.letter > "A":
     previous_phase = PREVIOUS(current_phase)
@@ -1745,12 +1753,12 @@ FUNCTION enforce_phase_ordering(current_phase, phase_results):
       ❌ BLOCK: "Phase {previous_phase.letter} SEC not passed — cannot start Phase {current_phase.letter}"
       STOP
 
-  # Within current phase: enforce hat ordering
-  IF current_hat == "REVIEW" AND current_phase.dev_tasks_remaining > 0:
-    ❌ BLOCK: "DEV hat has {current_phase.dev_tasks_remaining} uncompleted tasks — cannot start REVIEW"
+  # Within current phase: enforce stage ordering
+  IF current_stage == "CRITICS" AND current_phase.dev_tasks_remaining > 0:
+    ❌ BLOCK: "the worker has {current_phase.dev_tasks_remaining} uncompleted tasks — cannot spawn the critics"
     STOP
-  IF current_hat == "SEC" AND current_phase.review_status != "PASSED":
-    ❌ BLOCK: "REVIEW hat not passed — cannot start SEC scan"
+  IF current_stage == "SECURITY" AND current_phase.review_status != "PASSED":
+    ❌ BLOCK: "work critics not passed — cannot start the security lens"
     STOP
 
   ✅ PROCEED — phase ordering valid

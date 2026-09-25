@@ -60,7 +60,7 @@ FUNCTION enforce_entry_announcement(agent_name, command, FEATURE_ID):
 - ALWAYS emit before any tool call or file read
 - Keep to 2 lines maximum (agent+command, objective)
 - Objective is derived from the feature spec title/description, NOT invented
-- For multi-hat agents, do NOT announce hat switches (those are internal)
+- Spawned workers and critics do NOT emit their own entry announcement — the orchestrating phase agent's covers them (spawns are internal)
 
 ---
 
@@ -115,8 +115,8 @@ IMPLEMENT --plan:
 IMPLEMENT --build:
   1/5: Prerequisites & DRY Gate
   2/5: TDD Implementation
-  3/5: Peer Review (REVIEW hat)
-  4/5: Security Audit (SEC hat)
+  3/5: Work critics (correctness · governance · fidelity lenses)
+  4/5: Security lens (SAST)
   5/5: Completion Verification
 
 DEVOPS --configure:

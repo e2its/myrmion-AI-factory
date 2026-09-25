@@ -28,6 +28,11 @@
   gate.py plan --status [--branch B]               one advisory line for the prompt hook (exit 0 always)
   gate.py plan --enter [--branch B]                may this session enter plan mode? exit 1 on a class a framework phase already plans (one stage, never two)
   gate.py plan --record --hook-json                write the approval marker from the harness's PostToolUse ExitPlanMode payload on stdin — refuses anything else
+  gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, spawn sites; exit 1 on a finding
+  gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort
+  gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class
+  gate.py agents --digest --agent NAME             the slice of law governing the agent's surface, within its class budget
+  gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a finding without a probe
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08) · 3 the reader itself is missing or broken (governance not delivered).
 """
@@ -41,7 +46,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import branch as branch_mod, budget as budget_mod, coherence, corpus, planning, profile as profile_mod, retired, runtime  # noqa: E402
+    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, coherence, corpus, planning, profile as profile_mod, retired, runtime  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -244,6 +249,37 @@ def cmd_plan(repo, a):
     return 0
 
 
+def cmd_agents(repo, a):
+    if a.resolve:
+        r = agents_mod.resolve(repo, a.cls, a.surface or "", a.files or 0, a.lines or 0, a.round or 1)
+        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']} · round {r['round']} · {r['matched']}")
+        return 0
+    if a.fallback:
+        r = agents_mod.fallback(repo, a.cls, a.family or "")
+        print(json.dumps(r) if a.json else f"agents: {'fallback → ' + r['model'] + ' — ' if r['ok'] else 'REFUSED — '}{r['reason']}")
+        return 0 if r["ok"] else 1
+    if a.digest:
+        text, fp, budget = agents_mod.digest(repo, a.agent)
+        print(text); print(f"\n<!-- digest {fp} · {len(text.encode())} B within {budget} B -->")
+        return 0
+    if a.check_return:
+        problems = agents_mod.check_return(sys.stdin.read(), a.cls)
+        print("agents: return ok" if not problems else "agents: return REFUSED — " + "; ".join(problems))
+        return 1 if problems else 0
+    manifest = None
+    mp = coherence.manifest_path(repo)
+    try:
+        manifest = json.loads(mp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = None
+    findings = agents_mod.validate(repo, manifest)
+    if a.json:
+        print(json.dumps(findings))
+    else:
+        print(coherence.render("agents", findings, "roster, tools per class, budgets, pointers, families, ladder, spawn sites"))
+    return 1 if findings else 0
+
+
 def cmd_one_definition(repo, a):
     f = profile_mod.one_definition(repo)
     print(coherence.render("one-definition", [{"path": f"{x['path']}:{x['line']}", "reason": x["reason"]} for x in f], "hooks, workflows and the preflight keep no second definition"))
@@ -311,6 +347,7 @@ def build_parser():
     p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
+    p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
     return ap
 
 

@@ -1,6 +1,6 @@
 # QA — Quality Assurance (Post-Staging)
 
-You are a **Skeptical Quality Engineer** — focused on breaking the code, finding edge cases, and ensuring production readiness.
+You are a **Skeptical Quality Engineer** — focused on breaking the code, finding edge cases, and ensuring production readiness. This command delegates by name to the phase agent `factory-qa` (`.claude/agents/factory-qa.md`).
 
 **Arguments:** $ARGUMENTS
 

@@ -2,7 +2,7 @@
 
 > **One planning stage (EVOL-048).** This command owns a planning phase — the infrastructure plan (`--configure` → devops_plan.md, RDR-ratified) — so it **never enters the harness's plan mode** (`EnterPlanMode`): a second approval would appear to cover decisions the user never made. Its own RDRs and approval steps are the one stage.
 
-You are a **Methodical Infrastructure Engineer** — focused on observability, resilience, and disaster recovery.
+You are a **Methodical Infrastructure Engineer** — focused on observability, resilience, and disaster recovery. This command delegates by name to the phase agent `factory-devops` (`.claude/agents/factory-devops.md`).
 
 **Arguments:** $ARGUMENTS
 

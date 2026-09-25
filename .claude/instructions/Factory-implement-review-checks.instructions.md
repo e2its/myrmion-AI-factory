@@ -1,17 +1,30 @@
 ---
-description: "Factory IMPLEMENT peer review and security audit — code review checklist, OWASP checks, Zero Trust validation. Use when: IMPLEMENT review or security audit phase."
+description: "Factory IMPLEMENT peer review and security audit — the work critics' checklist (correctness, governance, fidelity lenses), the security lens (SAST), OWASP checks, Zero Trust validation. Use when: IMPLEMENT review or security audit phase."
 applicable_when:
   phase: [IMPLEMENT]
   command: [implement]
 ---
 
-# IMPLEMENT Agent — REVIEW Hat, SEC Hat, Compliance & Finalization
+# IMPLEMENT Agent — Work Critics, Security Lens, Compliance & Finalization
 
-> Detailed instructions for the REVIEW Hat (14 governance checks), SEC Hat (SAST), Static Mock Compliance, Visual Inspection Gate, and Build Finalization.
+> Detailed instructions for the work critics (14 governance checks across the correctness, governance and fidelity lenses), the security lens (SAST), Static Mock Compliance, Visual Inspection Gate, and Build Finalization. Critics are read-only agents that did not write the code (`rules/agents.md`).
 
-## REVIEW Hat Protocol (🔍)
+## Work critics — the correctness, governance and fidelity lenses (read-only)
 
-Execute AFTER DEV Hat completes each phase. All 14 checks run per phase, filtered by feature scope.
+spawn-policy: work-critic
+
+Spawned by name by the orchestrator (`factory-implement`) after the worker completes each phase — `factory-critic-correctness`, `factory-critic-governance`, `factory-critic-fidelity` (and `factory-critic-security`, § Security lens below). Each receives its corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) and the model resolved per spawn (`python3 scripts/gate.py agents --resolve --class work-critic --surface <s> --files N --lines M`). Read-only by tool matrix; the orchestrator hashes the tree before and after each run (`python3 scripts/gate.py certify --subject tree`) and refuses a run around which the tree moved; a return without probes is refused (`python3 scripts/gate.py agents --check-return --class work-critic`). One round (`rounds.work`, `rules/agents.md`), then the user adjudicates. No critic edits, commits or decides.
+
+**Check ownership per lens:**
+
+| Lens | Checks |
+|---|---|
+| correctness (`factory-critic-correctness`) | #1 ARCH (partly: layer separation, dependency direction), #5 SCHEMA, #6 TYPE, #8 MIGRATION, plus the engine at Step R.1b |
+| governance (`factory-critic-governance`) | #1 ARCH (partly: module boundaries, extension strategy), #2 GOV, #2b GOV-SHARED, #2c GOV-SEED, #2d GOV-DC, #3 SEC (patterns only), #4 PATH, #9 IAC, #10 CFP, #11 EXT-STRATEGY, #12 ACL-EXT, #13 POLICY |
+| fidelity (`factory-critic-fidelity`) | #7 UX, #14 DESIGN |
+| security (`factory-critic-security`) | § Security lens — SAST scan, pattern library, verification loop, verdict |
+
+All 14 checks run per phase, filtered by feature scope. The verification loops (`review_verification_loop`, `sec_verification_loop`) execute tools — the orchestrator runs them (critics carry no Bash) and hands the results to the lens that reads them.
 
 ### Scope Dispatch (runs BEFORE Step R.0)
 
@@ -60,11 +73,11 @@ When a check resolves as **N/A**, the report's § 3.X entry reads: `N/A — skip
 #                               Covers: GOV-ARCH, GOV-SEC, GOV-TEST, GOV-API, GOV-DB,
 #                               GOV-OBS, GOV-PERF, GOV-PRIV, GOV-STACK, GOV-REVIEW,
 #                               GOV-STATE, GOV-IMMUT, GOV-CFP, GOV-IAC, GOV-FRONT, GOV-HTML
-#   sast_patterns      (7.3) → SEC Hat: pre-compiled SAST for this stack
+#   sast_patterns      (7.3) → security lens: pre-compiled SAST for this stack
 #   schema_constraints (7.4) → Check #5 (SCHEMA): locked business fields
 #   contract_rules     (7.5) → Check #10 (CFP): contract paths + forbidden imports
 #   ux_constraints     (7.6) → Check #7 (UX): vision refs, touch targets
-#   coding_standards   (7.7) → DEV Hat: naming, file structure
+#   coding_standards   (7.7) → the worker: naming, file structure
 #   mandatory_patterns (7.8) → Check #14 (DESIGN): architectural patterns + ADR bindings
 # When gcd_loaded == false: equivalent data from raw rule files (fallback path).
 
@@ -73,11 +86,11 @@ FUNCTION bind_review_context(governance_context, gcd_loaded):
     # Bind GCD sub-sections to check-specific variables (for readability)
     arch_constraints   = governance_context.arch_constraints     # → Check #1
     gov_rules_index    = governance_context.governance_rules      # → Check #2
-    sast_patterns      = governance_context.sast_patterns         # → SEC Hat
+    sast_patterns      = governance_context.sast_patterns         # → security lens
     schema_constraints = governance_context.schema_constraints    # → Check #5
     contract_rules     = governance_context.contract_rules        # → Check #10
     ux_constraints     = governance_context.ux_constraints        # → Check #7
-    coding_standards   = governance_context.coding_standards      # → DEV Hat
+    coding_standards   = governance_context.coding_standards      # → the worker
     mandatory_patterns = governance_context.mandatory_patterns    # → Check #14
     LOG: "REVIEW context bound ✅ — 14 checks use GCD constraint IDs (GOV-*/ARCH-*/SAST-*/CFP-*/DESIGN-*)"
   ELSE:
@@ -267,7 +280,7 @@ REFERENCE: .claude/rules/defect-prevention.md
 
 ### Check #3: [SEC-XX] Security Patterns
 ```yaml
-# Source: sast_patterns from GCD 7.3 (or fallback SAST library). Full scan in SEC Hat below.
+# Source: sast_patterns from GCD 7.3 (or fallback SAST library). Full scan in the security lens below.
 VERIFY:
   - No hardcoded secrets (passwords, API keys, tokens) — SAST-SEC-01
   - No dangerous functions per sast_patterns.patterns (stack-specific)
@@ -842,17 +855,19 @@ SEVERITY: BLOCKER for confirmed violations, WARNING for suspected
 > FDR, DC catalog); factory-code-review owns the generic code-quality lens (bugs, silent
 > failures, test gaps, type design, comment rot). This pass NEVER writes the Block 20
 > marker — that is the branch pass only.
+> spawn-policy: work-critic — the engine's six vendored agents are class `work-critic`, spawned under the
+> correctness lens (`factory-critic-correctness`); model per spawn from `gate.py agents --resolve --class work-critic`.
 
 ```yaml
 Step R.1b: Agentic Code Review
-  # context:"hat" → no ACP entry announcement (hat switches are internal); 🔎 banner still emitted.
+  # context:"hat" = the engine's increment-pass key (its API, unchanged) → no ACP entry announcement (spawned critics are internal); 🔎 banner still emitted.
   result = INVOKE_SKILL("factory-code-review", {
     scope: "increment",
     feature_id: FEATURE_ID,
     increment_id: build_scope.target_increment.id,   # null in monolithic mode → feature file set
     files: <increment file set from dev_plan tasks + design.md §1 — NEVER a git diff (BVL Full Feature Scope Mandate)>,
     profile: "full",          # all 6 agents (RDR-4: gate profile subsetting applies only to the branch pass)
-    context: "hat",
+    context: "increment",   # the engine's increment mode (EVOL-049; was "hat")
     governance_context: governance_context   # Step R.0 GCD pass-through — engine § Governance Binding primary packet source
   })
   code_review_blockers = result.findings WHERE severity == 🔴
@@ -862,10 +877,11 @@ Step R.1b: Agentic Code Review
   APPEND_TO_WORKLOG action: "IMPLEMENT.code_review.run", increment_id, result: (BLOCKED if code_review_blockers else COMPLETED)
 ```
 
-### REVIEW Verification Loop (BVL-Integrated — Real Execution)
+### Critics' Verification Loop (BVL-Integrated — Real Execution, run by the orchestrator)
 
 > **Purpose:** Static checks (#1-#14) read code. This loop **executes** real tools to verify
 > that coverage, lint, and type compliance are real — not assumed from code inspection.
+> The orchestrator runs it (critics are read-only); results feed the governance lens (#2 GOV-TEST) and R.2.
 > Uses BVL's `resolve_verification_commands()` as the single source of truth for commands.
 
 ```yaml
@@ -980,22 +996,22 @@ Step R.3: Determine Verdict
   IF blockers.length > 0:
     verdict = "BLOCKED"
     OUTPUT detailed blocker list with file:line references
-    RETURN to DEV for fix loop
-  
+    RETURN to the worker for the fix round
+
   IF warnings.length > 0:
     verdict = "PASS_WITH_WARNINGS"
     OUTPUT warning list
-    PROCEED to SEC Hat (warnings documented but non-blocking)
-  
+    PROCEED to the security lens (warnings documented but non-blocking)
+
   IF no issues:
     verdict = "CLEAN_PASS"
-    PROCEED to SEC Hat
+    PROCEED to the security lens
 
   # Verdict → peer_review frontmatter status (the contract implement.md increment
   # gate + QA --verify Gate 2 depend on; previously unwritten):
   #   CLEAN_PASS            → status: APPROVED
   #   PASS_WITH_WARNINGS    → status: APPROVED   (warnings documented in § findings)
-  #   BLOCKED past R.5 max retries → status: CHANGES_REQUESTED
+  #   BLOCKED after the R.5 round (user adjudication pending) → status: CHANGES_REQUESTED
 
 Step R.4: Generate Review Report Snippet
   FOR EACH phase:
@@ -1003,20 +1019,21 @@ Step R.4: Generate Review Report Snippet
 
 Step R.5: Fix Loop Control
   IF verdict == BLOCKED:
-    DEV receives specific blockers with fix guidance
-    DEV fixes → REVIEW re-runs ONLY affected checks
-    Max 3 fix-review cycles per phase before escalation
+    the worker (re-spawned by name, same surface) receives the blockers with fix guidance
+    the worker fixes → the critics re-run ONLY affected checks (tree re-hashed around the run)
+    One worker↔critic round per completed diff (`rounds.work`, rules/agents.md);
+    still BLOCKED after it → the user adjudicates (RDR in the main session) — never a further round on the agent's own judgement
 ```
 
 ---
 
-## SEC Hat Protocol (🛡️)
+## Security lens — factory-critic-security (read-only)
 
-Execute AFTER REVIEW Hat passes for each phase.
+Execute AFTER the work critics pass for each phase. Spawned by name by the orchestrator (`factory-critic-security`, class `work-critic`, `--surface security` — the resolver steps effort up); same digest, tree hash, probe contract and one-round cap as the lenses above. The lens reads; the orchestrator runs `sec_verification_loop()` and hands it the results.
 
 ### SAST Scan (GCD)
 ```yaml
-# SEC Hat uses same governance_context + gcd_loaded from Phase Loop (implement-build Step 0b).
+# The security lens uses the same governance_context + gcd_loaded from Phase Loop (implement-build Step 0b).
 # GCD path: sast_patterns pre-compiled with IDs. Fallback: derived from full SAST library.
 
 IF gcd_loaded:
@@ -1092,9 +1109,9 @@ IF brownfield (extension strategy E1/E2/E3):
     - Legacy adapter contracts preserved
 ```
 
-### SEC Verification Loop (BVL-Integrated — Real Execution)
+### SEC Verification Loop (BVL-Integrated — Real Execution, run by the orchestrator)
 
-> **Purpose:** SAST pattern matching above is static (agent reads code). This loop **executes**
+> **Purpose:** SAST pattern matching above is static (the lens reads code). This loop **executes**
 > real security tools to catch vulnerabilities that pattern matching alone cannot detect:
 > dependency CVEs, real secret leaks, and supply-chain risks.
 > Uses BVL's `resolve_verification_commands()` as the single source of truth for commands.
@@ -1221,7 +1238,7 @@ IF vulnerabilities found:
   
   IF any CRITICAL or HIGH:
     verdict = "BLOCKED"
-    RETURN to DEV for fix loop
+    RETURN to the worker for the fix round (one round — `rounds.work`; then the user adjudicates)
   
   IF only MEDIUM/LOW:
     verdict = "PASS_WITH_FINDINGS"
@@ -1238,7 +1255,7 @@ ELSE:
     verdict = "BLOCKED"
     FOR EACH blocker IN execution_blockers:
       SHOW: "{blocker.finding} — {blocker.remediation}"
-    RETURN to DEV for fix loop
+    RETURN to the worker for the fix round
   
   verdict = "CLEAN_PASS"
 ```
@@ -1268,7 +1285,7 @@ FOR EACH mock.html file related to feature:
   
   Step 4: Resolution
     IF BLOCKER discrepancies:
-      DEV fixes to match mock
+      the worker fixes to match mock
       RE-RUN check
 ```
 
@@ -1332,7 +1349,7 @@ CREATE review_path:
   - Remaining warnings (with justifications)
   - Code quality metrics
   - Frontmatter: report_scope = "feature" | "increment-{INC-N}", increment_id (when applicable). Note: `scope` (feature_scope) is the existing field inherited from spec.feature; `report_scope` is the new report-level scope.
-  - Frontmatter status: per Step R.3 verdict mapping (CLEAN_PASS | PASS_WITH_WARNINGS → APPROVED; BLOCKED past R.5 retries → CHANGES_REQUESTED). This is the status the implement.md increment gate and QA --verify Gate 2 read.
+  - Frontmatter status: per Step R.3 verdict mapping (CLEAN_PASS | PASS_WITH_WARNINGS → APPROVED; BLOCKED after the R.5 round → CHANGES_REQUESTED). This is the status the implement.md increment gate and QA --verify Gate 2 read.
 ```
 
 ### 3.2: Generate Security Audit
@@ -1437,8 +1454,8 @@ POST_COMMAND_REDIRECT(FEATURE_ID)
 ```yaml
 Templates available for generation:
   Template A: dev_plan.md (implementation plan with phases)
-  Template B: peer_review_{timestamp}.md OR peer_review_{INC-N}_{timestamp}.md (REVIEW hat report — name depends on build_scope, see § 3.1)
-  Template C: sec_audit.md (SEC hat report)
+  Template B: peer_review_{timestamp}.md OR peer_review_{INC-N}_{timestamp}.md (work-critic report — name depends on build_scope, see § 3.1)
+  Template C: sec_audit.md (security lens report)
   Template D: Phase-specific task checklist
   Template E: Test file scaffolding (per framework)
   Template F: API client generation (from contract)

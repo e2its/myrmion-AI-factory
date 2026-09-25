@@ -220,7 +220,7 @@ Asynchronous (Event/Message-Based):
 **Prohibited Patterns (BLOCKING violations):**
 
 ```yaml
-# These patterns are detected by IMPLEMENT (🔍 REVIEW hat) and BLOCK the build.
+# These patterns are detected by IMPLEMENT (the work critics) and BLOCK the build.
 
 Pattern 1 — Direct Cross-Domain Import:
   violation: Module A imports Module B's internal service/repository/entity directly
@@ -307,7 +307,7 @@ Why this matters for monoliths:
 - `/BLUEPRINT --approve` Phase 3: Validate that `design.md` "Cross-Domain Dependencies" section lists ALL inter-domain calls with their contract references. BLOCK if any dependency lacks a contract.
 
 **IMPLEMENT Enforcement (Build-Time):**
-- `🔍 REVIEW hat` Step R.1 Check #10 `[CFP-XX]`: Scans implemented code for prohibited cross-domain import patterns (Patterns 1-4 above). Uses architecture layer paths from `constitution.md` to identify module boundaries. BLOCKER if direct cross-domain import detected without corresponding HTTP contract.
+- the governance lens (`factory-critic-governance`) Step R.1 Check #10 `[CFP-XX]`: Scans implemented code for prohibited cross-domain import patterns (Patterns 1-4 above). Uses architecture layer paths from `constitution.md` to identify module boundaries. BLOCKER if direct cross-domain import detected without corresponding HTTP contract.
 - `💻 DEV hat` Phase A: CONTRACT VERIFICATION GATE verifies that ALL contracts referenced in `design.md` cross-domain dependencies exist in `contracts/`.
 
 ---

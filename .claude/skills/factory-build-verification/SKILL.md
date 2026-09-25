@@ -8,7 +8,7 @@ applicable_when:
 
 # BUILD VERIFICATION LOOP (BVL)
 
-> **Shared Protocol** — Referenced by: IMPLEMENT agent (--build, --fix commands), REVIEW hat (coverage + lint verification), SEC hat (dependency audit + secret scan).
+> **Shared Protocol** — Referenced by: IMPLEMENT agent (--build, --fix commands), the critics' verification loop (coverage + lint — run by the orchestrator, read by the governance lens), the security lens's loop (dependency audit + secret scan).
 > Closes the TDD feedback loop by executing tests in the terminal, parsing errors, and auto-fixing.
 > **Prerequisite:** The IMPLEMENT agent has `execute/runInTerminal` and `execute/getTerminalOutput` tools.
 
@@ -96,9 +96,9 @@ The test suite verifies:
 
 The `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` resolver MUST consult `design.md` Section 1 (module/bounded context) and `dev_plan.md` frontmatter to compute scope, NOT a git diff.
 
-**REVIEW hat compliance:** REVIEW hat MUST NOT issue `verdict: APPROVED` until `full_verification_gate(FEATURE_ID)` returns PASSED.
+**Critics' verdict compliance:** the work critics' verdict MUST NOT be `APPROVED` until `full_verification_gate(FEATURE_ID)` returns PASSED.
 
-**SEC hat compliance:** SEC hat MUST NOT issue `verdict: PASS` until SAST tools run against the FULL module scope.
+**Security lens compliance:** the security lens MUST NOT issue `verdict: PASS` until SAST tools run against the FULL module scope.
 
 ---
 
@@ -221,7 +221,7 @@ FUNCTION derive_commands_from_stack(stack):
       "Svelte"            → "npx vitest run {test_file}"
       DEFAULT             → commands.test_single  # Same as backend
   
-  # Coverage report (used by REVIEW hat — Check #2 GOV-TEST threshold verification)
+  # Coverage report (used by the governance lens — Check #2 GOV-TEST threshold verification)
   commands.coverage = MATCH stack.backend.runtime:
     "Node.js"  → MATCH testing_framework:
                     "jest"    → "npx jest --coverage --coverageReporters=text-summary --no-cache"
@@ -234,7 +234,7 @@ FUNCTION derive_commands_from_stack(stack):
     "Rust"     → NULL  # Requires cargo-tarpaulin, optional
     DEFAULT    → NULL
   
-  # Dependency vulnerability audit (used by SEC hat — CVE detection)
+  # Dependency vulnerability audit (used by the security lens — CVE detection)
   commands.dependency_audit = MATCH stack.backend.runtime:
     "Node.js"  → "npm audit --omit=dev --audit-level=high 2>&1 || true"
     "Python"   → IF COMMAND_EXISTS("pip-audit"): "pip-audit --strict --desc 2>&1 || true"
@@ -246,12 +246,12 @@ FUNCTION derive_commands_from_stack(stack):
     "Rust"     → IF COMMAND_EXISTS("cargo-audit"): "cargo audit 2>&1 || true" ELSE: NULL
     DEFAULT    → NULL
   
-  # Secret scanning (used by SEC hat — hardcoded credential detection)
+  # Secret scanning (used by the security lens — hardcoded credential detection)
   # Prioritizes dedicated tools; falls back to regex-based grep scan.
   commands.secret_scan = DETECT_SECRET_SCANNER():
     IF COMMAND_EXISTS("gitleaks"):  "gitleaks detect --source=. --no-git --redact -v 2>&1 || true"
     ELIF COMMAND_EXISTS("trufflehog"): "trufflehog filesystem --directory=. --no-update 2>&1 || true"
-    ELSE: NULL  # Fallback: SEC hat uses regex-based scan (see implement-review-checks.md)
+    ELSE: NULL  # Fallback: the security lens uses the regex-based scan (see implement-review-checks.md)
   
   RETURN commands
 ```
@@ -379,9 +379,9 @@ FUNCTION apply_targeted_fix(source_files, test_files, errors, attempt):
 
 ---
 
-## PHASE VERIFICATION (Post-Phase — Before REVIEW Hat)
+## PHASE VERIFICATION (Post-Phase — Before the work critics)
 
-Runs after all tasks in a phase are complete, before the REVIEW hat.
+Runs after all tasks in a phase are complete, before the work critics are spawned.
 
 ```yaml
 FUNCTION phase_verification(phase, all_test_files):
@@ -695,7 +695,7 @@ TOKEN_BUDGET_RULES:
   PROHIBITED_FLAGS: ["--watch", "--watchAll", "-w"]
   
   # 4. Never run coverage during BVL task loop (saves time + output)
-  # Coverage runs ONLY in REVIEW hat verification, not per-task
+  # Coverage runs ONLY in the critics' verification loop, not per-task
   STRIP_FLAGS: ["--coverage", "--cov"]
 ```
 
@@ -712,7 +712,7 @@ DEGRADATION_SCENARIOS:
   UNKNOWN_STACK:
     ACTION: WARN + SKIP BVL
     LOG: "BVL degraded: unknown stack — semantic verification only"
-    FALLBACK: REVIEW + SEC hats continue normally
+    FALLBACK: the work critics and the security lens continue normally
   
   # Tool missing (e.g., npx not installed)
   TOOL_MISSING:
@@ -725,7 +725,7 @@ DEGRADATION_SCENARIOS:
     ACTION: FLAG task in dev_plan.md with ⚠️ + continue to next task
     ANNOTATION: "⚠️ BVL: Tests failed after 3 attempts. Manual review required."
     NOTE: "- [ ] [FIX-BVL-{N}]: Manual fix needed — {error.summary}"
-    FALLBACK: Task remains [x] but with BVL flag. REVIEW hat MUST inspect.
+    FALLBACK: Task remains [x] but with BVL flag. The correctness lens MUST inspect.
   
   # Timeout exceeded
   EXECUTION_TIMEOUT:
@@ -741,9 +741,9 @@ DEGRADATION_SCENARIOS:
 | Where | How BVL Integrates |
 |-------|-------------------|
 | **TDD Cycle (per task)** | After GREEN phase → `task_verification_loop()` → marks [x] only if GREEN or SKIPPED |
-| **Phase Loop (per phase)** | After all task [x] → `phase_verification()` → before REVIEW hat |
-| **REVIEW Hat (per phase)** | `review_verification_loop()` → runs coverage + lint + typecheck → blockers feed REVIEW verdict |
-| **SEC Hat (per phase)** | `sec_verification_loop()` → runs dependency_audit + secret_scan → blockers feed SEC verdict |
+| **Phase Loop (per phase)** | After all task [x] → `phase_verification()` → before the work critics |
+| **Work critics (per phase)** | `review_verification_loop()` (run by the orchestrator) → coverage + lint + typecheck → blockers feed the critics' verdict |
+| **Security lens (per phase)** | `sec_verification_loop()` (run by the orchestrator) → dependency_audit + secret_scan → blockers feed the security verdict |
 | **Completion Gate** | After all phases → `full_verification_gate()` → before IMPLEMENTED_AND_VERIFIED |
 | **--fix execution** | Same loop: write regression test → fix → `task_verification_loop()` |
 | **Escalation** | FLAGGED tasks → Resilience Protocol (user choice: retry/modify/escalate/skip) |

@@ -263,7 +263,7 @@ Each agent reports estimated consumption upon completing its phase:
 - `/CODESIGN --start` / `--refine` (auto-approval): +$5 (spec generation)
 - `/BLUEPRINT --start`: +$15 (design generation)
 - `/IMPLEMENT --build`: +$97 (code + tests + review + SAST — replaces DEV+REVIEW+SEC)
-- `/QA --verify`: +$15 (testing analysis + DAST security scan — includes 🛡️ SEC hat)
+- `/QA --verify`: +$15 (testing analysis + DAST security scan — includes the DAST security pass)
 
 **Auto-update tracker:**
 ```bash

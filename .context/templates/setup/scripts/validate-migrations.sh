@@ -9,7 +9,7 @@
 #   ./scripts/validate-migrations.sh [--strict] [--path <dir>]
 #
 # Enforcement points:
-#   1. IMPLEMENT (🔍 REVIEW hat) — during per-phase review
+#   1. IMPLEMENT (the work critics) — during per-phase review
 #   2. QA --verify — as pre-audit blocking check
 #   3. CI pipeline — as automated gate
 #

@@ -15,7 +15,8 @@
 #      base and the surface ceiling read the project's keys — a train is protected, an over-ceiling diff is red (EVOL-045);
 #      the gate profile resolves from the one mode key and runs every member in one call; no second definition (EVOL-046);
 #      the deployment trigger is the positive runtime surface, held by the parity gate (EVOL-047);
-#      one planning stage — a gated class blocks a governed write until the harness records an approval (EVOL-048)
+#      one planning stage — a gated class blocks a governed write until the harness records an approval (EVOL-048);
+#      the agent roster lands and its validator holds the tool matrix and the family separation (EVOL-049)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
@@ -69,7 +70,7 @@ if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]'}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus"}
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -268,6 +269,23 @@ OUT=$(cd "$P" && python3 scripts/gate.py plan --enter 2>&1); RC=$?
 git -C "$P" checkout -q feature/FEAT-001-smoke
 OUT=$(cd "$P" && python3 scripts/gate.py plan --enter 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'second stage' && ok "RED: a feature branch never enters plan mode — one stage, never two" || bad "feature plan mode not refused (rc=$RC)" "$OUT"
+# role agents and read-only critics (EVOL-049): the roster lands, the validator is green, a same-family roster is red
+N_AG=$(ls "$P/.claude/agents"/*.md 2>/dev/null | wc -l)
+[ "$N_AG" -ge 14 ] && ok "the agent roster landed ($N_AG definitions under .claude/agents)" || bad "the agent roster did not land ($N_AG definitions)"
+OUT=$(cd "$P" && python3 scripts/gate.py agents 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "gate.py agents: roster parity, the tool matrix per class, budgets, pointers, families, ladder, spawn sites — green on the materialised tree" || bad "agents validator red in the scratch (rc=$RC)" "$OUT"
+python3 - "$P/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["agents"]["families"]["critic"] = d["agents"]["families"]["writer"]; json.dump(d, open(p, "w"), indent=1)
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py agents 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'same alias' && ok "RED: a critic on the writer's family is refused — the separation is the invariant" || bad "same-family roster not refused (rc=$RC)" "$OUT"
+python3 - "$P/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["agents"]["families"]["critic"] = "opus"; json.dump(d, open(p, "w"), indent=1)
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --surface security --files 3 --lines 40 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'model opus' && ok "per-spawn resolution on the materialised policy: the security critic on the critics' family" || bad "resolve wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py agents --digest --agent factory-critic-security 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'digest' && ok "the corpus digest for a critic is produced within its class budget" || bad "digest failed (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

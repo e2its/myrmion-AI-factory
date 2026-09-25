@@ -14,6 +14,7 @@
 #   .claude/instructions/Factory-*.instructions.md
 #   .claude/skills/factory-*/  (entire tree: SKILL.md + references/ + scripts/ + assets/)
 #   .claude/hooks/*.sh
+#   .claude/agents/*.md  (EVOL-049 roster: phases, workers per surface, read-only critics)
 #   scripts/ — MANIFEST-DRIVEN (EVOL-040): every governance_versions.json entry
 #     under scripts/ (templates + framework_core sections) whose `delivery` is
 #     `sync` or `both`, template variant preferred. No hardcoded list — add a
@@ -362,6 +363,12 @@ echo ""
 echo -e "${BOLD}[5/7] Claude Code Hooks (.claude/hooks/)${NC}"
 sync_dir "$FRAMEWORK_ROOT/.claude/hooks" "$TARGET_PROJECT/.claude/hooks" "*.sh"
 detect_orphans "$FRAMEWORK_ROOT/.claude/hooks" "$TARGET_PROJECT/.claude/hooks" "*.sh" "check-"
+echo ""
+echo -e "${BOLD}[5b/7] Role agents & critics (.claude/agents/ — EVOL-049)${NC}"
+# The roster on two axes with the harness tool matrix per class; validated by gate.py agents (rules/agents.md +
+# config/quality.json → agents.families). sync never touches config/ — the two family aliases are the project's (Q34).
+sync_dir "$FRAMEWORK_ROOT/.claude/agents" "$TARGET_PROJECT/.claude/agents" "*.md"
+detect_orphans "$FRAMEWORK_ROOT/.claude/agents" "$TARGET_PROJECT/.claude/agents" "*.md" "factory-"
 echo ""
 
 echo -e "${BOLD}[6/7] Base Scripts (scripts/)${NC}"

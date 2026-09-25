@@ -7,7 +7,7 @@ applicable_when:
 
 > **Status:** Active  
 > **Enforcement:** Mandatory for all features before QA verification  
-> **Agent:** IMPLEMENT.AGENT.MD (🔍 REVIEW hat)
+> **Agent:** IMPLEMENT — the work critics (`factory-critic-*`, read-only; EVOL-049)
 
 ---
 
@@ -216,8 +216,8 @@ The PEER_REVIEW agent automatically validates:
 
 ### DEV → IMPLEMENT (Unified Build)
 When DEV plan is ready, execute `/IMPLEMENT --build {{FEATURE_ID}}`:
-- 💻 DEV implements (TDD) → 🔍 REVIEW verifies (governance + quality) → 🛡️ SEC scans (SAST) per phase
-- Review is inline within `/IMPLEMENT --build` (🔍 REVIEW hat)
+- the worker implements (TDD) → the work critics verify (correctness · governance · fidelity) → the security lens scans (SAST) per phase
+- Review is inline within `/IMPLEMENT --build` (the read-only work critics, spawned per phase)
 - Seamless multi-hat workflow
 
 ### REVIEW → QA (Sequential Blocking)
@@ -314,7 +314,7 @@ override:
 
 ## 📚 Further Reading
 
-- [IMPLEMENT.AGENT.MD](../agents/IMPLEMENT.AGENT.MD) — Unified build (💻 DEV ↔ 🔍 REVIEW ↔ 🛡️ SEC)
+- [IMPLEMENT.AGENT.MD](../agents/IMPLEMENT.AGENT.MD) — Unified build (workers → work critics → security lens)
 - [immutability_policy.md](./immutability_policy.md) — Phase 3.5 (Review Lock)
 - [QA.AGENT.MD](../agents/QA.AGENT.MD) — Review prerequisite checks
 - [BLUEPRINT.AGENT.MD](../agents/BLUEPRINT.AGENT.MD) — Conflict resolution

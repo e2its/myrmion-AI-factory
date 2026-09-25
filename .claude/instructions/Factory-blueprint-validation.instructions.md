@@ -467,7 +467,7 @@ PROPOSED | ACCEPTED | DEPRECATED | SUPERSEDED
 
 ### Trigger
 - Escalation after 3 IMPLEMENT rejections for the same section
-- IMPLEMENT REVIEW hat cannot resolve disagreement with DEV hat
+- the work critics cannot resolve a disagreement with the worker
 
 ### Process
 1. **Root Cause Analysis**: Read rejection history from IMPLEMENT review artifacts

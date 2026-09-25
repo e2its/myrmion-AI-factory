@@ -64,6 +64,48 @@
       "term": "docs/rules/",
       "record": "ADR-EVOL-043",
       "exempt": []
+    },
+    {
+      "term": "REVIEW Hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**"
+      ]
+    },
+    {
+      "term": "SEC Hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**"
+      ]
+    },
+    {
+      "term": "REVIEW hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**"
+      ]
+    },
+    {
+      "term": "SEC hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**"
+      ]
+    },
+    {
+      "term": "reviewer hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**"
+      ]
+    },
+    {
+      "term": "security hat",
+      "record": "ADR-EVOL-049",
+      "exempt": [
+        "docs/proposals/**"
+      ]
     }
   ],
   "coherence": {
@@ -142,5 +184,12 @@
     "plan_artefact": "docs/project_log/evolutions/ADR-{ID}.md",
     "adoption_window_minutes": 30,
     "approval_ttl_hours": 168
+  },
+  "agents": {
+    "_doc": "EVOL-049: the two model FAMILIES as harness aliases (never pinned ids) — writers and critics on different families by construction (gate.py agents refuses equal aliases). The class policy, the roster and the per-spawn resolution live in the rule .context/templates/setup/rules/agents.md (a project: .claude/rules/agents.md).",
+    "families": {
+      "writer": "sonnet",
+      "critic": "opus"
+    }
   }
 }

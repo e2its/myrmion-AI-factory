@@ -8,17 +8,51 @@ applicable_when:
 # BLUEPRINT Agent — Design & Artifact Generation (Phases 0-2)
 
 ## Purpose
-This instruction file defines the **Pre-Flight, Analysis, and Artifact Generation** protocols for the BLUEPRINT agent (🏗️ ARCH Hat + 🧪 QA Hat co-design). BLUEPRINT produces the technical design and test plan simultaneously, with cross-pollination: ARCH contracts inform QA test cases, QA edge cases refine ARCH error handling.
+This instruction file defines the **Pre-Flight, Analysis, and Artifact Generation** protocols for the phase agent `factory-blueprint` (`.claude/agents/factory-blueprint.md`, class `phase` — `rules/agents.md`): ONE context carrying both concerns, architecture and test strategy. BLUEPRINT produces the technical design and test plan simultaneously, with cross-pollination: ARCH contracts inform QA test cases, QA edge cases refine ARCH error handling.
 
 ---
 
-## Hat-Switching Rules
+## Phase Agent — one context, both concerns (EVOL-049)
 
-| Topic | Hat |
-|-------|-----|
-| Patterns, layers, contracts, C4, ADRs | 🏗️ ARCH |
-| Testing strategy, edge cases, coverage, WCAG | 🧪 QA |
+`/blueprint` delegates by name to `factory-blueprint`; the orchestrator hands it its corpus digest (`gate.py agents --digest --agent factory-blueprint`) and the model from `gate.py agents --resolve --class phase`. No persona switch, no second context — a concern is a lens on the same work:
+
+| Topic | Concern |
+|-------|---------|
+| Patterns, layers, contracts, C4, ADRs | ARCH (architecture) |
+| Testing strategy, edge cases, coverage, WCAG | QA (test strategy) |
 | Schemas, contract-to-test mapping, integration | Both |
+
+`ARCH` / `QA` below name the concern, never a role change.
+
+## Plan Gate — before `--approve` (MANDATORY)
+
+spawn-policy: plan-critic
+
+The plan (design.md, test_plan.md, increment_plan.md) is read by a critic that did not write it before any artefact flips to APPROVED. The phase agent carries no `Agent` tool (class `phase`, `never: [Agent]`): the **main session** spawns the critic, hands the findings back for the cure, and poses what stays open to the user.
+
+```yaml
+FUNCTION plan_gate(FEATURE_ID):
+  cap   = rules/agents.md → rounds.plan_gate                   # 2 — a key, never a judgement
+  scope = "docs/spec/{FEATURE_ID}"
+  FOR round IN 1..cap:
+    digest = RUN("python3 scripts/gate.py agents --digest --agent factory-plan-critic")
+    model  = RUN("python3 scripts/gate.py agents --resolve --class plan-critic --round {round}").model
+    before = RUN("python3 scripts/gate.py certify --subject tree --paths {scope}")
+    report = SPAWN("factory-plan-critic", model = model, digest = digest,
+                   inputs = [design.md, test_plan.md, increment_plan.md, spec.feature, slice_map.md, contracts/**])
+      # provider error ⇒ model = RUN("python3 scripts/gate.py agents --fallback --class plan-critic --family critic").model
+      #                  — the other family, never a writer
+    after  = RUN("python3 scripts/gate.py certify --subject tree --paths {scope}")
+    IF before != after: REFUSE "tree moved around a critic run" — the round is void
+    IF RUN("python3 scripts/gate.py agents --check-return --class plan-critic", report) refuses:
+      re-spawn ONCE; refused again ⇒ every finding of the round is ❓
+    open = report.findings WHERE severity > 🟢
+    IF open empty: RETURN PASS
+    IF round < cap: factory-blueprint cures the findings it accepts (design / test plan / increment plan edits) and disputes the rest in writing
+  RETURN open                                                  # after the cap: the user's call
+```
+
+Each finding carries file, line, severity, confidence and an **executed probe** (`file:line · 🔴|🟡|🟢|❓ · confidence N% · probe: …`) — refused otherwise. Severity per the two-limb bar (`rules/agents.md § Severity bar`). A cure that seeds the next round's findings is the loop's own defect. **The phase agent never ratifies:** what stays open after `rounds.plan_gate` goes to the user by RDR (factory-rdr, two registers) in the main session; `--approve` proceeds only on the user's adjudication.
 
 ---
 
@@ -264,13 +298,13 @@ The gate runs **before** Governance Context Loading (Steps 0-5) so that resolved
 
 ## Command `--start {{ID}}` — Phase 1: Analysis & Clarification
 
-### ARCH Context Analysis (🏗️ hat)
+### ARCH Context Analysis (architecture concern)
 - Analyze spec.feature scenarios for architectural implications
 - Map scenarios to component architecture
 - Identify integration points (external systems, cross-domain deps)
 - Assess complexity and propose patterns
 
-### QA Critical Analysis (🧪 hat)
+### QA Critical Analysis (test-strategy concern)
 - Analyze spec.feature for testability  
 - Identify edge cases not covered by scenarios
 - Assess security testing needs
@@ -549,7 +583,7 @@ OUTPUT: list of @layer components entries needed in globals.css
 
 ### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY —)
 
-> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for DEV + REVIEW + SEC hats.
+> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for its workers and the work critics (`factory-dev-*`, `factory-critic-*`).
 >
 > **When to generate:** After completing Section 6, before finalizing `design.md`.
 > **Format:** Inline markdown table + YAML blocks. NEVER prose. Machine-readable IDs for each constraint.
@@ -575,9 +609,9 @@ When a governance rule mandates a shared mechanism (middleware, base class, inte
 
 **Governance mechanism rule:** Satisfying a constraint by inlining logic in each module is a REVIEW BLOCKER `[GOV-SHARED-INLINE]`.
 
-#### 7.3 SAST Patterns → SEC Hat
+#### 7.3 SAST Patterns → security lens (`factory-critic-security`)
 
-Pre-compile stack-specific SAST patterns so SEC hat does not re-derive them. Each pattern: id, description, detection pattern, CWE, severity, OWASP category.
+Pre-compile stack-specific SAST patterns so the security critic does not re-derive them. Each pattern: id, description, detection pattern, CWE, severity, OWASP category.
 
 #### 7.4 Schema Constraints → REVIEW [SCHEMA]
 
@@ -591,7 +625,7 @@ Extract from design.md Section 3 (Contracts). Contract paths, forbidden direct c
 
 Conditional on `frontend.framework != "None"`. Vision artifact requirements, touch target minimums, WCAG level, component reuse mandate, feature nav placement.
 
-#### 7.7 Coding Standards → DEV Hat
+#### 7.7 Coding Standards → workers (`factory-dev-*`)
 
 Extract from stack-specific rule + constitution: naming patterns, module structure, test file patterns, key lint rules.
 
@@ -708,7 +742,7 @@ FUNCTION auto_declare_frontend_resource():
       recommended: "CDN-backed hosting with CI/CD pipeline"
 ```
 
-### QA Test Plan Generation (🧪 hat)
+### QA Test Plan Generation (test-strategy concern)
 
 **Section coverage note (EVOL-041):** emit ALL applicable template sections — § 1 AC-XX, § 2 TC-XX, § 2.1 TC-API-XX, § 2.2 REL-*-XX (backend/integration; from design.md § 6), § 3 UX-XX/A11Y-XX and § 4 BRAND-XX/LAYOUT-XX (UI scopes; IDs per template).
 
@@ -833,7 +867,7 @@ Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, sl
 
 ### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY —)
 
-> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for DEV + REVIEW + SEC — reliably, with zero duplication.
+> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for its workers and the work critics — reliably, with zero duplication.
 
 **When to generate:** After completing Section 5 (Infrastructure Needs), before finalizing `design.md`.  
 **Format:** Inline markdown table + YAML blocks. NEVER prose. Machine-readable IDs for each constraint.
@@ -844,7 +878,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   
   WRITE design.md "## Section 7: Governance Constraints Digest"
   WRITE design.md "> Auto-generated by BLUEPRINT --start. Read by IMPLEMENT as single-file governance fast-path."
-  WRITE design.md "> Constraint IDs are referenced by REVIEW hat checks (e.g., [GOV-ARCH-001])."
+  WRITE design.md "> Constraint IDs are referenced by the work critics' checks (e.g., [GOV-ARCH-001])."
   
   # 7.1 Architecture Constraints (→ REVIEW Check #1: ARCH)
   EXTRACT from constitution.md:
@@ -937,8 +971,8 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       # ... (one entry per applicable rule)
     not_applicable: ["{rule_name}: {reason — e.g., no database in stack}"]
   
-  # 7.3 SAST Patterns (→ SEC Hat) — stack-specific ONLY
-  # Pre-compiles the exact patterns for THIS stack. SEC hat does not re-derive.
+  # 7.3 SAST Patterns (→ security lens) — stack-specific ONLY
+  # Pre-compiles the exact patterns for THIS stack. The security critic does not re-derive.
   # Source: security_policy.md + stack-specific rules (already loaded in Steps 0-5).
   # OWASP Top 10 coverage derived from the project's attack surface (API, frontend, data layer).
   DERIVE from governance rules already in memory:
@@ -946,7 +980,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     FOR frontend.framework (if exists): select frontend patterns
     ALWAYS include: Common patterns (hardcoded secrets, disabled TLS)
   
-  WRITE design.md "### 7.3 SAST Patterns → SEC Hat"
+  WRITE design.md "### 7.3 SAST Patterns → security lens"
   WRITE design.md:
     backend_runtime: "{runtime}"
     frontend_framework: "{framework | None}"
@@ -1161,7 +1195,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   ELSE:
     WRITE design.md "### 7.6 UX Vision Digest (UXD) → N/A (no frontend in stack)"
   
-  # 7.7 Coding Standards (→ DEV Hat)
+  # 7.7 Coding Standards (→ workers)
   EXTRACT from stack-specific rule + constitution.md:
     naming_convention: "{camelCase|snake_case|PascalCase} per role"
     module_structure: "{directory layout}"
@@ -1169,7 +1203,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     test_framework: "{jest|pytest|go test}"
     key_lint_rules: ["{rule_1}", "{rule_2}"]
   
-  WRITE design.md "### 7.7 Coding Standards → DEV Hat"
+  WRITE design.md "### 7.7 Coding Standards → workers"
   WRITE design.md:
     language: "{runtime/language}"
     naming:
@@ -1181,7 +1215,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     test_file_pattern: "{pattern}"
     key_lint_rules: ["{rule}"]
   
-  # 7.8 Mandatory Architectural Patterns + FDR Bindings (→ REVIEW Check #14: DESIGN + DEV Hat)
+  # 7.8 Mandatory Architectural Patterns + FDR Bindings (→ REVIEW Check #14: DESIGN + workers)
   # PURPOSE: Constitution `[LAW]` sections and feature-scoped FDRs define mandatory implementation
   # patterns (e.g., BaseRepository with auto tenant filter, middleware tenant_id injection, global
   # error handler, audit logging). These are NOT rules (.claude/rules/) — they are DESIGN
@@ -1302,7 +1336,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     historical_adr_refs = factory-adr-management.list_active_adrs(feature_id=FEATURE_ID)
     # Returns refs only — no binding semantics derived from them.
 
-  WRITE design.md "### 7.8 Mandatory Architectural Patterns + FDR Bindings → REVIEW [DESIGN] + DEV Hat"
+  WRITE design.md "### 7.8 Mandatory Architectural Patterns + FDR Bindings → REVIEW [DESIGN] + workers"
   WRITE design.md:
     mandatory_patterns:
       - id: "PAT-{N}"
@@ -1352,7 +1386,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       # (generated from [LAW] patterns + FDRs — feature-specific invariants)
 
     note: >
-      DEV Hat: mandatory_patterns and implementation_invariants are BINDING. Every shared component
+      Workers: mandatory_patterns and implementation_invariants are BINDING. Every shared component
       listed here MUST be created (or verified existing) before feature-specific code that depends
       on it. REVIEW Check #14 [DESIGN] validates materialization fidelity — bypassing prescribed
       patterns is a BLOCKER. Sources of binding rules are constitution `[LAW]` sections (universal)
@@ -1414,7 +1448,7 @@ FUNCTION blueprint_skeleton_first(FEATURE_ID):
 # Sections saved individually for IPP resilience
 
 FOR EACH section IN artifact.sections:
-  content = GENERATE(section)  # ARCH or QA hat co-creates
+  content = GENERATE(section)  # the phase agent co-creates, both concerns
   REPLACE_SECTION(artifact_path, section.id, content)
   UPDATE_FRONTMATTER(artifact_path):
     _progress.completed_sections: APPEND(section.id)
