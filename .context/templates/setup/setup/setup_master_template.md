@@ -96,7 +96,7 @@ last_update: [TIMESTAMP]
 - **INTEGRATION_BASE_PATH:** [Derived from backend.topology]
 - **AI_BASE_PATH:** [Derived from backend.topology]
 - **CONTRACTS_BASE_PATH:** [Derived from backend.topology, default: `contracts`]
-- **~~CONTRACTS_NAMESPACE~~:** ~~REMOVED (v12.0.0)~~ — Contract directories use domain-name slugs (`contracts/{type}/{CONTRACT_SLUG}/`). See `contract-first-policy.instructions.md`.
+- **~~CONTRACTS_NAMESPACE~~:** ~~REMOVED (v12.0.0)~~ — Contract directories use domain-name slugs (`contracts/{type}/{CONTRACT_SLUG}/`). See `.claude/rules/contract-first-policy.md`.
 - **CONFIG_BASE_PATH:** [Project root config path]
 - **MONOREPO_APPS_PATH:** [Derived from project structure if monorepo]
 - **SCRIPTS_BASE_PATH:** [Project root scripts path]

@@ -1,7 +1,7 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "6.3.0",
+  "framework_version": "7.0.0",
   "last_updated": "2026-09-25",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
@@ -15,10 +15,11 @@
   },
   "templates": {
     "rules/defect-prevention.md": {
-      "version": "1.2.0",
+      "version": "3.0.0",
       "content_type": "universal",
-      "target": "docs/rules/defect-prevention.md",
+      "target": ".claude/rules/defect-prevention.md",
       "changelog": [
+        "3.0.0: feat(EVOL-043)! — BREAKING — families (surface globs + one-line invariant) and 7-column defect classes (Family, Invariant, Gate, Paths, Applicable To, Severity); narratives moved to defect-prevention-cases.md; applicable_when always; target retargeted to .claude/rules/ (retired legacy path).",
         "1.2.0: feat(EVOL-037) DC-29 Over-engineering / YAGNI minimalism (WARNING, applicable_to: CODESIGN/BLUEPRINT/IMPLEMENT/REVIEW/AUDIT, all scopes). Ponytail discipline absorbed as a single-source DC: do-less ladder + 4 over-engineering categories + how-not-what scope guardrail. Decision-time consumer factory-adversarial-reasoning (do-less AGAINST lens); build-time consumer BVL full_verification_gate step 8 (advisory, fail-open). Complements DC-28 (complexity-of-code) by questioning build-vs-no-build.",
         "1.1.0: feat(EVOL-033) phase 1 — DC-28 Cyclomatic complexity exceeds project threshold (BLOCKER, applicable_to: IMPLEMENT/REVIEW/QA, all scopes). Process owned by framework via DC; tool selection delegated to project at SETUP (config/quality.json.complexity.mcp_server). BVL + factory-pr-review consume via factory-complexity-check skill.",
         "1.0.0: chore: initial manifest registration (backfill — file existed but was untracked). Includes the chore/md-cleanup-evol-version-refs sweep edits (PR #14): version_changelog frontmatter array left untouched (mirror of manifest, intentional), prose annotations cleaned of EVOL/version-history references in body sections (Filter 2 comment, Caller contract paragraph, IMPLEMENT --build line)."
@@ -45,20 +46,22 @@
       ]
     },
     "rules/privacy.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".claude/rules/privacy.md",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/protected-code.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/rules/protected-code.md",
       "changelog": [
+        "1.4.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
@@ -175,20 +178,22 @@
       ]
     },
     "rules/architecture.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/architecture.md",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/branching.md": {
-      "version": "2.4.0",
+      "version": "2.5.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md",
       "changelog": [
+        "2.5.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "2.4.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "2.3.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "2.0.0: PR validation mode, approval count, merge method configurable via SETUP Q22.1",
@@ -198,10 +203,11 @@
       ]
     },
     "rules/security_policy.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/security_policy.md",
       "changelog": [
+        "1.4.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.3.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template",
@@ -209,10 +215,11 @@
       ]
     },
     "rules/testing.md": {
-      "version": "1.4.1",
+      "version": "1.5.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/testing.md",
       "changelog": [
+        "1.5.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.4.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: backticked DataIn/DataOut line actually replaced (previous edit missed the literal).",
         "1.4.0: feat(EVOL-041) — test-data derivation split: journey § 6 existence + design § 7.4 types.",
         "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
@@ -222,10 +229,11 @@
       ]
     },
     "rules/ci-cd.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/ci-cd.md",
       "changelog": [
+        "1.5.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.4.0: fix(EVOL-040 pr-review loop) — security-scan step migrated from tool-named flags to --secrets (Detector 13; agnosticism).",
         "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
@@ -255,20 +263,22 @@
       ]
     },
     "rules/stateless.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/stateless.md",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
       ]
     },
     "rules/ux-constitution.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/ux-constitution.md",
       "changelog": [
+        "1.5.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.4.0: feat(EVOL-041) — 13 dangling design_ux.md refs redirected to living artefacts (user_journey Part I / mock.html / design.md Component Inventory / test_plan § 3 / ux_decisions_log); design_ux.md retired (DEC-6, validated 100% orphan).",
         "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
@@ -277,10 +287,11 @@
       ]
     },
     "rules/contract-first-policy.md": {
-      "version": "3.5.2",
+      "version": "3.6.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/contract-first-policy.md",
       "changelog": [
+        "3.6.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "3.5.2: fix(EVOL-041) — CONTRACT_SLUG derivation cites journey § 6 dominant concept (bounded-context wording retired with the Event-Storming template).",
         "3.5.0+: fix(EVOL-040 pr-review loop i2) — embedded security-scan example updated to the config-driven flag surface (--secrets/--contracts).",
         "3.5.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
@@ -312,10 +323,11 @@
       ]
     },
     "rules/review-policy.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/review-policy.md",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.2.0: feat(EVOL-028) backfill `applicable_when: { always: true }`.",
         "1.0.0: Initial template",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/"
@@ -332,10 +344,11 @@
       ]
     },
     "constitution/constitution_template.md": {
-      "version": "3.4.0",
+      "version": "4.0.0",
       "content_type": "project_data",
       "target": "docs/constitution.md",
       "changelog": [
+        "4.0.0: feat(EVOL-043)! — BREAKING — the constitution is the INDEX of project law: 13 `## [PLAW-NN]` three-line entries (sentence · Body: pointer · Records), preamble with the two-tier ceremony; bodies moved to rules/; Governance Index section removed (retired). 848 → 70 lines.",
         "3.4.0: fix(EVOL-040 pr-review loop) — 2 refs to the removed --semgrep/--gitleaks flags migrated to the tool-agnostic --secrets lane (Detector 13; agnosticism).",
         "3.3.0: feat(EVOL-040) — [LAW] marker convention gains the stable-ID note: framework [LAW-NN] (reserved 01..99) vs project [PLAW-NN], disjoint namespaces.",
         "3.2.0: feat(EVOL-029) added [LAW] QA Per-Increment Alignment section — mandates per-slice transition path under slicing_strategy: incremental, triple gate (tasks/peer_review/BVL) per slice, /qa --verify {ID} {INC-N} required before aggregate, plan-level dev_plan.status derived (never written manually). Monolithic features unchanged.",
@@ -454,10 +467,11 @@
       "delivery": "setup"
     },
     "scripts/security-scan.sh": {
-      "version": "3.1.0",
+      "version": "3.2.0",
       "content_type": "universal",
       "target": "scripts/security-scan.sh",
       "changelog": [
+        "3.2.0: feat(EVOL-043)! — legacy docs/rules/ fallback removed (retired path).",
         "3.1.0: fix(EVOL-040 pr-review loop i2) — repo-root cd preamble (CWD-dependence made the lane fail-open from subdirs); FIVE python probes consolidated to ONE with a real fallback (python3-absent previously killed the script raw, defeating the header's own fail-open contract); --range validated as a git range BEFORE eval (injection via hostile refnames confirmed and closed); parse-error vs unconfigured vs python-missing distinguished in every message; DAST ZAP findings no longer swallowed by || true (fail-closed outside DRY_RUN per header contract); header scopes the exit contract to the secrets lane.",
         "3.0.0: BREAKING(EVOL-040 RDR-2) — tool-named flags --semgrep/--gitleaks REMOVED (agnosticism principle: tool names live only in config resolution tables + SETUP discovery); the --gitleaks flag was a stub that echoed and never executed. NEW --secrets lane: config-driven dispatcher reads quality.json.security_scan {enabled, scanner, secrets_command with {{RANGE}} token, report_format, fail_on, install_hint}; scanner binary resolved at runtime; fail-open NOISY (mandatory 🔒 banner naming the regex floor + install hint) / fail-closed on findings (exit 1 always) / --require-scanner flips infra-absent to exit 2 (pre-push context, preserves ADR-0001 strictness asymmetry). Canonical flags --contracts/--drift with old --validate-contracts/--drift-check kept as aliases. dead cmd-echo scaffold + tail eval removed. DAST/contracts/UX/drift lanes unchanged.",
         "2.3.1: fix(EVOL-034) sub-task 2 — jq query for protected-paths.json drift check updated `.red_zones | to_entries[] | .value[]` (object-of-arrays assumption, never matched the actual flat-array template) → `.paths[]` matching the canonical schema after ADR-EVOL-034 RDR-1 = Option A rename. Closes Finding #2 (schema incoherence between security-scan.sh expected shape and template config actual shape).",
@@ -551,10 +565,11 @@
       "delivery": "both"
     },
     "scripts/README.md": {
-      "version": "1.1.3",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "scripts/README.md",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — EVOL-043 touch (see PR).",
         "1.1.3: fix(EVOL-040 pr-review loop i3b) — --drift/--validate-ux flags documented (last doc-completeness nit; 0/0/0).",
         "1.1.2: fix(EVOL-040 pr-review loop i2) — security-scan section rewritten to the dispatcher reality (synopsis, flags incl. --secrets/--require-scanner/--range, purpose tool-agnostic, examples de-tooled).",
         "1.1.1: fix(EVOL-040 pr-review loop) — tool-flag refs migrated to --secrets.",
@@ -579,10 +594,11 @@
       "delivery": "both"
     },
     "scripts/validate-governance.sh": {
-      "version": "1.3.3",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
+        "1.4.0: feat(EVOL-043)! — banner counts law-index entries and defect families (lite snapshot).",
         "1.3.3: fix(EVOL-041 code-review) — same as meta.",
         "1.3.2: fix(EVOL-041 code-review) — Block 20 gate findings remediated: same as meta.",
         "1.3.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: same regex fix as meta.",
@@ -611,10 +627,11 @@
       "delivery": "both"
     },
     "scripts/governance-onprompt.sh": {
-      "version": "2.2.1",
+      "version": "2.3.0",
       "content_type": "universal",
       "target": "scripts/governance-onprompt.sh",
       "changelog": [
+        "2.3.0: feat(EVOL-043)! — GOVERNANCE_ONPROMPT_WORST_CASE=1 for the budget reader; fresh line counts laws + defect families.",
         "2.2.1: fix(IPP runtime binding) — adds Block 2b IPP marker consumer between source-edit attribution and the livelock carve-out. Two new model-facing tagged blocks emitted on stdout: `<ipp-reminder paths=\"...\">` consumes `.claude/state/ipp-first-write-${session_id}.marker` (written by check-ipp-compliance.sh after a legitimate skeleton write) and emits Pillars 2/3 teaching text with SKILL pointer. `<ipp-warning reason=\"pillar-2-violation\" entries=\"...\">` consumes `.claude/state/ipp-pillar2-${session_id}.marker` (written by governance-onedit.sh Block 2 when filled sections outpace `_progress`) and emits a backfill instruction. Both markers session-scoped with legacy-unscoped fallback; consumed (deleted) after emission. Allowlist filters reject anything not under `docs/spec/*` or `docs/setup.md`. Freshness gate (Block 3) is NOT suppressed by IPP blocks — they are independent advisories. Lock-step with framework_core.scripts/governance-onprompt.sh.",
         "2.2.0: synced from meta — positive governance-loaded confirmation tag mid-session.",
         "2.1.1: fix(EVOL-023) Copilot PR #12 review: (a) marker-content allowlist filter — reader now drops anything that is not exactly `docs/constitution.md` or `docs/setup.md` before interpolating into the `<governance-source-edited paths=\"...\">` attribute, closing an injection vector through a tampered/legacy marker file in the user-writable `.claude/state/` directory. (b) explicit `else exit 0` added after the project-root anchoring cascade so the hook no-ops when it cannot resolve a project root. (c) freshness-gate header comment rewritten from \"always runs\" to \"runs by default, suppressed when the source-edit marker already attributed the cause\" to match actual control flow.",
@@ -758,10 +775,11 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "type": "script",
       "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, full governance validation. Honors the actual push remote ($1) instead of hardcoding origin.",
       "changelog": [
+        "2.3.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "2.2.0: fix(EVOL-040 pr-review loop i2) — dispatcher-missing guard (humanized block naming factory-sync as the fix — was raw 'No such file'); residual gitleaks naming removed from header/comments/user-facing messages (agnosticism); dangling ADR-0001 citation dropped; enabled=false-vs-require-scanner carve-out documented.",
         "2.1.0: feat(EVOL-040 RDR-2) — secrets lane delegated to scripts/security-scan.sh --secrets --require-scanner --range: inline gitleaks invocation + binary check removed (agnosticism violation — tool hardcoded in a shipped hook); fail-closed-at-push semantics preserved via --require-scanner (dispatcher exit 2 → push blocked with config-driven install hint); push-spec/range/base-fallback logic + factory-pr-review sentinel block untouched.",
         "2.0.0: fix(EVOL-040) — target + content_type + delivery declared (was the only 4 target-less templates entries; dead for SETUP --upgrade).",
@@ -773,11 +791,12 @@
       "delivery": "both"
     },
     "claude/settings.json": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/settings.json",
       "upgrade_strategy": "merge-preserve",
       "changelog": [
+        "1.4.0: feat(EVOL-043)! — deliver-governance.sh wired on PreToolUse Edit|Write (law at the point of edit).",
         "1.3.0: feat(EVOL-024): new PreToolUse Bash matcher invoking .claude/hooks/check-push-preflight.sh — Factory PR Review push gate intercepts `git push` and runs the local preflight before the command leaves the harness. Merge-preserve adds the Bash matcher without touching existing PreToolUse Edit|Write / Write blocks.",
         "1.2.0: feat(EVOL-023): new PostToolUse Edit|Write block invoking scripts/governance-onedit.sh — emits a session-scoped marker when docs/constitution.md or docs/setup.md is edited so the next UserPromptSubmit can attribute the cause and instruct inline regen. Merge-preserve adds the PostToolUse entry without touching existing PreToolUse / UserPromptSubmit / PreCompact / SessionStart blocks or user permissions.",
         "1.1.0: feat(EVOL-020): PreToolUse Write matcher gains check-ipp-compliance.sh hook entry alongside the existing check-completion-gate.sh. Merge-preserve adds the new entry to downstream settings.json without touching user-added permissions.",
@@ -785,44 +804,49 @@
       ]
     },
     "claude/hooks/check-branch-protection.sh": {
-      "version": "1.0.2",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-branch-protection.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.2: fix(EVOL-022) PR #10 review: block message lists all allowed working patterns (feature/fix/bugfix/hotfix/docs/chore) with `hotfix/my-fix` as example. Lock-step with meta counterpart.",
         "1.0.1: fix(EVOL-022): regex `hotfix(/.+)?` narrowed to bare `hotfix` so `hotfix/{slug}` working branches are allowed (aligns with Pre-Action Gate wording in CLAUDE.md template + INVARIANT 1 → PATCH mapping). `release(/.+)?` unchanged.",
         "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse hook blocks Edit/Write on protected branches (main/master/develop/release/hotfix). Previously lived only in framework_core at .claude/hooks/; fresh SETUP --generate left .claude/settings.json pointing at a non-existent path."
       ]
     },
     "claude/hooks/check-completion-gate.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-completion-gate.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse Write hook blocks terminal status in dev_plan.md or qa_report*.md when unchecked items remain."
       ]
     },
     "claude/hooks/check-concurrency-lock.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-concurrency-lock.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse Edit/Write hook acquires per-branch lock, prevents parallel sessions on same branch."
       ]
     },
     "claude/hooks/check-governance-drift.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-governance-drift.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse Edit/Write hook warns (non-blocking) when constitution.md/setup.md hashes diverge from governance snapshot. Pairs with UserPromptSubmit freshness gate (blocking)."
       ]
     },
     "claude/hooks/check-ipp-compliance.sh": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-ipp-compliance.sh",
       "changelog": [
+        "1.4.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.3.0: feat(EVOL-041) — tracked-artefact list drops user_journey.integration.md (single journey file, all scopes).",
         "1.2.0: fix(EVOL-036) coherence — severity correction: slice_map allowlist extension is a feat → MINOR (EVOL-021 precedent), supersedes 1.1.2 PATCH. Byte-identical lock-step pair with framework hooks/check-ipp-compliance.sh. No content change vs 1.1.2.",
         "1.1.2: feat(EVOL-036) SLICE-2 — IPP first-write allowlist gains `*/docs/spec/*/slice_map.md` so skeleton-first is enforced on the CODESIGN slice_map producer. Lock-step with framework_core.hooks/check-ipp-compliance.sh.",
@@ -832,10 +856,11 @@
       ]
     },
     "claude/hooks/check-push-preflight.sh": {
-      "version": "1.1.2",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-push-preflight.sh",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.1.2: chore(EVOL-032 cleanup mirror) — strip version ref from header comment so template matches the meta-side cleanup pass. Lock-step with framework_core.hooks/check-push-preflight.sh 1.1.3.",
         "1.1.1: fix(EVOL-025) revert .session_id extraction (mirror of framework_core 1.1.1). Net diff vs 1.0.0: byte-identical; the 1.1.0 → 1.1.1 path round-trips after the marker-key simplification.",
         "1.1.0: feat(EVOL-025) extract `.session_id` from stdin JSON and export `CLAUDE_SESSION_ID` before invoking preflight.sh. Mirror of framework_core entry 1.1.0.",
@@ -843,11 +868,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "3.12.0",
+      "version": "3.13.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "3.13.0: feat(EVOL-043)! — § Governance Rules in INDEX form (mirror of meta; LAW-14 project-only; LAW-01 project addendum names the [PLAW-NN] index); § Living Governance Catalogs: families shape, cases annex, delivery at the point of edit; ADP subsection → one resolver.",
         "3.12.0: feat(EVOL-050) — § RDR Universal: two registers, agreement rule, scope (mirror of meta).",
         "3.11.0: feat(EVOL-042) — § Templates: subproducts exclusion invariant (imported by nobody, outside governed trees and test roots, neutral in every gate); `measure` member; Before/after windows paragraph (the adopting project's obligation per framework evolution). Universal H2 sections and the LAW corpus untouched (lock-step verified).",
         "3.10.0: feat(EVOL-052) — Workflow: CODESIGN authoring surface (internal vs external, `/codesign --sync`, guarded authoring sub-commands, RUNBOOK pointer). Core Protocols: PO Intake row. Living Governance Catalogs: Component Registry. Templates: `subproducts/` class with its self-test obligation. Universal H2 sections and the LAW corpus untouched (lock-step verified).",
@@ -882,10 +908,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.7.0: feat(EVOL-043)! — EVOL-043 touch (see PR).",
         "2.6.0: fix(subproducts-dod-closure) — frontmatter keys `codesign.authoring`, `po_package.mode` (Q29) and `measurement.*` (Q30): structured answers live in the frontmatter, which the governance snapshot copies verbatim (#61 DoD: authoring mode reaches the snapshot).",
         "2.5.0: feat(EVOL-042) — § E bullet Measurement Window (Q30).",
         "2.4.0: fix(po-package-card-tool-cases) — Q29.1 gains `code-manual` (cards from code, tool run by asking Claude, no command).",
@@ -967,10 +994,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — budgets block (session_start, prompt_submit, pre_edit, snapshot, law_sentence_max_chars, dc_invariant_max_chars) and retired_terms ratchet list.",
         "1.2.0: feat(EVOL-040 RDR-2) — security_scan block: {{SECURITY_SCANNER}}/{{SECURITY_SCANNER_COMMAND}}/{{SECURITY_SCANNER_INSTALL_HINT}} placeholders resolved from Q23.2; report_format exit-code default, fail_on any. Skip ⇒ null literals + enabled=false, file still materialised.",
         "1.1.0: feat(EVOL-039) — optional code_review block (enabled, pr_blocker, gate_blocking_agents, conditional_agents, advisory_agents). Pure defaults, placeholder-free — no SETUP materialization edit, no discovery question. Block ABSENT ⇒ defaults ACTIVE (inverse of complexity: the code-review executor ships with the skill, no external MCP). Consumed by factory-code-review SKILL + preflight.sh Step 0-bis.",
         "1.0.0: feat(EVOL-033) phase 1 — project-local quality schema. complexity section: enabled (default true), mcp_server + mcp_tool_name (placeholders resolved at SETUP via discovery RDR), thresholds.soft=10/hard=15 (McCabe industry baseline), bvl_gate=true, pr_blocker=false (advisory by default), source_extensions allowlist (15 common languages). Consumed by factory-complexity-check skill. Materialised at SETUP --generate; SETUP --upgrade owns delta propagation (factory-sync.sh deliberately does NOT touch config/)."
@@ -1039,10 +1067,11 @@
       ]
     },
     "scripts/generate-governance-snapshot.sh": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/generate-governance-snapshot.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — lite/full profiles; corpus parsing delegated to gate.py snapshot-sections (law index + defect families); exit 3 over budgets.snapshot; rules manifest via the one frontmatter parser.",
         "1.0.1: fix(EVOL-034) Phase 0 Block 13 lock-step — backport meta fix: Python snapshot extractor `red_zones` → `paths` dict key + section heading. Mirror of framework_core/scripts/generate-governance-snapshot.sh 1.0.1.",
         "1.0.0: feat(EVOL-027) fase 3 — initial templates entry. Mirror of framework_core script for materialised projects, shipped via factory-sync.sh."
       ],
@@ -1058,38 +1087,42 @@
       "delivery": "both"
     },
     "rules/iac.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/iac.md",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: backfill — rule template existed but was untracked.",
         "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified (.instructions.md suffix dropped from any internal cross-rule refs)."
       ]
     },
     "rules/README.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/README.md",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified.",
         "1.0.0: backfill — rules dir README existed but was untracked."
       ]
     },
     "adr/adr_setup_template.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "docs/project_log/adr/ADR-SETUP.md",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — EVOL-043 touch (see PR).",
         "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified.",
         "1.0.0: backfill — SETUP --generate ADR scaffold existed but was untracked."
       ]
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md",
       "changelog": [
+        "1.4.0: feat(EVOL-043)! — EVOL-043 touch (see PR).",
         "1.3.0: feat(EVOL-042) — `### Measurement — next steps` block (reader, window, before/after protocol, first commands).",
         "1.2.0: feat(EVOL-052) — NEW `### PO package — next steps` block (rendered only with external authoring): authoring mode, active design-system case 6A/6B/6C and why, runbook path, first two commands. The materialisation must leave written operating instructions.",
         "1.1.0: feat(EVOL-027) review close — manifest entry added; rules-naming convention unified.",
@@ -1236,12 +1269,13 @@
       ]
     },
     "scripts/check-adr-constitution-sync.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/check-adr-constitution-sync.sh",
       "role": "SETUP-delivery copy of check-adr-constitution-sync.sh (byte-mirror of the meta script, meta_template_mirror pair). CI-invoked in materialised projects — a fresh SETUP --generate must deliver it or the first PR fails CI (CVP CRITICAL 9-10 class).",
       "delivery": "both",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — direction B: a law SENTENCE change (index `> sentence` / CLAUDE.md corpus line) needs an accepted ADR in the same diff; body edits free.",
         "1.0.0: feat(EVOL-040 root cause B) — template source created (byte-copy of meta; lockstep pair declared). Closes materialised-CI-invokes-undelivered-script."
       ]
     },
@@ -1507,16 +1541,150 @@
       "changelog": [
         "1.0.0: feat(EVOL-042) — initial."
       ]
+    },
+    "claude/hooks/deliver-governance.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/deliver-governance.sh",
+      "role": "Template twin of the pre-edit delivery hook (lock-step pair).",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "rules/configuration.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/rules/configuration.md",
+      "role": "Body home of [PLAW-05] Configuration Hardcoding Prohibition (moved from the constitution template).",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "rules/dependencies.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/rules/dependencies.md",
+      "role": "Body home of [PLAW-10] Dependency Management and Allowlist (moved from the constitution template; allowlist.json stays the data).",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "rules/documentation.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/rules/documentation.md",
+      "role": "Body home of [PLAW-09] Documentation Standards and of universal [LAW-06] Traceability.",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "rules/i18n.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/rules/i18n.md",
+      "role": "Body home of [PLAW-08] Internationalization Strategy (moved from the constitution template).",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "rules/project-mode.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/rules/project-mode.md",
+      "role": "Body home of [PLAW-03] Project Mode & Extension Strategy (moved from the constitution template).",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "rules/defect-prevention-cases.md": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/rules/defect-prevention-cases.md",
+      "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**).",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/gate.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gate.py",
+      "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ],
+      "delivery": "both"
+    },
+    "scripts/gates/__init__.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/__init__.py",
+      "role": "gates package marker.",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ],
+      "delivery": "both"
+    },
+    "scripts/gates/common.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/common.py",
+      "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files.",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ],
+      "delivery": "both"
+    },
+    "scripts/gates/corpus.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/corpus.py",
+      "role": "gates: law index parser (CLAUDE.md list form + constitution H2 form), body_section parity lookup, rule/instruction/skill universe, defect catalog (families + classes), the applicability resolver (AND across axes, OR within), roll-call renderer, digest within budget.",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ],
+      "delivery": "both"
+    },
+    "scripts/gates/budget.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/budget.py",
+      "role": "gates: injection budgets — runs the real producers (banner, onprompt worst case, pre-edit hook on the worst-case path, snapshot bytes, sentence/invariant lengths) against config/quality.json budgets; missing key or overflow = red.",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ],
+      "delivery": "both"
+    },
+    "scripts/gates/retired.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/retired.py",
+      "role": "gates: retired-vocabulary ratchet over coherence-context root_sets with history exemption classes.",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ],
+      "delivery": "both"
+    },
+    "scripts/gates/test_gates.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/test_gates.py",
+      "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ],
+      "delivery": "both"
     }
   },
   "agent_templates": {
     "_description": "Per-role agent templates consumed by CODESIGN, BLUEPRINT (architect), DEVELOP, PO, QA, SECURITY, UX, and PEER REVIEW agents at feature time. Synced to materialised projects by factory-sync.sh under the same `.context/templates/{role}/` path. Tracked here so SETUP --upgrade can apply Smart Additive Merge with version awareness instead of factory-sync.sh's blind overwrite. Placeholders ({{FEATURE_ID}}, {{TIMESTAMP}}, etc.) are runtime-resolved by agents when generating per-feature artefacts — they are part of the template contract, not setup-time variables. Hence content_type: universal across the board.",
     "_architecture": "Each entry's target is the same `.context/templates/{role}/{file}` path in the materialised project. SETUP --upgrade walks this section under Step 2 (Unified Smart Additive Merge) + Step 3 (New File Handling). EVOL-027 fase 1 — keystone for fase 5 (parser-canonical user_journey reaches MASS via --upgrade).",
     "architect/adr_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/architect/adr_template.md",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — Operational Rule = sentence + optional ### Body; frontmatter body_home; Accept steps in index form.",
         "1.0.0: feat(EVOL-027) initial manifest registration — ADR scaffold consumed by factory-adr-management Propose Procedure."
       ]
     },
@@ -1532,10 +1700,11 @@
       ]
     },
     "architect/fdr_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/architect/fdr_template.md",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — EVOL-043 touch (see PR).",
         "1.0.0: feat(EVOL-027) initial manifest registration — Feature Decision Record scaffold (feature-scoped, sibling of ADR per EVOL-026)."
       ]
     },
@@ -1774,9 +1943,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "path": "README.md",
       "changelog": [
+        "2.12.0: feat(EVOL-043)! — governance sections describe the corpus in layers (index + bodies, families, delivery at the point of edit, budgets, ratchet).",
         "2.11.0: feat(EVOL-042) — NEW § Measuring the SDLC (measure subproduct): what it reports, local data only, before/after windows as the standard shape of a framework evolution executed in the adopting project.",
         "2.10.1: fix(po-package-card-tool-cases) — Prerequisites list Python (3.10+ with PyYAML for the PO package); design system from code names both ways to run the tool and the card contract; fallback wording says which tool faults fall back to vision cards.",
         "2.10.0: feat(EVOL-052) — NEW § External CODESIGN Authoring (PO Package): the loop, validate/ratify/sync/catalog table, written instructions after materialisation, design system from code (cases 6A/6B/6C, drift, optional workflow, one-way mirror), language. File-structure tree (24 instructions, 23 skills, subproducts template), CODESIGN command table gains `--sync` + authoring-surface note, skills table gains PO Intake, recommended pipeline gains the external path, project structure gains `subproducts/po-package/`, `docs/ux/component-registry.json`, `docs/ux/po-return/`.",
@@ -1895,17 +2065,19 @@
       ]
     },
     "commands/setup.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "path": ".claude/commands/setup.md",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — EVOL-043 touch (see PR).",
         "1.1.0: feat(EVOL-028) Fase 3 — Step 0 Applicability Roll-Call inserted as MANDATORY first section. Invokes factory-applicability-discovery to emit the canonical Roll-Call block on-screen as first user-facing output, before any command-specific logic. Step -1 (branch checkout) runs as the next pre-action gate.",
         "1.0.0: feat(EVOL-015): initial governance registration — closing the commands/** tracking gap that pre-dated EVOL-015. Content unchanged at this commit."
       ]
     },
     "instructions/Factory-audit-checklist.instructions.md": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "path": ".claude/instructions/Factory-audit-checklist.instructions.md",
       "changelog": [
+        "2.7.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "2.6.0: feat(EVOL-038): § Command: --software --deep added — full reconciliation + deep-dive protocol. Stable finding IDs {AXIS}-{N} (A=data, B=api/security, C=components) reused across cycles. Step R prior-audit reconciliation (runs before scan, classifies each prior finding STILL_VALID/MODIFIED_CONTEXT/RESOLVED with proof-of-absence rule, carries non-RESOLVED forward, emits §0 table). Step Deep per-axis fan-out fact-gathering + integrity scans + MANDATORY adversarial refute-by-default verification + per-axis deepdive doc. Methodology note (auditor owns judgment, never stamps critical on unverified agent claim). Output frontmatter gains deepdives/prior_cycle/reconciliation counts. Issue-tracker handoff advisory. De-specialised port of nexus: stack-specific probe examples (RLS/verify_jwt/etc.) reframed as adaptable illustrations for a relational-DB+serverless stack; NEXUS-security tracker generalised to project issue tracker; report heading english-default with (report language) note.",
         "2.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.4.2: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -1930,9 +2102,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.7.1",
+      "version": "3.8.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "3.8.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "3.7.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: test_plan emission covers §§ 3/4 ID families; stale 'Section 4 Edge Cases' → § 2.",
         "3.7.0: feat(EVOL-041) — acceptance test ID family corrected to AC-XX with exact-title Gherkin Ref (was TC-{SCENARIO_NUMBER} drift).",
         "3.6.0: feat(EVOL-041) — journey v2 consumption: single user_journey.md all scopes; Schema Derivation Policy rewritten for LAW-16 (existence journey § 6 / typing ARCH §§ 3.1-3.2 + 7.4, type derivation from Meaning+Allowed values with RDR on ambiguity); § 7.4 emission joins journey existence with design typing; new Reliability Contract Derivation step (journey § 8 guarantees → design § 6 mechanisms); design_ux.md legacy input rows purged (DEC-6).",
@@ -2005,9 +2178,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "3.3.0: feat(EVOL-043)! — hosts the [LAW-16] body.",
         "3.2.0: feat(EVOL-052) — external-authoring guard as first step of `--start` and `--refine` (byte-identical to the contract in Factory-codesign-sync; CI-asserted). No other change: generation logic untouched; absent `codesign.authoring` ⇒ internal ⇒ no behaviour change.",
         "3.1.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: ES-concept → journey-v2 landing map (Commands/Events/ReadModels/DataSchemas now have declared destinations); Phase 4b captures all 9 step fields; CHECK 13 re-anchored (spec § External Systems was phantom); backend Tripartite denominator N/2; artefact-count prose unified (slice_map included).",
         "3.0.0: feat(EVOL-041)! — journey-first generation: canonical order user_journey → spec → mock (D20); single template ALL scopes (D14/D15 root fix); Phase 4b Experience Walk (Goal/Does/Sees/Feels/Pain/Ease + Paths); Phase 5 → plain-language Business Field Definition (LAW-16); Tripartite v2 (anchor-based checks 3-7); auto-approval CHECK 3 invokes check-journey-grammar.sh, CHECK 12 purity; H-15 reads § 6 existence + classifier documented (D5); IPP loops scope-aware + slice_map (D16); canary M-08 reads real v2 sections (D6).",
@@ -2112,9 +2286,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.12.1",
+      "version": "2.13.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.13.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "2.12.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: H-11 reads journey § 6 (existence) + design § 7.4 (types) — was reading the dead 'Data Schemas' section.",
         "2.12.0: feat(EVOL-041) — H-11 Law 6 validates existence vs journey § 6 + types vs design § 7.4; feedback classification greps both authorities; delta detection keyed on § 6 business-contract version.",
         "2.11.2: fix(smart-redirect) single-agent call-site — --finalize close replaces RETURN_TO_FACTORY(FEATURE_ID) with POST_COMMAND_REDIRECT(FEATURE_ID) run inline by the command-executing agent. No behavioural change to the build itself.",
@@ -2157,9 +2332,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.12.0",
+      "version": "2.13.0",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.13.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "2.12.0: feat(EVOL-041) — typing reads move to design.md § 7.4 (synthetic data, seed registry, B.3 form fields); existence stays journey § 6; policies → journey § 7 Business Rules (LAW-16 authority split).",
         "2.11.3: fix(smart-redirect) single-agent call-site — Post-Plan Actions replaces RETURN_TO_FACTORY(FEATURE_ID) with POST_COMMAND_REDIRECT(FEATURE_ID) run inline by the command-executing agent.",
         "2.11.2: fix(EVOL-034) Phase 0 Block 13 — reference coherence: `protected-paths.red_zones` → `protected-paths.paths` (line 484). The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
@@ -2194,9 +2370,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.10.0",
+      "version": "2.11.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.11.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "2.10.0: feat(EVOL-041) — Check #5 fallback + DoD reworded to the LAW-16 split (journey § 6 existence / design § 7.4 typing); Check #13 reads journey § 7 Business Rules.",
         "2.9.0: feat(EVOL-039 RDR-5) Step R.1b passes governance_context (Step R.0 GCD) through to factory-code-review — engine § Governance Binding primary packet source in hat mode.",
         "2.8.0: feat(EVOL-039) Step R.1b Agentic Code Review — INVOKE_SKILL factory-code-review scope=increment profile=full context=hat, inserted between Check #14 and the REVIEW Verification Loop. Single engine per RDR-3: checks #1-#14 keep the framework-specific lens; factory-code-review owns generic code quality (bugs, silent failures, test gaps, type design, comment rot). Never writes the Block 20 marker (branch pass only). R.2 merges code_review_blockers/warnings into the verdict aggregation. R.3 gains the previously-unwritten verdict→peer_review frontmatter status mapping (CLEAN_PASS|PASS_WITH_WARNINGS→APPROVED, BLOCKED past R.5 retries→CHANGES_REQUESTED) that implement.md increment gate + QA Gate 2 depend on. Scope Dispatch matrix gains R.1b row (ALL scopes). § 3.1 report gains § Agentic Code Review per-agent section + explicit frontmatter status rule. Worklog: IMPLEMENT.code_review.run.",
@@ -2224,9 +2401,10 @@
       ]
     },
     "instructions/Factory-qa-verify.instructions.md": {
-      "version": "3.2.0",
+      "version": "3.3.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
+        "3.3.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "3.2.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: checklist derivation rewritten per ID family (template has no uniform scenario/type/description columns — killed the slice-mode empty-checklist fail-open); Gate 4 enforces overall_verdict=PASS + status=APPROVED; QA-REL aggregate-only + phantom REL-API-VER ref removed.",
         "3.1.0: feat(EVOL-041) — Gate 4 single smoke template + scope MODES; journey_source single filename (all scopes); REDIRECT + rationale rewritten to Path→Scenario→TC transitive anchoring; SMOKE-REL-* from test_plan § 2.2/design § 6; --e2e anchor note (implements TCs, composes via Paths); Required Input #2 + data checks per LAW-16 split.",
         "3.0.3: fix(smart-redirect) single-agent wording — --reject close 'return to Factory for Smart Redirect' replaced with 'run Smart Redirect inline as the final step'. No separate Factory turn (single-agent runtime).",
@@ -2258,9 +2436,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.11.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "1.10.0: feat(EVOL-052) — catalog component issue class: title pattern `[{ID}] COMPONENT: {name}`, label `kind:component-catalog` (lazy create_label), label-applicability row, body template with registry/inventory DoD. Feature Issue `## Factory command` becomes authoring-aware for codesign issues (external ⇒ PO package + `/codesign --sync {ID}`).",
         "1.9.0: feat(EVOL-041) — suffix-8 table + gate row + DoD checklists re-anchored: one SMOKE block per journey § 3 Path, single smoke template with scope modes; integration variant refs die.",
         "1.8.2: fix(coherence) — broken markdown link to iteration-model skill (line 543): wrong path + case `Factory-iteration-model/SKILL.md` → `.claude/skills/factory-iteration-model/SKILL.md` (repo root-relative convention). Caught by framework coherence sweep (reference coherence / Block 13).",
@@ -2349,9 +2528,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.12.0",
+      "version": "3.13.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.13.0: feat(EVOL-043)! — Subproducts (measure always); Phase D retired (resolver reads docs/setup.md); ADD DC blocks in the 7-column shape + cases annex; snapshot pseudocode → rows with Paths *; hosts the [LAW-14] body; Checkpoint 3.1 regex → [PLAW-NN].",
         "3.12.0: feat(EVOL-042) — Subproducts Materialization generalised to members (`measure` always, `po-package` conditional): measure placeholder map (unquoted integer tokens), JSON + zero-placeholder invariant, self-test BLOCK, `## Measurement — next steps` block.",
         "3.11.0: fix(po-package-card-tool-cases) — `DS_CARDS_SOURCE` accepts `code-manual`; `DS_ACTIVE_SECTION` derived from the cards folder (no folder → 6A, command + workflow → 6C, else 6B).",
         "3.10.0: feat(EVOL-052) — External-DS Component Migration now points at the registry schema owner (Factory-codesign-vision § Component Registry) instead of a dangling file reference. NEW step Subproducts Materialization (`.context/templates/setup/subproducts/` → `subproducts/`): whole-tree copy, universal files byte-identical, placeholders resolved only in the stack_configured files (11-row table incl. the two DERIVED runbook tokens), JSON `null` rule, optional design-system-rebuild workflow (GitHub Actions AND a configured command), invariant RUNBOOK.md present with zero placeholders else BLOCK, self-test run, MANDATORY written next steps in MATERIALIZATION_REPORT.md and the closing briefing.",
@@ -2396,9 +2576,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.7.1",
+      "version": "2.8.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.8.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "2.7.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.7.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
         "2.6.0: feat(EVOL-027) review close (Q3) — § v4.0.0 migration rule degrades to plain `mv` when `git rev-parse --is-inside-work-tree` fails (sandbox / non-git materialisation). Idempotent + collision-safe behaviour preserved.",
@@ -2474,9 +2655,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "13.11.0",
+      "version": "13.12.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "13.12.0: feat(EVOL-043)! — § Governance Rules in INDEX form: per law one sentence + Body: pointer + Records (bodies moved to skills/instructions/rules; LAW-15 joins the corpus); LAW-01 sentence = two-tier ceremony; § Core Protocols ADP subsection → one resolver (gate.py applicable). Universal H2 sections untouched; law_corpus_mirror green.",
         "13.11.0: feat(EVOL-050) — § RDR Universal: two registers in this order (plain language first, technical second), agreement rule, scope. Mirrored byte-identical with the template (universal_clause_mirror).",
         "13.10.0: feat(EVOL-042) — § Templates: Subproducts class restated with the exclusion invariant (imported by nobody, outside governed trees and test roots, neutral in every gate, manifest entries = delivery channel only); second member `measure`; before/after windows run in the adopting project, this repo never claims a baseline (ADR-EVOL-042).",
         "13.9.0: feat(EVOL-052) — § Templates: Subproducts class (ADR-EVOL-052 Operational Rule). `.context/templates/setup/subproducts/**` → project-root `subproducts/**`; deliverable-generation tooling outside the project's governed trees; mandatory `--selftest` run by meta CI through a synthetic materialisation and re-run by the consuming skill; only `stack_configured` files carry placeholders, the rest land byte-identical. No LAW added; universal sections and LAW corpus untouched.",
@@ -2549,9 +2731,10 @@
       ]
     },
     "skills/factory-governance-loading/SKILL.md": {
-      "version": "2.9.3",
+      "version": "2.10.0",
       "type": "skill",
       "changelog": [
+        "2.10.0: feat(EVOL-043)! — Step 1 reads the law INDEX; POST-LOAD = the generator script (lite/full contract as emitted); Step 3 = the resolver; tier 5 (delivery at the point of edit); hosts the [LAW-01] body with the two-tier ceremony.",
         "2.9.3: fix(EVOL-034) Phase 0 Block 13 — reference coherence: two references `red_zones[]` → `paths[]` (line 179, snapshot extraction) and `protected-paths.json.red_zones` → `protected-paths.json.paths` (line 313, RED_ZONE override check). The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
         "2.9.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.9.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
@@ -2591,9 +2774,10 @@
       "path": ".claude/skills/factory-incremental-persistence/SKILL.md"
     },
     "skills/factory-agent-communication/SKILL.md": {
-      "version": "2.1.3",
+      "version": "2.2.0",
       "type": "skill",
       "changelog": [
+        "2.2.0: feat(EVOL-043)! — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "2.1.3: fix(smart-redirect) §4 reframed to single-agent — 'Factory Return Briefing (Executed by Factory after PMO Validation)' becomes 'Closing Briefing (FINAL block the agent emits after its own self-validation)'. The same command-executing agent presents the briefing + Smart Redirect next steps as its closing block; no separate Factory turn / PMO Validation stage (multi-agent vestige removed post Claude-Code migration). Anti-redundancy gate (L-01) logic unchanged, only the actor. Header + description harmonised to persona framing.",
         "2.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
@@ -2603,9 +2787,10 @@
       "path": ".claude/skills/factory-agent-communication/SKILL.md"
     },
     "skills/factory-codebase-inventory/SKILL.md": {
-      "version": "2.4.3",
+      "version": "2.5.0",
       "type": "skill",
       "changelog": [
+        "2.5.0: feat(EVOL-043)! — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "2.4.3: fix(EVOL-041) — CIP journey write targets cite v2 sections (§ 0 Decision History, § 6 Business Fields).",
         "2.4.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
@@ -2619,9 +2804,10 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.6.4",
+      "version": "2.7.0",
       "type": "skill",
       "changelog": [
+        "2.7.0: feat(EVOL-043)! — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "2.6.4: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: CLASSIFY_CHANGE_SCOPES keys schema_change on journey Part II (§ 5-8) — was keyed on the dead Data Schemas section (silent cascade hole).",
         "2.6.3: fix(EVOL-041) — journey frontmatter model: schemas_version = Part II business-contract version; ROOT carries no based_on_* sync fields (D19).",
         "2.6.2: fix(EVOL-036) coherence-3 — ON_CODESIGN_REFINE_ITERATION: documented that a compound refine intentionally runs BOTH CASCADE_SLICE_INTERNAL and CASCADE_INCREMENT_INTERNAL (idempotent overlap; do not deduplicate) — prevents a future maintainer mistaking it for redundancy.",
@@ -2686,10 +2872,11 @@
       "path": ".claude/skills/factory-worklog/SKILL.md"
     },
     "skills/factory-build-verification/SKILL.md": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
+        "1.10.0: feat(EVOL-043)! — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.9.0: feat(EVOL-037) Step 8 Minimalism advisory (DC-29) added to full_verification_gate after complexity, before PASSED. LLM self-scan of scope_files for the four over-engineering categories (reinvented stdlib, unneeded dependency, single-impl abstraction, dead flexibility). NON-BLOCKING by design — advisory fail-open, never returns BLOCKED, skips silently when defect-prevention.md absent. how-not-what guardrail: scope cuts never auto-applied (route to CODESIGN via RDR). results.minimalism captures {status, findings}; final log line extended with minimalism status. Prevention/cost-saving lives at decision-time in factory-adversarial-reasoning; this step is the late quality net.",
         "1.8.0: feat(EVOL-033) phase 3 — Step 7 Complexity check added to full_verification_gate after seed alignment, before PASSED. Conditional on FILE_EXISTS(config/quality.json); invokes factory-complexity-check skill on scope_files; reads quality.complexity.{bvl_gate, thresholds}; blocks ONLY when bvl_gate==true AND hard violations present. Fail-open path: missing config, disabled gate, unavailable MCP, no source files → advisory log only, never blocks. results.complexity captures {status, mcp, violations, thresholds}; log line extended with complexity status. Maps to DC-28 (Cyclomatic complexity exceeds project threshold).",
         "1.7.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -2709,28 +2896,31 @@
       "path": ".claude/skills/factory-build-verification/SKILL.md"
     },
     "skills/factory-mcp-docs-scan/SKILL.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "skill",
       "role": "Agent self-introspects tool registry, filters by explicit docs_mcp_allowlist frontmatter, emits single-line 🔌 MCP Docs Scan banner before BLUEPRINT --start/--refine and IMPLEMENT --build/--refine. Per-invocation scan (not cached across turns).",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.0.0: feat(EVOL-032) phase 3 — NEW SKILL. Agent-side algorithm: list_own_tools_matching(/^mcp__([^_]+)__/) → intersect with frontmatter allowlist [context7, aws-knowledge, pulumi, claude_ai_*] → emit single-line banner mirroring Applicability Roll-Call style. Banner is MANDATORY first user-facing turn of each of the 4 entry commands; missing banner = mal-iniciado. `none detected` is a warning (greenfield/offline must not break). Citation contract: when docs_mcps NOT EMPTY, consumer (BLUEPRINT § 2.6 / IMPLEMENT § 3.4) MUST cite each queried docs MCP in the iteration body and populate iterations[-1].mcp_consulted: [names]."
       ],
       "path": ".claude/skills/factory-mcp-docs-scan/SKILL.md"
     },
     "skills/factory-complexity-check/SKILL.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "skill",
       "role": "MCP-driven cyclomatic complexity check. Reads config/quality.json, resolves project-configured complexity MCP (default Semgrep, RDR-ratified at SETUP), invokes mcp__<server>__<tool>(files) on changed files, normalises {file, function, ccn} responses, classifies against soft/hard thresholds. Fail-open on infra issues; never blocks when MCP unavailable or config absent. Consumers: BVL full_verification_gate (post-test step), factory-pr-review axis 6.",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.0.0: feat(EVOL-033) phase 1 — NEW SKILL. Tool-agnostic complexity gate. Algorithm: read config/quality.json.complexity → short-circuit if disabled/mcp_server null → resolve tool_id=mcp__<server>__<tool_name> → fail-open if not in agent.available_tools → filter to source files (extension allowlist) → INVOKE_TOOL(tool_id, {files}) → normalise common response shapes ({findings:[{path,name,complexity}]}, {results:[{file,fn,ccn}]}, flat list) → classify (>hard=hard, >soft=soft) → emit 🧮 Complexity Check banner → return Report. Defaults: soft=10/hard=15 (McCabe), bvl_gate=true, pr_blocker=false advisory. Source extensions: 15 common langs (.py .js .ts .tsx .jsx .go .java .rb .php .c .cpp .cs .swift .kt .rs). No tool hardcoding — Semgrep/radon/lizard/gocyclo never referenced in code paths."
       ],
       "path": ".claude/skills/factory-complexity-check/SKILL.md"
     },
     "skills/factory-code-review/SKILL.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "skill",
       "role": "Factory Code Review — agentic multi-perspective code review engine. 6 vendored Anthropic pr-review-toolkit agents (Apache-2.0, pinned commit in skill README § Provenance). Single engine, two invocations (RDR-3): IMPLEMENT 🔍 REVIEW hat Step R.1b (scope=increment, feeds peer_review, never writes marker) and factory-pr-review axis 7 / Block 20 (scope=branch, ONLY writer of the proof-of-execution marker .claude/state/code-review-${content_hash}.marker). RDR-1 content-hash keying (sha256 over sorted path+blob-sha of is_code∪is_test files — amend/rebase-stable). RDR-2: fail-open on infra (executor-missing → noisy Important), fail-closed on findings (blockers block push; override only via explicit RDR, recorded in marker override object + worklog SCM.code_review.override). RDR-4 gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type defs, comment-analyzer + code-simplifier advisory. Config optional in config/quality.json.code_review — ABSENT ⇒ ACTIVE (inverse of complexity-check; executor ships with the skill). Mandatory 🔎 banner. Severity normalisation orchestrator-side via references/severity-mapping.md.",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.1.0: feat(EVOL-039 RDR-5) § Governance Binding — MANDATORY rule Roll-Call before spawn. Three mechanical gates: provenance (rules/*.md must carry a governance-manifest entry; unregistered file → ❓ foreign-rule), applicability (ADP closed-vocabulary applicable_when vs review context — CI-validated frontmatters), precedence (constitution [LAW] > ADR/FDR > rule > agent default; same-level conflict → ❓ + RDR, engine never picks). Per-agent packet slices (table). Severity anchoring: convention findings cite the bound rule and use the explicit-violation tier, no-anchor convention findings NEVER reach 🔴; correctness findings (bug/security/data-loss) keep their lane regardless. Fail-soft: no rules dir → CLAUDE.md only, banner declares 'rules 0 bound'. Banner gains 'rules {B} bound / {E} excluded / {F} foreign'. Hat mode consumes R.0 governance_context (GCD) as primary packet source. Spawn inputs.governance = binding.packet_for(agent) with mandatory citation directive.",
         "1.0.1: fix(EVOL-039 dogfood) — § Configuration documents pr_blocker consumption semantics (false → Important downgrade, mirrors complexity.pr_blocker); § Provenance re-sync covers frontmatter adaptations recorded in README table (YAML cannot carry inline markers — mechanical re-sync would have reintroduced upstream's 'Daisy' persona).",
         "1.0.0: feat(EVOL-039) — NEW SKILL. Orchestrator: 4-variant banner, optional-config-active default, two-mode scope resolver (increment=dev_plan/design §1 artifacts — BVL forbids git diff for feature scope; branch=diff via detect_change_type.py), preventive-sweep-style PARALLEL_MAP spawn contract with per-agent model override from vendored frontmatter, severity normalisation + dedupe, marker write spec (mkdir/atomic/tr-sanitise house rules), RDR-2 override two-plane doc (marker one-shot vs ADR pr_review_overrides.block_20_code_review permanent), worklog actions, ACP hat/standalone rule, fail-open vocabulary (disabled/executor-missing/no-source-files/spawn-failure — spawn-failure writes NO marker, incomplete run is not proof)."
@@ -2887,10 +3077,11 @@
       "path": ".claude/skills/factory-backlog-next-task/SKILL.md"
     },
     "skills/factory-preventive-sweep/SKILL.md": {
-      "version": "1.4.2",
+      "version": "1.5.0",
       "type": "skill",
       "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
+        "1.5.0: feat(EVOL-043)! — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "1.4.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.4.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.3.1: chore: cleanup EVOL/version-history annotations from prose (sweep, PR #14 — see manifest description v2.7.3).",
@@ -3010,10 +3201,11 @@
       "path": ".claude/skills/factory-pr-review/references/api-contract-rules.md"
     },
     "skills/factory-pr-review/references/adr-policy.md": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "type": "skill-asset",
       "role": "Factory PR Review ADR policy — when an ADR is required (dependencies, data, inter-service comms, architecture, ops, security/compliance) vs not required (bug fixes, internal refactor, minor deps, tests, docs), MADR template, validation rules. ADR location: `docs/project_log/adr/` (downstream) + `docs/project_log/evolutions/` (framework meta — ADR-per-EVOL scheme).",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — Accept writes the sentence into the [PLAW-NN] index and the body into the pointed rule file.",
         "1.1.1: chore(EVOL-040 backfill) — changelog line for the historical patch bump that landed without one (brand-rename/cleanup pass). Content unchanged.",
         "1.1.0: feat — Path conventions corrected post-EVOL-016 / EVOL-026. Project-wide ADRs cited at `docs/project_log/adr/` (was generic `docs/adr/`); feature-scoped FDRs cited at `docs/spec/{FEATURE_ID}/fdr/`. Review template updated to mention `factory-adr-management` Accept Procedure for project-wide ADRs and the constitution-amendment ceremony. Decision-type guidance distinguishes ADR (project-wide, amends constitution) vs FDR (feature-scoped, no amendment).",
         "1.0.0: feat(EVOL-024): initial — community-origin policy adapted; ADR location aligned to framework convention (docs/project_log/adr/ downstream, docs/project_log/evolutions/ meta)."
@@ -3135,11 +3327,12 @@
       "delivery": "sync"
     },
     "scripts/validate-governance.sh": {
-      "version": "2.1.4",
+      "version": "2.2.0",
       "path": "scripts/validate-governance.sh",
       "type": "utility",
       "role": "Framework governance validator — SessionStart banner, drift detection (manifest vs core files), snapshot freshness, diff-only mode for CI. Ships identically to materialized projects via factory-sync and also runs inside the framework-meta repo.",
       "changelog": [
+        "2.2.0: feat(EVOL-043)! — banner counts law-index entries and defect families (lite snapshot).",
         "2.1.4: fix(EVOL-041 code-review) — ACTION message names the BREAKING-CHANGE synonym.",
         "2.1.3: fix(EVOL-041 code-review) — Block 20 gate findings remediated: BREAKING[- ]CHANGE synonym in the MAJOR-marker warn path.",
         "2.1.2: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: breaking-marker regex accepts type(scope)!: (feat(EVOL-041)!: was invisible).",
@@ -3170,11 +3363,12 @@
       "delivery": "both"
     },
     "scripts/governance-onprompt.sh": {
-      "version": "2.2.1",
+      "version": "2.3.0",
       "path": "scripts/governance-onprompt.sh",
       "type": "utility",
       "role": "UserPromptSubmit hook companion — four jobs per prompt: (1) post-compact re-inject of governance snapshot via `<governance-reload>` (sibling PreCompact marker); (2) source-edit attribution — reads marker written by PostToolUse governance-onedit.sh Block 1 and emits `<governance-source-edited paths=\"...\">` with explicit regen instruction; (2b) IPP marker consumer — reads `ipp-first-write` and `ipp-pillar2` markers and emits `<ipp-reminder>` / `<ipp-warning>` tagged blocks; (3) advisory freshness gate — emits `<governance-warning reason=\"snapshot-stale\">` on stale (suppressed when (2) fired). Always exits 0.",
       "changelog": [
+        "2.3.0: feat(EVOL-043)! — GOVERNANCE_ONPROMPT_WORST_CASE=1 for the budget reader; fresh line counts laws + defect families.",
         "2.2.1: fix(IPP runtime binding) — Block 2b IPP marker consumer added (lock-step with templates entry). Emits `<ipp-reminder paths=\"...\">` after the source-edit attribution block and before the livelock carve-out, then `<ipp-warning reason=\"pillar-2-violation\" entries=\"...\">` when the post-edit detector flagged a tracker mismatch. Existing jobs preserved verbatim; freshness gate is NOT suppressed by IPP blocks.",
         "2.2.0: feat — emits a positive `<governance-loaded snapshot=\"fresh\" law-sections=\"N\" universal-dcs=\"M\" />` tag mid-session when the freshness gate passes. Counterpart to the existing `<governance-warning reason=\"snapshot-stale\">` block; same observational discipline, opposite signal. Meta-context fallback emits `<governance-loaded context=\"meta\" />` (no snapshot by design in the framework repo).",
         "2.1.1: fix(EVOL-023) Copilot PR #12 review: marker allowlist filter + project-root anchoring guard + freshness-gate comment rewording. Same content as templates entry, lock-step.",
@@ -3209,49 +3403,54 @@
       ]
     },
     "hooks/check-branch-protection.sh": {
-      "version": "1.0.2",
+      "version": "1.1.0",
       "type": "hook",
       "path": ".claude/hooks/check-branch-protection.sh",
       "role": "PreToolUse hook — blocks Edit/Write on protected branches before tool execution. Protected set: bare `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`). Working-pattern branches matching `{type}/{slug}` (feature/*, fix/*, bugfix/*, hotfix/*, docs/*, chore/*) are allowed.",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.2: fix(EVOL-022) PR #10 review: block message now lists all allowed working patterns (feature/fix/bugfix/hotfix/docs/chore) and uses `hotfix/my-fix` as the example, instead of misleadingly suggesting only `feature/ID-slug`. Lock-step with template counterpart.",
         "1.0.1: fix(EVOL-022): regex `hotfix(/.+)?` loosened to bare `hotfix` only so `hotfix/{slug}` working branches (declared valid by CLAUDE.md Pre-Action Gate + INVARIANT 1 → PATCH) are no longer spuriously blocked. `release(/.+)?` behaviour preserved — Git-Flow release branches remain protected. Lock-step with template counterpart.",
         "1.0.0: feat: extracted from inline settings.json command — branch protection as external script (EVOL-011)"
       ]
     },
     "hooks/check-completion-gate.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "hook",
       "path": ".claude/hooks/check-completion-gate.sh",
       "role": "PreToolUse hook (Write) — blocks terminal status (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) in dev_plan.md or qa_report*.md when unchecked items remain.",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.0: feat: completion gate enforcement — zero unchecked [ ] required before terminal status (EVOL-011)"
       ]
     },
     "hooks/check-concurrency-lock.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "hook",
       "path": ".claude/hooks/check-concurrency-lock.sh",
       "role": "PreToolUse hook (Edit/Write) — acquires per-branch session lock at .context/locks/{branch}.lock; blocks if another live session holds the lock.",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.0: feat: concurrency lock acquisition — prevents parallel Claude sessions on same branch (EVOL-011)"
       ]
     },
     "hooks/check-governance-drift.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "hook",
       "path": ".claude/hooks/check-governance-drift.sh",
       "role": "PreToolUse hook (Edit/Write) — compares MD5 of constitution.md and setup.md against governance snapshot hashes; warns on drift so agents regenerate stale snapshots.",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.0: feat: governance snapshot drift detection — non-blocking WARNING when snapshot hashes diverge from source files (EVOL-013)"
       ]
     },
     "hooks/check-ipp-compliance.sh": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "hook",
       "path": ".claude/hooks/check-ipp-compliance.sh",
       "role": "PreToolUse hook (Write) — IPP Pillar 1 enforcement + post-skeleton marker drop. Blocks first-writes of tracked governance artifacts that arrive fully-formed (violating skeleton-first) or claim _progress.completed_sections non-empty on creation. On a legitimate first-write that passes the block checks, drops `.claude/state/ipp-first-write-${session_id}.marker` so the next UserPromptSubmit emits `<ipp-reminder>` teaching block.",
       "changelog": [
+        "1.4.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.3.0: feat(EVOL-041) — tracked-artefact list drops user_journey.integration.md (single journey file, all scopes).",
         "1.2.0: fix(EVOL-036) coherence — severity correction: the SLICE-1 slice_map allowlist extension is a feat → MINOR (matches the EVOL-021 allowlist precedent), supersedes the 1.1.2 PATCH. No content change vs 1.1.2.",
         "1.1.2: feat(EVOL-036) SLICE-2 — IPP first-write allowlist gains `*/docs/spec/*/slice_map.md` so skeleton-first is enforced on the CODESIGN slice_map producer. Lock-step with templates.claude/hooks/check-ipp-compliance.sh.",
@@ -3261,11 +3460,12 @@
       ]
     },
     "hooks/check-push-preflight.sh": {
-      "version": "1.1.3",
+      "version": "1.2.0",
       "type": "hook",
       "path": ".claude/hooks/check-push-preflight.sh",
       "role": "PreToolUse hook (Bash) — Factory PR Review push gate. Intercepts `git push` token-boundary matches in tool_input.command, invokes the factory-pr-review preflight script (.claude/skills/factory-pr-review/scripts/preflight.sh) against origin/{base}..HEAD, and on hard-blocker findings exits 1 with a humanised message + finding catalog + resolution path (commit + re-push). Skips silently when the skill is not installed in the project, when on a protected branch (already covered by check-branch-protection.sh), or for `git push --dry-run`. Tooling failures (env, missing python) warn and pass — defence-in-depth must not break legitimate pushes.",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.1.3: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs).",
         "1.1.1: fix(EVOL-025) revert the .session_id extraction + CLAUDE_SESSION_ID export added in 1.1.0 — the marker key was simplified to `${branch_sha}` only (preflight.sh 1.1.1), so the hook no longer needs to forward session_id. Net diff vs 1.0.0: hook is byte-identical to its 1.0.0 form; the 1.1.0 → 1.1.1 path round-trips. Bumped (rather than reverted to 1.0.0) so the changelog records the design decision and the lock-step with preflight.sh / SKILL.md.",
         "1.1.0: feat(EVOL-025) extract `.session_id` from stdin JSON alongside `.tool_input.command` and export `CLAUDE_SESSION_ID` env var when invoking preflight.sh. Required so preflight Step 0 (coherence-audit marker check) can locate the session-keyed marker.",
@@ -3273,11 +3473,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.10.0: feat(EVOL-043)! — T2 loop runs test-hooks.sh + test-gates.sh; steps for gate.py budget, gate.py retired-terms and materialize-synthetic.sh.",
         "1.9.0: feat(EVOL-042) — T2 loop runs scripts/test-measure.sh.",
         "1.8.0: feat(EVOL-052) — T2 suite gains test-po-package.sh (PO package subproduct: synthetic materialisation + validator self-test).",
         "1.7.0: feat(EVOL-041) — T2 suite gains test-check-journey-grammar.sh (journey grammar validator self-test).",
@@ -3306,11 +3507,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.9.0: feat(EVOL-043)! — lock-step pairs for scripts/gate.py, scripts/gates/*.py and the snapshot generator (meta only).",
         "1.8.0: feat(EVOL-041) — new meta_template_mirror pair for scripts/check-journey-grammar.sh (journey grammar validator, D1 remediation: the validator pair is DECLARED, not implicit).",
         "1.7.1: fix(EVOL-040 pr-review loop i2) — pre-push pair doc records the enabled=false carve-out.",
         "1.7.0: feat(EVOL-040 RDR-2) — 2 new meta_template_mirror pairs: scripts/security-scan.sh (dispatcher) + scripts/hooks/pre-push (delegated secrets lane).",
@@ -3324,9 +3526,10 @@
       ]
     },
     "skills/factory-adr-management/SKILL.md": {
-      "version": "1.1.3",
+      "version": "1.2.0",
       "path": ".claude/skills/factory-adr-management/SKILL.md",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — Accept Procedure in index form: sentence → `> sentence` of the [PLAW-NN] entry, ### Body → body_home rule file, Records appended; target_section = [PLAW-NN] | NEW:; body_home field.",
         "1.1.3: feat(EVOL-040) — PLAW-NN namespace documented for project-minted laws (regex-disjoint from framework LAW-01..99).",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
@@ -3334,9 +3537,10 @@
       ]
     },
     "scripts/check-adr-constitution-sync.sh": {
-      "version": "1.1.1",
+      "version": "1.2.0",
       "path": "scripts/check-adr-constitution-sync.sh",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — direction B: a law SENTENCE change (index `> sentence` / CLAUDE.md corpus line) needs an accepted ADR in the same diff; body edits free.",
         "1.1.1: fix(EVOL-032 CI) — bypass marker grep switched from BRE pattern `\\[adr-backfill\\]` to fixed-string `grep -qF '[adr-backfill]'`. `[adr-backfill]` is a literal token, not a regex; `-F` eliminates BRE/ERE escape ambiguity across grep variants. T2 L5 scenario 3 was failing on GitHub Actions ubuntu-latest (PR #30) while passing locally — the symptom was that bypass never tripped, ADR-003-test.md was reported as offender. Locally reproducible after the fix (all 7 scenarios green).",
         "1.1.0: feat(EVOL-029) accepted-ADR detection extended to docs/project_log/evolutions/ADR-EVOL-*.md (meta-framework + downstream framework-evolution records) in addition to docs/project_log/adr/ADR-*.md (downstream materialised projects). Governance source check broadened to accept docs/constitution.md (downstream), CLAUDE.md (meta universal law), or .context/templates/setup/constitution/constitution_template.md (meta amendment shipping universal law). Header doc + failure message updated.",
         "1.0.0: feat(EVOL-026) initial — CI gate that detects ADR transitions from proposed to accepted in PR diffs and FAILs when docs/constitution.md is not modified in the same diff. Bypass via [adr-backfill] commit message marker for one-shot historical migration. FDRs are not subject to this gate."
@@ -3344,32 +3548,36 @@
       "delivery": "both"
     },
     "scripts/test-templates-static.sh": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": "scripts/test-templates-static.sh",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — rewritten/extended for the index model (see script header).",
         "1.2.0: fix(github-project-link-repo) — assertion 7: the GitHub Projects adapter's `create_project` links the board to the repository. The link command is matched as a whole line; the project-side verification and the no-second-board rule are asserted; a missing adapter file fails as an assertion, not an awk abort.",
         "1.1.0: feat(EVOL-027) review close (Q1) — new L1 assertion block validating every agent_templates manifest entry has a source file at `.context/templates/{key}`. Closes the gap surfaced by factory-pr-review Q1 (no static check that target paths resolve).",
         "1.0.0: feat(EVOL-026) initial — L1 static template validation. Asserts constitution_template.md has [LAW] markers in operational sections, adr_template.md has new schema (target_section, amendment_kind, Operational Rule, Constitution Amendment), fdr_template.md has Binding Rule and lacks Constitution Amendment."
       ]
     },
     "scripts/test-snapshot-extraction.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "scripts/test-snapshot-extraction.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — rewritten/extended for the index model (see script header).",
         "1.0.0: feat(EVOL-026) initial — L2 extraction unit test. Verifies the EXTRACT_LAW_SECTIONS regex contract and EXTRACT_UNIVERSAL_DCS frontmatter filter against canonical fixtures. Idempotency check included."
       ]
     },
     "scripts/test-adr-accept.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "scripts/test-adr-accept.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — rewritten/extended for the index model (see script header).",
         "1.0.0: feat(EVOL-026) initial — L4 Accept Procedure simulation. Reference shell implementation of ADD and REPLACE amendment kinds; asserts constitution amendment + ADR status flip + Constitution Amendment section atomicity. Empty Operational Rule fails before any edit."
       ]
     },
     "scripts/test-check-adr-constitution-sync.sh": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "path": "scripts/test-check-adr-constitution-sync.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — direction B: a law SENTENCE change (index `> sentence` / CLAUDE.md corpus line) needs an accepted ADR in the same diff; body edits free.",
         "1.0.1: fix — split `local n=\"$1\" path=\"...${n}...\"` into two `local` statements in write_adr_proposed / flip_adr_to_accepted / write_fdr_proposed / flip_fdr_to_accepted. Bash evaluates ALL expansions on a single `local` line BEFORE any assignment, so `${n}` referenced the caller's (empty) `n` instead of the just-assigned local. Filenames rendered as `ADR--test.md` (empty number) on every scenario; tests passed locally only because the [adr-backfill] bypass at scenario 3 happened to mask the wrong filename. CI's gate exited 1 because the bypass did not match (subtle environment-dependent difference). Fix verified locally: paths now render as `ADR-003-test.md` correctly.",
         "1.0.0: feat(EVOL-026) initial — L5 CI gate test against synthetic git histories. 7 scenarios: accept without constitution diff (FAIL), accept with constitution diff (PASS), [adr-backfill] bypass (PASS), no ADR changes (PASS), ADR edits without status flip (PASS), new ADR landing already-accepted (FAIL), FDR transitions (PASS — not subject to gate)."
       ]
@@ -3383,9 +3591,10 @@
       ]
     },
     "scripts/generate-governance-snapshot.sh": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "path": "scripts/generate-governance-snapshot.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — lite/full profiles; corpus parsing delegated to gate.py snapshot-sections (law index + defect families); exit 3 over budgets.snapshot; rules manifest via the one frontmatter parser.",
         "1.0.1: fix(EVOL-034) Phase 0 Block 13 — reference coherence: Python embedded snapshot extractor at line 249-250 — heading `Red Zones (BLOCKING — ADR required)` → `Protected Paths (BLOCKING — ADR required)` + dict key `p.get(\"red_zones\", [])` → `p.get(\"paths\", [])`. The protected-paths.json field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35 (second iteration — initial Phase 0 pass missed scripts/ tree because grep filter was over-narrow).",
         "1.0.0: feat(EVOL-027) fase 3 — real generator implementing the Factory-setup-materialization Checkpoint 3.1 contract (frontmatter with hashes, Stack Configuration, Rules Manifest, Protected Paths, Setup Configuration, Active Constitution [LAW] extract, Defect Prevention universal entries). Replaces the language-agnostic pseudocode that every materialised project re-implemented inconsistently. Bash + awk + python3 (no PyYAML dependency). Portable MD5 (md5sum / md5 -q / openssl). --check validates inputs without writing; --quiet suppresses per-line stdout."
       ],
@@ -3442,9 +3651,10 @@
       ]
     },
     "skills/factory-applicability-discovery/SKILL.md": {
-      "version": "1.1.3",
+      "version": "1.2.0",
       "type": "skill",
       "changelog": [
+        "1.2.0: feat(EVOL-043)! — ONE resolver (gate.py applicable) replaces the pseudocode and the retired context file; hosts the [LAW-15] body (closed vocabulary table).",
         "1.1.3: fix(EVOL-040) — phantom scripts/generate-applicability-context.sh reference removed (existed nowhere; regen path is SETUP --upgrade); legacy .context/setup.md → docs/setup.md.",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) discovery scan extended — Step 4 now scans every `.claude/rules/*.md` (technical + cross-cutting governance), not only defect-prevention.md. Roll-Call output gains ACTIVE RULES section. Inputs table documents `.context/applicability_context.json` as the deterministic context source written by SETUP Phase D, with docs/setup.md as fallback. Validation contract section extended accordingly.",
@@ -3464,10 +3674,11 @@
       ]
     },
     "instructions/Factory-setup-reconcile-inventory.instructions.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "instruction",
       "role": "SETUP --reconcile-inventory protocol — drives the 5-phase reconciliation flow (detect drift, resolve dead paths, register orphans, optional enrich-descriptions, persist + verify).",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
         "1.0.0: Initial framework entry. Path-derivation work delegated to scripts/reconcile_inventory.py + scripts/check-inventory-freshness.py with config/inventory_aliases.json as the project-specific map."
       ],
       "path": ".claude/instructions/Factory-setup-reconcile-inventory.instructions.md"
@@ -3543,11 +3754,12 @@
       ]
     },
     "settings.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "config",
       "role": "Claude Code harness settings — wires the full governance hook chain (SessionStart banner, UserPromptSubmit freshness, PreCompact, PreToolUse Edit|Write/Write/Bash gates, PostToolUse watcher). Lock-step pair with .context/templates/setup/claude/settings.json.",
       "path": ".claude/settings.json",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — deliver-governance.sh wired on PreToolUse Edit|Write (law at the point of edit).",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ]
     },
@@ -3637,11 +3849,12 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "config",
       "role": "Meta copy of the pre-push git hook (protected-branch force-push block + secrets scan + governance validation + factory-pr-review sentinel block). Extensionless.",
       "path": "scripts/hooks/pre-push",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.2.0: fix(EVOL-040 pr-review loop i2) — byte-mirror of template 2.2.0.",
         "1.1.0: feat(EVOL-040 RDR-2) — meta copy synced with the delegated template (lockstep pair).",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
@@ -3659,11 +3872,12 @@
       "delivery": "both"
     },
     "scripts/security-scan.sh": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "script",
       "role": "Meta copy of the security-scan dispatcher. Registered at its historical 0-byte state (born empty at initial commit — CVP CRITICAL); real dispatcher content lands with EVOL-040 K4 and bumps this entry.",
       "path": "scripts/security-scan.sh",
       "changelog": [
+        "1.3.0: feat(EVOL-043)! — legacy docs/rules/ fallback removed (retired path).",
         "1.2.0: fix(EVOL-040 pr-review loop i2) — byte-mirror of template 3.1.0.",
         "1.1.0: feat(EVOL-040 RDR-2) — meta copy = byte-mirror of the evolved template dispatcher (lockstep pair). The historical 0-byte state dies; meta's ratified scanner = gitleaks via config/quality.json.",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
@@ -3680,11 +3894,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.1.0: feat(EVOL-043)! — budgets block (session_start, prompt_submit, pre_edit, snapshot, law_sentence_max_chars, dc_invariant_max_chars) and retired_terms ratchet list.",
         "1.0.0: feat(EVOL-040 RDR-2) — initial. Meta previously had NO quality.json (complexity axis permanently fail-open by absence); now explicit: complexity.enabled=false is a declared decision, not an accident."
       ]
     },
@@ -3771,6 +3986,105 @@
       "path": "scripts/test-measure.sh",
       "changelog": [
         "1.0.0: feat(EVOL-042) — initial."
+      ]
+    },
+    "hooks/deliver-governance.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "PreToolUse Edit|Write hook (EVOL-043): law at the point of edit — families, defect classes and rule pointers governing the file being written, via scripts/gate.py deliver, within budgets.pre_edit, through the hookSpecificOutput.additionalContext envelope; deduped per session; never blocks.",
+      "path": ".claude/hooks/deliver-governance.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/gate.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
+      "path": "scripts/gate.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/gates/__init__.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates package marker. Meta copy (lock-step pair with the template).",
+      "path": "scripts/gates/__init__.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/gates/common.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files. Meta copy (lock-step pair with the template).",
+      "path": "scripts/gates/common.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/gates/corpus.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: law index parser (CLAUDE.md list form + constitution H2 form), body_section parity lookup, rule/instruction/skill universe, defect catalog (families + classes), the applicability resolver (AND across axes, OR within), roll-call renderer, digest within budget. Meta copy (lock-step pair with the template).",
+      "path": "scripts/gates/corpus.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/gates/budget.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: injection budgets — runs the real producers (banner, onprompt worst case, pre-edit hook on the worst-case path, snapshot bytes, sentence/invariant lengths) against config/quality.json budgets; missing key or overflow = red. Meta copy (lock-step pair with the template).",
+      "path": "scripts/gates/budget.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/gates/retired.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "gates: retired-vocabulary ratchet over coherence-context root_sets with history exemption classes. Meta copy (lock-step pair with the template).",
+      "path": "scripts/gates/retired.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/gates/test_gates.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
+      "path": "scripts/gates/test_gates.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/materialize-synthetic.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
+      "path": "scripts/materialize-synthetic.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/test-gates.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "META-ONLY runner of scripts/gates/test_gates.py (unittest). Wired in governance-check.yml T2 loop.",
+      "path": "scripts/test-gates.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
+      ]
+    },
+    "scripts/test-hooks.sh": {
+      "version": "1.0.0",
+      "type": "script",
+      "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
+      "path": "scripts/test-hooks.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-043)! — initial."
       ]
     }
   },

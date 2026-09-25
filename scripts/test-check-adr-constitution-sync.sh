@@ -17,6 +17,10 @@
 #   6. New ADR file lands already-accepted, no constitution change → expect FAIL.
 #   7. FDR file (under docs/spec/{ID}/fdr/) transitions to accepted, no
 #      constitution change → expect PASS (FDRs are not subject to the gate).
+#   8. (EVOL-043 direction B) A law SENTENCE of the constitution index changes,
+#      no accepted ADR in the diff → expect FAIL.
+#   9. Same sentence change WITH an ADR landing accepted → expect PASS.
+#  10. Constitution edited outside any sentence (preamble, Body pointer) → PASS.
 #
 # Exit codes:
 #   0 = ok
@@ -57,9 +61,9 @@ run_scenario() {
     git config user.email "test@evol026.local"
     git config user.name "L5 test"
 
-    # Base commit: representative project layout.
+    # Base commit: representative project layout (constitution in index form).
     mkdir -p docs/project_log/adr docs/spec/FEAT-001/fdr
-    echo "# Initial constitution" > docs/constitution.md
+    printf '# Constitution\n\n## [PLAW-01] KISS\n> Build the simplest thing that works.\nBody: `rules/architecture.md` · Records: `ADR-0000`\n' > docs/constitution.md
     echo "placeholder" > README.md
     git add -A && git commit -q -m "init"
     git tag base
@@ -216,11 +220,44 @@ run_scenario "scenario 7: FDR transitions to accepted (not subject to gate)" 0 b
   git add -A && git commit -q -m "accept FDR-001"
 '
 
+# ─── Scenario 8: law SENTENCE changed, no accepted ADR → FAIL (EVOL-043 direction B) ───
+run_scenario "scenario 8: law sentence changed without an accepted ADR" 1 bash -c '
+  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./" docs/constitution.md
+  git add -A && git commit -q -m "reword PLAW-01 sentence"
+'
+
+# ─── Scenario 9: same sentence change WITH an ADR landing accepted → PASS ───
+run_scenario "scenario 9: law sentence changed with an accepted ADR in the diff" 0 bash -c '
+  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./" docs/constitution.md
+  cat > docs/project_log/adr/ADR-009-test.md <<"EOF"
+---
+adr_number: "009"
+title: "Sharpen PLAW-01"
+date: "2026-09-25"
+status: accepted
+target_section: "PLAW-01"
+amendment_kind: MODIFY
+---
+# ADR-009
+
+## Operational Rule
+Build the simplest thing that works, and nothing more.
+EOF
+  git add -A && git commit -q -m "accept ADR-009 with the sentence change"
+'
+
+# ─── Scenario 10: constitution edited outside any sentence (pointer, preamble) → PASS ───
+run_scenario "scenario 10: body pointer and preamble edits need no record" 0 bash -c '
+  sed -i "s#Body: \`rules/architecture.md\`#Body: \`rules/kiss.md\`#" docs/constitution.md
+  printf "\n> Preamble note: bodies live in .claude/rules/.\n" >> docs/constitution.md
+  git add -A && git commit -q -m "move PLAW-01 body pointer"
+'
+
 echo
 
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
-  echo "L5: ok — gate behaviour verified across 7 scenarios."
+  echo "L5: ok — gate behaviour verified across 10 scenarios."
   exit 0
 else
   echo "L5: FAIL — $failures scenario(s) produced unexpected outcome." >&2

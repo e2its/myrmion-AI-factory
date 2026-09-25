@@ -56,7 +56,7 @@ If ANY check fails → **BLOCK** completion, list failures, suggest fixes.
 
 > **Purpose:** Generate the file-based governance snapshot consumed by ALL agents at every command start.
 > This file enables post-summarization governance recovery (see `.claude/skills/factory-governance-loading/SKILL.md` Step 0).
-> Embeds the operational law (`## [LAW]` sections of constitution + universal DCs) so cultural guidance is mechanically present from turn 1 — agents do not depend on disciplinary on-demand loading for the rules that govern every decision. ADRs are NOT loaded; they are historical records of why constitutional changes were made — see `.claude/skills/factory-adr-management/SKILL.md`.
+> Embeds the operational law (`## [PLAW-NN]` index entries of the constitution + universal DCs; law bodies stay in `.claude/rules/`, read on demand via each entry's `Body:` pointer) so cultural guidance is mechanically present from turn 1 — agents do not depend on disciplinary on-demand loading for the rules that govern every decision. ADRs are NOT loaded; they are historical records of why constitutional changes were made — see `.claude/skills/factory-adr-management/SKILL.md`.
 
 > **Implementation:** the deterministic generator ships as `scripts/generate-governance-snapshot.sh` (mirror at `.context/templates/setup/scripts/generate-governance-snapshot.sh` for materialised projects, propagated via `factory-sync.sh`). SETUP --generate, SETUP --upgrade, and the agent-driven post-load regen path (factory-governance-loading SKILL § Step 1 POST-LOAD) all invoke the script. Direct re-implementation of the pseudocode below by individual agents is forbidden — the script is the single source of truth for snapshot bytes.
 >
@@ -90,18 +90,18 @@ FUNCTION generate_governance_snapshot():
   environments    = EXTRACT_ENVIRONMENTS(.claude/rules/ci-cd.md)
   setup_config    = EXTRACT_SETUP_CONFIG(docs/setup.md)
 
-  # Operational law — body extracted verbatim from constitution [LAW] sections
+  # Operational law — index entries extracted verbatim from constitution [PLAW-NN] entries
   law_sections    = EXTRACT_LAW_SECTIONS(docs/constitution.md)
-                    # Contract: every heading matching /^## \[LAW\] .+$/ to next /^## / boundary.
-                    # Subsections (###, ####) inside a [LAW] block are preserved verbatim.
-                    # Headings without the [LAW] marker (preamble, governance index, references)
-                    # are NOT extracted — they stay in constitution.md for on-demand reading.
+                    # Contract: every heading matching /^## \[PLAW-[0-9]{2}\] .+$/ to next /^## / boundary.
+                    # Entry = heading + `> sentence` + `Body:` line, preserved verbatim.
+                    # Law bodies are NOT embedded — they live in .claude/rules/ (entry `Body:` pointer)
+                    # and are read on demand. Headings without the marker (title, preamble) are skipped.
 
   universal_dcs   = EXTRACT_UNIVERSAL_DCS(.claude/rules/defect-prevention.md)
-                    # Filter: entries whose frontmatter has applicable_when: always.
-                    # Scope-conditional entries (applicable_when: scope:* or stack:*) stay in
-                    # defect-prevention.md and are filtered at agent-read time by each consumer
-                    # per applicable_to + applicable_when (catalog § Mandatory Process Integration).
+                    # Filter: rows of § Defect Classes whose Paths column is `*`.
+                    # Path-bound rows stay in defect-prevention.md — delivered per file by the
+                    # pre-edit hook and filtered at agent-read time by each consumer per
+                    # Applicable To + Paths (catalog § Consultation). Cases annex never embeds.
 
   WRITE(snapshot_path):
     ---
@@ -186,10 +186,10 @@ FUNCTION generate_governance_snapshot():
     typecheck: {derive_commands_from_stack(stack_config).typecheck}
     build: {derive_commands_from_stack(stack_config).build}
 
-    ## Active Constitution (Operational [LAW] sections — verbatim)
+    ## Active Constitution (Operational [PLAW-NN] entries — verbatim)
     > Source: docs/constitution.md. Extracted by `EXTRACT_LAW_SECTIONS()`.
-    > Regex contract: `^## \[LAW\] .+$` to next `^## ` boundary. Subsections preserved.
-    > Sections without `[LAW]` marker stay in constitution.md for on-demand reading.
+    > Regex contract: `^## \[PLAW-[0-9]{2}\] .+$` to next `^## ` boundary (heading + `> sentence` + `Body:` line).
+    > Law bodies live in `.claude/rules/` (entry `Body:` pointer) — read on demand, never embedded.
     {FOR EACH section IN law_sections:
 
     {section.heading}
@@ -197,38 +197,39 @@ FUNCTION generate_governance_snapshot():
     {section.body}
     }
 
-    ## Defect Prevention Catalog (Universal entries — applicable_when: always)
+    ## Defect Prevention Catalog (Universal entries — Paths: `*`)
     > Source: .claude/rules/defect-prevention.md. Extracted by `EXTRACT_UNIVERSAL_DCS()`.
-    > Scope-conditional entries (applicable_when: scope:* or stack:*) stay in
-    > defect-prevention.md and are filtered at agent-read time per `applicable_to`.
+    > Path-bound rows stay in defect-prevention.md and are filtered at agent-read time
+    > per `Applicable To` + `Paths`; cases live in defect-prevention-cases.md (read by id).
     {FOR EACH dc IN universal_dcs:
 
-    ### {dc.id} — {dc.title}
+    ### {dc.id} — {dc.family}
 
     **Severity:** {dc.severity}
     **Applicable to:** {dc.applicable_to}
+    **Gate:** {dc.gate}
 
-    {dc.body}
+    {dc.invariant}
     }
 
   SAVE(snapshot_path)
   MARK_TASK("governance_snapshot", COMPLETED)
-  LOG: "Governance snapshot generated — {len(law_sections)} [LAW] sections, {len(universal_dcs)} universal DCs, {len(rules_manifest)} rules. Hashes: constitution={constitution_hash[:8]}, setup={setup_hash[:8]}, dcs={dcs_hash[:8]}"
+  LOG: "Governance snapshot generated — {len(law_sections)} [PLAW-NN] entries, {len(universal_dcs)} universal DCs, {len(rules_manifest)} rules. Hashes: constitution={constitution_hash[:8]}, setup={setup_hash[:8]}, dcs={dcs_hash[:8]}"
 ```
 
 #### Extraction Function Contracts (deterministic, language-agnostic pseudocode)
 
 ```yaml
 FUNCTION EXTRACT_LAW_SECTIONS(constitution_path):
-  # Returns: ordered list of {heading, body} blocks where heading matches /^## \[LAW\] .+$/.
-  # Body = all lines after the heading up to (but excluding) the next /^## / boundary or EOF.
-  # Subsection markers (###, ####) inside a block are kept literally.
+  # Returns: ordered list of {heading, body} blocks where heading matches /^## \[PLAW-[0-9]{2}\] .+$/.
+  # Body = all lines after the heading up to (but excluding) the next /^## / boundary or EOF
+  # (the `> sentence` line + the `Body:` pointer line). Rule bodies are NOT followed here.
   # Empty list if no markers found (treat as configuration error in CI).
   lines = READ(constitution_path).splitlines()
   blocks = []
   current = NULL
   FOR line IN lines:
-    IF line MATCHES /^## \[LAW\] (.+)$/:
+    IF line MATCHES /^## \[PLAW-[0-9]{2}\] (.+)$/:
       IF current: blocks.append(current)
       current = {heading: line, body: []}
     ELIF line MATCHES /^## /:
@@ -239,13 +240,13 @@ FUNCTION EXTRACT_LAW_SECTIONS(constitution_path):
   RETURN blocks  # body field is joined with "\n" at write time
 
 FUNCTION EXTRACT_UNIVERSAL_DCS(dc_catalog_path):
-  # Returns: ordered list of {id, title, severity, applicable_to, body} entries
-  # whose frontmatter contains applicable_when: always.
-  # DC entry format (defect-prevention.md): each entry is a `### DC-N — {title}` block
-  # with a YAML-frontmatter-style metadata block immediately after, then prose body.
-  # Scope-conditional entries (applicable_when: scope:* or stack:*) are EXCLUDED.
-  entries = PARSE_DC_CATALOG(dc_catalog_path)
-  RETURN [e FOR e IN entries IF e.applicable_when == "always"]
+  # Returns: ordered list of {id, family, invariant, gate, paths, applicable_to, severity}
+  # rows whose Paths column is `*`.
+  # DC entry format (defect-prevention.md § Defect Classes): one table row per DC —
+  #   | DC | Family | Invariant | Gate | Paths | Applicable To | Severity |
+  # Path-bound rows (any glob list other than `*`) are EXCLUDED.
+  rows = PARSE_TABLE(dc_catalog_path, section="Defect Classes")
+  RETURN [r FOR r IN rows IF r.paths == "*"]
 ```
 
 ### Self-Validation Prompt
@@ -354,7 +355,7 @@ Scan `.context/templates/setup/rules/` for all `.md` templates. For each templat
 2. Resolve placeholders from `docs/setup.md` + `docs/constitution.md`
 3. Write to `.claude/rules/{rule_name}.md`
 
-Standard rules materialized to `.claude/rules/`: `architecture.md`, `security_policy.md`, `testing.md`, `branching.md`, `ci-cd.md`, `database.md`, `observability.md`, `performance.md`, `ux-constitution.md`, `contract-first-policy.md`, `immutability_policy.md`, `ai_budget_tracker.md`, `ai_budget_governance.md`, `stateless.md`, `privacy.md`, `frontend_architecture_compatibility.md`, `html-css.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`, `quality.json` (see Quality Configuration below), `coherence-context.json` (copied as-is from `.context/templates/setup/config/coherence-context.json` — its `context: "downstream"` field is NEVER edited; consumed by factory-pr-review Phase 0).
+Standard rules materialized to `.claude/rules/`: `architecture.md`, `security_policy.md`, `testing.md`, `branching.md`, `ci-cd.md`, `database.md`, `observability.md`, `performance.md`, `ux-constitution.md`, `contract-first-policy.md`, `immutability_policy.md`, `ai_budget_tracker.md`, `ai_budget_governance.md`, `stateless.md`, `privacy.md`, `project-mode.md`, `configuration.md`, `i18n.md`, `documentation.md`, `dependencies.md`, `frontend_architecture_compatibility.md`, `html-css.md`. Config artefacts materialized to `config/`: `protected-paths.json`, `allowlist.json`, `quality.json` (see Quality Configuration below), `coherence-context.json` (copied as-is from `.context/templates/setup/config/coherence-context.json` — its `context: "downstream"` field is NEVER edited; consumed by factory-pr-review Phase 0).
 
 **Phase B — Technology-Specific Best Practices:**
 For each detected technology (backend.runtime, frontend.framework):
@@ -400,14 +401,13 @@ For each detected technology (backend.runtime, frontend.framework):
 
 **Phase B.1 — Defect Prevention Catalog (Stack-Aware Materialization):**
 
-The `defect-prevention.md` template uses a `{{DC_ENTRIES}}` placeholder that MUST be populated with starter defect classes based on the project's stack. These are defects that **pass all static gates** but **break at runtime** — the gap between static verification and deployed behavior.
+The `defect-prevention.md` template uses a `{{DC_ENTRIES}}` placeholder that MUST be populated with starter defect classes based on the project's stack. These are defects that **pass all static gates** but **break at runtime** — the gap between static verification and deployed behavior. Each entry renders ONE row in the catalog table (7 columns) and ONE case in the annex `defect-prevention-cases.md`.
 
-**Schema note:** each DC entry includes an `applicable_to` field — an enum list of the SDLC agents that MUST consult this entry. Valid values: `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`. An entry can be consumed by multiple agents. Most entries end up with `[IMPLEMENT, REVIEW]` (classic code patterns); UX/accessibility patterns add `CODESIGN`; architectural patterns add `BLUEPRINT`; infra patterns add `DEVOPS`; test-surface patterns add `QA`; and any enduring pattern should add `AUDIT` so external audits pick it up. The starter DCs below use sensible defaults — projects may extend them via the Discovery Protocol.
+**Schema note:** every entry carries `family` (one of the catalog `## Families` ids), `invariant` (one line, ≤ `budgets.dc_invariant_max_chars`, no `|`), `gate` (the mechanical check that proves it, or `—`), `paths` (globs the DC governs; `["*"]` = universal, embedded in the governance snapshot), `applicable_to` (enum list of the SDLC agents that MUST consult this entry — `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`; most entries are `[IMPLEMENT, REVIEW]`; UX patterns add `CODESIGN`; architectural add `BLUEPRINT`; infra add `DEVOPS`; test-surface add `QA`; enduring patterns add `AUDIT`), `severity`, and `case` (`origin`, `story`, `detection` — the narrative, never in the row). Scope filtering is by `paths`: a backend-only feature never touches `src/**/frontend/**`, so UI rows never fire for it. The starter DCs below use sensible defaults — projects extend them via the Discovery Protocol.
 
 ```yaml
 FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   dc_entries = []
-  dc_number = 1
 
   # --- Field reference: setup_md fields come from docs/setup.md (SETUP --init Q answers) ---
   # backend.topology: Q7 → B1..B12
@@ -420,82 +420,88 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # UNIVERSAL META-PATTERNS — shipped on every project regardless of stack
   # ============================================================================
   # Derived from empirical post-deploy defect clusters across multiple stacks.
-  # Each entry describes a PATTERN (stack-neutral) with stack-specific
-  # manifestations listed inside the prevention text. The `applicable_when`
-  # scope condition still gates which concrete projects consume the entry at
-  # runtime — a pure library project with no CI won't trigger DC-PIPE, etc.
+  # Each entry describes a PATTERN (stack-neutral); stack-specific manifestations
+  # live in the case story. `paths` gates which files consume the row at runtime —
+  # a pure library project with no CI never touches `.github/**`, so DC-PIPE never fires.
 
   # DC: Pipeline short-circuit silently skips downstream gates
-  # Universal — applies to any CI/build/BVL script that chains commands via pipes
-  # Example manifestations: bash `find … | grep -q` under `set -o pipefail` (SIGPIPE
-  # kills producer, gate silently passes); PowerShell pipelines with
-  # $ErrorActionPreference = "Stop"; Python subprocess pipes with check=True;
-  # Make rules with `$(shell … | …)`; Jenkins `sh` steps; GitLab script blocks.
   ADD DC: {
     name: "Pipeline short-circuit silently skips downstream gates",
-    applicable_when: "Authoring CI / build / verification scripts that chain producers and consumers via shell pipes, Make recipes, or platform script blocks",
+    family: "infra",
+    invariant: "No gate rests on a raw producer-to-consumer pipe; every gate tests captured output and demonstrably fails when its precondition is unmet.",
+    gate: "—",
+    paths: [".github/**", "scripts/**", "**/*.sh", "**/*.ps1", "**/Makefile", "**/Jenkinsfile", "**/.gitlab-ci.yml"],
     applicable_to: ["IMPLEMENT", "REVIEW", "DEVOPS", "AUDIT"],
-    prevention: "Never gate on a raw `producer | consumer -q` idiom. Under shell pipefail (and equivalents) the consumer can close the pipe early, the producer dies with SIGPIPE and the gate silently passes while its precondition is unmet. Use explicit boolean tests on captured output (e.g. `[ -n \"$(producer -print -quit)\" ]`), a named helper, or the ecosystem's idiomatic `set_check` primitive. Dry-run every gate with a precondition that should fail and verify the gate actually fails.",
-    review_severity: "BLOCKER"
+    severity: "BLOCKER",
+    case: {
+      origin: "bash `find … | grep -q` under `set -o pipefail`: SIGPIPE kills the producer, the gate silently passes while its precondition is unmet.",
+      story: "Authoring CI / build / verification scripts that chain producers and consumers via shell pipes, Make recipes, or platform script blocks. Manifestations: PowerShell pipelines with `$ErrorActionPreference = \"Stop\"`; Python subprocess pipes with check=True; Make rules with `$(shell … | …)`; Jenkins `sh` steps; GitLab script blocks. Under shell pipefail (and equivalents) the consumer can close the pipe early, the producer dies with SIGPIPE and the gate silently passes.",
+      detection: "Never gate on a raw `producer | consumer -q` idiom. Use explicit boolean tests on captured output (e.g. `[ -n \"$(producer -print -quit)\" ]`), a named helper, or the ecosystem's idiomatic `set_check` primitive. Dry-run every gate with a precondition that should fail and verify the gate actually fails."
+    }
   }
 
   # DC: Identity-argument no-op transforms
-  # Universal — applies to string transforms, template rendering, DOM assertions
-  # Example manifestations: JS `padEnd("")`/`padStart("")`/`replace(empty, …)` returning input;
-  # Python `str.format("")`; Java `String.format("")`; CSS class concat with empty string;
-  # i18n fallback `""`; test-side: asserting only the label wrapper while children render empty.
   ADD DC: {
     name: "Identity-argument no-op in string / DOM transforms",
-    applicable_when: "Calling padding, trimming, replacement, formatting, template, or class-concat functions with a parameter that may legitimately be empty, null, or zero",
+    family: "runtime",
+    invariant: "A transform called with a possibly-empty parameter is guarded or its output asserted; UI tests assert every rendered element, not only the wrapper label.",
+    gate: "—",
+    paths: ["src/**", "tests/**"],
     applicable_to: ["IMPLEMENT", "REVIEW", "QA"],
-    prevention: "Many ecosystems return the input unchanged when the transform parameter is an identity value (empty string, zero-length array, null delimiter). The call looks correct and type-checks cleanly. Guard the parameter OR assert a post-condition on the output (expected length, substring presence, rendered element count) — never trust the call itself. For UI component tests, every rendered element MUST be asserted in the DOM, not just the wrapper label: a zero-input render passes label-only assertions while delivering a blank surface to the user.",
-    review_severity: "BLOCKER"
+    severity: "BLOCKER",
+    case: {
+      origin: "JS `padEnd(\"\")` / `padStart(\"\")` / `replace(empty, …)` returning the input unchanged; label-only DOM assertions passing on a blank surface.",
+      story: "Calling padding, trimming, replacement, formatting, template, or class-concat functions with a parameter that may legitimately be empty, null, or zero. Many ecosystems return the input unchanged when the transform parameter is an identity value (empty string, zero-length array, null delimiter). The call looks correct and type-checks cleanly. Manifestations: Python `str.format(\"\")`; Java `String.format(\"\")`; CSS class concat with empty string; i18n fallback `\"\"`; test-side: asserting only the label wrapper while children render empty.",
+      detection: "Guard the parameter OR assert a post-condition on the output (expected length, substring presence, rendered element count) — never trust the call itself. For UI component tests, every rendered element MUST be asserted in the DOM, not just the wrapper label: a zero-input render passes label-only assertions while delivering a blank surface to the user."
+    }
   }
 
   # DC: Framework-layer validation errors invisible to application logs
-  # Universal — applies to any layered system with validation ahead of handler
-  # Example manifestations: FastAPI/Pydantic 422 responses invisible to app logs;
-  # Express middleware Zod/Joi rejections; Spring @Valid pre-controller errors;
-  # ASP.NET Core model binding failures; GraphQL schema validation; gRPC reflection;
-  # API Gateway request validation (AWS/Kong/Nginx/Apigee); WAF rules; ModSecurity.
   ADD DC: {
     name: "Framework-layer validation errors invisible to application logs",
-    applicable_when: "Any system with schema, DTO, or request validation performed by a middleware, gateway, WAF, or framework layer ahead of the application handler",
+    family: "boundary",
+    invariant: "Every validation layer ahead of the handler (middleware, gateway, WAF, framework) emits a structured log entry before returning its 4xx.",
+    gate: "—",
+    paths: ["src/**/api/**", "src/**/middleware/**", "src/**/handlers/**", "infra/**"],
     applicable_to: ["BLUEPRINT", "IMPLEMENT", "DEVOPS", "QA", "AUDIT"],
-    prevention: "A 4xx spike with NO corresponding ERROR line in application logs is almost always a contract / DTO / schema mismatch between client and server — not a bug in the use case code. Diagnosis playbook: (1) diff the request payload against the declared schema; (2) only enter use case code after that has been ruled out. Prevention: configure the validation layer (middleware, gateway, framework error handler) to emit a structured log entry with the validation detail before returning the 4xx, so application observability sees the event. Document which error classes are filtered at the gateway vs reaching the handler.",
-    review_severity: "WARNING"
+    severity: "WARNING",
+    case: {
+      origin: "A 4xx spike with NO corresponding ERROR line in application logs — a contract / DTO / schema mismatch between client and server, not a bug in the use case code.",
+      story: "Any system with schema, DTO, or request validation performed by a middleware, gateway, WAF, or framework layer ahead of the application handler. Manifestations: FastAPI/Pydantic 422 responses invisible to app logs; Express middleware Zod/Joi rejections; Spring @Valid pre-controller errors; ASP.NET Core model binding failures; GraphQL schema validation; gRPC reflection; API Gateway request validation (AWS/Kong/Nginx/Apigee); WAF rules; ModSecurity.",
+      detection: "Diagnosis playbook: (1) diff the request payload against the declared schema; (2) only enter use case code after that has been ruled out. Prevention: configure the validation layer (middleware, gateway, framework error handler) to emit a structured log entry with the validation detail before returning the 4xx, so application observability sees the event. Document which error classes are filtered at the gateway vs reaching the handler."
+    }
   }
 
   # DC: Mutation APIs with replace semantics reset omitted fields
-  # Universal — applies to shared-state mutation against cloud, directory, ERP, REST, K8s, etc.
-  # Example manifestations: AWS `update-function-configuration` resetting env vars not passed;
-  # Azure ARM PUT replacing whole resource; GCP `resource.update` default replace;
-  # Kubernetes `kubectl apply` vs `patch` semantics; Terraform replace triggers;
-  # LDAP / Active Directory `Set-ADUser` clearing array attributes; SAP BAPIs;
-  # REST PUT on aggregate roots; GraphQL mutations without input defaults.
   ADD DC: {
     name: "Mutation APIs with replace semantics reset omitted fields",
-    applicable_when: "Any code path that mutates shared external state via an update / PUT / replace endpoint — cloud control planes, directory services, ERP / CRM objects, Kubernetes resources, REST PUT endpoints, GraphQL mutations, IaC providers",
+    family: "boundary",
+    invariant: "No partial payload reaches an update / PUT / replace endpoint; every mutation of shared external state is read-current → merge delta → submit merged.",
+    gate: "—",
+    paths: ["src/**/adapters/**", "src/**/clients/**", "src/**/integrations/**", "infra/**"],
     applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS", "AUDIT"],
-    prevention: "Never call a mutation endpoint with a partial payload while assuming omitted fields are preserved. Many endpoints are replace-whole-state, not patch-delta — the omitted fields get reset to defaults or removed. Mandatory pattern: read-current-state → merge delta → submit merged payload. Document each integration's semantics (replace vs patch) in the adapter / integration doc. Where the ecosystem offers both (e.g. K8s `apply` vs `patch`), codify which one is allowed and why.",
-    review_severity: "BLOCKER"
+    severity: "BLOCKER",
+    case: {
+      origin: "AWS `update-function-configuration` resetting every env var not passed in the call.",
+      story: "Any code path that mutates shared external state via an update / PUT / replace endpoint — cloud control planes, directory services, ERP / CRM objects, Kubernetes resources, REST PUT endpoints, GraphQL mutations, IaC providers. Manifestations: Azure ARM PUT replacing the whole resource; GCP `resource.update` default replace; Kubernetes `kubectl apply` vs `patch` semantics; Terraform replace triggers; LDAP / Active Directory `Set-ADUser` clearing array attributes; SAP BAPIs; REST PUT on aggregate roots; GraphQL mutations without input defaults. Many endpoints are replace-whole-state, not patch-delta — the omitted fields get reset to defaults or removed.",
+      detection: "Never call a mutation endpoint with a partial payload while assuming omitted fields are preserved. Mandatory pattern: read-current-state → merge delta → submit merged payload. Document each integration's semantics (replace vs patch) in the adapter / integration doc. Where the ecosystem offers both (e.g. K8s `apply` vs `patch`), codify which one is allowed and why."
+    }
   }
 
   # DC: Composite network symptoms require layered root-cause triage
-  # Universal — applies to any project with a network boundary
-  # Example manifestations: browser "blocked by CORS policy" has 4+ causes
-  # (missing Access-Control-Allow-Origin; authorizer short-circuit returning before
-  # CORS middleware; redirect stripping CORS headers; method not in allowMethods);
-  # TLS handshake failures (cert, SNI, cipher, protocol version); 502/504 (upstream
-  # down, timeout, DNS, routing); connection refused (port, firewall, bind, service
-  # down); auth fails (token expired, audience mismatch, clock skew, bad signature);
-  # Kerberos (7+ distinct causes); mTLS handshake.
   ADD DC: {
     name: "Composite network symptoms require layered root-cause triage",
-    applicable_when: "Debugging a single network-layer symptom reported by the client, browser, or upstream service",
+    family: "process",
+    invariant: "A network symptom (CORS, 502, refused, auth, TLS) is triaged by layer from captured evidence before any code changes.",
+    gate: "—",
+    paths: ["*"],
     applicable_to: ["BLUEPRINT", "IMPLEMENT", "DEVOPS", "QA"],
-    prevention: "A single symptom class (CORS blocked, 502 Bad Gateway, connection refused, auth fail, TLS handshake) typically has 3+ distinct root causes spread across application / middleware / infrastructure / client configuration. Random edits in the application layer cannot fix middleware or infrastructure causes. For each symptom class, maintain a decision tree that captures raw evidence first (e.g. `curl -i -X OPTIONS …` for CORS; `openssl s_client -connect …` for TLS; platform access logs for 502; packet capture when needed), then disambiguates the layer before code changes. Document the tree per symptom in `.claude/rules/` or runbook — add entries as new symptom classes surface.",
-    review_severity: "WARNING"
+    severity: "WARNING",
+    case: {
+      origin: "Browser \"blocked by CORS policy\" with 4+ distinct causes chased by random application-layer edits.",
+      story: "Debugging a single network-layer symptom reported by the client, browser, or upstream service. A single symptom class (CORS blocked, 502 Bad Gateway, connection refused, auth fail, TLS handshake) typically has 3+ distinct root causes spread across application / middleware / infrastructure / client configuration. Manifestations: CORS (missing Access-Control-Allow-Origin; authorizer short-circuit returning before CORS middleware; redirect stripping CORS headers; method not in allowMethods); TLS handshake failures (cert, SNI, cipher, protocol version); 502/504 (upstream down, timeout, DNS, routing); connection refused (port, firewall, bind, service down); auth fails (token expired, audience mismatch, clock skew, bad signature); Kerberos (7+ distinct causes); mTLS handshake. Random edits in the application layer cannot fix middleware or infrastructure causes.",
+      detection: "For each symptom class, maintain a decision tree that captures raw evidence first (e.g. `curl -i -X OPTIONS …` for CORS; `openssl s_client -connect …` for TLS; platform access logs for 502; packet capture when needed), then disambiguates the layer before code changes. Document the tree per symptom in `.claude/rules/` or runbook — add entries as new symptom classes surface."
+    }
   }
 
   # ============================================================================
@@ -504,91 +510,130 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # ============================================================================
   # These 7 DCs target the defect cluster specific to features that process
   # requests without a first-party UI (APIs, workers, webhooks, consumers, cron).
-  # Each entry uses the v2.2.0 DPC `feature_scope` filter to restrict consultation
-  # to [backend-only, integration] features. Full-stack features are EXCLUDED — a
-  # full-stack feature that needs reliability-flavoured concerns (idempotency,
-  # retry, circuit breaker, DLQ, graceful shutdown) should be sliced into a
-  # dedicated backend-only or integration feature per the compatibility matrix
-  # (the full-stack project still accepts it). This keeps the DC constraint set
-  # aligned with the test_plan § 2.2 Reliability Testing and dev_plan § Reliability
-  # Tests sections, which are themselves applicable_when scope in
-  # [backend-only, integration] — avoiding the mismatch where a full-stack feature
-  # would be gated on DCs but have no reliability test infrastructure.
-  # Guard the whole BLOCK by project_scope (not feature_scope) because SETUP
-  # materialisation runs BEFORE any feature exists — the catalog ships once, per
-  # project. The per-feature filter happens later at consult_defect_catalog time.
+  # Their `paths` are boundary surfaces (api / handlers / adapters / consumers /
+  # workers / contracts) — a feature fires them only when it touches those files,
+  # which keeps the constraint set aligned with test_plan § 2.2 Reliability Testing
+  # and dev_plan § Reliability Tests (themselves applicable to scope IN
+  # [backend-only, integration]). A full-stack feature that needs reliability-
+  # flavoured concerns (idempotency, retry, circuit breaker, DLQ, graceful shutdown)
+  # should be sliced into a dedicated backend-only or integration feature per the
+  # compatibility matrix (the full-stack project still accepts it).
+  # Guard the whole BLOCK by project_scope because SETUP materialisation runs
+  # BEFORE any feature exists — the catalog ships once, per project. The per-file
+  # filter happens later at consult_defect_catalog time.
   # Don't materialise any of them into frontend-only projects.
   IF setup_md.project_scope IN ["full-stack", "backend-only", "integration"]:
 
     # DC: Missing idempotency keys on mutating operations
-    # Applies to: any inbound mutation (HTTP, queue consumer, webhook inbound)
     ADD DC: {
       name: "Missing idempotency keys on mutating operations",
-      applicable_when: "Designing or implementing an inbound endpoint / handler that mutates shared state (payment processing, order creation, resource provisioning, webhook inbound, queue consumer)",
+      family: "boundary",
+      invariant: "Every retryable mutating operation accepts an idempotency key; the dedupe record lives in the side-effect's transaction and replay returns the cached response.",
+      gate: "Reliability test: replayed request returns the cached response, never re-executes (`test_plan § 2.2`)",
+      paths: ["src/**/api/**", "src/**/handlers/**", "src/**/consumers/**", "src/**/webhooks/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "QA"],
-      feature_scope: ["backend-only", "integration"],
-      prevention: "Every mutating operation that can be retried by the caller MUST accept an idempotency key (HTTP `Idempotency-Key` header, message attribute, or body field). Key format: UUID v4 minimum, or natural composite key (e.g. customer_id + external_ref). Store a short-TTL dedupe record (key → response_hash, response_payload) in the same transactional boundary as the side-effect. Replay returns cached response, never re-executes. BLOCKER when mutation has no dedupe strategy and caller is a retry-enabled client (browser retry, mobile retry, queue at-least-once delivery, webhook retry).",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "Retry-enabled callers (browser retry, mobile retry, queue at-least-once delivery, webhook retry) re-executing payments, orders and provisioning.",
+        story: "Designing or implementing an inbound endpoint / handler that mutates shared state (payment processing, order creation, resource provisioning, webhook inbound, queue consumer). BLOCKER when the mutation has no dedupe strategy and the caller is a retry-enabled client.",
+        detection: "Every mutating operation that can be retried by the caller MUST accept an idempotency key (HTTP `Idempotency-Key` header, message attribute, or body field). Key format: UUID v4 minimum, or natural composite key (e.g. customer_id + external_ref). Store a short-TTL dedupe record (key → response_hash, response_payload) in the same transactional boundary as the side-effect. Replay returns cached response, never re-executes."
+      }
     }
 
     # DC: Retries without exponential backoff + jitter
     ADD DC: {
       name: "Retries without exponential backoff + jitter",
-      applicable_when: "Calling a downstream service, queue broker, or external API that can transiently fail",
+      family: "boundary",
+      invariant: "Every remote call declares max attempts, base delay, exponential factor and jitter through the platform retry primitive; no tight-loop or fixed-interval retry.",
+      gate: "Reliability test: transient failure produces the declared backoff schedule; `retry_count` metric emitted per call (`test_plan § 2.2`)",
+      paths: ["src/**/adapters/**", "src/**/clients/**", "src/**/integrations/**", "src/**/consumers/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS", "QA"],
-      feature_scope: ["backend-only", "integration"],
-      prevention: "Every remote call MUST declare: max attempts (default 5 for idempotent, 0-1 for non-idempotent without idempotency key), base delay (e.g. 2s), exponential factor (e.g. 2x), jitter (random 0-50% of computed delay). No tight-loop retries, no fixed-interval retries — both cause thundering-herd outages when the downstream recovers. Use the platform's native retry primitive (AWS SDK retry strategy, Polly for .NET, tenacity for Python, p-retry for Node) rather than hand-rolling. Emit `retry_count` metric per call.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "Thundering-herd outage when a downstream recovers under tight-loop or fixed-interval retries.",
+        story: "Calling a downstream service, queue broker, or external API that can transiently fail. No tight-loop retries, no fixed-interval retries — both cause thundering-herd outages when the downstream recovers.",
+        detection: "Every remote call MUST declare: max attempts (e.g. 5 for idempotent, 0-1 for non-idempotent without idempotency key), base delay (e.g. 2s), exponential factor (e.g. 2x), jitter (random 0-50% of computed delay). Use the platform's native retry primitive (AWS SDK retry strategy, Polly for .NET, tenacity for Python, p-retry for Node) rather than hand-rolling. Emit `retry_count` metric per call."
+      }
     }
 
     # DC: Missing circuit breaker on unreliable downstreams
     ADD DC: {
       name: "Missing circuit breaker on unreliable downstreams",
-      applicable_when: "Calling a downstream that has a history of outages, rate limits, or SLA breaches (any third-party API, cross-region DB, federated auth provider)",
+      family: "boundary",
+      invariant: "Every call to an unreliable downstream is wrapped in a circuit breaker with failure threshold, open duration and half-open probe; state and trips are metered.",
+      gate: "Observability check: `circuit_state` gauge and `circuit_trips` counter exist per downstream",
+      paths: ["src/**/adapters/**", "src/**/clients/**", "src/**/integrations/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS"],
-      feature_scope: ["backend-only", "integration"],
-      prevention: "Wrap calls to unreliable downstreams in a circuit breaker with: failure threshold (e.g. 5 failures in 30s window), open duration (e.g. 60s), half-open probe strategy (single request, re-close on success, re-open on failure). Without the breaker, the caller's retry logic turns every downstream outage into a thundering-herd cascade and a cost spike (per-request pricing APIs). Metrics: `circuit_state` gauge (0=closed, 1=half-open, 2=open), `circuit_trips` counter. Use platform primitives (Polly / resilience4j / Hystrix / opossum).",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "Caller retry logic turning every downstream outage into a thundering-herd cascade and a cost spike on per-request pricing APIs.",
+        story: "Calling a downstream that has a history of outages, rate limits, or SLA breaches (any third-party API, cross-region DB, federated auth provider).",
+        detection: "Wrap calls to unreliable downstreams in a circuit breaker with: failure threshold (e.g. 5 failures in 30s window), open duration (e.g. 60s), half-open probe strategy (single request, re-close on success, re-open on failure). Metrics: `circuit_state` gauge (0=closed, 1=half-open, 2=open), `circuit_trips` counter. Use platform primitives (Polly / resilience4j / Hystrix / opossum)."
+      }
     }
 
     # DC: Missing structured logging + trace propagation on integration hops
     ADD DC: {
       name: "Missing structured logging + trace propagation on integration hops",
-      applicable_when: "Implementing any handler that receives OR emits a request spanning service boundaries",
+      family: "boundary",
+      invariant: "Every boundary-crossing handler emits structured JSON logs with trace and correlation ids and propagates W3C Trace Context (or platform equivalent) outbound.",
+      gate: "Observability check: `trace_id` present on every log line of one cross-service request",
+      paths: ["src/**/api/**", "src/**/handlers/**", "src/**/adapters/**", "src/**/consumers/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS", "QA", "AUDIT"],
-      feature_scope: ["backend-only", "integration"],
-      prevention: "Every handler MUST: (1) emit structured logs (JSON) with at minimum `trace_id`, `correlation_id`, `feature_id`, `idempotency_key`, `error_code` (when error). (2) Propagate trace context on outbound calls using W3C Trace Context (`traceparent` / `tracestate` headers) OR the ecosystem equivalent (B3 for OpenTracing, X-Amzn-Trace-Id for AWS, X-Cloud-Trace-Context for GCP). (3) Accept inbound trace context and continue the trace rather than starting a new one. Without propagation, a failed integration request spanning 3 services appears as 3 unrelated log entries — root cause analysis costs hours instead of minutes.",
-      review_severity: "WARNING"
+      severity: "WARNING",
+      case: {
+        origin: "A failed integration request spanning 3 services appearing as 3 unrelated log entries — root cause analysis costs hours instead of minutes.",
+        story: "Implementing any handler that receives OR emits a request spanning service boundaries.",
+        detection: "Every handler MUST: (1) emit structured logs (JSON) with at minimum `trace_id`, `correlation_id`, `feature_id`, `idempotency_key`, `error_code` (when error). (2) Propagate trace context on outbound calls using W3C Trace Context (`traceparent` / `tracestate` headers) OR the ecosystem equivalent (B3 for OpenTracing, X-Amzn-Trace-Id for AWS, X-Cloud-Trace-Context for GCP). (3) Accept inbound trace context and continue the trace rather than starting a new one."
+      }
     }
 
     # DC: API contract versioning without backward-compat strategy
     ADD DC: {
       name: "API contract versioning without backward-compat strategy",
-      applicable_when: "Publishing a contract (OpenAPI / AsyncAPI / gRPC / GraphQL SDL) that external consumers depend on — any scope=integration feature, or scope=backend-only feature that has at least one external consumer in consumes_contract",
+      family: "boundary",
+      invariant: "Every published contract follows a declared versioning strategy; no breaking change without a new major version and a deprecation window.",
+      gate: "factory-pr-review axis 3 (API contracts) · REVIEW Check #2d on contract diffs",
+      paths: ["**/contracts/**", "**/*.openapi.*", "**/*.asyncapi.*", "**/*.proto", "**/*.graphql", "src/**/api/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS"],
-      feature_scope: ["backend-only", "integration"],
-      prevention: "Contract versions MUST follow a declared strategy: (a) URI versioning (/v1/, /v2/) for REST, (b) package-level versioning (package myapi.v1) for gRPC, (c) schema-evolution rules (additive fields only; never remove/rename without deprecation) for AsyncAPI/Avro/Protobuf, (d) `@deprecated` + sunset dates for GraphQL. Breaking change WITHOUT a new major version + deprecation window = silent consumer breakage. Document the strategy in design.md § 2 Constraints + ADR. REVIEW blocks on: field removals without deprecation; type narrowing of request fields; type widening of response fields without opt-in.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "Breaking change shipped WITHOUT a new major version + deprecation window = silent consumer breakage.",
+        story: "Publishing a contract (OpenAPI / AsyncAPI / gRPC / GraphQL SDL) that external consumers depend on — any scope=integration feature, or scope=backend-only feature that has at least one external consumer in consumes_contract.",
+        detection: "Contract versions MUST follow a declared strategy: (a) URI versioning (/v1/, /v2/) for REST, (b) package-level versioning (package myapi.v1) for gRPC, (c) schema-evolution rules (additive fields only; never remove/rename without deprecation) for AsyncAPI/Avro/Protobuf, (d) `@deprecated` + sunset dates for GraphQL. Document the strategy in design.md § 2 Constraints + ADR. REVIEW blocks on: field removals without deprecation; type narrowing of request fields; type widening of response fields without opt-in."
+      }
     }
 
     # DC: Missing dead-letter queue handling for async consumers
     ADD DC: {
       name: "Missing dead-letter queue handling for async consumers",
-      applicable_when: "Implementing a queue consumer, event handler, or webhook inbound endpoint that can fail permanently (max retries exhausted, poison message)",
+      family: "boundary",
+      invariant: "Every async consumer declares a dead-letter destination at infra level, forwards exhausted messages with full context, and ships replay tooling.",
+      gate: "Infra check: a DLQ resource is declared per consumer (`devops_plan § Reliability Checks`)",
+      paths: ["src/**/consumers/**", "src/**/workers/**", "src/**/webhooks/**", "infra/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS", "QA"],
-      feature_scope: ["backend-only", "integration"],
-      prevention: "Every async consumer MUST have a dead-letter destination declared at infra level (SQS DLQ, RabbitMQ dead-letter exchange, Kafka DLQ topic, EventBridge rule with failure pattern). Max-retries threshold MUST send the failed message WITH FULL CONTEXT (original payload + retry history + last error + timestamp) to the DLQ — not just drop it silently. Replay tooling MUST exist (runbook + script) so operators can re-enqueue after fixing root cause. Without DLQ, a single poison message blocks the queue indefinitely OR gets silently dropped after retry exhaustion, and the data loss is invisible until downstream reports missing records weeks later.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "A single poison message blocking the queue indefinitely, or silently dropped after retry exhaustion — data loss invisible until downstream reports missing records weeks later.",
+        story: "Implementing a queue consumer, event handler, or webhook inbound endpoint that can fail permanently (max retries exhausted, poison message).",
+        detection: "Every async consumer MUST have a dead-letter destination declared at infra level (SQS DLQ, RabbitMQ dead-letter exchange, Kafka DLQ topic, EventBridge rule with failure pattern). Max-retries threshold MUST send the failed message WITH FULL CONTEXT (original payload + retry history + last error + timestamp) to the DLQ — not just drop it silently. Replay tooling MUST exist (runbook + script) so operators can re-enqueue after fixing root cause."
+      }
     }
 
     # DC: Missing graceful shutdown (SIGTERM / drain) handling
     ADD DC: {
       name: "Missing graceful shutdown (SIGTERM / drain) handling",
-      applicable_when: "Implementing a long-running service, worker, queue consumer, or cron job — any process that can be terminated by the orchestrator mid-request",
+      family: "runtime",
+      invariant: "On SIGTERM the process stops intake, reports unhealthy, drains in-flight work within the configured window, and exits 0 (drained) or 143 (timeout).",
+      gate: "Reliability test: SIGTERM during an in-flight request ends in a drained exit (`test_plan § 2.2`)",
+      paths: ["src/**/main.*", "src/**/server.*", "src/**/entrypoint*", "src/**/workers/**", "src/**/consumers/**", "src/**/jobs/**"],
       applicable_to: ["IMPLEMENT", "REVIEW", "DEVOPS"],
-      feature_scope: ["backend-only", "integration"],
-      prevention: "On SIGTERM, the service MUST: (1) stop accepting new requests / messages (close listener or set drain flag). (2) Mark health endpoint as unhealthy (orchestrator stops routing to this instance). (3) Complete or checkpoint in-flight work within the drain window (configurable, default 30s; orchestrator-coordinated: Kubernetes terminationGracePeriodSeconds, AWS ALB deregistration delay). (4) Exit 0 when drained, or 143 on drain timeout (signal-exit convention). Without graceful shutdown: in-flight requests are killed mid-transaction, leaving partial database writes, unacked messages, and 502 responses to callers. Exit behaviour belongs to the runtime entry point (not use-case code) — verify at service boundary.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "Orchestrator termination mid-request: in-flight requests killed mid-transaction, partial database writes, unacked messages, 502 responses to callers.",
+        story: "Implementing a long-running service, worker, queue consumer, or cron job — any process that can be terminated by the orchestrator mid-request. Exit behaviour belongs to the runtime entry point (not use-case code) — verify at service boundary.",
+        detection: "On SIGTERM, the service MUST: (1) stop accepting new requests / messages (close listener or set drain flag). (2) Mark health endpoint as unhealthy (orchestrator stops routing to this instance). (3) Complete or checkpoint in-flight work within the drain window (configurable; orchestrator-coordinated: Kubernetes terminationGracePeriodSeconds, AWS ALB deregistration delay). (4) Exit 0 when drained, or 143 on drain timeout (signal-exit convention)."
+      }
     }
 
   # ============================================================================
@@ -600,10 +645,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.backend.topology == "B9":
     ADD DC: {
       name: "Async handler in serverless entry point",
-      applicable_when: "Writing a serverless function handler",
+      family: "runtime",
+      invariant: "Every serverless handler signature matches the runtime contract; async handlers the runtime does not await are wrapped in a sync entry point.",
+      gate: "—",
+      paths: ["src/**/handlers/**", "src/**/functions/**", "**/serverless.*", "infra/**"],
       applicable_to: ["IMPLEMENT", "REVIEW", "DEVOPS", "AUDIT"],
-      prevention: "Verify handler signature matches the serverless runtime contract. Some runtimes do not auto-await async handlers — use sync wrapper + async runtime.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "A serverless runtime that does not auto-await async handlers — the function returns before the work finishes.",
+        story: "Writing a serverless function handler.",
+        detection: "Verify handler signature matches the serverless runtime contract. Some runtimes do not auto-await async handlers — use sync wrapper + async runtime."
+      }
     }
 
   # DC: Missing frontend context providers
@@ -611,10 +663,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.frontend.framework != "None":
     ADD DC: {
       name: "Missing frontend context providers",
-      applicable_when: "Using a context-based hook in a component",
+      family: "ui",
+      invariant: "Every context-based hook used in a component has its Provider mounted above it (root layout or parent).",
+      gate: "—",
+      paths: ["src/**/frontend/**", "**/*.tsx", "**/*.jsx", "**/*.vue", "**/*.svelte"],
       applicable_to: ["IMPLEMENT", "REVIEW"],
-      prevention: "Before using a context-based hook, verify its Provider exists in the component tree (root layout or parent). Missing Provider = silent null or runtime crash.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "Context hook rendered outside its Provider — silent null or runtime crash.",
+        story: "Using a context-based hook in a component.",
+        detection: "Before using a context-based hook, verify its Provider exists in the component tree (root layout or parent). Missing Provider = silent null or runtime crash."
+      }
     }
 
   # DC: Post-action navigation gaps
@@ -622,10 +681,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.frontend.framework != "None" AND setup_md.frontend.pattern IN ["F1", "F2", "F4", "F8", "F9"]:
     ADD DC: {
       name: "Post-action navigation gaps",
-      applicable_when: "Writing form onSubmit/onSuccess handlers",
+      family: "ui",
+      invariant: "Every form submission success handler navigates (push / replace / redirect); the user never lands on a stale form.",
+      gate: "—",
+      paths: ["src/**/frontend/**", "**/*.tsx", "**/*.jsx", "**/*.vue", "**/*.svelte"],
       applicable_to: ["CODESIGN", "IMPLEMENT", "REVIEW", "QA"],
-      prevention: "Every form submission success MUST include navigation (router.push/replace/redirect). Without it, user sees stale form.",
-      review_severity: "WARNING"
+      severity: "WARNING",
+      case: {
+        origin: "Successful submit with no navigation — the user sees the stale form and resubmits.",
+        story: "Writing form onSubmit/onSuccess handlers under client-side routing.",
+        detection: "Every form submission success MUST include navigation (router.push/replace/redirect). Without it, user sees stale form."
+      }
     }
 
   # DC: Session/state rehydration on mount
@@ -633,10 +699,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.frontend.pattern IN ["F2", "F4"]:
     ADD DC: {
       name: "Session/state rehydration on mount",
-      applicable_when: "Writing auth hooks or session state initialization",
+      family: "ui",
+      invariant: "Auth and session hooks check for an existing session on mount and start in loading=true until proven otherwise.",
+      gate: "—",
+      paths: ["src/**/frontend/**", "src/**/auth/**", "src/**/hooks/**", "**/*.tsx", "**/*.jsx"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW"],
-      prevention: "Auth/session hooks MUST check for existing sessions on mount. Initial loading state MUST be true (assume loading until proven otherwise).",
-      review_severity: "WARNING"
+      severity: "WARNING",
+      case: {
+        origin: "Hydrated page flashing the logged-out state for an authenticated user.",
+        story: "Writing auth hooks or session state initialization under SSR / hydration.",
+        detection: "Auth/session hooks MUST check for existing sessions on mount. Initial loading state MUST be true (assume loading until proven otherwise)."
+      }
     }
 
   # DC: Responsive design / mobile gaps
@@ -644,10 +717,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.frontend.framework != "None":
     ADD DC: {
       name: "Responsive design / mobile gaps",
-      applicable_when: "Writing dashboard layouts, data tables, or navigation",
+      family: "ui",
+      invariant: "Every layout has a mobile toggle, every table a horizontal-scroll wrapper, and no fixed width lacks a responsive breakpoint.",
+      gate: "QA SMOKE-E2E at a mobile viewport (Chrome DevTools MCP)",
+      paths: ["src/**/frontend/**", "**/*.tsx", "**/*.jsx", "**/*.vue", "**/*.svelte", "**/*.css", "**/*.scss"],
       applicable_to: ["CODESIGN", "IMPLEMENT", "REVIEW", "QA"],
-      prevention: "Layouts MUST include a mobile toggle. Tables MUST have horizontal scroll wrapper. No fixed widths without responsive breakpoints.",
-      review_severity: "WARNING"
+      severity: "WARNING",
+      case: {
+        origin: "Dashboards, data tables and navigation unusable on a phone viewport.",
+        story: "Writing dashboard layouts, data tables, or navigation.",
+        detection: "Layouts MUST include a mobile toggle. Tables MUST have horizontal scroll wrapper. No fixed widths without responsive breakpoints."
+      }
     }
 
   # DC: Frontend env var injection mismatch
@@ -655,10 +735,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.frontend.framework != "None" AND setup_md.backend.topology == "B9":
     ADD DC: {
       name: "Frontend env var injection mismatch",
-      applicable_when: "Reading environment variables in frontend code",
+      family: "infra",
+      invariant: "Every env var read in frontend code is declared AND injected by the IaC / deployment configuration.",
+      gate: "Infra check: declared frontend env keys ⊇ keys read in code (`devops_plan § Verification Script`)",
+      paths: ["src/**/frontend/**", "infra/**", "**/.env*", "**/serverless.*"],
       applicable_to: ["IMPLEMENT", "REVIEW", "DEVOPS"],
-      prevention: "When reading a frontend env var in code, verify it is declared AND injected by the IaC/deployment configuration. Missing injection = undefined at runtime.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "Frontend reading an env var the serverless IaC never injects — undefined at runtime.",
+        story: "Reading environment variables in frontend code when serverless IaC manages env vars.",
+        detection: "When reading a frontend env var in code, verify it is declared AND injected by the IaC/deployment configuration. Missing injection = undefined at runtime."
+      }
     }
 
   # DC: Hooks ordering violation
@@ -667,10 +754,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.frontend.framework IN ["React", "Vue.js", "Solid"]:
     ADD DC: {
       name: "Hooks ordering violation",
-      applicable_when: "Writing components with hooks/composables",
+      family: "ui",
+      invariant: "Every hook / composable call sits before any conditional return; call order is identical across renders.",
+      gate: "Lint: rules-of-hooks (project ESLint or equivalent)",
+      paths: ["**/*.tsx", "**/*.jsx", "**/*.vue"],
       applicable_to: ["IMPLEMENT", "REVIEW"],
-      prevention: "ALL hook/composable calls MUST be placed BEFORE any conditional return. Hooks after conditional returns cause runtime errors (different call order between renders).",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "A hook after a conditional return — different call order between renders, runtime error.",
+        story: "Writing components with hooks/composables. Angular uses decorators and Svelte uses stores — no hook ordering issue there.",
+        detection: "ALL hook/composable calls MUST be placed BEFORE any conditional return. Hooks after conditional returns cause runtime errors (different call order between renders)."
+      }
     }
 
   # DC: Backend-frontend contract mismatch
@@ -680,10 +774,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.frontend.framework != "None" AND setup_md.backend.runtime != "None":
     ADD DC: {
       name: "Backend-frontend contract mismatch",
-      applicable_when: "Writing API client calls (frontend) or route handlers (backend)",
+      family: "boundary",
+      invariant: "Every frontend API call matches the backend route in path, method and field names, cross-referenced against the contract file.",
+      gate: "factory-pr-review axis 3 (API contracts)",
+      paths: ["src/**/api/**", "src/**/frontend/**", "**/contracts/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "QA", "AUDIT"],
-      prevention: "Every frontend API call MUST match the backend route: same path, same method, same field names. Cross-reference against the contract file.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "Client call and route handler drifting apart (path, method, field names) while both compile.",
+        story: "Writing API client calls (frontend) or route handlers (backend).",
+        detection: "Every frontend API call MUST match the backend route: same path, same method, same field names. Cross-reference against the contract file."
+      }
     }
 
   # DC: External identity ID != internal DB primary key
@@ -692,10 +793,17 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.auth.strategy == "OAuth2/OIDC (external provider)":
     ADD DC: {
       name: "External identity ID != internal DB primary key",
-      applicable_when: "Writing use cases/services that receive identity claims from auth tokens",
+      family: "data",
+      invariant: "An external identity claim (sub, oid, uid) is resolved only through a dedicated external-id lookup, never passed to a primary-key lookup.",
+      gate: "—",
+      paths: ["src/**/auth/**", "src/**/services/**", "src/**/use_cases/**", "src/**/usecases/**", "src/**/repositories/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "AUDIT"],
-      prevention: "When receiving an identity claim (sub, oid, uid) from an external auth provider, ALWAYS use a dedicated lookup method (e.g., get_by_external_id). NEVER pass the external ID to a get_by_id() that queries the internal DB primary key.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "External provider `sub` passed to `get_by_id()` against the internal primary key — wrong or missing user.",
+        story: "Writing use cases/services that receive identity claims from auth tokens issued by an external provider.",
+        detection: "When receiving an identity claim (sub, oid, uid) from an external auth provider, ALWAYS use a dedicated lookup method (e.g., get_by_external_id). NEVER pass the external ID to a get_by_id() that queries the internal DB primary key."
+      }
     }
 
   # DC: Cross-module direct data access
@@ -703,21 +811,35 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   IF setup_md.backend.topology NOT IN ["B1", "B12", "None"]:
     ADD DC: {
       name: "Cross-module direct data access",
-      applicable_when: "Writing data access code (SQL, ORM queries, repository methods)",
+      family: "data",
+      invariant: "No module reads or writes another module's tables or collections directly; access goes through ports + adapters, API calls or domain events.",
+      gate: "—",
+      paths: ["src/**/repositories/**", "src/**/models/**", "**/*.sql", "src/**"],
       applicable_to: ["BLUEPRINT", "IMPLEMENT", "REVIEW", "AUDIT"],
-      prevention: "A module MUST NOT access another module's tables/collections directly. Use ports/interfaces + adapters, API calls, or domain events. Enforced by contract-first policy.",
-      review_severity: "BLOCKER"
+      severity: "BLOCKER",
+      case: {
+        origin: "A module querying a sibling module's tables — hidden coupling that breaks on the next schema change.",
+        story: "Writing data access code (SQL, ORM queries, repository methods) in any architecture with module boundaries. Enforced by contract-first policy.",
+        detection: "A module MUST NOT access another module's tables/collections directly. Use ports/interfaces + adapters, API calls, or domain events."
+      }
     }
 
-  # Materialize: render DC entries into the template table format
-  # Table columns MUST match the catalog schema:
-  #   DC | Name | Applicable When | Applicable To | Severity | Check
+  # Materialize: one row per entry into the catalog table, one case per entry into the annex.
+  # Row columns MUST match the template header:
+  #   DC | Family | Invariant | Gate | Paths | Applicable To | Severity
+  reserved  = ids already present in the template § Defect Classes (starter rows DC-18, DC-27, DC-28, DC-29)
+  dc_number = 1
+  rows = []; cases = []
   FOR EACH dc IN dc_entries:
-    applicable_to_rendered = "[" + join(dc.applicable_to, ", ") + "]"
-    RENDER as: "| DC-{dc_number} | {dc.name} | {dc.applicable_when} | {applicable_to_rendered} | {dc.review_severity} | {dc.prevention} |"
+    WHILE "DC-{dc_number}" IN reserved: dc_number += 1
+    ASSERT dc.family IN template § Families
+    ASSERT len(dc.invariant) <= budgets.dc_invariant_max_chars AND "\n" NOT IN dc.invariant AND "|" NOT IN dc.invariant
+    rows.append("| DC-{dc_number} | `{dc.family}` | {dc.invariant} | {dc.gate} | {join(map(backtick, dc.paths), ', ')} | {join(dc.applicable_to, ', ')} | {dc.severity} |")
+    cases.append("### DC-{dc_number} — {dc.name}\n\n**Origin:** {dc.case.origin}\n\n**Story:** {dc.case.story}\n\n**Detection:** {dc.case.detection}\n")
     dc_number += 1
-  REPLACE {{DC_ENTRIES}} with rendered rows
+  REPLACE {{DC_ENTRIES}} with rows (one per line)
   WRITE to .claude/rules/defect-prevention.md
+  COPY template rules/defect-prevention-cases.md → .claude/rules/defect-prevention-cases.md; APPEND cases after the starter cases
 ```
 
 **Phase C — Global Validation:**
@@ -731,27 +853,7 @@ After all rules generated, validate:
 - All referenced tools/frameworks match `docs/setup.md` selections
 - Technology-specific rules don't conflict with architecture rules
 
-**Phase D — ADP Context Materialization (ADR-EVOL-028):**
-
-Write `.context/applicability_context.json` — machine-readable context source consumed by `factory-applicability-discovery` at every command Step 0. Without this file the discovery falls back to parsing `docs/setup.md` (best-effort), so emitting it eliminates ambiguity.
-
-```pseudocode
-context = {
-  project_scope: stack_config.project_scope,        # backend-only | frontend-only | full-stack | infra
-  frameworks: collect_frameworks(stack_config),     # e.g. ["python","fastapi","postgresql","react"]
-  path_glob_universe: derive_globs(frameworks),     # union of common globs for the active stack
-  language: stack_config.language,                  # EN | ES (used only as metadata, not for filtering)
-  generated_at: now_iso8601(),
-  source_hash: sha256(read("docs/setup.md"))[:16],
-}
-WRITE pretty-printed JSON to .context/applicability_context.json
-```
-
-`collect_frameworks()` extracts every named framework / runtime / database / cloud-provider declared in `stack_config` (backend.runtime, backend.framework, frontend.framework, database.type, cloud.provider, ci_cd.platform, iac.tool). Lowercased, deduplicated, sorted.
-
-`derive_globs()` is the union of `path_glob` entries from the technology mappings table in Phase B (Step 3b) for every framework present.
-
-`source_hash` lets the discovery skill detect drift between `docs/setup.md` and the cached context — if the hash mismatches, regenerate via `SETUP --upgrade --refresh-context` (or by re-running Phase D in isolation).
+**Phase D — Applicability context (EVOL-043):** nothing is materialised. The one resolver (`python3 scripts/gate.py applicable`) reads its static axes from `docs/setup.md` frontmatter (`project_scope`, `backend.framework`, `frontend.framework`) and its dynamic axes from the runtime; a separate context file would be a second definition. Verify after Scripts Materialization: `python3 scripts/gate.py applicable --phase SETUP --format rollcall` prints a roll-call with the materialised laws and families.
 
 ### 4.2.4 Tripartite Scaffolding
 Additive tree algorithm — builds directory structure from composable fragments:
@@ -1060,7 +1162,7 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
 - These placeholders are EXEMPT from Zero-TODO policy and detected by DEVOPS Guardrail 7
 
 **Scripts Materialization:**
-Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/`:
+Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/` (recursively — `scripts/gates/*.py` is the one governance reader's package, `scripts/hooks/*` the git hooks):
 - Auto-scan template directory (no hardcoded list)
 - Stack conditionals from `governance_versions.json` filter scripts by stack
 - `stack_configured` scripts resolve placeholders
@@ -1190,27 +1292,10 @@ Any future template that adopts a `{{*_COST}}` or `{{BUDGET_*}}` placeholder is 
 - Templates (used for upgrades)
 - Migration artifacts
 
-### 4.2.9 Governance Index Generation
-Scan all materialized rules and generate the Governance Index section in `docs/constitution.md`:
+### 4.2.9 Rules Manifest & Special Integrations
+`docs/constitution.md` carries NO Governance Index (index form since constitution template 4.0.0: one `## [PLAW-NN]` entry per law — `> sentence` + `Body:` pointer + `Records:`). The rules manifest is produced by Checkpoint 3.1 (`SCAN_RULES_DIRECTORY(.claude/rules/)` → snapshot § Rules Manifest); per-rule applicability is each rule file's own `applicable_when:` frontmatter (ADP) — never metadata comments in the constitution.
 
-**Scan 6 categories:**
-1. Architecture rules
-2. Security rules
-3. Testing rules
-4. DevOps rules
-5. Technology-specific rules
-6. UX rules
-
-**For each rule file, extract metadata:**
-```yaml
-type: narrative | structured_config
-validation_method: semantic | script
-applies_when: [stack conditions]
-severity: CRITICAL | HIGH | MEDIUM
-agents: [DEV, ARCH, REVIEW, QA, SEC]
-validation_sections: [code sections to check]
-validation_script: [script path if script-based]
-```
+**Body-home check (BLOCKING):** every `Body:` pointer in `docs/constitution.md` resolves to a materialised file that contains the same `## [PLAW-NN]` heading followed by the byte-identical `> sentence` line. Unresolved pointer or sentence mismatch → materialisation error, fix before Checkpoint 3.1.
 
 **Special Integration — UX Constitution (scope-aware):**
 If `project_scope in [full-stack, frontend-only]` AND `frontend.framework != "None"`, populate `.claude/rules/ux-constitution.md` with:
@@ -1228,9 +1313,6 @@ If `frontend.external_design_system.exists == true`:
 
 **Branching Rule Placeholders:**
 Populate `.claude/rules/branching.md` with PR validation settings from Q22.1 (`pr_validation_mode`, `pr_approval_count`, `pr_merge_method`).
-
-**Constitution Update:**
-Replace PLACEHOLDER governance index section in `docs/constitution.md` with generated markdown containing all rule metadata.
 
 ### 4.2.9b Dynamic Validation Template Generation
 Generate per-agent validation templates based on coverage analysis:
@@ -1303,3 +1385,8 @@ FUNCTION setup_resume_check():
 6. Finish with `status: COMPLETED` only if ALL tasks are `[✓]`
 
 **Use case:** Overcoming token limits across multiple sessions. Each session picks up where the last left off.
+
+## [LAW-14] SETUP scaffolding
+> SETUP generation creates directories and configuration only — never source or test files.
+
+NEVER generate source code or test files during `SETUP --generate`. Only directories, configuration, governance (constitution index, rules, hooks, scripts, subproducts) and the manifest. The first line of product code is born in IMPLEMENT, under a plan.

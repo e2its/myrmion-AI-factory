@@ -48,3 +48,8 @@ changelog:
 - `.claude/rules/protected-code.md`
 - `.claude/rules/architecture.md`
 - `.claude/rules/security_policy.md`
+
+## [LAW-02] Protected Code
+> Protected code blocks and protected paths are never modified.
+
+NEVER modify code between `PROTECTED-CODE START` / `PROTECTED-CODE END` markers, nor any path listed in `config/protected-paths.json` (`paths[]` blocking — an ADR is required to touch them; `yellow_zones[]` warn). Pre-flight and push gates (factory-pr-review Block 12) fail closed on a protected path in the diff.

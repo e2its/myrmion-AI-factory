@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# META-ONLY: unit tests of the gates package (scripts/gates/*.py, scripts/gate.py — lock-step pairs).
+# Every gate is seen red at least once (fixtures inside test_gates.py). Exit 0 pass · 1 fail · 2 infra.
+set -u
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+command -v python3 >/dev/null || { echo "test-gates: python3 required" >&2; exit 2; }
+command -v git >/dev/null || { echo "test-gates: git required" >&2; exit 2; }
+export PYTHONDONTWRITEBYTECODE=1
+cd "$ROOT" && python3 -m unittest discover -s scripts/gates -p 'test_*.py' -t scripts 2>&1
+RC=${PIPESTATUS[0]}
+[ "$RC" -eq 0 ] && echo "test-gates: ok" || echo "test-gates: FAIL"
+exit "$RC"

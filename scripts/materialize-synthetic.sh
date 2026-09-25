@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# META-ONLY: materialisation smoke of the framework's own template tree; not shipped to projects.
+# materialize-synthetic.sh — SETUP --generate is LLM-driven and cannot run in CI. This script does the
+# mechanical part the same way (manifest targets, placeholder resolution with sample values, framework
+# tree delivered as factory-sync would) into a scratch project, then runs the governance toolchain THERE:
+#
+#   1. every manifest template with a target lands (unconditional entries + one stack sample)
+#   2. no `{{TOKEN}}` survives in config JSON; every config parses
+#   3. the snapshot generator produces a lite snapshot within budgets.snapshot
+#   4. the one resolver prints a roll-call with every project law and family
+#   5. every law (universal + project) resolves its Body: pointer and quotes the identical sentence
+#   6. injection budgets hold against the real producers; the retired-term ratchet is clean
+#   7. every hook wired in settings.json exists and is executable
+#
+# Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
+set -u
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+T="$ROOT/.context/templates/setup"
+MANIFEST="$T/governance_versions.json"
+[ -f "$MANIFEST" ] || { echo "materialize-synthetic: manifest missing" >&2; exit 2; }
+command -v python3 >/dev/null || { echo "materialize-synthetic: python3 required" >&2; exit 2; }
+command -v git >/dev/null || { echo "materialize-synthetic: git required" >&2; exit 2; }
+export PYTHONDONTWRITEBYTECODE=1
+SCRATCH=$(mktemp -d) || exit 2
+[ "${MATERIALIZE_KEEP:-0}" = "1" ] || trap 'rm -rf "$SCRATCH"' EXIT
+P="$SCRATCH/proj"; mkdir -p "$P"
+PASS=0; FAIL=0
+ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
+bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; [ -n "${2:-}" ] && echo "$2" | sed 's/^/      /' | head -12; return 0; }
+
+echo "── materialise (manifest targets + sample answers) ──"
+REPORT=$(python3 - "$T" "$P" "$MANIFEST" <<'PY'
+import json, re, sys, shutil
+from pathlib import Path
+T, P, M = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+m = json.loads(M.read_text())
+SAMPLE = {  # one stack sample; conditionals not matching are skipped
+    "backend.runtime == Python": True, "backend.runtime == Node": False, "backend.runtime == Java": False,
+    "backend.runtime == C#": False, "frontend.framework == React": True,
+    'ci_cd_platform == "GitHub Actions"': True, 'po_package.mode != "off"': True,
+}
+def cond_ok(c):
+    if not c: return True
+    for k, v in SAMPLE.items():
+        if k in c: return v
+    return "GitHub" in c or "Python" in c or "React" in c
+landed, skipped = [], []
+for key, e in m["templates"].items():
+    if key.startswith("_") or not isinstance(e, dict): continue
+    src = T / key; tgt = e.get("target")
+    if not tgt or not src.is_file():
+        skipped.append(key); continue
+    if not cond_ok(e.get("stack_conditional")):
+        skipped.append(key); continue
+    if e.get("delivery") == "sync":
+        skipped.append(key); continue
+    dst = P / tgt; dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst); landed.append(tgt)
+# the constitution template lands as the project's index
+if (T / "constitution/constitution_template.md").is_file():
+    (P / "docs").mkdir(exist_ok=True); shutil.copy2(T / "constitution/constitution_template.md", P / "docs/constitution.md"); landed.append("docs/constitution.md")
+if (T / "setup/setup_master_template.md").is_file():
+    shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
+# placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
+# {{#if}}/{{#each}} blocks keep their content)
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30"}
+def resolve(text, is_json):
+    if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
+        text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
+    text = re.sub(r"\{\{[#/](if|each|unless)[^}]*\}\}", "", text)
+    for k, v in NUM.items():
+        text = text.replace("{{" + k + "}}", v)
+    if is_json:
+        text = re.sub(r'"\{\{[A-Z_]+\}\}"', '"sample"', text)
+        text = re.sub(r"\{\{[A-Z_]+\}\}", "sample", text)
+    else:
+        text = re.sub(r"\{\{[A-Z_|]+\}\}", "sample", text)
+        text = re.sub(r"\{\{[a-z_.]+\}\}", "sample", text)
+    return text
+unresolved = []
+for f in P.rglob("*"):
+    if not f.is_file() or f.suffix in (".png", ".jpg", ".pdf", ".zip"): continue
+    try: text = f.read_text(encoding="utf-8")
+    except UnicodeDecodeError: continue
+    if "{{" in text:
+        f.write_text(resolve(text, f.suffix == ".json"), encoding="utf-8")
+    if f.suffix == ".json" and "{{" in f.read_text(encoding="utf-8"):
+        unresolved.append(str(f.relative_to(P)))
+print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_json": unresolved}))
+PY
+) || { echo "materialize-synthetic: materialisation step failed" >&2; exit 2; }
+echo "  $REPORT"
+LANDED=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["landed"])')
+[ "$LANDED" -ge 60 ] && ok "manifest targets landed ($LANDED)" || bad "too few targets landed ($LANDED)"
+UNRES=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)["unresolved_json"]))')
+[ -z "$UNRES" ] && ok "no placeholder survives in config JSON" || bad "unresolved tokens in JSON: $UNRES"
+
+# framework tree as factory-sync delivers it (skills / instructions / commands / hooks / gate reader)
+mkdir -p "$P/.claude" "$P/scripts"
+cp -R "$ROOT/.claude/skills" "$P/.claude/skills"; cp -R "$ROOT/.claude/instructions" "$P/.claude/instructions"; cp -R "$ROOT/.claude/commands" "$P/.claude/commands"
+[ -d "$P/.claude/hooks" ] || cp -R "$T/claude/hooks" "$P/.claude/hooks"
+[ -f "$P/.claude/settings.json" ] || cp "$T/claude/settings.json" "$P/.claude/settings.json"
+[ -f "$P/CLAUDE.md" ] || cp "$T/claude/CLAUDE.md" "$P/CLAUDE.md"
+for s in gate.py generate-governance-snapshot.sh validate-governance.sh governance-onprompt.sh governance-onedit.sh governance-oncompact.sh check-adr-constitution-sync.sh; do
+  [ -f "$P/scripts/$s" ] || cp "$T/scripts/$s" "$P/scripts/$s" 2>/dev/null || true
+done
+[ -d "$P/scripts/gates" ] || cp -R "$T/scripts/gates" "$P/scripts/gates"
+mkdir -p "$P/config"; [ -f "$P/config/coherence-context.json" ] || cp "$T/config/coherence-context.json" "$P/config/coherence-context.json"
+git -C "$P" init -q && git -C "$P" add -A && git -C "$P" -c user.name=t -c user.email=t@t commit -qm scratch
+for f in config/quality.json config/coherence-context.json config/protected-paths.json; do
+  python3 -c "import json,sys; json.load(open('$P/$f'))" 2>/dev/null && ok "$f parses" || bad "$f does not parse"
+done
+grep -q '^  authoring:' "$P/docs/setup.md" && ok "docs/setup.md carries the Q29 frontmatter keys" || bad "docs/setup.md frontmatter lacks codesign.authoring"
+
+echo "── governance toolchain in the scratch project ──"
+OUT=$(cd "$P" && bash scripts/generate-governance-snapshot.sh 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "snapshot generated: $(echo "$OUT" | head -1 | sed 's/.*(//;s/)//')" || bad "snapshot generator failed (rc=$RC)" "$OUT"
+grep -q '^### \[PLAW-01\]' "$P/.context/governance_snapshot.md" && ok "law index in the snapshot" || bad "law index missing from snapshot"
+OUT=$(cd "$P" && python3 scripts/gate.py applicable --phase IMPLEMENT --command implement --change-type feature --format rollcall 2>&1); RC=$?
+LAWS=$(printf '%s' "$OUT" | grep -oE 'ACTIVE LAWS \([0-9]+\)' | grep -oE '[0-9]+'); DCS=$(printf '%s' "$OUT" | grep -oE 'ACTIVE DCs \([0-9]+\)' | grep -oE '[0-9]+')
+[ "$RC" -eq 0 ] && [ "${LAWS:-0}" -ge 26 ] && ok "roll-call: $LAWS laws (13 project + universal), $DCS universal DCs" || bad "roll-call short (laws=$LAWS rc=$RC)" "$OUT"
+printf '%s' "$OUT" | grep -q 'Discovery hash:' && ok "discovery hash emitted" || bad "no discovery hash"
+OUT=$(cd "$P" && python3 - <<'PY'
+import sys; sys.path.insert(0, "scripts")
+from pathlib import Path
+from gates import corpus
+r = Path("."); bad = []; n = 0
+for group in ("universal", "project"):
+    for l in corpus.laws(r)[group]:
+        n += 1
+        if l["body"] == "inline": continue
+        p, h, q = corpus.body_section(r, l)
+        if q != l["sentence"]: bad.append(f"{l['id']}→{l['body']}: {'missing file' if p and not p.is_file() else 'heading/sentence mismatch'}")
+print(n); print("\n".join(bad))
+PY
+); N=$(printf '%s' "$OUT" | head -1); BAD=$(printf '%s' "$OUT" | tail -n +2)
+[ -z "$BAD" ] && ok "every law ($N) resolves its Body: pointer and quotes the identical sentence in the scratch project" || bad "law pointer/parity failures" "$BAD"
+OUT=$(cd "$P" && python3 scripts/gate.py budget 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "injection budgets hold against the real producers" || bad "budget red (rc=$RC)" "$OUT"
+printf '%s' "$OUT" | grep -q '| pre_edit |' && ok "pre-edit delivery measured on the worst-case path" || bad "pre-edit not measured"
+OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "retired-term ratchet clean in the materialised tree" || bad "retired terms in the materialised tree" "$OUT"
+MISSING=$(cd "$P" && python3 -c "
+import json; d=json.load(open('.claude/settings.json')); import os
+scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]
+print(' '.join(t for t in scripts if not os.path.isfile(t)))")
+[ -z "$MISSING" ] && ok "every hook wired in settings.json is delivered" || bad "hooks wired but not delivered: $MISSING"
+OUT=$(cd "$P" && bash scripts/validate-governance.sh --banner 2>&1)
+printf '%s' "$OUT" | grep -q 'Governance loaded: constitution' && ok "session banner: $OUT" || bad "banner wrong" "$OUT"
+
+echo; echo "materialize-synthetic: $PASS passed, $FAIL failed"
+[ "${MATERIALIZE_KEEP:-0}" = "1" ] && echo "scratch kept at $P"
+[ "$FAIL" -eq 0 ]

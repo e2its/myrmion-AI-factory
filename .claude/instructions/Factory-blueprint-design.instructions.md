@@ -71,10 +71,11 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 - Banner emission is BLOCKING — missing banner = `mal-iniciado`, halt and re-emit.
 - When `docs_mcps NOT EMPTY`, query each named docs MCP for technologies/frameworks in the design scope and cite findings inline in design.md (per skill § Citation contract).
 
-### Step 1: Load Constitution & Governance Index
-- Parse stack (backend.runtime, frontend.framework, architecture, topology)
-- Parse `<!-- METADATA -->` comments for rule applicability
-- If Governance Index missing or PLACEHOLDER → BLOCK
+### Step 1: Load Constitution & Rules Manifest
+- Parse stack (backend.runtime, frontend.framework, architecture, topology) from `.context/governance_snapshot.md` § Stack Configuration
+- Rules manifest: snapshot § Rules Manifest; applicability per each rule's own `applicable_when:` frontmatter (ADP)
+- Constitution = `[PLAW-NN]` index (sentence + `Body:` pointer); read a law body on demand from its pointed rule file
+- If the snapshot is missing or stale → BLOCK (regenerate: `bash scripts/generate-governance-snapshot.sh`)
 
 ### Step 2: Feature Context
 - Detect feature language, stack from current files
@@ -1194,9 +1195,12 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   #      used to surface "why this [LAW] section is worded this way" in design.md notes.
   #      Historical ADRs are NEVER binding; only the resulting [LAW] sections in constitution are.
 
-  # A. Read constitutional [LAW] from snapshot (already extracted by SETUP --generate /
-  # SETUP --upgrade — see Factory-setup-materialization Checkpoint 3.1).
-  law_sections = READ(".context/governance_snapshot.md") § "Active Constitution (Operational [LAW] sections — verbatim)"
+  # A. Read the law INDEX from the snapshot (`## Law Index`: per project law its `### [PLAW-NN]`,
+  # `> sentence` and `Body:` pointer — EVOL-043), then open ONLY the bodies whose sentence names a
+  # pattern (shared component, middleware, base class, data access, security enforcement):
+  #   laws = python3 scripts/gate.py laws --json   → .project[] {id, title, sentence, body}
+  #   body = READ(resolve(law.body))  § "## [PLAW-NN]"   # rules/x.md → .claude/rules/x.md
+  law_sections = [ {law, body} FOR law IN laws.project IF SENTENCE_NAMES_A_PATTERN(law.sentence) ]
 
   mandatory_patterns = []
   FOR EACH section IN law_sections:

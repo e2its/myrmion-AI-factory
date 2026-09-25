@@ -42,7 +42,7 @@ Physical scaffolding per constitution. PREREQUISITE: `docs/setup.md` with `phase
 - CI/CD pipeline (100% functional from scaffolding)
 - IaC foundation, CIP, environment variables (REPLACE_ME_* convention)
 - Budget calculation with alternatives
-- Governance Index with Design System integration
+- Rules manifest in the governance snapshot (constitution = `[PLAW-NN]` index); Design System integration
 - Dynamic Validation Templates
 
 ### `--generate --resume`

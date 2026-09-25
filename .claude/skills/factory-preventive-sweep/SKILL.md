@@ -46,25 +46,23 @@ FUNCTION build_search_plan(dc_catalog):
   READ .claude/rules/defect-prevention.md → dc_entries[]
 
   FOR EACH dc IN dc_entries:
-    # Derive search command from the DC's applicable_when and prevention_check fields
-    # The search is a VERIFICATION that the prevention check was followed
+    # Derive the search from the row (Family, Gate, Paths) + the case Detection
+    # (defect-prevention-cases.md § DC-N). The search VERIFIES the invariant holds.
+    case = READ_CASE(".claude/rules/defect-prevention-cases.md", dc.number)
     search = {
       dc_id: dc.number,
       dc_name: dc.name,
-      scope: DERIVE_SCOPE(dc.applicable_when),  # backend | frontend | infra | cross-cutting
-      search_type: DERIVE_SEARCH_TYPE(dc.prevention_check),  # grep | ast_walk | cross_reference
-      verification: dc.prevention_check  # What to verify is NOT violated
+      scope: dc.family,                                    # runtime | ui | boundary | data | tests | infra | process
+      search_roots: dc.paths == "*" ? ALL : dc.paths,      # row Paths, else the family Surface globs
+      search_type: DERIVE_SEARCH_TYPE(dc.gate, case.detection),  # grep | ast_walk | cross_reference
+      verification: dc.invariant + case.detection          # What to verify is NOT violated
     }
     APPEND search to search_plan
 
   RETURN search_plan
 ```
 
-**Scope derivation from DC's `applicable_when` field:**
-- Mentions "handler", "backend", "service", "use case" → **backend** scope
-- Mentions "component", "hook", "form", "layout", "frontend" → **frontend** scope
-- Mentions "env var", "IaC", "deployment", "provider" → **infra** scope
-- Mentions "API call", "contract", "fetch URL" → **cross-cutting** scope (both backend + frontend)
+**Scope = the row's `Family` column** (`defect-prevention.md § Families`): no prose classification. Search roots = the row's `Paths`; `*` → the family Surface globs.
 
 ---
 
@@ -76,19 +74,11 @@ FUNCTION build_search_plan(dc_catalog):
 
 ```yaml
 FUNCTION derive_sweep_scopes(applicable_dcs):
-  # Each DC's applicable_when field is classified into one of a small set of scopes.
-  # The scope vocabulary is OPEN-ENDED — add new scopes as the DC catalog grows.
+  # Scope = the DC's Family (defect-prevention.md § Families). The vocabulary grows
+  # with the Families table — a new family in the catalog is a new sweep scope.
   scopes = {}
   FOR EACH dc IN applicable_dcs:
-    scope_key = classify_scope(dc.applicable_when)
-    # Canonical starter scopes:
-    #   backend        — handler, service, use case, data access
-    #   frontend       — component, hook, form, layout
-    #   infra          — env var, IaC, deployment, provider, observability
-    #   cross-cutting  — API call, contract, shared identifiers
-    #   data           — migrations, seed data, schema evolution
-    #   security       — authN/authZ wiring, secret handling
-    #   (extensible)
+    scope_key = dc.family
     scopes[scope_key] ||= { scope: scope_key, dcs: [] }
     scopes[scope_key].dcs.push(dc)
   RETURN scopes.values()  # one entry per non-empty scope
@@ -98,33 +88,12 @@ FUNCTION derive_sweep_scopes(applicable_dcs):
 
 ```yaml
 FUNCTION filter_dcs_by_feature_scope(applicable_dcs, feature_scope):
-  # filter DCs so only scope-relevant patterns are swept.
-  # This complements the per-DC feature_scope field (DPC — Filter 2 in consult_defect_catalog)
-  # by applying a sweep-wide second pass keyed on sweep-scope buckets, not per-DC:
-  #   * scope=frontend-only  → drop backend + cross-cutting-API scopes (no backend surface to sweep)
-  #   * scope=backend-only   → drop frontend scope (no UI surface to sweep)
-  #   * scope=integration    → drop frontend scope; KEEP cross-cutting + infra + backend (integration hits all these)
-  #   * scope=full-stack     → keep all (full sweep)
-  #   * scope=unknown/legacy → keep all (backward-compatible)
+  # filter DCs so only scope-relevant patterns are swept — same rule as the catalog
+  # (defect-prevention.md § Consultation, FAMILIES_OF): keep a DC when its Paths are `*`
+  # or its Family is active for the feature scope. Unknown / legacy scope → keep all.
   filtered = []
   FOR EACH dc IN applicable_dcs:
-    sweep_scope = classify_scope(dc.applicable_when)  # backend | frontend | infra | cross-cutting | data | security | ...
-    keep = TRUE
-    CASE feature_scope:
-      "frontend-only":
-        IF sweep_scope == "backend": keep = FALSE
-        # Note: cross-cutting (API contract) is kept — a frontend-only feature still consumes contracts and can have client-side contract violations
-      "backend-only":
-        IF sweep_scope == "frontend": keep = FALSE
-      "integration":
-        IF sweep_scope == "frontend": keep = FALSE
-        # cross-cutting + infra + backend + data + security all kept — integrations hit all of these
-      "full-stack":
-        # keep everything
-        pass
-      default:
-        # unknown / legacy — keep everything
-        pass
+    keep = dc.paths == "*" OR dc.family IN FAMILIES_OF(feature_scope)
     IF keep: filtered.push(dc)
   LOG: "Preventive sweep scope filter: feature_scope={feature_scope} — {len(applicable_dcs)} → {len(filtered)} DCs retained"
   RETURN filtered
@@ -159,16 +128,7 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
 
 ### Canonical starter scopes
 
-The starter scopes below map MASS's original 4 buckets onto the new dynamic model. They are **guidance**, not a fixed partition. When a new DC introduces a scope that none of these cover, add a new scope to the vocabulary — do not force-fit into one of these.
-
-| Scope | Typical search roots | Example DCs |
-| --- | --- | --- |
-| **backend** | `${BACKEND_BASE_PATH}/**/*.{py,ts,go,java,rb,rs}` | Handler signature mismatches, identity field confusion, cross-module data access |
-| **frontend** | `${FRONTEND_BASE_PATH}/**/*.{tsx,vue,svelte,jsx}` | Missing providers, hook ordering, responsive gaps, post-action navigation |
-| **infra** | `${IAC_PATH}/**`, root layouts, provider chains, deployment manifests | Env var injection mismatch, missing error boundary, observability gaps |
-| **cross-cutting** | Contract files + both frontend and backend HTTP surfaces | Frontend-backend contract mismatches, shared identifier consistency |
-
-Projects MAY define additional scopes by extending this table in their materialised copy of `SKILL.md` (via the Discovery Protocol documented in `.claude/rules/defect-prevention.md`). The sweep machinery does NOT need to be updated — `classify_scope` is a string-keyed dispatch.
+Scopes ARE the catalog families — `defect-prevention.md § Families` is the single table (family → Surface globs → invariant). Search roots per scope = the family Surface globs, narrowed by each row's `Paths`. A new family added through the Discovery Protocol is a new sweep scope; nothing here changes.
 
 ---
 
@@ -263,7 +223,7 @@ all_resolved_in_commit: true | false
 
 When a sweep discovers a new defect pattern that doesn't fit existing DCs:
 1. Assign it the next DC number (DC-{last+1})
-2. Document it in `.claude/rules/defect-prevention.md` with: Name, Applicable When, Prevention Check, Review Severity
+2. Document it: one row in `.claude/rules/defect-prevention.md § Defect Classes` (Family, Invariant, Gate, Paths, Applicable To, Severity) + one case in `defect-prevention-cases.md` (Origin, Story, Detection)
 3. Add its search methodology to this skill's search strategy
 4. Bump the rule version in `governance_versions.json`
 5. Save a feedback memory so future sessions are aware

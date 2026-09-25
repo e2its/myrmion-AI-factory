@@ -3,35 +3,39 @@
 # scripts/generate-governance-snapshot.sh — Materialise .context/governance_snapshot.md
 # ============================================================================
 # Implements the deterministic contract documented in
-# Factory-setup-materialization.instructions.md Checkpoint 3.1. Emits the
-# `.context/governance_snapshot.md` file consumed by all agents at command
-# start (factory-governance-loading SKILL Step 0).
+# Factory-setup-materialization.instructions.md Checkpoint 3.1 and
+# factory-governance-loading SKILL § POST-LOAD. Emits the file every agent reads
+# at command start.
+#
+# Profiles (EVOL-043 — the corpus in layers):
+#   lite (default)  what a session RECEIVES: hashes, stack summary, rules manifest,
+#                   protected paths, setup flags, the LAW INDEX (one sentence + one
+#                   body pointer + records per law) and the DEFECT FAMILIES lines.
+#                   Bodies stay on disk and are read at the point of action
+#                   (pre-edit hook, resolver). Size is held by `budgets.snapshot`.
+#   full            lite + every law body + the full defect-class table. For review
+#                   and audit only — never injected.
+#
+# Corpus parsing is delegated to the ONE reader (scripts/gate.py snapshot-sections):
+# the same parser the applicability resolver, the pre-edit hook and the parity
+# gates use. No second definition of the law shape lives here.
 #
 # Usage:
-#   scripts/generate-governance-snapshot.sh           # write the snapshot
-#   scripts/generate-governance-snapshot.sh --check   # validate inputs only
-#   scripts/generate-governance-snapshot.sh --quiet   # suppress per-line stdout
+#   scripts/generate-governance-snapshot.sh                 # lite snapshot
+#   scripts/generate-governance-snapshot.sh --profile full  # full profile
+#   scripts/generate-governance-snapshot.sh --check         # validate inputs only
+#   scripts/generate-governance-snapshot.sh --quiet
 #
-# Inputs (read):
-#   docs/constitution.md                       # single source of operational law
-#   docs/setup.md                              # operational flags
-#   .claude/rules/defect-prevention.md         # universal DC catalog (optional)
-#   .claude/rules/*.md                         # rules to render in manifest
-#   config/protected-paths.json                # protected paths (optional)
-#   .context/templates/setup/governance_versions.json   # framework_version
-#
-# Output (write):
-#   .context/governance_snapshot.md
-#
-# Exit codes:
-#   0 = snapshot written successfully (or --check passed)
-#   1 = missing required input (constitution.md or setup.md)
-#   2 = tooling failure (missing python3 or md5 implementation)
+# Inputs: docs/constitution.md (law index), docs/setup.md, .claude/rules/*.md
+#         (defect-prevention.md families), config/protected-paths.json,
+#         config/quality.json (budgets.snapshot), governance manifest (framework_version).
+# Output: .context/governance_snapshot.md
+# Exit:   0 written (or --check ok) · 1 missing required input · 2 tooling failure ·
+#         3 lite snapshot over budgets.snapshot (the file is written; fix the corpus).
 # ============================================================================
 
 set -euo pipefail
 
-# ─── Anchor to project root ─────────────────────────────────────────────────
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
   cd "$CLAUDE_PROJECT_DIR"
 elif REPO_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null); then
@@ -44,234 +48,111 @@ DC_FILE=".claude/rules/defect-prevention.md"
 RULES_DIR=".claude/rules"
 PROTECTED_PATHS="config/protected-paths.json"
 SNAPSHOT=".context/governance_snapshot.md"
+GATE="scripts/gate.py"
 MANIFEST=".context/templates/setup/governance_versions.json"
+[ -f "$MANIFEST" ] || MANIFEST="docs/project_log/governance_versions.json"
 
-CHECK_ONLY=false
-QUIET=false
-for arg in "$@"; do
-  case "$arg" in
+CHECK_ONLY=false; QUIET=false; PROFILE="lite"
+while [ $# -gt 0 ]; do
+  case "$1" in
     --check) CHECK_ONLY=true ;;
     --quiet) QUIET=true ;;
-    --help|-h)
-      sed -n '2,28p' "$0"
-      exit 0
-      ;;
+    --profile) shift; PROFILE="${1:-lite}" ;;
+    --help|-h) sed -n '2,38p' "$0"; exit 0 ;;
   esac
+  shift
 done
+case "$PROFILE" in lite|full) ;; *) echo "Error: --profile must be lite or full." >&2; exit 2 ;; esac
 
 log() { [ "$QUIET" = true ] || echo "$@"; }
 
-# ─── Prerequisite validation ───────────────────────────────────────────────
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "Error: python3 required for JSON/YAML parsing." >&2
-  exit 2
-fi
-
-if [ ! -f "$CONSTITUTION" ]; then
-  echo "Error: $CONSTITUTION not found. Run /setup --generate first." >&2
-  exit 1
-fi
-if [ ! -f "$SETUP" ]; then
-  echo "Error: $SETUP not found. Run /setup --generate first." >&2
-  exit 1
-fi
+command -v python3 >/dev/null 2>&1 || { echo "Error: python3 required." >&2; exit 2; }
+[ -f "$GATE" ] || { echo "Error: $GATE missing — the one corpus reader is not delivered (re-run SETUP --generate or factory-sync.sh)." >&2; exit 2; }
+[ -f "$CONSTITUTION" ] || { echo "Error: $CONSTITUTION not found. Run /setup --generate first." >&2; exit 1; }
+[ -f "$SETUP" ] || { echo "Error: $SETUP not found. Run /setup --generate first." >&2; exit 1; }
 
 if [ "$CHECK_ONLY" = true ]; then
   log "Inputs OK: $CONSTITUTION, $SETUP$([ -f "$DC_FILE" ] && echo ", $DC_FILE")"
   exit 0
 fi
 
-# ─── MD5 helper (portable across Linux/macOS) ──────────────────────────────
 compute_md5() {
   local f="$1"
   [ -f "$f" ] || { printf ''; return 0; }
-  if command -v md5sum >/dev/null 2>&1; then
-    md5sum "$f" 2>/dev/null | cut -d' ' -f1
-  elif command -v md5 >/dev/null 2>&1; then
-    md5 -q "$f" 2>/dev/null
-  elif command -v openssl >/dev/null 2>&1; then
-    openssl md5 "$f" 2>/dev/null | awk '{print $NF}'
-  else
-    printf ''
-  fi
+  if command -v md5sum >/dev/null 2>&1; then md5sum "$f" 2>/dev/null | cut -d' ' -f1
+  elif command -v md5 >/dev/null 2>&1; then md5 -q "$f" 2>/dev/null
+  elif command -v openssl >/dev/null 2>&1; then openssl md5 "$f" 2>/dev/null | awk '{print $NF}'
+  else printf ''; fi
 }
 
 CONST_HASH=$(compute_md5 "$CONSTITUTION")
 SETUP_HASH=$(compute_md5 "$SETUP")
 DCS_HASH=$(compute_md5 "$DC_FILE")
-
-if [ -z "$CONST_HASH" ]; then
-  echo "Error: cannot compute MD5 (need md5sum, md5, or openssl)." >&2
-  exit 2
-fi
-
+[ -n "$CONST_HASH" ] || { echo "Error: cannot compute MD5 (need md5sum, md5, or openssl)." >&2; exit 2; }
 GENERATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+FW_VERSION=$(python3 -c "import json,sys
+try: print(json.load(open('$MANIFEST'))['framework_version'])
+except Exception: print('0.0.0')")
 
-FW_VERSION="0.0.0"
-if [ -f "$MANIFEST" ]; then
-  FW_VERSION=$(python3 -c "
-import json
-try:
-    print(json.load(open('$MANIFEST'))['framework_version'])
-except Exception:
-    print('0.0.0')
-")
-fi
-
-# ─── Awk: extract [LAW] sections (verbatim contract — see test-snapshot-extraction.sh)
-extract_law_sections() {
-  awk '
-    BEGIN { in_block = 0 }
-    /^## \[LAW\] / { in_block = 1; print; next }
-    /^## / { in_block = 0 }
-    in_block { print }
-  ' "$1"
-}
-
-# ─── Awk: extract DC entries whose applicable_when is `always` ─────────────
-extract_universal_dcs() {
-  awk '
-    BEGIN { in_entry = 0; keep = 0; meta_done = 0; buf = "" }
-    /^### DC-/ {
-      if (in_entry && keep) print buf
-      in_entry = 1; keep = 0; meta_done = 0; buf = $0 "\n"
-      next
-    }
-    in_entry {
-      buf = buf $0 "\n"
-      if (!meta_done && $0 ~ /^applicable_when:[[:space:]]*/) {
-        v = $0
-        sub(/^applicable_when:[[:space:]]*/, "", v)
-        gsub(/[[:space:]"\x27]/, "", v)
-        if (v == "always") keep = 1
-        meta_done = 1
-      }
-    }
-    END { if (in_entry && keep) print buf }
-  ' "$1"
-}
-
-# ─── Frontmatter extractor (returns raw YAML between first --- pair) ───────
 extract_frontmatter() {
-  awk '
-    BEGIN { count = 0; in_fm = 0 }
-    /^---$/ {
-      count++
-      if (count == 1) { in_fm = 1; next }
-      if (count == 2) exit
-    }
-    in_fm { print }
-  ' "$1"
+  awk 'BEGIN{c=0;f=0} /^---$/{c++; if(c==1){f=1;next} if(c==2)exit} f{print}' "$1"
 }
 
-# ─── Render Stack Configuration block from constitution frontmatter ────────
 render_stack_config() {
-  python3 <<'PY' 2>/dev/null || echo "# (frontmatter parse failed — fill manually)"
-import re, sys
-src = open("docs/constitution.md").read()
-m = re.match(r'^---\n(.*?)\n---\n', src, re.DOTALL)
-if not m:
-    print("# (no frontmatter)")
-    sys.exit(0)
-fm_text = m.group(1)
-
-# Best-effort key:value parser (no PyYAML dependency).
-# Handles flat keys and one level of nested mappings via 2-space indent.
-data = {}
-stack = [(0, data)]
-for line in fm_text.splitlines():
-    if not line.strip() or line.strip().startswith('#'):
-        continue
-    indent = len(line) - len(line.lstrip(' '))
-    while stack and stack[-1][0] >= indent and len(stack) > 1:
-        stack.pop()
-    parent = stack[-1][1]
-    s = line.strip()
-    if ':' in s:
-        k, _, v = s.partition(':')
-        v = v.strip()
-        if v == '' or v == '|' or v == '>':
-            child = {}
-            parent[k.strip()] = child
-            stack.append((indent + 2, child))
-        else:
-            parent[k.strip()] = v.strip('"').strip("'")
-
-def emit(key, value, indent=0):
-    pad = '  ' * indent
-    if isinstance(value, dict):
-        print(f"{pad}{key}:")
-        for k, v in value.items():
-            emit(k, v, indent + 1)
+  python3 - "$CONSTITUTION" <<'PY' 2>/dev/null || echo "# (frontmatter parse failed — fill manually)"
+import sys
+sys.path.insert(0, "scripts")
+from pathlib import Path
+from gates.common import read_frontmatter
+data = read_frontmatter(Path(sys.argv[1]))
+def emit(k, v, ind=0):
+    pad = "  " * ind
+    if isinstance(v, dict):
+        print(f"{pad}{k}:")
+        for kk, vv in v.items(): emit(kk, vv, ind + 1)
     else:
-        print(f"{pad}{key}: {value}")
-
-# Common stack-config fields per Checkpoint 3.1 contract
-for key in ("project_scope", "backend", "frontend", "architecture",
-            "database", "ci_cd", "iac", "cloud", "project_mode"):
-    if key in data:
-        emit(key, data[key])
+        print(f"{pad}{k}: {v}")
+for key in ("project_scope", "backend", "frontend", "architecture", "database", "ci_cd", "iac", "cloud", "project_mode"):
+    if key in data: emit(key, data[key])
 PY
 }
 
-# ─── Render Rules Manifest table ───────────────────────────────────────────
 render_rules_manifest() {
-  if [ ! -d "$RULES_DIR" ]; then
-    echo "> $RULES_DIR not found — no rules to enumerate."
-    return
-  fi
-  echo "| Rule File | Severity | Validation | Applies When |"
-  echo "|-----------|----------|------------|--------------|"
-  for rule_file in "$RULES_DIR"/*.md; do
-    [ -e "$rule_file" ] || continue
-    rule_name=$(basename "$rule_file")
-    # Pull simple frontmatter fields. Empty ⇒ render as em dash.
-    severity=$(awk -F: '/^severity:/ { sub(/^[[:space:]]*/, "", $2); gsub(/[[:space:]"\x27]/, "", $2); print $2; exit }' "$rule_file")
-    validation=$(awk -F: '/^validation:/ { sub(/^[[:space:]]*/, "", $2); gsub(/^[[:space:]"\x27]+|[[:space:]"\x27]+$/, "", $2); print $2; exit }' "$rule_file")
-    applies_when=$(awk -F: '/^applicable_when:/ { sub(/^[[:space:]]*/, "", $2); gsub(/[[:space:]"\x27]/, "", $2); print $2; exit }' "$rule_file")
-    echo "| ${rule_name} | ${severity:-—} | ${validation:-—} | ${applies_when:-always} |"
-  done
+  [ -d "$RULES_DIR" ] || { echo "> $RULES_DIR not found — no rules to enumerate."; return; }
+  python3 - "$RULES_DIR" <<'PY' 2>/dev/null || echo "> (rules manifest: parse failed)"
+import sys, json
+sys.path.insert(0, "scripts")
+from pathlib import Path
+from gates.common import read_frontmatter, GateFault
+print("| Rule File | Applies When |")
+print("|-----------|--------------|")
+for p in sorted(Path(sys.argv[1]).glob("*.md")):
+    if p.name == "README.md": continue
+    try:
+        aw = (read_frontmatter(p) or {}).get("applicable_when") or {"always": True}
+    except GateFault as e:
+        aw = {"error": str(e)[:60]}
+    print(f"| {p.name} | {json.dumps(aw, ensure_ascii=False)} |")
+PY
 }
 
-# ─── Render Protected Paths ────────────────────────────────────────────────
 render_protected_paths() {
-  if [ ! -f "$PROTECTED_PATHS" ]; then
-    echo "> $PROTECTED_PATHS not found — no protected paths configured."
-    return
-  fi
-  python3 <<PY
-import json
+  [ -f "$PROTECTED_PATHS" ] || { echo "> $PROTECTED_PATHS not found — no protected paths configured."; return; }
+  python3 - "$PROTECTED_PATHS" <<'PY'
+import json, sys
 try:
-    p = json.load(open("$PROTECTED_PATHS"))
+    p = json.load(open(sys.argv[1]))
 except Exception as e:
-    print(f"> Failed to parse $PROTECTED_PATHS: {e}")
-    raise SystemExit(0)
+    print(f"> Failed to parse {sys.argv[1]}: {e}"); raise SystemExit(0)
 print("### Protected Paths (BLOCKING — ADR required)")
-red = p.get("paths", []) or []
-if red:
-    for path in red: print(f"- {path}")
-else:
-    print("> (none)")
+print("\n".join(f"- {x}" for x in (p.get("paths") or [])) or "> (none)")
 print()
 print("### Yellow Zones (WARNING)")
-yel = p.get("yellow_zones", []) or []
-if yel:
-    for path in yel: print(f"- {path}")
-else:
-    print("> (none)")
+print("\n".join(f"- {x}" for x in (p.get("yellow_zones") or [])) or "> (none)")
 PY
 }
 
-# ─── Render Setup Configuration (verbatim frontmatter excerpt) ─────────────
-render_setup_config() {
-  echo '```yaml'
-  extract_frontmatter "$SETUP"
-  echo '```'
-}
-
-# ─── Generate snapshot ─────────────────────────────────────────────────────
 mkdir -p "$(dirname "$SNAPSHOT")"
-
 {
   cat <<EOF
 ---
@@ -281,18 +162,18 @@ dcs_hash: "${DCS_HASH}"
 generated_at: "${GENERATED_AT}"
 generated_by: "scripts/generate-governance-snapshot.sh"
 framework_version: "${FW_VERSION}"
+profile: "${PROFILE}"
 ---
 
-# Governance Snapshot (Auto-Generated — DO NOT EDIT MANUALLY)
-> Read by agents at start of every command. Embeds operational law mechanically so
-> cultural guidance is present from turn 1 without on-demand discipline.
-> Regenerated by: SETUP --generate, SETUP --upgrade, any edit to
-> docs/constitution.md / docs/setup.md / .claude/rules/defect-prevention.md.
-> Source of truth: docs/constitution.md (single source). ADRs are historical records,
-> not loaded — see Factory-adr-management/SKILL.md for the amendment ceremony.
+# Governance Snapshot (${PROFILE} — auto-generated, do not edit)
+> Read by agents at the start of every command. The law INDEX is here (one sentence, one body
+> pointer, its records per law); bodies stay on disk and are read at the point of action —
+> the pre-edit hook delivers the families and defect classes that govern the file being written.
+> Regenerated by: SETUP --generate / --upgrade, and on any edit to ${CONSTITUTION},
+> ${SETUP} or ${DC_FILE}. ADRs are history, not law.
 
 ## Stack Configuration
-> Source: docs/constitution.md frontmatter.
+> Source: ${CONSTITUTION} frontmatter.
 
 \`\`\`yaml
 EOF
@@ -301,7 +182,7 @@ EOF
 ```
 
 ## Rules Manifest
-> Source: scan of `.claude/rules/*.md`.
+> Source: `.claude/rules/*.md` frontmatter. Applicability is resolved by `scripts/gate.py applicable` — never by hand.
 
 EOF
   render_rules_manifest
@@ -315,38 +196,29 @@ EOF
   cat <<EOF
 
 ## Setup Configuration
-> Source: docs/setup.md frontmatter — operational flags read by downstream agents.
+> Source: ${SETUP} frontmatter — operational flags read by downstream agents.
+
+\`\`\`yaml
+EOF
+  extract_frontmatter "$SETUP"
+  cat <<'EOF'
+```
 
 EOF
-  render_setup_config
-  cat <<EOF
-
-## Active Constitution (Operational [LAW] sections — verbatim)
-> Source: ${CONSTITUTION}. Extracted by EXTRACT_LAW_SECTIONS (regex: ^## \\[LAW\\] .+$ to next ^## ).
-
-EOF
-  extract_law_sections "$CONSTITUTION"
-  cat <<EOF
-
-## Defect Prevention Catalog (Universal entries — applicable_when: always)
-> Source: ${DC_FILE}. Extracted by EXTRACT_UNIVERSAL_DCS (filter: applicable_when == always).
-
-EOF
-  if [ -f "$DC_FILE" ]; then
-    extract_universal_dcs "$DC_FILE"
-  else
-    echo "> ${DC_FILE} not found — no universal DCs to render."
-  fi
+  python3 "$GATE" snapshot-sections --profile "$PROFILE"
 } > "$SNAPSHOT"
 
-LAW_COUNT=$(grep -cE '^## \[LAW\] ' "$SNAPSHOT" || true)
-DC_COUNT=$(awk '/^### DC-/{c++} END{print c+0}' "$SNAPSHOT")
-RULE_COUNT=0
-[ -d "$RULES_DIR" ] && RULE_COUNT=$(find "$RULES_DIR" -maxdepth 1 -name '*.md' | wc -l | tr -d ' ')
+LAW_COUNT=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT" || true)
+FAM_COUNT=$(awk '/^## Defect Families/{f=1;next} f&&/^## /{f=0} f&&/^\| `/{c++} END{print c+0}' "$SNAPSHOT")
+BYTES=$(wc -c < "$SNAPSHOT" | tr -d ' ')
+BUDGET=$(python3 "$GATE" key budgets.snapshot 2>/dev/null || echo "")
 
-log "Governance snapshot generated → ${SNAPSHOT}"
-log "  [LAW] sections: ${LAW_COUNT}  |  universal DCs: ${DC_COUNT}  |  rules: ${RULE_COUNT}"
-log "  Hashes: constitution=${CONST_HASH:0:8}  setup=${SETUP_HASH:0:8}  dcs=${DCS_HASH:0:8}"
-log "  Framework version: ${FW_VERSION}"
+log "Governance snapshot generated → ${SNAPSHOT} (${PROFILE}, ${BYTES} B)"
+log "  law index entries: ${LAW_COUNT}  |  defect families: ${FAM_COUNT}"
+log "  Hashes: constitution=${CONST_HASH:0:8}  setup=${SETUP_HASH:0:8}  dcs=${DCS_HASH:0:8}  |  framework ${FW_VERSION}"
 
+if [ "$PROFILE" = "lite" ] && [ -n "$BUDGET" ] && [ "$BUDGET" != "null" ] && [ "$BYTES" -gt "$BUDGET" ]; then
+  echo "Error: lite snapshot is ${BYTES} B, over budgets.snapshot=${BUDGET} B — a session would receive a truncated law. Shrink the index (sentences, families) or raise the key with its record." >&2
+  exit 3
+fi
 exit 0

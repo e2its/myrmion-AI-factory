@@ -605,7 +605,7 @@ When `feature_scope IN [backend-only, integration]`: Vision Gate is **N/A**. No 
      SHOW user: "ℹ️ {count} DC entries apply to this CODESIGN scope. They will be projected into spec.feature § Defect-Prevention Notes as drafting hints."
      FOR EACH dc IN applicable_dcs:
        ADD to spec.feature § Defect-Prevention Notes (created if absent):
-         "- DC-{N} ({dc.name}) — {dc.check}"
+         "- DC-{N} ({dc.name}) — {dc.invariant}"
    ELSE:
      LOG: "No CODESIGN-applicable DCs in catalog"
    ```
@@ -1277,3 +1277,8 @@ FUNCTION enforce_single_question_rdr():
 
   # Rule: One question → wait → save → next. Always.
 ```
+
+## [LAW-16] CODESIGN Business Purity
+> Co-design artefacts carry only business-validatable content; technical formalisation belongs to the blueprint, and downstream agents never invent business facts.
+
+CODESIGN artefacts (`spec.feature`, `user_journey.md`, `mock.html`, `slice_map.md`) carry ONLY business-validatable content — every statement verifiable by the signing PO/UX from business knowledge alone. Technical content (concrete types, storage or wire formats, protocol or tool names, architectural tiers, reliability mechanisms) inside a CODESIGN artefact is a governance violation: it manufactures a false validation. Business facts live in CODESIGN (field existence + meaning + obligation + business states, business rules, experience steps, business guarantees); technical formalisation lives in BLUEPRINT (`design.md` type mapping, § 7.4 Schema Constraints registry, Reliability Contract). Downstream agents formalise but NEVER invent business facts; changes to business facts route back via `CODESIGN --refine`. Mechanical tripwire: `scripts/check-journey-grammar.sh`.

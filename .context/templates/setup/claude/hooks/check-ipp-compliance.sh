@@ -10,6 +10,7 @@
 # A first write to a tracked governance artifact MUST be a skeleton — small,
 # with <!-- PENDING --> markers, NOT claiming completed sections.
 #
+# Blocks with exit 2 + stderr (the Claude Code blocking contract; exit 1 would not block — EVOL-043).
 # Blocks if:
 #   - file does NOT already exist on disk (this is a first write)
 #   - AND file path matches a governance artifact pattern
@@ -119,11 +120,13 @@ sys.exit(0)
 else
   RC=$?
   if [ "$RC" = "42" ]; then
-    echo "BLOCKED: IPP violation on first write to '$BASENAME'."
-    echo "  _progress.completed_sections claims sections done, but this is the creation write."
-    echo "  Skeleton-First Write (IPP Pillar 1) requires an empty completed_sections[] on creation."
-    echo "  See: .claude/skills/factory-incremental-persistence/SKILL.md § Pillar 1."
-    exit 1
+    {
+      echo "BLOCKED: IPP violation on first write to '$BASENAME'."
+      echo "  _progress.completed_sections claims sections done, but this is the creation write."
+      echo "  Skeleton-First Write (IPP Pillar 1) requires an empty completed_sections[] on creation."
+      echo "  See: .claude/skills/factory-incremental-persistence/SKILL.md § Pillar 1."
+    } >&2
+    exit 2
   fi
 fi
 
@@ -136,12 +139,14 @@ PENDING_COUNT=${PENDING_COUNT:-0}
 
 if [ -n "${H2_COUNT:-}" ] && [ -n "${PENDING_COUNT:-}" ] && [ -n "${LINE_COUNT:-}" ] \
    && [ "$H2_COUNT" -ge 3 ] && [ "$PENDING_COUNT" -eq 0 ] && [ "$LINE_COUNT" -gt 150 ]; then
-  echo "BLOCKED: IPP violation on first write to '$BASENAME'."
-  echo "  File has $H2_COUNT H2 sections, $LINE_COUNT lines, and 0 '<!-- PENDING -->' markers."
-  echo "  Skeleton-First Write (IPP Pillar 1) requires an initial skeleton with <!-- PENDING --> placeholders,"
-  echo "  then section-atomic saves (Pillar 2) — not one big terminal write."
-  echo "  See: .claude/skills/factory-incremental-persistence/SKILL.md § Pillars 1-2."
-  exit 1
+  {
+    echo "BLOCKED: IPP violation on first write to '$BASENAME'."
+    echo "  File has $H2_COUNT H2 sections, $LINE_COUNT lines, and 0 '<!-- PENDING -->' markers."
+    echo "  Skeleton-First Write (IPP Pillar 1) requires an initial skeleton with <!-- PENDING --> placeholders,"
+    echo "  then section-atomic saves (Pillar 2) — not one big terminal write."
+    echo "  See: .claude/skills/factory-incremental-persistence/SKILL.md § Pillars 1-2."
+  } >&2
+  exit 2
 fi
 
 # Legitimate first write — drop a session-scoped marker so the next

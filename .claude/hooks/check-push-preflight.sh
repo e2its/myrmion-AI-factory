@@ -3,8 +3,9 @@
 # ============================================================================
 # Reads stdin JSON from Claude Code hook protocol.
 # When the Bash command contains `git push`, runs the factory-pr-review
-# preflight script. Hard-blocker findings exit 1 (block); other outcomes
-# pass through. Tool-call failures (preflight exit 2) are treated as
+# preflight script. Hard-blocker findings block with exit 2 + the humanised
+# message on stderr (the Claude Code blocking contract; exit 1 does NOT block —
+# EVOL-043 hook audit); other outcomes pass through. Tool-call failures (preflight exit 2) are treated as
 # warnings, NOT blocks (defence-in-depth must not break legitimate pushes).
 # ============================================================================
 
@@ -61,12 +62,13 @@ case $RC in
     ;;
   2)
     # Tooling/environment failure (detached HEAD, no python, etc.) — warn, don't block.
-    echo "Factory PR Review preflight: skipped (environment) — push proceeds."
+    # Plain stdout does not reach the model from a PreToolUse hook: say it through the envelope.
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"Factory PR Review preflight: skipped (environment) — push proceeds."}}\n'
     exit 0
     ;;
   1)
-    # Blockers found — block the push with humanised message.
-    cat <<EOF
+    # Blockers found — block the push with humanised message (stderr, exit 2).
+    cat >&2 <<EOF
 🛑 Push blocked by Factory PR Review (preflight).
 
 Hard-blocker findings on this branch must be fixed locally before pushing.
@@ -88,7 +90,7 @@ To bypass intentionally (rare — for hotfix or recovery):
   git -c core.hooksPath=/dev/null push …
   (this DOES NOT bypass the harness PreToolUse hook; the user must approve.)
 EOF
-    exit 1
+    exit 2
     ;;
   *)
     # Unknown exit — fail open (don't block on unexpected behaviour).

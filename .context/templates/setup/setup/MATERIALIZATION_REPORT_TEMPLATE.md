@@ -48,8 +48,8 @@
 
 #### Priority 1: Critical Rules 
 - [ ] Generate .claude/rules/architecture.md
-- [ ] Generate .claude/rules/{{BACKEND_RUNTIME}}.instructions.md (Backend standards - e.g., python.instructions.md, javascript.instructions.md)
-- [ ] Generate .claude/rules/{{FRONTEND_FRAMEWORK}}.instructions.md (Frontend standards - e.g., React.instructions.md, Vue.instructions.md)
+- [ ] Generate .claude/rules/{{BACKEND_RUNTIME}}.md (Backend standards - e.g., python.md, javascript.md)
+- [ ] Generate .claude/rules/{{FRONTEND_FRAMEWORK}}.md (Frontend standards - e.g., React.md, Vue.md)
 - [ ] Generate .claude/rules/testing.md
 - [ ] Generate .claude/rules/security_policy.md
 - [ ] Generate .claude/rules/stateless.md
@@ -57,12 +57,12 @@
 - [ ] Generate .claude/rules/database.md (if databases configured)
 - [ ] Generate config/allowlist.json
 - [ ] Generate config/protected-paths.json
-- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_1}}.instructions.md (e.g., terraform.instructions.md, docker.instructions.md, redis.instructions.md)
-- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_2}}.instructions.md
-- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_3}}.instructions.md
-- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_4}}.instructions.md
-- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_5}}.instructions.md
-- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_N}}.instructions.md
+- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_1}}.md (e.g., terraform.md, docker.md, redis.md)
+- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_2}}.md
+- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_3}}.md
+- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_4}}.md
+- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_5}}.md
+- [ ] [DYNAMIC] Generate .claude/rules/{{TECHNOLOGY_N}}.md
 - [ ] Generate .claude/rules/privacy.md
 - [ ] Generate .claude/rules/ci-cd.md
 - [ ] Generate .claude/rules/branching.md
@@ -74,8 +74,8 @@
 - [ ] Generate .claude/rules/immutability_policy.md
 - [ ] Generate .claude/rules/review-policy.md
 - [ ] Generate .claude/rules/ux-constitution.md (if frontend configured)
-- [ ] Process Brand Identity tokens in ux-constitution.instructions.md Section I.1 (if frontend configured)
-- [ ] Process Layout Architecture in ux-constitution.instructions.md Section I.3 (if frontend configured)
+- [ ] Process Brand Identity tokens in ux-constitution.md Section I.1 (if frontend configured)
+- [ ] Process Layout Architecture in ux-constitution.md Section I.3 (if frontend configured)
 - [ ] Document brand tokens in {{STYLING_SYSTEM}} format (CSS vars / Tailwind extend / theme object)
 - [ ] Create assets/brand/ directory with logo-placeholder.svg (if frontend configured)
 - [ ] Generate Layout Components base structure according to frontend.layout_strategy.sections[]
@@ -89,13 +89,7 @@
 
 ## 🔍 Coverage Analysis
 
-_This section tracks files omitted due to coverage in constitution.md or non-applicable technologies._
-
-### Files Omitted - Already Covered in Constitution
-<!-- Example:
-- **.claude/rules/backend-nestjs.md**: Omitted. NestJS fully documented in constitution.md (architecture.backend.framework) with 250+ words of configuration, principles and standards.
-- **.claude/rules/frontend-react.md**: Omitted. React covered in constitution.md (architecture.frontend.framework) including hooks policy, state management, and component patterns.
--->
+_This section tracks files omitted because their technology is not in the stack. The constitution is an index (`[PLAW-NN]` entries) and never hosts rule bodies — nothing is omitted for "coverage in constitution.md"._
 
 ### Files Omitted - Technology Not in Stack
 <!-- Example:
@@ -106,12 +100,11 @@ _This section tracks files omitted due to coverage in constitution.md or non-app
 
 ### Validation Criteria
 For each candidate file for generation:
-1. ✅ **Generate** if constitution.md does NOT cover the topic OR has <50 words of description
-2. ⏭️ **Omit** if constitution.md has a dedicated section with >200 words + configuration examples
-3. ⏭️ **Omit** if template technology does NOT match the stack declared in docs/setup.md
+1. ✅ **Generate** if the template is stack-agnostic or its technology matches the stack declared in docs/setup.md
+2. ⏭️ **Omit** if template technology does NOT match the stack declared in docs/setup.md
 
 **Benefits:**
-- Reduces redundancy between constitution.md and .claude/rules/
+- One body per rule: `.claude/rules/` hosts the text, the constitution only points to it
 - Avoids generating files for unused technologies
 - Optimizes AI Budget usage (fewer files = fewer tokens)
 - Simplifies maintenance (single source of truth in constitution.md for critical configurations)
@@ -229,7 +222,7 @@ For each candidate file for generation:
 - [ ] Budget validation passed (total cost ≤ monthly_budget_limit)
 - [ ] Cross-reference validation passed (constitution ↔ rules ↔ setup.md)
 - [ ] Coherence check passed (stack consistency across all files)
-- [ ] **Governance Index updated in constitution.md** (NEW - MANDATORY)
+- [ ] **Constitution index verified** — every `[PLAW-NN]` `Body:` pointer resolves to a rule file carrying the same heading + sentence (MANDATORY)
 
 ---
 
@@ -247,7 +240,7 @@ _This section will be populated during materialization with list of generated fi
   - Branching strategy
   - Deployment & environment strategy
   - Budget validation
-  - **Governance Index: [N] rules, [N] policies, [N] contracts, [N] config files** (NEW)
+  - **Constitution index: [N] `[PLAW-NN]` entries; bodies in `.claude/rules/` ([N] rules in the snapshot manifest)**
 -->
 
 ### Configuration
@@ -274,18 +267,18 @@ _This section lists remaining tasks if Status ≠ COMPLETED._
 
 ### Priority 1 (Critical)
 <!-- Example:
-- [ ] `privacy.instructions.md` - GDPR compliance, PII classification
+- [ ] `privacy.md` - GDPR compliance, PII classification
 -->
 
 ### Priority 2 (Standard)
 <!-- Example:
-- [ ] `ci-cd.instructions.md` - GitHub Actions pipelines
-- [ ] `branching.instructions.md` - GitHub Flow details
+- [ ] `ci-cd.md` - GitHub Actions pipelines
+- [ ] `branching.md` - GitHub Flow details
 -->
 
 ### Priority 3 (Supporting)
 <!-- Example:
-- [ ] `performance.instructions.md` - Performance optimization guidelines
+- [ ] `performance.md` - Performance optimization guidelines
 -->
 
 ### Manual Steps Required
@@ -300,7 +293,7 @@ cp .context/templates/setup/rules/* .claude/rules/
 ### Known Issues
 <!-- Example:
 - ⚠️ Timeout generating .claude/rules/performance.md (line 145 - complex template)
-- ⚠️ Template not found for {{TECHNOLOGY_X}}.instructions.md (auto-generation required)
+- ⚠️ Template not found for {{TECHNOLOGY_X}}.md (auto-generation required)
 -->
 
 ---
@@ -312,7 +305,7 @@ _This section tracks failed materialization attempts for debugging._
 <!-- Example:
 - 2026-01-28 16:45:00 | BLOCKED | docs/setup.md drift detected (checksum mismatch)
 - 2026-01-28 17:30:00 | ERROR | Timeout generating .claude/rules/observability.md (60s limit exceeded)
-- 2026-01-28 18:00:00 | WARNING | Template missing for redis.instructions.md (auto-generated instead)
+- 2026-01-28 18:00:00 | WARNING | Template missing for redis.md (auto-generated instead)
 -->
 
 ---

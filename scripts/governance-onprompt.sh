@@ -129,11 +129,15 @@ elif [ -f "$MARKER_LEGACY" ]; then
   MARKER="$MARKER_LEGACY"
 fi
 
-if [ -n "$MARKER" ] && [ -f "$SNAPSHOT" ]; then
+# GOVERNANCE_ONPROMPT_WORST_CASE=1 (budget reader, EVOL-043): behave as if every marker
+# were present — emit the reload block and skip marker consumption — so the measured
+# bytes are what a session receives at its worst, not the file size.
+WORST_CASE="${GOVERNANCE_ONPROMPT_WORST_CASE:-0}"
+if { [ -n "$MARKER" ] || [ "$WORST_CASE" = "1" ]; } && [ -f "$SNAPSHOT" ]; then
   echo "<governance-reload>"
   cat "$SNAPSHOT"
   echo "</governance-reload>"
-  rm -f "$MARKER"
+  [ "$WORST_CASE" = "1" ] || rm -f "$MARKER"
 fi
 
 # ── 2) Source-edit attribution (PostToolUse → onprompt) ─────────────────────
@@ -288,9 +292,9 @@ if [ -z "$EDIT_PATHS_CSV" ]; then
     # Counts mirror the SessionStart banner so the agent sees the same digest
     # mid-session as the user sees on screen.
     if [ -f "$SNAPSHOT" ]; then
-      law_count=$(grep -cE '^## \[LAW\] ' "$SNAPSHOT" 2>/dev/null || printf '0')
-      dcs_count=$(awk '/^## Defect Prevention Catalog/{f=1; next} f && /^## /{f=0} f && /^### DC-/{c++} END{print c+0}' "$SNAPSHOT" 2>/dev/null || printf '0')
-      echo "<governance-loaded snapshot=\"fresh\" law-sections=\"${law_count}\" universal-dcs=\"${dcs_count}\" />"
+      law_count=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT" 2>/dev/null || printf '0')
+      fam_count=$(awk '/^## Defect Families/{f=1; next} f && /^## /{f=0} f && /^\| `/{c++} END{print c+0}' "$SNAPSHOT" 2>/dev/null || printf '0')
+      echo "<governance-loaded snapshot=\"fresh\" laws=\"${law_count}\" defect-families=\"${fam_count}\" />"
     elif [ -f "CLAUDE.md" ] && [ ! -f "docs/constitution.md" ]; then
       # Meta context — no snapshot by design, root CLAUDE.md is the source.
       echo "<governance-loaded context=\"meta\" />"

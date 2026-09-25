@@ -244,21 +244,21 @@ VERIFY:
     SKIP  # Project doesn't use DPC (pre-SETUP or opted out)
 
   READ .claude/rules/defect-prevention.md → dc_catalog
-  # Catalog columns: DC | Name | Applicable When | Review Severity | Prevention Check
+  # Catalog columns: DC | Family | Invariant | Gate | Paths | Applicable To | Severity  (cases: defect-prevention-cases.md § DC-N)
 
   FOR EACH modified_file IN phase_files:
     FOR EACH dc IN dc_catalog:
-      IF modified_file SCOPE INTERSECTS dc.applicable_when:
+      IF dc.paths == "*" OR GLOB_MATCH(dc.paths, modified_file):
         # Verify modified code satisfies the documented prevention check
-        IF NOT CHANGE_SATISFIES(dc.prevention_check, modified_file):
-          IF dc.review_severity == "BLOCKER":
+        IF NOT CHANGE_SATISFIES(dc.invariant, modified_file):
+          IF dc.severity == "BLOCKER":
             BLOCKER [GOV-DC-{dc.number}]:
               "Defect prevention check DC-{dc.number} ({dc.name}) not satisfied in {file}:{line}.
-               Required prevention: {dc.prevention_check}.
+               Invariant: {dc.invariant}. Gate: {dc.gate}.
                Reference: .claude/rules/defect-prevention.md"
           ELSE:
             WARNING [GOV-DC-{dc.number}]:
-              "Potential defect pattern DC-{dc.number} ({dc.name}) in {file}:{line}. Verify prevention: {dc.prevention_check}."
+              "Potential defect pattern DC-{dc.number} ({dc.name}) in {file}:{line}. Verify invariant: {dc.invariant}."
 
 SEVERITY: per-DC (BLOCKER or WARNING as defined in catalog Review Severity column)
 CONSTRAINT_IDS: [GOV-DC-{N}]

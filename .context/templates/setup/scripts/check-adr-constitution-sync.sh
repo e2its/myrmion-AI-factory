@@ -27,6 +27,14 @@
 # FDRs (docs/spec/{FEAT-ID}/fdr/*.md) are NOT subject to this gate — they
 # are feature-local and never amend constitution.
 #
+# Direction B (EVOL-043, two-tier ceremony): a normative SENTENCE born, changed
+# or removed in the law index — the `> sentence` line under a `## [PLAW-NN]`
+# entry of docs/constitution.md (or of the constitution template in meta), or
+# the `N. **[LAW-NN] …** — sentence.` line of CLAUDE.md § Governance Rules —
+# MUST be accompanied by an ADR that is `status: accepted` in the same diff
+# (added or modified). A BODY changes by rule-file edit + manifest bump, with
+# no record: rule files are never inspected here. Same [adr-backfill] bypass.
+#
 # Inputs:
 #   $1 (optional) — base ref to compare against. Defaults to:
 #                   $GITHUB_BASE_REF (GitHub Actions PR context),
@@ -172,6 +180,49 @@ while IFS= read -r path; do
       ;;
   esac
 done < <(git diff --name-only "$MERGE_BASE..HEAD" 2>/dev/null | grep -E "^docs/project_log/(adr/ADR-|evolutions/ADR-EVOL-).*\.md$" || true)
+
+# ────────────────────────────────────────────────────────────────────────────
+# Direction B: a law SENTENCE changed without an accepted ADR in the diff.
+# Sentence lines: `> …` directly under `## [P?LAW-NN]` (index form) and
+# `N. **[LAW-NN] …** — …` list entries (CLAUDE.md corpus). Any other line of
+# the governance source (preamble, pointers, records, prose) is free to move.
+# ────────────────────────────────────────────────────────────────────────────
+law_sentences() {  # law_sentences <content> → "ID<TAB>sentence" per law
+  printf '%s' "$1" | awk '
+    /^## \[P?LAW-[0-9]+\]/ { id=$2; gsub(/[\[\]]/, "", id); want=1; next }
+    want && /^> / { s=$0; sub(/^> /, "", s); print id "\t" s; want=0; next }
+    /^[0-9]+\. \*\*\[LAW-[0-9]+\]/ {
+      line=$0; match(line, /\[LAW-[0-9]+\]/); id=substr(line, RSTART+1, RLENGTH-2)
+      s=line; sub(/^[0-9]+\. \*\*\[LAW-[0-9]+\][^*]*\*\*[[:space:]]*[—–:-][[:space:]]*/, "", s)
+      sub(/[[:space:]]*Body:.*$/, "", s); print id "\t" s; next }
+  '
+}
+sentence_diff="no"
+for src in docs/constitution.md CLAUDE.md .context/templates/setup/constitution/constitution_template.md; do
+  echo "$diff_files" | grep -qx "$src" || continue
+  before=""; git cat-file -e "$MERGE_BASE:$src" 2>/dev/null && before=$(git show "$MERGE_BASE:$src")
+  after=""; git cat-file -e "HEAD:$src" 2>/dev/null && after=$(git show "HEAD:$src")
+  if [ "$(law_sentences "$before")" != "$(law_sentences "$after")" ]; then
+    sentence_diff="yes"; sentence_src="$src"
+  fi
+done
+if [ "$sentence_diff" = "yes" ]; then
+  accepted_adr_in_diff="no"
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    case "$path" in docs/project_log/adr/ADR-*.md|docs/project_log/evolutions/ADR-EVOL-*.md) ;; *) continue ;; esac
+    if git cat-file -e "HEAD:$path" 2>/dev/null && [ "$(read_frontmatter_value "$(git show "HEAD:$path")" status)" = "accepted" ]; then
+      accepted_adr_in_diff="yes"
+    fi
+  done < <(echo "$diff_files")
+  if [ "$accepted_adr_in_diff" != "yes" ]; then
+    echo "check-adr-constitution-sync: FAIL — a law SENTENCE changed in $sentence_src but no ADR with status: accepted is in the same diff." >&2
+    echo "The normative sentence of a law is born, changed or removed only by a decision record accepted in the same PR (two-tier ceremony)." >&2
+    echo "A law BODY (rule file) changes by rule-file edit + manifest bump, with no record." >&2
+    echo "Resolution: add the ADR (status: accepted) that records the sentence change, or revert the sentence." >&2
+    exit 1
+  fi
+fi
 
 # ────────────────────────────────────────────────────────────────────────────
 # Report.

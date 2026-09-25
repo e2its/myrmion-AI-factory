@@ -786,17 +786,16 @@ graph TD
 
 ## Dynamic Governance System
 
-### Governance Index (`docs/constitution.md`)
+### Constitution index + rules manifest
 
-Central auto-generated registry during `/setup --generate`:
+`docs/constitution.md` is an index of project law: one `## [PLAW-NN]` entry per law — normative sentence, `Body:` pointer to the rule file (or skill / instruction) that hosts the full text, `Records:` ADR ids. One body per law, under the same heading + byte-identical sentence. Universal `[LAW-NN]` law lives in `CLAUDE.md` § Governance Rules.
 
-- Contains per-rule metadata: type, validation method, severity, applicable agents.
-- Governance snapshot: `.context/governance_snapshot.md` — file-based cache, summarization-safe (see `Factory-governance-loading/SKILL.md`).
+- Rules manifest (what is loaded, per-rule `applicable_when`): `.context/governance_snapshot.md` — file-based cache, summarization-safe (see `Factory-governance-loading/SKILL.md`).
 - Verification commands: auto-derived from the stack config for BVL (test, lint, typecheck, build).
 
-### Governance always-on enforcement (4-tier)
+### Governance always-on enforcement (5-tier)
 
-The governance snapshot covers the "what is loaded" question, but it is a passive artifact — it can go stale silently and it evaporates from context across compaction cycles. Four Claude Code hooks make governance demonstrably always-on in any session turn:
+The governance snapshot covers the "what is loaded" question, but it is a passive artifact — it can go stale silently and it evaporates from context across compaction cycles. Five Claude Code hooks make governance demonstrably always-on in any session turn — and on the right channel: a PreToolUse hook blocks only with exit 2 + stderr, and reaches the model only through the `hookSpecificOutput.additionalContext` envelope (plain stdout from a pre-tool hook is never delivered; `scripts/test-hooks.sh` proves every shipped hook red and on channel):
 
 | Tier | Trigger | Hook | What it does | Failure mode |
 |------|---------|------|--------------|--------------|
@@ -804,8 +803,13 @@ The governance snapshot covers the "what is loaded" question, but it is a passiv
 | **2 — Advisory** | `UserPromptSubmit` | `scripts/governance-onprompt.sh` → `validate-governance.sh --snapshot-freshness` | Per prompt: recomputes MD5 of `docs/constitution.md` + `docs/setup.md`, compares to the snapshot frontmatter. On drift, emits `<governance-warning reason="snapshot-stale">…</governance-warning>` on stdout — the agent regenerates inline (factory-governance-loading SKILL § Step 1 POST-LOAD) or runs `/setup --upgrade`. | Advisory only — never blocks the prompt. Carve-out: prompts starting with `/setup*` bypass the gate. Silent no-op when the project is not yet initialized. |
 | **3 — Attribution** | `PostToolUse Edit\|Write` → `UserPromptSubmit` | `scripts/governance-onedit.sh` writes `.claude/state/governance-source-edited-{session_id}.marker` listing the changed paths; the next `scripts/governance-onprompt.sh` emits `<governance-source-edited paths="...">` with cause attribution + explicit regen instruction, then consumes the marker. Suppresses the tier-2 `<governance-warning>` for that prompt — the agent already knows why the snapshot is stale. | Marker write degrades silently when neither `jq` nor `python3` is available; tier 2 then fires its plain warning instead. |
 | **4 — Resilient** | `PreCompact` → `UserPromptSubmit` | `scripts/governance-oncompact.sh` writes `.claude/state/governance-reload-{session_id}.marker`; the next `scripts/governance-onprompt.sh` emits the snapshot wrapped in `<governance-reload>...</governance-reload>` on stdout, which Claude Code appends to the next turn as additional context, then consumes the marker. | Post-compaction re-injection is lossy if `PreCompact` never fires (some IDE harnesses). Tiers 1 + 2 + 3 still operate. |
+| **5 — At the point of edit** | `PreToolUse Edit\|Write` | `.claude/hooks/deliver-governance.sh` → `scripts/gate.py deliver`: the defect families, defect classes and rule pointers that govern **the file being written**, narrowed by the one applicability resolver, within `budgets.pre_edit`, through the PreToolUse envelope. A set already delivered in the session collapses to a one-line pointer. | Reader missing → silent pass. Never blocks. |
 
-**Why 4 tiers (and not 1):** tier 1 makes governance visible so the user can spot when it fails to load. Tier 2 surfaces drift as an advisory the agent can act on without livelocking on the very session that produced it. Tier 3 attributes the cause when the staleness was self-inflicted (an EVOL/ADR edit) so the agent gets a richer instruction instead of a generic warning. Tier 4 survives summarization — without it, the snapshot would evaporate from the LLM's window after compaction even while the snapshot file on disk is still valid.
+**Why 5 tiers (and not 1):** tier 1 makes governance visible so the user can spot when it fails to load. Tier 2 surfaces drift as an advisory the agent can act on without livelocking on the very session that produced it. Tier 3 attributes the cause when the staleness was self-inflicted (an EVOL/ADR edit) so the agent gets a richer instruction instead of a generic warning. Tier 4 survives summarization — without it, the snapshot would evaporate from the LLM's window after compaction even while the snapshot file on disk is still valid. Tier 5 delivers the law where it is applied: the snapshot carries the index and the families; the classes and rules that govern a file arrive when that file is written.
+
+### Governance corpus in layers (EVOL-043)
+
+Every rule has **exactly one body**. The constitution is the **index** (`## [PLAW-NN]` → one sentence, one `Body:` pointer, its records); `CLAUDE.md § Governance Rules` is the index of universal law (`[LAW-NN]`, same shape); bodies live once — in a rule file, a skill or an instruction — under a heading that quotes the sentence byte-identically. What a session receives is bounded and measured: `config/quality.json → budgets` holds one key per injection point (session start, prompt submit, pre-edit, snapshot, sentence and invariant lengths) and `python3 scripts/gate.py budget` measures the **real producer at its worst case** — not the file size — and fails on overflow or on a missing key. The defect catalog is **families** (surface globs + one-line invariant) and 7-column classes (family, invariant, gate, paths, agents, severity) with narratives in a cases annex read by id. Two-tier change ceremony: a sentence changes only through an accepted ADR in the same PR (`check-adr-constitution-sync.sh`, both directions); a body changes by rule-file edit + manifest bump. One applicability resolver (`gate.py applicable`) replaces every hand-written rule list; a retired-vocabulary ratchet (`gate.py retired-terms`) keeps retired shapes out of the governed tree. `scripts/materialize-synthetic.sh` proves the whole chain on a scratch project in CI.
 
 **Marker scoping.** Both markers (`governance-reload-{session_id}.marker` and `governance-source-edited-{session_id}.marker`) live under `.claude/state/` — inside the Claude Code hook namespace, gitignored, and suffixed with the session ID passed in the hook stdin JSON. Two Claude sessions running against the same repo cannot collide on each other's replays.
 

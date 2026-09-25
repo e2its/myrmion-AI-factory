@@ -77,9 +77,9 @@ Type-def trigger heuristic: any scope file matching `*.d.ts`, `types/**`, `*_typ
 
 Review without project law = opinion. Binding = a rule Roll-Call over the review scope, run fresh per invocation (never cached). Three gates, all mechanical — the engine never judges rule content:
 
-1. **Provenance.** Candidate set = `.claude/rules/*.md` WITH a governance-manifest entry (`governance_versions.json`) + CLAUDE.md `[LAW]` sections + `defect-prevention.md` DCs (review-severity column). A file under `rules/` with NO manifest entry is NOT bound — reported as ❓ `foreign-rule` (drift, not law).
+1. **Provenance.** Candidate set = `.claude/rules/*.md` WITH a governance-manifest entry (`governance_versions.json`) + CLAUDE.md `[LAW-NN]` laws + `docs/constitution.md` `[PLAW-NN]` entries + `defect-prevention.md` DCs (Severity column). A file under `rules/` with NO manifest entry is NOT bound — reported as ❓ `foreign-rule` (drift, not law).
 2. **Applicability (ADP).** Evaluate each candidate's `applicable_when` frontmatter against the review context: `path_glob` vs scope files, `framework` vs project stack, `scope`/`change_type` axes. Missing block ⇒ `always: true`. Same closed vocabulary as the command Roll-Call; frontmatters are CI-validated (`check-applicability-frontmatter.sh`) — trust them.
-3. **Precedence on conflict.** `constitution [LAW]` > ADR/FDR (incl. `pr_review_overrides` refinements) > rule file > agent defaults. Same-level conflict → the engine does NOT pick: ❓ finding citing both sources, routed to RDR.
+3. **Precedence on conflict.** `[LAW-NN]` / `[PLAW-NN]` law > ADR/FDR (incl. `pr_review_overrides` refinements) > rule file > agent defaults. Same-level conflict → the engine does NOT pick: ❓ finding citing both sources, routed to RDR.
 
 Per-agent packet — each agent gets its slice, never the whole tree:
 
@@ -182,3 +182,8 @@ Findings plane is fail-closed: marker with `findings.blocker > 0` and no overrid
 ## Provenance & re-sync policy
 
 Upstream: `anthropics/claude-plugins-official/plugins/pr-review-toolkit` @ commit pinned in [README.md](README.md) § Provenance (Apache-2.0, LICENSE vendored verbatim). Adaptations marked inline `<!-- factory-adapted: reason -->` in agent BODIES; frontmatter adaptations (YAML cannot carry comments) are recorded ONLY in the README provenance table. Re-sync: diff upstream agents vs vendored, re-apply the marked body hunks PLUS every frontmatter adaptation listed in the README table. Severity mapping lives in `references/severity-mapping.md` — NEVER inside agent files.
+
+## [LAW-13] Agentic Code Review Gate
+> One agentic code-review engine runs per increment and as the push gate, proven by a content-hash marker: fail-open on infrastructure, fail-closed on findings.
+
+Engine = this skill (6 vendored Anthropic pr-review-toolkit agents, Apache-2.0). Two invocations: IMPLEMENT review per increment (feeds `peer_review`) and the factory-pr-review push gate per branch (axis 7 / Block 20 — the ONLY writer of `.claude/state/code-review-${content_hash}.marker`, sha256 over sorted path+blob-sha of `is_code ∪ is_test` diff files). Fail-open on infrastructure (executor missing → noisy warning, push passes); fail-closed on findings (blockers block; a one-shot override only via an explicit RDR recorded in the marker and the worklog; a permanent downgrade via ADR/FDR `pr_review_overrides.block_20_code_review`). Gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type definitions, comment-analyzer + code-simplifier advisory. Config optional in `config/quality.json.code_review` — absent ⇒ active. Severity normalised orchestrator-side to 🔴🟡🟢❓; agent files are never edited for severity.

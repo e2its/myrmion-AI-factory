@@ -10,6 +10,7 @@
 #   - file is dev_plan.md or qa_report*.md (any path)
 #   - content contains IMPLEMENTED_AND_VERIFIED or verdict: APPROVED
 #   - content still has unchecked items: "- [ ]"
+# Blocks with exit 2 + stderr (the Claude Code blocking contract; exit 1 would not block — EVOL-043).
 # ============================================================================
 
 set -euo pipefail
@@ -56,10 +57,12 @@ fi
 UNCHECKED=$(echo "$CONTENT" | grep -c '^\s*- \[ \]' 2>/dev/null || true)
 
 if [ "$UNCHECKED" -gt 0 ]; then
-  echo "BLOCKED: Completion gate failed for '$BASENAME'."
-  echo "  Found $UNCHECKED unchecked item(s) [ ] but status is set to terminal (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED)."
-  echo "  Complete all checklist items before marking as done."
-  exit 1
+  {
+    echo "BLOCKED: Completion gate failed for '$BASENAME'."
+    echo "  Found $UNCHECKED unchecked item(s) [ ] but status is set to terminal (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED)."
+    echo "  Complete all checklist items before marking as done."
+  } >&2
+  exit 2
 fi
 
 exit 0

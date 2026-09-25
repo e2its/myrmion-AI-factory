@@ -43,14 +43,18 @@ amendment_kind: {{ADD|REPLACE|REMOVE}}
 - {{TRADEOFF_2}}
 
 ## Operational Rule
-> THIS is the law. Plain text, concise, executable. The text below will be copied
-> VERBATIM into `docs/constitution.md` as a `## [LAW]` section (or replace/remove
-> an existing one) by `factory-adr-management` Accept Procedure per the
-> `target_section` + `amendment_kind` frontmatter fields. Keep operational only —
-> no rationale, no alternatives, no commentary; those belong in §Context / §Decision /
-> §Consequences. Empty content here FAILS the Propose validation.
+> THIS is the law. The first paragraph is the normative SENTENCE — one line, within
+> `budgets.law_sentence_max_chars`, no file paths, no threshold digits — written VERBATIM
+> as the `> sentence` of the `[PLAW-NN]` entry in `docs/constitution.md` (the index) by the
+> `factory-adr-management` Accept Procedure per `target_section` + `amendment_kind`. The
+> optional `### Body` below is the detail, written to the rule file named by `body_home`.
+> Keep operational only — no rationale, no alternatives, no commentary; those belong in
+> §Context / §Decision / §Consequences. An empty sentence FAILS the Propose validation.
 
 {{REGLA_OPERATIVA}}
+
+### Body
+{{CUERPO_DE_LA_REGLA_OPCIONAL}}
 
 ## Compliance
 > Verification of governance alignment.
@@ -76,20 +80,18 @@ amendment_kind: {{ADD|REPLACE|REMOVE}}
 - `title` — operational title; SCREAMING_SNAKE-able for slug.
 - `date` — ISO date when proposed.
 - `status` — `proposed` at creation. Flipped to `accepted` ONLY by Accept Procedure (which runs the amendment + diff record atomically).
-- `target_section` — concrete pointer to the constitution section the amendment targets. Format: `## [LAW] {existing heading}` to amend an existing section, or `NEW: {proposed heading}` to add a new one. Used by Accept Procedure to locate the edit point.
-- `amendment_kind` — `ADD` (append `[LAW]` section), `REPLACE` (substitute body of existing `[LAW]` section), `REMOVE` (delete an existing `[LAW]` section — only valid when this ADR derogates a prior one).
+- `target_section` — `[PLAW-NN]` of the law the amendment targets, or `NEW: {Title}` to mint the next id. Used by Accept Procedure to locate the index entry.
+- `body_home` — `rules/{file}.md` that hosts the body (mandatory for `ADD`; optional for `REPLACE`, defaults to the entry's current pointer).
+- `amendment_kind` — `ADD` (mint a new index entry + body section), `REPLACE` (replace the sentence, append the record, replace the body when given), `REMOVE` (delete the entry and its body section — only valid when this ADR derogates a prior one).
 
 ## What the Accept Procedure does (mechanical, no agent judgement)
 
-1. Reads `## Operational Rule` from this ADR (verbatim).
-2. Reads `target_section` + `amendment_kind` from frontmatter.
-3. Edits `docs/constitution.md`:
-   - `ADD` → append `## [LAW] {title}` heading + Operational Rule body.
-   - `REPLACE` → substitute body of the existing `## [LAW]` section identified by `target_section`.
-   - `REMOVE` → delete the section identified by `target_section`.
-4. Writes the before/after diff into this ADR's `## Constitution Amendment` section.
+1. Reads the sentence (first paragraph of `## Operational Rule`) and the optional `### Body`.
+2. Reads `target_section`, `amendment_kind`, `body_home` from frontmatter.
+3. Edits the index `docs/constitution.md` (three-line entry: heading, `> sentence`, `Body: … · Records: …`) and the body section `## [PLAW-NN]` in the pointed rule file — `ADD` mints, `REPLACE` swaps sentence + appends the record (+ body), `REMOVE` deletes both.
+4. Writes the before/after into this ADR's `## Constitution Amendment` section.
 5. Flips `status: proposed → accepted`.
-6. Bumps `governance_versions.json` entry for `docs/constitution.md` and adds a changelog line.
+6. Bumps the governance manifest entries (constitution, body home, this ADR) and regenerates the snapshot.
 7. Generates `commit-message-suggestion.md` referencing both this ADR and the constitution amendment.
 
 The CI gate verifies #3 happened in the same PR as #5; if not, the PR fails.

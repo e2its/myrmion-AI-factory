@@ -2,9 +2,10 @@
 description: "Branching strategy — branch naming, merge policy, PR requirements, commit message format, protected branches."
 applicable_when:
   always: true
-version: 2.0.0
-date: 2026-01-26
+version: 2.1.0
+date: 2026-09-25
 changelog:
+  - "2.1.0: feat(EVOL-043) — hosts [PLAW-11] body (merged from the constitution template; placeholder-bearing variant kept, hard-coded approval count dropped)"
   - "2.0.0: PR validation mode, approval count, merge method configurable via SETUP Q22.1"
   - "1.0.0: Initial template version"
 ---
@@ -18,22 +19,27 @@ changelog:
 > **PR Approvals Required:** {{PR_APPROVAL_COUNT}}  
 > **PR Merge Method:** {{PR_MERGE_METHOD}}
 
-## Branch Model: {{BRANCHING_STRATEGY}}
+## [PLAW-11] Branching Strategy & Version Control
+> Every code change follows the declared branching model: no direct commits to protected branches, merges arrive through reviewed pull requests, versions are tagged by semantic rules.
 
-### GitHub Flow (Default)
+> **Mandate:** All code changes MUST follow the defined branching model. Direct commits to protected branches are FORBIDDEN.
+
+### Branch Model: {{BRANCHING_STRATEGY}}
+
+#### GitHub Flow (Default)
 **Branches:**
-- `main`: Protected, always deployable, auto-tagged with semver
+- `main`: Protected, always deployable, auto-tagged with semver on merge
 - `feature/{FEATURE_ID}-description`: Short-lived (<2 days)
-- `hotfix/{ISSUE_ID}-description`: Urgent production fixes
+- `hotfix/{ISSUE_ID}-description`: Urgent production fixes, fast-track to main
 
-**Workflow:**
+**Workflow (feature branch lifecycle):**
 1. Create feature branch from latest `main`
-2. Develop with frequent commits (conventional format)
+2. Develop with frequent commits (conventional format, see below)
 3. Open PR when ready, link to `docs/spec/{FEATURE_ID}/`
 4. {{PR_APPROVAL_COUNT}} approval(s) {{PR_VALIDATION_LABEL}}
 5. {{PR_MERGE_METHOD_LABEL}} to `main` → auto-deploy Dev → auto-tag semver
 
-### Branch Naming Convention
+#### Branch Naming Convention
 ```
 {type}/{FEATURE_ID}-{short-description}
 
@@ -44,7 +50,7 @@ Examples:
   hotfix/CRIT-005-security-patch
 ```
 
-### Per-Increment Branch Naming (when `spec.feature.slicing_strategy: incremental`)
+#### Per-Increment Branch Naming (when `spec.feature.slicing_strategy: incremental`)
 
 When a feature uses incremental slicing (the default), each **increment** declared in `docs/spec/{FEATURE_ID}/increment_plan.md § 1` opens its own feature branch — one PR per increment:
 
@@ -64,14 +70,15 @@ Examples:
 
 **Monolithic escape.** When `slicing_strategy: monolithic` (permitted only if the feature satisfies the trivial-heuristic — ≤2 scenarios AND ≤3 contract operations AND `scope ≠ full-stack`), the legacy single-branch naming `feature/{FEATURE_ID}-{slug}` applies without the `-inc-N-` segment.
 
-### Protection Rules
+#### Protection Rules
 **main branch:**
 - ❌ Direct commits forbidden
 - ✅ Require PR with {{PR_APPROVAL_COUNT}} approval(s)
 {{PR_CI_CHECKS_RULE}}
-- ✅ Merge method: {{PR_MERGE_METHOD}}
+- ✅ Merge method: {{PR_MERGE_METHOD}} (linear history when `squash` or `rebase`)
+- ✅ Require signed commits: GPG verification (recommended)
 
-### PR Validation Policy
+#### PR Validation Policy
 - **Mode:** `{{PR_VALIDATION_MODE}}`
   - `manual`: PR required. Human approval only. CI may run but is informational, not blocking.
   - `ci_automated`: PR required. Human approvals + ALL CI checks MUST pass before merge.
@@ -79,35 +86,65 @@ Examples:
 - **Approvals Required:** {{PR_APPROVAL_COUNT}}
 - **Merge Method:** {{PR_MERGE_METHOD}} (`merge_commit` | `squash` | `rebase`)
 
-## Semantic Versioning
-**Format:** `v{MAJOR}.{MINOR}.{PATCH}`
+### Semantic Versioning (SemVer)
+**Format:** `v{MAJOR}.{MINOR}.{PATCH}` (e.g., `v1.2.3`)
 
-**Auto-Tagging Logic (CI/CD):**
-- `BREAKING CHANGE:` or `feat!:` → MAJOR bump
+**Auto-Tagging on Main Merge (CI/CD analyzes commit messages):**
+- `BREAKING CHANGE:` in commit body or `!` after type (e.g., `feat!:`) → MAJOR bump
 - `feat:` → MINOR bump
 - `fix:`, `docs:`, `refactor:`, `perf:` → PATCH bump
 
-## Commit Message Format
+### Commit Message Format (Conventional Commits)
 ```
 {type}({FEATURE_ID}): {description}
 
-{optional body}
+{optional body with detailed explanation}
 
 Ref: {FEATURE_ID}
 BREAKING CHANGE: {description if applicable}
 ```
 
-**Types:** feat, fix, docs, refactor, test, chore, ci, perf
+**Types:**
+- `feat`: New feature (triggers MINOR bump)
+- `fix`: Bug fix (triggers PATCH bump)
+- `docs`: Documentation changes
+- `refactor`: Code restructuring without behavior change
+- `test`: Test additions/modifications
+- `chore`: Build/CI changes, dependency updates
+- `ci`: Pipeline changes
+- `perf`: Performance improvements
 
-## CI/CD Integration
+**Example:**
+```
+feat(USR-001): add OAuth2 social login
+
+Integrate Google and GitHub OAuth2 providers using passport.js.
+Users can now sign in with existing social accounts.
+
+Ref: USR-001
+```
+
+### Merge Strategy
+- **Method:** {{PR_MERGE_METHOD}} (`merge_commit` | `squash` | `rebase`) — set at SETUP, applied to every PR to `main`.
+- **Squash rationale:** clean linear history, easy rollbacks, clear changelog generation; all feature branch commits become a single commit on `main`, the PR title becomes the commit message, body includes the PR description.
+- **Exception — hotfix branches:** merge commit (preserve urgency context), immediate PATCH version bump, manual backport to release branches if applicable.
+
+### CI/CD Integration
+> **Complete pipeline details:** See `.claude/rules/ci-cd.md`
+
 **Pre-Merge Checks:**
 {{PR_CI_CHECKS_DETAIL}}
 
 **Post-Merge Actions:**
-- Auto-tag with semver
+- Auto-tag with semver (based on commit analysis)
 - Auto-deploy to Development environment
-- Update changelog
+- Update changelog (auto-generated from conventional commits)
+
+### Further Reading
+- [GitHub Flow Guide](https://docs.github.com/en/get-started/quickstart/github-flow)
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [Semantic Versioning](https://semver.org/)
 
 ## See Also
-- `.context/constitution.md` § Branching Strategy
+- `docs/constitution.md` — `[PLAW-11]` index entry (this file is its body)
 - `.claude/rules/ci-cd.md` for pipeline details

@@ -6,7 +6,10 @@
 # Compares MD5 hashes of docs/constitution.md and docs/setup.md against the
 # hashes stored in .context/governance_snapshot.md frontmatter.
 # If they diverge, emits a WARNING (non-blocking) so the agent regenerates
-# the snapshot before relying on stale governance context.
+# the snapshot before relying on stale governance context. Delivered through
+# the PreToolUse envelope (hookSpecificOutput.additionalContext) — plain stdout
+# from a pre-tool hook never reaches the model (EVOL-043 hook audit). Also
+# compares dcs_hash (defect-prevention catalog).
 #
 # Non-blocking (exit 0 always) because blocking would prevent the agent from
 # writing the regenerated snapshot — creating a circular dependency.
@@ -66,6 +69,8 @@ extract_frontmatter_value() {
 
 SNAP_CONST_HASH=$(extract_frontmatter_value "$SNAPSHOT" "constitution_hash")
 SNAP_SETUP_HASH=$(extract_frontmatter_value "$SNAPSHOT" "setup_hash")
+SNAP_DCS_HASH=$(extract_frontmatter_value "$SNAPSHOT" "dcs_hash")
+DC_FILE="$REPO_ROOT/.claude/rules/defect-prevention.md"
 
 # If snapshot has no constitution_hash, it's malformed — skip silently
 if [ -z "$SNAP_CONST_HASH" ]; then
@@ -99,17 +104,21 @@ if [ -n "$SNAP_SETUP_HASH" ] && [ "$SNAP_SETUP_HASH" != "null" ]; then
   fi
 fi
 
+if [ -n "$SNAP_DCS_HASH" ] && [ "$SNAP_DCS_HASH" != "null" ] && [ -f "$DC_FILE" ]; then
+  if [ "$SNAP_DCS_HASH" != "$(compute_md5 "$DC_FILE")" ]; then
+    DRIFT_SOURCES+=("defect-prevention.md")
+  fi
+fi
+
 if [ ${#DRIFT_SOURCES[@]} -gt 0 ]; then
   JOINED="${DRIFT_SOURCES[0]}"
   for source in "${DRIFT_SOURCES[@]:1}"; do
     JOINED+=", ${source}"
   done
-  echo "WARNING: Governance snapshot drift detected — ${JOINED} changed since last snapshot generation."
-  echo "  The governance context in .context/governance_snapshot.md is STALE."
-  echo "  Action: Execute GCRP Step 1 → POST-LOAD (full reload + inline snapshot regeneration)."
-  echo "  This does NOT require SETUP. Read the generate_governance_snapshot() function in"
-  echo "  .claude/skills/factory-governance-loading/SKILL.md and regenerate the snapshot in-place."
-  # Non-blocking: exit 0 so the agent can still operate and fix the drift
+  MSG="WARNING: Governance snapshot drift — ${JOINED} changed since the snapshot was generated. The context in .context/governance_snapshot.md is STALE. Regenerate now: bash scripts/generate-governance-snapshot.sh (no SETUP needed; GCRP Step 1 → POST-LOAD)."
+  # Non-blocking (exit 0). The envelope is the only channel that reaches the model from here.
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' \
+    "$(printf '%s' "$MSG" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
 fi
 
 exit 0

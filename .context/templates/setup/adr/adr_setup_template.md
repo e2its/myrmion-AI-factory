@@ -125,7 +125,7 @@ scope: global  # project-wide setup decisions
 - **Project Mode:** {{PROJECT_MODE}} (Greenfield/Brownfield)
 - **Related ADRs:** None (this is the foundational architecture decision)
 - **Impacts:**
-  - `docs/constitution.md` (architecture section)
+  - `docs/constitution.md` (`[PLAW-01]`…`[PLAW-13]` index entries — `Records: ADR-0000`)
   - `.claude/rules/architecture.md`
   - All code generated in scaffolding phase
 - **Status:** {{STATUS}} (accepted/pending/deprecated)

@@ -58,7 +58,9 @@ jobs:
                    scripts/test-check-journey-grammar.sh \
                    scripts/test-validate-governance.sh \
                    scripts/test-po-package.sh \
-                   scripts/test-measure.sh
+                   scripts/test-measure.sh \
+                   scripts/test-hooks.sh \
+                   scripts/test-gates.sh
           set -e
           for t in scripts/test-templates-static.sh \
                    scripts/test-snapshot-extraction.sh \
@@ -70,7 +72,9 @@ jobs:
                    scripts/test-check-journey-grammar.sh \
                    scripts/test-validate-governance.sh \
                    scripts/test-po-package.sh \
-                   scripts/test-measure.sh; do
+                   scripts/test-measure.sh \
+                   scripts/test-hooks.sh \
+                   scripts/test-gates.sh; do
             echo "════════ Running $t ════════"
             bash "$t"
           done
@@ -84,6 +88,17 @@ jobs:
         run: |
           chmod +x scripts/check-applicability-frontmatter.sh
           bash scripts/check-applicability-frontmatter.sh
+
+      - name: Injection budgets (real producers at worst case)
+        run: python3 scripts/gate.py budget
+
+      - name: Retired-vocabulary ratchet
+        run: python3 scripts/gate.py retired-terms
+
+      - name: Synthetic materialisation smoke (corpus, gates, hooks on a scratch project)
+        run: |
+          chmod +x scripts/materialize-synthetic.sh
+          bash scripts/materialize-synthetic.sh
 
       - name: Iteration ID schema validation
         run: |

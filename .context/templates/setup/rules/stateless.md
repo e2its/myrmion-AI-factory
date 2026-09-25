@@ -2,34 +2,40 @@
 description: "Stateless design policy — session externalization, idempotency requirements, horizontal scaling patterns."
 applicable_when:
   always: true
-version: 1.0.0
-date: 2026-01-26
+version: 1.1.0
+date: 2026-09-25
 changelog:
+  - "1.1.0: feat(EVOL-043) — hosts [PLAW-02] body (merged from the constitution template)"
   - "1.0.0: Initial template version"
 ---
 
 # Stateless Design Policy
 
-> **Auto-generated from** `docs/setup.md` decisions  
-> **Mandate:** Horizontal scaling without session affinity
+> **Auto-generated from** `docs/setup.md` decisions
 
-## Session Management
-- Strategy: {{SESSION_STRATEGY}} (Redis cluster sessions | JWT stateless auth)
-- No in-memory session storage in application instances
+## [PLAW-02] Stateless Design Policy
+> Every service scales horizontally without session affinity: no instance-local state, distributed cache for shared data, idempotency keys on every mutation.
 
-## Cache Strategy
-- Distributed cache (Redis/Memcached) for shared data
-- CDN for static assets and public APIs
-- Prohibit local per-user caches that break statelessness
+> **Mandate:** All services MUST be horizontally scalable without session affinity (sticky sessions).
 
-## Idempotency
-- Mutation endpoints require idempotency keys (`Idempotency-Key` header)
-- Store idempotent results for 24h; deduplicate requests
+### Session Management
+- **Strategy:** {{SESSION_STRATEGY}} (Redis Cluster for sessions | JWT for stateless authentication)
+- **Restriction:** DO NOT store sessions in the memory of application instances.
 
-## Scaling Considerations
+### Cache Strategy
+- **Distributed Cache:** [Redis Cluster | Memcached] for shared data.
+- **CDN:** Static assets and public APIs.
+- **Prohibited:** Local cache (in-process) for user-specific data.
+
+### Idempotency
+- **APIs:** All mutation endpoints (POST/PUT/DELETE) MUST support idempotency keys.
+- **Pattern:** Client-generated UUID in `Idempotency-Key` header.
+- **Storage:** Idempotency results cached for 24h; deduplicate requests.
+
+### Scaling Considerations
 - Avoid filesystem state; use object storage for uploads
 - Stateless containers; configuration via environment variables
 
-## Further Reading
-- 12-Factor App
-- Cloud Native Patterns
+### Further Reading
+- [12-Factor App - Processes](https://12factor.net/processes)
+- [Cloud Native Patterns](https://www.cnpatterns.org/)

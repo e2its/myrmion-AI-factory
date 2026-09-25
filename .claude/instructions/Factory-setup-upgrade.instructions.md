@@ -21,26 +21,10 @@ applicable_when:
 | .claude/instructions/agents/*.md | .claude/instructions/Factory-*.instructions.md |
 | .claude/instructions/protocols/*.md | .claude/instructions/Factory-protocol-*.instructions.md |
 | .claude/instructions/protocols/{5 cross-cutting}.md | .claude/skills/Factory-{name}/SKILL.md |
-| docs/rules/*.md | docs/rules/*.instructions.md |
 
 ### Rules / config split (NOT auto-applied)
 
-| Before | After |
-|---|---|
-| docs/rules/*.instructions.md | .claude/rules/*.instructions.md |
-| docs/rules/defect-prevention.md | .claude/rules/defect-prevention.md |
-| docs/rules/protected-paths.json | config/protected-paths.json |
-| docs/rules/allowlist.json | config/allowlist.json |
-
-Manual migration (run once, gated by `test -d docs/rules && ! test -d .claude/rules`):
-
-```bash
-git mv docs/rules .claude/rules
-[ -f .claude/rules/protected-paths.json ] && git mv .claude/rules/protected-paths.json config/protected-paths.json
-[ -f .claude/rules/allowlist.json ] && git mv .claude/rules/allowlist.json config/allowlist.json
-```
-
-Then regenerate governance snapshot and re-run `--upgrade`.
+Projects still on the retired pre-`.claude/rules` layout (rules directory under `docs/`, JSON config beside the rules): one-time manual `git mv` of that directory to `.claude/rules/` and of `protected-paths.json` / `allowlist.json` into `config/`, then regenerate the governance snapshot and re-run `--upgrade`.
 
 ### rules-naming convention unification (drop `.instructions.md` suffix)
 
@@ -268,7 +252,7 @@ After ALL script files are merged, run 6 validation checks:
 3. **Regenerate governance snapshot** (`.context/governance_snapshot.md`):
    - Constitution / defect-prevention.md / setup.md may have changed during upgrade → snapshot must reflect new state
    - Call `generate_governance_snapshot()` from setup-materialization.md Checkpoint 3.1
-   - The current format embeds operational law verbatim: `## [LAW]` sections of constitution + universal DCs (`applicable_when: always`). If the upgraded constitution lacks `[LAW]` markers, the upgrade MUST add them per the materialization template before regen, otherwise the snapshot's `## Active Constitution` section will be empty and CI will fail
+   - The current format embeds operational law verbatim: `## [PLAW-NN]` index entries of the constitution (sentence + `Body:` pointer + `Records:`) + universal DCs (`applicable_when: always`). If the upgraded constitution still carries the pre-4.0.0 `## [LAW] {title}` section form, the upgrade MUST convert it to the index form per the materialization template (bodies to their `.claude/rules/` homes, `> sentence` byte-identical on both sides) before regen, otherwise the snapshot's `## Active Constitution` section will be empty and CI will fail
    - Frontmatter freshness fields are: `constitution_hash`, `setup_hash`, `dcs_hash` — all three are recomputed
    - This ensures post-upgrade agent commands use fresh governance context
 4. Generate `UPGRADE_REPORT_{timestamp}.md` with:

@@ -114,16 +114,16 @@ if [ "${1:-}" = "--banner" ]; then
   if [ -z "$snap_setup8" ] || [ "$snap_setup8" = "null" ]; then snap_setup8="n/a"; fi
   if [ -z "$snap_dcs8" ] || [ "$snap_dcs8" = "null" ]; then snap_dcs8="n/a"; fi
 
-  # Counts derived from the snapshot body — `## [LAW] ` headings and `### DC-`
-  # entries inside the Defect Prevention Catalog block. Both are best-effort
+  # Counts derived from the snapshot body — `### [PLAW-NN]` law-index entries and
+  # family rows of the Defect Families table (EVOL-043 lite profile). Both are best-effort
   # observational figures; absent values render as 0 without blocking.
-  law_count=$(grep -cE '^## \[LAW\] ' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
-  dcs_count=$(awk '/^## Defect Prevention Catalog/{f=1; next} f && /^## /{f=0} f && /^### DC-/{c++} END{print c+0}' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
+  law_count=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
+  dcs_count=$(awk '/^## Defect Families/{f=1; next} f && /^## /{f=0} f && /^\| `/{c++} END{print c+0}' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
 
   if [ "$CONTEXT_LABEL" = "meta" ]; then
-    echo "Governance loaded: meta CLAUDE.md ${snap_const8}, dcs ${snap_dcs8} | [LAW] sections: ${law_count}, universal DCs: ${dcs_count} | meta-framework maintenance | triage: ON"
+    echo "Governance loaded: meta CLAUDE.md ${snap_const8}, dcs ${snap_dcs8} | laws: ${law_count}, defect families: ${dcs_count} | meta-framework maintenance | triage: ON"
   else
-    echo "Governance loaded: constitution ${snap_const8}, setup ${snap_setup8}, dcs ${snap_dcs8} | [LAW] sections: ${law_count}, universal DCs: ${dcs_count} | SDLC-first triage: ON"
+    echo "Governance loaded: constitution ${snap_const8}, setup ${snap_setup8}, dcs ${snap_dcs8} | laws: ${law_count}, defect families: ${dcs_count} | SDLC-first triage: ON"
   fi
   exit 0
 fi

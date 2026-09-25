@@ -914,3 +914,8 @@ FUNCTION read_iteration_state(artifact_path):
 ```
 
 Direct `fm.iteration` access in any gate is a violation.
+
+## [LAW-09] Canonical Iteration ID
+> Every refine-able artefact carries an iterations array in the canonical schema, cross-referenced upstream through its cascade source, and gates read iteration state only through the one reader.
+
+Every refine-able artefact (`spec.feature`, `user_journey.md`, `mock.html`, `design.md`, `test_plan.md`, `slice_map.md`, `increment_plan.md`, `dev_plan.md`) carries a frontmatter `iterations: []` array whose entries follow the canonical schema `ITER-{FEAT}-{N}` (§ Canonical Iteration ID). Downstream entries cross-reference upstream via `cascade_source: {upstream_id}` — a mechanical join key (`grep cascade_source: ITER-X-N docs/spec/X/`). Direct `fm.iteration` access in any gate is a violation; reads route through `read_iteration_state()`. Validator: `scripts/check-iteration-id-format.sh`.

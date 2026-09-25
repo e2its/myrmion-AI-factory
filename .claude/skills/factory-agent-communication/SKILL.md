@@ -261,3 +261,8 @@ CONTEXT BUDGET:
   - Completion summary: ~100-200 tokens
   - Total overhead per command: <500 tokens (~1% of typical agent context)
 ```
+
+## [LAW-08] Humanized Blocking
+> A blocked action is explained in plain business language with a resolution path; raw tool errors, stack traces and CLI dumps never reach the user.
+
+NEVER show raw tool errors, stack traces or CLI failure dumps when blocking a user action. Explain the block in plain business language: what is blocked, why, which artefact or gate is responsible — and offer a resolution path (the exact next command or file to touch). Raw errors belong in the worklog or behind a debug flag (`*_DEBUG=1`), never in the message that blocks. Every framework script exits 2 with a plain-language line when it cannot do its job.

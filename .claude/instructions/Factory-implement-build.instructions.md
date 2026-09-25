@@ -381,7 +381,7 @@ FUNCTION load_governance_context(FEATURE_ID):
   IF NOT gcd_loaded OR NOT DEFINED(governance_context) OR governance_context.mandatory_patterns IS NULL:
     IF NOT DEFINED(governance_context):
       governance_context = {}  # Initialize for non-GCD path
-    constitution_patterns = EXTRACT_LAW_SECTIONS(constitution.md)  # operational [LAW] body — project-wide patterns
+    constitution_patterns = LAW_BODIES(python3 scripts/gate.py laws --json)  # index → Body: pointers → the sections that name a pattern (EVOL-043)
     governance_context.mandatory_patterns = {
       patterns: constitution_patterns,
       fdr_bindings: fdr_bindings,
@@ -621,12 +621,12 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
   FOR EACH task IN phase.unchecked_tasks:
     # DEFECT PREVENTION CHECK (per-task, MANDATORY)
     # DEV Hat consults the Defect Prevention Catalog BEFORE writing code.
-    # Catalog columns: DC | Name | Applicable When | Review Severity | Prevention Check
+    # Catalog columns: DC | Family | Invariant | Gate | Paths | Applicable To | Severity  (cases: defect-prevention-cases.md § DC-N)
     IF FILE_EXISTS(".claude/rules/defect-prevention.md"):
       dc_catalog = READ(".claude/rules/defect-prevention.md")
       FOR EACH dc IN dc_catalog:
-        IF task.scope INTERSECTS dc.applicable_when:
-          VERIFY planned code satisfies dc.prevention_check
+        IF dc.paths == "*" OR ANY(GLOB_MATCH(dc.paths, f) FOR f IN task.files):
+          VERIFY planned code satisfies dc.invariant   # detail on demand: defect-prevention-cases.md § DC-{dc.number}
           IF prevention check NOT satisfied:
             REWRITE to follow the documented prevention approach
             LOG: "DC-{dc.number} prevented: {dc.name}"
@@ -1837,7 +1837,7 @@ FUNCTION defect_discovery_check(error, context):
 
   # Check if error pattern matches any existing DC
   FOR EACH dc IN existing_dcs:
-    IF error.pattern SEMANTICALLY_MATCHES dc.prevention_check:
+    IF error.pattern SEMANTICALLY_MATCHES dc.invariant:
       LOG: "Known DC-{dc.number} ({dc.name}) — already cataloged"
       RETURN
 
@@ -1848,7 +1848,7 @@ FUNCTION defect_discovery_check(error, context):
      Pattern: {error.summary}
      Affected files: {error.files}
      Suggested DC-{next_dc_number}: {suggested_name}
-     Suggested prevention: {suggested_prevention_check}
+     Suggested invariant: {suggested_invariant}
 
      Catalog this as a new DC? (yes/no)"
 

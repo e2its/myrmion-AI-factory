@@ -6,9 +6,10 @@ applicable_when:
     - "**/Jenkinsfile"
     - "**/.gitlab-ci.yml"
     - "**/azure-pipelines.yml"
-version: 1.0.0
-date: 2026-01-26
+version: 1.1.0
+date: 2026-09-25
 changelog:
+  - "1.1.0: feat(EVOL-043) — hosts [PLAW-12] body (merged from the constitution template)"
   - "1.0.0: Initial template version"
 ---
 
@@ -247,22 +248,174 @@ For secrets needed by the running application (not just the pipeline):
 - CI/CD pipeline provisions/rotates secrets in the cloud vault during deployment
 - Application reads from cloud vault at runtime (AWS SM, Azure KV, etc.)
 - Pipeline uses Tier A credentials to authenticate TO the Tier B vault
-- See `constitution.md` § Tiered Secrets Strategy for full policy
+- See `[PLAW-05]` in `.claude/rules/configuration.md` § Tiered Secrets Strategy for full policy
 
-## Environment Deployment
+## [PLAW-12] Deployment & Environment Strategy
+> Every deployment passes through the declared quality gates of its environment; production deploys require manual approval, and infrastructure changes are made only as code.
 
-### {{ENVIRONMENT_STRATEGY}}
+> **Mandate:** All deployments MUST pass through defined quality gates. Production deploys require manual approval.
+
+### Environment Topology
+> **Selected Strategy:** {{ENVIRONMENT_STRATEGY}} (defined in setup)
+
+<!-- INFRASTRUCTURE_CONFIG_START
+The following structured fields are used by /DEVOPS agent for governance-first infrastructure planning.
+These fields are populated during /SETUP --generate based on user decisions.
+If a field cannot be determined, it defaults to "unknown" and /DEVOPS will prompt during planning.
+-->
+
+### Infrastructure Configuration (Structured Fields)
+
+```yaml
+# Cloud & IaC Configuration (populated by /SETUP --generate)
+infrastructure:
+  cloud_provider: {{CLOUD_PROVIDER}}  # aws | azure | gcp | local | hybrid | unknown
+  iac_tool: {{IAC_TOOL}}              # terraform | pulumi | aws-cdk | docker-compose | localstack | sam | unknown
+  iac_descriptor:                      # Universal IaC meta-model (populated by /SETUP --generate from Q23)
+    entry_point: {{IAC_ENTRY_POINT}}               # e.g., main.tf | Pulumi.yaml | cdk.json
+    provider_config: {{IAC_PROVIDER_CONFIG}}        # e.g., provider.tf | Pulumi.aws.yaml
+    state_management: {{IAC_STATE_MANAGEMENT}}      # e.g., backend "s3" | Pulumi Cloud | cdk-toolkit
+    env_config_pattern: {{IAC_ENV_CONFIG_PATTERN}}  # e.g., envs/{env}.tfvars | Pulumi.{env}.yaml
+    module_dir: {{IAC_MODULE_DIR}}                  # e.g., modules/ | packages/ | constructs/
+    commands:
+      validate: {{IAC_CMD_VALIDATE}}    # e.g., terraform validate | pulumi preview --diff
+      plan: {{IAC_CMD_PLAN}}            # e.g., terraform plan | pulumi preview
+      apply: {{IAC_CMD_APPLY}}          # e.g., terraform apply | pulumi up
+      destroy: {{IAC_CMD_DESTROY}}      # e.g., terraform destroy | pulumi destroy
+      format: {{IAC_CMD_FORMAT}}        # e.g., terraform fmt | pulumi (N/A)
+  environments:                        # List of environments with per-env secrets config
+    - name: {{ENV_1}}                  # e.g., dev
+      hosting: {{ENV_1_HOSTING}}       # local | cloud | hybrid
+      secrets_manager: {{ENV_1_SECRETS_MANAGER}}  # env-file | aws-secrets-manager | azure-keyvault | gcp-secret-manager | hashicorp-vault | doppler
+    - name: {{ENV_2}}                  # e.g., staging
+      hosting: {{ENV_2_HOSTING}}       # local | cloud | hybrid
+      secrets_manager: {{ENV_2_SECRETS_MANAGER}}
+    - name: {{ENV_3}}                  # e.g., prod
+      hosting: {{ENV_3_HOSTING}}       # local | cloud | hybrid
+      secrets_manager: {{ENV_3_SECRETS_MANAGER}}
+  deployment_strategy: {{DEPLOYMENT_STRATEGY}}  # blue-green | canary | rolling | recreate | unknown
+  secrets_manager_default: {{SECRETS_MANAGER}}  # Default/primary vault for non-local envs: aws-secrets-manager | azure-keyvault | gcp-secret-manager | hashicorp-vault | doppler | env-file | unknown
+  secrets_cicd: {{SECRETS_CICD}}                  # github-secrets | gitlab-ci-variables | azure-devops-library | bitbucket-variables | jenkins-credentials | env-file | unknown
+
+# Observability Stack
+observability:
+  metrics: {{OBSERVABILITY_METRICS}}      # prometheus | datadog | cloudwatch | elastic | unknown
+  logging: {{OBSERVABILITY_LOGGING}}      # elk | cloudwatch | datadog | loki | unknown
+  tracing: {{OBSERVABILITY_TRACING}}      # jaeger | zipkin | datadog | xray | unknown
+  alerting: {{OBSERVABILITY_ALERTING}}    # pagerduty | opsgenie | slack | email | unknown
+
+# Security Configuration
+security:
+  encryption_at_rest:
+    required: {{ENCRYPTION_AT_REST}}      # true | false | unknown
+  encryption_in_transit:
+    required: {{ENCRYPTION_IN_TRANSIT}}   # true | false | unknown (default: true)
+  network_policy: {{NETWORK_POLICY}}      # default-deny | allow-all | custom | unknown
+```
+
+<!-- INFRASTRUCTURE_CONFIG_END -->
 
 {{#if ENVIRONMENT_STRATEGY == "Standard"}}
+#### Standard: Dev → Staging → Production
 - **Development:** Auto-deploy on merge to `main`
 - **Staging:** Auto-deploy on merge to `release/*`
 - **Production:** Manual approval after staging validation
+
+| Environment | Purpose | Auto-Deploy | Quality Gates | Rollback |
+|-------------|---------|-------------|---------------|----------|
+| **Development** | Integration testing, agentic validation | ✅ On merge to `main` | Lint + Unit Tests (80%) | Manual |
+| **Staging** | Pre-production validation, stakeholder review | ✅ On merge to `release/*` (if applicable) | Full test suite + Security scan + Integration tests | Manual |
+| **Production** | Live user traffic | ❌ Manual approval required | All gates + Performance tests + Smoke tests post-deploy | Automated on health check failure |
 {{/if}}
 
 {{#if ENVIRONMENT_STRATEGY == "Minimal"}}
+#### Minimal: Dev → Production
 - **Development:** Auto-deploy on merge to `main`
 - **Production:** Manual approval + 2-hour observation window
+
+| Environment | Purpose | Auto-Deploy | Quality Gates | Rollback |
+|-------------|---------|-------------|---------------|----------|
+| **Development** | Integration testing | ✅ On merge to `main` | Lint + Unit Tests + Security scan | Manual |
+| **Production** | Live user traffic | ❌ Manual approval + 2-hour observation window | All gates + Load tests + Smoke tests | Automated on health check failure |
 {{/if}}
+
+### Deployment Flow
+
+#### Development Environment
+- **Trigger:** Auto-deploy on merge to `main`
+- **Validation:** Basic smoke tests (health endpoints 200 OK)
+- **Purpose:** Fast feedback for agentic workflows and developer testing
+- **Data:** Synthetic/anonymized data, refreshed daily
+
+#### Staging Environment
+- **Trigger:** Auto-deploy on `release/*` branch creation or manual trigger
+- **Validation:** Full regression suite, security scan, integration tests
+- **Purpose:** Pre-production validation, stakeholder demos, performance testing
+- **Data:** Production-like dataset (anonymized), synced weekly
+
+#### Production Environment
+- **Trigger:** Manual approval after staging validation
+- **Validation:** All quality gates + manual QA sign-off
+- **Process:**
+  1. Deploy to canary (10% traffic) → Monitor for 30min
+  2. Expand to 50% traffic → Monitor for 30min
+  3. Full rollout (100% traffic)
+  4. Post-deploy smoke tests + health check monitoring
+- **Rollback:** Automated if health checks fail within 15min window
+
+### Environment Variable Management
+
+#### Template Structure
+- **Files:** `.env.example.dev`, `.env.example.staging`, `.env.example.prod`
+- **Secrets:** NEVER commit actual values. Use placeholders in examples.
+
+#### Naming Convention
+```
+{SERVICE}_{RESOURCE}_{PURPOSE}
+```
+
+**Examples:**
+- `DB_PRIMARY_CONNECTION_STRING`
+- `REDIS_CACHE_URL`
+- `AUTH_JWT_SECRET`
+- `STRIPE_API_KEY`
+
+#### Secrets Management
+- **Development:** Local `.env` file (gitignored)
+- **Staging/Production:** [AWS Secrets Manager | HashiCorp Vault | Azure Key Vault | GitHub Secrets]
+- **Rotation:** Automatic rotation every 90 days for production secrets
+- **Access:** Least privilege (only services that need it)
+
+### Infrastructure as Code (IaC)
+
+#### Required for Production
+- **Tools:** {{IAC_TOOL}} (see `iac_descriptor` in Infrastructure Configuration for commands and patterns)
+- **Version Control:** All IaC in `infra/` directory, reviewed via PR
+  - `infra/modules/` — System-scope modules (shared across 2+ features)
+  - `infra/features/{FEATURE_ID}/` — Feature-exclusive IaC (single consumer)
+- **State Management:** {{IAC_STATE_MANAGEMENT}} (remote state, never local in CI)
+- **Change Process:** Plan → Review → Apply (never manual console changes)
+- **Governance:** See `.claude/rules/iac.md` for naming, security, tagging, and module policies
+- **Registry:** `config/infrastructure_registry.json` tracks all provisioned resources with scope (feature/system) and consumer tracking
+
+#### Drift Detection
+- **Schedule:** Daily automated drift detection
+- **Action:** Alert + create ticket for remediation
+- **Compliance:** Production infrastructure must match IaC definition
+
+### Disaster Recovery
+
+#### Backup Strategy
+- **Database:** Automated daily backups, 30-day retention
+- **Application State:** Stateless design (no local state to back up)
+- **Configuration:** Versioned in git, immutable deployments
+
+#### Recovery Time Objectives (RTO/RPO)
+| Tier | System | RTO | RPO | Strategy |
+|------|--------|-----|-----|----------|
+| **Tier 1 (Critical)** | Payment processing, Auth | <15min | <5min | Active-active multi-region |
+| **Tier 2 (Standard)** | Core application logic | <1hr | <15min | Active-passive with automated failover |
+| **Tier 3 (Non-Critical)** | Analytics, reporting | <4hr | <1hr | Backup restoration |
 
 ## Platform-Specific Configuration
 
@@ -646,7 +799,7 @@ This prevents accidental tagging on direct pushes (which should be blocked by br
 {{/if}}
 
 ## See Also
-- `constitution.md` § Deployment & Environment Strategy
+- `docs/constitution.md` — `[PLAW-12]` index entry (this file is its body)
 - `.claude/rules/branching.md` for commit format and SemVer rules
 {{#if CI_CD_PLATFORM == "GitHub Actions"}}
 - `.github/workflows/auto-tag.yml` for the workflow implementation

@@ -128,8 +128,8 @@ as an architectural decision per project policy.
 
 Project-wide constitutional decisions: add an ADR under `docs/project_log/adr/`
 using the project's `factory-adr-management` skill (Propose Procedure). The Accept
-Procedure will copy the `## Operational Rule` field into `docs/constitution.md`
-as a `## [LAW]` section at status flip.
+Procedure writes the `## Operational Rule` sentence into the `docs/constitution.md`
+index (`[PLAW-NN]`) and its body into the pointed rule file at status flip.
 
 Feature-scoped decisions: add an FDR under `docs/spec/{FEATURE_ID}/fdr/` — they
 are binding within the feature scope and do NOT amend the universal constitution.

@@ -1352,7 +1352,7 @@ VISION_ARTIFACTS:
     style_guide.html:
       purpose: "Interactive style guide — color palette, typography, spacing, elevation"
       rules:
-        - "Tokens MUST align with ux-constitution.instructions.md Section I-bis (Visual DNA)"
+        - "Tokens MUST align with ux-constitution.md Section I-bis (Visual DNA)"
         - "If External DS exists, tokens inherit from DS (DS wins except WCAG violations)"
     
     page_templates.html:
@@ -1364,7 +1364,7 @@ VISION_ARTIFACTS:
     component_library.html:
       purpose: "Reusable UI component library — buttons, cards, forms, modals, alerts, tables"
       rules:
-        - "Components MUST follow ux-constitution.instructions.md Section V (Component Architecture)"
+        - "Components MUST follow ux-constitution.md Section V (Component Architecture)"
         - "Each component MUST have ARIA annotations and data-testid"
         - "Components MUST be framework-CSS-only (no inline styles)"
     

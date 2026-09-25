@@ -136,3 +136,8 @@ A project may swap MCP servers without touching the skill. Steps:
 3. Update `config/quality.json.complexity.mcp_server` + `.mcp_tool_name`.
 
 The skill makes no opinion about which MCP is correct; that choice is RDR-ratified at SETUP (`Factory-setup-discovery` complexity discovery question).
+
+## [LAW-11] Cyclomatic Complexity Gate
+> Cyclomatic complexity is gated by a project-configured tool through a tool-agnostic skill, thresholds as keys, fail-open on infrastructure faults.
+
+Process in the framework (DC-28, this skill's contract, gate semantics in BVL `full_verification_gate` Step 7 + factory-pr-review axis 6 / Block 19; thresholds are the `config/quality.json.complexity.thresholds` keys); tool in the project (`complexity.mcp_server` chosen at SETUP RDR Q23.1 — Semgrep MCP default / custom MCP / skip). This skill is tool-agnostic — it never names a tool in code paths. Fail-open on infrastructure faults (missing config, disabled gate, unavailable MCP, unparseable response → advisory, never blocks). Adding a new MCP needs no framework change: the project sets `mcp_server` + `mcp_tool_name`.

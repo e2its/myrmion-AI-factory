@@ -1,6 +1,6 @@
 ---
 name: factory-adr-management
-description: "Factory ADR Management Skill — canonical algorithm for proposing, ratifying, and querying Architectural Decision Records and Feature Decision Records. Mechanically copies the ADR's Operational Rule field into docs/constitution.md as a [LAW] section at status flip; FDRs stay feature-local. Use when: any agent or free-form turn proposes an architectural decision (BLUEPRINT design, AUDIT mitigation, IMPLEMENT discovery, CODESIGN vision deviation, DEVOPS infra choice, BACKLOG retrospective DC promotion, ad-hoc 'this deserves an ADR'); when ratifying a proposed ADR/FDR after RDR with the user; when downstream consumers (BLUEPRINT § 7.8, IMPLEMENT Review Check #14) need a list of active records."
+description: "Factory ADR Management Skill — canonical algorithm for proposing, ratifying, and querying Architectural Decision Records and Feature Decision Records. Mechanically writes the ADR's Operational Rule into the constitution INDEX (one `[PLAW-NN]` sentence + body pointer + records) and its body into the pointed rule file at status flip; FDRs stay feature-local. Use when: any agent or free-form turn proposes an architectural decision (BLUEPRINT design, AUDIT mitigation, IMPLEMENT discovery, CODESIGN vision deviation, DEVOPS infra choice, BACKLOG retrospective DC promotion, ad-hoc 'this deserves an ADR'); when ratifying a proposed ADR/FDR after RDR with the user; when downstream consumers (BLUEPRINT § 7.8, IMPLEMENT Review Check #14) need a list of active records."
 applicable_when:
   always: true
 ---
@@ -10,7 +10,7 @@ applicable_when:
 > **Shared Protocol** — Referenced by: BLUEPRINT (`--start`, `--refine`), AUDIT (`--audit`), IMPLEMENT (`--build` discovery, `--fix` classification), CODESIGN (`--vision-deviation`), DEVOPS (`--configure`), BACKLOG (RETROSPECTIVE), and any free-form turn that needs to formalise an architectural decision.
 > Single source of truth for ADR/FDR lifecycle, file format, amendment ceremony, and downstream query API. Every inline reference to ADR/FDR creation or acceptance across commands / instructions / templates must conform to this protocol.
 
-**Core Principle:** Active operational law lives in `docs/constitution.md` and ONLY there. ADRs are historical records of why constitutional changes were made. The Accept Procedure mechanically copies an ADR's `## Operational Rule` field into a `## [LAW]` section of constitution — no agent judgement, no manual editing, no second source of truth. FDRs are feature-local binding records that never escalate to constitution.
+**Core Principle:** Active operational law is INDEXED in `docs/constitution.md` — per project law one `## [PLAW-NN] Title`, one `> sentence`, one `Body:` pointer into `.claude/rules/`, its `Records:` — and detailed in exactly ONE body (EVOL-043). ADRs are historical records of why a sentence changed. The Accept Procedure mechanically writes the ADR's `## Operational Rule` sentence into the index and its `### Body` into the pointed rule file — no agent judgement, no manual editing, no second source of truth. A body-only change needs no ADR (rule-file edit + manifest bump). FDRs are feature-local binding records that never escalate to constitution.
 
 ---
 
@@ -18,9 +18,9 @@ applicable_when:
 
 | Type | Path | Amends constitution? | Lifecycle | Loaded into governance snapshot? |
 |---|---|---|---|---|
-| **ADR** (Architectural Decision Record) | `docs/project_log/adr/ADR-{N}-{slug}.md` | YES (mandatory at accept) | proposed → accepted | NO (the resulting constitution `[LAW]` section is loaded; the ADR itself is historical) |
+| **ADR** (Architectural Decision Record) | `docs/project_log/adr/ADR-{N}-{slug}.md` | YES (mandatory at accept) | proposed → accepted | NO (the resulting `[PLAW-NN]` index entry is loaded; the ADR itself is historical) |
 | **FDR** (Feature Decision Record) | `docs/spec/{FEAT-ID}/fdr/FDR-{N}-{slug}.md` | NO (feature-local only) | proposed → accepted | NO (read directly by BLUEPRINT § 7.8 when working the owning feature) |
-| **DIVERGENCE** (Divergence Record) | `docs/project_log/adr/ADR-{N}-{slug}.md` | NO (records intent, no [LAW] section added or modified) | accepted (single state — divergences are declarative) | NO (the ADR is the historical record; future readers consult it before "fixing" the documented divergence) |
+| **DIVERGENCE** (Divergence Record) | `docs/project_log/adr/ADR-{N}-{slug}.md` | NO (records intent, no index entry added or modified) | accepted (single state — divergences are declarative) | NO (the ADR is the historical record; future readers consult it before "fixing" the documented divergence) |
 
 Choosing between record types is the agent's first responsibility when invoking this skill — see § Decision: record_type. **DIVERGENCE records use the ADR file path and numbering** (they are a sub-flavour of ADR with `record_type: DIVERGENCE` in the call) but skip Accept Procedure (no constitution amendment). They satisfy `operational_rule` with a single explanatory line ("DIVERGENCE record — see § Decision body") and `target_section: none`, `amendment_kind: none`. The validator skips the constitution-section verification when `record_type == DIVERGENCE`.
 
@@ -41,8 +41,9 @@ Creates a new record in `status: proposed`. Triggered by any agent or free-form 
 - `decision: string` — what was decided, with rationale.
 - `alternatives: list of {name, rationale}` — minimum 2 (required by RDR).
 - `consequences: {positives: list, negatives: list}`.
-- `operational_rule: string` — for ADR: the verbatim text that will be copied into `docs/constitution.md` as a `[LAW]` section at accept. For FDR: the binding rule that applies within the feature scope. For DIVERGENCE: a single explanatory line stating that the ADR is a divergence record and points to its `## Decision` body. **MUST NOT be empty.** Plain operational text only — no rationale, no alternatives, no commentary.
-- `target_section: string` — ADR only (mandatory). Either `## [LAW] {existing heading}` to amend an existing section, or `NEW: {proposed heading}` to add a new section. For DIVERGENCE: `none`. Project-minted laws that want a stable ID use the `PLAW-NN` namespace (e.g. `## [LAW] [PLAW-01] {name}`) — regex-disjoint from the framework's `LAW-NN` corpus (reserved LAW-01..99); never mint a `LAW-NN` ID in a project.
+- `operational_rule: string` — for ADR: the normative SENTENCE (one line, within `budgets.law_sentence_max_chars`, no file paths, no threshold digits) that becomes the `> sentence` of the index entry at accept; the ADR's `### Body` (optional, under `## Operational Rule`) is the detail written to the body home. For FDR: the binding rule that applies within the feature scope. For DIVERGENCE: a single explanatory line stating that the ADR is a divergence record and points to its `## Decision` body. **MUST NOT be empty.** Plain operational text only — no rationale, no alternatives, no commentary.
+- `target_section: string` — ADR only (mandatory). `[PLAW-NN]` to amend an existing law, or `NEW: {Title}` to mint the next `PLAW-NN`. For DIVERGENCE: `none`. Never mint a `LAW-NN` id in a project (reserved framework corpus).
+- `body_home: string` — ADR `ADD` (mandatory) / `REPLACE` (optional, defaults to the entry's current pointer): the rule file that hosts the body, as `rules/{file}.md` (resolved against `.claude/rules/`). Created with sibling frontmatter when absent.
 - `amendment_kind: ADD | REPLACE | REMOVE | NONE` — ADR. `NONE` is reserved for `record_type: DIVERGENCE`.
 
 **Steps:**
@@ -51,8 +52,8 @@ Creates a new record in `status: proposed`. Triggered by any agent or free-form 
 2. **Validate inputs.**
    - `operational_rule` non-empty (whitespace-only fails).
    - For ADR: `target_section` non-empty AND `amendment_kind` ∈ {ADD, REPLACE, REMOVE}.
-   - For ADR with `amendment_kind: REPLACE | REMOVE`: target section must exist in `docs/constitution.md` (verified by regex match against `^## \[LAW\] {target_section_heading}$`).
-   - For ADR with `amendment_kind: ADD`: target section must NOT already exist.
+   - For ADR with `amendment_kind: REPLACE | REMOVE`: `target_section` is an existing `[PLAW-NN]` of `docs/constitution.md` (verified by `python3 scripts/gate.py laws --json`).
+   - For ADR with `amendment_kind: ADD`: `target_section` is `NEW: {Title}`, no existing entry carries that title, `body_home` names a rule file.
    - For FDR: `feature_id` matches an existing feature directory.
    - For DIVERGENCE: `target_section == "none"` AND `amendment_kind == "NONE"`. Constitution section verification SKIPPED.
    - Fail with humanised message if any check fails — never write the record on validation error.
@@ -83,34 +84,30 @@ Flips a proposed record to `accepted`. For ADRs, mechanically amends `docs/const
 
 **Steps (ADR):**
 
-1. **Read frontmatter.** `target_section`, `amendment_kind`, `title`, `adr_number`.
-2. **Read `## Operational Rule`** body (verbatim string between the heading and the next `^##` boundary). Re-validate non-empty.
-3. **Capture `before` snapshot.** Read `docs/constitution.md` and locate the target section block per `amendment_kind`:
-   - `ADD` → record insertion point (end of file or before a configured anchor) and `before = ""`.
-   - `REPLACE` → record `before = body of [LAW] section identified by target_section`.
-   - `REMOVE` → record `before = full block including heading`.
-4. **Apply edit.**
-   - `ADD` → append `\n## [LAW] {title}\n\n{operational_rule}\n` at the insertion point.
-   - `REPLACE` → substitute the body of the matched `[LAW]` section with `{operational_rule}` (heading preserved).
-   - `REMOVE` → delete the matched `[LAW]` section (heading + body).
-5. **Capture `after` snapshot.** Same scope as `before`.
-6. **Write `## Constitution Amendment` section** in the ADR with the before/after diff (unified diff format, anchored to `target_section`).
+1. **Read frontmatter.** `target_section`, `amendment_kind`, `title`, `adr_number`, `body_home`.
+2. **Read `## Operational Rule`.** The first non-empty paragraph is the SENTENCE (one line; re-validate non-empty and within `budgets.law_sentence_max_chars`). The `### Body` sub-section, when present, is the body text (verbatim, placeholders allowed).
+3. **Capture `before`.** From `python3 scripts/gate.py laws --json` (`.project[]`): the target entry (`sentence`, `body`, `records`) and, when the body changes, the current body section of the pointed file (`## [PLAW-NN] …` heading + `> sentence` + text up to the next `## `).
+4. **Apply edit — index (`docs/constitution.md`):**
+   - `ADD` → `id = PLAW-{max+1:02d}`; append `\n## [{id}] {title}\n> {sentence}\nBody: \`{body_home}\` · Records: \`ADR-{N}\`\n`.
+   - `REPLACE` → replace the `> sentence` line of the target entry; append `ADR-{N}` to its `Records:`; when `body_home` is given, replace the `Body:` pointer.
+   - `REMOVE` → delete the three-line entry.
+5. **Apply edit — body home (`.claude/rules/{file}.md`):**
+   - `ADD` → append `\n## [{id}] {title}\n> {sentence}\n\n{body}\n` (create the file with sibling frontmatter when absent).
+   - `REPLACE` → replace the `> sentence` line under the `## [{id}]` heading (the quote must equal the index sentence — the parity gate reads both); replace the section text when a `### Body` was given.
+   - `REMOVE` → delete the `## [{id}]` section.
+6. **Write `## Constitution Amendment` section** in the ADR with the before/after of the entry (and of the body when it changed).
 7. **Flip frontmatter** `status: proposed` → `accepted`. Set `accepted_at: ISO_8601`.
-8. **Bump `governance_versions.json`** entries:
-   - `docs/constitution.md` — MINOR (additive amendment) or MAJOR (breaking semantic flip; caller signals via optional `bump_kind` input).
-   - `docs/project_log/adr/ADR-{N}-{slug}.md` — `1.0.0` (initial accepted version).
-   - Add changelog line: `"{new_version}: ADR-{N} {amendment_kind} on {target_section} — {title}"`.
-9. **Regenerate snapshot.** Trigger `generate_governance_snapshot()` (Factory-setup-materialization Checkpoint 3.1) so the new `[LAW]` is in cache for the next agent turn.
-10. **Append worklog entry.** Worklog event: `adr_accepted` with `{number, target_section, amendment_kind, constitution_diff_size}`.
+8. **Bump the governance manifest** entries: `docs/constitution.md` (MINOR, or MAJOR when the caller signals a breaking flip), the body home rule file (MINOR), the ADR at `1.0.0`; changelog line `"{new_version}: ADR-{N} {amendment_kind} {target_section} — {title}"`.
+9. **Regenerate the snapshot:** `bash scripts/generate-governance-snapshot.sh` (the index changed).
+10. **Append worklog entry.** `adr_accepted` with `{number, target_section, amendment_kind, body_home}`.
 11. **Emit commit-message suggestion** at `.claude/state/commit-message-suggestion.md`:
     ```
     feat(governance): ADR-{N} {amendment_kind} {target_section} — {title}
 
-    Amends docs/constitution.md per ADR-{N} Operational Rule.
-    Constitution version bumped via factory-adr-management Accept Procedure.
+    Index entry in docs/constitution.md and body in {body_home} per ADR-{N} Operational Rule.
     ```
-    The CI gate `scripts/check-adr-constitution-sync.sh` will pass because the same commit touches both files.
-12. **Return.** `{path, status: accepted, constitution_diff: {target_section, amendment_kind, before, after}, version_bumps: {...}}` to the caller.
+    `scripts/check-adr-constitution-sync.sh` passes in both directions: the ADR flips to accepted with the constitution in the diff, and the sentence change carries its accepted ADR.
+12. **Return.** `{path, status: accepted, constitution_diff: {target_section, amendment_kind, before, after}, body_home, version_bumps: {...}}` to the caller.
 
 **Steps (FDR):**
 
@@ -122,7 +119,7 @@ Flips a proposed record to `accepted`. For ADRs, mechanically amends `docs/const
 
 **Failure modes:**
 
-- ADR with `target_section` no longer present in constitution (e.g., another ADR removed it concurrently) → fail; caller must re-propose with updated target.
+- ADR with `target_section` no longer present in the index (e.g., another ADR removed it concurrently) → fail; caller must re-propose with updated target.
 - ADR amendment produces malformed constitution (e.g., regex extraction would no longer return a contiguous block) → fail; rollback constitution edit; do NOT flip status.
 - Constitution write fails mid-edit → rollback via the `before` snapshot; do NOT flip status; surface error to caller.
 
@@ -148,12 +145,12 @@ List of records, each with:
   status: accepted
   accepted_at: "2026-04-15T10:30:00Z"
   feature_id: null  # or FEAT-024
-  target_section: "## [LAW] 🧠 Code Readability & Maintainability"  # ADR only
+  target_section: "[PLAW-04]"  # ADR only — an existing law id, or "NEW: {Title}" at propose time
   amendment_kind: ADD  # ADR only
   operational_rule_summary: "{first 200 chars of Operational Rule, single line}"
 ```
 
-The API is deterministic (sorted by accepted_at descending) and idempotent. Consumers must NOT use this API as a source of operational law — that lives in constitution. Use it only for traceability ("why is this `[LAW]` section worded this way?") and historical queries.
+The API is deterministic (sorted by accepted_at descending) and idempotent. Consumers must NOT use this API as a source of operational law — that lives in constitution. Use it only for traceability ("why is this `[PLAW-NN]` sentence worded this way?") and historical queries.
 
 ---
 
@@ -214,7 +211,7 @@ WHEN DEV hat discovers an invariant during TDD that should be codified:
 ```yaml
 WHEN [EPIC-N] RETROSPECTIVE closes and a DC has been triggered N≥3 times across features:
   → run RDR with user on whether to promote DC to ADR (constitution amendment)
-  → if yes: invoke Propose Procedure with operational_rule = the prevention rule, target_section = appropriate constitution [LAW] section
+  → if yes: invoke Propose Procedure with operational_rule = the prevention rule, target_section = the `[PLAW-NN]` it sharpens (or `NEW: …`)
 ```
 
 ### From free-form turn
@@ -222,7 +219,7 @@ WHEN [EPIC-N] RETROSPECTIVE closes and a DC has been triggered N≥3 times acros
 ```yaml
 USER: "esto merece un ADR — todos los servicios deben emitir trace IDs en cada request"
 AGENT:
-  → confirm scope with one-line reflection ("project-wide → ADR amending [LAW] Security by Design")
+  → confirm scope with one-line reflection ("project-wide → ADR amending [PLAW-06] Security by Design")
   → run RDR with user on the exact operational rule wording
   → invoke Propose Procedure
   → ask user when to invoke Accept Procedure (now or after PR review)

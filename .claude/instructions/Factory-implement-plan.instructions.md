@@ -259,7 +259,7 @@ IF applicable_dcs is not empty:
   ADD SECTION to dev_plan.md § DC Compliance (created if absent):
     FOR EACH dc IN applicable_dcs:
       ADD task:
-        "- [ ] [DC-{dc.number}] Verify {dc.name}: {dc.check}"
+        "- [ ] [DC-{dc.number}] Verify {dc.name}: {dc.invariant}"
         # Every DC becomes an explicit dev_plan task tracked by the BVL loop.
         # DEV hat pre-write check (Factory-implement-build) also reads the same catalog.
 
@@ -368,7 +368,7 @@ FUNCTION load_mandatory_patterns(FEATURE_ID):
   ELSE:
     # Fallback: Load directly from constitution [LAW] sections + feature-local FDRs (pre-GCD BLUEPRINT).
     # Source priority: docs/spec/{FEATURE_ID}/fdr/ (current) → docs/spec/{FEATURE_ID}/adr/ (legacy fallback for unmigrated projects).
-    patterns = EXTRACT_LAW_SECTIONS(docs/constitution.md)  # operational [LAW] body extracted via regex; project-wide patterns live here
+    patterns = LAW_BODIES(python3 scripts/gate.py laws --json)  # the index (docs/constitution.md) → Body: pointers → bodies that name a pattern (EVOL-043)
     fdr_bindings = []
     FOR EACH dir IN ["docs/spec/{FEATURE_ID}/fdr/", "docs/spec/{FEATURE_ID}/adr/"]:
       IF DIRECTORY_EXISTS(dir):

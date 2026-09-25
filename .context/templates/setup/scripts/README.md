@@ -235,4 +235,4 @@ All validations passed successfully!
 **Related Documentation:**
 - Schema Reference: `.context/templates/setup/config/system_resources_schema.md`
 - Template: `.context/templates/setup/config/system_resources.template.json`
-- Constitution: `.context/constitution.md` (Configuration Hardcoding Prohibition section)
+- Rule: `.claude/rules/configuration.md` (`[PLAW-05]` Configuration Hardcoding Prohibition)

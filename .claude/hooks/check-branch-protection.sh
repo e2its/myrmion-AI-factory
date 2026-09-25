@@ -4,7 +4,8 @@
 # check-branch-protection.sh — PreToolUse hook: block Edit/Write on protected branches
 # ============================================================================
 # Reads stdin JSON from Claude Code hook protocol.
-# Exits 1 (blocking) if current git branch is protected.
+# Exit 2 + message on stderr = the Claude Code blocking contract for PreToolUse hooks
+# (exit 1 is a NON-blocking error: the tool would run anyway — EVOL-043 hook audit).
 # ============================================================================
 
 branch=$(git branch --show-current 2>/dev/null || echo '')
@@ -13,10 +14,12 @@ if [ -z "$branch" ]; then
 fi
 
 if echo "$branch" | grep -qE '^(main|master|develop|release(/.+)?|hotfix)$'; then
-  echo "BLOCKED: on protected branch '$branch'. Create a working branch first. Allowed patterns:"
-  echo "  feature/ID-slug   fix/slug   bugfix/slug   hotfix/slug   docs/slug   chore/slug"
-  echo "Example: git checkout -b hotfix/my-fix origin/main"
-  exit 1
+  {
+    echo "BLOCKED: on protected branch '$branch'. Create a working branch first. Allowed patterns:"
+    echo "  feature/ID-slug   fix/slug   bugfix/slug   hotfix/slug   docs/slug   chore/slug"
+    echo "Example: git checkout -b hotfix/my-fix origin/main"
+  } >&2
+  exit 2
 fi
 
 exit 0
