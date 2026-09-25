@@ -581,10 +581,11 @@
       "delivery": "both"
     },
     "scripts/README.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": "scripts/README.md",
       "changelog": [
+        "1.3.0: feat(EVOL-044) — coherence gates review pass (see PR).",
         "1.2.0: feat(EVOL-043) — EVOL-043 touch (see PR).",
         "1.1.3: fix(EVOL-040 pr-review loop i3b) — --drift/--validate-ux flags documented (last doc-completeness nit; 0/0/0).",
         "1.1.2: fix(EVOL-040 pr-review loop i2) — security-scan section rewritten to the dispatcher reality (synopsis, flags incl. --secrets/--require-scanner/--range, purpose tool-agnostic, examples de-tooled).",
@@ -1016,10 +1017,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.4.0: feat(EVOL-044) — coherence.certifying_artefacts key (the verdict artefacts gate.py currency judges; both sec_audit paths).",
         "1.3.0: feat(EVOL-043) — budgets block (session_start, prompt_submit, pre_edit, snapshot, law_sentence_max_chars, dc_invariant_max_chars) and retired_terms ratchet list.",
         "1.2.0: feat(EVOL-040 RDR-2) — security_scan block: {{SECURITY_SCANNER}}/{{SECURITY_SCANNER_COMMAND}}/{{SECURITY_SCANNER_INSTALL_HINT}} placeholders resolved from Q23.2; report_format exit-code default, fail_on any. Skip ⇒ null literals + enabled=false, file still materialised.",
         "1.1.0: feat(EVOL-039) — optional code_review block (enabled, pr_blocker, gate_blocking_agents, conditional_agents, advisory_agents). Pure defaults, placeholder-free — no SETUP materialization edit, no discovery question. Block ABSENT ⇒ defaults ACTIVE (inverse of complexity: the code-review executor ships with the skill, no external MCP). Consumed by factory-code-review SKILL + preflight.sh Step 0-bis.",
@@ -1229,11 +1231,12 @@
       ]
     },
     "setup/gitignore.hbs": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": ".gitignore",
       "role": "Gitignore handlebars template — rendered at materialization.",
       "changelog": [
+        "1.1.0: feat(EVOL-044) — verdict artefacts (qa_report_*, sec_audit_*) are VERSIONED — a verdict of record certifies a build; the ignore lines and their comments removed.",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ]
     },
@@ -1651,11 +1654,12 @@
       "delivery": "both"
     },
     "scripts/gates/common.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/gates/common.py",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files.",
       "changelog": [
+        "1.1.0: feat(EVOL-044) — subset parser: inline comments stripped, unterminated quotes refused; tracked_files is a fault when git fails inside a repository.",
         "1.0.0: feat(EVOL-043)! — initial."
       ],
       "delivery": "both"
@@ -2571,9 +2575,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.13.0",
+      "version": "3.14.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.14.0: feat(EVOL-044) — the project manifest shape declared (framework_version, templates map = source of truth for manifest-parity, files map for upgrade checksums).",
         "3.13.0: feat(EVOL-043) — Subproducts (measure always); Phase D retired (resolver reads docs/setup.md); ADD DC blocks in the 7-column shape + cases annex; snapshot pseudocode → rows with Paths *; hosts the [LAW-14] body; Checkpoint 3.1 regex → [PLAW-NN].",
         "3.12.0: feat(EVOL-042) — Subproducts Materialization generalised to members (`measure` always, `po-package` conditional): measure placeholder map (unquoted integer tokens), JSON + zero-placeholder invariant, self-test BLOCK, `## Measurement — next steps` block.",
         "3.11.0: fix(po-package-card-tool-cases) — `DS_CARDS_SOURCE` accepts `code-manual`; `DS_ACTIVE_SECTION` derived from the cards folder (no folder → 6A, command + workflow → 6C, else 6B).",
@@ -3941,11 +3946,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.2.0: feat(EVOL-044) — coherence.certifying_artefacts key (the verdict artefacts gate.py currency judges; both sec_audit paths).",
         "1.1.0: feat(EVOL-043) — budgets block (session_start, prompt_submit, pre_edit, snapshot, law_sentence_max_chars, dc_invariant_max_chars) and retired_terms ratchet list.",
         "1.0.0: feat(EVOL-040 RDR-2) — initial. Meta previously had NO quality.json (complexity axis permanently fail-open by absence); now explicit: complexity.enabled=false is a declared decision, not an accident."
       ]
@@ -4064,11 +4070,12 @@
       ]
     },
     "scripts/gates/common.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "gates: repo root, context (meta|downstream), rules root, pointer resolution, config key reader (fail-closed), the ONE frontmatter parser (PyYAML or strict subset), glob matcher, tracked files. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/common.py",
       "changelog": [
+        "1.1.0: feat(EVOL-044) — subset parser: inline comments stripped, unterminated quotes refused; tracked_files is a fault when git fails inside a repository.",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
     },
@@ -4129,11 +4136,12 @@
       ]
     },
     "scripts/test-hooks.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-044) — git pre-push step 4 with a stub reader: exit 1 blocks, exit 2 warns, `laws --parity` as two words.",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
     },
