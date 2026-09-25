@@ -115,63 +115,78 @@ claude
 ### Framework File Structure
 
 ```
-CLAUDE.md                                    # Root governance (always loaded): the universal law index [LAW-NN], the gates, the control points
+CLAUDE.md                              # root governance, always loaded
 .claude/
-├── commands/                                # 8 slash commands (one per SDLC phase + AUDIT + BACKLOG)
-│   ├── audit.md  setup.md  codesign.md  blueprint.md  implement.md  devops.md  qa.md  backlog.md
-├── agents/                                  # 15 role agents (EVOL-049, EVOL-056) — delegated by name, never by discovery
-│   ├── factory-codesign.md  factory-blueprint.md  factory-implement.md  factory-devops.md  factory-qa.md   # phase agents (writer family)
-│   ├── factory-dev-backend.md  factory-dev-frontend.md  factory-dev-platform.md  factory-dev-e2e.md      # workers per surface (writer family)
-│   ├── factory-plan-critic.md                                                                             # the plan gate (critic family, read-only)
-│   ├── factory-critic-correctness.md  factory-critic-governance.md  factory-critic-fidelity.md  factory-critic-security.md   # work critics by concern (read-only)
-│   └── factory-docs-reader.md                                                                             # the external-facts reader — Beat 0 (read-only, documentation MCPs + web)
-├── instructions/                            # 24 detailed instructions (contextual load per command)
-│   ├── Factory-protocol-{smart-redirect,iop-intent-map,cwd-discipline}.instructions.md
-│   ├── Factory-audit-{checklist,complexity}.instructions.md
-│   ├── Factory-setup-{discovery,materialization,upgrade,reconcile-inventory}.instructions.md
-│   ├── Factory-codesign-{vision,feature,sync}.instructions.md
-│   ├── Factory-blueprint-{design,refine,validation}.instructions.md
-│   ├── Factory-implement-{plan,build,review-checks}.instructions.md
-│   ├── Factory-devops-{configure,provision-deploy}.instructions.md
-│   ├── Factory-qa-verify.instructions.md
-│   └── Factory-backlog-{operations,execution-plan,next-task}.instructions.md
-├── skills/                                  # 23 cross-cutting skills (reusable protocols) — see § Cross-Cutting Skills
-│   ├── factory-applicability-discovery/     # ADP — the governance Roll-Call, Step 0 of every command ([LAW-15])
-│   ├── factory-governance-loading/          # GCRP — Zero Trust context recovery, the snapshot, the governance write protocol
-│   ├── factory-rdr/                         # RDR — Recommendation → Decision → Ratification, two registers
-│   ├── factory-adversarial-reasoning/       # FOR / AGAINST double pass with the do-less lens
-│   ├── factory-code-review/                 # the agentic code-review engine ([LAW-13]) — the correctness critic's instrument
-│   ├── factory-pr-review/                   # the seven-axis push gate (preflight before `git push`)
-│   ├── factory-mcp-docs-scan/               # [LAW-10] the documentation-server allowlist: the banner's and the reader's
-│   └── … (incremental-persistence, codebase-inventory, coherence-validation, build-verification, branching-strategy, commit-prompt,
-│        batch-interactivity, agent-communication, iteration-model, worklog, memory-cache, preventive-sweep, backlog-next-task,
-│        adr-management, complexity-check, po-intake)
-├── hooks/                                   # 11 deterministic enforcement hooks, wired in settings.json
-│   ├── check-branch-protection.sh           # PreToolUse Edit|Write — no write on a protected branch
-│   ├── check-plan-approval.sh               # PreToolUse Edit|Write — no governed write without an approved plan (EVOL-048)
-│   ├── check-plan-mode.sh                   # PreToolUse EnterPlanMode — a command that owns a planning phase never enters plan mode
-│   ├── record-plan-approval.sh              # PostToolUse ExitPlanMode — the only writer of the plan-approval marker
-│   ├── check-agent-spawn.sh                 # PreToolUse Agent — a roster agent spawns on its family's alias (EVOL-049)
-│   ├── check-concurrency-lock.sh  check-governance-drift.sh  check-completion-gate.sh  check-ipp-compliance.sh
-│   ├── deliver-governance.sh                # PreToolUse Edit|Write — the law governing the file being written, at the point of edit
-│   └── check-push-preflight.sh              # PreToolUse Bash — the factory-pr-review push gate
-└── settings.json                            # Hook wiring (SessionStart banner, prompt freshness, compaction reload, the PreToolUse gates)
+├── commands/                          # 8 slash commands
+│   ├── audit.md · setup.md · codesign.md · blueprint.md
+│   └── implement.md · devops.md · qa.md · backlog.md
+├── agents/                            # 15 role agents (EVOL-049, EVOL-056)
+│   ├── factory-codesign.md            # phase agents (writer family)
+│   ├── factory-blueprint.md
+│   ├── factory-implement.md
+│   ├── factory-devops.md
+│   ├── factory-qa.md
+│   ├── factory-dev-backend.md         # workers per surface (writer family)
+│   ├── factory-dev-frontend.md
+│   ├── factory-dev-platform.md
+│   ├── factory-dev-e2e.md
+│   ├── factory-plan-critic.md         # the plan gate (critic family, read-only)
+│   ├── factory-critic-correctness.md  # work critics by concern (read-only)
+│   ├── factory-critic-governance.md
+│   ├── factory-critic-fidelity.md
+│   ├── factory-critic-security.md
+│   └── factory-docs-reader.md         # the external-facts reader, Beat 0
+├── instructions/                      # 24 instructions, loaded per command
+│   ├── Factory-protocol-*             # smart-redirect · iop-intent-map · cwd-discipline
+│   ├── Factory-audit-*                # checklist · complexity
+│   ├── Factory-setup-*                # discovery · materialization · upgrade · reconcile
+│   ├── Factory-codesign-*             # vision · feature · sync
+│   ├── Factory-blueprint-*            # design · refine · validation
+│   ├── Factory-implement-*            # plan · build · review-checks
+│   ├── Factory-devops-*               # configure · provision-deploy
+│   ├── Factory-qa-verify
+│   └── Factory-backlog-*              # operations · execution-plan · next-task
+├── skills/                            # 23 protocols (§ Cross-Cutting Skills)
+│   ├── factory-applicability-discovery/   # ADP, the Roll-Call ([LAW-15])
+│   ├── factory-governance-loading/        # GCRP, the snapshot, the write protocol
+│   ├── factory-rdr/                       # RDR, two registers
+│   ├── factory-adversarial-reasoning/     # FOR / AGAINST, the do-less lens
+│   ├── factory-code-review/               # the review engine ([LAW-13])
+│   ├── factory-pr-review/                 # the seven-axis push gate
+│   ├── factory-mcp-docs-scan/             # [LAW-10] the documentation allowlist
+│   └── … 16 more
+├── hooks/                             # 11 enforcement hooks, wired in settings.json
+│   ├── check-branch-protection.sh     # no write on a protected branch
+│   ├── check-plan-approval.sh         # no governed write without a plan (EVOL-048)
+│   ├── check-plan-mode.sh             # a planning command never enters plan mode
+│   ├── record-plan-approval.sh        # the only writer of the approval marker
+│   ├── check-agent-spawn.sh           # a roster agent spawns on its family (EVOL-049)
+│   ├── deliver-governance.sh          # the law of the file being written, at the edit
+│   ├── check-push-preflight.sh        # the push gate (factory-pr-review)
+│   ├── check-concurrency-lock.sh · check-governance-drift.sh
+│   └── check-completion-gate.sh · check-ipp-compliance.sh
+└── settings.json                      # hook wiring
 .context/
-├── templates/                               # Materialisation templates (SETUP --generate), by role: architect, codesign, develop, peer_review, po, qa, security, setup
-│   └── setup/                               #   what a project inherits: claude/ (CLAUDE.md, agents, hooks), rules/, config/, scripts/, workflows/ (7 CI platforms),
-│                                            #   scm/ (protection runbooks per platform), subproducts/ (po-package, measure), governance_versions.json (the manifest)
-├── schemas/                                 # JSON schemas (workflow log, infrastructure registry)
-├── assets/  utils/  locks/
-config/                                      # coherence-context.json (audit + lock-step pairs), quality.json (every gate key: surface, planning, agents,
-                                             #   documentation, verification, traceability, scm, complexity, code_review, security_scan, retired_terms, budgets)
+├── templates/                         # what SETUP --generate materialises, by role
+│   └── setup/                         # claude/ (CLAUDE.md, agents, hooks) · rules/ · config/
+│                                      # scripts/ · workflows/ (7 CI platforms) · scm/
+│                                      # subproducts/ (po-package, measure)
+│                                      # governance_versions.json (the manifest)
+├── schemas/                           # workflow log, infrastructure registry
+└── assets/ · utils/ · locks/
+config/
+├── quality.json                       # every gate key: surface, planning, agents,
+│                                      #   documentation, verification, traceability, scm, …
+└── coherence-context.json             # audit root sets, lock-step pairs
 scripts/
-├── gate.py + gates/*.py                     # THE one reader of every gate (exit 0 ok · 1 red · 2 could not judge · 3 reader missing)
-├── hooks/{pre-commit,pre-push,commit-msg}   # git hooks (scripts/install-hooks.sh): branch class + secrets at commit; the gate profile + the push gate at push
-├── validate-governance.sh, check-lockstep-pairs.sh, check-adr-constitution-sync.sh, check-applicability-frontmatter.sh, …
-├── materialize-synthetic.sh, test-*.sh      # the T2 suites CI runs (89-check synthetic materialisation among them)
-└── factory-sync.sh, auto-tag.sh, security-scan.sh, generate-governance-snapshot.sh, governance-on{prompt,edit,compact}.sh
-.github/workflows/                           # governance-check.yml (the gate profile at ci), lockstep-check.yml, auto-tag.yml
-docs/project_log/evolutions/                 # ADR-EVOL-* (every framework evolution's record) and the release records
+├── gate.py · gates/*.py               # THE one reader of every gate (exit 0 · 1 · 2 · 3)
+├── hooks/                             # git hooks: pre-commit · pre-push · commit-msg
+├── validate-governance.sh             # the manifest, the corpus, the banner
+├── check-*.sh                         # lock-step pairs · ADR sync · applicability · …
+├── materialize-synthetic.sh · test-*.sh   # the T2 suites CI runs
+└── factory-sync.sh · auto-tag.sh · security-scan.sh · governance-on*.sh
+.github/workflows/                     # governance-check · lockstep-check · auto-tag
+docs/project_log/evolutions/           # ADR-EVOL-* and the release records
 ```
 
 ### Post-Installation Verification
@@ -188,20 +203,21 @@ docs/project_log/evolutions/                 # ADR-EVOL-* (every framework evolu
 ### Role agents, one per phase — spawned by name from the main session
 
 ```
-                    ┌─────────────────────────┐
-        User ───────►│  Claude Code (main      │◄─── CLAUDE.md (always loaded) · the hooks · gate.py
-                    │  session: RDR, git, PR) │
-                    └──────────┬──────────────┘
-                               │ slash commands (/command --args) — each delegates its phase BY NAME
-        ┌──────────┬───────────┼───────────┬────────────┬──────────┐
-        ▼          ▼           ▼           ▼            ▼          ▼
-   factory-    factory-    factory-    factory-     factory-   (audit, setup,
-   codesign    blueprint   implement   devops       qa          backlog: main session)
-        │          │           │           │
-        │   plan critic     workers ↔ work critics + security lens   ← spawned by the MAIN SESSION, never by an agent
-        │   (read-only)     (backend · frontend · platform · e2e)      (a phase agent carries no Agent tool)
-        └──────────┴───────────┴───────────┘
-              Beat 0: factory-docs-reader (read-only) reads the documentation before the design, the plan, the infrastructure
+                 ┌──────────────────────────┐
+     User ──────►│ Claude Code (main session │◄── CLAUDE.md · the hooks · gate.py
+                 │ RDR · git · the PR)       │
+                 └────────────┬─────────────┘
+                              │ /command --args — each delegates its phase BY NAME
+     ┌──────────┬─────────────┼─────────────┬──────────┬──────────┐
+     ▼          ▼             ▼             ▼          ▼          ▼
+ factory-   factory-      factory-      factory-   factory-   audit · setup · backlog
+ codesign   blueprint     implement     devops     qa         (main session)
+     │          │             │             │
+     │     plan critic    workers ↔ work critics + security lens
+     │     (read-only)    backend · frontend · platform · e2e
+     └──────────┴─────────────┴─────────────┘
+       spawned by the MAIN SESSION, never by an agent (a phase agent has no Agent tool)
+       Beat 0: factory-docs-reader reads the docs before the design, the plan, the infra
 ```
 
 - **The main session orchestrates.** It runs every slash command, keeps the RDR, the user questions and every git operation (**no agent ratifies, commits or decides**), and spawns the agents by name — delegation is never by applicability discovery.
@@ -1111,42 +1127,46 @@ See `.claude/rules/immutability_policy.md` for the full rules.
 ### Project Structure (after `/setup --generate`)
 
 ```
-CLAUDE.md                           # The project's root governance (from the template; SDLC-first triage)
+CLAUDE.md                          # root governance (SDLC-first triage)
 .claude/
-├── commands/  instructions/  skills/   # The framework, delivered (factory-sync.sh / SETUP --upgrade keep them current)
-├── agents/                         # The 15 role agents
-├── rules/                          # Governance rules — one body per law, applicable_when per rule (architecture, testing, security_policy,
-│                                   #   protected-code, branching, agents, defect-prevention + cases, stack-specific rules, …)
-├── hooks/  settings.json           # The enforcement hooks, wired
+├── commands/ · instructions/ · skills/   # the framework, delivered
+├── agents/                        # the 15 role agents
+├── rules/                         # one body per law, applicable_when per rule
+│                                  #   architecture · testing · security_policy
+│                                  #   protected-code · branching · agents
+│                                  #   defect-prevention (+ cases) · stack rules
+├── hooks/ · settings.json         # the enforcement hooks, wired
 docs/
-├── technical_due.md                # (optional) AUDIT report · software_audit.md for --software
-├── setup.md                        # Setup state tracker (the discovery answers)
-├── constitution.md                 # Project law index ([PLAW-NN] → sentence, Body:, Records:)
-├── scm/protection.md               # Server-side branch protection runbook for the project's SCM platform (EVOL-054)
-├── spec/{FEATURE_ID}/              # Per-feature workspace
-│   ├── spec.feature  mock.html  user_journey.md  slice_map.md          # CODESIGN
-│   ├── design.md  test_plan.md  increment_plan.md                      # BLUEPRINT (contracts under contracts/)
-│   ├── dev_plan.md  peer_review_*.md  sec_audit.md                     # IMPLEMENT
-│   ├── devops_plan.md                                                  # DEVOPS
-│   ├── fdr/                        #   Feature Decision Records (feature-local, never escalate)
-│   └── qa/                         #   qa_report_{INC-N}_{ts}.md · qa_report_final_{ts}.md
-├── backlog/                        # Project tracking (BACKLOG — external board or local state.md + issue-bodies/ + execution-plan.md)
-├── ux/vision/  ux/component-registry.json  ux/po-return/             # Global UX vision · design-system ↔ build alignment · the PO drop zone
+├── technical_due.md               # (optional) AUDIT · software_audit.md for --software
+├── setup.md                       # the discovery answers
+├── constitution.md                # project law index ([PLAW-NN] → sentence, Body:, Records:)
+├── scm/protection.md              # server-side branch protection runbook (EVOL-054)
+├── spec/{FEATURE_ID}/             # per-feature workspace
+│   ├── spec.feature · mock.html · user_journey.md · slice_map.md     # CODESIGN
+│   ├── design.md · test_plan.md · increment_plan.md                  # BLUEPRINT
+│   ├── dev_plan.md · peer_review_*.md · sec_audit.md                 # IMPLEMENT
+│   ├── devops_plan.md                                                # DEVOPS
+│   ├── fdr/                       #   feature decision records (never escalate)
+│   └── qa/                        #   qa_report_{INC-N}_{ts}.md · qa_report_final_{ts}.md
+├── backlog/                       # BACKLOG: the board, or state.md + issue-bodies/
+├── ux/vision/ · ux/component-registry.json · ux/po-return/
 └── project_log/
-    ├── governance_versions.json    #   The project's governance manifest (SETUP --upgrade reads it)
-    ├── traceability_baseline.json  #   The shrink-only debt of unlinked test cases (EVOL-053)
-    └── adr/                        #   Architecture Decision Records (project-wide → constitution)
-config/                             # quality.json (every gate key), coherence-context.json, codebase_inventory.json, inventory_aliases.json,
-                                    #   protected-paths.json, system_resources.json, infrastructure_registry.json
-contracts/                          # API contracts (OpenAPI, GraphQL, gRPC, AsyncAPI)
-infra/                              # Infrastructure as Code (modules/ + features/)
-scripts/                            # gate.py + gates/ (the one reader), the git hooks, validate-governance, security-scan, …
-.github/workflows/ (or the platform's) # governance-check + auto-tag for the chosen CI platform
+    ├── governance_versions.json   #   the project's governance manifest
+    ├── traceability_baseline.json #   the shrink-only debt of unlinked cases (EVOL-053)
+    └── adr/                       #   ADRs (project-wide → constitution)
+config/                            # quality.json · coherence-context.json
+                                   # codebase_inventory.json
+                                   # inventory_aliases.json · protected-paths.json
+                                   # system_resources.json · infrastructure_registry.json
+contracts/                         # OpenAPI · GraphQL · gRPC · AsyncAPI
+infra/                             # IaC (modules/ + features/)
+scripts/                           # gate.py + gates/ · the git hooks · validate-governance · …
+.github/workflows/                 # (or the platform's) governance-check + auto-tag
 subproducts/
-├── po-package/                     # External CODESIGN authoring (Claude Desktop project): builder, return validator + self-test, RUNBOOK
-└── measure/                        # The project's SDLC cost from local transcripts and git; before/after windows per framework evolution
-src/ (or apps/)                     # Source code (created by IMPLEMENT, not by scaffolding)
-tests/                              # Test infrastructure (config, the traceability plugin for Python; tests created by IMPLEMENT)
+├── po-package/                    # external CODESIGN authoring (Claude Desktop project)
+└── measure/                       # the project's SDLC cost, before/after per evolution
+src/ (or apps/)                    # source code (IMPLEMENT, never scaffolding)
+tests/                             # test config + the traceability plugin; tests by IMPLEMENT
 ```
 
 ### Scaffolding Philosophy
