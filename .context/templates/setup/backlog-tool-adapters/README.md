@@ -36,7 +36,7 @@ Templates use `{{PLACEHOLDER}}` notation for values resolved by SETUP --generate
 
 | Placeholder | Source | Example |
 | --- | --- | --- |
-| `{{PROJECT_NAME}}` | Q1 / `docs/setup.md` `project_name` | `mass` |
+| `{{PROJECT_NAME}}` | Q1 / `docs/setup.md` `project_name` | `app` |
 | `{{REPO_SLUG}}` | Derived from git remote / Q1 | `acme/app` |
 | `{{ORG_OR_USER}}` | Derived from git remote / user input | `acme` |
 | `{{PROJECT_NUMBER}}` | Captured post-`create_project` during `--init-board` (not known at SETUP time — adapter includes capture instructions) | `4` |
