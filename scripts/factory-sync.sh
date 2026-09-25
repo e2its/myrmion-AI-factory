@@ -378,6 +378,12 @@ fi
 echo ""
 
 echo -e "${BOLD}[6/7] Base Scripts (scripts/)${NC}"
+# EVOL-051 / EVOL-053: scripts/gates/{seal,digests,traceability}.py arrive with this step; their config blocks
+# (documentation, verification, traceability), tests/conftest_traceability.py and the traceability baseline do not —
+# sync never touches config/ or tests/. The next push says "config key … is missing … SETUP --upgrade adds it" until then.
+if [[ -f "$TARGET_PROJECT/config/quality.json" ]] && ! grep -q '"traceability"' "$TARGET_PROJECT/config/quality.json" 2>/dev/null; then
+  echo -e "  ${YELLOW}!${NC}  config/quality.json carries no ${BOLD}traceability${NC} / ${BOLD}verification${NC} / ${BOLD}documentation${NC} block — run ${BOLD}SETUP --upgrade${NC} (the gates seal, digests and traceability are red until then)"
+fi
 # Framework-owned scripts. For each, prefer the template-variant under
 # .context/templates/setup/scripts/ over the meta variant at $FRAMEWORK_ROOT/scripts/.
 # Rationale: some scripts (e.g. auto-tag.sh) have a meta-only variant that must NOT

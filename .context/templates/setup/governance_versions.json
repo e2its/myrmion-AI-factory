@@ -696,11 +696,12 @@
       "delivery": "both"
     },
     "workflows/governance-check.github-actions.yml": {
-      "version": "2.5.0",
+      "version": "2.6.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
       "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
       "changelog": [
+        "2.6.0: fix(EVOL-053) — pytest installed before the T2 loop — the EVOL-053 collection plugin test runs in CI, never skipped",
         "2.5.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
         "2.4.0: feat(EVOL-046) — one profile step (gate.py profile --run) replaces the per-gate steps; one-definition step; header explains the profile.",
         "2.3.0: feat(EVOL-045) — surface gate step; currency and surface measured against the PR base ref.",
@@ -1712,11 +1713,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.9.0: fix(EVOL-053) — traceability subcommand (--declared, --baseline --init|--refresh, --json); --declared a listing with `required` and `manual`",
         "1.8.0: feat(EVOL-051) — seal (--plan/--write/--check/--validate), documentation (--path/--changed), digests subcommands; profile --control-point static",
         "1.7.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.6.0: feat(EVOL-049)! — agents subcommand — validate / --resolve / --fallback / --digest / --check-return (EVOL-049).",
@@ -1782,11 +1784,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.9.0: fix(EVOL-053) — Traceability tests (48)",
         "1.8.0: feat(EVOL-051) — Seal + Digests test classes: one definition of documentation, the seal plan/write/check (shared command = one execution, docs-only owes nothing, a declared docs reader is owed, unmapped path owes the full loop, on-disk seal honoured by the commit), digest fingerprint + completeness red on an untouched artefact (43 tests)",
         "1.7.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.6.0: feat(EVOL-049)! — Agents class — policy parse, the validator red on every way a roster can lie (same family, a critic with a write tool, a worker without one, a model written in, no effort, over budget, a dangling pointer, roster/definition/manifest parity, a ladder rung that is not a family or that degrades a writer, a spawn site without its marker, a policy without a site), the per-spawn resolver, the fallback, the digest budget, the return contracts; CLI.",
@@ -1821,12 +1824,13 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override).",
       "changelog": [
+        "1.4.0: fix(EVOL-053) — member traceability (light); n/a rendering for a member switched off by config",
         "1.3.0: feat(EVOL-051) — members seal and digests (light); control point static = the light members whatever the class or the mode; {control_point} runner token",
         "1.2.0: feat(EVOL-049)! — agents member (the roster validator; no build, no database).",
         "1.1.0: feat(EVOL-047) — runtime-surface member (light: no build, no database).",
@@ -2295,10 +2299,11 @@
       ]
     },
     "qa/qa_report_template.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".context/templates/qa/qa_report_template.md",
       "changelog": [
+        "1.3.0: fix(EVOL-053) — the QA-TC item carries its proof from gate.py traceability --json (EVOL-053)",
         "1.2.0: feat(EVOL-044) — frontmatter `certifies:` block (subject, base/paths, hash from gate.py certify) — the verdict declares what it certified; gate.py currency recomputes it.",
         "1.1.2: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: test-cases heading covers all ID families (was 'acceptance criterion' only).",
         "1.1.1: fix(EVOL-029) post-review fix — pre-merge rename of new EVOL-029 frontmatter field `scope` → `report_scope` to disambiguate from feature_scope semantics already used elsewhere (peer_review template uses `scope: full-stack` for feature_scope inherited from spec.feature). Avoids collision when downstream readers consume both reports.",
@@ -3839,11 +3844,12 @@
       "path": ".claude/skills/factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.12.1",
+      "version": "1.12.2",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.12.2: fix(EVOL-053) — EVOL-051 / EVOL-053 half-delivery said: the config blocks, the plugin and the baseline come with SETUP --upgrade",
         "1.12.1: fix(EVOL-049) — review pass — step 5b says loudly when the target lacks rules/agents.md or agents.families (SETUP --upgrade, Q34)",
         "1.12.0: feat(EVOL-049)! — delivers .claude/agents/*.md (the roster) — step 5b.",
         "1.11.2: fix(EVOL-041 code-review) — retired-label cites artefact names without pinned patch versions (anti-drift).",

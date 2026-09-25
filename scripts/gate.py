@@ -36,7 +36,7 @@
   gate.py seal --validate                          the map is sound (documentation defined, every gate reads something)
   gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
   gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
-  gate.py traceability --declared --json           the declared qualified case ids (FEATURE/CASE) — what the pytest plugin validates at collection
+  gate.py traceability --declared --json           the declared qualified case ids (FEATURE/CASE) and the manual ones — what the pytest plugin validates at collection; a listing, rc 0
   gate.py traceability --baseline --init|--refresh   record the unlinked debt once / shrink it (never adds)
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
   gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort; exit 1 when the round is over the class cap
@@ -362,9 +362,9 @@ def cmd_traceability(repo, a):
         c = trace_mod.cfg(repo)
         if not c["required"]:
             print(json.dumps({"declared": [], "required": False, "reason": c["reason"]}) if a.json else f"traceability: n/a — {c['reason']}"); return 0
-        dec, bad = trace_mod.declared(repo, c)
-        print(json.dumps({"declared": sorted(dec), "malformed": bad}) if a.json else "\n".join(sorted(dec)))
-        return 1 if bad else 0
+        dec, bad = trace_mod.declared(repo, c)   # a listing, never a verdict: rc 0 — the findings are the check's
+        print(json.dumps({"declared": sorted(dec), "required": True, "manual": sorted(q for q, d in dec.items() if d["manual"]), "malformed": bad}) if a.json else "\n".join(sorted(dec)))
+        return 0
     if a.baseline:
         r = trace_mod.baseline(repo, init=a.init, refresh=a.refresh)
         print(json.dumps(r) if a.json else f"traceability: baseline {'recorded' if a.init else 'shrunk'} → {r['path']} ({len(r['unlinked'])} unlinked{', removed ' + ', '.join(r['removed']) if r['removed'] else ''})")

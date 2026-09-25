@@ -155,7 +155,8 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
             rc, text = 2, f"could not run: {e}"
         clean = re.sub(r"\x1b\[[0-9;]*m", "", text).strip()
         tail = " ".join(ln.strip() for ln in clean.splitlines()[-3:])
-        results.append({"member": name, "rc": rc, "status": "ok" if rc == 0 else ("RED" if rc == 1 else "FAULT"), "tail": tail[:400],
+        na = rc == 0 and re.match(rf"^{re.escape(name)}: n/a\b", clean)   # a member switched off by config says so on the board, never a plain ✓
+        results.append({"member": name, "rc": rc, "status": "n/a" if na else ("ok" if rc == 0 else ("RED" if rc == 1 else "FAULT")), "tail": tail[:400],
                         "output": "" if rc == 0 else clean[-6000:]})   # a red member keeps its evidence
     red = [r["member"] for r in results if r["rc"] == 1]
     faults = [r["member"] for r in results if r["rc"] not in (0, 1)]

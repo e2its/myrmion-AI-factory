@@ -66,7 +66,7 @@ warning_count: 0
 - [ ] [QA-GOV-3] Static audit (code quality + test coverage + standards)
 
 ### Test cases (one per test_plan.md case — all ID families, scenario-filtered in slice mode)
-- [ ] [QA-TC-{id}] {description}
+- [ ] [QA-TC-{id}]: {description} — {proof}   <!-- the linking test(s) file:line from gate.py traceability --json, MANUAL (no test owed), or UNLINKED (baseline) -->
 
 ### Regression
 - [ ] [QA-REG-1] Unit test suite execution
