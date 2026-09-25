@@ -476,7 +476,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Simplified:** es: "¿Dónde va a trabajar el Product Owner la definición funcional: fuera, en un proyecto de Claude Desktop, o aquí en la línea de comandos?" / en: "Where will the Product Owner shape the functional definition: outside, in a Claude Desktop project, or here in the command line?"
 - **RDR Recommendation:** `external-full` when `project_scope IN [full-stack, frontend-only]` AND a non-engineer signs CODESIGN — main trade-off: a friendlier surface and no regeneration of the PO's work, against a zip round-trip per return. `external-features` when `project_scope IN [backend-only, integration]` (no first-party UI ⇒ no design system to author). `internal` for a solo engineer who is also the PO.
 - **Tier-filtered:** All tiers. Zero infrastructure cost.
-- **Persist:** `codesign.authoring` = `external` | `internal` · `po_package.mode` = `full` | `features-only` | `off` (`external-full` → `external` + `full`; `external-features` → `external` + `features-only`; `internal` → `internal` + `off`). For non-UI scopes `external-full` persists as `features-only`.
+- **Persist:** `codesign.authoring` = `external` | `internal` · `po_package.mode` = `full` | `features-only` | `off` (`external-full` → `external` + `full`; `external-features` → `external` + `features-only`; `internal` → `internal` + `off`). For non-UI scopes `external-full` persists as `features-only`. Both keys are **frontmatter** of `docs/setup.md` (nested YAML `codesign.authoring`, `po_package.mode`) — the governance snapshot copies that frontmatter verbatim into its Setup Configuration section, so the authoring mode reaches every command from turn 1.
 - **Conditional unlock:** Q29 != `internal` AND `project_scope IN [full-stack, frontend-only]` → [Q29.1]
 
 #### Q29.1: Design-System Cards Source (conditional: Q29 != "internal" AND UI scope)
@@ -492,7 +492,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Simplified:** es: "¿Cuántos días de historial de sesiones quieres poder medir, y cada cuántos días quieres el informe de coste del SDLC?" / en: "How many days of session history do you want to be able to measure, and every how many days do you want the SDLC cost report?"
 - **RDR Recommendation:** `90` / `30` — one quarter of history, one monthly report: long enough for a before/after window per framework change, short enough that the numbers describe the current way of working. `180` / `60` for a small team with sparse sessions. `30` / `14` for a project in a fast evolution cycle. Zero infrastructure cost: the reader (`subproducts/measure/`) reads local transcripts and git only; nothing leaves the machine.
 - **Tier-filtered:** All tiers.
-- **Persist:** `measurement.retention_days` · `measurement.report_interval_days`
+- **Persist:** `measurement.retention_days` · `measurement.report_interval_days` (frontmatter of `docs/setup.md`, nested YAML `measurement:`)
 
 ---
 

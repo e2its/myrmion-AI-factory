@@ -136,14 +136,22 @@ def matches_any(path: str, patterns) -> bool:
     return any(re.search(p, path) for p in patterns)
 
 
+# Subproducts (project-root `subproducts/**`, EVOL-042/052) are deliverable-generation
+# tooling outside every quality gate: never code, never test for the review surface.
+# Their only net is their own --selftest. The meta template source
+# (.context/templates/setup/subproducts/**) is NOT excluded — there it is the product.
+SUBPRODUCT_PREFIX = "subproducts/"
+
+
 def classify_file(path: str) -> dict:
     p = Path(path)
     ext = p.suffix.lower()
     name = p.name
+    outside_gates = path.startswith(SUBPRODUCT_PREFIX)
 
     return {
-        "is_code": ext in CODE_EXTENSIONS and not matches_any(path, TEST_PATTERNS),
-        "is_test": matches_any(path, TEST_PATTERNS),
+        "is_code": not outside_gates and ext in CODE_EXTENSIONS and not matches_any(path, TEST_PATTERNS),
+        "is_test": not outside_gates and matches_any(path, TEST_PATTERNS),
         "is_doc": matches_any(path, DOC_PATTERNS),
         "is_openapi": matches_any(path, OPENAPI_PATTERNS),
         "is_asyncapi": matches_any(path, ASYNCAPI_PATTERNS),
