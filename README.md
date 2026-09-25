@@ -169,13 +169,14 @@ CLAUDE.md                              # root governance, always loaded
 .context/
 ├── templates/                         # what SETUP --generate materialises, by role
 │   └── setup/                         # claude/ (CLAUDE.md, agents, hooks) · rules/ · config/
-│                                      # scripts/ · workflows/ (7 CI platforms) · scm/ (runbooks)
-│                                      # subproducts/ (po-package, measure) · governance_versions.json
+│                                      # scripts/ · workflows/ (7 CI platforms) · scm/
+│                                      # subproducts/ (po-package, measure)
+│                                      # governance_versions.json (the manifest)
 ├── schemas/                           # workflow log, infrastructure registry
 └── assets/ · utils/ · locks/
 config/
-├── quality.json                       # every gate key: surface, planning, agents, documentation,
-│                                      #   verification, traceability, scm, complexity, …
+├── quality.json                       # every gate key: surface, planning, agents,
+│                                      #   documentation, verification, traceability, scm, …
 └── coherence-context.json             # audit root sets, lock-step pairs
 scripts/
 ├── gate.py · gates/*.py               # THE one reader of every gate (exit 0 · 1 · 2 · 3)
@@ -1131,8 +1132,9 @@ CLAUDE.md                          # root governance (SDLC-first triage)
 ├── commands/ · instructions/ · skills/   # the framework, delivered
 ├── agents/                        # the 15 role agents
 ├── rules/                         # one body per law, applicable_when per rule
-│                                  #   architecture · testing · security_policy · protected-code
-│                                  #   branching · agents · defect-prevention (+ cases) · stack rules
+│                                  #   architecture · testing · security_policy
+│                                  #   protected-code · branching · agents
+│                                  #   defect-prevention (+ cases) · stack rules
 ├── hooks/ · settings.json         # the enforcement hooks, wired
 docs/
 ├── technical_due.md               # (optional) AUDIT · software_audit.md for --software
@@ -1152,7 +1154,8 @@ docs/
     ├── governance_versions.json   #   the project's governance manifest
     ├── traceability_baseline.json #   the shrink-only debt of unlinked cases (EVOL-053)
     └── adr/                       #   ADRs (project-wide → constitution)
-config/                            # quality.json · coherence-context.json · codebase_inventory.json
+config/                            # quality.json · coherence-context.json
+                                   # codebase_inventory.json
                                    # inventory_aliases.json · protected-paths.json
                                    # system_resources.json · infrastructure_registry.json
 contracts/                         # OpenAPI · GraphQL · gRPC · AsyncAPI
