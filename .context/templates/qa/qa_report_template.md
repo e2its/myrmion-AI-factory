@@ -59,6 +59,7 @@ warning_count: 0
 - [ ] [QA-PRE-2] Migration safety validation
 - [ ] [QA-PRE-3] IaC governance validation
 - [ ] [QA-PRE-DATA] Synthetic data verification (if UI feature + staging)
+- [ ] [QA-PRE-SCM] Server-side branch protection (`gate.py scm-protection` green at ci, or the runbook checklist ticked)
 
 ### Governance
 - [ ] [QA-GOV-1] Protected paths drift detection

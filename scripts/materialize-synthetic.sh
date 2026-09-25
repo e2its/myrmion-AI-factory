@@ -337,7 +337,13 @@ OUT=$(cd "$P" && python3 scripts/gate.py traceability --json 2>&1 | python3 -c '
 rm -rf "$P/docs/spec/FEAT-001/test_plan.md" "$P/tests/test_trace.py" "$P/docs/project_log/traceability_baseline.json"; git -C "$P" add -A >/dev/null
 [ -f "$P/tests/conftest_traceability.py" ] && ok "the pytest collection plugin landed for the Python stack (stack-conditional template)" || bad "conftest_traceability.py did not land"
 # server-side branch protection (EVOL-054): the runbook lands per platform; the reader is n/a where it cannot see the server and says so
-[ -f "$P/docs/scm/protection.md" ] && grep -q 'Rulesets' "$P/docs/scm/protection.md" && ! grep -q '{{SCM_' "$P/docs/scm/protection.md" && ok "the GitHub protection runbook landed (docs/scm/protection.md), placeholders resolved" || bad "protection runbook missing or unresolved"
+[ -f "$P/docs/scm/protection.md" ] && grep -q 'Rulesets' "$P/docs/scm/protection.md" && grep -q 'checks: \*\*\["governance-check"\]\*\*' "$P/docs/scm/protection.md" && grep -q 'approvals: \*\*0\*\*' "$P/docs/scm/protection.md" && ! grep -q '{{' "$P/docs/scm/protection.md" && ok "the GitHub protection runbook landed (docs/scm/protection.md) with the resolved checks and approvals, no placeholder left" || bad "protection runbook missing or unresolved" "$(grep -n 'checks:\|approvals:\|{{' "$P/docs/scm/protection.md" 2>&1 | head -5)"
+WF=$(ls "$P"/.github/workflows/governance-check*.yml 2>/dev/null | head -1)
+[ -n "$WF" ] && python3 -c '
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+steps = d["jobs"]["governance-check"]["steps"]
+sys.exit(0 if any("profile --run" in (s.get("run") or "") and (s.get("env") or {}).get("GH_TOKEN") == "${{ github.token }}" for s in steps) else 1)' "$WF" 2>/dev/null && ok "the landed governance workflow exports GH_TOKEN on the profile step (scm-protection can see the server at ci)" || bad "landed workflow does not export GH_TOKEN on the profile step" "$WF"
 OUT=$(cd "$P" && python3 scripts/gate.py scm-protection 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'n/a' && printf '%s' "$OUT" | grep -q 'cannot see the server' && ok "scm-protection at the push: n/a — a local clone cannot see the server (verified at ci)" || bad "scm-protection at push wrong (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN python3 scripts/gate.py scm-protection --control-point ci 2>&1); RC=$?

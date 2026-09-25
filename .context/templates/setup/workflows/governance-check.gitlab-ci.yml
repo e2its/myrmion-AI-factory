@@ -27,6 +27,7 @@ governance-check:
   before_script:
     - apk add --no-cache bash git python3
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+  # EVOL-054: GITLAB_TOKEN (scope read_api) as a masked, protected CI/CD variable lets the scm-protection member read the protected branches at the ci control point; without it the member is n/a with the checklist (never a silent green)
   script:
     - python3 scripts/gate.py profile --run --control-point ci --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --branch "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
     - python3 scripts/gate.py one-definition

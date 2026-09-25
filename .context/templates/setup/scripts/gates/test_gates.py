@@ -9,6 +9,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.error
+import urllib.parse
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -1623,25 +1625,53 @@ class MiniYaml(unittest.TestCase):
 
 
 class Scm(unittest.TestCase):
-    """EVOL-054: the branch rule defended on the server — one reader, adapters per platform, RED on a missing setting, n/a where it cannot see."""
+    """EVOL-054: the branch rule defended on the server — one reader, adapters per platform, RED on a missing setting, n/a where it cannot see.
+    Every stub answers the repository probe first: a server the token cannot see is a fault, never four red findings about a branch nobody looked at."""
 
-    def _repo(self, tmp, platform="GitHub", approvals=0, checks=("governance-check",), required=True):
+    FULL = [{"type": "non_fast_forward"}, {"type": "deletion"}, {"type": "pull_request", "parameters": {"required_approving_review_count": 0}},
+            {"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": "governance-check"}, {"context": "lockstep"}]}}]
+    NEEDLES = ("pull request is not required", "force-push forbidden is not set", "deletion forbidden is not set")
+
+    def _repo(self, tmp, platform="GitHub", approvals=0, checks=("governance-check",), required=True, branches=("main",)):
+        os.makedirs(tmp, exist_ok=True)
         repo = fixture_repo(Path(tmp))
         q = json.loads((repo / "config/quality.json").read_text())
-        q["scm"] = {"required": required, "reason": "" if required else "no server", "platform": platform, "protected_branches": ["main"], "required_checks": list(checks), "approvals": approvals}
+        q["scm"] = {"required": required, "reason": "" if required else "no server", "platform": platform, "protected_branches": list(branches), "required_checks": list(checks), "approvals": approvals}
         write(repo / "config/quality.json", json.dumps(q)); return repo
 
     @staticmethod
-    def _gh(rules, enforcement="active", legacy=None):
-        rs = {"id": 7, "enforcement": enforcement, "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}}, "rules": rules}
-        def fetch(url, headers):
-            if url.endswith("/rulesets?targets=branch"): return [{"id": 7}]
-            if url.endswith("/rulesets/7"): return rs
-            if url.endswith("/protection"):
-                if legacy == "forbidden": raise GateFault("403")
+    def _rs(rules, rid=7, enforcement="active", include=("~DEFAULT_BRANCH",), exclude=(), bypass=None, name="protect main"):
+        return {"id": rid, "name": name, "enforcement": enforcement, "conditions": {"ref_name": {"include": list(include), "exclude": list(exclude)}}, "bypass_actors": bypass, "rules": rules}
+
+    @staticmethod
+    def _gh(rulesets=(), legacy=None, default="main", branches=("main",)):
+        """The GitHub API as the adapter walks it: the repository, the branch, the rulesets list + detail, the legacy protection."""
+        def fetch(url, headers, missing_ok=False):
+            rest = url.split("/repos/acme/app", 1)[1].lstrip("/")
+            if rest == "":
+                return {"default_branch": default}
+            if rest.startswith("branches/") and not rest.endswith("/protection"):
+                b = urllib.parse.unquote(rest[len("branches/"):])
+                if b in branches:
+                    return {"name": b}
+                if missing_ok:
+                    return None
+                raise GateFault(f"nothing at {url} (404)")
+            if rest == "rulesets?targets=branch":
+                return [{"id": r["id"]} for r in rulesets]
+            if rest.startswith("rulesets/"):
+                return next(r for r in rulesets if r["id"] == int(rest.split("/")[1]))
+            if rest.endswith("/protection"):
+                if legacy == "forbidden":
+                    raise GateFault("the SCM API refused (403) — the token lacks the scope")
                 return legacy
             raise AssertionError(url)
         return fetch
+
+    def _findings_once(self, r, *needles):
+        joined = " | ".join(r["findings"])
+        for n in needles:
+            self.assertEqual(joined.count(n), 1, f"{n!r} expected exactly once in {r['findings']}")
 
     def test_remote_and_tokens(self):
         r = scm.remote(Path("."), "git@github.com:e2its/myrmion-AI-factory.git"); self.assertEqual((r["host"], r["owner"], r["repo"]), ("github.com", "e2its", "myrmion-AI-factory"))
@@ -1649,82 +1679,227 @@ class Scm(unittest.TestCase):
         r = scm.remote(Path("."), "https://user@bitbucket.org/ws/slug"); self.assertEqual((r["host"], r["owner"], r["repo"]), ("bitbucket.org", "ws", "slug"))
         r = scm.remote(Path("."), "https://dev.azure.com/org/Proj/_git/repo"); self.assertEqual((r["owner"], r["project"], r["repo"]), ("org", "Proj", "repo"))
         r = scm.remote(Path("."), "git@ssh.dev.azure.com:v3/org/Proj/repo"); self.assertEqual((r["owner"], r["project"], r["repo"]), ("org", "Proj", "repo"))
+        # a port is not an owner; the old visualstudio host; url-encoded segments; DefaultCollection
+        r = scm.remote(Path("."), "ssh://git@github.com:2222/acme/app.git"); self.assertEqual((r["host"], r["owner"], r["repo"]), ("github.com", "acme", "app"))
+        r = scm.remote(Path("."), "https://github.com:8443/acme/app.git"); self.assertEqual((r["host"], r["owner"], r["repo"]), ("github.com", "acme", "app"))
+        r = scm.remote(Path("."), "https://org.visualstudio.com/Proj/_git/repo"); self.assertEqual((r["owner"], r["project"], r["repo"]), ("org", "Proj", "repo"))
+        r = scm.remote(Path("."), "https://dev.azure.com/org/DefaultCollection/My%20Proj/_git/repo"); self.assertEqual((r["project"], r["repo"]), ("My Proj", "repo"))
+        r = scm.remote(Path("."), "https://gitlab.com/g/my%20proj.git"); self.assertEqual(r["repo"], "my proj")
         with self.assertRaisesRegex(GateFault, "not one this reader understands"):
             scm.remote(Path("."), "nonsense")
+        with self.assertRaisesRegex(GateFault, "names no owner/repo"):
+            scm.remote(Path("."), "https://github.com/onlyowner")
         self.assertEqual(scm.token("GitHub", {"GH_TOKEN": "t"}), "t"); self.assertIsNone(scm.token("GitLab", {"GH_TOKEN": "t"})); self.assertIsNone(scm.token("Other", {}))
+
+    def test_fetch_json_is_honest_about_every_error(self):
+        import email.message
+        import io
+        from unittest import mock
+        def http_error(code, headers=None):
+            h = email.message.Message()
+            for k, v in (headers or {}).items():
+                h[k] = v
+            return urllib.error.HTTPError("https://api.x/y?q=1", code, "msg", h, io.BytesIO(b""))
+        with mock.patch.object(scm.time, "sleep"), mock.patch.object(scm.urllib.request, "urlopen") as uo:
+            uo.return_value = io.BytesIO(b'{"a": 1}')
+            self.assertEqual(scm.fetch_json("https://api.x/y", {}), {"a": 1})
+            uo.side_effect = http_error(404)
+            self.assertIsNone(scm.fetch_json("https://api.x/y", {}, missing_ok=True), "404 is an answer only where a missing thing is one")
+            with self.assertRaisesRegex(GateFault, "not visible to this token, or origin names the wrong one"):
+                scm.fetch_json("https://api.x/y", {})
+            for code in (401, 403):
+                uo.side_effect = http_error(code)
+                with self.assertRaisesRegex(GateFault, "lacks the scope"):
+                    scm.fetch_json("https://api.x/y", {})
+            uo.reset_mock(); uo.side_effect = http_error(500)
+            with self.assertRaisesRegex(GateFault, "transient: re-run"):
+                scm.fetch_json("https://api.x/y?q=1", {})
+            self.assertEqual(uo.call_count, 2, "a 5xx is retried once, then a fault")
+            uo.reset_mock(); uo.side_effect = http_error(403, {"x-ratelimit-remaining": "0"})
+            with self.assertRaisesRegex(GateFault, "transient"):
+                scm.fetch_json("https://api.x/y", {})
+            self.assertEqual(uo.call_count, 2, "a rate-limited 403 is not a scope error")
+            uo.reset_mock(); uo.side_effect = urllib.error.URLError("refused")
+            with self.assertRaisesRegex(GateFault, "could not be reached .* a fault, never a pass"):
+                scm.fetch_json("https://api.x/y", {})
+            self.assertEqual(uo.call_count, 2)
 
     def test_github_green_red_and_the_control_points(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp, checks=("governance-check", "lockstep"))
             env = {"GH_TOKEN": "t"}; origin = "git@github.com:acme/app.git"
-            full = [{"type": "non_fast_forward"}, {"type": "deletion"}, {"type": "pull_request", "parameters": {"required_approving_review_count": 0}},
-                    {"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": "governance-check"}, {"context": "lockstep"}]}}]
-            r = scm.check(repo, "ci", fetch=self._gh(full, legacy="forbidden"), env=env, origin=origin)
-            self.assertTrue(r["ok"], r); self.assertEqual(r["status"], "ok"); self.assertEqual(r["repository"], "acme/app"); self.assertEqual(r["branches"]["main"]["checks"], ["governance-check", "lockstep"])
-            # every missing setting is named: no PR rule, a check the server does not require, force-push and deletion open, approvals below the decision
-            r = scm.check(repo, "ci", fetch=self._gh([{"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": "governance-check"}]}}]), env=env, origin=origin)
-            self.assertFalse(r["ok"]); self.assertEqual(r["status"], "RED")
-            joined = " | ".join(r["findings"])
-            for needle in ("pull request is not required", "lockstep", "force-push forbidden is not set", "deletion forbidden is not set"):
-                self.assertIn(needle, joined)
+            gh = lambda *a, **k: self._gh(*a, **k)   # noqa: E731
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL)], legacy="forbidden"), env=env, origin=origin)
+            self.assertTrue(r["ok"], r); self.assertEqual(r["status"], "ok"); self.assertEqual(r["repository"], "acme/app")
+            b = r["branches"]["main"]
+            self.assertEqual(b["checks"], ["governance-check", "lockstep"]); self.assertTrue(b["pr_required"] and b["force_push_blocked"] and b["deletion_blocked"]); self.assertEqual(b["approvals"], 0)
+            self.assertEqual(b["unverifiable"], ["the bypass list (not exposed to this token)"], "bypass_actors absent from the payload = not exposed, listed")
+            self.assertIn("scm-protection: ok", scm.render(r))
+            # every missing setting is named exactly once: no PR rule, a check the server does not require, force-push and deletion open
+            r = scm.check(repo, "ci", fetch=gh([self._rs([{"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": "governance-check"}]}}], bypass=[])]), env=env, origin=origin)
+            self.assertFalse(r["ok"]); self.assertEqual(r["status"], "RED"); self.assertEqual(len(r["findings"]), 4)
+            self._findings_once(r, *self.NEEDLES, "not enforced by the server: lockstep")
+            b = r["branches"]["main"]; self.assertFalse(b["pr_required"]); self.assertFalse(b["force_push_blocked"]); self.assertFalse(b["deletion_blocked"])
             self.assertIn("docs/scm/protection.md", r["reason"]); self.assertIn("RED", scm.render(r))
-            repo2 = self._repo(tmp + "/x", approvals=2) if os.makedirs(tmp + "/x") is None else None
-            r = scm.check(repo2, "ci", fetch=self._gh(full), env=env, origin=origin); self.assertFalse(r["ok"]); self.assertIn("0 approval(s) required, the project decided 2", " | ".join(r["findings"]))
+            repo2 = self._repo(tmp + "/x", approvals=2)
+            r = scm.check(repo2, "ci", fetch=gh([self._rs(self.FULL)]), env=env, origin=origin); self.assertFalse(r["ok"]); self._findings_once(r, "0 approval(s) required, the project decided 2")
             # a ruleset in evaluation defends nothing; the legacy branch protection counts when present
-            r = scm.check(repo, "ci", fetch=self._gh(full, enforcement="evaluate"), env=env, origin=origin); self.assertFalse(r["ok"])
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL, enforcement="evaluate")]), env=env, origin=origin); self.assertFalse(r["ok"]); self.assertEqual(len(r["findings"]), 4)
             legacy = {"required_pull_request_reviews": {"required_approving_review_count": 0}, "required_status_checks": {"contexts": ["governance-check", "lockstep"]}, "allow_force_pushes": {"enabled": False}, "allow_deletions": {"enabled": False}}
-            r = scm.check(repo, "ci", fetch=self._gh([], legacy=legacy), env=env, origin=origin); self.assertTrue(r["ok"], r)
-            # the control points: push and static never ask the server; ci without a token is n/a with the checklist, never green
+            r = scm.check(repo, "ci", fetch=gh([], legacy=legacy), env=env, origin=origin); self.assertTrue(r["ok"], r)
+            # the ruleset must reach the branch: an exclude, a scoped include, ~DEFAULT_BRANCH when the default is another branch — all RED; a glob include is honoured
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL, include=("~ALL",), exclude=("refs/heads/main",))]), env=env, origin=origin); self.assertFalse(r["ok"], "excluded on the server = unprotected")
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL, include=("refs/heads/release/*",))]), env=env, origin=origin); self.assertFalse(r["ok"], "a ruleset for release/* protects nothing on main")
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL)], default="develop"), env=env, origin=origin); self.assertFalse(r["ok"], "~DEFAULT_BRANCH is the server's default branch, not the configured one")
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL, include=("refs/heads/ma*",))]), env=env, origin=origin); self.assertTrue(r["ok"], r)
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL, include=("~ALL",))]), env=env, origin=origin); self.assertTrue(r["ok"], r)
+            # a bypass actor is a hole with a name — RED; a pull-request-only bypass is not
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL, bypass=[{"actor_id": 5, "actor_type": "Team", "bypass_mode": "always"}])]), env=env, origin=origin)
+            self.assertFalse(r["ok"]); self._findings_once(r, "bypass actor(s)"); self.assertEqual(len(r["findings"]), 1)
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL, bypass=[{"actor_id": 5, "bypass_mode": "pull_request"}])]), env=env, origin=origin); self.assertTrue(r["ok"], r); self.assertEqual(r["branches"]["main"]["unverifiable"], [])
+            # a protected branch the server does not have protects nothing; two branches, one reached
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL)], branches=("develop",)), env=env, origin=origin); self.assertFalse(r["ok"]); self._findings_once(r, "does not exist on the server"); self.assertEqual(len(r["findings"]), 1)
+            repo3 = self._repo(tmp + "/two", checks=("governance-check", "lockstep"), branches=("main", "release"))
+            r = scm.check(repo3, "ci", fetch=gh([self._rs(self.FULL, include=("refs/heads/main",))], branches=("main", "release")), env=env, origin=origin)
+            self.assertFalse(r["ok"]); self.assertTrue(r["findings"] and all(f.startswith("`release`") for f in r["findings"]), r["findings"]); self.assertIn("on main, release", r["reason"])
+            # the control points: push and static never ask the server; ci without a token is n/a with the checklist, never green — unless the runner has one and hides it
             for cp in ("push", "static"):
-                r = scm.check(repo, cp, fetch=self._gh(full), env=env, origin=origin); self.assertTrue(r["ok"]); self.assertEqual(r["status"], "n/a"); self.assertIn("cannot see the server", r["reason"]); self.assertEqual(len(r["checklist"]), 5)
-            r = scm.check(repo, "ci", fetch=self._gh(full), env={}, origin=origin); self.assertEqual(r["status"], "n/a"); self.assertIn("no GITHUB_TOKEN / GH_TOKEN", r["reason"]); self.assertIn("checklist:", scm.render(r))
+                r = scm.check(repo, cp, fetch=gh([self._rs(self.FULL)]), env=env, origin=origin); self.assertTrue(r["ok"]); self.assertEqual(r["status"], "n/a"); self.assertIn("cannot see the server", r["reason"]); self.assertEqual(r["checklist"], scm.CHECKLIST)
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL)]), env={}, origin=origin); self.assertEqual(r["status"], "n/a"); self.assertIn("no GITHUB_TOKEN / GH_TOKEN", r["reason"]); self.assertIn("checklist:", scm.render(r))
+            r = scm.check(repo, "ci", fetch=gh([self._rs(self.FULL)]), env={"GITHUB_ACTIONS": "true"}, origin=origin); self.assertFalse(r["ok"]); self.assertEqual(r["status"], "RED"); self.assertIn("does not export it", r["reason"]); self.assertIn("GH_TOKEN", r["reason"])
+            # the config must name the host origin points at
+            r = scm.check(self._repo(tmp + "/gl", platform="GitLab"), "ci", fetch=gh(), env={"GITLAB_TOKEN": "t"}, origin=origin); self.assertFalse(r["ok"]); self.assertIn("origin points at github.com (GitHub)", r["reason"])
             # an API error is a fault, never a pass; a missing config block is RED; required false needs its reason; Other is the checklist
-            def boom(url, headers): raise GateFault("the SCM API answered 500")
+            def boom(url, headers, missing_ok=False): raise GateFault("the SCM API answered 500")
             with self.assertRaisesRegex(GateFault, "500"):
                 scm.check(repo, "ci", fetch=boom, env=env, origin=origin)
-            q = json.loads((repo / "config/quality.json").read_text()); q["scm"]["platform"] = "Other"; write(repo / "config/quality.json", json.dumps(q))
+            q = json.loads((repo / "config/quality.json").read_text()); q["scm"]["platform"] = "Other"; q["scm"]["required_checks"] = []; write(repo / "config/quality.json", json.dumps(q))
             r = scm.check(repo, "ci", fetch=boom, env=env, origin=origin); self.assertEqual(r["status"], "n/a"); self.assertIn("no adapter", r["reason"])
-            q["scm"] = {"required": False}; write(repo / "config/quality.json", json.dumps(q))
-            r = scm.check(repo, "ci"); self.assertFalse(r["ok"]); self.assertIn("without a `reason`", r["reason"])
+            for block, needle in (({"required": False}, "without a `reason`"),
+                                  ({"platform": "Gitea"}, "not one of"),
+                                  ({"platform": "GitHub", "required_checks": []}, "required_checks is empty"),
+                                  ({"platform": "GitHub", "required_checks": ["governance-check"], "approvals": True}, "must be an integer"),
+                                  ({"platform": "GitHub", "required_checks": ["governance-check"], "protected_branches": "main"}, "non-empty list of branch names")):
+                q["scm"] = block; write(repo / "config/quality.json", json.dumps(q))
+                r = scm.check(repo, "ci", fetch=boom, env=env, origin=origin); self.assertFalse(r["ok"], block); self.assertIn(needle, r["reason"])
             q["scm"] = {"required": False, "reason": "no server"}; write(repo / "config/quality.json", json.dumps(q))
-            r = scm.check(repo, "ci"); self.assertTrue(r["ok"]); self.assertEqual(r["status"], "n/a")
+            r = scm.check(repo, "ci"); self.assertTrue(r["ok"]); self.assertEqual(r["status"], "n/a"); self.assertFalse(r["required"])
             del q["scm"]; write(repo / "config/quality.json", json.dumps(q))
             r = scm.check(repo, "ci"); self.assertFalse(r["ok"]); self.assertIn("`scm` is missing", r["reason"])
-            q["scm"] = {"platform": "Gitea"}; write(repo / "config/quality.json", json.dumps(q))
-            r = scm.check(repo, "ci"); self.assertFalse(r["ok"]); self.assertIn("not one of", r["reason"])
 
-    def test_gitlab_bitbucket_azure_adapters(self):
+    def test_gitlab_adapter(self):
         with tempfile.TemporaryDirectory() as tmp:
-            # GitLab: no one may push, pipelines must succeed, force-push off, one approval rule
-            repo = self._repo(tmp, platform="GitLab", approvals=1)
-            def gl(url, headers):
-                if "/protected_branches/" in url: return {"push_access_levels": [{"access_level": 0}], "allow_force_push": False}
-                if url.endswith("/approval_rules"): return [{"approvals_required": 1}]
-                return {"only_allow_merge_if_pipeline_succeeds": True}
-            r = scm.check(repo, "ci", fetch=gl, env={"GITLAB_TOKEN": "t"}, origin="https://gitlab.com/g/p.git"); self.assertTrue(r["ok"], r)
-            def gl_open(url, headers):
-                if "/protected_branches/" in url: return {"push_access_levels": [{"access_level": 40}], "allow_force_push": True}
-                if url.endswith("/approval_rules"): return []
-                return {"only_allow_merge_if_pipeline_succeeds": False}
-            r = scm.check(repo, "ci", fetch=gl_open, env={"GITLAB_TOKEN": "t"}, origin="https://gitlab.com/g/p.git")
-            self.assertFalse(r["ok"]); j = " | ".join(r["findings"]); self.assertIn("pull request is not required", j); self.assertIn("no pipeline / build is required", j); self.assertIn("force-push", j); self.assertIn("approval", j)
-            # Bitbucket: restrictions by kind
-            repo = self._repo(tmp + "/bb", platform="Bitbucket") if os.makedirs(tmp + "/bb") is None else None
-            def bb(url, headers):
-                return {"values": [{"kind": "push", "pattern": "main", "users": [], "groups": []}, {"kind": "force", "pattern": "main"}, {"kind": "delete", "pattern": "main"}, {"kind": "require_passing_builds_to_merge", "pattern": "main", "value": 1}]}
-            r = scm.check(repo, "ci", fetch=bb, env={"BITBUCKET_TOKEN": "u:p"}, origin="git@bitbucket.org:ws/slug.git"); self.assertTrue(r["ok"], r); self.assertEqual(r["branches"]["main"]["checks"], ["1 passing build(s)"])
-            r = scm.check(repo, "ci", fetch=lambda u, h: {"values": []}, env={"BITBUCKET_TOKEN": "u:p"}, origin="git@bitbucket.org:ws/slug.git"); self.assertFalse(r["ok"]); self.assertEqual(len(r["findings"]), 4)
-            # Azure DevOps: policies are readable, permissions are not (unverifiable, on the checklist, never red)
-            repo = self._repo(tmp + "/az", platform="Azure DevOps", approvals=1) if os.makedirs(tmp + "/az") is None else None
-            def az(url, headers):
-                return {"value": [{"isEnabled": True, "isBlocking": True, "type": {"displayName": "Build"}, "settings": {"displayName": "governance-check", "scope": [{"refName": "refs/heads/main"}]}},
-                                  {"isEnabled": True, "isBlocking": True, "type": {"displayName": "Minimum number of reviewers"}, "settings": {"minimumApproverCount": 1, "scope": [{"refName": "refs/heads/main"}]}}]}
-            r = scm.check(repo, "ci", fetch=az, env={"AZURE_DEVOPS_TOKEN": "pat"}, origin="https://dev.azure.com/org/Proj/_git/repo")
-            self.assertTrue(r["ok"], r); self.assertEqual(len(r["unverifiable"]), 2); self.assertIn("not exposed by the API", r["reason"])
-            r = scm.check(repo, "ci", fetch=lambda u, h: {"value": []}, env={"AZURE_DEVOPS_TOKEN": "pat"}, origin="https://dev.azure.com/org/Proj/_git/repo"); self.assertFalse(r["ok"])
+            repo = self._repo(tmp, platform="GitLab", approvals=1); env = {"GITLAB_TOKEN": "t"}; origin = "https://gitlab.com/g/p.git"
+            def gl(protected, pipeline=True, rules=None):
+                def fetch(url, headers, missing_ok=False):
+                    if url.endswith("/projects/g%2Fp"): return {"only_allow_merge_if_pipeline_succeeds": pipeline}
+                    if "/protected_branches/" in url:
+                        if protected is None:
+                            self.assertTrue(missing_ok); return None
+                        return protected
+                    if url.endswith("/approval_rules"):
+                        if rules == "forbidden": raise GateFault("refused (403)")
+                        return rules
+                    raise AssertionError(url)
+                return fetch
+            # no one may push, force-push off, pipelines must succeed, one approval rule → green; a protected branch cannot be deleted
+            r = scm.check(repo, "ci", fetch=gl({"push_access_levels": [{"access_level": 0}], "allow_force_push": False}, rules=[{"approvals_required": 1}]), env=env, origin=origin)
+            self.assertTrue(r["ok"], r); self.assertTrue(r["branches"]["main"]["deletion_blocked"]); self.assertEqual(r["branches"]["main"]["checks"], ["pipeline must succeed"])
+            # maintainers may push, force-push on, no pipeline rule, no approval rule → every setting named once
+            r = scm.check(repo, "ci", fetch=gl({"push_access_levels": [{"access_level": 40}], "allow_force_push": True}, pipeline=False, rules=[]), env=env, origin=origin)
+            self.assertFalse(r["ok"]); self._findings_once(r, "pull request is not required", "no pipeline / build is required", "force-push forbidden is not set", "0 approval(s) required, the project decided 1"); self.assertEqual(len(r["findings"]), 4)
+            # the branch is not protected at all (404 = an answer here): pull request, force-push AND deletion red — never "unverifiable"
+            r = scm.check(repo, "ci", fetch=gl(None, rules=[{"approvals_required": 1}]), env=env, origin=origin)
+            self.assertFalse(r["ok"]); self._findings_once(r, *self.NEEDLES); self.assertEqual(r["unverifiable"], [])
+            # approval rules refused (Free tier): not exposed, listed — never a fault, never red
+            r = scm.check(repo, "ci", fetch=gl({"push_access_levels": [{"access_level": 0}], "allow_force_push": False}, rules="forbidden"), env=env, origin=origin)
+            self.assertTrue(r["ok"], r); self.assertEqual(len(r["unverifiable"]), 1); self.assertIn("Premium", r["unverifiable"][0]); self.assertIn("not exposed by the API", r["reason"])
 
-    def test_scm_protection_is_a_light_member_at_ci(self):
+    def test_bitbucket_adapter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, platform="Bitbucket", approvals=1); env = {"BITBUCKET_TOKEN": "u:p"}; origin = "git@bitbucket.org:ws/slug.git"
+            def bb(values, model=None, pages=1):
+                chunks = [values[i::pages] for i in range(pages)] if pages > 1 else [values]
+                def fetch(url, headers, missing_ok=False):
+                    if url.endswith("/repositories/ws/slug"): return {"slug": "slug"}
+                    if url.endswith("/branching-model"):
+                        self.assertTrue(missing_ok); return model
+                    if "/branch-restrictions" in url:
+                        n = int(url.split("page=")[1]) if "page=" in url else 0
+                        page = {"values": chunks[n]}
+                        if n + 1 < len(chunks): page["next"] = f"{url.split('&page=')[0]}&page={n + 1}"
+                        return page
+                    raise AssertionError(url)
+                return fetch
+            full = [{"kind": "push", "branch_match_kind": "glob", "pattern": "main", "users": [], "groups": []}, {"kind": "force", "branch_match_kind": "glob", "pattern": "main"}, {"kind": "delete", "branch_match_kind": "glob", "pattern": "main"},
+                    {"kind": "require_passing_builds_to_merge", "branch_match_kind": "glob", "pattern": "main", "value": 1}, {"kind": "require_approvals_to_merge", "branch_match_kind": "glob", "pattern": "main", "value": 1},
+                    {"kind": "enforce_merge_checks", "branch_match_kind": "glob", "pattern": "main"}]
+            r = scm.check(repo, "ci", fetch=bb(full), env=env, origin=origin); self.assertTrue(r["ok"], r); self.assertEqual(r["branches"]["main"]["checks"], ["1 passing build(s)"]); self.assertEqual(r["branches"]["main"]["approvals"], 1)
+            r = scm.check(repo, "ci", fetch=bb(full, pages=3), env=env, origin=origin); self.assertTrue(r["ok"], "the restrictions are paginated — every page is read")
+            # a glob pattern Bitbucket honours; the branching-model kind resolved through the model (production = main, development = develop)
+            r = scm.check(repo, "ci", fetch=bb([{**v, "pattern": "ma*"} for v in full]), env=env, origin=origin); self.assertTrue(r["ok"], r)
+            model = {"production": {"branch": {"name": "main"}}, "development": {"branch": {"name": "develop"}}}
+            bm = [{**v, "branch_match_kind": "branching_model", "branch_type": "production", "pattern": None} for v in full]
+            r = scm.check(repo, "ci", fetch=bb(bm, model=model), env=env, origin=origin); self.assertTrue(r["ok"], r)
+            r = scm.check(repo, "ci", fetch=bb([{**v, "branch_type": "development"} for v in bm], model=model), env=env, origin=origin); self.assertFalse(r["ok"], "restrictions on the development branch protect nothing on main")
+            # without enforce_merge_checks the builds and approvals are advisory: a finding of their own, not a silent green
+            r = scm.check(repo, "ci", fetch=bb(full[:-1]), env=env, origin=origin); self.assertFalse(r["ok"]); self._findings_once(r, "merge checks are advisory"); self.assertEqual(len(r["findings"]), 1); self.assertIn("approvals (merge checks not enforced)", " ".join(r["unverifiable"]))
+            # nothing restricted: every setting named exactly once
+            r = scm.check(repo, "ci", fetch=bb([]), env=env, origin=origin); self.assertFalse(r["ok"]); self._findings_once(r, *self.NEEDLES, "no pipeline / build is required"); self.assertEqual(len(r["findings"]), 4)
+
+    def test_azure_adapter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, platform="Azure DevOps", approvals=1); env = {"AZURE_DEVOPS_TOKEN": "pat"}; origin = "https://dev.azure.com/org/Proj/_git/repo"
+            BUILD, REVIEWERS = "0609b952-1397-4640-95ec-e00a01b2c241", "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd"
+            def az(policies, default="refs/heads/main"):
+                def fetch(url, headers, missing_ok=False):
+                    if "/_apis/git/repositories/repo" in url: return {"id": "RID", "defaultBranch": default}
+                    if "/_apis/policy/configurations" in url: return {"value": policies}
+                    raise AssertionError(url)
+                return fetch
+            def pol(kind, scope, **kw):
+                base = {"isEnabled": True, "isBlocking": True, "isDeleted": False}
+                if kind == "build":
+                    return {**base, "type": {"id": BUILD, "displayName": "Build"}, "settings": {"displayName": "governance-check", "scope": scope}, **kw}
+                return {**base, "type": {"id": REVIEWERS, "displayName": "Minimum number of reviewers"}, "settings": {"minimumApproverCount": 1, "scope": scope}, **kw}
+            exact = [{"repositoryId": "RID", "matchKind": "Exact", "refName": "refs/heads/main"}]
+            r = scm.check(repo, "ci", fetch=az([pol("build", exact), pol("reviewers", exact)]), env=env, origin=origin)
+            self.assertTrue(r["ok"], r); self.assertEqual(len(r["unverifiable"]), 2); self.assertIn("not exposed by the API", r["reason"]); self.assertEqual(r["branches"]["main"]["checks"], ["governance-check"])
+            # the scope shapes Azure has: Prefix, DefaultBranch, a null repositoryId (project-wide); another repository's policy is not this one's
+            for scope in ([{"repositoryId": "RID", "matchKind": "Prefix", "refName": "refs/heads/ma"}], [{"repositoryId": None, "matchKind": "DefaultBranch", "refName": None}], [{"repositoryId": None, "matchKind": "Exact", "refName": "refs/heads/main"}]):
+                r = scm.check(repo, "ci", fetch=az([pol("build", scope), pol("reviewers", scope)]), env=env, origin=origin); self.assertTrue(r["ok"], (scope, r))
+            other = [{"repositoryId": "OTHER", "matchKind": "Exact", "refName": "refs/heads/main"}]
+            r = scm.check(repo, "ci", fetch=az([pol("build", other), pol("reviewers", other)]), env=env, origin=origin); self.assertFalse(r["ok"], "another repository's policy protects nothing here")
+            r = scm.check(repo, "ci", fetch=az([pol("build", exact), pol("reviewers", exact)], default="refs/heads/develop"), env=env, origin=origin); self.assertTrue(r["ok"], "Exact scope does not depend on the default branch")
+            r = scm.check(repo, "ci", fetch=az([pol("build", [{"repositoryId": None, "matchKind": "DefaultBranch"}])], default="refs/heads/develop"), env=env, origin=origin); self.assertFalse(r["ok"], "DefaultBranch scope on a server whose default is develop")
+            # a non-blocking, a disabled or a deleted policy defends nothing; a displayName-only type still resolves
+            for kw in ({"isBlocking": False}, {"isEnabled": False}, {"isDeleted": True}):
+                r = scm.check(repo, "ci", fetch=az([pol("build", exact, **kw), pol("reviewers", exact, **kw)]), env=env, origin=origin); self.assertFalse(r["ok"], kw)
+            legacy = [{"isEnabled": True, "isBlocking": True, "type": {"displayName": "Build"}, "settings": {"displayName": "governance-check", "scope": [{"refName": "refs/heads/main"}]}},
+                      {"isEnabled": True, "isBlocking": True, "type": {"displayName": "Minimum number of reviewers"}, "settings": {"minimumApproverCount": 1, "scope": [{"refName": "refs/heads/main"}]}}]
+            r = scm.check(repo, "ci", fetch=az(legacy), env=env, origin=origin); self.assertTrue(r["ok"], r)
+            r = scm.check(repo, "ci", fetch=az([]), env=env, origin=origin); self.assertFalse(r["ok"]); self._findings_once(r, "pull request is not required", "not enforced by the server: governance-check"); self.assertEqual(len(r["findings"]), 2, "force-push and deletion are permissions — unverifiable, never red")
+
+    def test_scm_protection_is_a_light_member_run_at_ci(self):
+        """The member and its runner: the control point token reaches the reader (drop it and CI would say 'cannot see the server' forever)."""
+        from unittest import mock
         self.assertIn("scm-protection", {m["member"] for m in profile.owed("light")})
+        runner = next(m[4] for m in profile.MEMBERS if m[0] == "scm-protection")
+        self.assertEqual(profile._cmd(Path("."), runner, "origin/main", "b", "ci")[-2:], ["--control-point", "ci"])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Profile()._repo(tmp, mode="production")
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["scm"] = {"platform": "GitHub", "protected_branches": ["main"], "required_checks": ["governance-check"], "approvals": 0}
+            write(repo / "config/quality.json", json.dumps(q))
+            subprocess.run(["git", "-C", str(repo), "remote", "add", "origin", "git@github.com:acme/app.git"], check=True)
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/F-002-x"], check=True)
+            with mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "GH_TOKEN": "", "GITHUB_TOKEN": ""}):
+                rep = profile.run(repo, base="origin/main", control_point="ci", only=["scm-protection"])
+                by = {r["member"]: r for r in rep["results"]}
+                self.assertEqual(by["scm-protection"]["status"], "RED", by); self.assertIn("does not export it", by["scm-protection"]["tail"], "at ci the reader ran at ci: the runner's hidden token is the finding — never 'cannot see the server'")
+                rep = profile.run(repo, base="origin/main", control_point="push", only=["scm-protection"])
+                by = {r["member"]: r for r in rep["results"]}
+                self.assertEqual(by["scm-protection"]["status"], "n/a"); self.assertIn("cannot see the server", by["scm-protection"]["tail"])
 
 
 class Cli(unittest.TestCase):

@@ -6,6 +6,7 @@ default_base_branch: main
 version: 2.8.0
 date: 2026-09-25
 changelog:
+  - "2.8.0: feat(EVOL-054) — § Server-side protection; the [PLAW-11] mandate names the server side (the runbook docs/scm/protection.md, gate.py scm-protection at ci)."
   - "2.7.0: feat(EVOL-047) — post-merge actions and the main-branch line qualified by the runtime surface (gate.py runtime-surface --changed)."
   - "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments."
   - "2.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."

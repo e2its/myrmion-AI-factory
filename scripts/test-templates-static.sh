@@ -290,6 +290,28 @@ else
 fi
 echo
 
+# ─── EVOL-054: the profile step exports the Actions token (meta workflow AND the shipped template) — scm-protection reads the rulesets at ci; a step without the token is n/a forever ───
+for wf in .github/workflows/governance-check.yml .context/templates/setup/workflows/governance-check.github-actions.yml; do
+  if python3 - "$wf" <<'PYEOF'
+import sys
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+d = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))
+steps = d["jobs"]["governance-check"]["steps"]
+ok = any("profile --run" in (s.get("run") or "") and (s.get("env") or {}).get("GH_TOKEN") == "${{ github.token }}" for s in steps)
+sys.exit(0 if ok else 1)
+PYEOF
+  then printf '  \033[32m✓\033[0m %s exports GH_TOKEN on the profile step\n' "$wf"
+  else printf '  \033[31m✗\033[0m %s does not export GH_TOKEN on the profile step (scm-protection n/a forever at ci)\n' "$wf" >&2; failures=$((failures + 1)); fi
+done
+# the five runbooks use only the placeholders the materialisation resolves (a misspelled token would land verbatim)
+BAD_TOKENS=$(grep -ohE '\{\{[A-Za-z_]+\}\}' .context/templates/setup/scm/protection.*.md | sort -u | grep -vE '^\{\{(SCM_PLATFORM|SCM_REQUIRED_CHECKS|SCM_APPROVALS)\}\}$' || true)
+if [ -z "$BAD_TOKENS" ]; then printf '  \033[32m✓\033[0m the SCM runbooks carry only the three SCM placeholders\n'
+else printf '  \033[31m✗\033[0m unknown placeholder(s) in the SCM runbooks: %s\n' "$(echo "$BAD_TOKENS" | tr '\n' ' ')" >&2; failures=$((failures + 1)); fi
+echo
+
 # ─── dev_plan carries the governance digest key IMPLEMENT --plan writes (EVOL-051: one source for the key, judged by gate.py digests when listed) ───
 if grep -q '^governance_digest_version:' .context/templates/develop/dev_plan_template.md; then
   printf '  \033[32m✓\033[0m dev_plan_template.md frontmatter carries governance_digest_version\n'

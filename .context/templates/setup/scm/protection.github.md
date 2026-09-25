@@ -1,6 +1,6 @@
 # Server-side branch protection — GitHub (EVOL-054)
 
-> The hooks defend the branch rule locally; this page is the server's side of it. Apply it once per protected branch (the default branch, `config/quality.json → scm.protected_branches`), tick the checklist, and let `python3 scripts/gate.py scm-protection` verify it at the `ci` control point (a read-only `GITHUB_TOKEN` with `repository administration: read` in the CI environment).
+> The hooks defend the branch rule locally; this page is the server's side of it. Apply it once per protected branch (the default branch, `config/quality.json → scm.protected_branches`), tick the checklist, and let `python3 scripts/gate.py scm-protection` verify it at the `ci` control point (`GH_TOKEN` exported from the Actions token on the profile step of the governance workflow — `metadata: read` is enough for rulesets; `administration: read` only adds the legacy branch-protection view).
 
 ## Settings — Repository → Settings → Rules → Rulesets → New branch ruleset
 

@@ -11,6 +11,7 @@
 | **Prevent deletion** | on | the branch outlives everyone |
 | **Check for at least N successful builds** (merge check) | N = 1 — the pipeline running {{SCM_REQUIRED_CHECKS}} | the governance pipeline decides the merge — Bitbucket counts builds, it names no individual check |
 | **Check for at least N approvals** (merge check) | **{{SCM_APPROVALS}}** | a project decision (`scm.approvals`) |
+| **Prevent a merge with unresolved merge checks** (`enforce_merge_checks`, Premium) | on | without it the merge checks are advisory — the reader reports them as such, not as enforced |
 
 ## Checklist
 
@@ -19,4 +20,5 @@
 - [ ] rewriting history (force-push) forbidden
 - [ ] deletion forbidden
 - [ ] approvals: {{SCM_APPROVALS}}
+- [ ] merge checks enforced (Premium) — or the checklist is the record for the builds and approvals
 - [ ] `python3 scripts/gate.py scm-protection --control-point ci` green in CI, or this checklist ticked by a repository administrator when CI carries no token

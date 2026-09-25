@@ -2,38 +2,49 @@
 """Server-side branch protection per SCM platform (EVOL-054) — the branch rule defended where the hooks cannot reach.
 
 config   `config/quality.json → scm`: `platform` (GitHub | GitLab | Bitbucket | Azure DevOps | Other), `protected_branches`
-         (the default branch by default), `required_checks` (the governance check and, where it runs, the lock-step check),
-         `approvals` (a project decision — 0 for a single author, never invented). `required: false` + `reason` opts out.
+         (the default branch by default), `required_checks` (the governance check and, where it runs, the lock-step check —
+         never empty: a server that requires no check decides nothing), `approvals` (a project decision — 0 for a single
+         author, never invented). `required: false` + `reason` opts out, on the board as n/a.
 reader   ONE reader, ONE control point: `gate.py scm-protection` asks the platform's API — with a token from the
          environment (GITHUB_TOKEN / GH_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN as `user:app_password`, AZURE_DEVOPS_TOKEN)
-         — for the protection of every configured branch, normalises it (pull request required, required checks,
-         force-push blocked, deletion blocked, approvals) and judges it against the config: a missing setting is RED
-         with the runbook (docs/scm/protection.md) as the cure. Without a token: n/a with the checklist. At push and
-         at the static round: n/a — a local clone cannot see the server; the member runs at `ci`. An API error is a
-         fault, never a green. Adapters are functions of the platform key here — no platform switch anywhere else;
-         `Other` is the checklist.
+         — first for the repository itself (a repository the token cannot see, or an origin that names the wrong
+         one, is a FAULT with that reason — never four red findings about a branch nobody looked at), then for the
+         protection of every configured branch, normalises it (pull request required, required checks, force-push
+         blocked, deletion blocked, approvals; what the platform does not expose is `unverifiable`, listed, never
+         red) and judges it against the config: a missing setting is RED with the runbook as the cure. Without a
+         token: n/a with the checklist — except on a CI runner that has one and does not export it (GITHUB_ACTIONS,
+         TF_BUILD): that is a wiring finding, RED. At push and at the static round: n/a — a local clone cannot see
+         the server; the member runs at `ci`. `scm.platform` must agree with the host `origin` points at. A transient
+         API error is retried once and then a fault with an honest reason; a scope error says it is one. Adapters are
+         functions of the platform key here — no platform switch anywhere else; `Other` is the checklist.
 """
 from __future__ import annotations
 
+import base64
+import fnmatch
 import json
 import os
 import re
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from .common import GateFault, key
+from .common import GateFault, context, key
 
 PLATFORMS = ("GitHub", "GitLab", "Bitbucket", "Azure DevOps", "Other")
 TOKENS = {"GitHub": ("GITHUB_TOKEN", "GH_TOKEN"), "GitLab": ("GITLAB_TOKEN",), "Bitbucket": ("BITBUCKET_TOKEN",), "Azure DevOps": ("AZURE_DEVOPS_TOKEN",)}
+RUNNER_ENV = {"GitHub": "GITHUB_ACTIONS", "Azure DevOps": "TF_BUILD"}   # a runner that always has a token to export
+KNOWN_HOSTS = {"github.com": "GitHub", "gitlab.com": "GitLab", "bitbucket.org": "Bitbucket", "dev.azure.com": "Azure DevOps"}
 RUNBOOK = "docs/scm/protection.md"
 CHECKLIST = ["pull request required to merge into the protected branch (no direct push)",
              "the governance check(s) required to pass before merge",
              "force-push forbidden on the protected branch",
              "deletion forbidden on the protected branch",
              "approvals as the project decided (config → scm.approvals)"]
+AZURE_TYPES = {"0609b952-1397-4640-95ec-e00a01b2c241": "build", "fa4e907d-c16b-4a4c-9dfa-4906e5d171dd": "reviewers", "cbdc66da-9728-4af8-aada-9a5a32e4a226": "status"}
 
 
 def cfg(repo: Path) -> dict:
@@ -54,18 +65,29 @@ def cfg(repo: Path) -> dict:
     approvals = s.get("approvals", 0)
     if not isinstance(branches, list) or not branches or not all(isinstance(b, str) and b for b in branches):
         raise GateFault("scm.protected_branches must be a non-empty list of branch names")
-    if not isinstance(checks, list) or not all(isinstance(c, str) for c in checks):
+    if not isinstance(checks, list) or not all(isinstance(c, str) and c for c in checks):
         raise GateFault("scm.required_checks must be a list of check names")
+    if not checks and platform != "Other":
+        raise GateFault("scm.required_checks is empty — a server that requires no check decides nothing; name the governance check (and the lock-step check where it runs)")
     if not isinstance(approvals, int) or isinstance(approvals, bool) or approvals < 0:
         raise GateFault("scm.approvals must be an integer ≥ 0 (a project decision)")
     out.update({"platform": platform, "branches": branches, "checks": checks, "approvals": approvals})
     return out
 
 
+def runbook(repo: Path) -> str:
+    """The cure the reason names: the runbook when the repository has it, the template it would come from otherwise."""
+    if (repo / RUNBOOK).is_file():
+        return RUNBOOK
+    if context(repo) == "meta":
+        return ".context/templates/setup/scm/protection.<platform>.md (the runbook a project receives)"
+    return f"{RUNBOOK} — not delivered yet: run SETUP --upgrade (Q21.2)"
+
+
 # ─── the repository on the server ───────────────────────────────────────────────
 
 def remote(repo: Path, url: str | None = None) -> dict:
-    """origin → {host, owner, repo, project (Azure)}. Both scp-like and https forms."""
+    """origin → {host, owner, repo, project (Azure)}. ssh://, scp-like and https forms; ports; url-encoded segments."""
     if url is None:
         try:
             r = subprocess.run(["git", "-C", str(repo), "remote", "get-url", "origin"], capture_output=True, text=True, timeout=30)
@@ -75,13 +97,19 @@ def remote(repo: Path, url: str | None = None) -> dict:
             raise GateFault("no `origin` remote — the server to ask is unknown (git remote add origin …)")
         url = r.stdout.strip()
     u = url.strip()
-    m = re.match(r"^(?:ssh://)?git@([^:/]+)[:/](?:v3/)?(.+?)(?:\.git)?/?$", u) or re.match(r"^https?://(?:[^@/]+@)?([^/]+)/(.+?)(?:\.git)?/?$", u)
+    m = (re.match(r"^ssh://(?:[^@/]+@)?([^:/]+)(?::\d+)?/(.+?)(?:\.git)?/?$", u)
+         or re.match(r"^(?:[^@/]+@)?([^:/]+):(?!//)(.+?)(?:\.git)?/?$", u)
+         or re.match(r"^https?://(?:[^@/]+@)?([^/:]+)(?::\d+)?/(.+?)(?:\.git)?/?$", u))
     if not m:
-        raise GateFault(f"the origin url `{u}` is not one this reader understands (git@host:owner/repo, https://host/owner/repo)")
-    host, path = m.group(1), m.group(2)
-    parts = [p for p in path.split("/") if p]
-    if "dev.azure.com" in host or "visualstudio.com" in host:
-        parts = [p for p in parts if p != "_git"]
+        raise GateFault(f"the origin url `{u}` is not one this reader understands (git@host:owner/repo, ssh://host/owner/repo, https://host/owner/repo)")
+    host, path = m.group(1).lower(), m.group(2)
+    parts = [urllib.parse.unquote(p) for p in path.split("/") if p]
+    if parts and parts[0] == "v3":
+        parts = parts[1:]
+    if host == "dev.azure.com" or host.endswith(".dev.azure.com") or host.endswith(".visualstudio.com"):
+        parts = [p for p in parts if p not in ("_git", "DefaultCollection")]
+        if host.endswith(".visualstudio.com"):
+            parts = [host.split(".")[0]] + parts   # org.visualstudio.com/project/_git/repo
         if len(parts) < 3:
             raise GateFault(f"the Azure DevOps url `{u}` needs org/project/repo")
         return {"host": host, "owner": parts[0], "project": parts[1], "repo": parts[-1], "url": u}
@@ -98,35 +126,69 @@ def token(platform: str, env: dict | None = None) -> str | None:
     return None
 
 
-def fetch_json(url: str, headers: dict):
+def fetch_json(url: str, headers: dict, missing_ok: bool = False):
+    """GET → parsed JSON. 404 → None only where a missing thing is an answer (`missing_ok`), a fault otherwise;
+    401/403 → the token lacks the scope; 429/5xx/network → one retry, then a transient fault said as such."""
     req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "myrmion-gate", **headers})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read().decode("utf-8") or "null")
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None
-        raise GateFault(f"the SCM API answered {e.code} for {url.split('?')[0]} — the token lacks the scope, or the repository is not where origin says") from None
-    except (urllib.error.URLError, OSError, ValueError) as e:
-        raise GateFault(f"the SCM API could not be reached ({e}) — a fault, never a pass") from None
+    short = url.split("?")[0]
+    for attempt in (1, 2):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.loads(r.read().decode("utf-8") or "null")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                if missing_ok:
+                    return None
+                raise GateFault(f"the SCM API has nothing at {short} (404) — the repository is not visible to this token, or origin names the wrong one") from None
+            if e.code in (401, 403) and not (e.code == 403 and e.headers.get("x-ratelimit-remaining") == "0"):
+                raise GateFault(f"the SCM API refused {short} ({e.code}) — the token lacks the scope to read the protection (or the resource: see the runbook)") from None
+            if attempt == 2:
+                raise GateFault(f"the SCM API is unavailable for {short} (HTTP {e.code}) — transient: re-run the check") from None
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            if attempt == 2:
+                raise GateFault(f"the SCM API could not be reached for {short} ({e}) — transient: re-run the check; a fault, never a pass") from None
+        time.sleep(2)
+
+
+def _ref_match(pattern: str, branch: str, default: str | None) -> bool:
+    if pattern == "~DEFAULT_BRANCH":
+        return default is not None and branch == default
+    if pattern == "~ALL":
+        return True
+    return fnmatch.fnmatchcase(f"refs/heads/{branch}", pattern)
 
 
 # ─── adapters: platform → normalised protection of one branch ───────────────────
-# {pr_required: bool|None, checks: [str], force_push_blocked: bool|None, deletion_blocked: bool|None, approvals: int|None}
-# None = the platform does not expose it through this API (a checklist item, not a red).
+# {pr_required: bool|None, checks: [str], force_push_blocked: bool|None, deletion_blocked: bool|None, approvals: int|None,
+#  unverifiable: [str], extra: [str]}   None = the platform does not expose it through this API (a checklist item, not a red);
+#  `extra` = findings the adapter itself makes (a bypass actor, a missing branch, unenforced merge checks).
+
+def _blank() -> dict:
+    return {"pr_required": False, "checks": [], "force_push_blocked": False, "deletion_blocked": False, "approvals": None, "unverifiable": [], "extra": [], "missing": False}
+
 
 def _github(rm: dict, branch: str, tok: str, fetch) -> dict:
     h = {"Authorization": f"Bearer {tok}", "X-GitHub-Api-Version": "2022-11-28"}
     api = "https://api.github.com" if rm["host"] == "github.com" else f"https://{rm['host']}/api/v3"
     base = f"{api}/repos/{rm['owner']}/{rm['repo']}"
-    norm = {"pr_required": False, "checks": [], "force_push_blocked": False, "deletion_blocked": False, "approvals": None}
+    info = fetch(base, h) or {}
+    default = info.get("default_branch")
+    norm = _blank()
+    if fetch(f"{base}/branches/{urllib.parse.quote(branch, safe='')}", h, missing_ok=True) is None:
+        norm["extra"].append(f"`{branch}` does not exist on the server — a protected branch nobody has protects nothing (scm.protected_branches)"); norm["missing"] = True
+        return norm
     for rs in (fetch(f"{base}/rulesets?targets=branch", h) or []):
-        d = fetch(f"{base}/rulesets/{rs['id']}", h) or {}
+        d = fetch(f"{base}/rulesets/{rs['id']}", h, missing_ok=True) or {}
         if d.get("enforcement") != "active":
             continue
-        inc = (d.get("conditions") or {}).get("ref_name", {}).get("include", [])
-        if not any(x in ("~DEFAULT_BRANCH", "~ALL", f"refs/heads/{branch}") for x in inc):
+        cond = (d.get("conditions") or {}).get("ref_name", {})
+        if not any(_ref_match(x, branch, default) for x in cond.get("include", [])) or any(_ref_match(x, branch, default) for x in cond.get("exclude", [])):
             continue
+        actors = d.get("bypass_actors")
+        if actors is None:
+            norm["unverifiable"].append("the bypass list (not exposed to this token)")
+        elif any(a.get("bypass_mode", "always") == "always" for a in actors):
+            norm["extra"].append(f"`{branch}`: ruleset «{d.get('name')}» has {len(actors)} bypass actor(s) — a hole with a name; the runbook says the bypass list is empty")
         for rule in d.get("rules", []):
             t, p = rule.get("type"), rule.get("parameters") or {}
             if t == "pull_request":
@@ -137,8 +199,8 @@ def _github(rm: dict, branch: str, tok: str, fetch) -> dict:
                 norm["force_push_blocked"] = True
             elif t == "deletion":
                 norm["deletion_blocked"] = True
-    try:   # the legacy protection endpoint needs `administration: read`; a token with only `metadata: read` (the Actions token) reads the rulesets above and is refused here — that refusal is not a fault
-        legacy = fetch(f"{base}/branches/{urllib.parse.quote(branch, safe='')}/protection", h)
+    try:   # classic branch protection needs `administration: read`; the Actions token (metadata read) is refused here — not a fault
+        legacy = fetch(f"{base}/branches/{urllib.parse.quote(branch, safe='')}/protection", h, missing_ok=True)
     except GateFault:
         legacy = None
     if isinstance(legacy, dict):
@@ -157,62 +219,104 @@ def _gitlab(rm: dict, branch: str, tok: str, fetch) -> dict:
     h = {"PRIVATE-TOKEN": tok}
     api = "https://gitlab.com/api/v4" if rm["host"] == "gitlab.com" else f"https://{rm['host']}/api/v4"
     pid = urllib.parse.quote(f"{rm['owner']}/{rm['repo']}", safe="")
-    norm = {"pr_required": False, "checks": [], "force_push_blocked": None, "deletion_blocked": None, "approvals": None}
-    pb = fetch(f"{api}/projects/{pid}/protected_branches/{urllib.parse.quote(branch, safe='')}", h)
+    proj = fetch(f"{api}/projects/{pid}", h) or {}
+    norm = _blank()
+    pb = fetch(f"{api}/projects/{pid}/protected_branches/{urllib.parse.quote(branch, safe='')}", h, missing_ok=True)
     if isinstance(pb, dict):
         levels = [x.get("access_level") for x in pb.get("push_access_levels", [])]
         norm["pr_required"] = bool(levels) and all(lv == 0 for lv in levels)   # "No one" may push
         norm["force_push_blocked"] = not pb.get("allow_force_push", False)
         norm["deletion_blocked"] = True   # a protected branch cannot be deleted
-    proj = fetch(f"{api}/projects/{pid}", h) or {}
+    # else: the branch is not protected at all — every flag stays False, red
     if proj.get("only_allow_merge_if_pipeline_succeeds"):
         norm["checks"] = ["pipeline must succeed"]
-    rules = fetch(f"{api}/projects/{pid}/approval_rules", h)
-    if isinstance(rules, list):   # readable: no rule = 0 approvals required, a number the config can be judged against
+    try:   # approval rules are a Premium / Ultimate feature: a refusal is not a fault, it is "not exposed"
+        rules = fetch(f"{api}/projects/{pid}/approval_rules", h, missing_ok=True)
+    except GateFault:
+        rules = None
+    if isinstance(rules, list):
         norm["approvals"] = max((int(r.get("approvals_required", 0)) for r in rules), default=0)
+    else:
+        norm["unverifiable"].append("approvals (approval rules are a Premium feature; on the Free tier approvals do not block a merge)")
     return norm
 
 
 def _bitbucket(rm: dict, branch: str, tok: str, fetch) -> dict:
-    import base64
     h = {"Authorization": "Basic " + base64.b64encode(tok.encode()).decode()} if ":" in tok else {"Authorization": f"Bearer {tok}"}
     base = f"https://api.bitbucket.org/2.0/repositories/{rm['owner']}/{rm['repo']}"
-    norm = {"pr_required": False, "checks": [], "force_push_blocked": False, "deletion_blocked": False, "approvals": None}
-    for v in (fetch(f"{base}/branch-restrictions?pagelen=100", h) or {}).get("values", []):
-        pat = v.get("pattern") or ""
-        if v.get("branch_match_kind") == "branching_model" or pat in (branch, "*", "**"):
-            k = v.get("kind")
-            if k == "push" and not v.get("users") and not v.get("groups"):
-                norm["pr_required"] = True
-            elif k == "force":
-                norm["force_push_blocked"] = True
-            elif k == "delete":
-                norm["deletion_blocked"] = True
-            elif k == "require_passing_builds_to_merge":
-                norm["checks"] = [f"{v.get('value', 1)} passing build(s)"]
-            elif k == "require_approvals_to_merge":
-                norm["approvals"] = int(v.get("value", 0))
+    fetch(base, h)   # the repository itself: a 404 is a fault (wrong workspace / blind token), never four red branch findings
+    model = fetch(f"{base}/branching-model", h, missing_ok=True) or {}
+    production = ((model.get("production") or {}).get("branch") or {}).get("name")
+    development = ((model.get("development") or {}).get("branch") or {}).get("name")
+    norm = _blank()
+    url = f"{base}/branch-restrictions?pagelen=100"
+    restrictions = []
+    while url:
+        page = fetch(url, h) or {}
+        restrictions += page.get("values", [])
+        url = page.get("next")
+    def applies(v):
+        if v.get("branch_match_kind") == "branching_model":
+            bt = v.get("branch_type")
+            return (bt == "production" and branch == production) or (bt == "development" and branch == development)
+        return fnmatch.fnmatchcase(branch, v.get("pattern") or "")
+    mine = [v for v in restrictions if applies(v)]
+    enforced = any(v.get("kind") == "enforce_merge_checks" for v in mine)
+    for v in mine:
+        k = v.get("kind")
+        if k == "push" and not v.get("users") and not v.get("groups"):
+            norm["pr_required"] = True
+        elif k == "force":
+            norm["force_push_blocked"] = True
+        elif k == "delete":
+            norm["deletion_blocked"] = True
+        elif k == "require_passing_builds_to_merge":
+            norm["checks"] = [f"{v.get('value', 1)} passing build(s)" + ("" if enforced else " (advisory)")]
+            if not enforced:
+                norm["extra"].append(f"`{branch}`: merge checks are advisory — «Prevent a merge with unresolved merge checks» (enforce_merge_checks, Premium) is not set, so the required builds do not block a merge")
+        elif k == "require_approvals_to_merge":
+            norm["approvals"] = int(v.get("value", 0)) if enforced else None
+            if not enforced:
+                norm["unverifiable"].append("approvals (merge checks not enforced)")
     return norm
 
 
 def _azure(rm: dict, branch: str, tok: str, fetch) -> dict:
-    import base64
     h = {"Authorization": "Basic " + base64.b64encode(f":{tok}".encode()).decode()}
-    url = f"https://dev.azure.com/{rm['owner']}/{urllib.parse.quote(rm['project'], safe='')}/_apis/policy/configurations?api-version=7.1"
-    norm = {"pr_required": False, "checks": [], "force_push_blocked": None, "deletion_blocked": None, "approvals": None}
-    for pol in (fetch(url, h) or {}).get("value", []):
-        if not pol.get("isEnabled") or not pol.get("isBlocking", True):
+    org = f"https://dev.azure.com/{rm['owner']}"
+    proj = urllib.parse.quote(rm["project"], safe="")
+    repo_info = fetch(f"{org}/{proj}/_apis/git/repositories/{urllib.parse.quote(rm['repo'], safe='')}?api-version=7.1", h) or {}
+    rid, default = repo_info.get("id"), (repo_info.get("defaultBranch") or "").replace("refs/heads/", "") or None
+    norm = _blank()
+    norm["force_push_blocked"] = None; norm["deletion_blocked"] = None
+    norm["unverifiable"] += ["force-push forbidden (a permission, not a policy)", "deletion forbidden (a permission, not a policy)"]
+    def in_scope(pol):
+        scopes = (pol.get("settings") or {}).get("scope") or []
+        if not scopes:
+            return True
+        for s in scopes:
+            if s.get("repositoryId") not in (None, rid):
+                continue
+            kind, ref = s.get("matchKind", "Exact"), (s.get("refName") or "")
+            if kind == "DefaultBranch" and default and branch == default:
+                return True
+            if kind == "Prefix" and f"refs/heads/{branch}".startswith(ref):
+                return True
+            if kind == "Exact" and ref == f"refs/heads/{branch}":
+                return True
+        return False
+    for pol in (fetch(f"{org}/{proj}/_apis/policy/configurations?api-version=7.1", h) or {}).get("value", []):
+        if not pol.get("isEnabled") or pol.get("isDeleted") or not pol.get("isBlocking", True) or not in_scope(pol):
             continue
-        scope = (pol.get("settings") or {}).get("scope") or []
-        if scope and not any((s.get("refName") or "").endswith(f"/{branch}") for s in scope):
-            continue
-        name = ((pol.get("type") or {}).get("displayName") or "").lower()
-        if "build" in name:
-            norm["checks"].append((pol.get("settings") or {}).get("displayName") or "build validation"); norm["pr_required"] = True
-        elif "reviewers" in name:
-            norm["approvals"] = int((pol.get("settings") or {}).get("minimumApproverCount", 0)); norm["pr_required"] = True
-        elif "status" in name:
-            norm["checks"].append((pol.get("settings") or {}).get("statusName") or "status check"); norm["pr_required"] = True
+        t = (pol.get("type") or {})
+        kind = AZURE_TYPES.get(str(t.get("id", "")).lower()) or ("build" if "build" in (t.get("displayName") or "").lower() else "status" if "status" in (t.get("displayName") or "").lower() else "reviewers" if "minimum" in (t.get("displayName") or "").lower() else None)
+        st = pol.get("settings") or {}
+        if kind == "build":
+            norm["checks"].append(st.get("displayName") or "build validation"); norm["pr_required"] = True
+        elif kind == "reviewers":
+            norm["approvals"] = int(st.get("minimumApproverCount", 0)); norm["pr_required"] = True
+        elif kind == "status":
+            norm["checks"].append(st.get("statusName") or "status check"); norm["pr_required"] = True
     return norm
 
 
@@ -221,31 +325,40 @@ ADAPTERS = {"GitHub": _github, "GitLab": _gitlab, "Bitbucket": _bitbucket, "Azur
 
 def judge(norm: dict, c: dict, branch: str) -> tuple[list[str], list[str]]:
     """(findings, unverifiable) for one branch against the config."""
-    f, u = [], []
+    f, u = list(norm.get("extra", [])), [f"`{branch}`: {x}" for x in norm.get("unverifiable", [])]
+    if norm.get("missing"):   # the branch is not there: that one finding, nothing about its settings
+        return f, u
     if norm["pr_required"] is None:
-        u.append("pull request required")
+        u.append(f"`{branch}`: pull request required")
     elif not norm["pr_required"]:
         f.append(f"`{branch}`: a pull request is not required — direct pushes reach the protected branch")
-    missing = [ch for ch in c["checks"] if ch not in norm["checks"]]
-    if c["checks"] and c["platform"] in ("GitLab", "Bitbucket"):
+    if c["platform"] in ("GitLab", "Bitbucket"):   # these name no individual check: the pipeline / the build is the check
         if not norm["checks"]:
             f.append(f"`{branch}`: no pipeline / build is required to merge (the platform names no individual check; config asks for {', '.join(c['checks'])})")
-    elif missing:
-        f.append(f"`{branch}`: required check(s) not enforced by the server: {', '.join(missing)}")
+    else:
+        missing = [ch for ch in c["checks"] if ch not in norm["checks"]]
+        if missing:
+            f.append(f"`{branch}`: required check(s) not enforced by the server: {', '.join(missing)}")
     for k, label in (("force_push_blocked", "force-push forbidden"), ("deletion_blocked", "deletion forbidden")):
         if norm[k] is None:
-            u.append(label)
-        elif not norm[k]:
+            continue   # already listed as unverifiable by the adapter
+        if not norm[k]:
             f.append(f"`{branch}`: {label} is not set")
     if c["approvals"] > 0:
         if norm["approvals"] is None:
-            u.append(f"{c['approvals']} approval(s)")
+            if not any("approvals" in x for x in u):
+                u.append(f"`{branch}`: {c['approvals']} approval(s)")
         elif norm["approvals"] < c["approvals"]:
             f.append(f"`{branch}`: {norm['approvals']} approval(s) required, the project decided {c['approvals']}")
     return f, u
 
 
+def _na(reason: str, checklist: list[str] | None = None, **kw) -> dict:
+    return {"ok": True, "status": "n/a", "required": True, "reason": reason, "findings": [], "branches": {}, "checklist": checklist if checklist is not None else CHECKLIST, **kw}
+
+
 def check(repo: Path, control_point: str = "push", fetch=None, env: dict | None = None, origin: str | None = None) -> dict:
+    env = os.environ if env is None else env
     try:
         c = cfg(repo)
     except GateFault as e:
@@ -254,23 +367,30 @@ def check(repo: Path, control_point: str = "push", fetch=None, env: dict | None 
         if not c["reason"]:
             return {"ok": False, "status": "RED", "required": True, "reason": "scm.required is false without a `reason` — say why this repository's server needs no protection (fail closed)", "findings": [], "branches": {}, "checklist": CHECKLIST}
         return {"ok": True, "status": "n/a", "required": False, "reason": c["reason"], "findings": [], "branches": {}, "checklist": []}
+    book = runbook(repo)
     if control_point != "ci":
-        return {"ok": True, "status": "n/a", "required": True, "platform": c["platform"], "reason": f"a local clone cannot see the server — the protection of {', '.join(c['branches'])} is verified at the ci control point (runbook: {RUNBOOK})", "findings": [], "branches": {}, "checklist": CHECKLIST}
+        return _na(f"a local clone cannot see the server — the protection of {', '.join(c['branches'])} is verified at the ci control point (runbook: {book})", platform=c["platform"])
     if c["platform"] == "Other" or c["platform"] not in ADAPTERS:
-        return {"ok": True, "status": "n/a", "required": True, "platform": c["platform"], "reason": f"no adapter for `{c['platform']}` — the protection is the checklist in {RUNBOOK}, ticked by a person", "findings": [], "branches": {}, "checklist": CHECKLIST}
+        return _na(f"no adapter for `{c['platform']}` — the protection is the checklist in {book}, ticked by a person", platform=c["platform"])
     tok = token(c["platform"], env)
-    if not tok:
+    if not tok:   # nothing is asked without a token: the checklist is the record — unless the runner has one and hides it
         names = " / ".join(TOKENS[c["platform"]])
-        return {"ok": True, "status": "n/a", "required": True, "platform": c["platform"], "reason": f"no {names} in the environment — the server was not asked; the protection is the checklist in {RUNBOOK} until CI carries a read-only token", "findings": [], "branches": {}, "checklist": CHECKLIST}
+        runner = RUNNER_ENV.get(c["platform"])
+        if runner and str(env.get(runner, "")).lower() == "true":
+            return {"ok": False, "status": "RED", "required": True, "platform": c["platform"], "reason": f"this CI runner has a token and the workflow does not export it — put {names.split(' / ')[-1]} on the profile step (GitHub Actions: `env: GH_TOKEN: ${{{{ github.token }}}}`; Azure Pipelines: `AZURE_DEVOPS_TOKEN: $(System.AccessToken)`); the server was not asked", "findings": [], "branches": {}, "checklist": CHECKLIST}
+        return _na(f"no {names} in the environment — the server was not asked; the protection is the checklist in {book} until CI carries a read-only token", platform=c["platform"])
     rm = remote(repo, origin)
+    host_platform = KNOWN_HOSTS.get(rm["host"]) or ("Azure DevOps" if rm["host"].endswith(("dev.azure.com", ".visualstudio.com")) else None)
+    if host_platform and host_platform != c["platform"]:
+        return {"ok": False, "status": "RED", "required": True, "platform": c["platform"], "reason": f"scm.platform says `{c['platform']}` but origin points at {rm['host']} ({host_platform}) — fix the config (SETUP Q21.2)", "findings": [], "branches": {}, "checklist": CHECKLIST}
     fetch = fetch or fetch_json
     findings, branches, unverifiable = [], {}, []
     for b in c["branches"]:
         norm = ADAPTERS[c["platform"]](rm, b, tok, fetch)
         f, u = judge(norm, c, b)
-        branches[b] = norm; findings += f; unverifiable += [f"`{b}`: {x}" for x in u]
-    reason = (f"{c['platform']} {rm['owner']}/{rm['repo']}: {len(findings)} missing setting(s) on {', '.join(c['branches'])} — apply {RUNBOOK}" if findings
-              else f"{c['platform']} {rm['owner']}/{rm['repo']}: {', '.join(c['branches'])} protected as configured" + (f" (not exposed by the API, tick in {RUNBOOK}: {'; '.join(unverifiable)})" if unverifiable else ""))
+        branches[b] = {k: v for k, v in norm.items() if k not in ("extra",)}; findings += f; unverifiable += u
+    reason = (f"{c['platform']} {rm['owner']}/{rm['repo']}: {len(findings)} missing setting(s) on {', '.join(c['branches'])} — apply {book}" if findings
+              else f"{c['platform']} {rm['owner']}/{rm['repo']}: {', '.join(c['branches'])} protected as configured" + (f" (not exposed by the API, tick in {book}: {'; '.join(unverifiable)})" if unverifiable else ""))
     return {"ok": not findings, "status": "RED" if findings else "ok", "required": True, "platform": c["platform"], "repository": f"{rm['owner']}/{rm['repo']}",
             "reason": reason, "findings": findings, "unverifiable": unverifiable, "branches": branches, "checklist": CHECKLIST if findings else []}
 
@@ -283,5 +403,4 @@ def render(res: dict) -> str:
         return out
     if res["ok"]:
         return f"scm-protection: ok — {res['reason']}"
-    lines = [f"scm-protection: RED — {res['reason']}"] + [f"  {f}" for f in res["findings"]]
-    return "\n".join(lines)
+    return "\n".join([f"scm-protection: RED — {res['reason']}"] + [f"  {f}" for f in res["findings"]])

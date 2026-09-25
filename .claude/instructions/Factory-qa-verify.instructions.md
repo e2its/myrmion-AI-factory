@@ -710,6 +710,7 @@ reviewed_by: QA
 - [ ] [QA-PRE-2]: Migration safety validation (if applicable)
 - [ ] [QA-PRE-3]: IaC governance validation (if applicable)
 - [ ] [QA-PRE-DATA]: Synthetic data verification (if UI feature on staging)
+- [ ] [QA-PRE-SCM]: Server-side branch protection (`gate.py scm-protection` green at ci, or the runbook checklist ticked — EVOL-054)
 
 ### Governance
 - [ ] [QA-GOV-1]: Protected paths drift detection

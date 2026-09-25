@@ -34,7 +34,7 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin ${{ github.base_ref }}
 
-      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (governance validation, ADR sync, applicability, law parity, budgets, retired vocabulary, currency, manifest parity, surface, runtime-surface parity)"
+      - name: "Gate profile — ONE definition (EVOL-046): the mode key × the branch class → the members this PR owes, all-report (scripts/gates/profile.py is the list)"
         env:
           GH_TOKEN: ${{ github.token }}   # EVOL-054: the scm-protection member reads this repository's ruleset at the ci control point (metadata: read is enough)
         run: |
