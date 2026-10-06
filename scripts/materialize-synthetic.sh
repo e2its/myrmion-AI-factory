@@ -322,6 +322,37 @@ OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); 
 mkdir -p "$P/src"; printf 'x = 1\n' > "$P/src/new.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'code' >/dev/null
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: coverage, lint, tests' && printf '%s' "$OUT" | grep -q 'moved: src/new.py' && ok "RED: a code delta owes exactly the gates that read it and names the path (incremental seal)" || bad "code delta not owed (rc=$RC)" "$OUT"
+# the records the instrument reads (EVOL-057): the push log from the hook's trap, the per-gate timings from the loop's executor
+OUT=$(cd "$P" && python3 scripts/gate.py push-log --exit 1 --start 2026-10-06T10:00:00Z 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'push-log: recorded full' && python3 -c "import json,sys; r=json.loads(open('$P/.claude/state/push-log.jsonl').read().splitlines()[-1]); sys.exit(0 if r['exit']==1 and r['profile']=='full' and r['base']=='origin/main' and r['start']=='2026-10-06T10:00:00Z' and r['end'] else 1)" \
+  && ok "the push record lands beside the seal from the materialised config (profile, base, mode, class, start, end, exit — the push's own exit code)" || bad "push record wrong (rc=$RC)" "$OUT"
+cp "$P/config/quality.json" "$SCRATCH/quality.before-run.json"
+python3 - "$P/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p))
+d["verification"]["gates"] = {"tests": {"reads": ["src/**", "tests/**"], "command": "python3 -c \"print('suite ran')\""}, "coverage": {"reads": ["src/**", "tests/**"], "command": "python3 -c \"print('suite ran')\""}, "lint": {"reads": ["src/**"], "command": "python3 -c \"import sys; print('lint red'); sys.exit(1)\""}}
+json.dump(d, open(p, "w"), indent=1)
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py seal --run --full 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'coverage, tests' && printf '%s' "$OUT" | grep -q '✗ python3' && printf '%s' "$OUT" | grep -q 'lint red' && printf '%s' "$OUT" | grep -q 'verdict: RED' \
+  && [ "$(wc -l < "$P/.claude/state/gate-timings.jsonl")" = "3" ] && [ -f "$P/.claude/state/loop-lint.log" ] \
+  && ok "RED: the loop's executor ran one execution per command, timed each (three timing lines), kept the output in the state folder, recorded the seal and refused to seal the tree" || bad "seal --run red path wrong (rc=$RC)" "$OUT"
+python3 - "$P/config/quality.json" <<'PY'
+import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["verification"]["gates"]["lint"]["command"] = "python3 -c \"print('clean')\""; json.dump(d, open(p, "w"), indent=1)
+PY
+OUT=$(cd "$P" && python3 scripts/gate.py seal --run --full 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'full loop sealed' && ok "green: the owed executions re-ran, the tree sealed by the runner (gate.py seal --run --full)" || bad "seal --run green path wrong (rc=$RC)" "$OUT"
+cp "$SCRATCH/quality.before-run.json" "$P/config/quality.json"; rm -f "$P/.claude/state/seal-"*.json
+# the materialised instrument reads the three channels and joins the project's real return reader and roster
+mkdir -p "$P/subproducts"; cp -R "$ROOT/.context/templates/setup/subproducts/measure" "$P/subproducts/measure"; rm -rf "$P/subproducts/measure/__pycache__"
+sed -i 's/{{MEASURE_RETENTION_DAYS}}/90/; s/{{MEASURE_REPORT_INTERVAL_DAYS}}/30/' "$P/subproducts/measure/measure.config.json"
+MFX="$SCRATCH/measure-fx"; mkdir -p "$MFX"
+python3 - "$P/subproducts/measure" "$MFX" <<'PY'
+import sys, pathlib; sys.path.insert(0, sys.argv[1]); import measure; measure._fixture_transcripts(pathlib.Path(sys.argv[2]))
+PY
+OUT=$(cd "$P" && PYTHONDONTWRITEBYTECODE=1 python3 subproducts/measure/measure.py --repo "$P" --transcripts "$MFX/projects/slug" --until 2026-09-30 --window-days 30 --json --out "$SCRATCH/measure.json" 2>&1); RC=$?
+[ "$RC" -eq 0 ] && python3 -c "import json,sys; r=json.load(open('$SCRATCH/measure.json')); rt=r['returns']; sys.exit(0 if rt['owed']==5 and rt['collected']=={'direct':2,'hand-back':1,'notification':1} and rt['uncollected']==1 and rt['checked']=={'parsed':2,'refused':1} and rt['by_class']['work-critic']['refused']==1 and rt['by_class']['worker']['parsed']==1 and r['pushes']['source'].startswith('push log') and r['loop']['source'].startswith('timings log') else 1)" \
+  && ok "the materialised instrument: three channels read, one spawn uncollected, returns parsed / refused by the project's REAL return reader on its REAL roster, the push log and the timings found where the config says" || bad "materialised instrument wrong (rc=$RC)" "$OUT $(head -c 1500 "$SCRATCH/measure.json" 2>/dev/null)"
+rm -rf "$P/subproducts" "$MFX"
 OUT=$(cd "$P" && python3 scripts/gate.py digests 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "digests: $OUT" || bad "digests failed (rc=$RC)" "$OUT"
 mkdir -p "$P/docs/spec/FEAT-001"; printf -- '---\nstatus: DRAFT\n---\n# design\n' > "$P/docs/spec/FEAT-001/design.md"

@@ -173,9 +173,10 @@
     ]
   },
   "verification": {
-    "_doc": "One full verification loop per change (EVOL-051): `gates` is the path-to-gate map (what each full-loop gate READS, and the command that runs it — a command shared by two gates, e.g. tests and coverage, is executed once and feeds both); `seal` is where python3 scripts/gate.py seal records a green loop per branch (untracked, .claude/state/) — the push refuses a tree the seal does not cover (gate.py seal --check, a profile member); a changed path no gate reads and no documentation class covers owes the full loop (fail closed: declare its reader). `digest_artefacts` are the planning artefacts gate.py digests judges under docs/spec/{ID}/ (fingerprint = the snapshot's constitution_hash[:8]; every bound rule named).",
+    "_doc": "One full verification loop per change (EVOL-051): `gates` is the path-to-gate map (what each full-loop gate READS, and the command that runs it — a command shared by two gates, e.g. tests and coverage, is executed once and feeds both); `seal` is where python3 scripts/gate.py seal records a green loop per branch (untracked, .claude/state/) — the push refuses a tree the seal does not cover (gate.py seal --check, a profile member); a changed path no gate reads and no documentation class covers owes the full loop (fail closed: declare its reader). `digest_artefacts` are the planning artefacts gate.py digests judges under docs/spec/{ID}/ (fingerprint = the snapshot's constitution_hash[:8]; every bound rule named). `logs` (EVOL-057) names, inside seal.dir, the push record every pre-push leaves (gate.py push-log: profile, base, mode, class, start, end, exit) and the per-gate timings the loop's executor writes (gate.py seal --run: gate, command, start, end, exit), with the size at which a log rotates to <name>.1 — what subproducts/measure reads; observability only, never a gate input.",
     "seal": {"required": true, "dir": ".claude/state"},
     "gates": {{VERIFICATION_GATES}},
+    "logs": {"push": "push-log.jsonl", "timings": "gate-timings.jsonl", "max_kb": 1024},
     "digest_artefacts": ["design.md"]
   },
   "traceability": {

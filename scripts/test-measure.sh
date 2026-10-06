@@ -90,6 +90,8 @@ expect_exit 0 "JSON report written to a file" "report written" \
   python3 "$M/measure.py" --repo "$REPO" --transcripts "$TR" --until 2026-09-30 --window-days 30 --json --out "$SANDBOX/before.json"
 if python3 -c "import json,sys; r=json.load(open('$SANDBOX/before.json')); sys.exit(0 if r['schema']=='measure_report_v1' and r['gates']['under_gates_s']==90.0 and r['agents'][1]['type']=='factory-critic-security' else 1)"; then
   ok "JSON report carries the schema, the gate seconds and the per-agent rows"; else bad "JSON report carries the schema, the gate seconds and the per-agent rows"; fi
+if python3 -c "import json,sys; r=json.load(open('$SANDBOX/before.json')); rt=r['returns']; sys.exit(0 if rt['owed']==5 and rt['uncollected']==1 and rt['collected']['hand-back']==1 and rt['collected']['notification']==1 and r['pushes']['total']==3 and r['loop']['by_gate']['tests']['runs']==2 else 1)"; then
+  ok "the materialised reader reports returns by channel, pushes from the push log and the loop from the timings (EVOL-057)"; else bad "the materialised reader reports returns, pushes and loop (EVOL-057)"; fi
 expect_exit 0 "before/after table from a baseline file" "## Before → after" \
   python3 "$M/measure.py" --repo "$REPO" --transcripts "$TR" --until 2026-09-30 --window-days 30 --compare "$SANDBOX/before.json"
 

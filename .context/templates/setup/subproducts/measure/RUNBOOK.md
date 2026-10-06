@@ -18,6 +18,9 @@ What this project's SDLC costs, read from local data only: Claude Code session t
 | Governance bytes | injected vs delivered vs read | emitted = hook stdout; delivered = what reached the model's context; **undelivered** = fired with stdout, nothing delivered (wrong channel); truncated = delivered shorter than emitted; read = bytes of Read (or `cat`/`sed`/`head` through Bash) on `governance_paths` |
 | Agents | per agent: model, tokens, bytes read, seconds, citations | main session plus every subagent transcript |
 | Citations | citations per law / defect-class id | ids defined in `corpus_files` and never cited in the window are **pruning candidates** — decided by the user through RDR with the originating record in view, never deleted by a script |
+| Returns | every spawn's return, three channels (EVOL-057) | a spawn = an `Agent` tool use; collected when any channel appeared — **direct** (a foreground spawn's tool result), **hand-back** (an `<agent-message>` from the agent the launch stub named), **notification** (a `<task-notification>` naming the spawn's tool-use id); **uncollected** = none; a roster agent's return (the notification's result, else the direct result, else the last hand-back) is **parsed** or **refused** by the project's return reader (the return check of `python3 scripts/gate.py agents`); an agent outside the roster is unchecked |
+| Pushes | pushes by gate profile | from the push log the pre-push hook writes (`gate.py push-log`: profile, base, mode, class, start, end, exit — `config/quality.json → verification.logs.push` inside `verification.seal.dir`); without the log, the trace: `git push` tool calls, the profile from the banner in a foreground result, else **unknown** |
+| Loop | the verification loop per gate and per profile | from the timings log the loop's executor writes (`gate.py seal --run`: gate, command, branch, profile, start, end, exit — `verification.logs.timings`); runs, reds, seconds per gate and per profile, hours total |
 
 Every number is per window. Absolute values are this project's own; compare shapes across projects, not digits.
 
@@ -36,6 +39,8 @@ python3 subproducts/measure/measure.py --compare ../measure-before.json
 ```
 
 Write both reports outside the repository (they contain session detail). Paste the `Before → after` table on the tracking item. A change whose "after" does not move the signal it targeted is reverted or re-planned — the numbers decide.
+
+The table carries the share of active clock under gates, commits and review rounds per branch, the two rework shares, the governance bytes, and (EVOL-057) the share of spawns whose return was never collected, the share of pushes with an unknown profile, the hours under the verification loop.
 
 ## Options
 
@@ -66,3 +71,5 @@ Branches: one row per branch (one branch = one pull request); sub-increment bran
 | `rework_commit_types` | edit | commit types counted as rework |
 
 The reader names no tool and no stack: adapt the regex lists to the commands this project really runs.
+
+The push log and the gate timings are not configured here: the reader takes their place from `config/quality.json → verification.seal.dir` and `verification.logs` (the loop's own configuration) and reads the project's return reader (`scripts/gate.py`) as a subprocess — it imports nothing from the project.

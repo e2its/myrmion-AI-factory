@@ -1,13 +1,13 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.4.0",
+  "framework_version": "8.5.0",
   "delivery_mode": "development",
-  "last_updated": "2026-09-25",
+  "last_updated": "2026-10-06",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
+  "description": "v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -834,10 +834,11 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "2.6.1",
+      "version": "2.7.0",
       "type": "script",
       "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, the gate profile (`gate.py profile --run`, EVOL-046). Honors the actual push remote ($1) instead of hardcoding origin.",
       "changelog": [
+        "2.7.0: feat(EVOL-057) — step 0: an EXIT trap leaves the push's record through gate.py push-log whatever ended the hook — fail-open, never changes the exit code.",
         "2.6.1: fix(EVOL-053) — the review-scripts pytest step collects only the folders that exist (pytest present + tests/blueprint absent was a red on nothing)",
         "2.6.0: feat(EVOL-046) — force-push guard through the reader (no list, fail-closed); steps 3+4 replaced by the one call gate.py profile --run (all members report, one verdict); reader missing blocks the push.",
         "2.5.0: feat(EVOL-045) — step 4 runs the surface gate; the factory-pr-review lane takes its base from gate.py diff-base.",
@@ -936,11 +937,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.7.3",
+      "version": "4.8.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.8.0: feat(EVOL-057) — control points: every push and every loop execution leaves its record (push-log, seal --run) for the measurement subproduct, never for a gate.",
         "4.7.3: feat(EVOL-056) — the agents row names the external-facts reader spawned at Beat 0.",
         "4.7.2: feat(EVOL-054) — Pre-Action Gate: the merge rule names its server side (EVOL-054)",
         "4.7.1: feat(EVOL-053) — traceability among the light members",
@@ -1083,10 +1085,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.13.0: feat(EVOL-057) — verification.logs: the push log, the gate timings and the rotation size, inside seal.dir — what the instrument reads, never a gate input.",
         "1.12.0: feat(EVOL-054) — scm block (GitHub, main, the two governance checks, 0 approvals) — the framework repo's own protection, applied 2026-09-25",
         "1.11.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
         "1.10.0: feat(EVOL-051) — documentation block (paths, exclusions — one definition) and verification block (seal not required in the framework repo: CI's T2 suite is its loop; gates {}; digest_artefacts); planning.docs_exempt retired",
@@ -1634,11 +1637,12 @@
       ]
     },
     "subproducts/measure/measure.py": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": "subproducts/measure/measure.py",
       "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only.",
       "changelog": [
+        "1.4.0: feat(EVOL-057) — returns (every spawn through its three channels — direct, hand-back, notification — parsed / refused by the project's return reader, uncollected proven on the spawn with no channel), pushes by profile from the push log (trace fallback), the verification loop per gate and per profile from the timings log; three rows in the before/after table; fixtures per channel.",
         "1.3.0: fix(EVOL-049) — review pass — agent class joined from the project's roster (grammar as fallback); round by spawn order in time, never by agent id",
         "1.2.0: feat(EVOL-049)! — each sub-agent joined to its roster class and its round; the agents table shows both (EVOL-049 report shape).",
         "1.1.0: feat(EVOL-045) — branches roll up per train (sub-increment branches grouped: commits, review rounds, sub-PRs); selftest covers a train with two subs.",
@@ -1655,11 +1659,12 @@
       ]
     },
     "subproducts/measure/RUNBOOK.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": "subproducts/measure/RUNBOOK.md",
       "role": "Operator runbook of the measurement subproduct: signal definitions, the before/after protocol as an obligation of the adopting project, options, config keys. Every flag it cites is closure-tested against the real parser.",
       "changelog": [
+        "1.2.0: feat(EVOL-057) — the three signals (returns, pushes, loop) in the report table and the before/after protocol; where the loop's records live.",
         "1.1.0: feat(EVOL-045) — per-train roll-up of sub-increment branches.",
         "1.0.0: feat(EVOL-042) — initial."
       ]
@@ -1728,11 +1733,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.11.0: feat(EVOL-057) — seal --run (the loop's executor) and push-log (the push's record for the instrument; exit 0 always).",
         "1.10.0: feat(EVOL-054) — scm-protection subcommand (--control-point, --json)",
         "1.9.0: fix(EVOL-053) — traceability subcommand (--declared, --baseline --init|--refresh, --json); --declared a listing with `required` and `manual`",
         "1.8.0: feat(EVOL-051) — seal (--plan/--write/--check/--validate), documentation (--path/--changed), digests subcommands; profile --control-point static",
@@ -2067,12 +2073,13 @@
       ]
     },
     "scripts/gates/seal.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": "scripts/gates/seal.py",
       "delivery": "both",
       "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map.",
       "changelog": [
+        "1.1.0: feat(EVOL-057) — verification.logs (push, timings, max_kb — n/a when absent, never a default in code); push_log (the push's record: profile, base, mode, class, start, end, exit); seal --run, the loop's executor: one execution per command, timed, output to loop-<gates>.log, one timing line per gate, the seal recorded right after, --full seals an all-green map; size rotation to <name>.1.",
         "1.0.0: feat(EVOL-051) — initial."
       ]
     },
@@ -3176,9 +3183,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.11.1",
+      "version": "2.12.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.12.0: feat(EVOL-057) — Step 8: a verification block without logs (pre-EVOL-057) gains the template's block.",
         "2.11.1: feat(EVOL-054) — Step 8: the scm block and the runbook for a pre-EVOL-054 project",
         "2.11.0: feat(EVOL-053) — Step 8 adds the traceability block, delivers the pytest plugin for Python, records the baseline once",
         "2.10.2: fix(EVOL-051) — review pass — Step 8 migrates planning.docs_exempt into documentation.paths and adds the verification block (gates derived as materialization does); seal.py + digests.py arrive with the scripts/gates refresh",
@@ -3266,9 +3274,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.7.4",
+      "version": "14.8.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.8.0: feat(EVOL-057) — control points: every push and every loop execution leaves its record (push-log, seal --run) for the measurement subproduct, never for a gate.",
         "14.7.4: feat(EVOL-056) — the agents row names the external-facts reader spawned at Beat 0. The profile is the one call of the pre-push hook and the governance workflows (meta + platform templates) — 'both CI workflows' corrected.",
         "14.7.3: fix(EVOL-055) — [LAW-07] records ADR-EVOL-055 (no concrete project names anywhere in the framework — the hygiene ruling that extends the law's spirit to records and code comments).",
         "14.7.2: feat(EVOL-054) — Pre-Action Gate: the merge rule names its server side (EVOL-054)",
@@ -3501,10 +3510,11 @@
       "path": ".claude/skills/factory-worklog/SKILL.md"
     },
     "skills/factory-build-verification/SKILL.md": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
+        "1.13.0: feat(EVOL-057) — § Full Verification Gate: the gates the map names run through the loop's executor (gate.py seal --run — timed, output in the state folder, the seal right after); the steps keep the gates the map does not name; a gate without a command is recorded by its owner.",
         "1.12.0: feat(EVOL-051) — one full loop per change: the order (static round → critics → artefacts → one loop → commit), the plan from gate.py seal --plan, one execution per command, the seal written per gate and --full, nothing tracked after the green",
         "1.11.0: feat(EVOL-049)! — loops run by the orchestrator on behalf of the critics; hat vocabulary retired.",
         "1.10.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
@@ -4546,11 +4556,12 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "1.6.1",
+      "version": "1.7.0",
       "type": "config",
       "role": "Meta copy of the pre-push git hook (protected-branch force-push block + secrets scan + governance validation + factory-pr-review sentinel block). Extensionless.",
       "path": "scripts/hooks/pre-push",
       "changelog": [
+        "1.7.0: feat(EVOL-057) — step 0: the push's record through gate.py push-log from an EXIT trap (the template twin).",
         "1.6.1: fix(EVOL-053) — the review-scripts pytest step collects only the folders that exist (pytest present + tests/blueprint absent was a red on nothing)",
         "1.6.0: feat(EVOL-046) — force-push guard through the reader (no list, fail-closed); steps 3+4 replaced by the one call gate.py profile --run (all members report, one verdict); reader missing blocks the push.",
         "1.5.0: feat(EVOL-045) — step 4 runs the surface gate; the factory-pr-review lane takes its base from gate.py diff-base.",
@@ -4596,11 +4607,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.11.0: feat(EVOL-057) — verification.logs (push-log.jsonl, gate-timings.jsonl, max_kb) in the framework repo's own config: every push here leaves its record too.",
         "1.10.0: feat(EVOL-054) — scm block (GitHub, main, the two governance checks, 0 approvals) — the framework repo's own protection, applied 2026-09-25",
         "1.9.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
         "1.8.0: feat(EVOL-051) — documentation block (paths, exclusions — one definition) and verification block (seal not required in the framework repo: CI's T2 suite is its loop; gates {}; digest_artefacts); planning.docs_exempt retired",
@@ -4694,11 +4706,12 @@
       "path": ".claude/skills/factory-po-intake/SKILL.md"
     },
     "scripts/test-measure.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "T2 test of the measurement subproduct (EVOL-042, META-ONLY). Self-test of the template source, synthetic materialisation (placeholders → JSON, universal files byte-identical, real reports from fixtures, degradation, plain-language faults), exclusion class (imported by nobody, runbook closure). Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-measure.sh",
       "changelog": [
+        "1.1.0: feat(EVOL-057) — the materialised reader reports returns by channel, pushes from the push log and the loop from the timings.",
         "1.0.0: feat(EVOL-042) — initial."
       ]
     },
@@ -4712,11 +4725,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.10.0",
+      "version": "1.11.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.11.0: feat(EVOL-057) — seal --run and push-log (the template twin).",
         "1.10.0: feat(EVOL-054) — scm-protection subcommand (--control-point, --json)",
         "1.9.0: feat(EVOL-053) — traceability subcommand (--declared, --baseline --init|--refresh, --json)",
         "1.8.0: feat(EVOL-051) — seal (--plan/--write/--check/--validate), documentation (--path/--changed), digests subcommands; profile --control-point static",
@@ -4779,11 +4793,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.11.0",
+      "version": "1.12.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.12.0: feat(EVOL-057) — Seal: the logs block checked key by key (n/a never blocks), the push record and its rotation, the runner (one execution per command, timing lines, the seal right after, red/green, --full over green records, named gates, no logs, not required); CLI exit codes for push-log and seal --run.",
         "1.11.0: feat(EVOL-056) — Agents: the reader class (allowlisted docs MCP read tools green; a mutator, a server outside the allowlist, allow_mcp on a writer class red); the reader return contract green and red; resolve and spawn on the critic family.",
         "1.10.1: fix(EVOL-055) — the remote-parsing fixture names no real repository.",
         "1.10.0: feat(EVOL-054) — Scm tests: origin parsing (ports, visualstudio, url-encoded segments), tokens; fetch_json honest on 404 / 401 / 403 / rate limit / 5xx / network (one retry); the GitHub rulesets adapter green and every missing setting named once, evaluation defends nothing, legacy protection counts, exclude / scoped include / ~DEFAULT_BRANCH / glob honoured, bypass actors red, a missing branch one finding, two branches; the control points, the runner-without-token wiring RED, platform vs origin mismatch; config faults (empty required_checks, boolean approvals, no branches); GitLab (unprotected 404 all red, Premium approvals unverifiable), Bitbucket (pagination, glob, branching model, advisory merge checks), Azure (scope kinds, repository filter, non-blocking / disabled / deleted, type ids) adapters; the profile member run at ci through the runner token; CLI exit codes",
@@ -4800,11 +4815,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.11.0",
+      "version": "1.12.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.12.0: feat(EVOL-057) — the scratch project leaves a push record from its materialised config, runs a timed loop red then green through seal --run, and its materialised instrument reads the three channels against the real return reader and roster.",
         "1.11.0: feat(EVOL-056) — the roster lands with the reader (15); the resolver answers for class reader on the critic family; the spawn hook refuses the reader on the writer alias; the reader return contract red and green on the materialised tree.",
         "1.10.0: feat(EVOL-054) — the GitHub runbook lands with the resolved checks and approvals and no placeholder; the landed workflow exports GH_TOKEN on the profile step; scm-protection n/a at push and at ci without a token, the five-item checklist in the JSON.",
         "1.9.0: feat(EVOL-053) — traceability checks on the materialised config: unlinked case red, baseline once, unknown link + shrink red, QA JSON, the plugin lands",
@@ -5071,11 +5087,12 @@
       ]
     },
     "scripts/gates/seal.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/seal.py",
       "changelog": [
+        "1.1.0: feat(EVOL-057) — verification.logs, push_log, the runner seal --run with per-gate timings (the template twin).",
         "1.0.0: feat(EVOL-051) — initial."
       ]
     },

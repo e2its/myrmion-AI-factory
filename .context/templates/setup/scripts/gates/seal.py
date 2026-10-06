@@ -20,6 +20,15 @@ seal           an untracked state file per branch (`verification.seal.dir`, defa
                push honours it, nothing re-runs the gates to verify it; at CI it is not on the runner (n/a with the
                reason). A repo whose config says the seal is not required (the framework repo: CI's T2 suite is its
                loop) reports n/a with the reason; the key absent = required; the config absent = RED, never a fault.
+records       EVOL-057 — what the instrument (the measurement subproduct) reads: `verification.logs` names, inside the seal's
+               folder, the push log (`push`: one line per push — profile, base, mode, class, start, end, exit — written
+               by the pre-push hook's EXIT trap through `gate.py push-log`, whatever ended the push) and the gate
+               timings (`timings`: one line per gate per execution — gate, command, branch, profile, start, end, exit —
+               written by `seal --run`, the loop's executor: it runs the plan's executions one per command, times
+               each, streams the output to `loop-<gates>.log`, records the seal RIGHT AFTER the execution and seals the
+               tree with --full when every gate is green); `max_kb` rotates a log over the limit to `<name>.1` (one
+               generation). Observability only: the block absent = n/a (nothing written, nothing blocked), never a
+               default in code; never part of the tree, never in a read-set.
 """
 from __future__ import annotations
 
@@ -28,6 +37,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -391,6 +401,161 @@ def validate(repo: Path) -> list[dict]:
     if not cfg["required"] and not cfg["reason"]:
         f.append({"path": "config/quality.json", "reason": "verification.seal.required is false without a `reason` — say where this repo's loop runs instead"})
     return f
+
+
+# ─── the records (EVOL-057): the push log, the gate timings, the runner ──────────
+
+def logs_cfg(repo: Path) -> dict | None:
+    """`verification.logs` → {push, timings, max_kb}; None when the block is absent (n/a — observability is never a
+    fault); a present block is checked key by key."""
+    v = key(repo, "verification", default=None)
+    if not isinstance(v, dict) or "logs" not in v:
+        return None
+    logs = v.get("logs")
+    if not isinstance(logs, dict):
+        raise GateFault("verification.logs must be a mapping {push, timings, max_kb}")
+    out: dict = {}
+    for k in ("push", "timings"):
+        name = logs.get(k)
+        if not isinstance(name, str) or not name or "/" in name or name in (".", "..") or name.startswith("seal-"):
+            raise GateFault(f"verification.logs.{k} must be a file name inside verification.seal.dir (no folder, never a seal file)")
+        out[k] = name
+    mk = logs.get("max_kb")
+    if isinstance(mk, bool) or not isinstance(mk, int) or mk <= 0:
+        raise GateFault("verification.logs.max_kb must be a positive integer — the size at which a log rotates to <name>.1")
+    out["max_kb"] = mk
+    return out
+
+
+def append_record(repo: Path, state_dir: str, name: str, max_kb: int, record: dict) -> Path:
+    """One JSON line appended; the file over max_kb is moved to `<name>.1` first (one generation kept)."""
+    d = repo / state_dir
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / name
+    try:
+        if p.is_file() and p.stat().st_size > max_kb * 1024:
+            p.replace(p.with_name(name + ".1"))
+    except OSError:
+        pass
+    with p.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, sort_keys=True) + "\n")
+    return p
+
+
+def push_log(repo: Path, exit_code: int, start: str | None = None, branch: str | None = None, control_point: str = "push") -> dict:
+    """The push's record: profile, base, mode, class, start, end, exit — one line, written by the pre-push hook's EXIT
+    trap whatever ended the push. n/a (nothing written) when the block is absent or the map cannot be read: the seal
+    member already says so on its own account; a record never blocks a push."""
+    try:
+        logs = logs_cfg(repo)
+        state_dir = vcfg(repo)["dir"]
+    except GateFault as e:
+        return {"ok": True, "written": False, "reason": f"no push record — {e}"}
+    if logs is None:
+        return {"ok": True, "written": False, "reason": "verification.logs is not configured — no push record (SETUP --upgrade adds the block)"}
+    from . import profile as profile_mod
+    from .branch import diff_base
+    pr = profile_mod.profile(repo, branch, control_point)
+    try:
+        base = diff_base(repo, pr["branch"] or None)
+    except GateFault:
+        base = None
+    rec = {"branch": pr["branch"], "class": pr["class"], "profile": pr["profile"], "mode": pr["mode"], "base": base,
+           "control_point": control_point, "start": start or _now(), "end": _now(), "exit": int(exit_code)}
+    p = append_record(repo, state_dir, logs["push"], logs["max_kb"], rec)
+    return {"ok": True, "written": True, "path": str(p.relative_to(repo)), "record": rec}
+
+
+def _tail(p: Path, lines: int = 15) -> str:
+    try:
+        return "\n".join(p.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:])
+    except OSError:
+        return ""
+
+
+def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary: str = "", branch: str | None = None, base: str | None = None) -> dict:
+    """The loop's executor: the executions the plan names (or the commands of `gates`), one per distinct command, in
+    the repository root through the shell; each is timed, its output streamed to `<seal.dir>/loop-<gates>.log` (the
+    tail on screen), one timing line per gate appended to the timings log, and the seal recorded RIGHT AFTER the
+    execution — ok on exit 0, red otherwise — before anything else can touch the tree. `full` seals the tree when
+    every gate of the map holds a green record. A gate the map gives no command is listed, not run: its owner records
+    it with `seal --write`."""
+    cfg = vcfg(repo)
+    branch = branch or current_branch(repo)
+    nr = _not_required(cfg)
+    if nr:
+        return {**nr, "branch": branch, "ran": [], "not_run": [], "sealed": False}
+    if gates:
+        unknown = [g for g in gates if g not in cfg["gates"]]
+        if unknown:
+            raise GateFault(f"unknown gate(s) {', '.join(unknown)} — the map is verification.gates: {', '.join(cfg['gates']) or '(empty)'}")
+        by_cmd: dict[str, list[str]] = {}
+        for g in gates:
+            by_cmd.setdefault(cfg["gates"][g]["command"] or f"<{g}>", []).append(g)
+        executions = [{"command": c, "gates": gs} for c, gs in by_cmd.items()]
+    else:
+        pl = plan(repo, branch, base)
+        if not pl["ok"]:
+            return {"ok": False, "required": True, "branch": branch, "ran": [], "not_run": [], "sealed": False, "reason": pl["reason"]}
+        executions = pl["executions"]
+    logs = logs_cfg(repo)
+    from . import profile as profile_mod
+    prof = profile_mod.profile(repo, branch)["profile"]
+    state = repo / cfg["dir"]
+    state.mkdir(parents=True, exist_ok=True)
+    ran, not_run, all_ok = [], [], True
+    for e in executions:
+        cmd, gs = e["command"], e["gates"]
+        if cmd.startswith("<"):
+            not_run.extend(gs)
+            continue
+        log = state / f"loop-{_slug('-'.join(gs))}.log"
+        start, t0 = _now(), time.monotonic()
+        try:
+            with log.open("w", encoding="utf-8") as fh:
+                rc = subprocess.run(cmd, shell=True, cwd=str(repo), stdout=fh, stderr=subprocess.STDOUT).returncode
+        except OSError as ex:
+            rc = 2
+            log.write_text(f"could not run: {ex}\n", encoding="utf-8")
+        end, seconds = _now(), round(time.monotonic() - t0, 1)
+        ok = rc == 0
+        all_ok = all_ok and ok
+        if logs:
+            for g in gs:
+                append_record(repo, cfg["dir"], logs["timings"], logs["max_kb"],
+                              {"gate": g, "command": cmd, "branch": branch, "profile": prof, "start": start, "end": end, "exit": rc})
+        write(repo, gs, ok=ok, summary=summary or f"seal --run: exit {rc} in {seconds} s", branch=branch)   # right after the execution
+        ran.append({"command": cmd, "gates": gs, "exit": rc, "seconds": seconds, "log": str(log.relative_to(repo)), "tail": "" if ok else _tail(log)})
+    sealed, why = False, ""
+    if full and all_ok:
+        try:
+            write(repo, [], ok=True, summary=summary or "seal --run: full loop green", full=True, branch=branch)
+            sealed = True
+        except GateFault as e:
+            why = str(e)
+    reason = ("every execution green" if all_ok else "red: " + ", ".join(g for r in ran if r["exit"] != 0 for g in r["gates"])) if ran else "nothing to run"
+    if not_run:
+        reason += f" · not run (no command in the map — their owner records them with seal --write): {', '.join(not_run)}"
+    if why:
+        reason += f" · not sealed: {why}"
+    return {"ok": all_ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed,
+            "timings": (str((repo / cfg["dir"] / logs["timings"]).relative_to(repo)) if logs else None), "reason": reason}
+
+
+def render_run(res: dict) -> str:
+    if not res.get("required", True):
+        return f"seal: n/a — {res['reason']}"
+    if not res.get("ran") and not res.get("not_run"):
+        return f"seal: run — {res['reason']}" + (" · full loop sealed" if res.get("sealed") else "")
+    lines = [f"seal: run — profile {res.get('profile', '?')} · {len(res['ran'])} execution(s), every one timed and recorded right after it ran:"]
+    for r in res["ran"]:
+        mark = "✓" if r["exit"] == 0 else "✗"
+        lines.append(f"  {mark} {r['command']}  →  {', '.join(r['gates'])} · {r['seconds']} s · exit {r['exit']} · {r['log']}")
+        if r["exit"] != 0 and r.get("tail"):
+            lines.extend("      " + ln for ln in r["tail"].splitlines() if ln.strip())
+    lines.append(f"  timings → {res['timings']}" if res.get("timings") else "  no timings written — verification.logs is not configured (SETUP --upgrade adds the block)")
+    lines.append(f"verdict: {'ok' if res['ok'] else 'RED'} — {res['reason']}" + (" · full loop sealed" if res.get("sealed") else ""))
+    return "\n".join(lines)
 
 
 def render(res: dict) -> str:

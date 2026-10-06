@@ -1,0 +1,51 @@
+---
+id: ADR-EVOL-057
+title: The instrument sees every channel it measures — agent returns by hand-back, the push profile in a file, per-gate timings
+date: 2026-10-06
+status: accepted
+---
+
+# ADR-EVOL-057: The instrument sees every channel it measures
+
+## Context
+
+Issue #92, axis K of the 2026-10 evolution (#91). The measurement subproduct (EVOL-042, `subproducts/measure`) was measured against itself one month after the first evolution, downstream: 54 % of agent returns reported as never collected, 95 % of pushes with an unknown gate profile, 105 hours under the verification loop with no split per gate. Three blind spots, one cause each:
+
+- **Agent returns.** The template reader (`measure.py` 1.3.0) knows no return channel at all — it counts spawns for review rounds and reads each sub-agent's own transcript, but never asks whether the orchestrator received the return. Verified against this repository's own transcripts before design: a background spawn's direct `tool_result` is a stub (`Async agent launched successfully … agentId: <id>`); the real return arrives either as a user message `<agent-message from="<id>">` carrying the `[Subagent hand-back]` frame, or as a `<task-notification>` naming the `<tool-use-id>` of the spawn with its `<result>`. A foreground spawn returns in the `tool_result` itself. Three channels, one spawn.
+- **Push profile.** The pre-push hook prints `profile: light|full — …` to the terminal through `gate.py profile --run`; nothing persists it. A push run in the background leaves no banner in any transcript.
+- **Per-gate timing.** The loop records its seal (`gate.py seal --write`: read-set hashes and an outcome per gate) and nothing else — no start, no end, no exit code; the BVL pseudocode runs each command itself and writes the seal afterwards, by discipline.
+
+Execution of the epic was delegated by the user on 2026-10-06 ("ejecutamos tren issue #91"); the RDRs are the agent's under the rules of transfer of #91 (no downstream detail travels; every threshold a key; both lock-step sides; no gate relaxed).
+
+## Decision
+
+Agent-internal choices under delegated authority (pick + surviving risk):
+
+- **One spawn, three channels, read by the instrument.** `measure.py` gains a `returns` section: a spawn is an `Agent` tool use; its return is collected when any of the three channels appears — `direct` (a `tool_result` that is not the background stub), `hand-back` (an `<agent-message from="<id>">` whose id the stub named), `notification` (a `<task-notification>` whose `<tool-use-id>` is the spawn's). `uncollected` = none of the three. The text judged is the notification's `<result>` when present, else the direct result, else the last hand-back. For a roster agent (class joined from `rules/agents.md`, as the agents table already does) the text goes through the project's one return reader, `python3 scripts/gate.py agents --check-return --class <class>` — `parsed` on exit 0, `refused` otherwise; an agent outside the roster is `unchecked` (it owes no contract). Risk: the three shapes are internal to the harness; each is pinned by a fixture in the self-test, and a shape the reader no longer recognises reads as uncollected — said in the definition, never silent.
+- **The push record is written by the hook, through the reader.** A new reader command, `gate.py push-log --exit N --start <ISO>`, appends one JSON line `{branch, class, profile, mode, base, control_point, start, end, exit}` to the push log; the pre-push hook arms an `EXIT` trap at its first line so every outcome — blocked, faulted, passed — leaves its line, and the call is fail-open (`|| true`): observability never blocks a push. Where: `config/quality.json → verification.logs` — `push` (file name), `timings` (file name), `max_kb` (size rotation: the file over the limit is moved to `<name>.1`, one generation kept) — inside `verification.seal.dir`, beside the seal files, untracked. No default lives in code: an absent block is `n/a` for the writers and `unavailable` for the instrument (SETUP materialises the block; `SETUP --upgrade` adds it). The instrument reads the log first; without it, the push banner in a foreground tool result, else `unknown`.
+- **The loop's executions run through the reader, which times them.** `gate.py seal --run [--gates a,b] [--full] [--summary S]` executes the plan's executions (`seal --plan`: one per distinct command), times each, streams the output to `<seal.dir>/loop-<gate>.log` with the tail on screen, appends one timing line per gate `{gate, command, branch, profile, start, end, exit}` to the timings log, records the seal right after each execution (ok on exit 0, red otherwise — before anything else can touch the tree), and seals the tree with `--full` when every gate of the map is green. The BVL's EVOL-051 block names the runner as the one executor of the gates the map covers; its per-step logic keeps the gates the map does not name and the advisory scans. Risk: a project whose BVL steps and map both name a suite would run it twice — the block says the map's gate is the runner's and not the step's.
+- **The report and the protocol.** Three sections — `returns` (owed · by channel · parsed / refused / unchecked · uncollected, per class), `pushes` (by profile, seconds, source), `loop` (runs, reds, seconds per gate and per profile, hours) — three new rows in the before/after table (`returns.uncollected_share`, `pushes.unknown_share`, `loop.hours_total`), the runbook's signal table and its protocol updated. Hours per gate and per profile are the issue's words; the report also keeps seconds for the small windows.
+- **No gate changes its verdict, its sequence or its point.** Every new file is state in `seal.dir` (ignored by both `.gitignore` sides), never in the tree, never in the seal's read-sets (the seal already skips its own folder).
+
+## Consequences
+
+- `subproducts/measure/measure.py` 1.3.0 → 1.4.0 (three sections, three channels, the reader join; self-test fixtures per channel); `RUNBOOK.md` 1.1.0 → 1.2.0.
+- `scripts/gates/seal.py` (the runner, the two logs, rotation), `scripts/gate.py` (`seal --run`, `push-log`), `scripts/hooks/pre-push` (the trap), `config/quality.json` (`verification.logs`) — both lock-step sides each; `scripts/gates/test_gates.py` (red-first cases), `scripts/materialize-synthetic.sh` (the scratch project pushes a record and runs a timed loop), `scripts/test-measure.sh` (the materialised reader against the real return checker).
+- `factory-build-verification/SKILL.md` § FULL VERIFICATION GATE: the runner is the executor of the map's gates.
+- Both `CLAUDE.md` sides: one sentence in the control-points paragraph — every push and every loop execution leaves its record for the instrument.
+- `framework_version` 8.4.0 → **8.5.0** (MINOR — additive; branch `feature/EVOL-057-instrument-channels`).
+
+## Alternatives considered
+
+- **`seal --write --started <ISO>` typed by the loop** — rejected: a timing that depends on the agent remembering a flag is the discipline that already failed (the compression tool mandated by the instructions was called zero times in the window). The runner takes the time itself.
+- **The profile runner writes the push record** — rejected: the runner knows its own verdict, not the push's (secrets, the review lanes); the hook's exit trap sees the final exit code whatever lane ended the push.
+- **A shape check inside `measure.py` (a `## Governance` block = parsed)** — rejected: a second definition of the return contract; the subproduct runs the project's one reader as a subprocess (reads it, imports nothing — the exclusion class holds).
+- **Defaults for the log names in code** — rejected: two definitions (the reader's and the instrument's); the block is a materialised key, absent = n/a.
+
+## Operational Rule
+
+No universal sentence changes. The control-points paragraph of both `CLAUDE.md` sides gains the record each push and each loop execution leaves (a body-level statement; the LAW corpus and the three universal sections are untouched, lock-step verified). The body of the verification loop (`factory-build-verification/SKILL.md`) names the runner.
+
+## Verification record
+
+Filled at the close of the branch.

@@ -439,7 +439,7 @@ FUNCTION phase_verification(phase, all_test_files):
 
 ## FULL VERIFICATION GATE (Pre-IMPLEMENTED_AND_VERIFIED)
 
-**One full loop per change (EVOL-051).** The order per completed diff is: the **static round** (`python3 scripts/gate.py profile --run --control-point static` — every member that needs no build and no database, `digests` included — plus the workers' red-first scoped runs as the test evidence) → the **critics** (one round) → the **artefacts** (the review and security reports, the plan's ticks and its status: every tracked write) → **this loop, once**, on those bytes → the **commit** on its green. Cures found by the critics are re-checked by their scoped gate (`python3 scripts/gate.py seal --plan` names the gates the tree on disk owes), never by a full loop per cure. Each suite runs **once** per loop: the plan groups the gates by command — the suite that feeds coverage is one execution whose result feeds both `tests` and `coverage`. The outcome is recorded in the **seal** (`python3 scripts/gate.py seal --write --gates … [--full]`, an untracked state file the push honours through `gate.py seal --check`): nothing tracked is written after the green — a tracked write would move the tree the commit carries. After a green seal, a delta whose paths only documentation covers owes nothing; a delta that touches a gate's read-set owes that gate (`verification.gates` in `config/quality.json`); a changed path no gate reads owes the full loop (fail closed: declare its reader).
+**One full loop per change (EVOL-051).** The order per completed diff is: the **static round** (`python3 scripts/gate.py profile --run --control-point static` — every member that needs no build and no database, `digests` included — plus the workers' red-first scoped runs as the test evidence) → the **critics** (one round) → the **artefacts** (the review and security reports, the plan's ticks and its status: every tracked write) → **this loop, once**, on those bytes → the **commit** on its green. Cures found by the critics are re-checked by their scoped gate (`python3 scripts/gate.py seal --plan` names the gates the tree on disk owes), never by a full loop per cure. Each suite runs **once** per loop: the plan groups the gates by command — the suite that feeds coverage is one execution whose result feeds both `tests` and `coverage`. The gates the map names run through **the loop's executor** — `python3 scripts/gate.py seal --run [--full]` (EVOL-057): one call runs every execution the plan names, times each, streams its output to `<seal.dir>/loop-<gates>.log` with the tail on screen, appends one timing line per gate to the timings log (`verification.logs`, what the measurement subproduct reads) and records the **seal** right after each execution, before anything else can touch the tree; a gate the map names is the runner's and is NOT run again by the steps below (they keep the gates the map does not name and the advisory scans); a gate the map gives no command is recorded by its owner with `python3 scripts/gate.py seal --write --gates … --ok|--red`. The seal is an untracked state file the push honours through `gate.py seal --check`: nothing tracked is written after the green — a tracked write would move the tree the commit carries. After a green seal, a delta whose paths only documentation covers owes nothing; a delta that touches a gate's read-set owes that gate (`verification.gates` in `config/quality.json`); a changed path no gate reads owes the full loop (fail closed: declare its reader).
 
 Runs after all phases complete, after the completion gate wrote the plan's status (§ Completion Gate, Factory-implement-build), before the commit. Accepts an optional `increment_id` to restrict scope to a single slice (see § v1.5.0 — Per-Increment Verification Scope).
 
@@ -456,13 +456,17 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   IF NOT plan.required: LOG "seal: n/a — {plan.reason}"          # a repo whose loop runs elsewhere (config says so)
   IF NOT plan.ok: RETURN BLOCKED(plan.reason)                       # no map, no config: nothing can run — never "nothing owed"
   owed = SET(plan.owed)                                              # empty AND plan.ok ⇒ the seal already covers this tree: RETURN PASSED(sealed)
-  # Every step below runs only when its gate is owed. The seal is written per execution RIGHT AFTER it, before any
-  # auto-fix touches the tree (lint / format auto-fix rewrite sources: an execution recorded after that sealed bytes
-  # it never saw — gate.py seal --write --full refuses a read-set that moved after its run; re-run that gate):
-  #   RUN("python3 scripts/gate.py seal --write --gates <gates of the execution> --ok|--red --summary '<one line>'")
-  #   a shared execution with a split outcome (the suite green, coverage under its threshold) records
-  #   `--gates tests --ok` and `--gates coverage --red` separately.
-  # When every gate of the map holds a green record on the tree as it stands: `seal --write --full` (the tree is sealed).
+  # EVOL-057 — the executions the plan names run through the loop's executor, which times each one, keeps its output
+  # in <seal.dir>/loop-<gates>.log (the tail on screen — read the log, never paste it), appends the per-gate timing and
+  # records the seal RIGHT AFTER the execution, before any auto-fix touches the tree:
+  run = RUN("python3 scripts/gate.py seal --run --summary '{scope_label}'")      # exit 1 = a red execution; its log names the cause
+  IF run.exit_code != 0: ❌ BLOCK: "{run.reason}" ; RETURN BLOCKED                 # cure, then `seal --plan` names what is owed; `seal --run` again
+  # A gate the map names is the runner's: the steps below do NOT run it again — they keep the gates the map does not
+  # name and the advisory scans. An auto-fix (lint / format) rewrites sources: the gates that read them are owed again
+  # (`seal --write --full` refuses a read-set that moved after its run) — `seal --run` re-runs exactly those.
+  #   A gate the map gives no command (an MCP-driven check) is recorded by its owner:
+  #   RUN("python3 scripts/gate.py seal --write --gates <gate> --ok|--red --summary '<one line>'")
+  # When every gate of the map holds a green record on the tree as it stands: `seal --run --full` (the tree is sealed).
 
   # Resolve scope-filtered file set ONCE — reused by every gate that takes `files`.
   # When increment_id is null this returns the feature-level set (legacy behaviour).
@@ -608,7 +612,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
     # No RETURN BLOCKED from this step — ever.
 
   # All checks passed — seal the tree (untracked); the commit follows; nothing tracked is written after this line
-  RUN("python3 scripts/gate.py seal --write --gates {JOIN(plan.owed, ',')} --full --summary '{scope_label}: green'") IF owed == SET(ALL gates of the map) ELSE RUN("… --gates {JOIN(plan.owed, ',')}")
+  RUN("python3 scripts/gate.py seal --run --full --summary '{scope_label}: green'")   # the owed executions (none when every record is green), then the tree sealed; refused when a read-set moved after its run
   LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}, complexity={results.complexity.status}, minimalism={results.minimalism.status}"
 
   RETURN PASSED(results)
