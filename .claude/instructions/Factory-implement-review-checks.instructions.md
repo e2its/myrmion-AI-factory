@@ -974,15 +974,15 @@ Step R.5: Fix Loop Control
   IF verdict == BLOCKED:
     the worker (re-spawned by name, same surface) receives the blockers with fix guidance
     the worker fixes → the critics re-run ONLY affected checks (tree re-hashed around the run)
-    One worker↔critic round per completed diff (`rounds.work`, rules/agents.md);
-    still BLOCKED after it → the user adjudicates (RDR in the main session) — never a further round on the agent's own judgement
+    The worker↔critic passes `rounds.work` allows per completed diff (rules/agents.md: round 1 on the diff at full effort, round 2 on the cured bytes at the effort the size tier earns — `--round 2` on the resolve);
+    still BLOCKED after them → the user adjudicates (RDR in the main session) — never a further round on the agent's own judgement; a finding outside the diff's lines is informational
 ```
 
 ---
 
 ## Security lens — factory-critic-security (read-only)
 
-Execute AFTER the work critics pass for each phase. Spawned by name by the main session (`factory-critic-security`, class `work-critic`, `--surface security`; critics run at the class default effort on every lens); same digest, working-tree hash, probe contract and one-round cap as the lenses above. The lens reads; the main session runs `sec_verification_loop()` and hands it the results.
+Execute AFTER the work critics pass for each phase. Spawned by name by the main session (`factory-critic-security`, class `work-critic`, `--surface security`; critics run at the effort the resolver computes — the class default on the first pass, the size tier's on the second); same digest, working-tree hash, probe contract and one-round cap as the lenses above. The lens reads; the main session runs `sec_verification_loop()` and hands it the results.
 
 ### SAST Scan (GCD)
 ```yaml
@@ -1191,7 +1191,7 @@ IF vulnerabilities found:
   
   IF any CRITICAL or HIGH:
     verdict = "BLOCKED"
-    RETURN to the worker for the fix round (one round — `rounds.work`; then the user adjudicates)
+    RETURN to the worker for the fix round (the passes `rounds.work` allows; then the user adjudicates)
   
   IF only MEDIUM/LOW:
     verdict = "PASS_WITH_FINDINGS"

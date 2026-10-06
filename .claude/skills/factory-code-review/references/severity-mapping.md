@@ -54,6 +54,8 @@ Advisory agent — all output → 🟢. Proposals only; NEVER applies edits in r
 
 ## Cross-cutting rules
 
+- **Outside the diff (RDR-3 of EVOL-059).** A finding whose `file:line` is not an added or changed line of the diff under review is informational (🟢) whatever the lens rated it, tagged `outside-delta`, counted in the marker (`outside_delta`) and reported to the user — the engine reviews the diff; what a lens sees through it is recorded for the next change, never a cure owed in this pass.
+
 1. **Iron law** (severity-rubric §4 / pr-review SKILL § Iron law): a finding that cannot be verified against the actual diff/files → downgrade to ❓, never report speculation as 🔴/🟡.
 2. **Advisory ceiling**: findings from `advisory_agents` (config/quality.json.code_review, default comment-analyzer + code-simplifier) are capped at 🟡 regardless of upstream label when running in the GATE profile. Full (hat) profile keeps the same normalisation — the hat merges them as warnings, not blockers.
 3. **Dedupe**: same file+line+defect reported by multiple agents → keep the highest severity, cite all reporting agents.

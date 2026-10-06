@@ -629,7 +629,7 @@ FUNCTION determine_build_scope(FEATURE_ID):
 > The **main session** spawns by name — never a generic sub-agent; no agent carries `Agent` (the phase agent `factory-implement` owns dev_plan.md and the bookkeeping, and receives the loop's results):
 > - the worker per surface: `factory-dev-backend`, `factory-dev-frontend`, `factory-dev-platform`, `factory-dev-e2e` — chosen by the task's files against the roster globs in `rules/agents.md`;
 > - per spawn: paste the corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) under the agent's `## Your law`; pass the model + effort resolved by `python3 scripts/gate.py agents --resolve --class worker --surface <s> --files N --lines M` — never chosen at the call site;
-> - after a completed diff: spawn the four work critics (`factory-critic-correctness`, `-governance`, `-fidelity`, `-security`), one round (`rounds.work`), then the user adjudicates; hash the working tree before and after each critic run (`python3 scripts/gate.py certify --subject worktree --paths <the increment's files>` — on-disk bytes, tracked and untracked) and refuse a run around which it moved; a non-zero exit of that call is a refusal, never a value to compare;
+> - after a completed diff: spawn the four work critics (`factory-critic-correctness`, `-governance`, `-fidelity`, `-security`), the passes `rounds.work` allows (the diff at full effort, then the cured bytes — `--round 2`, the effort the size tier earns), then the user adjudicates; hash the working tree before and after each critic run (`python3 scripts/gate.py certify --subject worktree --paths <the increment's files>` — on-disk bytes, tracked and untracked) and refuse a run around which it moved; a non-zero exit of that call is a refusal, never a value to compare;
 > - pass the model the resolver returns (`python3 scripts/gate.py agents --resolve --class work-critic`) — the PreToolUse hook on `Agent` refuses a roster agent spawned without its family's alias; a fallback that lands on the writer's family (`separation: false`) sends the round's findings to the user's adjudication;
 > - every case the increment realises has a linking test at the ONE home (`rules/testing.md § Test-case traceability`: `@pytest.mark.case("FEATURE/CASE")`, the title tag, `@DisplayName`) — the static round's `traceability` member is red for a declared case with no link, never for a helper test without one;
 > - refuse a worker return without its `## Governance` block and a critic return without probes (`python3 scripts/gate.py agents --check-return --class <class>`);
@@ -683,7 +683,7 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
   #   critics carry no Bash. Blockers from real execution merge with the critics' findings.
 
   IF review_verdict == BLOCKER:
-    # One worker↔critic round (rounds.work, rules/agents.md)
+    # The worker↔critic passes rounds.work allows (rules/agents.md): round 1 on the diff, round 2 on the cured bytes — the resolver refuses the next
     # Blockers may come from static checks OR real execution (coverage gap, lint failure)
     the worker fixes the blockers identified by the critics
     RE-SPAWN the affected critics for affected checks only (tree re-hashed around the run)
@@ -698,7 +698,7 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
   #   blockers from real execution merge with the SAST pattern findings.
 
   IF sec_verdict == BLOCKER:
-    # Same single round
+    # The re-check on the cured bytes: the same critics, `--round 2` on the resolve (the effort the size tier earns)
     # Blockers may come from SAST patterns OR real execution (CVE, leaked secret)
     the worker fixes the security issues
     RE-SPAWN the security lens for affected patterns + re-run verification tools
@@ -1500,7 +1500,7 @@ FUNCTION execute_fix_tasks(FEATURE_ID, fix_items):
 
     LOG: "Fix task {task.id} completed ✅"
 
-  # Critics on fix scope (read-only, one round, tree hashed around the run)
+  # Critics on fix scope (read-only, the passes rounds.work allows, tree hashed around the run)
   affected_files = COLLECT_MODIFIED_FILES(fix_items)
   EXECUTE WORK_CRITICS(affected_files)   # Focused review
   EXECUTE SECURITY_LENS(affected_files)  # SAST on changed files

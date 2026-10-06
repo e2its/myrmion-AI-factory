@@ -7,7 +7,7 @@ This command delegates by name to the phase agent `factory-implement` (`.claude/
 - **the work critics** (`factory-critic-correctness` / `-governance` / `-fidelity`): read-only, pedantic governance guardians. Verify code quality, architecture compliance, and standards — they did not write the code.
 - **the security lens** (`factory-critic-security`): read-only, paranoid, Zero Trust. Scans for vulnerabilities, enforces security policies.
 
-One worker↔critic round per completed diff, then the user adjudicates. No subagent commits, no subagent decides.
+The worker↔critic passes the key allows per completed diff (`rules/agents.md → agents.rounds.work`: the diff, then the cured bytes), then the user adjudicates. No subagent commits, no subagent decides.
 
 **Arguments:** $ARGUMENTS
 
@@ -38,7 +38,7 @@ Execute implementation. Iterates through phases A → B → C.
 
 **Full protocol:** See `.claude/instructions/Factory-implement-build.instructions.md`
 - **MCP Docs Scan banner (MANDATORY)** — emits `🔌 MCP Docs Scan — ...` as first line; the worker consults named docs MCPs before generating code for matching technologies (see `.claude/skills/factory-mcp-docs-scan/SKILL.md`).
-- Per phase: the worker implements (TDD: test first → code → green) → the work critics verify (read-only, one round) → the security lens scans (SAST) → the user adjudicates what stays open
+- Per phase: the worker implements (TDD: test first → code → green) → the work critics verify (read-only, the passes the key allows) → the security lens scans (SAST) → the user adjudicates what stays open
 - Fix loops happen inline within each phase
 - After ALL phases complete: Draft PR created automatically
 - **Completion Gate:** ALL tasks in dev_plan.md MUST be `[x]` before status → `IMPLEMENTED_AND_VERIFIED`

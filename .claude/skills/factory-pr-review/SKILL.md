@@ -211,7 +211,7 @@ Apply this routing table (load reference + run script):
 | always | `references/severity-rubric.md` | — |
 | framework meta repo | governance-bump check (Block 11) | grep `governance_versions.json` in diff |
 | `has_code` AND `config/quality.json` present | axis 6 — `factory-complexity-check/SKILL.md` | INVOKE_SKILL("factory-complexity-check", { files: changed_source_files }) |
-| `has_code` OR `has_tests` | axis 7 — `factory-code-review/SKILL.md` | INVOKE_SKILL("factory-code-review", { scope: "branch", base: BASE_REF }) — agent-side; writes the Block 20 marker; `preflight.sh` Step 0-bis verifies it. Tests-only diffs included: the hash spans `is_code∪is_test` and pr-test-analyzer is a blocking gate agent |
+| `has_code` OR `has_tests` | axis 7 — `factory-code-review/SKILL.md` | INVOKE_SKILL("factory-code-review", { scope: "branch", base: BASE_REF, round: 1 | 2 }) — agent-side (the main session keeps the round: 1 on the diff, 2 on the cured bytes after a cure, never 3 — `rounds.work`); writes the Block 20 marker; `preflight.sh` Step 0-bis verifies it. Tests-only diffs included: the hash spans `is_code∪is_test` and pr-test-analyzer is a blocking gate agent |
 
 ### Phase 4 — Hard-block enforcement
 The 20 hard blocks in § Framework-aware Hard Blocks. Each one is a deterministic pass/fail. The agent does NOT downgrade these — they are blocks by definition of the rubric.

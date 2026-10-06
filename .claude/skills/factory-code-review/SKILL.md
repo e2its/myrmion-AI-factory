@@ -113,8 +113,9 @@ FUNCTION run_code_review(mode, args, profile):
   binding = governance_binding(scope, args.governance_context)   # § Governance Binding
   roster = select_agents(profile, type_def_trigger(scope.files))
   n, m = COUNT(scope.files), LINES_CHANGED(scope)
-  r = args.round OR 1                                             # rules/agents.md → rounds.work = 2 on a completed diff: round 1 is the pass on the diff (full effort), round 2 the ONE pass on the cured bytes (its own size tier → its effort); the resolver refuses round 3 — what remains above informational goes to the user's adjudication (RDR): accept with an `override` reason in the marker, or cure and start again at round 1 on the new bytes (RDR-3 of ADR-EVOL-059)
-  # a finding on a line the delta did not touch is 🟢 by definition — the engine reviews the diff; what the lenses see through it is recorded, never a cure owed in this pass
+  r = args.round OR 1                                             # rules/agents.md → rounds.work = 2 on a completed diff: round 1 is the pass on the diff (full effort), round 2 the ONE pass on the cured bytes — the main session passes `--round 2` on the re-pass; the tier is the diff's (n, m — the whole scope), so the effort steps down by the diff's size, not the cure's; the resolver refuses round 3 — what remains above informational goes to the user's adjudication (RDR): accept with an `override` reason in the marker, or cure and start again at round 1 on the new bytes (RDR-3 of ADR-EVOL-059)
+  # a finding on a line the diff under review did not add or change is 🟢 by definition (the step `demote_outside` below, counted in the marker as `outside_delta`) — the engine reviews the diff; what the lenses see through it is recorded, never a cure owed in this pass
+  IF r == 2 AND nothing was cured since round 1: RETURN { ok: false, reason: "no-cure" }   # round 2 is the re-check of a cure, never a second look at the same bytes
   # EVOL-059 — the lens canary before the round: a lens whose resolved model moved (or was never judged) reviews the
   # synthetic fixture first; a red canary never blocks — it opens the spawn policy's review by RDR with the user.
   canary = RUN("python3 scripts/gate.py canary --plan --json")
@@ -133,6 +134,7 @@ FUNCTION run_code_review(mode, args, profile):
   reports = PARALLEL_MAP(roster, LAMBDA(agent_file):
     fell  = none                                                     # per critic, never shared: the fall of THIS spawn (EVOL-059)
     res   = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}")
+    IF NOT res.ok: SAY(res.reason); RETURN { ok: false, reason: "round-cap", detail: res.reason }   # the cap (rounds.work) refused this round: NO marker, NO spawn — what remains goes to the user's adjudication (RDR), never a pass by hand
     # The vendored lens is a PROMPT; the agent type is the rostered critic — its harness matrix (Read, Grep, Glob) is the read-only guarantee.
     report = SPAWN(subagent_type = "factory-critic-correctness",
       model  = res.model,                                          # passed at the spawn, never read from a file; the PreToolUse Agent hook refuses it missing
@@ -171,6 +173,7 @@ FUNCTION run_code_review(mode, args, profile):
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ..., detail: the lambda's detail }   # NO marker; the fall's reason travels with the failure
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
+  findings, outside_delta = demote_outside(findings, scope)   # a finding whose file:line is not an added or changed line of the diff under review → 🟢, tagged `outside-delta`, counted (references/severity-mapping.md § Cross-cutting rules); the counts below never see it above informational
   primary = [r FOR r IN reports IF r.agent_file NOT IN not_delivered AND NOT r.fallback]   # the delivered reports spawned on res.model — the sweep filters the same way; a fallback re-spawn ran on another id
   fold = FOLD_IDS(primary)                                           # the one rule (below) — the sweep calls it by name
   models = { "correctness": fold.model, "no_primary": COUNT(primary) == 0, "unstated": fold.unstated, "disagree": fold.disagree,
@@ -179,7 +182,7 @@ FUNCTION run_code_review(mode, args, profile):
   IF models.no_primary AND d: SAY("{COUNT(d)} critic(s) delivered on a fallback ({[f.id FOR f IN d]}), a model the canary never judged — no primary delivered")
   IF models.no_primary AND u: SAY("{COUNT(u)} critic(s) fell and did not deliver ({[f.alias FOR f IN u]})")
   IF primary: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger — the primary spawns' one id (`unknown` when they disagree: the lens is owed); a fallback or an undelivered critic ran on another or no model, never the lens's id
-  RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user; models.fallback / models.disagree / models.unstated non-empty ⇒ said to the user (above), recorded in the marker
+  RETURN { ok: true, findings, degraded, not_delivered, models, round: r, outside_delta, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user; models.fallback / models.disagree / models.unstated non-empty ⇒ said to the user (above), recorded in the marker
 
 FUNCTION FOLD_IDS(delivered):                                        # EVOL-059 — the one rule for "the model the lens last ran on", read by this engine and by the preventive sweep (§ Spawn contract → FOLD_IDS)
   known    = SET(return_model(r) FOR r IN delivered) − {"unknown"}   # `unknown` is a return that stated no id, never a model
@@ -208,7 +211,7 @@ The marker is the push gate's proof-of-execution. Increment mode NEVER writes it
 2. Write (house rules): `mkdir -p .claude/state/`; hash sanitised `tr -cd 'a-f0-9'`; atomic `> .tmp && mv`. Path: `.claude/state/code-review-${hash}.marker`.
 3. Body (single-line JSON):
    ```json
-   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"models":{"correctness":"<id>","no_primary":false,"unstated":0,"disagree":[],"fallback":[{"alias":"<alias>","id":"<id>","delivered":true}]},"override":null}
+   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"models":{"correctness":"<id>","no_primary":false,"unstated":0,"disagree":[],"fallback":[{"alias":"<alias>","id":"<id>","delivered":true}]},"round":1,"outside_delta":0,"override":null}
    ```
 4. Blockers found ⇒ STILL write (with counts) — preflight blocks on `findings.blocker > 0`, and the written marker is what the override path amends. Surface all findings to the user with fixes.
 

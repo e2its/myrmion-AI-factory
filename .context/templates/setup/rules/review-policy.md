@@ -20,7 +20,7 @@ Peer review acts as a **quality gate** between implementation (the development w
 1. **AI-Driven:** Reviews are performed automatically by AI (no human assignment required)
 2. **Sequential Blocking:** Features cannot proceed to QA until review is approved
 3. **Configurable Strictness:** Review depth adapts to environment and risk level
-4. **Bounded Loop:** one worker↔critic round (`rules/agents.md → agents.rounds.work`); what stays open goes to the user by RDR — no auto-escalation (EVOL-049)
+4. **Bounded Loop:** the worker↔critic passes the key allows (`rules/agents.md → agents.rounds.work`: the pass on the diff and one on the cured bytes); what stays open goes to the user by RDR — no auto-escalation (EVOL-049, RDR-3 of EVOL-059)
 5. **Override Capability:** Emergency bypass available with mandatory justification
 
 ---
@@ -96,13 +96,14 @@ Files matching these patterns are **automatically skipped** during peer review:
 
 ## 🔄 Bounded Loop & User Adjudication
 
-### One work round
+### The bounded work loop
 
-The cap is a key, never a judgement: `rules/agents.md → agents.rounds.work` (1). One worker↔critic round on a completed diff:
+The cap is a key, never a judgement: `rules/agents.md → agents.rounds.work` — the critics' pass on the completed diff (round 1, full effort) and one pass on the cured bytes (round 2, the effort the diff's size tier earns); the resolver refuses the next (`gate.py agents --resolve --round N`):
 
 ```
-Round 1: worker diff → work critics (findings) → worker cure → work critics re-check
-Open after the cap: ⛔ the user adjudicates via RDR — no auto-escalation, no agent ratifies
+Round 1: worker diff → work critics (findings, full effort) → worker cure
+Round 2: work critics on the cured bytes (effort by the size tier) — the one re-check
+Open after the cap: ⛔ the user adjudicates via RDR — no auto-escalation, no agent ratifies; a finding outside the diff's lines is informational
 ```
 
 ### What reaches the user
@@ -207,7 +208,7 @@ The PEER_REVIEW agent automatically validates:
 When DEV plan is ready, execute `/IMPLEMENT --build {{FEATURE_ID}}`:
 - the worker implements (TDD) → the work critics verify (correctness · governance · fidelity) → the security lens scans (SAST) per phase
 - Review is inline within `/IMPLEMENT --build` (the read-only work critics, spawned per phase)
-- One work round (`rules/agents.md → agents.rounds.work`), then the user adjudicates
+- The work passes the key allows (`rules/agents.md → agents.rounds.work`: the diff, then the cured bytes), then the user adjudicates
 
 ### REVIEW → QA (Sequential Blocking)
 When QA executes `/QA --verify {{FEATURE_ID}}`:
@@ -256,7 +257,7 @@ Add to `docs/constitution.md`:
 review_policy:
   default_level: STANDARD
   enforce_model_separation: true   # writer ≠ critic by construction — config/quality.json → agents.families (gate.py agents refuses equal aliases)
-  work_rounds: 1                   # the key: rules/agents.md → agents.rounds.work
+  work_rounds: 2                   # mirrors the key: rules/agents.md → agents.rounds.work (the diff and one pass on the cured bytes)
   terminal: user_adjudication      # RDR in the main session; no auto-escalation
   override_requires_justification: true
   override_min_length: 50
@@ -284,7 +285,7 @@ review_exclusions:
 
 ### Loop Terminal (EVOL-049)
 loop:
-  work_rounds: 1                   # rules/agents.md → agents.rounds.work
+  work_rounds: 2                   # mirrors rules/agents.md → agents.rounds.work
   terminal: user_adjudication      # RDR; "--review-conflict" only when the user routes there
   notify_stakeholders: true
 
