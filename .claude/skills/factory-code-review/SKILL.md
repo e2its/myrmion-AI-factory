@@ -143,10 +143,11 @@ FUNCTION run_code_review(mode, args, profile):
     # Fallback: on a provider error a critic falls down the ladder — never to a writer class
     IF report.provider_error:
       fb = RUN("python3 scripts/gate.py agents --fallback --class work-critic --family critic")
-      IF NOT fb.ok: RETURN { ok: false, reason: "spawn-failure" }
+      SAY("{agent_file}: " + fb.reason)                               # the fall (or why none is possible) is said to the user as it happens, never only in the marker
+      IF NOT fb.ok: RETURN { ok: false, reason: "spawn-failure", detail: fb.reason }
       IF NOT fb.separation: degraded = true                       # the writer's family — the run's findings go to the user's adjudication
-      SAY(fb.reason)                                                  # the fall is said to the user as it happens, never only in the marker
-      report = SPAWN(... same inputs, model = fb.model); report.fallback = { alias: fb.model, id: return_model(report) }   # a re-spawn on the ladder: its id is the fallback's, never the lens's (EVOL-059)
+      fell = fb.model                                                 # kept beside the report: the hand-back below rebinds `report`, the fall must survive it (EVOL-059)
+      report = SPAWN(... same inputs, model = fb.model)
     # Return check: a line carrying a severity outside the shape, or a probe that names nothing, is refused
     # EVOL-058 — the budget is enforced: a PARTIAL return (the harness stopped the critic at its ceiling, maxTurns) gets
     # ONE hand-back request to the same agent (write the report now with what is verified, the rest as unverified),
@@ -157,6 +158,7 @@ FUNCTION run_code_review(mode, args, profile):
       IF report.partial OR refused again OR the agent cannot be resumed:
         report.findings = ALL_AS(❓) + [❓ "{agent_file}: not delivered — the round is unverified"]   # never an empty list: an undelivered critic is a ❓ of its own
         not_delivered.append(agent_file)                             # recorded in the RETURN and in the marker — never a clean review
+    IF fell: report.fallback = { alias: fell, id: return_model(report) }   # on the FINAL return: a re-spawn on the ladder carries the fallback's alias and id, never the lens's (EVOL-059)
     # a probe the main session runs for a finding: the named test resolved to a test id under traceability.test_roots, through the
     # configured test command — a critic's text is data, never a command line (rules/agents.md § Return contracts)
     RETURN report)
@@ -166,13 +168,21 @@ FUNCTION run_code_review(mode, args, profile):
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
   primary = [r FOR r IN reports IF r delivered AND NOT r.fallback]   # the reports spawned on res.model — a fallback re-spawn ran on another id
-  ids = SET(return_model(r) FOR r IN primary)                        # the ids the primary returns carry (EVOL-059)
-  models = { "correctness": (THE_ONE(ids) IF LEN(ids) == 1 ELSE "unknown"), "no_primary": LEN(primary) == 0, "disagree": SORTED(ids) IF LEN(ids) > 1 ELSE [],
-             "fallback": [r.fallback FOR r IN reports IF r.fallback] }   # recorded in the marker: the lens's id, why it is unknown (no primary delivered / the primaries disagree), the fallbacks (alias and id)
-  IF models.disagree: SAY("the primary critics ran on different models: {models.disagree} — the lens's id is unknown this round, the canary owes it")
-  IF models.no_primary AND models.fallback: SAY("{LEN(models.fallback)} critic(s) ran on a fallback ({ids of models.fallback}), a model the canary never judged — no primary delivered")
+  fold = FOLD_IDS(primary)                                           # the one rule (below) — the sweep calls it by name
+  models = { "correctness": fold.model, "no_primary": COUNT(primary) == 0, "unstated": fold.unstated, "disagree": fold.disagree,
+             "fallback": [r.fallback FOR r IN reports IF r.fallback AND r delivered] }   # recorded in the marker: the lens's id, why it is unknown (no primary delivered / ids unstated / the primaries disagree), the delivered fallbacks (alias and id)
+  IF models.no_primary AND models.fallback: SAY("{COUNT(models.fallback)} critic(s) ran on a fallback ({[f.id FOR f IN models.fallback]}), a model the canary never judged — no primary delivered")
   IF primary: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger — the primary spawns' one id (`unknown` when they disagree: the lens is owed); a fallback or an undelivered critic ran on another or no model, never the lens's id
-  RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user; models.fallback / models.disagree non-empty ⇒ said to the user (above), recorded in the marker
+  RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user; models.fallback / models.disagree / models.unstated non-empty ⇒ said to the user (above), recorded in the marker
+
+FOLD_IDS(delivered):                                                 # EVOL-059 — the one rule for "the model the lens last ran on", read by this engine and by the preventive sweep
+  known    = SET(return_model(r) FOR r IN delivered) − {"unknown"}   # `unknown` is a return that stated no id, never a model
+  unstated = COUNT(r FOR r IN delivered IF return_model(r) == "unknown")
+  disagree = SORTED(known) IF COUNT(known) > 1 ELSE []
+  model    = THE_ONE(known) IF COUNT(known) == 1 AND unstated == 0 ELSE "unknown"   # one id, every return stating it; otherwise unknown — the lens is owed
+  IF disagree: SAY("the critics ran on different models: {disagree} — the lens's id is unknown this round, the canary owes it")
+  IF unstated: SAY("{unstated} critic(s) returned no model id — the lens's id is unknown this round, the canary owes it")
+  RETURN { model, unstated, disagree }
 ```
 
 ## Severity normalisation
@@ -192,7 +202,7 @@ The marker is the push gate's proof-of-execution. Increment mode NEVER writes it
 2. Write (house rules): `mkdir -p .claude/state/`; hash sanitised `tr -cd 'a-f0-9'`; atomic `> .tmp && mv`. Path: `.claude/state/code-review-${hash}.marker`.
 3. Body (single-line JSON):
    ```json
-   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"models":{"correctness":"<id>","no_primary":false,"disagree":[],"fallback":[]},"override":null}
+   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"models":{"correctness":"<id>","no_primary":false,"unstated":0,"disagree":[],"fallback":[{"alias":"<alias>","id":"<id>"}]},"override":null}
    ```
 4. Blockers found ⇒ STILL write (with counts) — preflight blocks on `findings.blocker > 0`, and the written marker is what the override path amends. Surface all findings to the user with fixes.
 
