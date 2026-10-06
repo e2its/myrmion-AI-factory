@@ -2026,7 +2026,8 @@ class MiniYaml(unittest.TestCase):
             root = HERE.parent.parent; gate = str(HERE.parent / "gate.py")
             r = subprocess.run([sys.executable, gate, "--repo", str(root), "agents"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            r = subprocess.run([sys.executable, gate, "--repo", str(root), "agents", "--spawn", "--agent", "factory-critic-security", "--model", "sonnet"], capture_output=True, text=True, env=env)
+            writer_alias = agents.policy(root)["families"]["writer"]   # whatever pair the repo configures: the writer's alias is the wrong one for a critic
+            r = subprocess.run([sys.executable, gate, "--repo", str(root), "agents", "--spawn", "--agent", "factory-critic-security", "--model", writer_alias], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1, "a critic on the writer's alias is refused with the subset parser too"); self.assertIn("its family's alias", r.stdout)
 
 

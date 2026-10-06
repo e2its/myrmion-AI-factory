@@ -991,10 +991,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.12.0",
+      "version": "2.12.1",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.12.1: fix(EVOL-059) — Q34 seeds: writer_model opus · critic_model sonnet (RDR-2 of ADR-EVOL-059).",
         "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks slot (Q21.2)",
         "2.11.0: feat(EVOL-049)! — agents: writer_model / critic_model (Q34) + summary bullet.",
         "2.10.0: feat(EVOL-047) — surface.runtime_surface slot (Q33) + summary bullet.",
@@ -1091,7 +1092,7 @@
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
-        "1.13.1: fix(EVOL-059) — agents.families: writer opus, critic sonnet (RDR-2 of ADR-EVOL-059).",
+        "1.13.1: fix(EVOL-059) — the framework repo's own agents.families: writer opus, critic sonnet (RDR-2 of ADR-EVOL-059); the template's placeholders unchanged.",
         "1.13.0: feat(EVOL-057) — verification.logs: the push log, the gate timings and the rotation size, inside seal.dir — what the instrument reads, never a gate input.",
         "1.12.0: feat(EVOL-054) — scm block (GitHub, main, the two governance checks, 0 approvals) — the framework repo's own protection, applied 2026-09-25",
         "1.11.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
@@ -1815,11 +1816,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.14.0",
+      "version": "1.14.1",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.14.1: fix(EVOL-059) — the real-roster spawn case derives the writer's alias from the policy, never a literal (true under any pair).",
         "1.14.0: feat(EVOL-059) — Canary: the fixture's consistency and invisibility at rest, the judge green/red/tolerance/alternative anchors/informational, the plan on drift, never judged, unknown, on demand; the critic contract's Model: line.",
         "1.13.0: feat(EVOL-058) — Agents: budgets per tier red/green, the ceiling on read-only definitions, a writer's refused, the resolver's budgets per tier and for an unmeasured size.",
         "1.12.0: feat(EVOL-057) — Seal: the logs block, the push record and its rotation, the runner red then green, symlinked state refused; CLI exit codes for push-log and seal --run (the meta twin).",
@@ -4853,11 +4855,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.14.0",
+      "version": "1.14.1",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.14.1: fix(EVOL-059) — the real-roster spawn case derives the writer's alias from the policy, never a literal (true under any pair).",
         "1.14.0: feat(EVOL-059) — Canary tests (the meta twin).",
         "1.13.0: feat(EVOL-058) — Agents budgets (the meta twin).",
         "1.12.0: feat(EVOL-057) — Seal: the logs block checked key by key (n/a never blocks), the push record and its rotation, the runner (one execution per command, timing lines, the seal right after, red/green, --full over green records, named gates, no logs, not required); CLI exit codes for push-log and seal --run.",
