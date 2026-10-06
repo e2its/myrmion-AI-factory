@@ -2,7 +2,7 @@
 description: "Role agents and read-only critics — the class policy (tools per class, prompt budgets, model families as aliases, per-spawn resolution, fallback ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies."
 applicable_when:
   always: true
-version: 1.4.0
+version: 1.5.0
 date: 2026-10-06
 changelog:
   - "1.4.0: feat(EVOL-059) — the lens canary: a critic's return carries its Model: line; a synthetic diff with planted defects per lens judged by gate.py canary; the plan owes a lens whose model moved; line_tolerance key; a red canary opens the spawn policy's review by RDR, never a block."
@@ -28,14 +28,14 @@ agents:
         never: [Agent]
     plan-critic:
       family: critic
-      effort: high
+      effort: max
       budget_bytes: 8000
       tools:
         must: [Read, Grep, Glob]
         never: [Edit, Write, NotebookEdit, Bash, Agent]
     work-critic:
       family: critic
-      effort: high
+      effort: max
       budget_bytes: 8000
       tools:
         must: [Read, Grep, Glob]
@@ -55,12 +55,14 @@ agents:
   resolve:
     - {class: worker, tier: small, effort: low}
     - {class: worker, tier: large, effort: high}
+    - {class: work-critic, round: 2, tier: small, effort: medium}    # the second pass (the cured bytes) earns the effort its size earns; the first pass is always full (RDR-3 of ADR-EVOL-059)
+    - {class: work-critic, round: 2, tier: medium, effort: high}
   ladder:
     critic: [writer]
     writer: []
   rounds:
     plan_gate: 2
-    work: 1
+    work: 2
   canary:
     line_tolerance: 3
   roster:
@@ -113,7 +115,7 @@ Writers and critics live on **different model families by construction** (`agent
 
 ## The bounded loop
 
-One worker↔critic round on a completed diff (`rounds.work`), two at the plan gate (`rounds.plan_gate`) — the measured point of diminishing return. A cure that seeds the next round's findings is the loop's own defect. The loop ends in a **user adjudication**, never in the agent's own judgement.
+Two rounds on a completed diff (`rounds.work`): the first pass at full effort, one pass on the cured bytes at the effort its own size earns (`resolve`, the round-2 tier rows) — and two at the plan gate (`rounds.plan_gate`) — the measured point of diminishing return (RDR-3 of ADR-EVOL-059: thirteen passes without a cap, the findings leaving the delta from the fourth). A third pass is refused by the resolver. A cure that seeds the next round's findings is the loop's own defect. What remains above informational after the second round goes to the **user's adjudication**: accept it (the review marker's `override`, with the reason) or cure it and start again at round 1 on the new bytes — never the agent's third round. A finding on a line the delta did not touch is informational by definition: the review is of the diff. The loop ends in a **user adjudication**, never in the agent's own judgement.
 
 **The budget is enforced, not requested (EVOL-058).** Every size tier carries `turn_budget` (the turns a critic may spend per round) and `probe_budget` (the executions the main session may run on its behalf per round); the resolver hands both at the spawn and the spawn prompt opens with `effort:`, `turn budget:`, `probe budget:`. Three holds on every read-only agent (a critic, the reader), each at its own place: (1) the **harness's hard stop** — every read-only definition declares `maxTurns` equal to the large tier's `turn_budget` (the validator holds it; a definition is one file, so the stop the harness enforces is one per definition, the ceiling): the harness stops the critic there and marks its return **partial**; (2) the **orchestrator's hand-back** — on a partial return, or on a return that is not a report (refused by the return check), the main session sends **one** request to the same agent (write the report now with what is verified, the rest as unverified) and resumes it; a critic that still does not deliver counts as **fully unverified** — every finding `❓` plus one `❓` of its own, the critic named under `not_delivered` in the return and in the review marker — never as silence, never as clean; (3) the **probe bound** — the main session runs at most `probe_budget` executions on a critic's behalf, and nothing else. The per-tier `turn_budget` below the ceiling is the budget the critic is told and the budget the instrument judges it against (`subproducts/measure`, critics inside their budget per round); a harness that offers no hard stop produces no partial return — there the hand-back fires on a return that is not a report, and the budget is stated and measured, not stopped. An unmeasured size is held to the large tier's budgets.
 

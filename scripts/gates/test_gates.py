@@ -1207,6 +1207,21 @@ class Agents(unittest.TestCase):
             self.assertEqual(agents.resolve(repo, "plan-critic", round_=1)["matched"], "class default")
             self.assertEqual((agents.resolve(repo, "plan-critic", round_=2)["effort"], agents.resolve(repo, "plan-critic", round_=2)["matched"]), ("max", "round: 2, effort: max"), "the second round steps up by its row")
             r = agents.resolve(repo, "plan-critic", round_=3); self.assertFalse(r["ok"]); self.assertIn("over the cap 2", r["reason"])
+            # RDR-3 of EVOL-059: a second pass earns the effort its size earns; the first is the class default; a third is refused
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("work: 1", "work: 2").replace("  ladder: {critic: [writer], writer: []}", "    - {class: work-critic, round: 2, tier: small, effort: medium}\n  ladder: {critic: [writer], writer: []}"))
+            self.assertEqual(agents.resolve(repo, "work-critic", files=2, lines=10, round_=1)["effort"], "high", "the first pass: the class default, whatever the size")
+            self.assertEqual(agents.resolve(repo, "work-critic", files=2, lines=10, round_=2)["effort"], "medium", "the second pass on a small cure: the tier row")
+            self.assertEqual(agents.resolve(repo, "work-critic", round_=2)["effort"], "high", "an unmeasured second pass matches no tier row")
+            r = agents.resolve(repo, "work-critic", round_=3); self.assertFalse(r["ok"]); self.assertIn("over the cap 2", r["reason"])
+            if (HERE.parent.parent / ".context/templates/setup").is_dir():   # the framework repo pins its own policy
+                real = HERE.parent.parent
+                self.assertEqual(agents.resolve(real, "work-critic", files=2, lines=10, round_=1)["effort"], "max")
+                self.assertEqual(agents.resolve(real, "work-critic", files=2, lines=10, round_=2)["effort"], "medium")
+                self.assertEqual(agents.resolve(real, "work-critic", files=10, lines=300, round_=2)["effort"], "high")
+                self.assertEqual(agents.resolve(real, "work-critic", files=40, lines=900, round_=2)["effort"], "max")
+                self.assertEqual(agents.resolve(real, "plan-critic")["effort"], "max")
+                self.assertFalse(agents.resolve(real, "work-critic", round_=3)["ok"])
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS)
             r = agents.resolve(repo, "work-critic", round_=2); self.assertFalse(r["ok"]); self.assertIn("agents.rounds.work", r["reason"], "one work round — the cap is enforced by the resolver, not by prose")
             self.assertTrue(agents.resolve(repo, "worker", round_=9)["ok"], "writers have no round cap")
             with self.assertRaisesRegex(GateFault, "not one of"):

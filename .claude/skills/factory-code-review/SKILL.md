@@ -113,7 +113,8 @@ FUNCTION run_code_review(mode, args, profile):
   binding = governance_binding(scope, args.governance_context)   # § Governance Binding
   roster = select_agents(profile, type_def_trigger(scope.files))
   n, m = COUNT(scope.files), LINES_CHANGED(scope)
-  r = args.round OR 1                                             # rules/agents.md → rounds.work = 1 on a completed diff
+  r = args.round OR 1                                             # rules/agents.md → rounds.work = 2 on a completed diff: round 1 is the pass on the diff (full effort), round 2 the ONE pass on the cured bytes (its own size tier → its effort); the resolver refuses round 3 — what remains above informational goes to the user's adjudication (RDR): accept with an `override` reason in the marker, or cure and start again at round 1 on the new bytes (RDR-3 of ADR-EVOL-059)
+  # a finding on a line the delta did not touch is 🟢 by definition — the engine reviews the diff; what the lenses see through it is recorded, never a cure owed in this pass
   # EVOL-059 — the lens canary before the round: a lens whose resolved model moved (or was never judged) reviews the
   # synthetic fixture first; a red canary never blocks — it opens the spawn policy's review by RDR with the user.
   canary = RUN("python3 scripts/gate.py canary --plan --json")
