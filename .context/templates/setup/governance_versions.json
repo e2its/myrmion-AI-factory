@@ -3791,7 +3791,7 @@
       "type": "skill",
       "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
-        "1.9.0: feat(EVOL-059) — the canary plan before the governance lens, --seen after its return.",
+        "1.9.0: feat(EVOL-059) — the canary plan before the governance lens, --seen after its return under the engine's one FOLD_IDS rule; the sweep's not_delivered made real (the return check and one hand-back per scope, the ladder on a provider error, every fall recorded); an undelivered scope is UNVERIFIED, never CLEAN (consolidation, artefact, deploy gate).",
         "1.8.0: feat(EVOL-058) — the budget lines at the spawn and the hand-back on a partial return.",
         "1.7.0: fix(EVOL-049) — review pass — the sweep spawns factory-critic-governance by name, never a generic Explore agent",
         "1.6.0: feat(EVOL-049)! — the Explore sub-agents are read-only work critics; model and digest per spawn; spawn-policy: work-critic.",
