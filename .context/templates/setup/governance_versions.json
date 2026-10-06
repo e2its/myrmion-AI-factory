@@ -2397,10 +2397,11 @@
       ]
     },
     "develop/preventive_sweep_report_template.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".context/templates/develop/preventive_sweep_report_template.md",
       "changelog": [
+        "1.1.0: feat(EVOL-059) — not_delivered, degraded and fallback frontmatter fields: an undelivered scope is UNVERIFIED, never CLEAN.",
         "1.0.0: feat(EVOL-027) initial manifest registration — Preventive Sweep report scaffold."
       ]
     },
@@ -2867,9 +2868,10 @@
       ]
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
-      "version": "2.7.2",
+      "version": "2.8.0",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
+        "2.8.0: feat(EVOL-059) — the PREVENTIVE-SWEEP gate reads the artefact's not_delivered: an undelivered scope holds the deployment whatever the issue's column.",
         "2.7.2: feat(EVOL-054) — provisioning prerequisite: scm-protection at ci (EVOL-054)",
         "2.7.1: fix(EVOL-051) — review pass — the deploy pre-gate asks gate.py seal --check --ref HEAD before trusting IMPLEMENTED_AND_VERIFIED (EVOL-051)",
         "2.7.0: feat(EVOL-049)! — hat vocabulary retired (the QA security pass).",

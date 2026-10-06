@@ -141,7 +141,7 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
       IF NOT fb.ok: not_delivered.append(scope.scope); report.findings = [❓ "scope {scope.scope}: not delivered — provider error, no rung left"]; report.scope = scope.scope; RETURN report
       IF NOT fb.separation: degraded = true
       fell = fb.model; report = SPAWN(... same inputs, model = fb.model)
-      IF report.provider_error: SAY("scope {scope.scope}: the fallback {fell} failed too — no rung left"); not_delivered.append(scope.scope); report.findings = [❓ "scope {scope.scope}: not delivered — the fallback {fell} failed too"]; report.scope = scope.scope; RETURN report
+      IF report.provider_error: SAY("scope {scope.scope}: the fallback {fell} failed too — no rung left"); not_delivered.append(scope.scope); report.findings = [❓ "scope {scope.scope}: not delivered — the fallback {fell} failed too"]; report.scope = scope.scope; report.fallback = { alias: fell, id: "unknown", delivered: false }; RETURN report   # a provider-error return states no id; the fall is recorded, never only said
     # a return outside the finding shape is refused; a PARTIAL return (the ceiling, maxTurns) gets ONE hand-back request, then resumes (rules/agents.md § The bounded loop, EVOL-058)
     IF report.partial OR RUN("python3 scripts/gate.py agents --check-return --class work-critic", report) refuses:
       report = HANDBACK_ONCE(report.agent)                          # ONE request to the same agent, then resume — never a second spawn
@@ -155,7 +155,7 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   delivered = [r FOR r IN reports IF r.scope NOT IN not_delivered AND NOT r.fallback]   # the reports that passed the return check after at most one hand-back, spawned on the resolved model — a fall ran on another id (FOLD_IDS reads the primary ones, as the engine's)
   fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § Spawn contract → FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
   IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")   # nothing when no scope delivered: the last real id stays
-  RETURN consolidate(reports) + { not_delivered, degraded, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # the undelivered scopes travel with the sweep's report (their DCs UNVERIFIED, never CLEAN — § CONSOLIDATION PROTOCOL step 4), the falls beside them
+  RETURN consolidate(reports, not_delivered) + { not_delivered, degraded, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # consolidation reads the list it marks UNVERIFIED by   # the undelivered scopes travel with the sweep's report (their DCs UNVERIFIED, never CLEAN — § CONSOLIDATION PROTOCOL step 4), the falls beside them
 ```
 
 ### Canonical starter scopes
@@ -219,6 +219,8 @@ medium: N
 low: N
 all_resolved_in_commit: true | false
 not_delivered: []                      # the scopes whose critic never delivered — their DCs are UNVERIFIED below, the sweep is not COMPLETED while any remains
+degraded: false                        # a critic fell onto the writer's family (the ladder's last rung) — the findings go to the user's adjudication
+fallback: []                           # every fall: {alias, id, delivered}
 ---
 
 # Preventive Defect Sweep — {{FEATURE_ID}}
@@ -245,6 +247,11 @@ not_delivered: []                      # the scopes whose critic never delivered
 ## Clean Areas
 | DC | Area | Notes |
 |----|------|-------|
+
+## Unverified Areas
+| DC | Scope | Reason |
+|----|-------|--------|
+<!-- one row per DC of a scope in not_delivered — never under Clean Areas (EVOL-059) -->
 
 ## Framework Observations
 {{Any patterns that suggest a new DC or a gate improvement}}
