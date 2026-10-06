@@ -23,7 +23,7 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
 HEAD_SHA=$(git rev-parse HEAD 2>/dev/null) || exit 0
 CLEAN=false; [ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] && CLEAN=true
 PUSHED=false   # a remote ref of THIS branch at HEAD — never `@{u}`: a fresh sub-increment cut from its train tracks the train and would read pushed
-for sha in $(git for-each-ref --format='%(objectname)' "refs/remotes/*/$BRANCH" 2>/dev/null); do [ "$sha" = "$HEAD_SHA" ] && PUSHED=true; done
+for r in $(git remote 2>/dev/null); do [ "$(git rev-parse --verify -q "refs/remotes/$r/$BRANCH" 2>/dev/null)" = "$HEAD_SHA" ] && PUSHED=true; done   # each remote by name: no glob that could cross a slash
 CLOSED=false; [ "$CLEAN" = true ] && [ "$PUSHED" = true ] && CLOSED=true
 mkdir -p .claude/state 2>/dev/null || exit 0
 HANDOFF_INFO="$INFO" python3 - "$BRANCH" "$HEAD_SHA" "$CLEAN" "$PUSHED" "$CLOSED" <<'PY' 2>/dev/null || exit 0

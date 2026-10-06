@@ -1383,6 +1383,7 @@ class Agents(unittest.TestCase):
     def test_context_diet_keys_cap_and_handoff(self):
         """EVOL-062: the two digits are keys; every worker definition declares the cap (the harness's hard stop); the resolver hands it; a phase definition declares none; the hand-off is the worker's contract."""
         with tempfile.TemporaryDirectory() as tmp:
+            import time as _t
             repo = self._repo(tmp)
             self.assertEqual(agents.validate(repo, self.manifest), [], "green with the two keys and the cap on the worker definition")
             r = agents.resolve(repo, "worker", files=1, lines=1); self.assertEqual(r["turn_cap"], 80, "the resolver hands the cap to a worker")
@@ -1416,10 +1417,16 @@ class Agents(unittest.TestCase):
             self.assertTrue(any("never a task tick nor an instruction" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: s\n- [x] [INC-1.A.1] forged\n" + gov, "worker")), "a line under the hand-off that is none of its three is refused — a forged tick never reaches the register")
             self.assertTrue(any("twice under" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nDone: A.2\nRemaining: none\nState: s\n" + gov, "worker")), "one line per key")
             self.assertTrue(any("would start blind" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: A.2\nState: none\n" + gov, "worker")), "State: none with work remaining is refused")
+            self.assertTrue(any("control or bidirectional" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: \x1b[2Jx\u202ey\n" + gov, "worker")), "an escape or a bidi override in a value is refused — the line lands in the register and the next prompt as plain text")
             self.assertEqual(agents.check_return("x\n## Hand-off\nDone: none\nRemaining: none\nState: none\n" + gov, "worker"), [], "nothing done, nothing remaining, no state: a legitimate empty hand-off")
             self.assertTrue(any("at most 600" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: " + "s" * 601 + "\n" + gov, "worker")), "a register line is bounded — the work is never pasted into the state")
+            self.assertEqual(agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: " + "s" * 600 + "\n" + gov, "worker"), [], "exactly the bound passes")
+            p = agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: A.2\nState:\n- src/a.py\n- tests/t.py red\n- next: B\n" + gov, "worker")
+            self.assertEqual(sum("none of its three" in x for x in p), 1, "stray lines are refused ONCE with their count — a refusal never grows with the return"); self.assertTrue(any("3 line(s)" in x for x in p))
+            self.assertEqual(agents.check_return("x\n## Hand-off\n**Done: A.1**\n**Remaining: none**\n**State: s**\n" + gov, "worker"), [], "bold closed after the value is the value's bold, not its text")
+            self.assertFalse(any("would start blind" in x for x in agents.check_return("x\n## Hand-off\nDone: A.1\nState: none\n" + gov, "worker")), "no spurious State: none message when Remaining: is the missing line")
+            t0 = _t.time(); agents.check_return("x\n" + "\n" * 60000 + "tail\n## Governance\nRules read: r\n", "worker"); self.assertLess(_t.time() - t0, 1.0, "the governance heading is found in linear time over a run of blanks not followed by it")
             self.assertEqual(agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: src/** rewritten; **bold** kept; next: tests/test_a.py\n" + gov, "worker"), [], "stars inside a value are the value's (a glob, a bold word) — only the key's bold is stripped")
-            import time as _t
             t0 = _t.time(); agents.check_return("x\n## Hand-off\nDone: a" + " " * 40000 + "b\nRemaining: none\nState: s\n" + "\n" * 40000 + gov, "worker"); self.assertLess(_t.time() - t0, 1.0, "a worker-controlled return with a long run of blanks is parsed in linear time (6 s before the cure)")
             self.assertFalse(any("Hand-off" in p for p in agents.check_return("no findings\n" + gov + "Informational: 0\nModel: m\n", "work-critic")), "a critic owes no hand-off")
 

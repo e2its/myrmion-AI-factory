@@ -54,6 +54,7 @@ CONTEXT_KEYS = {WORKER_CAP_KEY: "the harness's hard stop on a worker (every work
 HANDOFF_HEADING = re.compile(r"^[ \t]*##[ \t]*Hand-off\b.*$", re.M)   # EVOL-062: the worker's hand-off — what the register learns from its return (blanks never cross a line: no backtracking over a worker-controlled return)
 HANDOFF_LINES = ("Done:", "Remaining:", "State:")
 HANDOFF_KEY = re.compile(r"^(?:\*\*)?(Done:|Remaining:|State:)(?:\*\*)?")   # anchored, linear: the key, bold or not
+HANDOFF_CONTROL = re.compile(r"[\x00-\x08\x0e-\x1f\x7f\u202a-\u202e\u2066-\u2069]")   # a control or bidi character never rides in a register line
 HANDOFF_LINE_MAX = 600   # characters per hand-off line — a register line names the files and the next step, never pastes the work; the line is copied verbatim into dev_plan.md and the next prompt
 
 
@@ -76,8 +77,8 @@ SEVERITY = re.compile(r"[🔴🟡🟢❓]")
 FINDING = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?P<loc>[^\s*`]+:\d+)(?:\*\*)?\s*·\s*(?P<sev>🔴|🟡|🟢|❓)\s*·\s*confidence\s*\d+%\s*·\s*probe:\s*(?P<probe>.+?)\s*$")
 TRIVIAL_PROBE = re.compile(r"^(?:n/?a|none|nil|-+|—|tbd|todo|\?+|\.+)$", re.I)
 NO_FINDINGS = re.compile(r"^\s*(?:[-*]\s+)?no findings\.?\s*$", re.I | re.M)
-GOV_HEADING = re.compile(r"^\s*##\s*Governance\b.*$", re.M)                                      # the governance block starts at a heading LINE — a mention of the phrase inside a finding is not one
-INFO_HEADING = re.compile(r"^\s*##\s*Informational\b.*$", re.M)                                   # EVOL-060: the appendix — informational findings in full, never adjudicated
+GOV_HEADING = re.compile(r"^[ \t]*##[ \t]*Governance\b.*$", re.M)                                      # the governance block starts at a heading LINE — a mention of the phrase inside a finding is not one
+INFO_HEADING = re.compile(r"^[ \t]*##[ \t]*Informational\b.*$", re.M)                                   # EVOL-060: the appendix — informational findings in full, never adjudicated
 INFO_LINE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Informational:(?:\*\*)?\s*(?P<n>\d+)\s*$", re.M)   # EVOL-060: the count on the governance block — what the orchestrator reads instead of the findings
 
 
@@ -570,6 +571,7 @@ def check_return(text: str, cls: str) -> list[str]:
             g = GOV_HEADING.search(block)
             block = block[:g.start()] if g else block
             found: dict[str, str] = {}
+            stray: list[str] = []
             for raw in block.splitlines():
                 line = raw.strip()
                 if not line:
@@ -577,9 +579,10 @@ def check_return(text: str, cls: str) -> list[str]:
                 line = re.sub(r"^[-*][ \t]+", "", line)   # bulleted like the governance block's lines
                 km = HANDOFF_KEY.match(line)
                 if not km:
-                    problems.append(f"a line under `## Hand-off` that is none of its three (`Done:`, `Remaining:`, `State:`) — a hand-off is data the register copies, never a task tick nor an instruction: {line[:60]}")
-                    continue
+                    stray.append(line); continue
                 k, v = km.group(1), line[km.end():].strip()
+                if line.startswith("**") and v.endswith("**"):   # `**Remaining: none**` — the bold closed after the value
+                    v = v[:-2].strip()
                 if k in found:
                     problems.append(f"`{k}` twice under `## Hand-off` — one line per key (EVOL-062)"); continue
                 found[k] = v
@@ -587,10 +590,14 @@ def check_return(text: str, cls: str) -> list[str]:
                     problems.append(f"`{k}` is empty — `none` when nothing remains, never blank nor the contract's placeholder (EVOL-062)")
                 elif len(v) > HANDOFF_LINE_MAX:
                     problems.append(f"`{k}` is {len(v)} characters — a register line holds at most {HANDOFF_LINE_MAX}: name the files and the next step, never paste the work (EVOL-062)")
+                elif HANDOFF_CONTROL.search(v):
+                    problems.append(f"`{k}` carries a control or bidirectional character — a register line is plain text (EVOL-062)")
+            if stray:   # said once, with the count: a refusal never grows with the return it refuses
+                problems.append(f"{len(stray)} line(s) under `## Hand-off` that are none of its three (`Done:`, `Remaining:`, `State:` — each ONE line) — a hand-off is data the register copies, never a task tick nor an instruction; the first: {stray[0][:60]}")
             for k in HANDOFF_LINES:
                 if k not in found:
                     problems.append(f"`## Hand-off` without its `{k}` line (EVOL-062)")
-            if found.get("State:", "").lower() == "none" and found.get("Remaining:", "").lower() != "none":
+            if "Remaining:" in found and found.get("State:", "").lower() == "none" and found["Remaining:"].lower() != "none":
                 problems.append("`State: none` with work remaining — the fresh worker would start blind: name the files touched, the red test still red and the next step (EVOL-062)")
     if "critic" in cls:
         m = MODEL_LINE.search(governance_block(text))   # the governance block's line (the contract part's), not a `Model:` anywhere in the findings or the appendix
