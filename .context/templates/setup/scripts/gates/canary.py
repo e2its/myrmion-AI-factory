@@ -41,6 +41,7 @@ LENS_AGENT = {"security": "factory-critic-security", "correctness": "factory-cri
               "governance": "factory-critic-governance", "fidelity": "factory-critic-fidelity"}
 LENSES = tuple(LENS_AGENT)
 SEVERITY_ABOVE_INFO = ("🔴", "🟡")
+DEFAULT_TOLERANCE = 3   # the template's `agents.canary.line_tolerance`; the fixture is checked against it when no repo is at hand
 
 FIXTURE_B64 = (
     "ZGlmZiAtLWdpdCBhL1JFQURNRS5tZCBiL1JFQURNRS5tZApuZXcgZmlsZSBtb2RlIDEwMDY0NAotLS0gL2Rldi9udWxsCisrKyBi"
@@ -211,8 +212,9 @@ def added_lines(diff: str, positions: dict[str, dict[int, int]] | None = None) -
 
 def consistency(repo: Path | None = None) -> list[str]:
     """The fixture holds its own promises: every anchor is an added line, the planted credential carries its marker and
-    is invisible at rest, the two coordinate spaces never overlap (against the project's tolerance when a repo is at
-    hand), and — with a repo — every lens's agent is in the roster."""
+    is invisible at rest, the two coordinate spaces never overlap and the tolerance reaches no two planted defects of
+    one lens at once (both against the project's tolerance when a repo is at hand), and — with a repo — every lens's
+    agent is in the roster. The judge refuses a fixture that breaks a promise: a false green is never a verdict."""
     problems: list[str] = []
     try:
         diff = fixture()
@@ -239,21 +241,36 @@ def consistency(repo: Path | None = None) -> list[str]:
     anchored = {f for items in EXPECTED.values() for it in items for f, _ in it["at"]}
     lowest_diff_line = min((d for f in anchored for d in positions.get(f, {})), default=0)
     highest_anchor = max(n for items in EXPECTED.values() for it in items for _, n in it["at"])
-    gap = highest_anchor + 10
+    highest_new_line = max((n for f in anchored for n in added.get(f, {})), default=0)   # a new-file reading that equals a diff-text line would be remapped: the bound is the longest anchored file, not the highest anchor
+    bound = max(highest_anchor, highest_new_line)
+    tol = DEFAULT_TOLERANCE
     if repo is not None:
         try:
-            gap = highest_anchor + tolerance(repo)
+            tol = tolerance(repo)
         except GateFault as e:
             problems.append(str(e))
-    if lowest_diff_line <= gap:
-        problems.append(f"the diff text's lines of the anchored files start at {lowest_diff_line}, within reach of an anchor ({highest_anchor}, tolerance to {gap}) — lead the diff with a longer filler or lower agents.canary.line_tolerance")
+    if lowest_diff_line <= bound + tol:
+        problems.append(f"the diff text's lines of the anchored files start at {lowest_diff_line}, within reach of the new file's numbering (to {bound}, tolerance to {bound + tol}) — lead the diff with a longer filler or lower agents.canary.line_tolerance")
+    # the tolerance reaches no two planted defects of one lens at once: one finding between two anchors of the same file
+    # would credit both (a shared anchor — the same coordinate under two items — is on purpose and not a pair)
+    for lens, items in EXPECTED.items():
+        for i, a in enumerate(items):
+            for b in items[i + 1:]:
+                for f, n in a["at"]:
+                    for f2, n2 in b["at"]:
+                        if f == f2 and n != n2 and 2 * tol >= abs(n - n2):
+                            problems.append(f"agents.canary.line_tolerance {tol} reaches two planted defects of the {lens} lens at once ({f}: {n} and {n2} are {abs(n - n2)} apart) — keep it under {abs(n - n2) / 2:g}")
     if repo is not None:
         from . import agents as agents_mod
         try:
-            names = {r.get("name") for r in agents_mod.policy(repo).get("roster", []) if isinstance(r, dict)}
-            for lens, agent in LENS_AGENT.items():
-                if agent not in names:
-                    problems.append(f"lens {lens}: its agent {agent} is not in the roster of rules/agents.md")
+            roster = agents_mod.policy(repo).get("roster")
+            if not isinstance(roster, list):
+                problems.append("agents.roster is not a list in rules/agents.md — the lenses' agents cannot be checked")
+            else:
+                names = {r.get("name") for r in roster if isinstance(r, dict)}
+                for lens, agent in LENS_AGENT.items():
+                    if agent not in names:
+                        problems.append(f"lens {lens}: its agent {agent} is not in the roster of rules/agents.md")
         except GateFault as e:
             problems.append(str(e))
     return problems
@@ -327,15 +344,21 @@ def judge(repo: Path, lens: str, text: str, model: str) -> dict:
     if not model:
         raise GateFault("--judge needs --model: the id the critic's return carries on its `Model:` line (the harness states it; `unknown` when it does not)")
     tol = tolerance(repo)
+    broken = consistency(repo)
+    if broken:
+        raise GateFault("the fixture is inconsistent under this project's policy — a verdict here could be a false green; `gate.py canary --check` names it: " + broken[0])
     positions: dict[str, dict[int, int]] = {}
     added_lines(fixture(), positions)
+    from . import agents as agents_mod
     all_findings = findings(text)
-    if not all_findings and not re.search(r"^\s*(?:[-*]\s+)?no findings\.?\s*$", text or "", re.I | re.M):
+    if not all_findings and not agents_mod.NO_FINDINGS.search(text or ""):   # the contract's one regex (agents --check-return reads the same)
         raise GateFault("the return carries no finding in the contract shape and no `no findings` line — hold it to the contract (gate.py agents --check-return) before judging; a formatting fault is not model drift")
-    got = [(f, {n, positions.get(f, {}).get(n, n)}) for f, n, sev in all_findings if sev in SEVERITY_ABOVE_INFO]   # one finding, both readings: the new file's line, or the diff text's mapped to it
+    def _key(f: str) -> str:   # the fixture's own path for the one the critic wrote: exact, or by its tail (an absolute or prefixed path still names the file)
+        return next((p for p in positions if f == p or f.endswith("/" + p)), f)
+    got = [(_key(f), {n, positions.get(_key(f), {}).get(n, n)}) for f, n, sev in all_findings if sev in SEVERITY_ABOVE_INFO]   # one finding, both readings: the new file's line, or the diff text's mapped to it
     found, missed = [], []
     for it in EXPECTED[lens]:
-        hit = any((f == af or f.endswith("/" + af)) and any(abs(x - an) <= tol for x in ns) for f, ns in got for af, an in it["at"])   # a path's tail: an absolute or prefixed path still names the file
+        hit = any(f == af and any(abs(x - an) <= tol for x in ns) for f, ns in got for af, an in it["at"])
         (found if hit else missed).append(it["id"])
     d = read_record(repo)
     d["judged"][lens] = {"model": model, "at": _now(), "found": found, "missed": missed}

@@ -311,7 +311,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a second work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
 # the lens canary (EVOL-059): the fixture ships inside the reader, judged on the materialised policy
 OUT=$(cd "$P" && python3 scripts/gate.py canary --check 2>&1); RC=$?
-[ "$RC" -eq 0 ] && ok "gate.py canary --check: the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the coordinate spaces never overlap, every lens has its roster agent" || bad "canary fixture inconsistent (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && ok "gate.py canary --check: the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the coordinate spaces never overlap, the tolerance reaches no two defects of one lens, every lens has its roster agent" || bad "canary fixture inconsistent (rc=$RC)" "$OUT"
 [ "$(cd "$P" && python3 scripts/gate.py canary --fixture | grep -c 'canary-secret')" = "1" ] && ok "the decoded fixture carries the planted credential's marker once" || bad "canary marker missing from the decoded fixture"
 OUT=$(cd "$P" && python3 scripts/gate.py canary --plan 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'owed — security, correctness, governance, fidelity' && ok "a project that never judged its lenses owes every lens a canary" || bad "canary plan wrong (rc=$RC)" "$OUT"

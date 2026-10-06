@@ -123,7 +123,9 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   IF "governance" IN RUN("python3 scripts/gate.py canary --plan --json").owed:
     res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files in the fixture)} --lines {COUNT(added lines in the fixture)}")
     rep = SPAWN(subagent_type = "factory-critic-governance", model = res.model, prompt = budget lines + digest + { diff: a scratch file OUTSIDE the tree holding RUN("python3 scripts/gate.py canary --fixture") })
+    IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
     RUN("python3 scripts/gate.py canary --judge --lens governance --model {return_model(rep)}", rep)   # every verdict on the tracking item; red ⇒ RDR
+  # a non-zero exit of --plan or --judge (exit 2: a malformed record, an inconsistent fixture) is a canary FAULT, not a verdict: say it to the user, continue the sweep — the canary never blocks
   reports = PARALLEL_MAP(scopes, LAMBDA(scope):
     res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files under scope)} --lines 0")
     SPAWN(subagent_type = "factory-critic-governance",

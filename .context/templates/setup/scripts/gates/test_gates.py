@@ -1175,12 +1175,15 @@ class Agents(unittest.TestCase):
             self.assertEqual((agents.resolve(repo, "work-critic", files=10, lines=300)["turn_budget"], agents.resolve(repo, "work-critic", files=10, lines=300)["probe_budget"]), (40, 4))
             self.assertEqual((agents.resolve(repo, "work-critic")["tier"], agents.resolve(repo, "work-critic")["turn_budget"]), ("unknown", 60), "an unmeasured size: the large tier's budgets, never starved, never unbounded")
             # EVOL-059: the canary's trigger rides on the spawn reader
+            r = agents.resolve(repo, "work-critic", surface="security"); self.assertEqual(r["canary_owed"], []); self.assertIn("inconsistent", r["canary_fault"], "a roster without the lenses' agents: nothing owed, the fault said")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES)
             self.assertEqual(agents.resolve(repo, "work-critic", surface="security")["canary_owed"], ["security"], "never judged: the lens is owed on its own spawn")
             self.assertEqual(agents.resolve(repo, "work-critic")["canary_owed"], ["security", "correctness", "governance", "fidelity"], "no lens named: every owed lens")
             self.assertNotIn("canary_owed", agents.resolve(repo, "worker", files=2, lines=10), "a writer carries no canary")
             self.assertNotIn("canary_owed", agents.resolve(repo, "plan-critic"), "the plan critic has no lens")
             canary.judge(repo, "security", "src/orders/repo.py:9 · 🔴 · confidence 95% · probe: read\nsrc/orders/repo.py:23 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: claude-a\n", "claude-a"); canary.seen(repo, "security", "claude-a")
             self.assertEqual(agents.resolve(repo, "work-critic", surface="security")["canary_owed"], [], "a lens judged on the model it last ran on owes nothing on its own spawn while others still do")
+            self.assertEqual(agents.resolve(repo, "work-critic")["canary_owed"], ["correctness", "governance", "fidelity"], "the other lenses are still owed")
             (repo / ".claude/state/canary.json").unlink()
             write(repo / ".claude/state/canary.json", "{nope")
             r = agents.resolve(repo, "work-critic", surface="security"); self.assertEqual(r["canary_owed"], []); self.assertIn("unreadable", r["canary_fault"]); self.assertEqual(r["model"], "opus", "a canary fault never stops a spawn: said, the critic still resolves")
@@ -1682,11 +1685,22 @@ class Canary(unittest.TestCase):
             # the gap between the two coordinate spaces is judged against the project's tolerance
             self.assertEqual(canary.consistency(repo), [])
             write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES.replace("canary: {line_tolerance: 3}", "canary: {line_tolerance: 40}"))
-            self.assertTrue(any("within reach of an anchor" in x for x in canary.consistency(repo)), "a tolerance wider than the filler is a finding")
+            self.assertTrue(any("within reach of the new file's numbering" in x for x in canary.consistency(repo)), "a tolerance wider than the filler is a finding")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES.replace("canary: {line_tolerance: 3}", "canary: {line_tolerance: 7}"))
+            self.assertTrue(any("reaches two planted defects of the security lens" in x for x in canary.consistency(repo)), "a tolerance that reaches two anchors of one lens is a finding (repo.py 9 and 23 are 14 apart)")
+            between = "src/orders/repo.py:16 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: m\n"
+            with self.assertRaisesRegex(GateFault, "inconsistent under this project's policy"):
+                canary.judge(repo, "security", between, "m")   # one finding between the two anchors would credit both: never a verdict
+            r = agents.resolve(repo, "work-critic", surface="security"); self.assertEqual(r["canary_owed"], []); self.assertIn("inconsistent", r["canary_fault"])
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES.replace("canary: {line_tolerance: 3}", "canary: {line_tolerance: 6}"))
+            self.assertEqual(canary.judge(repo, "security", between, "m")["missed"], ["s1", "s2"], "under the widest sound tolerance a line between the anchors credits neither")
             write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES)
-            r = canary.judge(repo, "security", self._return("security"), "m"); self.assertEqual(r["findings"], 2, "a finding is counted once whatever its readings")
+            with self.assertRaisesRegex(GateFault, "no finding in the contract shape"):
+                canary.judge(repo, "security", "no findings — clean\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: m\n", "m")   # trailing text is not the contract's line
+            self.assertEqual(canary.judge(repo, "security", "- No findings.\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: m\n", "m")["missed"], ["s1", "s2"], "the bulleted form is the contract's line")
             absolute = "/somewhere/else/src/orders/repo.py:9 · 🔴 · confidence 95% · probe: read\n/somewhere/src/orders/repo.py:23 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: m\n"
             self.assertTrue(canary.judge(repo, "security", absolute, "m")["ok"], "an absolute path still names the file by its tail")
+            self.assertEqual(canary.judge(repo, "security", absolute.replace("/somewhere/else/src/orders/repo.py", "xsrc/orders/repo.py"), "m")["missed"], ["s1"], "a tail without its slash is another file")
             with self.assertRaisesRegex(GateFault, "no finding in the contract shape"):
                 canary.judge(repo, "security", "I looked and it seems fine.\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: m\n", "m")
             self.assertEqual(canary.judge(repo, "security", "no findings\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: m\n", "m")["missed"], ["s1", "s2"], "an honest `no findings` is a verdict: everything missed")
@@ -1694,11 +1708,16 @@ class Canary(unittest.TestCase):
             saved = canary.EXPECTED["security"][0]["at"]
             try:
                 canary.EXPECTED["security"][0]["at"] = [["src/orders/repo.py", 60]]
-                self.assertTrue(any("within reach of an anchor" in x for x in canary.consistency()), "the guard is not a tautology")
+                self.assertTrue(any("within reach of the new file's numbering" in x for x in canary.consistency()), "the guard is not a tautology")
+                canary.EXPECTED["security"][0]["at"] = [["README.md", 6]]   # an anchor on the filler: its new-file numbering runs to 40 and its diff-text lines start at 6 — the bound is the file's length, not the anchor
+                self.assertTrue(any("within reach of the new file's numbering (to 40" in x for x in canary.consistency()), "the bound is the longest anchored file's numbering")
             finally:
                 canary.EXPECTED["security"][0]["at"] = saved
             write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES.replace("    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n", ""))
             self.assertTrue(any("factory-critic-security is not in the roster" in x for x in canary.consistency(repo)))
+            write(repo / ".claude/rules/agents.md", "\n".join(l for l in RULE_AGENTS_LENSES.splitlines() if not l.startswith("    - {name: factory-")) + "\n")   # `roster:` with no entries reads as null
+            self.assertTrue(any("agents.roster is not a list" in x for x in canary.consistency(repo)), "a null roster is one finding, never a crash")
+            r = agents.resolve(repo, "work-critic", surface="security"); self.assertEqual(r["model"], "opus"); self.assertIn("inconsistent", r["canary_fault"], "a null roster never stops the spawn")
             write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES)
             self.assertEqual(canary.seen(repo, "security", "")["model"], "unknown", "an empty id is unknown — the lens stays owed")
             self.assertTrue(canary.judge(repo, "governance", self._return("governance", shift=3), "m")["ok"], "within the tolerance window")
@@ -1709,7 +1728,9 @@ class Canary(unittest.TestCase):
             pos: dict = {}; canary.added_lines(canary.fixture(), pos)
             by_diff = "src/orders/repo.py:%d · 🔴 · confidence 95%% · probe: read\nsrc/orders/repo.py:%d · 🔴 · confidence 95%% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: m\n" % (
                 next(d for d, n in pos["src/orders/repo.py"].items() if n == 9), next(d for d, n in pos["src/orders/repo.py"].items() if n == 23))
-            self.assertTrue(canary.judge(repo, "security", by_diff, "m")["ok"], "a critic that numbered the diff text's own lines is read in both coordinates (seen on the lowest rung)")
+            r = canary.judge(repo, "security", by_diff, "m"); self.assertTrue(r["ok"], "a critic that numbered the diff text's own lines is read in both coordinates (seen on the lowest rung)")
+            self.assertEqual(r["findings"], 2, "a finding is counted once whatever its readings (a second append per reading gave four)")
+            self.assertTrue(canary.judge(repo, "security", by_diff.replace("src/orders/repo.py:", "/somewhere/src/orders/repo.py:"), "m")["ok"], "an absolute path numbered by the diff text is mapped like the fixture's own path — never a false red")
             with self.assertRaisesRegex(GateFault, "needs --model"):
                 canary.judge(repo, "security", self._return("security"), "")
             with self.assertRaisesRegex(GateFault, "not one of"):
@@ -2283,6 +2304,13 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 2); self.assertIn("not one of", r.stderr); self.assertNotIn("Traceback", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "canary", "--status"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0); self.assertEqual(json.loads(r.stdout), {"judged": {}, "seen": {}})
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "canary", "--seen", "--lens", "security"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2); self.assertIn("needs --model", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES); write(repo / ".claude/state/canary.json", "{nope")
+            q = json.loads((repo / "config/quality.json").read_text()); q["agents"] = {"families": {"writer": "sonnet", "critic": "opus"}}; (repo / "config/quality.json").write_text(json.dumps(q))
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--resolve", "--class", "work-critic", "--surface", "security"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, r.stderr); self.assertIn("canary fault:", r.stdout, "a canary fault is said on the resolve line, the spawn goes on")
+            (repo / ".claude/state/canary.json").unlink()
             # EVOL-058: a writer resolves in text mode on a policy whose tiers carry no budgets (a project synced before its upgrade)
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("small: {files: 5, lines: 150, turn_budget: 20, probe_budget: 2}", "small: {files: 5, lines: 150}"))
             q = json.loads((repo / "config/quality.json").read_text()); q["agents"] = {"families": {"writer": "sonnet", "critic": "opus"}}; (repo / "config/quality.json").write_text(json.dumps(q))
