@@ -392,8 +392,11 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
         from . import canary as canary_mod
         lens = str(surface or "").lower()
         try:
-            owed = canary_mod.plan(repo)["owed"]
-            out["canary_owed"] = [x for x in owed if not lens or x == lens]
+            p = canary_mod.plan(repo)
+            if not p["fixture_ok"]:   # a fixture the judge would refuse owes nothing: the fault is said here, before a spawn is wasted on it
+                out["canary_owed"] = []; out["canary_fault"] = "the fixture is inconsistent under this project's policy (gate.py canary --check names it) — no lens is owed until it is cured"
+            else:
+                out["canary_owed"] = [x for x in p["owed"] if not lens or x == lens]
         except GateFault as e:   # a canary fault never stops a spawn (a red canary never blocks either): said, not raised
             out["canary_owed"] = []; out["canary_fault"] = str(e)
     return out
