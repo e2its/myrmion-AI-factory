@@ -295,8 +295,8 @@
   "agents": {
     "_doc": "EVOL-049: the two model FAMILIES as harness aliases (never pinned ids) — writers and critics on different families by construction (gate.py agents refuses equal aliases). The class policy, the roster and the per-spawn resolution live in the rule .context/templates/setup/rules/agents.md (a project: .claude/rules/agents.md).",
     "families": {
-      "writer": "sonnet",
-      "critic": "opus"
+      "writer": "opus",
+      "critic": "sonnet"
     }
   },
   "documentation": {
