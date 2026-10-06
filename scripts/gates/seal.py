@@ -309,13 +309,17 @@ def plan(repo: Path, branch: str | None = None, base: str | None = None) -> dict
     base = _base_of(repo, branch, base)
     entries = tree_entries(repo, skip=cfg["dir"])
     o = _owed(cfg, read_seal(repo, branch, cfg), entries, doc, tree_entries(repo, _reference(repo, base), skip=cfg["dir"]), base)
-    execs: dict[str, list[str]] = {}
-    for name in o["owed"]:
-        cmd = cfg["gates"][name]["command"] or f"<{name}>"
-        execs.setdefault(cmd, []).append(name)
     ok = bool(cfg["gates"]) or not o["full"]
     return {"ok": ok, "required": True, "branch": branch, "owed": o["owed"], "full": o["full"], "unmapped": o["unmapped"], "paths": o["paths"], "against": o["against"],
-            "executions": [{"command": c, "gates": g} for c, g in execs.items()], "reason": o["reason"]}
+            "executions": _executions(cfg, o["owed"]), "reason": o["reason"]}
+
+
+def _executions(cfg: dict, names: list[str]) -> list[dict]:
+    """One execution per distinct command; a command shared by two gates feeds both."""
+    execs: dict[str, list[str]] = {}
+    for name in names:
+        execs.setdefault(cfg["gates"][name]["command"] or f"<{name}>", []).append(name)
+    return [{"command": c, "gates": g} for c, g in execs.items()]
 
 
 def write(repo: Path, gates: list[str], ok: bool, summary: str = "", full: bool = False, branch: str | None = None) -> dict:
@@ -453,17 +457,14 @@ def append_record(repo: Path, state_dir: str, name: str, max_kb: int, record: di
     d = _state_dir(repo, state_dir)
     d.mkdir(parents=True, exist_ok=True)
     p = _plain(d / name)
-    try:
-        if p.is_file() and p.stat().st_size > max_kb * 1024:
-            p.replace(_plain(p.with_name(name + ".1")))
-    except OSError:
-        pass
+    if p.is_file() and p.stat().st_size > max_kb * 1024:
+        p.replace(_plain(p.with_name(name + ".1")))   # an OSError here is the caller's to say — a log that cannot rotate grows unsaid otherwise
     with p.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(record, sort_keys=True) + "\n")
     return p
 
 
-def push_log(repo: Path, exit_code: int, start: str | None = None, branch: str | None = None, control_point: str = "push") -> dict:
+def push_log(repo: Path, exit_code: int, start: str | None = None, branch: str | None = None) -> dict:
     """The push's record: profile, base, mode, class, start, end, exit — one line, written by the pre-push hook's EXIT
     trap whatever ended the push. n/a (nothing written) when the block is absent or the map cannot be read: the seal
     member already says so on its own account; a record never blocks a push."""
@@ -476,16 +477,16 @@ def push_log(repo: Path, exit_code: int, start: str | None = None, branch: str |
         return {"ok": True, "written": False, "reason": "verification.logs is not configured — no push record (SETUP --upgrade adds the block)"}
     from . import profile as profile_mod
     from .branch import diff_base
-    pr = profile_mod.profile(repo, branch, control_point)
+    pr = profile_mod.profile(repo, branch, "push")
     try:
         base = diff_base(repo, pr["branch"] or None)
     except GateFault:
         base = None
     rec = {"branch": pr["branch"], "class": pr["class"], "profile": pr["profile"], "mode": pr["mode"], "base": base,
-           "control_point": control_point, "start": start or _now(), "end": _now(), "exit": int(exit_code)}
+           "control_point": "push", "start": start or _now(), "end": _now(), "exit": int(exit_code)}
     try:
         p = append_record(repo, state_dir, logs["push"], logs["max_kb"], rec)
-    except GateFault as e:
+    except (GateFault, OSError) as e:
         return {"ok": True, "written": False, "reason": f"no push record — {e}"}
     return {"ok": True, "written": True, "path": str(p.relative_to(repo)), "record": rec}
 
@@ -514,10 +515,9 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         unknown = [g for g in gates if g not in cfg["gates"]]
         if unknown:
             raise GateFault(f"unknown gate(s) {', '.join(unknown)} — the map is verification.gates: {', '.join(cfg['gates']) or '(empty)'}")
-        by_cmd: dict[str, list[str]] = {}
-        for g in gates:
-            by_cmd.setdefault(cfg["gates"][g]["command"] or f"<{g}>", []).append(g)
-        executions = [{"command": c, "gates": gs} for c, gs in by_cmd.items()]
+        cmds = {cfg["gates"][g]["command"] for g in gates if cfg["gates"][g]["command"]}
+        names = sorted(set(gates) | {n for n, g in cfg["gates"].items() if g["command"] in cmds})   # the execution feeds every gate that shares its command
+        executions = _executions(cfg, names)
     else:
         pl = plan(repo, branch, base)
         if not pl["ok"]:
@@ -545,11 +545,11 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         end, seconds = _now(), round(time.monotonic() - t0, 1)
         ok = rc == 0
         all_ok = all_ok and ok
+        write(repo, gs, ok=ok, summary=summary or f"seal --run: exit {rc} in {seconds} s", branch=branch)   # right after the execution — before the record, which can fail
         if logs:
             for g in gs:
                 append_record(repo, cfg["dir"], logs["timings"], logs["max_kb"],
                               {"gate": g, "command": cmd, "branch": branch, "profile": prof, "start": start, "end": end, "exit": rc})
-        write(repo, gs, ok=ok, summary=summary or f"seal --run: exit {rc} in {seconds} s", branch=branch)   # right after the execution
         ran.append({"command": cmd, "gates": gs, "exit": rc, "seconds": seconds, "log": str(log.relative_to(repo)), "tail": "" if ok else _tail(log)})
     sealed, why = False, ""
     if full and all_ok:
@@ -565,7 +565,7 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         reason += f" · not sealed: {why}"
     ok = all_ok and (sealed or not full)   # --full asked and the tree not sealed is not green: the push would refuse it later
     return {"ok": ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed,
-            "timings": (str((repo / cfg["dir"] / logs["timings"]).relative_to(repo)) if logs else None), "reason": reason}
+            "timings": (str(Path(cfg["dir"]) / logs["timings"]) if logs else None), "reason": reason}
 
 
 def render_run(res: dict) -> str:

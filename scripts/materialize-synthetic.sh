@@ -322,7 +322,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); 
 mkdir -p "$P/src"; printf 'x = 1\n' > "$P/src/new.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'code' >/dev/null
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: coverage, lint, tests' && printf '%s' "$OUT" | grep -q 'moved: src/new.py' && ok "RED: a code delta owes exactly the gates that read it and names the path (incremental seal)" || bad "code delta not owed (rc=$RC)" "$OUT"
-# the records the instrument reads (EVOL-057): the push log from the hook's trap, the per-gate timings from the loop's executor
+# the records the instrument reads (EVOL-057): the push log through the reader (the hook's trap itself is proven in test-hooks.sh), the per-gate timings from the loop's executor
 OUT=$(cd "$P" && python3 scripts/gate.py push-log --exit 1 --start 2026-10-06T10:00:00Z 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'push-log: recorded full' && python3 -c "import json,sys; r=json.loads(open('$P/.claude/state/push-log.jsonl').read().splitlines()[-1]); sys.exit(0 if r['exit']==1 and r['profile']=='full' and r['base']=='origin/main' and r['start']=='2026-10-06T10:00:00Z' and r['end'] else 1)" \
   && ok "the push record lands beside the seal from the materialised config (profile, base, mode, class, start, end, exit — the push's own exit code)" || bad "push record wrong (rc=$RC)" "$OUT"

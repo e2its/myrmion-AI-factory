@@ -323,8 +323,8 @@ def cmd_documentation(repo, a):
 
 
 def cmd_seal(repo, a):
+    gates = [g.strip() for g in (a.gates or "").split(",") if g.strip()]
     if a.run:
-        gates = [g.strip() for g in (a.gates or "").split(",") if g.strip()]
         r = seal_mod.run(repo, gates, full=a.full, summary=a.summary or "", branch=a.branch, base=a.base)
         print(json.dumps(r) if a.json else seal_mod.render_run(r))
         return 0 if r["ok"] else 1
@@ -343,7 +343,6 @@ def cmd_seal(repo, a):
             print("  nothing owed")
         return 0
     if a.write:
-        gates = [g.strip() for g in (a.gates or "").split(",") if g.strip()]
         if a.ok == a.red:
             raise GateFault("seal --write needs the outcome: --ok or --red (a forgotten flag is never a green)")
         r = seal_mod.write(repo, gates, ok=a.ok, summary=a.summary or "", full=a.full, branch=a.branch)

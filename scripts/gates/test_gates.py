@@ -1511,8 +1511,14 @@ class Seal(unittest.TestCase):
             self.assertEqual(tl, 4, "four timing lines in all: three, then lint again (the rotation, when the size asks for it, keeps one generation)")
             with self.assertRaisesRegex(GateFault, "unknown gate"):
                 seal.run(repo, gates=["nope"])
-            # named gates run whatever the plan owes; the state folder is never part of the tree the seal hashes
+            # named gates run whatever the plan owes; a named gate carries every gate that shares its command (one execution feeds both)
             r = seal.run(repo, gates=["lint"], base=B); self.assertTrue(r["ok"]); self.assertEqual([x["gates"] for x in r["ran"]], [["lint"]])
+            r = seal.run(repo, gates=["tests"], base=B); self.assertEqual([x["gates"] for x in r["ran"]], [["coverage", "tests"]], "the suite run for tests is coverage's record too")
+            # the timings log rotates like the push log: over max_kb it moves to <name>.1 and the next lines land in a fresh file
+            (repo / ".claude/state/gate-timings.jsonl").write_text("x" * 2048 + "\n")
+            seal.run(repo, gates=["lint"], base=B)
+            self.assertTrue((repo / ".claude/state/gate-timings.jsonl.1").is_file()); self.assertEqual(len((repo / ".claude/state/gate-timings.jsonl").read_text().splitlines()), 1)
+            # the state folder is never part of the tree the seal hashes
             self.assertFalse(any(p.startswith(".claude/state/") for p in seal.tree_entries(repo)))
             # without the logs block the runner still runs and records the seal — it just writes no timing (said on screen)
             q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]["logs"]; write(repo / "config/quality.json", json.dumps(q))

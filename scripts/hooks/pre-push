@@ -4,10 +4,10 @@
 # pre-push hook — Runs validation before pushing to remote
 # ============================================================================
 # Checks:
+#   0. The push's record (profile, base, mode, class, start, end, exit) for the instrument — gate.py push-log, from an EXIT trap (EVOL-057)
 #   1. Protected branch enforcement (prevent force-push to main)
 #   2. Secret leak detection (delegated to security-scan.sh --secrets; scanner per config/quality.json)
 #   3. The gate profile this push owes — one call: python3 scripts/gate.py profile --run (EVOL-046)
-#   0. The push's record (profile, base, mode, exit, start, end) for the instrument — gate.py push-log (EVOL-057)
 # ============================================================================
 
 set -euo pipefail
@@ -35,9 +35,10 @@ PUSH_REMOTE="${1:-origin}"
 # not configured). Observability only: the call never blocks a push and never changes its exit code.
 PUSH_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 push_record() {
-  local rc=$?
+  local rc=$? out
   if [ -n "$REPO_ROOT" ] && [ -f "${REPO_ROOT}/scripts/gate.py" ] && command -v python3 >/dev/null 2>&1; then
-    python3 "${REPO_ROOT}/scripts/gate.py" push-log --exit "$rc" --start "$PUSH_START" >/dev/null 2>&1 || true
+    out=$(python3 "${REPO_ROOT}/scripts/gate.py" push-log --exit "$rc" --start "$PUSH_START" 2>&1) || true
+    case "$out" in *"no push record"*) echo "⚠  ${out#*: }" >&2 ;; esac   # a fault is said (an unconfigured block is silent); the exit code stays the push's
   fi
   return 0
 }

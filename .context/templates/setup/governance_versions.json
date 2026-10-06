@@ -4846,11 +4846,12 @@
       ]
     },
     "scripts/test-hooks.sh": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
+        "1.7.0: feat(EVOL-057) — the pre-push EXIT trap proven: the push's record left with the hook's own exit code on a blocked push and on a green one, one line per push, the block still a block.",
         "1.6.0: feat(EVOL-051) — sandbox config carries the documentation block (planning.docs_exempt retired)",
         "1.5.0: fix(EVOL-049) — review pass — check-agent-spawn scenarios (99 checks)",
         "1.4.0: feat(EVOL-048) — check-plan-approval and record-plan-approval cases (EVOL-048).",
