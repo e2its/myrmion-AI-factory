@@ -2,9 +2,10 @@
 description: "Role agents and read-only critics — the class policy (tools per class, prompt budgets, model families as aliases, per-spawn resolution, fallback ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies."
 applicable_when:
   always: true
-version: 1.2.0
-date: 2026-09-25
+version: 1.3.0
+date: 2026-10-06
 changelog:
+  - "1.3.0: feat(EVOL-058) — turn_budget and probe_budget per size tier (medium explicit); every read-only definition declares the harness's hard stop (maxTurns = the large tier's turn_budget); the orchestrator owns the hand-back (one request on a partial return, then fully unverified); the correctness critic probes only what its finding names, never the suite."
   - "1.2.0: feat(EVOL-056) — class `reader` (read-only, family critic, the harness matrix + the read operations of the [LAW-10] documentation servers: allow_mcp: docs_mcp_allowlist); roster entry factory-docs-reader; § Beat 0 — external facts before the design, the plan and the infrastructure; three spawn sites."
   - "1.1.0: fix(EVOL-049) — review pass: dead critic rows dropped; phase spawn sites (the five commands); worktree guard; who spawns (the main session); allowlist matrix; vendored lenses; effort precedence; separation lost on the fallback; return contract shape."
   - "1.0.0: feat(EVOL-049)! — initial: the one data home of the agent class policy and the roster (read by python3 scripts/gate.py agents)."
@@ -47,8 +48,9 @@ agents:
         allow_mcp: docs_mcp_allowlist
         never: [Edit, Write, NotebookEdit, Bash, Agent]
   tiers:
-    small: {files: 5, lines: 150}
-    large: {files: 30, lines: 800}
+    small: {files: 5, lines: 150, turn_budget: 20, probe_budget: 2}
+    medium: {turn_budget: 40, probe_budget: 4}
+    large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}
   resolve:
     - {class: worker, tier: small, effort: low}
     - {class: worker, tier: large, effort: high}
@@ -110,13 +112,15 @@ Writers and critics live on **different model families by construction** (`agent
 
 One worker↔critic round on a completed diff (`rounds.work`), two at the plan gate (`rounds.plan_gate`) — the measured point of diminishing return. A cure that seeds the next round's findings is the loop's own defect. The loop ends in a **user adjudication**, never in the agent's own judgement.
 
+**The budget is enforced, not requested (EVOL-058).** Every size tier carries `turn_budget` (the turns a critic may spend per round) and `probe_budget` (the executions the main session may run on its behalf per round); the resolver hands both at the spawn and the spawn prompt opens with `effort:`, `turn budget:`, `probe budget:`. The hard stop is the harness's: every read-only definition declares `maxTurns` equal to the large tier's `turn_budget` (the validator holds it) — the harness stops the critic there and marks its return **partial**. The **orchestrator owns the hand-back**: on a partial return, or on a return that is not a report, the main session sends **one** request to the same agent (write the report now with what is verified, the rest as unverified) and resumes it; a critic that still does not deliver counts as **fully unverified** — every finding `❓`, the round recorded as not delivered — never as silence, never as clean. A harness without a hard stop keeps the contract declared and the hand-back as the only enforcement. An unmeasured size is held to the large tier's budgets.
+
 ## Severity bar — two limbs
 
 A finding rises above informational only by naming a concrete path (a) to the **deployed product** — including any exposure of a credential or a personal datum, whatever the path — or (b) to the **machinery that produces or polices the work**. On a governance surface the burden inverts: informational is the default and escalation is what must be justified. Every critic cites the limb it stands on.
 
 ## Return contracts
 
-A **worker** returns what it did plus which rules it read, which laws it applied, which defect classes it adjudicated, and its sources — under a `## Governance` heading with `Rules read:`, `Laws applied:`, `Defect classes:`, `Sources:` lines. A **reader** returns `## Sources`, `## Answer`, `## Unknowns` and the governance block (§ Beat 0). A **critic** returns findings, each on one line with a file, a line, a severity, a confidence and an executed probe (`file:line · 🔴|🟡|🟢|❓ · confidence N% · probe: <command or reasoning that was run>`), or a line reading exactly `no findings`. A return missing its governance block, a line carrying a severity outside that shape, or a probe that names nothing (`n/a`, `none`, `—`) is refused by the spawning session (`gate.py agents --check-return --class <class>`).
+A **worker** returns what it did plus which rules it read, which laws it applied, which defect classes it adjudicated, and its sources — under a `## Governance` heading with `Rules read:`, `Laws applied:`, `Defect classes:`, `Sources:` lines. A **reader** returns `## Sources`, `## Answer`, `## Unknowns` and the governance block (§ Beat 0). A **critic** returns findings, each on one line with a file, a line, a severity, a confidence and an executed probe (`file:line · 🔴|🟡|🟢|❓ · confidence N% · probe: <command or reasoning that was run>`), or a line reading exactly `no findings`. A critic **probes, it does not re-verify** (EVOL-058): the suite is green from the loop that precedes the round; a probe is one execution the main session runs for the test a finding names, at most `probe_budget` per critic per round — never the suite. A return missing its governance block, a line carrying a severity outside that shape, or a probe that names nothing (`n/a`, `none`, `—`) is refused by the spawning session (`gate.py agents --check-return --class <class>`).
 
 ## No agent ratifies
 

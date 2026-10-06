@@ -123,7 +123,7 @@ FUNCTION run_code_review(mode, args, profile):
     # The vendored lens is a PROMPT; the agent type is the rostered critic — its harness matrix (Read, Grep, Glob) is the read-only guarantee.
     report = SPAWN(subagent_type = "factory-critic-correctness",
       model  = res.model,                                          # passed at the spawn, never read from a file; the PreToolUse Agent hook refuses it missing
-      prompt = "effort: {res.effort}\n" + body_of("agents/{agent_file}") + inputs = {
+      prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\n" + body_of("agents/{agent_file}") + inputs = {
         files: scope.files,
         context: diff range or increment description,
         governance: binding.packet_for(agent),   # § Governance Binding per-agent slice, with citations
@@ -136,9 +136,14 @@ FUNCTION run_code_review(mode, args, profile):
       IF NOT fb.separation: degraded = true                       # the writer's family — the run's findings go to the user's adjudication
       report = SPAWN(... same inputs, model = fb.model)
     # Return check: a line carrying a severity outside the shape, or a probe that names nothing, is refused
-    IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", report) refuses:
-      report = SPAWN(... same inputs, model = res.model)            # ONCE
-      IF refused again: report.findings = ALL_AS(❓)
+    # EVOL-058 — the budget is enforced: a PARTIAL return (the harness stopped the critic at its ceiling, maxTurns) gets
+    # ONE hand-back request to the same agent (write the report now with what is verified, the rest as unverified),
+    # then resumes; still no report ⇒ fully unverified. Probes: at most res.probe_budget executions per critic, each
+    # the test a finding names, run by the main session — never the suite (the loop's).
+    IF report.partial: report = HANDBACK_ONCE(report.agent)
+    IF report.partial OR RUN("python3 scripts/gate.py agents --check-return --class work-critic", report) refuses:
+      report = SPAWN(... same inputs, model = res.model) IF NOT report.partial ELSE report   # a refused shape is re-spawned ONCE; an exhausted critic is not
+      IF refused again OR report.partial: report.findings = ALL_AS(❓)   # fully unverified, never silence, never clean
     RETURN report)
   after = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")
   IF before != after: RETURN { ok: false, reason: "tree-moved" }   # a run around which the working tree moved is refused — NO marker

@@ -44,8 +44,9 @@ FUNCTION plan_gate(FEATURE_ID):
     digest = RUN("python3 scripts/gate.py agents --digest --agent factory-plan-critic")
     model  = RUN("python3 scripts/gate.py agents --resolve --class plan-critic --round {round}").model
     before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope}")   # on-disk bytes, untracked included; non-zero exit ⇒ REFUSE
-    report = SPAWN("factory-plan-critic", model = model, digest = digest,
+    report = SPAWN("factory-plan-critic", model = model, digest = digest,   # the prompt opens with effort / turn budget / probe budget from the resolver (EVOL-058)
                    inputs = [design.md, test_plan.md, increment_plan.md, spec.feature, slice_map.md, contracts/**])
+      # a PARTIAL return (the ceiling, maxTurns) ⇒ ONE hand-back request, resume; still no report ⇒ the round is not delivered — unverified, the user adjudicates (rules/agents.md § The bounded loop)
       # provider error ⇒ fb = RUN("python3 scripts/gate.py agents --fallback --class plan-critic --family critic")
       #                  model = fb.model; IF NOT fb.separation: the round's findings go to the user's adjudication (the critic ran on the writer's family)
     after  = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope}")

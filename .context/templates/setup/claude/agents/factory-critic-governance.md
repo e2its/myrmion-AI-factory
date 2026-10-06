@@ -3,6 +3,7 @@ name: factory-critic-governance
 description: "Read-only critic — the governance lens on a completed diff: the bound rules and laws, protected paths, contract-first, extension strategy, the defect catalog. On a governance surface informational is the default and escalation must be justified."
 tools: Read, Grep, Glob
 effort: high
+maxTurns: 60
 class: work-critic
 ---
 

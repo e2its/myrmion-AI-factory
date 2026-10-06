@@ -1012,7 +1012,7 @@ agents:
     plan-critic: {family: critic, effort: high, budget_bytes: 8000, tools: {must: [Read, Grep, Glob], never: [Edit, Write, NotebookEdit, Bash, Agent]}}
     work-critic: {family: critic, effort: high, budget_bytes: 4000, tools: {must: [Read, Grep, Glob], never: [Edit, Write, NotebookEdit, Bash, Agent]}}
     reader: {family: critic, effort: high, budget_bytes: 6000, tools: {must: [Read, Grep, Glob, WebFetch], allow_mcp: docs_mcp_allowlist, never: [Edit, Write, NotebookEdit, Bash, Agent]}}
-  tiers: {small: {files: 5, lines: 150}, large: {files: 30, lines: 800}}
+  tiers: {small: {files: 5, lines: 150, turn_budget: 20, probe_budget: 2}, medium: {turn_budget: 40, probe_budget: 4}, large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}}
   resolve:
     - {class: worker, tier: small, effort: low}
     - {class: plan-critic, round: 2, effort: max}
@@ -1036,8 +1036,9 @@ READER_TOOLS = "Read, Grep, Glob, WebFetch, mcp__context7__query-docs, mcp__aws-
 DOCS_SCAN = "---\nname: factory-mcp-docs-scan\ndocs_mcp_allowlist:\n  - context7\n  - aws-knowledge\n---\n"
 
 
-def agent_def(name, cls, tools, extra="", body=""):
-    return f"---\nname: {name}\ndescription: x\ntools: {tools}\neffort: high\nclass: {cls}\n{extra}---\n\n# {name}\n{body}\n"
+def agent_def(name, cls, tools, extra="", body="", max_turns="60"):
+    turns = f"maxTurns: {max_turns}\n" if max_turns is not None and cls in ("plan-critic", "work-critic", "reader") else ""   # the ceiling every read-only definition declares (EVOL-058)
+    return f"---\nname: {name}\ndescription: x\ntools: {tools}\neffort: high\n{turns}class: {cls}\n{extra}---\n\n# {name}\n{body}\n"
 
 
 class Agents(unittest.TestCase):
@@ -1121,6 +1122,23 @@ class Agents(unittest.TestCase):
             self.assertTrue(any("names no known class" in x["reason"] for x in f)); self.assertTrue(any("tier `gigantic`" in x["reason"] for x in f))
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("rounds: {plan_gate: 2, work: 1}", "rounds: {plan_gate: 2}"))
             f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.rounds.work" in x["reason"] for x in f), "the cap is a key, present")
+            # EVOL-058: the budgets are keys per tier; the ceiling on every read-only definition; none on a writer
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("medium: {turn_budget: 40, probe_budget: 4}", "medium: {probe_budget: 4}"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.tiers.medium.turn_budget" in x["reason"] for x in f), "a tier without its turn budget is red")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}", "large: {files: 30, lines: 800, turn_budget: 0, probe_budget: 6}"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.tiers.large.turn_budget must be a positive integer" in x["reason"] for x in f))
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("small: {files: 5, lines: 150, turn_budget: 20, probe_budget: 2}, ", ""))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.tiers.small is missing" in x["reason"] for x in f), "every tier is declared")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS)
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob", max_turns=None))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("`maxTurns: (none)`" in x["reason"] for x in f), "a read-only definition without the hard stop is red")
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob", max_turns="10"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("`maxTurns: 10`" in x["reason"] and "(60)" in x["reason"] for x in f), "the hard stop is the large tier's turn_budget, nothing else")
+            write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob"))
+            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash", extra="maxTurns: 60\n"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("a writer's cap is a policy key" in x["reason"] for x in f), "a writer declares no maxTurns here")
+            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash"))
+            self.assertEqual(agents.validate(repo, self.manifest), [], "green again")
             # the vendored engine lenses are held to the critic matrix and the budget
             write(repo / ".claude/skills/factory-code-review/agents/code-reviewer.md", agent_def("code-reviewer", "work-critic", "Read, Grep, Glob, Bash"))
             f = agents.validate(repo, self.manifest); self.assertTrue(any("agents/code-reviewer.md" in x["path"] and "Bash is not read-only" in x["reason"] for x in f), "a vendored lens cannot carry a write tool")
@@ -1148,6 +1166,14 @@ class Agents(unittest.TestCase):
             repo = self._repo(tmp)
             r = agents.resolve(repo, "work-critic", surface="Security", files=2, lines=10)
             self.assertEqual((r["model"], r["family"], r["effort"], r["matched"]), ("opus", "critic", "high", "class default"), "critics run at the class default on every lens")
+            # EVOL-058: the budgets travel with the resolution — per tier; an unmeasured size is held to the large tier's
+            self.assertEqual((r["tier"], r["turn_budget"], r["probe_budget"]), ("small", 20, 2))
+            self.assertEqual((agents.resolve(repo, "work-critic", files=10, lines=300)["turn_budget"], agents.resolve(repo, "work-critic", files=10, lines=300)["probe_budget"]), (40, 4))
+            self.assertEqual((agents.resolve(repo, "work-critic")["tier"], agents.resolve(repo, "work-critic")["turn_budget"]), ("unknown", 60), "an unmeasured size: the large tier's budgets, never starved, never unbounded")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("medium: {turn_budget: 40, probe_budget: 4}", "medium: {probe_budget: 4}"))
+            with self.assertRaisesRegex(GateFault, "lacks turn_budget"):
+                agents.resolve(repo, "work-critic", files=10, lines=300)
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS)
             r = agents.resolve(repo, "worker", surface="backend", files=2, lines=10)
             self.assertEqual((r["model"], r["effort"], r["tier"]), ("sonnet", "low", "small"), "a small diff steps the effort down")
             r = agents.resolve(repo, "worker", files=40, lines=2000)
@@ -1791,7 +1817,7 @@ class MiniYaml(unittest.TestCase):
         got = _mini_yaml(text)
         self.assertEqual(got["agents"]["roster"][0], {"name": "factory-dev-backend", "class": "worker", "surface": ["src/**"]})
         self.assertEqual(got["agents"]["classes"]["worker"]["tools"], {"must": ["Read", "Edit", "Write", "Bash"], "never": ["Agent"]})
-        self.assertEqual(got["agents"]["tiers"], {"small": {"files": 5, "lines": 150}, "large": {"files": 30, "lines": 800}})
+        self.assertEqual(got["agents"]["tiers"], {"small": {"files": 5, "lines": 150, "turn_budget": 20, "probe_budget": 2}, "medium": {"turn_budget": 40, "probe_budget": 4}, "large": {"files": 30, "lines": 800, "turn_budget": 60, "probe_budget": 6}})
         self.assertEqual(got["agents"]["ladder"], {"critic": ["writer"], "writer": []})
         self.assertEqual(got["agents"]["resolve"][1], {"class": "plan-critic", "round": 2, "effort": "max"})
         self.assertEqual(_mini_yaml('x: [1, "a, b", {k: [true, null]}]')["x"], [1, "a, b", {"k": [True, None]}])

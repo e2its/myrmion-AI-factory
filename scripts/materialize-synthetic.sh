@@ -287,7 +287,11 @@ python3 - "$P/config/quality.json" <<'PY'
 import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["agents"]["families"]["critic"] = "opus"; json.dump(d, open(p, "w"), indent=1)
 PY
 OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --surface security --files 3 --lines 40 2>&1); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'model opus' && ok "per-spawn resolution on the materialised policy: the security critic on the critics' family" || bad "resolve wrong (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'model opus' && printf '%s' "$OUT" | grep -q 'tier small · turns 20 · probes 2' && ok "per-spawn resolution on the materialised policy: the security critic on the critics' family, with the small tier's turn and probe budgets (EVOL-058)" || bad "resolve wrong (rc=$RC)" "$OUT"
+sed -i '/^maxTurns: /d' "$P/.claude/agents/factory-critic-security.md"
+OUT=$(cd "$P" && python3 scripts/gate.py agents 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'maxTurns: (none)' && ok "RED: a read-only definition without the harness's hard stop (maxTurns = the large tier's turn_budget) is refused on the materialised tree" || bad "missing maxTurns not refused (rc=$RC)" "$OUT"
+sed -i 's/^effort: high$/effort: high\nmaxTurns: 60/' "$P/.claude/agents/factory-critic-security.md"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --digest --agent factory-critic-security 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'read .claude/rules/security_policy.md' && printf '%s' "$OUT" | grep -qE 'B within [0-9]+ B' && ok "the security critic's digest carries the security rule of the materialised tree, within its class budget" || bad "digest lacks the lens's law (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_input":{"subagent_type":"factory-critic-security","model":"sonnet"}}' | python3 scripts/gate.py agents --spawn --hook-json 2>&1); RC=$?
