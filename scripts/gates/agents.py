@@ -388,11 +388,14 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
     if not _class_writes(c) and len(b) != len(BUDGET_KEYS):   # a read-only class is spawned under its budgets; a writer's cap is a key of its own
         raise GateFault(f"agents.tiers.{t if t in TIERS else 'large'} lacks turn_budget / probe_budget — a critic's budget is a key (EVOL-058); gate.py agents names it")
     out = {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched, **b}
-    if "critic" in cls:   # EVOL-059: the canary's trigger rides on every critic spawn — the lens whose model moved is named here
+    if cls == "work-critic":   # EVOL-059: the canary's trigger rides on every work-critic spawn — the lens whose model moved is named here
         from . import canary as canary_mod
-        owed = canary_mod.plan(repo)["owed"]
         lens = str(surface or "").lower()
-        out["canary_owed"] = [lens] if lens in owed else (owed if not lens else [])
+        try:
+            owed = canary_mod.plan(repo)["owed"]
+            out["canary_owed"] = [x for x in owed if not lens or x == lens]
+        except GateFault as e:   # a canary fault never stops a spawn (a red canary never blocks either): said, not raised
+            out["canary_owed"] = []; out["canary_fault"] = str(e)
     return out
 
 

@@ -122,7 +122,7 @@ FUNCTION run_code_review(mode, args, profile):
     res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {COUNT(files in fx)} --lines {COUNT(added lines in fx)}")   # the fixture's own size, never a digit here
     rep = SPAWN(subagent_type = "factory-critic-correctness", model = res.model, prompt = budget lines + body_of("agents/code-reviewer.md") + { diff: a scratch file OUTSIDE the tree holding RUN("python3 scripts/gate.py canary --fixture") })
     IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
-    verdict = RUN("python3 scripts/gate.py canary --judge --lens correctness --model {return_model(rep)}", rep)   # red ⇒ post on the tracking item (the backlog adapter), RDR on the spawn policy; the round still runs
+    verdict = RUN("python3 scripts/gate.py canary --judge --lens correctness --model {return_model(rep)}", rep)   # every verdict is posted on the tracking item (the backlog adapter); a red one opens the RDR on the spawn policy; the round still runs
   before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")   # on-disk bytes; non-zero exit ⇒ { ok: false, reason: "tree-unhashable" }, NO marker
   # ONE sub-agent per roster entry, in parallel. The runtime decides actual
   # concurrency — this skill never asserts a number.

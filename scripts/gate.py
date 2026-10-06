@@ -273,7 +273,7 @@ def cmd_agents(repo, a):
             print(json.dumps(r) if a.json else f"agents: REFUSED — {r['reason']}")
             return 1
         budget = f" · turns {r['turn_budget']} · probes {r['probe_budget']}" if "turn_budget" in r and "probe_budget" in r else ""
-        owed = f" · canary owed: {', '.join(r['canary_owed'])} (gate.py canary --plan)" if r.get("canary_owed") else ""
+        owed = f" · canary owed: {', '.join(r['canary_owed'])} (gate.py canary --plan)" if r.get("canary_owed") else (f" · canary fault: {r['canary_fault']}" if r.get("canary_fault") else "")
         print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget} · round {r['round']} · {r['matched']}{owed}")
         return 0
     if a.fallback:
@@ -373,9 +373,7 @@ def cmd_canary(repo, a):
     if a.fixture:
         print(canary_mod.fixture(), end=""); return 0
     if a.expected:
-        if a.lens and a.lens not in canary_mod.EXPECTED:
-            raise GateFault(f"lens `{a.lens}` is not one of {', '.join(canary_mod.LENSES)}")
-        exp = {a.lens: canary_mod.EXPECTED[a.lens]} if a.lens else canary_mod.EXPECTED
+        exp = {canary_mod._lens(a.lens): canary_mod.EXPECTED[a.lens]} if a.lens else canary_mod.EXPECTED
         if a.json:
             print(json.dumps(exp))
         else:
@@ -385,8 +383,8 @@ def cmd_canary(repo, a):
                     print(f"  {it['id']}: {it['what']} — at " + " | ".join(f"{f}:{n}" for f, n in it["at"]))
         return 0
     if a.check:
-        f = canary_mod.consistency()
-        print(coherence.render("canary", [{"path": "scripts/gates/canary.py", "reason": x} for x in f], "the fixture decodes, every anchor is an added line, the planted credential carries its marker and is invisible at rest"))
+        f = canary_mod.consistency(repo)
+        print(coherence.render("canary", [{"path": "scripts/gates/canary.py", "reason": x} for x in f], "the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the two coordinate spaces never overlap, every lens has its roster agent"))
         return 1 if f else 0
     if a.judge:
         r = canary_mod.judge(repo, a.lens, sys.stdin.read(), a.model)
