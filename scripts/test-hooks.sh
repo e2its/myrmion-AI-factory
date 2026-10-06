@@ -416,6 +416,18 @@ python3 - "$REPO/.claude/state/handoff.json" <<'PY' 2>/dev/null && ok "the recor
 import json, sys; d = json.load(open(sys.argv[1])); assert d["clean"] is True and d["pushed"] is True and d["closed"] is True
 PY
 printf '%s' "$OUT" | grep -q 'closed at' && ok "the line says closed — the next sub-increment starts in a fresh session" || bad "closed line wrong: $OUT"
+# a fresh sub-increment cut from its pushed train: its upstream is the train, HEAD is the train's tip — open, never closed (round 1, correctness lens)
+git -C "$REPO" checkout -q -b feature/FEAT-009-inc-1-h; git -C "$REPO" -c core.hooksPath=/dev/null push -q -u handoff feature/FEAT-009-inc-1-h 2>/dev/null
+git -C "$REPO" checkout -q -b feature/FEAT-009-inc-1-h-sub-2 handoff/feature/FEAT-009-inc-1-h
+run_hook session-handoff.sh '{"session_id":"s1"}'
+python3 - "$REPO/.claude/state/handoff.json" <<'PY' 2>/dev/null && ok "a fresh sub-increment tracking its train is open, not pushed — the upstream is never the proof" || bad "fresh sub-increment read as closed" "$(cat "$REPO/.claude/state/handoff.json" 2>/dev/null)"
+import json, sys; d = json.load(open(sys.argv[1])); assert d["branch"] == "feature/FEAT-009-inc-1-h-sub-2" and d["pushed"] is False and d["closed"] is False
+PY
+git -C "$REPO" -c core.hooksPath=/dev/null push -q handoff HEAD 2>/dev/null   # pushed WITHOUT -u: the remote ref of this branch is the proof
+run_hook session-handoff.sh '{"session_id":"s1"}'
+python3 - "$REPO/.claude/state/handoff.json" <<'PY' 2>/dev/null && ok "pushed without -u: closed (the remote ref of this branch at HEAD)" || bad "push without -u not seen" "$(cat "$REPO/.claude/state/handoff.json" 2>/dev/null)"
+import json, sys; d = json.load(open(sys.argv[1])); assert d["pushed"] is True and d["closed"] is True
+PY
 git -C "$REPO" checkout -q feature/FEAT-001-x; rm -f "$REPO/.claude/state/handoff.json"
 run_hook session-handoff.sh '{"session_id":"s1"}'
 assert_pass "on a feature branch: exit 0"

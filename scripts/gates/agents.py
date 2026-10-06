@@ -22,7 +22,7 @@ fallback   the next rung for a resolved family; refused for a writer class (an a
 digest     the slice of law governing the agent's surface (its roster globs expanded over the tracked tree, always-on
            rules included — the agent gets no snapshot), within its class budget (corpus.digest).
 spawn      the model passed at a spawn of a roster agent is its class family's alias — the PreToolUse hook's question.
-check      a worker return without its governance block, a critic finding without a real probe, a reader return
+check      a worker return without its hand-off or its governance block, a critic finding without a real probe, a reader return
            without its sources / answer / unknowns sections or with a source or an unknown that names nothing: refused.
 """
 from __future__ import annotations
@@ -51,8 +51,10 @@ WORKER_CAP_KEY = "worker_turn_cap"           # EVOL-062: the harness's hard stop
 RESULT_KB_KEY = "context_result_max_kb"      # EVOL-062: a tool result above it goes to a file and the tail is read; the instrument counts the raw ones
 CONTEXT_KEYS = {WORKER_CAP_KEY: "the harness's hard stop on a worker (every worker definition declares maxTurns equal to it; the resolver hands turn_cap)",
                 RESULT_KB_KEY: "the size in KB above which a tool result goes to a file and the tail is read (the instrument counts the raw ones)"}
-HANDOFF_HEADING = re.compile(r"^\s*##\s*Hand-off\b.*$", re.M)   # EVOL-062: the worker's hand-off — what the register learns from its return
+HANDOFF_HEADING = re.compile(r"^[ \t]*##[ \t]*Hand-off\b.*$", re.M)   # EVOL-062: the worker's hand-off — what the register learns from its return (blanks never cross a line: no backtracking over a worker-controlled return)
 HANDOFF_LINES = ("Done:", "Remaining:", "State:")
+HANDOFF_KEY = re.compile(r"^(?:\*\*)?(Done:|Remaining:|State:)(?:\*\*)?")   # anchored, linear: the key, bold or not
+HANDOFF_LINE_MAX = 600   # characters per hand-off line — a register line names the files and the next step, never pastes the work; the line is copied verbatim into dev_plan.md and the next prompt
 
 
 def _posint(v) -> bool:
@@ -563,16 +565,33 @@ def check_return(text: str, cls: str) -> list[str]:
         m = HANDOFF_HEADING.search(text or "")
         if not m:
             problems.append("no `## Hand-off` block — a worker ends its work with `Done:`, `Remaining:` (the task ids left, or exactly `none`) and `State:` (the files touched, the red test still red, the next step); the register is ticked from it (EVOL-062)")
-        else:
+        else:   # the block is data the register copies verbatim: three lines, each bounded, nothing else — parsed line by line, never by a backtracking pattern
             block = text[m.end():]
             g = GOV_HEADING.search(block)
             block = block[:g.start()] if g else block
-            for k in HANDOFF_LINES:
-                mm = re.search(r"^[ \t]*(?:[-*][ \t]+)?(?:\*\*)?" + re.escape(k) + r"(?:\*\*)?[ \t]*(?P<v>.*?)[ \t]*$", block, re.M)   # one line: blanks never cross into the next line's text
-                if not mm:
-                    problems.append(f"`## Hand-off` without its `{k}` line (EVOL-062)")
-                elif not (v := mm.group("v").strip()) or PLACEHOLDER.match(v) or (TRIVIAL_PROBE.match(v) and v.lower() != "none"):   # `none` is the one trivial word allowed: nothing remains
+            found: dict[str, str] = {}
+            for raw in block.splitlines():
+                line = raw.strip()
+                if not line:
+                    continue
+                line = re.sub(r"^[-*][ \t]+", "", line)   # bulleted like the governance block's lines
+                km = HANDOFF_KEY.match(line)
+                if not km:
+                    problems.append(f"a line under `## Hand-off` that is none of its three (`Done:`, `Remaining:`, `State:`) — a hand-off is data the register copies, never a task tick nor an instruction: {line[:60]}")
+                    continue
+                k, v = km.group(1), line[km.end():].strip()
+                if k in found:
+                    problems.append(f"`{k}` twice under `## Hand-off` — one line per key (EVOL-062)"); continue
+                found[k] = v
+                if not v or PLACEHOLDER.match(v) or (TRIVIAL_PROBE.match(v) and v.lower() != "none"):   # `none` is the one trivial word allowed: nothing remains
                     problems.append(f"`{k}` is empty — `none` when nothing remains, never blank nor the contract's placeholder (EVOL-062)")
+                elif len(v) > HANDOFF_LINE_MAX:
+                    problems.append(f"`{k}` is {len(v)} characters — a register line holds at most {HANDOFF_LINE_MAX}: name the files and the next step, never paste the work (EVOL-062)")
+            for k in HANDOFF_LINES:
+                if k not in found:
+                    problems.append(f"`## Hand-off` without its `{k}` line (EVOL-062)")
+            if found.get("State:", "").lower() == "none" and found.get("Remaining:", "").lower() != "none":
+                problems.append("`State: none` with work remaining — the fresh worker would start blind: name the files touched, the red test still red and the next step (EVOL-062)")
     if "critic" in cls:
         m = MODEL_LINE.search(governance_block(text))   # the governance block's line (the contract part's), not a `Model:` anywhere in the findings or the appendix
         if not m:

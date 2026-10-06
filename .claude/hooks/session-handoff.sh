@@ -7,7 +7,7 @@
 # Record: .claude/state/handoff.json {branch, train, head, clean, pushed, closed, at} — the next session's banner names
 # it (scripts/validate-governance.sh --banner) and the build resumes from the plan's first unticked task.
 # clean = no uncommitted change to a TRACKED file (untracked scratch and the state dir never block a close);
-# pushed = HEAD is its upstream; closed = clean and pushed.
+# pushed = a remote ref of this branch points at HEAD (with or without -u; never the upstream, which a fresh sub-increment inherits from its train); closed = clean and pushed.
 # The class comes from the ONE reader (python3 scripts/gate.py branch-class --json); no branch regex lives here.
 # ============================================================================
 cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" || exit 0
@@ -22,7 +22,8 @@ except Exception: print("")' 2>/dev/null)
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
 HEAD_SHA=$(git rev-parse HEAD 2>/dev/null) || exit 0
 CLEAN=false; [ -z "$(git status --porcelain --untracked-files=no 2>/dev/null)" ] && CLEAN=true
-PUSHED=false; UP=$(git rev-parse '@{u}' 2>/dev/null) && [ "$UP" = "$HEAD_SHA" ] && PUSHED=true
+PUSHED=false   # a remote ref of THIS branch at HEAD — never `@{u}`: a fresh sub-increment cut from its train tracks the train and would read pushed
+for sha in $(git for-each-ref --format='%(objectname)' "refs/remotes/*/$BRANCH" 2>/dev/null); do [ "$sha" = "$HEAD_SHA" ] && PUSHED=true; done
 CLOSED=false; [ "$CLEAN" = true ] && [ "$PUSHED" = true ] && CLOSED=true
 mkdir -p .claude/state 2>/dev/null || exit 0
 HANDOFF_INFO="$INFO" python3 - "$BRANCH" "$HEAD_SHA" "$CLEAN" "$PUSHED" "$CLOSED" <<'PY' 2>/dev/null || exit 0

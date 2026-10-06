@@ -74,6 +74,8 @@ def load_config(path: Path) -> dict:
     for key in ("retention_days", "report_interval_days"):
         if not isinstance(cfg.get(key), int) or cfg[key] <= 0:
             raise ToolFault(f"config key {key} must be a positive integer: {path}")
+    if "turn_bucket" in cfg and (isinstance(cfg["turn_bucket"], bool) or not isinstance(cfg["turn_bucket"], int) or cfg["turn_bucket"] <= 0):   # EVOL-062: optional, a positive integer when present
+        raise ToolFault(f"config key turn_bucket must be a positive integer (the width in turns of the cache-per-spawn buckets): {path}")
     return cfg
 
 
@@ -337,7 +339,7 @@ def _profile_from_text(text: str) -> str:
 _RULE: dict[str, tuple[dict, int | None, str, int | None]] = {}   # per repo: (name → class, the ceiling, why the ceiling is absent, context_result_max_kb) — read once
 
 
-def _rule(repo: Path) -> tuple[dict, int | None, str]:
+def _rule(repo: Path) -> tuple[dict, int | None, str, int | None]:
     k = str(repo)
     if k not in _RULE:
         p = repo / ".claude/rules/agents.md"
@@ -884,7 +886,7 @@ def context_report(rows: list, cfg: dict, kb, rule_reason: str) -> dict:
             "definition": "usage counted once per assistant message id (a streamed message repeats it on every entry); a message's context = input + cache-read + "
                           "cache-creation; median_context_tokens = the median over the main sessions of each session's median; a spawn's cache = cache-read + cache-creation "
                           "of its own transcript, bucketed by its turns (turn_bucket) and its roster class; writer = class worker or phase; a raw result = a tool result above "
-                          "context_result_max_kb KB that entered a context as it was (main sessions and spawns) — None without the key"}
+                          "context_result_max_kb KB that entered a context as it was (main sessions and spawns; the transcript's text, in characters) — None without the key"}
 
 
 def _is_governance(file_path: str, repo: Path, gov_paths) -> bool:
@@ -1045,7 +1047,7 @@ def _entry(kind, ts, **kw):
 
 PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 1\nModel: claude-y-critic\n## Informational\nsrc/x.py:3 · 🟢 · confidence 85% · probe: read (DC-29)\n"
 REFUSED_RETURN = "I looked around and everything seems fine.\n"
-WORKER_RETURN = "did x\n## Hand-off\nDone: A.1\nRemaining: none\nState: src/x.py written; its scoped test green\n" + PARSED_RETURN   # EVOL-062: a worker owes its hand-off before the governance block
+WORKER_RETURN = "did x\n## Hand-off\nDone: A.1\nRemaining: none\nState: src/x.py written; its scoped test green\n" + PARSED_RETURN[PARSED_RETURN.index("## Governance"):]   # EVOL-062: a worker owes its hand-off (three lines, nothing else) before the governance block
 HANDBACK = ('Another Claude session sent a message:\n<agent-message from="{aid}">\n[Subagent hand-back] The text below is the final report of a subagent '
             'this session delegated to. The report follows:\n  {body}</agent-message>')
 NOTIFICATION = "<task-notification>\n<task-id>x</task-id>\n<tool-use-id>{tid}</tool-use-id>\n<status>completed</status>\n<result>{body}</result>\n</task-notification>"
@@ -1349,7 +1351,10 @@ def selftest() -> int:
         expect(all(k in compare(r, r) for k in ("context.median_context_tokens", "context.writer_cache_per_spawn_median", "context.raw_results_over_threshold")), "the three context signals are in the before/after table")
         expect("## Context (EVOL-062)" in md and "| 0-39 | worker | 1 | 500 |" in md and "| cache |" in md, "the context section and the agents table's cache column render")
         expect(r3["context"]["raw_results_over_threshold"] is None and r3["context"]["threshold_kb"] is None and "context_result_max_kb" in r3["context"]["threshold_source"] and r3["context"]["median_context_tokens"] == 5, "a rule without the key: the raw-results signal is None naming the key; the tokens still count")
-        expect(_median([]) is None and _median([3, 1, 2]) == 2 and _median([1, 2, 3, 4]) == 2 and _over([1, 30000], 20) == 1 and _over([1], None) is None, "the median of nothing is None; an even count takes the middle pair; the threshold in KB")
+        expect(_median([]) is None and _median([3, 1, 2]) == 2 and _median([1, 2, 3, 4]) == 2 and _median([1, 1, 1, 100]) == 1 and _median([1, 1, 100]) == 1 and _over([1, 30000], 20) == 1 and _over([1], None) is None,
+               "the median of nothing is None; an even count takes the middle pair; a skewed list tells a median (1) from a mean (25); the threshold in KB")
+        skew = context_report([{"session": s, "type": "main", "class": "main", "turns": 1, "context_median": c, "raw_results_over": 0, "tokens_out": 0, "cache_read": 0, "cache_create": 0} for s, c in (("a", 1), ("b", 1), ("c", 100))], cfg, 20, "")
+        expect(skew["median_context_tokens"] == 1 and skew["per_session"]["c"]["median_context_tokens"] == 100, "the headline signal over skewed sessions is their median (1), never their mean (34)")
         # pushes (EVOL-057): the push log first — both generations, the window by `end` — the trace as fallback
         ps = r["pushes"]
         expect(ps["source"].startswith("push log") and ps["total"] == 3 and ps["by_profile"]["full"] == {"pushes": 2, "seconds": 180.0} and ps["by_profile"]["light"] == {"pushes": 1, "seconds": 30.0} and ps["unknown_share"] == 0.0,
@@ -1406,6 +1411,11 @@ def selftest() -> int:
             expect(False, "unresolved placeholder refused")
         except ToolFault as e:
             expect("unresolved placeholders" in str(e), "unresolved placeholder refused in plain language")
+        bad.write_text('{"$schema": "measure_config_v1", "retention_days": 90, "report_interval_days": 30, "turn_bucket": "forty"}', encoding="utf-8")
+        try:
+            load_config(bad); expect(False, "a turn_bucket that is not a positive integer is refused")
+        except ToolFault as e:
+            expect("turn_bucket" in str(e), "a turn_bucket that is not a positive integer is refused in plain language (EVOL-062)")
         try:
             compare({"schema": "other"}, r)
             expect(False, "baseline with wrong schema refused")

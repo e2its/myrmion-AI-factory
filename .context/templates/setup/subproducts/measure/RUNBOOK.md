@@ -40,9 +40,9 @@ python3 subproducts/measure/measure.py --json --out ../measure-before.json
 python3 subproducts/measure/measure.py --compare ../measure-before.json
 ```
 
-Write both reports outside the repository (they contain session detail). Paste the `Before → after` table on the tracking item. A change whose "after" does not move the signal it targeted is reverted or re-planned — the numbers decide.
+Write both reports outside the repository (they contain session detail). A `before` report written by an instrument older than 8.10 (EVOL-062) counted a streamed message's usage on every entry: its token figures are about 2.2× the de-duplicated ones — take the `before` window again with the current instrument before comparing tokens. Paste the `Before → after` table on the tracking item. A change whose "after" does not move the signal it targeted is reverted or re-planned — the numbers decide.
 
-The table carries the share of active clock under gates, commits and review rounds per branch, the two rework shares, the governance bytes, and (EVOL-057) the share of spawns whose return was never collected, the share of pushes with an unknown profile, the hours under the verification loop, and (EVOL-058) the share of critics delivered inside their budget, and (EVOL-062) the median context per message, the writer cache per spawn and the raw results above the threshold — the context diet's signals; the cache per spawn by turn bucket is the table to compare by shape (the policy's `worker_turn_cap` should empty the buckets above it).
+The table carries the share of active clock under gates, commits and review rounds per branch, the two rework shares, the governance bytes, and (EVOL-057) the share of spawns whose return was never collected, the share of pushes with an unknown profile, the hours under the verification loop, and (EVOL-058) the share of critics delivered inside their budget, and (EVOL-062) the median context per message, the writer cache per spawn and the raw results above the threshold — the context diet's signals; the cache per spawn by turn bucket is the table to compare by shape (a worker stopped at the policy's `worker_turn_cap` lands in the bucket the cap sits in; the buckets above it should empty).
 
 ## Options
 

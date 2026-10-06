@@ -136,7 +136,7 @@ try:
 except Exception:
     pass
 PY
-)
+) || true   # never the banner's end: an interpreter that fails before the try leaves the hand-off unnamed, the line printed
   fi
   if [ "$CONTEXT_LABEL" = "meta" ]; then
     echo "Governance loaded: meta CLAUDE.md ${snap_const8}, dcs ${snap_dcs8} | laws: ${law_count}, defect families: ${fam_count} | meta-framework maintenance | triage: ON"

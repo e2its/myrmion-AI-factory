@@ -940,11 +940,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.12.0",
+      "version": "4.13.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.13.0: feat(EVOL-062) — the Core Protocols row names the context diet: a worker's turn cap with a hand-off, a fresh session per sub-increment, large tool outputs out of the context, every digit a key",
         "4.12.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "4.11.0: feat(EVOL-060) — agents row: informational findings off the return.",
         "4.10.0: feat(EVOL-059) — the agents row names the lens canary.",
@@ -3388,9 +3389,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.12.0",
+      "version": "14.13.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.13.0: feat(EVOL-062) — the Core Protocols row names the context diet: a worker's turn cap with a hand-off, a fresh session per sub-increment, large tool outputs out of the context, every digit a key",
         "14.12.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "14.11.0: feat(EVOL-060) — agents row: informational findings off the return.",
         "14.10.0: feat(EVOL-059) — the agents row names the lens canary.",
