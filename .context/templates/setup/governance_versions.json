@@ -1807,11 +1807,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.11.0",
+      "version": "1.12.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.12.0: feat(EVOL-057) — Seal: the logs block, the push record and its rotation, the runner red then green, symlinked state refused; CLI exit codes for push-log and seal --run (the meta twin).",
         "1.11.0: feat(EVOL-056) — Agents: the reader class (allowlisted docs MCP read tools green; a mutator, a server outside the allowlist, allow_mcp on a writer class red); the reader return contract green and red; resolve and spawn on the critic family.",
         "1.10.1: fix(EVOL-055) — the remote-parsing fixture names no real repository.",
         "1.10.0: feat(EVOL-054) — Scm tests: origin parsing (ports, visualstudio, url-encoded segments), tokens; fetch_json honest on 404 / 401 / 403 / rate limit / 5xx / network (one retry); the GitHub rulesets adapter green and every missing setting named once, evaluation defends nothing, legacy protection counts, exclude / scoped include / ~DEFAULT_BRANCH / glob honoured, bypass actors red, a missing branch one finding, two branches; the control points, the runner-without-token wiring RED, platform vs origin mismatch; config faults (empty required_checks, boolean approvals, no branches); GitLab (unprotected 404 all red, Premium approvals unverifiable), Bitbucket (pagination, glob, branching model, advisory merge checks), Azure (scope kinds, repository filter, non-blocking / disabled / deleted, type ids) adapters; the profile member run at ci through the runner token; CLI exit codes",

@@ -399,7 +399,7 @@ FUNCTION phase_verification(phase, all_test_files):
     # Caller (Phase Loop) handles regression fix loop
   
   # Lint check (if available)
-  IF commands.lint IS NOT NULL:
+  IF commands.lint IS NOT NULL AND "lint" NOT IN mapped:
     phase_files = COLLECT_SOURCE_FILES(phase)
     lint_cmd = INTERPOLATE(commands.lint, {files: phase_files})
     lint_result = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
@@ -417,7 +417,7 @@ FUNCTION phase_verification(phase, all_test_files):
         RETURN LINT_ISSUES(lint_result.output)
   
   # Format check (between lint and typecheck)
-  IF commands.format IS NOT NULL:
+  IF commands.format IS NOT NULL AND "format" NOT IN mapped:
     format_result = RUN_IN_TERMINAL(commands.format, timeout: 30000)
     IF format_result.exit_code != 0:
       LOG: "BVL Phase {phase}: Format issues — auto-fixing"
@@ -461,6 +461,8 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   # records the seal RIGHT AFTER the execution, before any auto-fix touches the tree:
   run = RUN("python3 scripts/gate.py seal --run --summary '{scope_label}'")      # exit 1 = a red execution; its log names the cause
   IF run.exit_code != 0: ❌ BLOCK: "{run.reason}" ; RETURN BLOCKED                 # cure, then `seal --plan` names what is owed; `seal --run` again
+  mapped = KEYS(READ_JSON("config/quality.json").verification.gates)              # the runner's gates — every step below is guarded by it
+  FOR g IN mapped: results[g] = {status: "GREEN (seal --run)"}
   # A gate the map names is the runner's: the steps below do NOT run it again — they keep the gates the map does not
   # name and the advisory scans. An auto-fix (lint / format) rewrites sources: the gates that read them are owed again
   # (`seal --write --full` refuses a read-set that moved after its run) — `seal --run` re-runs exactly those.
@@ -477,7 +479,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   # lie inside scope_files OR tests created in the increment's Phase C. The runner
   # invocation depends on the framework — most accept a list of test files or a
   # path glob. Fall back to the full suite only if no per-file selection is possible.
-  IF commands.test_suite IS NOT NULL:
+  IF commands.test_suite IS NOT NULL AND "tests" NOT IN mapped:
     test_cmd = increment_id IS NOT NULL
       ? RESOLVE_INCREMENT_TEST_CMD(commands, scope_files, increment_id)  # filtered selection
       : commands.test_suite                                              # full suite
@@ -511,7 +513,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
         RETURN BLOCKED
   
   # 3. Type check
-  IF commands.typecheck IS NOT NULL:
+  IF commands.typecheck IS NOT NULL AND "typecheck" NOT IN mapped:
     result = RUN_IN_TERMINAL(commands.typecheck, timeout: 60000)
     results.typecheck = {status: result.exit_code == 0 ? "CLEAN" : "ERRORS"}
     IF result.exit_code != 0:
@@ -520,7 +522,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
       RETURN BLOCKED
   
   # 4. Build check
-  IF commands.build IS NOT NULL:
+  IF commands.build IS NOT NULL AND "build" NOT IN mapped:
     result = RUN_IN_TERMINAL(commands.build, timeout: 120000)
     results.build = {status: result.exit_code == 0 ? "SUCCESS" : "FAILED"}
     IF result.exit_code != 0:
@@ -546,7 +548,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
         RETURN BLOCKED
 
   # 5. SAST check
-  IF commands.sast IS NOT NULL:
+  IF commands.sast IS NOT NULL AND "sast" NOT IN mapped:
     result = RUN_IN_TERMINAL(commands.sast, timeout: 120000)
     sast_findings = parse_sast_results(result.output, commands)
     results.sast = {
@@ -565,7 +567,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   IF scope_files MATCHES seed_script_pattern OR scope_files MATCHES migration_pattern:
     seed_test_files = GLOB("tests/**/test_seed_*" OR "tests/**/*seed*alignment*")
     seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_test_files})
-    IF seed_test_cmd IS NOT NULL AND seed_test_files.length > 0:
+    IF seed_test_cmd IS NOT NULL AND seed_test_files.length > 0 AND "seed-alignment" NOT IN mapped:
       result = RUN_IN_TERMINAL(seed_test_cmd, timeout: 60000)
       results.seed_alignment = {status: result.exit_code == 0 ? "ALIGNED" : "DRIFT"}
       IF result.exit_code != 0:
@@ -612,7 +614,8 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
     # No RETURN BLOCKED from this step — ever.
 
   # All checks passed — seal the tree (untracked); the commit follows; nothing tracked is written after this line
-  RUN("python3 scripts/gate.py seal --run --full --summary '{scope_label}: green'")   # the owed executions (none when every record is green), then the tree sealed; refused when a read-set moved after its run
+  run = RUN("python3 scripts/gate.py seal --run --full --summary '{scope_label}: green'")   # the owed executions (none when every record is green), then the tree sealed
+  IF run.exit_code != 0: ❌ BLOCK: "{run.reason}" ; RETURN BLOCKED                       # not sealed is not green: a gate without its record, a read-set that moved after its run
   LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}, complexity={results.complexity.status}, minimalism={results.minimalism.status}"
 
   RETURN PASSED(results)

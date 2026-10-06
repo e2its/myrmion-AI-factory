@@ -90,8 +90,17 @@ expect_exit 0 "JSON report written to a file" "report written" \
   python3 "$M/measure.py" --repo "$REPO" --transcripts "$TR" --until 2026-09-30 --window-days 30 --json --out "$SANDBOX/before.json"
 if python3 -c "import json,sys; r=json.load(open('$SANDBOX/before.json')); sys.exit(0 if r['schema']=='measure_report_v1' and r['gates']['under_gates_s']==90.0 and r['agents'][1]['type']=='factory-critic-security' else 1)"; then
   ok "JSON report carries the schema, the gate seconds and the per-agent rows"; else bad "JSON report carries the schema, the gate seconds and the per-agent rows"; fi
-if python3 -c "import json,sys; r=json.load(open('$SANDBOX/before.json')); rt=r['returns']; sys.exit(0 if rt['owed']==5 and rt['uncollected']==1 and rt['collected']['hand-back']==1 and rt['collected']['notification']==1 and r['pushes']['total']==3 and r['loop']['by_gate']['tests']['runs']==2 else 1)"; then
+if python3 -c "import json,sys; r=json.load(open('$SANDBOX/before.json')); rt=r['returns']; sys.exit(0 if rt['owed']==8 and rt['uncollected']==1 and rt['collected']['hand-back']==2 and rt['collected']['notification']==3 and r['pushes']['total']==3 and r['loop']['by_gate']['tests']['runs']==2 else 1)"; then
   ok "the materialised reader reports returns by channel, pushes from the push log and the loop from the timings (EVOL-057)"; else bad "the materialised reader reports returns, pushes and loop (EVOL-057)"; fi
+# the REAL return reader and the REAL roster, as a materialised project carries them: returns parsed / refused by gate.py agents --check-return
+mkdir -p "$PROJ/scripts/gates" "$PROJ/.claude/rules" "$PROJ/config"
+cp "$ROOT/.context/templates/setup/scripts/gate.py" "$PROJ/scripts/gate.py"; cp "$ROOT/.context/templates/setup/scripts/gates/"*.py "$PROJ/scripts/gates/"; rm -f "$PROJ/scripts/gates/test_gates.py"
+cp "$ROOT/.context/templates/setup/rules/agents.md" "$PROJ/.claude/rules/agents.md"
+printf '{"agents": {"families": {"writer": "sonnet", "critic": "opus"}}, "verification": {"seal": {"required": true, "dir": ".claude/state"}, "logs": {"push": "push-log.jsonl", "timings": "gate-timings.jsonl", "max_kb": 1024}}}\n' > "$PROJ/config/quality.json"
+OUT=$(python3 "$M/measure.py" --repo "$PROJ" --transcripts "$TR" --until 2026-09-30 --window-days 30 --json --out "$SANDBOX/real.json" 2>&1); RC=$?
+if [ "$RC" -eq 0 ] && python3 -c "import json,sys; r=json.load(open('$SANDBOX/real.json')); rt=r['returns']; sys.exit(0 if rt['checked']=={'parsed':5,'refused':1} and rt['unchecked']==1 and rt['uncollected']==1 and rt['by_class']['work-critic']['refused']==1 and rt['by_class']['worker']['parsed']==1 else 1)"; then
+  ok "returns parsed / refused by the project's REAL return reader on its REAL roster (a critic return without its governance block refused; a worker's and a critic's with it parsed)"; else bad "real return reader join (rc=$RC)" "$OUT $(head -c 1200 "$SANDBOX/real.json" 2>/dev/null)"; fi
+rm -rf "$PROJ/scripts" "$PROJ/.claude" "$PROJ/config"
 expect_exit 0 "before/after table from a baseline file" "## Before → after" \
   python3 "$M/measure.py" --repo "$REPO" --transcripts "$TR" --until 2026-09-30 --window-days 30 --compare "$SANDBOX/before.json"
 

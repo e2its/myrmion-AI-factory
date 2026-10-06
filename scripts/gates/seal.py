@@ -27,8 +27,9 @@ records       EVOL-057 — what the instrument (the measurement subproduct) read
                written by `seal --run`, the loop's executor: it runs the plan's executions one per command, times
                each, streams the output to `loop-<gates>.log`, records the seal RIGHT AFTER the execution and seals the
                tree with --full when every gate is green); `max_kb` rotates a log over the limit to `<name>.1` (one
-               generation). Observability only: the block absent = n/a (nothing written, nothing blocked), never a
-               default in code; never part of the tree, never in a read-set.
+               generation). The block absent = n/a (nothing written, nothing blocked), never a default in code; a
+               malformed block is a fault for the runner (fail loudly) and n/a with its reason for the push record (a
+               push is never blocked by its record); never part of the tree, never in a read-set.
 """
 from __future__ import annotations
 
@@ -427,14 +428,34 @@ def logs_cfg(repo: Path) -> dict | None:
     return out
 
 
+def _state_dir(repo: Path, d: str) -> Path:
+    """The state folder on disk, held inside the repository: a folder that resolves outside it (a symbolic link) is
+    refused — a record never lands beyond seal.dir (the seal's own write replaces its file; these appends follow links)."""
+    full = repo / d
+    try:
+        inside = full.resolve().is_relative_to(repo.resolve())
+    except OSError:
+        inside = False
+    if not inside:
+        raise GateFault(f"verification.seal.dir `{d}` resolves outside the repository (a symbolic link?) — refused: records are written only inside it")
+    return full
+
+
+def _plain(p: Path) -> Path:
+    """A record file is a regular file inside the state folder, never a link to somewhere else."""
+    if p.is_symlink():
+        raise GateFault(f"{p.name} in the state folder is a symbolic link — refused: a record is written only to a regular file inside verification.seal.dir")
+    return p
+
+
 def append_record(repo: Path, state_dir: str, name: str, max_kb: int, record: dict) -> Path:
     """One JSON line appended; the file over max_kb is moved to `<name>.1` first (one generation kept)."""
-    d = repo / state_dir
+    d = _state_dir(repo, state_dir)
     d.mkdir(parents=True, exist_ok=True)
-    p = d / name
+    p = _plain(d / name)
     try:
         if p.is_file() and p.stat().st_size > max_kb * 1024:
-            p.replace(p.with_name(name + ".1"))
+            p.replace(_plain(p.with_name(name + ".1")))
     except OSError:
         pass
     with p.open("a", encoding="utf-8") as fh:
@@ -462,7 +483,10 @@ def push_log(repo: Path, exit_code: int, start: str | None = None, branch: str |
         base = None
     rec = {"branch": pr["branch"], "class": pr["class"], "profile": pr["profile"], "mode": pr["mode"], "base": base,
            "control_point": control_point, "start": start or _now(), "end": _now(), "exit": int(exit_code)}
-    p = append_record(repo, state_dir, logs["push"], logs["max_kb"], rec)
+    try:
+        p = append_record(repo, state_dir, logs["push"], logs["max_kb"], rec)
+    except GateFault as e:
+        return {"ok": True, "written": False, "reason": f"no push record — {e}"}
     return {"ok": True, "written": True, "path": str(p.relative_to(repo)), "record": rec}
 
 
@@ -479,7 +503,8 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
     tail on screen), one timing line per gate appended to the timings log, and the seal recorded RIGHT AFTER the
     execution — ok on exit 0, red otherwise — before anything else can touch the tree. `full` seals the tree when
     every gate of the map holds a green record. A gate the map gives no command is listed, not run: its owner records
-    it with `seal --write`."""
+    it with `seal --write`. Trust boundary: the commands are the branch's governed config (a gate input, code) and run
+    with the same trust as that branch's own test suite — locally, by the loop; never from a hook or CI."""
     cfg = vcfg(repo)
     branch = branch or current_branch(repo)
     nr = _not_required(cfg)
@@ -501,7 +526,7 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
     logs = logs_cfg(repo)
     from . import profile as profile_mod
     prof = profile_mod.profile(repo, branch)["profile"]
-    state = repo / cfg["dir"]
+    state = _state_dir(repo, cfg["dir"])
     state.mkdir(parents=True, exist_ok=True)
     ran, not_run, all_ok = [], [], True
     for e in executions:
@@ -509,7 +534,7 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         if cmd.startswith("<"):
             not_run.extend(gs)
             continue
-        log = state / f"loop-{_slug('-'.join(gs))}.log"
+        log = _plain(state / f"loop-{_slug('-'.join(gs))}.log")
         start, t0 = _now(), time.monotonic()
         try:
             with log.open("w", encoding="utf-8") as fh:
@@ -538,7 +563,8 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         reason += f" · not run (no command in the map — their owner records them with seal --write): {', '.join(not_run)}"
     if why:
         reason += f" · not sealed: {why}"
-    return {"ok": all_ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed,
+    ok = all_ok and (sealed or not full)   # --full asked and the tree not sealed is not green: the push would refuse it later
+    return {"ok": ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed,
             "timings": (str((repo / cfg["dir"] / logs["timings"]).relative_to(repo)) if logs else None), "reason": reason}
 
 

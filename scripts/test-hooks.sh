@@ -312,6 +312,8 @@ cat > "$PR/scripts/gate.py" <<'EOF'
 import sys
 sub = sys.argv[1] if len(sys.argv) > 1 else ""
 import os
+if sub == "push-log":   # EVOL-057: the trap's call is recorded with its arguments (the hook's own exit code)
+    open("pushlog.calls", "a").write(" ".join(sys.argv[2:]) + "\n"); sys.exit(0)
 rc = int(os.environ.get("STUB_" + sub.replace("-", "_").upper(), "0"))
 print(f"{sub}: stub rc {rc}"); sys.exit(rc)
 EOF
@@ -319,8 +321,10 @@ git -C "$PR" add -A; git -C "$PR" -c user.name=t -c user.email=t@t commit -qm in
 run_pp() { (cd "$PR" && bash "$PP" origin git@x:y.git </dev/null 2>&1); }
 OUT=$(STUB_PROFILE=1 run_pp); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'gate profile is red' && ok "step 3: a red profile (exit 1) blocks the push" || bad "red profile did not block (rc=$RC)" "$OUT"
+grep -qE '^--exit 1 --start [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$' "$PR/pushlog.calls" 2>/dev/null && ok "step 0 (EVOL-057): the EXIT trap left the push's record with the hook's own exit code (1) and its start time, and the block stayed a block" || bad "the blocked push left no record with exit 1" "$(cat "$PR/pushlog.calls" 2>/dev/null)"
 OUT=$(run_pp); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'profile: stub rc 0' && printf '%s' "$OUT" | grep -q 'gate profile passed' && ok "step 3: the profile runs as ONE call (profile --run) and a green run proceeds" || bad "green profile did not pass (rc=$RC)" "$OUT"
+[ "$(grep -c '^--exit 0 --start' "$PR/pushlog.calls" 2>/dev/null)" = "1" ] && ok "step 0 (EVOL-057): the green push left its record with exit 0 — one line per push" || bad "the green push left no record with exit 0" "$(cat "$PR/pushlog.calls" 2>/dev/null)"
 printf '%s' "$OUT" | grep -qE 'retired-terms: stub|budget: stub|laws: stub|currency: stub|manifest-parity: stub|surface: stub' && bad "pre-push still runs gate members one by one — the profile is the one definition" || ok "step 3: no member is run outside the profile"
 mv "$PR/scripts/gate.py" "$PR/gate.py.away"
 OUT=$(run_pp); RC=$?

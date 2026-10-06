@@ -1501,7 +1501,8 @@ class Seal(unittest.TestCase):
             # after the cure only the owed gates re-run: the red one and the never-recorded one; the green suite's record stands
             self.assertEqual(seal.plan(repo, base=B)["owed"], ["complexity", "lint"])
             r = seal.run(repo, full=True, base=B)
-            self.assertTrue(r["ok"]); self.assertEqual([x["gates"] for x in r["ran"]], [["lint"]]); self.assertFalse(r["sealed"]); self.assertIn("not green yet: complexity", r["reason"])
+            self.assertFalse(r["ok"], "--full asked and the tree not sealed is not green"); self.assertEqual([x["gates"] for x in r["ran"]], [["lint"]]); self.assertFalse(r["sealed"]); self.assertIn("not green yet: complexity", r["reason"])
+            self.assertIn("verdict: RED", seal.render_run(r))
             seal.write(repo, ["complexity"], ok=True, summary="mcp")   # a gate without a command: its owner records it
             r = seal.run(repo, full=True, base=B)
             self.assertTrue(r["ok"]); self.assertEqual(r["ran"], []); self.assertTrue(r["sealed"], "every record green on the tree as it stands: --full seals it with nothing to run")
@@ -1521,6 +1522,25 @@ class Seal(unittest.TestCase):
             # not required: n/a
             q["verification"]["seal"] = {"required": False, "reason": "CI is the loop"}; write(repo / "config/quality.json", json.dumps(q))
             r = seal.run(repo, base=B); self.assertTrue(r["ok"]); self.assertFalse(r["required"]); self.assertIn("CI is the loop", seal.render_run(r))
+
+        # a record never lands outside the state folder: a log that is a symbolic link, or a state folder that resolves
+        # outside the repository, is refused — n/a for the push record (never blocks), a fault for the runner (review pass, security)
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            repo = self._repo(tmp, gates=MAP, logs=LOGS)
+            (repo / ".claude/state").mkdir(parents=True)
+            (repo / ".claude/state/push-log.jsonl").symlink_to(Path(outside) / "victim")
+            r = seal.push_log(repo, 0); self.assertFalse(r["written"]); self.assertIn("symbolic link", r["reason"]); self.assertFalse((Path(outside) / "victim").exists())
+            (repo / ".claude/state/push-log.jsonl").unlink()
+            (repo / ".claude/state/loop-lint.log").symlink_to(Path(outside) / "victim2")
+            with self.assertRaisesRegex(GateFault, "symbolic link"):
+                seal.run(repo, gates=["lint"], base="main")
+            self.assertFalse((Path(outside) / "victim2").exists())
+            (repo / ".claude/state/loop-lint.log").unlink(); (repo / ".claude/state").rmdir()
+            (repo / ".claude/state").symlink_to(outside, target_is_directory=True)
+            r = seal.push_log(repo, 0); self.assertFalse(r["written"]); self.assertIn("outside the repository", r["reason"])
+            with self.assertRaisesRegex(GateFault, "outside the repository"):
+                seal.run(repo, gates=["lint"], base="main")
+            self.assertEqual(sorted(os.listdir(outside)), [], "nothing was written through the link")
 
     def test_traceability_is_a_light_member(self):
         self.assertIn("traceability", {m["member"] for m in profile.owed("light")}, "the traceability gate runs at the static round, the push and CI")

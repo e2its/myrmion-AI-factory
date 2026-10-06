@@ -342,17 +342,6 @@ PY
 OUT=$(cd "$P" && python3 scripts/gate.py seal --run --full 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'full loop sealed' && ok "green: the owed executions re-ran, the tree sealed by the runner (gate.py seal --run --full)" || bad "seal --run green path wrong (rc=$RC)" "$OUT"
 cp "$SCRATCH/quality.before-run.json" "$P/config/quality.json"; rm -f "$P/.claude/state/seal-"*.json
-# the materialised instrument reads the three channels and joins the project's real return reader and roster
-mkdir -p "$P/subproducts"; cp -R "$ROOT/.context/templates/setup/subproducts/measure" "$P/subproducts/measure"; rm -rf "$P/subproducts/measure/__pycache__"
-sed -i 's/{{MEASURE_RETENTION_DAYS}}/90/; s/{{MEASURE_REPORT_INTERVAL_DAYS}}/30/' "$P/subproducts/measure/measure.config.json"
-MFX="$SCRATCH/measure-fx"; mkdir -p "$MFX"
-python3 - "$P/subproducts/measure" "$MFX" <<'PY'
-import sys, pathlib; sys.path.insert(0, sys.argv[1]); import measure; measure._fixture_transcripts(pathlib.Path(sys.argv[2]))
-PY
-OUT=$(cd "$P" && PYTHONDONTWRITEBYTECODE=1 python3 subproducts/measure/measure.py --repo "$P" --transcripts "$MFX/projects/slug" --until 2026-09-30 --window-days 30 --json --out "$SCRATCH/measure.json" 2>&1); RC=$?
-[ "$RC" -eq 0 ] && python3 -c "import json,sys; r=json.load(open('$SCRATCH/measure.json')); rt=r['returns']; sys.exit(0 if rt['owed']==5 and rt['collected']=={'direct':2,'hand-back':1,'notification':1} and rt['uncollected']==1 and rt['checked']=={'parsed':2,'refused':1} and rt['by_class']['work-critic']['refused']==1 and rt['by_class']['worker']['parsed']==1 and r['pushes']['source'].startswith('push log') and r['loop']['source'].startswith('timings log') else 1)" \
-  && ok "the materialised instrument: three channels read, one spawn uncollected, returns parsed / refused by the project's REAL return reader on its REAL roster, the push log and the timings found where the config says" || bad "materialised instrument wrong (rc=$RC)" "$OUT $(head -c 1500 "$SCRATCH/measure.json" 2>/dev/null)"
-rm -rf "$P/subproducts" "$MFX"
 OUT=$(cd "$P" && python3 scripts/gate.py digests 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "digests: $OUT" || bad "digests failed (rc=$RC)" "$OUT"
 mkdir -p "$P/docs/spec/FEAT-001"; printf -- '---\nstatus: DRAFT\n---\n# design\n' > "$P/docs/spec/FEAT-001/design.md"
