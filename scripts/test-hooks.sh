@@ -313,7 +313,7 @@ import sys
 sub = sys.argv[1] if len(sys.argv) > 1 else ""
 import os
 if sub == "push-log":   # EVOL-057: the trap's call is recorded with its arguments (the hook's own exit code); STUB_PUSH_LOG_OUT plays the reader's line
-    open("pushlog.calls", "a").write(" ".join(sys.argv[2:]) + "\n"); print(os.environ.get("STUB_PUSH_LOG_OUT", "")); sys.exit(0)
+    open("pushlog.calls", "a").write(" ".join(sys.argv[2:]) + "\n"); print(os.environ.get("STUB_PUSH_LOG_OUT", "push-log: recorded full · feature · base origin/x · exit 0 → .claude/state/push-log.jsonl")); sys.exit(0)
 rc = int(os.environ.get("STUB_" + sub.replace("-", "_").upper(), "0"))
 print(f"{sub}: stub rc {rc}"); sys.exit(rc)
 EOF
@@ -322,6 +322,7 @@ run_pp() { (cd "$PR" && bash "$PP" origin git@x:y.git </dev/null 2>&1); }
 OUT=$(STUB_PROFILE=1 run_pp); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'gate profile is red' && ok "step 3: a red profile (exit 1) blocks the push" || bad "red profile did not block (rc=$RC)" "$OUT"
 grep -qE '^--exit 1 --start [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$' "$PR/pushlog.calls" 2>/dev/null && ok "step 0 (EVOL-057): the EXIT trap left the push's record with the hook's own exit code (1) and its start time, and the block stayed a block" || bad "the blocked push left no record with exit 1" "$(cat "$PR/pushlog.calls" 2>/dev/null)"
+printf '%s' "$OUT" | grep -q '⚠  push record' && bad "a recorded push record was warned about" "$OUT" || ok "step 0: a recorded line stays silent"
 OUT=$(run_pp); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'profile: stub rc 0' && printf '%s' "$OUT" | grep -q 'gate profile passed' && ok "step 3: the profile runs as ONE call (profile --run) and a green run proceeds" || bad "green profile did not pass (rc=$RC)" "$OUT"
 [ "$(grep -c '^--exit 0 --start' "$PR/pushlog.calls" 2>/dev/null)" = "1" ] && ok "step 0 (EVOL-057): the green push left its record with exit 0 — one line per push" || bad "the green push left no record with exit 0" "$(cat "$PR/pushlog.calls" 2>/dev/null)"
@@ -330,7 +331,11 @@ OUT=$(STUB_PUSH_LOG_OUT='push-log: n/a — verification.logs is not configured �
 OUT=$(STUB_PUSH_LOG_OUT='push-log: FAULT — no push record — [Errno 13] Permission denied' run_pp); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written: FAULT — no push record — \[Errno 13\]' && ok "step 0: a fault writing the record is said on stderr and the push's exit code is untouched" || bad "fault not said or exit changed (rc=$RC)" "$OUT"
 OUT=$(STUB_PUSH_LOG_OUT='gate: the tool could not do its job (TypeError: x). Set GATE_DEBUG=1 for the trace.' run_pp); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written: the tool could not do its job' && ok "step 0: the reader's own fault (anything that is not a record or an n/a) is said too" || bad "reader fault not said (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written: the tool could not do its job' && ok "step 0: the reader's own fault is said too" || bad "reader fault not said (rc=$RC)" "$OUT"
+OUT=$(STUB_PUSH_LOG_OUT='Traceback (most recent call last): boom' run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written: ' && ok "step 0: a traceback (anything that is not a record or an n/a) is said, the push's exit code untouched" || bad "traceback not said (rc=$RC)" "$OUT"
+OUT=$(STUB_PUSH_LOG_OUT=' ' run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written' && ok "step 0: a reader that printed nothing is said, the push's exit code untouched" || bad "empty output not said (rc=$RC)" "$OUT"
 printf '%s' "$OUT" | grep -qE 'retired-terms: stub|budget: stub|laws: stub|currency: stub|manifest-parity: stub|surface: stub' && bad "pre-push still runs gate members one by one — the profile is the one definition" || ok "step 3: no member is run outside the profile"
 mv "$PR/scripts/gate.py" "$PR/gate.py.away"
 OUT=$(run_pp); RC=$?
