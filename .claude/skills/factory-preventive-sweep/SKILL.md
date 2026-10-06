@@ -155,7 +155,7 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   delivered = [r FOR r IN reports IF r.scope NOT IN not_delivered AND NOT r.fallback]   # the reports that passed the return check after at most one hand-back, spawned on the resolved model — a fall ran on another id (FOLD_IDS reads the primary ones, as the engine's)
   fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § Spawn contract → FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
   IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")   # nothing when no scope delivered: the last real id stays
-  RETURN consolidate(reports, not_delivered) + { not_delivered, degraded, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # consolidation reads the list it marks UNVERIFIED by   # the undelivered scopes travel with the sweep's report (their DCs UNVERIFIED, never CLEAN — § CONSOLIDATION PROTOCOL step 4), the falls beside them
+  RETURN consolidate(reports, not_delivered) + { not_delivered, degraded, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # consolidation is handed the list it marks UNVERIFIED by; the undelivered scopes, the degradation and the falls travel with the sweep's report   # the undelivered scopes travel with the sweep's report (their DCs UNVERIFIED, never CLEAN — § CONSOLIDATION PROTOCOL step 4), the falls beside them
 ```
 
 ### Canonical starter scopes

@@ -325,10 +325,18 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
         SUGGEST: "Run BACKLOG --plan-feature {FEATURE_ID} to materialise the 8-phase preset."
         STOP
 
-      sweep_report = NEWEST("docs/spec/{FEATURE_ID}/review/preventive_sweep_*.md")   # the artefact the sweep saves (factory-preventive-sweep § CONSOLIDATION PROTOCOL step 6) — one path, read here
-      fm = READ_FRONTMATTER(sweep_report) IF FILE_EXISTS(sweep_report) ELSE {}
+      sweep_report = NEWEST("docs/spec/{FEATURE_ID}/review/preventive_sweep_*.md")   # the artefact the sweep saves (factory-preventive-sweep § CONSOLIDATION PROTOCOL step 6) — one path with the writer and the stale-marking step (factory-iteration-model)
+      IF NOT FILE_EXISTS(sweep_report):
+        ❌ BLOCK: "PREVENTIVE-SWEEP gate not passed for {FEATURE_ID}: no sweep report under docs/spec/{FEATURE_ID}/review/ — the sweep has not run (or saved) for this feature."
+        SUGGEST: "Invoke .claude/skills/factory-preventive-sweep/SKILL.md against FEATURE_ID; it saves its report at docs/spec/{FEATURE_ID}/review/preventive_sweep_{YYYYMMDD}.md."
+        STOP
+      fm = READ_FRONTMATTER(sweep_report)
+      IF fm.status == "INVALIDATED":
+        ❌ BLOCK: "Preventive sweep report is INVALIDATED — code changed after the last sweep."
+        SUGGEST: "Re-run factory-preventive-sweep against FEATURE_ID and re-freeze the report."
+        STOP
       IF sweep_issue.status != "Done" OR fm.not_delivered is non-empty OR fm.status != "COMPLETED":   # EVOL-059: an undelivered scope holds the deployment whatever the issue's column — its DCs are UNVERIFIED, never CLEAN
-        ❌ BLOCK: "PREVENTIVE-SWEEP gate not passed for {FEATURE_ID} (current: {sweep_issue.status}; report: {fm.status}; undelivered scopes: {fm.not_delivered})."
+        ❌ BLOCK: "PREVENTIVE-SWEEP gate not passed for {FEATURE_ID} (issue: {sweep_issue.status}; report: {fm.status}; undelivered scopes: {fm.not_delivered or 'none'})."
         SUGGEST: |
           The factory-preventive-sweep SKILL must run against the feature's code, every scope
           delivering, and return zero open C-severity findings before DEVOPS --deploy dev. Run it now:
@@ -339,16 +347,7 @@ FUNCTION verify_deploy_prerequisites(FEATURE_ID, ENV):
             Re-run DEVOPS --deploy --env {ENV} {FEATURE_ID}
         STOP
 
-      # Verify the sweep report exists on disk and is still valid (not INVALIDATED by cascade) — the same artefact read above
-      IF FILE_EXISTS(sweep_report):
-        IF fm.status == "INVALIDATED":
-          ❌ BLOCK: "Preventive sweep report is INVALIDATED — code changed after the last sweep."
-          SUGGEST: "Re-run factory-preventive-sweep against FEATURE_ID and re-freeze the report."
-          STOP
-      ELSE:
-        ❌ BLOCK: "PREVENTIVE-SWEEP issue is Done but {sweep_report} is missing — governance drift."
-        SUGGEST: "Re-run the preventive sweep to regenerate the report."
-        STOP
+      # the report's existence and its INVALIDATED state are checked above, before the combined condition — one cause per block
 
   # 5. Production requires MERGE + QA APPROVED
   IF ENV == production_env:  # from ci-cd.md environments[]
