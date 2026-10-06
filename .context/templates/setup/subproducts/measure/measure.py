@@ -485,13 +485,27 @@ def check_return(repo: Path, cls: str, text: str) -> str:
     return "parsed" if r.returncode == 0 else ("refused" if r.returncode == 1 else "unchecked")
 
 
+INFO_HEADING_RE = re.compile(r"^\s*##\s*Informational\b.*$", re.M)
+INFO_LINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Informational:(?:\*\*)?\s*(\d+)\s*$", re.M)
+
+
+def split_return(text: str) -> tuple[str, int]:
+    """The contract part of a return (before `## Informational`, which follows the governance block) and the count the
+    governance line states — the same convention the project's return reader holds (EVOL-060); 0 when the line is absent."""
+    gov = text.find("## Governance")
+    m = INFO_HEADING_RE.search(text, gov if gov >= 0 else 0)
+    contract = text[:m.start()] if m else text
+    n = INFO_LINE_RE.search(contract.rsplit("## Governance", 1)[-1] if "## Governance" in contract else "")
+    return contract, int(n.group(1)) if n else 0
+
+
 def returns_report(sessions: list, repo: Path) -> dict:
     collected = {"direct": 0, "hand-back": 0, "notification": 0}
     by_class: dict[str, dict] = {}
     for s in sessions:
         for spawn in s.spawns.values():
             cls = agent_class(spawn["type"], repo)
-            row = by_class.setdefault(cls, {"owed": 0, "parsed": 0, "refused": 0, "unchecked": 0, "uncollected": 0})
+            row = by_class.setdefault(cls, {"owed": 0, "parsed": 0, "refused": 0, "unchecked": 0, "uncollected": 0, "bytes": 0, "bytes_adjudicated": 0, "informational": 0})
             row["owed"] += 1
             channel, text = final_return(spawn)
             if channel is None:
@@ -499,13 +513,18 @@ def returns_report(sessions: list, repo: Path) -> dict:
                 continue
             collected[channel] += 1
             row[check_return(repo, cls, text) if cls not in ("unclassed", "main") else "unchecked"] += 1
+            contract, info = split_return(text or "")   # EVOL-060: what the orchestrator read (the contract part) against the whole return; the informational count from the governance line
+            row["bytes"] += len((text or "").encode("utf-8")); row["bytes_adjudicated"] += len(contract.encode("utf-8")); row["informational"] += info
 
     def total(k: str) -> int:   # the totals are the rows' sums
         return sum(r[k] for r in by_class.values())
     owed = total("owed")
+    got = sum(collected.values())
     return {"owed": owed, "collected": collected, "checked": {"parsed": total("parsed"), "refused": total("refused")},
             "unchecked": total("unchecked"), "uncollected": total("uncollected"),
             "uncollected_share": round(total("uncollected") / owed, 3) if owed else None, "by_class": by_class,
+            "avg_bytes": round(total("bytes") / got) if got else None, "avg_bytes_adjudicated": round(total("bytes_adjudicated") / got) if got else None,   # EVOL-060
+            "informational": total("informational"),
             "definition": "a spawn = an Agent tool use; collected when any of its three channels appeared — direct (the tool result of a "
                           "foreground spawn), hand-back (an <agent-message> from the agent the launch stub named), notification (a "
                           "<task-notification> naming the spawn's tool-use id); uncollected = none of the three — a spawn still running when "
@@ -757,7 +776,10 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
     else:
         def ok(a): return 0 < a["turns"] <= (a.get("budget") or ceiling)   # a critic with no turn at all delivered nothing
         inside = sum(1 for a in critics if ok(a))
-        report["critics"] = {"of": len(critics), "inside_budget": inside, "share": round(inside / len(critics), 3) if critics else None, "ceiling": ceiling,
+        rounds = {(a["session"], a["round"]) for a in critics}   # EVOL-060: a critic round = (session, round); the orchestrator's output tokens per round = the parent sessions' output over their rounds
+        main_out = sum(s.tokens["output"] for s in sessions if s.id in {a["session"] for a in critics})
+        report["critics"] = {"orchestrator_tokens_out_per_round": round(main_out / len(rounds)) if rounds else None,
+                             "of": len(critics), "inside_budget": inside, "share": round(inside / len(critics), 3) if critics else None, "ceiling": ceiling,
                              "by_round": {str(r): {"of": sum(1 for a in critics if a["round"] == r), "inside": sum(1 for a in critics if a["round"] == r and ok(a))} for r in sorted({a["round"] for a in critics})},
                              "definition": "a critic = a sub-agent whose roster class is a critic class; turns = the distinct assistant message ids of its own transcript "
                                            "(a streamed message repeats its id); its budget = the `turn budget:` line of its spawn prompt (budget_source prompt), else the "
@@ -794,7 +816,8 @@ def _is_governance(file_path: str, repo: Path, gov_paths) -> bool:
 SCALARS = (("gates", "share"), ("branches", "avg_commits"), ("branches", "avg_review_rounds"),
            ("rework", "edits", "share"), ("governance_bytes", "emitted_by_hooks"),
            ("governance_bytes", "delivered_to_model"), ("governance_bytes", "read_by_agents"),
-           ("returns", "uncollected_share"), ("pushes", "unknown_share"), ("loop", "hours_total"), ("critics", "share"))
+           ("returns", "uncollected_share"), ("returns", "avg_bytes"), ("returns", "avg_bytes_adjudicated"), ("returns", "informational"),   # EVOL-060
+           ("pushes", "unknown_share"), ("loop", "hours_total"), ("critics", "share"), ("critics", "orchestrator_tokens_out_per_round"))
 
 
 def dig(d, *keys):
@@ -891,9 +914,10 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
     rt = r.get("returns") or {"unavailable": "not measured"}
     section("Returns (every spawn, three channels)", rt, [] if "unavailable" in rt else
             [f"owed {rt['owed']} · collected direct {rt['collected']['direct']} / hand-back {rt['collected']['hand-back']} / notification {rt['collected']['notification']} · "
-             f"parsed {rt['checked']['parsed']} · refused {rt['checked']['refused']} · unchecked {rt['unchecked']} · uncollected {rt['uncollected']} (share **{_fmt(rt['uncollected_share'])}**)", "",
-             "| class | owed | parsed | refused | unchecked | uncollected |", "|---|---|---|---|---|---|"] +
-            [f"| {_cell(k)} | {v['owed']} | {v['parsed']} | {v['refused']} | {v['unchecked']} | {v['uncollected']} |" for k, v in sorted(rt["by_class"].items())] +
+             f"parsed {rt['checked']['parsed']} · refused {rt['checked']['refused']} · unchecked {rt['unchecked']} · uncollected {rt['uncollected']} (share **{_fmt(rt['uncollected_share'])}**)",
+             f"bytes per return {rt.get('avg_bytes') if rt.get('avg_bytes') is not None else '—'} · adjudicated {rt.get('avg_bytes_adjudicated') if rt.get('avg_bytes_adjudicated') is not None else '—'} · informational findings {rt.get('informational', 0)} (EVOL-060: the appendix is counted, never read)", "",
+             "| class | owed | parsed | refused | unchecked | uncollected | bytes | adjudicated | informational |", "|---|---|---|---|---|---|---|---|---|"] +
+            [f"| {_cell(k)} | {v['owed']} | {v['parsed']} | {v['refused']} | {v['unchecked']} | {v['uncollected']} | {v.get('bytes', 0)} | {v.get('bytes_adjudicated', 0)} | {v.get('informational', 0)} |" for k, v in sorted(rt["by_class"].items())] +
             ["", f"> {rt['definition']}"])
     ps = r.get("pushes") or {"unavailable": "not measured"}
     section("Pushes by gate profile", ps, [] if "unavailable" in ps else
@@ -922,7 +946,7 @@ def _entry(kind, ts, **kw):
     return e
 
 
-PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nModel: claude-y-critic\n"
+PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 1\nModel: claude-y-critic\n## Informational\nsrc/x.py:3 · 🟢 · confidence 85% · probe: read (DC-29)\n"
 REFUSED_RETURN = "I looked around and everything seems fine.\n"
 HANDBACK = ('Another Claude session sent a message:\n<agent-message from="{aid}">\n[Subagent hand-back] The text below is the final report of a subagent '
             'this session delegated to. The report follows:\n  {body}</agent-message>')
@@ -1182,7 +1206,7 @@ def selftest() -> int:
         expect(rt["owed"] == 10 and rt["collected"] == {"direct": 2, "hand-back": 4, "notification": 3}, "every channel of a spawn is read: direct (foreground), hand-back (agent-message from the stub's agent id), notification (task-notification by tool-use id)")
         expect(rt["uncollected"] == 1 and rt["uncollected_share"] == 0.1, "RED on the fixture with no channel: a background spawn that never came back is uncollected — and only that one")
         expect(rt["checked"] == {"parsed": 6, "refused": 1} and rt["unchecked"] == 2, "a roster agent's return goes through the project's return reader (parsed / refused); an agent outside the roster, or a reader that could not judge, is unchecked")
-        expect(rt["by_class"]["work-critic"] == {"owed": 8, "parsed": 5, "refused": 1, "unchecked": 1, "uncollected": 1} and rt["by_class"]["worker"]["parsed"] == 1, "returns per roster class")
+        expect({k: rt["by_class"]["work-critic"][k] for k in ("owed", "parsed", "refused", "unchecked", "uncollected")} == {"owed": 8, "parsed": 5, "refused": 1, "unchecked": 1, "uncollected": 1} and rt["by_class"]["worker"]["parsed"] == 1, "returns per roster class")
         sp = _sessions_of(tdir, cfg, since, until)[0].spawns
         expect(final_return(sp["t18"]) == ("hand-back", PARSED_RETURN.strip()) and sp["t18"]["channels"]["notification"] == "", "the production shape: the hand-back is the return; a notification that only points at it is not a result (the pointer would read as refused)")
         expect(final_return(sp["t19"]) == ("notification", PARSED_RETURN.strip()) and final_return(sp["t20"]) == ("notification", PARSED_RETURN.strip()), "one task id notifies twice: a failed stop with no result never erases, and never replaces, the real result")
@@ -1190,6 +1214,12 @@ def selftest() -> int:
         expect(final_return(sp["t22"])[0] == "hand-back" and rt["by_class"]["work-critic"]["unchecked"] == 1, "a return the reader could not judge (exit 2) is unchecked, never refused")
         expect(final_return({"channels": {"direct": "d", "hand-back": ["h"], "notification": "n"}}) == ("hand-back", "h") and final_return({"channels": {"direct": "d", "hand-back": [], "notification": "n"}}) == ("notification", "n") and final_return({"channels": {"direct": None, "hand-back": [], "notification": ""}}) == ("notification", ""), "the text judged: the last hand-back, else a notification's real result, else the direct result; a result-less notification still collects")
         expect("## Returns" in md and "| work-critic | 8 | 5 | 1 | 1 | 1 |" in md, "the returns table renders per class")
+        # EVOL-060: the contract part is what the orchestrator read; the appendix is counted from the governance line, never read
+        c, n = split_return(PARSED_RETURN); expect("## Informational" not in c and n == 1 and c.endswith("Model: claude-y-critic\n"), "split_return: the contract part ends at the appendix; the count is the governance line's")
+        expect(split_return("no findings\n## Governance\nModel: m\n") == ("no findings\n## Governance\nModel: m\n", 0), "a return without the appendix is all contract, count 0")
+        expect(rt["avg_bytes"] is not None and rt["avg_bytes_adjudicated"] is not None and rt["avg_bytes_adjudicated"] < rt["avg_bytes"] and rt["informational"] >= 1, "bytes per return against bytes adjudicated, the informational count — the signals")
+        expect("returns.avg_bytes_adjudicated" in compare(r, r) and "critics.orchestrator_tokens_out_per_round" in compare(r, r), "the EVOL-060 signals are in the before/after table")
+        expect(r["critics"]["orchestrator_tokens_out_per_round"] is not None, "the orchestrator's output per critic round is measured")
         # pushes (EVOL-057): the push log first — both generations, the window by `end` — the trace as fallback
         ps = r["pushes"]
         expect(ps["source"].startswith("push log") and ps["total"] == 3 and ps["by_profile"]["full"] == {"pushes": 2, "seconds": 180.0} and ps["by_profile"]["light"] == {"pushes": 1, "seconds": 30.0} and ps["unknown_share"] == 0.0,

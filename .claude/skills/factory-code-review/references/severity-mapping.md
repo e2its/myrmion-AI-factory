@@ -54,6 +54,8 @@ Advisory agent — all output → 🟢. Proposals only; NEVER applies edits in r
 
 ## Cross-cutting rules
 
+- **Informational off the return (EVOL-060).** The contract part of a critic's return carries no `🟢`: an informational finding lives under `## Informational` after the governance block, counted on the `Informational:` line; `normalise` reads the contract part only (`split_return`), the round artefact keeps the appendix verbatim, `counts.nit` is the sum of the counts. A finding the demotion below turns informational stays in `findings` tagged `outside-delta` (it was adjudicated as above informational by the lens; the engine records the demotion).
+
 0. **Outside the diff (RDR-3 of EVOL-059).** A finding whose `file:line` is not an added or changed line of the diff under review (`scope`: the branch diff in both rounds) is informational (🟢) whatever the lens rated it, tagged `outside-delta`, counted in the marker (`outside_delta`) and reported to the user — the engine reviews the diff; what a lens sees through it is recorded for the next change, never a cure owed in this pass. The predicate: a line the diff added or changed on the new side of the same file, **or a line adjacent to a hunk the diff removed in that file** (a deleted catch, log or validation is cited by its neighbour); a pure-deletion diff therefore demotes nothing. A `❓` (an undelivered critic), a finding without a line and a file-level finding are never demoted by this rule.
 
 1. **Iron law** (severity-rubric §4 / pr-review SKILL § Iron law): a finding that cannot be verified against the actual diff/files → downgrade to ❓, never report speculation as 🔴/🟡.

@@ -1296,7 +1296,8 @@ review_path = build_scope.mode == "incremental"
   ? "docs/spec/{FEATURE_ID}/review/peer_review_{build_scope.target_increment.id}_{timestamp}.md"
   : "docs/spec/{FEATURE_ID}/review/peer_review_{timestamp}.md"
 CREATE review_path:
-  - Summary of all REVIEW findings per phase (limited to build_scope when incremental)
+  - § Critic returns (EVOL-060): every work-critic return of the round VERBATIM, one `## <agent> · round N` heading each — the appendix (`## Informational`) lives here and only here; the orchestrator read the contract part (the findings above informational, the governance block with its `Informational:` count), never the appendix
+  - Summary of all REVIEW findings per phase (limited to build_scope when incremental) — critical and warning adjudicated; informational counted from the returns' `Informational:` lines, never adjudicated
   - § Agentic Code Review (Step R.1b): per-agent results from factory-code-review (N/A rows for profile-skipped agents)
   - Resolved blockers
   - Remaining warnings (with justifications)

@@ -68,6 +68,19 @@ SEVERITY = re.compile(r"[🔴🟡🟢❓]")
 FINDING = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?P<loc>[^\s*`]+:\d+)(?:\*\*)?\s*·\s*(?P<sev>🔴|🟡|🟢|❓)\s*·\s*confidence\s*\d+%\s*·\s*probe:\s*(?P<probe>.+?)\s*$")
 TRIVIAL_PROBE = re.compile(r"^(?:n/?a|none|nil|-+|—|tbd|todo|\?+|\.+)$", re.I)
 NO_FINDINGS = re.compile(r"^\s*(?:[-*]\s+)?no findings\.?\s*$", re.I | re.M)
+INFO_HEADING = re.compile(r"^\s*##\s*Informational\b.*$", re.M)                                   # EVOL-060: the appendix — informational findings in full, never adjudicated
+INFO_LINE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Informational:(?:\*\*)?\s*(?P<n>\d+)\s*$", re.M)   # EVOL-060: the count on the governance block — what the orchestrator reads instead of the findings
+
+
+def split_return(text: str) -> tuple[str, str]:
+    """The contract part (findings above informational + the governance block) and the appendix (`## Informational`, after the
+    governance block). The orchestrator reads the first and copies the second verbatim into the round artefact (EVOL-060)."""
+    text = text or ""
+    gov = text.find("## Governance")
+    m = INFO_HEADING.search(text, gov if gov >= 0 else 0)
+    if not m:
+        return text, ""
+    return text[:m.start()], text[m.start():]
 SOURCE = re.compile(r"^\s*(?:[-*]\s+)?(?P<kind>mcp|doc)\s*·\s*(?P<server>[\w.-]+)\s*·\s*(?P<query>.+?)\s*·\s*(?P<ref>.+?)\s*·\s*(?P<digest>.+?)\s*$")
 PLACEHOLDER = re.compile(r"^<[^>]*>$")   # the contract's own template echoed back (`<ref: …>`) is not a source
 UNKNOWN = re.compile(r"^\s*(?:[-*]\s+)?(?P<q>.+?)\s*·\s*searched:\s*(?P<s>.*?)\s*$")
@@ -529,8 +542,9 @@ def check_return(text: str, cls: str) -> list[str]:
             problems.append(f"`Model: {m.group('id')}` is the contract's own placeholder, not an id")
         elif not MODEL_ID.match(m.group("id")):
             problems.append(f"`Model: {m.group('id')[:40]}` is not a model id (letters, digits, `.`, `_`, `:`, `@`, `/`, `-`) — the line lands in a command, it is never text")
+        contract, appendix = split_return(text)   # EVOL-060: the informational findings travel in the appendix, counted on the governance block
         shaped = 0
-        for line in text.splitlines():
+        for line in contract.splitlines():
             if not SEVERITY.search(line):
                 continue
             m = FINDING.match(line)
@@ -538,8 +552,27 @@ def check_return(text: str, cls: str) -> list[str]:
                 problems.append(f"finding outside the contract shape `file:line · severity · confidence N% · probe: …`: {line.strip()[:80]}")
             elif TRIVIAL_PROBE.match(m.group("probe").strip()):
                 problems.append(f"finding without an executed probe: {line.strip()[:80]}")
+            elif m.group("sev") == "🟢":
+                problems.append(f"informational finding inside the findings — it belongs under `## Informational` after the governance block, counted on the `Informational:` line (EVOL-060): {line.strip()[:80]}")
             else:
                 shaped += 1
-        if not shaped and not NO_FINDINGS.search(text):
+        if not shaped and not NO_FINDINGS.search(contract):
             problems.append("no finding in the contract shape (or a line reading exactly `no findings`)")
+        info = 0
+        for line in appendix.splitlines():
+            if not SEVERITY.search(line):
+                continue
+            m = FINDING.match(line)
+            if not m:
+                problems.append(f"informational finding outside the contract shape under `## Informational`: {line.strip()[:80]}")
+            elif m.group("sev") != "🟢":
+                problems.append(f"a finding above informational under `## Informational` — it belongs in the findings, where it is adjudicated: {line.strip()[:80]}")
+            else:
+                info += 1
+        gov_block = contract.rsplit("## Governance", 1)[-1] if "## Governance" in contract else ""
+        n = INFO_LINE.search(gov_block)
+        if not n:
+            problems.append("no `Informational: N` line in the governance block — a critic counts its informational findings there and lists them under `## Informational` after the block (EVOL-060)")
+        elif int(n.group("n")) != info:
+            problems.append(f"`Informational: {n.group('n')}` but {info} informational finding(s) under `## Informational` — the count is the list's length, never more, never less")
     return problems

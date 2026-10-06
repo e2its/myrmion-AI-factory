@@ -172,7 +172,9 @@ FUNCTION run_code_review(mode, args, profile):
   after = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")
   IF before != after: RETURN { ok: false, reason: "tree-moved" }   # a run around which the working tree moved is refused — NO marker
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ..., detail: the lambda's detail }   # NO marker; the fall's reason travels with the failure
-  findings = normalise(reports)         # references/severity-mapping.md
+  APPEND(".claude/state/code-review-{content_hash}.returns.md", every delivered report VERBATIM, one `## <agent_file> · round {r}` heading each)   # EVOL-060: the round artefact — the appendix (`## Informational`) lives here, never read by this engine
+  findings = normalise(contract_part(r) FOR r IN reports)   # references/severity-mapping.md — the contract part only (`gate.py agents` split_return): the findings above informational and the governance block
+  nit = SUM(the `Informational: N` line of each delivered report)   # counted from the governance line, never from the appendix (EVOL-060)
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
   findings, outside_delta = demote_outside(findings, scope)   # a finding whose file:line is not an added or changed line of the diff under review → 🟢, tagged `outside-delta`, counted (references/severity-mapping.md § Cross-cutting rules); the counts below never see it above informational
   primary = [r FOR r IN reports IF r.agent_file NOT IN not_delivered AND NOT r.fallback]   # the delivered reports spawned on res.model — the sweep filters the same way; a fallback re-spawn ran on another id
@@ -183,7 +185,7 @@ FUNCTION run_code_review(mode, args, profile):
   IF models.no_primary AND d: SAY("{COUNT(d)} critic(s) delivered on a fallback ({[f.id FOR f IN d]}), a model the canary never judged — no primary delivered")
   IF models.no_primary AND u: SAY("{COUNT(u)} critic(s) fell and did not deliver ({[f.alias FOR f IN u]})")
   IF primary: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger — the primary spawns' one id (`unknown` when they disagree: the lens is owed); a fallback or an undelivered critic ran on another or no model, never the lens's id
-  RETURN { ok: true, findings, degraded, not_delivered, models, round: r, outside_delta, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user; models.fallback / models.disagree / models.unstated non-empty ⇒ said to the user (above), recorded in the marker
+  RETURN { ok: true, findings, degraded, not_delivered, models, round: r, outside_delta, counts: {blocker, important, nit, question} }   # nit = the informational count (EVOL-060); the informational findings themselves are in the round artefact   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user; models.fallback / models.disagree / models.unstated non-empty ⇒ said to the user (above), recorded in the marker
 
 FUNCTION FOLD_IDS(delivered):                                        # EVOL-059 — the one rule for "the model the lens last ran on", read by this engine and by the preventive sweep (§ Spawn contract → FOLD_IDS)
   known    = SET(return_model(r) FOR r IN delivered) − {"unknown"}   # `unknown` is a return that stated no id, never a model
