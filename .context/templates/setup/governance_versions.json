@@ -2818,9 +2818,10 @@
       ]
     },
     "instructions/Factory-devops-configure.instructions.md": {
-      "version": "2.6.0",
+      "version": "2.7.0",
       "path": ".claude/instructions/Factory-devops-configure.instructions.md",
       "changelog": [
+        "2.7.0: feat(EVOL-058) — the reader's spawn carries the budget lines; a partial return gets one hand-back; a reader that does not deliver returns every question as an unknown.",
         "2.6.0: feat(EVOL-056) — Guardrail 0.5 — External facts (spawn-policy: reader): the main session spawns factory-docs-reader on the services and IaC resources before the stack coherence guardrail.",
         "2.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "2.5.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Phase + command axes set per file domain. Consumed by factory-applicability-discovery at command Step 0.",
@@ -2922,9 +2923,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.17.0",
+      "version": "2.18.0",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.18.0: feat(EVOL-058) — the reader's spawn carries the budget lines; a partial return gets one hand-back; a reader that does not deliver returns every question as an unknown.",
         "2.17.0: feat(EVOL-056) — § Beat 0 — External facts before the plan (spawn-policy: reader): the main session spawns factory-docs-reader before the dependency analysis; every external claim in dev_plan.md cites its source.",
         "2.16.1: fix(EVOL-055) — no concrete project names (neutral wording; behaviour unchanged).",
         "2.16.0: feat(EVOL-051) — dev_plan.md frontmatter carries governance_digest_version (copied from design.md) — gate.py digests judges it",
@@ -3199,9 +3201,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.12.0",
+      "version": "2.13.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.13.0: feat(EVOL-058) — Step 8: a policy without tier budgets (pre-EVOL-058) gains them, the medium row and maxTurns on every read-only definition.",
         "2.12.0: feat(EVOL-057) — Step 8: a verification block without logs (pre-EVOL-057) gains the template's block.",
         "2.11.1: feat(EVOL-054) — Step 8: the scm block and the runbook for a pre-EVOL-054 project",
         "2.11.0: feat(EVOL-053) — Step 8 adds the traceability block, delivers the pytest plugin for Python, records the baseline once",
