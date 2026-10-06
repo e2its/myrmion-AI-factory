@@ -248,7 +248,7 @@ def consistency(repo: Path | None = None) -> list[str]:
         try:
             tol = tolerance(repo)
         except GateFault as e:
-            problems.append("rules/agents.md: " + str(e))
+            problems.append(_home(str(e)))
     if lowest_diff_line <= bound + tol:
         problems.append(f"the diff text's lines of the anchored files start at {lowest_diff_line}, within reach of the new file's numbering (to {bound}, tolerance to {bound + tol}) — lead the diff with a longer filler or lower agents.canary.line_tolerance")
     # the tolerance reaches no two planted defects of one lens at once: one finding between two anchors of the same file
@@ -268,8 +268,13 @@ def consistency(repo: Path | None = None) -> list[str]:
                 if agent not in names:
                     problems.append(f"rules/agents.md: lens {lens}: its agent {agent} is not in the roster")
         except GateFault as e:
-            problems.append("rules/agents.md: " + str(e))
-    return problems
+            problems.append(_home(str(e)))
+    return list(dict.fromkeys(problems))   # a problem said once (a policy that cannot be read fails the tolerance and the roster alike)
+
+
+def _home(fault: str) -> str:
+    """A policy fault filed where it comes from: the config when it names it, the rule otherwise."""
+    return ("config/quality.json: " if "config/quality.json" in fault else "rules/agents.md: ") + fault
 
 
 def tolerance(repo: Path) -> int:
@@ -402,7 +407,9 @@ def plan(repo: Path, all_: bool = False) -> dict:
 
 
 def render_plan(r: dict) -> str:
-    lines = [f"canary: {'owed — ' + ', '.join(r['owed']) if r['owed'] else 'nothing owed — every lens judged on the model it last ran on'}"]
+    head = ("FAULT — nothing owed until the fixture is cured (below)" if r.get("fault") else
+            "owed — " + ", ".join(r["owed"]) if r["owed"] else "nothing owed — every lens judged on the model it last ran on")
+    lines = [f"canary: {head}"]
     for lens, v in r["lenses"].items():
         lines.append(f"  {'→' if lens in r['owed'] else '·'} {lens} ({v['agent']}): judged on {v['judged_on'] or '—'} · last ran on {v['last_ran_on'] or '—'}"
                      + (f" · missed {', '.join(v['missed'])}" if v.get("missed") else "") + f" — {v['reason']}")
