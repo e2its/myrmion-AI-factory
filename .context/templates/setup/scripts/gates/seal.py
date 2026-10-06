@@ -485,7 +485,7 @@ def push_log(repo: Path, exit_code: int, start: str | None = None, branch: str |
         rec = {"branch": pr["branch"], "class": pr["class"], "profile": pr["profile"], "mode": pr["mode"], "base": base,
                "control_point": "push", "start": start or _now(), "end": _now(), "exit": int(exit_code)}
         p = append_record(repo, state_dir, logs["push"], logs["max_kb"], rec)
-    except (GateFault, OSError) as e:
+    except (GateFault, OSError, ValueError) as e:   # ValueError: a config or manifest that does not decode
         return {"ok": True, "written": False, "fault": True, "reason": f"no push record — {e}"}
     return {"ok": True, "written": True, "fault": False, "path": str(p.relative_to(repo)), "record": rec}
 
@@ -568,7 +568,7 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
     if unwritten:
         reason += " · timing not written: " + "; ".join(unwritten)
     ok = all_ok and (sealed or not full)   # --full asked and the tree not sealed is not green: the push would refuse it later
-    return {"ok": ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed,
+    return {"ok": ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed, "unwritten": unwritten,
             "timings": (str(Path(cfg["dir"]) / logs["timings"]) if logs else None), "reason": reason}
 
 
@@ -577,13 +577,16 @@ def render_run(res: dict) -> str:
         return f"seal: n/a — {res['reason']}"
     if not res.get("ran") and not res.get("not_run"):
         return f"seal: run — {res['reason']}" + (" · full loop sealed" if res.get("sealed") else "")
-    lines = [f"seal: run — profile {res.get('profile', '?')} · {len(res['ran'])} execution(s), every one timed and recorded right after it ran:"]
+    lines = [f"seal: run — profile {res.get('profile', '?')} · {len(res['ran'])} execution(s), every one recorded right after it ran:"]
     for r in res["ran"]:
         mark = "✓" if r["exit"] == 0 else "✗"
         lines.append(f"  {mark} {r['command']}  →  {', '.join(r['gates'])} · {r['seconds']} s · exit {r['exit']} · {r['log']}")
         if r["exit"] != 0 and r.get("tail"):
             lines.extend("      " + ln for ln in r["tail"].splitlines() if ln.strip())
-    lines.append(f"  timings → {res['timings']}" if res.get("timings") else "  no timings written — verification.logs is not configured (SETUP --upgrade adds the block)")
+    if res.get("unwritten"):
+        lines.append("  ⚠ timing not written: " + "; ".join(res["unwritten"]))
+    lines.append(f"  timings → {res['timings']}" if res.get("timings") and not res.get("unwritten") else "" if res.get("timings") else "  no timings written — verification.logs is not configured (SETUP --upgrade adds the block)")
+    lines = [ln for ln in lines if ln]
     lines.append(f"verdict: {'ok' if res['ok'] else 'RED'} — {res['reason']}" + (" · full loop sealed" if res.get("sealed") else ""))
     return "\n".join(lines)
 

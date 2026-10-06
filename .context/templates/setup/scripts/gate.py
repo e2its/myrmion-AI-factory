@@ -323,7 +323,7 @@ def cmd_documentation(repo, a):
 
 
 def cmd_seal(repo, a):
-    gates = [g.strip() for g in (a.gates or "").split(",") if g.strip()]
+    gates = list(dict.fromkeys(g.strip() for g in (a.gates or "").split(",") if g.strip()))   # a gate named twice is one gate
     if a.run:
         r = seal_mod.run(repo, gates, full=a.full, summary=a.summary or "", branch=a.branch, base=a.base)
         print(json.dumps(r) if a.json else seal_mod.render_run(r))

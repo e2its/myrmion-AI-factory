@@ -329,6 +329,8 @@ OUT=$(STUB_PUSH_LOG_OUT='push-log: n/a — verification.logs is not configured �
 [ "$RC" -eq 0 ] && ! printf '%s' "$OUT" | grep -q '⚠  push record' && ok "step 0: an unconfigured logs block is silent — no warning on a push" || bad "unconfigured block warned (rc=$RC)" "$OUT"
 OUT=$(STUB_PUSH_LOG_OUT='push-log: FAULT — no push record — [Errno 13] Permission denied' run_pp); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written: FAULT — no push record — \[Errno 13\]' && ok "step 0: a fault writing the record is said on stderr and the push's exit code is untouched" || bad "fault not said or exit changed (rc=$RC)" "$OUT"
+OUT=$(STUB_PUSH_LOG_OUT='gate: the tool could not do its job (TypeError: x). Set GATE_DEBUG=1 for the trace.' run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written: the tool could not do its job' && ok "step 0: the reader's own fault (anything that is not a record or an n/a) is said too" || bad "reader fault not said (rc=$RC)" "$OUT"
 printf '%s' "$OUT" | grep -qE 'retired-terms: stub|budget: stub|laws: stub|currency: stub|manifest-parity: stub|surface: stub' && bad "pre-push still runs gate members one by one — the profile is the one definition" || ok "step 3: no member is run outside the profile"
 mv "$PR/scripts/gate.py" "$PR/gate.py.away"
 OUT=$(run_pp); RC=$?

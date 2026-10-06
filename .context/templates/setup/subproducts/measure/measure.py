@@ -524,11 +524,15 @@ def _red(rec: dict) -> bool:
 
 
 def _readable(p: Path) -> bool:
-    try:
-        with p.open(encoding="utf-8", errors="replace"):
-            return True
-    except OSError:
-        return False
+    """The log and its rotated generation: an existing file that cannot be opened is said, never read as zero records."""
+    for f in (p, p.with_name(p.name + ".1")):
+        if f.exists():
+            try:
+                with f.open(encoding="utf-8", errors="replace"):
+                    pass
+            except OSError:
+                return False
+    return True
 
 
 def _s(v) -> str:
@@ -1117,15 +1121,22 @@ def selftest() -> int:
         expect(_red({"exit": 0}) is False and _red({"exit": 1}) and _red({}) and _red({"exit": "0"}) and _red({"exit": False}), "no exit code, or one that is not a number (a boolean included), is never green")
         # a corrupted record never crashes the report; an unreadable log is said, never zeroed
         st = repo / ".claude" / "state"
-        with (st / "gate-timings.jsonl").open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps({"gate": ["x"], "profile": {"a": 1}, "start": "2026-09-02T12:00:00Z", "end": "2026-09-02T12:00:05Z", "exit": 0}) + "\n")
+        with (st / "gate-timings.jsonl").open("a", encoding="utf-8") as fh:   # a list where a branch or a command belongs: the execution key must still hash
+            fh.write(json.dumps({"gate": ["x"], "profile": {"a": 1}, "branch": ["b"], "command": {"c": 1}, "start": "2026-09-02T12:00:00Z", "end": "2026-09-02T12:00:05Z", "exit": 0}) + "\n")
+        with (st / "push-log.jsonl").open("a", encoding="utf-8") as fh:        # an object where the profile belongs: the profile lookup must still work
+            fh.write(json.dumps({"profile": {"a": 1}, "start": "2026-09-02T12:00:00Z", "end": "2026-09-02T12:00:05Z", "exit": 0}) + "\n")
         lp2 = loop_report(repo, since, until)
-        expect("unavailable" not in lp2 and lp2["by_gate"]['["x"]']["runs"] == 1 and lp2["hours_total"] == 0.029, "a record with a list or an object where a name belongs is counted under its text, never raised")
-        (st / "push-log.jsonl").chmod(0)
-        try:
-            expect("unavailable" in pushes_report(repo, [], since, until) and "cannot be read" in pushes_report(repo, [], since, until)["unavailable"], "a push log that exists but cannot be read is said unavailable — never a zero that passes for a measurement")
-        finally:
-            (st / "push-log.jsonl").chmod(0o644)
+        expect("unavailable" not in lp2 and lp2["by_gate"]['["x"]']["runs"] == 1 and lp2["hours_total"] == 0.029, "a timing record with a list or an object where a name belongs is counted under its text, never raised")
+        ps3 = pushes_report(repo, [], since, until)
+        expect("unavailable" not in ps3 and ps3["by_profile"]["unknown"]["pushes"] == 1 and ps3["total"] == 4, "a push record with an object where the profile belongs counts as unknown, never raised")
+        if getattr(os, "geteuid", lambda: 1)() != 0:   # a mode-0 file still opens for root: the case proves nothing there and is skipped, never failed
+            (st / "push-log.jsonl.1").chmod(0)
+            try:
+                expect("unavailable" in pushes_report(repo, [], since, until) and "cannot be read" in pushes_report(repo, [], since, until)["unavailable"], "a push log whose rotated generation exists but cannot be read is said unavailable — never a partial count that passes for a measurement")
+            finally:
+                (st / "push-log.jsonl.1").chmod(0o644)
+        else:
+            print("  · the unreadable-log case is skipped under root (a mode-0 file still opens)")
         expect("## Verification loop" in md and "| tests | 2 | 1 | 70.0 | 0.019 |" in md, "the loop table renders")
         expect(_cell("a|b\nc") == "a\\|b c", "a key read from a local file never breaks the table")
         (root / "nodir" / "config").mkdir(parents=True)

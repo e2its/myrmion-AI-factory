@@ -2106,6 +2106,11 @@ class Cli(unittest.TestCase):
             # EVOL-057: the push record never blocks (exit 0, n/a without the block); the runner's exit is the loop's verdict
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "push-log", "--exit", "1", "--start", "2026-10-06T10:00:00Z"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0); self.assertIn("push-log: n/a", r.stdout); self.assertNotIn("FAULT", r.stdout)
+            q = json.loads((repo / "config/quality.json").read_text()); q["verification"] = {"seal": {"required": True, "dir": ".claude/state"}, "gates": {}, "logs": {"push": "p", "timings": "t", "max_kb": 1}}
+            (repo / "config/quality.json").write_text(json.dumps(q)); (repo / ".claude/state").write_text("a file, not a folder\n")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "push-log", "--exit", "0"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertTrue(r.stdout.startswith("push-log: FAULT — no push record"), r.stdout)   # the literal the hook keys on
+            (repo / ".claude/state").unlink()
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "seal", "--run", "--gates", "nope"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 2); self.assertNotIn("Traceback", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "key", "nope.key", "--required"], capture_output=True, text=True, env=env)
