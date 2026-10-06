@@ -470,7 +470,7 @@ PROPOSED | ACCEPTED | DEPRECATED | SUPERSEDED
 ## Command: `--review-conflict {{ID}}`
 
 ### Trigger
-- The user routes an increment here after the one work round (`rules/agents.md → agents.rounds.work`) left a finding open that the plan caused — never a counter, never automatic
+- The user routes an increment here after the work passes the key allows (`rules/agents.md → agents.rounds.work`) left a finding open that the plan caused — never a counter, never automatic
 - the work critics cannot resolve a disagreement with the worker
 
 ### Process

@@ -356,10 +356,11 @@
       ]
     },
     "rules/review-policy.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/review-policy.md",
       "changelog": [
+        "1.6.0: feat(EVOL-059) — RDR-3: the bounded work loop is the passes the key allows (the diff at full effort, one re-check on the cured bytes); no digit in prose; work_rounds mirrors the key.",
         "1.5.0: fix(EVOL-049) — review pass — the loop is EVOL-049's: one work round, the user adjudicates, model separation by agents.families; hat vocabulary retired",
         "1.4.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.3.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
@@ -2629,9 +2630,10 @@
       ]
     },
     "commands/implement.md": {
-      "version": "1.8.3",
+      "version": "1.8.4",
       "path": ".claude/commands/implement.md",
       "changelog": [
+        "1.8.4: fix(EVOL-059) — RDR-3: the critic passes the key allows, never a digit.",
         "1.8.3: feat(EVOL-056) — names the Beat 0 reader before --plan.",
         "1.8.2: fix(EVOL-051) — review pass — the flip is the last tracked write before the one loop; a red loop reverts it; --finalize flips first",
         "1.8.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -2753,9 +2755,10 @@
       ]
     },
     "instructions/Factory-blueprint-validation.instructions.md": {
-      "version": "2.11.0",
+      "version": "2.11.1",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
+        "2.11.1: fix(EVOL-059) — RDR-3: the work passes the key allows, never a digit.",
         "2.11.0: fix(EVOL-049) — review pass — --approve Step 0 runs the Plan Gate; one work round then the user adjudicates; concern wording",
         "2.10.0: feat(EVOL-049)! — hat vocabulary retired (the work critics vs the worker).",
         "2.9.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: DC-coverage gate greps § 2 (Detailed Technical Test Plan) — '§ Edge Cases' anchor did not exist.",
@@ -2899,9 +2902,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.18.1",
+      "version": "2.18.2",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.18.2: fix(EVOL-059) — RDR-3: round 1 on the diff, round 2 (--round 2) on the cured bytes; the resolver refuses the next.",
         "2.18.1: feat(EVOL-053) — every test a worker writes states its case at the one home",
         "2.18.0: feat(EVOL-051) — the order stated at the spawn protocol; the completion gate writes the plan's status and verification record BEFORE the loop (last tracked write), the loop seals, the commit follows; a red loop reverts the status write; bvl_result replaced by verification: {gates, seal}",
         "2.17.0: fix(EVOL-049) — review pass — the main session spawns (no agent carries Agent); worktree guard with the increment's files; separation lost → adjudication",
@@ -2996,9 +3000,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.18.0",
+      "version": "2.18.1",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.18.1: fix(EVOL-059) — RDR-3: the passes the key allows; the effort the resolver computes; a finding outside the diff is informational.",
         "2.18.0: feat(EVOL-059) — the canary plan before the round, --seen after every real return.",
         "2.17.0: feat(EVOL-058) — the spawn prompt's budget lines, the orchestrator's hand-back on a partial return, the probe bound.",
         "2.16.0: feat(EVOL-051) — before the critics only the static round (gate.py profile --run --control-point static, digests included) + the workers' scoped runs; coverage, typecheck and the full suite deferred to the one loop; lint stays scoped",
@@ -3837,10 +3842,11 @@
       "path": ".claude/skills/factory-rdr/SKILL.md"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.13.2",
+      "version": "1.13.3",
       "type": "skill",
       "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.claude/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .claude/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT increment pass — work critics; separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "changelog": [
+        "1.13.3: fix(EVOL-059) — RDR-3: the Block 20 row says the main session keeps the round (1 on the diff, 2 on the cured bytes).",
         "1.13.2: fix(EVOL-051) — review pass — the docs-only lane reads config → documentation through gate.py documentation (no list, no 'verbatim allowlist')",
         "1.13.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.13.0: feat(EVOL-049)! — increment mode and the push gate named through the lenses; hat vocabulary retired.",
