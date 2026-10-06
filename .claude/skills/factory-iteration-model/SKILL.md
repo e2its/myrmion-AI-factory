@@ -353,7 +353,7 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       report_path = NEWEST("{{base_path}}/review/preventive_sweep_*.md") IF artifact_name == "preventive_sweep_report" ELSE "{{base_path}}/{{artifact_name}}.md"   # one path with the writer and the deploy gate (EVOL-059)
       IF FILE_EXISTS(report_path):
         fm = READ_FRONTMATTER(report_path)
-        IF fm.status IN ["COMPLETED", "APPROVED"]:                   # the sweep's final status is COMPLETED; the smoke report's APPROVED
+        IF (artifact_name == "preventive_sweep_report" AND fm.status != "INVALIDATED") OR fm.status == "APPROVED":   # the sweep: every report not yet INVALIDATED (an IN_PROGRESS one too — its delivered scopes read the old code); the smoke report: APPROVED
           UPDATE_FRONTMATTER(report_path, {
             status: "INVALIDATED",
             invalidated_by_iteration: target_iteration,

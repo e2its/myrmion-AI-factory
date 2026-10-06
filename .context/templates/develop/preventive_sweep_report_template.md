@@ -62,7 +62,11 @@ Occurrences: {count}
   Fix suggestion: {remediation}
 ```
 
-If a DC has zero occurrences, mark it explicitly `CLEAN` — never skip a DC from the applicable set.
+If a DC has zero occurrences, mark it explicitly `CLEAN` — never skip a DC from the applicable set. Every DC of a scope listed under `not_delivered` is `UNVERIFIED (scope {scope} not delivered)` — never CLEAN (EVOL-059); it goes in the Unverified Areas table below, not under Clean.
+
+## Unverified Areas
+| DC | Scope | Reason |
+|----|-------|--------|
 
 ## Consolidated Summary
 
@@ -73,7 +77,7 @@ If a DC has zero occurrences, mark it explicitly `CLEAN` — never skip a DC fro
 | MEDIUM   | {n} | Resolve or justify before gate closure |
 | LOW      | {n} | Track in backlog but do not block |
 
-**Gate verdict:** {APPROVED — zero open BLOCKER/HIGH | REJECTED — {count} unresolved} 
+**Gate verdict:** {COMPLETED — zero open BLOCKER/HIGH, every scope delivered | IN_PROGRESS — {count} unresolved or {n} scope(s) not delivered} 
 
 ## Fix Application Log
 
