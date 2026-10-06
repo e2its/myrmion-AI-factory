@@ -135,8 +135,10 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
     )
     # a return outside the finding shape is refused: RUN("python3 scripts/gate.py agents --check-return --class work-critic", report)
     # a PARTIAL return (the ceiling, maxTurns) ⇒ ONE hand-back request, resume; still no report ⇒ fully unverified (rules/agents.md § The bounded loop, EVOL-058)
-    IF report delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {return_model(report)}")   # the model the lens last ran on (EVOL-059); an undelivered critic ran on no model — its `unknown` never overwrites the last real id
   )
+  ids = SET(return_model(r) FOR r IN reports IF r delivered)         # EVOL-059: the model the lens last ran on — the engine's rule (factory-code-review § run): the delivered reports' one id, `unknown` when they disagree (said to the user), nothing when none delivered — never the last writer's
+  IF LEN(ids) > 1: SAY("the scope critics ran on different models: {SORTED(ids)} — the lens's id is unknown this sweep, the canary owes it")
+  IF ids: RUN("python3 scripts/gate.py canary --seen --lens governance --model {THE_ONE(ids) IF LEN(ids) == 1 ELSE 'unknown'}")
   RETURN consolidate(reports)
 ```
 

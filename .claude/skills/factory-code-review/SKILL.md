@@ -145,7 +145,8 @@ FUNCTION run_code_review(mode, args, profile):
       fb = RUN("python3 scripts/gate.py agents --fallback --class work-critic --family critic")
       IF NOT fb.ok: RETURN { ok: false, reason: "spawn-failure" }
       IF NOT fb.separation: degraded = true                       # the writer's family — the run's findings go to the user's adjudication
-      report = SPAWN(... same inputs, model = fb.model); report.fallback = fb.model   # a re-spawn on the ladder: its id is the fallback's, never the lens's (EVOL-059)
+      SAY(fb.reason)                                                  # the fall is said to the user as it happens, never only in the marker
+      report = SPAWN(... same inputs, model = fb.model); report.fallback = { alias: fb.model, id: return_model(report) }   # a re-spawn on the ladder: its id is the fallback's, never the lens's (EVOL-059)
     # Return check: a line carrying a severity outside the shape, or a probe that names nothing, is refused
     # EVOL-058 — the budget is enforced: a PARTIAL return (the harness stopped the critic at its ceiling, maxTurns) gets
     # ONE hand-back request to the same agent (write the report now with what is verified, the rest as unverified),
@@ -165,9 +166,13 @@ FUNCTION run_code_review(mode, args, profile):
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
   primary = [r FOR r IN reports IF r delivered AND NOT r.fallback]   # the reports spawned on res.model — a fallback re-spawn ran on another id
-  models = { "correctness": return_model(primary) if primary else "unknown", "fallback": [r.fallback FOR r IN reports IF r.fallback] }   # the id the primary returns carry, the fallbacks named beside it (EVOL-059) — recorded in the marker
-  IF primary: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger — the primary spawns' id (return_model over several returns: their one id, `unknown` when they disagree); a fallback or an undelivered critic ran on another or no model, never the lens's id
-  RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user
+  ids = SET(return_model(r) FOR r IN primary)                        # the ids the primary returns carry (EVOL-059)
+  models = { "correctness": (THE_ONE(ids) IF LEN(ids) == 1 ELSE "unknown"), "no_primary": LEN(primary) == 0, "disagree": SORTED(ids) IF LEN(ids) > 1 ELSE [],
+             "fallback": [r.fallback FOR r IN reports IF r.fallback] }   # recorded in the marker: the lens's id, why it is unknown (no primary delivered / the primaries disagree), the fallbacks (alias and id)
+  IF models.disagree: SAY("the primary critics ran on different models: {models.disagree} — the lens's id is unknown this round, the canary owes it")
+  IF models.no_primary AND models.fallback: SAY("{LEN(models.fallback)} critic(s) ran on a fallback ({ids of models.fallback}), a model the canary never judged — no primary delivered")
+  IF primary: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger — the primary spawns' one id (`unknown` when they disagree: the lens is owed); a fallback or an undelivered critic ran on another or no model, never the lens's id
+  RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user; models.fallback / models.disagree non-empty ⇒ said to the user (above), recorded in the marker
 ```
 
 ## Severity normalisation
@@ -187,7 +192,7 @@ The marker is the push gate's proof-of-execution. Increment mode NEVER writes it
 2. Write (house rules): `mkdir -p .claude/state/`; hash sanitised `tr -cd 'a-f0-9'`; atomic `> .tmp && mv`. Path: `.claude/state/code-review-${hash}.marker`.
 3. Body (single-line JSON):
    ```json
-   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"models":{"correctness":"<id>","fallback":[]},"override":null}
+   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"models":{"correctness":"<id>","no_primary":false,"disagree":[],"fallback":[]},"override":null}
    ```
 4. Blockers found ⇒ STILL write (with counts) — preflight blocks on `findings.blocker > 0`, and the written marker is what the override path amends. Surface all findings to the user with fixes.
 

@@ -1690,7 +1690,7 @@ class Canary(unittest.TestCase):
             write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES.replace("canary: {line_tolerance: 3}", "canary: {line_tolerance: 40}"))
             wide = canary.consistency(repo)
             self.assertTrue(any("within reach of the new file's numbering" in x for x in wide), "a tolerance wider than the filler is a finding")
-            self.assertTrue(any("reaches two planted defects" in x for x in wide), "two different problems both survive the dedupe")
+            self.assertTrue(any("reaches two planted defects" in x for x in wide), "both checks fire at a tolerance that breaks both promises — no early return")
             write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES.replace("canary: {line_tolerance: 3}", "canary: {line_tolerance: 7}"))
             self.assertTrue(any("reaches two planted defects of the security lens" in x for x in canary.consistency(repo)), "a tolerance that reaches two anchors of one lens is a finding (repo.py 9 and 23 are 14 apart)")
             between = "src/orders/repo.py:16 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nModel: m\n"
@@ -2346,6 +2346,8 @@ class Cli(unittest.TestCase):
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "canary", "--plan", "--json"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 2, "an inconsistent fixture is a fault at the plan: exit 2, nothing owed"); self.assertEqual(json.loads(r.stdout)["owed"], []); self.assertIn("reaches two planted defects", json.loads(r.stdout)["fault"])
             self.assertIn("gate: canary fault", r.stderr, "exit 2 carries its reason on stderr like every fault of this CLI")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "canary", "--plan"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2); self.assertIn("\n  ✗ the fixture is inconsistent", r.stdout); self.assertNotIn("gate: canary fault", r.stderr, "the text render carries the fault on its ✗ line — said once")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "canary", "--check"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1); self.assertIn("\n  rules/agents.md: agents.canary.line_tolerance 7", r.stdout, "a policy-sourced problem is filed under the rule, the prefix stripped"); self.assertNotIn("scripts/gates/canary.py", r.stdout, "nothing of this is the fixture's fault")
             q2 = json.loads((repo / "config/quality.json").read_text()); q2.pop("agents"); (repo / "config/quality.json").write_text(json.dumps(q2))
