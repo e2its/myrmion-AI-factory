@@ -483,7 +483,7 @@ def cmd_manifest(repo, a):
     from gates import manifest as manifest_mod
     if a.check:
         problems = manifest_mod.check(repo, a.entry or [], base=a.base, framework=bool(a.framework), no_base=a.no_base)
-        print(coherence.render("manifest", [{"path": "governance_versions.json", "reason": x} for x in problems], "every entry advanced against the base, its line names its version, the frontmatter in parity"))
+        print(coherence.render("manifest", [{"path": "governance_versions.json", "reason": x} for x in problems], "the line names its version, the frontmatter in parity — no base: nothing compared against one" if a.no_base else "every entry advanced against the base, its line names its version, the frontmatter in parity"))
         return 1 if problems else 0
     if a.framework == "check":
         raise GateFault("--framework needs its level on a bump: --framework patch|minor|major (bare --framework belongs to --check)")

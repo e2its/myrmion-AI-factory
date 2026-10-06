@@ -719,18 +719,18 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
     edit_share = (round(len(gov_edits) / len(all_edits), 3) if all_edits else None) if gov_paths_cfg else None   # None, never a silent zero, when governance_paths is not configured
     weeks = max((until - since).total_seconds() / (7 * 86400), 1 / 7)   # never below a day: a per-week rate over an instant is not a rate
     try:
-        primary = (json.loads((repo / "config/coherence-context.json").read_text(encoding="utf-8")).get("audit", {}).get("manifest_paths") or {}).get("primary")
-    except (OSError, ValueError):
+        primary = ((json.loads((repo / "config/coherence-context.json").read_text(encoding="utf-8")) or {}).get("audit") or {}).get("manifest_paths", {}).get("primary")
+    except (OSError, ValueError, AttributeError, TypeError):   # a context file of another shape never aborts the instrument
         primary = None
     mpaths = [x for x in dict.fromkeys([primary, ".context/templates/setup/governance_versions.json", "docs/project_log/governance_versions.json"]) if x]
     mlog = git(repo, "log", "--no-merges", f"--since={since.isoformat()}", f"--until={until.isoformat()}", "--format=%H", "--", *mpaths)
     mcommits = len([x for x in mlog.splitlines() if x.strip()]) if mlog is not None else None
-    report["governance"] = {"edit_share": edit_share, "edits": len(gov_edits), "edits_total": len(all_edits),
+    report["governance"] = {"edit_share": edit_share, "edits": len(gov_edits) if gov_paths_cfg else None, "edits_total": len(all_edits),
                             "hours": round(active * edit_share / 3600, 3) if edit_share is not None else None,
                             "manifest_commits": mcommits, "manifest_commits_per_week": round(mcommits / weeks, 2) if mcommits is not None else None,
                             "definition": "edit_share = Edit/Write tool uses on governance paths (measurement.governance_paths; None when not configured) over every edit; "
                                           "hours = the active agent clock × edit_share; manifest_commits_per_week = non-merge commits touching the governance manifest "
-                                          "(the context's primary path, else the two known homes) in the window, per seven days (git log) — None when git is not readable"}
+                                          "(the context's primary path, else the two known homes) in the window, per seven days (git log; a window floored at one day) — None when git is not readable"}
 
     # branches (one branch = one pull request)
     branches: dict[str, dict] = {}
@@ -940,7 +940,7 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
              "", f"> {c['note']}"])
     gv = r.get("governance") or {"unavailable": "not measured"}
     section("Governance editing (EVOL-061)", gv, [] if "unavailable" in gv else
-            [f"edits on governance paths {gv['edits']} of {gv['edits_total']} (share **{_fmt(gv['edit_share'])}**) · hours {_fmt(gv['hours'])} · manifest commits {gv['manifest_commits'] if gv['manifest_commits'] is not None else '—'} ({_fmt(gv['manifest_commits_per_week'])} per week)", "", f"> {gv['definition']}"])
+            [f"edits on governance paths {gv['edits'] if gv['edits'] is not None else '— (governance_paths not configured)'} of {gv['edits_total']} (share **{_fmt(gv['edit_share'])}**) · hours {_fmt(gv['hours'])} · manifest commits {gv['manifest_commits'] if gv['manifest_commits'] is not None else '—'} ({_fmt(gv['manifest_commits_per_week'])} per week)", "", f"> {gv['definition']}"])
     rt = r.get("returns") or {"unavailable": "not measured"}
     section("Returns (every spawn, three channels)", rt, [] if "unavailable" in rt else
             [f"owed {rt['owed']} · collected direct {rt['collected']['direct']} / hand-back {rt['collected']['hand-back']} / notification {rt['collected']['notification']} · "

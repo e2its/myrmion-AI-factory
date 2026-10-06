@@ -32,8 +32,8 @@ LEVELS = ("patch", "minor", "major")
 SECTIONS = ("framework_core", "templates", "agent_templates")
 VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 FM_VERSION_RE = re.compile(r'^(version:[ \t]*)(["\']?)(\d+\.\d+\.\d+)(\2)[ \t]*$', re.M)
-META_ROOTS = (".claude/", "scripts/", ".github/workflows/", "config/", "CLAUDE.md")   # where a framework_core file lives
-COPIED_FROM_SIBLING = ("delivery", "role", "type", "content_type", "stack_conditional")
+META_ROOTS = (".claude/", "scripts/", ".github/workflows/", "config/")   # where a framework_core file lives (and CLAUDE.md itself)
+COPIED_FROM_SIBLING = ("delivery", "type", "content_type")   # a sibling's channel and kind — never its prose (role) nor its stack condition (a new file ships everywhere until it says otherwise)
 
 
 def _rel(path: str) -> str:
@@ -121,10 +121,8 @@ def base_manifest(repo: Path, p: Path, base: str | None, no_base: bool = False) 
         from . import branch as branch_mod
         try:
             ref = branch_mod.diff_base(repo)
-        except GateFault:
-            raise
-        except Exception as e:   # noqa: BLE001 — the grammar's own fault, humanised: a base nobody can read is never silent
-            raise GateFault(f"no diff base for this branch ({e}) — pass --base REF, or --no-base to move every entry on purpose") from e
+        except Exception as e:   # noqa: BLE001 — the grammar's own fault, humanised with the way out: a base nobody can read is never silent
+            raise GateFault(f"{e} — pass --base REF, or --no-base to move every entry on purpose") from e
     rel = p.relative_to(repo).as_posix()
     try:
         r = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{rel}"], capture_output=True, text=True, timeout=30)
@@ -176,7 +174,10 @@ def _frontmatter_bump(f: Path, new: str) -> str:
     s = f.read_text(encoding="utf-8")
     head, tail = _frontmatter(s)
     m = FM_VERSION_RE.search(head)
-    f.write_text(head[:m.start()] + f"{m.group(1)}{m.group(2)}{new}{m.group(4)}" + head[m.end():] + tail, encoding="utf-8")
+    try:
+        f.write_text(head[:m.start()] + f"{m.group(1)}{m.group(2)}{new}{m.group(4)}" + head[m.end():] + tail, encoding="utf-8")
+    except OSError:
+        return "unwritable"   # the manifest is on disk already: said in the result, manifest-parity holds it, a re-run heals it
     return "moved"
 
 
@@ -212,9 +213,7 @@ def _sibling_target(m: dict, sec: str, key: str) -> str | None:
         return "." + key
     if t == ".claude/" + k:
         return ".claude/" + key
-    if k.startswith("claude/") and t == k[len("claude/"):] and key.startswith("claude/"):
-        return key[len("claude/"):]
-    return None
+    return None   # any other convention (claude/CLAUDE.md → CLAUDE.md, docs/…, workflows/…) is named with --target
 
 
 def _sibling_fields(m: dict, sec: str, key: str) -> dict:
@@ -238,7 +237,7 @@ def plan_new(repo: Path, m: dict, path: str, target: str | None) -> tuple[str, s
     elif rel.startswith(coherence.ROOTS["agent_templates"]):
         sec, key = "agent_templates", rel[len(coherence.ROOTS["agent_templates"]):]
         extra = {"content_type": "universal", **_sibling_fields(m, sec, key), "target": target or rel}
-    elif rel.startswith(META_ROOTS):
+    elif rel.startswith(META_ROOTS) or rel == "CLAUDE.md":
         sec = "framework_core"; key = rel[len(".claude/"):] if rel.startswith(".claude/") else rel
         extra = {**_sibling_fields(m, sec, key), "path": rel}
     else:
@@ -259,15 +258,20 @@ def bump(repo: Path, entries: list[str], level: str | None, note: str, framework
         raise GateFault(f"--framework must be one of {', '.join(LEVELS)}, not `{framework}`")
     if not entries and not new:
         raise GateFault("nothing to bump: name at least one --entry <path> or --new <path>")
+    if base and no_base:
+        raise GateFault("--base and --no-base together say two things — pass one")
     p, m = load(repo)
     if framework and "framework_core" not in m:
         raise GateFault("--framework is the framework repo's act: a project's framework_version is the framework it materialised")
     basem = base_manifest(repo, p, base, no_base)
     # plan everything first: nothing is written until every path resolved and every version computed
     plan_added = [plan_new(repo, m, path, target) for path in new or []]
-    plan_entries = []
+    plan_entries = []; seen: set[tuple[str, str]] = set()
     for path in entries:
         sec, key = resolve(repo, m, path)
+        if (sec, key) in seen:   # one plan per entry, however many ways it was named
+            continue
+        seen.add((sec, key))
         e = m[sec][key]; cur = str(e["version"]); _semver(cur)
         base_v = ((basem or {}).get(sec) or {}).get(key, {}).get("version") if basem else None
         already = basem is not None and (base_v is None or _semver(cur) > _semver(str(base_v)))   # added or moved on this branch already
@@ -311,7 +315,7 @@ def bump(repo: Path, entries: list[str], level: str | None, note: str, framework
         status = _frontmatter_bump(f, newv) if write else frontmatter_version(f)[0]
         if status in ("moved", "ok"):
             frontmatter.append(str(f.relative_to(repo)))
-        elif status in ("unreadable", "unmatched"):
+        elif status in ("unreadable", "unmatched", "unwritable"):
             skipped.append({"file": str(f.relative_to(repo)), "reason": status})
     return {"ok": True, "manifest": str(p.relative_to(repo)), "base": "none (every entry moves — --no-base)" if basem is None else (base or "diff base"),
             "moved": moved, "kept": kept, "added": added, "framework": fw, "frontmatter": frontmatter, "frontmatter_skipped": skipped, "written": write}
@@ -320,6 +324,8 @@ def bump(repo: Path, entries: list[str], level: str | None, note: str, framework
 def check(repo: Path, entries: list[str], base: str | None = None, framework: bool = False, no_base: bool = False) -> list[str]:
     if not entries:
         raise GateFault("nothing to check: name at least one --entry <path>")
+    if base and no_base:
+        raise GateFault("--base and --no-base together say two things — pass one")
     p, m = load(repo)
     basem = base_manifest(repo, p, base, no_base)
     problems: list[str] = []

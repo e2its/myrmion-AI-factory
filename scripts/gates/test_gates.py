@@ -1700,7 +1700,6 @@ MANIFEST_FIXTURE = {
                        "scripts/gates/seal.py": {"version": "1.1.0", "path": "scripts/gates/seal.py", "delivery": "both", "role": "x", "changelog": ["1.1.0: feat — the base"]}},
     "templates": {"rules/x.md": {"version": "2.1.0", "content_type": "universal", "target": ".claude/rules/x.md", "changelog": ["2.1.0: feat — the base"]},
                   "claude/agents/a.md": {"version": "1.0.0", "content_type": "universal", "target": ".claude/agents/a.md", "changelog": ["1.0.0: added"]},
-                  "claude/CLAUDE.md": {"version": "4.0.0", "content_type": "universal", "target": "CLAUDE.md", "changelog": ["4.0.0: added"]},
                   "scripts/gates/seal.py": {"version": "1.1.0", "content_type": "universal", "target": "scripts/gates/seal.py", "delivery": "both", "changelog": ["1.1.0: feat — the base"]}},
     "agent_templates": {"po/t.md": {"version": "1.0.0", "content_type": "universal", "target": ".context/templates/po/t.md", "changelog": ["1.0.0: added"]}},
 }
@@ -1717,7 +1716,7 @@ class Manifest(unittest.TestCase):
         write(repo / "config/coherence-context.json", json.dumps({"context": "downstream" if project else "meta", "audit": {"root_sets": ["."], "exclusions": [".git/"], "manifest_paths": {"primary": mpath}}}))
         write(repo / mpath, json.dumps({k: v for k, v in MANIFEST_FIXTURE.items() if not (project and k in ("framework_core", "agent_templates"))}, indent=2))
         write(repo / "CLAUDE.md", "# x\n"); write(repo / ".claude/skills/x/SKILL.md", "---\nname: x\nversion: 1.4.0\n---\n# x\n"); write(repo / "scripts/gates/seal.py", "# s\n"); write(repo / ".context/templates/setup/scripts/gates/seal.py", "# s\n")
-        write(repo / ".context/templates/setup/claude/agents/a.md", "# a\n"); write(repo / ".context/templates/setup/claude/CLAUDE.md", "# c\n")
+        write(repo / ".context/templates/setup/claude/agents/a.md", "# a\n")
         write(repo / (".claude/rules/x.md" if project else ".context/templates/setup/rules/x.md"), "---\nversion: \"2.1.0\"\n---\n# rule\n")
         write(repo / ".context/templates/po/t.md", "# t\n")
         subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True); subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "base"], check=True)
@@ -1755,7 +1754,13 @@ class Manifest(unittest.TestCase):
             self.assertTrue(any("framework_version 1.2.0 did not advance" in x for x in manifest.check(repo2, ["CLAUDE.md"], base="main", framework=True)))
             manifest.bump(repo2, ["CLAUDE.md"], "patch", "fix — x", framework="patch", base="main")
             self.assertEqual(manifest.check(repo2, ["CLAUDE.md"], base="main", framework=True), [])
-            # the default base: the branching grammar's diff base (origin/main) — idempotent on a second call without --base
+            # the default base: the branching grammar's diff base (origin/main) — a fault when it is not there, never a silent `every entry moves`
+            before = mp2.read_text()
+            with self.assertRaisesRegex(GateFault, "not on origin|cannot be read|no diff base"):
+                manifest.bump(repo2, [".claude/skills/x/SKILL.md"], "minor", "feat — y")
+            with self.assertRaisesRegex(GateFault, "not on origin|cannot be read|no diff base"):
+                manifest.check(repo2, [".claude/skills/x/SKILL.md"])
+            self.assertEqual(mp2.read_text(), before, "nothing written on the fault")
             subprocess.run(["git", "-C", str(repo2), "update-ref", "refs/remotes/origin/main", "main"], check=True)
             r4 = manifest.bump(repo2, [".claude/skills/x/SKILL.md"], "minor", "feat — y"); self.assertEqual(r4["base"], "diff base"); self.assertEqual(r4["moved"][0]["to"], "1.5.0")
             r5 = manifest.bump(repo2, [".claude/skills/x/SKILL.md"], "minor", "feat — y"); self.assertEqual((r5["moved"], len(r5["kept"])), ([], 1), "the default base holds idempotency")
@@ -1778,6 +1783,14 @@ class Manifest(unittest.TestCase):
             with self.assertRaisesRegex(GateFault, "already exists"):
                 manifest.bump(repo, [], "minor", "x", new=["scripts/gates/new.py"], base="main")
             self.assertEqual((m["framework_core"]["scripts/gates/new.py"].get("delivery"), m["templates"]["scripts/gates/new.py"].get("delivery")), ("both", "both"), "a new gates module carries what its siblings carry (factory-sync ships by delivery)")
+            self.assertNotIn("role", m["framework_core"]["scripts/gates/new.py"], "a sibling's prose is never copied")
+            m2 = json.loads(mp.read_text()); m2["templates"]["scm/p.md"] = {"version": "1.0.0", "content_type": "universal", "target": "docs/scm/p.md", "stack_conditional": {"scm.platform": "GitHub"}, "role": "x", "changelog": ["1.0.0: added"]}; mp.write_text(json.dumps(m2))
+            write(repo / ".context/templates/setup/scm/q.md", "# q\n")
+            with self.assertRaisesRegex(GateFault, "pass --target"):
+                manifest.bump(repo, [], None, "x", new=[".context/templates/setup/scm/q.md"], base="main")   # the sibling's target (docs/scm/p.md) names no convention
+            manifest.bump(repo, [], None, "feat — q", new=[".context/templates/setup/scm/q.md"], base="main", target="docs/scm/q.md")
+            q = json.loads(mp.read_text())["templates"]["scm/q.md"]
+            self.assertNotIn("stack_conditional", q); self.assertNotIn("role", q); self.assertEqual(q["content_type"], "universal", "a new file ships everywhere until it says otherwise; no prose inherited")
             # an entry added on the branch is already moved: a later --entry keeps 1.0.0 and replaces the note
             r = manifest.bump(repo, ["scripts/gates/new.py"], "minor", "feat(EVOL-999) — a new module, reworded", base="main")
             self.assertEqual((r["moved"], r["kept"][0]["version"]), ([], "1.0.0")); self.assertEqual(json.loads(mp.read_text())["framework_core"]["scripts/gates/new.py"]["changelog"], ["1.0.0: feat(EVOL-999) — a new module, reworded"])
@@ -1790,6 +1803,23 @@ class Manifest(unittest.TestCase):
             self.assertEqual([x["target"] for x in r["added"]][0], ".claude/rules/y.md")
             with self.assertRaisesRegex(GateFault, "no such file"):
                 manifest.bump(repo, [], None, "x", new=["scripts/typo.py"], base="main")
+            write(repo / ".context/templates/setup/claude/x.md", "# x\n")
+            manifest.bump(repo, [], None, "feat — x", new=[".context/templates/setup/claude/x.md"], base="main")
+            self.assertEqual(json.loads(mp.read_text())["templates"]["claude/x.md"]["target"], ".claude/x.md", "a claude/* file follows the dominant convention (.claude/…); CLAUDE.md itself is the one exception, named with --target")
+            write(repo / ".context/templates/setup/scm/r.md", "# r\n")
+            with self.assertRaisesRegex(GateFault, "matches no manifest entry"):
+                manifest.bump(repo, [".context/templates/setup/scm/r.md"], "patch", "x", new=[".context/templates/setup/scm/r.md"], base="main", target="docs/scm/r.md")   # --new X and --entry X in one call: X is not an entry yet
+            # a frontmatter version line the shape does not read: the manifest moves, the file is said as NOT moved, the check says parity cannot be verified
+            write(repo / ".claude/skills/x/SKILL.md", "---\nname: x\nversion: 1.4 # c\n---\n# x\n")
+            r = manifest.bump(repo, [".claude/skills/x/SKILL.md"], "minor", "feat — z", base="main")
+            self.assertEqual(r["frontmatter_skipped"], [{"file": ".claude/skills/x/SKILL.md", "reason": "unmatched"}]); self.assertIn("! frontmatter NOT moved (unmatched)", manifest.render(r))
+            self.assertIn("version: 1.4 # c", (repo / ".claude/skills/x/SKILL.md").read_text(), "the file is untouched")
+            self.assertTrue(any("cannot be read (unmatched)" in x for x in manifest.check(repo, [".claude/skills/x/SKILL.md"], base="main")))
+            # a dry run writes nothing and says what it would do
+            write(repo / ".claude/skills/x/SKILL.md", "---\nname: x\nversion: 1.5.0\n---\n# x\n")
+            before_m, before_f = mp.read_text(), (repo / ".claude/skills/x/SKILL.md").read_text()
+            r = manifest.bump(repo, ["CLAUDE.md"], "patch", "fix — dry", base="main", write=False)
+            self.assertEqual((mp.read_text(), (repo / ".claude/skills/x/SKILL.md").read_text(), r["written"]), (before_m, before_f, False)); self.assertIn("dry run", manifest.render(r))
             write(repo / "docs/x.md", "# d\n")
             with self.assertRaisesRegex(GateFault, "outside every tracked tree"):
                 manifest.bump(repo, [], None, "x", new=["docs/x.md"], base="main")
@@ -1810,6 +1840,10 @@ class Manifest(unittest.TestCase):
                 manifest.check(repo, ["CLAUDE.md"], base="nope-ref")
             with self.assertRaisesRegex(GateFault, "nothing to check"):
                 manifest.check(repo, [], base="main")
+            with self.assertRaisesRegex(GateFault, "two things"):
+                manifest.bump(repo, ["CLAUDE.md"], "patch", "x", base="main", no_base=True)
+            r = manifest.bump(repo, ["CLAUDE.md", "framework_core:CLAUDE.md"], "patch", "fix — twice named", base="main")
+            self.assertEqual(len(r["moved"]) + len(r["kept"]), 1); self.assertEqual(json.loads(mp.read_text())["framework_core"]["CLAUDE.md"]["changelog"].count("3.0.1: fix — twice named") + json.loads(mp.read_text())["framework_core"]["CLAUDE.md"]["changelog"].count("3.0.2: fix — twice named"), 1, "one entry named twice: one plan, one line")
             # the check is red before a bump and names the cure; green after
             problems = manifest.check(repo, [".context/templates/po/t.md"], base="main", framework=True)
             self.assertTrue(any("did not advance against the base (1.0.0)" in x for x in problems), problems)
@@ -1817,9 +1851,10 @@ class Manifest(unittest.TestCase):
             self.assertEqual(manifest.check(repo, [".context/templates/po/t.md"], base="main"), [])
             # frontmatter drift is a check finding (manifest-parity by construction when the helper wrote it; by hand it drifts)
             write(repo / ".claude/skills/x/SKILL.md", "---\nname: x\nversion: 9.9.9\n---\n# x\n")
-            self.assertTrue(any("frontmatter version 9.9.9 ≠ manifest 1.4.0" in x for x in manifest.check(repo, [".claude/skills/x/SKILL.md"], base="main")))
+            cur = json.loads(mp.read_text())["framework_core"]["skills/x/SKILL.md"]["version"]
+            self.assertTrue(any(f"frontmatter version 9.9.9 ≠ manifest {cur}" in x for x in manifest.check(repo, [".claude/skills/x/SKILL.md"], base="main")))
             # --no-base: every entry moves, said in the result
-            r = manifest.bump(repo, ["CLAUDE.md"], "patch", "fix — x", no_base=True); self.assertEqual(r["base"], "none (every entry moves — --no-base)"); self.assertEqual(r["moved"][0]["to"], "3.0.1", "CLAUDE.md untouched before in this test: 3.0.0 → 3.0.1")
+            r = manifest.bump(repo, ["CLAUDE.md"], "patch", "fix — x", no_base=True); self.assertEqual(r["base"], "none (every entry moves — --no-base)"); self.assertEqual(r["moved"][0]["to"], "3.0.2", "CLAUDE.md at 3.0.1 from the twice-named case: with no base every entry moves, 3.0.1 → 3.0.2")
 
     def test_project_manifest_resolves_by_target(self):
         with tempfile.TemporaryDirectory() as tmp:
