@@ -1905,7 +1905,7 @@ FUNCTION defect_discovery_check(error, context):
     # Follow Discovery Protocol from defect-prevention.md Section 3:
     # 1. Add entry to .claude/rules/defect-prevention.md
     # 2. Add search methodology to Factory-preventive-sweep/SKILL.md
-    # 3. Bump version in governance_versions.json
+    # 3. Bump version in governance_versions.json — python3 scripts/gate.py manifest --bump --entry <the two files> --level minor --note "<the DC and why>" (EVOL-061)
     # 4. Save feedback memory for cross-session awareness
     EXECUTE_DISCOVERY_PROTOCOL(next_dc_number, suggested_name, error)
 ```
