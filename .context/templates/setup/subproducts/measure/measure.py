@@ -17,8 +17,9 @@ the git log and the per-feature worklog, and reports for a time window:
                the roster), or uncollected
   pushes       pushes by gate profile from the push log the pre-push hook writes (the trace as fallback)
   loop         the verification loop per gate and per profile from the timings gate.py seal --run writes
-  critics      critics delivered inside the harness ceiling (EVOL-058): turns per sub-agent against the policy's
-               large-tier turn_budget (the maxTurns every read-only definition declares)
+  critics      critics delivered inside their budget (EVOL-058): turns per sub-agent (distinct message ids) against the
+               `turn budget:` line of its spawn prompt (the policy's large-tier turn_budget — the maxTurns every
+               read-only definition declares — when the prompt carries none)
 
 Nothing leaves the machine. A missing data source degrades that section to
 `unavailable: <reason>`; it never fails the report. Exit 0 report written · 2 the tool
@@ -146,7 +147,9 @@ class Session:
         self.text_blocks: list[str] = []
         self.models: collections.Counter = collections.Counter()
         self.tokens = {"input": 0, "output": 0}
-        self.turns = 0                            # assistant entries — the turns the harness counts (EVOL-058)
+        self._msg_ids: set = set()
+        self.turns = 0                            # distinct assistant message ids — a streamed message repeats its id across entries (EVOL-058)
+        self.budget = None                        # the `turn budget:` line of this agent's spawn prompt (its first user entry)
         self.spawns: dict[str, dict] = {}         # tool_use id → {type, branch, background, channels: {direct, hand-back, notification}}
         self.agent_ids: dict[str, str] = {}       # background agent id (from the launch stub) → tool_use id
         self.pushes: list[tuple[str, float, str]] = []   # (branch, seconds, profile from the banner in the result, else unknown)
@@ -193,7 +196,9 @@ class Session:
 
     def _assistant(self, e: dict, ts, branch: str):
         msg = e.get("message") or {}
-        self.turns += 1
+        mid = msg.get("id") or e.get("uuid") or id(e)
+        if mid not in self._msg_ids:
+            self._msg_ids.add(mid); self.turns += 1
         model = msg.get("model")
         if model and not str(model).startswith("<"):
             self.models[model] += 1
@@ -230,6 +235,9 @@ class Session:
     def _user(self, e: dict, ts):
         msg = e.get("message") or {}
         content = msg.get("content")
+        if self.budget is None and not self.tool_uses:                      # the spawn prompt: the first user entry before any tool ran
+            m = BUDGET_RE.search(flat_text(content))
+            self.budget = int(m.group(1)) if m else 0
         texts: list[str] = []
         if isinstance(content, str):
             texts.append(content)
@@ -298,6 +306,7 @@ STUB_RE = re.compile(r"^\s*Async agent launched.*?agentId:\s*([A-Za-z0-9_-]+)", 
 NOTIFICATION_RE = re.compile(r"<task-notification>.*?(?:</task-notification>|\Z)", re.S)
 HANDBACK_RE = re.compile(r'<agent-message from="([^"]+)">(.*?)(?:</agent-message>|\Z)', re.S)
 BANNER_RE = re.compile(r"^\s*profile:\s*(light|full)\b", re.M)
+BUDGET_RE = re.compile(r"^\s*turn budget:\s*(\d+)\s*$", re.M | re.I)
 POINTER_RE = re.compile(r"report was delivered to you as a message", re.I)
 
 
@@ -315,29 +324,31 @@ def _profile_from_text(text: str) -> str:
     m = BANNER_RE.search(text or "")
     return m.group(1) if m else "unknown"
 
-_ROSTER: dict[str, str] | None = None
+_RULE: dict[str, tuple[dict, int | None]] = {}   # per repo: (name → class, the ceiling) — read once
 
 
-def roster_classes(repo: Path) -> dict[str, str]:
-    """name → class from the project's `.claude/rules/agents.md` frontmatter roster (EVOL-049) — the join measure.py
-    makes; read once. No rule, no roster block: empty (the naming grammar below is then the fallback)."""
-    global _ROSTER
-    if _ROSTER is None:
-        _ROSTER = {}
+def _rule(repo: Path) -> tuple[dict, int | None]:
+    k = str(repo)
+    if k not in _RULE:
         p = repo / ".claude/rules/agents.md"
         try:
             text = p.read_text(encoding="utf-8") if p.is_file() else ""
         except OSError:
             text = ""
-        for m in re.finditer(r"^\s*-\s*\{name:\s*([\w-]+),\s*class:\s*([\w-]+)", text, re.M):
-            _ROSTER[m.group(1)] = m.group(2)
+        roster = {m.group(1): m.group(2) for m in re.finditer(r"^\s*-\s*\{name:\s*([\w-]+),\s*class:\s*([\w-]+)", text, re.M)}
         m = re.search(r"^\s*large:\s*\{[^}]*\bturn_budget:\s*(\d+)", text, re.M)   # the ceiling every read-only definition declares (EVOL-058)
-        _ROSTER["__ceiling__"] = int(m.group(1)) if m else None
-    return _ROSTER
+        _RULE[k] = (roster, int(m.group(1)) if m else None)
+    return _RULE[k]
+
+
+def roster_classes(repo: Path) -> dict[str, str]:
+    """name → class from the project's `.claude/rules/agents.md` frontmatter roster (EVOL-049) — the join measure.py
+    makes; read once per repo. No rule, no roster block: empty (the naming grammar below is then the fallback)."""
+    return _rule(repo)[0]
 
 
 def roster_ceiling(repo: Path):
-    return roster_classes(repo).get("__ceiling__")
+    return _rule(repo)[1]
 
 
 def agent_class(name: str, repo: Path | None = None) -> str:
@@ -347,7 +358,7 @@ def agent_class(name: str, repo: Path | None = None) -> str:
     n = str(name or "")
     roster = roster_classes(repo) if repo is not None else {}
     if roster:
-        return roster.get(n, "unclassed") if n != "__ceiling__" else "unclassed"
+        return roster.get(n, "unclassed")
     if n.startswith("factory-dev-"):
         return "worker"
     if n == "factory-plan-critic":
@@ -380,7 +391,7 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
         atype = meta.get("agentType") or "?"
         rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
         out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype, repo), "round": rounds[atype],
-                    "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns,
+                    "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None,
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
                     "bytes_read": sum(b for _, b in s.reads),
                     "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
@@ -643,7 +654,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
         why = "no transcript data in window"
         report.update({"gates": {"unavailable": why}, "branches": {"unavailable": why},
                        "governance_bytes": {"unavailable": why}, "agents": {"unavailable": why},
-                       "citations": {"unavailable": why}, "returns": {"unavailable": why}})
+                       "citations": {"unavailable": why}, "returns": {"unavailable": why}, "critics": {"unavailable": why}})
         report["rework"] = {"git": rework_git, "edits": {"unavailable": why}}
         return report
 
@@ -726,24 +737,26 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
                                                 "read = tool-result bytes of Read (or cat/sed/head through Bash) on governance paths"}
 
     # agents (main sessions + subagents)
-    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models), "turns": s.turns,
+    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models), "turns": s.turns, "budget": None,
              "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
              "bytes_read": sum(b for _, b in s.reads),
              "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
              "citations": count_ids("\n".join(s.text_blocks))} for s in sessions] + agents
     report["agents"] = rows
-    # critics inside the ceiling (EVOL-058)
+    # critics inside their budget (EVOL-058)
     ceiling = roster_ceiling(repo) if repo is not None else None
     critics = [a for a in agents if "critic" in str(a.get("class", ""))]
     if ceiling is None:
         report["critics"] = {"unavailable": "no turn_budget on the large tier of .claude/rules/agents.md (EVOL-058) — the ceiling is a key"}
     else:
-        inside = sum(1 for a in critics if a["turns"] <= ceiling)
-        report["critics"] = {"of": len(critics), "inside_ceiling": inside, "share": round(inside / len(critics), 3) if critics else None, "ceiling": ceiling,
-                             "by_round": {str(r): {"of": sum(1 for a in critics if a["round"] == r), "inside": sum(1 for a in critics if a["round"] == r and a["turns"] <= ceiling)} for r in sorted({a["round"] for a in critics})},
-                             "definition": "a critic = a sub-agent whose roster class is a critic class; turns = the assistant entries of its own transcript; the ceiling = "
-                                           "agents.tiers.large.turn_budget of rules/agents.md (the maxTurns every read-only definition declares); inside = turns at or under it — "
-                                           "a critic over it was stopped by the harness, and what it delivered is the hand-back's"}
+        def ok(a): return a["turns"] <= (a.get("budget") or ceiling)
+        inside = sum(1 for a in critics if ok(a))
+        report["critics"] = {"of": len(critics), "inside_budget": inside, "share": round(inside / len(critics), 3) if critics else None, "ceiling": ceiling,
+                             "by_round": {str(r): {"of": sum(1 for a in critics if a["round"] == r), "inside": sum(1 for a in critics if a["round"] == r and ok(a))} for r in sorted({a["round"] for a in critics})},
+                             "definition": "a critic = a sub-agent whose roster class is a critic class; turns = the distinct assistant message ids of its own transcript "
+                                           "(a streamed message repeats its id); its budget = the `turn budget:` line of its spawn prompt, else the ceiling "
+                                           "(agents.tiers.large.turn_budget of rules/agents.md, the maxTurns every read-only definition declares); inside = turns at or "
+                                           "under its budget — a critic over the ceiling was stopped by the harness, and what it delivered is the hand-back's"}
 
     # citations
     cited: collections.Counter = collections.Counter()
@@ -854,13 +867,13 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
             [f"| {k} | {v['fired']} | {v['emitted']:,} | {v['delivered']:,} | {v['truncated']} | {v['undelivered']} |" for k, v in gb["by_hook"].items()])
     ag = r["agents"]
     section("Agents", ag if isinstance(ag, dict) else {}, [] if isinstance(ag, dict) else
-            ["| session | agent | type | class | round | model | turns | tokens in | tokens out | bytes read | seconds | citations |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|"] +
-            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {a['model']} | {a.get('turns', 0)} | {a['tokens_in']:,} | {a['tokens_out']:,} | "
+            ["| session | agent | type | class | round | model | turns | budget | tokens in | tokens out | bytes read | seconds | citations |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"] +
+            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {a['model']} | {a.get('turns', 0)} | {_fmt(a.get('budget'))} | {a['tokens_in']:,} | {a['tokens_out']:,} | "
              f"{a['bytes_read']:,} | {_fmt(a['duration_s'])} | {sum(a['citations'].values())} |" for a in ag])
     cr = r.get("critics") or {"unavailable": "not measured"}
-    section("Critics inside the ceiling", cr, [] if "unavailable" in cr else
-            [f"ceiling {cr['ceiling']} turns · critics {cr['of']} · inside {cr['inside_ceiling']} (share **{_fmt(cr['share'])}**)", "",
+    section("Critics inside their budget", cr, [] if "unavailable" in cr else
+            [f"ceiling {cr['ceiling']} turns · critics {cr['of']} · inside their budget {cr['inside_budget']} (share **{_fmt(cr['share'])}**)", "",
              "| round | critics | inside |", "|---|---|---|"] + [f"| {k} | {v['of']} | {v['inside']} |" for k, v in cr["by_round"].items()] + ["", f"> {cr['definition']}"])
     c = r["citations"]
     section("Citations", c, [] if "unavailable" in c else
@@ -998,19 +1011,23 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
     ]
     (tdir / f"{session}.jsonl").write_text("\n".join(json.dumps(e) for e in lines) + "\n", encoding="utf-8")
     sub = [
-        _entry("assistant", ts(140), message={"role": "assistant", "model": "claude-y-critic",
+        _entry("user", ts(139), message={"role": "user", "content": "effort: high\nturn budget: 3\nprobe budget: 1\nReview the diff."}),   # the spawn prompt: its budget line
+        _entry("assistant", ts(140), message={"id": "msg_1", "role": "assistant", "model": "claude-y-critic",
                                               "usage": {"input_tokens": 100, "output_tokens": 50},
-                                              "content": [{"type": "text", "text": "Finding under LAW-04 and LAW-04."},
-                                                          {"type": "tool_use", "id": "a1", "name": "Read", "input": {"file_path": "src/app.py"}}]}),
+                                              "content": [{"type": "text", "text": "Finding under LAW-04 and LAW-04."}]}),
+        _entry("assistant", ts(140), message={"id": "msg_1", "role": "assistant", "model": "claude-y-critic",   # the same message, streamed: a second entry, one turn
+                                              "usage": {"input_tokens": 100, "output_tokens": 50},
+                                              "content": [{"type": "tool_use", "id": "a1", "name": "Read", "input": {"file_path": "src/app.py"}}]}),
         _entry("user", ts(150), message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "a1", "content": "z" * 40}]}),
     ]
     (tdir / session / "subagents" / "agent-c1.jsonl").write_text("\n".join(json.dumps(e) for e in sub) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-c1.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review"}), encoding="utf-8")
     # a second spawn of the same type, LATER in time but with an id that sorts FIRST — the round follows time, never the id
-    sub2 = [_entry("assistant", ts(200), message={"role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1},
+    sub2 = [_entry("user", ts(199), message={"role": "user", "content": "effort: high\nturn budget: 1\nprobe budget: 1\nSecond look."}),
+            _entry("assistant", ts(200), message={"id": "msg_2", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1},
                                                   "content": [{"type": "text", "text": "second look"}]}),
-            _entry("assistant", ts(201), message={"role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1},
-                                                  "content": [{"type": "text", "text": "a second turn — over a ceiling of one"}]})]
+            _entry("assistant", ts(201), message={"id": "msg_3", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1},
+                                                  "content": [{"type": "text", "text": "a second turn — over its budget of one"}]})]
     (tdir / session / "subagents" / "agent-a0.jsonl").write_text("\n".join(json.dumps(e) for e in sub2) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-a0.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 2"}), encoding="utf-8")
     return tdir
@@ -1029,7 +1046,7 @@ def _fixture_repo(root: Path) -> Path:
     (repo / "CLAUDE.md").write_text("1. **[LAW-01] a**\n2. **[LAW-04] b**\n3. **[LAW-09] c**\n", encoding="utf-8")
     (repo / ".claude" / "rules").mkdir(parents=True)
     (repo / ".claude" / "rules" / "defect-prevention.md").write_text("| DC-18 | x |\n| DC-27 | y |\n", encoding="utf-8")
-    (repo / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  tiers:\n    large: {files: 30, lines: 800, turn_budget: 1, probe_budget: 1}\n  roster:\n    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n"
+    (repo / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  tiers:\n    large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}\n  roster:\n    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n"
                                                          "    - {name: factory-critic-correctness, class: work-critic, lens: correctness, surface: [\"**\"]}\n"
                                                          "    - {name: factory-dev-backend, class: worker, surface: [\"src/**\"]}\n"
                                                          "    - {name: my-critic, class: work-critic, surface: [\"**\"]}\n---\n", encoding="utf-8")
@@ -1108,18 +1125,20 @@ def selftest() -> int:
         expect(gb["read_by_agents"] == 350, "governance bytes read count Read and shell reads on governance paths only")
         ag = {a["agent"]: a for a in r["agents"]}
         expect(ag["main"]["model"] == "claude-x-writer" and ag["c1"]["model"] == "claude-y-critic", "model per agent")
-        expect(ag["c1"]["type"] == "factory-critic-security" and ag["c1"]["bytes_read"] == 40 and ag["c1"]["tokens_in"] == 100,
-               "subagent type, bytes read and tokens from its own transcript")
+        expect(ag["c1"]["type"] == "factory-critic-security" and ag["c1"]["bytes_read"] == 40 and ag["c1"]["tokens_in"] == 200,
+               "subagent type, bytes read and tokens from its own transcript (the usage a streamed message repeats per entry is summed here — de-duplicated per message id in EVOL-062)")
         expect(ag["c1"]["class"] == "work-critic" and ag["c1"]["round"] == 1 and ag["a0"]["round"] == 2, "the roster class joined from rules/agents.md and the round from the spawn ORDER IN TIME, never the agent id (EVOL-049)")
         expect("| class | round |" in render_markdown(r) and "| work-critic | 1 |" in render_markdown(r) and "| work-critic | 2 |" in render_markdown(r), "the agents table shows class and round")
         expect(agent_class("my-critic", repo) == "work-critic" and agent_class("factory-dev-frontend", repo) == "unclassed", "with a roster the roster is the class: a project's own critic is classed, a name the roster lacks is not")
         expect(agent_class("factory-dev-backend") == "worker" and agent_class("factory-plan-critic") == "plan-critic" and agent_class("factory-qa") == "phase" and agent_class("code-reviewer") == "unclassed", "without a roster the naming grammar is the fallback")
+        expect(agent_class("factory-dev-backend", root / "nope") == "worker" and roster_ceiling(root / "nope") is None, "a repo without the rule: the grammar is still the fallback and the ceiling is absent (the ceiling never lives in the roster)")
         expect(ag["c1"]["citations"] == {"LAW-04": 2}, "citations per agent")
-        expect(ag["c1"]["turns"] == 1 and ag["a0"]["turns"] == 2 and ag["main"]["turns"] > 2, "turns per agent = the assistant entries of its own transcript (EVOL-058)")
+        expect(ag["c1"]["turns"] == 1 and ag["a0"]["turns"] == 2 and ag["main"]["turns"] > 2, "turns per agent = the distinct message ids of its own transcript — a streamed message (two entries, one id) is one turn (EVOL-058)")
+        expect(ag["c1"]["budget"] == 3 and ag["a0"]["budget"] == 1 and ag["main"]["budget"] is None, "the budget per spawn is the `turn budget:` line of its prompt")
         cr = r["critics"]
-        expect(cr["ceiling"] == 1 and cr["of"] == 2 and cr["inside_ceiling"] == 1 and cr["share"] == 0.5 and cr["by_round"] == {"1": {"of": 1, "inside": 1}, "2": {"of": 1, "inside": 0}},
-               "critics inside the harness ceiling (the large tier's turn_budget of the roster rule), per round; a critic over it was stopped")
-        expect("## Critics inside the ceiling" in render_markdown(r) and "| 2 | 1 | 0 |" in render_markdown(r) and "| turns |" in render_markdown(r), "the critics section and the turns column render")
+        expect(cr["ceiling"] == 60 and cr["of"] == 2 and cr["inside_budget"] == 1 and cr["share"] == 0.5 and cr["by_round"] == {"1": {"of": 1, "inside": 1}, "2": {"of": 1, "inside": 0}},
+               "critics inside their own budget per round — a critic over the budget its prompt stated is outside, whatever the ceiling")
+        expect("## Critics inside their budget" in render_markdown(r) and "| 2 | 1 | 0 |" in render_markdown(r) and "| turns | budget |" in render_markdown(r), "the critics section and the turns and budget columns render")
         expect("critics.share" in compare(r, r), "the signal is in the before/after table")
         c = r["citations"]
         expect(c["by_id"].get("LAW-01") == 10 and c["by_id"].get("LAW-04") == 2, "citations aggregated across agents")
@@ -1185,7 +1204,7 @@ def selftest() -> int:
         expect(r2["window"]["sources"]["transcripts"].startswith("unavailable"), "missing transcripts folder is said, not raised")
         expect("unavailable" in r2["rework"]["git"], "missing git is said, not raised")
         expect("unavailable" in r2["gates"] and "unavailable" in r2["citations"], "sections degrade to unavailable")
-        expect("unavailable" in r2.get("critics", {"unavailable": 1}) if r2.get("critics") else True, "no roster rule: the critics section is said unavailable")
+        expect("unavailable" in r2["critics"], "no transcripts: the critics section is said unavailable")
         expect("unavailable" in render_markdown(r2), "partial report still renders")
         # config faults are tool faults in plain language
         bad = root / "bad.json"

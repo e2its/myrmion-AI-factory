@@ -50,13 +50,14 @@ BUDGET_KEYS = ("turn_budget", "probe_budget")
 
 
 def _posint(v) -> bool:
-    return isinstance(v, int) and not isinstance(v, bool) and v > 0 or (isinstance(v, str) and v.isdigit() and int(v) > 0)
+    return isinstance(v, int) and not isinstance(v, bool) and v > 0 or (isinstance(v, str) and v.isdecimal() and int(v) > 0)
 
 
 def budgets(pol: dict, t: str) -> dict:
     """The turn and probe budgets of a tier (EVOL-058); an unmeasured size (`unknown`) is held to the large tier's —
     never starved, never unbounded. Missing keys are the validator's finding; here they are absent."""
-    row = (pol.get("tiers") or {}).get(t if t in TIERS else "large") or {}
+    tiers = pol.get("tiers") if isinstance(pol.get("tiers"), dict) else {}
+    row = tiers.get(t if t in TIERS else "large") or {}
     return {k: int(row[k]) for k in BUDGET_KEYS if isinstance(row, dict) and _posint(row.get(k))}
 CAPS = {"plan-critic": "plan_gate", "work-critic": "work"}   # class → rounds key
 POINTER = re.compile(r"`((?:rules/|\.claude/|scripts/|\.context/)[\w./-]+\.(?:md|py|sh))`")
@@ -214,7 +215,7 @@ def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, 
     if _class_writes(c):
         if mt:
             f.append({"path": rel, "reason": "`maxTurns` on a definition that writes — a writer's cap is a policy key, not a definition field"})
-    elif roster_class is not None and ceiling is not None and not (mt.isdigit() and int(mt) == ceiling):
+    elif roster_class is not None and ceiling is not None and not (mt.isdecimal() and int(mt) == ceiling):
         f.append({"path": rel, "reason": f"`maxTurns: {mt or '(none)'}` — a read-only definition declares the harness's hard stop, equal to the large tier's turn_budget ({ceiling}); the per-tier budget travels at the spawn (EVOL-058)"})
     text = p.read_text(encoding="utf-8", errors="replace")
     size = len(text.encode("utf-8"))
@@ -252,8 +253,10 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
         if not str(pol["rounds"].get(k, "")).isdigit() or int(pol["rounds"][k]) < 1:
             f.append({"path": rule, "reason": f"agents.rounds.{k} must be a positive integer — the loop's cap is a key"})
     # the budgets are keys per tier (EVOL-058): a critic's turns and the probes run on its behalf
+    if not isinstance(pol["tiers"], dict):
+        f.append({"path": rule, "reason": "agents.tiers must be a mapping of size tiers (small, medium, large)"})
     for t in TIERS:
-        row = (pol["tiers"] or {}).get(t)
+        row = (pol["tiers"] if isinstance(pol["tiers"], dict) else {}).get(t)
         if not isinstance(row, dict):
             f.append({"path": rule, "reason": f"agents.tiers.{t} is missing — every size tier declares turn_budget and probe_budget (EVOL-058)"}); continue
         for k in BUDGET_KEYS:
