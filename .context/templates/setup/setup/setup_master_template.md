@@ -1,5 +1,5 @@
 ---
-version: 2.12.0
+version: 2.12.1
 date: 2026-04-21
 changelog:
   - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
@@ -31,8 +31,8 @@ surface:
 delivery:
   mode: development                   # Q32 — development | production → docs/project_log/governance_versions.json delivery_mode (gate profiles, EVOL-046)
 agents:
-  writer_model: sonnet                # Q34 — the writers' family (harness alias) → config/quality.json agents.families.writer (EVOL-049)
-  critic_model: opus                  # Q34 — the critics' family, must differ → agents.families.critic
+  writer_model: opus                  # Q34 — the writers' family (harness alias; few spawns) → config/quality.json agents.families.writer (EVOL-049)
+  critic_model: sonnet                # Q34 — the critics' family (many spawns), must differ → agents.families.critic
 scm:
   platform: GitHub                    # Q21.2 — GitHub | GitLab | Bitbucket | Azure DevOps | Other → config/quality.json scm.platform; the runbook docs/scm/protection.md lands per platform (EVOL-054)
   approvals: 0                        # Q21.2 — approvals a pull request needs (a project decision; 0 for a single author) → scm.approvals
@@ -162,7 +162,7 @@ last_update: [TIMESTAMP]
 - **Measurement Window (Q30):** `measurement.retention_days`: [90] · `measurement.report_interval_days`: [30] → `subproducts/measure/measure.config.json`
 - **Surface Ceiling per Pull Request (Q31):** `surface.ceiling_files`: [30] · `surface.ceiling_lines`: [800] → `config/quality.json → surface.*`
 - **Delivery Mode (Q32):** `delivery.mode`: [development] → `docs/project_log/governance_versions.json → delivery_mode` (the gate profile per control point; return to production = set the key to `production` in one commit)
-- **Model Families (Q34):** `agents.writer_model`: [sonnet] · `agents.critic_model`: [opus] → `config/quality.json → agents.families` — writers and critics on different families by construction (EVOL-049)
+- **Model Families (Q34):** `agents.writer_model`: [opus] · `agents.critic_model`: [sonnet] → `config/quality.json → agents.families` — writers and critics on different families by construction (EVOL-049)
 - **Runtime Surface (Q33):** `surface.runtime_surface`: [src/**, tests/**, infra/**, scripts/**, package.json] → `config/quality.json → surface.runtime_surface` — the positive list every deploying / release workflow asks (`gate.py runtime-surface --changed`); held to reality by the parity gate (EVOL-047)
 
 ## 3.1. Budget Validation Summary
