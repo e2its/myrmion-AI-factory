@@ -134,11 +134,11 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
                { scope: scope.scope, dcs: scope.dcs, search_roots: resolve_search_roots(scope.scope), feature_scope: feature_scope }
     )
     # a return outside the finding shape is refused: RUN("python3 scripts/gate.py agents --check-return --class work-critic", report)
-    # a PARTIAL return (the ceiling, maxTurns) ⇒ ONE hand-back request, resume; still no report ⇒ fully unverified (rules/agents.md § The bounded loop, EVOL-058)
+    # a PARTIAL return (the ceiling, maxTurns) ⇒ ONE hand-back request, resume; still no report ⇒ fully unverified (rules/agents.md § The bounded loop, EVOL-058): not_delivered.append(scope)
   )
-  ids = SET(return_model(r) FOR r IN reports IF r delivered)         # EVOL-059: the model the lens last ran on — the engine's rule (factory-code-review § run): the delivered reports' one id, `unknown` when they disagree (said to the user), nothing when none delivered — never the last writer's
-  IF LEN(ids) > 1: SAY("the scope critics ran on different models: {SORTED(ids)} — the lens's id is unknown this sweep, the canary owes it")
-  IF ids: RUN("python3 scripts/gate.py canary --seen --lens governance --model {THE_ONE(ids) IF LEN(ids) == 1 ELSE 'unknown'}")
+  delivered = [r FOR r IN reports IF r NOT IN not_delivered]         # not_delivered: the scopes whose report never passed the return check after the one hand-back (kept in the lambda, as the engine keeps it) — fully unverified, no report
+  fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
+  IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")
   RETURN consolidate(reports)
 ```
 

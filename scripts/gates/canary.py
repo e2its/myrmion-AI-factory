@@ -392,10 +392,10 @@ def plan(repo: Path, all_: bool = False) -> dict:
             why = "on demand"
         elif not judged:
             why = "never judged"
-        elif current and current != judged:
-            why = f"the model moved: judged on `{judged}`, last ran on `{current}`"
         elif current == "unknown" or judged == "unknown":
             why = "the model is unknown (the return carried no id) — judged until it is known"
+        elif current and current != judged:
+            why = f"the model moved: judged on `{judged}`, last ran on `{current}`"
         else:
             why = ""
         lenses[lens] = {"agent": LENS_AGENT[lens], "judged_on": judged, "last_ran_on": current, "missed": j.get("missed"), "reason": why or "judged on the model it last ran on"}
