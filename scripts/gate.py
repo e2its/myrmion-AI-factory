@@ -58,6 +58,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -384,8 +385,8 @@ def cmd_canary(repo, a):
         return 0
     if a.check:
         f = canary_mod.consistency(repo)
-        homes = ("rules/agents.md: ", "config/quality.json: ")
-        print(coherence.render("canary", [{"path": next((h[:-2] for h in homes if x.startswith(h)), "scripts/gates/canary.py"), "reason": next((x[len(h):] for h in homes if x.startswith(h)), x)} for x in f], "the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the two coordinate spaces never overlap, the tolerance reaches no two planted defects of one lens, every lens has its roster agent"))
+        home = re.compile(r"^(rules/agents\.md|config/[\w.-]+\.json): ")   # a policy fault is filed where it comes from; the fixture's own on the module
+        print(coherence.render("canary", [{"path": (m.group(1) if (m := home.match(x)) else "scripts/gates/canary.py"), "reason": x[m.end():] if m else x} for x in f], "the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the two coordinate spaces never overlap, the tolerance reaches no two planted defects of one lens, every lens has its roster agent"))
         return 1 if f else 0
     if a.judge:
         r = canary_mod.judge(repo, a.lens, sys.stdin.read(), a.model)
@@ -401,8 +402,10 @@ def cmd_canary(repo, a):
         print(json.dumps(canary_mod.read_record(repo), indent=1)); return 0
     r = canary_mod.plan(repo, a.all)
     print(json.dumps(r) if a.json else canary_mod.render_plan(r))
-    if r.get("fault"):   # an inconsistent fixture is a fault (2), never a plan: nothing is owed, the cause is named — on stderr like every fault of this CLI
-        print(f"gate: canary fault — {r['fault']}", file=sys.stderr); return 2
+    if r.get("fault"):   # an inconsistent fixture is a fault (2), never a plan: nothing is owed, the cause is named — on stderr with --json (the text render carries it on its ✗ line), like every fault of this CLI
+        if a.json:
+            print(f"gate: canary fault — {r['fault']}", file=sys.stderr)
+        return 2
     return 0
 
 
