@@ -1513,7 +1513,7 @@ class Seal(unittest.TestCase):
                 seal.run(repo, gates=["nope"])
             # named gates run whatever the plan owes; a named gate carries every gate that shares its command (one execution feeds both)
             r = seal.run(repo, gates=["lint"], base=B); self.assertTrue(r["ok"]); self.assertEqual([x["gates"] for x in r["ran"]], [["lint"]])
-            r = seal.run(repo, gates=["tests"], base=B); self.assertEqual([x["gates"] for x in r["ran"]], [["coverage", "tests"]], "the suite run for tests is coverage's record too")
+            r = seal.run(repo, gates=["tests"], base=B); self.assertEqual([x["gates"] for x in r["ran"]], [["tests", "coverage"]], "the suite run for tests is coverage's record too — the caller's gate first")
             # the timings log rotates like the push log: over max_kb it moves to <name>.1 and the next lines land in a fresh file
             (repo / ".claude/state/gate-timings.jsonl").write_text("x" * 2048 + "\n")
             seal.run(repo, gates=["lint"], base=B)
@@ -1547,6 +1547,21 @@ class Seal(unittest.TestCase):
             with self.assertRaisesRegex(GateFault, "outside the repository"):
                 seal.run(repo, gates=["lint"], base="main")
             self.assertEqual(sorted(os.listdir(outside)), [], "nothing was written through the link")
+            (repo / ".claude/state").unlink()
+            # the state folder as a FILE: an OSError — the push record is n/a and marked a fault (never an exit code other than 0); the runner refuses before anything runs
+            (repo / ".claude/state").write_text("not a folder\n")
+            r = seal.push_log(repo, 0); self.assertFalse(r["written"]); self.assertTrue(r["fault"]); self.assertIn("no push record", r["reason"])
+            self.assertFalse(seal.push_log(repo, 0, branch="feature/FEAT-001-x")["written"])
+            (repo / ".claude/state").unlink()
+            # the timings log as a FOLDER: the execution's seal is recorded first, the unwritten timing is said, the loop goes on and is green
+            (repo / ".claude/state/gate-timings.jsonl").mkdir(parents=True)
+            r = seal.run(repo, gates=["lint"], base="main")
+            self.assertTrue(r["ok"]); self.assertIn("timing not written: lint", r["reason"]); self.assertTrue(seal.read_seal(repo, "feature/FEAT-001-x")["gates"]["lint"]["ok"], "the seal was written before the timing failed")
+            (repo / ".claude/state/gate-timings.jsonl").rmdir()
+            # the two gates one execution feeds share its command, start and end — what the instrument counts once
+            r = seal.run(repo, gates=["tests"], base="main")
+            recs = [json.loads(ln) for ln in (repo / ".claude/state/gate-timings.jsonl").read_text().splitlines()]
+            self.assertEqual(len({(x["command"], x["start"], x["end"]) for x in recs}), 1); self.assertEqual(sorted(x["gate"] for x in recs), ["coverage", "tests"])
 
     def test_traceability_is_a_light_member(self):
         self.assertIn("traceability", {m["member"] for m in profile.owed("light")}, "the traceability gate runs at the static round, the push and CI")
@@ -2090,7 +2105,7 @@ class Cli(unittest.TestCase):
             self.assertIn("docs/old.md", r.stdout)
             # EVOL-057: the push record never blocks (exit 0, n/a without the block); the runner's exit is the loop's verdict
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "push-log", "--exit", "1", "--start", "2026-10-06T10:00:00Z"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 0); self.assertIn("push-log: n/a", r.stdout)
+            self.assertEqual(r.returncode, 0); self.assertIn("push-log: n/a", r.stdout); self.assertNotIn("FAULT", r.stdout)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "seal", "--run", "--gates", "nope"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 2); self.assertNotIn("Traceback", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "key", "nope.key", "--required"], capture_output=True, text=True, env=env)

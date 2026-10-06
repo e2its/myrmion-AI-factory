@@ -28,8 +28,10 @@ records       EVOL-057 — what the instrument (the measurement subproduct) read
                each, streams the output to `loop-<gates>.log`, records the seal RIGHT AFTER the execution and seals the
                tree with --full when every gate is green); `max_kb` rotates a log over the limit to `<name>.1` (one
                generation). The block absent = n/a (nothing written, nothing blocked), never a default in code; a
-               malformed block is a fault for the runner (fail loudly) and n/a with its reason for the push record (a
-               push is never blocked by its record); never part of the tree, never in a read-set.
+               malformed block is a fault for the runner (fail loudly, before anything runs); a record that cannot be
+               written once the loop is running is said in the verdict and never stops the loop; the push record is
+               never a fault — n/a with its reason, marked FAULT so the hook can say it (an unconfigured block is
+               silent); never part of the tree, never in a read-set.
 """
 from __future__ import annotations
 
@@ -470,25 +472,22 @@ def push_log(repo: Path, exit_code: int, start: str | None = None, branch: str |
     member already says so on its own account; a record never blocks a push."""
     try:
         logs = logs_cfg(repo)
+        if logs is None:
+            return {"ok": True, "written": False, "fault": False, "reason": "verification.logs is not configured — nothing recorded (SETUP --upgrade adds the block)"}
         state_dir = vcfg(repo)["dir"]
-    except GateFault as e:
-        return {"ok": True, "written": False, "reason": f"no push record — {e}"}
-    if logs is None:
-        return {"ok": True, "written": False, "reason": "verification.logs is not configured — no push record (SETUP --upgrade adds the block)"}
-    from . import profile as profile_mod
-    from .branch import diff_base
-    pr = profile_mod.profile(repo, branch, "push")
-    try:
-        base = diff_base(repo, pr["branch"] or None)
-    except GateFault:
-        base = None
-    rec = {"branch": pr["branch"], "class": pr["class"], "profile": pr["profile"], "mode": pr["mode"], "base": base,
-           "control_point": "push", "start": start or _now(), "end": _now(), "exit": int(exit_code)}
-    try:
+        from . import profile as profile_mod
+        from .branch import diff_base
+        pr = profile_mod.profile(repo, branch, "push")
+        try:
+            base = diff_base(repo, pr["branch"] or None)
+        except GateFault:
+            base = None
+        rec = {"branch": pr["branch"], "class": pr["class"], "profile": pr["profile"], "mode": pr["mode"], "base": base,
+               "control_point": "push", "start": start or _now(), "end": _now(), "exit": int(exit_code)}
         p = append_record(repo, state_dir, logs["push"], logs["max_kb"], rec)
     except (GateFault, OSError) as e:
-        return {"ok": True, "written": False, "reason": f"no push record — {e}"}
-    return {"ok": True, "written": True, "path": str(p.relative_to(repo)), "record": rec}
+        return {"ok": True, "written": False, "fault": True, "reason": f"no push record — {e}"}
+    return {"ok": True, "written": True, "fault": False, "path": str(p.relative_to(repo)), "record": rec}
 
 
 def _tail(p: Path, lines: int = 15) -> str:
@@ -516,7 +515,7 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         if unknown:
             raise GateFault(f"unknown gate(s) {', '.join(unknown)} — the map is verification.gates: {', '.join(cfg['gates']) or '(empty)'}")
         cmds = {cfg["gates"][g]["command"] for g in gates if cfg["gates"][g]["command"]}
-        names = sorted(set(gates) | {n for n, g in cfg["gates"].items() if g["command"] in cmds})   # the execution feeds every gate that shares its command
+        names = list(gates) + sorted(n for n, g in cfg["gates"].items() if n not in gates and g["command"] in cmds)   # the caller's order; the execution feeds every gate that shares its command
         executions = _executions(cfg, names)
     else:
         pl = plan(repo, branch, base)
@@ -528,7 +527,7 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
     prof = profile_mod.profile(repo, branch)["profile"]
     state = _state_dir(repo, cfg["dir"])
     state.mkdir(parents=True, exist_ok=True)
-    ran, not_run, all_ok = [], [], True
+    ran, not_run, all_ok, unwritten = [], [], True, []
     for e in executions:
         cmd, gs = e["command"], e["gates"]
         if cmd.startswith("<"):
@@ -547,9 +546,12 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         all_ok = all_ok and ok
         write(repo, gs, ok=ok, summary=summary or f"seal --run: exit {rc} in {seconds} s", branch=branch)   # right after the execution — before the record, which can fail
         if logs:
-            for g in gs:
-                append_record(repo, cfg["dir"], logs["timings"], logs["max_kb"],
-                              {"gate": g, "command": cmd, "branch": branch, "profile": prof, "start": start, "end": end, "exit": rc})
+            try:
+                for g in gs:
+                    append_record(repo, cfg["dir"], logs["timings"], logs["max_kb"],
+                                  {"gate": g, "command": cmd, "branch": branch, "profile": prof, "start": start, "end": end, "exit": rc})
+            except (GateFault, OSError) as ex:   # observability never stops the loop: said in the verdict, the seal already holds
+                unwritten.append(f"{', '.join(gs)}: {ex}")
         ran.append({"command": cmd, "gates": gs, "exit": rc, "seconds": seconds, "log": str(log.relative_to(repo)), "tail": "" if ok else _tail(log)})
     sealed, why = False, ""
     if full and all_ok:
@@ -563,6 +565,8 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         reason += f" · not run (no command in the map — their owner records them with seal --write): {', '.join(not_run)}"
     if why:
         reason += f" · not sealed: {why}"
+    if unwritten:
+        reason += " · timing not written: " + "; ".join(unwritten)
     ok = all_ok and (sealed or not full)   # --full asked and the tree not sealed is not green: the push would refuse it later
     return {"ok": ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed,
             "timings": (str(Path(cfg["dir"]) / logs["timings"]) if logs else None), "reason": reason}

@@ -38,7 +38,7 @@ push_record() {
   local rc=$? out
   if [ -n "$REPO_ROOT" ] && [ -f "${REPO_ROOT}/scripts/gate.py" ] && command -v python3 >/dev/null 2>&1; then
     out=$(python3 "${REPO_ROOT}/scripts/gate.py" push-log --exit "$rc" --start "$PUSH_START" 2>&1) || true
-    case "$out" in *"no push record"*) echo "⚠  ${out#*: }" >&2 ;; esac   # a fault is said (an unconfigured block is silent); the exit code stays the push's
+    case "$out" in *"push-log: FAULT"*|"gate: "*) echo "⚠  push record not written: ${out#*: }" >&2 ;; esac   # a fault is said (an unconfigured block is n/a, silent); the exit code stays the push's
   fi
   return 0
 }

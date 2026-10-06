@@ -519,7 +519,20 @@ def read_records(path: Path, since, until) -> list[dict]:
 
 
 def _red(rec: dict) -> bool:
-    return not (isinstance(rec.get("exit"), int) and rec["exit"] == 0)   # no exit code is no green
+    e = rec.get("exit")
+    return not (isinstance(e, int) and not isinstance(e, bool) and e == 0)   # no exit code, or one that is not a number, is no green
+
+
+def _readable(p: Path) -> bool:
+    try:
+        with p.open(encoding="utf-8", errors="replace"):
+            return True
+    except OSError:
+        return False
+
+
+def _s(v) -> str:
+    return v if isinstance(v, str) else json.dumps(v, sort_keys=True, default=str)   # a corrupted value never crashes the report
 
 
 def _seconds(rec: dict) -> float:
@@ -531,10 +544,11 @@ def pushes_report(repo: Path, sessions: list, since, until) -> dict:
     logs, why = state_logs(repo)
     by = {k: {"pushes": 0, "seconds": 0.0} for k in ("light", "full", "unknown")}
     if logs and logs["push"].is_file():
-        recs = read_records(logs["push"], since, until)
-        for r in recs:
-            k = r.get("profile") if r.get("profile") in by else "unknown"
-            by[k]["pushes"] += 1; by[k]["seconds"] += _seconds(r)
+        if not _readable(logs["push"]):
+            return {"unavailable": f"the push log {logs['push']} exists but cannot be read — a zero here would pass for a measurement"}
+        for r in read_records(logs["push"], since, until):
+            k = _s(r.get("profile"))
+            by[k if k in by else "unknown"]["pushes"] += 1; by[k if k in by else "unknown"]["seconds"] += _seconds(r)
         source = f"push log ({logs['push']})"
     else:
         for s in sessions:
@@ -557,21 +571,23 @@ def loop_report(repo: Path, since, until) -> dict:
         return {"unavailable": why}
     if not logs["timings"].is_file():
         return {"unavailable": f"no timings log at {logs['timings']} — the loop writes it through gate.py seal --run"}
+    if not _readable(logs["timings"]):
+        return {"unavailable": f"the timings log {logs['timings']} exists but cannot be read — a zero here would pass for a measurement"}
     by_gate: dict[str, dict] = {}
     by_profile: dict[str, dict] = {}
     total = 0.0
     executions: set[tuple] = set()
     for r in read_records(logs["timings"], since, until):
         sec = _seconds(r)
-        g = by_gate.setdefault(str(r.get("gate") or "?"), {"runs": 0, "red": 0, "seconds": 0.0})
+        g = by_gate.setdefault(_s(r.get("gate") or "?"), {"runs": 0, "red": 0, "seconds": 0.0})
         g["runs"] += 1; g["seconds"] += sec
         if _red(r):
             g["red"] += 1
-        ex = (r.get("branch"), r.get("command"), r.get("start"), r.get("end"))   # one execution feeds every gate that shares its command
+        ex = tuple(_s(r.get(k)) for k in ("branch", "command", "start", "end"))   # one execution feeds every gate that shares its command
         if ex in executions:
             continue
         executions.add(ex)
-        pr = by_profile.setdefault(str(r.get("profile") or "unknown"), {"runs": 0, "seconds": 0.0})
+        pr = by_profile.setdefault(_s(r.get("profile") or "unknown"), {"runs": 0, "seconds": 0.0})
         pr["runs"] += 1; pr["seconds"] += sec
         total += sec
     for v in list(by_gate.values()) + list(by_profile.values()):
@@ -1098,7 +1114,18 @@ def selftest() -> int:
         expect(lp["by_gate"] == {"tests": {"runs": 2, "red": 1, "seconds": 70.0, "hours": 0.019}, "coverage": {"runs": 1, "red": 0, "seconds": 60.0, "hours": 0.017}, "lint": {"runs": 1, "red": 0, "seconds": 30.0, "hours": 0.008}}
                and lp["by_profile"] == {"full": {"runs": 2, "seconds": 90.0, "hours": 0.025}, "light": {"runs": 1, "seconds": 10.0, "hours": 0.003}} and lp["hours_total"] == 0.028,
                "the loop per gate (the execution's time, shared by the gates it feeds) and per profile (each execution once); a red run counted; a line that is not a record and the record out of window skipped")
-        expect(_red({"exit": 0}) is False and _red({"exit": 1}) and _red({}) and _red({"exit": "0"}), "no exit code, or one that is not a number, is never green")
+        expect(_red({"exit": 0}) is False and _red({"exit": 1}) and _red({}) and _red({"exit": "0"}) and _red({"exit": False}), "no exit code, or one that is not a number (a boolean included), is never green")
+        # a corrupted record never crashes the report; an unreadable log is said, never zeroed
+        st = repo / ".claude" / "state"
+        with (st / "gate-timings.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"gate": ["x"], "profile": {"a": 1}, "start": "2026-09-02T12:00:00Z", "end": "2026-09-02T12:00:05Z", "exit": 0}) + "\n")
+        lp2 = loop_report(repo, since, until)
+        expect("unavailable" not in lp2 and lp2["by_gate"]['["x"]']["runs"] == 1 and lp2["hours_total"] == 0.029, "a record with a list or an object where a name belongs is counted under its text, never raised")
+        (st / "push-log.jsonl").chmod(0)
+        try:
+            expect("unavailable" in pushes_report(repo, [], since, until) and "cannot be read" in pushes_report(repo, [], since, until)["unavailable"], "a push log that exists but cannot be read is said unavailable — never a zero that passes for a measurement")
+        finally:
+            (st / "push-log.jsonl").chmod(0o644)
         expect("## Verification loop" in md and "| tests | 2 | 1 | 70.0 | 0.019 |" in md, "the loop table renders")
         expect(_cell("a|b\nc") == "a\\|b c", "a key read from a local file never breaks the table")
         (root / "nodir" / "config").mkdir(parents=True)

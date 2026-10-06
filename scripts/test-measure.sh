@@ -97,7 +97,8 @@ mkdir -p "$PROJ/scripts/gates" "$PROJ/.claude/rules" "$PROJ/config"
 cp "$ROOT/.context/templates/setup/scripts/gate.py" "$PROJ/scripts/gate.py"; cp "$ROOT/.context/templates/setup/scripts/gates/"*.py "$PROJ/scripts/gates/"; rm -f "$PROJ/scripts/gates/test_gates.py"
 cp "$ROOT/.context/templates/setup/rules/agents.md" "$PROJ/.claude/rules/agents.md"
 printf '{"agents": {"families": {"writer": "sonnet", "critic": "opus"}}, "verification": {"seal": {"required": true, "dir": ".claude/state"}, "logs": {"push": "push-log.jsonl", "timings": "gate-timings.jsonl", "max_kb": 1024}}}\n' > "$PROJ/config/quality.json"
-OUT=$(python3 "$M/measure.py" --repo "$PROJ" --transcripts "$TR" --until 2026-09-30 --window-days 30 --json --out "$SANDBOX/real.json" 2>&1); RC=$?
+mkdir -p "$SANDBOX/elsewhere"
+OUT=$(CLAUDE_PROJECT_DIR="$SANDBOX/elsewhere" python3 "$M/measure.py" --repo "$PROJ" --transcripts "$TR" --until 2026-09-30 --window-days 30 --json --out "$SANDBOX/real.json" 2>&1); RC=$?   # the reader resolves CLAUDE_PROJECT_DIR ahead of cwd: the subproduct must pass --repo
 if [ "$RC" -eq 0 ] && python3 -c "import json,sys; r=json.load(open('$SANDBOX/real.json')); rt=r['returns']; sys.exit(0 if rt['checked']=={'parsed':6,'refused':2} and rt['unchecked']==1 and rt['uncollected']==1 and rt['by_class']['work-critic']['refused']==2 and rt['by_class']['worker']['parsed']==1 else 1)"; then
   ok "returns parsed / refused by the project's REAL return reader on its REAL roster (a critic return without its governance block refused — the real reader has no fault path for the fixture's fault text; a worker's and a critic's with it parsed)"; else bad "real return reader join (rc=$RC)" "$OUT $(head -c 1200 "$SANDBOX/real.json" 2>/dev/null)"; fi
 rm -rf "$PROJ/scripts" "$PROJ/.claude" "$PROJ/config"

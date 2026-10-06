@@ -372,7 +372,7 @@ def cmd_push_log(repo, a):
         rec = r["record"]
         print(f"push-log: recorded {rec['profile']} · {rec['class']} · base {rec['base']} · exit {rec['exit']} → {r['path']}")
     else:
-        print(f"push-log: n/a — {r['reason']}")
+        print(f"push-log: {'FAULT' if r.get('fault') else 'n/a'} — {r['reason']}")   # FAULT is the mark the hook says on stderr; n/a stays silent
     return 0
 
 

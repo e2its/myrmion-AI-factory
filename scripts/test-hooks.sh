@@ -312,8 +312,8 @@ cat > "$PR/scripts/gate.py" <<'EOF'
 import sys
 sub = sys.argv[1] if len(sys.argv) > 1 else ""
 import os
-if sub == "push-log":   # EVOL-057: the trap's call is recorded with its arguments (the hook's own exit code)
-    open("pushlog.calls", "a").write(" ".join(sys.argv[2:]) + "\n"); sys.exit(0)
+if sub == "push-log":   # EVOL-057: the trap's call is recorded with its arguments (the hook's own exit code); STUB_PUSH_LOG_OUT plays the reader's line
+    open("pushlog.calls", "a").write(" ".join(sys.argv[2:]) + "\n"); print(os.environ.get("STUB_PUSH_LOG_OUT", "")); sys.exit(0)
 rc = int(os.environ.get("STUB_" + sub.replace("-", "_").upper(), "0"))
 print(f"{sub}: stub rc {rc}"); sys.exit(rc)
 EOF
@@ -325,6 +325,10 @@ grep -qE '^--exit 1 --start [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$' "$PR/pushlog
 OUT=$(run_pp); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'profile: stub rc 0' && printf '%s' "$OUT" | grep -q 'gate profile passed' && ok "step 3: the profile runs as ONE call (profile --run) and a green run proceeds" || bad "green profile did not pass (rc=$RC)" "$OUT"
 [ "$(grep -c '^--exit 0 --start' "$PR/pushlog.calls" 2>/dev/null)" = "1" ] && ok "step 0 (EVOL-057): the green push left its record with exit 0 — one line per push" || bad "the green push left no record with exit 0" "$(cat "$PR/pushlog.calls" 2>/dev/null)"
+OUT=$(STUB_PUSH_LOG_OUT='push-log: n/a — verification.logs is not configured — nothing recorded (SETUP --upgrade adds the block)' run_pp); RC=$?
+[ "$RC" -eq 0 ] && ! printf '%s' "$OUT" | grep -q '⚠  push record' && ok "step 0: an unconfigured logs block is silent — no warning on a push" || bad "unconfigured block warned (rc=$RC)" "$OUT"
+OUT=$(STUB_PUSH_LOG_OUT='push-log: FAULT — no push record — [Errno 13] Permission denied' run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written: FAULT — no push record — \[Errno 13\]' && ok "step 0: a fault writing the record is said on stderr and the push's exit code is untouched" || bad "fault not said or exit changed (rc=$RC)" "$OUT"
 printf '%s' "$OUT" | grep -qE 'retired-terms: stub|budget: stub|laws: stub|currency: stub|manifest-parity: stub|surface: stub' && bad "pre-push still runs gate members one by one — the profile is the one definition" || ok "step 3: no member is run outside the profile"
 mv "$PR/scripts/gate.py" "$PR/gate.py.away"
 OUT=$(run_pp); RC=$?
