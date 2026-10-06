@@ -149,6 +149,7 @@ FUNCTION run_code_review(mode, args, profile):
       IF NOT fb.separation: degraded = true                       # the writer's family — the run's findings go to the user's adjudication
       fell = fb.model                                                 # kept beside the report: the hand-back below rebinds `report`, the fall must survive it (EVOL-059)
       report = SPAWN(... same inputs, model = fb.model)
+      IF report.provider_error: SAY("{agent_file}: the fallback {fell} failed too — no rung left"); RETURN { ok: false, reason: "spawn-failure", detail: "fallback {fell}: provider error, no rung left" }
     # Return check: a line carrying a severity outside the shape, or a probe that names nothing, is refused
     # EVOL-058 — the budget is enforced: a PARTIAL return (the harness stopped the critic at its ceiling, maxTurns) gets
     # ONE hand-back request to the same agent (write the report now with what is verified, the rest as unverified),
@@ -160,6 +161,7 @@ FUNCTION run_code_review(mode, args, profile):
         report.findings = ALL_AS(❓) + [❓ "{agent_file}: not delivered{' (on fallback ' + fell + ')' IF fell ELSE ''} — the round is unverified"]   # never an empty list: an undelivered critic is a ❓ of its own
         not_delivered.append(agent_file)                             # recorded in the RETURN and in the marker — never a clean review
     IF fell: report.fallback = { alias: fell, id: return_model(report), delivered: agent_file NOT IN not_delivered }   # on the FINAL return: a re-spawn on the ladder carries the fallback's alias and id, never the lens's (EVOL-059)
+    report.agent_file = agent_file
     # a probe the main session runs for a finding: the named test resolved to a test id under traceability.test_roots, through the
     # configured test command — a critic's text is data, never a command line (rules/agents.md § Return contracts)
     RETURN report)
@@ -168,11 +170,13 @@ FUNCTION run_code_review(mode, args, profile):
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ..., detail: the lambda's detail }   # NO marker; the fall's reason travels with the failure
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
-  primary = [r FOR r IN reports IF r delivered AND NOT r.fallback]   # the reports spawned on res.model — a fallback re-spawn ran on another id
+  primary = [r FOR r IN reports IF r.agent_file NOT IN not_delivered AND NOT r.fallback]   # the delivered reports spawned on res.model — the sweep filters the same way; a fallback re-spawn ran on another id
   fold = FOLD_IDS(primary)                                           # the one rule (below) — the sweep calls it by name
   models = { "correctness": fold.model, "no_primary": COUNT(primary) == 0, "unstated": fold.unstated, "disagree": fold.disagree,
              "fallback": [r.fallback FOR r IN reports IF r.fallback] }   # recorded in the marker: the lens's id, why it is unknown (no primary delivered / ids unstated / the primaries disagree), every fall (alias, id, delivered) — a fall is never only said
-  IF models.no_primary AND models.fallback: SAY("{COUNT(models.fallback)} critic(s) ran on a fallback ({[f.id FOR f IN models.fallback IF f.delivered]}), a model the canary never judged — no primary delivered")
+  d = [f FOR f IN models.fallback IF f.delivered]; u = [f FOR f IN models.fallback IF NOT f.delivered]
+  IF models.no_primary AND d: SAY("{COUNT(d)} critic(s) delivered on a fallback ({[f.id FOR f IN d]}), a model the canary never judged — no primary delivered")
+  IF models.no_primary AND u: SAY("{COUNT(u)} critic(s) fell and did not deliver ({[f.alias FOR f IN u]})")
   IF primary: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger — the primary spawns' one id (`unknown` when they disagree: the lens is owed); a fallback or an undelivered critic ran on another or no model, never the lens's id
   RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user; models.fallback / models.disagree / models.unstated non-empty ⇒ said to the user (above), recorded in the marker
 

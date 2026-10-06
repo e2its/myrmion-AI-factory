@@ -126,27 +126,36 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
     IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
     RUN("python3 scripts/gate.py canary --judge --lens governance --model {return_model(rep)}", rep)   # every verdict on the tracking item; red ⇒ RDR
   # exit 2 of --plan (a malformed record; an inconsistent fixture — owed is empty, the cause named) or of --judge is a canary FAULT, not a verdict: say it to the user, continue the sweep — the canary never blocks
-  not_delivered = []                                                 # EVOL-058: the scopes whose critic never delivered a report
+  not_delivered = []; degraded = false                               # EVOL-058: the scopes whose critic never delivered a report; a fall onto the writer's family
   reports = PARALLEL_MAP(scopes, LAMBDA(scope):
     res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files under scope)} --lines 0")
+    fell = none                                                      # per scope, never shared (EVOL-059)
     report = SPAWN(subagent_type = "factory-critic-governance",
       model = res.model,                  # per spawn, from the reader — never chosen here; the PreToolUse Agent hook refuses it missing
       prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\n" + SLICE(digest, scope.dcs) +   # the DC rows of this scope, within the class budget
                { scope: scope.scope, dcs: scope.dcs, search_roots: resolve_search_roots(scope.scope), feature_scope: feature_scope }
     )
+    IF report.provider_error:                                        # the ladder, as the engine walks it (rules/agents.md § Model policy): one rung, said, never to a writer
+      fb = RUN("python3 scripts/gate.py agents --fallback --class work-critic --family critic")
+      SAY("scope {scope.scope}: " + fb.reason)
+      IF NOT fb.ok: not_delivered.append(scope.scope); report.findings = [❓ "scope {scope.scope}: not delivered — provider error, no rung left"]; report.scope = scope.scope; RETURN report
+      IF NOT fb.separation: degraded = true
+      fell = fb.model; report = SPAWN(... same inputs, model = fb.model)
+      IF report.provider_error: SAY("scope {scope.scope}: the fallback {fell} failed too — no rung left"); not_delivered.append(scope.scope); report.findings = [❓ "scope {scope.scope}: not delivered — the fallback {fell} failed too"]; report.scope = scope.scope; RETURN report
     # a return outside the finding shape is refused; a PARTIAL return (the ceiling, maxTurns) gets ONE hand-back request, then resumes (rules/agents.md § The bounded loop, EVOL-058)
     IF report.partial OR RUN("python3 scripts/gate.py agents --check-return --class work-critic", report) refuses:
       report = HANDBACK_ONCE(report.agent)                          # ONE request to the same agent, then resume — never a second spawn
       IF report.partial OR refused again OR the agent cannot be resumed:
-        report.findings = ALL_AS(❓) + [❓ "scope {scope.scope}: not delivered — fully unverified"]   # never an empty list
+        report.findings = ALL_AS(❓) + [❓ "scope {scope.scope}: not delivered{' (on fallback ' + fell + ')' IF fell ELSE ''} — fully unverified"]   # never an empty list
         not_delivered.append(scope.scope)
+    IF fell: report.fallback = { alias: fell, id: return_model(report), delivered: scope.scope NOT IN not_delivered }
     report.scope = scope.scope
     RETURN report
   )
-  delivered = [r FOR r IN reports IF r.scope NOT IN not_delivered]  # the reports that passed the return check after at most one hand-back
+  delivered = [r FOR r IN reports IF r.scope NOT IN not_delivered AND NOT r.fallback]   # the reports that passed the return check after at most one hand-back, spawned on the resolved model — a fall ran on another id (FOLD_IDS reads the primary ones, as the engine's)
   fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § Spawn contract → FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
   IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")   # nothing when no scope delivered: the last real id stays
-  RETURN consolidate(reports) + { not_delivered }                   # the undelivered scopes travel with the sweep's report — never a clean sweep
+  RETURN consolidate(reports) + { not_delivered, degraded, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # the undelivered scopes travel with the sweep's report (their DCs UNVERIFIED, never CLEAN — § CONSOLIDATION PROTOCOL step 4), the falls beside them
 ```
 
 ### Canonical starter scopes
@@ -181,7 +190,7 @@ After all scope sub-agents complete:
 1. **Merge** all findings into a single severity-ordered table
 2. **Deduplicate** — if Agent 2 and Agent 4 both report the same DC finding, keep only one
 3. **Group by defect class** — show DC-N header with finding count
-4. **Mark CLEAN** — for each DC with zero findings, explicitly mark `DC-N: CLEAN`
+4. **Mark CLEAN or UNVERIFIED** — for each DC with zero findings, explicitly mark `DC-N: CLEAN`; every DC of a scope in `not_delivered` is marked `DC-N: UNVERIFIED (scope {scope} not delivered)` — never CLEAN (EVOL-058/059: an undelivered critic is never a clean review). A non-empty `not_delivered` keeps the PREVENTIVE-SWEEP issue out of Done and the artefact at `status: IN_PROGRESS` until the scope is re-run and delivers.
 5. **Present to user BEFORE touching code** — the user approves the fix plan
 6. **Save report artifact** at `docs/spec/{{FEATURE_ID}}/review/preventive_sweep_{{YYYYMMDD}}.md`
 7. **On user approval:**
@@ -209,6 +218,7 @@ high: N
 medium: N
 low: N
 all_resolved_in_commit: true | false
+not_delivered: []                      # the scopes whose critic never delivered — their DCs are UNVERIFIED below, the sweep is not COMPLETED while any remains
 ---
 
 # Preventive Defect Sweep — {{FEATURE_ID}}
