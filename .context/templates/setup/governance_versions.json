@@ -1816,11 +1816,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.14.1",
+      "version": "1.15.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.15.0: feat(EVOL-059) — RDR-3 pins: the first pass at the class default, the second by its size, a third refused; the framework's own policy.",
         "1.14.1: fix(EVOL-059) — the real-roster spawn case derives the writer's alias from the policy, never a literal (true under any pair).",
         "1.14.0: feat(EVOL-059) — Canary: the fixture's consistency and invisibility at rest, the judge green/red/tolerance/alternative anchors/informational, the plan on drift, never judged, unknown, on demand; the critic contract's Model: line.",
         "1.13.0: feat(EVOL-058) — Agents: budgets per tier red/green, the ceiling on read-only definitions, a writer's refused, the resolver's budgets per tier and for an unmeasured size.",
@@ -1940,11 +1941,12 @@
       ]
     },
     "rules/agents.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": ".claude/rules/agents.md",
       "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents.",
       "changelog": [
+        "1.5.0: feat(EVOL-059) — RDR-3: critics at full effort by default, round-2 tier rows (small → medium, medium → high), rounds.work 2 (the diff and one pass on the cured bytes; a third refused; the rest to the user's adjudication); a finding outside the delta is informational.",
         "1.4.0: feat(EVOL-059) — § The lens canary; the Model: line in the critic contract; agents.canary.line_tolerance.",
         "1.3.0: feat(EVOL-058) — turn_budget and probe_budget per size tier (medium explicit); maxTurns on every read-only definition = the large tier's turn_budget; the orchestrator's hand-back; the probe rule.",
         "1.2.0: feat(EVOL-056) — class `reader` (read-only, family critic, the harness matrix + the read operations of the [LAW-10] documentation servers: allow_mcp: docs_mcp_allowlist); roster entry factory-docs-reader; § Beat 0 — external facts before the design, the plan and the infrastructure; three spawn sites.",
@@ -3610,10 +3612,11 @@
       "path": ".claude/skills/factory-complexity-check/SKILL.md"
     },
     "skills/factory-code-review/SKILL.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "type": "skill",
       "role": "Factory Code Review — agentic multi-perspective code review engine. 6 vendored Anthropic pr-review-toolkit agents (Apache-2.0, pinned commit in skill README § Provenance). Single engine, two invocations (RDR-3): IMPLEMENT increment pass — work critics, Step R.1b (scope=increment, feeds peer_review, never writes marker) and factory-pr-review axis 7 / Block 20 (scope=branch, ONLY writer of the proof-of-execution marker .claude/state/code-review-${content_hash}.marker). RDR-1 content-hash keying (sha256 over sorted path+blob-sha of is_code∪is_test files — amend/rebase-stable). RDR-2: fail-open on infra (executor-missing → noisy Important), fail-closed on findings (blockers block push; override only via explicit RDR, recorded in marker override object + worklog SCM.code_review.override). RDR-4 gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type defs, comment-analyzer + code-simplifier advisory. Config optional in config/quality.json.code_review — ABSENT ⇒ ACTIVE (inverse of complexity-check; executor ships with the skill). Mandatory 🔎 banner. Severity normalisation orchestrator-side via references/severity-mapping.md.",
       "changelog": [
+        "1.8.0: feat(EVOL-059) — RDR-3: Block 20 runs round 1 on the diff and one round 2 on the cured bytes; a third is refused; what remains goes to the user's adjudication; a finding outside the delta is 🟢.",
         "1.7.0: feat(EVOL-059) — the canary plan before the round (the correctness lens judged on the fixture when its model moved), the Model: line in the directive, models in the return and the marker, --seen after the round.",
         "1.6.0: feat(EVOL-058) — the spawn contract: budget lines, HANDBACK_ONCE on a partial return, fully unverified after it, probes bounded to the finding's test.",
         "1.5.0: fix(EVOL-049) — review pass — the six lenses run as the rostered critic factory-critic-correctness (harness matrix, model per spawn, effort in the prompt); worktree guard with paths; fallback separation → degraded marker; tree-unhashable",
@@ -4855,11 +4858,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.14.1",
+      "version": "1.15.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.15.0: feat(EVOL-059) — RDR-3 pins: the first pass at the class default, the second by its size, a third refused; the framework's own policy.",
         "1.14.1: fix(EVOL-059) — the real-roster spawn case derives the writer's alias from the policy, never a literal (true under any pair).",
         "1.14.0: feat(EVOL-059) — Canary tests (the meta twin).",
         "1.13.0: feat(EVOL-058) — Agents budgets (the meta twin).",
@@ -4880,11 +4884,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.14.0",
+      "version": "1.15.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.15.0: feat(EVOL-059) — RDR-3: the first work round at full effort, the second by its size, a third refused (101 checks).",
         "1.14.0: feat(EVOL-059) — the canary on the materialised policy: the fixture's consistency, every lens owed when never judged, a green and a red judge, the trigger on a moved model.",
         "1.13.0: feat(EVOL-058) — the resolved budgets on the materialised policy; a read-only definition without maxTurns refused.",
         "1.12.0: feat(EVOL-057) — the scratch project leaves a push record from its materialised config, runs a timed loop red then green through seal --run, and its materialised instrument reads the three channels against the real return reader and roster.",

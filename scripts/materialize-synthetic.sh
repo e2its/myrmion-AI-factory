@@ -307,8 +307,12 @@ OUT=$(cd "$P" && printf '## Sources\n- mcp · context7 · q · https://x/y · wh
 [ "$RC" -eq 0 ] && ok "a reader return with its sources, answer and unknowns passes the contract" || bad "reader return refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '## Answer\nx\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n' | python3 scripts/gate.py agents --check-return --class reader 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'no `## Sources` section' && ok "a reader return without its sources is refused" || bad "reader return without sources not refused (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 2 2>&1); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a second work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 1 --files 2 --lines 10 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'effort max' && ok "the first work round runs at full effort whatever the size (RDR-3 of EVOL-059)" || bad "first round not at full effort (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 2 --files 2 --lines 10 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'effort medium' && ok "the second work round on a small cure earns medium effort (the round-2 tier row)" || bad "second round effort not by size (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 3 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a third work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
 # the lens canary (EVOL-059): the fixture ships inside the reader, judged on the materialised policy
 OUT=$(cd "$P" && python3 scripts/gate.py canary --check 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "gate.py canary --check: the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the coordinate spaces never overlap, the tolerance reaches no two defects of one lens, every lens has its roster agent" || bad "canary fixture inconsistent (rc=$RC)" "$OUT"
