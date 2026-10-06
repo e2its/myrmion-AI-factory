@@ -1774,6 +1774,12 @@ class Canary(unittest.TestCase):
             canary.seen(repo, "security", "claude-b")
             p = canary.plan(repo); self.assertEqual(p["owed"], ["security"]); self.assertIn("the model moved", p["lenses"]["security"]["reason"]); self.assertIn("→ security", canary.render_plan(p))
             canary.seen(repo, "security", "unknown"); self.assertIn("the model is unknown", canary.plan(repo)["lenses"]["security"]["reason"], "a return that stated no id is said as such, never as a move")
+            # judged on no id, before any seen (a fresh project whose harness states none): owed for that reason; seen on a known id afterwards: still that reason, never a move
+            write(repo / ".claude/state/canary.json", json.dumps({"judged": {}, "seen": {}})); canary.judge(repo, "security", self._return("security"), "unknown")
+            p = canary.plan(repo); self.assertEqual(p["owed"], list(canary.LENSES)); self.assertIn("the model is unknown", p["lenses"]["security"]["reason"], "judged on no id: owed, said as unknown")
+            canary.seen(repo, "security", "claude-a"); self.assertIn("the model is unknown", canary.plan(repo)["lenses"]["security"]["reason"], "judged on no id, then seen on a known one: unknown, never a move")
+            for lens in canary.LENSES:
+                canary.judge(repo, lens, self._return(lens), "claude-a"); canary.seen(repo, lens, "claude-a")
             canary.seen(repo, "security", "claude-a"); canary.seen(repo, "fidelity", "unknown")
             self.assertEqual(canary.plan(repo)["owed"], ["fidelity"], "an unknown model keeps the lens owed")
             canary.seen(repo, "fidelity", "claude-a")

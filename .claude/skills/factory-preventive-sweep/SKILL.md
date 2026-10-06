@@ -126,20 +126,27 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
     IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
     RUN("python3 scripts/gate.py canary --judge --lens governance --model {return_model(rep)}", rep)   # every verdict on the tracking item; red ⇒ RDR
   # exit 2 of --plan (a malformed record; an inconsistent fixture — owed is empty, the cause named) or of --judge is a canary FAULT, not a verdict: say it to the user, continue the sweep — the canary never blocks
+  not_delivered = []                                                 # EVOL-058: the scopes whose critic never delivered a report
   reports = PARALLEL_MAP(scopes, LAMBDA(scope):
     res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files under scope)} --lines 0")
-    SPAWN(subagent_type = "factory-critic-governance",
+    report = SPAWN(subagent_type = "factory-critic-governance",
       model = res.model,                  # per spawn, from the reader — never chosen here; the PreToolUse Agent hook refuses it missing
       prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\n" + SLICE(digest, scope.dcs) +   # the DC rows of this scope, within the class budget
                { scope: scope.scope, dcs: scope.dcs, search_roots: resolve_search_roots(scope.scope), feature_scope: feature_scope }
     )
-    # a return outside the finding shape is refused: RUN("python3 scripts/gate.py agents --check-return --class work-critic", report)
-    # a PARTIAL return (the ceiling, maxTurns) ⇒ ONE hand-back request, resume; still no report ⇒ fully unverified (rules/agents.md § The bounded loop, EVOL-058): not_delivered.append(scope)
+    # a return outside the finding shape is refused; a PARTIAL return (the ceiling, maxTurns) gets ONE hand-back request, then resumes (rules/agents.md § The bounded loop, EVOL-058)
+    IF report.partial OR RUN("python3 scripts/gate.py agents --check-return --class work-critic", report) refuses:
+      report = HANDBACK_ONCE(report.agent)                          # ONE request to the same agent, then resume — never a second spawn
+      IF report.partial OR refused again OR the agent cannot be resumed:
+        report.findings = ALL_AS(❓) + [❓ "scope {scope.scope}: not delivered — fully unverified"]   # never an empty list
+        not_delivered.append(scope.scope)
+    report.scope = scope.scope
+    RETURN report
   )
-  delivered = [r FOR r IN reports IF r NOT IN not_delivered]         # not_delivered: the scopes whose report never passed the return check after the one hand-back (kept in the lambda, as the engine keeps it) — fully unverified, no report
-  fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
-  IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")
-  RETURN consolidate(reports)
+  delivered = [r FOR r IN reports IF r.scope NOT IN not_delivered]  # the reports that passed the return check after at most one hand-back
+  fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § Spawn contract → FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
+  IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")   # nothing when no scope delivered: the last real id stays
+  RETURN consolidate(reports) + { not_delivered }                   # the undelivered scopes travel with the sweep's report — never a clean sweep
 ```
 
 ### Canonical starter scopes

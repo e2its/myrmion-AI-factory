@@ -393,7 +393,7 @@ def plan(repo: Path, all_: bool = False) -> dict:
         elif not judged:
             why = "never judged"
         elif current == "unknown" or judged == "unknown":
-            why = "the model is unknown (the return carried no id) — judged until it is known"
+            why = "the model is unknown (no single id was stated: a return without one, or returns that disagreed) — judged until it is known"
         elif current and current != judged:
             why = f"the model moved: judged on `{judged}`, last ran on `{current}`"
         else:
