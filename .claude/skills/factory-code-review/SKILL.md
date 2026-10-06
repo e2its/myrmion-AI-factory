@@ -118,9 +118,11 @@ FUNCTION run_code_review(mode, args, profile):
   # synthetic fixture first; a red canary never blocks — it opens the spawn policy's review by RDR with the user.
   canary = RUN("python3 scripts/gate.py canary --plan --json")
   FOR lens IN canary.owed ∩ {"correctness"}:                       # this engine runs the correctness lens; the other lenses are judged at their own spawn sites
-    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files 8 --lines 150")
-    rep = SPAWN(subagent_type = "factory-critic-correctness", model = res.model, prompt = budget lines + body_of("agents/code-reviewer.md") + { diff: RUN("python3 scripts/gate.py canary --fixture") })
-    verdict = RUN("python3 scripts/gate.py canary --judge --lens correctness --model {return_model(rep)}", rep)   # red ⇒ post on the tracking item, RDR on the spawn policy; the round still runs
+    fx  = RUN("python3 scripts/gate.py canary --fixture")
+    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {COUNT(files in fx)} --lines {COUNT(added lines in fx)}")   # the fixture's own size, never a digit here
+    rep = SPAWN(subagent_type = "factory-critic-correctness", model = res.model, prompt = budget lines + body_of("agents/code-reviewer.md") + { diff: a scratch file OUTSIDE the tree holding RUN("python3 scripts/gate.py canary --fixture") })
+    IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
+    verdict = RUN("python3 scripts/gate.py canary --judge --lens correctness --model {return_model(rep)}", rep)   # red ⇒ post on the tracking item (the backlog adapter), RDR on the spawn policy; the round still runs
   before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")   # on-disk bytes; non-zero exit ⇒ { ok: false, reason: "tree-unhashable" }, NO marker
   # ONE sub-agent per roster entry, in parallel. The runtime decides actual
   # concurrency — this skill never asserts a number.
@@ -161,7 +163,8 @@ FUNCTION run_code_review(mode, args, profile):
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ... }   # NO marker
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
-  models = { "correctness": return_model(reports) }               # the id the returns carry (EVOL-059) — recorded in the marker; RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")
+  models = { "correctness": return_model(reports) }               # the id the returns carry (EVOL-059) — recorded in the marker
+  RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger
   RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user
 ```
 

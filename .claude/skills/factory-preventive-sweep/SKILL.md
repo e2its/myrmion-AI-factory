@@ -119,6 +119,7 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   # lens), class work-critic: the harness matrix (Read, Grep, Glob) is the read-only guarantee — never a generic
   # Explore agent (it carries Bash). The runtime decides actual concurrency; this skill never asserts a number.
   digest = RUN("python3 scripts/gate.py agents --digest --agent factory-critic-governance")
+  # EVOL-059: a governance lens whose resolved model moved reviews the canary fixture first (gate.py canary --plan / --judge --lens governance); a red never blocks — an RDR on the spawn policy
   reports = PARALLEL_MAP(scopes, LAMBDA(scope):
     res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files under scope)} --lines 0")
     SPAWN(subagent_type = "factory-critic-governance",
@@ -128,6 +129,7 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
     )
     # a return outside the finding shape is refused: RUN("python3 scripts/gate.py agents --check-return --class work-critic", report)
     # a PARTIAL return (the ceiling, maxTurns) ⇒ ONE hand-back request, resume; still no report ⇒ fully unverified (rules/agents.md § The bounded loop, EVOL-058)
+    # after the return: RUN("python3 scripts/gate.py canary --seen --lens governance --model {return_model(report)}")   (EVOL-059)
   )
   RETURN consolidate(reports)
 ```

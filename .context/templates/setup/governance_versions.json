@@ -1639,11 +1639,12 @@
       ]
     },
     "subproducts/measure/measure.py": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": "subproducts/measure/measure.py",
       "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only.",
       "changelog": [
+        "1.6.0: feat(EVOL-059) — the fixture's critic returns carry their Model: line (the contract's new line).",
         "1.5.0: feat(EVOL-058) — turns per agent; critics inside the harness ceiling per round; the signal in the before/after table.",
         "1.4.0: feat(EVOL-057) — returns (every spawn through its three channels — direct, hand-back, notification — parsed / refused by the project's return reader, uncollected proven on the spawn with no channel), pushes by profile from the push log (trace fallback), the verification loop per gate and per profile from the timings log; three rows in the before/after table; fixtures per channel.",
         "1.3.0: fix(EVOL-049) — review pass — agent class joined from the project's roster (grammar as fallback); round by spawn order in time, never by agent id",
@@ -3222,9 +3223,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.13.0",
+      "version": "2.14.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.14.0: feat(EVOL-059) — Step 8: a policy without the canary key (pre-EVOL-059) gains it.",
         "2.13.0: feat(EVOL-058) — Step 8: a policy without tier budgets (pre-EVOL-058) gains them, the medium row and maxTurns on every read-only definition.",
         "2.12.0: feat(EVOL-057) — Step 8: a verification block without logs (pre-EVOL-057) gains the template's block.",
         "2.11.1: feat(EVOL-054) — Step 8: the scm block and the runbook for a pre-EVOL-054 project",
@@ -3781,10 +3783,11 @@
       "path": ".claude/skills/factory-backlog-next-task/SKILL.md"
     },
     "skills/factory-preventive-sweep/SKILL.md": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "type": "skill",
       "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
+        "1.9.0: feat(EVOL-059) — the canary plan before the governance lens, --seen after its return.",
         "1.8.0: feat(EVOL-058) — the budget lines at the spawn and the hand-back on a partial return.",
         "1.7.0: fix(EVOL-049) — review pass — the sweep spawns factory-critic-governance by name, never a generic Explore agent",
         "1.6.0: feat(EVOL-049)! — the Explore sub-agents are read-only work critics; model and digest per spawn; spawn-policy: work-critic.",
@@ -5204,7 +5207,7 @@
       "type": "script",
       "version": "1.0.0",
       "path": "scripts/gates/canary.py",
-      "role": "The lens canary (EVOL-059) — the template twin.",
+      "role": "Meta copy (lock-step pair) of the lens canary module — see the templates entry.",
       "changelog": [
         "1.0.0: feat(EVOL-059) — initial."
       ]
