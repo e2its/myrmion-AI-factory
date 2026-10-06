@@ -3,6 +3,7 @@ name: factory-critic-fidelity
 description: "Read-only critic — fidelity to what was specified: the diff against the spec, the design, the plan's tasks and the acceptance items; a task marked done whose assertions do not reach the declared expected result is a finding."
 tools: Read, Grep, Glob
 effort: high
+maxTurns: 60
 class: work-critic
 ---
 

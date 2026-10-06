@@ -45,6 +45,19 @@ WRITE_VERBS = {"create", "update", "delete", "put", "patch", "set", "write", "de
 NEVER_SERVER_PREFIXES = ("claude_ai_",)   # the user's personal-data connectors (mail, drive, docs, office): never a documentation source, whatever a list says
 WRITE_TOOLS = {"edit", "write", "notebookedit", "multiedit", "bash", "agent", "task"}
 EFFORTS = ("low", "medium", "high", "max")
+TIERS = ("small", "medium", "large")                        # EVOL-058: every tier declares its budgets
+BUDGET_KEYS = ("turn_budget", "probe_budget")
+
+
+def _posint(v) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool) and v > 0 or (isinstance(v, str) and v.isdigit() and int(v) > 0)
+
+
+def budgets(pol: dict, t: str) -> dict:
+    """The turn and probe budgets of a tier (EVOL-058); an unmeasured size (`unknown`) is held to the large tier's —
+    never starved, never unbounded. Missing keys are the validator's finding; here they are absent."""
+    row = (pol.get("tiers") or {}).get(t if t in TIERS else "large") or {}
+    return {k: int(row[k]) for k in BUDGET_KEYS if isinstance(row, dict) and _posint(row.get(k))}
 CAPS = {"plan-critic": "plan_gate", "work-critic": "work"}   # class → rounds key
 POINTER = re.compile(r"`((?:rules/|\.claude/|scripts/|\.context/)[\w./-]+\.(?:md|py|sh))`")
 GOV_BLOCK = ("Rules read:", "Laws applied:", "Defect classes:", "Sources:")
@@ -151,9 +164,10 @@ def _class_writes(c: dict) -> bool:
     return bool({_norm(t) for t in c["tools"]["must"]} & WRITE_TOOLS)
 
 
-def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, roster_class: str | None = None) -> None:
+def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, roster_class: str | None = None, ceiling: int | None = None) -> None:
     """One definition against its class: name = file, description, class agreement, the tool matrix, no model, effort,
-    budget, pointers. Appends findings."""
+    budget, pointers; a read-only roster definition declares the harness's hard stop (`maxTurns` = the large tier's
+    turn_budget, EVOL-058). Appends findings."""
     rel = str(p.relative_to(repo))
     try:
         fm = read_frontmatter(p)
@@ -196,6 +210,12 @@ def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, 
     eff = fv("effort").lower()
     if eff not in EFFORTS:
         f.append({"path": rel, "reason": f"`effort: {eff or '(none)'}` — every definition declares one of {', '.join(EFFORTS)} (the harness default; the resolver's effort overrides it per spawn)"})
+    mt = fv("maxTurns")
+    if _class_writes(c):
+        if mt:
+            f.append({"path": rel, "reason": "`maxTurns` on a definition that writes — a writer's cap is a policy key, not a definition field"})
+    elif roster_class is not None and ceiling is not None and not (mt.isdigit() and int(mt) == ceiling):
+        f.append({"path": rel, "reason": f"`maxTurns: {mt or '(none)'}` — a read-only definition declares the harness's hard stop, equal to the large tier's turn_budget ({ceiling}); the per-tier budget travels at the spawn (EVOL-058)"})
     text = p.read_text(encoding="utf-8", errors="replace")
     size = len(text.encode("utf-8"))
     if size > int(c["budget_bytes"]):
@@ -231,6 +251,15 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
     for k in ("plan_gate", "work"):
         if not str(pol["rounds"].get(k, "")).isdigit() or int(pol["rounds"][k]) < 1:
             f.append({"path": rule, "reason": f"agents.rounds.{k} must be a positive integer — the loop's cap is a key"})
+    # the budgets are keys per tier (EVOL-058): a critic's turns and the probes run on its behalf
+    for t in TIERS:
+        row = (pol["tiers"] or {}).get(t)
+        if not isinstance(row, dict):
+            f.append({"path": rule, "reason": f"agents.tiers.{t} is missing — every size tier declares turn_budget and probe_budget (EVOL-058)"}); continue
+        for k in BUDGET_KEYS:
+            if not _posint(row.get(k)):
+                f.append({"path": rule, "reason": f"agents.tiers.{t}.{k} must be a positive integer — a critic's budget is a key the orchestrator enforces, never a sentence in a prompt (EVOL-058)"})
+    ceiling = budgets(pol, "large").get("turn_budget")
     # roster ↔ definitions ↔ manifest
     files = roster_files(repo)
     roster = {r["name"]: r for r in pol["roster"] if isinstance(r, dict) and r.get("name")}
@@ -260,7 +289,7 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
             if not c:
                 continue
             _check_definition(repo, p, cls, c, f); continue
-        _check_definition(repo, p, cls, c, f, roster_class=cls)
+        _check_definition(repo, p, cls, c, f, roster_class=cls, ceiling=ceiling)
     # vendored engine lenses: prompts a rostered critic runs — their frontmatter may not lie about the matrix
     eng = repo / ENGINE_AGENTS
     for p in (sorted(eng.glob("*.md")) if eng.is_dir() else []):
@@ -349,7 +378,10 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
             continue
         effort = row.get("effort", effort); matched = ", ".join(f"{k}: {v}" for k, v in row.items() if k != "class"); break
     fam = c["family"]
-    return {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched}
+    b = budgets(pol, t)
+    if len(b) != len(BUDGET_KEYS):
+        raise GateFault(f"agents.tiers.{t if t in TIERS else 'large'} lacks turn_budget / probe_budget — the budget is a key (EVOL-058); gate.py agents names it")
+    return {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched, **b}
 
 
 def fallback(repo: Path, cls: str, family: str) -> dict:

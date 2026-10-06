@@ -3,6 +3,7 @@ name: factory-critic-security
 description: "Read-only critic — the security lens on a completed diff: the SAST pattern library, secrets, injection, authz, data exposure (any credential or personal datum is a path to the product). Runs on a different model family than the writer."
 tools: Read, Grep, Glob
 effort: high
+maxTurns: 60
 class: work-critic
 ---
 

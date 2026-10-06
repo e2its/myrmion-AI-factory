@@ -123,10 +123,11 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
     res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files under scope)} --lines 0")
     SPAWN(subagent_type = "factory-critic-governance",
       model = res.model,                  # per spawn, from the reader — never chosen here; the PreToolUse Agent hook refuses it missing
-      prompt = "effort: {res.effort}\n" + SLICE(digest, scope.dcs) +   # the DC rows of this scope, within the class budget
+      prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\n" + SLICE(digest, scope.dcs) +   # the DC rows of this scope, within the class budget
                { scope: scope.scope, dcs: scope.dcs, search_roots: resolve_search_roots(scope.scope), feature_scope: feature_scope }
     )
     # a return outside the finding shape is refused: RUN("python3 scripts/gate.py agents --check-return --class work-critic", report)
+    # a PARTIAL return (the ceiling, maxTurns) ⇒ ONE hand-back request, resume; still no report ⇒ fully unverified (rules/agents.md § The bounded loop, EVOL-058)
   )
   RETURN consolidate(reports)
 ```
