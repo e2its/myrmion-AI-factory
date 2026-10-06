@@ -278,7 +278,7 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       IF DIR_EXISTS("{{base_path}}/contracts/") AND ("new_scenario" IN affected_scopes OR "schema_change" IN affected_scopes OR "contract_change" IN affected_scopes):
         targets.push("contracts_freeze")
       # runtime reports invalidate on anything upstream of IMPLEMENT
-      IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
+      IF GLOB_EXISTS("{{base_path}}/review/preventive_sweep_*.md"): targets.push("preventive_sweep_report")   # the artefact the sweep writes (factory-preventive-sweep § CONSOLIDATION PROTOCOL step 6)
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
     
@@ -293,7 +293,7 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       IF DIR_EXISTS("{{base_path}}/contracts/") AND ("schema_change" IN affected_scopes OR "contract_change" IN affected_scopes OR "new_scenario" IN affected_scopes):
         targets.push("contracts_freeze")
       # runtime reports invalidate on any blueprint change that reaches code
-      IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
+      IF GLOB_EXISTS("{{base_path}}/review/preventive_sweep_*.md"): targets.push("preventive_sweep_report")   # the artefact the sweep writes (factory-preventive-sweep § CONSOLIDATION PROTOCOL step 6)
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
     
@@ -302,7 +302,7 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
       IF GLOB_EXISTS("{{base_path}}/qa/qa_report_final_*.md"):
         targets.push("qa_report")
       # every code change invalidates runtime scans and smoke blocks
-      IF FILE_EXISTS("{{base_path}}/preventive_sweep_report.md"): targets.push("preventive_sweep_report")
+      IF GLOB_EXISTS("{{base_path}}/review/preventive_sweep_*.md"): targets.push("preventive_sweep_report")   # the artefact the sweep writes (factory-preventive-sweep § CONSOLIDATION PROTOCOL step 6)
       IF FILE_EXISTS("{{base_path}}/smoke_e2e_report.md"): targets.push("smoke_e2e_report")
       RETURN targets
     
@@ -350,10 +350,10 @@ FUNCTION CASCADE_PENDING_ITERATION(FEATURE_ID, target_iteration, target_schemas_
     IF artifact_name IN ["preventive_sweep_report", "smoke_e2e_report"]:
       # runtime reports are point-in-time artefacts; any upstream change makes them
       # untrustworthy. Mark INVALIDATED and reopen the corresponding gate issue on the board.
-      report_path = "{{base_path}}/{{artifact_name}}.md"
+      report_path = NEWEST("{{base_path}}/review/preventive_sweep_*.md") IF artifact_name == "preventive_sweep_report" ELSE "{{base_path}}/{{artifact_name}}.md"   # one path with the writer and the deploy gate (EVOL-059)
       IF FILE_EXISTS(report_path):
         fm = READ_FRONTMATTER(report_path)
-        IF fm.status == "APPROVED":
+        IF fm.status IN ["COMPLETED", "APPROVED"]:                   # the sweep's final status is COMPLETED; the smoke report's APPROVED
           UPDATE_FRONTMATTER(report_path, {
             status: "INVALIDATED",
             invalidated_by_iteration: target_iteration,

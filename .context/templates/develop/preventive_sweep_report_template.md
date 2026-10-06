@@ -1,5 +1,5 @@
 ---
-status: DRAFT   # DRAFT | IN_PROGRESS | APPROVED | INVALIDATED | REJECTED
+status: IN_PROGRESS   # IN_PROGRESS | COMPLETED | INVALIDATED — the vocabulary the deploy gate and the stale-marking step read (EVOL-059)
 feature_id: "{{FEATURE_ID}}"
 title: "Preventive Defect Sweep — {{FEATURE_NAME}}"
 sweep_date: "YYYY-MM-DD"
@@ -14,7 +14,7 @@ by_severity:
   medium: 0
   low: 0
 all_resolved_in_commit: null   # true | false | null (not applicable)
-not_delivered: []   # the scopes whose critic never delivered (EVOL-059) — their DCs are UNVERIFIED, never CLEAN; the sweep is not APPROVED while any remains
+not_delivered: []   # the scopes whose critic never delivered (EVOL-059) — their DCs are UNVERIFIED, never CLEAN; the sweep is not COMPLETED while any remains
 degraded: false     # a critic fell onto the writer's family — the findings go to the user's adjudication
 fallback: []        # every fall: {alias, id, delivered}
 

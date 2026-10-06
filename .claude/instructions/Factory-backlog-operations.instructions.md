@@ -484,7 +484,7 @@ Examples:
 
 Gate-specific checklist — every item must be `[x]` before moving the issue to Done:
 
-- [ ] {Artifact produced at expected path with expected frontmatter status (e.g., `docs/spec/{ID}/preventive_sweep_report.md` — status: APPROVED)}
+- [ ] {Artifact produced at expected path with expected frontmatter status (e.g., `docs/spec/{ID}/review/preventive_sweep_{YYYYMMDD}.md` — status: COMPLETED, not_delivered empty)}
 - [ ] {Validation check 1 specific to this gate type}
 - [ ] {Validation check 2}
 - [ ] Zero open `stale-after-cascade` / `stale-after-slice-peer-iterated` labels on this issue (iteration-model cascade invariant)
