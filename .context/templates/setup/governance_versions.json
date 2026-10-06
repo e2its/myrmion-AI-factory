@@ -2244,6 +2244,8 @@
       "version": "1.0.0",
       "content_type": "universal",
       "target": "scripts/gates/manifest.py",
+      "delivery": "both",
+      "role": "The manifest bump helper (EVOL-061): one command moves the entry, its changelog line, the file's frontmatter and framework_version; --check verifies.",
       "changelog": [
         "1.0.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week"
       ]
@@ -5289,6 +5291,8 @@
     "scripts/gates/manifest.py": {
       "version": "1.0.0",
       "path": "scripts/gates/manifest.py",
+      "role": "The manifest bump helper (EVOL-061): one command moves the entry, its changelog line, the file's frontmatter and framework_version; --check verifies. Meta copy (lock-step pair).",
+      "type": "script",
       "changelog": [
         "1.0.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week"
       ]

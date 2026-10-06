@@ -713,20 +713,24 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
 
     # governance (EVOL-061): the cost of editing governance — the share of edits on governance paths, the active clock weighted by it,
     # the commits touching the manifest per week (git log on the manifest paths in the window)
-    gov_paths_cfg = tuple(cfg.get("governance_paths", []))
-    all_edits = [(f) for s in sessions for _, f in s.edits]
-    gov_edits = [f for f in all_edits if _is_governance(f, repo, gov_paths_cfg)]
-    edit_share = round(len(gov_edits) / len(all_edits), 3) if all_edits else None
-    weeks = max((until - since).total_seconds() / (7 * 86400), 1e-9)
-    mlog = git(repo, "log", "--no-merges", f"--since={since.isoformat()}", f"--until={until.isoformat()}", "--format=%H", "--",
-               ".context/templates/setup/governance_versions.json", "docs/project_log/governance_versions.json")
+    gov_paths_cfg = tuple(cfg.get("governance_paths") or ())
+    all_edits = [f for s in sessions for _, f in s.edits]
+    gov_edits = [f for f in all_edits if _is_governance(f, repo, gov_paths_cfg)] if gov_paths_cfg else []
+    edit_share = (round(len(gov_edits) / len(all_edits), 3) if all_edits else None) if gov_paths_cfg else None   # None, never a silent zero, when governance_paths is not configured
+    weeks = max((until - since).total_seconds() / (7 * 86400), 1 / 7)   # never below a day: a per-week rate over an instant is not a rate
+    try:
+        primary = (json.loads((repo / "config/coherence-context.json").read_text(encoding="utf-8")).get("audit", {}).get("manifest_paths") or {}).get("primary")
+    except (OSError, ValueError):
+        primary = None
+    mpaths = [x for x in dict.fromkeys([primary, ".context/templates/setup/governance_versions.json", "docs/project_log/governance_versions.json"]) if x]
+    mlog = git(repo, "log", "--no-merges", f"--since={since.isoformat()}", f"--until={until.isoformat()}", "--format=%H", "--", *mpaths)
     mcommits = len([x for x in mlog.splitlines() if x.strip()]) if mlog is not None else None
     report["governance"] = {"edit_share": edit_share, "edits": len(gov_edits), "edits_total": len(all_edits),
-                            "hours": round(active * (edit_share or 0) / 3600, 3) if edit_share is not None else None,
+                            "hours": round(active * edit_share / 3600, 3) if edit_share is not None else None,
                             "manifest_commits": mcommits, "manifest_commits_per_week": round(mcommits / weeks, 2) if mcommits is not None else None,
-                            "definition": "edit_share = Edit/Write tool uses on governance paths over every edit; hours = the active agent clock × edit_share; "
-                                          "manifest_commits_per_week = non-merge commits touching the governance manifest in the window, per seven days (git log) — "
-                                          "None when git is not readable"}
+                            "definition": "edit_share = Edit/Write tool uses on governance paths (measurement.governance_paths; None when not configured) over every edit; "
+                                          "hours = the active agent clock × edit_share; manifest_commits_per_week = non-merge commits touching the governance manifest "
+                                          "(the context's primary path, else the two known homes) in the window, per seven days (git log) — None when git is not readable"}
 
     # branches (one branch = one pull request)
     branches: dict[str, dict] = {}
@@ -1023,6 +1027,7 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
         tool_use(5, "Edit", {"file_path": "src/app.py"}, 100),
         tool_result(5, 101),
         tool_use(6, "Edit", {"file_path": "src/app.py"}, 110),                     # repeated edit
+        tool_use(61, "Edit", {"file_path": "CLAUDE.md"}, 112),                      # a governance edit (EVOL-061)
         tool_result(6, 111),
         tool_use(7, "Bash", {"command": "git commit -m 'feat(FEAT-001): a'"}, 120),
         tool_result(7, 121),
@@ -1149,6 +1154,10 @@ def _fixture_repo(root: Path) -> Path:
         (repo / "f").write_text(msg, encoding="utf-8")
         run("add", "-A")
         run("commit", "-q", "-m", msg)
+    (repo / "docs/project_log").mkdir(parents=True, exist_ok=True)
+    (repo / "docs/project_log/governance_versions.json").write_text('{"framework_version": "1.0.0", "templates": {}}\n', encoding="utf-8")
+    for a in (["add", "-A"], ["commit", "-q", "-m", "chore(EVOL-061): governance manifest"]):   # one commit touching the manifest, inside the window
+        subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, env=env)
     return repo
 
 
@@ -1190,8 +1199,8 @@ def selftest() -> int:
                "sub-increment branches roll up into their train (EVOL-045); a fix/… branch ending in -sub-N does not")
         md = render_markdown(r)
         expect("| train | commits |" in md and "| feature/FEAT-002-inc-1-x | 2 | 0 | 2 |" in md, "the train table renders")
-        expect(r["rework"]["git"] == {"commits": 3, "rework_commits": 1, "share": 0.333}, "rework share from git commit types")
-        expect(r["rework"]["edits"] == {"total": 2, "repeated": 1, "share": 0.5}, "repeated-edit share from Edit tool uses")
+        expect(r["rework"]["git"] == {"commits": 4, "rework_commits": 1, "share": 0.25}, "rework share from git commit types (the fourth commit is the manifest's, EVOL-061)")
+        expect(r["rework"]["edits"] == {"total": 3, "repeated": 1, "share": 0.333}, "repeated-edit share from Edit tool uses")
         gb = r["governance_bytes"]
         expect(gb["emitted_by_hooks"] == 6079 and gb["delivered_to_model"] == 3000, "hook bytes: emitted vs delivered")
         expect(gb["truncated_deliveries"] == 1, "a delivery shorter than its stdout is a truncation")
@@ -1223,7 +1232,7 @@ def selftest() -> int:
         expect("## Critics inside their budget" in render_markdown(r) and "| 2 | 1 | 0 |" in render_markdown(r) and "| turns | budget |" in render_markdown(r), "the critics section and the turns and budget columns render")
         expect("critics.share" in compare(r, r), "the signal is in the before/after table")
         c = r["citations"]
-        expect(c["by_id"].get("LAW-01") == 10 and c["by_id"].get("LAW-04") == 2, "citations aggregated across agents")
+        expect(c["by_id"].get("LAW-01") == 11 and c["by_id"].get("LAW-04") == 2, "citations aggregated across agents (every tool use of the fixture cites LAW-01; the governance edit of EVOL-061 is one more)")
         expect(c["pruning_candidates"] == ["DC-27", "LAW-09"], "corpus ids never cited are pruning candidates")
         md = render_markdown(r)
         expect("## Gates" in md and "pruning candidates 2" in md, "markdown rendering")
@@ -1252,11 +1261,12 @@ def selftest() -> int:
         expect("| class | owed | parsed | refused | unchecked | uncollected | bytes | adjudicated | informational |" in md and "bytes per return" in md, "the returns table renders the EVOL-060 columns")
         expect(rt["avg_bytes"] is not None and rt["avg_bytes_adjudicated"] is not None and rt["avg_bytes_adjudicated"] < rt["avg_bytes"] and rt["informational"] >= 1, "bytes per return against bytes adjudicated, the informational count — the signals")
         expect("returns.avg_bytes_adjudicated" in compare(r, r) and "critics.orchestrator_tokens_out_per_round" in compare(r, r), "the EVOL-060 signals are in the before/after table")
-        expect(r["critics"]["orchestrator_tokens_out_per_round"] == 12, "the orchestrator's output per critic round: the spawning sessions' output (62 on the fixture) over their five (session, round) pairs")
+        expect(r["critics"]["orchestrator_tokens_out_per_round"] == 13, "the orchestrator's output per critic round: the spawning sessions' output (67 on the fixture: 62 + the governance edit's 5) over their five (session, round) pairs")
         # EVOL-061: the cost of editing governance
         gv = r["governance"]
-        expect(gv["edits_total"] == 2 and gv["edits"] == 0 and gv["edit_share"] == 0.0 and gv["hours"] == 0.0, "the fixture edits src/app.py twice and no governance path: share 0, hours 0")
-        expect("manifest_commits_per_week" in gv and "governance.hours" in compare(r, r) and "governance.manifest_commits_per_week" in compare(r, r), "the governance signals are in the before/after table")
+        expect(gv["edits_total"] == 3 and gv["edits"] == 1 and gv["edit_share"] == 0.333 and gv["hours"] is not None and gv["hours"] > 0, "one of three edits is on a governance path: share 0.333, hours the active clock's third")
+        expect(gv["manifest_commits"] == 1 and gv["manifest_commits_per_week"] == round(1 / (30 / 7), 2), "one commit touching the manifest in the 30-day window: the per-week rate")
+        expect("governance.hours" in compare(r, r) and "governance.manifest_commits_per_week" in compare(r, r), "the governance signals are in the before/after table")
         expect("## Governance editing" in md, "the governance section renders")
         # pushes (EVOL-057): the push log first — both generations, the window by `end` — the trace as fallback
         ps = r["pushes"]
