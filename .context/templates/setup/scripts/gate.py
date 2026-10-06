@@ -17,6 +17,8 @@
   gate.py certify --subject worktree --paths p…   the on-disk hash (tracked + untracked) taken before and after a read-only run — the guard, never a verdict subject
   gate.py currency [--base B] [--branch B]         the push's verdict artefacts still certify their files; exit 1 stale/missing/unknown branch · 2 could not judge
   gate.py manifest-parity                          frontmatter version == manifest version for every governed file; exit 1 on drift
+  gate.py manifest --bump --entry P … --level L --note "…" [--framework L] [--new P] [--base REF]   EVOL-061: the bump as a tool — the entry, its changelog line, the file's frontmatter, framework_version; idempotent on this branch
+  gate.py manifest --check --entry P … [--framework]   verify without writing: advanced against the base, the line names the version, parity
   gate.py branch-class [--branch B] [--protected] [--json]   protected · sub-increment · train · increment · feature · fix · docs · chore · epic · unknown
   gate.py diff-base [--branch B]                   the ONE diff base (sub-increment → its train; else the default base branch); exit 1 on an unknown name
   gate.py surface [--base B] [--branch B] [--json] files + lines of base...HEAD vs surface.ceiling_*; exit 1 over the ceiling without a Surface-Escape trailer
@@ -477,6 +479,17 @@ def cmd_currency(repo, a):
     return 1 if findings else (2 if faults else 0)
 
 
+def cmd_manifest(repo, a):
+    from gates import manifest as manifest_mod
+    if a.check:
+        problems = manifest_mod.check(repo, a.entry or [], base=a.base, framework=bool(a.framework))
+        print(coherence.render("manifest", [{"path": "governance_versions.json", "reason": x} for x in problems], "every entry advanced against the base, its line names its version, the frontmatter in parity"))
+        return 1 if problems else 0
+    r = manifest_mod.bump(repo, a.entry or [], a.level or "", a.note or "", framework=(a.framework if a.framework not in (None, "", "check") else None), base=a.base, new=a.new or [], write=not a.dry_run)
+    print(json.dumps(r) if a.json else manifest_mod.render(r))
+    return 0
+
+
 def cmd_manifest_parity(repo, a):
     findings, stats = coherence.manifest_parity(repo)
     print(coherence.render("manifest-parity", findings, f"{stats['compared']} compared, {stats['no_version']} without a frontmatter version"))
@@ -504,6 +517,7 @@ def build_parser():
     p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree", "worktree"), required=True); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
     p = sub.add_parser("currency"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_currency)
     p = sub.add_parser("manifest-parity"); p.set_defaults(fn=cmd_manifest_parity)
+    p = sub.add_parser("manifest"); p.add_argument("--bump", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--entry", action="append"); p.add_argument("--new", action="append"); p.add_argument("--level", default=None, choices=("patch", "minor", "major")); p.add_argument("--note", default=""); p.add_argument("--framework", nargs="?", const="check", default=None); p.add_argument("--base", default=None); p.add_argument("--dry-run", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_manifest)
     p = sub.add_parser("branch-class"); p.add_argument("--branch", default=None); p.add_argument("--protected", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_branch_class)
     p = sub.add_parser("diff-base"); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_diff_base)
     p = sub.add_parser("surface"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_surface)

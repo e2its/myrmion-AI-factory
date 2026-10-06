@@ -1,13 +1,13 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.8.0",
+  "framework_version": "8.9.0",
   "delivery_mode": "development",
   "last_updated": "2026-10-06",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
+  "description": "v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -938,11 +938,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.11.0",
+      "version": "4.12.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.12.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "4.11.0: feat(EVOL-060) — agents row: informational findings off the return.",
         "4.10.0: feat(EVOL-059) — the agents row names the lens canary.",
         "4.9.0: feat(EVOL-058) — the agents row names the enforced budgets.",
@@ -1643,11 +1644,12 @@
       ]
     },
     "subproducts/measure/measure.py": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "content_type": "universal",
       "target": "subproducts/measure/measure.py",
       "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only.",
       "changelog": [
+        "1.8.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.7.0: feat(EVOL-060) — the signals: bytes per return against bytes adjudicated, the informational count, the orchestrator's output tokens per critic round.",
         "1.6.0: feat(EVOL-059) — the fixture's critic returns carry their Model: line (the contract's new line).",
         "1.5.0: feat(EVOL-058) — turns per agent; critics inside the harness ceiling per round; the signal in the before/after table.",
@@ -1743,11 +1745,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.13.1",
+      "version": "1.14.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.13.1: fix(EVOL-060) — the --check-return usage names the Informational: line and the appendix refusals.",
         "1.13.0: feat(EVOL-059) — the canary subcommand (fixture, expected, check, judge, seen, plan, status).",
         "1.12.0: feat(EVOL-058) — the resolve line carries turns and probes.",
@@ -1820,11 +1823,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.17.0",
+      "version": "1.18.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.18.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.17.0: fix(EVOL-060) — round-2 pins that discriminate: the appendix's Model:/Informational: lines never read as the block's; a planted defect in the appendix never credited; an appendix-only return has no contract part.",
         "1.16.0: feat(EVOL-060) — the two-part return pinned red-first (inside refused, the count held, a warning hidden in the appendix refused, the line owed); the critic fixtures carry the count line.",
         "1.15.0: feat(EVOL-059) — RDR-3 pins: the first pass at the class default, the second by its size, a third refused; the framework's own policy.",
@@ -2234,6 +2238,14 @@
       "changelog": [
         "1.1.0: feat(EVOL-060) — the judge reads the contract part of a return: an appendix line never credits a planted defect, `no findings` is read where the contract puts it.",
         "1.0.0: feat(EVOL-059) — initial."
+      ]
+    },
+    "scripts/gates/manifest.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "scripts/gates/manifest.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week"
       ]
     }
   },
@@ -2917,9 +2929,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.18.2",
+      "version": "2.19.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.19.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "2.18.2: fix(EVOL-059) — RDR-3: round 1 on the diff, round 2 (--round 2) on the cured bytes; the resolver refuses the next.",
         "2.18.1: feat(EVOL-053) — every test a worker writes states its case at the one home",
         "2.18.0: feat(EVOL-051) — the order stated at the spawn protocol; the completion gate writes the plan's status and verification record BEFORE the loop (last tracked write), the loop seals, the commit follows; a red loop reverts the status write; bvl_result replaced by verification: {gates, seal}",
@@ -3095,9 +3108,10 @@
       ]
     },
     "instructions/Factory-backlog-operations.instructions.md": {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
+        "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.13.0: fix(EVOL-059) — the sweep artefact example names the path the sweep writes and its COMPLETED status.",
         "1.12.0: feat(EVOL-045) — sub-increment items nested under the increment issue (add_sub_issue / Parent line).",
         "1.11.0: feat(EVOL-043) — DC column rename (invariant/gate/paths/severity) and/or law-body pattern reads via gate.py laws --json (EVOL-043).",
@@ -3253,9 +3267,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.15.0",
+      "version": "2.16.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.16.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "2.15.0: feat(EVOL-060) — Step 8: a pre-EVOL-060 critic return is refused with the reason; the definitions arrive with the gates refresh.",
         "2.14.0: feat(EVOL-059) — Step 8: a policy without the canary key (pre-EVOL-059) gains it.",
         "2.13.0: feat(EVOL-058) — Step 8: a policy without tier budgets (pre-EVOL-058) gains them, the medium row and maxTurns on every read-only definition.",
@@ -3347,9 +3362,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.11.0",
+      "version": "14.12.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.12.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "14.11.0: feat(EVOL-060) — agents row: informational findings off the return.",
         "14.10.0: feat(EVOL-059) — the agents row names the lens canary.",
         "14.9.0: feat(EVOL-058) — the agents row names the enforced budgets.",
@@ -3438,9 +3454,10 @@
       ]
     },
     "skills/factory-governance-loading/SKILL.md": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "type": "skill",
       "changelog": [
+        "2.12.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "2.11.0: feat(EVOL-047) — GWP applies to docs-only changes; a change outside the runtime surface skips the machinery, not the rule.",
         "2.10.0: feat(EVOL-043) — Step 1 reads the law INDEX; POST-LOAD = the generator script (lite/full contract as emitted); Step 3 = the resolver; tier 5 (delivery at the point of edit); hosts the [LAW-01] body with the two-tier ceremony.",
         "2.9.3: fix(EVOL-034) Phase 0 Block 13 — reference coherence: two references `red_zones[]` → `paths[]` (line 179, snapshot extraction) and `protected-paths.json.red_zones` → `protected-paths.json.paths` (line 313, RED_ZONE override check). The field rename ratified in ADR-EVOL-034 RDR-1 = Option A had not propagated to this consumer; Phase 0 Coherence Audit caught it on PR #35.",
@@ -4816,11 +4833,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.13.1",
+      "version": "1.14.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.13.1: fix(EVOL-060) — the --check-return usage names the Informational: line and the appendix refusals.",
         "1.13.0: feat(EVOL-059) — the canary subcommand (the template twin).",
         "1.12.0: feat(EVOL-058) — the resolve line carries turns and probes (the template twin).",
@@ -4887,11 +4905,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.17.0",
+      "version": "1.18.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.18.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.17.0: fix(EVOL-060) — round-2 pins that discriminate: the appendix's Model:/Informational: lines never read as the block's; a planted defect in the appendix never credited; an appendix-only return has no contract part.",
         "1.16.0: feat(EVOL-060) — the two-part return pinned red-first (inside refused, the count held, a warning hidden in the appendix refused, the line owed); the critic fixtures carry the count line.",
         "1.15.0: feat(EVOL-059) — RDR-3 pins: the first pass at the class default, the second by its size, a third refused; the framework's own policy.",
@@ -4915,11 +4934,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.16.0",
+      "version": "1.17.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.17.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.16.0: feat(EVOL-060) — the two-part return red and green on the materialised tree (103 checks).",
         "1.15.0: feat(EVOL-059) — RDR-3: the first work round at full effort, the second by its size, a third refused (101 checks).",
         "1.14.0: feat(EVOL-059) — the canary on the materialised policy: the fixture's consistency, every lens owed when never judged, a green and a red judge, the trigger on a moved model.",
@@ -5264,6 +5284,13 @@
       "changelog": [
         "1.1.0: feat(EVOL-060) — the judge reads the contract part of a return: an appendix line never credits a planted defect, `no findings` is read where the contract puts it.",
         "1.0.0: feat(EVOL-059) — initial."
+      ]
+    },
+    "scripts/gates/manifest.py": {
+      "version": "1.0.0",
+      "path": "scripts/gates/manifest.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week"
       ]
     }
   },

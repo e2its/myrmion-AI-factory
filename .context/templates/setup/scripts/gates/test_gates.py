@@ -2,6 +2,7 @@
 """Unit tests of the gates package — every gate seen red at least once. Run: bash scripts/test-gates.sh"""
 from __future__ import annotations
 
+import datetime as dt
 import importlib.util
 import json
 import os
@@ -16,7 +17,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, branch, budget, canary, coherence, corpus, digests, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
+from gates import agents, branch, budget, canary, coherence, corpus, digests, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -1692,6 +1693,90 @@ RULE_AGENTS_LENSES = RULE_AGENTS.replace(
 assert RULE_AGENTS_LENSES != RULE_AGENTS, "the lens fixture must extend the roster"
 
 
+MANIFEST_FIXTURE = {
+    "$schema": "governance_versions_v2", "manifest_version": "2.0.0", "framework_version": "1.2.0", "last_updated": "2026-01-01", "description": "v1.2.0 (main): the base.",
+    "framework_core": {"_description": "x", "CLAUDE.md": {"version": "3.0.0", "path": "CLAUDE.md", "changelog": ["3.0.0: feat — the base"]},
+                       "skills/x/SKILL.md": {"version": "1.4.0", "path": ".claude/skills/x/SKILL.md", "changelog": ["1.4.0: feat — the base"]}},
+    "templates": {"rules/x.md": {"version": "2.1.0", "content_type": "universal", "target": ".claude/rules/x.md", "changelog": ["2.1.0: feat — the base"]}},
+    "agent_templates": {"po/t.md": {"version": "1.0.0", "content_type": "universal", "target": ".context/templates/po/t.md", "changelog": ["1.0.0: added"]}},
+}
+
+
+class Manifest(unittest.TestCase):
+    """EVOL-061: the bump as a tool — the entry, its line, the frontmatter and the framework version in the checked shape; idempotent on the branch."""
+
+    def _repo(self, tmp, project=False):
+        repo = Path(tmp) / "r"; repo.mkdir()
+        subprocess.run(["git", "-C", str(repo), "init", "-q", "-b", "main"], check=True)
+        subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@t"], check=True); subprocess.run(["git", "-C", str(repo), "config", "user.name", "t"], check=True)
+        mpath = "docs/project_log/governance_versions.json" if project else ".context/templates/setup/governance_versions.json"
+        write(repo / "config/coherence-context.json", json.dumps({"context": "downstream" if project else "meta", "audit": {"root_sets": ["."], "exclusions": [".git/"], "manifest_paths": {"primary": mpath}}}))
+        write(repo / mpath, json.dumps(MANIFEST_FIXTURE, indent=2))
+        write(repo / "CLAUDE.md", "# x\n"); write(repo / ".claude/skills/x/SKILL.md", "---\nname: x\nversion: 1.4.0\n---\n# x\n")
+        write(repo / (".claude/rules/x.md" if project else ".context/templates/setup/rules/x.md"), "---\nversion: \"2.1.0\"\n---\n# rule\n")
+        write(repo / ".context/templates/po/t.md", "# t\n")
+        subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True); subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "base"], check=True)
+        subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-b", "feature/EVOL-999-x"], check=True)
+        return repo, repo / mpath
+
+    def test_bump_moves_entry_line_frontmatter_and_framework(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, mp = self._repo(tmp)
+            r = manifest.bump(repo, ["CLAUDE.md", ".claude/skills/x/SKILL.md", ".context/templates/setup/rules/x.md"], "minor", "feat(EVOL-999) — the thing and why", framework="minor", base="main")
+            m = json.loads(mp.read_text())
+            self.assertEqual([x["to"] for x in r["moved"]], ["3.1.0", "1.5.0", "2.2.0"], "several entries in one call, each by the level")
+            self.assertEqual(m["framework_core"]["skills/x/SKILL.md"]["changelog"][0], "1.5.0: feat(EVOL-999) — the thing and why", "the line in the entry's shape, on top")
+            self.assertIn("version: 1.5.0", (repo / ".claude/skills/x/SKILL.md").read_text()); self.assertIn('version: "2.2.0"', (repo / ".context/templates/setup/rules/x.md").read_text(), "the frontmatter moves with the entry, quoted or not")
+            self.assertEqual((m["framework_version"], r["framework"]["to"]), ("1.3.0", "1.3.0")); self.assertTrue(m["description"].startswith("v1.3.0 (feature/EVOL-999-x): feat(EVOL-999) — the thing and why. "))
+            self.assertEqual(m["last_updated"], dt.date.today().isoformat())
+            self.assertEqual(manifest.check(repo, ["CLAUDE.md", ".claude/skills/x/SKILL.md", ".context/templates/setup/rules/x.md"], base="main", framework=True), [], "the check is green on what the helper wrote")
+            # idempotent on the branch: the same call again changes nothing; a different note replaces the line, never the version
+            before = mp.read_text()
+            r2 = manifest.bump(repo, ["CLAUDE.md"], "minor", "feat(EVOL-999) — the thing and why", framework="minor", base="main")
+            self.assertEqual((r2["moved"], len(r2["kept"]), r2["framework"].get("kept")), ([], 1, True)); self.assertEqual(mp.read_text(), before, "the same call twice changes nothing")
+            r3 = manifest.bump(repo, ["CLAUDE.md"], "major", "feat(EVOL-999) — reworded", base="main")
+            m = json.loads(mp.read_text()); self.assertEqual(m["framework_core"]["CLAUDE.md"]["version"], "3.1.0", "an entry already moved on the branch keeps its version whatever the level")
+            self.assertEqual(m["framework_core"]["CLAUDE.md"]["changelog"][:2], ["3.1.0: feat(EVOL-999) — reworded", "3.0.0: feat — the base"], "the top line is replaced, the base line kept")
+            self.assertEqual(r3["kept"][0]["line"], "3.1.0: feat(EVOL-999) — reworded")
+
+    def test_new_entry_refusals_and_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, mp = self._repo(tmp)
+            with self.assertRaisesRegex(GateFault, "mandatory and never empty"):
+                manifest.bump(repo, ["CLAUDE.md"], "patch", "   ", base="main")
+            with self.assertRaisesRegex(GateFault, "matches no manifest entry"):
+                manifest.bump(repo, ["scripts/nope.py"], "patch", "x", base="main")
+            with self.assertRaisesRegex(GateFault, "--level must be one of"):
+                manifest.bump(repo, ["CLAUDE.md"], "huge", "x", base="main")
+            write(repo / "scripts/gates/new.py", "# new\n"); write(repo / ".context/templates/setup/scripts/gates/new.py", "# new\n")
+            r = manifest.bump(repo, [], "minor", "feat(EVOL-999) — a new module", new=["scripts/gates/new.py", ".context/templates/setup/scripts/gates/new.py"], base="main")
+            m = json.loads(mp.read_text())
+            self.assertEqual(r["added"], ["framework_core:scripts/gates/new.py", "templates:scripts/gates/new.py"])
+            self.assertEqual(m["framework_core"]["scripts/gates/new.py"], {"version": "1.0.0", "path": "scripts/gates/new.py", "changelog": ["1.0.0: feat(EVOL-999) — a new module"]})
+            self.assertEqual(m["templates"]["scripts/gates/new.py"]["target"], "scripts/gates/new.py"); self.assertEqual(m["templates"]["scripts/gates/new.py"]["content_type"], "universal")
+            with self.assertRaisesRegex(GateFault, "already exists"):
+                manifest.bump(repo, [], "minor", "x", new=["scripts/gates/new.py"], base="main")
+            # the check is red before a bump and names the cure; green after
+            problems = manifest.check(repo, [".context/templates/po/t.md"], base="main", framework=True)
+            self.assertTrue(any("did not advance against the base (1.0.0)" in x for x in problems), problems)
+            manifest.bump(repo, [".context/templates/po/t.md"], "patch", "fix — a typo", base="main")
+            self.assertEqual(manifest.check(repo, [".context/templates/po/t.md"], base="main"), [])
+            # frontmatter drift is a check finding (manifest-parity by construction when the helper wrote it; by hand it drifts)
+            write(repo / ".claude/skills/x/SKILL.md", "---\nname: x\nversion: 9.9.9\n---\n# x\n")
+            self.assertTrue(any("frontmatter version 9.9.9 ≠ manifest 1.4.0" in x for x in manifest.check(repo, [".claude/skills/x/SKILL.md"], base="main")))
+            # no base at all: every entry moves, said in the result
+            r = manifest.bump(repo, ["CLAUDE.md"], "patch", "fix — x", base="nope-ref"); self.assertEqual(r["base"], "none (every entry moves)"); self.assertEqual(r["moved"][0]["to"], "3.0.1")
+
+    def test_project_manifest_resolves_by_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, mp = self._repo(tmp, project=True)
+            r = manifest.bump(repo, [".claude/rules/x.md"], "patch", "fix(FEAT-1) — the rule's wording", base="main")
+            m = json.loads(mp.read_text())
+            self.assertEqual(r["moved"], [{"entry": "templates:rules/x.md", "from": "2.1.0", "to": "2.1.1"}], "a project resolves its file by the entry's target")
+            self.assertIn('version: "2.1.1"', (repo / ".claude/rules/x.md").read_text())
+            self.assertEqual(manifest.check(repo, ["templates:rules/x.md"], base="main"), [], "section:key names an entry directly")
+
+
 class Canary(unittest.TestCase):
     """EVOL-059: the lens canary — the fixture's own consistency, the judge red/green, the plan on model drift; red first."""
 
@@ -2379,6 +2464,9 @@ class Cli(unittest.TestCase):
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "seal", "--run", "--gates", "nope"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 2); self.assertNotIn("Traceback", r.stderr)
             # EVOL-059: the canary's CLI faces — the expected list, a wrong lens, the record
+            # EVOL-061: the manifest helper's faces
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "manifest", "--bump", "--entry", "CLAUDE.md", "--level", "patch"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2); self.assertIn("mandatory", r.stderr); self.assertNotIn("Traceback", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "canary", "--expected", "--lens", "security", "--json"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0); self.assertEqual(set(json.loads(r.stdout)), {"security"})
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "canary", "--expected", "--lens", "style"], capture_output=True, text=True, env=env)

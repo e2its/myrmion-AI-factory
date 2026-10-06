@@ -330,20 +330,13 @@ Read side above. Write side here.
 - MINOR — new feature, new section, new pseudocode, new template entry.
 - MAJOR — breaking contract (rename required op, remove frontmatter field, non-additive preset change).
 
-**Procedure.**
+**Procedure (EVOL-061 — the bump is a tool, not a ritual).** One command writes everything the check verifies:
 
-```yaml
-FOR EACH file IN modified_files:
-  entry = lookup(manifest, file)
-  IF entry IS NULL AND file IS framework_core or templates:
-    manifest.add(file, version="1.0.0", changelog=["1.0.0: added"])
-  ELSE IF entry EXISTS:
-    kind = PATCH | MINOR | MAJOR from commit prefix (fix:/chore: → PATCH, feat: → MINOR, feat!:/BREAKING → MAJOR)
-    entry.version = semver_bump(entry.version, kind)
-    entry.changelog.append("{new_version}: {kind}: {one-liner}")
-manifest.last_updated = TODAY
-WRITE manifest
+```bash
+python3 scripts/gate.py manifest --bump --entry <path> [--entry …] --level patch|minor|major --note "<what and why>" [--framework patch|minor|major] [--new <path>]
 ```
+
+It resolves each path to its entry (framework_core by path, templates under `.context/templates/setup/`, agent_templates under `.context/templates/`; a project's by target), moves the version by the level, prepends the changelog line in the entry's shape (`"<version>: <note>"`), moves the file's frontmatter `version:` when it carries one (manifest-parity by construction), and with `--framework` moves `framework_version`, `last_updated` and the `description` prefix. It is **idempotent on the branch**: an entry already advanced against the base is not moved again — its line is replaced only when the note differs. `--new <path>` adds an entry at `1.0.0` (never silently: a path matching no entry is refused). `--check --entry … [--framework]` verifies without writing. The level follows the commit prefix (fix:/chore: → patch, feat: → minor, feat!:/BREAKING → major); the note is the decision — mandatory, never empty, read by the governance critic.
 
 **Applies.** Every commit touching a tracked file. Docs-only changes too — a change outside the runtime surface skips the deploy / tag machinery (EVOL-047), NOT this rule, and it still ships via branch and pull request.
 

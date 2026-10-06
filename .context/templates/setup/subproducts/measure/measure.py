@@ -711,6 +711,23 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
                        "definition": "active clock = sum of gaps between consecutive transcript entries, each capped at idle_cap_s; "
                                      "under gates = wall-clock of Bash tool calls matching a gate pattern"}
 
+    # governance (EVOL-061): the cost of editing governance — the share of edits on governance paths, the active clock weighted by it,
+    # the commits touching the manifest per week (git log on the manifest paths in the window)
+    gov_paths_cfg = tuple(cfg.get("governance_paths", []))
+    all_edits = [(f) for s in sessions for _, f in s.edits]
+    gov_edits = [f for f in all_edits if _is_governance(f, repo, gov_paths_cfg)]
+    edit_share = round(len(gov_edits) / len(all_edits), 3) if all_edits else None
+    weeks = max((until - since).total_seconds() / (7 * 86400), 1e-9)
+    mlog = git(repo, "log", "--no-merges", f"--since={since.isoformat()}", f"--until={until.isoformat()}", "--format=%H", "--",
+               ".context/templates/setup/governance_versions.json", "docs/project_log/governance_versions.json")
+    mcommits = len([x for x in mlog.splitlines() if x.strip()]) if mlog is not None else None
+    report["governance"] = {"edit_share": edit_share, "edits": len(gov_edits), "edits_total": len(all_edits),
+                            "hours": round(active * (edit_share or 0) / 3600, 3) if edit_share is not None else None,
+                            "manifest_commits": mcommits, "manifest_commits_per_week": round(mcommits / weeks, 2) if mcommits is not None else None,
+                            "definition": "edit_share = Edit/Write tool uses on governance paths over every edit; hours = the active agent clock × edit_share; "
+                                          "manifest_commits_per_week = non-merge commits touching the governance manifest in the window, per seven days (git log) — "
+                                          "None when git is not readable"}
+
     # branches (one branch = one pull request)
     branches: dict[str, dict] = {}
     for s in sessions:
@@ -822,7 +839,8 @@ SCALARS = (("gates", "share"), ("branches", "avg_commits"), ("branches", "avg_re
            ("rework", "edits", "share"), ("governance_bytes", "emitted_by_hooks"),
            ("governance_bytes", "delivered_to_model"), ("governance_bytes", "read_by_agents"),
            ("returns", "uncollected_share"), ("returns", "avg_bytes"), ("returns", "avg_bytes_adjudicated"), ("returns", "informational"),   # EVOL-060
-           ("pushes", "unknown_share"), ("loop", "hours_total"), ("critics", "share"), ("critics", "orchestrator_tokens_out_per_round"))
+           ("pushes", "unknown_share"), ("loop", "hours_total"), ("critics", "share"), ("critics", "orchestrator_tokens_out_per_round"),
+           ("governance", "hours"), ("governance", "manifest_commits_per_week"), ("governance", "edit_share"))   # EVOL-061
 
 
 def dig(d, *keys):
@@ -916,6 +934,9 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
              "| id | citations |", "|---|---|"] + [f"| {k} | {v} |" for k, v in c["by_id"].items()] +
             ["", "Pruning candidates (never cited in the window): " + (", ".join(c["pruning_candidates"]) or "none"),
              "", f"> {c['note']}"])
+    gv = r.get("governance") or {"unavailable": "not measured"}
+    section("Governance editing (EVOL-061)", gv, [] if "unavailable" in gv else
+            [f"edits on governance paths {gv['edits']} of {gv['edits_total']} (share **{_fmt(gv['edit_share'])}**) · hours {_fmt(gv['hours'])} · manifest commits {gv['manifest_commits'] if gv['manifest_commits'] is not None else '—'} ({_fmt(gv['manifest_commits_per_week'])} per week)", "", f"> {gv['definition']}"])
     rt = r.get("returns") or {"unavailable": "not measured"}
     section("Returns (every spawn, three channels)", rt, [] if "unavailable" in rt else
             [f"owed {rt['owed']} · collected direct {rt['collected']['direct']} / hand-back {rt['collected']['hand-back']} / notification {rt['collected']['notification']} · "
@@ -1232,6 +1253,11 @@ def selftest() -> int:
         expect(rt["avg_bytes"] is not None and rt["avg_bytes_adjudicated"] is not None and rt["avg_bytes_adjudicated"] < rt["avg_bytes"] and rt["informational"] >= 1, "bytes per return against bytes adjudicated, the informational count — the signals")
         expect("returns.avg_bytes_adjudicated" in compare(r, r) and "critics.orchestrator_tokens_out_per_round" in compare(r, r), "the EVOL-060 signals are in the before/after table")
         expect(r["critics"]["orchestrator_tokens_out_per_round"] == 12, "the orchestrator's output per critic round: the spawning sessions' output (62 on the fixture) over their five (session, round) pairs")
+        # EVOL-061: the cost of editing governance
+        gv = r["governance"]
+        expect(gv["edits_total"] == 2 and gv["edits"] == 0 and gv["edit_share"] == 0.0 and gv["hours"] == 0.0, "the fixture edits src/app.py twice and no governance path: share 0, hours 0")
+        expect("manifest_commits_per_week" in gv and "governance.hours" in compare(r, r) and "governance.manifest_commits_per_week" in compare(r, r), "the governance signals are in the before/after table")
+        expect("## Governance editing" in md, "the governance section renders")
         # pushes (EVOL-057): the push log first — both generations, the window by `end` — the trace as fallback
         ps = r["pushes"]
         expect(ps["source"].startswith("push log") and ps["total"] == 3 and ps["by_profile"]["full"] == {"pushes": 2, "seconds": 180.0} and ps["by_profile"]["light"] == {"pushes": 1, "seconds": 30.0} and ps["unknown_share"] == 0.0,
