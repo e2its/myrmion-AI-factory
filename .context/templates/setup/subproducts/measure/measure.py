@@ -397,7 +397,7 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
         rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
         out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype, repo), "round": rounds[atype],
                     "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None,
-                    "budget_source": "prompt" if s.budget else ("ceiling" if "critic" in agent_class(atype, repo) else "none"),
+                    "budget_source": "prompt" if s.budget else ("ceiling" if agent_class(atype, repo) in ("plan-critic", "work-critic", "reader") else "none"),   # every read-only class is held at the ceiling
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
                     "bytes_read": sum(b for _, b in s.reads),
                     "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
@@ -1050,6 +1050,11 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
            [_entry("assistant", ts(231 + i), message={"id": f"msg_long_{i}", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "turn"}]}) for i in range(61)]
     (tdir / session / "subagents" / "agent-b3.jsonl").write_text("\n".join(json.dumps(e) for e in sub5) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-b3.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 5"}), encoding="utf-8")
+    # a worker spawn: no budget line, no ceiling — its budget source is none (writers are not held at the ceiling)
+    sub6 = [_entry("user", ts(300), message={"role": "user", "content": "Implement the task."}),
+            _entry("assistant", ts(301), message={"id": "msg_w1", "role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "done"}]})]
+    (tdir / session / "subagents" / "agent-w1.jsonl").write_text("\n".join(json.dumps(e) for e in sub6) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-w1.meta.json").write_text(json.dumps({"agentType": "factory-dev-backend", "description": "work"}), encoding="utf-8")
     return tdir
 
 
@@ -1154,7 +1159,7 @@ def selftest() -> int:
         expect(agent_class("factory-dev-backend", root / "nope") == "worker" and roster_ceiling(root / "nope") is None and "no rule at" in _rule(root / "nope")[2], "a repo without the rule: the grammar is still the fallback, the ceiling is absent and the reason names the missing rule")
         expect(ag["c1"]["citations"] == {"LAW-04": 2}, "citations per agent")
         expect(ag["c1"]["turns"] == 1 and ag["a0"]["turns"] == 2 and ag["main"]["turns"] > 2, "turns per agent = the distinct message ids of its own transcript — a streamed message (two entries, one id) is one turn (EVOL-058)")
-        expect(ag["c1"]["budget"] == 3 and ag["a0"]["budget"] == 1 and ag["main"]["budget"] is None and ag["b1"]["budget"] is None and ag["b1"]["budget_source"] == "ceiling" and ag["c1"]["budget_source"] == "prompt", "the budget per spawn is the `turn budget:` line of its prompt; without the line the ceiling, and the row says which")
+        expect(ag["c1"]["budget"] == 3 and ag["a0"]["budget"] == 1 and ag["main"]["budget"] is None and ag["b1"]["budget"] is None and ag["b1"]["budget_source"] == "ceiling" and ag["c1"]["budget_source"] == "prompt" and ag["w1"]["budget_source"] == "none", "the budget per spawn is the `turn budget:` line of its prompt; without the line the ceiling for a read-only class, none for a writer, and the row says which")
         cr = r["critics"]
         expect(cr["ceiling"] == 60 and cr["of"] == 5 and cr["inside_budget"] == 2 and cr["share"] == 0.4 and cr["by_round"] == {"1": {"of": 1, "inside": 1}, "2": {"of": 1, "inside": 0}, "3": {"of": 1, "inside": 1}, "4": {"of": 1, "inside": 0}, "5": {"of": 1, "inside": 0}},
                "critics inside their own budget per round — over the budget its prompt stated is outside whatever the ceiling; no budget line is judged against the ceiling (one turn inside, sixty-one outside); no turn at all is never inside")
