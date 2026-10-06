@@ -165,7 +165,7 @@ FUNCTION run_code_review(mode, args, profile):
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
   models = { "correctness": return_model(reports) }               # the id the returns carry (EVOL-059) — recorded in the marker
-  IF "code-reviewer" NOT IN not_delivered: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger — an undelivered critic ran on no model, its `unknown` never overwrites the last real id
+  IF any report delivered: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {return_model(delivered reports)}")   # the model the lens last ran on: the canary's trigger — every critic of the round spawns on the same resolved model; an undelivered one ran on none, its `unknown` never overwrites the last real id
   RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user
 ```
 
