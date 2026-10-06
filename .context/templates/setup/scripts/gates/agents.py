@@ -146,6 +146,8 @@ def policy(repo: Path) -> dict:
         raise GateFault("config/quality.json → agents.families must name the `writer` and `critic` model aliases (SETUP Q34)")
     a = dict(a); a["families"] = {k: str(v) for k, v in fam.items()}
     a.setdefault("roster", []); a.setdefault("spawn_sites", []); a.setdefault("resolve", []); a.setdefault("ladder", {}); a.setdefault("tiers", {}); a.setdefault("rounds", {})
+    if not isinstance(a["roster"], list):   # a bare `roster:` reads as null — not a roster; said here once for every consumer (validate, digest, spawn, the canary)
+        raise GateFault(f"{p.relative_to(repo)} → agents.roster is not a list (a bare `roster:` is null) — the roster names the agents, one entry per line")
     a["_path"] = str(p.relative_to(repo))
     return a
 
@@ -392,11 +394,10 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
         from . import canary as canary_mod
         lens = str(surface or "").lower()
         try:
-            p = canary_mod.plan(repo)
-            if not p["fixture_ok"]:   # a fixture the judge would refuse owes nothing: the fault is said here, before a spawn is wasted on it
-                out["canary_owed"] = []; out["canary_fault"] = "the fixture is inconsistent under this project's policy (gate.py canary --check names it) — no lens is owed until it is cured"
-            else:
-                out["canary_owed"] = [x for x in p["owed"] if not lens or x == lens]
+            p = canary_mod.plan(repo)   # the one definition of "owed": a fixture the judge would refuse owes nothing and names its fault
+            out["canary_owed"] = [x for x in p["owed"] if not lens or x == lens]
+            if p.get("fault"):
+                out["canary_fault"] = p["fault"]
         except GateFault as e:   # a canary fault never stops a spawn (a red canary never blocks either): said, not raised
             out["canary_owed"] = []; out["canary_fault"] = str(e)
     return out

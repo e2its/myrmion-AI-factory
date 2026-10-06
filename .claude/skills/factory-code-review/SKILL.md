@@ -123,7 +123,7 @@ FUNCTION run_code_review(mode, args, profile):
     rep = SPAWN(subagent_type = "factory-critic-correctness", model = res.model, prompt = budget lines + body_of("agents/code-reviewer.md") + { diff: a scratch file OUTSIDE the tree holding RUN("python3 scripts/gate.py canary --fixture") })
     IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
     verdict = RUN("python3 scripts/gate.py canary --judge --lens correctness --model {return_model(rep)}", rep)   # every verdict is posted on the tracking item (the backlog adapter); a red one opens the RDR on the spawn policy; the round still runs
-  # a non-zero exit of --plan or --judge (exit 2: a malformed record, an inconsistent fixture) is a canary FAULT, not a verdict: say it to the user, continue the round — the canary never blocks
+  # exit 2 of --plan (a malformed record; an inconsistent fixture — owed is empty, the cause named) or of --judge is a canary FAULT, not a verdict: say it to the user, continue the round — the canary never blocks
   before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")   # on-disk bytes; non-zero exit ⇒ { ok: false, reason: "tree-unhashable" }, NO marker
   # ONE sub-agent per roster entry, in parallel. The runtime decides actual
   # concurrency — this skill never asserts a number.
@@ -165,7 +165,7 @@ FUNCTION run_code_review(mode, args, profile):
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
   models = { "correctness": return_model(reports) }               # the id the returns carry (EVOL-059) — recorded in the marker
-  RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger
+  IF "code-reviewer" NOT IN not_delivered: RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")   # the model the lens last ran on: the canary's trigger — an undelivered critic ran on no model, its `unknown` never overwrites the last real id
   RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user
 ```
 

@@ -248,7 +248,7 @@ def consistency(repo: Path | None = None) -> list[str]:
         try:
             tol = tolerance(repo)
         except GateFault as e:
-            problems.append(str(e))
+            problems.append("rules/agents.md: " + str(e))
     if lowest_diff_line <= bound + tol:
         problems.append(f"the diff text's lines of the anchored files start at {lowest_diff_line}, within reach of the new file's numbering (to {bound}, tolerance to {bound + tol}) — lead the diff with a longer filler or lower agents.canary.line_tolerance")
     # the tolerance reaches no two planted defects of one lens at once: one finding between two anchors of the same file
@@ -259,20 +259,16 @@ def consistency(repo: Path | None = None) -> list[str]:
                 for f, n in a["at"]:
                     for f2, n2 in b["at"]:
                         if f == f2 and n != n2 and 2 * tol >= abs(n - n2):
-                            problems.append(f"agents.canary.line_tolerance {tol} reaches two planted defects of the {lens} lens at once ({f}: {n} and {n2} are {abs(n - n2)} apart) — keep it under {abs(n - n2) / 2:g}")
+                            problems.append(f"rules/agents.md: agents.canary.line_tolerance {tol} reaches two planted defects of the {lens} lens at once ({f}: {n} and {n2} are {abs(n - n2)} apart) — keep it under {abs(n - n2) / 2:g}")
     if repo is not None:
         from . import agents as agents_mod
         try:
-            roster = agents_mod.policy(repo).get("roster")
-            if not isinstance(roster, list):
-                problems.append("agents.roster is not a list in rules/agents.md — the lenses' agents cannot be checked")
-            else:
-                names = {r.get("name") for r in roster if isinstance(r, dict)}
-                for lens, agent in LENS_AGENT.items():
-                    if agent not in names:
-                        problems.append(f"lens {lens}: its agent {agent} is not in the roster of rules/agents.md")
+            names = {r.get("name") for r in agents_mod.policy(repo)["roster"] if isinstance(r, dict)}   # the reader holds the roster to a list
+            for lens, agent in LENS_AGENT.items():
+                if agent not in names:
+                    problems.append(f"rules/agents.md: lens {lens}: its agent {agent} is not in the roster")
         except GateFault as e:
-            problems.append(str(e))
+            problems.append("rules/agents.md: " + str(e))
     return problems
 
 
@@ -354,7 +350,7 @@ def judge(repo: Path, lens: str, text: str, model: str) -> dict:
     if not all_findings and not agents_mod.NO_FINDINGS.search(text or ""):   # the contract's one regex (agents --check-return reads the same)
         raise GateFault("the return carries no finding in the contract shape and no `no findings` line — hold it to the contract (gate.py agents --check-return) before judging; a formatting fault is not model drift")
     def _key(f: str) -> str:   # the fixture's own path for the one the critic wrote: exact, or by its tail (an absolute or prefixed path still names the file)
-        return next((p for p in positions if f == p or f.endswith("/" + p)), f)
+        return f if f in positions else next((p for p in positions if f.endswith("/" + p)), f)   # exact first, then the tail
     got = [(_key(f), {n, positions.get(_key(f), {}).get(n, n)}) for f, n, sev in all_findings if sev in SEVERITY_ABOVE_INFO]   # one finding, both readings: the new file's line, or the diff text's mapped to it
     found, missed = [], []
     for it in EXPECTED[lens]:
@@ -378,7 +374,10 @@ def seen(repo: Path, lens: str, model: str) -> dict:
 
 
 def plan(repo: Path, all_: bool = False) -> dict:
+    """The lenses owed a canary. One definition: on a fixture the judge would refuse, nothing is owed and the fault is
+    named (`fault`) — the spawn reader and both spawn sites read this, never a second reading."""
     d = read_record(repo)
+    broken = consistency(repo)
     owed, lenses = [], {}
     for lens in LENSES:
         j, s = d["judged"].get(lens) or {}, d["seen"].get(lens) or {}
@@ -394,9 +393,12 @@ def plan(repo: Path, all_: bool = False) -> dict:
         else:
             why = ""
         lenses[lens] = {"agent": LENS_AGENT[lens], "judged_on": judged, "last_ran_on": current, "missed": j.get("missed"), "reason": why or "judged on the model it last ran on"}
-        if why:
+        if why and not broken:
             owed.append(lens)
-    return {"owed": owed, "lenses": lenses, "fixture_ok": not consistency(repo)}
+    out = {"owed": owed, "lenses": lenses, "fixture_ok": not broken}
+    if broken:
+        out["fault"] = "the fixture is inconsistent under this project's policy — no lens is owed until it is cured; gate.py canary --check names it: " + broken[0]
+    return out
 
 
 def render_plan(r: dict) -> str:
@@ -404,8 +406,8 @@ def render_plan(r: dict) -> str:
     for lens, v in r["lenses"].items():
         lines.append(f"  {'→' if lens in r['owed'] else '·'} {lens} ({v['agent']}): judged on {v['judged_on'] or '—'} · last ran on {v['last_ran_on'] or '—'}"
                      + (f" · missed {', '.join(v['missed'])}" if v.get("missed") else "") + f" — {v['reason']}")
-    if not r["fixture_ok"]:
-        lines.append("  ✗ the fixture is inconsistent — gate.py canary --check names it")
+    if r.get("fault"):
+        lines.append("  ✗ " + r["fault"])
     if r["owed"]:
         lines.append("  run: for each owed lens — gate.py agents --resolve --class work-critic, the fixture (gate.py canary --fixture) as the diff, the return "
                      "check, then gate.py canary --judge --lens <lens> --model <the return's Model: line>; post the verdict on the tracking item; a red canary opens the spawn policy's review by RDR")

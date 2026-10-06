@@ -384,14 +384,14 @@ def cmd_canary(repo, a):
         return 0
     if a.check:
         f = canary_mod.consistency(repo)
-        print(coherence.render("canary", [{"path": "scripts/gates/canary.py", "reason": x} for x in f], "the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the two coordinate spaces never overlap, the tolerance reaches no two planted defects of one lens, every lens has its roster agent"))
+        print(coherence.render("canary", [{"path": "rules/agents.md" if x.startswith("rules/agents.md: ") else "scripts/gates/canary.py", "reason": x.removeprefix("rules/agents.md: ")} for x in f], "the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the two coordinate spaces never overlap, the tolerance reaches no two planted defects of one lens, every lens has its roster agent"))
         return 1 if f else 0
     if a.judge:
         r = canary_mod.judge(repo, a.lens, sys.stdin.read(), a.model)
         print(json.dumps(r) if a.json else canary_mod.render_judge(r))
         return 0 if r["ok"] else 1
     if a.seen:
-        if not a.model:
+        if not (a.model or "").strip():
             raise GateFault("--seen needs --model: the id the critic's return carries on its `Model:` line — pass `unknown` when the harness stated none, never nothing (an absent flag would erase the last real id)")
         r = canary_mod.seen(repo, a.lens, a.model)
         print(json.dumps(r) if a.json else f"canary: {r['lens']} last ran on {r['model']}")
@@ -400,7 +400,7 @@ def cmd_canary(repo, a):
         print(json.dumps(canary_mod.read_record(repo), indent=1)); return 0
     r = canary_mod.plan(repo, a.all)
     print(json.dumps(r) if a.json else canary_mod.render_plan(r))
-    return 0
+    return 2 if r.get("fault") else 0   # an inconsistent fixture is a fault (2), never a plan: nothing is owed, the cause is named
 
 
 def cmd_push_log(repo, a):
