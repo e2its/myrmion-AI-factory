@@ -155,12 +155,13 @@ CLAUDE.md                              # root governance, always loaded
 │   ├── factory-pr-review/                 # the seven-axis push gate
 │   ├── factory-mcp-docs-scan/             # [LAW-10] the documentation allowlist
 │   └── … 16 more
-├── hooks/                             # 11 enforcement hooks, wired in settings.json
+├── hooks/                             # 12 enforcement hooks, wired in settings.json
 │   ├── check-branch-protection.sh     # no write on a protected branch
 │   ├── check-plan-approval.sh         # no governed write without a plan (EVOL-048)
 │   ├── check-plan-mode.sh             # a planning command never enters plan mode
 │   ├── record-plan-approval.sh        # the only writer of the approval marker
 │   ├── check-agent-spawn.sh           # a roster agent spawns on its family (EVOL-049)
+│   ├── session-handoff.sh             # a fresh session per sub-increment: the Stop hook records the hand-off, never holds (EVOL-062)
 │   ├── deliver-governance.sh          # the law of the file being written, at the edit
 │   ├── check-push-preflight.sh        # the push gate (factory-pr-review)
 │   ├── check-concurrency-lock.sh · check-governance-drift.sh

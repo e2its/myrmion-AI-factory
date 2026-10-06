@@ -47,6 +47,12 @@ WRITE_TOOLS = {"edit", "write", "notebookedit", "multiedit", "bash", "agent", "t
 EFFORTS = ("low", "medium", "high", "max")
 TIERS = ("small", "medium", "large")                        # EVOL-058: every tier declares its budgets
 BUDGET_KEYS = ("turn_budget", "probe_budget")
+WORKER_CAP_KEY = "worker_turn_cap"           # EVOL-062: the harness's hard stop on a worker — every worker definition's maxTurns; the resolver hands it
+RESULT_KB_KEY = "context_result_max_kb"      # EVOL-062: a tool result above it goes to a file and the tail is read; the instrument counts the raw ones
+CONTEXT_KEYS = {WORKER_CAP_KEY: "the harness's hard stop on a worker (every worker definition declares maxTurns equal to it; the resolver hands turn_cap)",
+                RESULT_KB_KEY: "the size in KB above which a tool result goes to a file and the tail is read (the instrument counts the raw ones)"}
+HANDOFF_HEADING = re.compile(r"^\s*##\s*Hand-off\b.*$", re.M)   # EVOL-062: the worker's hand-off — what the register learns from its return
+HANDOFF_LINES = ("Done:", "Remaining:", "State:")
 
 
 def _posint(v) -> bool:
@@ -190,7 +196,7 @@ def _class_writes(c: dict) -> bool:
     return bool({_norm(t) for t in c["tools"]["must"]} & WRITE_TOOLS)
 
 
-def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, roster_class: str | None = None, ceiling: int | None = None) -> None:
+def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, roster_class: str | None = None, ceiling: int | None = None, worker_cap: int | None = None) -> None:
     """One definition against its class: name = file, description, class agreement, the tool matrix, no model, effort,
     budget, pointers; a read-only roster definition declares the harness's hard stop (`maxTurns` = the large tier's
     turn_budget, EVOL-058). Appends findings."""
@@ -238,8 +244,11 @@ def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, 
         f.append({"path": rel, "reason": f"`effort: {eff or '(none)'}` — every definition declares one of {', '.join(EFFORTS)} (the harness default; the resolver's effort overrides it per spawn)"})
     mt = fv("maxTurns")
     if _class_writes(c):
-        if mt:
-            f.append({"path": rel, "reason": "`maxTurns` on a definition that writes — a writer's turns are not capped by a definition field (the writer cap is a policy key of its own, not this one)"})
+        if cls == "worker" and roster_class is not None:   # EVOL-062: the cap is the harness's hard stop on every worker — the orchestrator hands off at the partial return
+            if worker_cap is not None and not (mt.isdecimal() and int(mt) == worker_cap):
+                f.append({"path": rel, "reason": f"`maxTurns: {mt or '(none)'}` — a worker definition declares the harness's hard stop equal to agents.worker_turn_cap ({worker_cap}); the orchestrator hands off at a partial return (EVOL-062)"})
+        elif mt:
+            f.append({"path": rel, "reason": "`maxTurns` on a definition that writes — only the worker class is capped, by agents.worker_turn_cap (EVOL-062); a phase definition declares none"})
     elif roster_class is not None and ceiling is not None and not (mt.isdecimal() and int(mt) == ceiling):
         f.append({"path": rel, "reason": f"`maxTurns: {mt or '(none)'}` — a read-only definition declares the harness's hard stop, equal to the large tier's turn_budget ({ceiling}); the per-tier budget travels at the spawn (EVOL-058)"})
     text = p.read_text(encoding="utf-8", errors="replace")
@@ -288,6 +297,10 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
             if not _posint(row.get(k)):
                 f.append({"path": rule, "reason": f"agents.tiers.{t}.{k} must be a positive integer — a critic's budget is a key the orchestrator enforces, never a sentence in a prompt (EVOL-058)"})
     ceiling = budgets(pol, "large").get("turn_budget")
+    for k, what in CONTEXT_KEYS.items():   # EVOL-062: the context diet's two digits are keys
+        if not _posint(pol.get(k)):
+            f.append({"path": rule, "reason": f"agents.{k} must be a positive integer — {what} (EVOL-062)"})
+    worker_cap = int(pol[WORKER_CAP_KEY]) if _posint(pol.get(WORKER_CAP_KEY)) else None
     # roster ↔ definitions ↔ manifest
     files = roster_files(repo)
     roster = {r["name"]: r for r in pol["roster"] if isinstance(r, dict) and r.get("name")}
@@ -317,7 +330,7 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
             if not c:
                 continue
             _check_definition(repo, p, cls, c, f); continue
-        _check_definition(repo, p, cls, c, f, roster_class=cls, ceiling=ceiling)
+        _check_definition(repo, p, cls, c, f, roster_class=cls, ceiling=ceiling, worker_cap=worker_cap)
     # vendored engine lenses: prompts a rostered critic runs — their frontmatter may not lie about the matrix
     eng = repo / ENGINE_AGENTS
     for p in (sorted(eng.glob("*.md")) if eng.is_dir() else []):
@@ -411,6 +424,10 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
     if not _class_writes(c) and len(b) != len(BUDGET_KEYS):   # a read-only class is spawned under its budgets; a writer's cap is a key of its own
         raise GateFault(f"agents.tiers.{t if t in TIERS else 'large'} lacks turn_budget / probe_budget — a critic's budget is a key (EVOL-058); gate.py agents names it")
     out = {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched, **b}
+    if cls == "worker":   # EVOL-062: a worker is spawned under its cap — the spawn prompt opens with `turn cap:`
+        if not _posint(pol.get(WORKER_CAP_KEY)):
+            raise GateFault(f"agents.{WORKER_CAP_KEY} is not a positive integer — a worker is spawned under its cap (EVOL-062); gate.py agents names it")
+        out["turn_cap"] = int(pol[WORKER_CAP_KEY])
     if cls == "work-critic":   # EVOL-059: the canary's trigger rides on every work-critic spawn — the lens whose model moved is named here
         from . import canary as canary_mod
         lens = str(surface or "").lower()
@@ -542,6 +559,20 @@ def check_return(text: str, cls: str) -> list[str]:
             problems.append(f"missing `{k}`")
     if cls == "reader":
         _check_reader(text, problems)
+    if cls == "worker":   # EVOL-062: the hand-off — the register is ticked from it, so a return without it is refused before the register is touched
+        m = HANDOFF_HEADING.search(text or "")
+        if not m:
+            problems.append("no `## Hand-off` block — a worker ends its work with `Done:`, `Remaining:` (the task ids left, or exactly `none`) and `State:` (the files touched, the red test still red, the next step); the register is ticked from it (EVOL-062)")
+        else:
+            block = text[m.end():]
+            g = GOV_HEADING.search(block)
+            block = block[:g.start()] if g else block
+            for k in HANDOFF_LINES:
+                mm = re.search(r"^[ \t]*(?:[-*][ \t]+)?(?:\*\*)?" + re.escape(k) + r"(?:\*\*)?[ \t]*(?P<v>.*?)[ \t]*$", block, re.M)   # one line: blanks never cross into the next line's text
+                if not mm:
+                    problems.append(f"`## Hand-off` without its `{k}` line (EVOL-062)")
+                elif not (v := mm.group("v").strip()) or PLACEHOLDER.match(v) or (TRIVIAL_PROBE.match(v) and v.lower() != "none"):   # `none` is the one trivial word allowed: nothing remains
+                    problems.append(f"`{k}` is empty — `none` when nothing remains, never blank nor the contract's placeholder (EVOL-062)")
     if "critic" in cls:
         m = MODEL_LINE.search(governance_block(text))   # the governance block's line (the contract part's), not a `Model:` anywhere in the findings or the appendix
         if not m:

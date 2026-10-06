@@ -394,6 +394,43 @@ OUT=$(run_pc); RC=$?
 mv "$SANDBOX/gate.py.bak" "$REPO/scripts/gate.py"
 git -C "$REPO" checkout -q feature/FEAT-001-x
 
+echo "── session-handoff · a fresh session per sub-increment: the Stop hook records, never holds (EVOL-062) ──"
+git -C "$REPO" add -A >/dev/null 2>&1; git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m "feat(FEAT-009): sandbox" >/dev/null 2>&1 || true
+git -C "$REPO" checkout -q -b feature/FEAT-009-inc-1-h-sub-1
+echo "w" > "$REPO/work.txt"; git -C "$REPO" add work.txt; git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m "feat(FEAT-009): w"
+echo "w2" >> "$REPO/work.txt"   # an uncommitted change to a tracked file: open
+rm -f "$REPO/.claude/state/handoff.json"
+run_hook session-handoff.sh '{"session_id":"s1","stop_hook_active":false}'
+assert_pass "on a sub-increment with uncommitted work: exit 0 — a stop is never held"
+python3 - "$REPO/.claude/state/handoff.json" <<'PY' 2>/dev/null && ok "the record names the branch, its train, open (not clean, not pushed)" || bad "hand-off record wrong or missing" "$(cat "$REPO/.claude/state/handoff.json" 2>/dev/null)"
+import json, sys; d = json.load(open(sys.argv[1]))
+assert d["branch"] == "feature/FEAT-009-inc-1-h-sub-1" and d["train"] == "feature/FEAT-009-inc-1-h" and d["clean"] is False and d["pushed"] is False and d["closed"] is False and d["head"] and d["at"]
+PY
+printf '%s' "$OUT" | grep -q 'open at' && ok "the line says open" || bad "line wrong: $OUT"
+git -C "$REPO" add work.txt; git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m "feat(FEAT-009): w2"
+git init -q --bare "$SANDBOX/handoff-remote.git"; git -C "$REPO" remote add handoff "$SANDBOX/handoff-remote.git"
+git -C "$REPO" -c core.hooksPath=/dev/null push -q -u handoff feature/FEAT-009-inc-1-h-sub-1 2>/dev/null
+run_hook session-handoff.sh '{"session_id":"s1"}'
+assert_pass "on a closed sub-increment (pushed, clean): exit 0"
+python3 - "$REPO/.claude/state/handoff.json" <<'PY' 2>/dev/null && ok "the record says closed: clean and pushed" || bad "closed record wrong" "$(cat "$REPO/.claude/state/handoff.json" 2>/dev/null)"
+import json, sys; d = json.load(open(sys.argv[1])); assert d["clean"] is True and d["pushed"] is True and d["closed"] is True
+PY
+printf '%s' "$OUT" | grep -q 'closed at' && ok "the line says closed — the next sub-increment starts in a fresh session" || bad "closed line wrong: $OUT"
+git -C "$REPO" checkout -q feature/FEAT-001-x; rm -f "$REPO/.claude/state/handoff.json"
+run_hook session-handoff.sh '{"session_id":"s1"}'
+assert_pass "on a feature branch: exit 0"
+[ ! -f "$REPO/.claude/state/handoff.json" ] && [ -z "$OUT" ] && ok "outside a sub-increment nothing is recorded, nothing said" || bad "spurious hand-off outside a sub-increment" "$OUT"
+run_hook session-handoff.sh '{not json'
+assert_pass "an unreadable payload: exit 0 (the payload decides nothing)"
+for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/settings.json"; do
+  python3 - "$sj" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))["hooks"]
+assert [h["command"] for g in d.get("Stop", []) for h in g["hooks"]] == ["bash .claude/hooks/session-handoff.sh"], "session-handoff not wired on Stop"
+PY
+  [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json wires session-handoff on Stop" || bad "Stop hook not wired in $sj"
+done
+
 echo "── channel audit over every shipped hook ──"
 for h in "$HOOKS"/*.sh; do
   n=$(basename "$h")

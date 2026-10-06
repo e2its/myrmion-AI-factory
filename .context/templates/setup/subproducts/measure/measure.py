@@ -20,6 +20,9 @@ the git log and the per-feature worklog, and reports for a time window:
   critics      critics delivered inside their budget (EVOL-058): turns per sub-agent (distinct message ids) against the
                `turn budget:` line of its spawn prompt (the policy's large-tier turn_budget — the maxTurns every
                read-only definition declares — when the prompt carries none)
+  context      the context diet (EVOL-062): tokens de-duplicated per message id (output, cache-read, cache-creation per
+               spawn and per session), the median context per main session, the cache per spawn by turn bucket and
+               class, the raw tool results above `agents.context_result_max_kb` of the rule
 
 Nothing leaves the machine. A missing data source degrades that section to
 `unavailable: <reason>`; it never fails the report. Exit 0 report written · 2 the tool
@@ -146,8 +149,11 @@ class Session:
         self.reviews: collections.Counter = collections.Counter()   # branch → review invocations
         self.text_blocks: list[str] = []
         self.models: collections.Counter = collections.Counter()
-        self.tokens = {"input": 0, "output": 0}
+        self.tokens = {"input": 0, "output": 0, "cache_read": 0, "cache_create": 0}
         self._msg_ids: set = set()
+        self._usage_ids: set = set()              # EVOL-062: a message's usage is counted once, whatever the entries that repeat it
+        self.contexts: list[int] = []             # per message: input + cache-read + cache-creation — what the turn re-sent
+        self.results: list[int] = []              # bytes of every tool result that entered this context raw
         self.turns = 0                            # distinct assistant message ids — a streamed message repeats its id across entries (EVOL-058)
         self.budget = None                        # the `turn budget:` line of this agent's spawn prompt (its first user entry)
         self.spawns: dict[str, dict] = {}         # tool_use id → {type, branch, background, channels: {direct, hand-back, notification}}
@@ -203,9 +209,12 @@ class Session:
         if model and not str(model).startswith("<"):
             self.models[model] += 1
         usage = msg.get("usage") or {}
-        self.tokens["input"] += int(usage.get("input_tokens") or 0) + int(usage.get("cache_read_input_tokens") or 0) \
-            + int(usage.get("cache_creation_input_tokens") or 0)
-        self.tokens["output"] += int(usage.get("output_tokens") or 0)
+        if usage and mid not in self._usage_ids:   # EVOL-062: de-duplicated per message id — a streamed message repeats its usage on every entry (summing records inflated by ~2.2× downstream)
+            self._usage_ids.add(mid)
+            inp, cr, cc = (int(usage.get(k) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+            self.tokens["input"] += inp + cr + cc; self.tokens["cache_read"] += cr; self.tokens["cache_create"] += cc
+            self.tokens["output"] += int(usage.get("output_tokens") or 0)
+            self.contexts.append(inp + cr + cc)
         text = assistant_text(msg)
         if text:
             self.text_blocks.append(text)
@@ -258,6 +267,7 @@ class Session:
             return
         seconds = max(0.0, (ts - use["ts"]).total_seconds()) if use["ts"] else 0.0
         self.tool_durations.append((use["name"], use["input"], seconds, use["branch"]))
+        self.results.append(text_len(c.get("content")))   # EVOL-062: what entered the context raw
         if use["name"] == "Read" and use["input"].get("file_path"):
             self.reads.append((use["input"]["file_path"], text_len(c.get("content"))))
         elif use["name"] == "Bash":
@@ -324,7 +334,7 @@ def _profile_from_text(text: str) -> str:
     m = BANNER_RE.search(text or "")
     return m.group(1) if m else "unknown"
 
-_RULE: dict[str, tuple[dict, int | None, str]] = {}   # per repo: (name → class, the ceiling, why the ceiling is absent) — read once
+_RULE: dict[str, tuple[dict, int | None, str, int | None]] = {}   # per repo: (name → class, the ceiling, why the ceiling is absent, context_result_max_kb) — read once
 
 
 def _rule(repo: Path) -> tuple[dict, int | None, str]:
@@ -342,8 +352,26 @@ def _rule(repo: Path) -> tuple[dict, int | None, str]:
         m = re.search(r"^\s*large:\s*\{[^}]*\bturn_budget:\s*(\d+)", text, re.M)   # the ceiling every read-only definition declares (EVOL-058)
         if not m and not why:
             why = "no turn_budget on the large tier of the rule's frontmatter (read in flow form: `large: {…, turn_budget: N}`)"
-        _RULE[k] = (roster, int(m.group(1)) if m else None, why)
+        kb = re.search(r"^\s*context_result_max_kb:\s*(\d+)\s*(?:#.*)?$", text, re.M)   # EVOL-062: the size above which a tool result goes to a file
+        _RULE[k] = (roster, int(m.group(1)) if m else None, why, int(kb.group(1)) if kb else None)
     return _RULE[k]
+
+
+def result_threshold_kb(repo: Path):
+    return _rule(repo)[3]
+
+
+def _median(xs: list):
+    """The median of a list of numbers, an integer; None when there is nothing to take it over."""
+    xs = sorted(x for x in xs if isinstance(x, (int, float)))
+    if not xs:
+        return None
+    n = len(xs); mid = n // 2
+    return int(xs[mid]) if n % 2 else int((xs[mid - 1] + xs[mid]) / 2)
+
+
+def _over(results: list, kb) -> int | None:
+    return None if kb is None else sum(1 for n in results if n > int(kb) * 1024)
 
 
 def roster_classes(repo: Path) -> dict[str, str]:
@@ -391,6 +419,7 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
         loaded.append((f, meta, s))
     out = []
     rounds: dict[str, int] = {}
+    kb = result_threshold_kb(repo) if repo is not None else None   # EVOL-062
     # spawn order = first timestamp, never the file name (agent ids are not chronological)
     for f, meta, s in sorted(loaded, key=lambda t: (t[2].first_ts or dt.datetime.min.replace(tzinfo=dt.timezone.utc), t[0].name)):
         atype = meta.get("agentType") or "?"
@@ -399,6 +428,7 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
                     "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None,
                     "budget_source": "prompt" if s.budget else ("ceiling" if agent_class(atype, repo) in ("plan-critic", "work-critic", "reader") else "none"),   # every read-only class is held at the ceiling
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
+                    "cache_read": s.tokens["cache_read"], "cache_create": s.tokens["cache_create"], "context_median": _median(s.contexts), "raw_results_over": _over(s.results, kb),   # EVOL-062
                     "bytes_read": sum(b for _, b in s.reads),
                     "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
                     "citations": count_ids("\n".join(s.text_blocks))})
@@ -684,7 +714,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
         why = "no transcript data in window"
         report.update({"gates": {"unavailable": why}, "branches": {"unavailable": why},
                        "governance_bytes": {"unavailable": why}, "agents": {"unavailable": why},
-                       "citations": {"unavailable": why}, "returns": {"unavailable": why}, "critics": {"unavailable": why}})
+                       "citations": {"unavailable": why}, "returns": {"unavailable": why}, "critics": {"unavailable": why}, "context": {"unavailable": why}})
         report["rework"] = {"git": rework_git, "edits": {"unavailable": why}}
         return report
 
@@ -788,12 +818,15 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
                                                 "read = tool-result bytes of Read (or cat/sed/head through Bash) on governance paths"}
 
     # agents (main sessions + subagents)
+    kb = result_threshold_kb(repo) if repo is not None else None   # EVOL-062
     rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models), "turns": s.turns, "budget": None, "budget_source": "none",
              "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
+             "cache_read": s.tokens["cache_read"], "cache_create": s.tokens["cache_create"], "context_median": _median(s.contexts), "raw_results_over": _over(s.results, kb),   # EVOL-062
              "bytes_read": sum(b for _, b in s.reads),
              "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
              "citations": count_ids("\n".join(s.text_blocks))} for s in sessions] + agents
     report["agents"] = rows
+    report["context"] = context_report(rows, cfg, kb, _rule(repo)[2] if repo is not None else "no repository")   # EVOL-062
     # critics inside their budget (EVOL-058)
     ceiling = roster_ceiling(repo) if repo is not None else None
     critics = [a for a in agents if "critic" in str(a.get("class", ""))]
@@ -828,6 +861,32 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
     return report
 
 
+def context_report(rows: list, cfg: dict, kb, rule_reason: str) -> dict:
+    """EVOL-062: what the context costs — tokens de-duplicated per message id, the median context per main session, the cache
+    per spawn by turn bucket and roster class, the raw tool results above the key. The rows are the agents table's."""
+    bucket = int(cfg.get("turn_bucket") or 40)
+    mains = [a for a in rows if a.get("type") == "main"]; spawns = [a for a in rows if a.get("type") != "main"]
+    by: dict[str, dict[str, list[int]]] = {}
+    for a in spawns:
+        lo = (int(a.get("turns") or 0) // bucket) * bucket
+        by.setdefault(f"{lo}-{lo + bucket - 1}", {}).setdefault(str(a.get("class") or "?"), []).append(int(a.get("cache_read") or 0) + int(a.get("cache_create") or 0))
+    buckets = {k: {c: {"spawns": len(v), "cache_median": _median(v)} for c, v in sorted(d.items())} for k, d in sorted(by.items(), key=lambda kv: int(kv[0].split("-")[0]))}
+    writers = [int(a.get("cache_read") or 0) + int(a.get("cache_create") or 0) for a in spawns if a.get("class") in ("worker", "phase")]
+    tot = {k: sum(int(a.get(k) or 0) for a in rows) for k in ("tokens_out", "cache_read", "cache_create")}
+    return {"median_context_tokens": _median([a["context_median"] for a in mains if a.get("context_median") is not None]),
+            "per_session": {a["session"]: {"median_context_tokens": a.get("context_median"), "raw_results_over_threshold": a.get("raw_results_over")} for a in mains},
+            "writer_cache_per_spawn_median": _median(writers), "writer_spawns": len(writers),
+            "tokens": {"output": tot["tokens_out"], "cache_read": tot["cache_read"], "cache_create": tot["cache_create"]},
+            "cache_by_turn_bucket": buckets, "turn_bucket": bucket, "threshold_kb": kb,
+            "raw_results_over_threshold": (sum(int(a.get("raw_results_over") or 0) for a in rows) if kb is not None else None),
+            "threshold_source": (".claude/rules/agents.md → agents.context_result_max_kb" if kb is not None else
+                                 "unavailable: no context_result_max_kb in the rule's frontmatter (EVOL-062 — the key)" + (f" — {rule_reason}" if rule_reason else "")),
+            "definition": "usage counted once per assistant message id (a streamed message repeats it on every entry); a message's context = input + cache-read + "
+                          "cache-creation; median_context_tokens = the median over the main sessions of each session's median; a spawn's cache = cache-read + cache-creation "
+                          "of its own transcript, bucketed by its turns (turn_bucket) and its roster class; writer = class worker or phase; a raw result = a tool result above "
+                          "context_result_max_kb KB that entered a context as it was (main sessions and spawns) — None without the key"}
+
+
 def _is_governance(file_path: str, repo: Path, gov_paths) -> bool:
     p = file_path
     try:
@@ -844,7 +903,8 @@ SCALARS = (("gates", "share"), ("branches", "avg_commits"), ("branches", "avg_re
            ("governance_bytes", "delivered_to_model"), ("governance_bytes", "read_by_agents"),
            ("returns", "uncollected_share"), ("returns", "avg_bytes"), ("returns", "avg_bytes_adjudicated"), ("returns", "informational"),   # EVOL-060
            ("pushes", "unknown_share"), ("loop", "hours_total"), ("critics", "share"), ("critics", "orchestrator_tokens_out_per_round"),
-           ("governance", "hours"), ("governance", "manifest_commits_per_week"), ("governance", "edit_share"))   # EVOL-061
+           ("governance", "hours"), ("governance", "manifest_commits_per_week"), ("governance", "edit_share"),   # EVOL-061
+           ("context", "median_context_tokens"), ("context", "writer_cache_per_spawn_median"), ("context", "raw_results_over_threshold"))   # EVOL-062
 
 
 def dig(d, *keys):
@@ -924,10 +984,17 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
             [f"| {k} | {v['fired']} | {v['emitted']:,} | {v['delivered']:,} | {v['truncated']} | {v['undelivered']} |" for k, v in gb["by_hook"].items()])
     ag = r["agents"]
     section("Agents", ag if isinstance(ag, dict) else {}, [] if isinstance(ag, dict) else
-            ["| session | agent | type | class | round | model | turns | budget | tokens in | tokens out | bytes read | seconds | citations |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"] +
-            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {a['model']} | {a.get('turns', 0)} | {_fmt(a.get('budget'))} | {a['tokens_in']:,} | {a['tokens_out']:,} | "
+            ["| session | agent | type | class | round | model | turns | budget | tokens in | tokens out | cache | bytes read | seconds | citations |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"] +
+            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {a['model']} | {a.get('turns', 0)} | {_fmt(a.get('budget'))} | {a['tokens_in']:,} | {a['tokens_out']:,} | {int(a.get('cache_read') or 0) + int(a.get('cache_create') or 0):,} | "
              f"{a['bytes_read']:,} | {_fmt(a['duration_s'])} | {sum(a['citations'].values())} |" for a in ag])
+    cx = r.get("context") or {"unavailable": "not measured"}
+    section("Context (EVOL-062)", cx, [] if "unavailable" in cx else
+            [f"median context per message (main sessions) **{_fmt(cx['median_context_tokens'])}** tokens · writer cache per spawn (median) {_fmt(cx['writer_cache_per_spawn_median'])} over {cx['writer_spawns']} spawns · "
+             f"raw results over {cx['threshold_kb'] if cx['threshold_kb'] is not None else '—'} KB: {_fmt(cx['raw_results_over_threshold'])} ({_cell(cx['threshold_source'])}) · "
+             f"output {cx['tokens']['output']:,} · cache-read {cx['tokens']['cache_read']:,} · cache-creation {cx['tokens']['cache_create']:,}", "",
+             "| turns | class | spawns | cache (median) |", "|---|---|---|---|"] +
+            [f"| {b} | {_cell(c)} | {v['spawns']} | {_fmt(v['cache_median'])} |" for b, d in cx["cache_by_turn_bucket"].items() for c, v in d.items()] + ["", f"> {cx['definition']}"])
     cr = r.get("critics") or {"unavailable": "not measured"}
     section("Critics inside their budget", cr, [] if "unavailable" in cr else
             [f"ceiling {cr['ceiling']} turns · critics {cr['of']} · inside their budget {cr['inside_budget']} (share **{_fmt(cr['share'])}**)", "",
@@ -978,6 +1045,7 @@ def _entry(kind, ts, **kw):
 
 PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 1\nModel: claude-y-critic\n## Informational\nsrc/x.py:3 · 🟢 · confidence 85% · probe: read (DC-29)\n"
 REFUSED_RETURN = "I looked around and everything seems fine.\n"
+WORKER_RETURN = "did x\n## Hand-off\nDone: A.1\nRemaining: none\nState: src/x.py written; its scoped test green\n" + PARSED_RETURN   # EVOL-062: a worker owes its hand-off before the governance block
 HANDBACK = ('Another Claude session sent a message:\n<agent-message from="{aid}">\n[Subagent hand-back] The text below is the final report of a subagent '
             'this session delegated to. The report follows:\n  {body}</agent-message>')
 NOTIFICATION = "<task-notification>\n<task-id>x</task-id>\n<tool-use-id>{tid}</tool-use-id>\n<status>completed</status>\n<result>{body}</result>\n</task-notification>"
@@ -1029,6 +1097,8 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
         tool_use(6, "Edit", {"file_path": "src/app.py"}, 110),                     # repeated edit
         tool_use(61, "Edit", {"file_path": "CLAUDE.md"}, 112),                      # a governance edit (EVOL-061)
         tool_result(6, 111),
+        tool_use(62, "Bash", {"command": "git diff"}, 114),
+        tool_result(62, 115, "d" * 25000),                                         # a raw tool result above the key (EVOL-062)
         tool_use(7, "Bash", {"command": "git commit -m 'feat(FEAT-001): a'"}, 120),
         tool_result(7, 121),
         tool_use(8, "Agent", {"subagent_type": "factory-critic-security", "description": "review"}, 130),
@@ -1046,7 +1116,7 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
         spawn(14, "factory-critic-correctness", 300), stub(14, "agx1", 301),
         _entry("user", ts(320), branch="feature/FEAT-003-r", message={"role": "user", "content": HANDBACK.format(aid="agx1", body=REFUSED_RETURN)}),   # hand-back, refused
         spawn(15, "factory-dev-backend", 330), stub(15, "agx2", 331),
-        _entry("user", ts(340), branch="feature/FEAT-003-r", message={"role": "user", "content": [{"type": "text", "text": NOTIFICATION.format(tid="t15", body=PARSED_RETURN)}]}),   # notification, parsed
+        _entry("user", ts(340), branch="feature/FEAT-003-r", message={"role": "user", "content": [{"type": "text", "text": NOTIFICATION.format(tid="t15", body=WORKER_RETURN)}]}),   # notification, parsed
         spawn(16, "factory-critic-security", 350), stub(16, "agx3", 351),          # no channel: uncollected
         spawn(17, "general-purpose", 360), _entry("user", ts(361), branch="feature/FEAT-003-r", message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t17", "content": "done"}]}),   # direct, outside the roster: unchecked
         # the production shape of a background return: the hand-back carries the report, the notification only points at it
@@ -1075,10 +1145,10 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
     sub = [
         _entry("user", ts(139), message={"role": "user", "content": "effort: high\nturn budget: 3\nprobe budget: 1\nReview the diff."}),   # the spawn prompt: its budget line
         _entry("assistant", ts(140), message={"id": "msg_1", "role": "assistant", "model": "claude-y-critic",
-                                              "usage": {"input_tokens": 100, "output_tokens": 50},
+                                              "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 1000, "cache_creation_input_tokens": 200},
                                               "content": [{"type": "text", "text": "Finding under LAW-04 and LAW-04."}]}),
-        _entry("assistant", ts(140), message={"id": "msg_1", "role": "assistant", "model": "claude-y-critic",   # the same message, streamed: a second entry, one turn
-                                              "usage": {"input_tokens": 100, "output_tokens": 50},
+        _entry("assistant", ts(140), message={"id": "msg_1", "role": "assistant", "model": "claude-y-critic",   # the same message, streamed: a second entry, one turn, its usage once (EVOL-062)
+                                              "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 1000, "cache_creation_input_tokens": 200},
                                               "content": [{"type": "tool_use", "id": "a1", "name": "Read", "input": {"file_path": "src/app.py"}}]}),
         _entry("user", ts(150), message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "a1", "content": "z" * 40}]}),
     ]
@@ -1107,7 +1177,7 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
     (tdir / session / "subagents" / "agent-b3.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 5"}), encoding="utf-8")
     # a worker spawn: no budget line, no ceiling — its budget source is none (writers are not held at the ceiling)
     sub6 = [_entry("user", ts(300), message={"role": "user", "content": "Implement the task."}),
-            _entry("assistant", ts(301), message={"id": "msg_w1", "role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "done"}]})]
+            _entry("assistant", ts(301), message={"id": "msg_w1", "role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1, "cache_read_input_tokens": 500}, "content": [{"type": "text", "text": "done"}]})]
     (tdir / session / "subagents" / "agent-w1.jsonl").write_text("\n".join(json.dumps(e) for e in sub6) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-w1.meta.json").write_text(json.dumps({"agentType": "factory-dev-backend", "description": "work"}), encoding="utf-8")
     return tdir
@@ -1126,7 +1196,7 @@ def _fixture_repo(root: Path) -> Path:
     (repo / "CLAUDE.md").write_text("1. **[LAW-01] a**\n2. **[LAW-04] b**\n3. **[LAW-09] c**\n", encoding="utf-8")
     (repo / ".claude" / "rules").mkdir(parents=True)
     (repo / ".claude" / "rules" / "defect-prevention.md").write_text("| DC-18 | x |\n| DC-27 | y |\n", encoding="utf-8")
-    (repo / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  tiers:\n    large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}\n  roster:\n    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n"
+    (repo / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  tiers:\n    large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}\n  context_result_max_kb: 20   # EVOL-062\n  roster:\n    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n"
                                                          "    - {name: factory-critic-correctness, class: work-critic, lens: correctness, surface: [\"**\"]}\n"
                                                          "    - {name: factory-dev-backend, class: worker, surface: [\"src/**\"]}\n"
                                                          "    - {name: my-critic, class: work-critic, surface: [\"**\"]}\n---\n", encoding="utf-8")
@@ -1166,7 +1236,7 @@ def _sessions_of(tdir: Path, cfg: dict, since, until) -> list:
 
 
 def selftest_config() -> dict:
-    return {"$schema": CONFIG_SCHEMA, "retention_days": 90, "report_interval_days": 30, "idle_cap_s": 300,
+    return {"$schema": CONFIG_SCHEMA, "retention_days": 90, "report_interval_days": 30, "idle_cap_s": 300, "turn_bucket": 40,
             "gates": {"verification": [r"validate-governance\.sh", r"\bpytest\b"], "push": [r"\bgit\s+push\b"]},
             "review_patterns": [r"preflight\.sh"], "review_agent_patterns": [r"critic"],
             "governance_paths": ["docs/constitution.md", "CLAUDE.md", ".claude/rules/"],
@@ -1209,8 +1279,8 @@ def selftest() -> int:
         expect(gb["read_by_agents"] == 350, "governance bytes read count Read and shell reads on governance paths only")
         ag = {a["agent"]: a for a in r["agents"]}
         expect(ag["main"]["model"] == "claude-x-writer" and ag["c1"]["model"] == "claude-y-critic", "model per agent")
-        expect(ag["c1"]["type"] == "factory-critic-security" and ag["c1"]["bytes_read"] == 40 and ag["c1"]["tokens_in"] == 200,
-               "subagent type, bytes read and tokens from its own transcript (the usage a streamed message repeats per entry is summed here — de-duplicated per message id in EVOL-062)")
+        expect(ag["c1"]["type"] == "factory-critic-security" and ag["c1"]["bytes_read"] == 40 and ag["c1"]["tokens_in"] == 1300,
+               "subagent type, bytes read and tokens from its own transcript — the usage a streamed message repeats per entry is counted ONCE per message id (EVOL-062): 100 input + 1000 cache-read + 200 cache-creation")
         expect(ag["c1"]["class"] == "work-critic" and ag["c1"]["round"] == 1 and ag["a0"]["round"] == 2, "the roster class joined from rules/agents.md and the round from the spawn ORDER IN TIME, never the agent id (EVOL-049)")
         expect("| class | round |" in render_markdown(r) and "| work-critic | 1 |" in render_markdown(r) and "| work-critic | 2 |" in render_markdown(r), "the agents table shows class and round")
         expect(agent_class("my-critic", repo) == "work-critic" and agent_class("factory-dev-frontend", repo) == "unclassed", "with a roster the roster is the class: a project's own critic is classed, a name the roster lacks is not")
@@ -1232,7 +1302,7 @@ def selftest() -> int:
         expect("## Critics inside their budget" in render_markdown(r) and "| 2 | 1 | 0 |" in render_markdown(r) and "| turns | budget |" in render_markdown(r), "the critics section and the turns and budget columns render")
         expect("critics.share" in compare(r, r), "the signal is in the before/after table")
         c = r["citations"]
-        expect(c["by_id"].get("LAW-01") == 11 and c["by_id"].get("LAW-04") == 2, "citations aggregated across agents (every tool use of the fixture cites LAW-01; the governance edit of EVOL-061 is one more)")
+        expect(c["by_id"].get("LAW-01") == 12 and c["by_id"].get("LAW-04") == 2, "citations aggregated across agents (every tool use of the fixture cites LAW-01; the governance edit of EVOL-061 and the raw-result probe of EVOL-062 are two more)")
         expect(c["pruning_candidates"] == ["DC-27", "LAW-09"], "corpus ids never cited are pruning candidates")
         md = render_markdown(r)
         expect("## Gates" in md and "pruning candidates 2" in md, "markdown rendering")
@@ -1261,13 +1331,25 @@ def selftest() -> int:
         expect("| class | owed | parsed | refused | unchecked | uncollected | bytes | adjudicated | informational |" in md and "bytes per return" in md, "the returns table renders the EVOL-060 columns")
         expect(rt["avg_bytes"] is not None and rt["avg_bytes_adjudicated"] is not None and rt["avg_bytes_adjudicated"] < rt["avg_bytes"] and rt["informational"] >= 1, "bytes per return against bytes adjudicated, the informational count — the signals")
         expect("returns.avg_bytes_adjudicated" in compare(r, r) and "critics.orchestrator_tokens_out_per_round" in compare(r, r), "the EVOL-060 signals are in the before/after table")
-        expect(r["critics"]["orchestrator_tokens_out_per_round"] == 13, "the orchestrator's output per critic round: the spawning sessions' output (67 on the fixture: 62 + the governance edit's 5) over their five (session, round) pairs")
+        expect(r["critics"]["orchestrator_tokens_out_per_round"] == 14, "the orchestrator's output per critic round: the spawning sessions' output (72 on the fixture: 62 + the governance edit's 5 + the raw-result probe's 5) over their five (session, round) pairs")
         # EVOL-061: the cost of editing governance
         gv = r["governance"]
         expect(gv["edits_total"] == 3 and gv["edits"] == 1 and gv["edit_share"] == 0.333 and gv["hours"] is not None and gv["hours"] > 0, "one of three edits is on a governance path: share 0.333, hours the active clock's third")
         expect(gv["manifest_commits"] == 1 and gv["manifest_commits_per_week"] == round(1 / (30 / 7), 2), "one commit touching the manifest in the 30-day window: the per-week rate")
         expect("governance.hours" in compare(r, r) and "governance.manifest_commits_per_week" in compare(r, r), "the governance signals are in the before/after table")
         expect("## Governance editing" in md, "the governance section renders")
+        # EVOL-062: the context diet — usage once per message id, the median context, cache per spawn by bucket and class, raw results above the key
+        cx = r["context"]
+        expect(ag["c1"]["cache_read"] == 1000 and ag["c1"]["cache_create"] == 200 and ag["c1"]["tokens_out"] == 50 and ag["c1"]["context_median"] == 1300, "a streamed message's usage counted once per spawn: cache-read, cache-creation, output; its context = input + cache-read + cache-creation")
+        expect(cx["threshold_kb"] == 20 and cx["raw_results_over_threshold"] == 1 and cx["per_session"]["s1"]["raw_results_over_threshold"] == 1 and ag["main"]["raw_results_over"] == 1 and ag["c1"]["raw_results_over"] == 0, "one tool result above context_result_max_kb entered the main context raw; the key is the rule's")
+        expect(cx["median_context_tokens"] == 5 and cx["per_session"]["s1"]["median_context_tokens"] == 5, "the median context per message over the main sessions (the fixture's main session: twelve messages of 10 and twelve of 1 — the median 5)")
+        expect(cx["cache_by_turn_bucket"]["0-39"]["worker"] == {"spawns": 1, "cache_median": 500} and cx["cache_by_turn_bucket"]["0-39"]["work-critic"] == {"spawns": 4, "cache_median": 0} and cx["cache_by_turn_bucket"]["40-79"]["work-critic"] == {"spawns": 1, "cache_median": 0} and cx["writer_cache_per_spawn_median"] == 500 and cx["writer_spawns"] == 1,
+               "cache per spawn by turn bucket (turn_bucket 40) and roster class; the writer median over the worker spawns")
+        expect(cx["tokens"] == {"output": 72 + 50 + 1 + 1 + 1 + 61 + 1, "cache_read": 1500, "cache_create": 200}, "the totals over every row, once per message")
+        expect(all(k in compare(r, r) for k in ("context.median_context_tokens", "context.writer_cache_per_spawn_median", "context.raw_results_over_threshold")), "the three context signals are in the before/after table")
+        expect("## Context (EVOL-062)" in md and "| 0-39 | worker | 1 | 500 |" in md and "| cache |" in md, "the context section and the agents table's cache column render")
+        expect(r3["context"]["raw_results_over_threshold"] is None and r3["context"]["threshold_kb"] is None and "context_result_max_kb" in r3["context"]["threshold_source"] and r3["context"]["median_context_tokens"] == 5, "a rule without the key: the raw-results signal is None naming the key; the tokens still count")
+        expect(_median([]) is None and _median([3, 1, 2]) == 2 and _median([1, 2, 3, 4]) == 2 and _over([1, 30000], 20) == 1 and _over([1], None) is None, "the median of nothing is None; an even count takes the middle pair; the threshold in KB")
         # pushes (EVOL-057): the push log first — both generations, the window by `end` — the trace as fallback
         ps = r["pushes"]
         expect(ps["source"].startswith("push log") and ps["total"] == 3 and ps["by_profile"]["full"] == {"pushes": 2, "seconds": 180.0} and ps["by_profile"]["light"] == {"pushes": 1, "seconds": 30.0} and ps["unknown_share"] == 0.0,

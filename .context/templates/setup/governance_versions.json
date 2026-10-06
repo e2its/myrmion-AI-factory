@@ -1,13 +1,13 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.9.0",
+  "framework_version": "8.10.0",
   "delivery_mode": "development",
   "last_updated": "2026-10-06",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
+  "description": "v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -637,10 +637,11 @@
       "delivery": "both"
     },
     "scripts/validate-governance.sh": {
-      "version": "1.5.1",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": "scripts/validate-governance.sh",
       "changelog": [
+        "1.6.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.5.1: fix — CHECK 1 / CHECK 2 membership tests in pure bash (in_lines), no pipe into grep (DC-13: a `grep -q` reader's early exit under pipefail read a present line as absent — random orphan false positives, seen through an exported grep wrapper); the manifest-changed test exact instead of a regex grep -c.",
         "1.5.0: feat(EVOL-045) — default base = gate.py diff-base.",
         "1.4.0: feat(EVOL-043) — banner counts law-index entries and defect families (lite snapshot).",
@@ -856,11 +857,12 @@
       "delivery": "both"
     },
     "claude/settings.json": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "content_type": "universal",
       "target": ".claude/settings.json",
       "upgrade_strategy": "merge-preserve",
       "changelog": [
+        "2.3.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.2.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "2.1.0: feat(EVOL-048) — PreToolUse Edit|Write: check-plan-approval.sh; PostToolUse ExitPlanMode: record-plan-approval.sh (EVOL-048).",
         "2.0.0: feat(EVOL-043)! — BREAKING (hook contract: blocking hooks exit 2, delivery hook wired) — deliver-governance.sh wired on PreToolUse Edit|Write (law at the point of edit).",
@@ -1644,11 +1646,12 @@
       ]
     },
     "subproducts/measure/measure.py": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "content_type": "universal",
       "target": "subproducts/measure/measure.py",
       "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only.",
       "changelog": [
+        "1.9.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.8.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.7.0: feat(EVOL-060) — the signals: bytes per return against bytes adjudicated, the informational count, the orchestrator's output tokens per critic round.",
         "1.6.0: feat(EVOL-059) — the fixture's critic returns carry their Model: line (the contract's new line).",
@@ -1661,20 +1664,22 @@
       ]
     },
     "subproducts/measure/measure.config.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "stack_configured",
       "target": "subproducts/measure/measure.config.json",
       "role": "Project config of the measurement subproduct — the file SETUP resolves placeholders in (retention_days, report_interval_days from Q30; unquoted integer tokens). Gate / review / governance-path / corpus regex lists are project-editable data.",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-042) — initial."
       ]
     },
     "subproducts/measure/RUNBOOK.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": "subproducts/measure/RUNBOOK.md",
       "role": "Operator runbook of the measurement subproduct: signal definitions, the before/after protocol as an obligation of the adopting project, options, config keys. Every flag it cites is closure-tested against the real parser.",
       "changelog": [
+        "1.4.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.3.0: feat(EVOL-058) — the critics signal.",
         "1.2.0: feat(EVOL-057) — the three signals (returns, pushes, loop) in the report table and the before/after protocol; where the loop's records live.",
         "1.1.0: feat(EVOL-045) — per-train roll-up of sub-increment branches.",
@@ -1745,11 +1750,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.14.0",
+      "version": "1.15.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.15.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.13.1: fix(EVOL-060) — the --check-return usage names the Informational: line and the appendix refusals.",
         "1.13.0: feat(EVOL-059) — the canary subcommand (fixture, expected, check, judge, seen, plan, status).",
@@ -1823,11 +1829,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.18.0",
+      "version": "1.19.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.19.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.18.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.17.0: fix(EVOL-060) — round-2 pins that discriminate: the appendix's Model:/Informational: lines never read as the block's; a planted defect in the appendix never credited; an appendix-only return has no contract part.",
         "1.16.0: feat(EVOL-060) — the two-part return pinned red-first (inside refused, the count held, a warning hidden in the appendix refused, the line owed); the critic fixtures carry the count line.",
@@ -1937,12 +1944,13 @@
       ]
     },
     "scripts/gates/agents.py": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": "scripts/gates/agents.py",
       "delivery": "both",
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes).",
       "changelog": [
+        "1.6.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.5.0: feat(EVOL-060) — the two-part critic return: split_return; --check-return refuses an informational finding inside the findings, requires the Informational: N line and holds it to the appendix's length.",
         "1.4.0: feat(EVOL-059) — a critic's return carries its Model: line (refused without it or with the placeholder); return_model().",
         "1.3.0: feat(EVOL-058) — budgets per tier, the resolver hands them (GateFault when a tier lacks them), the validator holds every tier's keys and every read-only definition's maxTurns, a writer's maxTurns refused.",
@@ -1952,11 +1960,12 @@
       ]
     },
     "rules/agents.md": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "content_type": "universal",
       "target": ".claude/rules/agents.md",
       "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents.",
       "changelog": [
+        "1.7.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.6.0: feat(EVOL-060) — § Return contracts: the two-part critic return (the contract part adjudicated, the appendix copied verbatim into the round artefact, counted on the Informational: line); § The bounded loop: the written default for the adjudication after round 2 (RDR-5).",
         "1.5.0: feat(EVOL-059) — RDR-3: critics at full effort by default, round-2 tier rows (small → medium, medium → high), rounds.work 2 (the diff and one pass on the cured bytes; a third refused; the rest to the user's adjudication); a finding outside the delta is informational; the second pass's tier is the diff's; one vocabulary (the diff under review).",
         "1.4.0: feat(EVOL-059) — § The lens canary; the Model: line in the critic contract; agents.canary.line_tolerance.",
@@ -2013,38 +2022,42 @@
       ]
     },
     "claude/agents/factory-dev-backend.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-backend.md",
       "role": "Agent definition — worker (backend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "claude/agents/factory-dev-frontend.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-frontend.md",
       "role": "Agent definition — worker (frontend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "claude/agents/factory-dev-platform.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-platform.md",
       "role": "Agent definition — worker (platform / tooling surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "claude/agents/factory-dev-e2e.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-dev-e2e.md",
       "role": "Agent definition — worker (end-to-end tests surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
@@ -2248,6 +2261,14 @@
       "role": "The manifest bump helper (EVOL-061): one command moves the entry, its changelog line, the file's frontmatter and framework_version; --check verifies.",
       "changelog": [
         "1.0.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week"
+      ]
+    },
+    "claude/hooks/session-handoff.sh": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": ".claude/hooks/session-handoff.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key"
       ]
     }
   },
@@ -2535,9 +2556,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.19.2",
+      "version": "2.20.0",
       "path": "README.md",
       "changelog": [
+        "2.20.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.19.2: fix(EVOL-056) — every remaining code block (command, package and pipeline examples) reflowed to ≤ 95 characters per line.",
         "2.19.1: fix(EVOL-056) — the three code blocks (file structure, architecture, project structure) reflowed to ≤ 95 characters per line; GitHub clipped them.",
         "2.19.0: docs(EVOL-056) — the README against reality (framework 8.4.0): role agents and the roster incl. the external-facts reader, the file structure, the one reader and its control points (new § Gates, Control Points and CI), the 23 skills, the command reference aligned with the command files, every audited mismatch corrected (40).",
@@ -2931,9 +2953,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.19.0",
+      "version": "2.20.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.20.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.19.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "2.18.2: fix(EVOL-059) — RDR-3: round 1 on the diff, round 2 (--round 2) on the cured bytes; the resolver refuses the next.",
         "2.18.1: feat(EVOL-053) — every test a worker writes states its case at the one home",
@@ -3269,9 +3292,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.16.0",
+      "version": "2.17.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.17.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.16.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "2.15.0: feat(EVOL-060) — Step 8: a pre-EVOL-060 critic return is refused with the reason; the definitions arrive with the gates refresh.",
         "2.14.0: feat(EVOL-059) — Step 8: a policy without the canary key (pre-EVOL-059) gains it.",
@@ -4567,11 +4591,12 @@
       ]
     },
     "settings.json": {
-      "version": "2.2.0",
+      "version": "2.3.0",
       "type": "config",
       "role": "Claude Code harness settings — wires the full governance hook chain (SessionStart banner, UserPromptSubmit freshness, PreCompact, PreToolUse Edit|Write/Write/Bash gates, PostToolUse watcher). Lock-step pair with .context/templates/setup/claude/settings.json.",
       "path": ".claude/settings.json",
       "changelog": [
+        "2.3.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.2.0: fix(EVOL-049) — review pass — PreToolUse Agent → check-agent-spawn.sh (a roster agent spawns on its family's alias)",
         "2.1.0: feat(EVOL-048) — PreToolUse Edit|Write: check-plan-approval.sh; PostToolUse ExitPlanMode: record-plan-approval.sh (EVOL-048).",
         "2.0.0: feat(EVOL-043)! — BREAKING (hook contract: blocking hooks exit 2, delivery hook wired) — deliver-governance.sh wired on PreToolUse Edit|Write (law at the point of edit).",
@@ -4835,11 +4860,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.14.0",
+      "version": "1.15.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.15.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.13.1: fix(EVOL-060) — the --check-return usage names the Informational: line and the appendix refusals.",
         "1.13.0: feat(EVOL-059) — the canary subcommand (the template twin).",
@@ -4907,11 +4933,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.18.0",
+      "version": "1.19.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.19.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.18.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.17.0: fix(EVOL-060) — round-2 pins that discriminate: the appendix's Model:/Informational: lines never read as the block's; a planted defect in the appendix never credited; an appendix-only return has no contract part.",
         "1.16.0: feat(EVOL-060) — the two-part return pinned red-first (inside refused, the count held, a warning hidden in the appendix refused, the line owed); the critic fixtures carry the count line.",
@@ -4936,11 +4963,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.17.0",
+      "version": "1.18.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.18.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.17.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.16.0: feat(EVOL-060) — the two-part return red and green on the materialised tree (103 checks).",
         "1.15.0: feat(EVOL-059) — RDR-3: the first work round at full effort, the second by its size, a third refused (101 checks).",
@@ -4971,11 +4999,12 @@
       ]
     },
     "scripts/test-hooks.sh": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
+        "1.8.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.7.0: feat(EVOL-057) — the pre-push EXIT trap proven: the push's record left with the hook's own exit code on a blocked push and on a green one, one line per push, the block still a block.",
         "1.6.0: feat(EVOL-051) — sandbox config carries the documentation block (planning.docs_exempt retired)",
         "1.5.0: fix(EVOL-049) — review pass — check-agent-spawn scenarios (99 checks)",
@@ -5066,11 +5095,12 @@
       ]
     },
     "scripts/gates/agents.py": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "type": "script",
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes). Meta copy (lock-step pair).",
       "path": "scripts/gates/agents.py",
       "changelog": [
+        "1.6.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.5.0: feat(EVOL-060) — the two-part critic return: split_return; --check-return refuses an informational finding inside the findings, requires the Informational: N line and holds it to the appendix's length.",
         "1.4.0: feat(EVOL-059) — the Model: line (the template twin).",
         "1.3.0: feat(EVOL-058) — budgets, validator, resolver (the template twin).",
@@ -5126,38 +5156,42 @@
       ]
     },
     "agents/factory-dev-backend.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-backend.md",
       "role": "Agent definition — worker (backend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "agents/factory-dev-frontend.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-frontend.md",
       "role": "Agent definition — worker (frontend surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "agents/factory-dev-platform.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-platform.md",
       "role": "Agent definition — worker (platform / tooling surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "agents/factory-dev-e2e.md": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "agent",
       "path": ".claude/agents/factory-dev-e2e.md",
       "role": "Agent definition — worker (end-to-end tests surface). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
@@ -5295,6 +5329,14 @@
       "type": "script",
       "changelog": [
         "1.0.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week"
+      ]
+    },
+    "hooks/session-handoff.sh": {
+      "version": "1.0.0",
+      "type": "hook",
+      "path": ".claude/hooks/session-handoff.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key"
       ]
     }
   },
