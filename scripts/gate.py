@@ -277,7 +277,8 @@ def cmd_agents(repo, a):
             return 1
         budget = f" · turns {r['turn_budget']} · probes {r['probe_budget']}" if "turn_budget" in r and "probe_budget" in r else ""
         owed = f" · canary owed: {', '.join(r['canary_owed'])} (gate.py canary --plan)" if r.get("canary_owed") else (f" · canary fault: {r['canary_fault']}" if r.get("canary_fault") else "")
-        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget} · round {r['round']} · {r['matched']}{owed}")
+        cap = f" · turn cap {r['turn_cap']}" if "turn_cap" in r else ""   # EVOL-062: a worker's spawn prompt opens with it
+        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget}{cap} · round {r['round']} · {r['matched']}{owed}")
         return 0
     if a.fallback:
         r = agents_mod.fallback(repo, a.cls, a.family or "")

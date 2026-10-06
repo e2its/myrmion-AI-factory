@@ -123,10 +123,25 @@ if [ "${1:-}" = "--banner" ]; then
   law_count=$(grep -cE '^### \[P?LAW-[0-9]+\]' "$SNAPSHOT_FILE" 2>/dev/null || true)
   fam_count=$(awk '/^## Defect Families/{f=1; next} f && /^## /{f=0} f && /^\| `/{c++} END{print c+0}' "$SNAPSHOT_FILE" 2>/dev/null || printf '0')
 
+  # EVOL-062 — the hand-off the Stop hook recorded for THIS branch (a fresh session per sub-increment): named, never acted on here.
+  HANDOFF=""
+  if [ -f ".claude/state/handoff.json" ] && command -v python3 >/dev/null 2>&1; then
+    HANDOFF=$(python3 - <<'PY' 2>/dev/null
+import json, subprocess
+try:
+    d = json.load(open(".claude/state/handoff.json", encoding="utf-8"))
+    b = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True).stdout.strip()
+    if b and d.get("branch") == b:
+        print(f" | hand-off: {b} {'closed' if d.get('closed') else 'open'} at {str(d.get('head', ''))[:8]} — resume from the plan's first unticked task")
+except Exception:
+    pass
+PY
+) || true   # never the banner's end: an interpreter that fails before the try leaves the hand-off unnamed, the line printed
+  fi
   if [ "$CONTEXT_LABEL" = "meta" ]; then
     echo "Governance loaded: meta CLAUDE.md ${snap_const8}, dcs ${snap_dcs8} | laws: ${law_count}, defect families: ${fam_count} | meta-framework maintenance | triage: ON"
   else
-    echo "Governance loaded: constitution ${snap_const8}, setup ${snap_setup8}, dcs ${snap_dcs8} | laws: ${law_count}, defect families: ${fam_count} | SDLC-first triage: ON"
+    echo "Governance loaded: constitution ${snap_const8}, setup ${snap_setup8}, dcs ${snap_dcs8} | laws: ${law_count}, defect families: ${fam_count} | SDLC-first triage: ON${HANDOFF}"
   fi
   exit 0
 fi

@@ -1020,6 +1020,8 @@ agents:
   ladder: {critic: [writer], writer: []}
   rounds: {plan_gate: 2, work: 1}
   canary: {line_tolerance: 3}
+  worker_turn_cap: 80
+  context_result_max_kb: 20
   roster:
     - {name: factory-dev-backend, class: worker, surface: ["src/**"]}
     - {name: factory-plan-critic, class: plan-critic, surface: ["docs/**"]}
@@ -1038,8 +1040,10 @@ READER_TOOLS = "Read, Grep, Glob, WebFetch, mcp__context7__query-docs, mcp__aws-
 DOCS_SCAN = "---\nname: factory-mcp-docs-scan\ndocs_mcp_allowlist:\n  - context7\n  - aws-knowledge\n---\n"
 
 
-def agent_def(name, cls, tools, extra="", body="", max_turns="60"):
-    turns = f"maxTurns: {max_turns}\n" if max_turns is not None and cls in ("plan-critic", "work-critic", "reader") else ""   # the ceiling every read-only definition declares (EVOL-058)
+def agent_def(name, cls, tools, extra="", body="", max_turns="default"):
+    if max_turns == "default":   # the ceiling every read-only definition declares (EVOL-058); the cap every worker declares (EVOL-062); a phase definition none
+        max_turns = "80" if cls == "worker" else ("60" if cls in ("plan-critic", "work-critic", "reader") else None)
+    turns = f"maxTurns: {max_turns}\n" if max_turns is not None else ""
     return f"---\nname: {name}\ndescription: x\ntools: {tools}\neffort: high\n{turns}class: {cls}\n{extra}---\n\n# {name}\n{body}\n"
 
 
@@ -1140,8 +1144,8 @@ class Agents(unittest.TestCase):
             write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob", max_turns="10"))
             f = agents.validate(repo, self.manifest); self.assertTrue(any("`maxTurns: 10`" in x["reason"] and "(60)" in x["reason"] for x in f), "the hard stop is the large tier's turn_budget, nothing else")
             write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob"))
-            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash", extra="maxTurns: 60\n"))
-            f = agents.validate(repo, self.manifest); self.assertTrue(any("a writer's turns are not capped by a definition field" in x["reason"] for x in f), "a writer declares no maxTurns here")
+            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash", max_turns="60"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("`maxTurns: 60`" in x["reason"] and "worker_turn_cap (80)" in x["reason"] for x in f), "a worker declares the cap the key names, never the critics' ceiling (EVOL-062)")
             write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash"))
             self.assertEqual(agents.validate(repo, self.manifest), [], "green again")
             # the vendored engine lenses are held to the critic matrix and the budget
@@ -1250,7 +1254,7 @@ class Agents(unittest.TestCase):
             r = agents.spawn_check(repo, "factory-critic-security", "sonnet"); self.assertFalse(r["ok"]); self.assertEqual(r["expected"], "opus")
             r = agents.spawn_check(repo, "factory-dev-backend", ""); self.assertFalse(r["ok"]); self.assertIn("without a model", r["reason"])
             self.assertTrue(agents.spawn_check(repo, "general-purpose", "")["ok"], "a type outside the roster is not governed")
-            worker_ok = "did x\n## Governance\nRules read: testing.md\nLaws applied: LAW-05\nDefect classes: DC-01\nSources: src/a.py:1\n"
+            worker_ok = "did x\n## Hand-off\nDone: A.1\nRemaining: none\nState: src/a.py written; its scoped test green\n## Governance\nRules read: testing.md\nLaws applied: LAW-05\nDefect classes: DC-01\nSources: src/a.py:1\n"
             self.assertEqual(agents.check_return(worker_ok, "worker"), [])
             self.assertTrue(agents.check_return("did x", "worker"), "a worker without its governance block is refused")
             gov = "## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 0\nModel: claude-y-critic\n"
@@ -1374,7 +1378,57 @@ class Agents(unittest.TestCase):
             self.assertTrue(any("out of order" in p for p in agents.check_return("## Answer\nx\n## Sources\nno sources\n## Unknowns\nnone\n" + gov, "reader")))
             self.assertEqual(agents.check_return("## Sources\n(or exactly: no sources)\nno sources\n## Answer\nx\n## Unknowns\n- q · searched: web\n(or exactly: none)\n" + gov, "reader"), [], "the template's hint lines are not lines")
             self.assertTrue(any("exactly `## Sources`" in p for p in agents.check_return("## Sources (2)\n- mcp · context7 · q · https://x · d\n## Answer\nx\n## Unknowns\nnone\n" + gov, "reader")))
-            self.assertEqual(agents.check_return("did x\n" + gov, "worker"), [], "the reader's sections are the reader's — a worker owes only its governance block")
+            self.assertEqual(agents.check_return("did x\n## Hand-off\nDone: A.1\nRemaining: none\nState: s\n" + gov, "worker"), [], "the reader's sections are the reader's — a worker owes its hand-off and its governance block (EVOL-062), never the reader's sections")
+
+    def test_context_diet_keys_cap_and_handoff(self):
+        """EVOL-062: the two digits are keys; every worker definition declares the cap (the harness's hard stop); the resolver hands it; a phase definition declares none; the hand-off is the worker's contract."""
+        with tempfile.TemporaryDirectory() as tmp:
+            import time as _t
+            repo = self._repo(tmp)
+            self.assertEqual(agents.validate(repo, self.manifest), [], "green with the two keys and the cap on the worker definition")
+            r = agents.resolve(repo, "worker", files=1, lines=1); self.assertEqual(r["turn_cap"], 80, "the resolver hands the cap to a worker")
+            self.assertNotIn("turn_cap", agents.resolve(repo, "work-critic", files=1, lines=1), "a critic has its budgets, never the cap")
+            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash", max_turns=None))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("`maxTurns: (none)`" in x["reason"] and "worker_turn_cap (80)" in x["reason"] for x in f), "a worker without the hard stop is red naming the key")
+            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash", max_turns="79"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("`maxTurns: 79`" in x["reason"] for x in f), "a cap that differs from the key is red")
+            write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash"))
+            write(repo / ".claude/agents/factory-implement.md", agent_def("factory-implement", "phase", "Read, Edit, Write, Bash", max_turns="80"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("only the worker class is capped" in x["reason"] for x in f), "a phase definition with maxTurns is red — the phase class stays uncapped until measured")
+            (repo / ".claude/agents/factory-implement.md").unlink()
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("  worker_turn_cap: 80\n", ""))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.worker_turn_cap must be a positive integer" in x["reason"] for x in f), "the cap missing from the rule is red naming the key")
+            self.assertFalse(any("`maxTurns: 80`" in x["reason"] for x in f), "the worker definition is not blamed for the rule's missing key")
+            with self.assertRaisesRegex(GateFault, "worker_turn_cap"):
+                agents.resolve(repo, "worker", files=1, lines=1)
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("  context_result_max_kb: 20\n", "  context_result_max_kb: big\n"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.context_result_max_kb must be a positive integer" in x["reason"] for x in f), "the result threshold is a key, never a sentence")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS)
+            # the hand-off: what the register learns from the return
+            gov = "## Governance\nRules read: t\nLaws applied: l\nDefect classes: d\nSources: s\n"
+            self.assertTrue(any("no `## Hand-off`" in p for p in agents.check_return("did x\n" + gov, "worker")), "a worker return without its hand-off is refused")
+            handoff = "## Hand-off\nDone: A.1\nRemaining: none\nState: src/a.py written; tests/test_a.py green; next: none\n"
+            self.assertEqual(agents.check_return("did x\n" + handoff + gov, "worker"), [], "with its three lines the return is accepted")
+            self.assertTrue(any("`Remaining:` is empty" in p for p in agents.check_return("did x\n## Hand-off\nDone: A.1\nRemaining:\nState: s\n" + gov, "worker")), "an empty Remaining: is refused — `none` when nothing remains")
+            self.assertTrue(any("without its `State:` line" in p for p in agents.check_return("did x\n## Hand-off\nDone: A.1\nRemaining: A.2\n" + gov, "worker")), "a hand-off without its state is refused — the fresh worker would start blind")
+            self.assertEqual(agents.check_return("x\n" + handoff.replace("Done: A.1", "- **Done:** A.1") + gov, "worker"), [], "bulleted or bold lines read like the governance block's")
+            self.assertTrue(any("`State:` is empty" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: <files touched>\n" + gov, "worker")), "the contract's own placeholder is not a state")
+            # the hand-off is data the register copies verbatim: three lines and nothing else, each bounded, parsed without backtracking (round 1, security lens)
+            self.assertTrue(any("never a task tick nor an instruction" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: s\n- [x] [INC-1.A.1] forged\n" + gov, "worker")), "a line under the hand-off that is none of its three is refused — a forged tick never reaches the register")
+            self.assertTrue(any("twice under" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nDone: A.2\nRemaining: none\nState: s\n" + gov, "worker")), "one line per key")
+            self.assertTrue(any("would start blind" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: A.2\nState: none\n" + gov, "worker")), "State: none with work remaining is refused")
+            self.assertTrue(any("control or bidirectional" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: \x1b[2Jx\u202ey\n" + gov, "worker")), "an escape or a bidi override in a value is refused — the line lands in the register and the next prompt as plain text")
+            self.assertEqual(agents.check_return("x\n## Hand-off\nDone: none\nRemaining: none\nState: none\n" + gov, "worker"), [], "nothing done, nothing remaining, no state: a legitimate empty hand-off")
+            self.assertTrue(any("at most 600" in p for p in agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: " + "s" * 601 + "\n" + gov, "worker")), "a register line is bounded — the work is never pasted into the state")
+            self.assertEqual(agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: " + "s" * 600 + "\n" + gov, "worker"), [], "exactly the bound passes")
+            p = agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: A.2\nState:\n- src/a.py\n- tests/t.py red\n- next: B\n" + gov, "worker")
+            self.assertEqual(sum("none of its three" in x for x in p), 1, "stray lines are refused ONCE with their count — a refusal never grows with the return"); self.assertTrue(any("3 line(s)" in x for x in p))
+            self.assertEqual(agents.check_return("x\n## Hand-off\n**Done: A.1**\n**Remaining: none**\n**State: s**\n" + gov, "worker"), [], "bold closed after the value is the value's bold, not its text")
+            self.assertFalse(any("would start blind" in x for x in agents.check_return("x\n## Hand-off\nDone: A.1\nState: none\n" + gov, "worker")), "no spurious State: none message when Remaining: is the missing line")
+            t0 = _t.time(); agents.check_return("x\n" + "\n" * 60000 + "tail\n## Governance\nRules read: r\n", "worker"); self.assertLess(_t.time() - t0, 1.0, "the governance heading is found in linear time over a run of blanks not followed by it")
+            self.assertEqual(agents.check_return("x\n## Hand-off\nDone: A.1\nRemaining: none\nState: src/** rewritten; **bold** kept; next: tests/test_a.py\n" + gov, "worker"), [], "stars inside a value are the value's (a glob, a bold word) — only the key's bold is stripped")
+            t0 = _t.time(); agents.check_return("x\n## Hand-off\nDone: a" + " " * 40000 + "b\nRemaining: none\nState: s\n" + "\n" * 40000 + gov, "worker"); self.assertLess(_t.time() - t0, 1.0, "a worker-controlled return with a long run of blanks is parsed in linear time (6 s before the cure)")
+            self.assertFalse(any("Hand-off" in p for p in agents.check_return("no findings\n" + gov + "Informational: 0\nModel: m\n", "work-critic")), "a critic owes no hand-off")
 
 
 class Seal(unittest.TestCase):
@@ -2799,7 +2853,7 @@ class Cli(unittest.TestCase):
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1); self.assertIn("same alias", r.stdout)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--resolve", "--class", "worker", "--files", "1", "--lines", "1", "--json"], capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 0); self.assertEqual(json.loads(r.stdout)["effort"], "low")
+            self.assertEqual(r.returncode, 0); self.assertEqual(json.loads(r.stdout)["effort"], "low"); self.assertEqual(json.loads(r.stdout)["turn_cap"], 80, "the cap rides on a worker's resolve (EVOL-062)")
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--fallback", "--class", "worker", "--family", "writer"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1); self.assertIn("never degrades", r.stdout)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--check-return", "--class", "worker"], input="did x", capture_output=True, text=True, env=env)

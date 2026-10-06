@@ -21,6 +21,7 @@ What this project's SDLC costs, read from local data only: Claude Code session t
 | Returns | every spawn's return, three channels (EVOL-057) | a spawn = an `Agent` tool use; collected when any channel appeared — **direct** (a foreground spawn's tool result), **hand-back** (an `<agent-message>` from the agent the launch stub named), **notification** (a `<task-notification>` naming the spawn's tool-use id); **uncollected** = none; a roster agent's return (the notification's result, else the direct result, else the last hand-back) is **parsed** or **refused** by the project's return reader (the return check of `python3 scripts/gate.py agents`); an agent outside the roster is unchecked |
 | Pushes | pushes by gate profile | from the push log the pre-push hook writes (`gate.py push-log`: profile, base, mode, class, start, end, exit — `config/quality.json → verification.logs.push` inside `verification.seal.dir`); without the log, the trace: `git push` tool calls, the profile from the banner in a foreground result, else **unknown** |
 | Critics | critics delivered inside their budget (EVOL-058) | per sub-agent: turns = the distinct assistant message ids of its transcript (a streamed message repeats its id); its budget = the `turn budget:` line of its spawn prompt, else the ceiling `agents.tiers.large.turn_budget` of `.claude/rules/agents.md` (the `maxTurns` every read-only definition declares); a critic that reached the ceiling was stopped there by the harness and the orchestrator's hand-back decided what it delivered; a critic with no turn at all is never inside; the budget's source (the prompt or the ceiling) is on the row; per round |
+| Context (EVOL-062) | the context diet: tokens de-duplicated per message id, the median context per main session, cache per spawn by turn bucket and class, raw tool results above the key | usage counted once per assistant message id (a streamed message repeats it on every entry — summing inflates by about 2.2×); a message's context = input + cache-read + cache-creation; a spawn's cache = cache-read + cache-creation of its own transcript, bucketed by its turns (`turn_bucket`) and its roster class; a raw result = a tool result above `agents.context_result_max_kb` of `.claude/rules/agents.md` (None without the key) |
 | Loop | the verification loop per gate and per profile | from the timings log the loop's executor writes (`gate.py seal --run`: gate, command, branch, profile, start, end, exit — `verification.logs.timings`); runs, reds, seconds per gate and per profile, hours total |
 
 Every number is per window. Absolute values are this project's own; compare shapes across projects, not digits.
@@ -39,9 +40,9 @@ python3 subproducts/measure/measure.py --json --out ../measure-before.json
 python3 subproducts/measure/measure.py --compare ../measure-before.json
 ```
 
-Write both reports outside the repository (they contain session detail). Paste the `Before → after` table on the tracking item. A change whose "after" does not move the signal it targeted is reverted or re-planned — the numbers decide.
+Write both reports outside the repository (they contain session detail). A `before` report written by an instrument older than 8.10 (EVOL-062) counted a streamed message's usage on every entry: its token figures are about 2.2× the de-duplicated ones — take the `before` window again with the current instrument before comparing tokens. Paste the `Before → after` table on the tracking item. A change whose "after" does not move the signal it targeted is reverted or re-planned — the numbers decide.
 
-The table carries the share of active clock under gates, commits and review rounds per branch, the two rework shares, the governance bytes, and (EVOL-057) the share of spawns whose return was never collected, the share of pushes with an unknown profile, the hours under the verification loop, and (EVOL-058) the share of critics delivered inside their budget.
+The table carries the share of active clock under gates, commits and review rounds per branch, the two rework shares, the governance bytes, and (EVOL-057) the share of spawns whose return was never collected, the share of pushes with an unknown profile, the hours under the verification loop, and (EVOL-058) the share of critics delivered inside their budget, and (EVOL-062) the median context per message, the writer cache per spawn and the raw results above the threshold — the context diet's signals; the cache per spawn by turn bucket is the table to compare by shape (a worker stopped at the policy's `worker_turn_cap` lands in the bucket the cap sits in; the buckets above it should empty).
 
 ## Options
 
@@ -66,6 +67,7 @@ Exit codes: `0` report written (partial reports included) · `2` the tool could 
 
 Branches: one row per branch (one branch = one pull request); sub-increment branches of a train (`…-inc-{N}-{slug}-sub-{M}`, EVOL-045) also roll up into a per-train table (commits, review rounds, sub-increment branches seen).
 | `idle_cap_s` | edit | cap on one gap when summing active clock |
+| `turn_bucket` | edit | the width in turns of the cache-per-spawn buckets (EVOL-062; 40 when absent) |
 | `gates.*` | edit | regex lists naming the gate commands of this project (verification, push, deploy, e2e) |
 | `review_patterns`, `review_agent_patterns` | edit | what counts as a review round |
 | `governance_paths`, `corpus_files` | edit | where governance lives and where law / defect-class ids are defined |

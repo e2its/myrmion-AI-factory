@@ -420,6 +420,17 @@ print(' '.join(t for t in scripts if not (os.path.isfile(t) and os.access(t, os.
 OUT=$(cd "$P" && bash scripts/validate-governance.sh --banner 2>&1)
 printf '%s' "$OUT" | grep -q 'Governance loaded: constitution' && ok "session banner: $OUT" || bad "banner wrong" "$OUT"
 
+# EVOL-062 — the context diet on the materialised tree: a worker resolves under its cap, the Stop hook records and never holds, the banner names the hand-off
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class worker --files 1 --lines 1 --json 2>&1); RC=$?
+[ "$RC" -eq 0 ] && [ "$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("turn_cap"))' 2>/dev/null)" = "80" ] && ok "a worker resolves under its cap (agents.worker_turn_cap)" || bad "worker cap not resolved (rc=$RC)" "$OUT"
+mkdir -p "$P/.claude/state"
+OUT=$(cd "$P" && printf '%s' '{"session_id":"smoke","stop_hook_active":false}' | CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/session-handoff.sh 2>&1); RC=$?
+[ "$RC" -eq 0 ] && [ -z "$OUT" ] && ok "the Stop hook outside a sub-increment: exit 0, silent" || bad "session-handoff wrong (rc=$RC)" "$OUT"
+HB=$(git -C "$P" rev-parse --abbrev-ref HEAD); HS=$(git -C "$P" rev-parse HEAD)
+printf '{"branch":"%s","train":null,"head":"%s","clean":true,"pushed":true,"closed":true,"at":"2026-01-01T00:00:00Z"}\n' "$HB" "$HS" > "$P/.claude/state/handoff.json"
+OUT=$(cd "$P" && bash scripts/validate-governance.sh --banner 2>&1); rm -f "$P/.claude/state/handoff.json"
+printf '%s' "$OUT" | grep -q "hand-off: $HB closed at ${HS:0:8}" && ok "the banner names the hand-off recorded for the current branch" || bad "banner without the hand-off" "$OUT"
+
 echo; echo "materialize-synthetic: $PASS passed, $FAIL failed"
 [ "${MATERIALIZE_KEEP:-0}" = "1" ] && echo "scratch kept at $P"
 [ "$FAIL" -eq 0 ]
