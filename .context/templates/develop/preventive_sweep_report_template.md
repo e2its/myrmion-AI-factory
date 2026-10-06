@@ -14,6 +14,9 @@ by_severity:
   medium: 0
   low: 0
 all_resolved_in_commit: null   # true | false | null (not applicable)
+not_delivered: []   # the scopes whose critic never delivered (EVOL-059) — their DCs are UNVERIFIED, never CLEAN; the sweep is not APPROVED while any remains
+degraded: false     # a critic fell onto the writer's family — the findings go to the user's adjudication
+fallback: []        # every fall: {alias, id, delivered}
 
 # Iteration model tracking
 based_on_iteration: 1
