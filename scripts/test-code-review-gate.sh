@@ -157,6 +157,12 @@ J=$(run_preflight "$R")
 echo '{"findings":{"blocker":0},"not_delivered":[],"override":null}' > "$MARKER"
 J=$(run_preflight "$R")
 [[ "$(find_cat "$J")" != *code-review* ]] && pass "an empty not_delivered is a delivered round" || fail "empty not_delivered emitted ($(find_cat "$J"))"
+echo '{"findings":{"blocker":0},"not_delivered":"code-reviewer","override":null}' > "$MARKER"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" code-review-incomplete)" == "blockers" ]] && pass "a not_delivered that is not a list fails closed" || fail "non-list not_delivered passed ($(find_cat "$J"))"
+echo '{"findings":{"blocker":0},"not_delivered":["評価"],"override":null}' > "$MARKER"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" code-review-incomplete)" == "blockers" ]] && pass "a name that sanitises to nothing still blocks" || fail "unsanitisable name passed ($(find_cat "$J"))"
 
 echo "Scenario 10 — clean marker → no Block 20 finding"
 echo '{"findings":{"blocker":0,"important":1},"override":null}' > "$MARKER"

@@ -322,13 +322,17 @@ except Exception:
         # round is not proof, like a spawn failure; refused on the same plane as blockers, with the same override path.
         # Only the names' safe characters are echoed (the marker is user-writable).
         CR_UNDELIVERED=$("$PYTHON" -c '
-import json, sys
+import json, re, sys
 try:
     d = json.load(open(sys.argv[1]))
     nd = d.get("not_delivered") or []
-    print(",".join(str(x) for x in nd) if isinstance(nd, list) else "")
+    if not isinstance(nd, list):
+        print("malformed")                                    # a truthy value that is not a list is not a delivered round (fail closed)
+    else:
+        safe = [re.sub(r"[^A-Za-z0-9_.-]", "", str(x)) or "malformed" for x in nd]   # a name that sanitises to nothing is still a name
+        print(",".join(safe))
 except Exception:
-    print("")
+    print("malformed")
 ' "$CR_MARKER" 2>/dev/null | tr -cd 'A-Za-z0-9_.,-')
         if [[ "$CR_BLOCKERS" -lt 0 ]]; then
           add_finding "$CR_SEV" "code-review-marker-corrupt" "Marker '$CR_MARKER' exists but is unreadable — re-run the factory-code-review branch pass to rewrite it."
