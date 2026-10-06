@@ -318,11 +318,25 @@ try:
 except Exception:
     print("false")
 ' "$CR_MARKER" 2>/dev/null || echo 'false')
+        # EVOL-058: an undelivered critic (the hand-back got no report) is recorded under not_delivered — an incomplete
+        # round is not proof, like a spawn failure; refused on the same plane as blockers, with the same override path.
+        # Only the names' safe characters are echoed (the marker is user-writable).
+        CR_UNDELIVERED=$("$PYTHON" -c '
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    nd = d.get("not_delivered") or []
+    print(",".join(str(x) for x in nd) if isinstance(nd, list) else "")
+except Exception:
+    print("")
+' "$CR_MARKER" 2>/dev/null | tr -cd 'A-Za-z0-9_.,-')
         if [[ "$CR_BLOCKERS" -lt 0 ]]; then
           add_finding "$CR_SEV" "code-review-marker-corrupt" "Marker '$CR_MARKER' exists but is unreadable — re-run the factory-code-review branch pass to rewrite it."
         elif [[ "$CR_BLOCKERS" -gt 0 && "$CR_OVERRIDE" != "true" ]]; then
           add_finding "$CR_SEV" "code-review-blockers" "factory-code-review recorded $CR_BLOCKERS blocker(s) in '$CR_MARKER'. Resolve and re-run the branch pass, or record an RDR-ratified override (factory-code-review/SKILL.md § Override)."
-        elif [[ "$CR_BLOCKERS" -gt 0 ]]; then
+        elif [[ -n "$CR_UNDELIVERED" && "$CR_OVERRIDE" != "true" ]]; then
+          add_finding "$CR_SEV" "code-review-incomplete" "factory-code-review recorded undelivered critic(s) in '$CR_MARKER': $CR_UNDELIVERED — an incomplete round is not proof (an undelivered critic is fully unverified, EVOL-058). Re-run the branch pass, or record an RDR-ratified override (factory-code-review/SKILL.md § Override)."
+        elif [[ "$CR_BLOCKERS" -gt 0 || -n "$CR_UNDELIVERED" ]]; then
           CR_OVERRIDE_AT=$("$PYTHON" -c '
 import json, sys
 try:
@@ -331,7 +345,7 @@ try:
 except Exception:
     print("")
 ' "$CR_MARKER" 2>/dev/null | tr -cd '0-9TZ:+-')
-          add_finding "important" "code-review-overridden" "Block 20: $CR_BLOCKERS blocker(s) overridden by audited RDR override recorded at ${CR_OVERRIDE_AT:-unknown} — push proceeds. Audit trail in marker + worklog."
+          add_finding "important" "code-review-overridden" "Block 20: $CR_BLOCKERS blocker(s)${CR_UNDELIVERED:+, undelivered critic(s) $CR_UNDELIVERED} overridden by audited RDR override recorded at ${CR_OVERRIDE_AT:-unknown} — push proceeds. Audit trail in marker + worklog."
         fi
       fi
     fi

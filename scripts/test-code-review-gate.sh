@@ -147,6 +147,17 @@ echo '{"findings":{"blocker":"corrupt"}}' > "$MARKER"
 J=$(run_preflight "$R")
 [[ "$(sev_of "$J" code-review-marker-corrupt)" == "blockers" ]] && pass "non-int blocker count → blocker" || fail "non-int corrupt ($(find_cat "$J"))"
 
+echo "Scenario 9b — undelivered critic, no override → blocker code-review-incomplete (EVOL-058)"
+echo '{"findings":{"blocker":0,"question":1},"not_delivered":["code-reviewer"],"override":null}' > "$MARKER"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" code-review-incomplete)" == "blockers" ]] && pass "undelivered critic → blocker (an incomplete round is not proof)" || fail "undelivered critic passed ($(find_cat "$J"))"
+echo '{"findings":{"blocker":0,"question":1},"not_delivered":["code-reviewer"],"override":{"reason":"rdr","at":"2026-10-06T00:00:00Z"}}' > "$MARKER"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" code-review-overridden)" == "important" && "$(sev_of "$J" code-review-incomplete)" == "absent" ]] && pass "undelivered + override → important only" || fail "undelivered override path ($(find_cat "$J"))"
+echo '{"findings":{"blocker":0},"not_delivered":[],"override":null}' > "$MARKER"
+J=$(run_preflight "$R")
+[[ "$(find_cat "$J")" != *code-review* ]] && pass "an empty not_delivered is a delivered round" || fail "empty not_delivered emitted ($(find_cat "$J"))"
+
 echo "Scenario 10 — clean marker → no Block 20 finding"
 echo '{"findings":{"blocker":0,"important":1},"override":null}' > "$MARKER"
 J=$(run_preflight "$R")
@@ -222,7 +233,7 @@ J=$(run_preflight "$R4")
 
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
-  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across 16 scenarios."
+  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across 17 scenarios."
   exit 0
 else
   echo "L6: FAIL — $FAILURES scenario assertion(s) failed."
