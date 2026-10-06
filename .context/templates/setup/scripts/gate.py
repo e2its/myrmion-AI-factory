@@ -269,7 +269,8 @@ def cmd_agents(repo, a):
         if not r["ok"]:
             print(json.dumps(r) if a.json else f"agents: REFUSED — {r['reason']}")
             return 1
-        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']} · turns {r['turn_budget']} · probes {r['probe_budget']} · round {r['round']} · {r['matched']}")
+        budget = f" · turns {r['turn_budget']} · probes {r['probe_budget']}" if "turn_budget" in r and "probe_budget" in r else ""
+        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget} · round {r['round']} · {r['matched']}")
         return 0
     if a.fallback:
         r = agents_mod.fallback(repo, a.cls, a.family or "")

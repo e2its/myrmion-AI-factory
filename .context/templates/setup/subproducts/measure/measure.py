@@ -196,7 +196,7 @@ class Session:
 
     def _assistant(self, e: dict, ts, branch: str):
         msg = e.get("message") or {}
-        mid = msg.get("id") or e.get("uuid") or id(e)
+        mid = msg.get("id") or e.get("uuid") or f"#{self.entries}"   # an entry without an id is its own turn (never a reused object id)
         if mid not in self._msg_ids:
             self._msg_ids.add(mid); self.turns += 1
         model = msg.get("model")
@@ -324,20 +324,25 @@ def _profile_from_text(text: str) -> str:
     m = BANNER_RE.search(text or "")
     return m.group(1) if m else "unknown"
 
-_RULE: dict[str, tuple[dict, int | None]] = {}   # per repo: (name → class, the ceiling) — read once
+_RULE: dict[str, tuple[dict, int | None, str]] = {}   # per repo: (name → class, the ceiling, why the ceiling is absent) — read once
 
 
-def _rule(repo: Path) -> tuple[dict, int | None]:
+def _rule(repo: Path) -> tuple[dict, int | None, str]:
     k = str(repo)
     if k not in _RULE:
         p = repo / ".claude/rules/agents.md"
+        why = ""
         try:
             text = p.read_text(encoding="utf-8") if p.is_file() else ""
-        except OSError:
-            text = ""
+            if not p.is_file():
+                why = f"no rule at {p.relative_to(repo)}"
+        except OSError as e:
+            text, why = "", f"the rule {p.relative_to(repo)} is not readable ({e.__class__.__name__})"
         roster = {m.group(1): m.group(2) for m in re.finditer(r"^\s*-\s*\{name:\s*([\w-]+),\s*class:\s*([\w-]+)", text, re.M)}
         m = re.search(r"^\s*large:\s*\{[^}]*\bturn_budget:\s*(\d+)", text, re.M)   # the ceiling every read-only definition declares (EVOL-058)
-        _RULE[k] = (roster, int(m.group(1)) if m else None)
+        if not m and not why:
+            why = "no turn_budget on the large tier of the rule's frontmatter (read in flow form: `large: {…, turn_budget: N}`)"
+        _RULE[k] = (roster, int(m.group(1)) if m else None, why)
     return _RULE[k]
 
 
@@ -391,7 +396,7 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
         atype = meta.get("agentType") or "?"
         rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
         out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype, repo), "round": rounds[atype],
-                    "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None,
+                    "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None, "budget_source": "prompt" if s.budget else "ceiling",
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
                     "bytes_read": sum(b for _, b in s.reads),
                     "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
@@ -737,7 +742,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
                                                 "read = tool-result bytes of Read (or cat/sed/head through Bash) on governance paths"}
 
     # agents (main sessions + subagents)
-    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models), "turns": s.turns, "budget": None,
+    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models), "turns": s.turns, "budget": None, "budget_source": "none",
              "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
              "bytes_read": sum(b for _, b in s.reads),
              "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
@@ -747,16 +752,17 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
     ceiling = roster_ceiling(repo) if repo is not None else None
     critics = [a for a in agents if "critic" in str(a.get("class", ""))]
     if ceiling is None:
-        report["critics"] = {"unavailable": "no turn_budget on the large tier of .claude/rules/agents.md (EVOL-058) — the ceiling is a key"}
+        report["critics"] = {"unavailable": f"{_rule(repo)[2]} (EVOL-058) — the ceiling is a key"}
     else:
-        def ok(a): return a["turns"] <= (a.get("budget") or ceiling)
+        def ok(a): return 0 < a["turns"] <= (a.get("budget") or ceiling)   # a critic with no turn at all delivered nothing
         inside = sum(1 for a in critics if ok(a))
         report["critics"] = {"of": len(critics), "inside_budget": inside, "share": round(inside / len(critics), 3) if critics else None, "ceiling": ceiling,
                              "by_round": {str(r): {"of": sum(1 for a in critics if a["round"] == r), "inside": sum(1 for a in critics if a["round"] == r and ok(a))} for r in sorted({a["round"] for a in critics})},
                              "definition": "a critic = a sub-agent whose roster class is a critic class; turns = the distinct assistant message ids of its own transcript "
-                                           "(a streamed message repeats its id); its budget = the `turn budget:` line of its spawn prompt, else the ceiling "
-                                           "(agents.tiers.large.turn_budget of rules/agents.md, the maxTurns every read-only definition declares); inside = turns at or "
-                                           "under its budget — a critic over the ceiling was stopped by the harness, and what it delivered is the hand-back's"}
+                                           "(a streamed message repeats its id); its budget = the `turn budget:` line of its spawn prompt (budget_source prompt), else the "
+                                           "ceiling (agents.tiers.large.turn_budget of rules/agents.md, the maxTurns every read-only definition declares; budget_source ceiling); "
+                                           "inside = at least one turn and at most its budget — a critic that reached the ceiling was stopped there by the harness, and what it "
+                                           "delivered is the hand-back's; inside counts turns, not reports (the returns section judges the report)"}
 
     # citations
     cited: collections.Counter = collections.Counter()
@@ -1030,6 +1036,14 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
                                                   "content": [{"type": "text", "text": "a second turn — over its budget of one"}]})]
     (tdir / session / "subagents" / "agent-a0.jsonl").write_text("\n".join(json.dumps(e) for e in sub2) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-a0.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 2"}), encoding="utf-8")
+    # a spawn whose prompt carries no budget line (judged against the ceiling), and one that never took a turn (never inside)
+    sub3 = [_entry("user", ts(210), message={"role": "user", "content": "Review without a budget line."}),
+            _entry("assistant", ts(211), message={"id": "msg_4", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "one turn"}]})]
+    (tdir / session / "subagents" / "agent-b1.jsonl").write_text("\n".join(json.dumps(e) for e in sub3) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-b1.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 3"}), encoding="utf-8")
+    sub4 = [_entry("user", ts(220), message={"role": "user", "content": "effort: high\nturn budget: 20\nprobe budget: 2\nReview."})]
+    (tdir / session / "subagents" / "agent-b2.jsonl").write_text("\n".join(json.dumps(e) for e in sub4) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-b2.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 4"}), encoding="utf-8")
     return tdir
 
 
@@ -1131,13 +1145,13 @@ def selftest() -> int:
         expect("| class | round |" in render_markdown(r) and "| work-critic | 1 |" in render_markdown(r) and "| work-critic | 2 |" in render_markdown(r), "the agents table shows class and round")
         expect(agent_class("my-critic", repo) == "work-critic" and agent_class("factory-dev-frontend", repo) == "unclassed", "with a roster the roster is the class: a project's own critic is classed, a name the roster lacks is not")
         expect(agent_class("factory-dev-backend") == "worker" and agent_class("factory-plan-critic") == "plan-critic" and agent_class("factory-qa") == "phase" and agent_class("code-reviewer") == "unclassed", "without a roster the naming grammar is the fallback")
-        expect(agent_class("factory-dev-backend", root / "nope") == "worker" and roster_ceiling(root / "nope") is None, "a repo without the rule: the grammar is still the fallback and the ceiling is absent (the ceiling never lives in the roster)")
+        expect(agent_class("factory-dev-backend", root / "nope") == "worker" and roster_ceiling(root / "nope") is None and "no rule at" in _rule(root / "nope")[2], "a repo without the rule: the grammar is still the fallback, the ceiling is absent and the reason names the missing rule")
         expect(ag["c1"]["citations"] == {"LAW-04": 2}, "citations per agent")
         expect(ag["c1"]["turns"] == 1 and ag["a0"]["turns"] == 2 and ag["main"]["turns"] > 2, "turns per agent = the distinct message ids of its own transcript — a streamed message (two entries, one id) is one turn (EVOL-058)")
-        expect(ag["c1"]["budget"] == 3 and ag["a0"]["budget"] == 1 and ag["main"]["budget"] is None, "the budget per spawn is the `turn budget:` line of its prompt")
+        expect(ag["c1"]["budget"] == 3 and ag["a0"]["budget"] == 1 and ag["main"]["budget"] is None and ag["b1"]["budget"] is None and ag["b1"]["budget_source"] == "ceiling" and ag["c1"]["budget_source"] == "prompt", "the budget per spawn is the `turn budget:` line of its prompt; without the line the ceiling, and the row says which")
         cr = r["critics"]
-        expect(cr["ceiling"] == 60 and cr["of"] == 2 and cr["inside_budget"] == 1 and cr["share"] == 0.5 and cr["by_round"] == {"1": {"of": 1, "inside": 1}, "2": {"of": 1, "inside": 0}},
-               "critics inside their own budget per round — a critic over the budget its prompt stated is outside, whatever the ceiling")
+        expect(cr["ceiling"] == 60 and cr["of"] == 4 and cr["inside_budget"] == 2 and cr["share"] == 0.5 and cr["by_round"] == {"1": {"of": 1, "inside": 1}, "2": {"of": 1, "inside": 0}, "3": {"of": 1, "inside": 1}, "4": {"of": 1, "inside": 0}},
+               "critics inside their own budget per round — over the budget its prompt stated is outside whatever the ceiling; no budget line is judged against the ceiling; no turn at all is never inside")
         expect("## Critics inside their budget" in render_markdown(r) and "| 2 | 1 | 0 |" in render_markdown(r) and "| turns | budget |" in render_markdown(r), "the critics section and the turns and budget columns render")
         expect("critics.share" in compare(r, r), "the signal is in the before/after table")
         c = r["citations"]
