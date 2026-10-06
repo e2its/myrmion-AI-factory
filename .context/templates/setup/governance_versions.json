@@ -3914,10 +3914,11 @@
       "path": ".claude/skills/factory-pr-review/references/changelog-policy.md"
     },
     "skills/factory-pr-review/scripts/preflight.sh": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "type": "skill-asset",
       "role": "Factory PR Review push-gate orchestrator — wraps detect_change_type.py + check_docs_sync.py + check_openapi_diff.sh + check_asyncapi_diff.sh + check_dev_plan_task_format.py + framework-aware checks (governance-bump miss, protected-paths) + Step 0 coherence-audit marker check (v1.1.0). Exit 0 silent pass, 1 blocker found, 2 environment failure (warn-not-block). Honours docs-only fast-lane (CLAUDE.md Generation Standards §3 verbatim allowlist). Reads `default_base_branch` from `.claude/rules/branching.md` when present, and `config/coherence-context.json` for Step 0 governance-sensitivity computation + marker location.",
       "changelog": [
+        "1.9.0: feat(EVOL-058) — Step 0-bis refuses a marker whose not_delivered is non-empty (code-review-incomplete: an incomplete round is not proof), the same override path as blockers; the undelivered names echoed through the allowlist filter.",
         "1.8.0: feat(EVOL-051) — the docs-only fast-lane reads the ONE definition (gate.py documentation --changed --base) — no allowlist in the preflight; documentation-class-unavailable is an important finding",
         "1.7.0: feat(EVOL-046) — protected-branch check through the reader (no regex).",
         "1.6.0: feat(EVOL-045) — base from the one resolver (unknown branch name = blocker branch-name-unknown); Block 21 surface-over-ceiling (blocker) / surface-unavailable (important).",
@@ -4469,11 +4470,12 @@
       "role": ". Meta-sourced, ships via factory-sync only; not part of the SETUP materialization surface."
     },
     "scripts/test-code-review-gate.sh": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "script",
       "role": "L6 CI gate test — validates code_review_hash.py + preflight.sh Step 0-bis against synthetic repos. 14 scenarios: hash determinism, RDR-1 invariance (docs commit stable / code commit changes), EMPTY sentinel, git-unavailable→rc2 (CRITICAL-1 regression), bad-stdin/missing-files→rc2, marker missing/blockers/override/corrupt (CRITICAL-2 regression)/clean, enabled=false, pr_blocker=false routing, executor-missing, tests-only diff gating (has_tests regression). Wired into governance-check.yml T2 step.",
       "path": "scripts/test-code-review-gate.sh",
       "changelog": [
+        "1.4.0: feat(EVOL-058) — scenario 9b: an undelivered critic blocks, an override downgrades it, an empty list is a delivered round.",
         "1.3.0: fix(EVOL-051) — review pass — scenario 16: a clean code push prints its JSON (no set -e death), the docs-only lane through gate.py documentation engages / declines / says why (16 scenarios)",
         "1.2.0: feat(EVOL-045) — scenario 15 — preflight Block 21 (over ceiling, unknown branch name on a docs-only diff, reader fault, escape).",
         "1.1.0: fix(subproducts-dod-closure) — scenario 2 red-proof: a subproduct code commit never changes the review hash.",

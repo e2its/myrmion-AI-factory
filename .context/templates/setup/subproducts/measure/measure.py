@@ -336,7 +336,7 @@ def _rule(repo: Path) -> tuple[dict, int | None, str]:
             text = p.read_text(encoding="utf-8") if p.is_file() else ""
             if not p.is_file():
                 why = f"no rule at {p.relative_to(repo)}"
-        except OSError as e:
+        except (OSError, ValueError) as e:   # ValueError: a rule that does not decode
             text, why = "", f"the rule {p.relative_to(repo)} is not readable ({e.__class__.__name__})"
         roster = {m.group(1): m.group(2) for m in re.finditer(r"^\s*-\s*\{name:\s*([\w-]+),\s*class:\s*([\w-]+)", text, re.M)}
         m = re.search(r"^\s*large:\s*\{[^}]*\bturn_budget:\s*(\d+)", text, re.M)   # the ceiling every read-only definition declares (EVOL-058)
@@ -396,7 +396,8 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
         atype = meta.get("agentType") or "?"
         rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
         out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype, repo), "round": rounds[atype],
-                    "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None, "budget_source": "prompt" if s.budget else "ceiling",
+                    "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None,
+                    "budget_source": "prompt" if s.budget else ("ceiling" if "critic" in agent_class(atype, repo) else "none"),
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
                     "bytes_read": sum(b for _, b in s.reads),
                     "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
@@ -1044,6 +1045,11 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
     sub4 = [_entry("user", ts(220), message={"role": "user", "content": "effort: high\nturn budget: 20\nprobe budget: 2\nReview."})]
     (tdir / session / "subagents" / "agent-b2.jsonl").write_text("\n".join(json.dumps(e) for e in sub4) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-b2.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 4"}), encoding="utf-8")
+    # a spawn with no budget line that ran past the ceiling: the ceiling is the bound, never unbounded
+    sub5 = [_entry("user", ts(230), message={"role": "user", "content": "Review without a budget line, long."})] + \
+           [_entry("assistant", ts(231 + i), message={"id": f"msg_long_{i}", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "turn"}]}) for i in range(61)]
+    (tdir / session / "subagents" / "agent-b3.jsonl").write_text("\n".join(json.dumps(e) for e in sub5) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-b3.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 5"}), encoding="utf-8")
     return tdir
 
 
@@ -1150,8 +1156,15 @@ def selftest() -> int:
         expect(ag["c1"]["turns"] == 1 and ag["a0"]["turns"] == 2 and ag["main"]["turns"] > 2, "turns per agent = the distinct message ids of its own transcript — a streamed message (two entries, one id) is one turn (EVOL-058)")
         expect(ag["c1"]["budget"] == 3 and ag["a0"]["budget"] == 1 and ag["main"]["budget"] is None and ag["b1"]["budget"] is None and ag["b1"]["budget_source"] == "ceiling" and ag["c1"]["budget_source"] == "prompt", "the budget per spawn is the `turn budget:` line of its prompt; without the line the ceiling, and the row says which")
         cr = r["critics"]
-        expect(cr["ceiling"] == 60 and cr["of"] == 4 and cr["inside_budget"] == 2 and cr["share"] == 0.5 and cr["by_round"] == {"1": {"of": 1, "inside": 1}, "2": {"of": 1, "inside": 0}, "3": {"of": 1, "inside": 1}, "4": {"of": 1, "inside": 0}},
-               "critics inside their own budget per round — over the budget its prompt stated is outside whatever the ceiling; no budget line is judged against the ceiling; no turn at all is never inside")
+        expect(cr["ceiling"] == 60 and cr["of"] == 5 and cr["inside_budget"] == 2 and cr["share"] == 0.4 and cr["by_round"] == {"1": {"of": 1, "inside": 1}, "2": {"of": 1, "inside": 0}, "3": {"of": 1, "inside": 1}, "4": {"of": 1, "inside": 0}, "5": {"of": 1, "inside": 0}},
+               "critics inside their own budget per round — over the budget its prompt stated is outside whatever the ceiling; no budget line is judged against the ceiling (one turn inside, sixty-one outside); no turn at all is never inside")
+        norule = root / "norule"; (norule / ".claude" / "rules").mkdir(parents=True)
+        (norule / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  tiers:\n    large: {files: 30, lines: 800}\n  roster:\n    - {name: factory-critic-security, class: work-critic}\n---\n", encoding="utf-8")
+        r3 = build_report(norule, cfg, tdir, since, until)
+        expect("unavailable" in r3["critics"] and "no turn_budget on the large tier" in r3["critics"]["unavailable"], "a rule without the ceiling: the critics section says which key is missing")
+        (norule / ".claude" / "rules" / "agents.md").write_bytes(b"\xff\xfe\x00\x00 not text")
+        _RULE.clear()
+        expect("not readable" in _rule(norule)[2], "a rule that does not decode is said, never raised")
         expect("## Critics inside their budget" in render_markdown(r) and "| 2 | 1 | 0 |" in render_markdown(r) and "| turns | budget |" in render_markdown(r), "the critics section and the turns and budget columns render")
         expect("critics.share" in compare(r, r), "the signal is in the before/after table")
         c = r["citations"]
