@@ -45,13 +45,50 @@ WRITE_VERBS = {"create", "update", "delete", "put", "patch", "set", "write", "de
 NEVER_SERVER_PREFIXES = ("claude_ai_",)   # the user's personal-data connectors (mail, drive, docs, office): never a documentation source, whatever a list says
 WRITE_TOOLS = {"edit", "write", "notebookedit", "multiedit", "bash", "agent", "task"}
 EFFORTS = ("low", "medium", "high", "max")
+TIERS = ("small", "medium", "large")                        # EVOL-058: every tier declares its budgets
+BUDGET_KEYS = ("turn_budget", "probe_budget")
+
+
+def _posint(v) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool) and v > 0 or (isinstance(v, str) and v.isdecimal() and int(v) > 0)
+
+
+def budgets(pol: dict, t: str) -> dict:
+    """The turn and probe budgets of a tier (EVOL-058); an unmeasured size (`unknown`) is held to the large tier's —
+    never starved, never unbounded. Missing keys are the validator's finding; here they are absent."""
+    tiers = pol.get("tiers") if isinstance(pol.get("tiers"), dict) else {}
+    row = tiers.get(t if t in TIERS else "large") or {}
+    return {k: int(row[k]) for k in BUDGET_KEYS if isinstance(row, dict) and _posint(row.get(k))}
 CAPS = {"plan-critic": "plan_gate", "work-critic": "work"}   # class → rounds key
 POINTER = re.compile(r"`((?:rules/|\.claude/|scripts/|\.context/)[\w./-]+\.(?:md|py|sh))`")
 GOV_BLOCK = ("Rules read:", "Laws applied:", "Defect classes:", "Sources:")
+MODEL_LINE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Model:(?:\*\*)?\s*(?P<id>\S.*?)\s*$", re.M)   # EVOL-059: the id the harness states for a critic — the canary's trigger; bulleted or bold like the other lines
+MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,99}$")            # an id, never text: it lands in a main-session command line
 SEVERITY = re.compile(r"[🔴🟡🟢❓]")
 FINDING = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?P<loc>[^\s*`]+:\d+)(?:\*\*)?\s*·\s*(?P<sev>🔴|🟡|🟢|❓)\s*·\s*confidence\s*\d+%\s*·\s*probe:\s*(?P<probe>.+?)\s*$")
 TRIVIAL_PROBE = re.compile(r"^(?:n/?a|none|nil|-+|—|tbd|todo|\?+|\.+)$", re.I)
 NO_FINDINGS = re.compile(r"^\s*(?:[-*]\s+)?no findings\.?\s*$", re.I | re.M)
+GOV_HEADING = re.compile(r"^\s*##\s*Governance\b.*$", re.M)                                      # the governance block starts at a heading LINE — a mention of the phrase inside a finding is not one
+INFO_HEADING = re.compile(r"^\s*##\s*Informational\b.*$", re.M)                                   # EVOL-060: the appendix — informational findings in full, never adjudicated
+INFO_LINE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Informational:(?:\*\*)?\s*(?P<n>\d+)\s*$", re.M)   # EVOL-060: the count on the governance block — what the orchestrator reads instead of the findings
+
+
+def split_return(text: str) -> tuple[str, str]:
+    """The contract part (findings above informational + the governance block) and the appendix (`## Informational`, after the
+    governance block). The orchestrator reads the first and copies the second verbatim into the round artefact (EVOL-060)."""
+    text = text or ""
+    g = GOV_HEADING.search(text)
+    m = INFO_HEADING.search(text, g.start() if g else 0)
+    if not m:
+        return text, ""
+    return text[:m.start()], text[m.start():]
+
+
+def governance_block(text: str) -> str:
+    """The governance block of a return: from its heading line to the end of the contract part (the appendix excluded)."""
+    contract, _ = split_return(text)
+    g = GOV_HEADING.search(contract)
+    return contract[g.start():] if g else ""
 SOURCE = re.compile(r"^\s*(?:[-*]\s+)?(?P<kind>mcp|doc)\s*·\s*(?P<server>[\w.-]+)\s*·\s*(?P<query>.+?)\s*·\s*(?P<ref>.+?)\s*·\s*(?P<digest>.+?)\s*$")
 PLACEHOLDER = re.compile(r"^<[^>]*>$")   # the contract's own template echoed back (`<ref: …>`) is not a source
 UNKNOWN = re.compile(r"^\s*(?:[-*]\s+)?(?P<q>.+?)\s*·\s*searched:\s*(?P<s>.*?)\s*$")
@@ -130,6 +167,8 @@ def policy(repo: Path) -> dict:
         raise GateFault("config/quality.json → agents.families must name the `writer` and `critic` model aliases (SETUP Q34)")
     a = dict(a); a["families"] = {k: str(v) for k, v in fam.items()}
     a.setdefault("roster", []); a.setdefault("spawn_sites", []); a.setdefault("resolve", []); a.setdefault("ladder", {}); a.setdefault("tiers", {}); a.setdefault("rounds", {})
+    if not isinstance(a["roster"], list):   # a bare `roster:` reads as null — not a roster; said here once for every consumer (validate, digest, spawn, the canary)
+        raise GateFault(f"{p.relative_to(repo)} → agents.roster is not a list (a bare `roster:` is null) — the roster names the agents, one entry per line")
     a["_path"] = str(p.relative_to(repo))
     return a
 
@@ -151,9 +190,10 @@ def _class_writes(c: dict) -> bool:
     return bool({_norm(t) for t in c["tools"]["must"]} & WRITE_TOOLS)
 
 
-def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, roster_class: str | None = None) -> None:
+def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, roster_class: str | None = None, ceiling: int | None = None) -> None:
     """One definition against its class: name = file, description, class agreement, the tool matrix, no model, effort,
-    budget, pointers. Appends findings."""
+    budget, pointers; a read-only roster definition declares the harness's hard stop (`maxTurns` = the large tier's
+    turn_budget, EVOL-058). Appends findings."""
     rel = str(p.relative_to(repo))
     try:
         fm = read_frontmatter(p)
@@ -196,6 +236,12 @@ def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, 
     eff = fv("effort").lower()
     if eff not in EFFORTS:
         f.append({"path": rel, "reason": f"`effort: {eff or '(none)'}` — every definition declares one of {', '.join(EFFORTS)} (the harness default; the resolver's effort overrides it per spawn)"})
+    mt = fv("maxTurns")
+    if _class_writes(c):
+        if mt:
+            f.append({"path": rel, "reason": "`maxTurns` on a definition that writes — a writer's turns are not capped by a definition field (the writer cap is a policy key of its own, not this one)"})
+    elif roster_class is not None and ceiling is not None and not (mt.isdecimal() and int(mt) == ceiling):
+        f.append({"path": rel, "reason": f"`maxTurns: {mt or '(none)'}` — a read-only definition declares the harness's hard stop, equal to the large tier's turn_budget ({ceiling}); the per-tier budget travels at the spawn (EVOL-058)"})
     text = p.read_text(encoding="utf-8", errors="replace")
     size = len(text.encode("utf-8"))
     if size > int(c["budget_bytes"]):
@@ -231,6 +277,17 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
     for k in ("plan_gate", "work"):
         if not str(pol["rounds"].get(k, "")).isdigit() or int(pol["rounds"][k]) < 1:
             f.append({"path": rule, "reason": f"agents.rounds.{k} must be a positive integer — the loop's cap is a key"})
+    # the budgets are keys per tier (EVOL-058): a critic's turns and the probes run on its behalf
+    if not isinstance(pol["tiers"], dict):
+        f.append({"path": rule, "reason": "agents.tiers must be a mapping of size tiers (small, medium, large)"})
+    for t in TIERS:
+        row = (pol["tiers"] if isinstance(pol["tiers"], dict) else {}).get(t)
+        if not isinstance(row, dict):
+            f.append({"path": rule, "reason": f"agents.tiers.{t} is missing — every size tier declares turn_budget and probe_budget (EVOL-058)"}); continue
+        for k in BUDGET_KEYS:
+            if not _posint(row.get(k)):
+                f.append({"path": rule, "reason": f"agents.tiers.{t}.{k} must be a positive integer — a critic's budget is a key the orchestrator enforces, never a sentence in a prompt (EVOL-058)"})
+    ceiling = budgets(pol, "large").get("turn_budget")
     # roster ↔ definitions ↔ manifest
     files = roster_files(repo)
     roster = {r["name"]: r for r in pol["roster"] if isinstance(r, dict) and r.get("name")}
@@ -260,7 +317,7 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
             if not c:
                 continue
             _check_definition(repo, p, cls, c, f); continue
-        _check_definition(repo, p, cls, c, f, roster_class=cls)
+        _check_definition(repo, p, cls, c, f, roster_class=cls, ceiling=ceiling)
     # vendored engine lenses: prompts a rostered critic runs — their frontmatter may not lie about the matrix
     eng = repo / ENGINE_AGENTS
     for p in (sorted(eng.glob("*.md")) if eng.is_dir() else []):
@@ -285,7 +342,7 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
         if (pol["ladder"] or {}).get("writer"):
             f.append({"path": rule, "reason": f"ladder.writer is not empty — an agent that writes (class `{n}`) never degrades"}); break
     # resolve rows: known class and tier, a real effort, never a restated default
-    tiers = set(pol["tiers"] or {}) | {"medium"}
+    tiers = set(pol["tiers"] if isinstance(pol["tiers"], dict) else {}) | {"medium"}
     for row in pol["resolve"]:
         if not isinstance(row, dict) or row.get("class") not in pol["classes"]:
             f.append({"path": rule, "reason": f"resolve row {row} names no known class — dead data"}); continue
@@ -319,8 +376,9 @@ def tier(pol: dict, files: int, lines: int) -> str:
     """small | medium | large from the tiers keys; `unknown` when nobody measured (0 files, 0 lines) — never small by default."""
     if files <= 0 and lines <= 0:
         return "unknown"
-    tiers = pol.get("tiers") or {}
-    small = tiers.get("small", {}); large = tiers.get("large", {})
+    tiers = pol.get("tiers") if isinstance(pol.get("tiers"), dict) else {}
+    small = tiers.get("small") if isinstance(tiers.get("small"), dict) else {}
+    large = tiers.get("large") if isinstance(tiers.get("large"), dict) else {}
     if files <= int(small.get("files", 5)) and lines <= int(small.get("lines", 150)):
         return "small"
     if files > int(large.get("files", 30)) or lines > int(large.get("lines", 800)):
@@ -349,7 +407,21 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
             continue
         effort = row.get("effort", effort); matched = ", ".join(f"{k}: {v}" for k, v in row.items() if k != "class"); break
     fam = c["family"]
-    return {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched}
+    b = budgets(pol, t)
+    if not _class_writes(c) and len(b) != len(BUDGET_KEYS):   # a read-only class is spawned under its budgets; a writer's cap is a key of its own
+        raise GateFault(f"agents.tiers.{t if t in TIERS else 'large'} lacks turn_budget / probe_budget — a critic's budget is a key (EVOL-058); gate.py agents names it")
+    out = {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched, **b}
+    if cls == "work-critic":   # EVOL-059: the canary's trigger rides on every work-critic spawn — the lens whose model moved is named here
+        from . import canary as canary_mod
+        lens = str(surface or "").lower()
+        try:
+            p = canary_mod.plan(repo)   # the one definition of "owed": a fixture the judge would refuse owes nothing and names its fault
+            out["canary_owed"] = [x for x in p["owed"] if not lens or x == lens]
+            if p.get("fault"):
+                out["canary_fault"] = p["fault"]
+        except GateFault as e:   # a canary fault never stops a spawn (a red canary never blocks either): said, not raised
+            out["canary_owed"] = []; out["canary_fault"] = str(e)
+    return out
 
 
 def fallback(repo: Path, cls: str, family: str) -> dict:
@@ -453,11 +525,17 @@ def _check_reader(text: str, problems: list[str]) -> None:
                     problems.append(f"unknown that names nothing searched (`question · searched: what`): {line.strip()[:80]}")
 
 
+def return_model(text: str) -> str:
+    """The model id a critic's return carries (`unknown` when none)."""
+    m = MODEL_LINE.search(governance_block(text))   # the contract part's block — never a line of the appendix (EVOL-060)
+    return m.group("id") if m and not _placeholder(m.group("id")) and MODEL_ID.match(m.group("id")) else "unknown"
+
+
 def check_return(text: str, cls: str) -> list[str]:
     if not cls:
         raise GateFault("--check-return needs --class: a worker, a critic and a reader owe different contracts")
     problems = []
-    if "## Governance" not in text:
+    if not GOV_HEADING.search(text or ""):
         problems.append("no `## Governance` block")
     for k in GOV_BLOCK:
         if k not in text:
@@ -465,8 +543,16 @@ def check_return(text: str, cls: str) -> list[str]:
     if cls == "reader":
         _check_reader(text, problems)
     if "critic" in cls:
+        m = MODEL_LINE.search(governance_block(text))   # the governance block's line (the contract part's), not a `Model:` anywhere in the findings or the appendix
+        if not m:
+            problems.append("no `Model:` line in the governance block — a critic names the model id the harness states for it (`unknown` when it does not; the canary's trigger, EVOL-059)")
+        elif _placeholder(m.group("id")):
+            problems.append(f"`Model: {m.group('id')}` is the contract's own placeholder, not an id")
+        elif not MODEL_ID.match(m.group("id")):
+            problems.append(f"`Model: {m.group('id')[:40]}` is not a model id (letters, digits, `.`, `_`, `:`, `@`, `/`, `-`) — the line lands in a command, it is never text")
+        contract, appendix = split_return(text)   # EVOL-060: the informational findings travel in the appendix, counted on the governance block
         shaped = 0
-        for line in text.splitlines():
+        for line in contract.splitlines():
             if not SEVERITY.search(line):
                 continue
             m = FINDING.match(line)
@@ -474,8 +560,30 @@ def check_return(text: str, cls: str) -> list[str]:
                 problems.append(f"finding outside the contract shape `file:line · severity · confidence N% · probe: …`: {line.strip()[:80]}")
             elif TRIVIAL_PROBE.match(m.group("probe").strip()):
                 problems.append(f"finding without an executed probe: {line.strip()[:80]}")
+            elif m.group("sev") == "🟢":
+                after = (g := GOV_HEADING.search(contract)) is not None and contract.find(line) > g.start()
+                problems.append((f"informational finding after the governance block but under no `## Informational` heading (that heading, a line of its own, opens the appendix — EVOL-060): {line.strip()[:80]}" if after else
+                                 f"informational finding inside the findings — it belongs under `## Informational` after the governance block, counted on the `Informational:` line (EVOL-060): {line.strip()[:80]}"))
             else:
                 shaped += 1
-        if not shaped and not NO_FINDINGS.search(text):
+        if not shaped and not NO_FINDINGS.search(contract):
             problems.append("no finding in the contract shape (or a line reading exactly `no findings`)")
+        info = 0
+        for line in appendix.splitlines():
+            if not SEVERITY.search(line):
+                continue
+            m = FINDING.match(line)
+            if not m:
+                problems.append(f"informational finding outside the contract shape under `## Informational`: {line.strip()[:80]}")
+            elif m.group("sev") != "🟢":
+                problems.append(f"a finding above informational under `## Informational` — it belongs in the findings, where it is adjudicated: {line.strip()[:80]}")
+            elif TRIVIAL_PROBE.match(m.group("probe").strip()):
+                problems.append(f"informational finding without an executed probe: {line.strip()[:80]}")
+            else:
+                info += 1
+        n = INFO_LINE.search(governance_block(text))
+        if not n:
+            problems.append("no `Informational: N` line in the governance block — a critic counts its informational findings there and lists them under `## Informational` after the block (EVOL-060)")
+        elif int(n.group("n")) != info:
+            problems.append(f"`Informational: {n.group('n')}` but {info} informational finding(s) under `## Informational` — the count is the list's length, never more, never less")
     return problems

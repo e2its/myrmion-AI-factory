@@ -94,6 +94,10 @@ cascade_scope: []
 
 ---
 
+## 2b. Critic returns (EVOL-060)
+
+<!-- every work-critic return of the round VERBATIM, one `### <agent> · round N` heading each — the appendix (`## Informational`) of each lives here and only here; the orchestrator read the contract part (the findings above informational, the governance block with its `Informational:` count), never the appendix. The informational count of the round is the sum of those lines; nothing informational is adjudicated. -->
+
 ## 3. Detailed Analysis
 
 ### 3.1 Architecture Compliance

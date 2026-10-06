@@ -119,16 +119,46 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   # lens), class work-critic: the harness matrix (Read, Grep, Glob) is the read-only guarantee — never a generic
   # Explore agent (it carries Bash). The runtime decides actual concurrency; this skill never asserts a number.
   digest = RUN("python3 scripts/gate.py agents --digest --agent factory-critic-governance")
+  # EVOL-059: the governance lens reviews the canary fixture first when its resolved model moved; a red never blocks — an RDR on the spawn policy
+  IF "governance" IN RUN("python3 scripts/gate.py canary --plan --json").owed:
+    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files in the fixture)} --lines {COUNT(added lines in the fixture)}")
+    rep = SPAWN(subagent_type = "factory-critic-governance", model = res.model, prompt = budget lines + digest + { diff: a scratch file OUTSIDE the tree holding RUN("python3 scripts/gate.py canary --fixture") })
+    IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
+    RUN("python3 scripts/gate.py canary --judge --lens governance --model {return_model(rep)}", rep)   # every verdict on the tracking item; red ⇒ RDR
+  # exit 2 of --plan (a malformed record; an inconsistent fixture — owed is empty, the cause named) or of --judge is a canary FAULT, not a verdict: say it to the user, continue the sweep — the canary never blocks
+  not_delivered = []; degraded = false                               # EVOL-058: the scopes whose critic never delivered a report; a fall onto the writer's family
   reports = PARALLEL_MAP(scopes, LAMBDA(scope):
     res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files under scope)} --lines 0")
-    SPAWN(subagent_type = "factory-critic-governance",
+    fell = none                                                      # per scope, never shared (EVOL-059)
+    report = SPAWN(subagent_type = "factory-critic-governance",
       model = res.model,                  # per spawn, from the reader — never chosen here; the PreToolUse Agent hook refuses it missing
-      prompt = "effort: {res.effort}\n" + SLICE(digest, scope.dcs) +   # the DC rows of this scope, within the class budget
+      prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\n" + SLICE(digest, scope.dcs) +   # the DC rows of this scope, within the class budget
                { scope: scope.scope, dcs: scope.dcs, search_roots: resolve_search_roots(scope.scope), feature_scope: feature_scope }
     )
-    # a return outside the finding shape is refused: RUN("python3 scripts/gate.py agents --check-return --class work-critic", report)
+    IF report.provider_error:                                        # the ladder, as the engine walks it (rules/agents.md § Model policy): one rung, said, never to a writer
+      fb = RUN("python3 scripts/gate.py agents --fallback --class work-critic --family critic")
+      SAY("scope {scope.scope}: " + fb.reason)
+      IF NOT fb.ok: not_delivered.append(scope.scope); report.findings = [❓ "scope {scope.scope}: not delivered — provider error, no rung left"]; report.scope = scope.scope; RETURN report
+      IF NOT fb.separation: degraded = true
+      fell = fb.model; report = SPAWN(... same inputs, model = fb.model)
+      IF report.provider_error: SAY("scope {scope.scope}: the fallback {fell} failed too — no rung left"); not_delivered.append(scope.scope); report.findings = [❓ "scope {scope.scope}: not delivered — the fallback {fell} failed too"]; report.scope = scope.scope; report.fallback = { alias: fell, id: "unknown", delivered: false }; RETURN report   # a provider-error return states no id; the fall is recorded, never only said
+    # a return outside the finding shape is refused; a PARTIAL return (the ceiling, maxTurns) gets ONE hand-back request, then resumes (rules/agents.md § The bounded loop, EVOL-058)
+    IF report.partial OR RUN("python3 scripts/gate.py agents --check-return --class work-critic", report) refuses:
+      report = HANDBACK_ONCE(report.agent)                          # ONE request to the same agent, then resume — never a second spawn
+      IF report.partial OR refused again OR the agent cannot be resumed:
+        report.findings = ALL_AS(❓) + [❓ "scope {scope.scope}: not delivered{' (on fallback ' + fell + ')' IF fell ELSE ''} — fully unverified"]   # never an empty list
+        not_delivered.append(scope.scope)
+    IF fell: report.fallback = { alias: fell, id: return_model(report), delivered: scope.scope NOT IN not_delivered }
+    report.scope = scope.scope
+    RETURN report
   )
-  RETURN consolidate(reports)
+  delivered = [r FOR r IN reports IF r.scope NOT IN not_delivered AND NOT r.fallback]   # the reports that passed the return check after at most one hand-back, spawned on the resolved model — a fall ran on another id (FOLD_IDS reads the primary ones, as the engine's)
+  fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § Spawn contract → FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
+  IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")   # nothing when no scope delivered: the last real id stays
+  contracts = [contract_part(r) FOR r IN reports]                    # EVOL-060: consolidation reads the contract part; `reports` keeps the originals (their appendix, their fall record)
+  informational = SUM(the `Informational: N` line of each delivered report)
+  WRITE § Critic returns of the artefact (step 6): every report VERBATIM, one `### <scope> · round N` heading each — the appendix's home; frontmatter `informational: {informational}`
+  RETURN consolidate(contracts, not_delivered) + { not_delivered, degraded, informational, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # consolidation is handed the list it marks UNVERIFIED by (§ CONSOLIDATION PROTOCOL step 4); the undelivered scopes, the degradation and the falls travel with the sweep's report
 ```
 
 ### Canonical starter scopes
@@ -163,9 +193,9 @@ After all scope sub-agents complete:
 1. **Merge** all findings into a single severity-ordered table
 2. **Deduplicate** — if Agent 2 and Agent 4 both report the same DC finding, keep only one
 3. **Group by defect class** — show DC-N header with finding count
-4. **Mark CLEAN** — for each DC with zero findings, explicitly mark `DC-N: CLEAN`
+4. **Mark CLEAN or UNVERIFIED** — for each DC with zero findings, explicitly mark `DC-N: CLEAN`; every DC of a scope in `not_delivered` is marked `DC-N: UNVERIFIED (scope {scope} not delivered)` — never CLEAN (EVOL-058/059: an undelivered critic is never a clean review). A non-empty `not_delivered` keeps the PREVENTIVE-SWEEP issue out of Done and the artefact at `status: IN_PROGRESS` until the scope is re-run and delivers.
 5. **Present to user BEFORE touching code** — the user approves the fix plan
-6. **Save report artifact** at `docs/spec/{{FEATURE_ID}}/review/preventive_sweep_{{YYYYMMDD}}.md`
+6. **Save report artifact** at `docs/spec/{{FEATURE_ID}}/review/preventive_sweep_{{YYYYMMDD}}.md` — with § Critic returns (every scope critic's return verbatim, one `### <scope> · round N` heading each; the appendix lives there) and `informational:` in the frontmatter (EVOL-060)
 7. **On user approval:**
    - Apply fixes in priority batches: P0 (BLOCKER) → P1 (HIGH) → P2 (MEDIUM)
    - One commit per priority group
@@ -191,6 +221,10 @@ high: N
 medium: N
 low: N
 all_resolved_in_commit: true | false
+not_delivered: []                      # the scopes whose critic never delivered — their DCs are UNVERIFIED below, the sweep is not COMPLETED while any remains
+informational: 0                       # the sum of the returns' Informational: lines (EVOL-060) — the findings themselves under § Critic returns
+degraded: false                        # a critic fell onto the writer's family (the ladder's last rung) — the findings go to the user's adjudication
+fallback: []                           # every fall: {alias, id, delivered}
 ---
 
 # Preventive Defect Sweep — {{FEATURE_ID}}
@@ -217,6 +251,14 @@ all_resolved_in_commit: true | false
 ## Clean Areas
 | DC | Area | Notes |
 |----|------|-------|
+
+## Unverified Areas
+| DC | Scope | Reason |
+|----|-------|--------|
+<!-- one row per DC of a scope in not_delivered — never under Clean Areas (EVOL-059) -->
+
+## Critic returns
+<!-- every scope critic's return VERBATIM, one `### <scope> · round N` heading each — the appendix (`## Informational`) lives here, never adjudicated (EVOL-060) -->
 
 ## Framework Observations
 {{Any patterns that suggest a new DC or a gate improvement}}

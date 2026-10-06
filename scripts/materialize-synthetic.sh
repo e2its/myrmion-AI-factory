@@ -287,7 +287,11 @@ python3 - "$P/config/quality.json" <<'PY'
 import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["agents"]["families"]["critic"] = "opus"; json.dump(d, open(p, "w"), indent=1)
 PY
 OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --surface security --files 3 --lines 40 2>&1); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'model opus' && ok "per-spawn resolution on the materialised policy: the security critic on the critics' family" || bad "resolve wrong (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'model opus' && printf '%s' "$OUT" | grep -q 'tier small · turns 20 · probes 2' && ok "per-spawn resolution on the materialised policy: the security critic on the critics' family, with the small tier's turn and probe budgets (EVOL-058)" || bad "resolve wrong (rc=$RC)" "$OUT"
+sed -i '/^maxTurns: /d' "$P/.claude/agents/factory-critic-security.md"
+OUT=$(cd "$P" && python3 scripts/gate.py agents 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'maxTurns: (none)' && ok "RED: a read-only definition without the harness's hard stop (maxTurns = the large tier's turn_budget) is refused on the materialised tree" || bad "missing maxTurns not refused (rc=$RC)" "$OUT"
+sed -i 's/^effort: high$/effort: high\nmaxTurns: 60/' "$P/.claude/agents/factory-critic-security.md"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --digest --agent factory-critic-security 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'read .claude/rules/security_policy.md' && printf '%s' "$OUT" | grep -qE 'B within [0-9]+ B' && ok "the security critic's digest carries the security rule of the materialised tree, within its class budget" || bad "digest lacks the lens's law (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_input":{"subagent_type":"factory-critic-security","model":"sonnet"}}' | python3 scripts/gate.py agents --spawn --hook-json 2>&1); RC=$?
@@ -303,8 +307,29 @@ OUT=$(cd "$P" && printf '## Sources\n- mcp · context7 · q · https://x/y · wh
 [ "$RC" -eq 0 ] && ok "a reader return with its sources, answer and unknowns passes the contract" || bad "reader return refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '## Answer\nx\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n' | python3 scripts/gate.py agents --check-return --class reader 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'no `## Sources` section' && ok "a reader return without its sources is refused" || bad "reader return without sources not refused (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 2 2>&1); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a second work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf 'src/a.py:1 · 🔴 · confidence 90%% · probe: read\nsrc/b.py:2 · 🟢 · confidence 85%% · probe: read\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 0\nModel: claude-x\n' | python3 scripts/gate.py agents --check-return --class work-critic 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'informational finding inside the findings' && ok "RED: an informational finding before the governance block is refused (EVOL-060)" || bad "informational inside the findings not refused (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf 'src/a.py:1 · 🔴 · confidence 90%% · probe: read\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 1\nModel: claude-x\n## Informational\nsrc/b.py:2 · 🟢 · confidence 85%% · probe: read (DC-29)\n' | python3 scripts/gate.py agents --check-return --class work-critic 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "the two-part return passes: the findings above informational, the count on the governance block, the appendix (EVOL-060)" || bad "two-part return refused (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 1 --files 2 --lines 10 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'effort max' && ok "the first work round runs at full effort whatever the size (RDR-3 of EVOL-059)" || bad "first round not at full effort (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 2 --files 2 --lines 10 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'effort medium' && ok "the second work round on a small cure earns medium effort (the round-2 tier row)" || bad "second round effort not by size (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 3 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a third work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
+# the lens canary (EVOL-059): the fixture ships inside the reader, judged on the materialised policy
+OUT=$(cd "$P" && python3 scripts/gate.py canary --check 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "gate.py canary --check: the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the coordinate spaces never overlap, the tolerance reaches no two defects of one lens, every lens has its roster agent" || bad "canary fixture inconsistent (rc=$RC)" "$OUT"
+[ "$(cd "$P" && python3 scripts/gate.py canary --fixture | grep -c 'canary-secret')" = "1" ] && ok "the decoded fixture carries the planted credential's marker once" || bad "canary marker missing from the decoded fixture"
+OUT=$(cd "$P" && python3 scripts/gate.py canary --plan 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'owed — security, correctness, governance, fidelity' && ok "a project that never judged its lenses owes every lens a canary" || bad "canary plan wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf 'src/orders/repo.py:9 · 🔴 · confidence 95%% · probe: read\nsrc/orders/repo.py:23 · 🔴 · confidence 99%% · probe: read\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 0\nModel: claude-x\n' | python3 scripts/gate.py canary --judge --lens security --model claude-x 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'canary: ok' && ok "a security return finding both planted defects is green and recorded" || bad "canary judge green path wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf 'src/orders/api.py:7 · 🟡 · confidence 80%% · probe: read\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 0\nModel: claude-x\n' | python3 scripts/gate.py canary --judge --lens security --model claude-x 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'missed: s2' && printf '%s' "$OUT" | grep -q 'never blocks' && ok "RED: a return that misses the planted credential — the canary is red and says it never blocks (an RDR on the spawn policy)" || bad "canary judge red path wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py canary --seen --lens security --model claude-y >/dev/null && python3 scripts/gate.py canary --plan 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'the model moved: judged on `claude-x`, last ran on `claude-y`' && ok "the trigger: a lens whose resolved model moved is owed again" || bad "canary trigger wrong (rc=$RC)" "$OUT"
+rm -f "$P/.claude/state/canary.json"
 # one full verification loop (EVOL-051): the documentation class, the path-to-gate map, the seal the push honours, the digests
 OUT=$(cd "$P" && python3 scripts/gate.py seal --validate 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "gate.py seal --validate: documentation defined, every materialised gate reads something" || bad "seal map invalid (rc=$RC)" "$OUT"

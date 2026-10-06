@@ -17,6 +17,9 @@ the git log and the per-feature worklog, and reports for a time window:
                the roster), or uncollected
   pushes       pushes by gate profile from the push log the pre-push hook writes (the trace as fallback)
   loop         the verification loop per gate and per profile from the timings gate.py seal --run writes
+  critics      critics delivered inside their budget (EVOL-058): turns per sub-agent (distinct message ids) against the
+               `turn budget:` line of its spawn prompt (the policy's large-tier turn_budget — the maxTurns every
+               read-only definition declares — when the prompt carries none)
 
 Nothing leaves the machine. A missing data source degrades that section to
 `unavailable: <reason>`; it never fails the report. Exit 0 report written · 2 the tool
@@ -144,6 +147,9 @@ class Session:
         self.text_blocks: list[str] = []
         self.models: collections.Counter = collections.Counter()
         self.tokens = {"input": 0, "output": 0}
+        self._msg_ids: set = set()
+        self.turns = 0                            # distinct assistant message ids — a streamed message repeats its id across entries (EVOL-058)
+        self.budget = None                        # the `turn budget:` line of this agent's spawn prompt (its first user entry)
         self.spawns: dict[str, dict] = {}         # tool_use id → {type, branch, background, channels: {direct, hand-back, notification}}
         self.agent_ids: dict[str, str] = {}       # background agent id (from the launch stub) → tool_use id
         self.pushes: list[tuple[str, float, str]] = []   # (branch, seconds, profile from the banner in the result, else unknown)
@@ -190,6 +196,9 @@ class Session:
 
     def _assistant(self, e: dict, ts, branch: str):
         msg = e.get("message") or {}
+        mid = msg.get("id") or e.get("uuid") or f"#{self.entries}"   # an entry without an id is its own turn (never a reused object id)
+        if mid not in self._msg_ids:
+            self._msg_ids.add(mid); self.turns += 1
         model = msg.get("model")
         if model and not str(model).startswith("<"):
             self.models[model] += 1
@@ -226,6 +235,9 @@ class Session:
     def _user(self, e: dict, ts):
         msg = e.get("message") or {}
         content = msg.get("content")
+        if self.budget is None and not self.tool_uses:                      # the spawn prompt: the first user entry before any tool ran
+            m = BUDGET_RE.search(flat_text(content))
+            self.budget = int(m.group(1)) if m else 0
         texts: list[str] = []
         if isinstance(content, str):
             texts.append(content)
@@ -294,6 +306,7 @@ STUB_RE = re.compile(r"^\s*Async agent launched.*?agentId:\s*([A-Za-z0-9_-]+)", 
 NOTIFICATION_RE = re.compile(r"<task-notification>.*?(?:</task-notification>|\Z)", re.S)
 HANDBACK_RE = re.compile(r'<agent-message from="([^"]+)">(.*?)(?:</agent-message>|\Z)', re.S)
 BANNER_RE = re.compile(r"^\s*profile:\s*(light|full)\b", re.M)
+BUDGET_RE = re.compile(r"^\s*turn budget:\s*(\d+)\s*$", re.M | re.I)
 POINTER_RE = re.compile(r"report was delivered to you as a message", re.I)
 
 
@@ -311,23 +324,36 @@ def _profile_from_text(text: str) -> str:
     m = BANNER_RE.search(text or "")
     return m.group(1) if m else "unknown"
 
-_ROSTER: dict[str, str] | None = None
+_RULE: dict[str, tuple[dict, int | None, str]] = {}   # per repo: (name → class, the ceiling, why the ceiling is absent) — read once
+
+
+def _rule(repo: Path) -> tuple[dict, int | None, str]:
+    k = str(repo)
+    if k not in _RULE:
+        p = repo / ".claude/rules/agents.md"
+        why = ""
+        try:
+            text = p.read_text(encoding="utf-8") if p.is_file() else ""
+            if not p.is_file():
+                why = f"no rule at {p.relative_to(repo)}"
+        except (OSError, ValueError) as e:   # ValueError: a rule that does not decode
+            text, why = "", f"the rule {p.relative_to(repo)} is not readable ({e.__class__.__name__})"
+        roster = {m.group(1): m.group(2) for m in re.finditer(r"^\s*-\s*\{name:\s*([\w-]+),\s*class:\s*([\w-]+)", text, re.M)}
+        m = re.search(r"^\s*large:\s*\{[^}]*\bturn_budget:\s*(\d+)", text, re.M)   # the ceiling every read-only definition declares (EVOL-058)
+        if not m and not why:
+            why = "no turn_budget on the large tier of the rule's frontmatter (read in flow form: `large: {…, turn_budget: N}`)"
+        _RULE[k] = (roster, int(m.group(1)) if m else None, why)
+    return _RULE[k]
 
 
 def roster_classes(repo: Path) -> dict[str, str]:
     """name → class from the project's `.claude/rules/agents.md` frontmatter roster (EVOL-049) — the join measure.py
-    makes; read once. No rule, no roster block: empty (the naming grammar below is then the fallback)."""
-    global _ROSTER
-    if _ROSTER is None:
-        _ROSTER = {}
-        p = repo / ".claude/rules/agents.md"
-        try:
-            text = p.read_text(encoding="utf-8") if p.is_file() else ""
-        except OSError:
-            text = ""
-        for m in re.finditer(r"^\s*-\s*\{name:\s*([\w-]+),\s*class:\s*([\w-]+)", text, re.M):
-            _ROSTER[m.group(1)] = m.group(2)
-    return _ROSTER
+    makes; read once per repo. No rule, no roster block: empty (the naming grammar below is then the fallback)."""
+    return _rule(repo)[0]
+
+
+def roster_ceiling(repo: Path):
+    return _rule(repo)[1]
 
 
 def agent_class(name: str, repo: Path | None = None) -> str:
@@ -370,7 +396,8 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
         atype = meta.get("agentType") or "?"
         rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
         out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype, repo), "round": rounds[atype],
-                    "description": meta.get("description") or "", "model": _top(s.models),
+                    "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None,
+                    "budget_source": "prompt" if s.budget else ("ceiling" if agent_class(atype, repo) in ("plan-critic", "work-critic", "reader") else "none"),   # every read-only class is held at the ceiling
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
                     "bytes_read": sum(b for _, b in s.reads),
                     "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
@@ -458,13 +485,32 @@ def check_return(repo: Path, cls: str, text: str) -> str:
     return "parsed" if r.returncode == 0 else ("refused" if r.returncode == 1 else "unchecked")
 
 
+GOV_HEADING_RE = re.compile(r"^\s*##\s*Governance\b.*$", re.M)
+INFO_HEADING_RE = re.compile(r"^\s*##\s*Informational\b.*$", re.M)
+INFO_LINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Informational:(?:\*\*)?\s*(\d+)\s*$", re.M)
+INFO_INLINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?[^\s*`]+:\d+(?:\*\*)?\s*·\s*🟢\s*·", re.M)   # the legacy shape: a 🟢 finding line inline
+
+
+def split_return(text: str) -> tuple[str, int]:
+    """The contract part of a return (before `## Informational`, which follows the governance block) and the count the
+    governance line states — the same convention the project's return reader holds (EVOL-060); 0 when the line is absent."""
+    g = GOV_HEADING_RE.search(text)
+    m = INFO_HEADING_RE.search(text, g.start() if g else 0)
+    contract = text[:m.start()] if m else text
+    gb = GOV_HEADING_RE.search(contract)
+    n = INFO_LINE_RE.search(contract[gb.start():] if gb else "")
+    if n:
+        return contract, int(n.group(1))
+    return contract, len(INFO_INLINE_RE.findall(contract))   # a return from before EVOL-060 carries its informational findings inline: counted where they are, so the before window is never a false zero
+
+
 def returns_report(sessions: list, repo: Path) -> dict:
     collected = {"direct": 0, "hand-back": 0, "notification": 0}
     by_class: dict[str, dict] = {}
     for s in sessions:
         for spawn in s.spawns.values():
             cls = agent_class(spawn["type"], repo)
-            row = by_class.setdefault(cls, {"owed": 0, "parsed": 0, "refused": 0, "unchecked": 0, "uncollected": 0})
+            row = by_class.setdefault(cls, {"owed": 0, "parsed": 0, "refused": 0, "unchecked": 0, "uncollected": 0, "bytes": 0, "bytes_adjudicated": 0, "informational": 0})
             row["owed"] += 1
             channel, text = final_return(spawn)
             if channel is None:
@@ -472,13 +518,18 @@ def returns_report(sessions: list, repo: Path) -> dict:
                 continue
             collected[channel] += 1
             row[check_return(repo, cls, text) if cls not in ("unclassed", "main") else "unchecked"] += 1
+            contract, info = split_return(text or "")   # EVOL-060: what the orchestrator read (the contract part) against the whole return; the informational count from the governance line
+            row["bytes"] += len((text or "").encode("utf-8")); row["bytes_adjudicated"] += len(contract.encode("utf-8")); row["informational"] += info
 
     def total(k: str) -> int:   # the totals are the rows' sums
         return sum(r[k] for r in by_class.values())
     owed = total("owed")
+    got = sum(collected.values())
     return {"owed": owed, "collected": collected, "checked": {"parsed": total("parsed"), "refused": total("refused")},
             "unchecked": total("unchecked"), "uncollected": total("uncollected"),
             "uncollected_share": round(total("uncollected") / owed, 3) if owed else None, "by_class": by_class,
+            "avg_bytes": round(total("bytes") / got) if got else None, "avg_bytes_adjudicated": round(total("bytes_adjudicated") / got) if got else None,   # EVOL-060
+            "informational": total("informational"),
             "definition": "a spawn = an Agent tool use; collected when any of its three channels appeared — direct (the tool result of a "
                           "foreground spawn), hand-back (an <agent-message> from the agent the launch stub named), notification (a "
                           "<task-notification> naming the spawn's tool-use id); uncollected = none of the three — a spawn still running when "
@@ -633,7 +684,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
         why = "no transcript data in window"
         report.update({"gates": {"unavailable": why}, "branches": {"unavailable": why},
                        "governance_bytes": {"unavailable": why}, "agents": {"unavailable": why},
-                       "citations": {"unavailable": why}, "returns": {"unavailable": why}})
+                       "citations": {"unavailable": why}, "returns": {"unavailable": why}, "critics": {"unavailable": why}})
         report["rework"] = {"git": rework_git, "edits": {"unavailable": why}}
         return report
 
@@ -716,12 +767,30 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
                                                 "read = tool-result bytes of Read (or cat/sed/head through Bash) on governance paths"}
 
     # agents (main sessions + subagents)
-    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models),
+    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models), "turns": s.turns, "budget": None, "budget_source": "none",
              "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
              "bytes_read": sum(b for _, b in s.reads),
              "duration_s": round((s.last_ts - s.first_ts).total_seconds(), 1) if s.first_ts else 0,
              "citations": count_ids("\n".join(s.text_blocks))} for s in sessions] + agents
     report["agents"] = rows
+    # critics inside their budget (EVOL-058)
+    ceiling = roster_ceiling(repo) if repo is not None else None
+    critics = [a for a in agents if "critic" in str(a.get("class", ""))]
+    if ceiling is None:
+        report["critics"] = {"unavailable": f"{_rule(repo)[2]} (EVOL-058) — the ceiling is a key"}
+    else:
+        def ok(a): return 0 < a["turns"] <= (a.get("budget") or ceiling)   # a critic with no turn at all delivered nothing
+        inside = sum(1 for a in critics if ok(a))
+        rounds = {(a["session"], a["round"]) for a in critics}   # EVOL-060: a critic round = (session, round); the orchestrator's output tokens per round = the parent sessions' whole output over their rounds — a coarse figure (the session's other work is inside it), comparable before/after on the same project
+        main_out = sum(s.tokens["output"] for s in sessions if s.id in {a["session"] for a in critics})
+        report["critics"] = {"orchestrator_tokens_out_per_round": round(main_out / len(rounds)) if rounds else None,
+                             "of": len(critics), "inside_budget": inside, "share": round(inside / len(critics), 3) if critics else None, "ceiling": ceiling,
+                             "by_round": {str(r): {"of": sum(1 for a in critics if a["round"] == r), "inside": sum(1 for a in critics if a["round"] == r and ok(a))} for r in sorted({a["round"] for a in critics})},
+                             "definition": "orchestrator_tokens_out_per_round = the output tokens of every session that spawned a critic, divided by its distinct (session, round) pairs — the whole session's output, not the round's alone (EVOL-060); a critic = a sub-agent whose roster class is a critic class; turns = the distinct assistant message ids of its own transcript "
+                                           "(a streamed message repeats its id); its budget = the `turn budget:` line of its spawn prompt (budget_source prompt), else the "
+                                           "ceiling (agents.tiers.large.turn_budget of rules/agents.md, the maxTurns every read-only definition declares; budget_source ceiling); "
+                                           "inside = at least one turn and at most its budget — a critic that reached the ceiling was stopped there by the harness, and what it "
+                                           "delivered is the hand-back's; inside counts turns, not reports (the returns section judges the report)"}
 
     # citations
     cited: collections.Counter = collections.Counter()
@@ -752,7 +821,8 @@ def _is_governance(file_path: str, repo: Path, gov_paths) -> bool:
 SCALARS = (("gates", "share"), ("branches", "avg_commits"), ("branches", "avg_review_rounds"),
            ("rework", "edits", "share"), ("governance_bytes", "emitted_by_hooks"),
            ("governance_bytes", "delivered_to_model"), ("governance_bytes", "read_by_agents"),
-           ("returns", "uncollected_share"), ("pushes", "unknown_share"), ("loop", "hours_total"))
+           ("returns", "uncollected_share"), ("returns", "avg_bytes"), ("returns", "avg_bytes_adjudicated"), ("returns", "informational"),   # EVOL-060
+           ("pushes", "unknown_share"), ("loop", "hours_total"), ("critics", "share"), ("critics", "orchestrator_tokens_out_per_round"))
 
 
 def dig(d, *keys):
@@ -832,10 +902,14 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
             [f"| {k} | {v['fired']} | {v['emitted']:,} | {v['delivered']:,} | {v['truncated']} | {v['undelivered']} |" for k, v in gb["by_hook"].items()])
     ag = r["agents"]
     section("Agents", ag if isinstance(ag, dict) else {}, [] if isinstance(ag, dict) else
-            ["| session | agent | type | class | round | model | tokens in | tokens out | bytes read | seconds | citations |",
-             "|---|---|---|---|---|---|---|---|---|---|---|"] +
-            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {a['model']} | {a['tokens_in']:,} | {a['tokens_out']:,} | "
+            ["| session | agent | type | class | round | model | turns | budget | tokens in | tokens out | bytes read | seconds | citations |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"] +
+            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {a['model']} | {a.get('turns', 0)} | {_fmt(a.get('budget'))} | {a['tokens_in']:,} | {a['tokens_out']:,} | "
              f"{a['bytes_read']:,} | {_fmt(a['duration_s'])} | {sum(a['citations'].values())} |" for a in ag])
+    cr = r.get("critics") or {"unavailable": "not measured"}
+    section("Critics inside their budget", cr, [] if "unavailable" in cr else
+            [f"ceiling {cr['ceiling']} turns · critics {cr['of']} · inside their budget {cr['inside_budget']} (share **{_fmt(cr['share'])}**)", "",
+             "| round | critics | inside |", "|---|---|---|"] + [f"| {k} | {v['of']} | {v['inside']} |" for k, v in cr["by_round"].items()] + ["", f"> {cr['definition']}"])
     c = r["citations"]
     section("Citations", c, [] if "unavailable" in c else
             [f"corpus ids {c['corpus_ids']} · cited {len(c['by_id'])} · pruning candidates {len(c['pruning_candidates'])}", "",
@@ -845,9 +919,10 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
     rt = r.get("returns") or {"unavailable": "not measured"}
     section("Returns (every spawn, three channels)", rt, [] if "unavailable" in rt else
             [f"owed {rt['owed']} · collected direct {rt['collected']['direct']} / hand-back {rt['collected']['hand-back']} / notification {rt['collected']['notification']} · "
-             f"parsed {rt['checked']['parsed']} · refused {rt['checked']['refused']} · unchecked {rt['unchecked']} · uncollected {rt['uncollected']} (share **{_fmt(rt['uncollected_share'])}**)", "",
-             "| class | owed | parsed | refused | unchecked | uncollected |", "|---|---|---|---|---|---|"] +
-            [f"| {_cell(k)} | {v['owed']} | {v['parsed']} | {v['refused']} | {v['unchecked']} | {v['uncollected']} |" for k, v in sorted(rt["by_class"].items())] +
+             f"parsed {rt['checked']['parsed']} · refused {rt['checked']['refused']} · unchecked {rt['unchecked']} · uncollected {rt['uncollected']} (share **{_fmt(rt['uncollected_share'])}**)",
+             f"bytes per return {rt.get('avg_bytes') if rt.get('avg_bytes') is not None else '—'} · adjudicated {rt.get('avg_bytes_adjudicated') if rt.get('avg_bytes_adjudicated') is not None else '—'} · informational findings {rt.get('informational', 0)} (EVOL-060: the appendix is counted, never read)", "",
+             "| class | owed | parsed | refused | unchecked | uncollected | bytes | adjudicated | informational |", "|---|---|---|---|---|---|---|---|---|"] +
+            [f"| {_cell(k)} | {v['owed']} | {v['parsed']} | {v['refused']} | {v['unchecked']} | {v['uncollected']} | {v.get('bytes', 0)} | {v.get('bytes_adjudicated', 0)} | {v.get('informational', 0)} |" for k, v in sorted(rt["by_class"].items())] +
             ["", f"> {rt['definition']}"])
     ps = r.get("pushes") or {"unavailable": "not measured"}
     section("Pushes by gate profile", ps, [] if "unavailable" in ps else
@@ -876,7 +951,7 @@ def _entry(kind, ts, **kw):
     return e
 
 
-PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n"
+PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nInformational: 1\nModel: claude-y-critic\n## Informational\nsrc/x.py:3 · 🟢 · confidence 85% · probe: read (DC-29)\n"
 REFUSED_RETURN = "I looked around and everything seems fine.\n"
 HANDBACK = ('Another Claude session sent a message:\n<agent-message from="{aid}">\n[Subagent hand-back] The text below is the final report of a subagent '
             'this session delegated to. The report follows:\n  {body}</agent-message>')
@@ -972,19 +1047,43 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
     ]
     (tdir / f"{session}.jsonl").write_text("\n".join(json.dumps(e) for e in lines) + "\n", encoding="utf-8")
     sub = [
-        _entry("assistant", ts(140), message={"role": "assistant", "model": "claude-y-critic",
+        _entry("user", ts(139), message={"role": "user", "content": "effort: high\nturn budget: 3\nprobe budget: 1\nReview the diff."}),   # the spawn prompt: its budget line
+        _entry("assistant", ts(140), message={"id": "msg_1", "role": "assistant", "model": "claude-y-critic",
                                               "usage": {"input_tokens": 100, "output_tokens": 50},
-                                              "content": [{"type": "text", "text": "Finding under LAW-04 and LAW-04."},
-                                                          {"type": "tool_use", "id": "a1", "name": "Read", "input": {"file_path": "src/app.py"}}]}),
+                                              "content": [{"type": "text", "text": "Finding under LAW-04 and LAW-04."}]}),
+        _entry("assistant", ts(140), message={"id": "msg_1", "role": "assistant", "model": "claude-y-critic",   # the same message, streamed: a second entry, one turn
+                                              "usage": {"input_tokens": 100, "output_tokens": 50},
+                                              "content": [{"type": "tool_use", "id": "a1", "name": "Read", "input": {"file_path": "src/app.py"}}]}),
         _entry("user", ts(150), message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "a1", "content": "z" * 40}]}),
     ]
     (tdir / session / "subagents" / "agent-c1.jsonl").write_text("\n".join(json.dumps(e) for e in sub) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-c1.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review"}), encoding="utf-8")
     # a second spawn of the same type, LATER in time but with an id that sorts FIRST — the round follows time, never the id
-    sub2 = [_entry("assistant", ts(200), message={"role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1},
-                                                  "content": [{"type": "text", "text": "second look"}]})]
+    sub2 = [_entry("user", ts(199), message={"role": "user", "content": "effort: high\nturn budget: 1\nprobe budget: 1\nSecond look."}),
+            _entry("assistant", ts(200), message={"id": "msg_2", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1},
+                                                  "content": [{"type": "text", "text": "second look"}]}),
+            _entry("assistant", ts(201), message={"id": "msg_3", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1},
+                                                  "content": [{"type": "text", "text": "a second turn — over its budget of one"}]})]
     (tdir / session / "subagents" / "agent-a0.jsonl").write_text("\n".join(json.dumps(e) for e in sub2) + "\n", encoding="utf-8")
     (tdir / session / "subagents" / "agent-a0.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 2"}), encoding="utf-8")
+    # a spawn whose prompt carries no budget line (judged against the ceiling), and one that never took a turn (never inside)
+    sub3 = [_entry("user", ts(210), message={"role": "user", "content": "Review without a budget line."}),
+            _entry("assistant", ts(211), message={"id": "msg_4", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "one turn"}]})]
+    (tdir / session / "subagents" / "agent-b1.jsonl").write_text("\n".join(json.dumps(e) for e in sub3) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-b1.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 3"}), encoding="utf-8")
+    sub4 = [_entry("user", ts(220), message={"role": "user", "content": "effort: high\nturn budget: 20\nprobe budget: 2\nReview."})]
+    (tdir / session / "subagents" / "agent-b2.jsonl").write_text("\n".join(json.dumps(e) for e in sub4) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-b2.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 4"}), encoding="utf-8")
+    # a spawn with no budget line that ran past the ceiling: the ceiling is the bound, never unbounded
+    sub5 = [_entry("user", ts(230), message={"role": "user", "content": "Review without a budget line, long."})] + \
+           [_entry("assistant", ts(231 + i), message={"id": f"msg_long_{i}", "role": "assistant", "model": "claude-y-critic", "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "turn"}]}) for i in range(61)]
+    (tdir / session / "subagents" / "agent-b3.jsonl").write_text("\n".join(json.dumps(e) for e in sub5) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-b3.meta.json").write_text(json.dumps({"agentType": "factory-critic-security", "description": "review 5"}), encoding="utf-8")
+    # a worker spawn: no budget line, no ceiling — its budget source is none (writers are not held at the ceiling)
+    sub6 = [_entry("user", ts(300), message={"role": "user", "content": "Implement the task."}),
+            _entry("assistant", ts(301), message={"id": "msg_w1", "role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1}, "content": [{"type": "text", "text": "done"}]})]
+    (tdir / session / "subagents" / "agent-w1.jsonl").write_text("\n".join(json.dumps(e) for e in sub6) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-w1.meta.json").write_text(json.dumps({"agentType": "factory-dev-backend", "description": "work"}), encoding="utf-8")
     return tdir
 
 
@@ -1001,7 +1100,7 @@ def _fixture_repo(root: Path) -> Path:
     (repo / "CLAUDE.md").write_text("1. **[LAW-01] a**\n2. **[LAW-04] b**\n3. **[LAW-09] c**\n", encoding="utf-8")
     (repo / ".claude" / "rules").mkdir(parents=True)
     (repo / ".claude" / "rules" / "defect-prevention.md").write_text("| DC-18 | x |\n| DC-27 | y |\n", encoding="utf-8")
-    (repo / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  roster:\n    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n"
+    (repo / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  tiers:\n    large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}\n  roster:\n    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n"
                                                          "    - {name: factory-critic-correctness, class: work-critic, lens: correctness, surface: [\"**\"]}\n"
                                                          "    - {name: factory-dev-backend, class: worker, surface: [\"src/**\"]}\n"
                                                          "    - {name: my-critic, class: work-critic, surface: [\"**\"]}\n---\n", encoding="utf-8")
@@ -1080,13 +1179,28 @@ def selftest() -> int:
         expect(gb["read_by_agents"] == 350, "governance bytes read count Read and shell reads on governance paths only")
         ag = {a["agent"]: a for a in r["agents"]}
         expect(ag["main"]["model"] == "claude-x-writer" and ag["c1"]["model"] == "claude-y-critic", "model per agent")
-        expect(ag["c1"]["type"] == "factory-critic-security" and ag["c1"]["bytes_read"] == 40 and ag["c1"]["tokens_in"] == 100,
-               "subagent type, bytes read and tokens from its own transcript")
+        expect(ag["c1"]["type"] == "factory-critic-security" and ag["c1"]["bytes_read"] == 40 and ag["c1"]["tokens_in"] == 200,
+               "subagent type, bytes read and tokens from its own transcript (the usage a streamed message repeats per entry is summed here — de-duplicated per message id in EVOL-062)")
         expect(ag["c1"]["class"] == "work-critic" and ag["c1"]["round"] == 1 and ag["a0"]["round"] == 2, "the roster class joined from rules/agents.md and the round from the spawn ORDER IN TIME, never the agent id (EVOL-049)")
         expect("| class | round |" in render_markdown(r) and "| work-critic | 1 |" in render_markdown(r) and "| work-critic | 2 |" in render_markdown(r), "the agents table shows class and round")
         expect(agent_class("my-critic", repo) == "work-critic" and agent_class("factory-dev-frontend", repo) == "unclassed", "with a roster the roster is the class: a project's own critic is classed, a name the roster lacks is not")
         expect(agent_class("factory-dev-backend") == "worker" and agent_class("factory-plan-critic") == "plan-critic" and agent_class("factory-qa") == "phase" and agent_class("code-reviewer") == "unclassed", "without a roster the naming grammar is the fallback")
+        expect(agent_class("factory-dev-backend", root / "nope") == "worker" and roster_ceiling(root / "nope") is None and "no rule at" in _rule(root / "nope")[2], "a repo without the rule: the grammar is still the fallback, the ceiling is absent and the reason names the missing rule")
         expect(ag["c1"]["citations"] == {"LAW-04": 2}, "citations per agent")
+        expect(ag["c1"]["turns"] == 1 and ag["a0"]["turns"] == 2 and ag["main"]["turns"] > 2, "turns per agent = the distinct message ids of its own transcript — a streamed message (two entries, one id) is one turn (EVOL-058)")
+        expect(ag["c1"]["budget"] == 3 and ag["a0"]["budget"] == 1 and ag["main"]["budget"] is None and ag["b1"]["budget"] is None and ag["b1"]["budget_source"] == "ceiling" and ag["c1"]["budget_source"] == "prompt" and ag["w1"]["budget_source"] == "none", "the budget per spawn is the `turn budget:` line of its prompt; without the line the ceiling for a read-only class, none for a writer, and the row says which")
+        cr = r["critics"]
+        expect(cr["ceiling"] == 60 and cr["of"] == 5 and cr["inside_budget"] == 2 and cr["share"] == 0.4 and cr["by_round"] == {"1": {"of": 1, "inside": 1}, "2": {"of": 1, "inside": 0}, "3": {"of": 1, "inside": 1}, "4": {"of": 1, "inside": 0}, "5": {"of": 1, "inside": 0}},
+               "critics inside their own budget per round — over the budget its prompt stated is outside whatever the ceiling; no budget line is judged against the ceiling (one turn inside, sixty-one outside); no turn at all is never inside")
+        norule = root / "norule"; (norule / ".claude" / "rules").mkdir(parents=True)
+        (norule / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  tiers:\n    large: {files: 30, lines: 800}\n  roster:\n    - {name: factory-critic-security, class: work-critic}\n---\n", encoding="utf-8")
+        r3 = build_report(norule, cfg, tdir, since, until)
+        expect("unavailable" in r3["critics"] and "no turn_budget on the large tier" in r3["critics"]["unavailable"], "a rule without the ceiling: the critics section says which key is missing")
+        (norule / ".claude" / "rules" / "agents.md").write_bytes(b"\xff\xfe\x00\x00 not text")
+        _RULE.clear()
+        expect("not readable" in _rule(norule)[2], "a rule that does not decode is said, never raised")
+        expect("## Critics inside their budget" in render_markdown(r) and "| 2 | 1 | 0 |" in render_markdown(r) and "| turns | budget |" in render_markdown(r), "the critics section and the turns and budget columns render")
+        expect("critics.share" in compare(r, r), "the signal is in the before/after table")
         c = r["citations"]
         expect(c["by_id"].get("LAW-01") == 10 and c["by_id"].get("LAW-04") == 2, "citations aggregated across agents")
         expect(c["pruning_candidates"] == ["DC-27", "LAW-09"], "corpus ids never cited are pruning candidates")
@@ -1097,7 +1211,7 @@ def selftest() -> int:
         expect(rt["owed"] == 10 and rt["collected"] == {"direct": 2, "hand-back": 4, "notification": 3}, "every channel of a spawn is read: direct (foreground), hand-back (agent-message from the stub's agent id), notification (task-notification by tool-use id)")
         expect(rt["uncollected"] == 1 and rt["uncollected_share"] == 0.1, "RED on the fixture with no channel: a background spawn that never came back is uncollected — and only that one")
         expect(rt["checked"] == {"parsed": 6, "refused": 1} and rt["unchecked"] == 2, "a roster agent's return goes through the project's return reader (parsed / refused); an agent outside the roster, or a reader that could not judge, is unchecked")
-        expect(rt["by_class"]["work-critic"] == {"owed": 8, "parsed": 5, "refused": 1, "unchecked": 1, "uncollected": 1} and rt["by_class"]["worker"]["parsed"] == 1, "returns per roster class")
+        expect({k: rt["by_class"]["work-critic"][k] for k in ("owed", "parsed", "refused", "unchecked", "uncollected")} == {"owed": 8, "parsed": 5, "refused": 1, "unchecked": 1, "uncollected": 1} and rt["by_class"]["worker"]["parsed"] == 1, "returns per roster class")
         sp = _sessions_of(tdir, cfg, since, until)[0].spawns
         expect(final_return(sp["t18"]) == ("hand-back", PARSED_RETURN.strip()) and sp["t18"]["channels"]["notification"] == "", "the production shape: the hand-back is the return; a notification that only points at it is not a result (the pointer would read as refused)")
         expect(final_return(sp["t19"]) == ("notification", PARSED_RETURN.strip()) and final_return(sp["t20"]) == ("notification", PARSED_RETURN.strip()), "one task id notifies twice: a failed stop with no result never erases, and never replaces, the real result")
@@ -1105,6 +1219,19 @@ def selftest() -> int:
         expect(final_return(sp["t22"])[0] == "hand-back" and rt["by_class"]["work-critic"]["unchecked"] == 1, "a return the reader could not judge (exit 2) is unchecked, never refused")
         expect(final_return({"channels": {"direct": "d", "hand-back": ["h"], "notification": "n"}}) == ("hand-back", "h") and final_return({"channels": {"direct": "d", "hand-back": [], "notification": "n"}}) == ("notification", "n") and final_return({"channels": {"direct": None, "hand-back": [], "notification": ""}}) == ("notification", ""), "the text judged: the last hand-back, else a notification's real result, else the direct result; a result-less notification still collects")
         expect("## Returns" in md and "| work-critic | 8 | 5 | 1 | 1 | 1 |" in md, "the returns table renders per class")
+        # EVOL-060: the contract part is what the orchestrator read; the appendix is counted from the governance line, never read
+        c, n = split_return(PARSED_RETURN); expect("## Informational" not in c and n == 1 and c.endswith("Model: claude-y-critic\n"), "split_return: the contract part ends at the appendix; the count is the governance line's")
+        expect(split_return("no findings\n## Governance\nModel: m\n") == ("no findings\n## Governance\nModel: m\n", 0), "a return without the appendix is all contract, count 0")
+        expect(split_return("src/a.py:1 · 🔴 · confidence 90% · probe: x\nsrc/b.py:2 · 🟢 · confidence 80% · probe: y\n## Governance\nModel: m\n")[1] == 1, "a legacy return (no Informational: line) counts its inline 🟢 lines — the before window is never a false zero")
+        expect(split_return("## Governance\nSources: see ## Informational note\nModel: m\n")[0].endswith("Model: m\n"), "a phrase that mentions the heading inside a line never opens the appendix")
+        expect(split_return("no findings\n## Governance\nSources: read the `## Governance` heading\nInformational: 2\nModel: m\n## Informational\na:1 · 🟢 · c\nb:2 · 🟢 · c\n")[1] == 2, "the governance block is its heading line: a mention inside a line never moves the count")
+        expect(rt["informational"] == 6 and rt["by_class"]["work-critic"]["informational"] == 5 and rt["by_class"]["worker"]["informational"] == 1, "the informational count per class is the sum of the governance lines")
+        appendix = len(PARSED_RETURN.strip()[PARSED_RETURN.strip().index("## Informational"):].encode("utf-8"))
+        expect((rt["by_class"]["work-critic"]["bytes"] - rt["by_class"]["work-critic"]["bytes_adjudicated"]) - 5 * appendix == 1, "the adjudicated bytes are the whole return minus the appendix, per class (five returns carry it; the direct channel's text keeps its trailing newline)")
+        expect("| class | owed | parsed | refused | unchecked | uncollected | bytes | adjudicated | informational |" in md and "bytes per return" in md, "the returns table renders the EVOL-060 columns")
+        expect(rt["avg_bytes"] is not None and rt["avg_bytes_adjudicated"] is not None and rt["avg_bytes_adjudicated"] < rt["avg_bytes"] and rt["informational"] >= 1, "bytes per return against bytes adjudicated, the informational count — the signals")
+        expect("returns.avg_bytes_adjudicated" in compare(r, r) and "critics.orchestrator_tokens_out_per_round" in compare(r, r), "the EVOL-060 signals are in the before/after table")
+        expect(r["critics"]["orchestrator_tokens_out_per_round"] == 12, "the orchestrator's output per critic round: the spawning sessions' output (62 on the fixture) over their five (session, round) pairs")
         # pushes (EVOL-057): the push log first — both generations, the window by `end` — the trace as fallback
         ps = r["pushes"]
         expect(ps["source"].startswith("push log") and ps["total"] == 3 and ps["by_profile"]["full"] == {"pushes": 2, "seconds": 180.0} and ps["by_profile"]["light"] == {"pushes": 1, "seconds": 30.0} and ps["unknown_share"] == 0.0,
@@ -1151,6 +1278,7 @@ def selftest() -> int:
         expect(r2["window"]["sources"]["transcripts"].startswith("unavailable"), "missing transcripts folder is said, not raised")
         expect("unavailable" in r2["rework"]["git"], "missing git is said, not raised")
         expect("unavailable" in r2["gates"] and "unavailable" in r2["citations"], "sections degrade to unavailable")
+        expect("unavailable" in r2["critics"], "no transcripts: the critics section is said unavailable")
         expect("unavailable" in render_markdown(r2), "partial report still renders")
         # config faults are tool faults in plain language
         bad = root / "bad.json"

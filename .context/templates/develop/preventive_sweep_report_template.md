@@ -1,5 +1,5 @@
 ---
-status: DRAFT   # DRAFT | IN_PROGRESS | APPROVED | INVALIDATED | REJECTED
+status: IN_PROGRESS   # IN_PROGRESS | COMPLETED | INVALIDATED — the vocabulary the deploy gate and the stale-marking step read (EVOL-059)
 feature_id: "{{FEATURE_ID}}"
 title: "Preventive Defect Sweep — {{FEATURE_NAME}}"
 sweep_date: "YYYY-MM-DD"
@@ -14,6 +14,9 @@ by_severity:
   medium: 0
   low: 0
 all_resolved_in_commit: null   # true | false | null (not applicable)
+not_delivered: []   # the scopes whose critic never delivered (EVOL-059) — their DCs are UNVERIFIED, never CLEAN; the sweep is not COMPLETED while any remains
+degraded: false     # a critic fell onto the writer's family — the findings go to the user's adjudication
+fallback: []        # every fall: {alias, id, delivered}
 
 # Iteration model tracking
 based_on_iteration: 1
@@ -59,7 +62,11 @@ Occurrences: {count}
   Fix suggestion: {remediation}
 ```
 
-If a DC has zero occurrences, mark it explicitly `CLEAN` — never skip a DC from the applicable set.
+If a DC has zero occurrences, mark it explicitly `CLEAN` — never skip a DC from the applicable set. Every DC of a scope listed under `not_delivered` is `UNVERIFIED (scope {scope} not delivered)` — never CLEAN (EVOL-059); it goes in the Unverified Areas table below, not under Clean.
+
+## Unverified Areas
+| DC | Scope | Reason |
+|----|-------|--------|
 
 ## Consolidated Summary
 
@@ -70,7 +77,7 @@ If a DC has zero occurrences, mark it explicitly `CLEAN` — never skip a DC fro
 | MEDIUM   | {n} | Resolve or justify before gate closure |
 | LOW      | {n} | Track in backlog but do not block |
 
-**Gate verdict:** {APPROVED — zero open BLOCKER/HIGH | REJECTED — {count} unresolved} 
+**Gate verdict:** {COMPLETED — zero open BLOCKER/HIGH, every scope delivered | IN_PROGRESS — {count} unresolved or {n} scope(s) not delivered} 
 
 ## Fix Application Log
 

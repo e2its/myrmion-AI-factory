@@ -3,6 +3,7 @@ name: factory-docs-reader
 description: "Read-only reader of external facts — a library API or version, a cloud service behaviour or limit, an IaC resource shape — through the project's documentation MCPs and the web. Returns a source per fact, the answer and the unknowns. Spawned by the main session at Beat 0 of a design, an implementation plan or an infrastructure configuration; never for the repository's own code, never to write."
 tools: Read, Grep, Glob, WebFetch, WebSearch, ToolSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__aws-knowledge__aws___search_documentation, mcp__aws-knowledge__aws___read_documentation, mcp__aws-knowledge__aws___get_regional_availability, mcp__pulumi__pulumi-registry-get-resource, mcp__pulumi__pulumi-registry-get-function, mcp__pulumi__pulumi-registry-get-type, mcp__pulumi__pulumi-registry-list-resources, mcp__pulumi__pulumi-resource-search
 effort: high
+maxTurns: 60
 class: reader
 ---
 

@@ -28,7 +28,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 spawn-policy: reader
 
-Before design.md is written, the **main session** spawns the read-only `factory-docs-reader` by name — `rules/agents.md` § Beat 0: the libraries and services of the surface with their pinned versions and the questions the work rests on; the model from `python3 scripts/gate.py agents --resolve --class reader`; the return held to its contract (`python3 scripts/gate.py agents --check-return --class reader < return.md`) and handed to `factory-blueprint` in its spawn prompt. Every external claim in design.md cites its source index; a premise without a source is written `known-cold`; the sources land under `## External sources` at the end of design.md. No documentation MCP and no web: the unknowns are named, nothing is guessed.
+Before design.md is written, the **main session** spawns the read-only `factory-docs-reader` by name — `rules/agents.md` § Beat 0: the libraries and services of the surface with their pinned versions and the questions the work rests on; the model from `python3 scripts/gate.py agents --resolve --class reader`; the return held to its contract (`python3 scripts/gate.py agents --check-return --class reader < return.md`) and handed to `factory-blueprint` in its spawn prompt. Every external claim in design.md cites its source index; a premise without a source is written `known-cold`; the sources land under `## External sources` at the end of design.md. No documentation MCP and no web: the unknowns are named, nothing is guessed. The reader's spawn prompt opens with `effort:`, `turn budget:`, `probe budget:` from the resolver; a partial return (its ceiling, `maxTurns`), or one the return check refuses, gets ONE hand-back request and a resume; a reader that still does not deliver returns every question as an unknown and the artefact proceeds `known-cold` (`rules/agents.md § The bounded loop`, EVOL-058).
 
 ## Plan Gate — before `--approve` (MANDATORY)
 
@@ -44,12 +44,14 @@ FUNCTION plan_gate(FEATURE_ID):
     digest = RUN("python3 scripts/gate.py agents --digest --agent factory-plan-critic")
     model  = RUN("python3 scripts/gate.py agents --resolve --class plan-critic --round {round}").model
     before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope}")   # on-disk bytes, untracked included; non-zero exit ⇒ REFUSE
-    report = SPAWN("factory-plan-critic", model = model, digest = digest,
+    report = SPAWN("factory-plan-critic", model = model, digest = digest,   # the prompt opens with effort / turn budget / probe budget from the resolver (EVOL-058)
                    inputs = [design.md, test_plan.md, increment_plan.md, spec.feature, slice_map.md, contracts/**])
+      # a PARTIAL return (the ceiling, maxTurns) ⇒ ONE hand-back request, resume; still no report ⇒ the round is not delivered — unverified, the user adjudicates (rules/agents.md § The bounded loop)
       # provider error ⇒ fb = RUN("python3 scripts/gate.py agents --fallback --class plan-critic --family critic")
       #                  model = fb.model; IF NOT fb.separation: the round's findings go to the user's adjudication (the critic ran on the writer's family)
     after  = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope}")
     IF before != after: REFUSE "working tree moved around a critic run" — the round is void
+    APPEND("docs/spec/{ID}/review/plan_critic_{timestamp}.md", report VERBATIM under `### factory-plan-critic · round {round}`)   # EVOL-060: the appendix's home at the plan gate — written after the round's `after` hash (never inside the certified window); the file carries no gate
     IF RUN("python3 scripts/gate.py agents --check-return --class plan-critic", report) refuses:
       re-spawn ONCE; refused again ⇒ every finding of the round is ❓
     open = report.findings WHERE severity > 🟢
@@ -58,7 +60,7 @@ FUNCTION plan_gate(FEATURE_ID):
   RETURN open                                                  # after the cap: the user's call
 ```
 
-Each finding carries file, line, severity, confidence and an **executed probe** (`file:line · 🔴|🟡|🟢|❓ · confidence N% · probe: …`) — refused otherwise. Severity per the two-limb bar (`rules/agents.md § Severity bar`). A cure that seeds the next round's findings is the loop's own defect. **The phase agent never ratifies:** what stays open after `rounds.plan_gate` goes to the user by RDR (factory-rdr, two registers) in the main session; `--approve` proceeds only on the user's adjudication.
+Each finding above informational carries file, line, severity, confidence and an **executed probe** (`file:line · 🔴|🟡|❓ · confidence N% · probe: …`) — refused otherwise; the informational findings travel under `## Informational` after the governance block, counted on its `Informational:` line (EVOL-060) — the plan gate reads the contract part and appends the plan critic's returns verbatim to `docs/spec/{ID}/review/plan_critic_{timestamp}.md`, the appendix's home. Severity per the two-limb bar (`rules/agents.md § Severity bar`). A cure that seeds the next round's findings is the loop's own defect. **The phase agent never ratifies:** what stays open after `rounds.plan_gate` goes to the user by RDR (factory-rdr, two registers) in the main session; `--approve` proceeds only on the user's adjudication.
 
 ---
 

@@ -46,7 +46,10 @@
   gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class; `separation: false` when a critic lands on the writer's family
   gate.py agents --digest --agent NAME             the slice of law governing the agent's surface (always-on rules included), within its class budget
   gate.py agents --spawn --agent NAME --model M [--hook-json]   the model handed to a roster agent is its family's alias; exit 1 refused (the PreToolUse Agent hook)
-  gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a critic finding outside the shape or without a real probe
+  gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a critic finding outside the shape or without a real probe / a critic without its Model: or Informational: line / an informational finding before the governance block, a count that is not the appendix's length (EVOL-060)
+  gate.py canary --fixture | --expected [--lens L] | --check   the lens canary (EVOL-059): the synthetic diff with planted defects, the expected findings per lens, the fixture's own consistency
+  gate.py canary --judge --lens L --model ID < return.md   compare a critic's return over the fixture to the lens's planted defects; record; exit 1 when one was missed (never a block — an RDR on the spawn policy)
+  gate.py canary --seen --lens L --model ID | --plan [--all] | --status   the model a lens last ran on; the lenses owed a canary (the model moved, never judged, on demand); the record
 
 Exit: 0 ok · 1 gate red · 2 the tool could not do its job (plain language, LAW-08) · 3 the reader itself is missing or broken (governance not delivered).
 """
@@ -55,12 +58,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, coherence, corpus, digests as digests_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod  # noqa: E402
+    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, corpus, digests as digests_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -269,7 +273,9 @@ def cmd_agents(repo, a):
         if not r["ok"]:
             print(json.dumps(r) if a.json else f"agents: REFUSED — {r['reason']}")
             return 1
-        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']} · round {r['round']} · {r['matched']}")
+        budget = f" · turns {r['turn_budget']} · probes {r['probe_budget']}" if "turn_budget" in r and "probe_budget" in r else ""
+        owed = f" · canary owed: {', '.join(r['canary_owed'])} (gate.py canary --plan)" if r.get("canary_owed") else (f" · canary fault: {r['canary_fault']}" if r.get("canary_fault") else "")
+        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget} · round {r['round']} · {r['matched']}{owed}")
         return 0
     if a.fallback:
         r = agents_mod.fallback(repo, a.cls, a.family or "")
@@ -362,6 +368,45 @@ def cmd_digests(repo, a):
     r = digests_mod.check(repo, base, a.branch, a.control_point)
     print(json.dumps(r) if a.json else digests_mod.render(r))
     return 0 if r["ok"] else 1
+
+
+def cmd_canary(repo, a):
+    if a.fixture:
+        print(canary_mod.fixture(), end=""); return 0
+    if a.expected:
+        exp = {canary_mod._lens(a.lens): canary_mod.EXPECTED[a.lens]} if a.lens else canary_mod.EXPECTED
+        if a.json:
+            print(json.dumps(exp))
+        else:
+            for lens, items in exp.items():
+                print(f"{lens} ({canary_mod.LENS_AGENT[lens]}):")
+                for it in items:
+                    print(f"  {it['id']}: {it['what']} — at " + " | ".join(f"{f}:{n}" for f, n in it["at"]))
+        return 0
+    if a.check:
+        f = canary_mod.consistency(repo)
+        home = re.compile(r"^(rules/agents\.md|config/[\w.-]+\.json): ")   # a policy fault is filed where it comes from; the fixture's own on the module
+        print(coherence.render("canary", [{"path": (m.group(1) if (m := home.match(x)) else "scripts/gates/canary.py"), "reason": x[m.end():] if m else x} for x in f], "the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the two coordinate spaces never overlap, the tolerance reaches no two planted defects of one lens, every lens has its roster agent"))
+        return 1 if f else 0
+    if a.judge:
+        r = canary_mod.judge(repo, a.lens, sys.stdin.read(), a.model)
+        print(json.dumps(r) if a.json else canary_mod.render_judge(r))
+        return 0 if r["ok"] else 1
+    if a.seen:
+        if not (a.model or "").strip():
+            raise GateFault("--seen needs --model: the id the critic's return carries on its `Model:` line — pass `unknown` when the harness stated none, never nothing (an absent flag would erase the last real id)")
+        r = canary_mod.seen(repo, a.lens, a.model)
+        print(json.dumps(r) if a.json else f"canary: {r['lens']} last ran on {r['model']}")
+        return 0
+    if a.status:
+        print(json.dumps(canary_mod.read_record(repo), indent=1)); return 0
+    r = canary_mod.plan(repo, a.all)
+    print(json.dumps(r) if a.json else canary_mod.render_plan(r))
+    if r.get("fault"):   # an inconsistent fixture is a fault (2), never a plan: nothing is owed, the cause is named — on stderr with --json (the text render carries it on its ✗ line), like every fault of this CLI
+        if a.json:
+            print(f"gate: canary fault — {r['fault']}", file=sys.stderr)
+        return 2
+    return 0
 
 
 def cmd_push_log(repo, a):
@@ -467,6 +512,7 @@ def build_parser():
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
     p = sub.add_parser("documentation"); p.add_argument("--path", default=None); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_documentation)
     p = sub.add_parser("seal"); p.add_argument("--base", default=None); p.add_argument("--plan", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--write", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--validate", action="store_true"); p.add_argument("--gates", default=""); p.add_argument("--ok", action="store_true"); p.add_argument("--red", action="store_true"); p.add_argument("--summary", default=""); p.add_argument("--full", action="store_true"); p.add_argument("--branch", default=None); p.add_argument("--ref", default="HEAD"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_seal)
+    p = sub.add_parser("canary"); p.add_argument("--fixture", action="store_true"); p.add_argument("--expected", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--judge", action="store_true"); p.add_argument("--seen", action="store_true"); p.add_argument("--plan", action="store_true"); p.add_argument("--all", action="store_true"); p.add_argument("--status", action="store_true"); p.add_argument("--lens", default=""); p.add_argument("--model", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_canary)
     p = sub.add_parser("push-log"); p.add_argument("--exit", type=int, required=True); p.add_argument("--start", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_push_log)
     p = sub.add_parser("scm-protection"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_scm)
     p = sub.add_parser("traceability"); p.add_argument("--declared", action="store_true"); p.add_argument("--baseline", action="store_true"); p.add_argument("--init", action="store_true"); p.add_argument("--refresh", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_traceability)

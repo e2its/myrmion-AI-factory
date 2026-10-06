@@ -374,6 +374,10 @@ detect_orphans "$FRAMEWORK_ROOT/.claude/agents" "$TARGET_PROJECT/.claude/agents"
 if [[ ! -f "$TARGET_PROJECT/.claude/rules/agents.md" ]] || ! grep -q '"families"' "$TARGET_PROJECT/config/quality.json" 2>/dev/null; then
   echo -e "  ${YELLOW}!${NC}  roster delivered but ${BOLD}.claude/rules/agents.md${NC} and/or ${BOLD}config/quality.json → agents.families${NC} are missing in the project"
   echo -e "     → run ${BOLD}SETUP --upgrade${NC} (Q34: writer / critic model aliases) — until then gate.py agents faults and factory-* spawns are refused"
+elif ! grep -q 'turn_budget' "$TARGET_PROJECT/.claude/rules/agents.md" 2>/dev/null; then
+  # EVOL-058: the definitions now declare maxTurns and every read-only spawn resolves under its tier's budgets; the rule is the project's (sync never touches it)
+  echo -e "  ${YELLOW}!${NC}  the definitions carry ${BOLD}maxTurns${NC} but ${BOLD}.claude/rules/agents.md${NC} carries no ${BOLD}turn_budget / probe_budget${NC} per size tier"
+  echo -e "     → run ${BOLD}SETUP --upgrade${NC} (the tier budgets, the medium row) — until then gate.py agents is red and every critic and reader spawn is refused (workers still resolve)"
 fi
 echo ""
 
