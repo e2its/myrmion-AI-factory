@@ -1129,6 +1129,9 @@ class Agents(unittest.TestCase):
             f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.tiers.large.turn_budget must be a positive integer" in x["reason"] for x in f))
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("small: {files: 5, lines: 150, turn_budget: 20, probe_budget: 2}, ", ""))
             f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.tiers.small is missing" in x["reason"] for x in f), "every tier is declared")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("  tiers: {small: {files: 5, lines: 150, turn_budget: 20, probe_budget: 2}, medium: {turn_budget: 40, probe_budget: 4}, large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}}", "  tiers: [{small: 1}]"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("agents.tiers must be a mapping" in x["reason"] for x in f), "a tiers block that is a list is a finding, never a crash")
+            self.assertTrue(agents._posint("60") and not agents._posint("²") and not agents._posint(True) and not agents._posint("0") and not agents._posint(0), "a budget is a positive decimal integer — a superscript digit, a boolean or zero is not")
             write(repo / ".claude/rules/agents.md", RULE_AGENTS)
             write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob", max_turns=None))
             f = agents.validate(repo, self.manifest); self.assertTrue(any("`maxTurns: (none)`" in x["reason"] for x in f), "a read-only definition without the hard stop is red")
@@ -1136,7 +1139,7 @@ class Agents(unittest.TestCase):
             f = agents.validate(repo, self.manifest); self.assertTrue(any("`maxTurns: 10`" in x["reason"] and "(60)" in x["reason"] for x in f), "the hard stop is the large tier's turn_budget, nothing else")
             write(repo / ".claude/agents/factory-critic-security.md", agent_def("factory-critic-security", "work-critic", "Read, Grep, Glob"))
             write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash", extra="maxTurns: 60\n"))
-            f = agents.validate(repo, self.manifest); self.assertTrue(any("a writer's cap is a policy key" in x["reason"] for x in f), "a writer declares no maxTurns here")
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("a writer's turns are not capped by a definition field" in x["reason"] for x in f), "a writer declares no maxTurns here")
             write(repo / ".claude/agents/factory-dev-backend.md", agent_def("factory-dev-backend", "worker", "Read, Edit, Write, Bash"))
             self.assertEqual(agents.validate(repo, self.manifest), [], "green again")
             # the vendored engine lenses are held to the critic matrix and the budget
@@ -1173,6 +1176,9 @@ class Agents(unittest.TestCase):
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("medium: {turn_budget: 40, probe_budget: 4}", "medium: {probe_budget: 4}"))
             with self.assertRaisesRegex(GateFault, "lacks turn_budget"):
                 agents.resolve(repo, "work-critic", files=10, lines=300)
+            self.assertEqual(agents.resolve(repo, "worker", files=10, lines=300)["model"], "sonnet", "a writer resolves without the critics' budgets — a project synced before its upgrade still spawns its workers")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("  tiers: {small: {files: 5, lines: 150, turn_budget: 20, probe_budget: 2}, medium: {turn_budget: 40, probe_budget: 4}, large: {files: 30, lines: 800, turn_budget: 60, probe_budget: 6}}", "  tiers: [{small: 1}]"))
+            self.assertEqual(agents.tier(agents.policy(repo), 2, 10), "small", "a tiers block that is a list never crashes the size tier")
             write(repo / ".claude/rules/agents.md", RULE_AGENTS)
             r = agents.resolve(repo, "worker", surface="backend", files=2, lines=10)
             self.assertEqual((r["model"], r["effort"], r["tier"]), ("sonnet", "low", "small"), "a small diff steps the effort down")

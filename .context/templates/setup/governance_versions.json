@@ -3990,11 +3990,12 @@
       "path": ".claude/skills/factory-pr-review/scripts/post_review.py"
     },
     "scripts/factory-sync.sh": {
-      "version": "1.12.4",
+      "version": "1.13.0",
       "path": "scripts/factory-sync.sh",
       "type": "utility",
       "role": "Framework governance sync tool — copies framework-owned files (instructions, skills, hooks, base scripts, templates) to target projects without leaving framework traces in project git history. Works on both greenfield (pre-materialization) and materialized projects; prefers template-variant under .context/templates/setup/scripts/** over the meta variant to avoid propagating meta-only constructs to downstream projects.",
       "changelog": [
+        "1.13.0: feat(EVOL-058) — step 5b says at delivery time when the project's rule carries no tier budgets (the definitions now declare maxTurns; sync never touches the rule).",
         "1.12.4: fix(EVOL-055) — no concrete project names (neutral wording; behaviour unchanged).",
         "1.12.3: feat(EVOL-054) — the half-delivery note names scm.py, the scm block and docs/scm/protection.md",
         "1.12.2: fix(EVOL-053) — EVOL-051 / EVOL-053 half-delivery said: the config blocks, the plugin and the baseline come with SETUP --upgrade",

@@ -214,7 +214,7 @@ def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, 
     mt = fv("maxTurns")
     if _class_writes(c):
         if mt:
-            f.append({"path": rel, "reason": "`maxTurns` on a definition that writes — a writer's cap is a policy key, not a definition field"})
+            f.append({"path": rel, "reason": "`maxTurns` on a definition that writes — a writer's turns are not capped by a definition field (the writer cap is a policy key of its own, not this one)"})
     elif roster_class is not None and ceiling is not None and not (mt.isdecimal() and int(mt) == ceiling):
         f.append({"path": rel, "reason": f"`maxTurns: {mt or '(none)'}` — a read-only definition declares the harness's hard stop, equal to the large tier's turn_budget ({ceiling}); the per-tier budget travels at the spawn (EVOL-058)"})
     text = p.read_text(encoding="utf-8", errors="replace")
@@ -317,7 +317,7 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
         if (pol["ladder"] or {}).get("writer"):
             f.append({"path": rule, "reason": f"ladder.writer is not empty — an agent that writes (class `{n}`) never degrades"}); break
     # resolve rows: known class and tier, a real effort, never a restated default
-    tiers = set(pol["tiers"] or {}) | {"medium"}
+    tiers = set(pol["tiers"] if isinstance(pol["tiers"], dict) else {}) | {"medium"}
     for row in pol["resolve"]:
         if not isinstance(row, dict) or row.get("class") not in pol["classes"]:
             f.append({"path": rule, "reason": f"resolve row {row} names no known class — dead data"}); continue
@@ -351,8 +351,9 @@ def tier(pol: dict, files: int, lines: int) -> str:
     """small | medium | large from the tiers keys; `unknown` when nobody measured (0 files, 0 lines) — never small by default."""
     if files <= 0 and lines <= 0:
         return "unknown"
-    tiers = pol.get("tiers") or {}
-    small = tiers.get("small", {}); large = tiers.get("large", {})
+    tiers = pol.get("tiers") if isinstance(pol.get("tiers"), dict) else {}
+    small = tiers.get("small") if isinstance(tiers.get("small"), dict) else {}
+    large = tiers.get("large") if isinstance(tiers.get("large"), dict) else {}
     if files <= int(small.get("files", 5)) and lines <= int(small.get("lines", 150)):
         return "small"
     if files > int(large.get("files", 30)) or lines > int(large.get("lines", 800)):
@@ -382,8 +383,8 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
         effort = row.get("effort", effort); matched = ", ".join(f"{k}: {v}" for k, v in row.items() if k != "class"); break
     fam = c["family"]
     b = budgets(pol, t)
-    if len(b) != len(BUDGET_KEYS):
-        raise GateFault(f"agents.tiers.{t if t in TIERS else 'large'} lacks turn_budget / probe_budget — the budget is a key (EVOL-058); gate.py agents names it")
+    if not _class_writes(c) and len(b) != len(BUDGET_KEYS):   # a read-only class is spawned under its budgets; a writer's cap is a key of its own
+        raise GateFault(f"agents.tiers.{t if t in TIERS else 'large'} lacks turn_budget / probe_budget — a critic's budget is a key (EVOL-058); gate.py agents names it")
     return {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched, **b}
 
 
