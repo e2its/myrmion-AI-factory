@@ -1743,11 +1743,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.13.0",
+      "version": "1.13.1",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.13.1: fix(EVOL-060) — the --check-return usage names the Informational: line and the appendix refusals.",
         "1.13.0: feat(EVOL-059) — the canary subcommand (fixture, expected, check, judge, seen, plan, status).",
         "1.12.0: feat(EVOL-058) — the resolve line carries turns and probes.",
         "1.11.0: feat(EVOL-057) — seal --run (the loop's executor) and push-log (the push's record for the instrument; exit 0 always).",
@@ -2422,10 +2423,11 @@
       ]
     },
     "peer_review/review_template.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".context/templates/peer_review/review_template.md",
       "changelog": [
+        "1.4.0: feat(EVOL-060) — § 2b Critic returns: every return verbatim, the appendix's home; informational counted, never adjudicated.",
         "1.3.0: feat(EVOL-045) — certifies.base = the diff base (gate.py diff-base), not a literal origin/main.",
         "1.2.0: feat(EVOL-044) — frontmatter `certifies:` block (subject, base/paths, hash from gate.py certify) — the verdict declares what it certified; gate.py currency recomputes it.",
         "1.1.0: feat(EVOL-029) post-review fix — frontmatter gains report_scope (feature | increment-{INC-N}) + increment_id (null | INC-N) to support per-slice peer reviews emitted by IMPLEMENT under slicing_strategy: incremental. Naming chosen to NOT collide with existing `scope` field (feature_scope inherited from spec.feature).",
@@ -4810,11 +4812,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.13.0",
+      "version": "1.13.1",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.13.1: fix(EVOL-060) — the --check-return usage names the Informational: line and the appendix refusals.",
         "1.13.0: feat(EVOL-059) — the canary subcommand (the template twin).",
         "1.12.0: feat(EVOL-058) — the resolve line carries turns and probes (the template twin).",
         "1.11.0: feat(EVOL-057) — seal --run and push-log (the template twin).",

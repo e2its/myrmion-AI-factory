@@ -59,7 +59,7 @@ FUNCTION plan_gate(FEATURE_ID):
   RETURN open                                                  # after the cap: the user's call
 ```
 
-Each finding carries file, line, severity, confidence and an **executed probe** (`file:line · 🔴|🟡|🟢|❓ · confidence N% · probe: …`) — refused otherwise. Severity per the two-limb bar (`rules/agents.md § Severity bar`). A cure that seeds the next round's findings is the loop's own defect. **The phase agent never ratifies:** what stays open after `rounds.plan_gate` goes to the user by RDR (factory-rdr, two registers) in the main session; `--approve` proceeds only on the user's adjudication.
+Each finding above informational carries file, line, severity, confidence and an **executed probe** (`file:line · 🔴|🟡|❓ · confidence N% · probe: …`) — refused otherwise; the informational findings travel under `## Informational` after the governance block, counted on its `Informational:` line (EVOL-060) — the plan gate reads the contract part and appends the plan critic's returns verbatim to `docs/spec/{ID}/review/plan_critic_{timestamp}.md`, the appendix's home. Severity per the two-limb bar (`rules/agents.md § Severity bar`). A cure that seeds the next round's findings is the loop's own defect. **The phase agent never ratifies:** what stays open after `rounds.plan_gate` goes to the user by RDR (factory-rdr, two registers) in the main session; `--approve` proceeds only on the user's adjudication.
 
 ---
 

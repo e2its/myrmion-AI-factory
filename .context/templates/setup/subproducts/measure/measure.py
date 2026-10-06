@@ -487,6 +487,7 @@ def check_return(repo: Path, cls: str, text: str) -> str:
 
 INFO_HEADING_RE = re.compile(r"^\s*##\s*Informational\b.*$", re.M)
 INFO_LINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Informational:(?:\*\*)?\s*(\d+)\s*$", re.M)
+INFO_INLINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?[^\s*`]+:\d+(?:\*\*)?\s*·\s*🟢\s*·", re.M)   # the legacy shape: a 🟢 finding line inline
 
 
 def split_return(text: str) -> tuple[str, int]:
@@ -496,7 +497,9 @@ def split_return(text: str) -> tuple[str, int]:
     m = INFO_HEADING_RE.search(text, gov if gov >= 0 else 0)
     contract = text[:m.start()] if m else text
     n = INFO_LINE_RE.search(contract.rsplit("## Governance", 1)[-1] if "## Governance" in contract else "")
-    return contract, int(n.group(1)) if n else 0
+    if n:
+        return contract, int(n.group(1))
+    return contract, len(INFO_INLINE_RE.findall(contract))   # a return from before EVOL-060 carries its informational findings inline: counted where they are, so the before window is never a false zero
 
 
 def returns_report(sessions: list, repo: Path) -> dict:
@@ -776,12 +779,12 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
     else:
         def ok(a): return 0 < a["turns"] <= (a.get("budget") or ceiling)   # a critic with no turn at all delivered nothing
         inside = sum(1 for a in critics if ok(a))
-        rounds = {(a["session"], a["round"]) for a in critics}   # EVOL-060: a critic round = (session, round); the orchestrator's output tokens per round = the parent sessions' output over their rounds
+        rounds = {(a["session"], a["round"]) for a in critics}   # EVOL-060: a critic round = (session, round); the orchestrator's output tokens per round = the parent sessions' whole output over their rounds — a coarse figure (the session's other work is inside it), comparable before/after on the same project
         main_out = sum(s.tokens["output"] for s in sessions if s.id in {a["session"] for a in critics})
         report["critics"] = {"orchestrator_tokens_out_per_round": round(main_out / len(rounds)) if rounds else None,
                              "of": len(critics), "inside_budget": inside, "share": round(inside / len(critics), 3) if critics else None, "ceiling": ceiling,
                              "by_round": {str(r): {"of": sum(1 for a in critics if a["round"] == r), "inside": sum(1 for a in critics if a["round"] == r and ok(a))} for r in sorted({a["round"] for a in critics})},
-                             "definition": "a critic = a sub-agent whose roster class is a critic class; turns = the distinct assistant message ids of its own transcript "
+                             "definition": "orchestrator_tokens_out_per_round = the output tokens of every session that spawned a critic, divided by its distinct (session, round) pairs — the whole session's output, not the round's alone (EVOL-060); a critic = a sub-agent whose roster class is a critic class; turns = the distinct assistant message ids of its own transcript "
                                            "(a streamed message repeats its id); its budget = the `turn budget:` line of its spawn prompt (budget_source prompt), else the "
                                            "ceiling (agents.tiers.large.turn_budget of rules/agents.md, the maxTurns every read-only definition declares; budget_source ceiling); "
                                            "inside = at least one turn and at most its budget — a critic that reached the ceiling was stopped there by the harness, and what it "
@@ -1217,9 +1220,15 @@ def selftest() -> int:
         # EVOL-060: the contract part is what the orchestrator read; the appendix is counted from the governance line, never read
         c, n = split_return(PARSED_RETURN); expect("## Informational" not in c and n == 1 and c.endswith("Model: claude-y-critic\n"), "split_return: the contract part ends at the appendix; the count is the governance line's")
         expect(split_return("no findings\n## Governance\nModel: m\n") == ("no findings\n## Governance\nModel: m\n", 0), "a return without the appendix is all contract, count 0")
+        expect(split_return("src/a.py:1 · 🔴 · confidence 90% · probe: x\nsrc/b.py:2 · 🟢 · confidence 80% · probe: y\n## Governance\nModel: m\n")[1] == 1, "a legacy return (no Informational: line) counts its inline 🟢 lines — the before window is never a false zero")
+        expect(split_return("## Governance\nSources: see ## Informational note\nModel: m\n")[0].endswith("Model: m\n"), "a phrase that mentions the heading inside a line never opens the appendix")
+        expect(rt["informational"] == 6 and rt["by_class"]["work-critic"]["informational"] == 5 and rt["by_class"]["worker"]["informational"] == 1, "the informational count per class is the sum of the governance lines")
+        appendix = len(PARSED_RETURN.strip()[PARSED_RETURN.strip().index("## Informational"):].encode("utf-8"))
+        expect(0 <= (rt["by_class"]["work-critic"]["bytes"] - rt["by_class"]["work-critic"]["bytes_adjudicated"]) - 5 * appendix <= 5, "the adjudicated bytes are the whole return minus the appendix, per class (five returns carry it; a trailing newline per channel at most)")
+        expect("| class | owed | parsed | refused | unchecked | uncollected | bytes | adjudicated | informational |" in md and "bytes per return" in md, "the returns table renders the EVOL-060 columns")
         expect(rt["avg_bytes"] is not None and rt["avg_bytes_adjudicated"] is not None and rt["avg_bytes_adjudicated"] < rt["avg_bytes"] and rt["informational"] >= 1, "bytes per return against bytes adjudicated, the informational count — the signals")
         expect("returns.avg_bytes_adjudicated" in compare(r, r) and "critics.orchestrator_tokens_out_per_round" in compare(r, r), "the EVOL-060 signals are in the before/after table")
-        expect(r["critics"]["orchestrator_tokens_out_per_round"] is not None, "the orchestrator's output per critic round is measured")
+        expect(r["critics"]["orchestrator_tokens_out_per_round"] == 12, "the orchestrator's output per critic round: the spawning sessions' output (62 on the fixture) over their five (session, round) pairs")
         # pushes (EVOL-057): the push log first — both generations, the window by `end` — the trace as fallback
         ps = r["pushes"]
         expect(ps["source"].startswith("push log") and ps["total"] == 3 and ps["by_profile"]["full"] == {"pushes": 2, "seconds": 180.0} and ps["by_profile"]["light"] == {"pushes": 1, "seconds": 30.0} and ps["unknown_share"] == 0.0,

@@ -155,6 +155,7 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   delivered = [r FOR r IN reports IF r.scope NOT IN not_delivered AND NOT r.fallback]   # the reports that passed the return check after at most one hand-back, spawned on the resolved model — a fall ran on another id (FOLD_IDS reads the primary ones, as the engine's)
   fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § Spawn contract → FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
   IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")   # nothing when no scope delivered: the last real id stays
+  reports = [contract_part(r) FOR r IN reports]                      # EVOL-060: consolidation reads the contract part; the appendix of every report goes verbatim into the artefact's § Critic returns (below), counted on its Informational: line
   RETURN consolidate(reports, not_delivered) + { not_delivered, degraded, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # consolidation is handed the list it marks UNVERIFIED by (§ CONSOLIDATION PROTOCOL step 4); the undelivered scopes, the degradation and the falls travel with the sweep's report
 ```
 
@@ -219,6 +220,7 @@ medium: N
 low: N
 all_resolved_in_commit: true | false
 not_delivered: []                      # the scopes whose critic never delivered — their DCs are UNVERIFIED below, the sweep is not COMPLETED while any remains
+informational: 0                       # the sum of the returns' Informational: lines (EVOL-060) — the findings themselves under § Critic returns
 degraded: false                        # a critic fell onto the writer's family (the ladder's last rung) — the findings go to the user's adjudication
 fallback: []                           # every fall: {alias, id, delivered}
 ---
@@ -252,6 +254,9 @@ fallback: []                           # every fall: {alias, id, delivered}
 | DC | Scope | Reason |
 |----|-------|--------|
 <!-- one row per DC of a scope in not_delivered — never under Clean Areas (EVOL-059) -->
+
+## Critic returns
+<!-- every scope critic's return VERBATIM, one `## <scope> · round N` heading each — the appendix (`## Informational`) lives here, never adjudicated (EVOL-060) -->
 
 ## Framework Observations
 {{Any patterns that suggest a new DC or a gate improvement}}

@@ -46,7 +46,7 @@
   gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class; `separation: false` when a critic lands on the writer's family
   gate.py agents --digest --agent NAME             the slice of law governing the agent's surface (always-on rules included), within its class budget
   gate.py agents --spawn --agent NAME --model M [--hook-json]   the model handed to a roster agent is its family's alias; exit 1 refused (the PreToolUse Agent hook)
-  gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a critic finding outside the shape or without a real probe / a critic without its Model: line
+  gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a critic finding outside the shape or without a real probe / a critic without its Model: or Informational: line / an informational finding before the governance block, a count that is not the appendix's length (EVOL-060)
   gate.py canary --fixture | --expected [--lens L] | --check   the lens canary (EVOL-059): the synthetic diff with planted defects, the expected findings per lens, the fixture's own consistency
   gate.py canary --judge --lens L --model ID < return.md   compare a critic's return over the fixture to the lens's planted defects; record; exit 1 when one was missed (never a block — an RDR on the spawn policy)
   gate.py canary --seen --lens L --model ID | --plan [--all] | --status   the model a lens last ran on; the lenses owed a canary (the model moved, never judged, on demand); the record

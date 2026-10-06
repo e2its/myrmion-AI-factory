@@ -1266,6 +1266,21 @@ class Agents(unittest.TestCase):
             self.assertEqual(agents.check_return("no findings\n" + gov.replace("Informational: 0", "Informational: 1") + "## Informational\nsrc/b.py:3 · 🟢 · confidence 85% · probe: read\n", "plan-critic"), [], "no finding above informational, one below: the contract part says `no findings`")
             self.assertEqual(agents.split_return(two_part)[1].count("🟢"), 2); self.assertNotIn("## Informational", agents.split_return(two_part)[0])
             self.assertEqual(agents.split_return("x ## Informational y\n## Governance\nModel: m\n"), ("x ## Informational y\n## Governance\nModel: m\n", ""), "the appendix heading is a line of its own after the governance block, never a phrase before it")
+            mention = two_part.replace("Informational: 2", "Informational: 3") + "docs/x.md:4 · 🟢 · confidence 85% · probe: the `## Governance` heading is documented (documentation.md)\n"
+            self.assertEqual(agents.check_return(mention, "work-critic"), [], "an appendix line that mentions the governance heading never moves the block")
+            self.assertEqual(agents.return_model(mention), "claude-y-critic", "the Model: line is the contract part's, whatever the appendix says")
+            self.assertEqual(agents.return_model(two_part + "Model: evil-id\n"), "claude-y-critic", "a Model: line in the appendix is never read")
+            self.assertEqual(agents.split_return("no findings\n## Governance\nSources: see ## Informational note\nModel: m\n")[1], "", "the heading is a line of its own: a phrase inside a governance line never opens the appendix")
+            before = "## Informational\nsrc/b.py:3 · 🟢 · confidence 85% · probe: read\n" + critic_ok.replace("Informational: 0", "Informational: 1")
+            self.assertEqual(agents.split_return(before)[1], "", "an `## Informational` before the governance block opens nothing")
+            self.assertTrue(any("inside the findings" in p for p in agents.check_return(before, "work-critic")), "its lines are refused as inside the findings")
+            after = critic_ok.replace("Informational: 0", "Informational: 1") + "src/b.py:3 · 🟢 · confidence 85% · probe: read\n"
+            self.assertTrue(any("under no `## Informational` heading" in p for p in agents.check_return(after, "work-critic")), "a 🟢 after the block with no heading is said as such, never as inside the findings")
+            self.assertTrue(any("outside the contract shape under `## Informational`" in p for p in agents.check_return(two_part + "src/c.py 🔴 bad\n", "work-critic")), "an appendix line with a severity glyph outside the shape is refused, never a crash")
+            self.assertTrue(any("informational finding without an executed probe" in p for p in agents.check_return(two_part.replace("probe: read (DC-29)", "probe: n/a"), "work-critic")), "an appendix line is held like any finding")
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES)   # the judge needs every lens's agent in the roster
+            self.assertEqual(canary.judge(repo, "security", "src/orders/repo.py:9 · 🔴 · confidence 95% · probe: read\nsrc/orders/repo.py:23 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 1\nModel: m\n## Informational\nsrc/orders/api.py:17 · 🟢 · confidence 60% · probe: read\n", "m")["findings"], 2, "the judge reads the contract part: an appendix line is never a finding")
+            (repo / ".claude/state/canary.json").unlink(); write(repo / ".claude/rules/agents.md", RULE_AGENTS)
             self.assertEqual(agents.check_return(critic_ok, "work-critic"), [])
             # EVOL-059: a critic names its model; the placeholder is not an id; a worker owes none
             self.assertTrue(any("no `Model:` line" in p for p in agents.check_return(critic_ok.replace("Model: claude-y-critic\n", ""), "work-critic")), "a critic without its model line is refused")

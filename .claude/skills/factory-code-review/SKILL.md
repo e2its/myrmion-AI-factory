@@ -115,6 +115,7 @@ FUNCTION run_code_review(mode, args, profile):
   n, m = COUNT(scope.files), LINES_CHANGED(scope)
   r = args.round OR 1                                             # rules/agents.md → rounds.work = 2 on a completed diff: round 1 is the pass on the diff (full effort), round 2 the ONE pass on the cured bytes — the main session passes `--round 2` on the re-pass; the tier is the diff's (n, m — the whole scope), so the effort steps down by the diff's size, not the cure's; the resolver refuses round 3 — what remains above informational goes to the user's adjudication (RDR): accept with an `override` reason in the marker, or cure and start again at round 1 on the new bytes (RDR-3 of ADR-EVOL-059)
   # a finding on a line the diff under review did not add or change is 🟢 by definition (the step `demote_outside` below, counted in the marker as `outside_delta`) — the engine reviews the diff; what the lenses see through it is recorded, never a cure owed in this pass
+  content_hash = RUN(the hash pipeline of § Marker write step 1) IF mode == "branch" ELSE none   # bound once here: the no-cure check and the round artefact read it; increment mode has no hash and no marker
   IF r == 2 AND content_hash == the round-1 marker's content_hash: RETURN { ok: false, reason: "no-cure" }   # round 2 is the re-check of a cure, never a second look at the same bytes (the marker carries the hash and the round)
   gate = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}")
   IF NOT gate.ok: SAY(gate.reason); RETURN { ok: false, reason: "round-cap", detail: gate.reason }   # the cap (rounds.work) refused this round before anything is spent — no canary, no spawn, NO marker: what remains goes to the user's adjudication (RDR), never a pass by hand
@@ -143,7 +144,7 @@ FUNCTION run_code_review(mode, args, profile):
         files: scope.files,
         context: diff range or increment description,
         governance: binding.packet_for(agent),   # § Governance Binding per-agent slice, with citations
-        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding; every finding on one line: file:line · severity · confidence N% · probe: <what was run>; the governance block ends with Model: <the id the harness states for you>"
+        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding; the return in two parts (EVOL-060): the findings above informational, one line each: file:line · 🔴|🟡|❓ · confidence N% · probe: <what was run>, or `no findings`; then the governance block with Informational: <count> and Model: <the id the harness states for you>; then `## Informational` with every informational finding in full — never a 🟢 before the governance block"
       })
     # Fallback: on a provider error a critic falls down the ladder — never to a writer class
     IF report.provider_error:
@@ -172,9 +173,9 @@ FUNCTION run_code_review(mode, args, profile):
   after = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")
   IF before != after: RETURN { ok: false, reason: "tree-moved" }   # a run around which the working tree moved is refused — NO marker
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ..., detail: the lambda's detail }   # NO marker; the fall's reason travels with the failure
-  APPEND(".claude/state/code-review-{content_hash}.returns.md", every delivered report VERBATIM, one `## <agent_file> · round {r}` heading each)   # EVOL-060: the round artefact — the appendix (`## Informational`) lives here, never read by this engine
+  IF mode == "branch": APPEND(".claude/state/code-review-{content_hash}.returns.md", every delivered report VERBATIM, one `## <agent_file> · round {r} · {ISO-8601}` heading each)   # EVOL-060: the round artefact of the push gate — the appendix (`## Informational`) lives here, never read by this engine; local and gitignored like the marker, one file per content hash, every pass appended under its own timestamp, never rotated (a clone's record); in increment mode the peer review artefact's § Critic returns is the home (Factory-implement-review-checks)
   findings = normalise(contract_part(r) FOR r IN reports)   # references/severity-mapping.md — the contract part only (`gate.py agents` split_return): the findings above informational and the governance block
-  nit = SUM(the `Informational: N` line of each delivered report)   # counted from the governance line, never from the appendix (EVOL-060)
+  nit = SUM(the `Informational: N` line of each delivered report) + outside_delta   # the informational count (the appendix's, from the governance line) plus the demotions of this engine — what the user sees as informational (EVOL-060)
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
   findings, outside_delta = demote_outside(findings, scope)   # a finding whose file:line is not an added or changed line of the diff under review → 🟢, tagged `outside-delta`, counted (references/severity-mapping.md § Cross-cutting rules); the counts below never see it above informational
   primary = [r FOR r IN reports IF r.agent_file NOT IN not_delivered AND NOT r.fallback]   # the delivered reports spawned on res.model — the sweep filters the same way; a fallback re-spawn ran on another id

@@ -352,8 +352,9 @@ def judge(repo: Path, lens: str, text: str, model: str) -> dict:
     positions: dict[str, dict[int, int]] = {}
     added_lines(fixture(), positions)
     from . import agents as agents_mod
+    text, _ = agents_mod.split_return(text or "")   # the contract part (EVOL-060): the appendix never credits a planted defect, and `no findings` is read where the contract puts it
     all_findings = findings(text)
-    if not all_findings and not agents_mod.NO_FINDINGS.search(text or ""):   # the contract's one regex (agents --check-return reads the same)
+    if not all_findings and not agents_mod.NO_FINDINGS.search(text):   # the contract's one regex (agents --check-return reads the same)
         raise GateFault("the return carries no finding in the contract shape and no `no findings` line — hold it to the contract (gate.py agents --check-return) before judging; a formatting fault is not model drift")
     def _key(f: str) -> str:   # the fixture's own path for the one the critic wrote: exact, or by its tail (an absolute or prefixed path still names the file)
         return f if f in positions else next((p for p in positions if f.endswith("/" + p)), f)   # exact first, then the tail
