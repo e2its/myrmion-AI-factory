@@ -62,6 +62,7 @@ def budgets(pol: dict, t: str) -> dict:
 CAPS = {"plan-critic": "plan_gate", "work-critic": "work"}   # class → rounds key
 POINTER = re.compile(r"`((?:rules/|\.claude/|scripts/|\.context/)[\w./-]+\.(?:md|py|sh))`")
 GOV_BLOCK = ("Rules read:", "Laws applied:", "Defect classes:", "Sources:")
+MODEL_LINE = re.compile(r"^\s*Model:\s*(?P<id>\S.*?)\s*$", re.M)   # EVOL-059: the id the harness states for a critic — the canary's trigger
 SEVERITY = re.compile(r"[🔴🟡🟢❓]")
 FINDING = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?P<loc>[^\s*`]+:\d+)(?:\*\*)?\s*·\s*(?P<sev>🔴|🟡|🟢|❓)\s*·\s*confidence\s*\d+%\s*·\s*probe:\s*(?P<probe>.+?)\s*$")
 TRIVIAL_PROBE = re.compile(r"^(?:n/?a|none|nil|-+|—|tbd|todo|\?+|\.+)$", re.I)
@@ -489,6 +490,12 @@ def _check_reader(text: str, problems: list[str]) -> None:
                     problems.append(f"unknown that names nothing searched (`question · searched: what`): {line.strip()[:80]}")
 
 
+def return_model(text: str) -> str:
+    """The model id a critic's return carries (`unknown` when none)."""
+    m = MODEL_LINE.search(text or "")
+    return m.group("id") if m and not _placeholder(m.group("id")) else "unknown"
+
+
 def check_return(text: str, cls: str) -> list[str]:
     if not cls:
         raise GateFault("--check-return needs --class: a worker, a critic and a reader owe different contracts")
@@ -501,6 +508,11 @@ def check_return(text: str, cls: str) -> list[str]:
     if cls == "reader":
         _check_reader(text, problems)
     if "critic" in cls:
+        m = MODEL_LINE.search(text)
+        if not m:
+            problems.append("no `Model:` line in the governance block — a critic names the model id the harness states for it (`unknown` when it does not; the canary's trigger, EVOL-059)")
+        elif _placeholder(m.group("id")):
+            problems.append(f"`Model: {m.group('id')}` is the contract's own placeholder, not an id")
         shaped = 0
         for line in text.splitlines():
             if not SEVERITY.search(line):

@@ -1,13 +1,13 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.6.0",
+  "framework_version": "8.7.0",
   "delivery_mode": "development",
   "last_updated": "2026-10-06",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
+  "description": "v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -937,11 +937,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.9.0",
+      "version": "4.10.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.10.0: feat(EVOL-059) — the agents row names the lens canary.",
         "4.9.0: feat(EVOL-058) — the agents row names the enforced budgets.",
         "4.8.0: feat(EVOL-057) — control points: every push and every loop execution leaves its record (push-log, seal --run) for the measurement subproduct, never for a gate.",
         "4.7.3: feat(EVOL-056) — the agents row names the external-facts reader spawned at Beat 0.",
@@ -1736,11 +1737,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.13.0: feat(EVOL-059) — the canary subcommand (fixture, expected, check, judge, seen, plan, status).",
         "1.12.0: feat(EVOL-058) — the resolve line carries turns and probes.",
         "1.11.0: feat(EVOL-057) — seal --run (the loop's executor) and push-log (the push's record for the instrument; exit 0 always).",
         "1.10.0: feat(EVOL-054) — scm-protection subcommand (--control-point, --json)",
@@ -1811,11 +1813,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.14.0: feat(EVOL-059) — Canary: the fixture's consistency and invisibility at rest, the judge green/red/tolerance/alternative anchors/informational, the plan on drift, never judged, unknown, on demand; the critic contract's Model: line.",
         "1.13.0: feat(EVOL-058) — Agents: budgets per tier red/green, the ceiling on read-only definitions, a writer's refused, the resolver's budgets per tier and for an unmeasured size.",
         "1.12.0: feat(EVOL-057) — Seal: the logs block, the push record and its rotation, the runner red then green, symlinked state refused; CLI exit codes for push-log and seal --run (the meta twin).",
         "1.11.0: feat(EVOL-056) — Agents: the reader class (allowlisted docs MCP read tools green; a mutator, a server outside the allowlist, allow_mcp on a writer class red); the reader return contract green and red; resolve and spawn on the critic family.",
@@ -1919,12 +1922,13 @@
       ]
     },
     "scripts/gates/agents.py": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": "scripts/gates/agents.py",
       "delivery": "both",
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes).",
       "changelog": [
+        "1.4.0: feat(EVOL-059) — a critic's return carries its Model: line (refused without it or with the placeholder); return_model().",
         "1.3.0: feat(EVOL-058) — budgets per tier, the resolver hands them (GateFault when a tier lacks them), the validator holds every tier's keys and every read-only definition's maxTurns, a writer's maxTurns refused.",
         "1.2.0: feat(EVOL-056) — class policy `tools.allow_mcp: docs_mcp_allowlist`: a read-only class may carry mcp__<server>__<op> tools for a [LAW-10] allowlisted server and a read operation only (closed verb list); the reader return contract (## Sources / ## Answer / ## Unknowns) in --check-return --class reader.",
         "1.1.0: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -1932,11 +1936,12 @@
       ]
     },
     "rules/agents.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/rules/agents.md",
       "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents.",
       "changelog": [
+        "1.4.0: feat(EVOL-059) — § The lens canary; the Model: line in the critic contract; agents.canary.line_tolerance.",
         "1.3.0: feat(EVOL-058) — turn_budget and probe_budget per size tier (medium explicit); maxTurns on every read-only definition = the large tier's turn_budget; the orchestrator's hand-back; the probe rule.",
         "1.2.0: feat(EVOL-056) — class `reader` (read-only, family critic, the harness matrix + the read operations of the [LAW-10] documentation servers: allow_mcp: docs_mcp_allowlist); roster entry factory-docs-reader; § Beat 0 — external facts before the design, the plan and the infrastructure; three spawn sites.",
         "1.1.0: fix(EVOL-049) — review pass — dead critic rows dropped; phase spawn sites (the five commands); worktree guard; who spawns (the main session); allowlist matrix; vendored lenses; effort precedence; separation lost on the fallback; return contract shape",
@@ -2026,52 +2031,57 @@
       ]
     },
     "claude/agents/factory-plan-critic.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-plan-critic.md",
       "role": "Agent definition — plan-critic (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the return contract's Model: line (the lens canary's trigger).",
         "1.1.0: feat(EVOL-058) — maxTurns (the harness's hard stop = the large tier's turn_budget).",
         "1.0.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "claude/agents/factory-critic-security.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-critic-security.md",
       "role": "Agent definition — work-critic — security lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the return contract's Model: line (the lens canary's trigger).",
         "1.1.0: feat(EVOL-058) — maxTurns (the harness's hard stop = the large tier's turn_budget).",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "claude/agents/factory-critic-correctness.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-critic-correctness.md",
       "role": "Agent definition — work-critic — correctness lens (read-only; the vendored LAW-13 engine is its instrument). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the return contract's Model: line (the lens canary's trigger).",
         "1.1.0: feat(EVOL-058) — maxTurns (the harness's hard stop = the large tier's turn_budget); the probe rule: one execution per finding within the probe budget, never the suite.",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "claude/agents/factory-critic-governance.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-critic-governance.md",
       "role": "Agent definition — work-critic — governance lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the return contract's Model: line (the lens canary's trigger).",
         "1.1.0: feat(EVOL-058) — maxTurns (the harness's hard stop = the large tier's turn_budget).",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "claude/agents/factory-critic-fidelity.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-critic-fidelity.md",
       "role": "Agent definition — work-critic — fidelity lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the return contract's Model: line (the lens canary's trigger).",
         "1.1.0: feat(EVOL-058) — maxTurns (the harness's hard stop = the large tier's turn_budget).",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
@@ -2194,6 +2204,16 @@
       "changelog": [
         "1.1.0: feat(EVOL-058) — maxTurns (the harness's hard stop = the large tier's turn_budget).",
         "1.0.0: feat(EVOL-056) — initial."
+      ]
+    },
+    "scripts/gates/canary.py": {
+      "content_type": "universal",
+      "delivery": "both",
+      "version": "1.0.0",
+      "target": "scripts/gates/canary.py",
+      "role": "The lens canary (EVOL-059): the synthetic fixture with planted defects per lens (encoded at rest), the expected findings, the judge, the record of the model each lens last ran on and was last judged on, the plan that owes a lens when its resolved model moved.",
+      "changelog": [
+        "1.0.0: feat(EVOL-059) — initial."
       ]
     }
   },
@@ -2968,9 +2988,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.17.0",
+      "version": "2.18.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.18.0: feat(EVOL-059) — the canary plan before the round, --seen after every real return.",
         "2.17.0: feat(EVOL-058) — the spawn prompt's budget lines, the orchestrator's hand-back on a partial return, the probe bound.",
         "2.16.0: feat(EVOL-051) — before the critics only the static round (gate.py profile --run --control-point static, digests included) + the workers' scoped runs; coverage, typecheck and the full suite deferred to the one loop; lint stays scoped",
         "2.15.0: fix(EVOL-049) — review pass — the main session spawns; worktree guard; context:\"increment\" comment; critics at the class default on every lens",
@@ -3293,9 +3314,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.9.0",
+      "version": "14.10.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.10.0: feat(EVOL-059) — the agents row names the lens canary.",
         "14.9.0: feat(EVOL-058) — the agents row names the enforced budgets.",
         "14.8.0: feat(EVOL-057) — control points: every push and every loop execution leaves its record (push-log, seal --run) for the measurement subproduct, never for a gate.",
         "14.7.4: feat(EVOL-056) — the agents row names the external-facts reader spawned at Beat 0. The profile is the one call of the pre-push hook and the governance workflows (meta + platform templates) — 'both CI workflows' corrected.",
@@ -3578,10 +3600,11 @@
       "path": ".claude/skills/factory-complexity-check/SKILL.md"
     },
     "skills/factory-code-review/SKILL.md": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "type": "skill",
       "role": "Factory Code Review — agentic multi-perspective code review engine. 6 vendored Anthropic pr-review-toolkit agents (Apache-2.0, pinned commit in skill README § Provenance). Single engine, two invocations (RDR-3): IMPLEMENT increment pass — work critics, Step R.1b (scope=increment, feeds peer_review, never writes marker) and factory-pr-review axis 7 / Block 20 (scope=branch, ONLY writer of the proof-of-execution marker .claude/state/code-review-${content_hash}.marker). RDR-1 content-hash keying (sha256 over sorted path+blob-sha of is_code∪is_test files — amend/rebase-stable). RDR-2: fail-open on infra (executor-missing → noisy Important), fail-closed on findings (blockers block push; override only via explicit RDR, recorded in marker override object + worklog SCM.code_review.override). RDR-4 gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type defs, comment-analyzer + code-simplifier advisory. Config optional in config/quality.json.code_review — ABSENT ⇒ ACTIVE (inverse of complexity-check; executor ships with the skill). Mandatory 🔎 banner. Severity normalisation orchestrator-side via references/severity-mapping.md.",
       "changelog": [
+        "1.7.0: feat(EVOL-059) — the canary plan before the round (the correctness lens judged on the fixture when its model moved), the Model: line in the directive, models in the return and the marker, --seen after the round.",
         "1.6.0: feat(EVOL-058) — the spawn contract: budget lines, HANDBACK_ONCE on a partial return, fully unverified after it, probes bounded to the finding's test.",
         "1.5.0: fix(EVOL-049) — review pass — the six lenses run as the rostered critic factory-critic-correctness (harness matrix, model per spawn, effort in the prompt); worktree guard with paths; fallback separation → degraded marker; tree-unhashable",
         "1.4.0: feat(EVOL-049)! — the correctness lens's instrument: class/lens columns, the model resolved per spawn, fallback, tree check, return check, increment mode; spawn-policy: work-critic.",
@@ -4750,11 +4773,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.12.0",
+      "version": "1.13.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.13.0: feat(EVOL-059) — the canary subcommand (the template twin).",
         "1.12.0: feat(EVOL-058) — the resolve line carries turns and probes (the template twin).",
         "1.11.0: feat(EVOL-057) — seal --run and push-log (the template twin).",
         "1.10.0: feat(EVOL-054) — scm-protection subcommand (--control-point, --json)",
@@ -4819,11 +4843,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.14.0: feat(EVOL-059) — Canary tests (the meta twin).",
         "1.13.0: feat(EVOL-058) — Agents budgets (the meta twin).",
         "1.12.0: feat(EVOL-057) — Seal: the logs block checked key by key (n/a never blocks), the push record and its rotation, the runner (one execution per command, timing lines, the seal right after, red/green, --full over green records, named gates, no logs, not required); CLI exit codes for push-log and seal --run.",
         "1.11.0: feat(EVOL-056) — Agents: the reader class (allowlisted docs MCP read tools green; a mutator, a server outside the allowlist, allow_mcp on a writer class red); the reader return contract green and red; resolve and spawn on the critic family.",
@@ -4842,11 +4867,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.14.0: feat(EVOL-059) — the canary on the materialised policy: the fixture's consistency, every lens owed when never judged, a green and a red judge, the trigger on a moved model.",
         "1.13.0: feat(EVOL-058) — the resolved budgets on the materialised policy; a read-only definition without maxTurns refused.",
         "1.12.0: feat(EVOL-057) — the scratch project leaves a push record from its materialised config, runs a timed loop red then green through seal --run, and its materialised instrument reads the three channels against the real return reader and roster.",
         "1.11.0: feat(EVOL-056) — the roster lands with the reader (15); the resolver answers for class reader on the critic family; the spawn hook refuses the reader on the writer alias; the reader return contract red and green on the materialised tree.",
@@ -4968,11 +4994,12 @@
       ]
     },
     "scripts/gates/agents.py": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "script",
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes). Meta copy (lock-step pair).",
       "path": "scripts/gates/agents.py",
       "changelog": [
+        "1.4.0: feat(EVOL-059) — the Model: line (the template twin).",
         "1.3.0: feat(EVOL-058) — budgets, validator, resolver (the template twin).",
         "1.2.0: feat(EVOL-056) — class policy `tools.allow_mcp: docs_mcp_allowlist`: a read-only class may carry mcp__<server>__<op> tools for a [LAW-10] allowlisted server and a read operation only (closed verb list); the reader return contract (## Sources / ## Answer / ## Unknowns) in --check-return --class reader.",
         "1.1.0: fix(EVOL-049) — review pass — roster class authoritative, critic tool allowlist (spellings, mcp, case), name = file, families real and distinct, class↔family coherence, dead resolve rows refused, round cap enforced, tier unknown at 0/0, fallback says separation lost, digest expands the surface + always-on rules, --spawn check, check-return holds every severity line and refuses fake probes; vendored lenses validated; template fallback dropped",
@@ -5062,52 +5089,57 @@
       ]
     },
     "agents/factory-plan-critic.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-plan-critic.md",
       "role": "Agent definition — plan-critic (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the Model: line (the meta twin).",
         "1.1.0: feat(EVOL-058) — maxTurns (the meta twin).",
         "1.0.1: fix(EVOL-049) — review pass — --check-return --class plan-critic; dev_plan.md dropped",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "agents/factory-critic-security.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-critic-security.md",
       "role": "Agent definition — work-critic — security lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the Model: line (the meta twin).",
         "1.1.0: feat(EVOL-058) — maxTurns (the meta twin).",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "agents/factory-critic-correctness.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-critic-correctness.md",
       "role": "Agent definition — work-critic — correctness lens (read-only; the vendored LAW-13 engine is its instrument). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the Model: line (the meta twin).",
         "1.1.0: feat(EVOL-058) — maxTurns (the meta twin).",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "agents/factory-critic-governance.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-critic-governance.md",
       "role": "Agent definition — work-critic — governance lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the Model: line (the meta twin).",
         "1.1.0: feat(EVOL-058) — maxTurns (the meta twin).",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
     },
     "agents/factory-critic-fidelity.md": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "agent",
       "path": ".claude/agents/factory-critic-fidelity.md",
       "role": "Agent definition — work-critic — fidelity lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.2.0: feat(EVOL-059) — the Model: line (the meta twin).",
         "1.1.0: feat(EVOL-058) — maxTurns (the meta twin).",
         "1.0.0: feat(EVOL-049)! — initial."
       ]
@@ -5166,6 +5198,15 @@
       "changelog": [
         "1.1.0: feat(EVOL-058) — maxTurns (the meta twin).",
         "1.0.0: feat(EVOL-056) — initial."
+      ]
+    },
+    "scripts/gates/canary.py": {
+      "type": "script",
+      "version": "1.0.0",
+      "path": "scripts/gates/canary.py",
+      "role": "The lens canary (EVOL-059) — the template twin.",
+      "changelog": [
+        "1.0.0: feat(EVOL-059) — initial."
       ]
     }
   },

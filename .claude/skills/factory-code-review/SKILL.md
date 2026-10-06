@@ -114,6 +114,13 @@ FUNCTION run_code_review(mode, args, profile):
   roster = select_agents(profile, type_def_trigger(scope.files))
   n, m = COUNT(scope.files), LINES_CHANGED(scope)
   r = args.round OR 1                                             # rules/agents.md → rounds.work = 1 on a completed diff
+  # EVOL-059 — the lens canary before the round: a lens whose resolved model moved (or was never judged) reviews the
+  # synthetic fixture first; a red canary never blocks — it opens the spawn policy's review by RDR with the user.
+  canary = RUN("python3 scripts/gate.py canary --plan --json")
+  FOR lens IN canary.owed ∩ {"correctness"}:                       # this engine runs the correctness lens; the other lenses are judged at their own spawn sites
+    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files 8 --lines 150")
+    rep = SPAWN(subagent_type = "factory-critic-correctness", model = res.model, prompt = budget lines + body_of("agents/code-reviewer.md") + { diff: RUN("python3 scripts/gate.py canary --fixture") })
+    verdict = RUN("python3 scripts/gate.py canary --judge --lens correctness --model {return_model(rep)}", rep)   # red ⇒ post on the tracking item, RDR on the spawn policy; the round still runs
   before = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope.files}")   # on-disk bytes; non-zero exit ⇒ { ok: false, reason: "tree-unhashable" }, NO marker
   # ONE sub-agent per roster entry, in parallel. The runtime decides actual
   # concurrency — this skill never asserts a number.
@@ -128,7 +135,7 @@ FUNCTION run_code_review(mode, args, profile):
         files: scope.files,
         context: diff range or increment description,
         governance: binding.packet_for(agent),   # § Governance Binding per-agent slice, with citations
-        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding; every finding on one line: file:line · severity · confidence N% · probe: <what was run>"
+        directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding; every finding on one line: file:line · severity · confidence N% · probe: <what was run>; the governance block ends with Model: <the id the harness states for you>"
       })
     # Fallback: on a provider error a critic falls down the ladder — never to a writer class
     IF report.provider_error:
@@ -154,7 +161,8 @@ FUNCTION run_code_review(mode, args, profile):
   IF any spawn errored: RETURN { ok: false, reason: "spawn-failure", agent: ... }   # NO marker
   findings = normalise(reports)         # references/severity-mapping.md
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
-  RETURN { ok: true, findings, degraded, not_delivered, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user
+  models = { "correctness": return_model(reports) }               # the id the returns carry (EVOL-059) — recorded in the marker; RUN("python3 scripts/gate.py canary --seen --lens correctness --model {models.correctness}")
+  RETURN { ok: true, findings, degraded, not_delivered, models, counts: {blocker, important, nit, question} }   # degraded ⇒ marker "degraded": true; not_delivered ⇒ marker "not_delivered": [...], findings to the user
 ```
 
 ## Severity normalisation
@@ -174,7 +182,7 @@ The marker is the push gate's proof-of-execution. Increment mode NEVER writes it
 2. Write (house rules): `mkdir -p .claude/state/`; hash sanitised `tr -cd 'a-f0-9'`; atomic `> .tmp && mv`. Path: `.claude/state/code-review-${hash}.marker`.
 3. Body (single-line JSON):
    ```json
-   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"override":null}
+   {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"models":{"correctness":"<id>"},"override":null}
    ```
 4. Blockers found ⇒ STILL write (with counts) — preflight blocks on `findings.blocker > 0`, and the written marker is what the override path amends. Surface all findings to the user with fixes.
 

@@ -1,0 +1,43 @@
+---
+id: ADR-EVOL-059
+title: "A lens canary — calibration under model drift: planted defects per critic, run when the resolved model changes"
+date: 2026-10-06
+status: accepted
+---
+
+# ADR-EVOL-059: A lens canary — calibration under model drift
+
+## Context
+
+Issue #94, axis M of the 2026-10 evolution (#91). The framework keeps model **aliases** (EVOL-049, SETUP Q34): a pinned id would break the fallback ladder and freeze a project on a model its provider retires. Downstream the resolved model behind the aliases changed three times in a month and nothing checked that a critic still found what it found before — the only signal was the symptom EVOL-058 cured, after the fact. The framework already trusts the shape elsewhere: a gate that has never been seen red is not proven. Verified before design: no round artefact here records the resolved model per lens (the review marker carries the hash, the counts, the override — no model); the secret scanner has no test-marker concept of its own (the regex floor in `detect_change_type.py` and the configured scanner read the files on disk); a critic cannot read its own transcript, but the harness tells every agent its model id in its system prompt.
+
+Execution delegated by the user (2026-10-06); agent-internal choices under the rules of transfer of #91.
+
+## Decision
+
+- **The resolved model travels on the return.** A critic's `## Governance` block gains a `Model:` line — the id the harness states — required by the return check for every critic class (`gate.py agents --check-return`: a missing or placeholder value is refused); the engine records `models: {<lens>: <id>}` in the review marker beside the counts. Risk: self-reported; the measurement subproduct reads the transcript's own `model` field and can cross-check.
+- **The fixture and its expected findings live in the reader** — `scripts/gates/canary.py`, a lock-step pair by the gates package, so both sides carry it with no new delivery path: one synthetic unified diff of a synthetic project (paths and data invented for the purpose; nothing from any real project) with two planted defects per lens — security: a query without the tenant predicate, a planted secret; correctness: a dishonest test, a contract ↔ DTO mismatch; governance: an unregistered artefact, a manifest edited without its bump; fidelity: a specified scenario without a test, a mock state no code implements — and `EXPECTED`, the list per lens (file, line, what). The fixture is stored **base64 at rest**: no scanner, no regex floor sees the planted secret in the repository; it is decoded only into the critic's scratch input, where the planted line carries the `canary-secret` marker so a reader knows it is planted. The floor is not widened with a marker exclusion (a marker that silences the floor is a path for a real secret).
+- **The runner is the orchestrator with the reader's verdict.** `gate.py canary --fixture` prints the diff; `--expected [--lens L]` the planted list; `--judge --lens L --model ID < return.md` compares the return's findings to the lens's expected list (a match = the same file and a line within `agents.canary.line_tolerance` of the planted one, at a severity above informational), records `{lens: {model, at, found, missed}}` in `.claude/state/canary.json` and exits red when a planted defect was missed; `--plan [--all]` names the lenses owed — every lens whose model in the newest review marker differs from the one the canary last recorded, or that the canary never recorded; `--all` every lens (on demand); `--status` the record. The spawn sites run `--plan` before a critic round and, for an owed lens, the canary round first: the same per-spawn policy (`--resolve`), the fixture as the diff, the return check, `--judge`; the result is posted on the tracking item of the work in progress through the backlog adapter. **A red canary never blocks the train**: it opens the review of the spawn policy (the families, the ladder, the effort rows) by RDR with the user; the reserved list of user decisions does not change.
+- **Red proven mechanically and empirically.** Mechanically: `--judge` red on a return without one expected finding (unit and synthetic); `--plan` owed on a model that moved and on a lens never recorded; the fixture's own consistency (every expected location exists among the fixture's added lines; the planted secret is invisible at rest). Empirically, once, in this repository: each lens over the fixture on its own family, then the security lens on the lowest rung of its ladder — the outcome recorded in § Verification record whatever it is.
+
+Risk: the harness tells an agent its model id in its own words; a harness that does not makes the `Model:` line `unknown` and the plan owes the lens on every round until it does — said in the rule.
+
+## Consequences
+
+- `scripts/gates/canary.py` (new, both sides), `scripts/gate.py` (`canary`), `scripts/gates/agents.py` (the `Model:` line), `scripts/gates/test_gates.py`; the five critic definitions' return contract (both sides); `rules/agents.md` § The lens canary (1.3.0 → 1.4.0) and the `line_tolerance` key; the engine's spawn contract and the review-checks site; both `CLAUDE.md` rows; `scripts/materialize-synthetic.sh`; `framework_version` 8.6.0 → **8.7.0**.
+
+## Alternatives considered
+
+- **Pinning model ids** — rejected by the issue: aliases are the design.
+- **The fixture as files in the tree** — rejected: the planted secret would sit in the repository for every scanner; a marker exclusion on the floor would be a path for a real secret; an encoded fixture inside the reader needs no new delivery path and no exclusion.
+- **Reading the transcript for the model id** — rejected as the primary source: the harness's transcript format is internal and unstable; the return line is the contract, the instrument's transcript read is the cross-check.
+
+## Operational Rule
+
+No universal sentence changes. The body of the agents policy (`rules/agents.md`) gains § The lens canary and the key; the critic return contract gains its `Model:` line; both `CLAUDE.md` rows name the canary. Recorded on the class policy's rule.
+
+## Verification record
+
+`scripts/test-gates.sh` (63 — `Canary`: the fixture decodes, every anchor is an added line, the planted credential carries its marker and is invisible at rest, two planted defects per lens, the synthetic return is in the critic's own contract shape; the judge green on a full return, red when a planted defect is missing, within and beyond the tolerance window, informational never counts, an alternative anchor counts, the diff text's own coordinates are read beside the new file's (a reading may land on a neighbouring anchor — the instrument errs toward found, never toward a false RDR), the record, the tolerance key fail-closed; the plan: never judged owes every lens, judged on the model it last ran on owes none, a moved model owes the lens, an unknown model keeps it owed, on demand owes all, an unreadable record is a fault. `Agents`: a critic's return without its `Model:` line or with the placeholder is refused; `return_model`). `scripts/materialize-synthetic.sh` (99 — the fixture's consistency on the materialised tree, the decoded marker, every lens owed when never judged, a green and a red judge, the trigger on a moved model). `check-lockstep-pairs` 74 / 16 (the canary module is a pair), `validate-governance --base origin/main`, ADR sync, applicability, `manifest-parity`, `one-definition`, `budget`, `retired-terms`, `test-templates-static`, `test-measure` (the fixture returns carry their model), `test-code-review-gate` — green locally.
+
+**Empirical run, once, in this repository (2026-10-06).** The four lenses over the fixture on the critic family (`opus` → `claude-opus-5-5` by their own `Model:` line), each return held to the contract and judged by the reader: security found s1, s2; correctness c1, c2; governance g1, g2; fidelity f1, f2 — every lens green, the record written, `canary --plan` owing nothing afterwards. The security lens on the **lowest rung** of its ladder (the writer family, `sonnet` → `claude-sonnet-5-5`, run as a generic agent because the spawn hook refuses a roster critic on that alias): it found both planted defects too. The fixture's defects are coarse enough that the writer family catches them today — the canary measures **drift** (a lens that stops finding what it found), not the families' distance; hardening the fixture is the adopting project's call when its first red arrives. Three of five returns numbered the lines of the diff text rather than the new file: the judge reads both coordinates (a cure found by this run).

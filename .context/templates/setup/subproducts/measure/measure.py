@@ -922,7 +922,7 @@ def _entry(kind, ts, **kw):
     return e
 
 
-PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n"
+PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\nModel: claude-y-critic\n"
 REFUSED_RETURN = "I looked around and everything seems fine.\n"
 HANDBACK = ('Another Claude session sent a message:\n<agent-message from="{aid}">\n[Subagent hand-back] The text below is the final report of a subagent '
             'this session delegated to. The report follows:\n  {body}</agent-message>')
