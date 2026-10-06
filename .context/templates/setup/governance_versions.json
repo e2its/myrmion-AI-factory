@@ -2401,7 +2401,7 @@
       "content_type": "universal",
       "target": ".context/templates/develop/preventive_sweep_report_template.md",
       "changelog": [
-        "1.1.0: feat(EVOL-059) — not_delivered, degraded and fallback frontmatter fields: an undelivered scope is UNVERIFIED, never CLEAN.",
+        "1.1.0: feat(EVOL-059) — not_delivered, degraded and fallback frontmatter fields; the status vocabulary of the deploy gate and the cascade (IN_PROGRESS | COMPLETED | INVALIDATED); the UNVERIFIED rule, an Unverified Areas table and the verdict in that vocabulary.",
         "1.0.0: feat(EVOL-027) initial manifest registration — Preventive Sweep report scaffold."
       ]
     },
@@ -2871,7 +2871,7 @@
       "version": "2.8.0",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
-        "2.8.0: feat(EVOL-059) — the PREVENTIVE-SWEEP gate reads the artefact's not_delivered: an undelivered scope holds the deployment whatever the issue's column.",
+        "2.8.0: feat(EVOL-059) — the PREVENTIVE-SWEEP gate reads the artefact the sweep writes (the newest review/preventive_sweep_*.md) and blocks on an undelivered scope whatever the issue's column; one cause per block (missing, INVALIDATED, then the combined condition).",
         "2.7.2: feat(EVOL-054) — provisioning prerequisite: scm-protection at ci (EVOL-054)",
         "2.7.1: fix(EVOL-051) — review pass — the deploy pre-gate asks gate.py seal --check --ref HEAD before trusting IMPLEMENTED_AND_VERIFIED (EVOL-051)",
         "2.7.0: feat(EVOL-049)! — hat vocabulary retired (the QA security pass).",
@@ -3488,7 +3488,7 @@
       "version": "2.8.0",
       "type": "skill",
       "changelog": [
-        "2.8.0: feat(EVOL-059) — the sweep report's one path (review/preventive_sweep_*.md) and status (COMPLETED) in the invalidation targets and the stale-marking step.",
+        "2.8.0: feat(EVOL-059) — the sweep report's one path (review/preventive_sweep_*.md) in the invalidation targets and the stale-marking step; every sweep report not yet INVALIDATED is invalidated on a code change (an unfinished one too).",
         "2.7.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "2.6.4: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: CLASSIFY_CHANGE_SCOPES keys schema_change on journey Part II (§ 5-8) — was keyed on the dead Data Schemas section (silent cascade hole).",
         "2.6.3: fix(EVOL-041) — journey frontmatter model: schemas_version = Part II business-contract version; ROOT carries no based_on_* sync fields (D19).",
