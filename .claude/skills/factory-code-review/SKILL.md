@@ -115,7 +115,9 @@ FUNCTION run_code_review(mode, args, profile):
   n, m = COUNT(scope.files), LINES_CHANGED(scope)
   r = args.round OR 1                                             # rules/agents.md → rounds.work = 2 on a completed diff: round 1 is the pass on the diff (full effort), round 2 the ONE pass on the cured bytes — the main session passes `--round 2` on the re-pass; the tier is the diff's (n, m — the whole scope), so the effort steps down by the diff's size, not the cure's; the resolver refuses round 3 — what remains above informational goes to the user's adjudication (RDR): accept with an `override` reason in the marker, or cure and start again at round 1 on the new bytes (RDR-3 of ADR-EVOL-059)
   # a finding on a line the diff under review did not add or change is 🟢 by definition (the step `demote_outside` below, counted in the marker as `outside_delta`) — the engine reviews the diff; what the lenses see through it is recorded, never a cure owed in this pass
-  IF r == 2 AND nothing was cured since round 1: RETURN { ok: false, reason: "no-cure" }   # round 2 is the re-check of a cure, never a second look at the same bytes
+  IF r == 2 AND content_hash == the round-1 marker's content_hash: RETURN { ok: false, reason: "no-cure" }   # round 2 is the re-check of a cure, never a second look at the same bytes (the marker carries the hash and the round)
+  gate = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}")
+  IF NOT gate.ok: SAY(gate.reason); RETURN { ok: false, reason: "round-cap", detail: gate.reason }   # the cap (rounds.work) refused this round before anything is spent — no canary, no spawn, NO marker: what remains goes to the user's adjudication (RDR), never a pass by hand
   # EVOL-059 — the lens canary before the round: a lens whose resolved model moved (or was never judged) reviews the
   # synthetic fixture first; a red canary never blocks — it opens the spawn policy's review by RDR with the user.
   canary = RUN("python3 scripts/gate.py canary --plan --json")
@@ -133,8 +135,7 @@ FUNCTION run_code_review(mode, args, profile):
   not_delivered = []                                                 # EVOL-058: the critics that never delivered a report
   reports = PARALLEL_MAP(roster, LAMBDA(agent_file):
     fell  = none                                                     # per critic, never shared: the fall of THIS spawn (EVOL-059)
-    res   = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}")
-    IF NOT res.ok: SAY(res.reason); RETURN { ok: false, reason: "round-cap", detail: res.reason }   # the cap (rounds.work) refused this round: NO marker, NO spawn — what remains goes to the user's adjudication (RDR), never a pass by hand
+    res   = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}")   # the same answer the top-level ask got (the cap was passed there); per critic for the surface
     # The vendored lens is a PROMPT; the agent type is the rostered critic — its harness matrix (Read, Grep, Glob) is the read-only guarantee.
     report = SPAWN(subagent_type = "factory-critic-correctness",
       model  = res.model,                                          # passed at the spawn, never read from a file; the PreToolUse Agent hook refuses it missing

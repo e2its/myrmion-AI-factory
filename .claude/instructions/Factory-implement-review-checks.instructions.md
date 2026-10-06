@@ -982,7 +982,7 @@ Step R.5: Fix Loop Control
 
 ## Security lens — factory-critic-security (read-only)
 
-Execute AFTER the work critics pass for each phase. Spawned by name by the main session (`factory-critic-security`, class `work-critic`, `--surface security`; critics run at the effort the resolver computes — the class default on the first pass, the size tier's on the second); same digest, working-tree hash, probe contract and one-round cap as the lenses above. The lens reads; the main session runs `sec_verification_loop()` and hands it the results.
+Execute AFTER the work critics pass for each phase. Spawned by name by the main session (`factory-critic-security`, class `work-critic`, `--surface security`; critics run at the effort the resolver computes — the class default on the first pass, the size tier's on the second); same digest, working-tree hash, probe contract and the passes `rounds.work` allows, as the lenses above. The lens reads; the main session runs `sec_verification_loop()` and hands it the results.
 
 ### SAST Scan (GCD)
 ```yaml
