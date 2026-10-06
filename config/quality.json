@@ -316,13 +316,18 @@
     ]
   },
   "verification": {
-    "_doc": "One full verification loop per change (EVOL-051): `gates` is the path-to-gate map (what each full-loop gate READS, and the command that runs it — a command shared by two gates is executed once); `seal` is where python3 scripts/gate.py seal records a green loop per branch (untracked) and whether this repo owes one; `digest_artefacts` are the planning artefacts gate.py digests judges under docs/spec/{ID}/. The framework repo owes no local seal: its loop is the T2 suite CI runs on every pull request.",
+    "_doc": "One full verification loop per change (EVOL-051): `gates` is the path-to-gate map (what each full-loop gate READS, and the command that runs it — a command shared by two gates is executed once); `seal` is where python3 scripts/gate.py seal records a green loop per branch (untracked) and whether this repo owes one; `digest_artefacts` are the planning artefacts gate.py digests judges under docs/spec/{ID}/. `logs` (EVOL-057) names, inside seal.dir, the push record every pre-push leaves (gate.py push-log) and the per-gate timings seal --run writes, with the rotation size — what the instrument reads. The framework repo owes no local seal: its loop is the T2 suite CI runs on every pull request.",
     "seal": {
       "required": false,
       "dir": ".claude/state",
       "reason": "the framework repo's full loop is the T2 suite governance-check.yml runs on every pull request; no product build, no local seal"
     },
     "gates": {},
+    "logs": {
+      "push": "push-log.jsonl",
+      "timings": "gate-timings.jsonl",
+      "max_kb": 1024
+    },
     "digest_artefacts": [
       "design.md"
     ]

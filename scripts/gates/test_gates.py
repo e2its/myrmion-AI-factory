@@ -1276,11 +1276,13 @@ class Seal(unittest.TestCase):
              "lint": {"reads": ["src/**"], "command": "ruff check src"},
              "docs-build": {"reads": ["docs/site/**"], "command": "mkdocs build"}}       # a gate that DOES read documentation
 
-    def _repo(self, tmp, required=True, gates=None):
+    def _repo(self, tmp, required=True, gates=None, logs=None):
         repo = fixture_repo(Path(tmp))
         q = json.loads((repo / "config/quality.json").read_text())
         q["documentation"] = dict(self.DOCS)
         q["verification"] = {"seal": {"required": required, "dir": ".claude/state", "reason": "" if required else "CI is the loop"}, "gates": self.GATES if gates is None else gates, "digest_artefacts": ["design.md"]}
+        if logs is not None:
+            q["verification"]["logs"] = logs
         write(repo / "config/quality.json", json.dumps(q))
         write(repo / "src/app.py", "print(1)\n"); write(repo / "tests/test_app.py", "def test_a(): pass\n"); write(repo / "docs/site/index.md", "# site\n")
         write(repo / ".gitignore", ".claude/state/\n")   # as the template ships it; the seal is never part of the tree it seals either way
@@ -1441,6 +1443,125 @@ class Seal(unittest.TestCase):
             (repo / ".claude/state/seal-feature-FEAT-001-x.json").unlink()
             with self.assertRaisesRegex(GateFault, "not a commit this clone knows"):
                 seal.plan(repo, base="nowhere/nope")
+
+    def test_records_push_log_and_runner(self):
+        """EVOL-057: the push record, the gate timings, the loop's executor — files beside the seal, never a gate input."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text())
+            # no block: n/a — nothing written, nothing blocked (observability is never a fault)
+            self.assertIsNone(seal.logs_cfg(repo))
+            r = seal.push_log(repo, 1, "2026-10-06T10:00:00Z")
+            self.assertTrue(r["ok"]); self.assertFalse(r["written"]); self.assertIn("not configured", r["reason"]); self.assertFalse((repo / ".claude/state").exists())
+            # a present block is checked key by key; a misconfigured block never blocks a push: n/a with the reason
+            for bad in ({"push": "a/b", "timings": "t", "max_kb": 1}, {"push": "seal-x", "timings": "t", "max_kb": 1}, {"push": "p", "timings": "t", "max_kb": 0}, {"push": "p", "timings": "t", "max_kb": True}, {"push": "p"}, "nope"):
+                q["verification"]["logs"] = bad; write(repo / "config/quality.json", json.dumps(q))
+                with self.assertRaises(GateFault):
+                    seal.logs_cfg(repo)
+                r = seal.push_log(repo, 0); self.assertTrue(r["ok"]); self.assertFalse(r["written"]); self.assertIn("no push record", r["reason"])
+        LOGS = {"push": "push-log.jsonl", "timings": "gate-timings.jsonl", "max_kb": 1}
+        PY = sys.executable
+        MAP = {"tests": {"reads": ["src/**", "tests/**"], "command": f"{PY} -c \"print('suite ran')\""},
+               "coverage": {"reads": ["src/**", "tests/**"], "command": f"{PY} -c \"print('suite ran')\""},
+               "lint": {"reads": ["src/**"], "command": f"{PY} -c \"import os, sys; print('lint red' if os.environ.get('T_LINT_RED') else 'clean'); sys.exit(1 if os.environ.get('T_LINT_RED') else 0)\""},
+               "complexity": {"reads": ["src/**"], "command": None}}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates=MAP, logs=LOGS)
+            B = "main"
+            # the push record: profile, base, mode, class, start, end, exit — the exit code is the push's, whatever ended it
+            r = seal.push_log(repo, 1, "2026-10-06T10:00:00Z")
+            self.assertTrue(r["written"]); rec = r["record"]
+            self.assertEqual((rec["profile"], rec["class"], rec["exit"], rec["start"], rec["control_point"]), ("full", "feature", 1, "2026-10-06T10:00:00Z", "push"))
+            self.assertIn(rec["mode"], ("development", "production")); self.assertRegex(rec["end"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+            lines = (repo / ".claude/state/push-log.jsonl").read_text().splitlines()
+            self.assertEqual(len(lines), 1); self.assertEqual(json.loads(lines[0])["exit"], 1)
+            # size rotation: over max_kb the file moves to <name>.1 (one generation) and the record lands in a fresh file
+            (repo / ".claude/state/push-log.jsonl").write_text("x" * 2048 + "\n")
+            seal.push_log(repo, 0)
+            self.assertTrue((repo / ".claude/state/push-log.jsonl.1").is_file()); self.assertEqual(len((repo / ".claude/state/push-log.jsonl").read_text().splitlines()), 1)
+            # the loop's executor: the plan's executions, timed, output to a log, the seal recorded right after, a red execution red
+            write(repo / "src/app.py", "print(2)\n"); self._commit(repo, "code")
+            self.assertEqual(seal.plan(repo, base=B)["owed"], ["complexity", "coverage", "lint", "tests"])
+            os.environ["T_LINT_RED"] = "1"
+            try:
+                r = seal.run(repo, full=True, base=B)
+            finally:
+                os.environ.pop("T_LINT_RED", None)
+            self.assertFalse(r["ok"]); self.assertFalse(r["sealed"]); self.assertEqual(r["not_run"], ["complexity"]); self.assertIn("not run (no command in the map", r["reason"])
+            ran = {tuple(x["gates"]): x for x in r["ran"]}
+            self.assertEqual(set(ran), {("coverage", "tests"), ("lint",)}, "one execution per distinct command")
+            self.assertEqual(ran[("lint",)]["exit"], 1); self.assertIn("lint red", ran[("lint",)]["tail"]); self.assertEqual(ran[("coverage", "tests")]["exit"], 0); self.assertEqual(ran[("coverage", "tests")]["tail"], "")
+            self.assertIn("suite ran", (repo / ran[("coverage", "tests")]["log"]).read_text())
+            recs = [json.loads(ln) for ln in (repo / ".claude/state/gate-timings.jsonl").read_text().splitlines()]
+            self.assertEqual(sorted((x["gate"], x["exit"]) for x in recs), [("coverage", 0), ("lint", 1), ("tests", 0)], "one timing line per gate of every execution")
+            self.assertTrue(all(x["start"] <= x["end"] and x["profile"] == "full" and x["branch"] == "feature/FEAT-001-x" and x["command"] for x in recs))
+            sl = seal.read_seal(repo, "feature/FEAT-001-x")
+            self.assertTrue(sl["gates"]["tests"]["ok"]); self.assertFalse(sl["gates"]["lint"]["ok"]); self.assertNotIn("tree", sl, "a red loop seals nothing")
+            out = seal.render_run(r); self.assertIn("✗", out); self.assertIn("lint red", out); self.assertIn("timings →", out); self.assertIn("verdict: RED", out)
+            # after the cure only the owed gates re-run: the red one and the never-recorded one; the green suite's record stands
+            self.assertEqual(seal.plan(repo, base=B)["owed"], ["complexity", "lint"])
+            r = seal.run(repo, full=True, base=B)
+            self.assertFalse(r["ok"], "--full asked and the tree not sealed is not green"); self.assertEqual([x["gates"] for x in r["ran"]], [["lint"]]); self.assertFalse(r["sealed"]); self.assertIn("not green yet: complexity", r["reason"])
+            self.assertIn("verdict: RED", seal.render_run(r))
+            seal.write(repo, ["complexity"], ok=True, summary="mcp")   # a gate without a command: its owner records it
+            r = seal.run(repo, full=True, base=B)
+            self.assertTrue(r["ok"]); self.assertEqual(r["ran"], []); self.assertTrue(r["sealed"], "every record green on the tree as it stands: --full seals it with nothing to run")
+            self.assertIn("full loop sealed", seal.render_run(r)); self.assertTrue(seal.check(repo, base=B)["ok"], "the push honours the seal the runner wrote")
+            tl = sum(len(f.read_text().splitlines()) for f in (repo / ".claude/state").glob("gate-timings.jsonl*"))
+            self.assertEqual(tl, 4, "four timing lines in all: three, then lint again (the rotation, when the size asks for it, keeps one generation)")
+            with self.assertRaisesRegex(GateFault, "unknown gate"):
+                seal.run(repo, gates=["nope"])
+            # named gates run whatever the plan owes; a named gate carries every gate that shares its command (one execution feeds both)
+            r = seal.run(repo, gates=["lint"], base=B); self.assertTrue(r["ok"]); self.assertEqual([x["gates"] for x in r["ran"]], [["lint"]])
+            r = seal.run(repo, gates=["tests"], base=B); self.assertEqual([x["gates"] for x in r["ran"]], [["tests", "coverage"]], "the suite run for tests is coverage's record too — the caller's gate first")
+            # the timings log rotates like the push log: over max_kb it moves to <name>.1 and the next lines land in a fresh file
+            (repo / ".claude/state/gate-timings.jsonl").write_text("x" * 2048 + "\n")
+            seal.run(repo, gates=["lint"], base=B)
+            self.assertTrue((repo / ".claude/state/gate-timings.jsonl.1").is_file()); self.assertEqual(len((repo / ".claude/state/gate-timings.jsonl").read_text().splitlines()), 1)
+            # the state folder is never part of the tree the seal hashes
+            self.assertFalse(any(p.startswith(".claude/state/") for p in seal.tree_entries(repo)))
+            # without the logs block the runner still runs and records the seal — it just writes no timing (said on screen)
+            q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]["logs"]; write(repo / "config/quality.json", json.dumps(q))
+            for f in (repo / ".claude/state").glob("gate-timings.jsonl*"):
+                f.unlink()
+            r = seal.run(repo, gates=["lint"], base=B); self.assertTrue(r["ok"]); self.assertIsNone(r["timings"]); self.assertFalse((repo / ".claude/state/gate-timings.jsonl").exists()); self.assertIn("no timings written", seal.render_run(r))
+            # not required: n/a
+            q["verification"]["seal"] = {"required": False, "reason": "CI is the loop"}; write(repo / "config/quality.json", json.dumps(q))
+            r = seal.run(repo, base=B); self.assertTrue(r["ok"]); self.assertFalse(r["required"]); self.assertIn("CI is the loop", seal.render_run(r))
+
+        # a record never lands outside the state folder: a log that is a symbolic link, or a state folder that resolves
+        # outside the repository, is refused — n/a for the push record (never blocks), a fault for the runner (review pass, security)
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            repo = self._repo(tmp, gates=MAP, logs=LOGS)
+            (repo / ".claude/state").mkdir(parents=True)
+            (repo / ".claude/state/push-log.jsonl").symlink_to(Path(outside) / "victim")
+            r = seal.push_log(repo, 0); self.assertFalse(r["written"]); self.assertIn("symbolic link", r["reason"]); self.assertFalse((Path(outside) / "victim").exists())
+            (repo / ".claude/state/push-log.jsonl").unlink()
+            (repo / ".claude/state/loop-lint.log").symlink_to(Path(outside) / "victim2")
+            with self.assertRaisesRegex(GateFault, "symbolic link"):
+                seal.run(repo, gates=["lint"], base="main")
+            self.assertFalse((Path(outside) / "victim2").exists())
+            (repo / ".claude/state/loop-lint.log").unlink(); (repo / ".claude/state").rmdir()
+            (repo / ".claude/state").symlink_to(outside, target_is_directory=True)
+            r = seal.push_log(repo, 0); self.assertFalse(r["written"]); self.assertIn("outside the repository", r["reason"])
+            with self.assertRaisesRegex(GateFault, "outside the repository"):
+                seal.run(repo, gates=["lint"], base="main")
+            self.assertEqual(sorted(os.listdir(outside)), [], "nothing was written through the link")
+            (repo / ".claude/state").unlink()
+            # the state folder as a FILE: an OSError — the push record is n/a and marked a fault (never an exit code other than 0); the runner refuses before anything runs
+            (repo / ".claude/state").write_text("not a folder\n")
+            r = seal.push_log(repo, 0); self.assertFalse(r["written"]); self.assertTrue(r["fault"]); self.assertIn("no push record", r["reason"])
+            self.assertFalse(seal.push_log(repo, 0, branch="feature/FEAT-001-x")["written"])
+            (repo / ".claude/state").unlink()
+            # the timings log as a FOLDER: the execution's seal is recorded first, the unwritten timing is said, the loop goes on and is green
+            (repo / ".claude/state/gate-timings.jsonl").mkdir(parents=True)
+            r = seal.run(repo, gates=["lint"], base="main")
+            self.assertTrue(r["ok"]); self.assertIn("timing not written: lint", r["reason"]); self.assertTrue(seal.read_seal(repo, "feature/FEAT-001-x")["gates"]["lint"]["ok"], "the seal was written before the timing failed")
+            (repo / ".claude/state/gate-timings.jsonl").rmdir()
+            # the two gates one execution feeds share its command, start and end — what the instrument counts once
+            r = seal.run(repo, gates=["tests"], base="main")
+            recs = [json.loads(ln) for ln in (repo / ".claude/state/gate-timings.jsonl").read_text().splitlines()]
+            self.assertEqual(len({(x["command"], x["start"], x["end"]) for x in recs}), 1); self.assertEqual(sorted(x["gate"] for x in recs), ["coverage", "tests"])
 
     def test_traceability_is_a_light_member(self):
         self.assertIn("traceability", {m["member"] for m in profile.owed("light")}, "the traceability gate runs at the static round, the push and CI")
@@ -1982,6 +2103,16 @@ class Cli(unittest.TestCase):
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "retired-terms"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1)
             self.assertIn("docs/old.md", r.stdout)
+            # EVOL-057: the push record never blocks (exit 0, n/a without the block); the runner's exit is the loop's verdict
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "push-log", "--exit", "1", "--start", "2026-10-06T10:00:00Z"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertIn("push-log: n/a", r.stdout); self.assertNotIn("FAULT", r.stdout)
+            q = json.loads((repo / "config/quality.json").read_text()); q["verification"] = {"seal": {"required": True, "dir": ".claude/state"}, "gates": {}, "logs": {"push": "p", "timings": "t", "max_kb": 1}}
+            (repo / "config/quality.json").write_text(json.dumps(q)); (repo / ".claude/state").write_text("a file, not a folder\n")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "push-log", "--exit", "0"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0); self.assertTrue(r.stdout.startswith("push-log: FAULT — no push record"), r.stdout)   # the literal the hook keys on
+            (repo / ".claude/state").unlink()
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "seal", "--run", "--gates", "nope"], capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 2); self.assertNotIn("Traceback", r.stderr)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "key", "nope.key", "--required"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 2)
             self.assertIn("missing", r.stderr)

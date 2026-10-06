@@ -34,6 +34,8 @@
   gate.py seal --write --gates a,b --ok|--red [--summary S] [--full]   record a run (read-set hashes on disk, right after the execution); --full seals the tree over green records (refused when a read-set moved after its run)
   gate.py seal --check [--branch B --base B --ref R --control-point P]   the push's question: the seal covers the tree the commit carries; exit 1 gates owed · n/a when not required
   gate.py seal --validate                          the map is sound (documentation defined, every gate reads something)
+  gate.py seal --run [--gates a,b] [--full] [--summary S]   the loop's executor (EVOL-057): the plan's executions one per command, each timed, output to <seal.dir>/loop-<gates>.log, the seal recorded right after it, one timing line per gate; --full seals the tree on an all-green map
+  gate.py push-log --exit N [--start ISO]          the push's record for the instrument (profile, base, mode, class, start, end, exit) — the pre-push hook's EXIT trap; n/a without verification.logs; exit 0 always
   gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
   gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
   gate.py traceability --declared --json           the declared qualified case ids (FEATURE/CASE) and the manual ones — what the pytest plugin validates at collection; a listing, rc 0
@@ -321,6 +323,11 @@ def cmd_documentation(repo, a):
 
 
 def cmd_seal(repo, a):
+    gates = list(dict.fromkeys(g.strip() for g in (a.gates or "").split(",") if g.strip()))   # a gate named twice is one gate
+    if a.run:
+        r = seal_mod.run(repo, gates, full=a.full, summary=a.summary or "", branch=a.branch, base=a.base)
+        print(json.dumps(r) if a.json else seal_mod.render_run(r))
+        return 0 if r["ok"] else 1
     if a.plan:
         r = seal_mod.plan(repo, a.branch, a.base)
         if a.json:
@@ -336,7 +343,6 @@ def cmd_seal(repo, a):
             print("  nothing owed")
         return 0
     if a.write:
-        gates = [g.strip() for g in (a.gates or "").split(",") if g.strip()]
         if a.ok == a.red:
             raise GateFault("seal --write needs the outcome: --ok or --red (a forgotten flag is never a green)")
         r = seal_mod.write(repo, gates, ok=a.ok, summary=a.summary or "", full=a.full, branch=a.branch)
@@ -356,6 +362,18 @@ def cmd_digests(repo, a):
     r = digests_mod.check(repo, base, a.branch, a.control_point)
     print(json.dumps(r) if a.json else digests_mod.render(r))
     return 0 if r["ok"] else 1
+
+
+def cmd_push_log(repo, a):
+    r = seal_mod.push_log(repo, a.exit, a.start or None, a.branch)
+    if a.json:
+        print(json.dumps(r))
+    elif r["written"]:
+        rec = r["record"]
+        print(f"push-log: recorded {rec['profile']} · {rec['class']} · base {rec['base']} · exit {rec['exit']} → {r['path']}")
+    else:
+        print(f"push-log: {'FAULT' if r.get('fault') else 'n/a'} — {r['reason']}")   # FAULT is the mark the hook says on stderr; n/a stays silent
+    return 0
 
 
 def cmd_scm(repo, a):
@@ -448,7 +466,8 @@ def build_parser():
     p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
     p = sub.add_parser("documentation"); p.add_argument("--path", default=None); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_documentation)
-    p = sub.add_parser("seal"); p.add_argument("--base", default=None); p.add_argument("--plan", action="store_true"); p.add_argument("--write", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--validate", action="store_true"); p.add_argument("--gates", default=""); p.add_argument("--ok", action="store_true"); p.add_argument("--red", action="store_true"); p.add_argument("--summary", default=""); p.add_argument("--full", action="store_true"); p.add_argument("--branch", default=None); p.add_argument("--ref", default="HEAD"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_seal)
+    p = sub.add_parser("seal"); p.add_argument("--base", default=None); p.add_argument("--plan", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--write", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--validate", action="store_true"); p.add_argument("--gates", default=""); p.add_argument("--ok", action="store_true"); p.add_argument("--red", action="store_true"); p.add_argument("--summary", default=""); p.add_argument("--full", action="store_true"); p.add_argument("--branch", default=None); p.add_argument("--ref", default="HEAD"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_seal)
+    p = sub.add_parser("push-log"); p.add_argument("--exit", type=int, required=True); p.add_argument("--start", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_push_log)
     p = sub.add_parser("scm-protection"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_scm)
     p = sub.add_parser("traceability"); p.add_argument("--declared", action="store_true"); p.add_argument("--baseline", action="store_true"); p.add_argument("--init", action="store_true"); p.add_argument("--refresh", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_traceability)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)

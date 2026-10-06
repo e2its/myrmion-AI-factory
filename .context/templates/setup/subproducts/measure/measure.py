@@ -12,6 +12,11 @@ the git log and the per-feature worklog, and reports for a time window:
   governance   bytes emitted by hooks vs bytes delivered to the model vs bytes read
   agents       per agent: model, tokens, bytes read, citations
   citations    per law / defect-class id; ids never cited = pruning candidates (user decides)
+  returns      every spawn's return through its three channels (EVOL-057): the direct tool result, the hand-back
+               message, the task notification — parsed / refused by the project's return reader (unchecked outside
+               the roster), or uncollected
+  pushes       pushes by gate profile from the push log the pre-push hook writes (the trace as fallback)
+  loop         the verification loop per gate and per profile from the timings gate.py seal --run writes
 
 Nothing leaves the machine. A missing data source degrades that section to
 `unavailable: <reason>`; it never fails the report. Exit 0 report written · 2 the tool
@@ -33,6 +38,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 
 SCHEMA = "measure_report_v1"
@@ -138,6 +144,9 @@ class Session:
         self.text_blocks: list[str] = []
         self.models: collections.Counter = collections.Counter()
         self.tokens = {"input": 0, "output": 0}
+        self.spawns: dict[str, dict] = {}         # tool_use id → {type, branch, background, channels: {direct, hand-back, notification}}
+        self.agent_ids: dict[str, str] = {}       # background agent id (from the launch stub) → tool_use id
+        self.pushes: list[tuple[str, float, str]] = []   # (branch, seconds, profile from the banner in the result, else unknown)
         self._load()
 
     def _in_window(self, ts):
@@ -196,6 +205,9 @@ class Session:
                 inp = c.get("input") or {}
                 self.tool_uses[c["id"]] = {"name": c.get("name"), "input": inp, "ts": ts, "branch": branch}
                 self._classify_use(c.get("name"), inp, branch)
+                if c.get("name") == "Agent":
+                    self.spawns[c["id"]] = {"type": str(inp.get("subagent_type") or "?"), "branch": branch, "background": bool(inp.get("run_in_background")),
+                                            "channels": {"direct": None, "hand-back": [], "notification": None}}
 
     def _classify_use(self, name, inp: dict, branch: str):
         if name in ("Edit", "Write", "MultiEdit", "NotebookEdit") and inp.get("file_path"):
@@ -214,26 +226,90 @@ class Session:
     def _user(self, e: dict, ts):
         msg = e.get("message") or {}
         content = msg.get("content")
-        if not isinstance(content, list):
-            return
-        for c in content:
-            if not (isinstance(c, dict) and c.get("type") == "tool_result"):
-                continue
-            use = self.tool_uses.get(c.get("tool_use_id"))
-            if not use:
-                continue
-            seconds = max(0.0, (ts - use["ts"]).total_seconds()) if use["ts"] else 0.0
-            self.tool_durations.append((use["name"], use["input"], seconds, use["branch"]))
-            if use["name"] == "Read" and use["input"].get("file_path"):
-                self.reads.append((use["input"]["file_path"], text_len(c.get("content"))))
-            elif use["name"] == "Bash":
-                # a read done through the shell (cat / sed -n / head) counts for the file it names
-                cmd = str(use["input"].get("command", ""))
-                if re.search(r"\b(cat|sed|head|tail|less|grep)\b", cmd):
-                    for token in re.findall(r"[\w./-]+\.(?:md|json|yml|yaml)", cmd):
-                        self.reads.append((token, text_len(c.get("content"))))
-                        break
+        texts: list[str] = []
+        if isinstance(content, str):
+            texts.append(content)
+        elif isinstance(content, list):
+            for c in content:
+                if not isinstance(c, dict):
+                    continue
+                if c.get("type") == "text":
+                    texts.append(str(c.get("text") or ""))
+                elif c.get("type") == "tool_result":
+                    self._tool_result(c, ts)
+        for t in texts:
+            self._channel_text(t)
 
+    def _tool_result(self, c: dict, ts):
+        use = self.tool_uses.get(c.get("tool_use_id"))
+        if not use:
+            return
+        seconds = max(0.0, (ts - use["ts"]).total_seconds()) if use["ts"] else 0.0
+        self.tool_durations.append((use["name"], use["input"], seconds, use["branch"]))
+        if use["name"] == "Read" and use["input"].get("file_path"):
+            self.reads.append((use["input"]["file_path"], text_len(c.get("content"))))
+        elif use["name"] == "Bash":
+            # a read done through the shell (cat / sed -n / head) counts for the file it names
+            cmd = str(use["input"].get("command", ""))
+            if re.search(r"\b(cat|sed|head|tail|less|grep)\b", cmd):
+                for token in re.findall(r"[\w./-]+\.(?:md|json|yml|yaml)", cmd):
+                    self.reads.append((token, text_len(c.get("content"))))
+                    break
+            if any(re.search(p, cmd) for p in (self.cfg.get("gates") or {}).get("push", [])):
+                self.pushes.append((use["branch"], seconds, _profile_from_text(flat_text(c.get("content")))))
+        elif use["name"] == "Agent":
+            spawn = self.spawns.get(c.get("tool_use_id"))
+            if spawn is None:
+                return
+            text = flat_text(c.get("content"))
+            m = STUB_RE.search(text)
+            if m:                                   # a background launch: the stub names the agent, the return comes later
+                spawn["background"] = True
+                self.agent_ids[m.group(1)] = c["tool_use_id"]
+            else:                                   # a foreground spawn returns in the tool result itself
+                spawn["channels"]["direct"] = text
+
+    def _channel_text(self, text: str):
+        for m in NOTIFICATION_RE.finditer(text):
+            block = m.group(0)
+            tid = re.search(r"<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>", block)
+            spawn = self.spawns.get(tid.group(1)) if tid else None
+            if spawn is not None:
+                res = re.search(r"<result>(.*?)</result>", block, re.S)
+                result = (res.group(1) if res else "").strip()
+                if POINTER_RE.search(result):
+                    result = ""                                 # the harness points at the hand-back: the report is there, not here
+                if result or spawn["channels"]["notification"] is None:
+                    spawn["channels"]["notification"] = result  # a later notification with nothing never erases a real result
+        for m in HANDBACK_RE.finditer(text):                    # the same message may carry a notification AND a hand-back
+            tid = self.agent_ids.get(m.group(1))
+            spawn = self.spawns.get(tid) if tid else None
+            if spawn is not None:
+                body = m.group(2)
+                follows = re.search(r"report follows:\s*\n(.*)", body, re.S)
+                spawn["channels"]["hand-back"].append(textwrap.dedent(follows.group(1) if follows else body).strip())
+
+
+STUB_RE = re.compile(r"^\s*Async agent launched.*?agentId:\s*([A-Za-z0-9_-]+)", re.S)
+NOTIFICATION_RE = re.compile(r"<task-notification>.*?(?:</task-notification>|\Z)", re.S)
+HANDBACK_RE = re.compile(r'<agent-message from="([^"]+)">(.*?)(?:</agent-message>|\Z)', re.S)
+BANNER_RE = re.compile(r"^\s*profile:\s*(light|full)\b", re.M)
+POINTER_RE = re.compile(r"report was delivered to you as a message", re.I)
+
+
+def flat_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(flat_text(c) for c in content)
+    if isinstance(content, dict):
+        return str(content.get("text") or "")
+    return ""
+
+
+def _profile_from_text(text: str) -> str:
+    m = BANNER_RE.search(text or "")
+    return m.group(1) if m else "unknown"
 
 _ROSTER: dict[str, str] | None = None
 
@@ -350,6 +426,183 @@ def rework_from_git(repo: Path, cfg: dict, since, until) -> dict:
             "share": round(len(rework) / len(subjects), 3) if subjects else None}
 
 
+# ─── returns, pushes, loop (EVOL-057) ───────────────────────────────────────────
+
+def final_return(spawn: dict) -> tuple[str | None, str | None]:
+    """(channel, text): the last hand-back when one arrived (the harness's own frame for a background return — its
+    notification then only points at it), else a notification's real result, else the direct result; a notification
+    seen with no result still collects the spawn, with an empty return."""
+    ch = spawn["channels"]
+    if ch["hand-back"]:
+        return "hand-back", ch["hand-back"][-1]
+    if ch["notification"]:
+        return "notification", ch["notification"]
+    if ch["direct"] is not None:
+        return "direct", ch["direct"]
+    if ch["notification"] is not None:
+        return "notification", ch["notification"]
+    return None, None
+
+
+def check_return(repo: Path, cls: str, text: str) -> str:
+    """parsed / refused by the project's ONE return reader (python3 scripts/gate.py agents --check-return --class C),
+    run as a subprocess — imported never; `unchecked` when the reader is absent or could not judge."""
+    gate = repo / "scripts" / "gate.py"
+    if not gate.is_file():
+        return "unchecked"
+    try:
+        r = subprocess.run([sys.executable, str(gate), "--repo", str(repo), "agents", "--check-return", "--class", cls], cwd=str(repo),
+                           input=text or "", capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        return "unchecked"
+    return "parsed" if r.returncode == 0 else ("refused" if r.returncode == 1 else "unchecked")
+
+
+def returns_report(sessions: list, repo: Path) -> dict:
+    collected = {"direct": 0, "hand-back": 0, "notification": 0}
+    by_class: dict[str, dict] = {}
+    for s in sessions:
+        for spawn in s.spawns.values():
+            cls = agent_class(spawn["type"], repo)
+            row = by_class.setdefault(cls, {"owed": 0, "parsed": 0, "refused": 0, "unchecked": 0, "uncollected": 0})
+            row["owed"] += 1
+            channel, text = final_return(spawn)
+            if channel is None:
+                row["uncollected"] += 1
+                continue
+            collected[channel] += 1
+            row[check_return(repo, cls, text) if cls not in ("unclassed", "main") else "unchecked"] += 1
+
+    def total(k: str) -> int:   # the totals are the rows' sums
+        return sum(r[k] for r in by_class.values())
+    owed = total("owed")
+    return {"owed": owed, "collected": collected, "checked": {"parsed": total("parsed"), "refused": total("refused")},
+            "unchecked": total("unchecked"), "uncollected": total("uncollected"),
+            "uncollected_share": round(total("uncollected") / owed, 3) if owed else None, "by_class": by_class,
+            "definition": "a spawn = an Agent tool use; collected when any of its three channels appeared — direct (the tool result of a "
+                          "foreground spawn), hand-back (an <agent-message> from the agent the launch stub named), notification (a "
+                          "<task-notification> naming the spawn's tool-use id); uncollected = none of the three — a spawn still running when "
+                          "the window closes, or one whose return landed in another session's transcript, has no channel here and counts as "
+                          "uncollected; the text judged = the last hand-back, else a notification's real result (one that only points at the "
+                          "hand-back, or carries none, is not a result — a spawn that ended with nothing else is collected with an empty return "
+                          "and refused), else the direct result; parsed / refused by the project's return reader (gate.py agents "
+                          "--check-return) for a roster agent, unchecked otherwise (outside the roster, or the reader could not judge)"}
+
+
+def state_logs(repo: Path) -> tuple[dict | None, str]:
+    """Where the loop's records live: config/quality.json → verification.seal.dir + verification.logs. (None, why) when absent."""
+    q = repo / "config" / "quality.json"
+    try:
+        cfg = json.loads(q.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return None, f"config/quality.json not readable ({e.__class__.__name__})"
+    v = cfg.get("verification") if isinstance(cfg, dict) else None
+    logs = v.get("logs") if isinstance(v, dict) else None
+    if not isinstance(logs, dict) or not logs.get("push") or not logs.get("timings"):
+        return None, "verification.logs is not configured in config/quality.json (SETUP --upgrade adds the block)"
+    seal = v.get("seal") if isinstance(v.get("seal"), dict) else {}
+    d = str(seal.get("dir") or "").strip("/")
+    if not d:
+        return None, "verification.seal.dir is not configured in config/quality.json — the one home of the loop's records (no default here)"
+    return {"push": repo / d / str(logs["push"]), "timings": repo / d / str(logs["timings"])}, ""
+
+
+def read_records(path: Path, since, until) -> list[dict]:
+    """The log and its rotated generation (`<name>.1`), records whose `end` falls in the window."""
+    out = []
+    for p in (path.with_name(path.name + ".1"), path):
+        for rec in read_jsonl(p):
+            end = parse_ts(rec.get("end")) if isinstance(rec, dict) else None   # a line that is not a record is skipped, never raised
+            if end is not None and since <= end <= until:
+                out.append(rec)
+    return out
+
+
+def _red(rec: dict) -> bool:
+    e = rec.get("exit")
+    return not (isinstance(e, int) and not isinstance(e, bool) and e == 0)   # no exit code, or one that is not a number, is no green
+
+
+def _readable(p: Path) -> bool:
+    """The log and its rotated generation: an existing file that cannot be opened is said, never read as zero records."""
+    for f in (p, p.with_name(p.name + ".1")):
+        if f.exists():
+            try:
+                with f.open(encoding="utf-8", errors="replace"):
+                    pass
+            except OSError:
+                return False
+    return True
+
+
+def _s(v) -> str:
+    return v if isinstance(v, str) else json.dumps(v, sort_keys=True, default=str)   # a corrupted value never crashes the report
+
+
+def _seconds(rec: dict) -> float:
+    a, b = parse_ts(rec.get("start")), parse_ts(rec.get("end"))
+    return max(0.0, (b - a).total_seconds()) if a and b else 0.0
+
+
+def pushes_report(repo: Path, sessions: list, since, until) -> dict:
+    logs, why = state_logs(repo)
+    by = {k: {"pushes": 0, "seconds": 0.0} for k in ("light", "full", "unknown")}
+    if logs and logs["push"].is_file():
+        if not _readable(logs["push"]):
+            return {"unavailable": f"the push log {logs['push']} exists but cannot be read — a zero here would pass for a measurement"}
+        for r in read_records(logs["push"], since, until):
+            k = _s(r.get("profile"))
+            by[k if k in by else "unknown"]["pushes"] += 1; by[k if k in by else "unknown"]["seconds"] += _seconds(r)
+        source = f"push log ({logs['push']})"
+    else:
+        for s in sessions:
+            for _, seconds, prof in s.pushes:
+                by[prof]["pushes"] += 1; by[prof]["seconds"] += seconds
+        source = f"trace fallback ({why or 'no push log at ' + str(logs['push'])}): git push tool calls, the profile from the banner in the result when it ran in the foreground"
+    for v in by.values():
+        v["seconds"] = round(v["seconds"], 1)
+    total = sum(v["pushes"] for v in by.values())
+    return {"source": source, "total": total, "by_profile": by,
+            "unknown_share": round(by["unknown"]["pushes"] / total, 3) if total else None,
+            "definition": "one record per push from the push log the pre-push hook writes (gate.py push-log: profile, base, mode, class, "
+                          "start, end, exit) — once the log exists it is the source, pushes before it was written are not in it; without the "
+                          "log, the trace: a push tool call, its profile read from the banner in its result"}
+
+
+def loop_report(repo: Path, since, until) -> dict:
+    logs, why = state_logs(repo)
+    if not logs:
+        return {"unavailable": why}
+    if not logs["timings"].is_file():
+        return {"unavailable": f"no timings log at {logs['timings']} — the loop writes it through gate.py seal --run"}
+    if not _readable(logs["timings"]):
+        return {"unavailable": f"the timings log {logs['timings']} exists but cannot be read — a zero here would pass for a measurement"}
+    by_gate: dict[str, dict] = {}
+    by_profile: dict[str, dict] = {}
+    total = 0.0
+    executions: set[tuple] = set()
+    for r in read_records(logs["timings"], since, until):
+        sec = _seconds(r)
+        g = by_gate.setdefault(_s(r.get("gate") or "?"), {"runs": 0, "red": 0, "seconds": 0.0})
+        g["runs"] += 1; g["seconds"] += sec
+        if _red(r):
+            g["red"] += 1
+        ex = tuple(_s(r.get(k)) for k in ("branch", "command", "start", "end"))   # one execution feeds every gate that shares its command
+        if ex in executions:
+            continue
+        executions.add(ex)
+        pr = by_profile.setdefault(_s(r.get("profile") or "unknown"), {"runs": 0, "seconds": 0.0})
+        pr["runs"] += 1; pr["seconds"] += sec
+        total += sec
+    for v in list(by_gate.values()) + list(by_profile.values()):
+        v["seconds"] = round(v["seconds"], 1); v["hours"] = round(v["seconds"] / 3600, 3)
+    return {"source": f"timings log ({logs['timings']})", "by_gate": by_gate, "by_profile": by_profile,
+            "hours_total": round(total / 3600, 3),
+            "definition": "one record per gate per execution from the timings log gate.py seal --run writes (gate, command, branch, profile, "
+                          "start, end, exit); per gate = the time of the execution that fed it (a command shared by two gates feeds both); "
+                          "per profile and the hours total count each execution once; seconds = end − start; red = exit other than 0 (none = red)"}
+
+
 # ─── report ─────────────────────────────────────────────────────────────────────
 
 def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) -> dict:
@@ -372,12 +625,15 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
 
     rework_git = rework_from_git(repo, cfg, since, until)
     report["window"]["sources"]["git"] = "ok" if "unavailable" not in rework_git else rework_git["unavailable"]
+    # the loop's records are files beside the seal (EVOL-057): read with or without transcripts
+    report["pushes"] = pushes_report(repo, sessions, since, until)
+    report["loop"] = loop_report(repo, since, until)
 
     if not sessions:
         why = "no transcript data in window"
         report.update({"gates": {"unavailable": why}, "branches": {"unavailable": why},
                        "governance_bytes": {"unavailable": why}, "agents": {"unavailable": why},
-                       "citations": {"unavailable": why}})
+                       "citations": {"unavailable": why}, "returns": {"unavailable": why}})
         report["rework"] = {"git": rework_git, "edits": {"unavailable": why}}
         return report
 
@@ -476,6 +732,9 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
                            "corpus_ids": len(corpus),
                            "pruning_candidates": sorted(corpus - set(cited)),
                            "note": "a pruning candidate is decided by the user through RDR with the originating record in view; never deleted by a script"}
+
+    # returns (EVOL-057): every spawn's return through its three channels
+    report["returns"] = returns_report(sessions, repo)
     return report
 
 
@@ -492,7 +751,8 @@ def _is_governance(file_path: str, repo: Path, gov_paths) -> bool:
 
 SCALARS = (("gates", "share"), ("branches", "avg_commits"), ("branches", "avg_review_rounds"),
            ("rework", "edits", "share"), ("governance_bytes", "emitted_by_hooks"),
-           ("governance_bytes", "delivered_to_model"), ("governance_bytes", "read_by_agents"))
+           ("governance_bytes", "delivered_to_model"), ("governance_bytes", "read_by_agents"),
+           ("returns", "uncollected_share"), ("pushes", "unknown_share"), ("loop", "hours_total"))
 
 
 def dig(d, *keys):
@@ -516,6 +776,11 @@ def compare(before: dict, after: dict) -> dict:
 
 
 # ─── markdown ───────────────────────────────────────────────────────────────────
+
+def _cell(v) -> str:
+    """A key read from a local file lands in a table cell: the cell's own delimiter is escaped."""
+    return str(v).replace("|", "\\|").replace("\n", " ")
+
 
 def _fmt(v):
     if v is None:
@@ -577,6 +842,25 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
              "| id | citations |", "|---|---|"] + [f"| {k} | {v} |" for k, v in c["by_id"].items()] +
             ["", "Pruning candidates (never cited in the window): " + (", ".join(c["pruning_candidates"]) or "none"),
              "", f"> {c['note']}"])
+    rt = r.get("returns") or {"unavailable": "not measured"}
+    section("Returns (every spawn, three channels)", rt, [] if "unavailable" in rt else
+            [f"owed {rt['owed']} · collected direct {rt['collected']['direct']} / hand-back {rt['collected']['hand-back']} / notification {rt['collected']['notification']} · "
+             f"parsed {rt['checked']['parsed']} · refused {rt['checked']['refused']} · unchecked {rt['unchecked']} · uncollected {rt['uncollected']} (share **{_fmt(rt['uncollected_share'])}**)", "",
+             "| class | owed | parsed | refused | unchecked | uncollected |", "|---|---|---|---|---|---|"] +
+            [f"| {_cell(k)} | {v['owed']} | {v['parsed']} | {v['refused']} | {v['unchecked']} | {v['uncollected']} |" for k, v in sorted(rt["by_class"].items())] +
+            ["", f"> {rt['definition']}"])
+    ps = r.get("pushes") or {"unavailable": "not measured"}
+    section("Pushes by gate profile", ps, [] if "unavailable" in ps else
+            [f"source: {ps['source']}", f"pushes {ps['total']} · unknown profile share **{_fmt(ps['unknown_share'])}**", "",
+             "| profile | pushes | seconds |", "|---|---|---|"] +
+            [f"| {k} | {v['pushes']} | {_fmt(v['seconds'])} |" for k, v in ps["by_profile"].items()] + ["", f"> {ps['definition']}"])
+    lp = r.get("loop") or {"unavailable": "not measured"}
+    section("Verification loop per gate", lp, [] if "unavailable" in lp else
+            [f"source: {lp['source']}", f"hours total **{_fmt(lp['hours_total'])}**", "",
+             "| gate | runs | red | seconds | hours |", "|---|---|---|---|---|"] +
+            [f"| {_cell(k)} | {v['runs']} | {v['red']} | {_fmt(v['seconds'])} | {_fmt(v['hours'])} |" for k, v in sorted(lp["by_gate"].items())] +
+            ["", "| profile | runs | seconds | hours |", "|---|---|---|---|"] +
+            [f"| {_cell(k)} | {v['runs']} | {_fmt(v['seconds'])} | {_fmt(v['hours'])} |" for k, v in sorted(lp["by_profile"].items())] + ["", f"> {lp['definition']}"])
     if delta is not None:
         out += ["## Before → after", "", "| signal | before | after | delta |", "|---|---|---|---|"]
         out += [f"| {k} | {_fmt(v['before'])} | {_fmt(v['after'])} | {_fmt(v['delta'])} |" for k, v in delta.items()]
@@ -590,6 +874,13 @@ def _entry(kind, ts, **kw):
     e = {"type": kind, "timestamp": ts, "sessionId": "s1", "gitBranch": kw.pop("branch", "feature/FEAT-001-x")}
     e.update(kw)
     return e
+
+
+PARSED_RETURN = "## Findings\nno findings\n## Governance\nRules read: r\nLaws applied: l\nDefect classes: d\nSources: 1\n"
+REFUSED_RETURN = "I looked around and everything seems fine.\n"
+HANDBACK = ('Another Claude session sent a message:\n<agent-message from="{aid}">\n[Subagent hand-back] The text below is the final report of a subagent '
+            'this session delegated to. The report follows:\n  {body}</agent-message>')
+NOTIFICATION = "<task-notification>\n<task-id>x</task-id>\n<tool-use-id>{tid}</tool-use-id>\n<status>completed</status>\n<result>{body}</result>\n</task-notification>"
 
 
 def _fixture_transcripts(root: Path, session="s1") -> Path:
@@ -608,6 +899,13 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
 
     def tool_result(i, at, content=""):
         return _entry("user", ts(at), message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": content}]})
+
+    def spawn(i, atype, at):
+        return _entry("assistant", ts(at), branch="feature/FEAT-003-r", message={"role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1},
+                                                                             "content": [{"type": "tool_use", "id": f"t{i}", "name": "Agent", "input": {"subagent_type": atype, "description": "work", "run_in_background": True}}]})
+
+    def stub(i, aid, at):
+        return _entry("user", ts(at), branch="feature/FEAT-003-r", message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": [{"type": "text", "text": f"Async agent launched successfully. (internal metadata) agentId: {aid} (internal ID)"}]}]})
 
     lines = [
         _entry("attachment", ts(0), attachment={"type": "hook_success", "hookName": "SessionStart:startup",
@@ -633,9 +931,9 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
         tool_use(7, "Bash", {"command": "git commit -m 'feat(FEAT-001): a'"}, 120),
         tool_result(7, 121),
         tool_use(8, "Agent", {"subagent_type": "factory-critic-security", "description": "review"}, 130),
-        tool_result(8, 190),
+        tool_result(8, 190, PARSED_RETURN),                                        # a foreground spawn: the return is the tool result (direct)
         tool_use(9, "Bash", {"command": "git push"}, 200),
-        tool_result(9, 230),                                                      # 30 s under the push gate
+        tool_result(9, 230, "profile: full — feature branch · delivery mode\nverdict: ok"),   # 30 s under the push gate; the banner names the profile
         # a train with two sub-increment branches (EVOL-045)
         _entry("assistant", ts(240), branch="feature/FEAT-002-inc-1-x-sub-1", message={"role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1},
                                                                                     "content": [{"type": "tool_use", "id": "t11", "name": "Bash", "input": {"command": "git commit -m 'feat(FEAT-002): s1'"}}]}),
@@ -643,6 +941,31 @@ def _fixture_transcripts(root: Path, session="s1") -> Path:
         _entry("assistant", ts(250), branch="feature/FEAT-002-inc-1-x-sub-2", message={"role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1},
                                                                                     "content": [{"type": "tool_use", "id": "t12", "name": "Bash", "input": {"command": "git commit -m 'feat(FEAT-002): s2'"}}]}),
         _entry("user", ts(251), branch="feature/FEAT-002-inc-1-x-sub-2", message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t12", "content": ""}]}),
+        # returns through the other channels (EVOL-057), on their own branch so the review-round counts above stay
+        spawn(14, "factory-critic-correctness", 300), stub(14, "agx1", 301),
+        _entry("user", ts(320), branch="feature/FEAT-003-r", message={"role": "user", "content": HANDBACK.format(aid="agx1", body=REFUSED_RETURN)}),   # hand-back, refused
+        spawn(15, "factory-dev-backend", 330), stub(15, "agx2", 331),
+        _entry("user", ts(340), branch="feature/FEAT-003-r", message={"role": "user", "content": [{"type": "text", "text": NOTIFICATION.format(tid="t15", body=PARSED_RETURN)}]}),   # notification, parsed
+        spawn(16, "factory-critic-security", 350), stub(16, "agx3", 351),          # no channel: uncollected
+        spawn(17, "general-purpose", 360), _entry("user", ts(361), branch="feature/FEAT-003-r", message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t17", "content": "done"}]}),   # direct, outside the roster: unchecked
+        # the production shape of a background return: the hand-back carries the report, the notification only points at it
+        spawn(18, "factory-critic-security", 370), stub(18, "agx4", 371),
+        _entry("user", ts(380), branch="feature/FEAT-003-r", message={"role": "user", "content": HANDBACK.format(aid="agx4", body=PARSED_RETURN)}),
+        _entry("user", ts(381), branch="feature/FEAT-003-r", message={"role": "user", "content": NOTIFICATION.format(tid="t18", body='This agent\'s report was delivered to you as a message from "agx4" (its SubagentHandback call). Read it there; it is not repeated here.')}),
+        # a task that stops failed with no result, resumed, then notifies its real result — the same task id notifies twice
+        spawn(19, "factory-critic-security", 390), stub(19, "agx5", 391),
+        _entry("user", ts(392), branch="feature/FEAT-003-r", message={"role": "user", "content": "<task-notification>\n<task-id>y</task-id>\n<tool-use-id>t19</tool-use-id>\n<status>failed</status>\n</task-notification>"}),
+        _entry("user", ts(393), branch="feature/FEAT-003-r", message={"role": "user", "content": NOTIFICATION.format(tid="t19", body=PARSED_RETURN)}),
+        # the two blocks delivered together in ONE message (queued harness messages): the hand-back is still the return
+        spawn(21, "factory-critic-security", 410), stub(21, "agx7", 411),
+        _entry("user", ts(412), branch="feature/FEAT-003-r", message={"role": "user", "content": NOTIFICATION.format(tid="t21", body='This agent\'s report was delivered to you as a message from "agx7" (its SubagentHandback call). Read it there; it is not repeated here.') + "\n\n" + HANDBACK.format(aid="agx7", body=PARSED_RETURN)}),
+        # the reader could not judge (its exit is neither 0 nor 1): unchecked, never refused
+        spawn(22, "factory-critic-security", 420), stub(22, "agx8", 421),
+        _entry("user", ts(422), branch="feature/FEAT-003-r", message={"role": "user", "content": HANDBACK.format(aid="agx8", body="READER-FAULT\n")}),
+        # a real result followed by a later notification with none: the real result stands
+        spawn(20, "factory-critic-security", 400), stub(20, "agx6", 401),
+        _entry("user", ts(402), branch="feature/FEAT-003-r", message={"role": "user", "content": NOTIFICATION.format(tid="t20", body=PARSED_RETURN)}),
+        _entry("user", ts(403), branch="feature/FEAT-003-r", message={"role": "user", "content": "<task-notification>\n<task-id>z</task-id>\n<tool-use-id>t20</tool-use-id>\n<status>failed</status>\n</task-notification>"}),
         _entry("assistant", ts(260), branch="fix/login-sub-2", message={"role": "assistant", "model": "claude-x-writer", "usage": {"input_tokens": 1, "output_tokens": 1},
                                                                    "content": [{"type": "tool_use", "id": "t13", "name": "Bash", "input": {"command": "git commit -m 'fix: x'"}}]}),
         _entry("user", ts(261), branch="fix/login-sub-2", message={"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t13", "content": ""}]}),
@@ -679,12 +1002,38 @@ def _fixture_repo(root: Path) -> Path:
     (repo / ".claude" / "rules").mkdir(parents=True)
     (repo / ".claude" / "rules" / "defect-prevention.md").write_text("| DC-18 | x |\n| DC-27 | y |\n", encoding="utf-8")
     (repo / ".claude" / "rules" / "agents.md").write_text("---\nagents:\n  roster:\n    - {name: factory-critic-security, class: work-critic, lens: security, surface: [\"**\"]}\n"
+                                                         "    - {name: factory-critic-correctness, class: work-critic, lens: correctness, surface: [\"**\"]}\n"
+                                                         "    - {name: factory-dev-backend, class: worker, surface: [\"src/**\"]}\n"
                                                          "    - {name: my-critic, class: work-critic, surface: [\"**\"]}\n---\n", encoding="utf-8")
+    # the project's return reader, reduced to its verdict (the real one is scripts/gate.py agents --check-return; the materialisation test runs it)
+    (repo / "scripts").mkdir()
+    (repo / "scripts" / "gate.py").write_text("import sys\nt = sys.stdin.read()\nsys.exit(2 if 'READER-FAULT' in t else (0 if '## Governance' in t else 1))\n", encoding="utf-8")
+    # the loop's records (EVOL-057): the push log the hook writes, the timings seal --run writes — one rotated generation each
+    (repo / "config").mkdir()
+    (repo / "config" / "quality.json").write_text(json.dumps({"verification": {"seal": {"required": True, "dir": ".claude/state"},
+                                                                                   "logs": {"push": "push-log.jsonl", "timings": "gate-timings.jsonl", "max_kb": 1024}}}), encoding="utf-8")
+    st = repo / ".claude" / "state"; st.mkdir()
+    def rec(**kw): return json.dumps(kw) + "\n"
+    (st / "push-log.jsonl").write_text(rec(branch="feature/FEAT-001-x", profile="full", mode="development", base="origin/main", start="2026-09-02T10:00:00Z", end="2026-09-02T10:02:00Z", exit=0)
+                                       + rec(branch="feature/FEAT-002-inc-1-x-sub-1", profile="light", mode="development", base="origin/feature/FEAT-002-inc-1-x", start="2026-09-03T10:00:00Z", end="2026-09-03T10:00:30Z", exit=1)
+                                       + rec(branch="feature/FEAT-001-x", profile="full", mode="development", base="origin/main", start="2026-07-01T10:00:00Z", end="2026-07-01T10:01:00Z", exit=0), encoding="utf-8")   # out of window
+    (st / "push-log.jsonl.1").write_text(rec(branch="feature/FEAT-001-x", profile="full", mode="development", base="origin/main", start="2026-09-01T09:00:00Z", end="2026-09-01T09:01:00Z", exit=0), encoding="utf-8")   # the rotated generation
+    (st / "gate-timings.jsonl").write_text(rec(gate="tests", command="pytest", branch="feature/FEAT-001-x", profile="full", start="2026-09-02T10:00:00Z", end="2026-09-02T10:01:00Z", exit=0)
+                                           + rec(gate="lint", command="ruff", branch="feature/FEAT-001-x", profile="full", start="2026-09-02T10:01:00Z", end="2026-09-02T10:01:30Z", exit=0)
+                                           + rec(gate="tests", command="pytest", branch="feature/FEAT-002-inc-1-x-sub-1", profile="light", start="2026-09-03T10:00:00Z", end="2026-09-03T10:00:10Z", exit=1)
+                                           + rec(gate="coverage", command="pytest", branch="feature/FEAT-001-x", profile="full", start="2026-09-02T10:00:00Z", end="2026-09-02T10:01:00Z", exit=0)   # the suite feeds coverage too: one execution
+                                           + "[1, 2]\n"                                                                                                         # a line that is not a record
+                                           + rec(gate="tests", command="pytest", branch="feature/FEAT-001-x", profile="full", start="2026-07-01T10:00:00Z", end="2026-07-01T11:00:00Z", exit=0), encoding="utf-8")   # out of window
+    (repo / ".gitignore").write_text(".claude/state/\n", encoding="utf-8")
     for msg in ("feat(FEAT-001): a", "fix(FEAT-001): b", "docs: c"):
         (repo / "f").write_text(msg, encoding="utf-8")
         run("add", "-A")
         run("commit", "-q", "-m", msg)
     return repo
+
+
+def _sessions_of(tdir: Path, cfg: dict, since, until) -> list:
+    return [s for s in (Session(f, cfg, since, until) for f in sorted(tdir.glob("*.jsonl"))) if s.entries]
 
 
 def selftest_config() -> dict:
@@ -735,7 +1084,7 @@ def selftest() -> int:
                "subagent type, bytes read and tokens from its own transcript")
         expect(ag["c1"]["class"] == "work-critic" and ag["c1"]["round"] == 1 and ag["a0"]["round"] == 2, "the roster class joined from rules/agents.md and the round from the spawn ORDER IN TIME, never the agent id (EVOL-049)")
         expect("| class | round |" in render_markdown(r) and "| work-critic | 1 |" in render_markdown(r) and "| work-critic | 2 |" in render_markdown(r), "the agents table shows class and round")
-        expect(agent_class("my-critic", repo) == "work-critic" and agent_class("factory-dev-backend", repo) == "unclassed", "with a roster the roster is the class: a project's own critic is classed, a name the roster lacks is not")
+        expect(agent_class("my-critic", repo) == "work-critic" and agent_class("factory-dev-frontend", repo) == "unclassed", "with a roster the roster is the class: a project's own critic is classed, a name the roster lacks is not")
         expect(agent_class("factory-dev-backend") == "worker" and agent_class("factory-plan-critic") == "plan-critic" and agent_class("factory-qa") == "phase" and agent_class("code-reviewer") == "unclassed", "without a roster the naming grammar is the fallback")
         expect(ag["c1"]["citations"] == {"LAW-04": 2}, "citations per agent")
         c = r["citations"]
@@ -743,6 +1092,58 @@ def selftest() -> int:
         expect(c["pruning_candidates"] == ["DC-27", "LAW-09"], "corpus ids never cited are pruning candidates")
         md = render_markdown(r)
         expect("## Gates" in md and "pruning candidates 2" in md, "markdown rendering")
+        # returns (EVOL-057): one spawn, three channels; parsed / refused by the project's reader; uncollected proven on the spawn with no channel
+        rt = r["returns"]
+        expect(rt["owed"] == 10 and rt["collected"] == {"direct": 2, "hand-back": 4, "notification": 3}, "every channel of a spawn is read: direct (foreground), hand-back (agent-message from the stub's agent id), notification (task-notification by tool-use id)")
+        expect(rt["uncollected"] == 1 and rt["uncollected_share"] == 0.1, "RED on the fixture with no channel: a background spawn that never came back is uncollected — and only that one")
+        expect(rt["checked"] == {"parsed": 6, "refused": 1} and rt["unchecked"] == 2, "a roster agent's return goes through the project's return reader (parsed / refused); an agent outside the roster, or a reader that could not judge, is unchecked")
+        expect(rt["by_class"]["work-critic"] == {"owed": 8, "parsed": 5, "refused": 1, "unchecked": 1, "uncollected": 1} and rt["by_class"]["worker"]["parsed"] == 1, "returns per roster class")
+        sp = _sessions_of(tdir, cfg, since, until)[0].spawns
+        expect(final_return(sp["t18"]) == ("hand-back", PARSED_RETURN.strip()) and sp["t18"]["channels"]["notification"] == "", "the production shape: the hand-back is the return; a notification that only points at it is not a result (the pointer would read as refused)")
+        expect(final_return(sp["t19"]) == ("notification", PARSED_RETURN.strip()) and final_return(sp["t20"]) == ("notification", PARSED_RETURN.strip()), "one task id notifies twice: a failed stop with no result never erases, and never replaces, the real result")
+        expect(final_return(sp["t21"]) == ("hand-back", PARSED_RETURN.strip()), "the pointer notification and the hand-back delivered in ONE message: the hand-back is still read (the message is scanned, never the notification's result)")
+        expect(final_return(sp["t22"])[0] == "hand-back" and rt["by_class"]["work-critic"]["unchecked"] == 1, "a return the reader could not judge (exit 2) is unchecked, never refused")
+        expect(final_return({"channels": {"direct": "d", "hand-back": ["h"], "notification": "n"}}) == ("hand-back", "h") and final_return({"channels": {"direct": "d", "hand-back": [], "notification": "n"}}) == ("notification", "n") and final_return({"channels": {"direct": None, "hand-back": [], "notification": ""}}) == ("notification", ""), "the text judged: the last hand-back, else a notification's real result, else the direct result; a result-less notification still collects")
+        expect("## Returns" in md and "| work-critic | 8 | 5 | 1 | 1 | 1 |" in md, "the returns table renders per class")
+        # pushes (EVOL-057): the push log first — both generations, the window by `end` — the trace as fallback
+        ps = r["pushes"]
+        expect(ps["source"].startswith("push log") and ps["total"] == 3 and ps["by_profile"]["full"] == {"pushes": 2, "seconds": 180.0} and ps["by_profile"]["light"] == {"pushes": 1, "seconds": 30.0} and ps["unknown_share"] == 0.0,
+               "pushes by profile from the push log (the rotated generation included, the record out of window excluded)")
+        ps2 = pushes_report(root / "nope", [s for s in _sessions_of(tdir, cfg, since, until)], since, until)
+        expect(ps2["source"].startswith("trace fallback") and ps2["by_profile"]["full"]["pushes"] == 1 and ps2["by_profile"]["unknown"]["pushes"] == 0, "without the push log the trace is the fallback: the banner in a foreground result names the profile")
+        expect(_profile_from_text("verdict: ok") == "unknown" and _profile_from_text("x\nprofile: light — sub\n") == "light", "a result without the banner is an unknown profile — only the fallback path can say unknown")
+        expect("## Pushes" in md and "| light | 1 | 30.0 |" in md, "the pushes table renders")
+        # loop (EVOL-057): hours per gate and per profile from the timings log
+        lp = r["loop"]
+        expect(lp["by_gate"] == {"tests": {"runs": 2, "red": 1, "seconds": 70.0, "hours": 0.019}, "coverage": {"runs": 1, "red": 0, "seconds": 60.0, "hours": 0.017}, "lint": {"runs": 1, "red": 0, "seconds": 30.0, "hours": 0.008}}
+               and lp["by_profile"] == {"full": {"runs": 2, "seconds": 90.0, "hours": 0.025}, "light": {"runs": 1, "seconds": 10.0, "hours": 0.003}} and lp["hours_total"] == 0.028,
+               "the loop per gate (the execution's time, shared by the gates it feeds) and per profile (each execution once); a red run counted; a line that is not a record and the record out of window skipped")
+        expect(_red({"exit": 0}) is False and _red({"exit": 1}) and _red({}) and _red({"exit": "0"}) and _red({"exit": False}), "no exit code, or one that is not a number (a boolean included), is never green")
+        # a corrupted record never crashes the report; an unreadable log is said, never zeroed
+        st = repo / ".claude" / "state"
+        with (st / "gate-timings.jsonl").open("a", encoding="utf-8") as fh:   # a list where a branch or a command belongs: the execution key must still hash
+            fh.write(json.dumps({"gate": ["x"], "profile": {"a": 1}, "branch": ["b"], "command": {"c": 1}, "start": "2026-09-02T12:00:00Z", "end": "2026-09-02T12:00:05Z", "exit": 0}) + "\n")
+        with (st / "push-log.jsonl").open("a", encoding="utf-8") as fh:        # an object where the profile belongs: the profile lookup must still work
+            fh.write(json.dumps({"profile": {"a": 1}, "start": "2026-09-02T12:00:00Z", "end": "2026-09-02T12:00:05Z", "exit": 0}) + "\n")
+        lp2 = loop_report(repo, since, until)
+        expect("unavailable" not in lp2 and lp2["by_gate"]['["x"]']["runs"] == 1 and lp2["hours_total"] == 0.029, "a timing record with a list or an object where a name belongs is counted under its text, never raised")
+        ps3 = pushes_report(repo, [], since, until)
+        expect("unavailable" not in ps3 and ps3["by_profile"]["unknown"]["pushes"] == 1 and ps3["total"] == 4, "a push record with an object where the profile belongs counts as unknown, never raised")
+        if getattr(os, "geteuid", lambda: 1)() != 0:   # a mode-0 file still opens for root: the case proves nothing there and is skipped, never failed
+            (st / "push-log.jsonl.1").chmod(0)
+            try:
+                expect("unavailable" in pushes_report(repo, [], since, until) and "cannot be read" in pushes_report(repo, [], since, until)["unavailable"], "a push log whose rotated generation exists but cannot be read is said unavailable — never a partial count that passes for a measurement")
+            finally:
+                (st / "push-log.jsonl.1").chmod(0o644)
+        else:
+            print("  · the unreadable-log case is skipped under root (a mode-0 file still opens)")
+        expect("## Verification loop" in md and "| tests | 2 | 1 | 70.0 | 0.019 |" in md, "the loop table renders")
+        expect(_cell("a|b\nc") == "a\\|b c", "a key read from a local file never breaks the table")
+        (root / "nodir" / "config").mkdir(parents=True)
+        (root / "nodir" / "config" / "quality.json").write_text('{"verification": {"logs": {"push": "p", "timings": "t", "max_kb": 1}}}', encoding="utf-8")
+        expect(state_logs(root / "nodir")[0] is None and "seal.dir is not configured" in state_logs(root / "nodir")[1] and state_logs(root / "nope")[0] is None, "no seal.dir, no config: the records' home is said, never defaulted")
+        expect("unavailable" in loop_report(root / "nope", since, until), "no config, no timings: the loop section is said unavailable, never raised")
+        expect(all(k in compare(r, r) for k in ("returns.uncollected_share", "pushes.unknown_share", "loop.hours_total")), "the three signals are in the before/after table")
         d = compare(r, r)
         expect(all(v["delta"] == 0 for v in d.values() if v["delta"] is not None), "compare of a report with itself is zero delta")
         # degradation: no transcripts, no git
