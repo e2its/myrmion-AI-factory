@@ -273,7 +273,8 @@ def cmd_agents(repo, a):
             print(json.dumps(r) if a.json else f"agents: REFUSED — {r['reason']}")
             return 1
         budget = f" · turns {r['turn_budget']} · probes {r['probe_budget']}" if "turn_budget" in r and "probe_budget" in r else ""
-        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget} · round {r['round']} · {r['matched']}")
+        owed = f" · canary owed: {', '.join(r['canary_owed'])} (gate.py canary --plan)" if r.get("canary_owed") else ""
+        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget} · round {r['round']} · {r['matched']}{owed}")
         return 0
     if a.fallback:
         r = agents_mod.fallback(repo, a.cls, a.family or "")
@@ -372,9 +373,9 @@ def cmd_canary(repo, a):
     if a.fixture:
         print(canary_mod.fixture(), end=""); return 0
     if a.expected:
-        exp = {a.lens: canary_mod.EXPECTED[a.lens]} if a.lens else canary_mod.EXPECTED
         if a.lens and a.lens not in canary_mod.EXPECTED:
             raise GateFault(f"lens `{a.lens}` is not one of {', '.join(canary_mod.LENSES)}")
+        exp = {a.lens: canary_mod.EXPECTED[a.lens]} if a.lens else canary_mod.EXPECTED
         if a.json:
             print(json.dumps(exp))
         else:

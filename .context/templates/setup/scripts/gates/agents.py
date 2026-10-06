@@ -62,7 +62,8 @@ def budgets(pol: dict, t: str) -> dict:
 CAPS = {"plan-critic": "plan_gate", "work-critic": "work"}   # class → rounds key
 POINTER = re.compile(r"`((?:rules/|\.claude/|scripts/|\.context/)[\w./-]+\.(?:md|py|sh))`")
 GOV_BLOCK = ("Rules read:", "Laws applied:", "Defect classes:", "Sources:")
-MODEL_LINE = re.compile(r"^\s*Model:\s*(?P<id>\S.*?)\s*$", re.M)   # EVOL-059: the id the harness states for a critic — the canary's trigger
+MODEL_LINE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Model:(?:\*\*)?\s*(?P<id>\S.*?)\s*$", re.M)   # EVOL-059: the id the harness states for a critic — the canary's trigger; bulleted or bold like the other lines
+MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,99}$")            # an id, never text: it lands in a main-session command line
 SEVERITY = re.compile(r"[🔴🟡🟢❓]")
 FINDING = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?(?P<loc>[^\s*`]+:\d+)(?:\*\*)?\s*·\s*(?P<sev>🔴|🟡|🟢|❓)\s*·\s*confidence\s*\d+%\s*·\s*probe:\s*(?P<probe>.+?)\s*$")
 TRIVIAL_PROBE = re.compile(r"^(?:n/?a|none|nil|-+|—|tbd|todo|\?+|\.+)$", re.I)
@@ -386,7 +387,13 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
     b = budgets(pol, t)
     if not _class_writes(c) and len(b) != len(BUDGET_KEYS):   # a read-only class is spawned under its budgets; a writer's cap is a key of its own
         raise GateFault(f"agents.tiers.{t if t in TIERS else 'large'} lacks turn_budget / probe_budget — a critic's budget is a key (EVOL-058); gate.py agents names it")
-    return {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched, **b}
+    out = {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched, **b}
+    if "critic" in cls:   # EVOL-059: the canary's trigger rides on every critic spawn — the lens whose model moved is named here
+        from . import canary as canary_mod
+        owed = canary_mod.plan(repo)["owed"]
+        lens = str(surface or "").lower()
+        out["canary_owed"] = [lens] if lens in owed else (owed if not lens else [])
+    return out
 
 
 def fallback(repo: Path, cls: str, family: str) -> dict:
@@ -492,8 +499,8 @@ def _check_reader(text: str, problems: list[str]) -> None:
 
 def return_model(text: str) -> str:
     """The model id a critic's return carries (`unknown` when none)."""
-    m = MODEL_LINE.search(text or "")
-    return m.group("id") if m and not _placeholder(m.group("id")) else "unknown"
+    m = MODEL_LINE.search((text or "").rsplit("## Governance", 1)[-1])
+    return m.group("id") if m and not _placeholder(m.group("id")) and MODEL_ID.match(m.group("id")) else "unknown"
 
 
 def check_return(text: str, cls: str) -> list[str]:
@@ -508,11 +515,13 @@ def check_return(text: str, cls: str) -> list[str]:
     if cls == "reader":
         _check_reader(text, problems)
     if "critic" in cls:
-        m = MODEL_LINE.search(text)
+        m = MODEL_LINE.search(text.rsplit("## Governance", 1)[-1])   # the governance block's line, not a `Model:` anywhere in the findings
         if not m:
             problems.append("no `Model:` line in the governance block — a critic names the model id the harness states for it (`unknown` when it does not; the canary's trigger, EVOL-059)")
         elif _placeholder(m.group("id")):
             problems.append(f"`Model: {m.group('id')}` is the contract's own placeholder, not an id")
+        elif not MODEL_ID.match(m.group("id")):
+            problems.append(f"`Model: {m.group('id')[:40]}` is not a model id (letters, digits, `.`, `_`, `:`, `@`, `/`, `-`) — the line lands in a command, it is never text")
         shaped = 0
         for line in text.splitlines():
             if not SEVERITY.search(line):
