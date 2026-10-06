@@ -273,8 +273,9 @@ def consistency(repo: Path | None = None) -> list[str]:
 
 
 def _home(fault: str) -> str:
-    """A policy fault filed where it comes from: the config when it names it, the rule otherwise."""
-    return ("config/quality.json: " if "config/quality.json" in fault else "rules/agents.md: ") + fault
+    """A policy fault filed where it comes from: the config file it names, the rule otherwise."""
+    m = re.search(r"config/[\w.-]+\.json", fault)
+    return (m.group(0) + ": " if m else "rules/agents.md: ") + fault
 
 
 def tolerance(repo: Path) -> int:
@@ -402,12 +403,12 @@ def plan(repo: Path, all_: bool = False) -> dict:
             owed.append(lens)
     out = {"owed": owed, "lenses": lenses, "fixture_ok": not broken}
     if broken:
-        out["fault"] = "the fixture is inconsistent under this project's policy — no lens is owed until it is cured; gate.py canary --check names it: " + broken[0]
+        out["fault"] = "the fixture is inconsistent under this project's policy — no lens is owed until the fault is cured; gate.py canary --check names it: " + broken[0]
     return out
 
 
 def render_plan(r: dict) -> str:
-    head = ("FAULT — nothing owed until the fixture is cured (below)" if r.get("fault") else
+    head = ("FAULT — nothing owed until the fault below is cured" if r.get("fault") else
             "owed — " + ", ".join(r["owed"]) if r["owed"] else "nothing owed — every lens judged on the model it last ran on")
     lines = [f"canary: {head}"]
     for lens, v in r["lenses"].items():
