@@ -155,8 +155,10 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   delivered = [r FOR r IN reports IF r.scope NOT IN not_delivered AND NOT r.fallback]   # the reports that passed the return check after at most one hand-back, spawned on the resolved model — a fall ran on another id (FOLD_IDS reads the primary ones, as the engine's)
   fold = FOLD_IDS(delivered)                                         # EVOL-059: the model the lens last ran on — the engine's one rule (factory-code-review § Spawn contract → FOLD_IDS): known ids only, the unstated and a disagreement said; never the last writer's
   IF delivered: RUN("python3 scripts/gate.py canary --seen --lens governance --model {fold.model}")   # nothing when no scope delivered: the last real id stays
-  reports = [contract_part(r) FOR r IN reports]                      # EVOL-060: consolidation reads the contract part; the appendix of every report goes verbatim into the artefact's § Critic returns (below), counted on its Informational: line
-  RETURN consolidate(reports, not_delivered) + { not_delivered, degraded, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # consolidation is handed the list it marks UNVERIFIED by (§ CONSOLIDATION PROTOCOL step 4); the undelivered scopes, the degradation and the falls travel with the sweep's report
+  contracts = [contract_part(r) FOR r IN reports]                    # EVOL-060: consolidation reads the contract part; `reports` keeps the originals (their appendix, their fall record)
+  informational = SUM(the `Informational: N` line of each delivered report)
+  WRITE § Critic returns of the artefact (step 6): every report VERBATIM, one `### <scope> · round N` heading each — the appendix's home; frontmatter `informational: {informational}`
+  RETURN consolidate(contracts, not_delivered) + { not_delivered, degraded, informational, fallback: [r.fallback FOR r IN reports IF r.fallback] }   # consolidation is handed the list it marks UNVERIFIED by (§ CONSOLIDATION PROTOCOL step 4); the undelivered scopes, the degradation and the falls travel with the sweep's report
 ```
 
 ### Canonical starter scopes
@@ -193,7 +195,7 @@ After all scope sub-agents complete:
 3. **Group by defect class** — show DC-N header with finding count
 4. **Mark CLEAN or UNVERIFIED** — for each DC with zero findings, explicitly mark `DC-N: CLEAN`; every DC of a scope in `not_delivered` is marked `DC-N: UNVERIFIED (scope {scope} not delivered)` — never CLEAN (EVOL-058/059: an undelivered critic is never a clean review). A non-empty `not_delivered` keeps the PREVENTIVE-SWEEP issue out of Done and the artefact at `status: IN_PROGRESS` until the scope is re-run and delivers.
 5. **Present to user BEFORE touching code** — the user approves the fix plan
-6. **Save report artifact** at `docs/spec/{{FEATURE_ID}}/review/preventive_sweep_{{YYYYMMDD}}.md`
+6. **Save report artifact** at `docs/spec/{{FEATURE_ID}}/review/preventive_sweep_{{YYYYMMDD}}.md` — with § Critic returns (every scope critic's return verbatim, one `### <scope> · round N` heading each; the appendix lives there) and `informational:` in the frontmatter (EVOL-060)
 7. **On user approval:**
    - Apply fixes in priority batches: P0 (BLOCKER) → P1 (HIGH) → P2 (MEDIUM)
    - One commit per priority group
@@ -256,7 +258,7 @@ fallback: []                           # every fall: {alias, id, delivered}
 <!-- one row per DC of a scope in not_delivered — never under Clean Areas (EVOL-059) -->
 
 ## Critic returns
-<!-- every scope critic's return VERBATIM, one `## <scope> · round N` heading each — the appendix (`## Informational`) lives here, never adjudicated (EVOL-060) -->
+<!-- every scope critic's return VERBATIM, one `### <scope> · round N` heading each — the appendix (`## Informational`) lives here, never adjudicated (EVOL-060) -->
 
 ## Framework Observations
 {{Any patterns that suggest a new DC or a gate improvement}}

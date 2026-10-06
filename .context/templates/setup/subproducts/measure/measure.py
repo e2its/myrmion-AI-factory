@@ -485,6 +485,7 @@ def check_return(repo: Path, cls: str, text: str) -> str:
     return "parsed" if r.returncode == 0 else ("refused" if r.returncode == 1 else "unchecked")
 
 
+GOV_HEADING_RE = re.compile(r"^\s*##\s*Governance\b.*$", re.M)
 INFO_HEADING_RE = re.compile(r"^\s*##\s*Informational\b.*$", re.M)
 INFO_LINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?Informational:(?:\*\*)?\s*(\d+)\s*$", re.M)
 INFO_INLINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?[^\s*`]+:\d+(?:\*\*)?\s*·\s*🟢\s*·", re.M)   # the legacy shape: a 🟢 finding line inline
@@ -493,10 +494,11 @@ INFO_INLINE_RE = re.compile(r"^\s*(?:[-*]\s+)?(?:\*\*)?[^\s*`]+:\d+(?:\*\*)?\s*�
 def split_return(text: str) -> tuple[str, int]:
     """The contract part of a return (before `## Informational`, which follows the governance block) and the count the
     governance line states — the same convention the project's return reader holds (EVOL-060); 0 when the line is absent."""
-    gov = text.find("## Governance")
-    m = INFO_HEADING_RE.search(text, gov if gov >= 0 else 0)
+    g = GOV_HEADING_RE.search(text)
+    m = INFO_HEADING_RE.search(text, g.start() if g else 0)
     contract = text[:m.start()] if m else text
-    n = INFO_LINE_RE.search(contract.rsplit("## Governance", 1)[-1] if "## Governance" in contract else "")
+    gb = GOV_HEADING_RE.search(contract)
+    n = INFO_LINE_RE.search(contract[gb.start():] if gb else "")
     if n:
         return contract, int(n.group(1))
     return contract, len(INFO_INLINE_RE.findall(contract))   # a return from before EVOL-060 carries its informational findings inline: counted where they are, so the before window is never a false zero
@@ -1222,9 +1224,10 @@ def selftest() -> int:
         expect(split_return("no findings\n## Governance\nModel: m\n") == ("no findings\n## Governance\nModel: m\n", 0), "a return without the appendix is all contract, count 0")
         expect(split_return("src/a.py:1 · 🔴 · confidence 90% · probe: x\nsrc/b.py:2 · 🟢 · confidence 80% · probe: y\n## Governance\nModel: m\n")[1] == 1, "a legacy return (no Informational: line) counts its inline 🟢 lines — the before window is never a false zero")
         expect(split_return("## Governance\nSources: see ## Informational note\nModel: m\n")[0].endswith("Model: m\n"), "a phrase that mentions the heading inside a line never opens the appendix")
+        expect(split_return("no findings\n## Governance\nSources: read the `## Governance` heading\nInformational: 2\nModel: m\n## Informational\na:1 · 🟢 · c\nb:2 · 🟢 · c\n")[1] == 2, "the governance block is its heading line: a mention inside a line never moves the count")
         expect(rt["informational"] == 6 and rt["by_class"]["work-critic"]["informational"] == 5 and rt["by_class"]["worker"]["informational"] == 1, "the informational count per class is the sum of the governance lines")
         appendix = len(PARSED_RETURN.strip()[PARSED_RETURN.strip().index("## Informational"):].encode("utf-8"))
-        expect(0 <= (rt["by_class"]["work-critic"]["bytes"] - rt["by_class"]["work-critic"]["bytes_adjudicated"]) - 5 * appendix <= 5, "the adjudicated bytes are the whole return minus the appendix, per class (five returns carry it; a trailing newline per channel at most)")
+        expect((rt["by_class"]["work-critic"]["bytes"] - rt["by_class"]["work-critic"]["bytes_adjudicated"]) - 5 * appendix == 1, "the adjudicated bytes are the whole return minus the appendix, per class (five returns carry it; the direct channel's text keeps its trailing newline)")
         expect("| class | owed | parsed | refused | unchecked | uncollected | bytes | adjudicated | informational |" in md and "bytes per return" in md, "the returns table renders the EVOL-060 columns")
         expect(rt["avg_bytes"] is not None and rt["avg_bytes_adjudicated"] is not None and rt["avg_bytes_adjudicated"] < rt["avg_bytes"] and rt["informational"] >= 1, "bytes per return against bytes adjudicated, the informational count — the signals")
         expect("returns.avg_bytes_adjudicated" in compare(r, r) and "critics.orchestrator_tokens_out_per_round" in compare(r, r), "the EVOL-060 signals are in the before/after table")

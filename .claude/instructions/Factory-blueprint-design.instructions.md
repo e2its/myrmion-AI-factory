@@ -51,6 +51,7 @@ FUNCTION plan_gate(FEATURE_ID):
       #                  model = fb.model; IF NOT fb.separation: the round's findings go to the user's adjudication (the critic ran on the writer's family)
     after  = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope}")
     IF before != after: REFUSE "working tree moved around a critic run" — the round is void
+    APPEND("docs/spec/{ID}/review/plan_critic_{timestamp}.md", report VERBATIM under `### factory-plan-critic · round {round}`)   # EVOL-060: the appendix's home at the plan gate — written after the round's `after` hash (never inside the certified window); the file carries no gate
     IF RUN("python3 scripts/gate.py agents --check-return --class plan-critic", report) refuses:
       re-spawn ONCE; refused again ⇒ every finding of the round is ❓
     open = report.findings WHERE severity > 🟢

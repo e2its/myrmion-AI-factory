@@ -1270,6 +1270,9 @@ class Agents(unittest.TestCase):
             self.assertEqual(agents.check_return(mention, "work-critic"), [], "an appendix line that mentions the governance heading never moves the block")
             self.assertEqual(agents.return_model(mention), "claude-y-critic", "the Model: line is the contract part's, whatever the appendix says")
             self.assertEqual(agents.return_model(two_part + "Model: evil-id\n"), "claude-y-critic", "a Model: line in the appendix is never read")
+            headless = "src/a.py:12 · 🔴 · confidence 90% · probe: ran pytest -k a\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\n## Informational\nInformational: 1\nModel: evil-id\nsrc/b.py:3 · 🟢 · confidence 85% · probe: read\n"
+            self.assertEqual(agents.return_model(headless), "unknown", "the governance block ends where the appendix begins: a Model: line placed in the appendix is never the lens's id")
+            self.assertTrue(any("no `Model:` line" in q for q in agents.check_return(headless, "work-critic")) and any("no `Informational: N` line" in q for q in agents.check_return(headless, "work-critic")), "both lines are owed in the block, never in the appendix")
             self.assertEqual(agents.split_return("no findings\n## Governance\nSources: see ## Informational note\nModel: m\n")[1], "", "the heading is a line of its own: a phrase inside a governance line never opens the appendix")
             before = "## Informational\nsrc/b.py:3 · 🟢 · confidence 85% · probe: read\n" + critic_ok.replace("Informational: 0", "Informational: 1")
             self.assertEqual(agents.split_return(before)[1], "", "an `## Informational` before the governance block opens nothing")
@@ -1280,6 +1283,10 @@ class Agents(unittest.TestCase):
             self.assertTrue(any("informational finding without an executed probe" in p for p in agents.check_return(two_part.replace("probe: read (DC-29)", "probe: n/a"), "work-critic")), "an appendix line is held like any finding")
             write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES)   # the judge needs every lens's agent in the roster
             self.assertEqual(canary.judge(repo, "security", "src/orders/repo.py:9 · 🔴 · confidence 95% · probe: read\nsrc/orders/repo.py:23 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 1\nModel: m\n## Informational\nsrc/orders/api.py:17 · 🟢 · confidence 60% · probe: read\n", "m")["findings"], 2, "the judge reads the contract part: an appendix line is never a finding")
+            hidden = "src/orders/repo.py:9 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 0\nModel: m\n## Informational\nsrc/orders/repo.py:23 · 🔴 · confidence 95% · probe: read\n"
+            r = canary.judge(repo, "security", hidden, "m"); self.assertEqual((r["missed"], r["findings"]), (["s2"], 1), "a planted defect reported in the appendix is never credited — the judge reads the contract part")
+            with self.assertRaisesRegex(GateFault, "no finding in the contract shape"):
+                canary.judge(repo, "security", "## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 1\nModel: m\n## Informational\nsrc/orders/api.py:17 · 🟢 · confidence 60% · probe: read\n", "m")   # an appendix-only return has no contract part to judge
             (repo / ".claude/state/canary.json").unlink(); write(repo / ".claude/rules/agents.md", RULE_AGENTS)
             self.assertEqual(agents.check_return(critic_ok, "work-critic"), [])
             # EVOL-059: a critic names its model; the placeholder is not an id; a worker owes none
