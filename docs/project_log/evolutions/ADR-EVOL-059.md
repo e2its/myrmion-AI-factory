@@ -23,6 +23,9 @@ Execution delegated by the user (2026-10-06); agent-internal choices under the r
 <!-- RDR-1: ¿Qué hacemos con el canary tras salir verde en el peldaño más bajo? → A -->
 - **RDR-1 (2026-10-06, ratified: "A").** The lowest-rung run came back green and the recast is accepted: the canary measures **drift** — a lens that stops finding what it found — not the distance between families; the red is proven mechanically (a missed planted defect, the tolerance window, an inconsistent fixture refused) and the empirical outcome is recorded as it is. Hardening the fixture is the adopting project's call when its first red arrives.
 
+<!-- RDR-2: ¿Qué familia corre las lentes (los críticos)? → B -->
+- **RDR-2 (2026-10-06, ratified: "B").** The critics (every lens, the plan critic, the reader) move to the reading tier and the writers (the phase agents, the workers) to the strongest tier: `config/quality.json → agents.families` becomes `writer: opus`, `critic: sonnet`. The separation stays by construction (two distinct aliases; the validator and the ladder unchanged). Why: the cost sits where the spawns are many (the critics: thirteen rounds × three lenses on this evolution against four writer spawns) and the canary showed the reading tier finds the planted defects; what it costs: every phase and worker runs on the strongest tier. The SETUP recommendation (Q34) follows. Every lens is owed a canary on its next spawn (the id moved).
+
 Risk: the harness tells an agent its model id in its own words; a harness that does not makes the `Model:` line `unknown` and the plan owes the lens on every round until it does — said in the rule.
 
 ## Consequences

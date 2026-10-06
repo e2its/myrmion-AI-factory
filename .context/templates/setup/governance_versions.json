@@ -1087,10 +1087,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.13.0",
+      "version": "1.13.1",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.13.1: fix(EVOL-059) — agents.families: writer opus, critic sonnet (RDR-2 of ADR-EVOL-059).",
         "1.13.0: feat(EVOL-057) — verification.logs: the push log, the gate timings and the rotation size, inside seal.dir — what the instrument reads, never a gate input.",
         "1.12.0: feat(EVOL-054) — scm block (GitHub, main, the two governance checks, 0 approvals) — the framework repo's own protection, applied 2026-09-25",
         "1.11.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
@@ -3131,9 +3132,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.22.0",
+      "version": "2.22.1",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.22.1: fix(EVOL-059) — Q34 recommends writer: opus · critic: sonnet (RDR-2 of ADR-EVOL-059: the cost sits where the spawns are many).",
         "2.22.0: feat(EVOL-054) — Q21 gains Bitbucket Pipelines / Azure DevOps / GCP Cloud Build (the literals the workflow conditionals name); Q21.2 the SCM host, approvals and required checks, in the tier-2 question list.",
         "2.21.1: feat(EVOL-053) — derived, no question: verification.gates and traceability.home come from the stack",
         "2.21.0: feat(EVOL-049)! — Q34 model families — writers and critics on different families.",
@@ -4662,11 +4664,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.11.0",
+      "version": "1.11.1",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.11.1: fix(EVOL-059) — agents.families: writer opus, critic sonnet (RDR-2 of ADR-EVOL-059).",
         "1.11.0: feat(EVOL-057) — verification.logs (push-log.jsonl, gate-timings.jsonl, max_kb) in the framework repo's own config: every push here leaves its record too.",
         "1.10.0: feat(EVOL-054) — scm block (GitHub, main, the two governance checks, 0 approvals) — the framework repo's own protection, applied 2026-09-25",
         "1.9.0: feat(EVOL-053) — traceability block (not required in the framework repo: no test plans; its tests are the T2 suites); verification.digest_artefacts defaults to design.md (dev_plan.md judged only when a project lists it — ADR-EVOL-051 review decision, the shipped list lagged)",
