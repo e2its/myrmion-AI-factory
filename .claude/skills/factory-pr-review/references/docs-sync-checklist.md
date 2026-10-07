@@ -54,6 +54,35 @@ Drives Hard Block 11 (governance-bump miss).
 | New tracked template under `.context/templates/**` | new manifest entry at `1.0.0` | **Blocker** |
 | Workflow YAML under `.github/workflows/**` | full PR + CI flow; a hard exclusion of the runtime surface (`surface.always_deploy`) — the machinery always runs | **Blocker** if the review lanes were skipped |
 
+### Framework Editor Invariants (lock-step)
+
+Moved verbatim from the project `CLAUDE.md` template (EVOL-064) — they address an editor of this repository, never a project. "Above" in each block means its origin: the scope taxonomy (project `CLAUDE.md` § Project Scope & Feature Scope Taxonomy; detail in `Factory-codesign-feature.instructions.md` § Scope taxonomy (dual-axis)) and the vertical slicing body (`.context/templates/setup/rules/vertical-slicing.md`).
+
+#### From § Project Scope & Feature Scope Taxonomy (dual-axis)
+
+Only relevant if editing the framework repo itself. The enum, matrix, and artefact impact above are load-bearing — breaking any of them requires synchronized edits and a MAJOR bump. Source-of-truth files:
+
+- **Enum literal values** (`full-stack | backend-only | frontend-only | integration`) → `setup_master_template.md § 0.1`, `spec.feature` / `design.md` / `user_journey.md` frontmatter schemas. Keep `integration` as semantic alias of `backend-only` for compatibility checks.
+- **Compatibility matrix logic** → `Factory-codesign-feature.instructions.md § Scope Compatibility Gate`.
+- **`consumes_contract` primitive** → `Factory-blueprint-design.instructions.md § Consumes-Contract Resolution Gate` + `factory-iteration-model.SKILL.md` cascade on upstream contract change.
+- **Axis separation invariant.** Never conflate `project_scope` and `feature.scope` in agent code — the compatibility matrix exists specifically to cross-check them.
+
+#### From § Incremental Dev Plan (Vertical Slicing)
+
+Only relevant if editing the framework repo itself. The strategy, thresholds, lifecycle, task-tag regex, deployability, cascade scope, and CVP catalogue above are load-bearing — breaking any of them requires synchronized edits and a MAJOR bump. Source-of-truth files:
+
+- **Trivial-Heuristic thresholds** (`scenarios ≤ 2` AND `contract_operations ≤ 3` AND `scope ≠ full-stack`) → (a) `architect/increment_plan_template.md § 3`, (b) `Factory-blueprint-design.instructions.md § Increment Plan Generation § Step A`, (c) `Factory-coherence-validation/SKILL.md` CVP Check 16 `monolithic_heuristic`, (d) `immutability_policy.md § Per-Increment Immutability § Slicing-Strategy Flip`.
+- **Per-increment status enum** (`DRAFT → READY → BUILDING → MERGED` + `{DRAFT,READY} → INVALIDATED → DRAFT`) → (a) `increment_plan_template.md § 1` + § Per-Increment Status Lifecycle, (b) `immutability_policy.md § Per-Increment Immutability` (lock table), (c) `factory-branching-strategy.SKILL.md § Per-Increment Branching`, (d) `factory-iteration-model.SKILL.md § CASCADE_INCREMENT_INTERNAL`.
+- **Task-tag regex** (`^\[INC-(\d+)\.([ABC]|ACC)\.(\d+)\]` / `^\[([ABC])\.(\d+)\]`) → `Factory-implement-plan.instructions.md § Output`. Downstream consumers: CVP Check 17, BVL task matching, QA coverage parsing.
+- **CVP catalogue IDs** (`0a, 0c, 0d, 1, 2, 13-20` with severities — `0d/18/19/20` are the EVOL-036 slice checks) → `Factory-coherence-validation/SKILL.md`. Renumbering is a breaking contract.
+- **Two-stage slicing authority** (CODESIGN owns capability-VALUE `slice_map.md`; BLUEPRINT REFINES into `increment_plan.md` via `cascade_source: SLICE-{FEAT}-N`, no slice invention) → (a) `codesign/slice_map_template.md`, (b) `Factory-codesign-feature.instructions.md § Slice Map Generation`, (c) `Factory-blueprint-design.instructions.md § Increment Plan Generation § Step A0/B`, (d) CVP Checks 0d/18/19/20.
+- **Per-slice freeze partition** (a slice has no scalar status; `merged_scenarios = ⋃ scenarios of its MERGED increments`; re-slice touching a merged scenario blocked pre-persist) → (a) `factory-iteration-model.SKILL.md § Slice Freeze Derivation`, (b) `immutability_policy.md § Per-Slice Immutability`.
+- **Hard invariants** (never relax without explicit user ratification):
+  - NEVER fold `increment_plan.md` into `design.md` — the sidecar separation is deliberate.
+  - NEVER allow `flagged_off` / `experimental` as deployability values — flagged rollouts go as follow-up increments.
+  - NEVER merge or reorder the cascade functions (`CASCADE_PENDING_ITERATION`, `CASCADE_SLICE_PEERS`, `CASCADE_SLICE_INTERNAL`, `CASCADE_INCREMENT_INTERNAL` stay orthogonal despite name collisions; `CASCADE_SLICE_INTERNAL` ≠ `CASCADE_SLICE_PEERS` — vertical intra-feature vs horizontal cross-feature).
+  - NEVER invalidate a MERGED increment — cascade to a follow-up via the Follow-up Increment Rule.
+
 ## Automatic detection
 
 `scripts/check_docs_sync.py` applies basic heuristics:

@@ -575,6 +575,23 @@ FUNCTION scope_compatibility_gate(FEATURE_ID, requested_scope):
 
 The resolved `feature_scope` is written to `spec.feature` and `user_journey.md` (single file, all scopes), and — after BLUEPRINT `--start` — to `design.md` and `test_plan.md`. It is immutable after auto-approval.
 
+#### Scope taxonomy (dual-axis)
+
+> Moved verbatim from `CLAUDE.md` § Project Scope & Feature Scope Taxonomy (EVOL-064); `CLAUDE.md` keeps the enum and the compatibility matrix (INVARIANT 5 reads them every command).
+
+Two orthogonal scope axes govern what artefacts apply to what work:
+
+| Axis | Lives in | Set at | Drives |
+|------|----------|--------|--------|
+| **Project scope** | `docs/setup.md` (`project_scope` field) + governance snapshot | `/setup --init` (once per project) | Materialisation conditionals, discovery questions, template tree availability, CODESIGN `--vision` guard |
+| **Feature scope** | `spec.feature` frontmatter (`scope` field) per feature | `/codesign --start --scope=...` (per feature; defaults to project scope) | Per-feature agent behaviour, auto-approval N/A paths, DC filtering, artefact presence (mock.html only for UI scopes) |
+
+Enum: `full-stack | backend-only | frontend-only | integration`. `integration` is the semantic alias of `backend-only` emphasising third-party adapters (webhooks, payment gateways, SaaS connectors).
+
+**Cross-feature contracts.** `spec.feature.consumes_contract: [FEAT-XXX, ...]` declares upstream frozen-contract dependencies. BLUEPRINT `--start` runs a Consumes-Contract Resolution Gate that BLOCKS when any referenced upstream is not at least APPROVED with a contract file under `contracts/**`. Iteration Model adds the upstream→downstream cascade on upstream contract change (CASCADE_PENDING_ITERATION propagates to every feature that consumes the contract).
+
+**Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is generated for ALL scopes from the single journey-first template (backend personas = business callers; `Mock Action: —`; reliability as § 8 business guarantees, formalised in `design.md § 6`). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks the 6 mock-dependent CHECKs (2/5/6/8/10/11) as N/A.
+
 ### Vision Gate (UI Features — scope-aware)
 Runs ONLY when `feature_scope IN [full-stack, frontend-only]` AND `frontend.framework != "None"`:
 - **BLOCKS** if `docs/ux/vision/vision.md` does not exist or is not `status: APPROVED`

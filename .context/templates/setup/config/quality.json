@@ -53,13 +53,14 @@
     "install_hint": "{{SECURITY_SCANNER_INSTALL_HINT}}"
   },
   "budgets": {
-    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the changelog. prompt_submit ≥ snapshot + the reload wrapper + the stale warning (the worst case forces both).",
+    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the changelog. prompt_submit ≥ snapshot + the reload wrapper + the stale warning (the worst case forces both). claude_md_advisory (EVOL-064) is optional and advisory: the project CLAUDE.md (the template where it exists) re-read every turn — over it warns, never blocks.",
     "session_start": 2000,
     "prompt_submit": 20000,
     "pre_edit": 6000,
     "snapshot": 16000,
     "law_sentence_max_chars": 240,
-    "dc_invariant_max_chars": 160
+    "dc_invariant_max_chars": 160,
+    "claude_md_advisory": 28000
   },
   "agents": {
     "_doc": "EVOL-049: the two model FAMILIES as harness aliases (never pinned ids; SETUP Q34) — writers and critics on different families by construction (gate.py agents refuses equal aliases). The class policy, the roster and the per-spawn resolution live in .claude/rules/agents.md.",

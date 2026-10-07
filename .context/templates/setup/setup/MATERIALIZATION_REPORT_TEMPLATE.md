@@ -72,6 +72,7 @@
 - [ ] Generate .claude/rules/ai_budget_tracker.md
 - [ ] Generate .claude/rules/protected-code.md
 - [ ] Generate .claude/rules/immutability_policy.md
+- [ ] Generate .claude/rules/vertical-slicing.md
 - [ ] Generate .claude/rules/review-policy.md
 - [ ] Generate .claude/rules/ux-constitution.md (if frontend configured)
 - [ ] Process Brand Identity tokens in ux-constitution.md Section I.1 (if frontend configured)

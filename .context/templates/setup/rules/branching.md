@@ -3,7 +3,7 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.8.0
+version: 2.9.0
 date: 2026-09-25
 changelog:
   - "2.8.0: feat(EVOL-054) — § Server-side protection; the [PLAW-11] mandate names the server side (the runbook docs/scm/protection.md, gate.py scm-protection at ci)."
@@ -158,6 +158,28 @@ Ref: USR-001
 ## Server-side protection (EVOL-054)
 
 The hooks defend this rule **locally** (the PreToolUse hook refuses a write on a protected branch, `pre-commit` classifies the branch, `pre-push` runs the gate profile). The **server** defends it per `docs/scm/protection.md` — the runbook SETUP materialised for the project's SCM host (`config/quality.json → scm.platform`): pull request required, the governance check(s) required (`scm.required_checks`), no force-push, no deletion, approvals as the project decided (`scm.approvals`). `python3 scripts/gate.py scm-protection` — a member of the gate profile at the `ci` control point — asks the platform's API with a read-only token and is RED on a missing setting; without a token, or on a host with no adapter, it is n/a with the checklist, which a repository administrator ticks and keeps. A project whose server does not defend the rule is running on prose: a clone without hooks, a `git push --no-verify` or a web edit reaches the protected branch with no pull request and no CI.
+
+## Control points and gate profiles (EVOL-046)
+
+> Moved verbatim from `CLAUDE.md` § Workflow (EVOL-064).
+
+No gate is optional — it changes its control point. One key, `delivery_mode` in `docs/project_log/governance_versions.json` (SETUP Q32; `development` | `production`), read by one definition — `python3 scripts/gate.py profile` — that fails closed: an absent key, an unknown value or an unreadable manifest is `production`, and no environment variable overrides it. The profile is derived from the mode and the branch class (`gate.py branch-class`): **light** only for a sub-increment pushed to its train in development mode (and always for the **static round** before the critics, `--control-point static`, whatever the class or the mode — EVOL-051); **full** for everything else. Members are enumerated by property in `scripts/gates/profile.py` (needs build · needs database · owner); `gate.py profile --run` runs every script member with all-report semantics and one verdict; `gate.py one-definition` proves that no hook, workflow or preflight keeps its own branch list or manifest read. Return to production mode: set `delivery_mode: production` in the manifest in one commit. **Every push and every loop execution leaves its record (EVOL-057):** the pre-push hook's exit trap writes the push's line (profile, base, mode, class, start, end, exit) through `gate.py push-log`; the loop's executor `gate.py seal --run` runs the plan's executions, times each and writes the per-gate timing beside the seal (`config/quality.json → verification.logs`); the measurement subproduct reads both, no gate does.
+
+| Control point | `development` | `production` | Seal |
+| --- | --- | --- | --- |
+| static round (before the critics, EVOL-051) | the **light** members through `gate.py profile --run --control-point static`, whatever the class or the mode, plus the workers' red-first scoped runs — nothing that needs a build or a database; an incomplete governance digest fails here first | same | none |
+| commit (`pre-commit`) | branch class through the reader; secrets on the staged files | same | none |
+| sub-increment push (to its train) | **light** profile: every member that needs no build and no database — ADR sync, retired terms, budgets, law parity, currency, manifest parity, surface, runtime-surface parity, agents, the seal's state, the planning artefacts' governance digests, the test-case traceability (every declared case linked at its one home, the baseline shrinking), the server-side protection (n/a here — a clone cannot see the server) (and, in the framework repo, manifest drift validation and applicability) — all report, one verdict; secrets per pushed ref; the review and coherence markers | **full** profile | writes none |
+| train close (last sub-increment) | **full**: the light members + the one full verification loop (tests, lint, typecheck, build, format, SAST, complexity, seed alignment — once, on the bytes the commit carries, after the artefacts; EVOL-051) + one deployment when the runtime surface moved | same | the loop's **seal** (`gate.py seal --check`: the read-sets at HEAD) + the push markers |
+| pull request to the main branch (CI) | **full** (the workflow runs `gate.py profile --run`; a sub-increment PR into its train owes light); the only control point that asks the server — `scm-protection` with the CI token (EVOL-054) | full | honours the loop's seal (`seal` member) |
+| main branch itself | no direct commit (reader-classified, fail-closed); every merge arrives through a PR that passed the full profile | same | — |
+| deployment on demand (`DEVOPS --deploy`) | preventive sweep + smoke on the deployed build | same | the smoke verdict (`certifies:`) |
+
+## One planning stage (EVOL-048)
+
+> Moved verbatim from `CLAUDE.md` § Pre-Action Gate (EVOL-064); `CLAUDE.md` keeps the rule in two sentences.
+
+**One planning stage (EVOL-048).** Every change to a governed path is covered by exactly one approved plan — never zero, never two. `config/quality.json → planning` names the governed paths (the runtime code, the rules, the config) and the gate-input carve-out — the documentation exemption is the one definition in `config/quality.json → documentation` (EVOL-051) — (`docs/constitution.md`, `docs/setup.md`, the rules, the config, the manifest are governed whatever their extension), and the exempt branch classes — `feature`, `increment`, `train`, `sub-increment`, `epic`, whose plan CODESIGN, BLUEPRINT and IMPLEMENT `--plan` own. **Every other class is gated** (`fix/*`, `chore/*`, `docs/*`, `breaking/*`, an unrecognised name): `python3 scripts/gate.py plan --path <file>` is the one reader behind the PreToolUse hook `check-plan-approval.sh`, which blocks (exit 2, a humanised reason) a governed write without an approved plan. The approval marker is written only by the harness's plan approval (PostToolUse `ExitPlanMode` → `record-plan-approval.sh`); a plan approved just before the branch is cut is adopted once by the first gated branch, within `planning.adoption_window_minutes`. A command that owns a planning phase never enters plan mode (one stage, never two). The prompt-submit hook warns before the block lands.
 
 ## See Also
 - `docs/constitution.md` — `[PLAW-11]` index entry (this file is its body)

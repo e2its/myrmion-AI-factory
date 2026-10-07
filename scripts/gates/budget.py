@@ -7,6 +7,8 @@ against its worst-case input and measures what it emits. Not the file size — t
   pre_edit       .claude/hooks/deliver-governance.sh on the path that matches the most families and classes
   snapshot       .context/governance_snapshot.md (bytes on disk; n/a where no snapshot exists)
   law_sentence_max_chars / dc_invariant_max_chars  shape budgets, checked over the corpus
+  claude_md_advisory  the project CLAUDE.md (the template where it exists) in bytes — OPTIONAL and ADVISORY (EVOL-064):
+                      over the key is a WARN row that stays ok; no key, no row
 
 A producer that is absent, exits non-zero, or emits nothing (banner, prompt, pre-edit delivery) is a RED row:
 a dead producer is exactly the failure the gate exists to catch. A missing budget key is a red row too.
@@ -125,12 +127,21 @@ def measure(repo: Path) -> dict:
     row("law_sentence_max_chars", max((len(l["sentence"]) for l in allv["universal"] + allv["project"]), default=0),
         "longest law sentence in the index")
     row("dc_invariant_max_chars", max((len(d["invariant"]) for d in cat["dcs"]), default=0), "longest defect-class invariant")
+    if "claude_md_advisory" in budgets:   # EVOL-064: advisory — over the key warns, never blocks; an absent key is no row
+        tpl = repo / ".context/templates/setup/claude/CLAUDE.md"
+        cmd = tpl if tpl.is_file() else repo / "CLAUDE.md"
+        name = str(cmd.relative_to(repo))
+        row("claude_md_advisory", cmd.stat().st_size if cmd.is_file() else None, f"{name} (re-read every turn; advisory)")
+        r = rows["claude_md_advisory"]
+        if r["fault"] is None and r["budget"] is not None:
+            r["ok"] = True
+            r["warn"] = r["bytes"] is not None and r["bytes"] > r["budget"]
     return rows
 
 
 def render(rows: dict) -> str:
     out = ["| injection point | budget | measured | producer | |", "|---|---|---|---|---|"]
     for k, r in rows.items():
-        state = "ok" if r["ok"] else (f"RED — {r['fault']}" if r.get("fault") else ("EMPTY — dead producer" if r["bytes"] == 0 else "OVERFLOW"))
+        state = ("WARN — over the advisory budget (never blocks)" if r.get("warn") else "ok") if r["ok"] else (f"RED — {r['fault']}" if r.get("fault") else ("EMPTY — dead producer" if r["bytes"] == 0 else "OVERFLOW"))
         out.append(f"| {k} | {r['budget'] if r['budget'] is not None else '—'} | {'n/a' if r['bytes'] is None else r['bytes']} | {r['producer']} | {state} |")
     return "\n".join(out)

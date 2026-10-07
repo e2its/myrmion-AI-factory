@@ -368,6 +368,30 @@ class Budget(unittest.TestCase):
             rows = budget.measure(repo)
             self.assertFalse(rows["pre_edit"]["ok"]); self.assertIn("key budgets.pre_edit missing", rows["pre_edit"]["fault"])
 
+    def test_claude_md_advisory_warns_never_blocks(self):
+        """EVOL-064: the project CLAUDE.md (the template where it exists) against budgets.claude_md_advisory —
+        over the key is a WARN row that stays ok; an absent key is no row at all (never red)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            rows = budget.measure(repo)
+            self.assertNotIn("claude_md_advisory", rows, "an absent key is no row — a config that predates it stays green")
+            cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
+            cfg["budgets"]["claude_md_advisory"] = 10
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            rows = budget.measure(repo)
+            r = rows["claude_md_advisory"]
+            self.assertTrue(r["ok"], "advisory: over the key never turns the verdict red")
+            self.assertTrue(r["warn"]); self.assertEqual(r["bytes"], len(CLAUDE_MD.encode()))
+            self.assertIn("WARN", budget.render(rows)); self.assertIn("CLAUDE.md", r["producer"])
+            write(repo / ".context/templates/setup/claude/CLAUDE.md", "x" * 5)
+            r = budget.measure(repo)["claude_md_advisory"]
+            self.assertEqual(r["bytes"], 5, "where the template exists (the framework repo) it is what is measured")
+            self.assertFalse(r["warn"]); self.assertTrue(r["ok"])
+            cfg["budgets"]["claude_md_advisory"] = "big"
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            r = budget.measure(repo)["claude_md_advisory"]
+            self.assertFalse(r["ok"], "a key that is not an integer is a red row, like every other budget key")
+
 
 class Coherence(unittest.TestCase):
     def _repo(self, tmp, branch="feature/F-001-x"):
