@@ -226,7 +226,7 @@ Files that exist in framework but not in project:
   - Add the `hooks.SessionStart`, `hooks.UserPromptSubmit`, `hooks.PreCompact` blocks from the template if absent in target.
   - For `hooks.PreToolUse` and `hooks.PostToolUse`: never remove or reorder user-configured entries; **add** the framework's missing hook commands under their matcher (idempotent) — `Edit|Write`: `check-plan-approval.sh` after `check-branch-protection.sh`, `deliver-governance.sh` last; `EnterPlanMode`: `check-plan-mode.sh`; `PostToolUse` `ExitPlanMode`: `record-plan-approval.sh` (EVOL-048). The `planning` block of `config/quality.json` (JSON additive merge) and these hook entries land in the **same** upgrade step — a wired gate with no `planning` key blocks every write except the one that adds the key.
   - Add the top-level `autoCompactWindow` from the template only if absent in target (EVOL-063 — the compaction window); a value the project set is kept.
-  - NEVER touch `permissions`, `model`, `env`, or any other top-level keys.
+  - NEVER touch `permissions`, `model`, `env`, or any other top-level key (the one exception: `autoCompactWindow` above, added only when absent).
   - Idempotent: re-running `--upgrade` after the first run is a no-op.
 
 ### Step 3b: Post-Merge Script Validation (4.4.3b)
