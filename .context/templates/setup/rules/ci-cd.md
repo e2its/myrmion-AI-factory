@@ -7,8 +7,9 @@ applicable_when:
     - "**/.gitlab-ci.yml"
     - "**/azure-pipelines.yml"
 version: 1.7.0
-date: 2026-09-25
+date: 2026-10-07
 changelog:
+  - "1.7.0: feat(EVOL-064) — § The branch rule and the runtime surface (EVOL-047) moved verbatim from the project CLAUDE.md Generation Standards §3."
   - "1.6.0: feat(EVOL-047) — deploying / release jobs ask gate.py runtime-surface --changed first; the branch rule is untouched."
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "1.1.0: feat(EVOL-043) — hosts [PLAW-12] body (merged from the constitution template)"

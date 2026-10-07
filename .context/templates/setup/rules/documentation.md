@@ -3,8 +3,9 @@ description: "Documentation standards — docstring conventions per language, mi
 applicable_when:
   always: true
 version: 1.1.0
-date: 2026-09-25
+date: 2026-10-07
 changelog:
+  - "1.1.0: feat(EVOL-064) — § Template lookup moved verbatim from the project CLAUDE.md Generation Standards §1."
   - "1.0.0: feat(EVOL-043) — body home of [PLAW-09] Documentation Standards, moved from the constitution template"
 ---
 

@@ -206,7 +206,7 @@
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md",
       "changelog": [
-        "2.9.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)",
+        "2.9.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "2.8.0: feat(EVOL-054) — § Server-side protection; the [PLAW-11] mandate names the server side",
         "2.7.0: feat(EVOL-047) — post-merge actions and the main-branch line qualified by the runtime surface (gate.py runtime-surface --changed).",
         "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments.",
@@ -255,7 +255,7 @@
       "content_type": "stack_configured",
       "target": ".claude/rules/ci-cd.md",
       "changelog": [
-        "1.7.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)",
+        "1.7.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.6.0: feat(EVOL-047) — deploying / release jobs ask gate.py runtime-surface --changed first; the branch rule is untouched.",
         "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.5.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
@@ -948,7 +948,7 @@
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
-        "4.15.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)",
+        "4.15.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "4.14.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
         "4.13.0: feat(EVOL-062) — the Core Protocols row names the context diet: a worker's turn cap with a hand-off, a fresh session per sub-increment, large tool outputs out of the context, every digit a key",
         "4.12.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
@@ -1727,7 +1727,7 @@
       "target": ".claude/rules/documentation.md",
       "role": "Body home of [PLAW-09] Documentation Standards and of universal [LAW-06] Traceability.",
       "changelog": [
-        "1.1.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)",
+        "1.1.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
     },
@@ -1759,11 +1759,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.15.0",
+      "version": "1.16.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.16.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.15.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.13.1: fix(EVOL-060) — the --check-return usage names the Informational: line and the appendix refusals.",
@@ -1823,7 +1824,7 @@
       "target": "scripts/gates/budget.py",
       "role": "gates: injection budgets — runs the real producers (banner, onprompt worst case, pre-edit hook on the worst-case path, snapshot bytes, sentence/invariant lengths) against config/quality.json budgets; missing key or overflow = red.",
       "changelog": [
-        "1.1.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)",
+        "1.1.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.0.0: feat(EVOL-043)! — initial."
       ],
       "delivery": "both"
@@ -1844,7 +1845,7 @@
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
-        "1.20.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)",
+        "1.20.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.19.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.18.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.17.0: fix(EVOL-060) — round-2 pins that discriminate: the appendix's Model:/Informational: lines never read as the block's; a planted defect in the appendix never credited; an appendix-only return has no contract part.",
@@ -1892,12 +1893,13 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override).",
       "changelog": [
+        "1.6.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.5.0: feat(EVOL-054) — member scm-protection (light; verifies at ci, n/a at push and static)",
         "1.4.0: fix(EVOL-053) — member traceability (light); n/a rendering for a member switched off by config",
         "1.3.0: feat(EVOL-051) — members seal and digests (light); control point static = the light members whatever the class or the mode; {control_point} runner token",
@@ -4890,11 +4892,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.15.0",
+      "version": "1.16.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.16.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.15.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.13.1: fix(EVOL-060) — the --check-return usage names the Informational: line and the appendix refusals.",
@@ -4950,7 +4953,7 @@
       "role": "gates: injection budgets — runs the real producers (banner, onprompt worst case, pre-edit hook on the worst-case path, snapshot bytes, sentence/invariant lengths) against config/quality.json budgets; missing key or overflow = red. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/budget.py",
       "changelog": [
-        "1.1.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)",
+        "1.1.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
     },
@@ -4969,7 +4972,7 @@
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
-        "1.20.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)",
+        "1.20.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.19.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.18.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.17.0: fix(EVOL-060) — round-2 pins that discriminate: the appendix's Model:/Informational: lines never read as the block's; a planted defect in the appendix never credited; an appendix-only return has no contract part.",
@@ -5000,7 +5003,7 @@
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
-        "1.20.0: feat(EVOL-064) — the synthetic materialisation asserts rules/vertical-slicing.md lands and applies to an increment plan",
+        "1.20.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.19.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
         "1.18.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.17.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
@@ -5069,11 +5072,12 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py",
       "changelog": [
+        "1.6.0: fix(EVOL-064) round-1 cures — the advisory measures a project its own CLAUDE.md (the template only in the framework repo); the warning reaches the verdict line and the profile board; the synthetic assertion reads the resolver JSON; the subproducts enumeration restored",
         "1.5.0: feat(EVOL-054) — member scm-protection (light; verifies at ci, n/a at push and static)",
         "1.4.0: feat(EVOL-053) — member traceability (light: static round, push, CI)",
         "1.3.0: feat(EVOL-051) — members seal and digests (light); control point static = the light members whatever the class or the mode; {control_point} runner token",

@@ -42,7 +42,7 @@ Before touching any code on a materialised project, the BACKLOG tool-adapter (if
 Governance loaded: constitution {hash8}, setup {hash8} | SDLC-first triage: ON
 ```
 
-Produced by `scripts/validate-governance.sh --banner` (`SessionStart` hook). No banner = governance not loaded — investigate before proceeding. A stale snapshot raises an advisory `<governance-warning reason="snapshot-stale">`; fix: `/setup --upgrade` or factory-governance-loading SKILL § Step 1 POST-LOAD. Hook tiers: [Factory-governance-loading/SKILL.md](.claude/skills/factory-governance-loading/SKILL.md) § Always-On Enforcement (tier 5 = law at the point of edit, `deliver-governance.sh`).
+Produced by `scripts/validate-governance.sh --banner` (`SessionStart` hook). No banner = governance not loaded — investigate before proceeding. A stale snapshot raises an advisory `<governance-warning reason="snapshot-stale">` (the prompt and edit hooks always exit 0); fix: `/setup --upgrade` or factory-governance-loading SKILL § Step 1 POST-LOAD. Hook tiers: [Factory-governance-loading/SKILL.md](.claude/skills/factory-governance-loading/SKILL.md) § Always-On Enforcement (tier 5 = law at the point of edit, `deliver-governance.sh`).
 
 ## SDLC-First Triage — MANDATORY
 
@@ -208,4 +208,4 @@ After every command:
 
 All templates live in `.context/templates/` organized by role (architect, codesign, develop, po, qa, security, setup, ux). Always READ templates before generating — never rewrite from scratch.
 
-`subproducts/` (project root): SETUP-materialised tooling — `po-package`, `measure`, each with its `RUNBOOK.md`. **Imported by nobody** (once product code imports it, it moves out); outside the governed trees, neutral in every gate; manifest entries = upgrade channel only. Run its `--selftest` before trusting its green. **Before/after windows (EVOL-042):** every framework evolution this project adopts is measured here — `subproducts/measure/RUNBOOK.md`.
+`subproducts/` (project root): SETUP-materialised tooling — `po-package`, `measure`, each with its `RUNBOOK.md`. **Imported by nobody** — no product module, no framework module, no test root (once product code imports it, it moves out); outside the governed trees, neutral in every gate (governance, quality, verification loop); manifest entries = upgrade channel only. Run its `--selftest` before trusting its green. **Before/after windows (EVOL-042):** every framework evolution this project adopts is measured here — `subproducts/measure/RUNBOOK.md`.

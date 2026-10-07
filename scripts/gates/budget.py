@@ -22,7 +22,7 @@ import subprocess
 import uuid
 from pathlib import Path
 
-from .common import GateFault, any_glob, key
+from .common import GateFault, any_glob, context, key
 from .corpus import catalog, laws
 
 REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars")
@@ -128,15 +128,25 @@ def measure(repo: Path) -> dict:
         "longest law sentence in the index")
     row("dc_invariant_max_chars", max((len(d["invariant"]) for d in cat["dcs"]), default=0), "longest defect-class invariant")
     if "claude_md_advisory" in budgets:   # EVOL-064: advisory — over the key warns, never blocks; an absent key is no row
-        tpl = repo / ".context/templates/setup/claude/CLAUDE.md"
-        cmd = tpl if tpl.is_file() else repo / "CLAUDE.md"
+        # the framework repo measures the template it ships; a project its own file (a synced template tree is not its CLAUDE.md)
+        cmd = repo / (".context/templates/setup/claude/CLAUDE.md" if context(repo) == "meta" else "CLAUDE.md")
         name = str(cmd.relative_to(repo))
-        row("claude_md_advisory", cmd.stat().st_size if cmd.is_file() else None, f"{name} (re-read every turn; advisory)")
+        row("claude_md_advisory", cmd.stat().st_size if cmd.is_file() else None,
+            f"{name} (re-read every turn; advisory)" if cmd.is_file() else f"{name} (absent — n/a here)")
         r = rows["claude_md_advisory"]
-        if r["fault"] is None and r["budget"] is not None:
+        if r["fault"] is None:
             r["ok"] = True
             r["warn"] = r["bytes"] is not None and r["bytes"] > r["budget"]
     return rows
+
+
+def summary(rows: dict) -> str:
+    """The verdict line `gate.py budget` prints last: a passing run still names every advisory warning (EVOL-064)."""
+    bad = [k for k, r in rows.items() if not r["ok"]]
+    if bad:
+        return f"budget: RED at {', '.join(bad)} — an overflow means shrink the producer or raise the key with its record; an empty emission means the producer is dead."
+    warns = [f"WARN {k} {r['bytes']} > {r['budget']} (advisory, never blocks)" for k, r in rows.items() if r.get("warn")]
+    return " · ".join(["budget: ok — every producer within its key."] + warns)
 
 
 def render(rows: dict) -> str:

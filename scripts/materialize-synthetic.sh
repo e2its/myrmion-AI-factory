@@ -421,8 +421,8 @@ print(' '.join(t for t in scripts if not (os.path.isfile(t) and os.access(t, os.
 OUT=$(cd "$P" && python3 -c "import json; v=json.load(open('.claude/settings.json')).get('autoCompactWindow'); print(type(v).__name__, v)" 2>&1)
 [ "$OUT" = "int 300000" ] && ok "settings.json ships the compaction window (autoCompactWindow 300000)" || bad "autoCompactWindow not shipped" "$OUT"
 # EVOL-064 — the vertical-slicing body left CLAUDE.md: the rule lands and binds where increments are planned
-OUT=$(cd "$P" && python3 scripts/gate.py applicable --paths docs/spec/FEAT-1/increment_plan.md 2>&1)
-[ -f "$P/.claude/rules/vertical-slicing.md" ] && printf '%s' "$OUT" | grep -q 'vertical-slicing.md' && ok "rules/vertical-slicing.md lands and applies to an increment plan" || bad "vertical-slicing rule not delivered or not applicable" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py applicable --paths docs/spec/FEAT-1/increment_plan.md --format json 2>&1 | python3 -c "import json,sys; print(' '.join(r['name'] for r in json.load(sys.stdin)['active']['rules']))" 2>&1)
+[ -f "$P/.claude/rules/vertical-slicing.md" ] && [[ " $OUT " == *" vertical-slicing.md "* ]] && ok "rules/vertical-slicing.md lands and applies to an increment plan" || bad "vertical-slicing rule not delivered or not applicable" "$OUT"
 OUT=$(cd "$P" && bash scripts/validate-governance.sh --banner 2>&1)
 printf '%s' "$OUT" | grep -q 'Governance loaded: constitution' && ok "session banner: $OUT" || bad "banner wrong" "$OUT"
 

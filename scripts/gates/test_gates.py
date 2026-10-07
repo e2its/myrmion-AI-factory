@@ -369,7 +369,7 @@ class Budget(unittest.TestCase):
             self.assertFalse(rows["pre_edit"]["ok"]); self.assertIn("key budgets.pre_edit missing", rows["pre_edit"]["fault"])
 
     def test_claude_md_advisory_warns_never_blocks(self):
-        """EVOL-064: the project CLAUDE.md (the template where it exists) against budgets.claude_md_advisory —
+        """EVOL-064: the project CLAUDE.md (in the framework repo, the template it ships) against budgets.claude_md_advisory —
         over the key is a WARN row that stays ok; an absent key is no row at all (never red)."""
         with tempfile.TemporaryDirectory() as tmp:
             repo = fixture_repo(Path(tmp))
@@ -383,10 +383,28 @@ class Budget(unittest.TestCase):
             self.assertTrue(r["ok"], "advisory: over the key never turns the verdict red")
             self.assertTrue(r["warn"]); self.assertEqual(r["bytes"], len(CLAUDE_MD.encode()))
             self.assertIn("WARN", budget.render(rows)); self.assertIn("CLAUDE.md", r["producer"])
+            self.assertEqual(r["producer"].split()[0], "CLAUDE.md")
             write(repo / ".context/templates/setup/claude/CLAUDE.md", "x" * 5)
             r = budget.measure(repo)["claude_md_advisory"]
-            self.assertEqual(r["bytes"], 5, "where the template exists (the framework repo) it is what is measured")
+            self.assertEqual(r["bytes"], len(CLAUDE_MD.encode()), "a project that holds the synced template tree still measures its own CLAUDE.md")
+            self.assertTrue(r["warn"])
+            self.assertIn("WARN claude_md_advisory", budget.summary({"claude_md_advisory": r}), "the summary line names the warning, so a passing member can carry it")
+            (repo / "CLAUDE.md").unlink()
+            r = budget.measure(repo)["claude_md_advisory"]
+            self.assertIsNone(r["bytes"]); self.assertTrue(r["ok"]); self.assertFalse(r["warn"])
+            self.assertIn("absent", r["producer"])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp), "meta")
+            cfg = json.loads((repo / "config/quality.json").read_text(encoding="utf-8"))
+            cfg["budgets"]["claude_md_advisory"] = 10
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            write(repo / ".context/templates/setup/claude/CLAUDE.md", "x" * 5)
+            r = budget.measure(repo)["claude_md_advisory"]
+            self.assertEqual(r["bytes"], 5, "in the framework repo the template is what is measured")
             self.assertFalse(r["warn"]); self.assertTrue(r["ok"])
+            cfg["budgets"]["claude_md_advisory"] = 5
+            (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
+            self.assertFalse(budget.measure(repo)["claude_md_advisory"]["warn"], "at the key exactly: no warning")
             cfg["budgets"]["claude_md_advisory"] = "big"
             (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
             r = budget.measure(repo)["claude_md_advisory"]
@@ -717,6 +735,20 @@ class Profile(unittest.TestCase):
             self.assertTrue(light < full)
             self.assertFalse(any(m["needs_build"] or m["needs_database"] for m in profile.owed("light")), "light = no build, no database — by property")
             self.assertIn("tests", full - light); self.assertIn("seed-alignment", full - light); self.assertIn("surface", light)
+
+    def test_a_passing_member_that_warns_shows_its_warning(self):
+        """EVOL-064: an advisory row (budget's claude_md_advisory) passes, and the board still says so — never a bare ✓."""
+        rep = {"profile": "full", "reason": "r", "mode_reason": "m", "control_point": "push", "base": "origin/main", "owed_elsewhere": [],
+               "verdict": "ok", "summary": "",
+               "results": [{"member": "budget", "rc": 0, "status": "ok", "warn": "budget: ok — every producer within its key · WARN claude_md_advisory 54470 > 28000 (advisory, never blocks)",
+                            "tail": "x", "output": ""},
+                           {"member": "surface", "rc": 0, "status": "ok", "tail": "surface: ok", "output": ""}]}
+        text = profile.render(rep)
+        self.assertIn("✓ budget — budget: ok — every producer within its key · WARN claude_md_advisory", text)
+        self.assertIn("  ✓ surface\n", text + "\n", "a member without a warning stays a bare ✓")
+        self.assertEqual(profile._warn_line("budget: ok — x · WARN y\n"), "budget: ok — x · WARN y")
+        self.assertIsNone(profile._warn_line("budget: ok — every producer within its key."))
+        self.assertIsNone(profile._warn_line(""))
 
     def test_run_reports_every_member_and_one_verdict(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -4,8 +4,9 @@ applicable_when:
   always: true
 default_base_branch: main
 version: 2.9.0
-date: 2026-09-25
+date: 2026-10-07
 changelog:
+  - "2.9.0: feat(EVOL-064) — § Control points and gate profiles (EVOL-046) and § One planning stage (EVOL-048) moved verbatim from the project CLAUDE.md."
   - "2.8.0: feat(EVOL-054) — § Server-side protection; the [PLAW-11] mandate names the server side (the runbook docs/scm/protection.md, gate.py scm-protection at ci)."
   - "2.7.0: feat(EVOL-047) — post-merge actions and the main-branch line qualified by the runtime surface (gate.py runtime-surface --changed)."
   - "2.6.0: feat(EVOL-045) — frontmatter default_base_branch (read by gate.py diff-base); § Trains and sub-increments."
