@@ -7,7 +7,7 @@ against its worst-case input and measures what it emits. Not the file size — t
   pre_edit       .claude/hooks/deliver-governance.sh on the path that matches the most families and classes
   snapshot       .context/governance_snapshot.md (bytes on disk; n/a where no snapshot exists)
   law_sentence_max_chars / dc_invariant_max_chars  shape budgets, checked over the corpus
-  claude_md_advisory  the project CLAUDE.md (the template where it exists) in bytes — OPTIONAL and ADVISORY (EVOL-064):
+  claude_md_advisory  the CLAUDE.md in bytes (the template in the framework repo, a project's own file elsewhere) — OPTIONAL and ADVISORY (EVOL-064):
                       over the key is a WARN row that stays ok; no key, no row
 
 A producer that is absent, exits non-zero, or emits nothing (banner, prompt, pre-edit delivery) is a RED row:

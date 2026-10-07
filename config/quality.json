@@ -41,7 +41,7 @@
     "install_hint": "brew install gitleaks | apt: see github.com/gitleaks/gitleaks/releases"
   },
   "budgets": {
-    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the changelog. prompt_submit ≥ snapshot + the reload wrapper + the stale warning (the worst case forces both). claude_md_advisory (EVOL-064) is optional and advisory: the project CLAUDE.md (the template where it exists) re-read every turn — over it warns, never blocks.",
+    "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the changelog. prompt_submit ≥ snapshot + the reload wrapper + the stale warning (the worst case forces both). claude_md_advisory (EVOL-064) is optional and advisory: the CLAUDE.md re-read every turn (the template in the framework repo, a project's own file elsewhere) — over it warns, never blocks.",
     "session_start": 2000,
     "prompt_submit": 20000,
     "pre_edit": 6000,

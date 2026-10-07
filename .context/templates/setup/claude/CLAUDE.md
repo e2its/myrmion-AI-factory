@@ -90,7 +90,7 @@ Each `full-sdlc` feature expands into **8 phase issues** on the backlog. Three o
 
 ### Hard Gates
 
-Per gate — what it freezes or scans, the enforcing instruction, its `phase:*` issue nested under IMPLEMENT, `full-sdlc` preset only (Q27.2): [Factory-backlog-operations.instructions.md](.claude/instructions/Factory-backlog-operations.instructions.md) § 1.1.
+Per gate — what it freezes or scans, the enforcing instruction, its `phase:*` issue nested under IMPLEMENT, `full-sdlc` preset only (Q27.2 — `simplified` prototypes and `single` spikes trade safety for velocity intentionally): [Factory-backlog-operations.instructions.md](.claude/instructions/Factory-backlog-operations.instructions.md) § 1.1.
 
 ### Control points and gate profiles (EVOL-046)
 
