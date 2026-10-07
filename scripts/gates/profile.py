@@ -158,6 +158,7 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
         tail = " ".join(ln.strip() for ln in clean.splitlines()[-3:])
         na = rc == 0 and re.match(rf"^{re.escape(name)}: n/a\b", clean)   # a member switched off by config says so on the board, never a plain ✓
         results.append({"member": name, "rc": rc, "status": "n/a" if na else ("ok" if rc == 0 else ("RED" if rc == 1 else "FAULT")), "tail": tail[:400],
+                        "warn": _warn_line(clean) if rc == 0 and not na else None,   # an advisory a passing member names (EVOL-064)
                         "output": "" if rc == 0 else clean[-6000:]})   # a red member keeps its evidence
     red = [r["member"] for r in results if r["rc"] == 1]
     faults = [r["member"] for r in results if r["rc"] not in (0, 1)]
@@ -167,6 +168,12 @@ def run(repo: Path, branch: str | None = None, base: str | None = None, control_
             "verdict": verdict, "summary": " · ".join(parts)}
 
 
+def _warn_line(text: str) -> str | None:
+    """A passing member's verdict line (its last) when it names an advisory warning — shown on the board, never a verdict."""
+    last = text.strip().splitlines()[-1] if text.strip() else ""
+    return last[:400] if re.search(r"\bWARN\b", last) else None
+
+
 def render(rep: dict) -> str:
     lines = [f"profile: {rep['profile']} — {rep['reason']} · {rep['mode_reason']}"]
     if rep.get("base") is None and rep.get("results") == []:
@@ -174,7 +181,7 @@ def render(rep: dict) -> str:
     lines.append(f"  control point {rep['control_point']} · base {rep['base']} · {len(rep['results'])} member(s) ran, every one reports:")
     for r in rep["results"]:
         mark = "·" if r["status"] == "n/a" else ("✓" if r["rc"] == 0 else ("✗" if r["rc"] == 1 else "?"))
-        lines.append(f"  {mark} {r['member']}" + (f" — {r['tail']}" if r["status"] == "n/a" else ("" if r["rc"] == 0 else f" — {r['status']}")))
+        lines.append(f"  {mark} {r['member']}" + (f" — {r['tail']}" if r["status"] == "n/a" else (f" — {r['warn']}" if r.get("warn") else "" if r["rc"] == 0 else f" — {r['status']}")))
         if r["rc"] != 0:
             lines.extend("      " + ln for ln in (r.get("output") or r["tail"]).splitlines() if ln.strip())
     if rep["owed_elsewhere"]:

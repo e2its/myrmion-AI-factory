@@ -164,11 +164,10 @@ def cmd_snapshot_sections(repo, a):
 def cmd_budget(repo, a):
     rows = budget_mod.measure(repo)
     print(budget_mod.render(rows))
-    bad = [k for k, r in rows.items() if not r["ok"]]
-    if bad:
-        print(f"budget: RED at {', '.join(bad)} — an overflow means shrink the producer or raise the key with its record; an empty emission means the producer is dead.", file=sys.stderr)
+    if any(not r["ok"] for r in rows.values()):
+        print(budget_mod.summary(rows), file=sys.stderr)
         return 1
-    print("budget: ok — every producer within its key.")
+    print(budget_mod.summary(rows))
     return 0
 
 

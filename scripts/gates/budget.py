@@ -7,6 +7,8 @@ against its worst-case input and measures what it emits. Not the file size — t
   pre_edit       .claude/hooks/deliver-governance.sh on the path that matches the most families and classes
   snapshot       .context/governance_snapshot.md (bytes on disk; n/a where no snapshot exists)
   law_sentence_max_chars / dc_invariant_max_chars  shape budgets, checked over the corpus
+  claude_md_advisory  the CLAUDE.md in bytes (the template in the framework repo, a project's own file elsewhere) — OPTIONAL and ADVISORY (EVOL-064):
+                      over the key is a WARN row that stays ok; no key, no row
 
 A producer that is absent, exits non-zero, or emits nothing (banner, prompt, pre-edit delivery) is a RED row:
 a dead producer is exactly the failure the gate exists to catch. A missing budget key is a red row too.
@@ -20,7 +22,7 @@ import subprocess
 import uuid
 from pathlib import Path
 
-from .common import GateFault, any_glob, key
+from .common import GateFault, any_glob, context, key
 from .corpus import catalog, laws
 
 REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars")
@@ -125,12 +127,31 @@ def measure(repo: Path) -> dict:
     row("law_sentence_max_chars", max((len(l["sentence"]) for l in allv["universal"] + allv["project"]), default=0),
         "longest law sentence in the index")
     row("dc_invariant_max_chars", max((len(d["invariant"]) for d in cat["dcs"]), default=0), "longest defect-class invariant")
+    if "claude_md_advisory" in budgets:   # EVOL-064: advisory — over the key warns, never blocks; an absent key is no row
+        # the framework repo measures the template it ships; a project its own file (a synced template tree is not its CLAUDE.md)
+        cmd = repo / (".context/templates/setup/claude/CLAUDE.md" if context(repo) == "meta" else "CLAUDE.md")
+        name = str(cmd.relative_to(repo))
+        row("claude_md_advisory", cmd.stat().st_size if cmd.is_file() else None,
+            f"{name} (re-read every turn; advisory)" if cmd.is_file() else f"{name} (absent — n/a here)")
+        r = rows["claude_md_advisory"]
+        if r["fault"] is None:
+            r["ok"] = True
+            r["warn"] = r["bytes"] is not None and r["bytes"] > r["budget"]
     return rows
+
+
+def summary(rows: dict) -> str:
+    """The verdict line `gate.py budget` prints last: a passing run still names every advisory warning (EVOL-064)."""
+    bad = [k for k, r in rows.items() if not r["ok"]]
+    if bad:
+        return f"budget: RED at {', '.join(bad)} — an overflow means shrink the producer or raise the key with its record; an empty emission means the producer is dead."
+    warns = [f"WARN {k} {r['bytes']} > {r['budget']} (advisory, never blocks)" for k, r in rows.items() if r.get("warn")]
+    return " · ".join(["budget: ok — every producer within its key."] + warns)
 
 
 def render(rows: dict) -> str:
     out = ["| injection point | budget | measured | producer | |", "|---|---|---|---|---|"]
     for k, r in rows.items():
-        state = "ok" if r["ok"] else (f"RED — {r['fault']}" if r.get("fault") else ("EMPTY — dead producer" if r["bytes"] == 0 else "OVERFLOW"))
+        state = ("WARN — over the advisory budget (never blocks)" if r.get("warn") else "ok") if r["ok"] else (f"RED — {r['fault']}" if r.get("fault") else ("EMPTY — dead producer" if r["bytes"] == 0 else "OVERFLOW"))
         out.append(f"| {k} | {r['budget'] if r['budget'] is not None else '—'} | {'n/a' if r['bytes'] is None else r['bytes']} | {r['producer']} | {state} |")
     return "\n".join(out)

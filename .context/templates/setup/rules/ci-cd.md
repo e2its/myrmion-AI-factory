@@ -6,9 +6,10 @@ applicable_when:
     - "**/Jenkinsfile"
     - "**/.gitlab-ci.yml"
     - "**/azure-pipelines.yml"
-version: 1.6.0
-date: 2026-09-25
+version: 1.7.0
+date: 2026-10-07
 changelog:
+  - "1.7.0: feat(EVOL-064) — § The branch rule and the runtime surface (EVOL-047) moved verbatim from the project CLAUDE.md Generation Standards §3."
   - "1.6.0: feat(EVOL-047) — deploying / release jobs ask gate.py runtime-surface --changed first; the branch rule is untouched."
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
   - "1.1.0: feat(EVOL-043) — hosts [PLAW-12] body (merged from the constitution template)"
@@ -825,3 +826,14 @@ This prevents accidental tagging on direct pushes (which should be blocked by br
 {{/if}}
 - `scripts/auto-tag.sh` for the universal auto-tag engine
 - `SECURITY_POLICY.md` for security scan configurations
+
+## The branch rule and the runtime surface (EVOL-047)
+
+> Moved verbatim from `CLAUDE.md` § Generation Standards §3 (EVOL-064); `CLAUDE.md` keeps the branch rule and the documentation definition's reader.
+
+**Every change ships via branch and pull request, documentation included.** There is no commit-to-main permit for any class of change; the Pre-Action Gate (`CLAUDE.md` § Pre-Action Gate) applies to a README typo exactly as to a migration. What a change *outside the runtime surface* saves is the **machinery**, never the branch rule — the two concerns are orthogonal:
+
+- **Deploying and release-cutting workflows fire on a positive path list** — `config/quality.json → surface.runtime_surface` (SETUP Q33): what a deployment can actually change. Every such workflow asks `python3 scripts/gate.py runtime-surface --changed` first and skips its machinery when the merge touched nothing on the list. No exclusion list anywhere: a new path defaults to *not deploying* and the parity gate says so.
+- **Hard exclusions that always run regardless of match**, enumerated with their reason in `surface.always_deploy`: workflow definitions (`.github/workflows/**` or the CI platform's equivalent — they execute in CI/CD) and the inputs a deployment-time gate reads (`config/quality.json`, `docs/project_log/governance_versions.json`).
+- **A parity gate holds the list to reality** — `python3 scripts/gate.py runtime-surface` (a member of the gate profile at push, and in CI): every path literal in the deploying jobs and, transitively, in the scripts they run must match the list or a hard exclusion, or be a declared read with a reason (`surface.declared_reads`); a declared read nothing reads any more is a stale exemption and a finding.
+- **Non-deploying machinery reads the one definition of documentation**: the push-gate preflight skips its review lanes when every changed path is documentation — `config/quality.json → documentation` (`paths` minus `exclusions`; here: `**/*.md`, `docs/**`, `.gitignore`; never `.github/workflows/**` nor the `.claude/{instructions,skills,commands,hooks}/**` behavioural contracts, which are never "docs"), asked through `python3 scripts/gate.py documentation --changed --base`, the same call the planning gate and the verification seal make (EVOL-051); no list lives in the preflight. That skip is about review lanes — the branch and the pull request still apply.
