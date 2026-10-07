@@ -417,6 +417,9 @@ import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]
 print(' '.join(t for t in scripts if not (os.path.isfile(t) and os.access(t, os.X_OK))))")
 [ -z "$MISSING" ] && ok "every hook wired in settings.json is delivered and executable" || bad "hooks wired but not delivered/executable: $MISSING"
+# EVOL-063 — the compaction window ships with the settings
+OUT=$(cd "$P" && python3 -c "import json; print(json.load(open('.claude/settings.json')).get('autoCompactWindow'))" 2>&1)
+[ "$OUT" = "300000" ] && ok "settings.json ships the compaction window (autoCompactWindow 300000)" || bad "autoCompactWindow not shipped" "$OUT"
 OUT=$(cd "$P" && bash scripts/validate-governance.sh --banner 2>&1)
 printf '%s' "$OUT" | grep -q 'Governance loaded: constitution' && ok "session banner: $OUT" || bad "banner wrong" "$OUT"
 
