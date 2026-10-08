@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/validate-governance.sh --banner"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash scripts/validate-governance.sh --banner"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/governance-onprompt.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash scripts/governance-onprompt.sh"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/governance-oncompact.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash scripts/governance-oncompact.sh"
           }
         ]
       }
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/session-handoff.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/session-handoff.sh"
           }
         ]
       }
@@ -47,23 +47,23 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-branch-protection.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-branch-protection.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-plan-approval.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-plan-approval.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-concurrency-lock.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-concurrency-lock.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-governance-drift.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-governance-drift.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/deliver-governance.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/deliver-governance.sh"
           }
         ]
       },
@@ -72,11 +72,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-completion-gate.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-completion-gate.sh"
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-ipp-compliance.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-ipp-compliance.sh"
           }
         ]
       },
@@ -85,7 +85,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-push-preflight.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-push-preflight.sh"
           }
         ]
       },
@@ -94,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-plan-mode.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-plan-mode.sh"
           }
         ]
       },
@@ -103,7 +103,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-agent-spawn.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-agent-spawn.sh"
           }
         ]
       }
@@ -114,7 +114,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/governance-onedit.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash scripts/governance-onedit.sh"
           }
         ]
       },
@@ -123,7 +123,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/record-plan-approval.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/record-plan-approval.sh"
           }
         ]
       }

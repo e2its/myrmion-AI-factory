@@ -977,11 +977,16 @@ class Planning(unittest.TestCase):
             for bad, why in (({"hook_event_name": "PostToolUse", "tool_name": "Edit"}, "only from the harness"),
                              ({"tool_name": "ExitPlanMode"}, "only from the harness"),
                              (self._payload(repo, permission_mode="bypassPermissions"), "no human ratified"),
+                             (self._payload(repo, permission_mode="dontAsk"), "no human ratified"),
                              (self._payload(repo, transcript_path=str(repo / "nope.jsonl")), "transcript_path"),
                              (self._payload(repo, tool_use_id="toolu_other"), "not this session's approval")):
                 with self.assertRaisesRegex(GateFault, why):
                     planning.record(repo, bad)
             self.assertFalse(planning.marker_path(repo, "fix/x").exists(), "nothing written by a refused payload")
+            # auto mode still shows the plan dialog to a human; the payload names the mode the session returns to
+            self._on(repo, "fix/auto")
+            self.assertEqual(planning.record(repo, self._payload(repo, permission_mode="auto"))["permission_mode"], "auto", "an approval in auto mode is a human's")
+            self._on(repo, "fix/x")
             m = planning.record(repo, self._payload(repo, permission_mode="default", cwd="/w"))
             self.assertEqual((m["branch"], m["permission_mode"], m["tool_use_id"]), ("fix/x", "default", "toolu_ok")); self.assertTrue(planning.marker_path(repo, "fix/x").is_file())
             a = planning.approval(repo)

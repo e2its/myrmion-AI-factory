@@ -139,9 +139,9 @@ for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/s
 import json, sys
 d = json.load(open(sys.argv[1]))["hooks"]
 def cmds(ev, matcher): return [h["command"] for g in d.get(ev, []) if g.get("matcher") == matcher for h in g["hooks"]]
-assert "bash .claude/hooks/check-plan-approval.sh" in cmds("PreToolUse", "Edit|Write"), "check-plan-approval not wired on Edit|Write"
-assert cmds("PreToolUse", "EnterPlanMode") == ["bash .claude/hooks/check-plan-mode.sh"], "check-plan-mode not wired on EnterPlanMode"
-assert cmds("PostToolUse", "ExitPlanMode") == ["bash .claude/hooks/record-plan-approval.sh"], "record-plan-approval not wired on ExitPlanMode"
+assert 'cd "${CLAUDE_PROJECT_DIR:-.}" && bash .claude/hooks/check-plan-approval.sh' in cmds("PreToolUse", "Edit|Write"), "check-plan-approval not wired on Edit|Write"
+assert cmds("PreToolUse", "EnterPlanMode") == ['cd "${CLAUDE_PROJECT_DIR:-.}" && bash .claude/hooks/check-plan-mode.sh'], "check-plan-mode not wired on EnterPlanMode"
+assert cmds("PostToolUse", "ExitPlanMode") == ['cd "${CLAUDE_PROJECT_DIR:-.}" && bash .claude/hooks/record-plan-approval.sh'], "record-plan-approval not wired on ExitPlanMode"
 PY
   [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json wires the planning hooks on Edit|Write, EnterPlanMode and ExitPlanMode" || bad "planning hooks not wired in $sj"
 done
@@ -174,7 +174,7 @@ for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/s
 import json, sys
 d = json.load(open(sys.argv[1]))["hooks"]
 def cmds(ev, matcher): return [h["command"] for g in d.get(ev, []) if g.get("matcher") == matcher for h in g["hooks"]]
-assert cmds("PreToolUse", "Agent") == ["bash .claude/hooks/check-agent-spawn.sh"], "check-agent-spawn not wired on Agent"
+assert cmds("PreToolUse", "Agent") == ['cd "${CLAUDE_PROJECT_DIR:-.}" && bash .claude/hooks/check-agent-spawn.sh'], "check-agent-spawn not wired on Agent"
 PY
   [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json wires check-agent-spawn on Agent" || bad "spawn hook not wired in $sj"
 done
@@ -198,6 +198,23 @@ run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_pat
 assert_pass "on a working branch: passes"
 run_hook check-branch-protection.sh '{not json'
 assert_pass "malformed payload: passes (the branch is what matters)"
+# the wired command, not the bare script: a session whose cwd sits in a subdirectory (CLI or IDE) must still block.
+# A relative `bash .claude/hooks/x.sh` exits 127 there — a non-blocking error, every guard silently open.
+mkdir -p "$REPO/.claude/hooks" "$REPO/sub"; cp "$HOOKS/check-branch-protection.sh" "$REPO/.claude/hooks/"
+git -C "$REPO" checkout -q main
+CMD=$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]))['hooks'];print(next(h['command'] for g in d['PreToolUse'] for h in g['hooks'] if 'check-branch-protection' in h['command']))" "$ROOT/.context/templates/setup/claude/settings.json")
+(cd "$REPO/sub" && printf '%s' '{"tool_name":"Edit","tool_input":{"file_path":"x"}}' | CLAUDE_PROJECT_DIR="$REPO" bash -c "$CMD" >/dev/null 2>"$SANDBOX/err"); RC=$?
+[ "$RC" -eq 2 ] && grep -qF "BLOCKED: on protected branch" "$SANDBOX/err" && ok "the wired command blocks on main from a subdirectory cwd (exit 2)" || bad "the wired command does not block from a subdirectory cwd (rc=$RC; 127 = script not found, non-blocking)" "$(cat "$SANDBOX/err")"
+git -C "$REPO" checkout -q feature/FEAT-001-x
+for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/settings.json"; do
+  python3 - "$sj" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))["hooks"]
+loose = [h["command"] for ev in d.values() for g in ev for h in g["hooks"] if not h["command"].startswith('cd "${CLAUDE_PROJECT_DIR:-.}" && bash ')]
+assert not loose, f"hook commands not anchored to the project root: {loose}"
+PY
+  [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json: every hook command anchors to the project root" || bad "unanchored hook commands in $sj"
+done
 # a train (EVOL-045): the per-increment branch whose increment plan declares sub-increments takes merges only
 mkdir -p "$REPO/docs/spec/FEAT-001"; printf '### INC-1 — x\n- **Sub-increments:**\n  - SUB-1-1: a · branch feature/FEAT-001-inc-1-x-sub-1\n' > "$REPO/docs/spec/FEAT-001/increment_plan.md"
 git -C "$REPO" checkout -q -b feature/FEAT-001-inc-1-x
@@ -438,7 +455,7 @@ for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/s
   python3 - "$sj" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))["hooks"]
-assert [h["command"] for g in d.get("Stop", []) for h in g["hooks"]] == ["bash .claude/hooks/session-handoff.sh"], "session-handoff not wired on Stop"
+assert [h["command"] for g in d.get("Stop", []) for h in g["hooks"]] == ['cd "${CLAUDE_PROJECT_DIR:-.}" && bash .claude/hooks/session-handoff.sh'], "session-handoff not wired on Stop"
 PY
   [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json wires session-handoff on Stop" || bad "Stop hook not wired in $sj"
 done

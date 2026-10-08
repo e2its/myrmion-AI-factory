@@ -1033,7 +1033,8 @@ Deliverable-generation tooling: imported by no product or framework module, outs
 2. `.context/templates/setup/claude/settings.json` → `.claude/settings.json`
    - `merge-preserve` upgrade strategy: target file holds user-owned content (e.g. `permissions`, `model`, `env`). Merge the framework-owned `hooks` block (SessionStart, UserPromptSubmit, PreCompact, PreToolUse) into the existing file without touching other keys — except the top-level `autoCompactWindow` (EVOL-063), added only if absent; a project value is kept.
    - Fresh `--generate`: write the template as-is.
-   - Idempotent: re-materialisation only adds missing hook entries and an absent `autoCompactWindow`; never removes user-added matchers or commands.
+   - Hook commands anchor to the project root (`cd "${CLAUDE_PROJECT_DIR:-.}" && bash …`): a relative command run from a subdirectory cwd exits 127, a non-blocking error that leaves every guard open. A target entry running the same script in the older, unanchored form is replaced in place with the template's command, never duplicated.
+   - Idempotent: re-materialisation only adds missing hook entries, rewrites unanchored framework hook commands and adds an absent `autoCompactWindow`; never removes user-added matchers or commands.
 
 3. `.context/templates/setup/claude/hooks/*.sh` → `.claude/hooks/*.sh`
    - Copy ALL `.sh` files from the template directory — auto-scan, no hardcoded list.
