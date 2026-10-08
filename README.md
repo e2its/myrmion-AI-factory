@@ -161,7 +161,7 @@ CLAUDE.md                              # root governance, always loaded
 │   ├── check-plan-mode.sh             # a planning command never enters plan mode
 │   ├── record-plan-approval.sh        # the only writer of the approval marker
 │   ├── check-agent-spawn.sh           # a roster agent spawns on its family (EVOL-049)
-│   ├── session-handoff.sh             # a fresh session per sub-increment: the Stop hook records the hand-off, never holds (EVOL-062)
+│   ├── session-handoff.sh             # Stop hook: records hand-off, never holds (EVOL-062)
 │   ├── deliver-governance.sh          # the law of the file being written, at the edit
 │   ├── check-push-preflight.sh        # the push gate (factory-pr-review)
 │   ├── check-concurrency-lock.sh · check-governance-drift.sh
@@ -846,7 +846,7 @@ The governance snapshot covers the "what is loaded" question, but it is a passiv
 
 | Tier | Trigger | Hook | What it does | Failure mode |
 |------|---------|------|--------------|--------------|
-| **1 — Visible** | `SessionStart` | `scripts/validate-governance.sh --banner` | Prints `Governance loaded: constitution {hash8}, setup {hash8} \| SDLC-first triage: ON` on session open. If the snapshot is missing, prints a remediation hint instead. | Non-blocking (informational). |
+| **1 — Visible** | `SessionStart` | `scripts/validate-governance.sh --banner` | Prints `Governance loaded: constitution {hash8}, setup {hash8}, dcs {hash8} \| laws: N, defect families: N \| SDLC-first triage: ON` on session open. If the snapshot is missing, prints a remediation hint instead. | Non-blocking (informational). |
 | **2 — Advisory** | `UserPromptSubmit` | `scripts/governance-onprompt.sh` → `validate-governance.sh --snapshot-freshness` | Per prompt: recomputes MD5 of `docs/constitution.md` + `docs/setup.md`, compares to the snapshot frontmatter. On drift, emits `<governance-warning reason="snapshot-stale">…</governance-warning>` on stdout — the agent regenerates inline (factory-governance-loading SKILL § Step 1 POST-LOAD) or runs `/setup --upgrade`. | Advisory only — never blocks the prompt. Carve-out: prompts starting with `/setup*` bypass the gate. Silent no-op when the project is not yet initialized. |
 | **3 — Attribution** | `PostToolUse Edit\|Write` → `UserPromptSubmit` | `scripts/governance-onedit.sh` writes `.claude/state/governance-source-edited-{session_id}.marker` listing the changed paths; the next `scripts/governance-onprompt.sh` emits `<governance-source-edited paths="...">` with cause attribution + explicit regen instruction, then consumes the marker. Suppresses the tier-2 `<governance-warning>` for that prompt — the agent already knows why the snapshot is stale. | Marker write degrades silently when neither `jq` nor `python3` is available; tier 2 then fires its plain warning instead. |
 | **4 — Resilient** | `PreCompact` → `UserPromptSubmit` | `scripts/governance-oncompact.sh` writes `.claude/state/governance-reload-{session_id}.marker`; the next `scripts/governance-onprompt.sh` emits the snapshot wrapped in `<governance-reload>...</governance-reload>` on stdout, which Claude Code appends to the next turn as additional context, then consumes the marker. | Post-compaction re-injection is lossy if `PreCompact` never fires (some IDE harnesses). Tiers 1 + 2 + 3 still operate. |

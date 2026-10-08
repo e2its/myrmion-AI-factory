@@ -39,7 +39,7 @@ Before touching any code on a materialised project, the BACKLOG tool-adapter (if
 **Session-start confirmation (MANDATORY).** On the first turn of every session, a one-line banner must appear on-screen:
 
 ```
-Governance loaded: constitution {hash8}, setup {hash8} | SDLC-first triage: ON
+Governance loaded: constitution {hash8}, setup {hash8}, dcs {hash8} | laws: N, defect families: N | SDLC-first triage: ON
 ```
 
 Produced by `scripts/validate-governance.sh --banner` (`SessionStart` hook). No banner = governance not loaded — investigate before proceeding. A stale snapshot raises an advisory `<governance-warning reason="snapshot-stale">` (the prompt and edit hooks always exit 0); fix: `/setup --upgrade` or factory-governance-loading SKILL § Step 1 POST-LOAD. Hook tiers: [Factory-governance-loading/SKILL.md](.claude/skills/factory-governance-loading/SKILL.md) § Always-On Enforcement (tier 5 = law at the point of edit, `deliver-governance.sh`).
