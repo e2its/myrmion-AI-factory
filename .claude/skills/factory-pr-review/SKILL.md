@@ -367,7 +367,7 @@ Without persisting the analysis on the PR, the chain "I saw a failure → I diag
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/check-push-preflight.sh"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-push-preflight.sh"
           }
         ]
       }

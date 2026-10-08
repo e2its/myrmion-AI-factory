@@ -29,7 +29,7 @@ from .common import GateFault, _glob_regex, any_glob, key, read_frontmatter
 APPROVED_STATES = {"APPROVED", "ACCEPTED", "BUILDING", "IMPLEMENTED_AND_VERIFIED", "READY"}
 STATE_DIR = ".claude/state"
 APPROVAL_TOOL = "ExitPlanMode"          # the harness tool that completes only on the user's approval — settings.json matches this name
-NO_HUMAN_MODES = {"bypassPermissions", "dontAsk", "auto"}   # permission modes where the tool completes with no human
+NO_HUMAN_MODES = {"bypassPermissions", "dontAsk"}   # permission modes where the tool completes with no human
 
 
 def _cfg(repo: Path) -> dict:
