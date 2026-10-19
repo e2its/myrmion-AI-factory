@@ -3,7 +3,7 @@
 
 Config (`config/quality.json` → `retired_terms`): [{"term": "…" | "pattern": "<regex>", "record": "…", "exempt": [globs]}] —
 `record` is mandatory (a retirement without its record is not a ratchet), with exactly one of `term` (a literal) or
-`pattern` (a regex — a retired shape, red on any value it takes, e.g. a copied count). Exemption classes,
+`pattern` (a regex, matched per line — a retired shape, red on any value it takes, e.g. a copied count). Exemption classes,
 always on (history is not rewritten): docs/project_log/**, the governance manifest, config/quality.json
 itself, worklogs, hook state, changelogs (HISTORY_EXEMPT). Scan set = coherence-context.json
 audit.root_sets minus audit.exclusions.
@@ -26,6 +26,8 @@ def _terms(repo: Path) -> list[dict]:
         if not isinstance(t, dict) or not t.get("record") or bool(t.get("term")) == bool(t.get("pattern")):
             raise GateFault("config/quality.json retired_terms: every entry needs `record` (the decision that retired it) "
                             "and exactly one of `term` (a literal) or `pattern` (a regex)")
+        if not isinstance(t.get("term") or t.get("pattern"), str):
+            raise GateFault("config/quality.json retired_terms: `term` / `pattern` must be a string")
         if t.get("pattern"):
             try:
                 t["_re"] = re.compile(t["pattern"])

@@ -219,7 +219,7 @@
       ]
     },
     {
-      "pattern": "\\b\\d+/\\d+ (?:validations|checks?)\\b",
+      "pattern": "(?i)\\b\\d+/\\d+ (?:validations|checks?)\\b",
       "record": "#113 — an auto-approval check count lives only in its check list",
       "exempt": []
     },
@@ -229,7 +229,7 @@
       "exempt": []
     },
     {
-      "pattern": "\\b\\d+-point (?:auto-approval|alignment)\\b|\\bwhen \\d+/\\d+ OK\\b",
+      "pattern": "(?i)\\b\\d+-point (?:auto-approval|alignment)\\b|\\bwhen \\d+/\\d+ OK\\b",
       "record": "#113 — an auto-approval check count lives only in its check list",
       "exempt": []
     }
