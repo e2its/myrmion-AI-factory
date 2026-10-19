@@ -466,6 +466,24 @@ class Budget(unittest.TestCase):
             r = budget.measure(repo)["claude_md_advisory"]
             self.assertFalse(r["ok"], "a key that is not an integer is a red row, like every other budget key")
 
+    def test_shipped_wave0_patterns_red_and_green(self):
+        """#116 / #118 / #143: every retired shape is red, its correct wording green (strings built at runtime: this file is scanned)."""
+        real = HERE.parent.parent
+        if not (real / "config/quality.json").is_file() or not (real / ".context/templates/setup").is_dir():
+            self.skipTest("not the framework repo")
+        shipped = [t for t in retired._terms(real) if t["record"].startswith(("#116", "#118", "#143"))]
+        self.assertEqual(len(shipped), 7, "the wave ships seven retired shapes")
+        bar, rw, sw = "|" + "|", "`rounds" + ".work`", "sw" + "eep"
+        red = [f"npm audit --omit=dev 2>&1 {bar} true", f"gitleaks detect --no-git {bar} :", f"govulncheck ./... {bar} exit 0", "cargo audit; " + "true",
+               "Un" + "known stack — skip BVL", "(un" + "known stack) → continue with semantic verification only",
+               f"two rounds ({rw})", f"{rw} = 2", "after a fix, re-run the " + "full suite", f"the {sw} runs post-deploy", sw + "_recommended", "ai" + "_capability"]
+        for line in red:
+            self.assertTrue(any(retired._matches(t, line) for t in shipped), f"retired shape is red: {line!r}")
+        green = ["npm audit --omit=dev --audit-level=high", f"jq -r .x config.json {bar} true", "UNDECLARED_STACK: ACTION: BLOCK",
+                 f"the passes {rw} allows", "verified by its red test, then the read-set re-run", f"the {sw} runs at the pre-deploy gate", "ai.training"]
+        for line in green:
+            self.assertFalse(any(retired._matches(t, line) for t in shipped), f"correct wording is green: {line!r}")
+
 
 class Coherence(unittest.TestCase):
     def _repo(self, tmp, branch="feature/F-001-x"):

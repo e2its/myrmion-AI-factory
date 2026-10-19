@@ -257,6 +257,16 @@
       "term": "ai_capability",
       "record": "#143 — Q24 persists `ai.training` / `ai.inference` / `ai.agentic`; a reader names the key the question writes",
       "exempt": []
+    },
+    {
+      "pattern": "(?i)\\b(?:npm audit|pip-audit|cargo audit|safety check|govulncheck|gitleaks|trufflehog|dotnet list package)\\b[^\\n]{0,80}(?:\\|\\|\\s*(?:true\\b|exit\\s+0\\b|:(?![\\w:]))|;\\s*true\\b)",
+      "record": "#116 — a dependency audit or secret scanner's exit code is the verdict; masking it (`|| true`, `|| exit 0`, `|| :`, `; true`) lets every finding pass",
+      "exempt": []
+    },
+    {
+      "pattern": "(?i)\\bunknown (?:stack|test runner)\\b[^\\n]{0,60}\\b(?:skip\\w*|semantic verification only)\\b",
+      "record": "#116 — a stack with no declared verification command blocks (BVL UNDECLARED_STACK); only an infrastructure fault degrades",
+      "exempt": []
     }
   ],
   "coherence": {

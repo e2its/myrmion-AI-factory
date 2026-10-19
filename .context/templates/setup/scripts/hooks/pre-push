@@ -96,10 +96,9 @@ done
 # the scanner is the project's SETUP-ratified choice (config/quality.json
 # security_scan — tool-agnostic, LAW-11 pattern), and --require-scanner keeps
 # this hook STRICT (missing scanner/config → push blocked with install hint),
-# unlike pre-commit's silent skip (no-friction-per-commit). Note the deliberate
-# carve-out: security_scan.enabled=false passes even here — a project-RATIFIED
-# policy opt-out is not an infra failure; the regex floor still applies at
-# pr-review Block 3. Push is
+# unlike pre-commit's silent skip (no-friction-per-commit). No scanner declared
+# (disabled, null, no config) blocks everywhere — secret scanning is never
+# skippable (#116, LAW-04). Push is
 # infrequent enough that installing the scanner once is an acceptable ask, and
 # failing locally saves a CI round-trip. Range computation stays here (hook
 # owns the push-spec semantics); the dispatcher owns tool resolution.

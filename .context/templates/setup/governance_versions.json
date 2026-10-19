@@ -518,10 +518,11 @@
       "delivery": "setup"
     },
     "scripts/security-scan.sh": {
-      "version": "3.3.0",
+      "version": "3.3.1",
       "content_type": "universal",
       "target": "scripts/security-scan.sh",
       "changelog": [
+        "3.3.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "3.3.0: feat(EVOL-045) — base = gate.py diff-base.",
         "3.2.0: feat(EVOL-043) — legacy docs/rules/ fallback removed (retired path).",
         "3.1.0: fix(EVOL-040 pr-review loop i2) — repo-root cd preamble (CWD-dependence made the lane fail-open from subdirs); FIVE python probes consolidated to ONE with a real fallback (python3-absent previously killed the script raw, defeating the header's own fail-open contract); --range validated as a git range BEFORE eval (injection via hostile refnames confirmed and closed); parse-error vs unconfigured vs python-missing distinguished in every message; DAST ZAP findings no longer swallowed by || true (fail-closed outside DRY_RUN per header contract); header scopes the exit contract to the secrets lane.",
@@ -618,10 +619,11 @@
       "delivery": "both"
     },
     "scripts/README.md": {
-      "version": "1.6.0",
+      "version": "1.6.1",
       "content_type": "universal",
       "target": "scripts/README.md",
       "changelog": [
+        "1.6.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.6.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.5.0: feat(EVOL-048) — gate.py subcommands of EVOL-045…048 listed.",
         "1.4.0: feat(EVOL-046) — pre-push runs the gate profile.",
@@ -850,10 +852,11 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "2.7.0",
+      "version": "2.7.1",
       "type": "script",
       "role": "Git hook — force-push protection, gitleaks secret scan across pushed range, the gate profile (`gate.py profile --run`, EVOL-046). Honors the actual push remote ($1) instead of hardcoding origin.",
       "changelog": [
+        "2.7.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "2.7.0: feat(EVOL-057) — step 0: an EXIT trap leaves the push's record through gate.py push-log whatever ended the hook — fail-open, never changes the exit code.",
         "2.6.1: fix(EVOL-053) — the review-scripts pytest step collects only the folders that exist (pytest present + tests/blueprint absent was a red on nothing)",
         "2.6.0: feat(EVOL-046) — force-push guard through the reader (no list, fail-closed); steps 3+4 replaced by the one call gate.py profile --run (all members report, one verdict); reader missing blocks the push.",
@@ -1116,10 +1119,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.14.0",
+      "version": "1.14.1",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.14.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.14.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.13.1: fix(EVOL-059) — the framework repo's own agents.families: writer opus, critic sonnet (RDR-2 of ADR-EVOL-059); the template's placeholders unchanged.",
         "1.13.0: feat(EVOL-057) — verification.logs: the push log, the gate timings and the rotation size, inside seal.dir — what the instrument reads, never a gate input.",
@@ -3039,7 +3043,7 @@
       "version": "2.20.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
-        "2.20.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "2.20.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "2.20.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.19.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "2.18.2: fix(EVOL-059) — RDR-3: round 1 on the diff, round 2 (--round 2) on the cured bytes; the resolver refuses the next.",
@@ -3141,7 +3145,7 @@
       "version": "2.19.1",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
-        "2.19.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "2.19.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "2.19.0: feat(EVOL-060) — the peer review artefact's § Critic returns (every return verbatim); informational counted, never adjudicated.",
         "2.18.1: fix(EVOL-059) — RDR-3: the passes the key allows; the effort the resolver computes; a finding outside the diff is informational.",
         "2.18.0: feat(EVOL-059) — the canary plan before the round, --seen after every real return.",
@@ -3288,7 +3292,7 @@
       "version": "2.22.2",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
-        "2.22.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
+        "2.22.2: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "2.22.1: fix(EVOL-059) — Q34 recommends writer: opus · critic: sonnet (RDR-2 of ADR-EVOL-059: the cost sits where the spawns are many).",
         "2.22.0: feat(EVOL-054) — Q21 gains Bitbucket Pipelines / Azure DevOps / GCP Cloud Build (the literals the workflow conditionals name); Q21.2 the SCM host, approvals and required checks, in the tier-2 question list.",
         "2.21.1: feat(EVOL-053) — derived, no question: verification.gates and traceability.home come from the stack",
@@ -3328,7 +3332,7 @@
       "version": "3.24.2",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
-        "3.24.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
+        "3.24.2: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "3.24.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "3.24.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "3.23.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
@@ -3744,7 +3748,7 @@
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
-        "1.13.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
+        "1.13.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.13.0: feat(EVOL-057) — § Full Verification Gate: the gates the map names run through the loop's executor (gate.py seal --run — timed, output in the state folder, the seal right after); the steps keep the gates the map does not name; a gate without a command is recorded by its owner.",
         "1.12.0: feat(EVOL-051) — one full loop per change: the order (static round → critics → artefacts → one loop → commit), the plan from gate.py seal --plan, one execution per command, the seal written per gate and --full, nothing tracked after the green",
         "1.11.0: feat(EVOL-049)! — loops run by the orchestrator on behalf of the critics; hat vocabulary retired.",
@@ -3919,10 +3923,11 @@
       "path": ".claude/skills/factory-code-review/scripts/code_review_hash.py"
     },
     "skills/factory-memory-cache/SKILL.md": {
-      "version": "1.1.3",
+      "version": "1.1.4",
       "type": "skill",
       "role": "FMCP v1.0.2 — Unified /memories/repo/ caching layer. Feature State, BVL Commands, CIP Inventory, Execution Plan caches. Write-through, hash-validated, graceful degradation.",
       "changelog": [
+        "1.1.4: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.1.3: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
@@ -4453,11 +4458,12 @@
       ]
     },
     "config/coherence-context.json": {
-      "version": "1.11.0",
+      "version": "1.11.1",
       "path": "config/coherence-context.json",
       "type": "config",
       "role": "Single source of truth for which context this repo runs as (`context: meta` for the framework repo / `context: downstream` for materialised projects). Declares root_sets, exclusions, placeholder_allowlist_paths, lock_step_pairs, and manifest_paths consumed by factory-pr-review Phase 0 Coherence Audit. Doubles as a generic context-detector — any future consumer that needs context-aware behaviour reads `context` field instead of falling back to heuristics (existence of `.context/templates/setup/`).",
       "changelog": [
+        "1.11.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.11.0: feat(EVOL-049)! — lock-step pair for the agent definitions (.claude/agents/*.md ↔ the template roster).",
         "1.10.0: feat(EVOL-046) — pre-commit joins the lock-step pairs.",
         "1.9.0: feat(EVOL-043) — lock-step pairs for scripts/gate.py, scripts/gates/*.py and the snapshot generator (meta only).",
@@ -4820,11 +4826,12 @@
       "delivery": "both"
     },
     "scripts/hooks/pre-push": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "type": "config",
       "role": "Meta copy of the pre-push git hook (protected-branch force-push block + secrets scan + governance validation + factory-pr-review sentinel block). Extensionless.",
       "path": "scripts/hooks/pre-push",
       "changelog": [
+        "1.7.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.7.0: feat(EVOL-057) — step 0: the push's record through gate.py push-log from an EXIT trap (the template twin).",
         "1.6.1: fix(EVOL-053) — the review-scripts pytest step collects only the folders that exist (pytest present + tests/blueprint absent was a red on nothing)",
         "1.6.0: feat(EVOL-046) — force-push guard through the reader (no list, fail-closed); steps 3+4 replaced by the one call gate.py profile --run (all members report, one verdict); reader missing blocks the push.",
@@ -4848,11 +4855,12 @@
       "delivery": "both"
     },
     "scripts/security-scan.sh": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "type": "script",
       "role": "Meta copy of the security-scan dispatcher. Registered at its historical 0-byte state (born empty at initial commit — CVP CRITICAL); real dispatcher content lands with EVOL-040 K4 and bumps this entry.",
       "path": "scripts/security-scan.sh",
       "changelog": [
+        "1.4.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.4.0: feat(EVOL-045) — base = gate.py diff-base.",
         "1.3.0: feat(EVOL-043) — legacy docs/rules/ fallback removed (retired path).",
         "1.2.0: fix(EVOL-040 pr-review loop i2) — byte-mirror of template 3.1.0.",
@@ -4876,7 +4884,7 @@
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
-        "1.12.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
+        "1.12.2: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.12.1: fix #113: an auto-approval check count lives only in its check list — the copied counts are cured, three retired_terms patterns keep any count from coming back",
         "1.12.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.11.1: fix(EVOL-059) — agents.families: writer opus, critic sonnet (RDR-2 of ADR-EVOL-059).",
@@ -4906,11 +4914,12 @@
       ]
     },
     "scripts/test-security-scan.sh": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "type": "script",
       "role": "Secrets-lane dispatcher self-test (9 scenarios via stub scanner: clean, fail-open-noisy, require-scanner strict, disabled, unconfigured, broken-JSON diagnosis, eval-injection regression, {{RANGE}} word-drop, findings fail-closed). The only executable coverage of the push-time secrets gate fail-directions. Wired into governance-check T2.",
       "path": "scripts/test-security-scan.sh",
       "changelog": [
+        "1.0.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.0.0: feat(EVOL-040 pr-review loop i2) — initial; converts the live-fired verification matrix into a committed suite."
       ]
     },

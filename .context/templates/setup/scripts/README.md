@@ -88,8 +88,8 @@ BASE_URL=https://staging.example.com ./scripts/test.sh e2e --apply
 ```
 
 **Flags:**
-- `--secrets`: Run the configured secrets scanner over the diff (or full tree). Fail-open NOISY (🔒 banner) when the scanner is absent; the `detect_change_type.py` regex floor stays active regardless.
-- `--require-scanner`: Make `--secrets` STRICT (missing scanner/config/python → exit 2). Used by the pre-push hook.
+- `--secrets`: Run the configured secrets scanner over the diff (or full tree). No scanner declared (disabled, null, no config) → exit 1 with the resolution (Q23.2). A declared scanner not installed → fail-open NOISY (🔒 banner). The `detect_change_type.py` regex floor stays active regardless.
+- `--require-scanner`: Make `--secrets` STRICT (declared scanner not installed, broken config, no python → exit 2). Used by the pre-push hook.
 - `--range <git-range>`: Restrict `--secrets` to a commit range (validated as a git range before use).
 - `--contracts`: Lint API contracts (OpenAPI/GraphQL/gRPC/AsyncAPI).
 - `--drift`: Protected-paths drift check (RED ZONE modifications).

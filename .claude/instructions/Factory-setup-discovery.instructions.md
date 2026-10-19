@@ -74,7 +74,7 @@ TIER_1_STACK:
 
 TIER_2_INFRASTRUCTURE:
   name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q21.2, Q22, Q22.1, Q23, Q23.1, Q23.2, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31, Q32, Q33, Q34]
+  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q21.2, Q22, Q22.1, Q23, Q23.1, Q23.2, Q23.3, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31, Q32, Q33, Q34]
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
@@ -114,6 +114,7 @@ TIER_FINAL:
 #### `--propose-final` (Generate Complete Proposal)
 1. Read all persisted answers from `docs/setup.md`
 2. Run Budget Validation (sum costs, check tier limit)
+2b. Verification coverage (#116): each stack answer — `backend.runtime` (Q5), `backend.framework` (Q6), `frontend.framework` (Q9), `frontend.meta_framework` (Q10) — has its `MATCH stack.*` rows in `factory-build-verification` § derive_commands_from_stack. A stack with no row → RDR: declare its commands (persisted in `docs/setup.md → verification.commands` — keys `test_single` with `{test_file}`, `test_suite`, `lint`, `build`, `dependency_audit`; `factory-build-verification` § DECLARED VERIFICATION COMMANDS; merged into `config/quality.json → verification.gates` at `--generate`), or stop. Never carried forward undeclared: the loop would block at the first build.
 3. Generate complete summary (General Info + Architecture + Tooling + Databases + DevOps + AI + Costs)
 4. If budget exceeds → include 5 alternative suggestions
 5. Present to Factory/user for final acceptance
@@ -356,11 +357,19 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **After:** Materialization resolves `{{COMPLEXITY_MCP_SERVER}}` + `{{COMPLEXITY_MCP_TOOL_NAME}}` in `config/quality.json`; BVL `full_verification_gate` gains `factory-complexity-check` invocation as post-test step; factory-pr-review activates axis 6 (complexity)
 
 #### Q23.2: Security Scanner (secrets layer of scripts/security-scan.sh)
-- **Options:** `gitleaks (git-aware secrets detection, single static binary, range-scan support)` | `trufflehog (verified-secrets detection)` | `Custom (project declares a command template + report format)` | `Skip (disable scanner layer; the fail-closed regex floor in detect_change_type.py stays active)`
-- **RDR Recommendation:** gitleaks — house default: git-native range scanning (`--log-opts`), single binary, CI-friendly, no runtime deps. Choose trufflehog when verified-secret detection (live-credential checks) matters more than speed. Choose Custom for an org-mandated scanner. Choose Skip only when the project accepts regex-floor-only coverage — the layer can be enabled later by editing `config/quality.json`.
-- **Persist:** `quality.security_scan.scanner` (`gitleaks` | `trufflehog` | custom name | `null` if Skip), `quality.security_scan.secrets_command` (from the resolution table below | custom template | `null` if Skip; `{{RANGE}}` token = commit range, stripped when scanning full tree), `quality.security_scan.report_format` (`exit-code` default | `sarif`), `quality.security_scan.fail_on` (`any` default), `quality.security_scan.install_hint` (per-scanner install line), `quality.security_scan.enabled` (true unless Skip)
+- **Options:** `gitleaks (git-aware secrets detection, single static binary, range-scan support)` | `trufflehog (verified-secrets detection)` | `Custom (project declares a command template + report format)` — secret scanning is never optional (#116, LAW-04)
+- **RDR Recommendation:** gitleaks — house default: git-native range scanning (`--log-opts`), single binary, CI-friendly, no runtime deps. Choose trufflehog when verified-secret detection (live-credential checks) matters more than speed. Choose Custom for an org-mandated scanner.
+- **Persist:** `quality.security_scan.scanner` (`gitleaks` | `trufflehog` | custom name), `quality.security_scan.secrets_command` (from the resolution table below | custom template; `{{RANGE}}` token = commit range, stripped when scanning full tree), `quality.security_scan.report_format` (`exit-code` default | `sarif`), `quality.security_scan.fail_on` (`any` default), `quality.security_scan.install_hint` (per-scanner install line), `quality.security_scan.enabled` (true)
 - **Resolution table** (the ONLY place scanner commands live besides materialization): `gitleaks` → `gitleaks detect --source=. --redact --no-banner --log-opts={{RANGE}}` · `trufflehog` → `trufflehog git file://. --since-commit {{RANGE_BASE}} --fail`
 - **After:** Materialization resolves `{{SECURITY_SCANNER}}` + `{{SECURITY_SCANNER_COMMAND}}` + `{{SECURITY_SCANNER_INSTALL_HINT}}` in `config/quality.json`; `scripts/security-scan.sh --secrets` activates; the pre-push hook delegates with `--require-scanner` (fail-closed at push); QA `--verify` consumes the same dispatcher. Two-layer model: the regex floor (pr-review Block 3) is ALWAYS on regardless of this answer.
+
+#### Q23.3: Dependency-finding threshold (SCA)
+- **Options:** `critical` | `high` | `medium` | `low`
+- **Simplified:** es: "¿Desde qué gravedad bloquea una vulnerabilidad en una dependencia? (crítica siempre bloquea)" / en: "From which severity does a dependency vulnerability block? (critical always blocks)"
+- **RDR Recommendation:** `high` — blocks the findings with a known exploit path without stopping on every low advisory. `critical` only for a prototype; `medium` / `low` under a compliance regime (Q19). No option disables the scan.
+- **Tier-filtered:** ALL tiers.
+- **Persist:** `quality.security_scan.sca_threshold`
+- **After:** Materialization resolves `{{SCA_THRESHOLD}}` in `config/quality.json` and bakes it into the `sca` gate of `verification.gates`; the BVL dependency audit blocks at or above it where the tool grades severity (npm, OWASP); the other audit tools block on any finding (`factory-build-verification` § dependency_audit). An unreadable value blocks.
 
 #### Q24: AI Capabilities
 - **3 boolean sub-questions:**

@@ -11,8 +11,9 @@
 #   1. Config present, scanner resolvable, clean tree → exit 0.
 #   2. Scanner binary not installed → 🔒 banner, exit 0 (fail-open NOISY).
 #   3. Scanner not installed + --require-scanner → exit 2 (strict context).
-#   4. security_scan.enabled=false → DISABLED banner, exit 0.
-#   5. No config at all → UNAVAILABLE banner, exit 0 (fail-open).
+#   4. security_scan.enabled=false → a missing declaration: exit 1, the resolution named (#116).
+#   4b. No scanner declared (scanner null) → exit 1 without --require-scanner too (#116).
+#   5. No config at all → no scanner declared: exit 1 (#116).
 #   6. Config present but BROKEN JSON + --require-scanner → exit 2, message
 #      names the JSON parse error (never "run SETUP").
 #   7. Malformed --range (shell metacharacters) → exit 2, command NOT executed
@@ -20,6 +21,7 @@
 #   8. {{RANGE}} token: empty range drops the carrying word (full-tree scan).
 #   9. Findings → exit 1 (fail-closed on findings, ALWAYS) — uses a stub
 #      scanner that exits 1, so no real scanner binary is required in CI.
+#  10. Discovery offers no Skip for Q23.2 and the materialisation has no Skip branch (#116).
 #
 # Exit codes: 0 = ok, 1 = at least one scenario failed.
 # ============================================================================
@@ -81,6 +83,7 @@ echo "test-security-scan — secrets lane"
 # 1. clean (stub exits 0)
 d="$TMP_ROOT/s1"; make_sandbox "$d" 0
 assert_exit "clean scan" 0 "$(run_in "$d" --secrets)"
+out=$(out_in "$d" --secrets); grep -qE "fail-open|NOT INSTALLED" <<< "$out" && { echo "  FAIL: a clean scan with the scanner installed reads as a skip"; FAIL=$((FAIL+1)); } || { echo "  ok: clean scan prints no fail-open line (the SEC loop keys its skip on it)"; PASS=$((PASS+1)); }
 
 # 2. scanner not installed → fail-open NOISY
 d="$TMP_ROOT/s2"; make_sandbox "$d" ""   # no stub on PATH
@@ -98,12 +101,34 @@ import json, sys
 p = sys.argv[1]; c = json.load(open(p)); c['security_scan']['enabled'] = False
 json.dump(c, open(p, 'w'))
 PY
-assert_exit "disabled via config" 0 "$(run_in "$d" --secrets)"
-out_in "$d" --secrets | grep -q "DISABLED" && { echo "  ok: DISABLED banner"; PASS=$((PASS+1)); } || { echo "  FAIL: no DISABLED banner"; FAIL=$((FAIL+1)); }
+assert_exit "disabled via config blocks" 1 "$(run_in "$d" --secrets)"
+out=$(out_in "$d" --secrets); grep -q "Q23.2" <<< "$out" && { echo "  ok: names the resolution (Q23.2)"; PASS=$((PASS+1)); } || { echo "  FAIL: no resolution path"; FAIL=$((FAIL+1)); }
+
+# 4b. no scanner declared, without --require-scanner
+d="$TMP_ROOT/s4b"; make_sandbox "$d" 0
+python3 - "$d/config/quality.json" <<'PY'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p)); c['security_scan']['scanner'] = None; c['security_scan']['secrets_command'] = None
+json.dump(c, open(p, 'w'))
+PY
+assert_exit "no scanner declared blocks" 1 "$(run_in "$d" --secrets)"
+
+# 4c. security_scan null, or enabled not the boolean true → no scanner declared (exit 1), never a python fault
+for v in 'None' '"false"'; do
+  d="$TMP_ROOT/s4c$RANDOM"; make_sandbox "$d" 0
+  python3 - "$d/config/quality.json" "$v" <<'PY'
+import json, sys
+p, v = sys.argv[1], sys.argv[2]; c = json.load(open(p))
+if v == 'None': c['security_scan'] = None
+else: c['security_scan']['enabled'] = json.loads(v)
+json.dump(c, open(p, 'w'))
+PY
+  assert_exit "security_scan ${v/None/null} blocks as undeclared" 1 "$(run_in "$d" --secrets)"
+done
 
 # 5. no config
 d="$TMP_ROOT/s5"; mkdir -p "$d"; ( cd "$d" && git init -q -b main )
-assert_exit "unconfigured fail-open" 0 "$(run_in "$d" --secrets)"
+assert_exit "unconfigured blocks" 1 "$(run_in "$d" --secrets)"
 
 # 6. broken JSON + require → 2 with parse-error cause
 d="$TMP_ROOT/s6"; make_sandbox "$d" 0
@@ -128,6 +153,18 @@ echo "$out" | grep -q "stubscan ran:" && ! echo "$out" | grep -q "{{RANGE}}" \
 # 9. findings → 1 (stub exits 1)
 d="$TMP_ROOT/s9"; make_sandbox "$d" 1
 assert_exit "findings fail-closed" 1 "$(run_in "$d" --secrets)"
+
+# 10. no Skip for the secret scanner at discovery or materialisation
+R="$(pwd)"
+python3 - "$R" <<'PY' && { echo "  ok: Q23.2 offers no Skip; no Skip branch at materialisation"; PASS=$((PASS+1)); } || { echo "  FAIL: a Skip for the secret scanner survives"; FAIL=$((FAIL+1)); }
+import re, sys
+from pathlib import Path
+r = Path(sys.argv[1])
+d = (r / ".claude/instructions/Factory-setup-discovery.instructions.md").read_text(encoding="utf-8")
+m = (r / ".claude/instructions/Factory-setup-materialization.instructions.md").read_text(encoding="utf-8")
+q = re.search(r"#### Q23\.2:.*?(?=\n#### )", d, re.S).group(0)
+sys.exit(1 if re.search(r"\bSkip\b", q) or re.search(r"\bSkip\*\* on Q23\.2", m) else 0)
+PY
 
 echo ""
 echo "test-security-scan: $PASS passed, $FAIL failed"

@@ -50,7 +50,8 @@
     "secrets_command": "{{SECURITY_SCANNER_COMMAND}}",
     "report_format": "exit-code",
     "fail_on": "any",
-    "install_hint": "{{SECURITY_SCANNER_INSTALL_HINT}}"
+    "install_hint": "{{SECURITY_SCANNER_INSTALL_HINT}}",
+    "sca_threshold": "{{SCA_THRESHOLD}}"
   },
   "budgets": {
     "_doc": "Injection budgets in BYTES per point (EVOL-043). One reader measures the REAL producer at its worst case: python3 scripts/gate.py budget. Raising a key needs its record in the changelog. prompt_submit ≥ snapshot + the reload wrapper + the stale warning (the worst case forces both). claude_md_advisory (EVOL-064) is optional and advisory: the CLAUDE.md re-read every turn (the template in the framework repo, a project's own file elsewhere) — over it warns, never blocks.",

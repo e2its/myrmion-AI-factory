@@ -660,7 +660,7 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
     
     EXECUTE WORKER(worker, task)   # spawn by name — § Spawn protocol above; return refused without its ## Hand-off and ## Governance blocks (EVOL-062)
     # BVL: task_verification_loop runs inside TDD Cycle step 4 (VERIFY)
-    # Task marked [x] only if BVL returns GREEN or SKIPPED
+    # Task marked [x] only if BVL returns GREEN (SKIPPED = infrastructure fault, logged)
     MARK task [x] in dev_plan.md (atomic save)
 
   # BVL Phase Verification (post-worker, pre-critics) — the phase's SCOPED tests + lint + format; never the full suite (EVOL-051)
@@ -1104,7 +1104,7 @@ FOR EACH implementation task:
      # See: Factory-build-verification/SKILL.md → Task-Level Verification Loop
      # Runs tests in terminal, parses errors, auto-fixes (max 3 attempts)
      # If GREEN → proceed. If FLAGGED → Resilience Protocol (user choice).
-     # If SKIPPED (unknown stack) → continue with semantic verification only.
+     # If BLOCK (undeclared stack) → stop: the message names the commands to declare (BVL § GRACEFUL DEGRADATION).
   5. COMMIT mental checkpoint (save file state)
 ```
 

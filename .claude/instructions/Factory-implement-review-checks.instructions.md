@@ -1074,98 +1074,55 @@ FUNCTION sec_verification_loop(phase, source_files):
   commands = resolve_verification_commands()  # From BVL SKILL.md
   results = {}
   
-  # 1. Dependency Vulnerability Audit (MANDATORY — catches known CVEs)
-  IF commands.dependency_audit IS NOT NULL:
+  # 1. Dependency audit (MANDATORY — catches known CVEs). The command carries the project's threshold
+  #    (config/quality.json → security_scan.sca_threshold, factory-build-verification § dependency_audit) and its
+  #    exit code is the verdict — never masked (#116).
+  sca_threshold = READ_JSON("config/quality.json").security_scan.sca_threshold   # absent or unreadable → NULL
+  IF commands.dependency_audit IS NULL OR sca_threshold NOT IN [critical, high, medium, low]:
+    results.dependency_audit = {
+      status: "BLOCKER",
+      finding: "[SEC-DEP-003] No dependency audit, or no readable threshold, declared for this stack",
+      remediation: "Declare the audit command in docs/setup.md → verification.commands.dependency_audit (SETUP discovery § verification coverage) and the threshold in config/quality.json → security_scan.sca_threshold (Q23.3)"
+    }
+  ELIF commands.dependency_audit IS TOOL_MISSING(tool):
+    results.dependency_audit = { status: "SKIPPED", reason: "{tool} not installed — infrastructure, fail-open" }
+    LOG: "⚠️ SEC: dependency audit not run — install {tool}"
+  ELSE:
     result = RUN_IN_TERMINAL(commands.dependency_audit, timeout: 60000)
-    
-    vulnerabilities = parse_audit_output(result.output):
-      # Parse tool-specific output formats
-      SCAN for severity indicators: critical, high, moderate/medium, low
-      COUNT vulnerabilities by severity
-      EXTRACT: package_name, installed_version, vulnerability_id, severity, fix_version
-    
-    IF vulnerabilities.critical_count > 0 OR vulnerabilities.high_count > 0:
+    IF result.exit_code != 0:
+      vulnerabilities = parse_audit_output(result.output):   # tool-specific: package, installed version, id, severity, fix version
       results.dependency_audit = {
         status: "BLOCKER",
-        finding: "[SEC-DEP-001] {vulnerabilities.critical_count} critical + {vulnerabilities.high_count} high vulnerabilities found",
-        details: vulnerabilities.top_10,  # Show top 10 most severe
-        remediation: "Update vulnerable packages. Run package manager update for affected dependencies.",
+        finding: "[SEC-DEP-001] The dependency audit failed — vulnerable packages (graded by {sca_threshold} where the tool grades: npm, OWASP; any finding otherwise), or the audit tool's own failure",
+        details: vulnerabilities.top_10,
+        remediation: "Update the vulnerable packages to their fix versions.",
         cwe: "CWE-1104",  # Use of Unmaintained Third-Party Components
         owasp: "A06"  # Vulnerable and Outdated Components
-      }
-    ELIF vulnerabilities.medium_count > 0:
-      results.dependency_audit = {
-        status: "WARNING",
-        finding: "[SEC-DEP-002] {vulnerabilities.medium_count} medium vulnerabilities found",
-        details: vulnerabilities.summary
       }
     ELSE:
       results.dependency_audit = { status: "PASS" }
       LOG: "✅ SEC: Dependency audit clean"
+
+  # 2. Secret scanning (MANDATORY — catches leaked credentials): the project's declared scanner through the one
+  #    dispatcher (commands.secret_scan = `bash scripts/security-scan.sh --secrets`). No regex substitute here — the
+  #    regex floor is pr-review Block 3.
+  result = RUN_IN_TERMINAL(commands.secret_scan, timeout: 30000)
+  IF result.exit_code == 1:   # findings, or no scanner declared — the dispatcher's message names which and the resolution
+    results.secret_scan = {
+      status: "BLOCKER",
+      finding: "[SEC-SECRET-001] {FIRST_LINE(result.output, starting: "❌")}",
+      details: result.output,
+      remediation: "Remove hardcoded secrets (environment variables or vault) — or declare the scanner the message names.",
+      cwe: "CWE-798",  # Use of Hard-coded Credentials
+      owasp: "A02"  # Cryptographic Failures
+    }
+  ELIF result.exit_code == 0 AND result.output CONTAINS "fail-open":   # output = stdout + stderr; the "running" banner is no skip
+    results.secret_scan = { status: "SKIPPED", reason: "{FIRST_LINE(result.output, containing: "fail-open")}" }   # not installed, config unreadable, no python3
+  ELIF result.exit_code == 0:
+    results.secret_scan = { status: "PASS" }
   ELSE:
-    results.dependency_audit = { status: "SKIPPED", reason: "No audit command for stack" }
-    LOG: "⚠️ SEC: Dependency audit skipped — no tool available. Consider installing: npm audit / pip-audit / cargo audit"
-  
-  # 2. Secret Scanning (MANDATORY — catches leaked credentials)
-  IF commands.secret_scan IS NOT NULL:
-    result = RUN_IN_TERMINAL(commands.secret_scan, timeout: 30000)
-    
-    # Tool-based scan (gitleaks/trufflehog)
-    IF result.output CONTAINS "Finding" OR result.output CONTAINS "secret" OR result.output CONTAINS "leak":
-      secrets_found = parse_secret_scan_output(result.output):
-        EXTRACT: file_path, line_number, rule_id, description
-        COUNT total findings
-      
-      IF secrets_found.count > 0:
-        results.secret_scan = {
-          status: "BLOCKER",
-          finding: "[SEC-SECRET-001] {secrets_found.count} potential secrets detected",
-          details: secrets_found.findings,
-          remediation: "Remove hardcoded secrets. Use environment variables or vault.",
-          cwe: "CWE-798",  # Use of Hard-coded Credentials
-          owasp: "A02"  # Cryptographic Failures
-        }
-      ELSE:
-        results.secret_scan = { status: "PASS" }
-    ELSE:
-      results.secret_scan = { status: "PASS" }
-      LOG: "✅ SEC: Secret scan clean"
-  
-  ELSE:
-    # Fallback: regex-based secret scan when no dedicated tool is available
-    LOG: "⚠️ SEC: No secret scanner (gitleaks/trufflehog). Running regex fallback."
-    
-    phase_files = COLLECT_SOURCE_FILES(phase)
-    secret_patterns = [
-      'password\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'api[_-]?key\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'secret\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'token\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'private[_-]?key\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'AWS_SECRET_ACCESS_KEY\s*[:=]\s*["\x27][A-Za-z0-9/+=]{20,}',
-      '-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----'
-    ]
-    
-    FOR EACH file IN phase_files:
-      # Exclude test files, fixtures, .env.example from false positives
-      IF file MATCHES /(test|spec|fixture|mock|\.env\.example|\.env\.template)/: SKIP
-      
-      content = READ(file)
-      FOR EACH pattern IN secret_patterns:
-        matches = REGEX_SEARCH(content, pattern, CASE_INSENSITIVE)
-        IF matches.length > 0:
-          results.secret_scan = {
-            status: "BLOCKER",
-            finding: "[SEC-SECRET-002] Potential hardcoded secret in {file}:{line}",
-            pattern: pattern,
-            remediation: "Replace with environment variable: process.env.{KEY} / os.environ['{KEY}']",
-            cwe: "CWE-798",
-            owasp: "A02"
-          }
-    
-    IF results.secret_scan IS NULL:
-      results.secret_scan = { status: "PASS" }
-  
+    results.secret_scan = { status: "SKIPPED", reason: "security-scan.sh infrastructure fault: {result.first_line}" }
+
   RETURN results
 ```
 
@@ -1178,7 +1135,7 @@ IF vulnerabilities found:
   # Run verification loop (REAL EXECUTION)
   sec_verification = sec_verification_loop(phase, source_files)
   
-  execution_findings = COLLECT findings FROM sec_verification WHERE status IN ["BLOCKER", "WARNING"]
+  execution_findings = COLLECT findings FROM sec_verification WHERE status IN ["BLOCKER", "WARNING", "SKIPPED"]   # SKIPPED → LOW: a check that did not run is reported
   all_findings = sast_findings + execution_findings
   
   FOR EACH vulnerability IN all_findings:
@@ -1209,6 +1166,12 @@ ELSE:
     FOR EACH blocker IN execution_blockers:
       SHOW: "{blocker.finding} — {blocker.remediation}"
     RETURN to the worker for the fix round
+  
+  skipped = COLLECT findings FROM sec_verification WHERE status == "SKIPPED"
+  IF skipped.length > 0:
+    verdict = "PASS_WITH_FINDINGS"   # a check that did not run is never a clean pass
+    FOR EACH s IN skipped: SHOW: "⚠️ not run — {s.reason}"
+    PROCEED
   
   verdict = "CLEAN_PASS"
 ```
