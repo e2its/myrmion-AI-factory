@@ -17,7 +17,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, branch, budget, canary, checklist, coherence, corpus, digests, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
+from gates import agents, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -314,6 +314,204 @@ class Checklist(unittest.TestCase):
             self.assertEqual(r.returncode, 2, "an unreadable checklist is a fault, never a pass")
 
 
+class Dependencies(unittest.TestCase):
+    """QA-PRE-1 (#114): direct dependencies at their RESOLVED version against the allowlist."""
+    SETUP = ("---\nbackend:\n  runtime: Python\nfrontend:\n  framework: React\ndependencies:\n"
+             "  backend: [\"fastapi >=0.110,<0.120\", \"SQLAlchemy\"]\n  frontend: [\"react ^18.2\"]\n  denied: [moment]\n---\n")
+
+    def _project(self, root: Path) -> Path:
+        write(root / "docs/constitution.md", "# Constitution\n")
+        write(root / "docs/setup.md", self.SETUP)
+        write(root / "pyproject.toml", '[project]\nname = "app"\ndependencies = ["fastapi>=0.110", "sqlalchemy[asyncio]~=2.0"]\n')
+        write(root / "uv.lock", '[[package]]\nname = "fastapi"\nversion = "0.115.2"\n\n[[package]]\nname = "sqlalchemy"\nversion = "2.0.36"\n')
+        write(root / "web/package.json", json.dumps({"dependencies": {"react": "^18.2.0"}}))
+        write(root / "web/package-lock.json", json.dumps({"lockfileVersion": 3, "packages": {"": {}, "node_modules/react": {"version": "18.3.1"}}}))
+        dependencies.seed(root)
+        return root
+
+    def _add_npm(self, root: Path, name: str, version: str, dev: bool = False):
+        pj, lk = json.loads((root / "web/package.json").read_text()), json.loads((root / "web/package-lock.json").read_text())
+        pj.setdefault("devDependencies" if dev else "dependencies", {})[name] = version
+        lk["packages"][f"node_modules/{name}"] = {"version": version}
+        write(root / "web/package.json", json.dumps(pj)); write(root / "web/package-lock.json", json.dumps(lk))
+
+    def test_ranges(self):
+        for v, spec, ok in (("0.115.2", ">=0.110,<0.120", True), ("0.120.0", ">=0.110,<0.120", False), ("18.3.1", "^18.2", True),
+                            ("19.0.0", "^18.2", False), ("0.2.5", "^0.2.1", True), ("0.3.0", "^0.2.1", False), ("1.2.9", "~1.2.3", True),
+                            ("1.3.0", "~1.2.3", False), ("2.4", "~=2.0", True), ("3.0", "~=2.0", False), ("1.2.7", "1.2.*", True), ("v1.4.0", "*", True)):
+            self.assertEqual(dependencies.in_range(v, spec), ok, f"{v} {spec}")
+        with self.assertRaises(ValueError):
+            dependencies.in_range("1.0", "latest")
+
+    def test_allowlisted_green_denied_unlisted_out_of_range_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(Path(tmp))
+            self.assertEqual(dependencies.check(root), [], "an allowlisted project passes")
+            self._add_npm(root, "moment", "2.30.1")
+            self.assertTrue(any("moment is denied" in f for f in dependencies.check(root)), "a denied dependency blocks")
+            self._add_npm(root, "lodash", "4.17.21")
+            self.assertTrue(any("lodash is not on the allowlist" in f for f in dependencies.check(root)))
+            lk = json.loads((root / "web/package-lock.json").read_text()); lk["packages"]["node_modules/react"]["version"] = "19.0.0"
+            write(root / "web/package-lock.json", json.dumps(lk))
+            self.assertTrue(any("react resolves to 19.0.0" in f for f in dependencies.check(root)), "the RESOLVED version is checked, not the range")
+            (root / "uv.lock").unlink()
+            self.assertTrue(any("no lockfile" in f for f in dependencies.check(root)))
+
+    def test_declarations_missing_or_unreadable_stack_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(Path(tmp))
+            write(root / "docs/setup.md", self.SETUP.replace("runtime: Python", "runtime: Zig"))
+            self.assertTrue(any("no dependency reader for backend.runtime 'Zig'" in f for f in dependencies.check(root)))
+            write(root / "docs/setup.md", "---\nphase: COMPLETED\n---\n")
+            self.assertIn("does not record backend.runtime", dependencies.check(root)[0])
+            (root / "config/allowlist.json").unlink()
+            self.assertIn("config/allowlist.json is missing", dependencies.check(root)[0])
+            (root / "docs/constitution.md").unlink()
+            self.assertIn("docs/constitution.md is missing", dependencies.check(root)[0])
+
+    def test_pack_seeds_its_tools(self):
+        """The contract every platform pack's own red test calls (#151): its tools enter through --seed --tools."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(Path(tmp))
+            self._add_npm(root, "dependency-cruiser", "16.4.2", dev=True)
+            self.assertTrue(any("dependency-cruiser is not on the allowlist" in f for f in dependencies.check(root)), "a pack tool missing from the seed is red")
+            write(root / "pack-tools.json", json.dumps({"pack": "synthetic", "tools": [{"name": "dependency-cruiser", "version": ">=16,<17"}]}))
+            gate = str(HERE.parent / "gate.py")
+            r = subprocess.run([sys.executable, gate, "--repo", str(root), "dependencies", "--seed", "--tools", str(root / "pack-tools.json")], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            r = subprocess.run([sys.executable, gate, "--repo", str(root), "dependencies", "--strict"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout)
+            before = (root / "config/allowlist.json").read_text()
+            dependencies.seed(root, root / "pack-tools.json")
+            self.assertEqual((root / "config/allowlist.json").read_text(), before, "seeding is idempotent")
+
+    def test_every_ecosystem_reader(self):
+        cases = {
+            "Go": {"go.mod": "module x\n\nrequire (\n\t// pinned for the API\n\tgithub.com/gin-gonic/gin v1.10.0\n\tgolang.org/x/sys v0.20.0 // indirect\n)\n"},
+            "Ruby": {"Gemfile": "gem 'rails'\n", "Gemfile.lock": "GEM\n  specs:\n    rails (7.1.3)\n    rack (3.0.9)\n\nDEPENDENCIES\n  rails (~> 7.1)\n"},
+            "PHP": {"composer.json": json.dumps({"require": {"php": ">=8.2", "laravel/framework": "^11.0"}}),
+                    "composer.lock": json.dumps({"packages": [{"name": "laravel/framework", "version": "v11.9.2"}]})},
+            "Rust": {"Cargo.toml": "[package]\nname = \"x\"\n[dependencies]\nserde = \"1\"\n[workspace.dependencies]\ntokio = \"1\"\n[target.'cfg(unix)'.dependencies]\nlibc = \"0.2\"\n",
+                     "Cargo.lock": "".join(f'[[package]]\nname = "{n}"\nversion = "{v}"\n\n' for n, v in (("serde", "1.0.203"), ("tokio", "1.38.0"), ("libc", "0.2.155")))},
+            ".NET": {"api/Api.csproj": "<Project/>", "api/packages.lock.json": json.dumps({"dependencies": {
+                "net8.0": {"Serilog": {"type": "Direct", "resolved": "3.1.1"}, "Tr": {"type": "Transitive", "resolved": "1.0.0"}},
+                "net6.0": {"Serilog": {"type": "Direct", "resolved": "2.12.0"}}}})},
+            "Elixir": {"mix.exs": "defmodule X do\n  def project, do: [app: :x, deps: deps()]\n  def start(_, _), do: {:ok, self()}\n  defp deps do\n    [{:phoenix, \"~> 1.7\"}]\n  end\nend\n",
+                       "mix.lock": '%{\n  "phoenix": {:hex, :phoenix, "1.7.14", "x"},\n}\n'},
+            "Java": {"build.gradle": ("processResources { exclude '**/*.dev.yml' }\nrepositories { maven { url 'https://repo.example/m2' } }\n"
+                                      "dependencies {\n  implementation 'org.slf4j:slf4j-api:2.0.13'\n  // implementation 'com.old:gone:1.0'\n"
+                                      "  testRuntimeOnly(\"org.junit.platform:junit-platform-launcher:1.10.2\")\n  implementation(libs.guava)\n"
+                                      "  releaseImplementation 'com.rel:r:2.0'\n  implementation group: 'com.map', name: 'mapped', version: '1.2'\n}\n"
+                                      "jar { exclude '**/*.dev.yml' }\n"),
+                     "gradle.lockfile": "org.slf4j:slf4j-api:2.0.13=compileClasspath\norg.junit.platform:junit-platform-launcher:1.10.2=testRuntimeClasspath\n"
+                                        "com.rel:r:2.0=releaseRuntimeClasspath\ncom.map:mapped:1.2=compileClasspath\n",
+                     "svc/pom.xml": ("<project><dependencies><dependency><groupId>junit</groupId><artifactId>junit</artifactId><version>4.13.2</version></dependency>"
+                                     "<!-- <dependency><groupId>com.old</groupId><artifactId>gone</artifactId></dependency> -->"
+                                     "<dependency><artifactId>no-group</artifactId></dependency>"
+                                     "<dependency><groupId>org.x</groupId><artifactId>managed</artifactId></dependency></dependencies></project>")},
+            "Node.js": {"package.json": json.dumps({"dependencies": {"express": "^4.19.0"}, "devDependencies": {"vitest": "^1.6.0"}, "optionalDependencies": {"fsevents": "^2.3.0"},
+                                                    "peerDependencies": {"react": "^18.0.0", "vue": "^3"}, "peerDependenciesMeta": {"vue": {"optional": True}}}),
+                        "yarn.lock": '"express@^4.19.0":\n  version "4.19.2"\n\nvitest@^1.6.0:\n  version "1.6.0"\n\nfsevents@^2.3.0:\n  version "2.3.3"\n\nreact@^18.0.0:\n  version "18.3.1"\n'},
+            "Python": {"Pipfile": "[packages]\nflask = \"*\"\n", "Pipfile.lock": json.dumps({"default": {"flask": {"version": "==3.0.3"}}}),
+                       "requirements.txt": "httpx==0.27.0\nrich>=13\n",
+                       "svc/pyproject.toml": "[tool.poetry.dependencies]\npython = \"^3.11\"\n[tool.poetry.dev-dependencies]\npytest = \"^8\"\n",
+                       "svc/poetry.lock": '[[package]]\nname = "pytest"\nversion = "8.2.0"\n'},
+        }
+        expect = {"Go": {("github.com/gin-gonic/gin", "v1.10.0")}, "Ruby": {("rails", "7.1.3")}, "PHP": {("laravel/framework", "11.9.2")},
+                  "Rust": {("serde", ("1.0.203",)), ("tokio", ("1.38.0",)), ("libc", ("0.2.155",))},
+                  ".NET": {("Serilog", ("3.1.1", "2.12.0"))}, "Elixir": {("phoenix", "1.7.14")},
+                  "Java": {("org.slf4j:slf4j-api", ("2.0.13",)), ("org.junit.platform:junit-platform-launcher", ("1.10.2",)), (None, None),
+                           ("com.rel:r", ("2.0",)), ("com.map:mapped", ("1.2",)), ("junit:junit", "4.13.2"), ("org.x:managed", dependencies.MANAGED)},
+                  "Node.js": {("express", "4.19.2"), ("vitest", "1.6.0"), ("fsevents", "2.3.3"), ("react", "18.3.1")},
+                  "Python": {("flask", "3.0.3"), ("httpx", "0.27.0"), ("rich", None), ("pytest", ("8.2.0",))}}
+        for stack, files in cases.items():
+            with tempfile.TemporaryDirectory() as tmp:
+                for rel, text in files.items():
+                    write(Path(tmp) / rel, text)
+                got = {(n, v if v is None or isinstance(v, str) else tuple(v)) for _, n, v, _ in dependencies.BACKEND_READERS[stack](Path(tmp))}
+                self.assertEqual(got, expect[stack], stack)
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp) / "package.json", json.dumps({"dependencies": {"vue": "^3.4.0"}}))
+            write(Path(tmp) / "pnpm-lock.yaml", "lockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    dependencies:\n      vue:\n        specifier: ^3.4.0\n        version: 3.4.27(typescript@5.4.5)\n\npackages:\n")
+            self.assertEqual([(n, v) for _, n, v, _ in dependencies.read_npm(Path(tmp))], [("vue", "3.4.27")])
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp) / "Gemfile", "gem 'rails'\n")
+            self.assertEqual([(n, note) for _, n, _, note in dependencies.read_ruby(Path(tmp))], [(None, "no Gemfile.lock — commit it")])
+        self.assertEqual(set(dependencies.readers()["frontend.framework"]), {"React", "Vue.js", "Angular", "Svelte", "Solid"})
+
+    def _stack_project(self, root: Path, runtime: str, allow: list, files: dict) -> Path:
+        write(root / "docs/constitution.md", "# Constitution\n")
+        write(root / "docs/setup.md", f"---\nbackend:\n  runtime: {runtime}\nfrontend:\n  framework: None\n---\n")
+        write(root / "config/allowlist.json", json.dumps({"backend": allow}))
+        for rel, text in files.items():
+            write(root / rel, text)
+        return root
+
+    def test_every_locked_version_and_a_managed_pom_version(self):
+        """Several locked versions: every one falls in the range. A version a parent or BOM manages passes only a * entry."""
+        cargo = {"Cargo.toml": "[package]\nname = \"x\"\n[dependencies]\nsyn = \"2\"\n",
+                 "Cargo.lock": '[[package]]\nname = "syn"\nversion = "1.0.109"\n\n[[package]]\nname = "syn"\nversion = "2.0.66"\n'}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._stack_project(Path(tmp), "Rust", [{"name": "syn", "version": ">=2,<3"}], cargo)
+            self.assertTrue(any("syn resolves to 1.0.109," in f for f in dependencies.check(root)), "a lower locked version is not hidden")
+            write(root / "config/allowlist.json", json.dumps({"backend": [{"name": "syn", "version": ">=1,<3"}]}))
+            self.assertEqual(dependencies.check(root), [])
+        pom = {"pom.xml": "<project><dependencies><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency></dependencies></project>"}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._stack_project(Path(tmp), "Java", [{"name": "org.springframework.boot:spring-boot-starter-web", "version": ">=3"}], pom)
+            self.assertTrue(any("managed by a parent pom or a BOM" in f for f in dependencies.check(root)))
+            write(root / "config/allowlist.json", json.dumps({"backend": [{"name": "org.springframework.boot:spring-boot-starter-web", "version": "*"}]}))
+            self.assertEqual(dependencies.check(root), [], "allowing the name with * clears it, as the resolution says")
+
+    def test_names_fold_only_for_python_and_java_needs_the_group(self):
+        allow = {"backend": [{"name": "typing_extensions"}, {"name": "lodash.merge"}, {"name": "jackson-databind"}]}
+        self.assertTrue(dependencies._lookup(allow, "Typing-Extensions", True)[1], "Python folds - _ . (PEP 503)")
+        self.assertFalse(dependencies._lookup(allow, "lodash-merge", False)[1], "npm names are not folded")
+        self.assertFalse(dependencies._lookup(allow, "evil:jackson-databind", False)[1], "a Java entry names group:artifact")
+
+    def test_missing_answer_unresolved_name_and_manifest_level_rows_block(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(Path(tmp))
+            write(root / "docs/setup.md", self.SETUP.replace("frontend:\n  framework: React\n", ""))
+            self.assertTrue(any("does not record frontend.framework" in f for f in dependencies.check(root)), "one missing answer is red, not 'None'")
+            write(root / "docs/setup.md", self.SETUP.replace("frontend:\n  framework: React\n", "project_scope: backend-only\n"))
+            self.assertFalse(any("frontend.framework" in f for f in dependencies.check(root)), "a question the scope skipped is no missing answer")
+            write(root / "docs/setup.md", self.SETUP.replace("runtime: Python", "runtime: [Python, Go]"))
+            self.assertTrue(any("no dependency reader for backend.runtime" in f for f in dependencies.check(root)), "a list answer is red, never a traceback")
+            write(root / "docs/setup.md", self.SETUP)
+            write(root / "pyproject.toml", '[project]\nname = "app"\ndependencies = ["fastapi>=0.110", "sqlalchemy", "httpx"]\n')
+            allow = json.loads((root / "config/allowlist.json").read_text()); allow["backend"].append({"name": "httpx", "version": "*"})
+            write(root / "config/allowlist.json", json.dumps(allow))
+            self.assertTrue(any("httpx — uv.lock does not resolve it" in f for f in dependencies.check(root)))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._stack_project(Path(tmp), ".NET", [], {"api/Api.csproj": "<Project/>"})
+            self.assertEqual(dependencies.check(root), ["api/Api.csproj: no packages.lock.json — set RestorePackagesWithLockFile and commit it."])
+
+    def test_seed_deny_wins_and_an_unreadable_range_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._project(Path(tmp))
+            write(root / "docs/setup.md", self.SETUP.replace('"SQLAlchemy"]', '"SQLAlchemy", "moment"]').replace("denied: [moment]", "denied: [moment, lodash]"))
+            allow = json.loads((root / "config/allowlist.json").read_text()); allow["frontend"].append({"name": "lodash", "version": "*"})
+            write(root / "config/allowlist.json", json.dumps(allow))
+            dependencies.seed(root)
+            allow = json.loads((root / "config/allowlist.json").read_text())
+            self.assertNotIn("moment", [e["name"] for e in allow["backend"]], "a name the answers deny is not seeded as allowed")
+            self.assertIn("lodash", [e["name"] for e in allow["denied"]], "a deny added later lands although the name was allowed")
+            self._add_npm(root, "lodash", "4.17.21")
+            self.assertTrue(any("lodash is denied" in f for f in dependencies.check(root)), "the deny wins")
+            for bad in ('"httpx latest"]', '"httpx >=1,<2x"]'):
+                write(root / "docs/setup.md", self.SETUP.replace('"SQLAlchemy"]', bad))
+                with self.assertRaises(dependencies.GateFault, msg=bad):
+                    dependencies.seed(root)
+            write(root / "docs/setup.md", self.SETUP.replace("denied: [moment]", "denied: {moment: x}"))
+            with self.assertRaises(dependencies.GateFault, msg="a malformed deny list is a fault, never a silent drop"):
+                dependencies.seed(root)
+            write(root / "docs/setup.md", self.SETUP)
+            write(root / "pack-tools.json", json.dumps({"tools": [{"name": "eslint", "version": "latest"}]}))
+            with self.assertRaises(dependencies.GateFault, msg="a pack's unreadable range stops the seed"):
+                dependencies.seed(root, root / "pack-tools.json")
+
+
 class Retired(unittest.TestCase):
     def test_ratchet_red_and_exemptions(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -371,6 +569,24 @@ class Retired(unittest.TestCase):
             self.assertTrue(any(retired._matches(t, line) for t in shipped), f"a copied count is red: {line!r}")
         for line in ("Auto-approves when all auto-approval checks pass.", f"CHECK {n}: slice_map present", f"{n} validations ran", "Tripartite alignment check."):
             self.assertFalse(any(retired._matches(t, line) for t in shipped), f"no count, no red: {line!r}")
+
+    def test_shipped_wave0_patterns_red_and_green(self):
+        """#116 / #118 / #143: every retired shape is red, its correct wording green (strings built at runtime: this file is scanned)."""
+        real = HERE.parent.parent
+        if not (real / "config/quality.json").is_file() or not (real / ".context/templates/setup").is_dir():
+            self.skipTest("not the framework repo")
+        shipped = [t for t in retired._terms(real) if t["record"].startswith(("#116", "#118", "#143"))]
+        self.assertEqual(len(shipped), 7, "the wave ships seven retired shapes")
+        bar, rw, sw = "|" + "|", "`rounds" + ".work`", "sw" + "eep"
+        red = [f"npm audit --omit=dev 2>&1 {bar} true", f"gitleaks detect --no-git {bar} :", f"govulncheck ./... {bar} exit 0", "cargo audit; " + "true",
+               "Un" + "known stack — skip BVL", "(un" + "known stack) → continue with semantic verification only",
+               f"two rounds ({rw})", f"{rw} = 2", "after a fix, re-run the " + "full suite", f"the {sw} runs post-deploy", sw + "_recommended", "ai" + "_capability"]
+        for line in red:
+            self.assertTrue(any(retired._matches(t, line) for t in shipped), f"retired shape is red: {line!r}")
+        green = ["npm audit --omit=dev --audit-level=high", f"jq -r .x config.json {bar} true", "UNDECLARED_STACK: ACTION: BLOCK",
+                 f"the passes {rw} allows", "verified by its red test, then the read-set re-run", f"the {sw} runs at the pre-deploy gate", "ai.training"]
+        for line in green:
+            self.assertFalse(any(retired._matches(t, line) for t in shipped), f"correct wording is green: {line!r}")
 
 
 class Budget(unittest.TestCase):
@@ -465,24 +681,6 @@ class Budget(unittest.TestCase):
             (repo / "config/quality.json").write_text(json.dumps(cfg), encoding="utf-8")
             r = budget.measure(repo)["claude_md_advisory"]
             self.assertFalse(r["ok"], "a key that is not an integer is a red row, like every other budget key")
-
-    def test_shipped_wave0_patterns_red_and_green(self):
-        """#116 / #118 / #143: every retired shape is red, its correct wording green (strings built at runtime: this file is scanned)."""
-        real = HERE.parent.parent
-        if not (real / "config/quality.json").is_file() or not (real / ".context/templates/setup").is_dir():
-            self.skipTest("not the framework repo")
-        shipped = [t for t in retired._terms(real) if t["record"].startswith(("#116", "#118", "#143"))]
-        self.assertEqual(len(shipped), 7, "the wave ships seven retired shapes")
-        bar, rw, sw = "|" + "|", "`rounds" + ".work`", "sw" + "eep"
-        red = [f"npm audit --omit=dev 2>&1 {bar} true", f"gitleaks detect --no-git {bar} :", f"govulncheck ./... {bar} exit 0", "cargo audit; " + "true",
-               "Un" + "known stack — skip BVL", "(un" + "known stack) → continue with semantic verification only",
-               f"two rounds ({rw})", f"{rw} = 2", "after a fix, re-run the " + "full suite", f"the {sw} runs post-deploy", sw + "_recommended", "ai" + "_capability"]
-        for line in red:
-            self.assertTrue(any(retired._matches(t, line) for t in shipped), f"retired shape is red: {line!r}")
-        green = ["npm audit --omit=dev --audit-level=high", f"jq -r .x config.json {bar} true", "UNDECLARED_STACK: ACTION: BLOCK",
-                 f"the passes {rw} allows", "verified by its red test, then the read-set re-run", f"the {sw} runs at the pre-deploy gate", "ai.training"]
-        for line in green:
-            self.assertFalse(any(retired._matches(t, line) for t in shipped), f"correct wording is green: {line!r}")
 
 
 class Coherence(unittest.TestCase):

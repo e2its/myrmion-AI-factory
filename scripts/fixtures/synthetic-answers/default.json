@@ -12,7 +12,10 @@
     "scm.platform": "GitHub",
     "project_tracking.tool": "GitHub Projects",
     "po_package.mode": "full",
-    "po_package.ds_rebuild_command": "npm run cards"
+    "po_package.ds_rebuild_command": "npm run cards",
+    "dependencies.backend": ["fastapi >=0.110,<1"],
+    "dependencies.frontend": ["react ^18.2"],
+    "dependencies.denied": ["moment"]
   },
   "expect": {
     "landed": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml"],

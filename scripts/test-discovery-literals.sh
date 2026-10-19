@@ -4,8 +4,8 @@
 # One check per fix class. Each reads the literals the questions offer (`Factory-setup-discovery`: a question's
 # `**Options:**` and its one `**Persist:**` key) and fails where a consumer names a key no question persists or a
 # literal no question offers: manifest conditionals, materialisation steps, the verification loop's rows, the
-# DEVOPS enums and labels, the infrastructure-registry schema, the shipped scripts. The interim guard until the
-# answer registry and its validator (#159) replace it.
+# DEVOPS enums and labels, the infrastructure-registry schema, the shipped scripts, the dependency readers (#114).
+# The interim guard until the answer registry and its validator (#159) replace it.
 #
 # Usage: test-discovery-literals.sh [--root DIR]      exit 0 all green · 1 a check failed · 2 infra
 set -u
@@ -222,6 +222,19 @@ for key in ("backend.runtime", "frontend.framework"):
             found += [f"BVL `MATCH stack.{key}` row `{lit}` — not offered ({' | '.join(OPTS.get(key, []))})"
                       for lit in re.findall(r"\"([^\"]+)\"", row) if lit not in OPTS.get(key, [])]
 check("verification loop: every BVL stack row names an offered literal", sorted(set(found)))
+
+# ── 12 · every offered stack literal has a dependency reader (#114, QA-PRE-1) ───────────────────────────────
+found = []
+rd = subprocess.run([sys.executable, str(R / ".context/templates/setup/scripts/gate.py"), "--repo", str(R), "dependencies", "--readers"], capture_output=True, text=True)
+try:
+    have = json.loads(rd.stdout)
+except ValueError:
+    have = {}; found.append(f"gate.py dependencies --readers did not answer ({(rd.stderr or rd.stdout).strip()[:120]})")
+for key in ("backend.runtime", "frontend.framework"):
+    found += [] if OPTS.get(key) else [f"discovery: no {key} options parsed — nothing compared"]
+    found += [f"{key} `{lit}` is offered and has no dependency reader" for lit in OPTS.get(key, [])
+              if not lit.startswith("None") and lit not in have.get(key, [])]
+check("dependencies: every offered Q5 / Q9 literal has a reader", found)
 
 print(f"test-discovery-literals: {'FAIL' if FAILS else 'OK'} ({FAILS} check(s) red)")
 sys.exit(1 if FAILS else 0)

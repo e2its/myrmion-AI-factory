@@ -462,6 +462,34 @@ printf '{"branch":"%s","train":null,"head":"%s","clean":true,"pushed":true,"clos
 OUT=$(cd "$P" && bash scripts/validate-governance.sh --banner 2>&1); rm -f "$P/.claude/state/handoff.json"
 printf '%s' "$OUT" | grep -q "hand-off: $HB closed at ${HS:0:8}" && ok "the banner names the hand-off recorded for the current branch" || bad "banner without the hand-off" "$OUT"
 
+# #114 — QA-PRE-1 from the template: the allowlist seeded from the fixture's Q26 answers; an allowlisted project
+# passes, a denied dependency blocks. The stack answers (Q5 / Q9) pick the readers.
+D="$SCRATCH/deps"; mkdir -p "$D/docs" "$D/config"; cp -R "$P/scripts" "$D/scripts"; cp "$P/docs/constitution.md" "$D/docs/"; cp "$P/config/allowlist.json" "$D/config/"
+python3 - "$ANSWERS" "$D" <<'PY'
+import json, sys
+from pathlib import Path
+A, D = json.loads(Path(sys.argv[1]).read_text())["answers"], Path(sys.argv[2])
+tree = {}
+for k, v in A.items():
+    *head, last = k.split("."); node = tree
+    for h in head: node = node.setdefault(h, {})
+    node[last] = v
+def y(d, ind=0):
+    return "".join(f"{'  ' * ind}{k}:\n{y(v, ind + 1)}" if isinstance(v, dict) else f"{'  ' * ind}{k}: {json.dumps(v)}\n" for k, v in d.items())
+(D / "docs/setup.md").write_text("---\n" + y(tree) + "---\n", encoding="utf-8")
+(D / "pyproject.toml").write_text('[project]\nname = "app"\ndependencies = ["fastapi>=0.110"]\n', encoding="utf-8")
+(D / "uv.lock").write_text('[[package]]\nname = "fastapi"\nversion = "0.115.2"\n', encoding="utf-8")
+(D / "web").mkdir()
+(D / "web/package.json").write_text(json.dumps({"dependencies": {"react": "^18.2.0"}}), encoding="utf-8")
+(D / "web/package-lock.json").write_text(json.dumps({"lockfileVersion": 3, "packages": {"": {}, "node_modules/react": {"version": "18.3.1"}}}), encoding="utf-8")
+PY
+OUT=$(cd "$D" && env -u CLAUDE_PROJECT_DIR python3 scripts/gate.py --repo "$D" dependencies --seed 2>&1 && env -u CLAUDE_PROJECT_DIR bash scripts/dependency-allowlist.sh --strict 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "QA-PRE-1 from the template: seeded from Q26, an allowlisted project passes" || bad "allowlisted project not green (rc=$RC)" "$OUT"
+python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["dependencies"]["moment"]="2.30.1"; json.dump(d,open(p,"w"))' "$D/web/package.json"
+python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["packages"]["node_modules/moment"]={"version":"2.30.1"}; json.dump(d,open(p,"w"))' "$D/web/package-lock.json"
+OUT=$(cd "$D" && env -u CLAUDE_PROJECT_DIR bash scripts/dependency-allowlist.sh --strict 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'moment is denied' && ok "QA-PRE-1 from the template: a denied dependency blocks (exit 1, named)" || bad "denied dependency not red (rc=$RC)" "$OUT"
+
 echo; echo "materialize-synthetic: $PASS passed, $FAIL failed"
 [ "${MATERIALIZE_KEEP:-0}" = "1" ] && echo "scratch kept at $P"
 [ "$FAIL" -eq 0 ]

@@ -56,7 +56,7 @@ Before processing commands, read:
 
 ```yaml
 MANDATORY Scripts (ALWAYS during --verify):
-  - dependency-allowlist.sh --strict: Package validation (BLOCKING)
+  - dependency-allowlist.sh --strict: every direct dependency at its resolved version against config/allowlist.json (BLOCKING — exit 0 passes, any other exit blocks)
   - check-integrations.sh --strict: system_resources.json schema (BLOCKING)
 
 Conditional Scripts:
@@ -519,8 +519,8 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
 
 **Pre-Audit Blocking Checks (Steps 0-0c):**
 
-0. **Dependency Allowlist:** `scripts/dependency-allowlist.sh --strict`
-   - Exit 0: Continue | Exit 1-3: REJECT (unauthorized/invalid packages)
+0. **Dependency Allowlist:** `scripts/dependency-allowlist.sh --strict` (= `python3 scripts/gate.py dependencies`, #114)
+   - Exit 0: Continue | Exit 1: REJECT — a denied, unlisted or out-of-range dependency, or a missing declaration (constitution, allowlist, stack, lockfile); each line names its resolution | Exit 2: REJECT — the tool could not run
 
 0b. **Migration Safety:** `scripts/validate-migrations.sh --strict`
     - Exit 1: REJECT (destructive operations) | Exit 2: WARN (suspicious, continue with warning)
@@ -734,7 +734,7 @@ reviewed_by: QA
 ## 1. Pre-Audit Checks
 | Check | Script | Result | Details |
 |-------|--------|--------|---------|
-| Dependency Allowlist | dependency-allowlist.sh --strict | PASS/FAIL | {{details}} |
+| Dependency Allowlist | dependency-allowlist.sh --strict (exit 0 PASS, else FAIL) | PASS/FAIL | {{details}} |
 | Migration Safety | validate-migrations.sh --strict | PASS/FAIL/SKIP | {{details}} |
 | IaC Governance | validate-iac.sh --strict | PASS/FAIL/SKIP | {{details}} |
 

@@ -101,10 +101,11 @@
       ]
     },
     "rules/allowlist.json": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "universal",
       "target": "config/allowlist.json",
       "changelog": [
+        "1.2.1: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.2.0: fix(EVOL-040) — notes field legacy path .context/setup.md → docs/setup.md.",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
         "1.0.0: Initial template"
@@ -494,10 +495,11 @@
       "delivery": "setup"
     },
     "scripts/dependency-allowlist.sh": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "scripts/dependency-allowlist.sh",
       "changelog": [
+        "1.1.1: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/",
         "1.0.0: Initial template — Dependency allowlist validator"
       ],
@@ -623,7 +625,7 @@
       "content_type": "universal",
       "target": "scripts/README.md",
       "changelog": [
-        "1.6.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
+        "1.6.1: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.6.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.5.0: feat(EVOL-048) — gate.py subcommands of EVOL-045…048 listed.",
         "1.4.0: feat(EVOL-046) — pre-push runs the gate profile.",
@@ -1737,11 +1739,12 @@
       ]
     },
     "rules/dependencies.md": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": ".claude/rules/dependencies.md",
       "role": "Body home of [PLAW-10] Dependency Management and Allowlist (moved from the constitution template; allowlist.json stays the data).",
       "changelog": [
+        "1.0.1: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
     },
@@ -1789,7 +1792,7 @@
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
-        "1.17.0: fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]",
+        "1.17.0: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.16.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.15.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
@@ -1872,7 +1875,7 @@
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
-        "1.20.3: fix #115: the checklist vocabulary is seen red (a failed [!] is not done; an unreadable checklist is a fault)",
+        "1.20.3: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.20.2: fix #113: an auto-approval check count lives only in its check list — the copied counts are cured, three retired_terms patterns keep any count from coming back",
         "1.20.1: fix(planning): an ExitPlanMode approval in auto mode is recorded — the plan dialog always asks a human and the payload names the mode the session returns to; bypassPermissions and dontAsk stay refused, the transcript proof stays the evidence",
         "1.20.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
@@ -2332,6 +2335,15 @@
       "target": "scripts/gates/checklist.py",
       "changelog": [
         "1.0.0: fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]"
+      ]
+    },
+    "scripts/gates/dependencies.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "delivery": "both",
+      "target": "scripts/gates/dependencies.py",
+      "changelog": [
+        "1.0.0: fix #114: QA-PRE-1 really blocks — gate.py dependencies checks every direct dependency at its lockfile-resolved version against config/allowlist.json (denied, unlisted, out of range, missing declaration: red); the stack answers pick the readers (every Q5/Q9 literal has one); --seed merges Q26 and a pack's --tools"
       ]
     }
   },
@@ -2890,7 +2902,7 @@
       "version": "2.11.2",
       "path": ".claude/instructions/Factory-blueprint-validation.instructions.md",
       "changelog": [
-        "2.11.2: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "2.11.2: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "2.11.1: fix(EVOL-059) — RDR-3: the work passes the key allows, never a digit.",
         "2.11.0: fix(EVOL-049) — review pass — --approve Step 0 runs the Plan Gate; one work round then the user adjudicates; concern wording",
         "2.10.0: feat(EVOL-049)! — hat vocabulary retired (the work critics vs the worker).",
@@ -3186,7 +3198,7 @@
       "version": "3.7.0",
       "path": ".claude/instructions/Factory-qa-verify.instructions.md",
       "changelog": [
-        "3.7.0: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "3.7.0: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "3.6.1: feat(EVOL-054) — [QA-PRE-SCM] pre-verification item (EVOL-054)",
         "3.6.0: feat(EVOL-053) — the [QA-TC-*] checklist consumes gate.py traceability --json (linked tests or UNLINKED (baseline)); a red gate blocks certification",
         "3.5.1: fix(EVOL-051) — review pass — the pre-verification gate asks gate.py seal --check --ref HEAD: a status with no covering seal is BUILDING (EVOL-051)",
@@ -3292,7 +3304,7 @@
       "version": "2.22.2",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
-        "2.22.2: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
+        "2.22.2: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "2.22.1: fix(EVOL-059) — Q34 recommends writer: opus · critic: sonnet (RDR-2 of ADR-EVOL-059: the cost sits where the spawns are many).",
         "2.22.0: feat(EVOL-054) — Q21 gains Bitbucket Pipelines / Azure DevOps / GCP Cloud Build (the literals the workflow conditionals name); Q21.2 the SCM host, approvals and required checks, in the tier-2 question list.",
         "2.21.1: feat(EVOL-053) — derived, no question: verification.gates and traceability.home come from the stack",
@@ -3332,7 +3344,7 @@
       "version": "3.24.2",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
-        "3.24.2: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
+        "3.24.2: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "3.24.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "3.24.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "3.23.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
@@ -3393,7 +3405,7 @@
       "version": "2.18.2",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
-        "2.18.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
+        "2.18.2: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "2.18.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "2.18.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
         "2.17.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
@@ -5007,7 +5019,7 @@
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
-        "1.17.0: fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]",
+        "1.17.0: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.16.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.15.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
@@ -5084,7 +5096,7 @@
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
-        "1.20.3: fix #115: the checklist vocabulary is seen red (a failed [!] is not done; an unreadable checklist is a fault)",
+        "1.20.3: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.20.2: fix #113: an auto-approval check count lives only in its check list — the copied counts are cured, three retired_terms patterns keep any count from coming back",
         "1.20.1: fix(planning): an ExitPlanMode approval in auto mode is recorded — the plan dialog always asks a human and the payload names the mode the session returns to; bypassPermissions and dontAsk stay refused, the transcript proof stays the evidence",
         "1.20.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
@@ -5118,7 +5130,7 @@
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
-        "1.20.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
+        "1.20.2: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.20.1: fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/",
         "1.20.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.19.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
@@ -5548,7 +5560,7 @@
       "type": "utility",
       "path": "scripts/test-discovery-literals.sh",
       "changelog": [
-        "1.0.0: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact"
+        "1.0.0: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools"
       ]
     },
     "scripts/fixtures/synthetic-answers/default.json": {
@@ -5557,7 +5569,7 @@
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json",
       "changelog": [
-        "1.0.0: fix #143: synthetic answer sets — every stack_conditional evaluated against the keys and literals discovery offers"
+        "1.0.0: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools"
       ]
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
@@ -5567,6 +5579,14 @@
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json",
       "changelog": [
         "1.0.0: fix #143: synthetic answer sets — every stack_conditional evaluated against the keys and literals discovery offers"
+      ]
+    },
+    "scripts/gates/dependencies.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "path": "scripts/gates/dependencies.py",
+      "changelog": [
+        "1.0.0: fix #114: QA-PRE-1 really blocks — gate.py dependencies checks every direct dependency at its lockfile-resolved version against config/allowlist.json (denied, unlisted, out of range, missing declaration: red); the stack answers pick the readers (every Q5/Q9 literal has one); --seed merges Q26 and a pack's --tools"
       ]
     }
   },

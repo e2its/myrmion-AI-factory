@@ -250,6 +250,7 @@ After ALL script files are merged, run 6 validation checks:
 ### Step 4: Finalization (4.4.4)
 1. Update project snapshot (`governance_versions.json`) with all new checksums
 2. Finalize backup manifest: `status: COMPLETED`
+2b. **Seed the dependency allowlist (#114):** `python3 scripts/gate.py dependencies --seed` — Q26's answers (`docs/setup.md → dependencies.backend / frontend / denied`) merge into `config/allowlist.json`; an entry already listed is kept as written. The merge above replaced the `dependency-allowlist.sh` stub with the real check.
 3. **Regenerate governance snapshot** (`.context/governance_snapshot.md`):
    - Constitution / defect-prevention.md / setup.md may have changed during upgrade → snapshot must reflect new state
    - Call `generate_governance_snapshot()` from setup-materialization.md Checkpoint 3.1

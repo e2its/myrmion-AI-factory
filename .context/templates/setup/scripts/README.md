@@ -1,6 +1,6 @@
 # Scripts
 
-All scripts use DRY_RUN=1 by default. Use `--apply` or export DRY_RUN=0 to run for real.
+All scripts use DRY_RUN=1 by default. Use `--apply` or export DRY_RUN=0 to run for real. A gate a phase calls as BLOCKING (`dependency-allowlist.sh`, `security-scan.sh --secrets`) always validates — it has no dry run.
 
 ## Lista de scripts
 
@@ -8,7 +8,7 @@ All scripts use DRY_RUN=1 by default. Use `--apply` or export DRY_RUN=0 to run f
 - lint-format.sh `<tech>` [--apply]
 - test.sh [scope] [--apply]
 - security-scan.sh [--secrets] [--require-scanner] [--range <git-range>] [--contracts] [--dast] [--dast-full] [--dast-api] [--apply]
-- dependency-allowlist.sh [--apply]
+- dependency-allowlist.sh [--strict]
 - validate-gitignore.sh [--strict]
 - check-integrations.sh [--strict] [--skip-connect] [--env `<file>`]
 - install-hooks.sh [--force]
@@ -25,7 +25,7 @@ All scripts use DRY_RUN=1 by default. Use `--apply` or export DRY_RUN=0 to run f
 5) **E2E QA (Staging)**: `test.sh e2e` (Playwright) or `test.sh api-e2e` (Newman) to validate user journeys post-deployment.
 6) **Security (secrets)**: `security-scan.sh --secrets` (SETUP-ratified scanner) + `validate-gitignore.sh --strict` + `check-integrations.sh --strict` to verify integrity.
 7) **Security (DAST)**: `TARGET_URL=https://staging.example.com security-scan.sh --dast` (baseline) or `--dast-full` (active scan) for dynamic scanning with OWASP ZAP.
-8) **Dependencies**: `dependency-allowlist.sh` to verify against allowed/blocklist in `docs/constitution.md`.
+8) **Dependencies**: `dependency-allowlist.sh` checks every direct dependency, at the version its lockfile resolved, against `config/allowlist.json` (QA-PRE-1, = `python3 scripts/gate.py dependencies`): exit 0 pass, 1 denied / unlisted / out of range / a missing declaration, 2 the tool could not run. Never a dry run.
 
 Remember to record transitions and validations in the JSONL files per feature under `docs/project_log/features/*.log.jsonl` (the index `docs/project_log/workflow_log.json` is metadata only and must not be edited manually).
 

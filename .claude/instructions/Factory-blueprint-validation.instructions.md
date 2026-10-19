@@ -462,7 +462,7 @@ PROPOSED | ACCEPTED | DEPRECATED | SUPERSEDED
 
 ### Governance Updates After ADR
 - If ADR affects constitution.md: update relevant section
-- If ADR adds allowed technology: update `dependency-allowlist.json`
+- If ADR adds allowed technology: update `config/allowlist.json`
 - If ADR modifies protected paths: update `protected-paths.json`
 
 ---

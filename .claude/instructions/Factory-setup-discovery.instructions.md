@@ -114,7 +114,7 @@ TIER_FINAL:
 #### `--propose-final` (Generate Complete Proposal)
 1. Read all persisted answers from `docs/setup.md`
 2. Run Budget Validation (sum costs, check tier limit)
-2b. Verification coverage (#116): each stack answer — `backend.runtime` (Q5), `backend.framework` (Q6), `frontend.framework` (Q9), `frontend.meta_framework` (Q10) — has its `MATCH stack.*` rows in `factory-build-verification` § derive_commands_from_stack. A stack with no row → RDR: declare its commands (persisted in `docs/setup.md → verification.commands` — keys `test_single` with `{test_file}`, `test_suite`, `lint`, `build`, `dependency_audit`; `factory-build-verification` § DECLARED VERIFICATION COMMANDS; merged into `config/quality.json → verification.gates` at `--generate`), or stop. Never carried forward undeclared: the loop would block at the first build.
+2b. Verification coverage (#116): each stack answer — `backend.runtime` (Q5), `backend.framework` (Q6), `frontend.framework` (Q9), `frontend.meta_framework` (Q10) — has its `MATCH stack.*` rows in `factory-build-verification` § derive_commands_from_stack. A stack with no row → RDR: declare its commands (persisted in `docs/setup.md → verification.commands`, the keys `factory-build-verification` § DECLARED VERIFICATION COMMANDS lists; merged into `config/quality.json → verification.gates` at `--generate`), or stop. Never carried forward undeclared: the loop would block at the first build. The same answers (Q5, Q9) need a dependency reader: `python3 scripts/gate.py dependencies --readers` lists the literals that have one; a literal outside it → the same RDR (declare a reader, or stop) — QA-PRE-1 would block on it (#114).
 3. Generate complete summary (General Info + Architecture + Tooling + Databases + DevOps + AI + Costs)
 4. If budget exceeds → include 5 alternative suggestions
 5. Present to Factory/user for final acceptance
@@ -412,7 +412,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Crypto (all runtimes):** md5, sha1 for hashing passwords/tokens (use bcrypt/argon2)
 - **Dynamic eval (Python, Node.js, Ruby, PHP only):** eval/exec (use safe alternatives per language)
 - **Frontend JS only:** jQuery (use native DOM or selected framework), Moment.js (use date-fns/dayjs/Temporal)
-- **Persist:** `dependencies.backend[]`, `dependencies.frontend[]`, `dependencies.denied[]`
+- **Persist:** `dependencies.backend[]`, `dependencies.frontend[]`, `dependencies.denied[]` (frontmatter of `docs/setup.md`, nested YAML `dependencies:`; each entry `name` or `name <range>`, `name` = the registry package name — `sqlalchemy`, not "SQLAlchemy/Tortoise"; Java `group:artifact`; a deny wins; an unreadable range stops the seed) → `config/allowlist.json` at `--generate` (`gate.py dependencies --seed`; QA-PRE-1 checks every direct dependency against it — #114)
 
 #### Q27: Project Tracking Tool
 - **Type:** Open text with suggestions
