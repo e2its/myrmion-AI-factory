@@ -63,6 +63,8 @@ logs/
 .context/locks/
 # Claude Code hook runtime state (PreCompact markers, future per-session transient state)
 .claude/state/
+# Review seals the agent writes (coherence audit, code review, round artefact) — outside the protected .claude/ (#165)
+.context/state/
 # Machine-local permission overrides (auto-written by Claude Code, never commit)
 .claude/settings.local.json
 

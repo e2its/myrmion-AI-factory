@@ -265,6 +265,7 @@ OUT=$(cd "$P" && printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"Exit
 OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'plan approved on this branch' && ok "the harness's approval unblocks the governed write" || bad "approval did not unblock (rc=$RC)" "$OUT"
 (cd "$P" && git check-ignore -q .claude/state/plan-approved-fix-gated.json) && ok "the marker is ignored by the materialised .gitignore — it never rides a PR" || bad "the plan-approval marker is not gitignored in the project"
+(cd "$P" && git check-ignore -q .context/state/code-review-0.marker) && ok "the agent's review seals are ignored in their home outside .claude/ (#165)" || bad "the materialised .gitignore does not ignore .context/state/ (#165)"
 git -C "$P" checkout -q -b docs/only
 OUT=$(cd "$P" && python3 scripts/gate.py plan --path docs/setup.md 2>&1); RC=$?
 [ "$RC" -eq 1 ] && ok "RED: a docs branch writing a gate input (docs/setup.md) is blocked" || bad "docs branch gate input (rc=$RC)" "$OUT"

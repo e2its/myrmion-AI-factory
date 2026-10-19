@@ -125,8 +125,17 @@ echo "Scenario 6 — marker missing → blocker"
 J=$(run_preflight "$R")
 [[ "$(sev_of "$J" code-review-missing)" == "blockers" ]] && pass "code-review-missing blocker" || fail "marker-missing ($(find_cat "$J"))"
 
-HASH=$(compute_hash "$R"); MARKER="$R/.claude/state/code-review-${HASH}.marker"
-mkdir -p "$R/.claude/state"
+HASH=$(compute_hash "$R"); MARKER="$R/.context/state/code-review-${HASH}.marker"
+mkdir -p "$R/.context/state" "$R/.claude/state"
+
+echo "Scenario 6b — the seal's home is .context/state/, never the protected .claude/ (#165)"
+echo '{"findings":{"blocker":0},"override":null}' > "$R/.claude/state/code-review-${HASH}.marker"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" code-review-missing)" == "blockers" ]] && pass "a seal under .claude/state/ is not honoured" || fail "old-home seal honoured ($(find_cat "$J"))"
+rm -f "$R/.claude/state/code-review-${HASH}.marker"
+echo '{"findings":{"blocker":0},"override":null}' > "$MARKER"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" code-review-missing)" == "absent" && "$(sev_of "$J" code-review-blockers)" == "absent" ]] && pass "a clean seal under .context/state/ is honoured" || fail "new-home seal not honoured ($(find_cat "$J"))"
 
 echo "Scenario 7 — blockers, no override → blocker"
 echo '{"findings":{"blocker":2},"override":null}' > "$MARKER"
@@ -220,7 +229,7 @@ J=$(run_preflight "$R3")
 echo "Scenario 16 — the docs-only lane reads the ONE definition (EVOL-051): a clean code push passes with its JSON (no silent exit), docs-only + config → fast-lane, docs-only without the config → the lanes run and say why"
 R4="$TMP_ROOT/repo4"; make_repo "$R4"
 mkdir -p "$R4/scripts"; cp "$FRAMEWORK_ROOT/scripts/gate.py" "$R4/scripts/gate.py"; cp -R "$FRAMEWORK_ROOT/scripts/gates" "$R4/scripts/gates"; find "$R4/scripts" -name __pycache__ -type d -exec rm -rf {} +
-printf '__pycache__/\n.claude/state/\n' > "$R4/.gitignore"; export PYTHONDONTWRITEBYTECODE=1
+printf '__pycache__/\n.claude/state/\n.context/state/\n' > "$R4/.gitignore"; export PYTHONDONTWRITEBYTECODE=1
 echo '{"context":"downstream","audit":{"root_sets":["."],"exclusions":[".git/"]}}' > "$R4/config/coherence-context.json"
 echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":50,"ceiling_lines":5000,"escapes":["lockfile"]},"documentation":{"paths":["**/*.md","docs/**"],"exclusions":[".github/workflows/**"]}}' > "$R4/config/quality.json"
 (cd "$R4" && git checkout -q main && git add -A && git commit -qm "chore: the delivered reader and its config" && git update-ref refs/remotes/origin/main main)   # the scaffolding lives on main, as SETUP leaves it
