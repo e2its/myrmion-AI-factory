@@ -359,6 +359,15 @@ OUT=$(STUB_PUSH_LOG_OUT='Traceback (most recent call last): boom' run_pp); RC=$?
 OUT=$(STUB_PUSH_LOG_OUT=' ' run_pp); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written' && ok "step 0: a reader that printed nothing is said, the push's exit code untouched" || bad "empty output not said (rc=$RC)" "$OUT"
 printf '%s' "$OUT" | grep -qE 'retired-terms: stub|budget: stub|laws: stub|currency: stub|manifest-parity: stub|surface: stub' && bad "pre-push still runs gate members one by one — the profile is the one definition" || ok "step 3: no member is run outside the profile"
+# the review block asks the one diff-base resolver under set -e (#170): exit 1 says the reason, any other exit takes the fallback
+mkdir -p "$PR/scripts/pr-review"; printf 'import sys\nopen("review.argv", "w").write(repr(sys.argv[1:]))\n' > "$PR/scripts/pr-review/run_capabilities.py"
+OUT=$(STUB_DIFF_BASE=1 run_pp); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q '❌ diff-base: stub rc 1' && ok "review block: a red diff base (exit 1) blocks and says the reader's reason" || bad "red diff base blocked silently (rc=$RC)" "$OUT"
+OUT=$(STUB_DIFF_BASE=2 run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'diff base unavailable (diff-base: stub rc 2) — reviewing against origin/main' && grep -qF -- "'--base', 'origin/main'" "$PR/review.argv" && ok "review block: a resolver fault (exit 2) says the fallback and reviews against origin/main" || bad "resolver fault did not take the fallback (rc=$RC)" "$OUT $(cat "$PR/review.argv" 2>/dev/null)"
+OUT=$(run_pp); RC=$?
+[ "$RC" -eq 0 ] && grep -qF -- "'--base', 'diff-base: stub rc 0'" "$PR/review.argv" && ok "review block: a green resolver's base is the one reviewed against" || bad "green resolver's base not passed (rc=$RC)" "$OUT $(cat "$PR/review.argv" 2>/dev/null)"
+rm -rf "$PR/scripts/pr-review" "$PR/review.argv"
 mv "$PR/scripts/gate.py" "$PR/gate.py.away"
 OUT=$(run_pp); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'not delivered' && ok "step 3: reader absent → the push is blocked (fail-closed)" || bad "reader absent did not block (rc=$RC)" "$OUT"

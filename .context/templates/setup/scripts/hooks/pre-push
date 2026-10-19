@@ -269,7 +269,7 @@ if [[ "${FACTORY_PR_REVIEW_SKIP:-}" != "1" ]]; then
     ORCH_FPR="$REPO_ROOT_FPR/scripts/pr-review/run_capabilities.py"
     if [[ -f "$ORCH_FPR" ]]; then
         echo "🔍 factory-pr-review deterministic capabilities (feature: ${FEATURE_ID_FPR:-none}) ..."
-        BASE_FPR=$(python3 "$REPO_ROOT_FPR/scripts/gate.py" diff-base 2>&1); BASE_RC=$?   # the one resolver (EVOL-045)
+        BASE_RC=0; BASE_FPR=$(python3 "$REPO_ROOT_FPR/scripts/gate.py" diff-base 2>&1) || BASE_RC=$?   # the one resolver (EVOL-045); `|| rc=` because set -e would end the hook on a bare assignment (#170)
         if [ "$BASE_RC" -eq 1 ]; then echo "❌ $BASE_FPR"; exit 1
         elif [ "$BASE_RC" -ne 0 ]; then echo "⚠  diff base unavailable ($BASE_FPR) — reviewing against origin/main"; BASE_FPR="origin/main"; fi
         ARGS_FPR=(--base "$BASE_FPR" --head "HEAD" --format markdown)
