@@ -18,6 +18,7 @@
 #       message, NEVER prints EMPTY (CRITICAL-1 regression guard).
 #   5.  Bad stdin / missing files key → rc 2 (never 1, never EMPTY).
 #   6.  Marker missing → blocker code-review-missing, preflight exit 1.
+#   6b/6c. The markers' home is .context/state/; one under .claude/state/ is not honoured.
 #   7.  Marker with blockers, no override → blocker code-review-blockers.
 #   8.  Marker with blockers + override → important code-review-overridden,
 #       no Block 20 blocker.
@@ -137,6 +138,18 @@ echo '{"findings":{"blocker":0},"override":null}' > "$MARKER"
 J=$(run_preflight "$R")
 [[ "$(sev_of "$J" code-review-missing)" == "absent" && "$(sev_of "$J" code-review-blockers)" == "absent" ]] && pass "a clean seal under .context/state/ is honoured" || fail "new-home seal not honoured ($(find_cat "$J"))"
 
+echo "Scenario 6c — the coherence-audit marker's home is .context/state/ too (#165)"
+SHA=$(git -C "$R" rev-parse HEAD)
+echo '{"context":"downstream","audit":{"root_sets":["src"],"exclusions":[]}}' > "$R/config/coherence-context.json"
+echo '{"findings":{"blocker":0}}' > "$R/.claude/state/coherence-audit-${SHA}.marker"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" coherence-audit-missing)" == "blockers" ]] && pass "a coherence marker under .claude/state/ is not honoured" || fail "old-home coherence marker honoured ($(find_cat "$J"))"
+rm -f "$R/.claude/state/coherence-audit-${SHA}.marker"
+echo '{"findings":{"blocker":0}}' > "$R/.context/state/coherence-audit-${SHA}.marker"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" coherence-audit-missing)" == "absent" && "$(sev_of "$J" coherence-audit-blockers)" == "absent" ]] && pass "a clean coherence marker under .context/state/ is honoured" || fail "new-home coherence marker not honoured ($(find_cat "$J"))"
+rm -f "$R/config/coherence-context.json" "$R/.context/state/coherence-audit-${SHA}.marker"
+
 echo "Scenario 7 — blockers, no override → blocker"
 echo '{"findings":{"blocker":2},"override":null}' > "$MARKER"
 J=$(run_preflight "$R")
@@ -229,7 +242,7 @@ J=$(run_preflight "$R3")
 echo "Scenario 16 — the docs-only lane reads the ONE definition (EVOL-051): a clean code push passes with its JSON (no silent exit), docs-only + config → fast-lane, docs-only without the config → the lanes run and say why"
 R4="$TMP_ROOT/repo4"; make_repo "$R4"
 mkdir -p "$R4/scripts"; cp "$FRAMEWORK_ROOT/scripts/gate.py" "$R4/scripts/gate.py"; cp -R "$FRAMEWORK_ROOT/scripts/gates" "$R4/scripts/gates"; find "$R4/scripts" -name __pycache__ -type d -exec rm -rf {} +
-printf '__pycache__/\n.claude/state/\n.context/state/\n' > "$R4/.gitignore"; export PYTHONDONTWRITEBYTECODE=1
+printf '__pycache__/\n.claude/state/\n' > "$R4/.gitignore"; export PYTHONDONTWRITEBYTECODE=1
 echo '{"context":"downstream","audit":{"root_sets":["."],"exclusions":[".git/"]}}' > "$R4/config/coherence-context.json"
 echo '{"code_review":{"enabled":false},"surface":{"ceiling_files":50,"ceiling_lines":5000,"escapes":["lockfile"]},"documentation":{"paths":["**/*.md","docs/**"],"exclusions":[".github/workflows/**"]}}' > "$R4/config/quality.json"
 (cd "$R4" && git checkout -q main && git add -A && git commit -qm "chore: the delivered reader and its config" && git update-ref refs/remotes/origin/main main)   # the scaffolding lives on main, as SETUP leaves it
@@ -248,7 +261,7 @@ J=$(run_preflight "$R4")
 
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
-  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across 17 scenarios."
+  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across every scenario."
   exit 0
 else
   echo "L6: FAIL — $FAILURES scenario assertion(s) failed."

@@ -83,9 +83,6 @@ if [[ -z "$BASE_REF" ]]; then
   fi
 fi
 
-# The agent-written seals' home (#165): outside every protected path — auto mode judges each write under .claude/.
-SEAL_DIR=".context/state"
-
 # ── Branch sanity ──
 CURRENT=$(git branch --show-current 2>/dev/null || echo '')
 if [[ -z "$CURRENT" ]]; then
@@ -174,6 +171,9 @@ if [[ "$CLASSIFICATION" == '{}' ]]; then
   add_finding "important" "classification-failure" "detect_change_type.py failed — preflight gates keyed on classification (secrets, Block 20 code review) are degraded this push. Investigate before next push."
 fi
 
+# The review markers' home (#165): written by the agent, outside .claude/ — auto mode judges each write under it.
+REVIEW_MARKER_DIR=".context/state"
+
 # ── Step 0 — Coherence Audit marker check (Block 13-18 enforcement) ──
 # Governance-sensitive diff requires Phase 0 of the SKILL to have run for this
 # branch_sha. Marker proves it. Missing or unreadable marker → blocker.
@@ -224,7 +224,7 @@ except Exception:
     if [[ -z "$BRANCH_SHA" ]]; then
       log "preflight: cannot resolve HEAD — skipping coherence-audit marker check"
     else
-      MARKER_FILE="$SEAL_DIR/coherence-audit-${BRANCH_SHA}.marker"
+      MARKER_FILE="$REVIEW_MARKER_DIR/coherence-audit-${BRANCH_SHA}.marker"
       if [[ ! -f "$MARKER_FILE" ]]; then
         add_finding "blocker" "coherence-audit-missing" "Governance-sensitive diff requires factory-pr-review Phase 0 Coherence Audit. Marker file '$MARKER_FILE' not found. Run the SKILL Phase 0 (read SKILL.md § Phase 0 — Coherence Audit) before pushing — the audit writes the marker on completion."
       else
@@ -296,11 +296,11 @@ except Exception:
     elif [[ "$CR_HASH" == "EMPTY" ]]; then
       log "preflight: code-review gate — no reviewable code content at HEAD (EMPTY)"
     else
-      CR_MARKER="$SEAL_DIR/code-review-${CR_HASH}.marker"
+      CR_MARKER="$REVIEW_MARKER_DIR/code-review-${CR_HASH}.marker"
       if [[ ! -f "$CR_MARKER" ]]; then
         add_finding "$CR_SEV" "code-review-missing" "Code diff requires the factory-code-review branch pass (Block 20). Marker '$CR_MARKER' not found. Invoke the skill (scope=branch, read factory-code-review/SKILL.md) — it writes the marker on completion. Content-hash keying: docs-only commits and content-preserving rebases do NOT invalidate an existing marker."
       else
-        # Content-allowlist discipline: the seal dir is user-writable. Only
+        # Content-allowlist discipline: the review marker dir is user-writable. Only
         # int-cast counts and tr-filtered timestamps are ever echoed; the
         # override reason text is NEVER echoed by this script.
         # Unreadable/corrupt marker is NOT evidence of zero findings:

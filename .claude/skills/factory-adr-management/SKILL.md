@@ -100,7 +100,7 @@ Flips a proposed record to `accepted`. For ADRs, mechanically amends `docs/const
 8. **Bump the governance manifest** entries: `docs/constitution.md` (MINOR, or MAJOR when the caller signals a breaking flip), the body home rule file (MINOR), the ADR at `1.0.0`; changelog line `"{new_version}: ADR-{N} {amendment_kind} {target_section} — {title}"`.
 9. **Regenerate the snapshot:** `bash scripts/generate-governance-snapshot.sh` (the index changed).
 10. **Append worklog entry.** `adr_accepted` with `{number, target_section, amendment_kind, body_home}`.
-11. **Emit commit-message suggestion** at `.claude/state/commit-message-suggestion.md`:
+11. **Emit commit-message suggestion** at `.context/state/commit-message-suggestion.md`:
     ```
     feat(governance): ADR-{N} {amendment_kind} {target_section} — {title}
 

@@ -63,10 +63,11 @@
       ]
     },
     "rules/protected-code.md": {
-      "version": "1.4.1",
+      "version": "1.4.2",
       "content_type": "universal",
       "target": ".claude/rules/protected-code.md",
       "changelog": [
+        "1.4.2: fix #165: the review markers, round artefact and commit-message suggestion the agent writes live in .context/state/; LAW-02 body: the framework runtime state under .context/ (locks/, state/) is not RED (RDR «1»)",
         "1.4.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.4.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
         "1.3.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
@@ -2263,10 +2264,11 @@
     "scripts/gates/canary.py": {
       "content_type": "universal",
       "delivery": "both",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "target": "scripts/gates/canary.py",
       "role": "The lens canary (EVOL-059): the synthetic fixture with planted defects per lens (encoded at rest), the expected findings, the judge, the record of the model each lens last ran on and was last judged on, the plan that owes a lens when its resolved model moved.",
       "changelog": [
+        "1.1.1: fix #165: the review markers, round artefact and commit-message suggestion the agent writes live in .context/state/; LAW-02 body: the framework runtime state under .context/ (locks/, state/) is not RED (RDR «1»)",
         "1.1.0: feat(EVOL-060) — the judge reads the contract part of a return: an appendix line never credits a planted defect, `no findings` is read where the contract puts it.",
         "1.0.0: feat(EVOL-059) — initial."
       ]
@@ -2582,9 +2584,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.20.1",
+      "version": "2.20.2",
       "path": "README.md",
       "changelog": [
+        "2.20.2: fix #165: the review markers, round artefact and commit-message suggestion the agent writes live in .context/state/; LAW-02 body: the framework runtime state under .context/ (locks/, state/) is not RED (RDR «1»)",
         "2.20.1: banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars",
         "2.20.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.19.2: fix(EVOL-056) — every remaining code block (command, package and pipeline examples) reflowed to ≤ 95 characters per line.",
@@ -3949,7 +3952,7 @@
     "skills/factory-pr-review/SKILL.md": {
       "version": "1.13.5",
       "type": "skill",
-      "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.context/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .claude/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT increment pass — work critics; separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
+      "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.context/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .context/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT increment pass — work critics; separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "changelog": [
         "1.13.5: fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/",
         "1.13.4: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
@@ -4396,9 +4399,10 @@
       ]
     },
     "skills/factory-adr-management/SKILL.md": {
-      "version": "1.2.1",
+      "version": "1.2.2",
       "path": ".claude/skills/factory-adr-management/SKILL.md",
       "changelog": [
+        "1.2.2: fix #165: the review markers, round artefact and commit-message suggestion the agent writes live in .context/state/; LAW-02 body: the framework runtime state under .context/ (locks/, state/) is not RED (RDR «1»)",
         "1.2.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.2.0: feat(EVOL-043) — Accept Procedure in index form: sentence → `> sentence` of the [PLAW-NN] entry, ### Body → body_home rule file, Records appended; target_section = [PLAW-NN] | NEW:; body_home field.",
         "1.1.3: feat(EVOL-040) — PLAW-NN namespace documented for project-minted laws (regex-disjoint from framework LAW-01..99).",
@@ -5372,10 +5376,11 @@
     },
     "scripts/gates/canary.py": {
       "type": "script",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "path": "scripts/gates/canary.py",
       "role": "Meta copy (lock-step pair) of the lens canary module — see the templates entry.",
       "changelog": [
+        "1.1.1: fix #165: the review markers, round artefact and commit-message suggestion the agent writes live in .context/state/; LAW-02 body: the framework runtime state under .context/ (locks/, state/) is not RED (RDR «1»)",
         "1.1.0: feat(EVOL-060) — the judge reads the contract part of a return: an appendix line never credits a planted defect, `no findings` is read where the contract puts it.",
         "1.0.0: feat(EVOL-059) — initial."
       ]

@@ -170,7 +170,7 @@ After Phase 0 completes (regardless of verdict count), write a marker file:
 ```
 
 - `branch_sha` = `git rev-parse HEAD` at audit time.
-- Home split (#165): the seals the agent writes — this marker, the code-review marker and its round artefact — live in `.context/state/`: gitignored, outside every protected path (auto mode judges each write under `.claude/`). Write them with the Write tool; it creates the directory, absent on a fresh clone. Hook-written state stays in `.claude/state/`.
+- Home split (#165), by writer: what the agent writes with its own Write tool — this marker, the code-review marker, its round artefact, the commit-message suggestion — lives in `.context/state/` (gitignored, outside `.claude/`, whose every write auto mode judges); the Write tool creates the directory. What hooks and `gate.py` write stays in `.claude/state/`. The round artefact is appended: read it, write the old text plus the new pass.
 
 Marker body (JSON, single line):
 ```json

@@ -212,7 +212,7 @@ The marker is the push gate's proof-of-execution. Increment mode NEVER writes it
      | "$PYTHON" .claude/skills/factory-code-review/scripts/code_review_hash.py
    ```
    64-hex over sorted `path\0blob-sha` of `is_code∪is_test` files. Amend/rebase that preserves code content → same hash → marker stays valid. `EMPTY` → nothing reviewable, no marker needed.
-2. Write (house rules): the Write tool, in the agent seals' home (factory-pr-review Step 0.5); hash sanitised `tr -cd 'a-f0-9'`. Path: `.context/state/code-review-${hash}.marker`.
+2. Write the marker with the Write tool at `.context/state/code-review-${hash}.marker` (home: factory-pr-review Step 0.5).
 3. Body (single-line JSON):
    ```json
    {"content_hash":"<64hex>","base":"<gate.py diff-base>","branch":"...","head_sha":"...","reviewed_at":"ISO-8601","scope":"branch","profile":{"blocking":[...],"conditional_ran":[...],"advisory":[...]},"findings":{"blocker":N,"important":N,"nit":N,"question":N},"degraded":false,"not_delivered":[],"models":{"correctness":"<id>","no_primary":false,"unstated":0,"disagree":[],"fallback":[{"alias":"<alias>","id":"<id>","delivered":true}]},"round":1,"outside_delta":0,"override":null}
