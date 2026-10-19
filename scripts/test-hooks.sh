@@ -198,6 +198,26 @@ run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_pat
 assert_pass "on a working branch: passes"
 run_hook check-branch-protection.sh '{not json'
 assert_pass "malformed payload: passes (the branch is what matters)"
+# only the project tree is guarded (#169): the agent's memory and scratch files live outside it
+git -C "$REPO" checkout -q main
+mkdir -p "$SANDBOX/outside"; ln -s "$REPO" "$SANDBOX/outside/link"
+run_hook check-branch-protection.sh "$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/outside/notes.md"}}' "$SANDBOX")"
+assert_pass "on main: a target outside the project tree is not the guard's to judge"
+run_hook check-branch-protection.sh "$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/outside/../proj/x"}}' "$SANDBOX")"
+assert_block "on main: a project file reached through .. is blocked" "BLOCKED: on protected branch"
+run_hook check-branch-protection.sh "$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/outside/link/x"}}' "$SANDBOX")"
+assert_block "on main: a project file reached through a symlink outside the tree is blocked" "BLOCKED: on protected branch"
+run_hook check-branch-protection.sh '{not json'
+assert_block "on main: a malformed payload is judged by the branch (blocked)" "BLOCKED: on protected branch"
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{}}'
+assert_block "on main: a payload with no target is judged by the branch (blocked)" "BLOCKED: on protected branch"
+run_hook check-branch-protection.sh "$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/proj-evil/x"}}' "$SANDBOX")"
+assert_pass "on main: a sibling sharing the tree's name prefix is outside it (path components, not a string prefix)"
+ln -s "$SANDBOX/outside" "$REPO/ext"
+run_hook check-branch-protection.sh '{"tool_name":"Write","tool_input":{"file_path":"ext/notes.md"}}'
+assert_pass "on main: an in-tree symlink to a directory outside — the write lands outside, not the guard's to judge"
+rm -f "$REPO/ext" "$SANDBOX/outside/link"
+git -C "$REPO" checkout -q feature/FEAT-001-x
 # the wired command, not the bare script: a session whose cwd sits in a subdirectory (CLI or IDE) must still block.
 # A relative `bash .claude/hooks/x.sh` exits 127 there — a non-blocking error, every guard silently open.
 mkdir -p "$REPO/.claude/hooks" "$REPO/sub"; cp "$HOOKS/check-branch-protection.sh" "$REPO/.claude/hooks/"

@@ -21,6 +21,23 @@ if ! command -v python3 >/dev/null 2>&1; then
   echo "BLOCKED: python3 is not on PATH — the governance reader cannot run, so '$branch' cannot be classified. Install python3, then retry." >&2
   exit 2
 fi
+
+# Only the project tree is guarded (#169): a target that resolves outside it (the agent's memory, a scratch file)
+# is not this guard's to judge. `..` and symlinks are resolved first; no target or an unreadable payload → the branch decides.
+if python3 -c '
+import json, os, subprocess, sys
+try:
+    path = (json.load(sys.stdin).get("tool_input") or {}).get("file_path") or ""
+    root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
+except Exception:
+    sys.exit(1)
+if not path or not root:
+    sys.exit(1)
+root, target = os.path.realpath(root), os.path.realpath(path)
+sys.exit(0 if os.path.commonpath([root, target]) != root else 1)
+' 2>/dev/null; then
+  exit 0
+fi
 if [ ! -f scripts/gate.py ]; then
   {
     echo "BLOCKED: the governance reader (scripts/gate.py) is not delivered — the branch '$branch' cannot be classified."
