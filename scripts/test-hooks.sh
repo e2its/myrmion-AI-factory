@@ -198,6 +198,26 @@ run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{"file_pat
 assert_pass "on a working branch: passes"
 run_hook check-branch-protection.sh '{not json'
 assert_pass "malformed payload: passes (the branch is what matters)"
+# only the project tree is guarded (#169): the agent's memory and scratch files live outside it
+git -C "$REPO" checkout -q main
+mkdir -p "$SANDBOX/outside"; ln -s "$REPO" "$SANDBOX/outside/link"
+run_hook check-branch-protection.sh "$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/outside/notes.md"}}' "$SANDBOX")"
+assert_pass "on main: a target outside the project tree is not the guard's to judge"
+run_hook check-branch-protection.sh "$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/outside/../proj/x"}}' "$SANDBOX")"
+assert_block "on main: a project file reached through .. is blocked" "BLOCKED: on protected branch"
+run_hook check-branch-protection.sh "$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/outside/link/x"}}' "$SANDBOX")"
+assert_block "on main: a project file reached through a symlink outside the tree is blocked" "BLOCKED: on protected branch"
+run_hook check-branch-protection.sh '{not json'
+assert_block "on main: a malformed payload is judged by the branch (blocked)" "BLOCKED: on protected branch"
+run_hook check-branch-protection.sh '{"tool_name":"Edit","tool_input":{}}'
+assert_block "on main: a payload with no target is judged by the branch (blocked)" "BLOCKED: on protected branch"
+run_hook check-branch-protection.sh "$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/proj-evil/x"}}' "$SANDBOX")"
+assert_pass "on main: a sibling sharing the tree's name prefix is outside it (path components, not a string prefix)"
+ln -s "$SANDBOX/outside" "$REPO/ext"
+run_hook check-branch-protection.sh '{"tool_name":"Write","tool_input":{"file_path":"ext/notes.md"}}'
+assert_pass "on main: an in-tree symlink to a directory outside — the write lands outside, not the guard's to judge"
+rm -f "$REPO/ext" "$SANDBOX/outside/link"
+git -C "$REPO" checkout -q feature/FEAT-001-x
 # the wired command, not the bare script: a session whose cwd sits in a subdirectory (CLI or IDE) must still block.
 # A relative `bash .claude/hooks/x.sh` exits 127 there — a non-blocking error, every guard silently open.
 mkdir -p "$REPO/.claude/hooks" "$REPO/sub"; cp "$HOOKS/check-branch-protection.sh" "$REPO/.claude/hooks/"
@@ -257,6 +277,81 @@ assert_block "terminal verdict with a failed [!] item and no [ ]: exit 2 (#115 �
 BIGPLAN=$(python3 -c 'print("---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n" + "- [x] done\n" * 9000 + "* [ ] open task\n")')
 run_hook check-completion-gate.sh "$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":sys.argv[1]}}))' "$BIGPLAN")"
 assert_block "large plan (>64 KB), terminal status on top, one '* [ ]' at the end: exit 2 (DC-13 — no SIGPIPE skip)" "Completion gate failed"
+# an in-place Edit is judged on the file as it would be after the change (#171)
+mkdir -p "$REPO/docs/spec/F"; printf -- '---\nstatus: IN_PROGRESS\n---\n- [x] done\n- [ ] open task\n' > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"status: IN_PROGRESS","new_string":"status: IMPLEMENTED_AND_VERIFIED"}}'
+assert_block "Edit setting the terminal status over an open item: exit 2" "Completion gate failed"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] open task","new_string":"- [x] open task"}}'
+assert_pass "Edit ticking the last item, status not terminal: passes"
+printf -- '---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [ ] a\n- [ ] b\n' > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] ","new_string":"- [x] ","replace_all":true}}'
+assert_pass "Edit with replace_all ticking every item under a terminal status: passes (every occurrence replayed)"
+printf -- '---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [x] a\n- [x] b\n' > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [x] b","new_string":"- [x] b, typo fixed"}}'
+assert_pass "Edit on a plan already done (every item ticked): passes"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [x] b","new_string":"- [ ] b"}}'
+assert_block "Edit reopening an item under a terminal status: exit 2" "Completion gate failed"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"not in the file","new_string":"x"}}'
+assert_block "Edit whose old_string is absent: blocked, the gate says so" "not in the file"
+printf -- '---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [x] a\n- [ ] b\n' > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] b\n","new_string":""}}'
+assert_pass "Edit deleting the open line (empty new_string): judged on the file after the deletion"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/absent/dev_plan.md","old_string":"- [ ] b","new_string":"- [x] b"}}'
+assert_block "Edit on a file that does not exist: blocked, the gate cannot read it" "cannot be read"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/new/dev_plan.md","old_string":"","new_string":"---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [ ] open\n"}}'
+assert_block "Edit creating the file (empty old_string): its new_string is the content judged" "Completion gate failed"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/new/dev_plan.md","old_string":"","new_string":"---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [x] done\n"}}'
+assert_pass "Edit creating the file, every item done: passes"
+: > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"","new_string":"---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [ ] open\n"}}'
+assert_block "Edit filling an existing empty file (empty old_string): its new_string is the content judged" "Completion gate failed"
+# the terminal marker is the frontmatter's own status/verdict: a template comment or a per-increment status naming it is not
+cat > "$REPO/docs/spec/F/dev_plan.md" <<'PLAN'
+---
+id: F
+# the global `status: IMPLEMENTED_AND_VERIFIED` is DERIVED from increments[]
+status: BUILDING   # DRAFT | READY | BUILDING | IMPLEMENTED_AND_VERIFIED | BLOCKED
+increments:
+  - id: INC-1
+    status: IMPLEMENTED_AND_VERIFIED
+  # - id: "INC-2"
+  #   status: "READY"   # READY | BUILDING | IMPLEMENTED_AND_VERIFIED
+---
+- [x] INC-1 done
+- [ ] INC-2 open
+- [ ] INC-2 open too
+PLAN
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] INC-2 open\n","new_string":"- [x] INC-2 open\n"}}'
+assert_pass "Edit ticking an item on a template-shaped plan (the value in comments and in a per-increment status): passes"
+mkdir -p "$SANDBOX/noyaml"; printf 'raise ImportError("no PyYAML")\n' > "$SANDBOX/noyaml/yaml.py"
+PYTHONPATH="$SANDBOX/noyaml" run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] INC-2 open\n","new_string":"- [x] INC-2 open\n"}}'
+assert_pass "same tick without PyYAML: the subset parser reads the status line, the increments list is not its question"
+PYTHONPATH="$SANDBOX/noyaml" run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"status: BUILDING ","new_string":"status: \"IMPLEMENTED_AND_VERIFIED\" "}}'
+assert_block "same flip without PyYAML (quoted, trailing comment): the subset parser reports terminal, exit 2" "Completion gate failed"
+PYTHONPATH="$SANDBOX/noyaml" run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":"---\nstatus: \"unterminated\n---\n- [ ] open\n"}}'
+assert_block "a status line that cannot be parsed, without PyYAML: blocked with the parser's reason" "cannot read the status"
+for spelling in '\"status\": IMPLEMENTED_AND_VERIFIED' 'status : IMPLEMENTED_AND_VERIFIED'; do
+  run_hook check-completion-gate.sh "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"docs/spec/F/dev_plan.md\",\"content\":\"---\\n$spelling\\n---\\n- [ ] open\\n\"}}"
+  assert_block "terminal key spelled '$spelling' over an open item: exit 2" "Completion gate failed"
+  PYTHONPATH="$SANDBOX/noyaml" run_hook check-completion-gate.sh "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"docs/spec/F/dev_plan.md\",\"content\":\"---\\n$spelling\\n---\\n- [ ] open\\n\"}}"
+  assert_block "terminal key spelled '$spelling' over an open item, without PyYAML: exit 2" "Completion gate failed"
+done
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"status: BUILDING ","new_string":"status: \"IMPLEMENTED_AND_VERIFIED\" "}}'
+assert_block "Edit flipping the template-shaped plan's own status (quoted) over open items: exit 2" "Completion gate failed"
+run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/qa_report.md","content":"---\nverdict: PENDING   # verdict: APPROVED | REJECTED\n---\nverdict: APPROVED is written by QA --verify\n- [ ] lint\n"}}'
+assert_pass "Write of a QA report whose verdict is pending ('verdict: APPROVED' only in a comment and the body): passes"
+run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":"---\nstatus: \"unterminated\n---\n- [ ] open\n"}}'
+assert_block "a status line that cannot be parsed: blocked with the parser's reason" "cannot read the status"
+rm -rf "$REPO/docs/spec/F/dev_plan.md"
+for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/settings.json"; do
+  python3 - "$sj" <<'PY'
+import json, sys
+groups = json.load(open(sys.argv[1]))["hooks"]["PreToolUse"]
+wired = [g["matcher"] for g in groups for h in g["hooks"] if "check-completion-gate.sh" in h["command"]]
+assert wired == ["Edit|Write"], f"check-completion-gate.sh wired under {wired}, expected exactly ['Edit|Write']"
+PY
+  [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json: the completion gate runs on Edit and Write, once" || bad "completion gate not wired under Edit|Write in $sj"
+done
 
 echo "── check-ipp-compliance ──"
 BIG=$(python3 -c 'print("---\n_progress:\n  completed_sections: []\n---\n" + "".join(f"## S{i}\n" + "x\n"*60 for i in range(3)))')
@@ -359,6 +454,15 @@ OUT=$(STUB_PUSH_LOG_OUT='Traceback (most recent call last): boom' run_pp); RC=$?
 OUT=$(STUB_PUSH_LOG_OUT=' ' run_pp); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '⚠  push record not written' && ok "step 0: a reader that printed nothing is said, the push's exit code untouched" || bad "empty output not said (rc=$RC)" "$OUT"
 printf '%s' "$OUT" | grep -qE 'retired-terms: stub|budget: stub|laws: stub|currency: stub|manifest-parity: stub|surface: stub' && bad "pre-push still runs gate members one by one — the profile is the one definition" || ok "step 3: no member is run outside the profile"
+# the review block asks the one diff-base resolver under set -e (#170): exit 1 says the reason, any other exit takes the fallback
+mkdir -p "$PR/scripts/pr-review"; printf 'import sys\nopen("review.argv", "w").write(repr(sys.argv[1:]))\n' > "$PR/scripts/pr-review/run_capabilities.py"
+OUT=$(STUB_DIFF_BASE=1 run_pp); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q '❌ diff-base: stub rc 1' && ok "review block: a red diff base (exit 1) blocks and says the reader's reason" || bad "red diff base blocked silently (rc=$RC)" "$OUT"
+OUT=$(STUB_DIFF_BASE=2 run_pp); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'diff base unavailable (diff-base: stub rc 2) — reviewing against origin/main' && grep -qF -- "'--base', 'origin/main'" "$PR/review.argv" && ok "review block: a resolver fault (exit 2) says the fallback and reviews against origin/main" || bad "resolver fault did not take the fallback (rc=$RC)" "$OUT $(cat "$PR/review.argv" 2>/dev/null)"
+OUT=$(run_pp); RC=$?
+[ "$RC" -eq 0 ] && grep -qF -- "'--base', 'diff-base: stub rc 0'" "$PR/review.argv" && ok "review block: a green resolver's base is the one reviewed against" || bad "green resolver's base not passed (rc=$RC)" "$OUT $(cat "$PR/review.argv" 2>/dev/null)"
+rm -rf "$PR/scripts/pr-review" "$PR/review.argv"
 mv "$PR/scripts/gate.py" "$PR/gate.py.away"
 OUT=$(run_pp); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'not delivered' && ok "step 3: reader absent → the push is blocked (fail-closed)" || bad "reader absent did not block (rc=$RC)" "$OUT"
