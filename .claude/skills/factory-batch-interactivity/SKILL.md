@@ -40,7 +40,7 @@ These commands involve at most 1-2 isolated decisions, not prolonged Q&A:
 - Individual RDR decisions during autonomous phases
 - BLUEPRINT --approve (single checkpoint)
 - IMPLEMENT --build/--fix (autonomous with review)
-- DEVOPS --configure (autonomous with 7/7 check)
+- DEVOPS --configure (autonomous once all approval checks pass)
 - QA --verify (autonomous with checklist)
 
 ### Classification Rule
@@ -347,7 +347,7 @@ TIER_ALIGNMENT:
   name: "Tripartite Alignment Verification"
   dependencies: [TIER_ARTIFACTS reviewed]
   description: >
-    12-point alignment check. Gaps presented to user via RDR for resolution.
+    Tripartite alignment check. Gaps presented to user via RDR for resolution.
 ```
 
 ### CODESIGN --vision Tiers

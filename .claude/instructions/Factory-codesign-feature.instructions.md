@@ -411,7 +411,7 @@ Every `mock.html` MUST follow this structure:
 
 ### IMP Auto-Approval Validation Addenda
 
-The Interactive Mock Protocol adds these requirements to the **12-point auto-approval validations** (CHECKs 1–12 in `codesign_auto_approve`):
+The Interactive Mock Protocol adds these requirements to the **auto-approval checks** in `codesign_auto_approve`:
 
 - **CHECK 8 (Empty/Loading full-chain)**: Every `data-state="empty"` and `data-state="loading"` div must have actual content (not just placeholder text). Content must match the spec.feature scenario for that state.
 - **CHECK 10 (No inline styles)**: IMP CSS classes (`imp-*`) are in the `<style>` block. No `style=""` attributes on IMP elements.

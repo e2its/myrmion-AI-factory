@@ -311,7 +311,7 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
     RETURN actions
   
   IF state.spec_feature.status == "DRAFT" OR state.spec_feature.status == "NEEDS_INFO":
-    actions.push({cmd: "CODESIGN --refine {{ID}}", reason: "Spec in {{status}}, needs refinement (auto-approves when 12/12 validations pass)"})
+    actions.push({cmd: "CODESIGN --refine {{ID}}", reason: "Spec in {{status}}, needs refinement (auto-approves when all auto-approval checks pass)"})
     RETURN actions
   
   IF state.spec_feature.status != "APPROVED":

@@ -313,8 +313,43 @@ class Retired(unittest.TestCase):
             (repo / "config/coherence-context.json").write_text(json.dumps({"context": "downstream", "audit": {"root_sets": ["docs/"], "exclusions": ["*.lock"]}}), encoding="utf-8")
             self.assertEqual({h["path"] for h in retired.scan(repo)}, set(), "roots limit the scan; *.lock excluded")
             (repo / "config/quality.json").write_text(json.dumps({"retired_terms": [{"term": "x"}]}), encoding="utf-8")
-            with self.assertRaisesRegex(GateFault, "needs `term` and `record`"):
+            with self.assertRaisesRegex(GateFault, "needs `record`"):
                 retired.scan(repo)
+
+    def test_pattern_catches_any_number(self):
+        count = "auto-approves when 14/" + "14 validations pass"   # built at runtime: this file is in the scan set
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            q = repo / "config/quality.json"
+            q.write_text(json.dumps({"retired_terms": [{"pattern": r"\b\d+/\d+ validations\b", "record": "#113"}]}), encoding="utf-8")
+            write(repo / "docs/count.md", f"CODESIGN {count}\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            hits = retired.scan(repo)
+            self.assertIn("docs/count.md", {h["path"] for h in hits}, "a pattern is red on any number, not only the one retired")
+            self.assertIn("FAIL", retired.render(hits))
+            q.write_text(json.dumps({"retired_terms": [{"term": "x", "pattern": "x", "record": "#113"}]}), encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "exactly one of `term`"):
+                retired.scan(repo)
+            q.write_text(json.dumps({"retired_terms": [{"pattern": "(", "record": "#113"}]}), encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "does not compile"):
+                retired.scan(repo)
+            q.write_text(json.dumps({"retired_terms": [{"pattern": 5, "record": "#113"}]}), encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "must be a string"):
+                retired.scan(repo)
+
+    def test_shipped_count_patterns_catch_every_copied_shape(self):
+        real = HERE.parent.parent
+        if not (real / "config/quality.json").is_file() or not (real / ".context/templates/setup").is_dir():
+            self.skipTest("not the framework repo")
+        shipped = [t for t in retired._terms(real) if "pattern" in t and t["record"].startswith("#113")]
+        self.assertTrue(shipped, "the framework repo ships the #113 count patterns")
+        n = "1" + "4"   # built at runtime: this file is in the scan set
+        red = [f"auto-approves when {n}/{n} validations pass", f"CODESIGN (auto-approves {n}/{n})", f"(auto-approve {n}/{n} OK)",
+               f"Auto-Approves when {n}/{n} Checks pass", f"the {n}-point auto-approval validations", f"when {n}/{n} OK)", f"{n}-Point alignment check"]
+        for line in red:
+            self.assertTrue(any(retired._matches(t, line) for t in shipped), f"a copied count is red: {line!r}")
+        for line in ("Auto-approves when all auto-approval checks pass.", f"CHECK {n}: slice_map present", f"{n} validations ran", "Tripartite alignment check."):
+            self.assertFalse(any(retired._matches(t, line) for t in shipped), f"no count, no red: {line!r}")
 
 
 class Budget(unittest.TestCase):

@@ -544,7 +544,7 @@ docs/project_log/workflow_log.json
 
 | Timestamp | Feature_ID | Agent | Command | Status_Before | Status_After | Blocked | Reason |
 |-----------|------------|-------|---------|---------------|--------------|---------|--------|
-| 2026-01-15T10:00 | USR-001 | CODESIGN | --start (auto-approved) | DRAFT | APPROVED | No | 9/9 validations passed |
+| 2026-01-15T10:00 | USR-001 | CODESIGN | --start (auto-approved) | DRAFT | APPROVED | No | All auto-approval checks passed |
 | 2026-01-15T10:05 | USR-001 | BLUEPRINT | --start | - | DRAFT | No | - |
 | 2026-01-15T10:10 | USR-001 | BLUEPRINT | --approve | READY | APPROVED | No | - |
 | 2026-01-20T09:00 | USR-001 | CODESIGN | --refine | APPROVED | APPROVED | Yes | Downstream work exists |
