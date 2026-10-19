@@ -274,7 +274,7 @@ Commands **do not fail silently** — they pause and persist state:
 
 ```
 SETUP (one-time)
-  → CODESIGN (PO↔UX, auto-approves 12/12)
+  → CODESIGN (PO↔UX, auto-approves when all its checks pass)
   → BLUEPRINT (ARCH↔QA, --approve required)
   → CONTRACT-FREEZE          [hard gate — blocks IMPLEMENT --plan]
   → DEVOPS --configure
@@ -356,7 +356,7 @@ Role: Phase agent `factory-codesign` — one context, both concerns (🎩 PO ↔
 | `/codesign --vision-approve` | — | Joint PO+UX approval of the global vision. |
 | `/codesign --vision-propagate` | — | Propagates vision changes to existing mocks. |
 | `/codesign --start {ID}` | Feature ID | Starts co-creation. Vision Gate for UI features. Event Storming → spec ↔ mock ↔ journey until convergence. When `slicing_strategy: incremental`, also emits `slice_map.md` (capability-VALUE slices via the slicing-VALUE RDR, ≥3 alternatives). Auto-approves when all validations pass (incl. slice_map coverage). |
-| `/codesign --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement. Classifies changes as DELTA or BREAKING. Auto-approves when 12/12 validations pass. |
+| `/codesign --refine {ID} "[FEEDBACK]"` | Feedback | Iterative refinement. Classifies changes as DELTA or BREAKING. Auto-approves when all auto-approval checks pass. |
 | `/codesign --sync {VISION\|ID}` | Target | **External authoring only.** Adopts ONE ratified Product Owner return verbatim — the design system or a feature — and adds only what the factory owns (gates, header, iteration ledger, change classification, cascade, auto-approval checks as validation). Never generates, never edits PO content: a finding returns the target as `NEEDS_INFO`. See [External CODESIGN Authoring](#external-codesign-authoring-po-package). |
 
 Per-feature artifacts: `docs/spec/{ID}/spec.feature`, `mock.html`, `user_journey.md`.
@@ -399,7 +399,7 @@ Role: Phase agent `factory-devops` — infrastructure, CI/CD and environments; t
 
 | Command | Arguments | Description |
 | --- | --- | --- |
-| `/devops --configure {ID}` | — | Generates the infrastructure plan (RDR-guided). Auto-approves when 7/7 checks pass. |
+| `/devops --configure {ID}` | — | Generates the infrastructure plan (RDR-guided). Auto-approves when all approval checks pass. |
 | `/devops --refine {ID} "{FEEDBACK}"` | Technical feedback | Adjusts the plan based on feedback. |
 | `/devops --provision [{ID}] --env {ENV}` | Environment | Materializes infrastructure. With `{ID}` → feature-scoped. Without `{ID}` → env-scoped. |
 | `/devops --deploy [{ID}] --env {ENV}` | Environment | Deploys code. Requires IMPLEMENT complete. Production requires MERGE + QA APPROVED. |
@@ -573,7 +573,7 @@ python3 subproducts/po-package/validate_po_return.py --zip …  → Form and coh
 
 ```
 /codesign --start USR-001 "OAuth login"     → Co-creates spec + mock + journey (auto-approves
-                                              when 12/12 OK)
+                                              when all checks pass)
 /codesign --sync USR-001                    → External authoring: adopts the PO's ratified
                                               journey + spec + mock as written (same checks, as
                                               validation)
@@ -596,7 +596,7 @@ python3 subproducts/po-package/validate_po_return.py --zip …  → Form and coh
 ### Phase 2.5: Infrastructure (flexible — post-BLUEPRINT)
 
 ```
-/devops --configure USR-001              → Infrastructure plan (auto-approves when 7/7 OK)
+/devops --configure USR-001              → Infrastructure plan (auto-approves when all checks pass)
 /devops --provision USR-001 --env dev    → Materializes infrastructure
 ```
 
@@ -651,8 +651,8 @@ graph TD
     CodesignStart --> CodesignNeedsInfo{status: NEEDS_INFO?}
     CodesignNeedsInfo -->|Yes| CodesignRefine["/codesign --refine ID FEEDBACK"]
     CodesignRefine --> CodesignStart
-    CodesignNeedsInfo -->|No| CodesignAutoApprove{12/12 validations?}
-    CodesignAutoApprove -->|Yes, auto-approve 12/12| BlueprintStart["/blueprint --start ID"]
+    CodesignNeedsInfo -->|No| CodesignAutoApprove{All auto-approval checks pass?}
+    CodesignAutoApprove -->|Yes, auto-approve| BlueprintStart["/blueprint --start ID"]
     CodesignAutoApprove -->|No| CodesignFix[Fix and re-refine]
     CodesignFix --> CodesignStart
 
@@ -722,7 +722,7 @@ graph TD
 |---------------|---------------|------------|
 | — | `/codesign --start ID` | `DRAFT` or `NEEDS_INFO` |
 | `NEEDS_INFO` | `/codesign --refine ID` | `DRAFT` or `NEEDS_INFO` |
-| `DRAFT` | (auto-approve 12/12 OK) | `APPROVED` |
+| `DRAFT` | (all auto-approval checks pass) | `APPROVED` |
 | `APPROVED` | `/codesign --refine ID` | `DRAFT` (new iteration) |
 
 ### `design.md` + `test_plan.md` (BLUEPRINT)

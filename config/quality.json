@@ -217,6 +217,21 @@
         "docs/proposals/**",
         "docs/spec/**"
       ]
+    },
+    {
+      "pattern": "\\b\\d+/\\d+ (?:validations|checks?)\\b",
+      "record": "#113 — an auto-approval check count lives only in its check list",
+      "exempt": []
+    },
+    {
+      "pattern": "(?i)auto-approv\\w*\\W+(?:\\w+\\W+){0,2}\\d+/\\d+\\b",
+      "record": "#113 — an auto-approval check count lives only in its check list",
+      "exempt": []
+    },
+    {
+      "pattern": "\\b\\d+-point (?:auto-approval|alignment)\\b|\\bwhen \\d+/\\d+ OK\\b",
+      "record": "#113 — an auto-approval check count lives only in its check list",
+      "exempt": []
     }
   ],
   "coherence": {

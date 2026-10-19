@@ -313,7 +313,25 @@ class Retired(unittest.TestCase):
             (repo / "config/coherence-context.json").write_text(json.dumps({"context": "downstream", "audit": {"root_sets": ["docs/"], "exclusions": ["*.lock"]}}), encoding="utf-8")
             self.assertEqual({h["path"] for h in retired.scan(repo)}, set(), "roots limit the scan; *.lock excluded")
             (repo / "config/quality.json").write_text(json.dumps({"retired_terms": [{"term": "x"}]}), encoding="utf-8")
-            with self.assertRaisesRegex(GateFault, "needs `term` and `record`"):
+            with self.assertRaisesRegex(GateFault, "needs `record`"):
+                retired.scan(repo)
+
+    def test_pattern_catches_any_number(self):
+        count = "auto-approves when 14/" + "14 validations pass"   # built at runtime: this file is in the scan set
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            q = repo / "config/quality.json"
+            q.write_text(json.dumps({"retired_terms": [{"pattern": r"\b\d+/\d+ validations\b", "record": "#113"}]}), encoding="utf-8")
+            write(repo / "docs/count.md", f"CODESIGN {count}\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            hits = retired.scan(repo)
+            self.assertIn("docs/count.md", {h["path"] for h in hits}, "a pattern is red on any number, not only the one retired")
+            self.assertIn("FAIL", retired.render(hits))
+            q.write_text(json.dumps({"retired_terms": [{"term": "x", "pattern": "x", "record": "#113"}]}), encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "exactly one of `term`"):
+                retired.scan(repo)
+            q.write_text(json.dumps({"retired_terms": [{"pattern": "(", "record": "#113"}]}), encoding="utf-8")
+            with self.assertRaisesRegex(GateFault, "does not compile"):
                 retired.scan(repo)
 
 

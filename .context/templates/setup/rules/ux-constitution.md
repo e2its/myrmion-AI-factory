@@ -8,7 +8,7 @@ applicable_when:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/*.vue"
-version: 1.6.0
+version: 1.6.1
 date: 2026-01-26
 changelog:
   - "1.6.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -1105,7 +1105,7 @@ QA Verification Checklist MUST include:
 
 ## 🎨 XIII. UX Agent Governance Rules (NEW)
 
-> **Enforced by:** `/CODESIGN --start`, `/CODESIGN --refine` (auto-approval on 9/9 validations)  
+> **Enforced by:** `/CODESIGN --start`, `/CODESIGN --refine` (auto-approval when all its checks pass)  
 > **Applies to:** Mock generation, user_journey.md Part I (experience) artifacts, cross-agent validations  
 > **Severity:** BLOCKER (A, C), WARNING (D), MANDATORY (B)
 
