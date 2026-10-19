@@ -18,6 +18,7 @@
 #       message, NEVER prints EMPTY (CRITICAL-1 regression guard).
 #   5.  Bad stdin / missing files key → rc 2 (never 1, never EMPTY).
 #   6.  Marker missing → blocker code-review-missing, preflight exit 1.
+#   6b/6c. The markers' home is .context/state/; one under .claude/state/ is not honoured.
 #   7.  Marker with blockers, no override → blocker code-review-blockers.
 #   8.  Marker with blockers + override → important code-review-overridden,
 #       no Block 20 blocker.
@@ -125,8 +126,29 @@ echo "Scenario 6 — marker missing → blocker"
 J=$(run_preflight "$R")
 [[ "$(sev_of "$J" code-review-missing)" == "blockers" ]] && pass "code-review-missing blocker" || fail "marker-missing ($(find_cat "$J"))"
 
-HASH=$(compute_hash "$R"); MARKER="$R/.claude/state/code-review-${HASH}.marker"
-mkdir -p "$R/.claude/state"
+HASH=$(compute_hash "$R"); MARKER="$R/.context/state/code-review-${HASH}.marker"
+mkdir -p "$R/.context/state" "$R/.claude/state"
+
+echo "Scenario 6b — the seal's home is .context/state/, never the protected .claude/ (#165)"
+echo '{"findings":{"blocker":0},"override":null}' > "$R/.claude/state/code-review-${HASH}.marker"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" code-review-missing)" == "blockers" ]] && pass "a seal under .claude/state/ is not honoured" || fail "old-home seal honoured ($(find_cat "$J"))"
+rm -f "$R/.claude/state/code-review-${HASH}.marker"
+echo '{"findings":{"blocker":0},"override":null}' > "$MARKER"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" code-review-missing)" == "absent" && "$(sev_of "$J" code-review-blockers)" == "absent" ]] && pass "a clean seal under .context/state/ is honoured" || fail "new-home seal not honoured ($(find_cat "$J"))"
+
+echo "Scenario 6c — the coherence-audit marker's home is .context/state/ too (#165)"
+SHA=$(git -C "$R" rev-parse HEAD)
+echo '{"context":"downstream","audit":{"root_sets":["src"],"exclusions":[]}}' > "$R/config/coherence-context.json"
+echo '{"findings":{"blocker":0}}' > "$R/.claude/state/coherence-audit-${SHA}.marker"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" coherence-audit-missing)" == "blockers" ]] && pass "a coherence marker under .claude/state/ is not honoured" || fail "old-home coherence marker honoured ($(find_cat "$J"))"
+rm -f "$R/.claude/state/coherence-audit-${SHA}.marker"
+echo '{"findings":{"blocker":0}}' > "$R/.context/state/coherence-audit-${SHA}.marker"
+J=$(run_preflight "$R")
+[[ "$(sev_of "$J" coherence-audit-missing)" == "absent" && "$(sev_of "$J" coherence-audit-blockers)" == "absent" ]] && pass "a clean coherence marker under .context/state/ is honoured" || fail "new-home coherence marker not honoured ($(find_cat "$J"))"
+rm -f "$R/config/coherence-context.json" "$R/.context/state/coherence-audit-${SHA}.marker"
 
 echo "Scenario 7 — blockers, no override → blocker"
 echo '{"findings":{"blocker":2},"override":null}' > "$MARKER"
@@ -239,7 +261,7 @@ J=$(run_preflight "$R4")
 
 echo ""
 if [ "$FAILURES" -eq 0 ]; then
-  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across 17 scenarios."
+  echo "L6: ok — Block 20 + Block 21 gate behaviour verified across every scenario."
   exit 0
 else
   echo "L6: FAIL — $FAILURES scenario assertion(s) failed."

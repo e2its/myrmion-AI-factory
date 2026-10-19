@@ -35,7 +35,7 @@ from pathlib import Path
 
 from .common import GateFault
 
-STATE_DIR = ".claude/state"       # the markers' folder (the push gate's); the canary record lives beside them
+STATE_DIR = ".claude/state"       # hook and gate.py state; the canary record lives there
 RECORD = "canary.json"
 LENS_AGENT = {"security": "factory-critic-security", "correctness": "factory-critic-correctness",
               "governance": "factory-critic-governance", "fidelity": "factory-critic-fidelity"}

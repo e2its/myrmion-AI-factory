@@ -174,7 +174,7 @@ CLAUDE.md                              # root governance, always loaded
 │                                      # subproducts/ (po-package, measure)
 │                                      # governance_versions.json (the manifest)
 ├── schemas/                           # workflow log, infrastructure registry
-└── assets/ · utils/ · locks/
+└── assets/ · utils/ · locks/ · state/
 config/
 ├── quality.json                       # every gate key: surface, planning, agents,
 │                                      #   documentation, verification, traceability, scm, …

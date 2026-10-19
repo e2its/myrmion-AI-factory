@@ -12,7 +12,7 @@ applicable_when:
     - "**/*.go"
     - "**/*.rs"
     - "**/*.rb"
-version: 1.4.1
+version: 1.4.2
 date: 2026-01-26
 changelog:
   - "1.4.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -25,7 +25,7 @@ changelog:
 > **Source:** `docs/setup.md` scan results (Brownfield adds legacy paths).
 
 ## Zones
-- **RED:** Framework/vendor code (`node_modules/`, `venv/`, `vendor/`), governance (`.context/**`), legacy paths detected in Brownfield, any block marked `PROTECTED-CODE START/END`.
+- **RED:** Framework/vendor code (`node_modules/`, `venv/`, `vendor/`), governance (`.context/**`), legacy paths detected in Brownfield, any block marked `PROTECTED-CODE START/END`. Not RED: the runtime state the framework itself writes under `.context/` — `locks/` (session locks) and `state/` (review markers, round artefacts) — gitignored, never product code.
 - **YELLOW:** Extension points (wrappers/decorators/adapters) touching RED code indirectly.
 - **GREEN:** Application code you own; free to change with tests.
 
