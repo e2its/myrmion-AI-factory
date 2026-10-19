@@ -232,6 +232,26 @@
       "pattern": "(?i)\\b\\d+-point (?:auto-approval|alignment)\\b|\\bwhen \\d+/\\d+ OK\\b",
       "record": "#113 — an auto-approval check count lives only in its check list",
       "exempt": []
+    },
+    {
+      "pattern": "(?i)\\b(?:one|two|three|single|\\d+)[ -]rounds?\\b[^.\\n]{0,10}\\(?`rounds\\.work`|`rounds\\.work`[^.\\n]{0,6}(?:=|:)\\s*\\d",
+      "record": "#118 — the number of work rounds lives only in rules/agents.md (rounds.work)",
+      "exempt": []
+    },
+    {
+      "pattern": "(?i)\\bfix\\w*\\b[^.\\n]{0,60}\\b(?:re-?)?run(?:s|ning)? (?:the )?(?:full|entire|whole) (?:test )?suite|\\bREGRESSION\\b\\W{0,3}(?:re-?)?run (?:the )?(?:full|entire|whole) (?:test )?suite",
+      "record": "#118 — a fix is verified red → green, then by the read-set re-run (rules/testing.md [LAW-05]), never by re-running everything (DC-30)",
+      "exempt": []
+    },
+    {
+      "pattern": "(?i)\\bsweep\\b[^\\n]{0,60}\\bpost-deploy|\\bpost-deploy\\w*\\b[^\\n]{0,40}\\bsweep\\b",
+      "record": "#118 — the preventive sweep's one control point is the pre-deploy gate of DEVOPS --deploy",
+      "exempt": []
+    },
+    {
+      "term": "sweep_recommended",
+      "record": "#118 — the preventive sweep's one control point is the pre-deploy gate of DEVOPS --deploy; no advisory flag",
+      "exempt": []
     }
   ],
   "coherence": {

@@ -1,6 +1,6 @@
 ---
 name: factory-preventive-sweep
-description: "Preventive Defect Sweep — post-deployment runtime validation that catches defects invisible to static gates. Searches all cataloged defect classes in parallel, one sub-agent per non-overlapping scope derived from the DC catalog. Use when: first deploy of a feature, after major architectural changes, or on user request."
+description: "Preventive Defect Sweep — runtime validation before the deploy that catches defects invisible to static gates. Searches all cataloged defect classes in parallel, one sub-agent per non-overlapping scope derived from the DC catalog. Use when: first deploy of a feature, after major architectural changes, or on user request."
 applicable_when:
   phase: [IMPLEMENT]
   command: [implement]
@@ -8,7 +8,7 @@ applicable_when:
 
 # PREVENTIVE DEFECT SWEEP
 
-> **Shared Protocol** — Referenced by: QA agent (--verify post-deploy), IMPLEMENT agent (build completion gate for first-deploy features).
+> **Shared Protocol** — Control point: `Factory-devops-provision-deploy` § 4. PREVENTIVE-SWEEP gate (`DEVOPS --deploy`, `full-sdlc` preset); otherwise on request.
 > Catches runtime defects that static gates cannot detect by searching for empirically-discovered defect patterns across backend, frontend, and infrastructure.
 > **Prerequisite:** Feature must have passed BVL (all static gates GREEN) before running a sweep.
 

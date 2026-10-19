@@ -16,10 +16,11 @@
   },
   "templates": {
     "rules/defect-prevention.md": {
-      "version": "3.1.1",
+      "version": "3.2.0",
       "content_type": "universal",
       "target": ".claude/rules/defect-prevention.md",
       "changelog": [
+        "3.2.0: fix #118: DC-30 — a fix is verified red → green, then by the read-set re-run, never by re-running everything (#120 class)",
         "3.1.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "3.1.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "3.0.0: feat(EVOL-043)! — BREAKING — families (surface globs + one-line invariant) and 7-column defect classes (Family, Invariant, Gate, Paths, Applicable To, Severity); narratives moved to defect-prevention-cases.md; applicable_when always; target retargeted to .claude/rules/ (retired legacy path). Version jumps 1.2.0 → 3.0.0 on purpose: the file frontmatter was already at 2.3.0 while the manifest lagged; both now read 3.0.0 (manifest ↔ frontmatter parity).",
@@ -1761,11 +1762,12 @@
       ]
     },
     "rules/defect-prevention-cases.md": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": ".claude/rules/defect-prevention-cases.md",
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**).",
       "changelog": [
+        "1.0.1: fix #118: work rounds, fix verification and the sweep control point point to their one definition; sweep_recommended advisory retired",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
     },
@@ -2985,9 +2987,10 @@
       ]
     },
     "instructions/Factory-devops-provision-deploy.instructions.md": {
-      "version": "2.8.0",
+      "version": "2.8.1",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
+        "2.8.1: fix #118: work rounds, fix verification and the sweep control point point to their one definition; sweep_recommended advisory retired",
         "2.8.0: feat(EVOL-059) — the PREVENTIVE-SWEEP gate reads the artefact the sweep writes (the newest review/preventive_sweep_*.md) and blocks on an undelivered scope whatever the issue's column; one cause per block (missing, INVALIDATED, then the combined condition).",
         "2.7.2: feat(EVOL-054) — provisioning prerequisite: scm-protection at ci (EVOL-054)",
         "2.7.1: fix(EVOL-051) — review pass — the deploy pre-gate asks gate.py seal --check --ref HEAD before trusting IMPLEMENTED_AND_VERIFIED (EVOL-051)",
@@ -3011,9 +3014,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.20.0",
+      "version": "2.20.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.20.1: fix #118: work rounds, fix verification and the sweep control point point to their one definition; sweep_recommended advisory retired",
         "2.20.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.19.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "2.18.2: fix(EVOL-059) — RDR-3: round 1 on the diff, round 2 (--round 2) on the cured bytes; the resolver refuses the next.",
@@ -3111,9 +3115,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.19.0",
+      "version": "2.19.1",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.19.1: fix #118: work rounds, fix verification and the sweep control point point to their one definition; sweep_recommended advisory retired",
         "2.19.0: feat(EVOL-060) — the peer review artefact's § Critic returns (every return verbatim); informational counted, never adjudicated.",
         "2.18.1: fix(EVOL-059) — RDR-3: the passes the key allows; the effort the resolver computes; a finding outside the diff is informational.",
         "2.18.0: feat(EVOL-059) — the canary plan before the round, --seen after every real return.",
@@ -3388,9 +3393,10 @@
       ]
     },
     "instructions/Factory-protocol-smart-redirect.instructions.md": {
-      "version": "2.7.2",
+      "version": "2.7.3",
       "path": ".claude/instructions/Factory-protocol-smart-redirect.instructions.md",
       "changelog": [
+        "2.7.3: fix #118: work rounds, fix verification and the sweep control point point to their one definition; sweep_recommended advisory retired",
         "2.7.2: fix #113: an auto-approval check count lives only in its check list — the copied counts are cured, three retired_terms patterns keep any count from coming back",
         "2.7.1: fix(EVOL-051) — review pass — IMPLEMENTED_AND_VERIFIED without a covering seal routes to implement, not qa (EVOL-051)",
         "2.7.0: feat(EVOL-041) — D14 dead-lock fix: codesign_approved no longer requires mock.html APPROVED for backend-only/integration (scope-aware via new spec_feature.scope probe field).",
@@ -3938,10 +3944,11 @@
       "path": ".claude/skills/factory-backlog-next-task/SKILL.md"
     },
     "skills/factory-preventive-sweep/SKILL.md": {
-      "version": "1.10.0",
+      "version": "1.10.1",
       "type": "skill",
       "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
+        "1.10.1: fix #118: work rounds, fix verification and the sweep control point point to their one definition; sweep_recommended advisory retired",
         "1.10.0: feat(EVOL-060) — consolidation reads the contract part; the returns written verbatim under § Critic returns; informational counted in the frontmatter; the falls from the originals.",
         "1.9.0: feat(EVOL-059) — the canary plan before the governance lens, --seen after its return under the engine's one FOLD_IDS rule; the sweep's not_delivered made real (the return check and one hand-back per scope, the ladder on a provider error, every fall recorded); an undelivered scope is UNVERIFIED, never CLEAN (consolidation, artefact, deploy gate).",
         "1.8.0: feat(EVOL-058) — the budget lines at the spawn and the hand-back on a partial return.",

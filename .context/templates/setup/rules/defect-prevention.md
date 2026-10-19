@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Catalog — families, defect classes, gates, governed paths. Cases annex: defect-prevention-cases.md"
-version: 3.1.1
+version: 3.2.0
 date: 2026-09-25
 changelog:
   - "3.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -38,6 +38,7 @@ Runtime defect patterns that pass every static gate (lint, typecheck, SAST, unit
 | DC-27 | `tests` | Test factories build every value through the production semantic type; no fake-pattern literal survives at module scope. | factory `_row_model` auto-validation · module-scope fake-literal lint (project script) | `tests/**`, `**/factories/**`, `**/fixtures/**`, `**/conftest.py` | IMPLEMENT, REVIEW, QA | BLOCKER |
 | DC-28 | `runtime` | No function in the diff exceeds `config/quality.json.complexity.thresholds.hard` (block) or `.soft` (advisory) McCabe complexity. | BVL `full_verification_gate` Step 7 · factory-pr-review axis 6 / Block 19 (`factory-complexity-check`) | `src/**` | IMPLEMENT, REVIEW, QA | BLOCKER |
 | DC-29 | `process` | Code exists only after the YAGNI ladder stops at its first viable rung — a simpler *how*, never a cut of the specified *what*. | BVL `full_verification_gate` Step 8 (advisory, fail-open) · factory-adversarial-reasoning do-less lens | `*` | CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, AUDIT | WARNING |
+| DC-30 | `process` | A fix is verified by its red test turning green, then by the read-set re-run — never by re-running everything. | `gate.py seal --plan` (the gates the delta's read-set touched) | `*` | IMPLEMENT, REVIEW | WARNING |
 {{DC_ENTRIES}}
 
 Columns. `Invariant`: one line, ≤ `budgets.dc_invariant_max_chars`. `Gate`: the mechanical check that proves the DC (`scripts/` script, BVL step, CVP check id, pr-review Block, named test) or `—`. `Paths`: globs the DC governs; `*` = universal — delivered everywhere and embedded in the governance snapshot. `Applicable To`: agents that MUST consult — CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT (SETUP materialises, never consumes). `Severity`: BLOCKER or WARNING when a consumer finds the pattern.

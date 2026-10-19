@@ -1498,8 +1498,8 @@ FUNCTION execute_fix_tasks(FEATURE_ID, fix_items):
     1. RED: Write regression test that reproduces the bug
        - Test MUST fail before fix (proves bug exists)
     2. GREEN: Apply minimal fix to pass the test
-    3. REGRESSION: Run full test suite (all existing + new)
-       - IF regression detected: fix the regression before continuing
+    3. VERIFY: the scoped suite green, then the read-set re-run (`rules/testing.md` [LAW-05]; `python3 scripts/gate.py seal --run`)
+       - IF a gate goes red: fix it before continuing
     4. MARK task [x] in dev_plan.md (atomic save)
 
     LOG: "Fix task {task.id} completed ✅"

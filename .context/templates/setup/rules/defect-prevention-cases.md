@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.0.0
+version: 1.0.1
 date: 2026-09-25
 changelog:
   - "1.0.0: feat(EVOL-043) — annex created; narratives moved out of the catalog prose columns into one case per DC"
@@ -44,3 +44,11 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 **Story:** Any code-bearing change in any phase. DC-28 caps *complexity* of code that exists; DC-29 questions whether the code should exist at all. The discipline is prevention-first: walk a decision ladder and stop at the first viable rung BEFORE writing code. Complementary, not redundant — DC-28 is quantitative on written code, DC-29 is qualitative on the build/no-build decision.
 
 **Detection:** YAGNI ladder, stop at first viable rung: (1) does it need to exist? (2) stdlib? (3) native platform feature? (4) already-installed dependency? (5) one-liner? (6) only then minimal code. Four over-engineering categories flagged: **reinvented stdlib**, **unneeded dependency**, **single-implementation abstraction**, **dead flexibility** (config/flags/params with no caller). **Guardrail — how, not what:** the discipline argues a simpler *implementation*, NEVER cuts *specified scope* — a scope reduction is an RDR decision routed to CODESIGN, never a silent omission. NEVER simplifies input validation, error handling, security, or accessibility. Deliberate shortcuts marked with a `ponytail:` comment naming the ceiling + upgrade path. Consumed at decision-time by `factory-adversarial-reasoning` (do-less AGAINST lens, all phases) and at build-time by BVL `full_verification_gate` step 8 (advisory self-scan, fail-open, never blocks).
+
+### DC-30 — Verifying a fix by re-running everything
+
+**Origin:** A generic class from a downstream instantiation (#120): each fix task re-ran every test and every gate to prove one change.
+
+**Story:** Any fix, in any phase. The cost grows with the codebase, the one test that names the bug drowns in the noise, and the loop's seal — which already knows which gates a delta touches — is bypassed. One full loop per change (EVOL-051): after a green seal, a delta re-runs only the gates whose read-set it touched.
+
+**Detection:** The fix's red test fails before the fix and passes after it, in the scoped suite. Then `python3 scripts/gate.py seal --plan` names the stale gates and `--run` re-runs only those. Framework text that prescribes otherwise is a retired pattern, red in meta CI (#118).
