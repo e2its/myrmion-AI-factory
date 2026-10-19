@@ -17,7 +17,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, branch, budget, canary, coherence, corpus, digests, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
+from gates import agents, branch, budget, canary, checklist, coherence, corpus, digests, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -291,6 +291,27 @@ class Corpus(unittest.TestCase):
         _, fp_a = corpus.digest(self.repo, ["src/a.py"], 6000)
         _, fp_b = corpus.digest(self.repo, ["src/b.py"], 6000)
         self.assertEqual(fp_a, fp_b, "the same delivered set dedupes across paths")
+
+
+class Checklist(unittest.TestCase):
+    def test_only_x_is_done(self):
+        c = checklist.count("- [x] a\n  - [X] b\n- [ ] c\n- [!] FAILED d\n- [~] e\nplain - [ ] not an item\n")
+        self.assertEqual((c["done"], c["open"], c["failed"], c["other"], c["total"], c["not_done"]), (2, 1, 1, 1, 5, 3))
+        self.assertEqual(checklist.count("- [x] a\n")["not_done"], 0)
+        self.assertIn("1 failed", checklist.render(checklist.count("- [!] FAILED x\n")))
+        c = checklist.count("* [ ] star\n+ [x] plus\n1. [ ] numbered\n2) [!] FAILED n\n-  [ ] two spaces\n3. [B] option B is prose\n")
+        self.assertEqual((c["done"], c["open"], c["failed"], c["total"]), (1, 3, 1, 5), "every list bullet counts; a numbered [B] is prose")
+
+    def test_cli_exit_names_what_is_not_done(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "qa_report.md"
+            f.write_text("- [x] a\n- [!] FAILED b\n", encoding="utf-8")
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", d, "checklist", "--file", str(f)], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, "a failed item is not done: red")
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", d, "checklist", "--json"], input="- [x] a\n", capture_output=True, text=True)
+            self.assertEqual((r.returncode, json.loads(r.stdout)["done"]), (0, 1))
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", d, "checklist", "--file", "absent.md"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 2, "an unreadable checklist is a fault, never a pass")
 
 
 class Retired(unittest.TestCase):

@@ -578,8 +578,7 @@ IF commands.lint IS NOT NULL:
   IF lint_result.exit_code == 0:
     MARK [QA-STATIC-1] [x]
   ELSE:
-    MARK [QA-STATIC-1] [!] FAILED
-    # Non-blocking for verdict (WARN) — but documented
+    MARK [QA-STATIC-1] [x]  # Non-blocking (WARN) — documented; never [!], which is not done and blocks (#115)
 
 # Type check
 IF commands.typecheck IS NOT NULL:
@@ -674,7 +673,7 @@ Generate the mode-aware qa_report file:
 - Slice mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_{{INCREMENT_ID}}_{{timestamp}}.md`
 - Aggregate mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_final_{{timestamp}}.md` (with `aggregates:` frontmatter referencing the consumed slice reports)
 
-**Verification Checklist Completion Gate:** Before setting verdict, verify ALL `- [ ]` items in the checklist are marked `[x]`. If any remain unchecked, verdict MUST be REJECTED.
+**Verification Checklist Completion Gate:** Before setting verdict, count the report with `python3 scripts/gate.py checklist --file {qa_report_path}` — only `[x]` is done; an open `[ ]` or a failed `[!]` is not (#115). Exit 1 → verdict MUST be REJECTED.
 
 ### QA Report Template (`qa_report_final_{{timestamp}}.md` / `qa_report_{{INC-N}}_{{timestamp}}.md`)
 
@@ -794,16 +793,13 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   # This replaces the former separate `--approve` command.
 
   # Step 0: Verify Checklist Completion Gate (BLOCKING)
-  unchecked = FIND_ALL(qa_report_path, "- [ ]")
-  checked = FIND_ALL(qa_report_path, "- [x]")
-  total_checks = unchecked.count + checked.count
+  # The one done vocabulary (#115): only [x] is done; [ ], [!] FAILED and any other mark are not
+  counts = RUN("python3 scripts/gate.py checklist --json --file {qa_report_path}")   # exit 1 = an item is not done
 
-  IF unchecked.count > 0:
+  IF counts.not_done > 0:
     ❌ OVERRIDE verdict to REJECTED:
     verdict = "REJECTED"
-    LOG: "Checklist incomplete: {unchecked.count}/{total_checks} items unchecked — verdict forced to REJECTED"
-    FOR EACH item IN unchecked:
-      LOG: "  Unchecked: {item.id}"
+    LOG: "Checklist incomplete: {counts.not_done}/{counts.total} items not done ({counts.open} open, {counts.failed} failed) — verdict forced to REJECTED"
 
   # Step 1: Update frontmatter based on verdict
   UPDATE_FRONTMATTER(qa_report_path, "total_checks", total_checks)
@@ -941,8 +937,8 @@ FUNCTION qa_resume_check(FEATURE_ID, command, INCREMENT_ID=null):
     latest = SORT_BY_TIMESTAMP(reports).last
     fm = READ_FRONTMATTER(latest)
     IF fm._progress IS NOT NULL AND fm._progress.pending_sections.length > 0:
-      unchecked = FIND_ALL(latest, "- [ ]")
-      LOG: "RESUME: {latest} — {fm._progress.completed_sections.length} categories done, {unchecked.length} checks pending"
+      counts = RUN("python3 scripts/gate.py checklist --json --file {latest}")
+      LOG: "RESUME: {latest} — {fm._progress.completed_sections.length} categories done, {counts.open} checks pending"
       RECOVER_DECISIONS(fm._progress.decisions)
       RESUME_FROM(first_unchecked_check)
       RETURN "RESUMED"

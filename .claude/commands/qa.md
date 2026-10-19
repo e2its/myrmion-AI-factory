@@ -26,7 +26,7 @@ The optional second positional argument `{INC-N}` (e.g. `INC-2`) selects per-sli
 **Full protocol:** See `.claude/instructions/Factory-qa-verify.instructions.md`
 - Derive verification checklist from `test_plan.md` (scenario-filtered in slice mode) → generate `- [ ]` checkboxes in the mode-aware qa_report path
 - Execute each verification item → mark `- [x]` on completion
-- **Completion Gate:** NEVER set verdict to APPROVED if ANY `- [ ]` checklist item remains unchecked
+- **Completion Gate:** NEVER set verdict to APPROVED while any item is not done — `python3 scripts/gate.py checklist`: only `[x]` is done; `[ ]` and `[!] FAILED` are not (#115)
 - Run DAST scanning (OWASP ZAP or equivalent)
 - Auto-approves when ALL checkboxes checked AND no blockers found
 
@@ -50,7 +50,7 @@ Run E2E test suite independently (without full verification).
 - QA does NOT modify production source code — only executes and reports
 - QA APPROVED is the gate to production: enables MERGE → prod deployment
 - Test plan comes from BLUEPRINT (test_plan.md) — QA executes it
-- **Checkbox-Driven Verification:** Every test case and check is a `- [ ]` in the qa_report. QA marks `[x]` on execution. NEVER finalize with unchecked items.
+- **Checkbox-Driven Verification:** Every test case and check is a `- [ ]` in the qa_report. QA marks `[x]` on a pass, `[!] FAILED` on a blocking failure. NEVER finalize with an item not done.
 - **QA↔FIX Loop:** After `--reject` → `IMPLEMENT --fix` → `QA --verify` (re-verification). Loop repeats until all checks pass. Previous REJECTED report is superseded, not modified.
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "QA"` — always the actual agent name.
 - **User Communication:** Follow Agent Communication Protocol (`.claude/skills/factory-agent-communication/SKILL.md`) — entry announcement, phase milestones (3 phases for --verify), completion summary.

@@ -252,6 +252,11 @@ run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path
 assert_block "terminal status with an unchecked item: exit 2" "Completion gate failed"
 run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":"---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [x] done\n"}}'
 assert_pass "terminal status, all ticked: passes"
+run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/qa_report.md","content":"---\nverdict: APPROVED\n---\n- [x] lint\n- [!] FAILED complexity\n"}}'
+assert_block "terminal verdict with a failed [!] item and no [ ]: exit 2 (#115 — only [x] is done)" "1 failed"
+BIGPLAN=$(python3 -c 'print("---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n" + "- [x] done\n" * 9000 + "* [ ] open task\n")')
+run_hook check-completion-gate.sh "$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":sys.argv[1]}}))' "$BIGPLAN")"
+assert_block "large plan (>64 KB), terminal status on top, one '* [ ]' at the end: exit 2 (DC-13 — no SIGPIPE skip)" "Completion gate failed"
 
 echo "── check-ipp-compliance ──"
 BIG=$(python3 -c 'print("---\n_progress:\n  completed_sections: []\n---\n" + "".join(f"## S{i}\n" + "x\n"*60 for i in range(3)))')
