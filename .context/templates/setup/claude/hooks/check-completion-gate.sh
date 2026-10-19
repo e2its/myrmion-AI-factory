@@ -3,12 +3,15 @@
 # ============================================================================
 # check-completion-gate.sh — PreToolUse hook: block terminal status with unchecked items
 # ============================================================================
-# Triggered on Write tool calls.
-# Reads stdin JSON: { "tool_name": "Write", "tool_input": { "file_path": "...", "content": "..." } }
+# Triggered on Edit and Write tool calls (#171): the file is judged as it would be after the change.
+# Reads stdin JSON: Write { "file_path", "content" } · Edit { "file_path", "old_string", "new_string", "replace_all"? }
 #
 # Blocks if:
 #   - file is dev_plan.md or qa_report*.md (any path)
-#   - content contains IMPLEMENTED_AND_VERIFIED or verdict: APPROVED
+#   - the frontmatter after the change says status: IMPLEMENTED_AND_VERIFIED or verdict: APPROVED on a top-level line,
+#     its value read by the one parser (scripts/gates/common.py); a comment or a per-increment status is not a marker
+#   - the content after the change cannot be built (file unreadable, old_string absent), or its status/verdict line
+#     cannot be read — fail-closed
 #   - an item is not done — ONE vocabulary: python3 scripts/gate.py checklist (#115): only [x] is done;
 #     an open [ ], a failed [!] and any other mark are not
 # Blocks with exit 2 + stderr (the Claude Code blocking contract; exit 1 would not block — EVOL-043).
@@ -19,21 +22,12 @@ set -euo pipefail
 # Read full stdin into variable
 INPUT=$(cat)
 
-# Extract file_path and content using python (available in any Claude Code environment)
+# Extract file_path using python (available in any Claude Code environment)
 FILE_PATH=$(echo "$INPUT" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
     print(data.get('tool_input', {}).get('file_path', ''))
-except Exception:
-    print('')
-" 2>/dev/null || echo '')
-
-CONTENT=$(echo "$INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    print(data.get('tool_input', {}).get('content', ''))
 except Exception:
     print('')
 " 2>/dev/null || echo '')
@@ -44,21 +38,63 @@ if [[ "$BASENAME" != "dev_plan.md" ]] && ! grep -qE '^qa_report.*\.md$' <<< "$BA
   exit 0
 fi
 
-# Check for terminal status markers
-HAS_TERMINAL=false
-if grep -qE '(IMPLEMENTED_AND_VERIFIED|verdict:\s*APPROVED)' <<< "$CONTENT"; then   # here-string, never a pipe: grep -q + pipefail = SIGPIPE on a large file (DC-13)
-  HAS_TERMINAL=true
-fi
+# The content after the change: Write carries it; Edit is replayed on the file (first occurrence, or all with replace_all)
+CRC=0
+CONTENT=$(printf '%s' "$INPUT" | python3 -c '
+import json, os, sys
+ti = json.load(sys.stdin).get("tool_input") or {}
+if isinstance(ti.get("content"), str):
+    sys.stdout.write(ti["content"]); sys.exit(0)
+old, new = ti.get("old_string"), ti.get("new_string")
+if not isinstance(old, str) or not isinstance(new, str):
+    sys.exit(4)
+if old == "" and (not os.path.exists(ti["file_path"]) or os.path.getsize(ti["file_path"]) == 0):
+    sys.stdout.write(new); sys.exit(0)   # an Edit filling an absent or empty file: its content is new_string
+if not old:
+    sys.exit(4)
+with open(ti["file_path"], encoding="utf-8") as f:
+    text = f.read()
+if old not in text:
+    sys.exit(3)
+sys.stdout.write(text.replace(old, new) if ti.get("replace_all") is True else text.replace(old, new, 1))
+' 2>/dev/null) || CRC=$?
+case "$CRC" in
+  0) ;;
+  3) echo "BLOCKED: the completion gate cannot build '$BASENAME' as it would be after this change — the text to replace is not in the file. Re-read the file and retry the change." >&2; exit 2 ;;
+  *) echo "BLOCKED: the completion gate cannot build '$BASENAME' as it would be after this change — the file cannot be read, or the change carries no text to replace. Re-read the file and retry the change." >&2; exit 2 ;;
+esac
 
-if ! $HAS_TERMINAL; then
-  exit 0
-fi
-
-# Count what is not done through the one reader; a missing reader blocks with its resolution
+# The terminal marker and the counting are the one reader's; a missing reader blocks with its resolution
 if [ ! -f scripts/gate.py ]; then
-  echo "BLOCKED: the governance reader (scripts/gate.py) is not delivered — '$BASENAME' cannot be checked before a terminal status. Resolution: bash scripts/factory-sync.sh, then retry." >&2
+  echo "BLOCKED: the governance reader (scripts/gate.py) is not delivered — '$BASENAME' cannot be judged. Resolution: bash scripts/factory-sync.sh, then retry." >&2
   exit 2
 fi
+
+# Terminal = the frontmatter's own top-level status/verdict line, its value read by the one parser — never a comment,
+# a per-increment status (indented) or another key (only these lines are parsed: the rest of a plan's frontmatter
+# may be YAML the subset parser does not read, and is not this gate's question). No leading frontmatter → not terminal,
+# as for every frontmatter reader (read_frontmatter)
+TRC=0
+TERMINAL=$(printf '%s\n' "$CONTENT" | python3 -c '
+import re, sys
+sys.path.insert(0, "scripts")
+from gates.common import FM_RE, GateFault, parse_yaml
+m = FM_RE.match(sys.stdin.read())
+key = re.compile(r"[\"\x27]?(status|verdict)[\"\x27]?\s*:")   # any spelling of the key; the parser reads the value
+keys = [key.sub(r"\1:", ln, count=1) for ln in m.group(1).splitlines() if key.match(ln)] if m else []
+try:
+    fm = parse_yaml("\n".join(keys)) if keys else {}
+except GateFault as e:
+    print(e); sys.exit(2)
+fm = fm if isinstance(fm, dict) else {}
+sys.exit(0 if fm.get("status") == "IMPLEMENTED_AND_VERIFIED" or fm.get("verdict") == "APPROVED" else 5)
+' 2>&1) || TRC=$?
+case "$TRC" in   # 0 terminal · 5 not terminal · anything else (a fault, an uncaught error) blocks
+  0) ;;
+  5) exit 0 ;;
+  2) echo "BLOCKED: the completion gate cannot read the status of '$BASENAME' as it would be after this change: $(printf '%s' "$TERMINAL" | tail -n 1 | head -c 300). Fix the status or verdict line, then retry." >&2; exit 2 ;;
+  *) echo "BLOCKED: the governance reader (scripts/gates/) failed while reading the status of '$BASENAME'. Resolution: bash scripts/factory-sync.sh, then retry." >&2; exit 2 ;;
+esac
 RC=0
 COUNT=$(printf '%s\n' "$CONTENT" | python3 scripts/gate.py checklist 2>&1) || RC=$?
 

@@ -877,11 +877,12 @@
       "delivery": "both"
     },
     "claude/settings.json": {
-      "version": "2.4.1",
+      "version": "2.4.2",
       "content_type": "universal",
       "target": ".claude/settings.json",
       "upgrade_strategy": "merge-preserve",
       "changelog": [
+        "2.4.2: fix #171: the completion gate runs on Edit and Write — an Edit is replayed on the file (old_string → new_string, replace_all honoured) and the result is counted through gate.py checklist; a change it cannot replay blocks; SETUP --upgrade moves the entry from Write to Edit|Write",
         "2.4.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "2.4.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
         "2.3.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
@@ -909,10 +910,11 @@
       ]
     },
     "claude/hooks/check-completion-gate.sh": {
-      "version": "2.1.0",
+      "version": "2.1.1",
       "content_type": "universal",
       "target": ".claude/hooks/check-completion-gate.sh",
       "changelog": [
+        "2.1.1: fix #171: the completion gate runs on Edit and Write — an Edit is replayed on the file (old_string → new_string, replace_all honoured, an empty old_string on an absent or empty file fills it) and the result is counted through gate.py checklist; terminal is the frontmatter's own top-level status/verdict line (any key spelling, the value read by the one parser), never a template comment or a per-increment status; a change it cannot replay, or a status line it cannot read, blocks; with scripts/gate.py absent every change to a dev_plan.md/qa_report*.md blocks with the factory-sync resolution (the terminal read needs the parser); SETUP --upgrade moves the entry from Write to Edit|Write",
         "2.1.0: fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]",
         "2.0.0: feat(EVOL-043)! — BREAKING (blocking hooks exit 2 + stderr (exit 1 never blocked); context through the envelope) — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.0: feat(EVOL-017) Copilot PR #7 round 2: initial template — PreToolUse Write hook blocks terminal status in dev_plan.md or qa_report*.md when unchecked items remain."
@@ -3404,9 +3406,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.18.2",
+      "version": "2.18.3",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.18.3: fix #171: the completion gate runs on Edit and Write — an Edit is replayed on the file (old_string → new_string, replace_all honoured) and the result is counted through gate.py checklist; a change it cannot replay blocks; SETUP --upgrade moves the entry from Write to Edit|Write",
         "2.18.2: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "2.18.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "2.18.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
@@ -4371,11 +4374,12 @@
       ]
     },
     "hooks/check-completion-gate.sh": {
-      "version": "2.1.0",
+      "version": "2.1.1",
       "type": "hook",
       "path": ".claude/hooks/check-completion-gate.sh",
       "role": "PreToolUse hook (Write) — blocks terminal status (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) in dev_plan.md or qa_report*.md when unchecked items remain.",
       "changelog": [
+        "2.1.1: fix #171: the completion gate runs on Edit and Write — an Edit is replayed on the file (old_string → new_string, replace_all honoured, an empty old_string on an absent or empty file fills it) and the result is counted through gate.py checklist; terminal is the frontmatter's own top-level status/verdict line (any key spelling, the value read by the one parser), never a template comment or a per-increment status; a change it cannot replay, or a status line it cannot read, blocks; with scripts/gate.py absent every change to a dev_plan.md/qa_report*.md blocks with the factory-sync resolution (the terminal read needs the parser); SETUP --upgrade moves the entry from Write to Edit|Write",
         "2.1.0: fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]",
         "2.0.0: feat(EVOL-043)! — BREAKING (blocking hooks exit 2 + stderr (exit 1 never blocked); context through the envelope) — blocking hooks exit 2 with the message on stderr (exit 1 never blocked); context hooks speak through hookSpecificOutput.additionalContext; drift hook also compares dcs_hash.",
         "1.0.0: feat: completion gate enforcement — zero unchecked [ ] required before terminal status (EVOL-011)"
@@ -4739,11 +4743,12 @@
       ]
     },
     "settings.json": {
-      "version": "2.4.1",
+      "version": "2.4.2",
       "type": "config",
       "role": "Claude Code harness settings — wires the full governance hook chain (SessionStart banner, UserPromptSubmit freshness, PreCompact, PreToolUse Edit|Write/Write/Bash gates, PostToolUse watcher). Lock-step pair with .context/templates/setup/claude/settings.json.",
       "path": ".claude/settings.json",
       "changelog": [
+        "2.4.2: fix #171: the completion gate runs on Edit and Write — an Edit is replayed on the file (old_string → new_string, replace_all honoured) and the result is counted through gate.py checklist; a change it cannot replay blocks; SETUP --upgrade moves the entry from Write to Edit|Write",
         "2.4.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "2.4.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
         "2.3.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
@@ -5174,7 +5179,7 @@
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
-        "1.8.3: fix #169: the branch guard judges project files only — a target that resolves (realpath: .. and symlinks) outside the git toplevel is not its to judge (memory, scratch, plan files); no target or a malformed payload is judged by the branch as before",
+        "1.8.3: fix #171: the completion gate runs on Edit and Write — an Edit is replayed on the file (old_string → new_string, replace_all honoured) and the result is counted through gate.py checklist; a change it cannot replay blocks; SETUP --upgrade moves the entry from Write to Edit|Write",
         "1.8.2: fix #115: the completion-gate case — one [!] FAILED, zero [ ], terminal verdict → blocked",
         "1.8.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "1.8.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",

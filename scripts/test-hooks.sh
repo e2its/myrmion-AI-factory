@@ -277,6 +277,81 @@ assert_block "terminal verdict with a failed [!] item and no [ ]: exit 2 (#115 �
 BIGPLAN=$(python3 -c 'print("---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n" + "- [x] done\n" * 9000 + "* [ ] open task\n")')
 run_hook check-completion-gate.sh "$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":sys.argv[1]}}))' "$BIGPLAN")"
 assert_block "large plan (>64 KB), terminal status on top, one '* [ ]' at the end: exit 2 (DC-13 — no SIGPIPE skip)" "Completion gate failed"
+# an in-place Edit is judged on the file as it would be after the change (#171)
+mkdir -p "$REPO/docs/spec/F"; printf -- '---\nstatus: IN_PROGRESS\n---\n- [x] done\n- [ ] open task\n' > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"status: IN_PROGRESS","new_string":"status: IMPLEMENTED_AND_VERIFIED"}}'
+assert_block "Edit setting the terminal status over an open item: exit 2" "Completion gate failed"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] open task","new_string":"- [x] open task"}}'
+assert_pass "Edit ticking the last item, status not terminal: passes"
+printf -- '---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [ ] a\n- [ ] b\n' > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] ","new_string":"- [x] ","replace_all":true}}'
+assert_pass "Edit with replace_all ticking every item under a terminal status: passes (every occurrence replayed)"
+printf -- '---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [x] a\n- [x] b\n' > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [x] b","new_string":"- [x] b, typo fixed"}}'
+assert_pass "Edit on a plan already done (every item ticked): passes"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [x] b","new_string":"- [ ] b"}}'
+assert_block "Edit reopening an item under a terminal status: exit 2" "Completion gate failed"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"not in the file","new_string":"x"}}'
+assert_block "Edit whose old_string is absent: blocked, the gate says so" "not in the file"
+printf -- '---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [x] a\n- [ ] b\n' > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] b\n","new_string":""}}'
+assert_pass "Edit deleting the open line (empty new_string): judged on the file after the deletion"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/absent/dev_plan.md","old_string":"- [ ] b","new_string":"- [x] b"}}'
+assert_block "Edit on a file that does not exist: blocked, the gate cannot read it" "cannot be read"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/new/dev_plan.md","old_string":"","new_string":"---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [ ] open\n"}}'
+assert_block "Edit creating the file (empty old_string): its new_string is the content judged" "Completion gate failed"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/new/dev_plan.md","old_string":"","new_string":"---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [x] done\n"}}'
+assert_pass "Edit creating the file, every item done: passes"
+: > "$REPO/docs/spec/F/dev_plan.md"
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"","new_string":"---\nstatus: IMPLEMENTED_AND_VERIFIED\n---\n- [ ] open\n"}}'
+assert_block "Edit filling an existing empty file (empty old_string): its new_string is the content judged" "Completion gate failed"
+# the terminal marker is the frontmatter's own status/verdict: a template comment or a per-increment status naming it is not
+cat > "$REPO/docs/spec/F/dev_plan.md" <<'PLAN'
+---
+id: F
+# the global `status: IMPLEMENTED_AND_VERIFIED` is DERIVED from increments[]
+status: BUILDING   # DRAFT | READY | BUILDING | IMPLEMENTED_AND_VERIFIED | BLOCKED
+increments:
+  - id: INC-1
+    status: IMPLEMENTED_AND_VERIFIED
+  # - id: "INC-2"
+  #   status: "READY"   # READY | BUILDING | IMPLEMENTED_AND_VERIFIED
+---
+- [x] INC-1 done
+- [ ] INC-2 open
+- [ ] INC-2 open too
+PLAN
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] INC-2 open\n","new_string":"- [x] INC-2 open\n"}}'
+assert_pass "Edit ticking an item on a template-shaped plan (the value in comments and in a per-increment status): passes"
+mkdir -p "$SANDBOX/noyaml"; printf 'raise ImportError("no PyYAML")\n' > "$SANDBOX/noyaml/yaml.py"
+PYTHONPATH="$SANDBOX/noyaml" run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"- [ ] INC-2 open\n","new_string":"- [x] INC-2 open\n"}}'
+assert_pass "same tick without PyYAML: the subset parser reads the status line, the increments list is not its question"
+PYTHONPATH="$SANDBOX/noyaml" run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"status: BUILDING ","new_string":"status: \"IMPLEMENTED_AND_VERIFIED\" "}}'
+assert_block "same flip without PyYAML (quoted, trailing comment): the subset parser reports terminal, exit 2" "Completion gate failed"
+PYTHONPATH="$SANDBOX/noyaml" run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":"---\nstatus: \"unterminated\n---\n- [ ] open\n"}}'
+assert_block "a status line that cannot be parsed, without PyYAML: blocked with the parser's reason" "cannot read the status"
+for spelling in '\"status\": IMPLEMENTED_AND_VERIFIED' 'status : IMPLEMENTED_AND_VERIFIED'; do
+  run_hook check-completion-gate.sh "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"docs/spec/F/dev_plan.md\",\"content\":\"---\\n$spelling\\n---\\n- [ ] open\\n\"}}"
+  assert_block "terminal key spelled '$spelling' over an open item: exit 2" "Completion gate failed"
+  PYTHONPATH="$SANDBOX/noyaml" run_hook check-completion-gate.sh "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"docs/spec/F/dev_plan.md\",\"content\":\"---\\n$spelling\\n---\\n- [ ] open\\n\"}}"
+  assert_block "terminal key spelled '$spelling' over an open item, without PyYAML: exit 2" "Completion gate failed"
+done
+run_hook check-completion-gate.sh '{"tool_name":"Edit","tool_input":{"file_path":"docs/spec/F/dev_plan.md","old_string":"status: BUILDING ","new_string":"status: \"IMPLEMENTED_AND_VERIFIED\" "}}'
+assert_block "Edit flipping the template-shaped plan's own status (quoted) over open items: exit 2" "Completion gate failed"
+run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/qa_report.md","content":"---\nverdict: PENDING   # verdict: APPROVED | REJECTED\n---\nverdict: APPROVED is written by QA --verify\n- [ ] lint\n"}}'
+assert_pass "Write of a QA report whose verdict is pending ('verdict: APPROVED' only in a comment and the body): passes"
+run_hook check-completion-gate.sh '{"tool_name":"Write","tool_input":{"file_path":"docs/spec/F/dev_plan.md","content":"---\nstatus: \"unterminated\n---\n- [ ] open\n"}}'
+assert_block "a status line that cannot be parsed: blocked with the parser's reason" "cannot read the status"
+rm -rf "$REPO/docs/spec/F/dev_plan.md"
+for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/settings.json"; do
+  python3 - "$sj" <<'PY'
+import json, sys
+groups = json.load(open(sys.argv[1]))["hooks"]["PreToolUse"]
+wired = [g["matcher"] for g in groups for h in g["hooks"] if "check-completion-gate.sh" in h["command"]]
+assert wired == ["Edit|Write"], f"check-completion-gate.sh wired under {wired}, expected exactly ['Edit|Write']"
+PY
+  [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json: the completion gate runs on Edit and Write, once" || bad "completion gate not wired under Edit|Write in $sj"
+done
 
 echo "── check-ipp-compliance ──"
 BIG=$(python3 -c 'print("---\n_progress:\n  completed_sections: []\n---\n" + "".join(f"## S{i}\n" + "x\n"*60 for i in range(3)))')
