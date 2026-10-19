@@ -203,7 +203,7 @@ FUNCTION find_inventory_matches(planned_artifact, topology):
 # For SHARED or same-domain DOMAIN_INTERNAL matches:
 REUSE:       "Use existing artifact as-is. Add current feature_id to feature_ids[]."
 EXTEND:      "Extend existing artifact with new capabilities."
-CREATE_NEW:  "Create new despite overlap. MANDATORY: ADR + log in design.md Section 0."
+CREATE_NEW:  "Create new despite overlap. MANDATORY: ADR + log in design.md § Technical Resolutions Log."
 
 # For CROSS_DOMAIN_COLLISION (different domains, same name):
 RENAME:          "Rename planned artifact to avoid confusion."
@@ -211,7 +211,7 @@ SHARED_KERNEL:   "Extract to Shared Kernel. MANDATORY: ADR."
 KEEP_BOTH:       "Both intentionally distinct. MANDATORY: ADR."
 
 # IMPLEMENT DRY GATE (during --build):
-IF design.md Section 0 exists:
+IF design.md § Reuse Analysis exists:
   TRUST BLUEPRINT decisions (already RDR'd)
 ELSE:
   Lightweight check → Apply Domain Isolation Gate → RDR if overlap
@@ -249,7 +249,7 @@ AGENT RESPONSIBILITIES:
     - Step -2: load_inventory_or_fallback() → 4-criteria matching → RDR per candidate (1-to-1)
     - If missing → SKIP with CIP_SKIPPED log, proceed to artifact generation
     - If stale (>30 days) → emit advisory for SETUP --reconcile-inventory
-    - Log decisions in design.md Section 0: "Reuse Analysis"
+    - Log decisions in design.md § Reuse Analysis
   
   BLUEPRINT --approve:
     - Register PLANNED artifacts in registry
@@ -258,10 +258,10 @@ AGENT RESPONSIBILITIES:
   IMPLEMENT --plan:
     - Cross-reference dev_plan tasks against registry
     - If missing → WARN, continue with limited DRY checks
-    - Annotate tasks with REUSE/EXTEND context from design.md Section 0
+    - Annotate tasks with REUSE/EXTEND context from design.md § Reuse Analysis
   
   IMPLEMENT --build:
-    - DRY Gate: Load design.md Section 0; fallback to registry check
+    - DRY Gate: Load design.md § Reuse Analysis; fallback to registry check
     - Auto-fix PLANNED→IMPLEMENTED if file already exists at artifact.path
     - governance lens [DRY-XX] checks
     - Post-build: Update registry (PLANNED→IMPLEMENTED + new TDD artifacts)
@@ -449,7 +449,7 @@ AUTO_RECONCILE_ADVISORY:
       AUTO-FIX: Transition to IMPLEMENTED (no RDR needed — evidence is file existence)
   
   IMPLEMENT --build (Post-build):
-    IF created files not matching any PLANNED artifact AND no design.md Section 0:
+    IF created files not matching any PLANNED artifact AND no design.md § Reuse Analysis:
       ⚠️ ADVISORY: "New artifacts created without CIP tracking. Register manually or run SETUP --reconcile-inventory."
 
 # NEVER auto-reconcile silently. Always log advisories in worklog.
@@ -604,7 +604,7 @@ CIP_CANARY_TRIGGER_POINTS:
   # The canary fires DURING DESIGN to prevent rework, not at approval time.
   
   BLUEPRINT --start (Step -2, during artifact design):
-    BEFORE writing each artifact entry to design.md Section 0:
+    BEFORE writing each artifact entry to design.md § Reuse Analysis:
       canary = cip_canary_gate(artifact)
       IF canary.action == "BLOCK_DUPLICATE": ❌ STOP — duplicate already exists, switch to REUSE
       IF canary.action == "RDR_REQUIRED": RDR → REUSE / EXTEND / CREATE_NEW (with justification)
@@ -619,7 +619,7 @@ CIP_CANARY_TRIGGER_POINTS:
   IMPLEMENT --build:
     BEFORE creating any new source file:
       canary = cip_canary_gate({ name, type, module, responsibility })
-      IF canary.action == "BLOCK_DUPLICATE": ❌ STOP — check design.md Section 0
+      IF canary.action == "BLOCK_DUPLICATE": ❌ STOP — check design.md § Reuse Analysis
       IF canary.action == "RDR_REQUIRED": Lightweight RDR → REUSE / EXTEND / CREATE_NEW
   
   CODESIGN --start:

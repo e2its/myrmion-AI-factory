@@ -416,7 +416,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
       case: {
         origin: "Breaking change shipped WITHOUT a new major version + deprecation window = silent consumer breakage.",
         story: "Publishing a contract (OpenAPI / AsyncAPI / gRPC / GraphQL SDL) that external consumers depend on — any scope=integration feature, or scope=backend-only feature that has at least one external consumer in consumes_contract.",
-        detection: "Contract versions MUST follow a declared strategy: (a) URI versioning (/v1/, /v2/) for REST, (b) package-level versioning (package myapi.v1) for gRPC, (c) schema-evolution rules (additive fields only; never remove/rename without deprecation) for AsyncAPI/Avro/Protobuf, (d) `@deprecated` + sunset dates for GraphQL. Document the strategy in design.md § 2 Constraints + ADR. REVIEW blocks on: field removals without deprecation; type narrowing of request fields; type widening of response fields without opt-in."
+        detection: "Contract versions MUST follow a declared strategy: (a) URI versioning (/v1/, /v2/) for REST, (b) package-level versioning (package myapi.v1) for gRPC, (c) schema-evolution rules (additive fields only; never remove/rename without deprecation) for AsyncAPI/Avro/Protobuf, (d) `@deprecated` + sunset dates for GraphQL. Document the strategy in design.md § Constraints and Rules + ADR. REVIEW blocks on: field removals without deprecation; type narrowing of request fields; type widening of response fields without opt-in."
       }
     }
 

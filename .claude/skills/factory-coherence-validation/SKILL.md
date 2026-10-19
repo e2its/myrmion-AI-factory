@@ -20,7 +20,7 @@ applicable_when:
 Each agent in the SDLC pipeline produces artifacts that downstream agents consume as inputs. Existing gates validate **status** (is it APPROVED?) and **iteration** (is it stale?), but do NOT validate **semantic coherence** — whether the artifacts actually align in content. Examples of gaps CVP catches:
 
 - A Gherkin scenario in `spec.feature` with no corresponding component in `design.md`
-- A business field in `user_journey.md § 6 Business Fields` absent from `design.md § 7.4 locked_fields`
+- A business field in `user_journey.md § 6 Business Fields` absent from `design.md § Schema Constraints locked_fields`
 - A UI component in `mock.html` with no entry in `design.md` Component Inventory
 - A user journey step requiring an API call with no matching contract endpoint
 - A contract endpoint with no corresponding test case in `test_plan.md`
@@ -43,7 +43,7 @@ CVP_SCOPES:
       - slice_map_presence                   # EVOL-036 — slice_map.md exists + well-formed (RDR≥3) when slicing_strategy==incremental; absent when monolithic
       - increment_plan_presence              # increment_plan.md exists with well-formed frontmatter; slicing_strategy inherited from spec.feature
       - scenario_to_component        # spec.feature scenarios → design.md components
-      - business_field_to_locked_field  # user_journey.md § 6 Business Fields → design.md § 7.4 locked_fields (id kept as data_schema_to_data_model alias)
+      - business_field_to_locked_field  # user_journey.md § 6 Business Fields → design.md § Schema Constraints locked_fields (id kept as data_schema_to_data_model alias)
       - ui_component_to_inventory    # mock.html components → design.md Component Inventory (applicable_when scope in [full-stack, frontend-only])
       - journey_step_to_endpoint     # user_journey.md § 2 steps (single file, ALL scopes) → contract endpoints; mechanical anchor layer delegated to scripts/check-journey-grammar.sh
       - journey_path_to_test_coverage  # EVOL-041 — every § 3 Path expands transitively Paso → BDD Scenario → test_plan TC; every path fully covered
@@ -462,12 +462,12 @@ FUNCTION check_scenario_to_component(elements):
 
 ### Check 2: `business_field_to_locked_field` (CRITICAL) — alias `data_schema_to_data_model`
 
-Every business field in `user_journey.md § Section 6: Business Fields` must appear as a `locked_field` in `design.md § 7.4 Schema Constraints`, and § 7.4 must not carry business fields absent from the journey (LAW-16: journey owns existence, design owns typing).
+Every business field in `user_journey.md § Section 6: Business Fields` must appear as a `locked_field` in `design.md § Schema Constraints`, and § Schema Constraints must not carry business fields absent from the journey (LAW-16: journey owns existence, design owns typing).
 
 ```yaml
 FUNCTION check_business_field_to_locked_field(elements):
   uj_concepts = elements.user_journey_business_fields  # [{concept, fields: [{name, meaning, required}]}] — NO types in the journey
-  d74_entities = elements.design_locked_fields         # design.md § 7.4: [{name, locked_fields: [{field, type, format, required}]}]
+  d74_entities = elements.design_locked_fields         # design.md § Schema Constraints: [{name, locked_fields: [{field, type, format, required}]}]
 
   FOR EACH concept IN uj_concepts:
     d74_match = FIND(d74_entities, name ~= concept.concept)
@@ -475,8 +475,8 @@ FUNCTION check_business_field_to_locked_field(elements):
     IF d74_match IS NULL:
       YIELD { check: "business_field_to_locked_field", severity: CRITICAL,
               source: "user_journey.md § 6: concept '{concept.concept}'",
-              gap: "Concept not found in design.md § 7.4 Schema Constraints",
-              remediation: "BLUEPRINT --refine {ID} to formalise the concept in § 7.4" }
+              gap: "Concept not found in design.md § Schema Constraints,
+              remediation: "BLUEPRINT --refine {ID} to formalise the concept in § Schema Constraints" }
       CONTINUE
 
     FOR EACH field IN concept.fields:
@@ -484,27 +484,27 @@ FUNCTION check_business_field_to_locked_field(elements):
       IF field_match IS NULL:
         YIELD { check: "business_field_to_locked_field", severity: CRITICAL,
                 source: "user_journey.md § 6: '{concept.concept}.{field.name}'",
-                gap: "Business field not typed in design.md § 7.4 locked_fields",
-                remediation: "BLUEPRINT --refine {ID} to type the field in § 7.4" }
+                gap: "Business field not typed in design.md § Schema Constraints locked_fields",
+                remediation: "BLUEPRINT --refine {ID} to type the field in § Schema Constraints" }
       ELSE:
         # required-ness must survive formalisation
         IF field.required != field_match.required:
           YIELD { check: "business_field_to_locked_field", severity: CRITICAL,
                   source: "'{concept.concept}.{field.name}'",
-                  gap: "Required/optional diverges between journey § 6 and design § 7.4",
-                  remediation: "Align § 7.4 with the journey (or RDR → CODESIGN --refine)" }
+                  gap: "Required/optional diverges between journey § 6 and design.md § Schema Constraints",
+                  remediation: "Align § Schema Constraints with the journey (or RDR → CODESIGN --refine)" }
         ELSE:
           YIELD { check: "business_field_to_locked_field", severity: PASS,
-                  source: "{concept.concept}.{field.name}", target: "§7.4 {d74_match.name}.{field_match.field}" }
+                  source: "{concept.concept}.{field.name}", target: "§ Schema Constraints {d74_match.name}.{field_match.field}" }
 
-  # Reverse direction: § 7.4 business fields must exist in the journey (H-15 existence authority)
+  # Reverse direction: § Schema Constraints business fields must exist in the journey (H-15 existence authority)
   FOR EACH d74 IN d74_entities:
     FOR EACH lf IN d74.locked_fields:
       IF lf.field NOT IN elements.design_exempt_technical_fields:
         uj_match = FIND_FIELD(uj_concepts, lf.field)
         IF uj_match IS NULL:
           YIELD { check: "business_field_to_locked_field", severity: CRITICAL,
-                  source: "design.md § 7.4: '{d74.name}.{lf.field}'",
+                  source: "design.md § Schema Constraints: '{d74.name}.{lf.field}'",
                   gap: "Locked field has no existence authority in journey § 6 (invented business field)",
                   remediation: "RDR → CODESIGN --refine {ID} to add the business field, or reclassify as technical" }
 ```
@@ -1294,9 +1294,9 @@ FUNCTION extract_traceable_elements(artifacts, scope):
   elements.design_components = PARSE_COMPONENT_ARCHITECTURE(artifacts.design_md)
   # Each: {name, type, module, responsibility, interfaces}
   elements.design_locked_fields = PARSE_SCHEMA_CONSTRAINTS_74(artifacts.design_md)
-  # § 7.4 — each entity: {name, locked_fields: [{field, type, format, required}]}
+  # § Schema Constraints — each entity: {name, locked_fields: [{field, type, format, required}]}
   elements.design_exempt_technical_fields = PARSE_EXEMPT_FIELDS_74(artifacts.design_md)
-  elements.design_data_model = elements.design_locked_fields  # legacy alias — § 7.4 IS the data model record
+  elements.design_data_model = elements.design_locked_fields  # legacy alias — § Schema Constraints IS the data model record
   elements.design_ui_inventory = PARSE_UI_COMPONENT_INVENTORY(artifacts.design_md)
   # Each: {name, type, props, events, page}
 

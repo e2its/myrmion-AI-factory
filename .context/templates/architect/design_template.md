@@ -1,6 +1,6 @@
 # Template B: Master `design.md` Template (Successful Output)
 
-You must use this exact structure for the design file, ensuring section 0 contains the loop history.
+You must use this exact structure for the design file, ensuring § Technical Resolutions Log contains the loop history. Every heading below is the one section map: readers cite a section by its heading name, never by number.
 
 > **Companion artefact.** Under `slicing_strategy: incremental` (default), the **increment-scoped delivery plan** lives in the sidecar `increment_plan.md` — which scenarios, which contract operations, which layer tasks ship in each increment. Design is holistic; slicing is sequential. Edit both when cross-layer types or contracts change.
 
@@ -43,7 +43,7 @@ pending_design_items: []
 
 # Technical Design: {{FEATURE_ID}}
 
-## 0. Technical Resolutions Log (Q&A Log)
+## Technical Resolutions Log (Q&A Log)
 > 📝 **Definition History:** Gaps detected and how they were resolved to reach this design.
 
 - **Q1:** [Original question/gap, e.g., Which queue library to use?]
@@ -52,11 +52,23 @@ pending_design_items: []
 
 - **Q2:** ...
 
-## 1. Diagrama de Arquitectura (C4)
+## Reuse Analysis
+> Written by `factory-codebase-inventory` (BLUEPRINT Step -2): one RDR per reuse candidate — REUSE / EXTEND / CREATE_NEW (ADR) or, for a cross-domain collision, RENAME / SHARED_KERNEL / KEEP_BOTH.
+
+| Candidate | Match (confidence) | Decision | ADR |
+| :--- | :--- | :--- | :--- |
+| {{COMPONENT}} | {{EXISTING_PATH}} ({{0.0-1.0}}) | REUSE / EXTEND / CREATE_NEW | — / ADR-NNN |
+
+### Existing Contract Analysis
+> BLUEPRINT Step -1 (`rules/contract-first-policy.md` § Existing Endpoint Inventory): endpoints scanned, reused, extended, newly created; a new endpoint carries its justification.
+
+- **Scanned:** {{N}} · **Reused:** {{N}} · **Extended:** {{N}} · **New:** {{N}} — {{justification per new endpoint}}
+
+## Architecture Diagram (C4)
 > **Instruction:** Shows components and their interactions.
 (Mermaid code generated following Standards rules)
 
-## 1.1 Technical Sequence Diagram
+## Technical Sequence Diagram
 > **Instruction:** The tiered sequence (Frontend / Backend / External System / Store) for the journey's paths. This is the TECHNICAL rendering of `user_journey.md § Section 2` — the journey itself stays business-pure (LAW-16); tiers, calls and payloads live HERE. One diagram per main path; label each interaction with the contract operation it maps to.
 
 ```mermaid
@@ -72,7 +84,7 @@ sequenceDiagram
     FE-->>U: {{What the persona Sees}}
 ```
 
-## 2. Constraints and Rules (Compliance)
+## Constraints and Rules (Compliance)
 *Alignment justification with ./context/rules*
 - **Pattern:** (E.g., Repository Pattern used per rules/backend.md)
 - **Security:** (E.g., Input validation in infrastructure layer)
@@ -85,7 +97,7 @@ sequenceDiagram
     | :--- | :--- | :--- | :--- | :--- |
     | E2E tests | Required | Reduce regression risk | Higher confidence | v1 |
 
-## 3. Implementation Inventory
+## Implementation Inventory
 | Action | File | Responsibility | Journey Schema Ref |
 | :--- | :--- | :--- | :--- |
 | CREATE | `src/domain/MyUseCase.ts` | Pure business logic | `LoginCredentials`, `AuthToken` |
@@ -93,9 +105,9 @@ sequenceDiagram
 
 > **Journey Schema Ref:** For features co-created with `/CODESIGN`, reference the business concepts from `user_journey.md § Section 6: Business Fields` that each file consumes or produces. Technical fields (id, timestamps, audit) are free for ARCH. Business fields must match the journey (a new business field requires RDR → `CODESIGN --refine`, per LAW-16). For legacy features without `user_journey.md`, leave "—".
 
-## 3.1 Cross-Layer Type Mapping (CODESIGN features)
+## Cross-Layer Type Mapping (CODESIGN features)
 <!-- applicable_when: scope in [full-stack] -->
-> **MANDATORY** for `full-stack` features with `user_journey.md` (the Frontend column is required). **N/A** for `frontend-only` (no backend/DB columns), `backend-only` and `integration` (no Frontend column — replace this section with § 3.2 Wire-Format Mapping below). For legacy features without `user_journey.md`, omit this section.
+> **MANDATORY** for `full-stack` features with `user_journey.md` (the Frontend column is required). **N/A** for `frontend-only` (no backend/DB columns), `backend-only` and `integration` (no Frontend column — replace this section with § Wire-Format Mapping below). For legacy features without `user_journey.md`, omit this section.
 > **Semantic Type is DERIVED by ARCH** from the plain-language `Meaning` + `Allowed values` columns of `user_journey.md § Section 6` (the journey carries NO types — LAW-16). Ambiguous derivations (e.g. "a positive money amount" → decimal precision) are RDR'd in Section 0.
 
 ### {{SchemaName}} (ej. LoginCredentials)
@@ -115,10 +127,10 @@ sequenceDiagram
 > **Rules:**
 > - Each business field from the journey MUST appear in the table
 > - If a layer does not apply (e.g., no DB for frontend-only schema), write "N/A"
-> - If types are incompatible between layers (e.g., `number` JS vs `BIGINT` DB overflow), document WARNING in Section 0
+> - If types are incompatible between layers (e.g., `number` JS vs `BIGINT` DB overflow), document WARNING in § Technical Resolutions Log
 > - REVIEW agent validates that the implementation matches these declared types
 
-## 3.2 Wire-Format Mapping (backend-only / integration features)
+## Wire-Format Mapping (backend-only / integration features)
 <!-- applicable_when: scope in [backend-only, integration] -->
 > **MANDATORY** for `backend-only` and `integration` features. Declares the wire-format (JSON / Protobuf / Avro / XML), header requirements, and on-disk representation for each business field in the integration contract. There is no Frontend column because no first-party UI consumes these schemas.
 
@@ -140,21 +152,35 @@ sequenceDiagram
 > - Each business field from `user_journey.md § Section 6` MUST appear in the table.
 > - Wire Format column documents the literal over-the-wire representation (and any divergence from native DB/language type).
 > - Header / Metadata column flags fields that ALSO travel outside the payload (HTTP headers, message attributes, gRPC metadata, trace context).
-> - Any lossy conversion (e.g. `decimal` → `float64`) MUST be documented as WARNING in Section 0 and have an ADR.
+> - Any lossy conversion (e.g. `decimal` → `float64`) MUST be documented as WARNING in § Technical Resolutions Log and have an ADR.
 > - REVIEW agent validates that client/server serialisation honours this table exactly.
 
-## 4. Decision History (ADR)
+## Contracts
+> The contract files this design creates, extends or consumes, by `CONTRACT_SLUG` path (`rules/contract-first-policy.md` — never a directory named by feature id; the id lives in `x-feature-id` and `feature_map.md`).
+
+| Contract path | Type | Operations | Role (OWNER / CO-OWNER / CONSUMER) |
+| :--- | :--- | :--- | :--- |
+| `contracts/openapi/{{CONTRACT_SLUG}}/v1.yaml` | OpenAPI 3.1 | {{METHOD /path}} | OWNER |
+
+## Cross-Domain Dependencies
+> BLUEPRINT Step -0.5: every cross-domain / cross-module dependency, its transport and whether its contract exists.
+
+| Dependency | Type (sync / async / webhook-in / webhook-out) | Contract ref | Status (EXISTS / MISSING / PENDING) |
+| :--- | :--- | :--- | :--- |
+| _none yet_ | | | |
+
+## Decision History (ADR)
 > Immutable record of architecture changes (Evolutionary).
 > Each decision must have its corresponding file in `docs/adr/`.
 - **[DATE - START]** Initial design generated based on Spec v1.
 - **[DATE - REFINE]** Change: [DESCRIPTION] due to Feedback: [REASON]. (See docs/adr/ADR-001)
 
-## 5. Infrastructure Needs
+## Infrastructure Needs
 > Structured declaration of infrastructure resources required by this feature.
 > Consumed by DEVOPS agent (`/DEVOPS --configure`) for IaC generation.
 > BLUEPRINT (`factory-blueprint`) generates this section; DEVOPS formalizes into IaC.
 
-### 5.1 Required Resources
+### Required Resources
 
 ```yaml
 infrastructure_needs:
@@ -182,7 +208,7 @@ infrastructure_needs:
     #     - "POST /api/v1/auth/refresh"
 ```
 
-### 5.2 External Integrations
+### External Integrations
 > Resources already declared in `config/system_resources.json` that this feature depends on.
 > DEVOPS ensures connectivity (network rules, firewall, service discovery) for these.
 
@@ -190,7 +216,7 @@ infrastructure_needs:
 |-------------|--------------------------|----------------------|-------|
 | _none yet_ | | | |
 
-### 5.3 Infrastructure Constraints
+### Infrastructure Constraints
 > Non-functional requirements that affect infrastructure decisions.
 
 - **Availability:** {SLA requirement, e.g., 99.9%}
@@ -199,7 +225,18 @@ infrastructure_needs:
 - **Data Residency:** {Region constraints, e.g., EU-only}
 - **Compliance:** {Relevant standards, e.g., SOC2, HIPAA}
 
-## 6. Reliability Contract
+## Frontend UI Contract
+<!-- applicable_when: scope in [full-stack, frontend-only] -->
+> Generated by `Factory-blueprint-design` § Frontend UI Contract: the mock's visual design mapped to implementation-ready specifications for IMPLEMENT Phase B. With no frontend: "N/A (no frontend in stack)".
+
+### Design Token Catalog
+### Layout Contracts
+### Component Class → CSS Framework Mapping
+### Shared UI Components
+### Page Composition Contracts
+### Required CSS Additions
+
+## Reliability Contract
 <!-- applicable_when: scope in [backend-only, integration] -->
 > **MANDATORY** for `backend-only` / `integration` features. The TECHNICAL formalisation of the business guarantees declared in `user_journey.md § Section 8: Third Parties & Guarantees` (LAW-16: the journey says "the customer is never charged twice"; this section says HOW). `test_plan.md § 2.2 Reliability Testing` is generated from this section. DEVOPS consumes it for infra alarms.
 
@@ -211,11 +248,16 @@ infrastructure_needs:
 | {{BUSINESS_GUARANTEE}} | Timeouts | per-hop: {{MS}} ms; graceful shutdown on SIGTERM/SIGINT |
 | Observability | Metrics | latency_p95, error_rate, retry_count per operation |
 
-## 7. Governance & Constraints Digest (GCD)
-> Generated by `Factory-blueprint-design.instructions.md § Governance & Constraints Digest` — compact, pre-digested constraints for the IMPLEMENT workers and work critics. Sub-sections 7.1 Architecture Constraints, 7.2 Governance Rules Index, 7.2b Shared Cross-Cutting Components, 7.3 SAST Patterns, 7.5 Contract-First Rules, 7.6 UX Constraints, 7.7 Coding Standards, 7.8 Mandatory Patterns (consumed by the work critics' pattern checks) per the instruction.
+## Governance & Constraints Digest (GCD)
+> Generated by `Factory-blueprint-design` § Governance & Constraints Digest — compact, pre-digested constraints for the IMPLEMENT workers and work critics. Sub-sections in order; the frontmatter gains `governance_digest_generated: true` and `governance_digest_version: "{hash8}"` when the digest is written.
 
-### 7.4 Schema Constraints → REVIEW [SCHEMA]
-> The MACHINE TYPING RECORD — sole downstream authority for business-field types/formats (REVIEW Check #5 BLOCKER, IMPLEMENT H-11, synthetic data). Derived from `user_journey.md § Section 6: Business Fields` (existence + meaning) + §§ 3.1/3.2 above (typing). Business fields LOCKED — deviation requires CODESIGN RDR.
+### Architecture Constraints → REVIEW [ARCH]
+### Governance Rules Index → REVIEW [GOV]
+### Shared Cross-Cutting Components → REVIEW [GOV-SHARED]
+### SAST Patterns → security lens
+
+### Schema Constraints → REVIEW [SCHEMA]
+> The MACHINE TYPING RECORD — sole downstream authority for business-field types/formats (REVIEW Check #5 BLOCKER, IMPLEMENT H-11, synthetic data). Derived from `user_journey.md § Section 6: Business Fields` (existence + meaning) + § Cross-Layer Type Mapping / § Wire-Format Mapping above (typing). Business fields LOCKED — deviation requires CODESIGN RDR.
 
 ```yaml
 schemas_version: "{user_journey.schemas_version}"
@@ -229,4 +271,23 @@ type_format_registry:
   - { field_pattern: "*_id", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" }
   - { field_pattern: "*email*", format: "email", example: "user@example.com" }
 ```
+
+### Contract-First Rules → REVIEW [CFP]
+### UX Vision Digest (UXD) → REVIEW [UX] + IMPLEMENT Phase B
+### Coding Standards → workers
+### Mandatory Patterns → REVIEW [DESIGN] + workers
+> `mandatory_patterns`, `fdr_bindings`, `implementation_invariants` — BINDING for the workers.
+
+## Coherence Validation
+> Appended by `Factory-blueprint-validation` (CVP matrix summary) before `--approve`.
+
+## Carried-Over Gaps
+> Appended by `BLUEPRINT --refine` for each carry-over entry of `pending_design_items[]`; input for IMPLEMENT `--refine` delta tasks.
+
+## External sources
+> The `factory-docs-reader` return (Beat 0): one source index per external claim cited above; an unsourced premise is written `known-cold`.
+
+## Changelog
+| Date | Iteration | Source | Changes | Downstream Impact |
+|------|-----------|--------|---------|-------------------|
 ```

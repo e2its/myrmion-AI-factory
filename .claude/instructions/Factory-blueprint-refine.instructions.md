@@ -53,7 +53,7 @@ probe_required = (dev_plan.md exists AND has any "[x]" task)
 
 IF probe_required:
   # Honors factory-protocol-cwd-discipline — absolute cd prefix
-  src_files = list_files(src/spec/{FEAT_ID}/**) ∪ paths declared in design.md § File Manifest
+  src_files = list_files(src/spec/{FEAT_ID}/**) ∪ paths declared in design.md § Implementation Inventory
   classify each file:
     drift      = implementation diverges from design.md spec
     carry-over = designed component absent from src/

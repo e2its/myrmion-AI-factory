@@ -59,7 +59,7 @@ infra/
 
 ### Generation Algorithm
 ```yaml
-FOR EACH resource IN design.md Section 5 (Infrastructure Needs):
+FOR EACH resource IN design.md § Infrastructure Needs:
   
   Step 1: Registry Cross-Reference
     existing = infrastructure_registry.json.find(r => r.name == resource.name)
@@ -781,7 +781,7 @@ QA --verify may need isolated test environment
 ### BLUEPRINT → DEVOPS (Infrastructure Updates)
 ```yaml
 BLUEPRINT --refine {ID} "Add Redis"
-  → design.md Section 5 updated with new resource
+  → design.md § Infrastructure Needs updated with new resource
   → CASCADE_PENDING_ITERATION marks devops_plan.md stale
   → Factory Smart Redirect computes next steps from artifact state
   → DEVOPS detects iteration gap, processes delta update

@@ -8,7 +8,7 @@ applicable_when:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/*.vue"
-version: 1.6.1
+version: 1.6.2
 date: 2026-01-26
 changelog:
   - "1.6.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -1287,7 +1287,7 @@ Action: Trigger ADR, update constitution
 1. **Inventory Scan:** Query @workspace for existing UI components
 2. **Comparison:** Match Gherkin requirements to component capabilities
 3. **Decision Matrix:** REUTILIZAR vs. CREAR vs. ADAPTAR
-4. **Documentation:** Record in design.md § Component Inventory (BLUEPRINT)
+4. **Documentation:** Record in design.md § Implementation Inventory (BLUEPRINT)
 
 **Decision Criteria:**
 - **REUTILIZAR:** Component exists AND covers 90%+ of requirements
@@ -1296,7 +1296,7 @@ Action: Trigger ADR, update constitution
 
 **Enforcement:**
 - `/CODESIGN --start`: MANDATORY component scan before mock generation
-- `/IMPLEMENT --plan`: Cross-references design.md § Component Inventory to avoid duplication
+- `/IMPLEMENT --plan`: Cross-references design.md § Implementation Inventory to avoid duplication
 - `/BLUEPRINT --start`: Validates component decisions align with architecture
 
 **Severity:** MANDATORY (process requirement, non-blocking)
@@ -1311,7 +1311,7 @@ Action: Trigger ADR, update constitution
 - Validate mock.html touch targets match this constitution's minimums (≥44px)
 
 **For `/IMPLEMENT --plan`:**
-- Load design.md § Component Inventory to identify implementation targets
+- Load design.md § Implementation Inventory to identify implementation targets
 - Use mock.html as visual reference (NOT executable code)
 - Implement JavaScript behaviors from spec.feature scenarios + journey steps, NOT by copying mock.html script
 

@@ -30,7 +30,7 @@ applicable_when:
 
 Before processing commands, read:
 1. `docs/spec/{{FEATURE_ID}}/spec.feature` (acceptance criteria)
-2. `docs/spec/{{FEATURE_ID}}/user_journey.md` (single file, ALL scopes — § 3 Paths for smoke composition, § 6 Business Fields for existence; test-data types come from `design.md § 7.4`)
+2. `docs/spec/{{FEATURE_ID}}/user_journey.md` (single file, ALL scopes — § 3 Paths for smoke composition, § 6 Business Fields for existence; test-data types come from `design.md § Schema Constraints`)
 3. `docs/spec/{{FEATURE_ID}}/mock.html` (enrichment — UI drift detection)
 4. `docs/spec/{{FEATURE_ID}}/test_plan.md` (**MANDATORY** — verification baseline from BLUEPRINT)
 5. `docs/spec/{{FEATURE_ID}}/design.md` (enrichment — architecture reference)
@@ -303,7 +303,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
         Smoke blocks = journey Paths ({journey_source} § Section 3) expanded transitively Paso → BDD Scenario → test_plan TC. All must pass on the dev-deployed build before --verify. Scope=`{feature_scope}` runs in mode: {smoke_mode}. Steps:
           1. Ensure DEVOPS --deploy --env dev {FEATURE_ID} ran successfully
           2. Execute each numbered smoke block against the dev deployment (browser steps for UI scope; caller-harness + state + observability for backend-only/integration; HYBRID combines both for full-stack)
-          3. For scope in [backend-only, integration]: additionally execute SMOKE-REL-* blocks (test_plan § 2.2 REL-XX families; mechanisms per design.md § 6 Reliability Contract)
+          3. For scope in [backend-only, integration]: additionally execute SMOKE-REL-* blocks (test_plan § 2.2 REL-XX families; mechanisms per design.md § Reliability Contract
           4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
           5. When overall_verdict turns PASS: certifies = RUN python3 scripts/gate.py certify --subject tree --paths '{src_root}/**' '{tests_root}/**'
              and WRITE the printed block under frontmatter `certifies:` (EVOL-044 — the smoke certifies the build it ran on)
@@ -532,7 +532,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     - Check seed scripts exist and include idempotent upsert logic
     - Verify reset capability (teardown + re-seed command available)
     - Validate referential coherence: related entity IDs are consistent (no orphan FKs)
-    - Confirm data aligns with `user_journey.md § 6 Business Fields` (existence/required) + `design.md § 7.4` (types, formats, constraints)
+    - Confirm data aligns with `user_journey.md § 6 Business Fields` (existence/required) + `design.md § Schema Constraints` (types, formats, constraints)
     - Confirm production execution guard is present (`IF env == production → ABORT`)
     - **Cross-Domain Validation (via Shared Seed Registry):**
       - Verify `config/seed_registry.json` exists and includes this feature's entities

@@ -5,7 +5,7 @@
 > - **Proposal (🎩 PO):** Minimum 8 characters, 1 uppercase, 1 number (NIST Standard).
 > - **Status:** PENDING CONFIRMATION.
 > - **Journey Ref:** Paso 3 (user_journey.md)
-> - **Business Field Impact:** field `password` (§ 6): must have at least 8 characters — plain-language rule; ARCH formalises the constraint in design.md § 7.4
+> - **Business Field Impact:** field `password` (§ 6): must have at least 8 characters — plain-language rule; ARCH formalises the constraint in design.md § Schema Constraints
 
 > **Open Point 2:** It is not clear what elements the post-login dashboard displays.
 > - **Proposal (🎨 UX):** Show name, avatar, and last 5 actions. Aligned with Design System.

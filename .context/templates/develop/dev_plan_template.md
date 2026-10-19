@@ -108,7 +108,7 @@ iterations: []
 
 ### Reliability Tests (applicable_when scope in [backend-only, integration], reliability_test_required: true)
 <!-- applicable_when: scope in [backend-only, integration] -->
-> **Ref:** `test_plan.md § 2.2 Reliability Testing` + `design.md § 6 Reliability Contract` (business guarantees: `user_journey.md § Section 8`)
+> **Ref:** `test_plan.md § 2.2 Reliability Testing` + `design.md § Reliability Contract` (business guarantees: `user_journey.md § Section 8`)
 > **Template:** `.context/templates/develop/api_test_template.md` (reuse the harness — reliability tests are API-level with fault injection)
 > **Skipping rule:** When scope in [full-stack, frontend-only], replace this block with `N/A (scope={value})`. When scope in [backend-only, integration], every item below is MANDATORY.
 - [ ] [A.N] Create idempotency replay test (RED): `tests/reliability/idempotency.test.ts`

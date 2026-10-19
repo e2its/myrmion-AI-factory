@@ -60,7 +60,7 @@ FUNCTION classify_feedback_scope(feedback_item, feature_context):
   
   READ spec.feature → scenarios[]
   READ design.md → contracts, data_model, component_inventory
-  READ design.md → § 7.4 Schema Constraints (locked_fields; typing authority) + user_journey.md § 6 (existence)
+  READ design.md → § Schema Constraints (locked_fields; typing authority) + user_journey.md § 6 (existence)
   
   FOR EACH item IN feedback_items:
     # Check if item targets existing spec scenarios
@@ -277,16 +277,16 @@ IF spec.iteration > design.md.based_on_iteration:
 
 #### Step 0b: Architecture Context Loading (GCD Fast-Path)
 ```yaml
-# GCD FAST-PATH: Read pre-digested governance rules from design.md Section 7
+# GCD FAST-PATH: Read pre-digested governance rules from design.md § Governance & Constraints Digest
 
 FUNCTION load_governance_context(FEATURE_ID):
   # Returns: governance_context object available to Phase Loop (the worker, the work critics and the security lens).
-  # The returned object is passed to WORK_CRITICS and SECURITY_LENS — they do NOT re-read Section 7.
+  # The returned object is passed to WORK_CRITICS and SECURITY_LENS — they do NOT re-read § Governance & Constraints Digest.
   
   gcd_loaded = false  # flag consumed by Step 1 (SAST conditional) and Phase Loop (critics)
   
   # Step 1: Attempt GCD fast-path (preferred — O(1) vs O(20+ files))
-  gcd_section = READ(design.md, "## Section 7: Governance Constraints Digest")
+  gcd_section = READ(design.md, "§ Governance & Constraints Digest")
   frontmatter = READ_FRONTMATTER(design.md)
   
   IF gcd_section EXISTS AND frontmatter EXISTS AND frontmatter.governance_digest_version EXISTS:
@@ -300,17 +300,17 @@ FUNCTION load_governance_context(FEATURE_ID):
       # Fall through to full load below
     ELIF snapshot.frontmatter.constitution_hash[:8] == digest_hash:
       governance_context = EXTRACT_FROM_GCD(gcd_section):
-        arch_constraints    = gcd_section["7.1"]  # topology, layer rules, module boundaries
-        governance_rules    = gcd_section["7.2"]  # rule IDs + compact constraints
-        sast_patterns       = gcd_section["7.3"]  # pre-compiled for THIS stack
-        schema_constraints  = gcd_section["7.4"]  # locked business fields
-        contract_rules      = gcd_section["7.5"]  # contract paths, forbidden imports
-        ux_constraints      = gcd_section["7.6"]  # vision refs, touch targets (if frontend)
-        coding_standards    = gcd_section["7.7"]  # naming, structure, test patterns
-        raw_section_78      = gcd_section["7.8"]  # constitutional [LAW] patterns + FDR bindings
-        # Normalize GCD 7.8: flatten nested field names for consistent downstream access.
+        arch_constraints    = gcd_section["Architecture Constraints"]  # topology, layer rules, module boundaries
+        governance_rules    = gcd_section["Governance Rules Index"]  # rule IDs + compact constraints
+        sast_patterns       = gcd_section["SAST Patterns"]  # pre-compiled for THIS stack
+        schema_constraints  = gcd_section["Schema Constraints"]  # locked business fields
+        contract_rules      = gcd_section["Contract-First Rules"]  # contract paths, forbidden imports
+        ux_constraints      = gcd_section["UX Vision Digest"]  # vision refs, touch targets (if frontend)
+        coding_standards    = gcd_section["Coding Standards"]  # naming, structure, test patterns
+        raw_section_78      = gcd_section["Mandatory Patterns"]  # constitutional [LAW] patterns + FDR bindings
+        # Normalize GCD § Mandatory Patterns: flatten nested field names for consistent downstream access.
         # BLUEPRINT writes mandatory_patterns / fdr_bindings / implementation_invariants inside
-        # Section 7.8; downstream consumers (REVIEW Check #14) reference .patterns / .fdr_bindings
+        # § Mandatory Patterns; downstream consumers (REVIEW Check #14) reference .patterns / .fdr_bindings
         # / .implementation_invariants. The `OR raw_section_78.adr_bindings` fallback accepts
         # the legacy field name from pre-rewire BLUEPRINT outputs.
         mandatory_patterns = {
@@ -323,7 +323,7 @@ FUNCTION load_governance_context(FEATURE_ID):
           cross_cutting: raw_section_78.cross_cutting
         }
       gcd_loaded = true
-      LOG: "GCD fast-path HIT ✅ — governance loaded from design.md Section 7 (skipped 20+ rule files)"
+      LOG: "GCD fast-path HIT ✅ — governance loaded from design.md § Governance & Constraints Digest (skipped 20+ rule files)"
     
     ELSE:  # digest_hash MISMATCH
       LOG: "⚠️ GCD STALE — governance snapshot constitution_hash changed since BLUEPRINT ran."
@@ -332,7 +332,7 @@ FUNCTION load_governance_context(FEATURE_ID):
       # Fall through to full load below
   
   ELSE:  # gcd_section missing or frontmatter.governance_digest_version absent
-    LOG: "GCD not found — design.md Section 7 absent (legacy BLUEPRINT). Falling back to full load."
+    LOG: "GCD not found — design.md § Governance & Constraints Digest absent (legacy BLUEPRINT). Falling back to full load."
   
   IF NOT gcd_loaded:
     # Step 2: Fallback — traditional governance loading (pre-GCD projects or stale digest)
@@ -363,8 +363,8 @@ FUNCTION load_governance_context(FEATURE_ID):
     - architecture_pattern (Section 1)
     - component_inventory (Section 2)
     - contracts section (Section 3)
-    - Section 5 Infrastructure Needs
-    # Section 7 already parsed above if gcd_loaded — do NOT re-read
+    - § Infrastructure Needs
+    # § Governance & Constraints Digest already parsed above if gcd_loaded — do NOT re-read
   
   # Step 3b: Load feature-local binding records for design fidelity verification.
   # Source priority: docs/spec/{FEATURE_ID}/fdr/ (current) → docs/spec/{FEATURE_ID}/adr/ (legacy fallback for unmigrated projects).
@@ -377,7 +377,7 @@ FUNCTION load_governance_context(FEATURE_ID):
         IF record.status == "accepted" OR record.status == "approved":
           fdr_bindings.APPEND(record)
   
-  # If GCD Section 7.8 was missing (pre-rewire BLUEPRINT), build mandatory_patterns from raw sources.
+  # If § Mandatory Patterns was missing (pre-rewire BLUEPRINT), build mandatory_patterns from raw sources.
   IF NOT gcd_loaded OR NOT DEFINED(governance_context) OR governance_context.mandatory_patterns IS NULL:
     IF NOT DEFINED(governance_context):
       governance_context = {}  # Initialize for non-GCD path
@@ -387,7 +387,7 @@ FUNCTION load_governance_context(FEATURE_ID):
       fdr_bindings: fdr_bindings,
       implementation_invariants: DERIVE_FROM(constitution_patterns + fdr_bindings)
     }
-    LOG: "Mandatory patterns loaded from constitution [LAW] sections + feature FDRs (GCD 7.8 absent — fallback)"
+    LOG: "Mandatory patterns loaded from constitution [LAW] sections + feature FDRs (GCD § Mandatory Patterns absent — fallback)"
   ELSE:
     # Merge feature-local FDR bindings into existing GCD context (FDRs may have been added after BLUEPRINT)
     governance_context.mandatory_patterns.fdr_bindings = MERGE(
@@ -407,8 +407,8 @@ FUNCTION load_governance_context(FEATURE_ID):
 IF frontend.framework != "None":
   VERIFY vision approved
   
-  # UXD FAST-PATH: Read pre-digested vision data from design.md Section 7.6
-  uxd = READ(design.md, "## Section 7" → "### 7.6")
+  # UXD FAST-PATH: Read pre-digested vision data from design.md § UX Vision Digest
+  uxd = READ(design.md, "§ UX Vision Digest")
   
   IF uxd EXISTS AND uxd.uxd_version EXISTS:
     uxd_loaded = true
@@ -421,7 +421,7 @@ IF frontend.framework != "None":
       mock_analysis: uxd.mock_component_analysis,  # VISION_REUSE vs FEATURE_NEW per component
       blocker_violations: uxd.blocker_violations   # hard violations that cause REVIEW rejection
     }
-    LOG: "UXD fast-path HIT ✅ — vision context loaded from design.md Section 7.6"
+    LOG: "UXD fast-path HIT ✅ — vision context loaded from design.md § UX Vision Digest"
   ELSE:
     # FALLBACK: Load raw vision HTML files (legacy BLUEPRINT)
     uxd_loaded = false
@@ -465,7 +465,7 @@ IF frontend.framework != "None":
 
   IF missing.length > 0:
     WARN: "CSS Foundation incomplete — {missing.length} file(s) missing or misconfigured"
-    # AUTO-FIX: Materialize missing foundation from style_guide.html + design.md Section 6
+    # AUTO-FIX: Materialize missing foundation from style_guide.html + design.md § Frontend UI Contract
     FOR EACH file IN missing:
       MATERIALIZE_CSS_FOUNDATION(file, style_guide.html)
 
@@ -482,7 +482,7 @@ IF frontend.framework != "None":
   globals = READ("{frontend_root}/*/globals.css" OR equivalent)
   IF NOT globals CONTAINS design token entries:
     WARN: "CSS entry point exists but has no design tokens"
-    EXTRACT tokens from style_guide.html OR design.md Section 6.1
+    EXTRACT tokens from style_guide.html OR design.md § Design Token Catalog
     INJECT tokens into CSS entry point
 ```
 
@@ -490,7 +490,7 @@ IF frontend.framework != "None":
 ```yaml
 # CIP GATE — Execute BEFORE any code generation. This prevents duplicating existing components.
 
-IF design.md Section 0 "Reuse Analysis" EXISTS:
+IF design.md § Reuse Analysis EXISTS:
   LOAD RDR decisions (REUSE/EXTEND/CREATE_NEW per artifact)
   TRUST BLUEPRINT decisions — do not re-query
   LOG: "CIP Gate: Using BLUEPRINT reuse decisions ({N} artifacts classified)"
@@ -520,9 +520,9 @@ ELSE:
 
 #### Step 1: SAST Pattern Library Loading (conditional on GCD)
 ```yaml
-# If GCD 7.3 loaded, SAST patterns already available — skip derivation.
+# If GCD § SAST Patterns loaded, SAST patterns already available — skip derivation.
 IF gcd_loaded:
-  LOG: "SAST patterns pre-loaded from GCD Section 7.3 — skipping full library derivation"
+  LOG: "SAST patterns pre-loaded from § SAST Patterns — skipping full library derivation"
   # sast_patterns already populated from governance_context.sast_patterns
 ELSE:
   # Fallback: derive SAST patterns from stack detection (pre-GCD path)
@@ -622,7 +622,7 @@ FUNCTION determine_build_scope(FEATURE_ID):
 
 ### Phase Loop (Core Build Engine)
 
-> **Variable scope:** `governance_context` and `gcd_loaded` from Step 0b are available throughout the entire Phase Loop. The work critics (Step R.0 in implement-review-checks.md) and the security lens receive these as input — they do NOT re-read design.md Section 7.
+> **Variable scope:** `governance_context` and `gcd_loaded` from Step 0b are available throughout the entire Phase Loop. The work critics (Step R.0 in implement-review-checks.md) and the security lens receive these as input — they do NOT re-read design.md § Governance & Constraints Digest.
 > **Scope filter:** All `phase.unchecked_tasks` references in the loop below are filtered by `build_scope.all_tasks_filter`. Under `incremental`, this restricts the loop to tasks inside `## Increment {target.id}:` — the other increments' sections are invisible to this --build invocation.
 
 > **Spawn protocol (EVOL-049).** `spawn-policy: worker`
@@ -675,12 +675,12 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
     IF bvl_phase != GREEN: ESCALATE (see Resilience Protocol)
 
   # The work critics verify the phase (read-only, did not write it) — Static + Real Execution
-  scope = FILES_OF(build_scope)                                  # the increment's files (dev_plan tasks + design.md §1)
+  scope = FILES_OF(build_scope)                                  # the increment's files (dev_plan tasks + design.md § Implementation Inventory)
   tree_before = RUN python3 scripts/gate.py certify --subject worktree --paths {scope}   # non-zero exit ⇒ REFUSE, never compare
   EXECUTE WORK_CRITICS(phase, governance_context, gcd_loaded)   # factory-critic-correctness / -governance / -fidelity, spawned by name by the main session
   REFUSE the run IF (RUN python3 scripts/gate.py certify --subject worktree --paths {scope}) != tree_before   # the working tree moved around a read-only run
   # See implement-review-checks.md for the 14-check protocol per lens + verification loop
-  # governance_context passed in — Step R.0 uses it directly (no re-read of Section 7)
+  # governance_context passed in — Step R.0 uses it directly (no re-read of § Governance & Constraints Digest)
   # review_verification_loop() (coverage, lint, typecheck via BVL commands) is run by the main session —
   #   critics carry no Bash. Blockers from real execution merge with the critics' findings.
 
@@ -1111,7 +1111,7 @@ FOR EACH implementation task:
 #### Type-Aware Test Data Protocol (MANDATORY)
 
 > **Purpose:** Test fixtures, mocks, stubs, and inline test data MUST use values that
-> conform to the domain types declared in design.md Section 7.4 (Schema Constraints) and
+> conform to the domain types declared in design.md § Schema Constraints and
 > contract schemas. Using arbitrary string literals (e.g., `tenant_id = "tenant-1"`) for
 > fields that are typed as UUID, email, URL, etc. produces tests that pass with invalid
 > data — masking type coercion bugs and failing to catch format validation issues.
@@ -1133,7 +1133,7 @@ FUNCTION normalize_format(raw_format):
 FUNCTION load_test_data_type_registry(FEATURE_ID):
   type_registry = {}
 
-  # Step 1: Load from GCD Section 7.4 (preferred — BLUEPRINT pre-digested)
+  # Step 1: Load from § Schema Constraints (preferred — BLUEPRINT pre-digested)
   IF gcd_loaded AND schema_constraints IS NOT NULL:
     FOR EACH entity IN schema_constraints.entities:
       FOR EACH field IN entity.locked_fields:
@@ -1346,7 +1346,7 @@ Section 4: Styling Contract
 
 Section 5: Interaction Model
   - Map user interactions to spec.feature scenarios
-  - Extract form validations → map to user_journey.md § 6 Business Fields (Required/Allowed values) + design.md § 7.4 formats
+  - Extract form validations → map to user_journey.md § 6 Business Fields (Required/Allowed values) + design.md § Schema Constraints formats
   IF uxd_loaded:
     - Identify navigation links → verify against ux_context.navigation.nav_structure
   ELSE:
@@ -1701,7 +1701,7 @@ FUNCTION verify_contract_first(task, FEATURE_ID):
 ```yaml
 FUNCTION verify_schema_adherence(task, FEATURE_ID):
   # Business-field EXISTENCE must match user_journey.md § 6 (LAW-16);
-  # TYPES must match design.md § 7.4 Schema Constraints (the typing authority).
+  # TYPES must match design.md § Schema Constraints (the typing authority).
   IF task.involves_data_model:
     uj_path = "docs/spec/{FEATURE_ID}/user_journey.md"
     IF NOT FILE_EXISTS(uj_path):
@@ -1709,13 +1709,13 @@ FUNCTION verify_schema_adherence(task, FEATURE_ID):
       STOP
 
     uj_fields = READ(uj_path, "Section 6: Business Fields")          # existence + required (plain language)
-  d74 = READ("docs/spec/{FEATURE_ID}/design.md", "7.4 Schema Constraints")  # typing authority (locked_fields)
+  d74 = READ("docs/spec/{FEATURE_ID}/design.md", "§ Schema Constraints")  # typing authority (locked_fields)
 
     FOR EACH field IN task.proposed_fields:
       IF field.category == "business":  # name, email, role, status, price, etc.
         IF field.name NOT IN uj_fields OR field.type != d74.locked_fields[field.name].type:
-          ❌ BLOCK: "Schema violation: business field '{field.name}' diverges from journey § 6 (existence) or design § 7.4 (type)"
-          RDR: "Accept divergence (with justification) or align with the authority (journey § 6 for existence via CODESIGN --refine; design § 7.4 for typing via BLUEPRINT --refine)?"
+          ❌ BLOCK: "Schema violation: business field '{field.name}' diverges from journey § 6 (existence) or design.md § Schema Constraints (type)"
+          RDR: "Accept divergence (with justification) or align with the authority (journey § 6 for existence via CODESIGN --refine; design.md § Schema Constraints for typing via BLUEPRINT --refine)?"
           IF choice == "diverge" AND justification IS EMPTY:
             ❌ BLOCK: "Business field divergence requires justification"
             STOP

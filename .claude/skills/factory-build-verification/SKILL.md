@@ -94,7 +94,7 @@ The test suite verifies:
 - **Frontend:** every source file under the feature's frontend slice plus shared components if touched PLUS matching test files
 - **All gates:** lint, format, typecheck, tests, SAST — for BOTH layers — even if only one layer was edited in the delta
 
-The `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` resolver MUST consult `design.md` Section 1 (module/bounded context) and `dev_plan.md` frontmatter to compute scope, NOT a git diff.
+The `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` resolver MUST consult `design.md` § Implementation Inventory (module/bounded context) and `dev_plan.md` frontmatter to compute scope, NOT a git diff.
 
 **Order compliance (EVOL-051):** the critics' verdict precedes the loop — it is written as an artefact BEFORE `full_verification_gate` runs; the **commit** MUST NOT follow until the loop's seal is green (`python3 scripts/gate.py seal --check`). Never run the loop to earn a verdict and again after it.
 

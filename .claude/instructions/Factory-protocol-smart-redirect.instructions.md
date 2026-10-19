@@ -207,7 +207,7 @@ FUNCTION compute_feature_state(FEATURE_ID):
   
   # Frozen contract set (BLUEPRINT-owned) — point-in-time, regenerated whole on invalidation
   contracts_freeze:
-    exists: GLOB_EXISTS("contracts/**/*{{FEATURE_ID}}*/**") OR DIR_EXISTS("{{base_path}}/contracts/")
+    exists: ANY(feature_map.md row WHERE Feature ID == {{FEATURE_ID}} AND Role IN [OWNER, CO-OWNER]) OR DIR_EXISTS("{{base_path}}/contracts/")   # by CONTRACT_SLUG, never a directory named by feature id (rules/contract-first-policy.md)
     # INVALIDATED when an iteration touched schema/contract/new_scenario scopes — the iteration
     # model marks the frozen set INVALIDATED and re-freeze runs via BLUEPRINT --refine/--approve.
     invalidated: ANY(contract_file.status == "INVALIDATED" FOR contract_file IN frozen_set)

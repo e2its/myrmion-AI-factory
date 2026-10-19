@@ -60,9 +60,9 @@ FUNCTION skeleton_first_write(artifact_path, artifact_type):
   body = BUILD_SECTION_SKELETON(artifact_type):
     # Write ALL expected section headers with empty placeholder bodies
     # Example for design.md:
-    #   ## Section 0: Reuse Analysis
+    #   ## Reuse Analysis
     #   <!-- PENDING -->
-    #   ## Section 1: Architecture Overview
+    #   ## Architecture Diagram (C4)
     #   <!-- PENDING -->
     #   ... etc.
 
@@ -106,7 +106,7 @@ FUNCTION save_section(artifact_path, section_id, content):
 | CODESIGN | mock.html | Each page/view completed |
 | CODESIGN | user_journey.md | Each H2 section of the v2 template (Section 0 Decision History … Section 8 Third Parties & Guarantees + Traceability Matrix) — save-unit = H2, matching the Pillar-2 detector |
 | CODESIGN | slice_map.md | Frontmatter + § 0 frozen at slicing RDR ratification; each § 1 slice (SLICE-{FEAT}-N) as its own atomic section; § 2 seam table + § 3 Mermaid (non-authoritative) on completion. Emitted only when `slicing_strategy: incremental` |
-| BLUEPRINT | design.md | Each design section (0-6) |
+| BLUEPRINT | design.md | Each H2 section of the design template |
 | BLUEPRINT | test_plan.md | Each test category |
 | BLUEPRINT | increment_plan.md | Frontmatter + § 0 Refinement Record frozen on completion (intra-slice layering ratification when a slice splits); each § 1 increment (INC-N) as its own atomic section; § 2 Monolithic Escape Declaration on completion (when applicable); § 3 Human-readable Dependency Diagram (Mermaid, non-authoritative — derived from § 1 `depends_on:`) on completion |
 | IMPLEMENT | dev_plan.md | Each phase task group (A, B, C) under monolithic; each `## Increment INC-N` section under incremental (section per increment, tasks per phase within) |
@@ -322,7 +322,7 @@ FUNCTION finalize_artifact(artifact_path, final_status):
 ### BLUEPRINT
 | Command | Key Persistence Points |
 |---------|----------------------|
-| `--start {ID}` | Skeleton design.md + test_plan.md + increment_plan.md → save per design section (0-6) → save per test category → save contract files → save increment_plan frontmatter + § 0 at RDR ratification → save each § 1 INC-N → save § 2 (Monolithic Escape, when applicable) → save § 3 human-readable Mermaid diagram |
+| `--start {ID}` | Skeleton design.md + test_plan.md + increment_plan.md → save per H2 section of the design template → save per test category → save contract files → save increment_plan frontmatter + § 0 at RDR ratification → save each § 1 INC-N → save § 2 (Monolithic Escape, when applicable) → save § 3 human-readable Mermaid diagram |
 | `--refine {ID}` | Resume from existing artifacts → save per modified section → persist changelog → CASCADE to downstream (includes per-increment invalidation via CASCADE_INCREMENT_INTERNAL) |
 | `--approve {ID}` | Finalize: status → APPROVED, _progress → null (design.md + test_plan.md + increment_plan.md) |
 | `--adr {ID}` | Skeleton ADR file → save decision content immediately |

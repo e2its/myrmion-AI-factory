@@ -137,7 +137,7 @@ The PEER_REVIEW agent automatically validates:
 ### 2. Protected Code Policy ✅
 - [ ] No RED ZONE modifications without ADR
 - [ ] No changes to `node_modules`, `venv`, framework code
-- [ ] Legacy code modifications documented in design.md Section 4 (ADR)
+- [ ] Legacy code modifications documented in design.md § Decision History
 
 ### 3. Configuration Security ✅
 - [ ] No hardcoded URLs, API keys, credentials
@@ -146,7 +146,7 @@ The PEER_REVIEW agent automatically validates:
 
 ### 4. Traceability ✅
 - [ ] All feature files have `// Ref: {{FEATURE_ID}}` header
-- [ ] Files match design.md Section 3 (Inventory)
+- [ ] Files match design.md § Implementation Inventory
 - [ ] No unplanned artifacts created
 
 ### 5. Test Coverage ✅

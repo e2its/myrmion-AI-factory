@@ -51,7 +51,7 @@ paths_match(pathA, pathB):
 
 ### 3.4 System Resources Validation
 - If `config/system_resources.json` exists:
-  - Verify all external integrations in design.md Section 5 are registered
+  - Verify all external integrations in design.md § Infrastructure Needs are registered
   - Verify integration protocols match system_resources entries
 
 ### 3.5 Protected Code Compliance
@@ -66,7 +66,7 @@ paths_match(pathA, pathB):
 - BLOCK if coverage gaps found
 
 ### 3.7 Inter-Domain Contract Completeness
-- Read design.md Section 4 (Cross-Domain Dependencies)
+- Read design.md § Cross-Domain Dependencies
 - Verify ALL dependencies with status "MISSING" have been resolved
 - If any dependency has status "PENDING": WARN (not blocking, but flag)
 - BLOCK if any dependency has no contract reference AND no ADR justifying it
@@ -78,7 +78,7 @@ Cross-artifact coherence validation between CODESIGN and BLUEPRINT deliverables.
 ```yaml
 FUNCTION blueprint_coherence_gate(FEATURE_ID):
   # Invoke CVP with CODESIGN_BLUEPRINT scope
-  # Validates: spec.feature ↔ design.md, user_journey.md § 6 Business Fields ↔ design.md § 7.4 locked_fields,
+  # Validates: spec.feature ↔ design.md, user_journey.md § 6 Business Fields ↔ design.md § Schema Constraints locked_fields,
   #            mock.html ↔ Component Inventory, journey steps ↔ endpoints,
   #            scenarios ↔ test_plan.md, endpoints ↔ integration tests
 
@@ -312,8 +312,8 @@ The Part 1-4 checks below are gated by these flags. Checks whose applicability m
 - No endpoint collisions (Phase 3.2 passed)
 - Cross-Domain Dependencies resolved (Phase 3.7 passed)
 - **Consumes-Contract Integrity** — for each upstream `FEAT-XXX` in `spec.feature.consumes_contract`, verify § 7 Governance Constraints Digest contains the frozen contract reference (file path + x-feature-id). BLOCK when `has_ui == false` if any reference is missing (backend-only features are ENTIRELY defined by the contract surface — drift here is invisible to UX QA).
-- Cross-Layer Type Mapping Table present and complete — **N/A** for `scope IN [backend-only, integration]`; use § 3.2 Wire-Format Mapping instead
-- **Wire-Format Mapping Table (§ 3.2)** — applicable_when `scope IN [backend-only, integration]`; BLOCK if absent on those scopes (replaces § 3.1 Cross-Layer Type Mapping)
+- Cross-Layer Type Mapping Table present and complete — **N/A** for `scope IN [backend-only, integration]`; use § Wire-Format Mapping instead
+- **Wire-Format Mapping Table (§ Wire-Format Mapping)** — applicable_when `scope IN [backend-only, integration]`; BLOCK if absent on those scopes (replaces § Cross-Layer Type Mapping)
 - Infrastructure Needs declared (Section 5)
 - Extension Strategy documented (if brownfield)
 
@@ -342,9 +342,9 @@ applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, fe
 FOR EACH dc IN applicable_dcs:
   IF dc.severity == "BLOCKER":
     # Every BLOCKER-severity DC applicable to BLUEPRINT must be explicitly addressed
-    IF "DC-{dc.number}" NOT present in design.md § Constraints (or § Section 7 GCD — Defect Prevention Constraints sub-section):
+    IF "DC-{dc.number}" NOT present in design.md § Constraints and Rules:
       ❌ BLOCK: "Blueprint missing required DC-{dc.number} ({dc.name}) constraint."
-      REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC reference to design.md § Constraints."
+      REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC reference to design.md § Constraints and Rules."
       STOP
     IF "DC-{dc.number}" NOT present in test_plan.md § 2 (Detailed Technical Test Plan):
       ❌ BLOCK: "Test plan missing required DC-{dc.number} ({dc.name}) edge case."
@@ -369,7 +369,7 @@ FUNCTION cip_update_gate(FEATURE_ID):
   # This gate MUST execute during --approve BEFORE setting status to APPROVED.
   # --approve CANNOT complete if CIP inventory is not updated.
 
-  READ design.md Section 2 (Component Inventory)
+  READ design.md § Implementation Inventory
   inventory_path = "config/codebase_inventory.json"
 
   IF NOT FILE_EXISTS(inventory_path):
@@ -514,15 +514,7 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 ```
 
 ### Template B: Design Document (master template)
-- Section 0: Reuse Analysis (CIP decisions)
-- Section 1: Architecture Overview (C4 diagrams in Mermaid)
-- Section 2: Component Inventory (with types, modules, interfaces)
-- Section 3: API Contracts (with cross-references to contract files)
-- Section 4: Cross-Domain Dependencies (dependency table)
-- Section 5: Infrastructure Needs (resources, integrations, constraints)
-- Section 6: Data Model (entities, relationships, Cross-Layer Type Mapping)
-- Section 7: Security Architecture (auth, encryption, access control)
-- Section 8: Error Handling Strategy (error codes, recovery patterns)
+The headings of `.context/templates/architect/design_template.md`, in order — the one section map (`scripts/check-design-sections.py`).
 
 ### Template C: ADR Template (see --adr section above)
 
@@ -539,7 +531,7 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 - Section 1: Acceptance Criteria Verification — AC-XX rows, `Gherkin Ref` = exact scenario title
 - Section 2: Detailed Technical Test Plan — TC-XX
 - Section 2.1: API Integration Tests — TC-API-XX per endpoint (Contract Ref)
-- Section 2.2: Reliability Testing — REL-*-XX (scope in [backend-only, integration]; source: design.md § 6)
+- Section 2.2: Reliability Testing — REL-*-XX (scope in [backend-only, integration]; source: design.md § Reliability Contract)
 - Section 3: UX & Accessibility — UX-XX / A11Y-XX (UI scopes)
 - Section 4: Brand & Layout Compliance — BRAND-XX / LAYOUT-XX (UI scopes)
 
@@ -567,7 +559,7 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 | 2 | BLUEPRINT → IMPLEMENT | `--approve` | design.md + test_plan.md APPROVED |
 | 3 | BLUEPRINT → IMPLEMENT | `--review-conflict` | Binding resolution |
 | 4 | BLUEPRINT → QA | `--approve` | test_plan.md for verification reference |
-| 5 | BLUEPRINT → DEVOPS | `--approve` | design.md Section 5 (Infrastructure Needs) |
+| 5 | BLUEPRINT → DEVOPS | `--approve` | design.md § Infrastructure Needs |
 
 ---
 
@@ -577,6 +569,6 @@ When IMPLEMENT or any agent needs to modify a file in `protected-paths.json` RED
 2. **Constitutional Supremacy**: The stack in `docs/constitution.md` is LAW
 3. **Regulatory Compliance**: Follow styles/guidelines in ALL loaded .claude/rules/ files (BLUEPRINT loads 20+ rules — explicitly listed in agent's Governance Context Loading Step 3)
 4. **Contract-First**: API contracts are generated BEFORE implementation. No implementation without contract.
-5. **Schema Authority (LAW-16)**: user_journey.md § 6 Business Fields owns field EXISTENCE (plain language); design.md §§ 3.1/3.2 + § 7.4 own TYPING. Business fields locked — technical fields free.
+5. **Schema Authority (LAW-16)**: user_journey.md § 6 Business Fields owns field EXISTENCE (plain language); design.md § Cross-Layer Type Mapping / § Wire-Format Mapping + § Schema Constraints own TYPING. Business fields locked — technical fields free.
 6. **Incremental Persistence (IPP)**: Follow `.claude/skills/factory-incremental-persistence/SKILL.md` — skeleton-first write, section-atomic saves, resume-on-entry. See `blueprint-design.md` for BLUEPRINT-specific IPP implementation.
 7. **One Question at a Time**: RDR protocol — never batch questions

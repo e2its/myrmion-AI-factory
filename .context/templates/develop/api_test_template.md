@@ -35,7 +35,7 @@ describe('{{FEATURE_NAME}} API', () => {
   describe('POST /api/v1/{{resource}}', () => {
     it('should create resource with valid payload → 201', async () => {
       const payload = {
-        // Field names from user_journey.md § 6 Business Fields; types/formats from design.md § 7.4
+        // Field names from user_journey.md § 6 Business Fields; types/formats from design.md § Schema Constraints
         // or from contracts/ request body schema
       };
 
@@ -46,7 +46,7 @@ describe('{{FEATURE_NAME}} API', () => {
 
       // Validate response matches contracts/ response schema
       expect(response.body).toMatchObject({
-        // Fields from contracts/ response schema (types per design.md § 7.4)
+        // Fields from contracts/ response schema (types per design.md § Schema Constraints)
       });
     });
   });
@@ -123,7 +123,7 @@ class TestFeatureAPI:
     # ─── Happy Path ───
     async def test_create_resource_valid_payload_201(self, client: AsyncClient):
         payload = {
-            # Field names from user_journey.md § 6; types/formats from design.md § 7.4
+            # Field names from user_journey.md § 6; types/formats from design.md § Schema Constraints
         }
         response = await client.post("/api/v1/{{resource}}", json=payload)
         assert response.status_code == 201
@@ -188,7 +188,7 @@ func TestGetResource_NotFound_404(t *testing.T) {
 
 1. **One test file per API resource** (e.g., `users.api.test.ts`, `auth.api.test.ts`).
 2. **Import app instance** (NOT start a server) — framework test utilities handle this.
-3. **Test data** — field existence from `user_journey.md § 6 Business Fields`; types/formats/examples from `design.md § 7.4 Schema Constraints` (type_format_registry) or `contracts/` request/response schemas.
+3. **Test data** — field existence from `user_journey.md § 6 Business Fields`; types/formats/examples from `design.md § Schema Constraints` (type_format_registry) or `contracts/` request/response schemas.
 4. **Happy paths** implement `test_plan.md § 2.1` TC-API-XX rows (cite the exact ID per test) → mapped to HTTP verbs + status codes.
 5. **Edge/error cases** from `test_plan.md` Section 2 (Edge, Security, Negative rows with HTTP status codes).
 6. **Status codes** from `contracts/` OpenAPI responses or `.claude/rules/api-standards.md`.

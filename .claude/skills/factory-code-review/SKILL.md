@@ -52,7 +52,7 @@ FUNCTION resolve_scope(mode, args):
     "increment":
       # Increment context (the IMPLEMENT phase agent's per-increment review). BVL SKILL.md § Full Feature Scope Mandate FORBIDS git diff
       # for feature/increment scope — files come from artifacts.
-      files = files declared for args.increment_id in dev_plan.md tasks + design.md §1 inventory
+      files = files declared for args.increment_id in dev_plan.md tasks + design.md § Implementation Inventory
       RETURN { files, label: "increment {INC-N}" }
     "branch":
       # Gate context. The ONE diff base (EVOL-045): a sub-increment reviews against its train.
@@ -100,7 +100,7 @@ Per-agent packet — each agent gets its slice, never the whole tree:
 
 **Fail-soft.** No `.claude/rules/` (framework meta, pre-SETUP project) → bind CLAUDE.md only. 0 rules is never silent — the banner declares it.
 
-**Increment mode.** `context: "increment"` (the IMPLEMENT phase agent's per-increment review) receives `governance_context` (GCD, design.md §7 — already bound at design time) as the primary packet source; the rules Roll-Call still runs for families the GCD does not carry.
+**Increment mode.** `context: "increment"` (the IMPLEMENT phase agent's per-increment review) receives `governance_context` (GCD, design.md § Governance & Constraints Digest — already bound at design time) as the primary packet source; the rules Roll-Call still runs for families the GCD does not carry.
 
 ## Spawn contract
 

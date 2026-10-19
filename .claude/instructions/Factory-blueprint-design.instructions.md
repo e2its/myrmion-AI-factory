@@ -70,7 +70,7 @@ Each finding above informational carries file, line, severity, confidence and an
 |--------|--------|---------|
 | `spec.feature` | APPROVED (mandatory) | Gherkin scenarios for design; `scope` and `consumes_contract` frontmatter |
 | `slice_map.md` | APPROVED (mandatory when `slicing_strategy: incremental`; absent when `monolithic`) | CODESIGN's authoritative capability-value slices — BLUEPRINT refines these into increments (Increment Plan Generation Step A0/B), never re-invents them |
-| `user_journey.md` (single file, ALL scopes) | APPROVED (mandatory) | Part II Domain Contract: § 6 Business Fields = source of truth for WHICH business fields exist (plain language, no types — LAW-16); § 8 Third Parties & Guarantees drives contract_slug backfill + design.md § 6 Reliability Contract derivation for backend/integration scopes |
+| `user_journey.md` (single file, ALL scopes) | APPROVED (mandatory) | Part II Domain Contract: § 6 Business Fields = source of truth for WHICH business fields exist (plain language, no types — LAW-16); § 8 Third Parties & Guarantees drives contract_slug backfill + design.md § Reliability Contract derivation for backend/integration scopes |
 | `mock.html` | APPROVED (mandatory for scope in [full-stack, frontend-only]; N/A for backend-only/integration) | Visual reference for component architecture |
 | Global UX Vision (`docs/ux/vision/`) | APPROVED (if scope in [full-stack, frontend-only]) | App shell, style guide, components, nav map |
 | External Design System (`docs/ux/design-system/`) | If exists AND scope in [full-stack, frontend-only] | DS tokens, component library |
@@ -80,13 +80,13 @@ Each finding above informational carries file, line, severity, confidence and an
 | `ux_decisions_log.md` | If exists AND scope in [full-stack, frontend-only] | Cross-feature UX decisions |
 | @workspace | Always | Existing code patterns |
 | `codebase_inventory.json` | If exists | DRY enforcement |
-| **Upstream frozen contracts** | Mandatory when `spec.feature.consumes_contract` is non-empty | For each `FEAT-XXX` in `consumes_contract`: load the frozen contract file (OpenAPI / AsyncAPI / GraphQL / gRPC) from `contracts/*/FEAT-XXX/**`; this design MUST NOT redefine or extend those contracts. Resolution step below BLOCKS if any referenced upstream is not frozen. |
+| **Upstream frozen contracts** | Mandatory when `spec.feature.consumes_contract` is non-empty | For each `FEAT-XXX` in `consumes_contract`: load the frozen contract files (OpenAPI / AsyncAPI / GraphQL / gRPC) its `feature_map.md` rows name (Contract Path, by `CONTRACT_SLUG` — never a directory named by feature id, `rules/contract-first-policy.md` § Directory Namespacing); this design MUST NOT redefine or extend those contracts. Resolution step below BLOCKS if any referenced upstream is not frozen. |
 
 ---
 
 ## Generated Outputs (9 Artifact Types)
 
-1. **`design.md`** — Technical design (contracts, C4, component inventory, infra needs)
+1. **`design.md`** — every heading of `.context/templates/architect/design_template.md`, in its order, by name: design.md § Technical Resolutions Log, § Reuse Analysis, § Existing Contract Analysis, § Architecture Diagram, § Technical Sequence Diagram, § Constraints and Rules, § Implementation Inventory, § Cross-Layer Type Mapping, § Wire-Format Mapping, § Contracts, § Cross-Domain Dependencies, § Decision History, § Infrastructure Needs (§ Required Resources, § External Integrations, § Infrastructure Constraints), § Frontend UI Contract, § Reliability Contract, § Governance & Constraints Digest, § External sources; § Coherence Validation, § Carried-Over Gaps and § Changelog are appended by their own steps. Readers cite a section by name, never by number
 2. **`test_plan.md`** — Test strategy (acceptance, edge cases, integration, WCAG)
 3. **`adr/`** — Architecture Decision Records for significant decisions
 4. **OpenAPI 3.1 YAML** — `contracts/openapi/{SLUG}/v1.yaml` (REST APIs)
@@ -141,14 +141,14 @@ Each finding above informational carries file, line, severity, confidence and an
 # Consult the Defect Prevention Catalog filtered to this agent
 feature_scope = READ("docs/spec/{FEATURE_ID}/spec.feature").frontmatter.scope OR "full-stack"   # pass to DPC Filter 2
 applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
-STORE applicable_dcs IN context FOR use by Section 7 (GCD) and test_plan § 2 (Detailed Technical Test Plan — edge cases)
+STORE applicable_dcs IN context FOR use by design.md § Constraints and Rules (each applicable BLOCKER DC named by id) and test_plan § 2 (Detailed Technical Test Plan — edge cases)
 
 # Advisory projection: every applicable DC becomes an explicit design constraint
 # and an explicit test-plan edge case. Blocking enforcement happens at --approve.
 LOG: "BLUEPRINT DC consult: {applicable_dcs.length} entries applicable to this feature"
 ```
 
-See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical consultation protocol. The list is consumed during Section 7 (GCD) generation and the QA test plan (§ QA Test Plan Generation — Edge Cases section) and is enforced at `--approve` time (see the `--approve` gate below).
+See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 for the canonical consultation protocol. The list is consumed in design.md § Constraints and Rules and the QA test plan (§ QA Test Plan Generation — Edge Cases section) and is enforced at `--approve` time (see the `--approve` gate below).
 
 ---
 
@@ -276,7 +276,7 @@ FUNCTION consumes_contract_resolution_gate(FEATURE_ID):
 
     resolved.push({ upstream_id, contract_files, upstream_scope })
 
-  # Persist resolved contracts as read-only references into design.md § 7 (Governance Constraints Digest)
+  # Persist resolved contracts as read-only references into design.md § Governance & Constraints Digest
   RETURN { resolved: resolved }
 ```
 
@@ -373,7 +373,7 @@ candidates = find_inventory_matches(planned_artifact, topology):
 - For CROSS_DOMAIN_COLLISION: RENAME / SHARED_KERNEL (with ADR) / KEEP_BOTH (with ADR)
 
 **Sub-step -2e: Summary**
-- Log all decisions in `design.md Section 0: "Reuse Analysis"`
+- Log all decisions in `design.md § Reuse Analysis`
 
 ### Step -1: Existing Endpoint Inventory Scan (MANDATORY)
 
@@ -395,14 +395,14 @@ candidates = find_inventory_matches(planned_artifact, topology):
 - Document in design.md
 
 **Sub-step -1d: Inventory Summary**
-- Summary of endpoints to REUSE, EXTEND, and CREATE
+- Summary of endpoints to REUSE, EXTEND, and CREATE, in design.md § Existing Contract Analysis
 
 ### Step -0.5: Inter-Domain Dependency Analysis (MANDATORY)
 
 **Step A**: Extract ALL cross-domain/module dependencies from spec.feature and user_journey.md
 **Step B**: Classify each as sync (REST/GraphQL/gRPC), async (AsyncAPI), or webhook (inbound/outbound) based on topology + communication_style + webhooks setting from constitution.md
 **Step C**: Verify contract existence per dependency (scan contracts/ directory, including contracts/webhooks/)
-**Step D**: Generate `design.md Section 4: "Cross-Domain Dependencies"` table with: dependency, type (sync/async/webhook-in/webhook-out), contract_ref, status (EXISTS/MISSING/PENDING)
+**Step D**: Generate `design.md § Cross-Domain Dependencies` table with: dependency, type (sync/async/webhook-in/webhook-out), contract_ref, status (EXISTS/MISSING/PENDING)
 
 ### Contract Generation (MANDATORY)
 
@@ -433,17 +433,17 @@ candidates = find_inventory_matches(planned_artifact, topology):
 **Step 2c**: Update `contracts/feature_map.md`:
 - Add row: SLUG → Feature ID → contract path → spec reference
 
-**Step 2d**: Reference contracts in design.md Section 3
+**Step 2d**: Reference contracts in design.md § Contracts
 
 ### Schema Derivation Policy (LAW-16)
 - **Existence source of truth**: `user_journey.md § Section 6: Business Fields` — plain-language table (Field | Meaning | Required | Allowed values | Example). The journey carries NO types.
-- **Typing authority**: ARCH, in design.md §§ 3.1/3.2 (per-layer types) + § 7.4 Schema Constraints (machine record consumed by REVIEW/H-11/synthetic data).
-- **Type derivation**: ARCH derives each Semantic Type from Meaning + Allowed values; ambiguous derivations (money precision, date granularity, value-code mapping) → RDR in design.md Section 0. Business allowed-values map to technical enums in § 3.1/3.2 (e.g. "settled/declined/pending" → `enum[SETTLED, DECLINED, PENDING]`).
+- **Typing authority**: ARCH, in design.md § Cross-Layer Type Mapping / § Wire-Format Mapping (per-layer types) + § Schema Constraints (machine record consumed by REVIEW/H-11/synthetic data).
+- **Type derivation**: ARCH derives each Semantic Type from Meaning + Allowed values; ambiguous derivations (money precision, date granularity, value-code mapping) → RDR in design.md § Technical Resolutions Log. Business allowed-values map to technical enums in § Cross-Layer Type Mapping / § Wire-Format Mapping (e.g. "settled/declined/pending" → `enum[SETTLED, DECLINED, PENDING]`).
 - **Technical fields FREE**: id, created_at, updated_at, version, audit, correlation/trace → ARCH adds freely.
 - **Business fields LOCKED**: ARCH formalizes but does NOT invent. New business field needed → RDR → `CODESIGN --refine` updates journey § 6.
 - **Cross-Layer Type Mapping Table**: MANDATORY in design.md — maps journey fields → API types → DB types → UI types.
 
-### Infrastructure Needs Declaration (design.md Section 5)
+### Infrastructure Needs Declaration (design.md § Infrastructure Needs)
 ```yaml
 infrastructure_needs:
   resources:
@@ -492,22 +492,22 @@ infrastructure_needs:
     notes: "Any special considerations (offline sync states, temporal data, etc.)"
 ```
 
-### Section 6: Frontend UI Contract (MANDATORY — if frontend.framework != "None")
+### Frontend UI Contract (MANDATORY — if frontend.framework != "None")
 
 > **Purpose:** Bridge the gap between UX Vision artifacts (mock.html, style_guide.html, component_library.html) and IMPLEMENT Phase B. Without this section, developers build components with generic utility classes instead of reproducing the mock's precise visual design. This section produces an actionable, machine-readable contract that Phase B MUST follow.
 >
 > **Prerequisites:** UX Vision APPROVED, mock.html APPROVED, component_library.html loaded.
-> **When to generate:** After completing Section 5 (Infrastructure Needs), before Section 7 (GCD).
+> **When to generate:** After completing § Infrastructure Needs, before § Governance & Constraints Digest.
 
 ```yaml
 FUNCTION generate_frontend_ui_contract(FEATURE_ID, mock_html, vision_artifacts):
-  # Produces design.md Section 6 with 6 sub-sections.
+  # Produces design.md § Frontend UI Contract with 6 sub-sections.
   # The contract maps mock.html visual design → implementation-ready specifications.
   # IMPLEMENT Phase B.0 / Step 0c.1 materializes the CSS foundation from this contract.
   # IMPLEMENT Phase B builds components using this contract's mapping tables.
 ```
 
-#### 6.1 Design Token Catalog
+#### Design Token Catalog
 
 Read the `:root {}` block from `mock.html` and classify every CSS custom property:
 
@@ -524,7 +524,7 @@ OUTPUT:
   semantic_alias_table: | Semantic Purpose | Mock Variable | Framework Class | Value Source |
 ```
 
-#### 6.2 Layout Contracts
+#### Layout Contracts
 
 Extract the DOM structure and CSS classes for each layout type used by the feature:
 
@@ -537,7 +537,7 @@ FOR EACH layout_type IN mock_html (auth_layout, app_layout, dashboard, etc.):
   OUTPUT as structured table per layout type
 ```
 
-#### 6.3 Component Class → CSS Framework Mapping
+#### Component Class → CSS Framework Mapping
 
 The **core** of the UI Contract. For every CSS class in `mock.html`:
 
@@ -549,7 +549,7 @@ FOR EACH css_class IN mock_html (excluding implementation-prefixed classes):
   # REVIEW BLOCKER if Phase B uses generic utility guesses instead of this mapping.
 ```
 
-#### 6.4 Shared UI Components
+#### Shared UI Components
 
 Cross-reference `mock.html` CSS classes against `component_library.html`:
 
@@ -565,7 +565,7 @@ FOR EACH component:
     LIST: variants, props, mock_classes reference
 ```
 
-#### 6.5 Page Composition Contracts
+#### Page Composition Contracts
 
 For each page/step in the mock:
 
@@ -577,7 +577,7 @@ FOR EACH page_section IN mock_html:
     state_rendering_pattern: conditional rendering order
 ```
 
-#### 6.6 Required CSS Additions
+#### Required CSS Additions
 
 Identify CSS property sets from `mock.html` that are NOT expressible as single utility classes:
 
@@ -589,51 +589,51 @@ OUTPUT: list of @layer components entries needed in globals.css
 
 ---
 
-### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY —)
+### Governance & Constraints Digest (GCD) Generation (MANDATORY —)
 
-> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for its workers and the work critics (`factory-dev-*`, `factory-critic-*`).
+> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md § Governance & Constraints Digest`. IMPLEMENT reads ONE section and gets everything it needs for its workers and the work critics (`factory-dev-*`, `factory-critic-*`).
 >
-> **When to generate:** After completing Section 6, before finalizing `design.md`.
+> **When to generate:** After completing § Frontend UI Contract, before finalizing `design.md`.
 > **Format:** Inline markdown table + YAML blocks. NEVER prose. Machine-readable IDs for each constraint.
 
 ```yaml
 FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, governance_context):
   # Reads the SAME governance context already loaded by BLUEPRINT (Steps 0-5).
-  # Produces design.md Section 7 with 7 sub-sections.
+  # Produces design.md § Governance & Constraints Digest with 7 sub-sections.
   # No additional file reads — reuses what's already in memory.
 ```
 
-#### 7.1 Architecture Constraints → REVIEW [ARCH]
+#### Architecture Constraints → REVIEW [ARCH]
 
 Extract from `constitution.md`: topology code, layer ordering, module boundary rules, extension strategy. Produce `module_boundaries_table` and `forbidden_patterns` list.
 
-#### 7.2 Governance Rules Index → REVIEW [GOV]
+#### Governance Rules Index → REVIEW [GOV]
 
 Compact extraction of actionable constraints from each applicable governance rule file. Each entry: Rule ID, Source file, Key constraints. Stack-conditional rules that don't match are listed under `not_applicable`.
 
-#### 7.2b Shared Cross-Cutting Components → REVIEW [GOV-SHARED]
+#### Shared Cross-Cutting Components → REVIEW [GOV-SHARED]
 
 When a governance rule mandates a shared mechanism (middleware, base class, interceptor), extract it as an explicit implementation requirement. Each entry: id, rule_source, component_type, name, location, responsibility, enforcement level.
 
 **Governance mechanism rule:** Satisfying a constraint by inlining logic in each module is a REVIEW BLOCKER `[GOV-SHARED-INLINE]`.
 
-#### 7.3 SAST Patterns → security lens (`factory-critic-security`)
+#### SAST Patterns → security lens (`factory-critic-security`)
 
 Pre-compile stack-specific SAST patterns so the security critic does not re-derive them. Each pattern: id, description, detection pattern, CWE, severity, OWASP category.
 
-#### 7.4 Schema Constraints → REVIEW [SCHEMA]
+#### Schema Constraints → REVIEW [SCHEMA]
 
-Extract field EXISTENCE from `user_journey.md § Section 6: Business Fields`; types/formats come from §§ 3.1/3.2 of this design (ARCH-derived — the journey carries no types, LAW-16). Business fields are LOCKED. Technical fields (id, timestamps, audit) are exempt.
+Extract field EXISTENCE from `user_journey.md § Section 6: Business Fields`; types/formats come from § Cross-Layer Type Mapping / § Wire-Format Mapping of this design (ARCH-derived — the journey carries no types, LAW-16). Business fields are LOCKED. Technical fields (id, timestamps, audit) are exempt.
 
-#### 7.5 Contract-First Rules → REVIEW [CFP]
+#### Contract-First Rules → REVIEW [CFP]
 
-Extract from design.md Section 3 (Contracts). Contract paths, forbidden direct cross-module imports.
+Extract from design.md § Contracts. Contract paths, forbidden direct cross-module imports.
 
-#### 7.6 UX Constraints → REVIEW [UX]
+#### UX Vision Digest (UXD) → REVIEW [UX]
 
 Conditional on `frontend.framework != "None"`. Vision artifact requirements, touch target minimums, WCAG level, component reuse mandate, feature nav placement.
 
-#### 7.7 Coding Standards → workers (`factory-dev-*`)
+#### Coding Standards → workers (`factory-dev-*`)
 
 Extract from stack-specific rule + constitution: naming patterns, module structure, test file patterns, key lint rules.
 
@@ -650,7 +650,7 @@ AFTER generating all sub-sections:
 RELIABILITY:
   - Same-source: GCD reuses governance context already loaded by BLUEPRINT (Steps 0-5)
   - Hash-validated: IMPLEMENT Step 0b compares digest hash against current snapshot
-  - Graceful degradation: If Section 7 absent, IMPLEMENT loads governance from raw files
+  - Graceful degradation: If § Governance & Constraints Digest absent, IMPLEMENT loads governance from raw files
 ```
 
 ---
@@ -683,18 +683,18 @@ For each third party identified in `user_journey.md § Section 8: Third Parties 
 - Data transformation (external format ↔ internal format)
 - Mock/stub specification for testing
 
-### Reliability Contract Derivation (design.md § 6 — scope in [backend-only, integration])
+### Reliability Contract Derivation (design.md § Reliability Contract — scope in [backend-only, integration])
 
-The journey states business guarantees in plain language (`§ Section 8`, e.g. "the customer is never charged twice", "if it fails, X is notified"); ARCH formalises HOW in `design.md § 6 Reliability Contract` (LAW-16 split):
+The journey states business guarantees in plain language (`§ Section 8`, e.g. "the customer is never charged twice", "if it fails, X is notified"); ARCH formalises HOW in `design.md § Reliability Contract` (LAW-16 split):
 - One row per journey guarantee → mechanism (idempotency / retry / circuit breaker / DLQ / timeouts / graceful shutdown) + parameters.
 - Every journey § 8 guarantee MUST map to at least one mechanism row; orphan mechanisms (no guarantee) need a Section 0 rationale.
-- `test_plan.md § 2.2 Reliability Testing` is generated FROM design.md § 6 (not from the journey).
-- DEVOPS consumes § 6 for infra alarms.
+- `test_plan.md § 2.2 Reliability Testing` is generated FROM design.md § Reliability Contract (not from the journey).
+- DEVOPS consumes § Reliability Contract for infra alarms.
 
 ### Frontend Hosting Auto-Declaration (MANDATORY when frontend.framework != None)
 
 ```yaml
-# RULE: If frontend.framework != None, BLUEPRINT MUST auto-declare a static_site resource in design.md Section 5.
+# RULE: If frontend.framework != None, BLUEPRINT MUST auto-declare a static_site resource in design.md § Infrastructure Needs.
 
 FUNCTION auto_declare_frontend_resource():
   frontend_framework = READ constitution.md → frontend.framework
@@ -752,7 +752,7 @@ FUNCTION auto_declare_frontend_resource():
 
 ### QA Test Plan Generation (test-strategy concern)
 
-**Section coverage note (EVOL-041):** emit ALL applicable template sections — § 1 AC-XX, § 2 TC-XX, § 2.1 TC-API-XX, § 2.2 REL-*-XX (backend/integration; from design.md § 6), § 3 UX-XX/A11Y-XX and § 4 BRAND-XX/LAYOUT-XX (UI scopes; IDs per template).
+**Section coverage note (EVOL-041):** emit ALL applicable template sections — § 1 AC-XX, § 2 TC-XX, § 2.1 TC-API-XX, § 2.2 REL-*-XX (backend/integration; from design.md § Reliability Contract), § 3 UX-XX/A11Y-XX and § 4 BRAND-XX/LAYOUT-XX (UI scopes; IDs per template).
 
 **Level 1: Business/Acceptance Tests**
 - One test case per spec.feature scenario
@@ -850,7 +850,7 @@ CODESIGN owns capability-VALUE slicing and emits it as `slice_map.md`. BLUEPRINT
    - Frontmatter: `total_increments` = count of § 1 sections; `rdr_alternatives_considered` = number of intra-slice layering alternatives evaluated (≥1 when any slice split; 0 when every slice maps 1:1); `rdr_ratified_at` = layering ratification ISO timestamp (null when no slice split); `status: DRAFT`.
 3. Atomic-write `docs/spec/{{FEATURE_ID}}/increment_plan.md` via IPP (skeleton-first + section-atomic; see § Incremental Persistence below for the full loop).
 
-**Step D — Self-Check Invariants (before proceeding to Section 7 GCD):**
+**Step D — Self-Check Invariants (before proceeding to § Governance & Constraints Digest):**
 
 BLUEPRINT MUST self-verify before exit:
 
@@ -873,22 +873,22 @@ Register action `BLUEPRINT.increment_plan.emitted` with payload `{feature_id, sl
 - `docs/spec/{{FEATURE_ID}}/increment_plan.md` exists with `status: DRAFT`, well-formed frontmatter (all fields populated), § 0, § 1, and § 3 (human-readable Mermaid diagram) fully written. § 2 (Monolithic Escape Declaration) only when `slicing_strategy == monolithic`.
 - CVP gates `increment_deployability`, `increment_to_scenario_coverage`, `increment_to_contract_coverage` run at `--approve` (see `.claude/skills/factory-coherence-validation/SKILL.md`).
 
-### Section 7: Governance Constraints Digest (GCD) Generation (MANDATORY —)
+### Governance & Constraints Digest (GCD) Generation (MANDATORY —)
 
-> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md Section 7`. IMPLEMENT reads ONE section and gets everything it needs for its workers and the work critics — reliably, with zero duplication.
+> **Purpose:** BLUEPRINT has already loaded ALL applicable governance rules (Steps 0-5). Instead of IMPLEMENT re-loading the same 20+ rule files independently, BLUEPRINT emits a pre-digested, feature-scoped constraint set into `design.md § Governance & Constraints Digest`. IMPLEMENT reads ONE section and gets everything it needs for its workers and the work critics — reliably, with zero duplication.
 
-**When to generate:** After completing Section 5 (Infrastructure Needs), before finalizing `design.md`.  
+**When to generate:** After completing § Infrastructure Needs, before finalizing `design.md`.  
 **Format:** Inline markdown table + YAML blocks. NEVER prose. Machine-readable IDs for each constraint.
 
 ```yaml
 FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, governance_context):
   # Uses already-loaded governance from Steps 0-5 — no additional file reads
   
-  WRITE design.md "## Section 7: Governance Constraints Digest"
+  WRITE design.md "## Governance & Constraints Digest (GCD)"
   WRITE design.md "> Auto-generated by BLUEPRINT --start. Read by IMPLEMENT as single-file governance fast-path."
   WRITE design.md "> Constraint IDs are referenced by the work critics' checks (e.g., [GOV-ARCH-001])."
   
-  # 7.1 Architecture Constraints (→ REVIEW Check #1: ARCH)
+  # Architecture Constraints (→ REVIEW Check #1: ARCH)
   EXTRACT from constitution.md:
     topology_code: "B{N}"  # e.g., B2, B5, B8
     topology_name: "{name}"  # e.g., Modular Monolith, Event-Driven Microservices
@@ -899,7 +899,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     extension_strategy: "E{N} — {name}"  # E0=Native, E1=Wrapper, E2=Strangler, E3=Rewrite
     protect_legacy: true|false  # E1/E2 only
   
-  WRITE design.md "### 7.1 Architecture Constraints → REVIEW [ARCH]"
+  WRITE design.md "### Architecture Constraints → REVIEW [ARCH]"
   WRITE design.md:
     topology: "{B_code} {name}"
     extension_strategy: "{E_code} {name}"
@@ -913,7 +913,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       - "Domain entity in presentation layer"
       - "Infrastructure leak into domain"
   
-  # 7.2 Governance Rules Index (→ REVIEW Check #2: GOV)
+  # Governance Rules Index (→ REVIEW Check #2: GOV)
   # Compact extraction: only the actionable constraints, not full rule prose.
   # MUST cover ALL rule files in .claude/rules/ — not just a subset.
   # Missing rules cause IMPLEMENT to operate without constraints → quality gaps.
@@ -938,7 +938,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
   FOR EACH rule WITH stack_conditional:
     IF stack_conditional != match(stack_context): SKIP rule, add to "not_applicable" list
   
-  WRITE design.md "### 7.2 Governance Rules Index → REVIEW [GOV]"
+  WRITE design.md "### Governance Rules Index → REVIEW [GOV]"
   WRITE design.md:
     applicable_rules:
       - id: "GOV-ARCH"
@@ -979,7 +979,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       # ... (one entry per applicable rule)
     not_applicable: ["{rule_name}: {reason — e.g., no database in stack}"]
   
-  # 7.3 SAST Patterns (→ security lens) — stack-specific ONLY
+  # SAST Patterns (→ security lens) — stack-specific ONLY
   # Pre-compiles the exact patterns for THIS stack. The security critic does not re-derive.
   # Source: security_policy.md + stack-specific rules (already loaded in Steps 0-5).
   # OWASP Top 10 coverage derived from the project's attack surface (API, frontend, data layer).
@@ -988,7 +988,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     FOR frontend.framework (if exists): select frontend patterns
     ALWAYS include: Common patterns (hardcoded secrets, disabled TLS)
   
-  WRITE design.md "### 7.3 SAST Patterns → security lens"
+  WRITE design.md "### SAST Patterns → security lens"
   WRITE design.md:
     backend_runtime: "{runtime}"
     frontend_framework: "{framework | None}"
@@ -1012,15 +1012,15 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       - "A03 (Injection): {applicable check}"
       # ... only OWASP items relevant to this feature's surface area
   
-  # 7.4 Schema Constraints (→ REVIEW Check #5: SCHEMA)
+  # Schema Constraints (→ REVIEW Check #5: SCHEMA)
   EXTRACT from user_journey.md § Section 6 Business Fields (existence + required + meaning; NO types there — LAW-16):
     FOR EACH concept IN business_fields_tables:
       business_fields: [field_name, required|optional]  # LOCKED (existence authority = journey)
-  JOIN with design.md §§ 3.1/3.2 (ARCH-derived types/formats — typing authority = this design):
+  JOIN with design.md § Cross-Layer Type Mapping / § Wire-Format Mapping (ARCH-derived types/formats — typing authority = this design):
       → per-field {type, format}
       # (Technical fields exempt: id, created_at, updated_at, version, audit, correlation/trace fields)
   
-  WRITE design.md "### 7.4 Schema Constraints → REVIEW [SCHEMA]"
+  WRITE design.md "### Schema Constraints → REVIEW [SCHEMA]"
   WRITE design.md:
     schemas_version: "{user_journey.schemas_version}"
     entities:
@@ -1031,7 +1031,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     exempt_technical_fields: [id, created_at, updated_at, deleted_at, version, audit_fields]
     # Type Format Registry (for test data compliance)
     # Preserves domain type precision lost when normalizing to language primitives.
-    # Source: journey § 6 Business Fields (existence) + design §§ 3.1/3.2 (types) + OpenAPI/contract format fields.
+    # Source: journey § 6 Business Fields (existence) + design.md § Cross-Layer Type Mapping / § Wire-Format Mapping (types) + OpenAPI/contract format fields.
     # Consumed by: IMPLEMENT TDD (mock data generation), REVIEW Check #5 [SCHEMA-TEST].
     type_format_registry:
       - field_pattern: "*_id" | format: "uuid" | example: "550e8400-e29b-41d4-a716-446655440000"
@@ -1046,12 +1046,12 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       #     FOR EACH field WHERE derived type has domain precision (UUID, Email, URL, etc.):
       #       - field_pattern: "{entity.name}.{field.field}" | format: "{domain_format}" | example: "{valid_example}"
   
-  # 7.5 Contract-First Constraints (→ REVIEW Check #10: CFP)
-  EXTRACT from Section 3 (Contracts) of design.md already generated:
+  # Contract-First Constraints (→ REVIEW Check #10: CFP)
+  EXTRACT from design.md § Contracts, already generated:
     contract_files: [{type, path}]
     forbidden_direct_imports: ["{module_A}", "{module_B}"]  # cross-domain
   
-  WRITE design.md "### 7.5 Contract-First Rules → REVIEW [CFP]"
+  WRITE design.md "### Contract-First Rules → REVIEW [CFP]"
   WRITE design.md:
     contracts:
       - type: "OpenAPI|GraphQL|AsyncAPI|gRPC"
@@ -1060,15 +1060,15 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     cross_domain_import_forbidden_from: ["{module_name}"]
     all_cross_domain_calls_via: "HTTP client generated from contract file"
   
-  # 7.6 UX Vision Digest (UXD) (→ REVIEW Check #7: UX + IMPLEMENT Phase B — frontend only)
+  # UX Vision Digest (UXD) (→ REVIEW Check #7: UX + IMPLEMENT Phase B — frontend only)
   # PURPOSE: BLUEPRINT has already loaded ALL 5 vision HTML/MD artifacts in Step 0 (UX Artifacts
   # Enrichment). Instead of IMPLEMENT re-loading 5 large HTML files (2500+ tokens total) that
   # get lost to context summarization before Phase B, BLUEPRINT pre-digests the essential
   # structural data into this compact section. IMPLEMENT reads ONE section and gets everything
   # it needs for shell composition, styling, component reuse, and navigation — reliably.
-  # This follows the SAME pattern as GCD (Section 7.1-7.5): pre-digest upstream → one read downstream.
+  # This follows the SAME pattern as GCD (§ Architecture Constraints … § Contract-First Rules): pre-digest upstream → one read downstream.
   IF frontend.framework != "None":
-    # 7.6.1 Shell Composition (from app_shell.html)
+    # Shell Composition (from app_shell.html)
     EXTRACT from app_shell.html:
       shell_layout: "{layout_type — e.g., sidebar-left, top-nav, minimal, dashboard}"
       shell_regions:
@@ -1079,7 +1079,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       shell_css_classes: ["{class_1}", "{class_2}"]  # CSS classes used by the shell
       shell_landmarks: { banner: "{selector}", navigation: "{selector}", main: "{selector}", contentinfo: "{selector}" }
     
-    # 7.6.2 Design Tokens (from style_guide.html)
+    # Design Tokens (from style_guide.html)
     EXTRACT from style_guide.html → ALL CSS custom properties / design tokens:
       color_palette:
         primary: "{value}"         # --color-primary
@@ -1124,7 +1124,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
         xl: "{value}"    # wide
       css_custom_property_prefix: "{prefix — e.g., --app-, --ds-}"  # or empty if no prefix
     
-    # 7.6.3 Page Templates (from page_templates.html)
+    # Page Templates (from page_templates.html)
     EXTRACT from page_templates.html:
       available_templates:
         - type: "{dashboard|list|detail|form|error|auth|landing|settings}"
@@ -1134,7 +1134,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
         # ... one entry per template archetype
       feature_template_type: "{which template THIS feature should use based on spec.feature}"
     
-    # 7.6.4 Component Library Inventory (from component_library.html)
+    # Component Library Inventory (from component_library.html)
     EXTRACT from component_library.html:
       reusable_components:
         - name: "{component_name — e.g., Button, Card, Modal, Table, TextInput, Select}"
@@ -1145,7 +1145,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
         # ... one entry per reusable component
       total_available: {count}
     
-    # 7.6.5 Navigation Map (from navigation_map.md)
+    # Navigation Map (from navigation_map.md)
     EXTRACT from navigation_map.md:
       nav_structure:
         - label: "{section_label}"
@@ -1161,7 +1161,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
         route_pattern: "{/feature-path/:id}"
       breadcrumb_chain: ["{Home}", "{Section}", "{Feature}"]
     
-    # 7.6.6 Feature-to-Vision Cross-Reference
+    # Feature-to-Vision Cross-Reference
     # Map THIS feature's mock.html components against the component library
     mock_component_analysis:
       - mock_component: "{component from mock.html}"
@@ -1170,7 +1170,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
         notes: "{adaptation needed|direct reuse|new component required}"
       # ... one entry per component in mock.html
     
-    WRITE design.md "### 7.6 UX Vision Digest (UXD) → REVIEW [UX] + IMPLEMENT Phase B"
+    WRITE design.md "### UX Vision Digest (UXD) → REVIEW [UX] + IMPLEMENT Phase B"
     WRITE design.md:
       uxd_version: "1.0.0"
       vision_status: APPROVED
@@ -1201,9 +1201,9 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
         shell_composition is the binding reference for shell fidelity verification.
         component_library is the binding reference for component reuse classification.
   ELSE:
-    WRITE design.md "### 7.6 UX Vision Digest (UXD) → N/A (no frontend in stack)"
+    WRITE design.md "### UX Vision Digest (UXD) → N/A (no frontend in stack)"
   
-  # 7.7 Coding Standards (→ workers)
+  # Coding Standards (→ workers)
   EXTRACT from stack-specific rule + constitution.md:
     naming_convention: "{camelCase|snake_case|PascalCase} per role"
     module_structure: "{directory layout}"
@@ -1211,7 +1211,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     test_framework: "{jest|pytest|go test}"
     key_lint_rules: ["{rule_1}", "{rule_2}"]
   
-  WRITE design.md "### 7.7 Coding Standards → workers"
+  WRITE design.md "### Coding Standards → workers"
   WRITE design.md:
     language: "{runtime/language}"
     naming:
@@ -1223,7 +1223,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     test_file_pattern: "{pattern}"
     key_lint_rules: ["{rule}"]
   
-  # 7.8 Mandatory Architectural Patterns + FDR Bindings (→ REVIEW Check #14: DESIGN + workers)
+  # Mandatory Architectural Patterns + FDR Bindings (→ REVIEW Check #14: DESIGN + workers)
   # PURPOSE: Constitution `[LAW]` sections and feature-scoped FDRs define mandatory implementation
   # patterns (e.g., BaseRepository with auto tenant filter, middleware tenant_id injection, global
   # error handler, audit logging). These are NOT rules (.claude/rules/) — they are DESIGN
@@ -1344,7 +1344,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     historical_adr_refs = factory-adr-management.list_active_adrs(feature_id=FEATURE_ID)
     # Returns refs only — no binding semantics derived from them.
 
-  WRITE design.md "### 7.8 Mandatory Architectural Patterns + FDR Bindings → REVIEW [DESIGN] + workers"
+  WRITE design.md "### Mandatory Patterns → REVIEW [DESIGN] + workers"
   WRITE design.md:
     mandatory_patterns:
       - id: "PAT-{N}"
@@ -1402,7 +1402,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       Historical ADRs are NOT binding — they are context for understanding why a `[LAW]` section
       is worded the way it is.
   
-  # Finalize and SAVE Section 7 atomically
+  # Finalize and SAVE § Governance & Constraints Digest atomically
   # Compute GCD hash from the dual-hash identity used by governance_snapshot (GCRP compliant).
   # constitution_hash is the primary governance identity; we take the first 8 chars as a fingerprint.
   gcd_hash = governance_snapshot.frontmatter.constitution_hash[:8]
@@ -1412,13 +1412,13 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     governance_digest_generated: true
     governance_digest_version: "{gcd_hash}"  # constitution_hash[:8] — matches GCRP dual-hash validation
   SAVE design.md  # IPP section-atomic save
-  LOG: "GCD generated: design.md Section 7 (7.1 ARCH + 7.2 GOV + 7.3 SAST + 7.4 SCHEMA + 7.5 CFP + 7.6 UX + 7.7 CODING + 7.8 PATTERNS) — hash: {gcd_hash}"
+  LOG: "GCD generated: design.md § Governance & Constraints Digest (ARCH + GOV + SAST + SCHEMA + CFP + UX + CODING + PATTERNS) — hash: {gcd_hash}"
 ```
 
 **Reliability guarantees:**
 - **Same-source:** The GCD uses the SAME governance context already loaded by BLUEPRINT (Steps 0-5). It does not re-read any files — it re-structures what is already in memory.
 - **Hash-validated:** The `governance_digest_version` field stores `constitution_hash[:8]` from the governance snapshot. IMPLEMENT Step 0b compares this against the current snapshot's `constitution_hash` — if they diverge, IMPLEMENT falls back to direct governance loading and emits an advisory to re-run `BLUEPRINT --refine`.
-- **Graceful degradation:** If Section 7 is absent (legacy BLUEPRINT) or stale, IMPLEMENT loads governance from raw files. No workflow breakage.
+- **Graceful degradation:** If § Governance & Constraints Digest is absent (legacy BLUEPRINT) or stale, IMPLEMENT loads governance from raw files. No workflow breakage.
 
 ### Incremental Persistence (IPP-compliant — MANDATORY)
 

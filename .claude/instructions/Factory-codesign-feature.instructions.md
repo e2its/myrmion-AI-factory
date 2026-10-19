@@ -23,7 +23,7 @@ Canonical generation order (dependency order — the journey is the ROOT):
 3. **`mock.html`** — Co-created interactive visual mockup (🎨 UX leads, 🎩 PO validates) — inherits shell from vision; one `imp-step` section per journey Paso (`id="step-N"` = the journey's `**Mock Action:**` anchor). UI scopes only.
 4. **`slice_map.md`** — Capability-VALUE vertical-slice map (🎩 PO leads). Emitted ONLY when `slicing_strategy: incremental` (the default). Groups scenarios + journey steps into independently-shippable slices (`SLICE-{FEAT}-N`) with user-value order, independence rationale, and cross-slice / cross-feature seams. A **value hypothesis** — BLUEPRINT refines it into the contract-aware `increment_plan.md` (joins via `cascade_source: SLICE-{FEAT}-N`). Template: `.context/templates/codesign/slice_map_template.md`.
 
-**LAW-16 Business Purity.** Every CODESIGN artifact is 100% validatable by the PO/UX from business knowledge — no technical types, tiers, protocols, or reliability mechanisms. `user_journey.md § Section 6: Business Fields` is the **source of truth** for WHICH business fields exist (name + meaning + obligation, plain language); ALL typing is derived downstream by ARCH in `design.md` (§§ 3.1/3.2 + § 7.4). Grammar mechanically validated by `scripts/check-journey-grammar.sh`.
+**LAW-16 Business Purity.** Every CODESIGN artifact is 100% validatable by the PO/UX from business knowledge — no technical types, tiers, protocols, or reliability mechanisms. `user_journey.md § Section 6: Business Fields` is the **source of truth** for WHICH business fields exist (name + meaning + obligation, plain language); ALL typing is derived downstream by ARCH in `design.md` (§ Cross-Layer Type Mapping / § Wire-Format Mapping + § Schema Constraints). Grammar mechanically validated by `scripts/check-journey-grammar.sh`.
 
 ---
 
@@ -168,7 +168,7 @@ BUSINESS_LANGUAGE:
 - For each business concept surfaced during Phases 2-4 (what the personas act on and see): define the fields in PLAIN LANGUAGE
 - Table per concept: `Field | Meaning | Required | Allowed values (plain language) | Example`
 - Business states in plain words ("settled, declined, or pending") — the technical enum lives in design.md
-- NO types, NO constraint syntax, NO formats — ARCH derives typing in design.md §§ 3.1/3.2 + § 7.4 (ambiguity → RDR)
+- NO types, NO constraint syntax, NO formats — ARCH derives typing in design.md § Cross-Layer Type Mapping / § Wire-Format Mapping + § Schema Constraints (ambiguity → RDR)
 - **ALL fields must be complete** — no `TODO` or `TBD` cells allowed at approval time
 
 ### Phase 6: Policy Discovery (🎩 PO concern)
@@ -590,7 +590,7 @@ Enum: `full-stack | backend-only | frontend-only | integration`. `integration` i
 
 **Cross-feature contracts.** `spec.feature.consumes_contract: [FEAT-XXX, ...]` declares upstream frozen-contract dependencies. BLUEPRINT `--start` runs a Consumes-Contract Resolution Gate that BLOCKS when any referenced upstream is not at least APPROVED with a contract file under `contracts/**`. Iteration Model adds the upstream→downstream cascade on upstream contract change (CASCADE_PENDING_ITERATION propagates to every feature that consumes the contract).
 
-**Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is generated for ALL scopes from the single journey-first template (backend personas = business callers; `Mock Action: —`; reliability as § 8 business guarantees, formalised in `design.md § 6`). `design.md § 3.1 Cross-Layer Type Mapping` is replaced by `§ 3.2 Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks the 6 mock-dependent CHECKs (2/5/6/8/10/11) as N/A.
+**Artefacts affected by scope.** `mock.html` and Global UX Vision are **N/A** for `backend-only`/`integration` features. `user_journey.md` is generated for ALL scopes from the single journey-first template (backend personas = business callers; `Mock Action: —`; reliability as § 8 business guarantees, formalised in `design.md § Reliability Contract`). `design.md § Cross-Layer Type Mapping` is replaced by `§ Wire-Format Mapping`. Tripartite Alignment degrades from 6 bidirectional checks to 2 (SPEC↔JOURNEY only) and the auto-approval gate marks the 6 mock-dependent CHECKs (2/5/6/8/10/11) as N/A.
 
 ### Vision Gate (UI Features — scope-aware)
 Runs ONLY when `feature_scope IN [full-stack, frontend-only]` AND `frontend.framework != "None"`:
@@ -1067,7 +1067,7 @@ Scenario: Original scenario name
 FUNCTION verify_schema_authority(FEATURE_ID, proposed_data_fields):
   # Runs when BLUEPRINT or IMPLEMENT proposes data fields for contracts/models.
   # user_journey.md § Section 6: Business Fields is the SOLE existence authority
-  # for business fields (LAW-16). Typing authority is design.md § 7.4 — this gate
+  # for business fields (LAW-16). Typing authority is design.md § Schema Constraints — this gate
   # checks EXISTENCE only.
   uj_path = "docs/spec/{FEATURE_ID}/user_journey.md"   # single file, ALL scopes (EVOL-041)
   IF NOT FILE_EXISTS(uj_path):
@@ -1298,4 +1298,4 @@ FUNCTION enforce_single_question_rdr():
 ## [LAW-16] CODESIGN Business Purity
 > Co-design artefacts carry only business-validatable content; technical formalisation belongs to the blueprint, and downstream agents never invent business facts.
 
-CODESIGN artefacts (`spec.feature`, `user_journey.md`, `mock.html`, `slice_map.md`) carry ONLY business-validatable content — every statement verifiable by the signing PO/UX from business knowledge alone. Technical content (concrete types, storage or wire formats, protocol or tool names, architectural tiers, reliability mechanisms) inside a CODESIGN artefact is a governance violation: it manufactures a false validation. Business facts live in CODESIGN (field existence + meaning + obligation + business states, business rules, experience steps, business guarantees); technical formalisation lives in BLUEPRINT (`design.md` type mapping, § 7.4 Schema Constraints registry, Reliability Contract). Downstream agents formalise but NEVER invent business facts; changes to business facts route back via `CODESIGN --refine`. Mechanical tripwire: `scripts/check-journey-grammar.sh`.
+CODESIGN artefacts (`spec.feature`, `user_journey.md`, `mock.html`, `slice_map.md`) carry ONLY business-validatable content — every statement verifiable by the signing PO/UX from business knowledge alone. Technical content (concrete types, storage or wire formats, protocol or tool names, architectural tiers, reliability mechanisms) inside a CODESIGN artefact is a governance violation: it manufactures a false validation. Business facts live in CODESIGN (field existence + meaning + obligation + business states, business rules, experience steps, business guarantees); technical formalisation lives in BLUEPRINT (`design.md` type mapping, § Schema Constraints registry, Reliability Contract). Downstream agents formalise but NEVER invent business facts; changes to business facts route back via `CODESIGN --refine`. Mechanical tripwire: `scripts/check-journey-grammar.sh`.
