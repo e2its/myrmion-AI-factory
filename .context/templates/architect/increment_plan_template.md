@@ -92,7 +92,7 @@ iterations: []
   - [ ] `qa_report_INC-N_*.md` status APPROVED (run `/qa --verify {{FEATURE_ID}} INC-N` after IMPLEMENT closes the slice)
 - **Branch convention:** `feature/{{FEATURE_ID}}-inc-1-{{slug}}` (one PR per increment — see factory-branching-strategy) — with sub-increments it is the train; sub-increments branch from it as `…-sub-{M}`
 - **Merged at:** null   *(ISO timestamp; set by the merge hook when the increment PR lands on main; trigger for status transition READY/BUILDING → MERGED)*
-- **Pending iteration:** null   *(non-null when `CASCADE_INCREMENT_INTERNAL` detects upstream change affecting this increment and status is BUILDING — operator must `IMPLEMENT --pause` then `--refine` before status can transition further; cleared by `IMPLEMENT --refine`)*
+- **Pending iteration:** null   *(non-null when `CASCADE_INCREMENT_INTERNAL` detects upstream change affecting this increment and status is BUILDING — the increment completes first, then `IMPLEMENT --refine` takes the change; cleared by `IMPLEMENT --refine`)*
 - **Pending reason:** null   *(human-readable cascade trigger description, populated alongside `Pending iteration`)*
 - **Layer tasks (filled by IMPLEMENT `--plan`):**
   - [A.1] …   *(backend / domain)*
@@ -176,7 +176,7 @@ Each `### INC-N` section carries its own `**Status:**` field, transitioned by th
 |---|---|---|
 | `DRAFT` | Initial (on `BLUEPRINT --start`) | YES — scope, scenarios, contract surface, depends_on all editable |
 | `READY` | `BLUEPRINT --approve` emits APPROVED increment_plan.md | YES — layer tasks editable; scope/scenarios/contracts FROZEN |
-| `BUILDING` | `IMPLEMENT --plan` opens the increment branch | NO — complete or `--pause` first |
+| `BUILDING` | `IMPLEMENT --plan` opens the increment branch | NO — complete it first |
 | `MERGED` | PR lands on `main` (merge hook updates `Merged at:`) | NO — requires `CODESIGN --revise` (new feature version) or a new follow-up increment |
 | `INVALIDATED` | Iteration cascade (`CASCADE_INCREMENT_INTERNAL`) | YES — after resync; cleared when back to DRAFT/READY |
 

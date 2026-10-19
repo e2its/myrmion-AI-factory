@@ -354,7 +354,7 @@ CONCURRENCY (reuse of existing LOCK PROTOCOL):
   # preserves the existing concurrency contract (one feature-lock per feature)
   # while allowing the increments to ship serially. Opening a second branch
   # while a prior increment branch is unmerged BLOCKS with:
-  #   "Increment {inc.id} branch already open. Merge or --pause it before
+  #   "Increment {inc.id} branch already open. Merge it before
   #    starting the next increment."
   # Enforced via the same filesystem lock mechanism documented in § CONCURRENCY
   # LOCK PROTOCOL — key is feature-level, not increment-level.

@@ -475,7 +475,7 @@ python3 subproducts/measure/measure.py --json --out ../measure-before.json   # b
 ### Rollback (if needed)
 ```bash
 # Restore from last backup
-/SETUP --rollback-last
+/SETUP --rollback-upgrade
 
 # Or manually
 cp -r .backups/{{TIMESTAMP}}/* .

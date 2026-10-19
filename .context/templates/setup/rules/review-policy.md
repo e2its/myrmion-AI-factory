@@ -118,38 +118,9 @@ Only when the user routes there. `/BLUEPRINT --review-conflict` reads the round'
 
 ---
 
-## 🚨 Override Mechanism
+## 🚨 Override
 
-### When to Use Override
-
-- **Emergency hotfix:** Production outage requires immediate deploy
-- **False positive:** Review incorrectly flagged valid code
-- **Architect decision:** After conflict resolution, ARCH decides to bypass
-
-### Override Requirements
-
-1. **Mandatory Justification:** Minimum 50 characters explaining why
-2. **ARCH Notification:** Automatic alert sent to Architect
-3. **Audit Trail:** Override logged in `OVERRIDE_LOG.md` and workflow log
-4. **QA Flag:** QA verification sees override flag in report
-5. **SEC Review:** Security audit includes override in compliance check
-
-### Override Command
-
-```
-/IMPLEMENT --override {{FEATURE_ID}} "Justification: [detailed reason]"
-```
-
-**Example:**
-```
-/IMPLEMENT --override USR-001 "Production payment gateway down. Code has minor style issues but is functionally correct and security-vetted. Deploying under incident response protocol IR-2026-01."
-```
-
-**Output:**
-- Updates review report: `status: OVERRIDDEN`
-- Updates dev plan: `review_status: APPROVED (OVERRIDDEN)`
-- Creates override log entry
-- Unlocks QA verification
+No override command exists. A finding still open after the round reaches the user (§ What reaches the user): the user accepts it — the push gate records the acceptance in the code-review marker's `override` field — or reworks the increment. An emergency fix in production goes through `/IMPLEMENT --fix`.
 
 ---
 

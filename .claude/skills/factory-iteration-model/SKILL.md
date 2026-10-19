@@ -618,13 +618,13 @@ FUNCTION CASCADE_INCREMENT_INTERNAL(FEATURE_ID, target_iteration, affected_scope
 
     IF inc.status == "BUILDING":
       # A branch is open with tasks in progress. We cannot silently invalidate without losing work.
-      # Mark the increment as needing resync but DO NOT flip status yet — the operator must --pause
-      # the branch first (enforced by immutability_policy).
+      # Mark the increment as needing resync but DO NOT flip status yet — the increment completes
+      # first (enforced by immutability_policy); the change then lands through IMPLEMENT --refine.
       UPDATE_INCREMENT_FIELD(plan_path, inc.id, "pending_iteration", target_iteration)
-      UPDATE_INCREMENT_FIELD(plan_path, inc.id, "pending_reason", "Affected by upstream change — pause branch and run IMPLEMENT --refine {FEATURE_ID} {inc.id}")
+      UPDATE_INCREMENT_FIELD(plan_path, inc.id, "pending_reason", "Affected by upstream change — complete the increment, then run IMPLEMENT --refine {FEATURE_ID}")
       warnings.push({
         id: inc.id,
-        reason: "BUILDING increment carries uncommitted work — pause + --refine required",
+        reason: "BUILDING increment carries uncommitted work — complete it, then --refine",
         pending_iteration: target_iteration
       })
       CONTINUE

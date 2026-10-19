@@ -598,7 +598,7 @@ Contains:
   - Exact upgrade command parameters
   - Step-by-step operation log for debugging
 
-Enables: /SETUP --analyze-upgrade {{TIMESTAMP}} for post-mortem
+Read it for a post-mortem of the upgrade.
 ```
 
 ---

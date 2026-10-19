@@ -341,10 +341,11 @@
       ]
     },
     "rules/immutability_policy.md": {
-      "version": "1.6.2",
+      "version": "1.6.3",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.md",
       "changelog": [
+        "1.6.3: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.6.2: fix #113: an auto-approval check count lives only in its check list — the copied counts are cured, three retired_terms patterns keep any count from coming back",
         "1.6.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.6.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
@@ -361,10 +362,11 @@
       ]
     },
     "rules/review-policy.md": {
-      "version": "1.6.0",
+      "version": "1.6.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/review-policy.md",
       "changelog": [
+        "1.6.1: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.6.0: feat(EVOL-059) — RDR-3: the bounded work loop is the passes the key allows (the diff at full effort, one re-check on the cured bytes); no digit in prose; work_rounds mirrors the key.",
         "1.5.0: fix(EVOL-049) — review pass — the loop is EVOL-049's: one work round, the user adjudicates, model separation by agents.families; hat vocabulary retired",
         "1.4.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
@@ -1082,10 +1084,11 @@
       ]
     },
     "upgrade_safety_protocol.md": {
-      "version": "1.2.1",
+      "version": "1.2.2",
       "content_type": "universal",
       "target": "docs/upgrade_safety_protocol.md",
       "changelog": [
+        "1.2.2: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.2.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: chore(EVOL-014): placeholder notation convention block added to header — distinguishes SCREAMING_SNAKE materialization placeholders from lowercase pseudo-code/log-format locals",
@@ -1252,10 +1255,11 @@
       ]
     },
     "setup/MATERIALIZATION_REPORT_TEMPLATE.md": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md",
       "changelog": [
+        "1.7.1: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.7.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.6.0: feat(EVOL-054) — `### Server-side protection — next steps` block: the SCM host, the runbook path, whether CI carries the token.",
         "1.5.0: feat(EVOL-045) — surface ceiling line (Q31).",
@@ -2299,10 +2303,11 @@
       ]
     },
     "rules/vertical-slicing.md": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "content_type": "universal",
       "target": ".claude/rules/vertical-slicing.md",
       "changelog": [
+        "1.0.1: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.0.0: feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks)"
       ]
     },
@@ -2350,10 +2355,11 @@
       ]
     },
     "architect/increment_plan_template.md": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "content_type": "universal",
       "target": ".context/templates/architect/increment_plan_template.md",
       "changelog": [
+        "1.4.1: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.4.0: feat(EVOL-045) — Estimated surface / Escape / Sub-increments per increment; invariant.",
         "1.3.0: feat(EVOL-036) SLICE-3 — per-INC cascade_source: SLICE-{FEAT}-N + depends_on_slice/depends_on_feature/seam (null-default); §0 Slicing Rationale → Refinement Record (slice→INC mapping, intra-slice layering, contract-forced deviations — no slice invention); rdr_alternatives_considered redefined to intra-slice layering count; Invariant 5 increment_status_monotonic reworded to 'delegated to immutability_policy.check_increment_immutability' (not a CVP function).",
         "1.2.1: fix(increment-plan-stale-section-refs) — § 0 narrative note about monolithic strategy cited `§ 3 (Monolithic Escape Declaration)`; § 2 is now the canonical location (v5.3.0 reorder missed this self-reference). Single-token edit, no semantic change.",
@@ -2694,9 +2700,10 @@
       ]
     },
     "commands/codesign.md": {
-      "version": "1.8.1",
+      "version": "1.9.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
+        "1.9.0: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.8.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.8.0: feat(EVOL-049)! — delegates by name to factory-codesign.",
         "1.7.0: feat(EVOL-048) — owns a planning phase: never enters plan mode (EVOL-048).",
@@ -2845,9 +2852,10 @@
       ]
     },
     "instructions/Factory-blueprint-refine.instructions.md": {
-      "version": "1.1.1",
+      "version": "1.1.2",
       "path": ".claude/instructions/Factory-blueprint-refine.instructions.md",
       "changelog": [
+        "1.1.2: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.1.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.1.0: feat(EVOL-036) coherence — --refine ingests slice_map.md: Step 2.1 upstream diff set adds slice_map.md; Step 2.7 adds slice re-ingestion (re-run Step A0 gate, realize new/unrealized SLICE-{FEAT}-N into increments with cascade_source/seam + back-ref) — closes the additive follow-up-slice loop that CVP Check 18(a) guards.",
         "1.0.0: feat(EVOL-032) phase 2 — NEW INSTRUCTION. BLUEPRINT --refine canonical 8-step protocol (closes the long-standing stub at .claude/commands/blueprint.md:31-32). Steps: 2.1 locate changes (git diff since design.iterations[-1].cascade_timestamp); 2.2 analyze current design state; 2.3 dependencies analysis (reuses --start Step -0.5 Inter-Domain + CASCADE_CONSUMERS when needed); 2.4 implementation-state probe (auto-trigger when dev_plan has [x] tasks OR feature branch has commits since design point; classifies drift/carry-over/emergent); 2.5 update design with gaps (drift→modify with RDR, carry-over→pending_design_items[]+`## Carried-Over Gaps`, emergent→ADR via factory-adr-management); 2.6 MCP-docs consultation (consumes factory-mcp-docs-scan banner); 2.7 apply changes (IPP section-atomic, CASCADE_PENDING_ITERATION + CASCADE_CONSUMERS on contract changes); 2.8 aggregated changelog (append_iteration_entry on design.md + test_plan.md + increment_plan.md with shared ITER-{FEAT}-{N} id). Completion gate runs verify_cascade_completion + CVP CODESIGN_BLUEPRINT scope + check-iteration-id-format dry-run."
@@ -3542,9 +3550,10 @@
       ]
     },
     "skills/factory-governance-loading/SKILL.md": {
-      "version": "2.12.1",
+      "version": "2.12.2",
       "type": "skill",
       "changelog": [
+        "2.12.2: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "2.12.1: banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars",
         "2.12.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "2.11.0: feat(EVOL-047) — GWP applies to docs-only changes; a change outside the runtime surface skips the machinery, not the rule.",
@@ -3620,9 +3629,10 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.8.0",
+      "version": "2.8.1",
       "type": "skill",
       "changelog": [
+        "2.8.1: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "2.8.0: feat(EVOL-059) — the sweep report's one path (review/preventive_sweep_*.md) in the invalidation targets and the stale-marking step; every sweep report not yet INVALIDATED is invalidated on a code change (an unfinished one too).",
         "2.7.0: feat(EVOL-043) — hosts a universal law body ([LAW-NN] heading + quoted sentence) — the index in CLAUDE.md points here.",
         "2.6.4: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: CLASSIFY_CHANGE_SCOPES keys schema_change on journey Part II (§ 5-8) — was keyed on the dead Data Schemas section (silent cascade hole).",
@@ -3644,10 +3654,11 @@
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
     "skills/factory-branching-strategy/SKILL.md": {
-      "version": "1.11.0",
+      "version": "1.11.1",
       "type": "skill",
       "role": "SCM protocol — branching strategy enforcement, merge policy, concurrency locks, auto-checkout protocol, epic-scoped branch reuse, per-increment branching.",
       "changelog": [
+        "1.11.1: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.11.0: feat(EVOL-048) — branch naming line matches the reader's grammar (no setup/ audit/ maintenance/ prefixes).",
         "1.10.0: feat(EVOL-047) — TRAIN CLOSE deployment decided by gate.py runtime-surface --changed.",
         "1.9.0: feat(EVOL-046) — pre-push step 3 (gate.py profile --run).",
@@ -4359,11 +4370,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.16.0",
+      "version": "1.17.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.17.0: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.16.0: feat(EVOL-054) — GH_TOKEN exported to the profile step — the scm-protection member reads this repository's ruleset at ci (metadata read); the stale member enumeration dropped from the step name.",
         "1.15.0: fix(EVOL-053) — pytest installed before the T2 loop — the EVOL-053 collection plugin test runs in CI, never skipped",
         "1.14.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
@@ -5437,6 +5449,24 @@
       "path": "scripts/gates/checklist.py",
       "changelog": [
         "1.0.0: fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]"
+      ]
+    },
+    "scripts/check-command-flags.py": {
+      "version": "1.0.0",
+      "delivery": "sync",
+      "type": "utility",
+      "path": "scripts/check-command-flags.py",
+      "changelog": [
+        "1.0.0: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI"
+      ]
+    },
+    "scripts/test-check-command-flags.sh": {
+      "version": "1.0.0",
+      "delivery": "sync",
+      "type": "utility",
+      "path": "scripts/test-check-command-flags.sh",
+      "changelog": [
+        "1.0.0: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI"
       ]
     }
   },

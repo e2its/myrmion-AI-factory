@@ -54,6 +54,7 @@ jobs:
                    scripts/test-materialization-surface.sh \
                    scripts/test-security-scan.sh \
                    scripts/test-check-journey-grammar.sh \
+                   scripts/test-check-command-flags.sh \
                    scripts/test-validate-governance.sh \
                    scripts/test-po-package.sh \
                    scripts/test-measure.sh \
@@ -69,6 +70,7 @@ jobs:
                    scripts/test-materialization-surface.sh \
                    scripts/test-security-scan.sh \
                    scripts/test-check-journey-grammar.sh \
+                   scripts/test-check-command-flags.sh \
                    scripts/test-validate-governance.sh \
                    scripts/test-po-package.sh \
                    scripts/test-measure.sh \

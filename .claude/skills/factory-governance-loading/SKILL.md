@@ -177,7 +177,7 @@ IF exists:
     Load template with constitution-based validations
     Merge with applicable_rules from the resolver
   ELSE:
-    ⚠️ Templates outdated: "Constitution changed. Run `SETUP --regenerate-templates`"
+    ⚠️ Templates outdated: "Constitution changed. Run `SETUP --upgrade`"
     Continue with the resolver rules only (degraded mode)
 ELSE:
   Continue with the resolver rules only

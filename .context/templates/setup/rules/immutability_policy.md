@@ -33,8 +33,8 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 | **CODESIGN Approved (slice_map)** | `/CODESIGN --start` / `--refine` (auto-approval) | `slice_map.md` plan-level frontmatter + § 0; § 1 scenario membership frozen per-scenario as realizing increments reach MERGED (see Per-Slice Immutability) | `/CODESIGN --refine` re-slice touching a MERGED scenario | `/CODESIGN --revise` or additive follow-up slice |
 | **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --reset`, `/CODESIGN --refine`, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --revise` |
 | **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` (except per-increment allowance) | `/CODESIGN --revise` or `/BLUEPRINT --refine` (scoped to editable increments) |
-| **IMPLEMENT Approved** | `/IMPLEMENT --build` (the work critics pass — correctness, security, governance, fidelity) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) or `/IMPLEMENT --override` (emergencies) |
-| **QA Verify+DAST Approved** | `/QA --verify` (post-staging auto-approval, includes the DAST security pass) | Entire chain | All previous + `/IMPLEMENT --override` | Only `/CODESIGN --revise` (creates new feature) |
+| **IMPLEMENT Approved** | `/IMPLEMENT --build` (the work critics pass — correctness, security, governance, fidelity) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) |
+| **QA Verify+DAST Approved** | `/QA --verify` (post-staging auto-approval, includes the DAST security pass) | Entire chain | All previous | Only `/CODESIGN --revise` (creates new feature) |
 | **Merged to main** | Git merge | **FULLY IMMUTABLE** | All commands except hotfix | `/IMPLEMENT --fix` (emergencies) |
 
 ### Phase Descriptions
@@ -71,7 +71,7 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 |---|---|---|---|---|
 | `DRAFT` | Initial (emitted by `BLUEPRINT --start`) | scope, scenarios_covered, contract_surface, depends_on, deployable, functional_definition, acceptance checklist | N/A (IMPLEMENT has not started) | None |
 | `READY` | `BLUEPRINT --approve` sets increment_plan.md `status: APPROVED`; no per-increment branch yet | scope/scenarios/contract_surface/depends_on FROZEN. Acceptance checklist may be refined. | Layer tasks `[INC-N.A.M]`, `[INC-N.B.M]`, `[INC-N.C.M]` editable (task decomposition) | None |
-| `BUILDING` | `IMPLEMENT --plan` opens the increment branch `feature/{ID}-inc-N-{slug}` (first task checked) | **BLOCKED** — use `IMPLEMENT --pause INC-N` or complete | **BLOCKED** — same | None (must pause) |
+| `BUILDING` | `IMPLEMENT --plan` opens the increment branch `feature/{ID}-inc-N-{slug}` (first task checked) | **BLOCKED** — complete the increment first | **BLOCKED** — same | None (complete it first) |
 | `MERGED` | Increment PR merged to `main` (git merge hook updates `Merged at:` timestamp) | **BLOCKED** — increment is in production. Changes require `CODESIGN --revise` (new feature version) OR a new follow-up increment (see below). | **BLOCKED** — same | MANDATORY if change alters scope of merged increment |
 | `INVALIDATED` | Iteration cascade `CASCADE_INCREMENT_INTERNAL` set by upstream `--refine` (only valid on increments in `DRAFT` or `READY` at cascade time; MERGED increments are NEVER invalidated — they cascade to a new follow-up increment instead) | Full resync — scope/scenarios/contracts/tasks all editable until status returns to DRAFT/READY | Same | Delta iteration bump (spec.feature.iteration + increment_plan.based_on_iteration) |
 
@@ -106,7 +106,7 @@ When `BLUEPRINT --refine` appends a new `### INC-N+1` to a plan with at least on
 `slice_map.md` (CODESIGN, capability-VALUE) is the upstream of `increment_plan.md`. A slice carries **no scalar status** — its immutability is a **per-SCENARIO freeze partition** derived from the increments that realize it (`cascade_source: SLICE-{FEAT}-N`):
 
 - **Plan-level frontmatter + § 0 Decision History** freeze at slice_map approval (same as the increment_plan plan-level lock).
-- **Per-slice scenario membership** stays editable until a realizing increment reaches **MERGED**, at which point that scenario freezes **wherever it currently sits** — the freeze predicate is scenario-membership, NOT slice-id (re-slicing moves scenarios between slices). `BUILDING` realizers lock their scenarios via the forward cascade (`pending_iteration` + `IMPLEMENT --pause`), exactly as at the increment layer — no harder-than-increment fork.
+- **Per-slice scenario membership** stays editable until a realizing increment reaches **MERGED**, at which point that scenario freezes **wherever it currently sits** — the freeze predicate is scenario-membership, NOT slice-id (re-slicing moves scenarios between slices). `BUILDING` realizers lock their scenarios via the forward cascade (`pending_iteration`; the increment completes before the resync), exactly as at the increment layer — no harder-than-increment fork.
 - **Empty realizers** (pre-BLUEPRINT) ⇒ slice fully editable.
 
 Changes to a frozen (MERGED) scenario's slicing require a **Follow-up Slice** (below) or **`CODESIGN --revise`** (new feature version). Derivation + gate + cascade pseudocode: `Factory-iteration-model/SKILL.md § Slice Freeze Derivation`.
@@ -300,7 +300,7 @@ reused_artifacts: ["src/domain/User.ts", "src/domain/Auth.ts"]  # Do not re-impl
 
 ### Rule: Maximum 1 Active Version
 
-**Active = `status` in:** `DRAFT`, `IN_PROGRESS`, `APPROVED`, `READY`, `IMPLEMENTED` (but not merged, superseded, cancelled, or on_hold)
+**Active = `status` in:** `DRAFT`, `IN_PROGRESS`, `APPROVED`, `READY`, `IMPLEMENTED` (but not merged, superseded or cancelled)
 
 **Example:**
 ```
@@ -319,9 +319,8 @@ USR-001-v3: ❌ BLOCKED - Max 1 active version reached
   Active version for USR-001: [v2 (status: DEV IN_PROGRESS)]
   
   Options:
-  1. PAUSE v2: /CODESIGN --pause USR-001-v2 "Reason" → Allows creating v3
-  2. CANCEL v2: /CODESIGN --cancel USR-001-v2 → Allows creating v3
-  3. COMPLETE v2: Finish full SDLC pipeline first
+  1. CANCEL v2: /CODESIGN --cancel USR-001-v2 → Allows creating v3
+  2. COMPLETE v2: Finish full SDLC pipeline first
   
   Why 1 version only?
   - Prevents merge conflicts
@@ -329,11 +328,6 @@ USR-001-v3: ❌ BLOCKED - Max 1 active version reached
   - Eliminates "which version to work on?" confusion
   - Forces architectural decisions before coding
   ```
-
-**Exception: ON_HOLD State**
-- Versions with `status: ON_HOLD` do NOT count as active
-- Allows temporarily pausing v2 to create v3
-- Command: `/CODESIGN --pause {{FEATURE_ID}} "reason"`
 
 ---
 
@@ -493,35 +487,20 @@ hotfix_applied_at: 2026-01-22T15:00:00Z
    Active version for USR-001: [USR-001-v2 (status: IN_PROGRESS)]
    
    Options:
-   1. PAUSE v2: /CODESIGN --pause USR-001-v2 "Escalabilidad insuficiente" → Allows creating v3
-   2. CANCEL v2: /CODESIGN --cancel USR-001-v2 → Permanently removes v2
-   3. COMPLETE v2: Finish SDLC pipeline first, then revise
-   
-   Recommendation: Use PAUSE if you might return to v2 approach later.
+   1. CANCEL v2: /CODESIGN --cancel USR-001-v2 → Allows creating v3
+   2. COMPLETE v2: Finish SDLC pipeline first, then revise
    ```
 
-2. User chooses PAUSE:
+2. User chooses CANCEL (v2's branch and artefacts stay in git history if the approach is needed again):
    ```
-   /CODESIGN --pause USR-001-v2 "Approach doesn't scale to 10M users. Exploring microservices."
+   /CODESIGN --cancel USR-001-v2
    ```
-   - Output:
-     ```
-     ⏸️ Feature USR-001-v2 paused (status: ON_HOLD).
-     Previous status: IN_PROGRESS
-     
-     You can now create USR-001-v3.
-     To resume v2 later: /CODESIGN --resume USR-001-v2
-     ```
 
 3. User creates new version:
    ```
    /CODESIGN --revise USR-001 "Microservices architecture for scalability"
    ```
-   - Creates `USR-001-v3/` (v2 in ON_HOLD doesn't count as active)
-
-4. **Subsequent Decision:**
-   - If v3 works → `/CODESIGN --cancel USR-001-v2` (discards v2)
-   - If v3 fails → `/CODESIGN --resume USR-001-v2` (resumes v2)
+   - Creates `USR-001-v3/` (v2 is CANCELLED, so it does not count as active)
 
 ---
 
@@ -631,7 +610,7 @@ def check_increment_immutability(agent, command, feature_id, target_increment_id
         if status == "BUILDING":
             raise BlockedError(
                 f"Increment {inc_id} is BUILDING (branch open, tasks in progress). "
-                f"Complete the increment or run `IMPLEMENT --pause {feature_id} {inc_id}` first."
+                f"Complete the increment first."
             )
 
         # DRAFT / READY / INVALIDATED → allowed (subject to field-level rules in the
