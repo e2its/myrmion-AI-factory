@@ -133,7 +133,7 @@ Each finding above informational carries file, line, severity, confidence and an
 
 ### Step 5: Script-Based Validation Registry
 - Mandatory scripts: `dependency-allowlist.sh`, `security-scan.sh`
-- Conditional scripts based on stack (e.g., `validate-iac.sh` if iac_tool != None)
+- Conditional scripts based on stack (e.g., `validate-iac.sh` if `hosting.iac_tool != None`)
 
 ### Step 6: Defect Prevention Consultation
 
@@ -967,7 +967,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
       - id: "GOV-IAC"
         source: ".claude/rules/iac.md"
         constraints: ["{IaC naming}", "{module structure}", "{least privilege}"]
-        stack_conditional: "iac_tool != None"
+        stack_conditional: "hosting.iac_tool != None"
       - id: "GOV-FRONT"
         source: ".claude/rules/frontend_architecture_compatibility.md"
         constraints: ["{frontend arch rules}"]

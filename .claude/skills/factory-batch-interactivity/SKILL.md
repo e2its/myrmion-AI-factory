@@ -312,7 +312,7 @@ TIER_2_INFRASTRUCTURE:
   dependencies: [TIER_0, TIER_1]
   description: "Databases, auth, hosting, CI/CD, observability, dependencies."
   conditional_unlocks:
-    - { trigger: "Q18 == 'OAuth2'", unlocks: [Q18.1_provider] }
+    - { trigger: "Q18 == 'OAuth2/OIDC'", unlocks: [Q18.1_provider] }
     - { trigger: "Q24a == true", unlocks: [Q24a_details] }
     - { trigger: "Q24b == true", unlocks: [Q24b_details] }
     - { trigger: "Q24c == true", unlocks: [Q24c_details] }

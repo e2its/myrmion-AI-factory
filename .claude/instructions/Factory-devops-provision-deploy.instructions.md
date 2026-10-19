@@ -109,7 +109,7 @@ IF resource.type == "function" (from design.md):
   
   GENERATE per iac_tool:
     SAM: AWS::Serverless::Function in template.yaml
-    CDK: new lambda.Function() in stack
+    AWS CDK: new lambda.Function() in stack
     serverless-framework: functions block in serverless.yml
   
   INCLUDE:
@@ -397,11 +397,11 @@ Phase 2: Pre-Flight
   VERIFY contract files haven't changed since last build
 
 Phase 3: Build Artifacts
-  Per architecture topology:
-    Monolith (B1): Build single deployable
-    Microservices (B2-B4): Build per-service containers/packages
-    Serverless (B9): Package per-function
-    Modular Monolith (B8): Build single deployable with module verification
+  Per architecture topology (Q7's codes and names, `backend.topology`):
+    B1 Traditional Monolith, B12 MVC Monolith: Build single deployable
+    B2 Modular by Bounded Contexts, B3 DDD+Event Sourcing, B4 Microkernel+Plugins: Build single deployable with module verification
+    B5 Microservices REST, B6 Microservices Event-Driven, B7 Microservices CQRS+ES, B8 SOA+ESB, B10 Peer-to-Peer, B11 Broker/Pipeline: Build per-service containers/packages
+    B9 Serverless: Package per-function
   
   Per resource type:
     static_site (SPA): Run {build_command}, collect {output_dir}/

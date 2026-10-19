@@ -41,7 +41,7 @@ project_tracking:
     - "{{col_4}}"                              # Default: Done
   feature_phases: "{{preset_string}}"          # Q27.2: Preset string — "full-sdlc" | "simplified" | "single"
                                                # BACKLOG expands preset into phase objects at runtime (see § 1.1)
-  milestone_strategy: "{{milestone_strategy}}" # Q27.3: phase-based | sprint-based | none
+  milestone_strategy: "{{milestone_strategy}}" # Q27.3: epic-based | phase-based | sprint-based | none
   naming_convention: "{{naming_convention}}"   # Q27.4: FEAT-NNN | USR-NNN | custom prefix
 ```
 

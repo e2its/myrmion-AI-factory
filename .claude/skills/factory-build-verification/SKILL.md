@@ -173,7 +173,7 @@ FUNCTION derive_commands_from_stack(stack):
                     DEFAULT   → "python -m pytest {test_file} -x --tb=short -q"
     "Java"     → "mvn test -pl {module} -Dtest={test_class} -q"
     "Go"       → "go test {test_package} -run {test_name} -v"
-    "C#"       → "dotnet test --filter {test_class} --verbosity minimal"
+    ".NET"     → "dotnet test --filter {test_class} --verbosity minimal"
     "Rust"     → "cargo test {test_name} -- --nocapture"
     DEFAULT    → NULL  # Unknown stack — skip BVL with warning
   
@@ -182,7 +182,7 @@ FUNCTION derive_commands_from_stack(stack):
     "Python"   → "python -m pytest -x --tb=short -q"
     "Java"     → "mvn test -q"
     "Go"       → "go test ./... -v"
-    "C#"       → "dotnet test --verbosity minimal"
+    ".NET"     → "dotnet test --verbosity minimal"
     "Rust"     → "cargo test"
     DEFAULT    → NULL
   
@@ -192,7 +192,7 @@ FUNCTION derive_commands_from_stack(stack):
     "Python"   → "ruff check {files}"
     "Java"     → NULL  # IDE-based
     "Go"       → "golangci-lint run {files}"
-    "C#"       → "dotnet format --verify-no-changes"
+    ".NET"     → "dotnet format --verify-no-changes"
     "Rust"     → "cargo clippy -- -D warnings"
     DEFAULT    → NULL
   
@@ -208,15 +208,15 @@ FUNCTION derive_commands_from_stack(stack):
     "Python"   → NULL  # Interpreted
     "Java"     → "mvn compile -q"
     "Go"       → "go build ./..."
-    "C#"       → "dotnet build --no-restore"
+    ".NET"     → "dotnet build --no-restore"
     "Rust"     → "cargo build"
     DEFAULT    → NULL
   
   # Frontend test runner (if frontend exists)
   IF stack.frontend IS NOT NULL AND stack.frontend.framework != "None":
     commands.frontend_test = MATCH stack.frontend.framework:
-      "React" | "Next.js" → "npx jest --config jest.config.ts {test_file} --no-coverage"
-      "Vue"               → "npx vitest run {test_file}"
+      "React"             → "npx jest --config jest.config.ts {test_file} --no-coverage"
+      "Vue.js"            → "npx vitest run {test_file}"
       "Angular"           → "npx ng test --no-watch --browsers=ChromeHeadless"
       "Svelte"            → "npx vitest run {test_file}"
       DEFAULT             → commands.test_single  # Same as backend
@@ -230,7 +230,7 @@ FUNCTION derive_commands_from_stack(stack):
     "Python"   → "python -m pytest --cov --cov-report=term-missing -q"
     "Java"     → "mvn verify -Djacoco.skip=false -q"
     "Go"       → "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out"
-    "C#"       → "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
+    ".NET"     → "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
     "Rust"     → NULL  # Requires cargo-tarpaulin, optional
     DEFAULT    → NULL
   
@@ -242,7 +242,7 @@ FUNCTION derive_commands_from_stack(stack):
                   ELSE: NULL
     "Java"     → IF FILE_EXISTS("pom.xml") AND COMMAND_EXISTS("grep") AND SHELL("grep -Eq '<groupId>org\\.owasp</groupId>|<artifactId>dependency-check-maven</artifactId>' pom.xml"): "mvn dependency-check:check -q" ELSE: NULL
     "Go"       → IF COMMAND_EXISTS("govulncheck"): "govulncheck ./... 2>&1 || true" ELSE: NULL
-    "C#"       → "dotnet list package --vulnerable 2>&1 || true"
+    ".NET"     → "dotnet list package --vulnerable 2>&1 || true"
     "Rust"     → IF COMMAND_EXISTS("cargo-audit"): "cargo audit 2>&1 || true" ELSE: NULL
     DEFAULT    → NULL
   

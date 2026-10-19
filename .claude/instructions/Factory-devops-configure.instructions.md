@@ -68,7 +68,7 @@ READ docs/constitution.md:
 ### Step 2: Load Governance Files
 ```yaml
 LOAD (ALL required):
-  .claude/rules/ci-cd.md → ci_cd_platform, environments_config, cost_limits
+  .claude/rules/ci-cd.md → platform (`ci_cd.platform`), environments_config, cost_limits
   .claude/rules/iac.md → IaC standards, module structure
   .claude/rules/stateless.md → Stateless service rules
   .claude/rules/security_policy.md → Security standards
@@ -376,7 +376,7 @@ FUNCTION derive_target_runtime(resource, feature_scope, hosting_provider):
       "integration":          RETURN "worker"               # integrations typically process queues / events / webhooks inbound
       "full-stack":           RETURN "container"            # bundled service
       default:                RETURN "container"
-  IF resource.type == "cron" OR resource.trigger == "schedule":
+  IF resource.trigger == "schedule":
     RETURN "scheduler"              # EventBridge rule → Lambda, Cloud Scheduler → Cloud Run Job, K8s CronJob
   # Fallback: let the caller's hosting provider decide
   RETURN "platform-default"

@@ -6,7 +6,7 @@ applicable_when:
     - "**/Jenkinsfile"
     - "**/.gitlab-ci.yml"
     - "**/azure-pipelines.yml"
-version: 1.7.0
+version: 1.7.1
 date: 2026-10-07
 changelog:
   - "1.7.0: feat(EVOL-064) — § The branch rule and the runtime surface (EVOL-047) moved verbatim from the project CLAUDE.md Generation Standards §3."
@@ -274,8 +274,8 @@ If a field cannot be determined, it defaults to "unknown" and /DEVOPS will promp
 ```yaml
 # Cloud & IaC Configuration (populated by /SETUP --generate)
 infrastructure:
-  cloud_provider: {{CLOUD_PROVIDER}}  # aws | azure | gcp | local | hybrid | unknown
-  iac_tool: {{IAC_TOOL}}              # terraform | pulumi | aws-cdk | docker-compose | localstack | sam | unknown
+  cloud_provider: {{CLOUD_PROVIDER}}  # AWS | GCP | Azure | Vercel | Railway | Fly.io | DigitalOcean | Self-hosted | Other
+  iac_tool: {{IAC_TOOL}}              # Terraform | Pulumi | AWS CDK | Docker Compose | None
   iac_descriptor:                      # Universal IaC meta-model (populated by /SETUP --generate from Q23)
     entry_point: {{IAC_ENTRY_POINT}}               # e.g., main.tf | Pulumi.yaml | cdk.json
     provider_config: {{IAC_PROVIDER_CONFIG}}        # e.g., provider.tf | Pulumi.aws.yaml

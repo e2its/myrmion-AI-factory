@@ -121,7 +121,7 @@ For each ADR in `docs/project_log/adr/`:
 The three sections are mutually exclusive on target paths — a file appears in exactly one section. Walk all three in a single pass; do not deduplicate by checksum across sections.
 
 1. Compare framework versions vs project versions (SemVer)
-2. Evaluate `stack_conditional` filters (skip files that don't apply to current stack)
+2. Evaluate `stack_conditional` filters (skip files that don't apply to current stack) against the keys `docs/setup.md` persists (`ci_cd.platform`, `hosting.iac_tool`, `backend.runtime` …). Before evaluating: a `ci_cd.platform` of `CircleCI` is no longer offered (#143) — ask Q21 again (no earlier answer determines it; nothing is lost, no CircleCI template ever shipped); a frontmatter `mode:` is renamed `project_mode:` with Q3's literal (`Greenfield` | `Brownfield`). A file the answers now select that the project lacks (the C# rules for `.NET`, the CodeBuild governance check for `AWS CodePipeline`) is offered as new.
 3. Detect user customizations (project checksum ≠ previous framework checksum → user modified file)
 4. Present upgrade summary with options: **ALL** (upgrade everything) | **SELECT** (choose files) | **ABORT**
 

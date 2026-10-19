@@ -148,7 +148,7 @@
       "version": "1.2.1",
       "content_type": "universal",
       "target": ".claude/rules/React.md",
-      "stack_conditional": "frontend.framework == React OR frontend.framework == Next.js",
+      "stack_conditional": "frontend.framework == React",
       "changelog": [
         "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
@@ -173,7 +173,7 @@
       "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/rules/csharp.md",
-      "stack_conditional": "backend.runtime == C#",
+      "stack_conditional": "backend.runtime == .NET",
       "changelog": [
         "1.2.0: feat(EVOL-028) migrate `applyTo:` → `applicable_when: path_glob:`.",
         "1.0.0: Initial template",
@@ -254,10 +254,11 @@
       ]
     },
     "rules/ci-cd.md": {
-      "version": "1.7.0",
+      "version": "1.7.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/ci-cd.md",
       "changelog": [
+        "1.7.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.7.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.6.0: feat(EVOL-047) — deploying / release jobs ask gate.py runtime-surface --changed first; the branch rule is untouched.",
         "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
@@ -327,7 +328,7 @@
       "content_type": "stack_configured",
       "target": ".claude/rules/contract-first-policy.md",
       "changelog": [
-        "3.7.2: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "3.7.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "3.7.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "3.7.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "3.6.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
@@ -451,7 +452,7 @@
       "version": "1.2.0",
       "content_type": "universal",
       "target": "scripts/validate-iac.sh",
-      "stack_conditional": "iac_tool != None",
+      "stack_conditional": "hosting.iac_tool != None",
       "changelog": [
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template — IaC governance validator",
@@ -460,11 +461,12 @@
       "delivery": "setup"
     },
     "scripts/validate-migrations.sh": {
-      "version": "1.3.0",
+      "version": "1.3.1",
       "content_type": "universal",
       "target": "scripts/validate-migrations.sh",
       "stack_conditional": "database exists",
       "changelog": [
+        "1.3.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.3.0: feat(EVOL-049)! — EVOL-049 — the review-time hats retire; the lenses and the phase agents named (see ADR-EVOL-049).",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: Initial template — Migration safety validator",
@@ -502,10 +504,11 @@
       "delivery": "setup"
     },
     "scripts/lint-format.sh": {
-      "version": "1.2.0",
+      "version": "1.2.1",
       "content_type": "stack_configured",
       "target": "scripts/lint-format.sh",
       "changelog": [
+        "1.2.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.2: fix: security — replace grep -qwE with exact-match loop to prevent partial-word matches and support non-word characters in tech names (e.g., html-css)",
         "1.0.1: fix: stack-agnostic tech validation — dynamic discovery from docs/rules/ instead of hardcoded whitelist, expanded static fallback with Go/Rust/Ruby/PHP/Elixir",
@@ -714,7 +717,7 @@
       "version": "2.6.0",
       "content_type": "universal",
       "target": ".github/workflows/governance-check.yml",
-      "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
+      "stack_conditional": "ci_cd.platform == \"GitHub Actions\"",
       "changelog": [
         "2.6.0: feat(EVOL-054) — GH_TOKEN: github.token on the profile step (metadata read): the scm-protection member reads the rulesets at ci; the stale member enumeration dropped from the step name (profile.py is the list).",
         "2.5.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
@@ -731,7 +734,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": ".github/workflows/auto-tag.yml",
-      "stack_conditional": "ci_cd_platform == \"GitHub Actions\"",
+      "stack_conditional": "ci_cd.platform == \"GitHub Actions\"",
       "changelog": [
         "1.1.0: feat(EVOL-047) — asks gate.py runtime-surface --changed before the tag script; outside the runtime surface = no tag, no release.",
         "1.0.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -743,7 +746,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": ".gitlab-ci-auto-tag.yml",
-      "stack_conditional": "ci_cd_platform == \"GitLab CI\"",
+      "stack_conditional": "ci_cd.platform == \"GitLab CI\"",
       "changelog": [
         "1.1.0: feat(EVOL-047) — asks gate.py runtime-surface --changed before the tag script; outside the runtime surface = no tag, no release.",
         "1.0.2: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -755,7 +758,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": "azure-pipelines-auto-tag.yml",
-      "stack_conditional": "ci_cd_platform == \"Azure DevOps\"",
+      "stack_conditional": "ci_cd.platform == \"Azure DevOps\"",
       "changelog": [
         "1.1.0: feat(EVOL-047) — asks gate.py runtime-surface --changed before the tag script; outside the runtime surface = no tag, no release.",
         "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -766,7 +769,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": "bitbucket-pipelines.yml",
-      "stack_conditional": "ci_cd_platform == \"Bitbucket Pipelines\"",
+      "stack_conditional": "ci_cd.platform == \"Bitbucket Pipelines\"",
       "changelog": [
         "1.1.0: feat(EVOL-047) — asks gate.py runtime-surface --changed before the tag script; outside the runtime surface = no tag, no release.",
         "1.0.2: chore(EVOL-040) — target_mode: merge declared (both Bitbucket templates legitimately share target bitbucket-pipelines.yml; materialization merges pipeline blocks; CHECK 1c blocks undeclared collisions).",
@@ -780,7 +783,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": "Jenkinsfile.auto-tag",
-      "stack_conditional": "ci_cd_platform == \"Jenkins\"",
+      "stack_conditional": "ci_cd.platform == \"Jenkins\"",
       "changelog": [
         "1.1.0: feat(EVOL-047) — asks gate.py runtime-surface --changed before the tag script; outside the runtime surface = no tag, no release.",
         "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -791,7 +794,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": "buildspec-auto-tag.yml",
-      "stack_conditional": "ci_cd_platform == \"AWS CodePipeline\"",
+      "stack_conditional": "ci_cd.platform == \"AWS CodePipeline\"",
       "changelog": [
         "1.1.0: feat(EVOL-047) — asks gate.py runtime-surface --changed before the tag script; outside the runtime surface = no tag, no release.",
         "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -802,7 +805,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": "cloudbuild-auto-tag.yaml",
-      "stack_conditional": "ci_cd_platform == \"GCP Cloud Build\"",
+      "stack_conditional": "ci_cd.platform == \"GCP Cloud Build\"",
       "changelog": [
         "1.1.0: feat(EVOL-047) — asks gate.py runtime-surface --changed before the tag script; outside the runtime surface = no tag, no release.",
         "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -1014,10 +1017,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.12.1",
+      "version": "2.12.2",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.12.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "2.12.1: fix(EVOL-059) — Q34 seeds: writer_model opus · critic_model sonnet (RDR-2 of ADR-EVOL-059).",
         "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks slot (Q21.2)",
         "2.11.0: feat(EVOL-049)! — agents: writer_model / critic_model (Q34) + summary bullet.",
@@ -1092,7 +1096,7 @@
       "content_type": "universal",
       "target": "docs/upgrade_safety_protocol.md",
       "changelog": [
-        "1.2.2: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
+        "1.2.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.2.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
         "1.2.0: feat(EVOL-027) fase 2 — drop .instructions.md suffix from .claude/rules/* refs (rules-naming convention unified per ADR-EVOL-027 Gap #4 scope C).",
         "1.0.0: chore(EVOL-014): placeholder notation convention block added to header — distinguishes SCREAMING_SNAKE materialization placeholders from lowercase pseudo-code/log-format locals",
@@ -1138,7 +1142,7 @@
       "version": "1.1.1",
       "content_type": "universal",
       "target": ".gitlab/governance-check.yml",
-      "stack_conditional": "ci_cd_platform == \"GitLab CI\"",
+      "stack_conditional": "ci_cd.platform == \"GitLab CI\"",
       "changelog": [
         "1.1.1: feat(EVOL-054) — names the GITLAB_TOKEN masked variable (read_api) the scm-protection member reads at ci.",
         "1.1.0: feat(EVOL-046) — the gate profile as one call + one-definition; every merge request (a sub-increment MR targets its train).",
@@ -1150,7 +1154,7 @@
       "version": "1.1.1",
       "content_type": "universal",
       "target": "bitbucket-pipelines.yml",
-      "stack_conditional": "ci_cd_platform == \"Bitbucket Pipelines\"",
+      "stack_conditional": "ci_cd.platform == \"Bitbucket Pipelines\"",
       "changelog": [
         "1.1.1: feat(EVOL-054) — names the BITBUCKET_TOKEN secured variable the scm-protection member reads at ci.",
         "1.1.0: feat(EVOL-046) — the gate profile as one call + one-definition; every PR.",
@@ -1164,7 +1168,7 @@
       "version": "1.2.0",
       "content_type": "universal",
       "target": "governance-check-pipeline.yml",
-      "stack_conditional": "ci_cd_platform == \"Azure DevOps\"",
+      "stack_conditional": "ci_cd.platform == \"Azure DevOps\"",
       "changelog": [
         "1.2.0: feat(EVOL-054) — AZURE_DEVOPS_TOKEN: $(System.AccessToken) on the profile step: the scm-protection member reads the branch policies at ci; a runner whose token is not exported is a RED wiring finding.",
         "1.1.0: feat(EVOL-046) — the gate profile as one call + one-definition; every PR.",
@@ -1176,7 +1180,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": "buildspec-governance.yml",
-      "stack_conditional": "ci_cd_platform == \"AWS CodeBuild\"",
+      "stack_conditional": "ci_cd.platform == \"AWS CodePipeline\"",
       "changelog": [
         "1.1.0: feat(EVOL-046) — the gate profile as one call + one-definition.",
         "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -1187,7 +1191,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": "cloudbuild-governance.yaml",
-      "stack_conditional": "ci_cd_platform == \"GCP Cloud Build\"",
+      "stack_conditional": "ci_cd.platform == \"GCP Cloud Build\"",
       "changelog": [
         "1.1.0: feat(EVOL-046) — the gate profile as one call + one-definition.",
         "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -1198,7 +1202,7 @@
       "version": "1.1.0",
       "content_type": "universal",
       "target": "Jenkinsfile.governance",
-      "stack_conditional": "ci_cd_platform == \"Jenkins\"",
+      "stack_conditional": "ci_cd.platform == \"Jenkins\"",
       "changelog": [
         "1.1.0: feat(EVOL-046) — the gate profile as one call + one-definition; every change request.",
         "1.0.1: chore(rename-myrmion) — brand rename mi AI Factory→Myrmion AI Factory, slug mi-AI-Factory→myrmion-AI-factory",
@@ -1263,7 +1267,7 @@
       "content_type": "universal",
       "target": "docs/project_log/MATERIALIZATION_REPORT.md",
       "changelog": [
-        "1.7.1: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
+        "1.7.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.7.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.6.0: feat(EVOL-054) — `### Server-side protection — next steps` block: the SCM host, the runbook path, whether CI carries the token.",
         "1.5.0: feat(EVOL-045) — surface ceiling line (Q31).",
@@ -1412,6 +1416,7 @@
       "version": "1.0.0",
       "content_type": "universal",
       "target": ".github/workflows/inventory-drift.yml",
+      "stack_conditional": "ci_cd.platform == \"GitHub Actions\"",
       "role": "GitHub Actions blocking CI gate that runs the freshness check on every PR touching src, the inventory, the freshness script, or this workflow itself. Materialised at SETUP --generate as `.github/workflows/inventory-drift.yml`.",
       "changelog": [
         "1.0.0: fix(EVOL-040) — entry moved framework_core→templates with explicit target (was section-misplaced with no target: SETUP --upgrade could never materialize it despite its own role text).",
@@ -1601,7 +1606,7 @@
       "version": "1.0.0",
       "content_type": "universal",
       "target": ".github/workflows/design-system-rebuild.yml",
-      "stack_conditional": "ci_cd_platform == \"GitHub Actions\" AND po_package.ds_rebuild_command != null",
+      "stack_conditional": "ci_cd.platform == \"GitHub Actions\" AND po_package.ds_rebuild_command != null",
       "role": "OPTIONAL advisory GitHub Actions job (EVOL-052 DEC-6): rebuilds design-system cards from code through the PO package builder, reports card-to-registry drift, uploads the bundle. Materialised only when a rebuild command is configured. Push-to-main and manual only — never on pull requests. Names no third-party tool; reads the command from the package config at run time.",
       "changelog": [
         "1.0.0: feat(EVOL-052) — initial."
@@ -2823,7 +2828,7 @@
       "version": "3.14.1",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
-        "3.14.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "3.14.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "3.14.0: feat(EVOL-060) — the plan critic's two-part return; its returns appended verbatim to plan_critic_{timestamp}.md after the round's hash.",
         "3.13.0: feat(EVOL-058) — the plan critic's spawn carries the budgets; the hand-back on a partial return.",
         "3.12.0: feat(EVOL-056) — § Beat 0 — External facts before the design (spawn-policy: reader): the main session spawns factory-docs-reader, hands its sources to factory-blueprint; every external claim cites its source, known-cold otherwise.",
@@ -2978,7 +2983,7 @@
       "version": "2.7.1",
       "path": ".claude/instructions/Factory-devops-configure.instructions.md",
       "changelog": [
-        "2.7.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "2.7.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "2.7.0: feat(EVOL-058) — the reader's spawn carries the budget lines; a partial return gets one hand-back; a reader that does not deliver returns every question as an unknown.",
         "2.6.0: feat(EVOL-056) — Guardrail 0.5 — External facts (spawn-policy: reader): the main session spawns factory-docs-reader on the services and IaC resources before the stack coherence guardrail.",
         "2.5.1: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -3007,7 +3012,7 @@
       "version": "2.8.1",
       "path": ".claude/instructions/Factory-devops-provision-deploy.instructions.md",
       "changelog": [
-        "2.8.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "2.8.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "2.8.0: feat(EVOL-059) — the PREVENTIVE-SWEEP gate reads the artefact the sweep writes (the newest review/preventive_sweep_*.md) and blocks on an undelivered scope whatever the issue's column; one cause per block (missing, INVALIDATED, then the combined condition).",
         "2.7.2: feat(EVOL-054) — provisioning prerequisite: scm-protection at ci (EVOL-054)",
         "2.7.1: fix(EVOL-051) — review pass — the deploy pre-gate asks gate.py seal --check --ref HEAD before trusting IMPLEMENTED_AND_VERIFIED (EVOL-051)",
@@ -3218,7 +3223,7 @@
       "version": "1.15.1",
       "path": ".claude/instructions/Factory-backlog-operations.instructions.md",
       "changelog": [
-        "1.15.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "1.15.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.15.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.14.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.13.0: fix(EVOL-059) — the sweep artefact example names the path the sweep writes and its COMPLETED status.",
@@ -3280,9 +3285,10 @@
       ]
     },
     "instructions/Factory-setup-discovery.instructions.md": {
-      "version": "2.22.1",
+      "version": "2.22.2",
       "path": ".claude/instructions/Factory-setup-discovery.instructions.md",
       "changelog": [
+        "2.22.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "2.22.1: fix(EVOL-059) — Q34 recommends writer: opus · critic: sonnet (RDR-2 of ADR-EVOL-059: the cost sits where the spawns are many).",
         "2.22.0: feat(EVOL-054) — Q21 gains Bitbucket Pipelines / Azure DevOps / GCP Cloud Build (the literals the workflow conditionals name); Q21.2 the SCM host, approvals and required checks, in the tier-2 question list.",
         "2.21.1: feat(EVOL-053) — derived, no question: verification.gates and traceability.home come from the stack",
@@ -3322,7 +3328,7 @@
       "version": "3.24.2",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
-        "3.24.2: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "3.24.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "3.24.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "3.24.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "3.23.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
@@ -3380,9 +3386,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.18.1",
+      "version": "2.18.2",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.18.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "2.18.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
         "2.18.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
         "2.17.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
@@ -3737,7 +3744,7 @@
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
-        "1.13.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "1.13.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.13.0: feat(EVOL-057) — § Full Verification Gate: the gates the map names run through the loop's executor (gate.py seal --run — timed, output in the state folder, the seal right after); the steps keep the gates the map does not name; a gate without a command is recorded by its owner.",
         "1.12.0: feat(EVOL-051) — one full loop per change: the order (static round → critics → artefacts → one loop → commit), the plan from gate.py seal --plan, one execution per command, the seal written per gate and --full, nothing tracked after the green",
         "1.11.0: feat(EVOL-049)! — loops run by the orchestrator on behalf of the critics; hat vocabulary retired.",
@@ -4409,7 +4416,7 @@
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
-        "1.17.0: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
+        "1.17.0: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.16.0: feat(EVOL-054) — GH_TOKEN exported to the profile step — the scm-protection member reads this repository's ruleset at ci (metadata read); the stale member enumeration dropped from the step name.",
         "1.15.0: fix(EVOL-053) — pytest installed before the T2 loop — the EVOL-053 collection plugin test runs in CI, never skipped",
         "1.14.0: feat(EVOL-047) — EVOL-047 review pass (see ADR-EVOL-047).",
@@ -4614,11 +4621,12 @@
       "path": ".claude/skills/factory-applicability-discovery/SKILL.md"
     },
     "skills/factory-batch-interactivity/SKILL.md": {
-      "version": "1.2.4",
+      "version": "1.2.5",
       "type": "skill",
       "path": ".claude/skills/factory-batch-interactivity/SKILL.md",
       "role": "BIP — tiered proposal/review/converge cycles, BA mediation between specialist agents and the user.",
       "changelog": [
+        "1.2.5: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.2.4: fix #113: an auto-approval check count lives only in its check list — the copied counts are cured, three retired_terms patterns keep any count from coming back",
         "1.2.3: fix(EVOL-041) — Tier ARTIFACTS lists dependency order journey → spec → mock (D20).",
         "1.2.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
@@ -4735,11 +4743,12 @@
       ]
     },
     "schemas/infrastructure_registry.schema.json": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "type": "config",
       "role": "JSON schema for config/infrastructure_registry.json (DEVOPS).",
       "path": ".context/schemas/infrastructure_registry.schema.json",
       "changelog": [
+        "1.0.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.0.0: feat(EVOL-040) backfill — register orphan (root cause A weld: full-tree CHECK 2)."
       ]
     },
@@ -4862,11 +4871,12 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.12.1",
+      "version": "1.12.2",
       "type": "config",
       "role": "Meta repo quality config (EVOL-040): complexity disabled (markdown+small-validators repo), code_review defaults (Block 20 dogfooding), security_scan resolved concrete — gitleaks is the meta-ratified scanner consumed by scripts/security-scan.sh --secrets and the pre-push hook delegation.",
       "path": "config/quality.json",
       "changelog": [
+        "1.12.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.12.1: fix #113: an auto-approval check count lives only in its check list — the copied counts are cured, three retired_terms patterns keep any count from coming back",
         "1.12.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.11.1: fix(EVOL-059) — agents.families: writer opus, critic sonnet (RDR-2 of ADR-EVOL-059).",
@@ -5094,11 +5104,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.20.1",
+      "version": "1.20.2",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.20.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.20.1: fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/",
         "1.20.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.19.0: feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value",
@@ -5520,6 +5531,33 @@
       "path": "scripts/test-check-design-sections.sh",
       "changelog": [
         "1.0.0: fix #160: design.md section-map check and its red-proving self-test (meta CI)"
+      ]
+    },
+    "scripts/test-discovery-literals.sh": {
+      "version": "1.0.0",
+      "delivery": "sync",
+      "type": "utility",
+      "path": "scripts/test-discovery-literals.sh",
+      "changelog": [
+        "1.0.0: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact"
+      ]
+    },
+    "scripts/fixtures/synthetic-answers/default.json": {
+      "version": "1.0.0",
+      "delivery": "sync",
+      "type": "utility",
+      "path": "scripts/fixtures/synthetic-answers/default.json",
+      "changelog": [
+        "1.0.0: fix #143: synthetic answer sets — every stack_conditional evaluated against the keys and literals discovery offers"
+      ]
+    },
+    "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
+      "version": "1.0.0",
+      "delivery": "sync",
+      "type": "utility",
+      "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json",
+      "changelog": [
+        "1.0.0: fix #143: synthetic answer sets — every stack_conditional evaluated against the keys and literals discovery offers"
       ]
     }
   },

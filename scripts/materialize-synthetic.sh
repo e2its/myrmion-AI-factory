@@ -19,9 +19,17 @@
 #      the agent roster lands and its validator holds the tool matrix and the family separation (EVOL-049)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
+#   0. every manifest stack_conditional is evaluated against a fixture answer set (#143): the keys discovery
+#      persists, the literals it offers; the fixture's expected files land and its stack has its BVL rows
+#
+# Usage: materialize-synthetic.sh [--answers FIXTURE]   (default scripts/fixtures/synthetic-answers/default.json;
+#        another fixture proves step 0 only — the toolchain checks are written for the default stack)
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ANSWERS="$ROOT/scripts/fixtures/synthetic-answers/default.json"
+[ "${1:-}" = "--answers" ] && ANSWERS="$2"
+[ -f "$ANSWERS" ] || { echo "materialize-synthetic: answer fixture missing ($ANSWERS)" >&2; exit 2; }
 T="$ROOT/.context/templates/setup"
 MANIFEST="$T/governance_versions.json"
 [ -f "$MANIFEST" ] || { echo "materialize-synthetic: manifest missing" >&2; exit 2; }
@@ -35,23 +43,25 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; [ -n "${2:-}" ] && echo "$2" | sed 's/^/      /' | head -12; return 0; }
 
-echo "── materialise (manifest targets + sample answers) ──"
-REPORT=$(python3 - "$T" "$P" "$MANIFEST" <<'PY'
+echo "── materialise (manifest targets + the answers of $(basename "$ANSWERS")) ──"
+REPORT=$(python3 - "$T" "$P" "$MANIFEST" "$ANSWERS" "$ROOT" <<'PY'
 import json, re, sys, shutil
 from pathlib import Path
 T, P, M = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 m = json.loads(M.read_text())
-SAMPLE = {  # one stack sample; conditionals not matching are skipped
-    "backend.runtime == Python": True, "backend.runtime == Node": False, "backend.runtime == Java": False,
-    "backend.runtime == C#": False, "frontend.framework == React": True,
-    'ci_cd_platform == "GitHub Actions"': True, 'po_package.mode != "off"': True,
-    "scm.platform == GitHub": True, "scm.platform == GitLab": False, "scm.platform == Bitbucket": False, "scm.platform == Azure DevOps": False, "scm.platform == Other": False,
-}
-def cond_ok(c):
+FX = json.loads(Path(sys.argv[4]).read_text()); A = FX["answers"]
+def clause_ok(cl):  # `key == value` · `key != value` · `key exists` (a non-None answer at the key or under it)
+    g = re.fullmatch(r"\s*([A-Za-z_][\w.]*)\s*(?:(==|!=)\s*(.+?)|(exists))\s*", cl)
+    if not g:
+        sys.exit(f"unparseable stack_conditional clause: {cl!r}")
+    key = g.group(1)
+    if g.group(4):
+        return any((k == key or k.startswith(key + ".")) and v not in (None, "None") for k, v in A.items())
+    val = g.group(3).strip().strip('"'); val = None if val == "null" else val
+    return (A.get(key) == val) if g.group(2) == "==" else (A.get(key) != val)
+def cond_ok(c):  # AND binds tighter than OR
     if not c: return True
-    for k, v in SAMPLE.items():
-        if k in c: return v
-    return "GitHub" in c or "Python" in c or "React" in c
+    return any(all(clause_ok(x) for x in re.split(r"\s+AND\s+", alt)) for alt in re.split(r"\s+OR\s+", c))
 landed, skipped = [], []
 for key, e in m["templates"].items():
     if key.startswith("_") or not isinstance(e, dict): continue
@@ -94,14 +104,28 @@ for f in P.rglob("*"):
         f.write_text(resolve(text, f.suffix == ".json"), encoding="utf-8")
     if f.suffix == ".json" and "{{" in f.read_text(encoding="utf-8"):
         unresolved.append(str(f.relative_to(P)))
-print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_json": unresolved}))
+exp = FX.get("expect", {})
+missing = [f"{x} did not land" for x in exp.get("landed", []) if x not in landed]
+missing += [f"{x} landed, the answers do not select it" for x in exp.get("absent", []) if x in landed]
+bvl = (Path(sys.argv[5]) / ".claude/skills/factory-build-verification/SKILL.md").read_text(encoding="utf-8")
+for key, lit in exp.get("bvl", {}).items():
+    blocks = re.findall(r"MATCH stack\." + re.escape(key) + r":\n((?:[ \t]+.*\n)+)", bvl)
+    if not any(re.search(r'^[ \t]+"' + re.escape(lit) + r'"', b, re.M) for b in blocks):
+        missing.append(f"BVL has no `MATCH stack.{key}` row for `{lit}`")
+print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_json": unresolved, "expect_missing": missing}))
 PY
 ) || { echo "materialize-synthetic: materialisation step failed" >&2; exit 2; }
 echo "  $REPORT"
 LANDED=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["landed"])')
 [ "$LANDED" -ge 60 ] && ok "manifest targets landed ($LANDED)" || bad "too few targets landed ($LANDED)"
+MISS=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin)["expect_missing"]))')
+[ -z "$MISS" ] && ok "the answers select their files and their BVL rows ($(basename "$ANSWERS"))" || bad "the answers do not select what they should" "$MISS"
 UNRES=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)["unresolved_json"]))')
 [ -z "$UNRES" ] && ok "no placeholder survives in config JSON" || bad "unresolved tokens in JSON: $UNRES"
+# another stack's fixture proves its selection only: the toolchain checks below are written for the default stack
+if [ "$ANSWERS" != "$ROOT/scripts/fixtures/synthetic-answers/default.json" ]; then
+  echo; echo "materialize-synthetic: $PASS passed, $FAIL failed (selection of $(basename "$ANSWERS"))"; [ "$FAIL" -eq 0 ]; exit
+fi
 
 # framework tree as factory-sync delivers it (skills / instructions / commands / hooks / gate reader)
 mkdir -p "$P/.claude" "$P/scripts"

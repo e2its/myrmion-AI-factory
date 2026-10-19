@@ -208,7 +208,7 @@ Synchronous (Request-Response):
 
 Asynchronous (Event/Message-Based):
   contract_type: AsyncAPI 2.6+ (contracts/asyncapi/)
-  applies_to: Event-based topologies (B3, B6, B7, B11) OR when backend.communication_style == Event-Driven
+  applies_to: Event-based topologies (`backend.topology` B3, B6, B7, B11)
   use_when:
     - Fire-and-forget commands (e.g., send email, log audit)
     - Domain events that multiple consumers may react to

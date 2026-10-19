@@ -29,8 +29,8 @@
           },
           "type": {
             "type": "string",
-            "enum": ["database", "cache", "queue", "storage", "compute", "function", "cdn", "api-gateway", "search", "networking", "other"],
-            "description": "Resource category. 'function' = serverless function (Lambda, Cloud Function, Azure Function)"
+            "enum": ["database", "cache", "queue", "storage", "compute", "function", "static_site", "cdn", "api-gateway", "search", "networking", "other"],
+            "description": "Resource category. 'function' = serverless function (Lambda, Cloud Function, Azure Function); 'static_site' = SPA/SSR frontend (BLUEPRINT § Infrastructure Needs)"
           },
           "engine": {
             "type": "string",

@@ -252,6 +252,11 @@
       "term": "sweep_recommended",
       "record": "#118 — the preventive sweep's one control point is the pre-deploy gate of DEVOPS --deploy; no advisory flag",
       "exempt": []
+    },
+    {
+      "term": "ai_capability",
+      "record": "#143 — Q24 persists `ai.training` / `ai.inference` / `ai.agentic`; a reader names the key the question writes",
+      "exempt": []
     }
   ],
   "coherence": {

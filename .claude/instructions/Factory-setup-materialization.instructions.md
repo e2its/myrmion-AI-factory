@@ -604,9 +604,9 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
     }
 
   # DC: External identity ID != internal DB primary key
-  # Q18 auth.strategy == "OAuth2/OIDC (external provider)" — external provider manages identity
-  # Also applies when auth.strategy == "JWT (stateless)" AND an external IdP is configured (Q18 follow-up)
-  IF setup_md.auth.strategy == "OAuth2/OIDC (external provider)":
+  # Q18 auth.strategy == "OAuth2/OIDC" — external provider manages identity
+  # Also applies when auth.strategy == "JWT" AND an external IdP is configured (Q18 follow-up)
+  IF setup_md.auth.strategy == "OAuth2/OIDC":
     ADD DC: {
       name: "External identity ID != internal DB primary key",
       family: "data",
@@ -702,7 +702,7 @@ Resolve every base-path placeholder used downstream into a concrete project-rela
    - Offer 2-3 alternatives.
    - Persist the chosen path as an ADR entry under `docs/project_log/adr/ADR-0000-setup-decisions.md § Path Decisions`.
 
-3. **Brownfield override** (Q3 == `After`). Paths for existing projects MUST be discovered from the current workspace via the AUDIT scan or Q3.3 Protected Code Paths answer. The user's existing layout wins over any convention. Log each override as an ADR entry.
+3. **Brownfield override** (`project_mode == "Brownfield"`). Paths for existing projects MUST be discovered from the current workspace via the AUDIT scan or Q3.3 Protected Code Paths answer. The user's existing layout wins over any convention. Log each override as an ADR entry.
 
 4. **Persist the resolved map** to `docs/setup.md`:
 
@@ -916,22 +916,21 @@ Generate platform-specific pipeline from template:
 - GitHub Actions: `.github/workflows/ci.yml`
 - GitLab CI: `.gitlab-ci.yml`
 - Jenkins: `Jenkinsfile`
-- CircleCI: `.circleci/config.yml`
 - AWS CodePipeline: `buildspec.yml`
 Pipeline includes stages matching `ci_cd.tier` (lint, test, security, build, deploy per environment from `ci-cd.md`).
 
 **Governance Workflow (100% functional from scaffolding):**
 In addition to the CI pipeline, materialise the platform-specific governance check workflow that runs the ADR ↔ constitution sync gate (`scripts/check-adr-constitution-sync.sh`) on every PR / MR targeting `main`. Source templates live at `.context/templates/setup/workflows/governance-check.{platform}.{ext}`:
 
-| `ci_cd.platform` | Source template | Materialised path |
+| `ci_cd.platform` (Q21 literal) | Source template | Materialised path |
 |---|---|---|
-| `github-actions` | `governance-check.github-actions.yml` | `.github/workflows/governance-check.yml` |
-| `gitlab-ci` | `governance-check.gitlab-ci.yml` | `.gitlab/governance-check.yml` (or merge into `.gitlab-ci.yml`) |
-| `bitbucket` | `governance-check.bitbucket.yml` | `bitbucket-pipelines.yml` (merge `pull-requests:` block) |
-| `azure-devops` | `governance-check.azure-devops.yml` | `governance-check-pipeline.yml` |
-| `aws-codebuild` | `governance-check.aws-codebuild.yml` | `buildspec-governance.yml` |
-| `gcp-cloudbuild` | `governance-check.gcp-cloudbuild.yaml` | `cloudbuild-governance.yaml` |
-| `jenkins` | `governance-check.jenkins.groovy` | `Jenkinsfile.governance` |
+| `GitHub Actions` | `governance-check.github-actions.yml` | `.github/workflows/governance-check.yml` |
+| `GitLab CI` | `governance-check.gitlab-ci.yml` | `.gitlab/governance-check.yml` (or merge into `.gitlab-ci.yml`) |
+| `Bitbucket Pipelines` | `governance-check.bitbucket.yml` | `bitbucket-pipelines.yml` (merge `pull-requests:` block) |
+| `Azure DevOps` | `governance-check.azure-devops.yml` | `governance-check-pipeline.yml` |
+| `AWS CodePipeline` | `governance-check.aws-codebuild.yml` | `buildspec-governance.yml` |
+| `GCP Cloud Build` | `governance-check.gcp-cloudbuild.yaml` | `cloudbuild-governance.yaml` |
+| `Jenkins` | `governance-check.jenkins.groovy` | `Jenkinsfile.governance` |
 
 The workflow MUST be wired so that any PR transitioning an ADR file under `docs/project_log/adr/` from `status: proposed` to `status: accepted` without modifying `docs/constitution.md` in the same diff fails the gate. Bypass is via the `[adr-backfill]` commit-message marker (one-shot historical migration only). Additional governance gates are added as steps in the same workflow — do NOT split into multiple workflows per gate.
 
@@ -949,8 +948,8 @@ The workflow MUST be wired so that any PR transitioning an ADR file under `docs/
 - Materialise `config/inventory_aliases.json` from `.context/templates/setup/config/inventory_aliases.json`. The template ships with empty `bc_alias` / `bc_feature` / `cross_bc_features` / `canonical_path_globs` — populate these from Discovery answers (bounded contexts list, feature ownership, canonical source-tree layout).
 - When the file stays empty, `scripts/check-inventory-freshness.py` and `scripts/reconcile_inventory.py` degrade gracefully (orphan scan disabled, registration is a no-op). Materialise to enable the inventory-drift CI gate.
 
-**Inventory Drift Workflow (conditional on `ci_cd.platform`):**
-Mirror the Governance Workflow shape — pick the platform-specific source from `.context/templates/setup/workflows/inventory-drift.{platform}.{ext}` and materialise it as `.github/workflows/inventory-drift.yml` (or the platform equivalent). The workflow is a blocking gate that runs `scripts/check-inventory-freshness.py` on every PR / MR touching `src/`, `config/codebase_inventory.json`, `config/inventory_aliases.json`, the freshness script itself, or the workflow file. The current template tree ships only the `github-actions` variant — if the project's `ci_cd.platform` is anything else, materialisation skips this workflow until a platform-specific variant lands.
+**Inventory Drift Workflow (manifest conditional `ci_cd.platform == "GitHub Actions"`):**
+Mirror the Governance Workflow shape — pick the platform-specific source from `.context/templates/setup/workflows/inventory-drift.{platform}.{ext}` and materialise it as `.github/workflows/inventory-drift.yml` (or the platform equivalent). The workflow is a blocking gate that runs `scripts/check-inventory-freshness.py` on every PR / MR touching `src/`, `config/codebase_inventory.json`, `config/inventory_aliases.json`, the freshness script itself, or the workflow file. The current template tree ships only the GitHub Actions variant — on any other `ci_cd.platform` the manifest conditional skips it until a platform-specific variant lands.
 
 **System Resources Configuration:**
 - Create `config/system_resources.json` following schema `.context/templates/setup/config/system_resources_schema.md`
@@ -1019,7 +1018,7 @@ Deliverable-generation tooling: imported by no product or framework module, outs
   | `{{DS_CI_WORKFLOW_STATUS}}` | DERIVED: `6C` → `installed at .github/workflows/design-system-rebuild.yml` · else `not installed — {reason}` (`no rebuild command configured` \| `ci_cd.platform is not GitHub Actions` \| `added by hand later, see section 8`) |
 
 - In `po-package.config.json`, when `{{DS_CODE_CARDS_DIR}}` / `{{DS_REBUILD_COMMAND}}` do not apply: write `null` (JSON literal replacing the QUOTED token, not the string `"null"`) — same rule as `config/quality.json`. In the runbooks the same absent command renders as `none`.
-- **Optional workflow:** materialise `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` → `.github/workflows/design-system-rebuild.yml` ONLY when `ci_cd.platform == github-actions` AND `po_package.ds_rebuild_command != null`. Advisory job; other platforms run the same builder command by hand (RUNBOOK § 6B).
+- **Optional workflow:** materialise `.context/templates/setup/workflows/design-system-rebuild.github-actions.yml` → `.github/workflows/design-system-rebuild.yml` ONLY when `ci_cd.platform == "GitHub Actions"` AND `po_package.ds_rebuild_command != null`. Advisory job; other platforms run the same builder command by hand (RUNBOOK § 6B).
 - **Invariant:** after this step `subproducts/po-package/RUNBOOK.md` MUST exist with ZERO `{{…}}` left, and `po-package.config.json` MUST parse as JSON. Else BLOCK — a project materialised without its written operating instructions is a broken delivery.
 - **Self-test:** run `python3 subproducts/po-package/validate_po_return.py --selftest`. Red ⇒ BLOCK (the journey gate `scripts/check-journey-grammar.sh` must already be delivered by Scripts Materialization).
 - **Written next steps (MANDATORY):** fill in `MATERIALIZATION_REPORT.md` the block `## PO package — next steps` and repeat it in the closing briefing (ACP): authoring mode, the active design-system case (`6A`/`6B`/`6C`) and why, the runbook path, the first command (`python3 subproducts/po-package/build_po_package.py`), and the note that the `factory-po-intake` skill + `/codesign --sync` arrive with `factory-sync.sh` — the runbook works without them.

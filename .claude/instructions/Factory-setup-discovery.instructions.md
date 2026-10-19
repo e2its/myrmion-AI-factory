@@ -78,7 +78,7 @@ TIER_2_INFRASTRUCTURE:
   dependencies: [TIER_0, TIER_1]
   mode: --harvest --tier 2
   conditional_unlocks:
-    - Q18 == "OAuth2" → [Q18.1_provider]
+    - Q18 == "OAuth2/OIDC" → [Q18.1_provider]
     - Q24a == true → [Q24a_details]
     - Q24b == true → [Q24b_details]
     - Q24c == true → [Q24c_details]
@@ -313,7 +313,8 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Persist:** `hosting.secrets_manager`
 
 #### Q21: CI/CD Platform
-- **Options:** GitHub Actions | GitLab CI | Bitbucket Pipelines | Azure DevOps | Jenkins | CircleCI | AWS CodePipeline | GCP Cloud Build | None (the literal is the one the workflow templates' `stack_conditional` names — `ci_cd_platform == "Azure DevOps"`)
+- **Options:** GitHub Actions | GitLab CI | Bitbucket Pipelines | Azure DevOps | Jenkins | AWS CodePipeline | GCP Cloud Build | None (the literal is the one the workflow templates' `stack_conditional` names — `ci_cd.platform == "Azure DevOps"`)
+- **Not offered:** CircleCI — the framework ships no governance-check or auto-tag template for it (#143). A CircleCI team answers `None`: no server-side governance check, the gates run locally (pre-push hook), and the setup report says so.
 - **Persist:** `ci_cd.platform`
 
 #### Q21.2: SCM host and its branch protection (EVOL-054)
@@ -412,7 +413,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **RDR Recommendation:** GitHub Projects (native integration with GitHub Issues, zero setup cost, Kanban board via API). If the user already uses another tool, respect that choice.
 - **Tier-filtered:** ALL tiers. The framework is tool-agnostic — any external tool the user specifies will be supported via tool-adapter protocol materialized during `--generate`.
 - **Persist:** `project_tracking.tool`
-- **Conditional unlock:** Q27 != "None" → [Q27.1, Q27.2, Q27.3, Q27.4]
+- **Conditional unlock:** `TIER_2_INFRASTRUCTURE.conditional_unlocks` above (the one list).
 - **Integration model (Q27 != "None"):** The framework integrates with external tools exclusively via **pre-authenticated CLI tools** (e.g., `gh` for GitHub, `jira` CLI) or **MCP servers** — NEVER via raw API tokens or stored credentials. During `SETUP --generate`, a `docs/backlog/tool-adapter.md` is materialized with the specific CLI/MCP commands and setup instructions for the chosen tool.
 
 #### Q27.1: Kanban Board Columns (conditional: Q27 != "None")
