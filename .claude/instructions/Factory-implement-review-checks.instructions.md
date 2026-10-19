@@ -13,7 +13,7 @@ applicable_when:
 
 spawn-policy: work-critic
 
-Spawned by name by the **main session** (no agent carries `Agent`; the phase agent `factory-implement` receives the results) after the worker completes each phase — `factory-critic-correctness`, `factory-critic-governance`, `factory-critic-fidelity` (and `factory-critic-security`, § Security lens below). Each receives its corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) and the model resolved per spawn (`python3 scripts/gate.py agents --resolve --class work-critic --surface <lens> --files N --lines M`; the PreToolUse hook on `Agent` refuses a spawn without it). The spawn prompt opens with `effort:`, `turn budget:` and `probe budget:` from the resolver; the harness stops a critic at its ceiling (`maxTurns`) and marks the return partial — the main session then sends ONE hand-back request and resumes it; a critic that still does not deliver is fully unverified, never silence (`rules/agents.md § The bounded loop`, EVOL-058); at most `probe_budget` executions run on a critic's behalf per round, each the test a finding names, never the suite. Before the round, `python3 scripts/gate.py canary --plan` names the lenses whose resolved model moved: each reviews the canary fixture first (`gate.py canary --fixture`, `--judge --lens <lens> --model <the return's Model: line>`), the verdict goes on the tracking item, a red one opens the spawn policy's review by RDR and never blocks; after every real return, `gate.py canary --seen --lens <lens> --model <id>` (`rules/agents.md § The lens canary`, EVOL-059). Read-only by tool matrix; the main session hashes the working tree before and after each run (`python3 scripts/gate.py certify --subject worktree --paths <the increment's files>` — a non-zero exit is a refusal) and refuses a run around which it moved; a return outside the finding shape or without a real probe is refused (`python3 scripts/gate.py agents --check-return --class work-critic`). One round (`rounds.work`, `rules/agents.md`), then the user adjudicates. No critic edits, commits or decides.
+Spawned by name by the **main session** (no agent carries `Agent`; the phase agent `factory-implement` receives the results) after the worker completes each phase — `factory-critic-correctness`, `factory-critic-governance`, `factory-critic-fidelity` (and `factory-critic-security`, § Security lens below). Each receives its corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) and the model resolved per spawn (`python3 scripts/gate.py agents --resolve --class work-critic --surface <lens> --files N --lines M`; the PreToolUse hook on `Agent` refuses a spawn without it). The spawn prompt opens with `effort:`, `turn budget:` and `probe budget:` from the resolver; the harness stops a critic at its ceiling (`maxTurns`) and marks the return partial — the main session then sends ONE hand-back request and resumes it; a critic that still does not deliver is fully unverified, never silence (`rules/agents.md § The bounded loop`, EVOL-058); at most `probe_budget` executions run on a critic's behalf per round, each the test a finding names, never the suite. Before the round, `python3 scripts/gate.py canary --plan` names the lenses whose resolved model moved: each reviews the canary fixture first (`gate.py canary --fixture`, `--judge --lens <lens> --model <the return's Model: line>`), the verdict goes on the tracking item, a red one opens the spawn policy's review by RDR and never blocks; after every real return, `gate.py canary --seen --lens <lens> --model <id>` (`rules/agents.md § The lens canary`, EVOL-059). Read-only by tool matrix; the main session hashes the working tree before and after each run (`python3 scripts/gate.py certify --subject worktree --paths <the increment's files>` — a non-zero exit is a refusal) and refuses a run around which it moved; a return outside the finding shape or without a real probe is refused (`python3 scripts/gate.py agents --check-return --class work-critic`). The passes `rounds.work` allows (`rules/agents.md`), then the user adjudicates. No critic edits, commits or decides.
 
 **Check ownership per lens:**
 
@@ -68,17 +68,17 @@ When a check resolves as **N/A**, the report's § 3.X entry reads: `N/A — skip
 ```yaml
 # governance_context + gcd_loaded received from Phase Loop caller (implement-build Step 0b).
 # Fields available (when gcd_loaded == true):
-#   arch_constraints   (7.1) → Check #1 (ARCH)
-#   governance_rules   (7.2) → Check #2 (GOV): named rule IDs + compact constraints
+#   arch_constraints   (§ Architecture Constraints) → Check #1 (ARCH)
+#   governance_rules   (§ Governance Rules Index) → Check #2 (GOV): named rule IDs + compact constraints
 #                               Covers: GOV-ARCH, GOV-SEC, GOV-TEST, GOV-API, GOV-DB,
 #                               GOV-OBS, GOV-PERF, GOV-PRIV, GOV-STACK, GOV-REVIEW,
 #                               GOV-STATE, GOV-IMMUT, GOV-CFP, GOV-IAC, GOV-FRONT, GOV-HTML
-#   sast_patterns      (7.3) → security lens: pre-compiled SAST for this stack
-#   schema_constraints (7.4) → Check #5 (SCHEMA): locked business fields
-#   contract_rules     (7.5) → Check #10 (CFP): contract paths + forbidden imports
-#   ux_constraints     (7.6) → Check #7 (UX): vision refs, touch targets
-#   coding_standards   (7.7) → the worker: naming, file structure
-#   mandatory_patterns (7.8) → Check #14 (DESIGN): architectural patterns + ADR bindings
+#   sast_patterns      (§ SAST Patterns) → security lens: pre-compiled SAST for this stack
+#   schema_constraints (§ Schema Constraints) → Check #5 (SCHEMA): locked business fields
+#   contract_rules     (§ Contract-First Rules) → Check #10 (CFP): contract paths + forbidden imports
+#   ux_constraints     (§ UX Vision Digest) → Check #7 (UX): vision refs, touch targets
+#   coding_standards   (§ Coding Standards) → the worker: naming, file structure
+#   mandatory_patterns (§ Mandatory Patterns) → Check #14 (DESIGN): architectural patterns + ADR bindings
 # When gcd_loaded == false: equivalent data from raw rule files (fallback path).
 
 FUNCTION bind_review_context(governance_context, gcd_loaded):
@@ -116,24 +116,24 @@ FUNCTION bind_review_context(governance_context, gcd_loaded):
 
 ### Check #1: [ARCH-XX] Architecture Compliance
 ```yaml
-# Source: design.md Section 7.1 (if GCD loaded) → arch_constraints
+# Source: design.md § Architecture Constraints (if GCD loaded) → arch_constraints
 # Fallback: constitution.md architecture section
 VERIFY:
   - Module boundaries respected per arch_constraints.module_boundaries_table
     (each forbidden cross-module import → BLOCKER [ARCH-{B_code}-{N}])
   - Dependency direction correct per arch_constraints.layer_rule
   - Layer separation enforced (no domain entity in presentation, no infra leak into domain)
-  - Architecture pattern from design.md Section 1 faithfully implemented
+  - Architecture pattern from design.md § Architecture Diagram faithfully implemented
   - Extension strategy compliance per arch_constraints.extension_strategy
     (E1/E2: legacy files untouched; E2: proxy pattern verified; E3: no legacy imports)
   
 SEVERITY: BLOCKER if architectural boundary violated
-CONSTRAINT_IDS: [ARCH-{topology_code}-{N}] — cite from Section 7.1
+CONSTRAINT_IDS: [ARCH-{topology_code}-{N}] — cite from § Architecture Constraints
 ```
 
 ### Check #2: [GOV-XX] Governance Rules
 ```yaml
-# Source: design.md Section 7.2 (if GCD loaded) → gov_rules_index
+# Source: design.md § Governance Rules Index (if GCD loaded) → gov_rules_index
 # Fallback: .claude/rules/ files (all applicable)
 VERIFY:
   FOR EACH rule IN gov_rules_index.applicable_rules:
@@ -152,13 +152,13 @@ VERIFY:
   - Privacy: PII fields handled per rules_by_id["GOV-PRIV"].constraints
   
 SEVERITY: BLOCKER for CRITICAL rules, WARNING for MEDIUM
-CONSTRAINT_IDS: [GOV-{rule_id}-{N}] — cite from Section 7.2
+CONSTRAINT_IDS: [GOV-{rule_id}-{N}] — cite from § Governance Rules Index
 ```
 
 ### Check #2b: [GOV-SHARED-XX] Shared Cross-Cutting Component Enforcement
 
 ```yaml
-# Source: design.md Section 7.2b (if GCD loaded) → shared_components[]
+# Source: design.md § Shared Cross-Cutting Components (if GCD loaded) → shared_components[]
 # Fallback: constitution.md governance rules that prescribe mechanisms
 # PURPOSE: Verify governance-mandated shared mechanisms (middleware, base classes)
 # were implemented as SHARED components, not inlined per-module.
@@ -280,7 +280,7 @@ REFERENCE: .claude/rules/defect-prevention.md
 
 ### Check #3: [SEC-XX] Security Patterns
 ```yaml
-# Source: sast_patterns from GCD 7.3 (or fallback SAST library). Full scan in the security lens below.
+# Source: sast_patterns from GCD § SAST Patterns (or fallback SAST library). Full scan in the security lens below.
 VERIFY:
   - No hardcoded secrets (passwords, API keys, tokens) — SAST-SEC-01
   - No dangerous functions per sast_patterns.patterns (stack-specific)
@@ -290,7 +290,7 @@ VERIFY:
   - CORS configuration correct per gov_rules_index["GOV-SEC"].constraints
   
 SEVERITY: BLOCKER for any security violation
-CONSTRAINT_IDS: [SAST-{category}-{N}] — cite from Section 7.3
+CONSTRAINT_IDS: [SAST-{category}-{N}] — cite from § SAST Patterns
 ```
 
 ### Check #4: [PATH-XX] Protected Paths
@@ -308,10 +308,10 @@ SEVERITY: BLOCKER for red_zone, WARNING for yellow_zone
 
 ### Check #5: [SCHEMA-XX] Schema Compliance
 ```yaml
-# Source: design.md Section 7.4 (if GCD loaded) → schema_constraints
-# Fallback: journey § 6 Business Fields (existence) + design §§ 3.1/3.2 (types) direct read
-VERIFY data structures match schema_constraints.entities (design § 7.4; existence per journey § 6):
-  # schema_constraints.entities is a list of {name, locked_fields} objects (from GCD Section 7.4)
+# Source: design.md § Schema Constraints (if GCD loaded) → schema_constraints
+# Fallback: journey § 6 Business Fields (existence) + design.md § Cross-Layer Type Mapping / § Wire-Format Mapping (types) direct read
+VERIFY data structures match schema_constraints.entities (design.md § Schema Constraints; existence per journey § 6):
+  # schema_constraints.entities is a list of {name, locked_fields} objects (from § Schema Constraints)
   entities_by_name = { e.name: e FOR e IN schema_constraints.entities }
   FOR EACH entity/DTO/model in implementation:
     COMPARE fields against entities_by_name[entity_name].locked_fields
@@ -325,12 +325,12 @@ VERIFY data structures match schema_constraints.entities (design § 7.4; existen
       IF business field differs: ❌ BLOCKER [SCHEMA-{entity}-{N}] (requires RDR via CODESIGN --refine)
   
 SEVERITY: BLOCKER for business field mismatch
-CONSTRAINT_IDS: [SCHEMA-{entity_name}-{N}] — cite from Section 7.4
+CONSTRAINT_IDS: [SCHEMA-{entity_name}-{N}] — cite from § Schema Constraints
 ```
 
 #### [SCHEMA-TEST] Test Data Type Compliance
 ```yaml
-# Source: GCD 7.4 type_format_registry + contract schemas (format fields)
+# Source: GCD § Schema Constraints type_format_registry + contract schemas (format fields)
 # Test fixtures/mocks/stubs MUST use values conforming to declared domain types.
 
 # Format normalization map (OpenAPI → internal canonical names)
@@ -469,7 +469,7 @@ VERIFY styling matches vision + mock:
 
 #### [UX-TOUCH] Touch Target Compliance
 ```yaml
-# Source: design.md Section 7.6 ux_constraints.touch_target_minimum (if GCD loaded)
+# Source: design.md § UX Vision Digest ux_constraints.touch_target_minimum (if GCD loaded)
 VERIFY:
   - All interactive elements ≥ {ux_constraints.touch_target_minimum | 44×44px} touch target
   - Adequate spacing between touch targets
@@ -592,7 +592,7 @@ IF implementation modifies infrastructure files (infra/):
 
 #### [CFP-IMPORT] Cross-Domain Import Detection
 ```yaml
-# Source: design.md Section 7.5 (if GCD loaded) → contract_rules.cross_domain_import_forbidden_from
+# Source: design.md § Contract-First Rules (if GCD loaded) → contract_rules.cross_domain_import_forbidden_from
 # Fallback: constitution.md architecture.topology
 IF arch_constraints.topology_code IN domain-model architectures (B2-B8, B10-B11):
   FORBIDDEN_MODULES = contract_rules.cross_domain_import_forbidden_from (if GCD) OR derive from topology
@@ -710,18 +710,18 @@ IF policies include authorization rules:
 
 ### Check #14: [DESIGN-XX] Design Materialization Fidelity
 
-> **Purpose:** Verifies that ALL mandatory shared components from design.md Section 2
-> (Component Inventory) and Section 7.8 (Mandatory Architectural Patterns + ADR Bindings)
+> **Purpose:** Verifies that ALL mandatory shared components from design.md § Constraints and Rules
+> (Component Inventory) and § Mandatory Patterns
 > have been actually materialized in code and are used as prescribed — not bypassed by ad-hoc
 > implementations. This check closes the gap where IMPLEMENT satisfies constraints
 > superficially (e.g., manual tenant filtering instead of the prescribed BaseRepository).
 
 #### [DESIGN-COMP] Component Inventory Materialization
 ```yaml
-# Source: design.md Section 2 (Component Inventory) + Section 7.8 (if GCD loaded) → mandatory_patterns
-# Fallback: design.md Section 2 + constitution.md architecture patterns + ADRs
+# Source: design.md § Implementation Inventory + § Mandatory Patterns (if GCD loaded) → mandatory_patterns
+# Fallback: design.md § Constraints and Rules + constitution.md architecture patterns + ADRs
 
-READ design.md → Section 2 "Component Inventory"
+READ design.md → § Implementation Inventory
   EXTRACT all_planned_components[]:
     FOR EACH component: name, type, module, scope (shared|feature), status (planned|existing)
 
@@ -731,7 +731,7 @@ VERIFY materialization:
     SEARCH @workspace for component.name (file name, class/function definition)
     IF NOT FOUND:
       ❌ BLOCKER: "[DESIGN-COMP-{N}] Shared component '{component.name}' ({component.type}) "
-                 "prescribed in design.md Section 2 was NOT materialized. "
+                 "prescribed in design.md § Constraints and Rules was NOT materialized. "
                  "Feature code may be implementing this concern ad-hoc."
       SUGGEST: "Create {component.name} as a shared {component.type} and refactor "
                "feature code to use it."
@@ -749,7 +749,7 @@ SEVERITY: BLOCKER for unmaterialized or bypassed shared components
 
 #### [DESIGN-PATTERN] Mandatory Pattern Compliance
 ```yaml
-# Source: design.md Section 7.8 (if GCD loaded) → mandatory_patterns
+# Source: design.md § Mandatory Patterns (if GCD loaded) → mandatory_patterns
 # Fallback: constitution.md architecture patterns + ADRs
 
 IF mandatory_patterns IS NOT NULL:
@@ -794,12 +794,12 @@ IF mandatory_patterns IS NOT NULL:
                      "required by {pattern.constitution_ref} was NOT created."
 
 SEVERITY: BLOCKER for pattern violations
-CONSTRAINT_IDS: [DESIGN-PAT-{N}] — cite from Section 7.8 pattern IDs
+CONSTRAINT_IDS: [DESIGN-PAT-{N}] — cite from § Mandatory Patterns pattern IDs
 ```
 
 #### [DESIGN-FDR] FDR Binding Compliance
 ```yaml
-# Source: design.md Section 7.8 fdr_bindings (if GCD loaded)
+# Source: design.md § Mandatory Patterns fdr_bindings (if GCD loaded)
 # Fallback: docs/spec/{FEATURE_ID}/fdr/*.md (status: accepted)
 # Legacy fallback: docs/spec/{FEATURE_ID}/adr/ (when fdr/ tree absent)
 
@@ -827,7 +827,7 @@ SEVERITY: BLOCKER for FDR binding violations
 
 #### [DESIGN-INVARIANT] Implementation Invariant Verification
 ```yaml
-# Source: design.md Section 7.8 implementation_invariants
+# Source: design.md § Mandatory Patterns implementation_invariants
 
 IF mandatory_patterns.implementation_invariants IS NOT NULL:
   FOR EACH invariant IN mandatory_patterns.implementation_invariants:
@@ -865,7 +865,7 @@ Step R.1b: Agentic Code Review
     scope: "increment",
     feature_id: FEATURE_ID,
     increment_id: build_scope.target_increment.id,   # null in monolithic mode → feature file set
-    files: <increment file set from dev_plan tasks + design.md §1 — NEVER a git diff (BVL Full Feature Scope Mandate)>,
+    files: <increment file set from dev_plan tasks + design.md § Implementation Inventory — NEVER a git diff (BVL Full Feature Scope Mandate)>,
     profile: "full",          # all 6 agents (RDR-4: gate profile subsetting applies only to the branch pass)
     context: "increment",   # the engine's increment mode (EVOL-049; was "hat")
     governance_context: governance_context   # Step R.0 GCD pass-through — engine § Governance Binding primary packet source
@@ -1074,98 +1074,55 @@ FUNCTION sec_verification_loop(phase, source_files):
   commands = resolve_verification_commands()  # From BVL SKILL.md
   results = {}
   
-  # 1. Dependency Vulnerability Audit (MANDATORY — catches known CVEs)
-  IF commands.dependency_audit IS NOT NULL:
+  # 1. Dependency audit (MANDATORY — catches known CVEs). The command carries the project's threshold
+  #    (config/quality.json → security_scan.sca_threshold, factory-build-verification § dependency_audit) and its
+  #    exit code is the verdict — never masked (#116).
+  sca_threshold = READ_JSON("config/quality.json").security_scan.sca_threshold   # absent or unreadable → NULL
+  IF commands.dependency_audit IS NULL OR sca_threshold NOT IN [critical, high, medium, low]:
+    results.dependency_audit = {
+      status: "BLOCKER",
+      finding: "[SEC-DEP-003] No dependency audit, or no readable threshold, declared for this stack",
+      remediation: "Declare the audit command in docs/setup.md → verification.commands.dependency_audit (SETUP discovery § verification coverage) and the threshold in config/quality.json → security_scan.sca_threshold (Q23.3)"
+    }
+  ELIF commands.dependency_audit IS TOOL_MISSING(tool):
+    results.dependency_audit = { status: "SKIPPED", reason: "{tool} not installed — infrastructure, fail-open" }
+    LOG: "⚠️ SEC: dependency audit not run — install {tool}"
+  ELSE:
     result = RUN_IN_TERMINAL(commands.dependency_audit, timeout: 60000)
-    
-    vulnerabilities = parse_audit_output(result.output):
-      # Parse tool-specific output formats
-      SCAN for severity indicators: critical, high, moderate/medium, low
-      COUNT vulnerabilities by severity
-      EXTRACT: package_name, installed_version, vulnerability_id, severity, fix_version
-    
-    IF vulnerabilities.critical_count > 0 OR vulnerabilities.high_count > 0:
+    IF result.exit_code != 0:
+      vulnerabilities = parse_audit_output(result.output):   # tool-specific: package, installed version, id, severity, fix version
       results.dependency_audit = {
         status: "BLOCKER",
-        finding: "[SEC-DEP-001] {vulnerabilities.critical_count} critical + {vulnerabilities.high_count} high vulnerabilities found",
-        details: vulnerabilities.top_10,  # Show top 10 most severe
-        remediation: "Update vulnerable packages. Run package manager update for affected dependencies.",
+        finding: "[SEC-DEP-001] The dependency audit failed — vulnerable packages (graded by {sca_threshold} where the tool grades: npm, OWASP; any finding otherwise), or the audit tool's own failure",
+        details: vulnerabilities.top_10,
+        remediation: "Update the vulnerable packages to their fix versions.",
         cwe: "CWE-1104",  # Use of Unmaintained Third-Party Components
         owasp: "A06"  # Vulnerable and Outdated Components
-      }
-    ELIF vulnerabilities.medium_count > 0:
-      results.dependency_audit = {
-        status: "WARNING",
-        finding: "[SEC-DEP-002] {vulnerabilities.medium_count} medium vulnerabilities found",
-        details: vulnerabilities.summary
       }
     ELSE:
       results.dependency_audit = { status: "PASS" }
       LOG: "✅ SEC: Dependency audit clean"
+
+  # 2. Secret scanning (MANDATORY — catches leaked credentials): the project's declared scanner through the one
+  #    dispatcher (commands.secret_scan = `bash scripts/security-scan.sh --secrets`). No regex substitute here — the
+  #    regex floor is pr-review Block 3.
+  result = RUN_IN_TERMINAL(commands.secret_scan, timeout: 30000)
+  IF result.exit_code == 1:   # findings, or no scanner declared — the dispatcher's message names which and the resolution
+    results.secret_scan = {
+      status: "BLOCKER",
+      finding: "[SEC-SECRET-001] {FIRST_LINE(result.output, starting: "❌")}",
+      details: result.output,
+      remediation: "Remove hardcoded secrets (environment variables or vault) — or declare the scanner the message names.",
+      cwe: "CWE-798",  # Use of Hard-coded Credentials
+      owasp: "A02"  # Cryptographic Failures
+    }
+  ELIF result.exit_code == 0 AND result.output CONTAINS "fail-open":   # output = stdout + stderr; the "running" banner is no skip
+    results.secret_scan = { status: "SKIPPED", reason: "{FIRST_LINE(result.output, containing: "fail-open")}" }   # not installed, config unreadable, no python3
+  ELIF result.exit_code == 0:
+    results.secret_scan = { status: "PASS" }
   ELSE:
-    results.dependency_audit = { status: "SKIPPED", reason: "No audit command for stack" }
-    LOG: "⚠️ SEC: Dependency audit skipped — no tool available. Consider installing: npm audit / pip-audit / cargo audit"
-  
-  # 2. Secret Scanning (MANDATORY — catches leaked credentials)
-  IF commands.secret_scan IS NOT NULL:
-    result = RUN_IN_TERMINAL(commands.secret_scan, timeout: 30000)
-    
-    # Tool-based scan (gitleaks/trufflehog)
-    IF result.output CONTAINS "Finding" OR result.output CONTAINS "secret" OR result.output CONTAINS "leak":
-      secrets_found = parse_secret_scan_output(result.output):
-        EXTRACT: file_path, line_number, rule_id, description
-        COUNT total findings
-      
-      IF secrets_found.count > 0:
-        results.secret_scan = {
-          status: "BLOCKER",
-          finding: "[SEC-SECRET-001] {secrets_found.count} potential secrets detected",
-          details: secrets_found.findings,
-          remediation: "Remove hardcoded secrets. Use environment variables or vault.",
-          cwe: "CWE-798",  # Use of Hard-coded Credentials
-          owasp: "A02"  # Cryptographic Failures
-        }
-      ELSE:
-        results.secret_scan = { status: "PASS" }
-    ELSE:
-      results.secret_scan = { status: "PASS" }
-      LOG: "✅ SEC: Secret scan clean"
-  
-  ELSE:
-    # Fallback: regex-based secret scan when no dedicated tool is available
-    LOG: "⚠️ SEC: No secret scanner (gitleaks/trufflehog). Running regex fallback."
-    
-    phase_files = COLLECT_SOURCE_FILES(phase)
-    secret_patterns = [
-      'password\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'api[_-]?key\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'secret\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'token\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'private[_-]?key\s*[:=]\s*["\x27][^$\n{]{8,}',
-      'AWS_SECRET_ACCESS_KEY\s*[:=]\s*["\x27][A-Za-z0-9/+=]{20,}',
-      '-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----'
-    ]
-    
-    FOR EACH file IN phase_files:
-      # Exclude test files, fixtures, .env.example from false positives
-      IF file MATCHES /(test|spec|fixture|mock|\.env\.example|\.env\.template)/: SKIP
-      
-      content = READ(file)
-      FOR EACH pattern IN secret_patterns:
-        matches = REGEX_SEARCH(content, pattern, CASE_INSENSITIVE)
-        IF matches.length > 0:
-          results.secret_scan = {
-            status: "BLOCKER",
-            finding: "[SEC-SECRET-002] Potential hardcoded secret in {file}:{line}",
-            pattern: pattern,
-            remediation: "Replace with environment variable: process.env.{KEY} / os.environ['{KEY}']",
-            cwe: "CWE-798",
-            owasp: "A02"
-          }
-    
-    IF results.secret_scan IS NULL:
-      results.secret_scan = { status: "PASS" }
-  
+    results.secret_scan = { status: "SKIPPED", reason: "security-scan.sh infrastructure fault: {result.first_line}" }
+
   RETURN results
 ```
 
@@ -1178,7 +1135,7 @@ IF vulnerabilities found:
   # Run verification loop (REAL EXECUTION)
   sec_verification = sec_verification_loop(phase, source_files)
   
-  execution_findings = COLLECT findings FROM sec_verification WHERE status IN ["BLOCKER", "WARNING"]
+  execution_findings = COLLECT findings FROM sec_verification WHERE status IN ["BLOCKER", "WARNING", "SKIPPED"]   # SKIPPED → LOW: a check that did not run is reported
   all_findings = sast_findings + execution_findings
   
   FOR EACH vulnerability IN all_findings:
@@ -1209,6 +1166,12 @@ ELSE:
     FOR EACH blocker IN execution_blockers:
       SHOW: "{blocker.finding} — {blocker.remediation}"
     RETURN to the worker for the fix round
+  
+  skipped = COLLECT findings FROM sec_verification WHERE status == "SKIPPED"
+  IF skipped.length > 0:
+    verdict = "PASS_WITH_FINDINGS"   # a check that did not run is never a clean pass
+    FOR EACH s IN skipped: SHOW: "⚠️ not run — {s.reason}"
+    PROCEED
   
   verdict = "CLEAN_PASS"
 ```
@@ -1263,7 +1226,7 @@ Step 2.2: Journey Walkthrough
       1. Start at entry point (from navigation_map.md)
       2. Follow each Given/When/Then step
       3. Verify UI state matches mock at each step
-      4. Verify data flows match journey § 6 fields with design § 7.4 types
+      4. Verify data flows match journey § 6 fields with design.md § Schema Constraints types
 
 Step 2.3: Graceful Degradation
   VERIFY:
@@ -1339,7 +1302,7 @@ VERIFY before marking complete:
   [ ] 5. Test coverage meets threshold from testing.md
   [ ] 6. No TODO/FIXME in business-critical code
   [ ] 7. All contracts implemented (OpenAPI/GraphQL/gRPC/AsyncAPI)
-  [ ] 8. Schema compliance verified (journey § 6 existence + design § 7.4 typing)
+  [ ] 8. Schema compliance verified (journey § 6 existence + design.md § Schema Constraints typing)
   [ ] 9. Protected paths not violated
   [ ] 10. Traceability comments present in generated files
   [ ] 11. .env.example updated with all required variables

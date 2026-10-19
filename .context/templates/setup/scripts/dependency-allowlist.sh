@@ -1,59 +1,9 @@
 #!/usr/bin/env bash
+# QA-PRE-1 (#114, PLAW-10): every direct dependency, at the version its lockfile resolved, against
+# config/allowlist.json. The check lives in the gate reader (scripts/gates/dependencies.py); this wrapper keeps
+# the QA call stable. It always validates — there is no dry run. --strict is accepted (the check is always strict).
+# Exit 0 pass · 1 red (denied, unlisted, out of range, or a missing declaration) · 2 the tool could not run.
 set -euo pipefail
-DRY_RUN=${DRY_RUN:-1}
-RULES_FILE="docs/constitution.md"
-ALLOWLIST_FILE="config/allowlist.json"
-LANGUAGE_RULES_DIR=".claude/rules"
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --apply) DRY_RUN=0 ;;
-  esac
-  shift
-done
-
-if [ ! -f "$RULES_FILE" ]; then
-  echo "[dependency-allowlist] ❌ Missing $RULES_FILE with allowlist/blocklist mandate" >&2
-  exit 1
-fi
-
-if [ ! -f "$ALLOWLIST_FILE" ]; then
-  echo "[dependency-allowlist] ❌ Missing $ALLOWLIST_FILE (canonical machine-readable source)" >&2
-  exit 1
-fi
-
-echo "[dependency-allowlist] Usando reglas en $RULES_FILE, $ALLOWLIST_FILE y $LANGUAGE_RULES_DIR"
-
-cmd="python - <<'PY'
-import json
-from pathlib import Path
-
-allowlist_path = Path('$ALLOWLIST_FILE')
-data = json.loads(allowlist_path.read_text())
-
-meta = data.get('metadata', {})
-print(f"[dependency-allowlist] policy: {meta.get('policy', 'undefined')} (origin: {meta.get('generated_by', 'n/a')})")
-
-def summarize(section_name: str):
-  entries = data.get(section_name, [])
-  print(f"  - {section_name}: {len(entries)} entries")
-  for entry in entries:
-    name = entry.get('name')
-    ver = entry.get('version', '*')
-    reason = entry.get('reason')
-    if reason:
-      print(f"    * {name} {ver} (denied: {reason})")
-    else:
-      print(f"    * {name} {ver}")
-
-for key in data:
-  if key in ('metadata',):
-    continue
-  summarize(key)
-
-# TODO: Implement real manifest validation (package.json, pyproject, requirements) against this allowlist with semver ranges.
-PY"
-if [ "$DRY_RUN" = "1" ]; then
-  echo "[dependency-allowlist] DRY_RUN=1 would run: $cmd"
-else
-  eval "$cmd"
-fi
+command -v python3 >/dev/null 2>&1 || { echo "[dependency-allowlist] ❌ python3 not found — the dependency check cannot run. Install python3." >&2; exit 2; }
+cd "$(dirname "$0")/.."
+exec python3 scripts/gate.py --repo "$PWD" dependencies "$@"

@@ -1,6 +1,6 @@
 ---
 name: factory-adr-management
-description: "Factory ADR Management Skill — canonical algorithm for proposing, ratifying, and querying Architectural Decision Records and Feature Decision Records. Mechanically writes the ADR's Operational Rule into the constitution INDEX (one `[PLAW-NN]` sentence + body pointer + records) and its body into the pointed rule file at status flip; FDRs stay feature-local. Use when: any agent or free-form turn proposes an architectural decision (BLUEPRINT design, AUDIT mitigation, IMPLEMENT discovery, CODESIGN vision deviation, DEVOPS infra choice, BACKLOG retrospective DC promotion, ad-hoc 'this deserves an ADR'); when ratifying a proposed ADR/FDR after RDR with the user; when downstream consumers (BLUEPRINT § 7.8, IMPLEMENT Review Check #14) need a list of active records."
+description: "Factory ADR Management Skill — canonical algorithm for proposing, ratifying, and querying Architectural Decision Records and Feature Decision Records. Mechanically writes the ADR's Operational Rule into the constitution INDEX (one `[PLAW-NN]` sentence + body pointer + records) and its body into the pointed rule file at status flip; FDRs stay feature-local. Use when: any agent or free-form turn proposes an architectural decision (BLUEPRINT design, AUDIT mitigation, IMPLEMENT discovery, CODESIGN vision deviation, DEVOPS infra choice, BACKLOG retrospective DC promotion, ad-hoc 'this deserves an ADR'); when ratifying a proposed ADR/FDR after RDR with the user; when downstream consumers (BLUEPRINT § Mandatory Patterns, IMPLEMENT Review Check #14) need a list of active records."
 applicable_when:
   always: true
 ---
@@ -19,7 +19,7 @@ applicable_when:
 | Type | Path | Amends constitution? | Lifecycle | Loaded into governance snapshot? |
 |---|---|---|---|---|
 | **ADR** (Architectural Decision Record) | `docs/project_log/adr/ADR-{N}-{slug}.md` | YES (mandatory at accept) | proposed → accepted | NO (the resulting `[PLAW-NN]` index entry is loaded; the ADR itself is historical) |
-| **FDR** (Feature Decision Record) | `docs/spec/{FEAT-ID}/fdr/FDR-{N}-{slug}.md` | NO (feature-local only) | proposed → accepted | NO (read directly by BLUEPRINT § 7.8 when working the owning feature) |
+| **FDR** (Feature Decision Record) | `docs/spec/{FEAT-ID}/fdr/FDR-{N}-{slug}.md` | NO (feature-local only) | proposed → accepted | NO (read directly by BLUEPRINT § Mandatory Patterns when working the owning feature) |
 | **DIVERGENCE** (Divergence Record) | `docs/project_log/adr/ADR-{N}-{slug}.md` | NO (records intent, no index entry added or modified) | accepted (single state — divergences are declarative) | NO (the ADR is the historical record; future readers consult it before "fixing" the documented divergence) |
 
 Choosing between record types is the agent's first responsibility when invoking this skill — see § Decision: record_type. **DIVERGENCE records use the ADR file path and numbering** (they are a sub-flavour of ADR with `record_type: DIVERGENCE` in the call) but skip Accept Procedure (no constitution amendment). They satisfy `operational_rule` with a single explanatory line ("DIVERGENCE record — see § Decision body") and `target_section: none`, `amendment_kind: none`. The validator skips the constitution-section verification when `record_type == DIVERGENCE`.
@@ -125,7 +125,7 @@ Flips a proposed record to `accepted`. For ADRs, mechanically amends `docs/const
 
 ### List Active ADRs API
 
-Read-only query consumed by BLUEPRINT § 7.8, IMPLEMENT Review Check #14, AUDIT cross-reference, and any agent that needs historical traceability.
+Read-only query consumed by BLUEPRINT § Mandatory Patterns, IMPLEMENT Review Check #14, AUDIT cross-reference, and any agent that needs historical traceability.
 
 **Inputs:**
 

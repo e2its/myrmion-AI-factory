@@ -598,7 +598,7 @@ Contains:
   - Exact upgrade command parameters
   - Step-by-step operation log for debugging
 
-Enables: /SETUP --analyze-upgrade {{TIMESTAMP}} for post-mortem
+Read it for a post-mortem of the upgrade.
 ```
 
 ---
@@ -622,8 +622,8 @@ Enables: /SETUP --analyze-upgrade {{TIMESTAMP}} for post-mortem
       "template_source": "rules/architecture.md",
       "template_version": "1.2.3",
       "content_type": "stack_configured",
-      "registered_checksum": "SHA256_OF_TEMPLATE",
-      "materialized_checksum": "SHA256_OF_CURRENT_FILE",
+      "registered_checksum": "MD5_OF_TEMPLATE",
+      "materialized_checksum": "MD5_OF_CURRENT_FILE",
       "materialized_at": "2026-02-01T14:30:00Z",
       "user_customized": false,
       "user_customized_since": null,

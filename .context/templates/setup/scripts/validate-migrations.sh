@@ -81,6 +81,9 @@ if [[ ${#MIGRATION_PATHS[@]} -eq 0 ]]; then
     "liquibase"
     "src/db/migrations"
     "src/database/migrations"
+    "supabase/migrations"
+    "drizzle/migrations"
+    "drizzle"
   )
   
   for dir in "${CANDIDATE_DIRS[@]}"; do
@@ -129,7 +132,7 @@ for label in "${!FORBIDDEN_PATTERNS[@]}"; do
       fi
     done < <(grep -rniE "$pattern" "$migration_dir" \
              --include="*.sql" --include="*.py" --include="*.ts" --include="*.js" \
-             --include="*.rb" --include="*.java" --include="*.cs" 2>/dev/null || true)
+             --include="*.rb" --include="*.java" --include="*.cs" --include="*.php" 2>/dev/null || true)
   done
 done
 
@@ -180,7 +183,7 @@ for label in "${!SUSPICIOUS_PATTERNS[@]}"; do
       fi
     done < <(grep -rniE "$pattern" "$migration_dir" \
              --include="*.sql" --include="*.py" --include="*.ts" --include="*.js" \
-             --include="*.rb" --include="*.java" --include="*.cs" 2>/dev/null || true)
+             --include="*.rb" --include="*.java" --include="*.cs" --include="*.php" 2>/dev/null || true)
   done
 done
 

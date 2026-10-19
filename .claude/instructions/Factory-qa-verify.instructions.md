@@ -30,7 +30,7 @@ applicable_when:
 
 Before processing commands, read:
 1. `docs/spec/{{FEATURE_ID}}/spec.feature` (acceptance criteria)
-2. `docs/spec/{{FEATURE_ID}}/user_journey.md` (single file, ALL scopes — § 3 Paths for smoke composition, § 6 Business Fields for existence; test-data types come from `design.md § 7.4`)
+2. `docs/spec/{{FEATURE_ID}}/user_journey.md` (single file, ALL scopes — § 3 Paths for smoke composition, § 6 Business Fields for existence; test-data types come from `design.md § Schema Constraints`)
 3. `docs/spec/{{FEATURE_ID}}/mock.html` (enrichment — UI drift detection)
 4. `docs/spec/{{FEATURE_ID}}/test_plan.md` (**MANDATORY** — verification baseline from BLUEPRINT)
 5. `docs/spec/{{FEATURE_ID}}/design.md` (enrichment — architecture reference)
@@ -56,7 +56,7 @@ Before processing commands, read:
 
 ```yaml
 MANDATORY Scripts (ALWAYS during --verify):
-  - dependency-allowlist.sh --strict: Package validation (BLOCKING)
+  - dependency-allowlist.sh --strict: every direct dependency at its resolved version against config/allowlist.json (BLOCKING — exit 0 passes, any other exit blocks)
   - check-integrations.sh --strict: system_resources.json schema (BLOCKING)
 
 Conditional Scripts:
@@ -303,7 +303,7 @@ FUNCTION verify_prerequisites(FEATURE_ID, INCREMENT_ID=null):
         Smoke blocks = journey Paths ({journey_source} § Section 3) expanded transitively Paso → BDD Scenario → test_plan TC. All must pass on the dev-deployed build before --verify. Scope=`{feature_scope}` runs in mode: {smoke_mode}. Steps:
           1. Ensure DEVOPS --deploy --env dev {FEATURE_ID} ran successfully
           2. Execute each numbered smoke block against the dev deployment (browser steps for UI scope; caller-harness + state + observability for backend-only/integration; HYBRID combines both for full-stack)
-          3. For scope in [backend-only, integration]: additionally execute SMOKE-REL-* blocks (test_plan § 2.2 REL-XX families; mechanisms per design.md § 6 Reliability Contract)
+          3. For scope in [backend-only, integration]: additionally execute SMOKE-REL-* blocks (test_plan § 2.2 REL-XX families; mechanisms per design.md § Reliability Contract
           4. Record results in docs/spec/{FEATURE_ID}/smoke_e2e_report.md
           5. When overall_verdict turns PASS: certifies = RUN python3 scripts/gate.py certify --subject tree --paths '{src_root}/**' '{tests_root}/**'
              and WRITE the printed block under frontmatter `certifies:` (EVOL-044 — the smoke certifies the build it ran on)
@@ -519,8 +519,8 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
 
 **Pre-Audit Blocking Checks (Steps 0-0c):**
 
-0. **Dependency Allowlist:** `scripts/dependency-allowlist.sh --strict`
-   - Exit 0: Continue | Exit 1-3: REJECT (unauthorized/invalid packages)
+0. **Dependency Allowlist:** `scripts/dependency-allowlist.sh --strict` (= `python3 scripts/gate.py dependencies`, #114)
+   - Exit 0: Continue | Exit 1: REJECT — a denied, unlisted or out-of-range dependency, or a missing declaration (constitution, allowlist, stack, lockfile); each line names its resolution | Exit 2: REJECT — the tool could not run
 
 0b. **Migration Safety:** `scripts/validate-migrations.sh --strict`
     - Exit 1: REJECT (destructive operations) | Exit 2: WARN (suspicious, continue with warning)
@@ -532,7 +532,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     - Check seed scripts exist and include idempotent upsert logic
     - Verify reset capability (teardown + re-seed command available)
     - Validate referential coherence: related entity IDs are consistent (no orphan FKs)
-    - Confirm data aligns with `user_journey.md § 6 Business Fields` (existence/required) + `design.md § 7.4` (types, formats, constraints)
+    - Confirm data aligns with `user_journey.md § 6 Business Fields` (existence/required) + `design.md § Schema Constraints` (types, formats, constraints)
     - Confirm production execution guard is present (`IF env == production → ABORT`)
     - **Cross-Domain Validation (via Shared Seed Registry):**
       - Verify `config/seed_registry.json` exists and includes this feature's entities
@@ -578,8 +578,7 @@ IF commands.lint IS NOT NULL:
   IF lint_result.exit_code == 0:
     MARK [QA-STATIC-1] [x]
   ELSE:
-    MARK [QA-STATIC-1] [!] FAILED
-    # Non-blocking for verdict (WARN) — but documented
+    MARK [QA-STATIC-1] [x]  # Non-blocking (WARN) — documented; never [!], which is not done and blocks (#115)
 
 # Type check
 IF commands.typecheck IS NOT NULL:
@@ -674,7 +673,7 @@ Generate the mode-aware qa_report file:
 - Slice mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_{{INCREMENT_ID}}_{{timestamp}}.md`
 - Aggregate mode: `docs/spec/{{FEATURE_ID}}/qa/qa_report_final_{{timestamp}}.md` (with `aggregates:` frontmatter referencing the consumed slice reports)
 
-**Verification Checklist Completion Gate:** Before setting verdict, verify ALL `- [ ]` items in the checklist are marked `[x]`. If any remain unchecked, verdict MUST be REJECTED.
+**Verification Checklist Completion Gate:** Before setting verdict, count the report with `python3 scripts/gate.py checklist --file {qa_report_path}` — only `[x]` is done; an open `[ ]` or a failed `[!]` is not (#115). Exit 1 → verdict MUST be REJECTED.
 
 ### QA Report Template (`qa_report_final_{{timestamp}}.md` / `qa_report_{{INC-N}}_{{timestamp}}.md`)
 
@@ -735,7 +734,7 @@ reviewed_by: QA
 ## 1. Pre-Audit Checks
 | Check | Script | Result | Details |
 |-------|--------|--------|---------|
-| Dependency Allowlist | dependency-allowlist.sh --strict | PASS/FAIL | {{details}} |
+| Dependency Allowlist | dependency-allowlist.sh --strict (exit 0 PASS, else FAIL) | PASS/FAIL | {{details}} |
 | Migration Safety | validate-migrations.sh --strict | PASS/FAIL/SKIP | {{details}} |
 | IaC Governance | validate-iac.sh --strict | PASS/FAIL/SKIP | {{details}} |
 
@@ -794,16 +793,13 @@ FUNCTION qa_auto_approve(FEATURE_ID, qa_report_path, verdict):
   # This replaces the former separate `--approve` command.
 
   # Step 0: Verify Checklist Completion Gate (BLOCKING)
-  unchecked = FIND_ALL(qa_report_path, "- [ ]")
-  checked = FIND_ALL(qa_report_path, "- [x]")
-  total_checks = unchecked.count + checked.count
+  # The one done vocabulary (#115): only [x] is done; [ ], [!] FAILED and any other mark are not
+  counts = RUN("python3 scripts/gate.py checklist --json --file {qa_report_path}")   # exit 1 = an item is not done
 
-  IF unchecked.count > 0:
+  IF counts.not_done > 0:
     ❌ OVERRIDE verdict to REJECTED:
     verdict = "REJECTED"
-    LOG: "Checklist incomplete: {unchecked.count}/{total_checks} items unchecked — verdict forced to REJECTED"
-    FOR EACH item IN unchecked:
-      LOG: "  Unchecked: {item.id}"
+    LOG: "Checklist incomplete: {counts.not_done}/{counts.total} items not done ({counts.open} open, {counts.failed} failed) — verdict forced to REJECTED"
 
   # Step 1: Update frontmatter based on verdict
   UPDATE_FRONTMATTER(qa_report_path, "total_checks", total_checks)
@@ -941,8 +937,8 @@ FUNCTION qa_resume_check(FEATURE_ID, command, INCREMENT_ID=null):
     latest = SORT_BY_TIMESTAMP(reports).last
     fm = READ_FRONTMATTER(latest)
     IF fm._progress IS NOT NULL AND fm._progress.pending_sections.length > 0:
-      unchecked = FIND_ALL(latest, "- [ ]")
-      LOG: "RESUME: {latest} — {fm._progress.completed_sections.length} categories done, {unchecked.length} checks pending"
+      counts = RUN("python3 scripts/gate.py checklist --json --file {latest}")
+      LOG: "RESUME: {latest} — {fm._progress.completed_sections.length} categories done, {counts.open} checks pending"
       RECOVER_DECISIONS(fm._progress.decisions)
       RESUME_FROM(first_unchecked_check)
       RETURN "RESUMED"

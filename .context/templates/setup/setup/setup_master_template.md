@@ -1,5 +1,5 @@
 ---
-version: 2.12.1
+version: 2.12.2
 date: 2026-04-21
 changelog:
   - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
@@ -14,7 +14,7 @@ changelog:
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
 retry_count: 0
-mode: GREENFIELD | BROWNFIELD
+project_mode: Greenfield | Brownfield
 project_scope: full-stack | backend-only | frontend-only | integration
 language: EN | ES
 codesign:
@@ -196,7 +196,7 @@ last_update: [TIMESTAMP]
 - [ ] **DOCS_STANDARD:** Docstring format selected per language, C4 diagrams in design.md, ADRs for key decisions
 
 ## 4. Directory Structure & Rationale (Dynamic Map)
-> Mandatory usage guide for Developer Agents. **The structure is composed additively** according to `backend.topology`, `frontend.pattern` and `ai_capability.*`.
+> Mandatory usage guide for Developer Agents. **The structure is composed additively** according to `backend.topology`, `frontend.pattern` and `ai.*`.
 | Path | Purpose | Constraint/Rule |
 | :--- | :--- | :--- |
 | `docs/spec/{{FEATURE_ID}}/` | Feature workspace: `initial.md` (PO input), `spec.feature` (PO Gherkin), `test_plan.md` (QA strategy), `design.md` (ARCH technical design), `dev_plan.md` (DEV tasks), `sec_audit.md` (SEC report) | Each agent writes to its designated file. |
@@ -211,7 +211,7 @@ last_update: [TIMESTAMP]
 | `{{CONTRACTS_BASE_PATH}}/openapi/` | REST API contracts (empty) | Created whenever HTTP/REST APIs are present (REST is default, including Event-Driven topologies). Populated by `/BLUEPRINT --start` using `{CONTRACT_SLUG}`-named subdirectories. |
 | `{{CONTRACTS_BASE_PATH}}/graphql/` | GraphQL contracts (empty) | Only if `backend.communication_style == GraphQL`. Populated by `/BLUEPRINT --start` using `{CONTRACT_SLUG}`-named subdirectories. |
 | `{{CONTRACTS_BASE_PATH}}/grpc/` | gRPC Protocol Buffers (empty) | Only if `backend.communication_style == gRPC`. Populated by `/BLUEPRINT --start` using `{CONTRACT_SLUG}`-named subdirectories. |
-| `{{CONTRACTS_BASE_PATH}}/asyncapi/` | AsyncAPI event schemas (empty) | Only if `backend.communication_style == Event-Driven` OR `topology IN [B3, B6, B7, B11]`. Populated by `/BLUEPRINT --start` using `{CONTRACT_SLUG}`-named subdirectories. |
+| `{{CONTRACTS_BASE_PATH}}/asyncapi/` | AsyncAPI event schemas (empty) | Only if `backend.topology IN [B3, B6, B7, B11]` (event-based). Populated by `/BLUEPRINT --start` using `{CONTRACT_SLUG}`-named subdirectories. |
 | `{{CONFIG_BASE_PATH}}/model-serving.yaml` | Inference server config | Only if local inference enabled. |
 | `{{MONOREPO_APPS_PATH}}/` | Entry points (monorepo) | Only if monorepo selected. |
 | `{{SCRIPTS_BASE_PATH}}/` | Automation & Tooling | Adapted to new Stack. |

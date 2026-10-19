@@ -1,0 +1,25 @@
+{
+  "_doc": "Synthetic SETUP answers (#143), keyed by the keys discovery persists, under the literals it offers. materialize-synthetic.sh evaluates every manifest stack_conditional against them. META-ONLY.",
+  "answers": {
+    "project_mode": "Greenfield",
+    "backend.runtime": "Python",
+    "frontend.framework": "React",
+    "frontend.meta_framework": "None",
+    "database.primary.engine": "None",
+    "hosting.provider": "AWS",
+    "hosting.iac_tool": "None",
+    "ci_cd.platform": "GitHub Actions",
+    "scm.platform": "GitHub",
+    "project_tracking.tool": "GitHub Projects",
+    "po_package.mode": "full",
+    "po_package.ds_rebuild_command": "npm run cards",
+    "dependencies.backend": ["fastapi >=0.110,<1"],
+    "dependencies.frontend": ["react ^18.2"],
+    "dependencies.denied": ["moment"]
+  },
+  "expect": {
+    "landed": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml"],
+    "absent": [".claude/rules/csharp.md", "buildspec-governance.yml"],
+    "bvl": {"backend.runtime": "Python", "frontend.framework": "React"}
+  }
+}

@@ -9,11 +9,13 @@
 # Two-layer security model:
 #   floor  — detect_change_type.py secrets regex (pr-review Block 3): always
 #            on, fail-closed, no external deps. Never disabled by this script.
-#   scanner— this dispatcher's --secrets lane: config-driven, fail-open NOISY
-#            (mandatory 🔒 banner) unless --require-scanner (pre-push context).
+#   scanner— this dispatcher's --secrets lane: config-driven. A scanner not
+#            declared (null, disabled, no config) is a missing declaration and
+#            BLOCKS (#116). A declared scanner not installed is infrastructure:
+#            fail-open NOISY (mandatory 🔒 banner) unless --require-scanner.
 #
-# Exit codes (secrets lane): 0 clean / disabled / scanner-unavailable-fail-open
-#             1 findings (fail-closed on findings, ALWAYS)
+# Exit codes (secrets lane): 0 clean / declared-scanner-not-installed-fail-open
+#             1 findings, or no scanner declared (fail-closed, ALWAYS)
 #             2 infra failure under --require-scanner, or malformed invocation
 # Legacy lanes (--dast/--contracts/--validate-ux/--drift) predate this contract
 # and exit 1 on their own tooling failures under --apply.
@@ -76,13 +78,14 @@ if [ "$SECRETS" -eq 1 ]; then
   SS_META=$(RANGE_VAL="$RANGE" python3 - <<'PY' 2>/dev/null
 import json, os
 try:
-    cfg = json.load(open('config/quality.json')).get('security_scan', {})
+    cfg = json.load(open('config/quality.json')).get('security_scan')
+    cfg = cfg if isinstance(cfg, dict) else {}   # null or not an object = no scanner declared: blocks (#116)
     cfg_ok = True
 except FileNotFoundError:
-    cfg, cfg_ok = {}, True          # no config = unconfigured, fail-open
+    cfg, cfg_ok = {}, True          # no config = no scanner declared: blocks (#116)
 except Exception:
     cfg, cfg_ok = {}, False         # present but broken = distinct cause
-enabled = 'true' if cfg.get('enabled', True) else 'false'
+enabled = 'true' if cfg.get('enabled', True) is True else 'false'   # only the boolean true enables
 scanner = cfg.get('scanner') or ''
 hint = cfg.get('install_hint') or 'configure security_scan in config/quality.json'
 cmd = cfg.get('secrets_command') or ''
@@ -119,15 +122,10 @@ PY
       exit 2
     fi
     echo "🔒 security-scan: python3 unavailable — cannot read config, fail-open. Regex floor still active." >&2
-  elif [ "$SS_ENABLED" != "true" ]; then
-    echo "🔒 security-scan: scanner layer DISABLED (config/quality.json security_scan.enabled=false). Regex floor (detect_change_type.py) still active." >&2
-  elif [ -z "$SS_SCANNER" ] || [ -z "$SS_CMD" ]; then
-    if [ "$REQUIRE_SCANNER" -eq 1 ]; then
-      echo "❌ security-scan: no scanner configured and this context requires one (--require-scanner)." >&2
-      echo "   Resolution: run SETUP discovery Q23.2 (or edit config/quality.json security_scan) to choose a scanner. $SS_HINT" >&2
-      exit 2
-    fi
-    echo "🔒 security-scan: scanner layer UNAVAILABLE (not configured) — fail-open. Regex floor still active. $SS_HINT" >&2
+  elif [ "$SS_ENABLED" != "true" ] || [ -z "$SS_SCANNER" ] || [ -z "$SS_CMD" ]; then
+    echo "❌ security-scan: no secret scanner declared (config/quality.json security_scan is disabled or names none) — secret scanning cannot be skipped." >&2
+    echo "   Resolution: choose a scanner in SETUP discovery Q23.2, or set security_scan.enabled, scanner and secrets_command in config/quality.json. $SS_HINT" >&2
+    exit 1
   else
     SS_BIN="${SS_CMD%% *}"
     if ! command -v "$SS_BIN" >/dev/null 2>&1; then

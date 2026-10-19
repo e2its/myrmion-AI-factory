@@ -72,7 +72,7 @@ See `.claude/instructions/Factory-blueprint-validation.instructions.md` for the 
 ## Key Principles
 - DRY: Consult `config/codebase_inventory.json` before creating new technical artifacts (CIP Step -2)
 - Contract-first: API contracts MUST be defined before implementation
-- user_journey.md § 6 Business Fields is the source of truth for WHICH business fields exist (plain language, no types — LAW-16); ARCH derives all typing in design.md §§ 3.1/3.2 + § 7.4 and does NOT invent business fields
+- user_journey.md § 6 Business Fields is the source of truth for WHICH business fields exist (plain language, no types — LAW-16); ARCH derives all typing in design.md § Cross-Layer Type Mapping / § Wire-Format Mapping + § Schema Constraints and does NOT invent business fields
 - After `--refine` → CASCADE_PENDING_ITERATION to dev_plan.md, devops_plan.md
 - **Iteration Changelog:** Every `--refine` MUST append a changelog entry to design.md and test_plan.md documenting what changed, what triggered the change, and which downstream artifacts are affected. This changelog serves as reference for IMPLEMENT and DEVOPS.
 - **Worklog Attribution:** `APPEND_TO_WORKLOG` with `user_agent: "BLUEPRINT"` — always the actual agent name.

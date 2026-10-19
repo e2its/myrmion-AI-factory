@@ -121,7 +121,7 @@ For each ADR in `docs/project_log/adr/`:
 The three sections are mutually exclusive on target paths — a file appears in exactly one section. Walk all three in a single pass; do not deduplicate by checksum across sections.
 
 1. Compare framework versions vs project versions (SemVer)
-2. Evaluate `stack_conditional` filters (skip files that don't apply to current stack)
+2. Evaluate `stack_conditional` filters (skip files that don't apply to current stack) against the keys `docs/setup.md` persists (`ci_cd.platform`, `hosting.iac_tool`, `backend.runtime` …). Before evaluating: a `ci_cd.platform` of `CircleCI` is no longer offered (#143) — ask Q21 again (no earlier answer determines it; nothing is lost, no CircleCI template ever shipped); a frontmatter `mode:` is renamed `project_mode:` with Q3's literal (`Greenfield` | `Brownfield`). A file the answers now select that the project lacks (the C# rules for `.NET`, the CodeBuild governance check for `AWS CodePipeline`) is offered as new.
 3. Detect user customizations (project checksum ≠ previous framework checksum → user modified file)
 4. Present upgrade summary with options: **ALL** (upgrade everything) | **SELECT** (choose files) | **ABORT**
 
@@ -250,6 +250,7 @@ After ALL script files are merged, run 6 validation checks:
 ### Step 4: Finalization (4.4.4)
 1. Update project snapshot (`governance_versions.json`) with all new checksums
 2. Finalize backup manifest: `status: COMPLETED`
+2b. **Seed the dependency allowlist (#114):** `python3 scripts/gate.py dependencies --seed` — Q26's answers (`docs/setup.md → dependencies.backend / frontend / denied`) merge into `config/allowlist.json`; an entry already listed is kept as written. The merge above replaced the `dependency-allowlist.sh` stub with the real check.
 3. **Regenerate governance snapshot** (`.context/governance_snapshot.md`):
    - Constitution / defect-prevention.md / setup.md may have changed during upgrade → snapshot must reflect new state
    - Call `generate_governance_snapshot()` from setup-materialization.md Checkpoint 3.1

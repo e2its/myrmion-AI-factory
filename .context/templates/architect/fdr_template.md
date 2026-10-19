@@ -1,7 +1,7 @@
 # Template: Feature Decision Record (`docs/spec/{{FEATURE_ID}}/fdr/FDR-{{NUMERO}}-{{TITULO-SLUG}}.md`)
 
 > Feature-scoped Decision Record. Used for binding decisions that apply WITHIN a single feature's scope.
-> An FDR is read by BLUEPRINT § 7.8 alongside the relevant constitution `[PLAW-NN]` entries (bodies in `.claude/rules/`) — it is binding for that feature only and does NOT amend the universal `docs/constitution.md`.
+> An FDR is read by BLUEPRINT § Mandatory Patterns alongside the relevant constitution `[PLAW-NN]` entries (bodies in `.claude/rules/`) — it is binding for that feature only and does NOT amend the universal `docs/constitution.md`.
 > For decisions that should change project-wide law, use `adr_template.md` instead.
 > Lifecycle: `status: proposed` → `status: accepted` (flipped manually with the same RDR ceremony as ADRs but WITHOUT constitution amendment — the FDR text is itself the binding artefact).
 
@@ -43,7 +43,7 @@ status: proposed
 - {{TRADEOFF_2}}
 
 ## Binding Rule
-> Operational rule that applies WITHIN this feature's scope. Read by BLUEPRINT § 7.8
+> Operational rule that applies WITHIN this feature's scope. Read by BLUEPRINT § Mandatory Patterns
 > when generating `design.md` for {{FEATURE_ID}} (and any feature whose `consumes_contract`
 > list includes {{FEATURE_ID}}). Plain text, concise, executable.
 
@@ -74,7 +74,7 @@ Renaming makes the distinction explicit: if a decision deserves universal law, i
 
 ## What reads an FDR
 
-- BLUEPRINT § 7.8 — when generating `design.md` for the owning feature, mandatory components and feature-local invariants are sourced from FDRs in `docs/spec/{{FEATURE_ID}}/fdr/`.
+- BLUEPRINT § Mandatory Patterns — when generating `design.md` for the owning feature, mandatory components and feature-local invariants are sourced from FDRs in `docs/spec/{{FEATURE_ID}}/fdr/`.
 - BLUEPRINT, when generating design for a feature whose `consumes_contract` list includes `{{FEATURE_ID}}` — the upstream FDRs are surfaced as feature-relevant context.
 - IMPLEMENT Review Check #14 (`[DESIGN-FDR]`, renamed from `[DESIGN-ADR]`) — verifies code under the feature respects FDR-declared mandatory components.
 

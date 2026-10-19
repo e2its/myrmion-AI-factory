@@ -19,9 +19,17 @@
 #      the agent roster lands and its validator holds the tool matrix and the family separation (EVOL-049)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
+#   0. every manifest stack_conditional is evaluated against a fixture answer set (#143): the keys discovery
+#      persists, the literals it offers; the fixture's expected files land and its stack has its BVL rows
+#
+# Usage: materialize-synthetic.sh [--answers FIXTURE]   (default scripts/fixtures/synthetic-answers/default.json;
+#        another fixture proves step 0 only — the toolchain checks are written for the default stack)
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ANSWERS="$ROOT/scripts/fixtures/synthetic-answers/default.json"
+[ "${1:-}" = "--answers" ] && ANSWERS="$2"
+[ -f "$ANSWERS" ] || { echo "materialize-synthetic: answer fixture missing ($ANSWERS)" >&2; exit 2; }
 T="$ROOT/.context/templates/setup"
 MANIFEST="$T/governance_versions.json"
 [ -f "$MANIFEST" ] || { echo "materialize-synthetic: manifest missing" >&2; exit 2; }
@@ -35,23 +43,25 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; [ -n "${2:-}" ] && echo "$2" | sed 's/^/      /' | head -12; return 0; }
 
-echo "── materialise (manifest targets + sample answers) ──"
-REPORT=$(python3 - "$T" "$P" "$MANIFEST" <<'PY'
+echo "── materialise (manifest targets + the answers of $(basename "$ANSWERS")) ──"
+REPORT=$(python3 - "$T" "$P" "$MANIFEST" "$ANSWERS" "$ROOT" <<'PY'
 import json, re, sys, shutil
 from pathlib import Path
 T, P, M = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 m = json.loads(M.read_text())
-SAMPLE = {  # one stack sample; conditionals not matching are skipped
-    "backend.runtime == Python": True, "backend.runtime == Node": False, "backend.runtime == Java": False,
-    "backend.runtime == C#": False, "frontend.framework == React": True,
-    'ci_cd_platform == "GitHub Actions"': True, 'po_package.mode != "off"': True,
-    "scm.platform == GitHub": True, "scm.platform == GitLab": False, "scm.platform == Bitbucket": False, "scm.platform == Azure DevOps": False, "scm.platform == Other": False,
-}
-def cond_ok(c):
+FX = json.loads(Path(sys.argv[4]).read_text()); A = FX["answers"]
+def clause_ok(cl):  # `key == value` · `key != value` · `key exists` (a non-None answer at the key or under it)
+    g = re.fullmatch(r"\s*([A-Za-z_][\w.]*)\s*(?:(==|!=)\s*(.+?)|(exists))\s*", cl)
+    if not g:
+        sys.exit(f"unparseable stack_conditional clause: {cl!r}")
+    key = g.group(1)
+    if g.group(4):
+        return any((k == key or k.startswith(key + ".")) and v not in (None, "None") for k, v in A.items())
+    val = g.group(3).strip().strip('"'); val = None if val == "null" else val
+    return (A.get(key) == val) if g.group(2) == "==" else (A.get(key) != val)
+def cond_ok(c):  # AND binds tighter than OR
     if not c: return True
-    for k, v in SAMPLE.items():
-        if k in c: return v
-    return "GitHub" in c or "Python" in c or "React" in c
+    return any(all(clause_ok(x) for x in re.split(r"\s+AND\s+", alt)) for alt in re.split(r"\s+OR\s+", c))
 landed, skipped = [], []
 for key, e in m["templates"].items():
     if key.startswith("_") or not isinstance(e, dict): continue
@@ -94,14 +104,28 @@ for f in P.rglob("*"):
         f.write_text(resolve(text, f.suffix == ".json"), encoding="utf-8")
     if f.suffix == ".json" and "{{" in f.read_text(encoding="utf-8"):
         unresolved.append(str(f.relative_to(P)))
-print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_json": unresolved}))
+exp = FX.get("expect", {})
+missing = [f"{x} did not land" for x in exp.get("landed", []) if x not in landed]
+missing += [f"{x} landed, the answers do not select it" for x in exp.get("absent", []) if x in landed]
+bvl = (Path(sys.argv[5]) / ".claude/skills/factory-build-verification/SKILL.md").read_text(encoding="utf-8")
+for key, lit in exp.get("bvl", {}).items():
+    blocks = re.findall(r"MATCH stack\." + re.escape(key) + r":\n((?:[ \t]+.*\n)+)", bvl)
+    if not any(re.search(r'^[ \t]+"' + re.escape(lit) + r'"', b, re.M) for b in blocks):
+        missing.append(f"BVL has no `MATCH stack.{key}` row for `{lit}`")
+print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_json": unresolved, "expect_missing": missing}))
 PY
 ) || { echo "materialize-synthetic: materialisation step failed" >&2; exit 2; }
 echo "  $REPORT"
 LANDED=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["landed"])')
 [ "$LANDED" -ge 60 ] && ok "manifest targets landed ($LANDED)" || bad "too few targets landed ($LANDED)"
+MISS=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin)["expect_missing"]))')
+[ -z "$MISS" ] && ok "the answers select their files and their BVL rows ($(basename "$ANSWERS"))" || bad "the answers do not select what they should" "$MISS"
 UNRES=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)["unresolved_json"]))')
 [ -z "$UNRES" ] && ok "no placeholder survives in config JSON" || bad "unresolved tokens in JSON: $UNRES"
+# another stack's fixture proves its selection only: the toolchain checks below are written for the default stack
+if [ "$ANSWERS" != "$ROOT/scripts/fixtures/synthetic-answers/default.json" ]; then
+  echo; echo "materialize-synthetic: $PASS passed, $FAIL failed (selection of $(basename "$ANSWERS"))"; [ "$FAIL" -eq 0 ]; exit
+fi
 
 # framework tree as factory-sync delivers it (skills / instructions / commands / hooks / gate reader)
 mkdir -p "$P/.claude" "$P/scripts"
@@ -437,6 +461,34 @@ HB=$(git -C "$P" rev-parse --abbrev-ref HEAD); HS=$(git -C "$P" rev-parse HEAD)
 printf '{"branch":"%s","train":null,"head":"%s","clean":true,"pushed":true,"closed":true,"at":"2026-01-01T00:00:00Z"}\n' "$HB" "$HS" > "$P/.claude/state/handoff.json"
 OUT=$(cd "$P" && bash scripts/validate-governance.sh --banner 2>&1); rm -f "$P/.claude/state/handoff.json"
 printf '%s' "$OUT" | grep -q "hand-off: $HB closed at ${HS:0:8}" && ok "the banner names the hand-off recorded for the current branch" || bad "banner without the hand-off" "$OUT"
+
+# #114 — QA-PRE-1 from the template: the allowlist seeded from the fixture's Q26 answers; an allowlisted project
+# passes, a denied dependency blocks. The stack answers (Q5 / Q9) pick the readers.
+D="$SCRATCH/deps"; mkdir -p "$D/docs" "$D/config"; cp -R "$P/scripts" "$D/scripts"; cp "$P/docs/constitution.md" "$D/docs/"; cp "$P/config/allowlist.json" "$D/config/"
+python3 - "$ANSWERS" "$D" <<'PY'
+import json, sys
+from pathlib import Path
+A, D = json.loads(Path(sys.argv[1]).read_text())["answers"], Path(sys.argv[2])
+tree = {}
+for k, v in A.items():
+    *head, last = k.split("."); node = tree
+    for h in head: node = node.setdefault(h, {})
+    node[last] = v
+def y(d, ind=0):
+    return "".join(f"{'  ' * ind}{k}:\n{y(v, ind + 1)}" if isinstance(v, dict) else f"{'  ' * ind}{k}: {json.dumps(v)}\n" for k, v in d.items())
+(D / "docs/setup.md").write_text("---\n" + y(tree) + "---\n", encoding="utf-8")
+(D / "pyproject.toml").write_text('[project]\nname = "app"\ndependencies = ["fastapi>=0.110"]\n', encoding="utf-8")
+(D / "uv.lock").write_text('[[package]]\nname = "fastapi"\nversion = "0.115.2"\n', encoding="utf-8")
+(D / "web").mkdir()
+(D / "web/package.json").write_text(json.dumps({"dependencies": {"react": "^18.2.0"}}), encoding="utf-8")
+(D / "web/package-lock.json").write_text(json.dumps({"lockfileVersion": 3, "packages": {"": {}, "node_modules/react": {"version": "18.3.1"}}}), encoding="utf-8")
+PY
+OUT=$(cd "$D" && env -u CLAUDE_PROJECT_DIR python3 scripts/gate.py --repo "$D" dependencies --seed 2>&1 && env -u CLAUDE_PROJECT_DIR bash scripts/dependency-allowlist.sh --strict 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "QA-PRE-1 from the template: seeded from Q26, an allowlisted project passes" || bad "allowlisted project not green (rc=$RC)" "$OUT"
+python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["dependencies"]["moment"]="2.30.1"; json.dump(d,open(p,"w"))' "$D/web/package.json"
+python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["packages"]["node_modules/moment"]={"version":"2.30.1"}; json.dump(d,open(p,"w"))' "$D/web/package-lock.json"
+OUT=$(cd "$D" && env -u CLAUDE_PROJECT_DIR bash scripts/dependency-allowlist.sh --strict 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'moment is denied' && ok "QA-PRE-1 from the template: a denied dependency blocks (exit 1, named)" || bad "denied dependency not red (rc=$RC)" "$OUT"
 
 echo; echo "materialize-synthetic: $PASS passed, $FAIL failed"
 [ "${MATERIALIZE_KEEP:-0}" = "1" ] && echo "scratch kept at $P"

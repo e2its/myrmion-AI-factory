@@ -79,7 +79,7 @@ iterations: []
 ### 2.2 Reliability Testing (applicable_when scope in [backend-only, integration])
 <!-- applicable_when: scope in [backend-only, integration] -->
 > **Objective:** Validate runtime robustness under adverse conditions. For UI-less features (no browser QA), reliability testing replaces visual regression as the primary quality surface.
-> **Source of truth:** `design.md § 6 Reliability Contract` (mechanisms + parameters; ARCH-derived from the business guarantees in `user_journey.md § Section 8` — LAW-16). Idempotency keys, retry policy, circuit breaker, DLQ, timeouts, graceful shutdown, observability.
+> **Source of truth:** `design.md § Reliability Contract` (mechanisms + parameters; ARCH-derived from the business guarantees in `user_journey.md § Section 8` — LAW-16). Idempotency keys, retry policy, circuit breaker, DLQ, timeouts, graceful shutdown, observability.
 > **Skipping rule:** When `scope in [full-stack, frontend-only]` this section is **N/A** — replace body with `N/A (scope={value})`. When `scope in [backend-only, integration]`, every subsection below is MANDATORY (BLUEPRINT --approve BLOCKS on missing rows).
 
 | ID | Type | Scenario | Given Conditions | Expected Result |

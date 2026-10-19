@@ -48,7 +48,7 @@ The `/memories/repo/` system provides repository-scoped, conversation-persistent
 | Cache File | Source(s) | Updated By | Read By | Invalidation Trigger |
 |-----------|-----------|------------|---------|---------------------|
 | `/memories/repo/feature-state-cache.md` | `docs/spec/*/` frontmatters | Smart Redirect (post-command) | Smart Redirect, Factory, any agent | Any artifact status change |
-| `/memories/repo/bvl-commands-cache.md` | `.context/governance_snapshot.md` § Verification Commands + project config files | BVL `resolve_verification_commands()` | IMPLEMENT `--build`, `--fix` | Stack config change, governance snapshot regeneration |
+| `/memories/repo/bvl-commands-cache.md` | `.context/governance_snapshot.md` § Stack Configuration + `docs/setup.md → verification.commands` + project config files | BVL `resolve_verification_commands()` | IMPLEMENT `--build`, `--fix` | Stack config change, declared commands change, governance snapshot regeneration |
 | `/memories/repo/codebase-inventory-cache.md` | `config/codebase_inventory.json` | CIP `cip_consultation_gate()`, IMPLEMENT `--build` (post-task registration) | BLUEPRINT, IMPLEMENT, CODESIGN | Any inventory modification |
 | `/memories/repo/execution-plan-cache.md` | `docs/backlog/execution-plan.md` | BACKLOG `--plan-execution`, `--update-execution`, `--sync-execution` | Next-Task Resolver, Factory | Execution plan modification |
 
@@ -228,7 +228,7 @@ next_action: BLUEPRINT --start USR-002
 
 **Purpose:** Cached verification commands (test_single, lint, typecheck, build) derived from stack config. Eliminates framework detection file searches on every `--build`.
 
-**Source:** `.context/governance_snapshot.md` § Verification Commands + project config files
+**Source:** `.context/governance_snapshot.md` § Stack Configuration + `docs/setup.md → verification.commands` + project config files
 
 **Cache Location:** `/memories/repo/bvl-commands-cache.md`
 
@@ -244,7 +244,7 @@ cache_version: "1.0"
 
 # BVL Commands Cache (Auto-Generated — DO NOT EDIT)
 
-> Source: .context/governance_snapshot.md § Verification Commands + config file detection
+> Source: .context/governance_snapshot.md § Stack Configuration + docs/setup.md → verification.commands + config file detection
 
 ## Verification Commands
 test_single: {commands.test_single}

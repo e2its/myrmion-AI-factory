@@ -94,7 +94,7 @@ The test suite verifies:
 - **Frontend:** every source file under the feature's frontend slice plus shared components if touched PLUS matching test files
 - **All gates:** lint, format, typecheck, tests, SAST — for BOTH layers — even if only one layer was edited in the delta
 
-The `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` resolver MUST consult `design.md` Section 1 (module/bounded context) and `dev_plan.md` frontmatter to compute scope, NOT a git diff.
+The `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` resolver MUST consult `design.md` § Implementation Inventory (module/bounded context) and `dev_plan.md` frontmatter to compute scope, NOT a git diff.
 
 **Order compliance (EVOL-051):** the critics' verdict precedes the loop — it is written as an artefact BEFORE `full_verification_gate` runs; the **commit** MUST NOT follow until the loop's seal is green (`python3 scripts/gate.py seal --check`). Never run the loop to earn a verdict and again after it.
 
@@ -110,7 +110,7 @@ The TDD cycle in IMPLEMENT --build previously followed: RED (write test) → GRE
 
 ## TEST COMMAND RESOLUTION (Automatic — No User Input Required)
 
-Test commands are derived from the governance snapshot's Stack Configuration. No SETUP question needed.
+Test commands are derived from the governance snapshot's Stack Configuration; the commands SETUP discovery declared for a stack (`docs/setup.md → verification.commands`, § verification coverage) win over the derived ones (#116).
 Uses `/memories/repo/bvl-commands-cache.md` as acceleration layer (see `factory-memory-cache/SKILL.md`).
 
 ```yaml
@@ -119,28 +119,23 @@ FUNCTION resolve_verification_commands():
   # Check memory cache before reading governance snapshot + detecting frameworks.
   cache = MEMORY_READ("/memories/repo/bvl-commands-cache.md")
   IF cache IS NOT NULL:
-    snapshot_hash = MD5(READ(".context/governance_snapshot.md"))
+    snapshot_hash = MD5(READ(".context/governance_snapshot.md") + READ("docs/setup.md"))
     IF cache.frontmatter.source_hash == snapshot_hash:
       LOG: "BVL commands loaded from cache"
       RETURN PARSE_COMMANDS(cache)  # Cache hit — skip derivation
     ELSE:
-      LOG: "BVL commands cache stale — snapshot changed"
+      LOG: "BVL commands cache stale — snapshot or declared commands changed"
   
-  # Step 1: Read from governance snapshot (summarization-safe — INVARIANT 5)
+  # Step 1: derive from the stack (summarization-safe — INVARIANT 5), then the declared commands win key by key
   snapshot = READ(".context/governance_snapshot.md")
-  
-  # Parse ## Verification Commands section (key: value lines)
-  verification = PARSE_SECTION(snapshot, "## Verification Commands")
-  
-  IF verification IS NOT NULL AND verification.test_single IS NOT NULL:
-    commands = verification  # Pre-computed commands from snapshot
-  ELSE:
-    # Fallback: derive from stack config (first run, or pre-BVL projects)
-    stack = PARSE_SECTION(snapshot, "## Stack Configuration")
-    commands = derive_commands_from_stack(stack)
+  stack = PARSE_SECTION(snapshot, "## Stack Configuration")
+  commands = derive_commands_from_stack(stack)
+  declared = READ_FRONTMATTER("docs/setup.md").verification.commands   # § DECLARED VERIFICATION COMMANDS
+  FOR key, command IN declared:
+    IF TRIM(command) NOT IN ["", "true", ":"]: commands[key] = command   # a blank or no-op declaration declares nothing
   
   # Step 2: Write-Through Cache
-  snapshot_hash = MD5(READ(".context/governance_snapshot.md"))
+  snapshot_hash = MD5(READ(".context/governance_snapshot.md") + READ("docs/setup.md"))
   write_bvl_commands_cache(commands, snapshot_hash)
   
   RETURN commands
@@ -173,16 +168,16 @@ FUNCTION derive_commands_from_stack(stack):
                     DEFAULT   → "python -m pytest {test_file} -x --tb=short -q"
     "Java"     → "mvn test -pl {module} -Dtest={test_class} -q"
     "Go"       → "go test {test_package} -run {test_name} -v"
-    "C#"       → "dotnet test --filter {test_class} --verbosity minimal"
+    ".NET"     → "dotnet test --filter {test_class} --verbosity minimal"
     "Rust"     → "cargo test {test_name} -- --nocapture"
-    DEFAULT    → NULL  # Unknown stack — skip BVL with warning
+    DEFAULT    → NULL  # Undeclared stack — BVL blocks (§ GRACEFUL DEGRADATION → UNDECLARED_STACK)
   
   commands.test_suite = MATCH stack.backend.runtime:
     "Node.js"  → "npx jest --no-coverage"
     "Python"   → "python -m pytest -x --tb=short -q"
     "Java"     → "mvn test -q"
     "Go"       → "go test ./... -v"
-    "C#"       → "dotnet test --verbosity minimal"
+    ".NET"     → "dotnet test --verbosity minimal"
     "Rust"     → "cargo test"
     DEFAULT    → NULL
   
@@ -192,7 +187,7 @@ FUNCTION derive_commands_from_stack(stack):
     "Python"   → "ruff check {files}"
     "Java"     → NULL  # IDE-based
     "Go"       → "golangci-lint run {files}"
-    "C#"       → "dotnet format --verify-no-changes"
+    ".NET"     → "dotnet format --verify-no-changes"
     "Rust"     → "cargo clippy -- -D warnings"
     DEFAULT    → NULL
   
@@ -208,15 +203,15 @@ FUNCTION derive_commands_from_stack(stack):
     "Python"   → NULL  # Interpreted
     "Java"     → "mvn compile -q"
     "Go"       → "go build ./..."
-    "C#"       → "dotnet build --no-restore"
+    ".NET"     → "dotnet build --no-restore"
     "Rust"     → "cargo build"
     DEFAULT    → NULL
   
   # Frontend test runner (if frontend exists)
   IF stack.frontend IS NOT NULL AND stack.frontend.framework != "None":
     commands.frontend_test = MATCH stack.frontend.framework:
-      "React" | "Next.js" → "npx jest --config jest.config.ts {test_file} --no-coverage"
-      "Vue"               → "npx vitest run {test_file}"
+      "React"             → "npx jest --config jest.config.ts {test_file} --no-coverage"
+      "Vue.js"            → "npx vitest run {test_file}"
       "Angular"           → "npx ng test --no-watch --browsers=ChromeHeadless"
       "Svelte"            → "npx vitest run {test_file}"
       DEFAULT             → commands.test_single  # Same as backend
@@ -230,28 +225,28 @@ FUNCTION derive_commands_from_stack(stack):
     "Python"   → "python -m pytest --cov --cov-report=term-missing -q"
     "Java"     → "mvn verify -Djacoco.skip=false -q"
     "Go"       → "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out"
-    "C#"       → "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
+    ".NET"     → "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
     "Rust"     → NULL  # Requires cargo-tarpaulin, optional
     DEFAULT    → NULL
   
-  # Dependency vulnerability audit (used by the security lens — CVE detection)
+  # Dependency audit (used by the security lens — CVE detection). Exit code = verdict, never masked (#116).
+  # T = config/quality.json → security_scan.sca_threshold (critical | high | medium | low); unreadable → BLOCK.
+  # Only npm and OWASP grade by T; every other tool below blocks on any finding.
   commands.dependency_audit = MATCH stack.backend.runtime:
-    "Node.js"  → "npm audit --omit=dev --audit-level=high 2>&1 || true"
-    "Python"   → IF COMMAND_EXISTS("pip-audit"): "pip-audit --strict --desc 2>&1 || true"
-                  ELIF COMMAND_EXISTS("safety"): "safety check 2>&1 || true"
-                  ELSE: NULL
-    "Java"     → IF FILE_EXISTS("pom.xml") AND COMMAND_EXISTS("grep") AND SHELL("grep -Eq '<groupId>org\\.owasp</groupId>|<artifactId>dependency-check-maven</artifactId>' pom.xml"): "mvn dependency-check:check -q" ELSE: NULL
-    "Go"       → IF COMMAND_EXISTS("govulncheck"): "govulncheck ./... 2>&1 || true" ELSE: NULL
-    "C#"       → "dotnet list package --vulnerable 2>&1 || true"
-    "Rust"     → IF COMMAND_EXISTS("cargo-audit"): "cargo audit 2>&1 || true" ELSE: NULL
-    DEFAULT    → NULL
-  
-  # Secret scanning (used by the security lens — hardcoded credential detection)
-  # Prioritizes dedicated tools; falls back to regex-based grep scan.
-  commands.secret_scan = DETECT_SECRET_SCANNER():
-    IF COMMAND_EXISTS("gitleaks"):  "gitleaks detect --source=. --no-git --redact -v 2>&1 || true"
-    ELIF COMMAND_EXISTS("trufflehog"): "trufflehog filesystem --directory=. --no-update 2>&1 || true"
-    ELSE: NULL  # Fallback: the security lens uses the regex-based scan (see implement-review-checks.md)
+    "Node.js"  → "npm audit --omit=dev --audit-level={T == medium ? moderate : T}"   # npm names medium "moderate"
+    "Python"   → IF COMMAND_EXISTS("pip-audit"): "pip-audit --strict --desc"   # any finding blocks
+                  ELIF COMMAND_EXISTS("safety"): "safety check"                # any finding blocks
+                  ELSE: TOOL_MISSING("pip-audit")
+    "Java"     → "mvn -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS={CVSS(T)}"   # critical 9, high 7, medium 4, low 0
+    "Go"       → IF COMMAND_EXISTS("govulncheck"): "govulncheck ./..." ELSE: TOOL_MISSING("govulncheck")   # any finding blocks
+    ".NET"     → IF COMMAND_EXISTS("dotnet"): "out=$(dotnet list package --vulnerable --include-transitive 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; ! grep -qE 'has the following vulnerable packages|NU1900|Unable to load the service index' <<< \"$out\""
+                  ELSE: TOOL_MISSING("dotnet")   # any finding blocks; dotnet's own failure (not restored, feed unreachable or unauthorised) blocks too
+    "Rust"     → IF COMMAND_EXISTS("cargo-audit"): "cargo audit" ELSE: TOOL_MISSING("cargo-audit")   # any finding blocks
+    DEFAULT    → NULL   # undeclared → the security lens blocks (SEC-DEP-003)
+
+  # Secret scanning (used by the security lens): the project's declared scanner through the one dispatcher.
+  # No scanner declared → exit 1 with the resolution; declared but not installed → banner, exit 0 (infra).
+  commands.secret_scan = "bash scripts/security-scan.sh --secrets"
   
   RETURN commands
 ```
@@ -267,9 +262,7 @@ FUNCTION task_verification_loop(task, test_files, source_files):
   # Gate: Check if BVL is available for this stack
   commands = resolve_verification_commands()
   IF commands.test_single IS NULL:
-    ⚠️ WARN: "BVL: No test command for stack '{stack.backend.runtime}'. Skipping execution."
-    LOG: "BVL_SKIPPED: {task.id} — unknown test runner"
-    RETURN SKIPPED  # Graceful degradation — task still completes without execution
+    RETURN BLOCK(UNDECLARED_STACK)   # § GRACEFUL DEGRADATION — the task is not marked [x]
   
   MAX_ATTEMPTS = 3
   attempt = 0
@@ -728,16 +721,16 @@ TOKEN_BUDGET_RULES:
 
 ## GRACEFUL DEGRADATION
 
-BVL is designed to enhance, not block. If execution is unavailable, the build continues with semantic verification only.
+A missing declaration blocks; an infrastructure fault (a tool not installed, a crash, a timeout) degrades and is logged (#116).
 
 ```yaml
 DEGRADATION_SCENARIOS:
   
-  # No test runner detected for stack
-  UNKNOWN_STACK:
-    ACTION: WARN + SKIP BVL
-    LOG: "BVL degraded: unknown stack — semantic verification only"
-    FALLBACK: the work critics and the security lens continue normally
+  # No command declared for the stack (no BVL row, nothing declared in SETUP)
+  UNDECLARED_STACK:
+    ACTION: BLOCK
+    MESSAGE: "No verification commands are declared for stack '{stack.backend.runtime}', so the build cannot be checked."
+    RESOLUTION: "Declare the commands in docs/setup.md → verification.commands (SETUP discovery § verification coverage); SETUP --generate merges them into config/quality.json → verification.gates."
   
   # Tool missing (e.g., npx not installed)
   TOOL_MISSING:
@@ -765,7 +758,7 @@ DEGRADATION_SCENARIOS:
 
 | Where | How BVL Integrates |
 |-------|-------------------|
-| **TDD Cycle (per task)** | After GREEN phase → `task_verification_loop()` → marks [x] only if GREEN or SKIPPED |
+| **TDD Cycle (per task)** | After GREEN phase → `task_verification_loop()` → marks [x] only if GREEN (SKIPPED = infrastructure fault, logged) |
 | **Phase Loop (per phase)** | After all task [x] → `phase_verification()` (the phase's scoped tests + lint + format; no build) → before the work critics |
 | **Work critics (per phase)** | `review_verification_loop()` (run by the main session) → the static round (`gate.py profile --run --control-point static`, digests included) + scoped lint → blockers feed the critics' verdict; coverage, typecheck and the full suite are deferred to the one loop |
 | **Security lens (per phase)** | `sec_verification_loop()` (run by the main session) → dependency_audit + secret_scan → blockers feed the security verdict |
@@ -775,22 +768,20 @@ DEGRADATION_SCENARIOS:
 
 ---
 
-## VERIFICATION COMMANDS IN GOVERNANCE SNAPSHOT
+## DECLARED VERIFICATION COMMANDS
 
-The snapshot includes a `## Verification Commands` section auto-derived from Stack Configuration during SETUP --generate. This avoids re-computing commands on every build.
+A stack with no `MATCH` row above, or non-standard tooling, declares its commands at SETUP discovery (§ verification coverage). `resolve_verification_commands()` reads them over the derived ones; a declared key wins. `--generate` also merges them into `config/quality.json → verification.gates`.
 
 ```yaml
-# Section added to .context/governance_snapshot.md:
-## Verification Commands
-> Auto-derived from Stack Configuration. Used by BVL (Build Verification Loop).
-> Override by editing this section manually if project uses non-standard tooling.
-test_single: "{resolved_command}"
-test_suite: "{resolved_command}"
-lint: "{resolved_command}"
-typecheck: "{resolved_command}"
-build: "{resolved_command}"
-frontend_test: "{resolved_command}"
-coverage: "{resolved_command}"
-dependency_audit: "{resolved_command}"
-secret_scan: "{resolved_command}"
+# docs/setup.md frontmatter:
+verification:
+  commands:
+    test_single: "{command with {test_file}}"
+    test_suite: "{command}"
+    lint: "{command}"
+    typecheck: "{command}"
+    build: "{command}"
+    frontend_test: "{command}"
+    coverage: "{command}"
+    dependency_audit: "{command}"   # exit code = verdict, never masked
 ```

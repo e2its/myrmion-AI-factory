@@ -54,6 +54,9 @@ jobs:
                    scripts/test-materialization-surface.sh \
                    scripts/test-security-scan.sh \
                    scripts/test-check-journey-grammar.sh \
+                   scripts/test-check-command-flags.sh \
+                   scripts/test-check-design-sections.sh \
+                   scripts/test-discovery-literals.sh \
                    scripts/test-validate-governance.sh \
                    scripts/test-po-package.sh \
                    scripts/test-measure.sh \
@@ -69,6 +72,9 @@ jobs:
                    scripts/test-materialization-surface.sh \
                    scripts/test-security-scan.sh \
                    scripts/test-check-journey-grammar.sh \
+                   scripts/test-check-command-flags.sh \
+                   scripts/test-check-design-sections.sh \
+                   scripts/test-discovery-literals.sh \
                    scripts/test-validate-governance.sh \
                    scripts/test-po-package.sh \
                    scripts/test-measure.sh \
@@ -87,6 +93,7 @@ jobs:
         run: |
           chmod +x scripts/materialize-synthetic.sh
           bash scripts/materialize-synthetic.sh
+          bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json
 
       - name: Iteration ID schema validation
         run: |

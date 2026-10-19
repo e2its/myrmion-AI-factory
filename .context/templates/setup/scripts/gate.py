@@ -13,6 +13,8 @@
   gate.py snapshot-sections [--profile lite|full]  stack config + rules manifest + law index + families (+ bodies)
   gate.py budget                                   run every producer at worst case; exit 1 on overflow, dead/absent producer or missing key
   gate.py retired-terms                            the retired-vocabulary ratchet; exit 1 on a hit
+  gate.py dependencies [--readers | --seed [--tools F]] [--strict]   QA-PRE-1 (#114): every direct dependency, at the version its lockfile resolved, against config/allowlist.json — denied, unlisted or out of range is red; the stack answers in docs/setup.md pick the readers; --readers lists the stacks that have one; --seed merges Q26 (and a pack's --tools) into the allowlist
+  gate.py checklist [--file F] [--json]            the one done vocabulary (#115): only [x] is done; [ ], [!] and any other mark are not (stdin when no --file); exit 1 when an item is not done
   gate.py certify --subject diff|tree [--base B] [--branch B] [--paths p…] [--json]   the certifies: block a verdict embeds (paths + hash); diff base = gate.py diff-base
   gate.py certify --subject worktree --paths p…   the on-disk hash (tracked + untracked) taken before and after a read-only run — the guard, never a verdict subject
   gate.py currency [--base B] [--branch B]         the push's verdict artefacts still certify their files; exit 1 stale/missing/unknown branch · 2 could not judge
@@ -492,6 +494,37 @@ def cmd_manifest(repo, a):
     return 0
 
 
+def cmd_checklist(repo, a):
+    from gates import checklist as checklist_mod
+    if a.file:
+        p = Path(a.file) if Path(a.file).is_absolute() else repo / a.file
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError as e:
+            raise GateFault(f"the checklist {a.file} cannot be read ({e.strerror}) — nothing can be counted done") from None
+    else:
+        text = sys.stdin.read()
+    c = checklist_mod.count(text)
+    print(json.dumps(c) if a.json else checklist_mod.render(c))
+    return 1 if c["not_done"] else 0
+
+
+def cmd_dependencies(repo, a):
+    from gates import dependencies as deps_mod
+    if a.readers:
+        print(json.dumps(deps_mod.readers()))
+        return 0
+    if a.seed:
+        r = deps_mod.seed(repo, Path(a.tools) if a.tools else None)
+        print(f"dependencies: seeded {r['allowlist']} (+{r['added']} entr{'y' if r['added'] == 1 else 'ies'})")
+        return 0
+    findings = deps_mod.check(repo)
+    for f in findings:
+        print(f"  ❌ {f}")
+    print(f"dependencies: {'RED — ' + str(len(findings)) + ' finding(s)' if findings else 'ok — every direct dependency is allowlisted at its resolved version'}")
+    return 1 if findings else 0
+
+
 def cmd_manifest_parity(repo, a):
     findings, stats = coherence.manifest_parity(repo)
     print(coherence.render("manifest-parity", findings, f"{stats['compared']} compared, {stats['no_version']} without a frontmatter version"))
@@ -516,6 +549,8 @@ def build_parser():
     p = sub.add_parser("snapshot-sections"); p.add_argument("--profile", choices=("lite", "full"), default="lite"); p.set_defaults(fn=cmd_snapshot_sections)
     p = sub.add_parser("budget"); p.set_defaults(fn=cmd_budget)
     p = sub.add_parser("retired-terms"); p.set_defaults(fn=cmd_retired)
+    p = sub.add_parser("dependencies"); p.add_argument("--strict", action="store_true"); p.add_argument("--readers", action="store_true"); p.add_argument("--seed", action="store_true"); p.add_argument("--tools", default=None); p.set_defaults(fn=cmd_dependencies)
+    p = sub.add_parser("checklist"); p.add_argument("--file", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_checklist)
     p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree", "worktree"), required=True); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
     p = sub.add_parser("currency"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_currency)
     p = sub.add_parser("manifest-parity"); p.set_defaults(fn=cmd_manifest_parity)

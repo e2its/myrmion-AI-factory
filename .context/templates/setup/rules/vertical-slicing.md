@@ -6,7 +6,7 @@ applicable_when:
     - "docs/spec/**/slice_map.md"
     - "docs/spec/**/increment_plan.md"
     - "docs/spec/**/dev_plan.md"
-version: 1.0.0
+version: 1.0.1
 date: 2026-10-07
 changelog:
   - "1.0.0: feat(EVOL-064) — body moved verbatim from the project CLAUDE.md § Incremental Dev Plan (Vertical Slicing); CLAUDE.md keeps the always-on lines and a pointer here."
@@ -36,4 +36,4 @@ Every feature ships as a chain of **vertical increments**. One PR per increment.
 
 **Enforcement gates.** CVP at `BLUEPRINT --approve` (and the local push preflight, factory-pr-review Block 8): Check `0c` `increment_plan_presence`, Check `0d` `slice_map_presence`, Check `13` `increment_deployability`, Check `14` `increment_to_scenario_coverage`, Check `15` `increment_to_contract_coverage`, Check `16` `monolithic_heuristic`, Check `18` `slice_to_increment_coverage`, Check `19` `slice_seam_resolution`, Check `20` `slice_immutability_consistency` (all CRITICAL) + Check `17` `increment_to_task` and Check `21` `surface_declared` (WARNING at IMPLEMENT scope). See `.claude/skills/factory-coherence-validation/SKILL.md`.
 
-**Iteration cascade.** Upstream changes propagate selectively via `CASCADE_INCREMENT_INTERNAL` — only increments whose scenarios/contracts overlap with the change flip to `INVALIDATED`. MERGED increments never invalidate (they anchor production); BUILDING increments get `pending_iteration` and must `--pause` before resync. A CODESIGN re-slice fires `CASCADE_SLICE_INTERNAL` (forward-only `slice_map → increment_plan`, assignment-delta) and is blocked pre-persist by `check_slice_immutability` when it touches a MERGED-frozen scenario (→ follow-up slice or `CODESIGN --revise`). See `factory-iteration-model § Slice Freeze Derivation`.
+**Iteration cascade.** Upstream changes propagate selectively via `CASCADE_INCREMENT_INTERNAL` — only increments whose scenarios/contracts overlap with the change flip to `INVALIDATED`. MERGED increments never invalidate (they anchor production); BUILDING increments get `pending_iteration` and resync after they complete. A CODESIGN re-slice fires `CASCADE_SLICE_INTERNAL` (forward-only `slice_map → increment_plan`, assignment-delta) and is blocked pre-persist by `check_slice_immutability` when it touches a MERGED-frozen scenario (→ follow-up slice or `CODESIGN --revise`). See `factory-iteration-model § Slice Freeze Derivation`.

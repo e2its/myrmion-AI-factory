@@ -17,7 +17,7 @@ updated_at: "{{TIMESTAMP}}"
 
 > **LAW-16 Business Purity** — everything in this file is validatable by the PO/UX from business knowledge alone. NO technical types, tiers, protocols, or reliability mechanisms. Technical formalisation lives in `design.md` (BLUEPRINT).
 > **Part I — Experience** (Sections 1-4): who travels, what they do, feel, and where it hurts. **Part II — Domain Contract** (Sections 5-8): what the business guarantees, in plain language.
-> **Source of Truth** — Part II is the sole authority on WHICH business facts exist (fields, rules, states). ARCH formalizes types/formats in `design.md § 7.4`, NEVER invents business facts.
+> **Source of Truth** — Part II is the sole authority on WHICH business facts exist (fields, rules, states). ARCH formalizes types/formats in `design.md § Schema Constraints`, NEVER invents business facts.
 > **Machine anchors** — `### Paso N` headings, `**BDD Scenario:**` (exact scenario title in `spec.feature`), `**Mock Action:**` (`#step-N` id in `mock.html`, `—` for non-UI scopes). Validated by `scripts/check-journey-grammar.sh`.
 > **Incremental-slicing note.** Under `slicing_strategy: incremental` (the default), scenarios group into capability-VALUE slices in `slice_map.md § 1`; slices may reference the named Paths below. This journey describes the COMPLETE end-state.
 
@@ -133,7 +133,7 @@ journey
 
 <!-- SOLE authority on WHICH business fields exist. One table per business concept.
      Plain language: a non-technical reader validates every cell. NO types, NO
-     formats, NO constraints syntax — ARCH derives those in design.md § 7.4
+     formats, NO constraints syntax — ARCH derives those in design.md § Schema Constraints
      (RDR back to CODESIGN --refine if a new business field is needed). -->
 
 ### {{CONCEPT_NAME}}
@@ -169,7 +169,7 @@ journey
      the relationship guarantees). For backend/integration scopes, reliability is
      expressed HERE as business guarantees ("the customer is never charged twice",
      "if it fails, X is notified") — the technical mechanisms (idempotency, retries,
-     circuit breakers) are ARCH's job in design.md § 6 Reliability Contract. -->
+     circuit breakers) are ARCH's job in design.md § Reliability Contract. -->
 
 | Party | What is exchanged | Business guarantee | Notes |
 |-------|-------------------|--------------------|-------|

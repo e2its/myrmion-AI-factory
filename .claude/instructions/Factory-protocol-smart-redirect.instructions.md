@@ -207,14 +207,10 @@ FUNCTION compute_feature_state(FEATURE_ID):
   
   # Frozen contract set (BLUEPRINT-owned) — point-in-time, regenerated whole on invalidation
   contracts_freeze:
-    exists: GLOB_EXISTS("contracts/**/*{{FEATURE_ID}}*/**") OR DIR_EXISTS("{{base_path}}/contracts/")
+    exists: ANY(feature_map.md row WHERE Feature ID == {{FEATURE_ID}} AND Role IN [OWNER, CO-OWNER]) OR DIR_EXISTS("{{base_path}}/contracts/")   # by CONTRACT_SLUG, never a directory named by feature id (rules/contract-first-policy.md)
     # INVALIDATED when an iteration touched schema/contract/new_scenario scopes — the iteration
     # model marks the frozen set INVALIDATED and re-freeze runs via BLUEPRINT --refine/--approve.
     invalidated: ANY(contract_file.status == "INVALIDATED" FOR contract_file IN frozen_set)
-
-  # Preventive defect sweep report (post-deploy runtime validation) — point-in-time
-  preventive_sweep:
-    exists: GLOB_EXISTS("{{base_path}}/review/preventive_sweep_*.md")
 
   # PR / Merge state
   pr_state:
@@ -242,7 +238,7 @@ FUNCTION compute_feature_state(FEATURE_ID):
   RETURN {vision, external_ds, code_layout, frontend_enabled,
           spec_feature, mock_html, user_journey, design_md, test_plan,
           devops_plan, dev_plan, qa_report, qa_slice_reports,
-          contracts_freeze, preventive_sweep, pr_state,
+          contracts_freeze, pr_state,
           design_stale, test_plan_stale, dev_plan_stale, devops_plan_stale,
           qa_invalidated, contracts_invalidated}
 ```
@@ -494,12 +490,6 @@ FUNCTION compute_next_actions(state, FEATURE_ID):
       prod_deployed = GREP(deployment_reports, prod_env) OR FALSE
       IF NOT prod_deployed:
         actions.push({cmd: "DEVOPS --deploy {{ID}} --env {{prod_env}}", reason: "Merged to main, deploy to production"})
-      ELIF NOT state.preventive_sweep.exists:
-        # First deploy of the feature is the canonical preventive-sweep trigger
-        # (Factory-preventive-sweep SKILL). Advisory — surfaces runtime defects
-        # invisible to static gates. Does NOT block "complete".
-        actions.push({cmd: "sweep {{ID}}", reason: "Deployed — run preventive defect sweep (first-deploy runtime validation)"})
-        actions.push({cmd: "✅ WORKFLOW COMPLETE", reason: "Feature deployed to production (sweep recommended, not required)"})
       ELSE:
         actions.push({cmd: "✅ WORKFLOW COMPLETE", reason: "Feature fully deployed to production"})
   

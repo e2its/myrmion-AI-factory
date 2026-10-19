@@ -9,7 +9,8 @@
 # Blocks if:
 #   - file is dev_plan.md or qa_report*.md (any path)
 #   - content contains IMPLEMENTED_AND_VERIFIED or verdict: APPROVED
-#   - content still has unchecked items: "- [ ]"
+#   - an item is not done — ONE vocabulary: python3 scripts/gate.py checklist (#115): only [x] is done;
+#     an open [ ], a failed [!] and any other mark are not
 # Blocks with exit 2 + stderr (the Claude Code blocking contract; exit 1 would not block — EVOL-043).
 # ============================================================================
 
@@ -39,13 +40,13 @@ except Exception:
 
 # Only apply to dev_plan.md or qa_report*.md files
 BASENAME=$(basename "$FILE_PATH" 2>/dev/null || echo '')
-if [[ "$BASENAME" != "dev_plan.md" ]] && ! echo "$BASENAME" | grep -qE '^qa_report.*\.md$'; then
+if [[ "$BASENAME" != "dev_plan.md" ]] && ! grep -qE '^qa_report.*\.md$' <<< "$BASENAME"; then
   exit 0
 fi
 
 # Check for terminal status markers
 HAS_TERMINAL=false
-if echo "$CONTENT" | grep -qE '(IMPLEMENTED_AND_VERIFIED|verdict:\s*APPROVED)'; then
+if grep -qE '(IMPLEMENTED_AND_VERIFIED|verdict:\s*APPROVED)' <<< "$CONTENT"; then   # here-string, never a pipe: grep -q + pipefail = SIGPIPE on a large file (DC-13)
   HAS_TERMINAL=true
 fi
 
@@ -53,16 +54,24 @@ if ! $HAS_TERMINAL; then
   exit 0
 fi
 
-# Count unchecked items
-UNCHECKED=$(echo "$CONTENT" | grep -c '^\s*- \[ \]' 2>/dev/null || true)
-
-if [ "$UNCHECKED" -gt 0 ]; then
-  {
-    echo "BLOCKED: Completion gate failed for '$BASENAME'."
-    echo "  Found $UNCHECKED unchecked item(s) [ ] but status is set to terminal (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED)."
-    echo "  Complete all checklist items before marking as done."
-  } >&2
+# Count what is not done through the one reader; a missing reader blocks with its resolution
+if [ ! -f scripts/gate.py ]; then
+  echo "BLOCKED: the governance reader (scripts/gate.py) is not delivered — '$BASENAME' cannot be checked before a terminal status. Resolution: bash scripts/factory-sync.sh, then retry." >&2
   exit 2
 fi
+RC=0
+COUNT=$(printf '%s\n' "$CONTENT" | python3 scripts/gate.py checklist 2>&1) || RC=$?
 
-exit 0
+case "$RC" in
+  0) exit 0 ;;
+  1)
+    {
+      echo "BLOCKED: Completion gate failed for '$BASENAME'."
+      echo "  Status is terminal (IMPLEMENTED_AND_VERIFIED / verdict: APPROVED) but not every item is done — $COUNT."
+      echo "  Resolve every open [ ] and failed [!] item before marking as done."
+    } >&2
+    exit 2 ;;
+  *)
+    { echo "BLOCKED: the completion gate could not count the checklist of '$BASENAME' (gate.py checklist exit $RC):"; echo "$COUNT"; } >&2
+    exit 2 ;;
+esac

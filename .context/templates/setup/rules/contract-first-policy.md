@@ -159,8 +159,8 @@ See `BLUEPRINT.AGENT.MD` Phase 3 Step 1b for the full algorithm.
 3. **Decision per Candidate (RDR):**
    - **REUSE ✅ (recommended):** Do NOT create a new endpoint. Reference existing contract in `design.md`. Add consumer entry in `feature_map.md`.
    - **EXTEND:** Add new operation to existing contract slug. Update co-ownership in `feature_map.md`.
-   - **NEW ENDPOINT (requires justification):** Create new endpoint only when existing one cannot serve the need (different auth context, different SLA, incompatible schema shape). Justification recorded in `design.md` Section 0.
-4. **Output:** Summary logged in `design.md` Section 0 ("Existing Contract Analysis") with total endpoints scanned, reused, extended, and newly created.
+   - **NEW ENDPOINT (requires justification):** Create new endpoint only when existing one cannot serve the need (different auth context, different SLA, incompatible schema shape). Justification recorded in `design.md` § Technical Resolutions Log.
+4. **Output:** Summary logged in `design.md` § Existing Contract Analysis with total endpoints scanned, reused, extended, and newly created.
 
 **Consumer Tracking in `feature_map.md`:**
 When a feature REUSES an endpoint from another feature's contract, a **consumer entry** is appended:
@@ -177,7 +177,7 @@ When a feature REUSES an endpoint from another feature's contract, a **consumer 
 **Enforcement:**
 - `/BLUEPRINT --start`: Scan is MANDATORY in Phase 2 Step -1. Cannot proceed to contract generation without completing the scan.
 - `/BLUEPRINT --refine`: Scan is triggered ONLY when feedback introduces new endpoints (new paths, not schema modifications to existing paths).
-- `/BLUEPRINT --approve`: Pre-check validates that `design.md` Section 0 contains the "Existing Contract Analysis" block. BLOCK if missing.
+- `/BLUEPRINT --approve`: Pre-check validates that `design.md` § Existing Contract Analysis is written. BLOCK if missing.
 
 #### 6. Inter-Domain Communication Enforcement (MANDATORY — ALL Architectures)
 
@@ -208,7 +208,7 @@ Synchronous (Request-Response):
 
 Asynchronous (Event/Message-Based):
   contract_type: AsyncAPI 2.6+ (contracts/asyncapi/)
-  applies_to: Event-based topologies (B3, B6, B7, B11) OR when backend.communication_style == Event-Driven
+  applies_to: Event-based topologies (`backend.topology` B3, B6, B7, B11)
   use_when:
     - Fire-and-forget commands (e.g., send email, log audit)
     - Domain events that multiple consumers may react to
@@ -1683,7 +1683,7 @@ components:
 ### The Bridge Pattern
 
 ```
-OpenAPI Contract                    design.md Section 5              IaC (SAM/CDK/Serverless)
+OpenAPI Contract                    § Infrastructure Needs           IaC (SAM/CDK/Serverless)
 ─────────────────                   ─────────────────────            ───────────────────────
 paths:                              resources:                       Resources:
   /api/v1/auth/login:     ──►        - id: auth-login-fn    ──►       AuthLoginFunction:
@@ -1699,7 +1699,7 @@ paths:                              resources:                       Resources:
                                                                                  Method: post
 ```
 
-### Derivation Rules (BLUEPRINT → design.md Section 5)
+### Derivation Rules (BLUEPRINT → design.md § Infrastructure Needs)
 
 When BLUEPRINT (`factory-blueprint`) generates `design.md` for a B9 project:
 
@@ -1716,7 +1716,7 @@ When BLUEPRINT (`factory-blueprint`) generates `design.md` for a B9 project:
 
 ### Derivation Rules (DEVOPS → IaC)
 
-When DEVOPS reads `design.md Section 5` and encounters `type: function` resources:
+When DEVOPS reads `design.md § Infrastructure Needs` and encounters `type: function` resources:
 
 1. **Map** each function resource to IaC construct using `iac_descriptor`:
    - SAM → `AWS::Serverless::Function` in `template.yaml`

@@ -98,7 +98,7 @@
       },
       {
         "type": "meta_template_mirror",
-        "doc": "pre-push git hook (EVOL-040) — delegates its secrets lane to the security-scan dispatcher with --require-scanner (fail-closed at push preserved). Deliberate carve-out: security_scan.enabled=false passes even under --require-scanner (ratified policy opt-out ≠ infra failure; regex floor stays).",
+        "doc": "pre-push git hook (EVOL-040) — delegates its secrets lane to the security-scan dispatcher with --require-scanner (fail-closed at push preserved). No scanner declared (disabled, null, no config) blocks in every context — secret scanning is never skippable (#116).",
         "left": "scripts/hooks/pre-push",
         "right": ".context/templates/setup/scripts/hooks/pre-push"
       },

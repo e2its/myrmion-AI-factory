@@ -68,7 +68,7 @@ READ docs/constitution.md:
 ### Step 2: Load Governance Files
 ```yaml
 LOAD (ALL required):
-  .claude/rules/ci-cd.md → ci_cd_platform, environments_config, cost_limits
+  .claude/rules/ci-cd.md → platform (`ci_cd.platform`), environments_config, cost_limits
   .claude/rules/iac.md → IaC standards, module structure
   .claude/rules/stateless.md → Stateless service rules
   .claude/rules/security_policy.md → Security standards
@@ -346,7 +346,7 @@ FOR EACH section IN [environments, deployment_strategy, observability, secrets, 
 ### Phase 1: Governance Validation (Automatic, No Questions)
 ```yaml
 EXECUTE Guardrails 0-7
-LOAD design.md Section 5: Infrastructure Needs
+LOAD design.md § Infrastructure Needs
   EXTRACT resources[]: {name, type, engine, scope, data_bearing, sizing, handler, trigger, contract_slug}
   # For static_site resources, ALSO extract: framework, build_command, output_dir, base_path, ssr
 LOAD infrastructure_registry.json: Cross-reference existing resources
@@ -359,7 +359,7 @@ feature_scope = READ "docs/spec/{FEATURE_ID}/spec.feature" → frontmatter.scope
 FUNCTION derive_target_runtime(resource, feature_scope, hosting_provider):
   # Resource-type-first; scope provides the typical pattern when the resource leaves the choice open.
   # Explicit design.md overrides ALWAYS win — this helper only fills in the default when design.md did not pin a runtime.
-  IF resource.target_runtime IS ALREADY SET (from design.md Section 5): RETURN resource.target_runtime
+  IF resource.target_runtime IS ALREADY SET (from design.md § Infrastructure Needs): RETURN resource.target_runtime
 
   IF resource.type == "static_site":
     RETURN "static-hosting+cdn"   # S3+CloudFront / Cloudflare Pages / Netlify / Vercel / GCS+CDN — derived from hosting_provider
@@ -376,7 +376,7 @@ FUNCTION derive_target_runtime(resource, feature_scope, hosting_provider):
       "integration":          RETURN "worker"               # integrations typically process queues / events / webhooks inbound
       "full-stack":           RETURN "container"            # bundled service
       default:                RETURN "container"
-  IF resource.type == "cron" OR resource.trigger == "schedule":
+  IF resource.trigger == "schedule":
     RETURN "scheduler"              # EventBridge rule → Lambda, Cloud Scheduler → Cloud Run Job, K8s CronJob
   # Fallback: let the caller's hosting provider decide
   RETURN "platform-default"
@@ -408,16 +408,16 @@ IF feature_scope IN ["full-stack", "frontend-only"]:
   IF frontend_framework != None AND frontend_framework != "None":
     has_static_site = resources[].find(r => r.type == "static_site") != null
     IF NOT has_static_site:
-      ⚠️ WARN: "Constitution declares frontend.framework={frontend_framework} and feature.scope={feature_scope} but design.md Section 5 has no static_site resource. Frontend will NOT be deployed. Consider running BLUEPRINT --refine to auto-declare it."
+      ⚠️ WARN: "Constitution declares frontend.framework={frontend_framework} and feature.scope={feature_scope} but design.md § Infrastructure Needs has no static_site resource. Frontend will NOT be deployed. Consider running BLUEPRINT --refine to auto-declare it."
 ELSE:
   # scope in [backend-only, integration] — static_site resource would be a scope error
   has_unexpected_static_site = resources[].find(r => r.type == "static_site") != null
   IF has_unexpected_static_site:
-    ⚠️ WARN: "design.md Section 5 declares a static_site resource but feature.scope={feature_scope} excludes frontend. Remove the resource or re-check the scope assignment."
+    ⚠️ WARN: "design.md § Infrastructure Needs declares a static_site resource but feature.scope={feature_scope} excludes frontend. Remove the resource or re-check the scope assignment."
 
 GENERATE devops_plan.md with:
   governance: {read-only section from constitution + ci-cd.md}
-  resources: {from design.md Section 5 + derived target_runtime per resource}
+  resources: {from design.md § Infrastructure Needs + derived target_runtime per resource}
   feature_scope: feature_scope
   deployment_shape: deployment_shape
   status: DRAFT

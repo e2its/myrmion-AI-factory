@@ -232,6 +232,41 @@
       "pattern": "(?i)\\b\\d+-point (?:auto-approval|alignment)\\b|\\bwhen \\d+/\\d+ OK\\b",
       "record": "#113 — an auto-approval check count lives only in its check list",
       "exempt": []
+    },
+    {
+      "pattern": "(?i)\\b(?:one|two|three|single|\\d+)[ -]rounds?\\b[^.\\n]{0,10}\\(?`rounds\\.work`|`rounds\\.work`[^.\\n]{0,6}(?:=|:)\\s*\\d",
+      "record": "#118 — the number of work rounds lives only in rules/agents.md (rounds.work)",
+      "exempt": []
+    },
+    {
+      "pattern": "(?i)\\bfix\\w*\\b[^.\\n]{0,60}\\b(?:re-?)?run(?:s|ning)? (?:the )?(?:full|entire|whole) (?:test )?suite|\\bREGRESSION\\b\\W{0,3}(?:re-?)?run (?:the )?(?:full|entire|whole) (?:test )?suite",
+      "record": "#118 — a fix is verified red → green, then by the read-set re-run (rules/testing.md [LAW-05]), never by re-running everything (DC-30)",
+      "exempt": []
+    },
+    {
+      "pattern": "(?i)\\bsweep\\b[^\\n]{0,60}\\bpost-deploy|\\bpost-deploy\\w*\\b[^\\n]{0,40}\\bsweep\\b",
+      "record": "#118 — the preventive sweep's one control point is the pre-deploy gate of DEVOPS --deploy",
+      "exempt": []
+    },
+    {
+      "term": "sweep_recommended",
+      "record": "#118 — the preventive sweep's one control point is the pre-deploy gate of DEVOPS --deploy; no advisory flag",
+      "exempt": []
+    },
+    {
+      "term": "ai_capability",
+      "record": "#143 — Q24 persists `ai.training` / `ai.inference` / `ai.agentic`; a reader names the key the question writes",
+      "exempt": []
+    },
+    {
+      "pattern": "(?i)\\b(?:npm audit|pip-audit|cargo audit|safety check|govulncheck|gitleaks|trufflehog|dotnet list package)\\b[^\\n]{0,80}(?:\\|\\|\\s*(?:true\\b|exit\\s+0\\b|:(?![\\w:]))|;\\s*true\\b)",
+      "record": "#116 — a dependency audit or secret scanner's exit code is the verdict; masking it (`|| true`, `|| exit 0`, `|| :`, `; true`) lets every finding pass",
+      "exempt": []
+    },
+    {
+      "pattern": "(?i)\\bunknown (?:stack|test runner)\\b[^\\n]{0,60}\\b(?:skip\\w*|semantic verification only)\\b",
+      "record": "#116 — a stack with no declared verification command blocks (BVL UNDECLARED_STACK); only an infrastructure fault degrades",
+      "exempt": []
     }
   ],
   "coherence": {

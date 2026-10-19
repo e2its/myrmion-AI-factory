@@ -1,0 +1,22 @@
+{
+  "_doc": "Synthetic SETUP answers (#143): a .NET backend, a Vue.js frontend, AWS CodePipeline. Must select the C# rules, the Vue verification row and the CodeBuild governance check. META-ONLY.",
+  "answers": {
+    "project_mode": "Greenfield",
+    "backend.runtime": ".NET",
+    "frontend.framework": "Vue.js",
+    "frontend.meta_framework": "Nuxt",
+    "database.primary.engine": "PostgreSQL",
+    "hosting.provider": "AWS",
+    "hosting.iac_tool": "AWS CDK",
+    "ci_cd.platform": "AWS CodePipeline",
+    "scm.platform": "GitHub",
+    "project_tracking.tool": "None",
+    "po_package.mode": "full",
+    "po_package.ds_rebuild_command": null
+  },
+  "expect": {
+    "landed": [".claude/rules/csharp.md", "buildspec-governance.yml"],
+    "absent": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml"],
+    "bvl": {"backend.runtime": ".NET", "frontend.framework": "Vue.js"}
+  }
+}

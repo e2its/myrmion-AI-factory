@@ -154,14 +154,14 @@ cascade_scope: []
 
 ### 3.6 Cross-Layer Type Mapping (applicable_when scope in [full-stack])
 <!-- applicable_when: scope in [full-stack] -->
-**Source:** design.md § 3.1 Cross-Layer Type Mapping
+**Source:** design.md § Cross-Layer Type Mapping
 **Applies when:** scope == `full-stack` (feature has both frontend and backend layers requiring type-round-trip verification)
 **Skip message when N/A:** `N/A — skipped under scope={{feature_scope}}`
 
 **Findings:**
 - Business fields round-trip BE ↔ FE without lossy conversion: ⏳
 - Technical fields (id, timestamps, audit) free on ARCH side: ⏳
-- Incompatible type mappings flagged as WARNING in design.md § 0: ⏳
+- Incompatible type mappings flagged as WARNING in design.md § Technical Resolutions Log: ⏳
 
 ---
 
@@ -216,7 +216,7 @@ cascade_scope: []
 **Findings per consumed upstream:**
 - Upstream FEAT-XXX contract imported via ACL adapter (not inlined): ⏳
 - Consumer code binds to stable contract fields only (no private implementation details): ⏳
-- Frozen-contract file path documented in design.md § 7 GCD: ⏳
+- Frozen-contract file path documented in design.md § Governance & Constraints Digest: ⏳
 - Stale-after-cascade label absent on upstream CONTRACT-FREEZE issue: ⏳
 
 ---

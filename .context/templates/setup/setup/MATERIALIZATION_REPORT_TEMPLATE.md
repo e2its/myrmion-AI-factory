@@ -157,12 +157,12 @@ For each candidate file for generation:
 
 ### Phase 9: Contracts (CONDITIONAL — based on stack)
 - [ ] Create contracts/ base directory
-- [ ] Create contracts/openapi/ directory (empty with .gitkeep) — **IF** `backend.communication_style IN [REST, Event-Driven]` (REST is the default API surface, even for event-driven topologies)
+- [ ] Create contracts/openapi/ directory (empty with .gitkeep) — **IF** `backend.communication_style IN [REST, Mixed]` (REST is the default API surface, event-based topologies included)
 - [ ] Create contracts/graphql/ directory (empty with .gitkeep) — **IF** `backend.communication_style == GraphQL`
 - [ ] Create contracts/grpc/ directory (empty with .gitkeep) — **IF** `backend.communication_style == gRPC`
-- [ ] Create contracts/asyncapi/ directory (empty with .gitkeep) — **IF** `backend.communication_style == Event-Driven` **OR** `topology IN [B3, B6, B7, B11]` (event-based)
+- [ ] Create contracts/asyncapi/ directory (empty with .gitkeep) — **IF** `backend.topology IN [B3, B6, B7, B11]` (event-based)
 - [ ] Create contracts/feature_map.md (empty template)
-- ⚠️ **NOTE:** OpenAPI contracts are scaffolded by default for REST and Event-Driven communication styles; AsyncAPI is added for event-based topologies. Only create directories that match the project's effective API surface (`backend.communication_style`) and `topology`. Additional contract types can be enabled later via ADR. Contract files are NOT generated during SETUP — they are created by `/BLUEPRINT --start` and stored under `contracts/{type}/{CONTRACT_SLUG}/`.
+- ⚠️ **NOTE:** OpenAPI contracts are scaffolded by default for REST and Mixed communication styles; AsyncAPI is added for event-based topologies. Only create directories that match the project's effective API surface (`backend.communication_style`) and `topology`. Additional contract types can be enabled later via ADR. Contract files are NOT generated during SETUP — they are created by `/BLUEPRINT --start` and stored under `contracts/{type}/{CONTRACT_SLUG}/`.
 
 ### Phase 10: Infrastructure (Variable - depends on hosting)
 - [ ] Generate {{IAC_TOOL}} structure (if IaC configured)
@@ -173,6 +173,7 @@ For each candidate file for generation:
 - [ ] Generate docker-compose.yml (if local development)
 
 ### Phase 11: CI/CD (ALWAYS)
+- [ ] `ci_cd.platform == "None"`: no pipeline and no server-side governance check — the gates run locally (pre-push hook). A CircleCI team answers None: the framework ships no CircleCI template (#143).
 - [ ] Generate .github/workflows/ci.yml
 - [ ] Generate .github/workflows/deploy-dev.yml
 - [ ] Generate .github/workflows/deploy-prod.yml
@@ -475,7 +476,7 @@ python3 subproducts/measure/measure.py --json --out ../measure-before.json   # b
 ### Rollback (if needed)
 ```bash
 # Restore from last backup
-/SETUP --rollback-last
+/SETUP --rollback-upgrade
 
 # Or manually
 cp -r .backups/{{TIMESTAMP}}/* .
