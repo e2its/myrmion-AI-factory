@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import importlib.util
 import json
 import os
@@ -1798,6 +1799,117 @@ class Agents(unittest.TestCase):
             t0 = _t.time(); agents.check_return("x\n## Hand-off\nDone: a" + " " * 40000 + "b\nRemaining: none\nState: s\n" + "\n" * 40000 + gov, "worker"); self.assertLess(_t.time() - t0, 1.0, "a worker-controlled return with a long run of blanks is parsed in linear time (6 s before the cure)")
             self.assertFalse(any("Hand-off" in p for p in agents.check_return("no findings\n" + gov + "Informational: 0\nModel: m\n", "work-critic")), "a critic owes no hand-off")
 
+
+    def test_spawn_hold_budget_round_and_cure(self):
+        """EVOL-113: a work critic's prompt opens with the five lines; the spawn re-measures its scope, holds the budget the
+        resolver gives for that size and round, records round 1 and admits a round 2 that reads the cure only."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("rounds: {plan_gate: 2, work: 1}", "rounds: {plan_gate: 2, work: 2}"))
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-B", "feature/EVOL-1-x"], check=True)
+            write(repo / "src/a.py", "x = 1\ny = 2\n"); write(repo / "pkg/b.py", "b = 1\n"); write(repo / "pkg/c/d.py", "d = 1\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+            scratch = Path(tmp) / "scratch"; scratch.mkdir()
+            diff = scratch / "r1.diff"
+            write(diff, "diff --git a/src/a.py b/src/a.py\nindex 1..2 100644\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1,2 +1,3 @@\n x = 1\n-y = 2\n+y = 3\n+--z = 4\n")
+            hdr = lambda e="high", t=20, p=2, r=1, s=f"diff {diff}", drop=None: "".join(
+                f"{k}: {v}\n" for k, v in (("effort", e), ("turn budget", t), ("probe budget", p), ("round", r), ("scope", s)) if k != drop) + "\nReview the diff.\n"
+            rec = repo / ".context/state/critic-round.json"
+            spawn = lambda prompt, effort=None, agent="factory-critic-security": agents.spawn_check(repo, agent, "opus", prompt=prompt, effort=effort)
+            # the model check stays first and unchanged; prompt=None is the CLI's model-only question
+            self.assertFalse(agents.spawn_check(repo, "factory-critic-security", "sonnet", prompt=hdr())["ok"])
+            self.assertTrue(agents.spawn_check(repo, "factory-critic-security", "opus")["ok"], "no prompt: model only, as before")
+            # a small diff told the large tier's budget
+            r = spawn(hdr(t=60, p=6)); self.assertFalse(r["ok"])
+            self.assertIn("a 1-file, 3-line diff (tier small, round 1) earns `effort: high` · `turn budget: 20` · `probe budget: 2`", r["reason"])
+            self.assertIn("rules/agents.md § The budget is enforced", r["reason"]); self.assertFalse(rec.exists(), "a refused spawn records nothing")
+            r = spawn(hdr(drop="scope")); self.assertFalse(r["ok"]); self.assertIn("`scope:`", r["reason"], "a missing line is named")
+            r = spawn(hdr(drop="round")); self.assertFalse(r["ok"]); self.assertIn("`round:`", r["reason"])
+            r = spawn("Review the diff.\neffort: high\n"); self.assertFalse(r["ok"], "the lines open the prompt — never buried in it")
+            r = spawn(hdr(), effort="low"); self.assertFalse(r["ok"]); self.assertIn("`low`", r["reason"], "the harness effort input is held too")
+            r = spawn(hdr(s=f"diff {scratch / 'nope.diff'}")); self.assertFalse(r["ok"]); self.assertIn("cannot be read", r["reason"])
+            r = spawn(hdr(s="range HEAD~1..HEAD")); self.assertFalse(r["ok"]); self.assertIn("`scope: diff <path>`", r["reason"])
+            r = spawn(hdr(t="twenty")); self.assertFalse(r["ok"])
+            # proportional: admitted and recorded
+            r = spawn(hdr(), effort="high"); self.assertTrue(r["ok"], r["reason"])
+            d = json.loads(rec.read_text())["feature/EVOL-1-x"]["diff"]
+            self.assertEqual(d["lines"], 3); self.assertEqual(list(d["files"]), ["src/a.py"]); self.assertEqual(d["files"]["src/a.py"], hashlib.sha256((repo / "src/a.py").read_bytes()).hexdigest()); self.assertTrue(d["at"])
+            # round 2 on the whole re-diff, nothing cured: the file did not change
+            r = spawn(hdr(r=2)); self.assertFalse(r["ok"]); self.assertIn("src/a.py", r["reason"]); self.assertIn("did not change", r["reason"])
+            write(repo / "src/a.py", "x = 1\ny = 3\n")
+            r = spawn(hdr(r=2)); self.assertFalse(r["ok"]); self.assertIn("not smaller", r["reason"], "a cure as large as the diff is a rewrite: round 1 again")
+            cure = scratch / "cure.diff"
+            write(cure, "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -2 +2 @@\n-y = 2\n")
+            r = spawn(hdr(r=2, s=f"diff {cure}")); self.assertTrue(r["ok"], r["reason"])
+            self.assertEqual(json.loads(rec.read_text())["feature/EVOL-1-x"]["diff"]["lines"], 3, "round 2 never rewrites the round-1 record")
+            r = spawn(hdr(r=3, s=f"diff {cure}")); self.assertFalse(r["ok"]); self.assertIn("over the cap", r["reason"])
+            # round 2 on a branch with no round 1
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "-B", "fix/other"], check=True)
+            r = spawn(hdr(r=2, s=f"diff {cure}")); self.assertFalse(r["ok"]); self.assertIn("no round 1", r["reason"])
+            # the canary fixture: round 1 under its own size, never recorded; refused at round 2
+            fx = scratch / "canary.diff"; write(fx, canary.fixture().rstrip("\n") + "\n\n")
+            before = rec.read_text()
+            rr = agents.resolve(repo, "work-critic", "security", 9, 153, 1)
+            r = spawn(hdr(e=rr["effort"], t=rr["turn_budget"], p=rr["probe_budget"], s=f"diff {fx}")); self.assertTrue(r["ok"], r["reason"])
+            self.assertEqual(rec.read_text(), before, "the canary is never recorded")
+            r = spawn(hdr(e=rr["effort"], t=rr["turn_budget"], p=rr["probe_budget"], r=2, s=f"diff {fx}")); self.assertFalse(r["ok"]); self.assertIn("canary", r["reason"])
+            # `files` form: tracked files the globs match, a bare directory matching what is under it; lines 0
+            r = spawn(hdr(s="files pkg")); self.assertTrue(r["ok"], r["reason"])
+            self.assertEqual(sorted(json.loads(rec.read_text())["fix/other"]["files"]["files"]), ["pkg/b.py", "pkg/c/d.py"])
+            self.assertEqual(json.loads(rec.read_text())["fix/other"]["files"]["lines"], 0)
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "feature/EVOL-1-x"], check=True)
+            self.assertTrue(spawn(hdr(s="files pkg"))["ok"]); self.assertTrue(spawn(hdr(r=2, s=f"diff {cure}"))["ok"], "a sweep's round 1 never overwrites the review's: one record per scope form")
+            subprocess.run(["git", "-C", str(repo), "checkout", "-q", "fix/other"], check=True)
+            r = spawn(hdr(s="files nowhere/**")); self.assertFalse(r["ok"]); self.assertIn("matches no tracked file", r["reason"])
+            # a relative diff path resolves against the repository
+            write(repo / "tmp.diff", diff.read_text()); r = spawn(hdr(s="diff tmp.diff")); self.assertTrue(r["ok"], r["reason"])
+            # not held: a worker, the plan critic, a type outside the roster
+            self.assertTrue(agents.spawn_check(repo, "factory-dev-backend", "sonnet", prompt="", effort="max")["ok"])
+            self.assertTrue(agents.spawn_check(repo, "factory-plan-critic", "opus", prompt="")["ok"])
+            self.assertTrue(agents.spawn_check(repo, "general-purpose", "", prompt="")["ok"])
+            # a fault inside the hold is a refusal with its reason, never a crash
+            write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("small: {files: 5, lines: 150, turn_budget: 20, probe_budget: 2}", "small: {files: 5, lines: 150}"))
+            r = spawn(hdr()); self.assertFalse(r["ok"]); self.assertIn("turn_budget", r["reason"])
+
+    def test_spawn_scope_diff_edges(self):
+        """EVOL-113 round 1: the scope's diff is counted as git counts it; a diff naming no file, or headers without a/ b/, is refused with its remedy."""
+        two = ("diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1,2 +1 @@\n x\n---y\n"
+               "diff --git a/src/b.py b/src/b.py\n--- a/src/b.py\n+++ b/src/b.py\n@@ -1 +1 @@\n-b\n+c\n")
+        self.assertEqual(agents._diff_size(two), (["src/a.py", "src/b.py"], 3), "a removed `--y` (diffs as `---y`) is a line; the next file's `--- a/` is a header")
+        self.assertEqual(agents._diff_size("diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1 +1,2 @@\n x\x0cz\x85w\n+y\n"), (["f"], 1), "a form feed or \\x85 inside a hunk line splits nothing: git's count")
+        self.assertEqual(agents._diff_size("diff --git a/f b/f\r\n--- a/f\r\n+++ b/f\r\n@@ -1 +1 @@\r\n-x\r\n+y\r\n"), (["f"], 2), "CRLF line ends: the trailing \\r is stripped")
+        quoted = 'diff --git "a/src/caf\\303\\251.py" "b/src/caf\\303\\251.py"\n--- "a/src/caf\\303\\251.py"\n+++ "b/src/caf\\303\\251.py"\n@@ -1 +1 @@\n-x\n+y\n'
+        self.assertEqual(agents._diff_size(quoted), (["src/café.py"], 2), "git's quoted path (core.quotePath) is unquoted, never refused as a missing prefix")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "src/a.py", "x\n"); subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+            scratch = Path(tmp) / "scratch"; scratch.mkdir()
+            hdr = lambda s: f"effort: high\nturn budget: 20\nprobe budget: 2\nround: 1\nscope: {s}\n\nReview.\n"
+            spawn = lambda s: agents.spawn_check(repo, "factory-critic-security", "opus", prompt=hdr(s))
+            empty = scratch / "empty.diff"; write(empty, "no diff here\n")
+            r = spawn(f"diff {empty}"); self.assertFalse(r["ok"]); self.assertIn("names no file", r["reason"]); self.assertIn("hand the critic the diff it reviews", r["reason"])
+            self.assertFalse((repo / ".context/state/critic-round.json").exists(), "a no-file diff records no round 1")
+            mn = scratch / "mn.diff"; write(mn, "diff --git i/src/a.py w/src/a.py\n--- i/src/a.py\n+++ w/src/a.py\n@@ -1 +1 @@\n-x\n+y\n")
+            r = spawn(f"diff {mn}"); self.assertFalse(r["ok"]); self.assertIn("--src-prefix=a/ --dst-prefix=b/", r["reason"], "a mnemonic-prefix header names the remedy")
+            bad = scratch / "bad.diff"; bad.write_bytes(b"diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1 +1 @@\n-x\n+\xff\xfe\n")
+            r = spawn(f"diff {bad}"); self.assertTrue(r["ok"], r["reason"])
+            self.assertEqual(next(iter(json.loads((repo / ".context/state/critic-round.json").read_text()).values()))["diff"]["lines"], 2, "a non-UTF-8 byte in a hunk is counted, not refused")
+            r = spawn("diff a\x00b"); self.assertFalse(r["ok"]); self.assertIn("cannot be read", r["reason"], "a NUL in the path is a refusal, never a traceback")
+
+    def test_spawn_hook_json_passes_prompt_and_effort(self):
+        """EVOL-113: the hook payload's prompt and effort reach the hold; the CLI without --hook-json stays model-only."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            gate = str(HERE.parent / "gate.py")
+            run = lambda args, stdin="": subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--spawn", *args], input=stdin, capture_output=True, text=True)
+            p = run(["--hook-json"], json.dumps({"tool_input": {"subagent_type": "factory-critic-security", "model": "opus", "prompt": "Review.\n"}}))
+            self.assertEqual(p.returncode, 1, p.stdout + p.stderr); self.assertIn("turn budget", p.stdout)
+            p = run(["--agent", "factory-critic-security", "--model", "opus"]); self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+            d = Path(tmp) / "h.diff"; write(d, "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1 +1,2 @@\n x\n+y\n")
+            prompt = f"effort: high\nturn budget: 20\nprobe budget: 2\nround: 1\nscope: diff {d}\n\nReview.\n"
+            payload = lambda e: json.dumps({"tool_input": {"subagent_type": "factory-critic-security", "model": "opus", "prompt": prompt, "effort": e}})
+            p = run(["--hook-json"], payload("low")); self.assertEqual(p.returncode, 1, p.stdout + p.stderr); self.assertIn("`low`", p.stdout, "the payload's effort reaches the hold: one differing from the resolver's is refused")
+            p = run(["--hook-json"], payload("high")); self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
 class Seal(unittest.TestCase):
     """EVOL-051: one full verification loop — the documentation class (one definition), the path-to-gate map, the seal the push honours."""
@@ -3730,7 +3842,9 @@ class Cli(unittest.TestCase):
             r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--spawn", "--hook-json"], input=json.dumps({"tool_input": {"subagent_type": "factory-critic-security", "model": "sonnet"}}), capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 1); self.assertIn("its family's alias is `opus`", r.stdout)
             r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--spawn", "--hook-json"], input=json.dumps({"tool_input": {"subagent_type": "factory-critic-security", "model": "opus"}}), capture_output=True, text=True, env=env)
-            self.assertEqual(r.returncode, 0)
+            self.assertEqual(r.returncode, 1, "EVOL-113: a work critic's hook payload without its five lines is refused"); self.assertIn("`scope:`", r.stdout)
+            r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--spawn", "--hook-json"], input=json.dumps({"tool_input": {"subagent_type": "factory-dev-backend", "model": "sonnet"}}), capture_output=True, text=True, env=env)
+            self.assertEqual(r.returncode, 0, "a worker's payload is held to its model only")
             r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--spawn", "--hook-json"], input="{not json", capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0, "an unreadable spawn payload names no agent: not ours")
             r = subprocess.run([sys.executable, gate, "--repo", str(arepo), "agents", "--resolve", "--class", "work-critic", "--round", "2"], capture_output=True, text=True, env=env)

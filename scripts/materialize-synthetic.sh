@@ -394,6 +394,24 @@ OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'effort medium' && ok "the second work round on a small cure earns medium effort (the round-2 tier row)" || bad "second round effort not by size (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --round 3 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'over the cap' && ok "RED: a third work round is refused by the resolver — the loop ends in the user's adjudication" || bad "round cap not enforced (rc=$RC)" "$OUT"
+# the spawn hold (EVOL-113): a work critic's prompt opens with five lines; the hook re-measures its scope, records round 1, refuses a round 2 that is not the cure
+mkdir -p "$P/src"; printf 'a = 1\nb = 3\nc = 4\n' > "$P/src/syn_hold.py"   # the bytes round 1 reviews
+printf 'diff --git a/src/syn_hold.py b/src/syn_hold.py\n--- a/src/syn_hold.py\n+++ b/src/syn_hold.py\n@@ -1,2 +1,3 @@\n a = 1\n-b = 2\n+b = 3\n+c = 4\n' > "$SCRATCH/r1.diff"
+HOLD_RES=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files 1 --lines 3 --json 2>/dev/null)
+hold() {   # $1 round, $2 effort, $3 turns, $4 probes → the hook's exit code (stdout in HOLD_OUT)
+  HOLD_OUT=$(cd "$P" && python3 -c 'import json,sys; r=json.loads(sys.argv[1]); print(json.dumps({"tool_input":{"subagent_type":"factory-critic-correctness","model":r["model"],"prompt":"effort: %s\nturn budget: %s\nprobe budget: %s\nround: %s\nscope: diff %s\n\nReview.\n" % (sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[2], sys.argv[6])}}))' "$HOLD_RES" "$1" "$2" "$3" "$4" "$SCRATCH/r1.diff" | python3 scripts/gate.py agents --spawn --hook-json 2>&1); return $?
+}
+HE=$(printf '%s' "$HOLD_RES" | python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["effort"], r["turn_budget"], r["probe_budget"])' 2>/dev/null)
+H2=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files 1 --lines 3 --round 2 --json 2>/dev/null | python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["effort"], r["turn_budget"], r["probe_budget"])' 2>/dev/null)
+LG=$(cd "$P" && python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files 99 --lines 9999 --json 2>/dev/null | python3 -c 'import json,sys; r=json.load(sys.stdin); print(r["effort"], r["turn_budget"], r["probe_budget"])' 2>/dev/null)
+rm -f "$P/.context/state/critic-round.json"
+hold 1 $LG; RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$HOLD_OUT" | grep -q 'turn budget:' && ok "RED: a 1-file diff spawned with the large tier's budget is refused, the hook naming the lines it owes (EVOL-113)" || bad "large budget on a small diff not refused (rc=$RC; resolver: $HE)" "$HOLD_OUT"
+hold 1 $HE; RC=$?
+[ "$RC" -eq 0 ] && [ -f "$P/.context/state/critic-round.json" ] && ok "the resolver's lines for the diff's size are admitted and round 1 is recorded (.context/state/critic-round.json)" || bad "proportional spawn refused or not recorded (rc=$RC)" "$HOLD_OUT"
+hold 2 $H2; RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$HOLD_OUT" | grep -q 'did not change' && ok "RED: a second round on the whole re-diff is refused — round 2 reads the cure only" || bad "round 2 on the unchanged diff not refused (rc=$RC)" "$HOLD_OUT"
+rm -f "$P/.context/state/critic-round.json" "$P/src/syn_hold.py"
 # the lens canary (EVOL-059): the fixture ships inside the reader, judged on the materialised policy
 OUT=$(cd "$P" && python3 scripts/gate.py canary --check 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "gate.py canary --check: the fixture decodes, every anchor is an added line, the planted credential is marked and invisible at rest, the coordinate spaces never overlap, the tolerance reaches no two defects of one lens, every lens has its roster agent" || bad "canary fixture inconsistent (rc=$RC)" "$OUT"

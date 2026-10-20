@@ -1,13 +1,13 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.14.0",
+  "framework_version": "8.15.0",
   "delivery_mode": "development",
   "last_updated": "2026-10-20",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "v8.14.0 (feature/EVOL-114-codesign-exits): feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked). v8.13.0 (feature/EVOL-102-discovery-as-data): feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home. v8.12.6 (fix/wave-0-follow-ups): fix #170: the review block reads the diff-base exit code with `|| BASE_RC=$?`; under set -e the bare assignment ended the hook silently, so the humanised reason (exit 1) and the origin/main fallback (other exits) never ran. v8.12.5 (fix/wave-0-framework-defects): fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]. v8.12.4 (fix/codesign-check-count): fix #113: a retired_terms entry takes `pattern` (a regex, matched per line) besides `term` — a retired shape, red on any value it takes; a malformed entry is a GateFault. v8.12.3 (fix/review-seals-home): fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/. v8.12.2 (docs/banner-readme-blocks): banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars. v8.12.1 (fix/hook-project-dir): fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it. v8.12.0 (feature/EVOL-064-lean-project-claude-md): feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks). v8.11.0 (feature/EVOL-063-autocompact-window): feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value. v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
+  "description": "v8.15.0 (feature/EVOL-113-delivery-cost): feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request. v8.14.0 (feature/EVOL-114-codesign-exits): feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked). v8.13.0 (feature/EVOL-102-discovery-as-data): feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home. v8.12.6 (fix/wave-0-follow-ups): fix #170: the review block reads the diff-base exit code with `|| BASE_RC=$?`; under set -e the bare assignment ended the hook silently, so the humanised reason (exit 1) and the origin/main fallback (other exits) never ran. v8.12.5 (fix/wave-0-framework-defects): fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]. v8.12.4 (fix/codesign-check-count): fix #113: a retired_terms entry takes `pattern` (a regex, matched per line) besides `term` — a retired shape, red on any value it takes; a malformed entry is a GateFault. v8.12.3 (fix/review-seals-home): fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/. v8.12.2 (docs/banner-readme-blocks): banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars. v8.12.1 (fix/hook-project-dir): fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it. v8.12.0 (feature/EVOL-064-lean-project-claude-md): feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks). v8.11.0 (feature/EVOL-063-autocompact-window): feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value. v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -370,10 +370,11 @@
       ]
     },
     "rules/review-policy.md": {
-      "version": "1.6.1",
+      "version": "1.7.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/review-policy.md",
       "changelog": [
+        "1.7.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.6.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "1.6.0: feat(EVOL-059) — RDR-3: the bounded work loop is the passes the key allows (the diff at full effort, one re-check on the cured bytes); no digit in prose; work_rounds mirrors the key.",
         "1.5.0: fix(EVOL-049) — review pass — the loop is EVOL-049's: one work round, the user adjudicates, model separation by agents.families; hat vocabulary retired",
@@ -1689,11 +1690,12 @@
       ]
     },
     "subproducts/measure/measure.py": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "content_type": "universal",
       "target": "subproducts/measure/measure.py",
       "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only.",
       "changelog": [
+        "1.10.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.9.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.8.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
         "1.7.0: feat(EVOL-060) — the signals: bytes per return against bytes adjudicated, the informational count, the orchestrator's output tokens per critic round.",
@@ -1707,21 +1709,23 @@
       ]
     },
     "subproducts/measure/measure.config.json": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "stack_configured",
       "target": "subproducts/measure/measure.config.json",
       "role": "Project config of the measurement subproduct — the file SETUP resolves placeholders in (retention_days, report_interval_days from Q30; unquoted integer tokens). Gate / review / governance-path / corpus regex lists are project-editable data.",
       "changelog": [
+        "1.2.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.1.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.0.0: feat(EVOL-042) — initial."
       ]
     },
     "subproducts/measure/RUNBOOK.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": "subproducts/measure/RUNBOOK.md",
       "role": "Operator runbook of the measurement subproduct: signal definitions, the before/after protocol as an obligation of the adopting project, options, config keys. Every flag it cites is closure-tested against the real parser.",
       "changelog": [
+        "1.5.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.4.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.3.0: feat(EVOL-058) — the critics signal.",
         "1.2.0: feat(EVOL-057) — the three signals (returns, pushes, loop) in the report table and the before/after protocol; where the loop's records live.",
@@ -1796,11 +1800,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.18.0",
+      "version": "1.19.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.19.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.18.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
         "1.17.0: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.16.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
@@ -1881,11 +1886,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.21.1",
+      "version": "1.22.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.22.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.21.1: test(EVOL-114): the retired CODESIGN orders and the DEPRECATED feature state red, legacy wording and the live exits green; the template ships the orders entry only",
         "1.21.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
         "1.20.3: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
@@ -2005,12 +2011,13 @@
       ]
     },
     "scripts/gates/agents.py": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "content_type": "universal",
       "target": "scripts/gates/agents.py",
       "delivery": "both",
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes).",
       "changelog": [
+        "1.7.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.6.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.5.0: feat(EVOL-060) — the two-part critic return: split_return; --check-return refuses an informational finding inside the findings, requires the Informational: N line and holds it to the appendix's length.",
         "1.4.0: feat(EVOL-059) — a critic's return carries its Model: line (refused without it or with the placeholder); return_model().",
@@ -2021,11 +2028,12 @@
       ]
     },
     "rules/agents.md": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "content_type": "universal",
       "target": ".claude/rules/agents.md",
       "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents.",
       "changelog": [
+        "1.8.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.7.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.6.0: feat(EVOL-060) — § Return contracts: the two-part critic return (the contract part adjudicated, the appendix copied verbatim into the round artefact, counted on the Informational: line); § The bounded loop: the written default for the adjudication after round 2 (RDR-5).",
         "1.5.0: feat(EVOL-059) — RDR-3: critics at full effort by default, round-2 tier rows (small → medium, medium → high), rounds.work 2 (the diff and one pass on the cured bytes; a third refused; the rest to the user's adjudication); a finding outside the delta is informational; the second pass's tier is the diff's; one vocabulary (the diff under review).",
@@ -2184,11 +2192,12 @@
       ]
     },
     "claude/hooks/check-agent-spawn.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-agent-spawn.sh",
       "role": "PreToolUse hook (Agent) — a roster agent spawns on its family's alias, never on the other's: asks gate.py agents --spawn --hook-json (exit 1 = refused → exit 2 + stderr); a subagent_type outside factory-* is not ours (pass without the reader); the reader or the policy missing on a factory-* name → blocks, names SETUP --upgrade (Q34).",
       "changelog": [
+        "1.1.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.0.0: feat(EVOL-049)! — initial: the mechanical hold of the writer/critic family separation at the spawn."
       ]
     },
@@ -3092,9 +3101,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.20.1",
+      "version": "2.21.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.21.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "2.20.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "2.20.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "2.19.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
@@ -3194,9 +3204,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.19.1",
+      "version": "2.20.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.20.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "2.19.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "2.19.0: feat(EVOL-060) — the peer review artefact's § Critic returns (every return verbatim); informational counted, never adjudicated.",
         "2.18.1: fix(EVOL-059) — RDR-3: the passes the key allows; the effort the resolver computes; a finding outside the diff is informational.",
@@ -3549,9 +3560,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.17.1",
+      "version": "14.18.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.18.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "14.17.1: docs(EVOL-114): a flag that repeats another retires into it, a retired_terms entry keeps it out (meta §4); Artifact States name the terminal states (template)",
         "14.17.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
         "14.16.0: Generation Standards §4: no new command or flag unless the SDLC needs it, it solves a real problem and its benefit is stated (owner RDR «1», meta-only)",
@@ -3855,10 +3867,11 @@
       "path": ".claude/skills/factory-complexity-check/SKILL.md"
     },
     "skills/factory-code-review/SKILL.md": {
-      "version": "1.9.2",
+      "version": "1.10.0",
       "type": "skill",
       "role": "Factory Code Review — agentic multi-perspective code review engine. 6 vendored Anthropic pr-review-toolkit agents (Apache-2.0, pinned commit in skill README § Provenance). Single engine, two invocations (RDR-3): IMPLEMENT increment pass — work critics, Step R.1b (scope=increment, feeds peer_review, never writes marker) and factory-pr-review axis 7 / Block 20 (scope=branch, ONLY writer of the proof-of-execution marker .context/state/code-review-${content_hash}.marker). RDR-1 content-hash keying (sha256 over sorted path+blob-sha of is_code∪is_test files — amend/rebase-stable). RDR-2: fail-open on infra (executor-missing → noisy Important), fail-closed on findings (blockers block push; override only via explicit RDR, recorded in marker override object + worklog SCM.code_review.override). RDR-4 gate profile: code-reviewer + silent-failure-hunter + pr-test-analyzer blocking, type-design-analyzer conditional on type defs, comment-analyzer + code-simplifier advisory. Config optional in config/quality.json.code_review — ABSENT ⇒ ACTIVE (inverse of complexity-check; executor ships with the skill). Mandatory 🔎 banner. Severity normalisation orchestrator-side via references/severity-mapping.md.",
       "changelog": [
+        "1.10.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.9.2: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "1.9.1: fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/",
         "1.9.0: feat(EVOL-060) — the round artefact (code-review-<hash>.returns.md, every return verbatim); normalise reads the contract part; nit is the sum of the Informational: lines.",
@@ -3964,10 +3977,11 @@
       "path": ".claude/skills/factory-code-review/agents/code-simplifier.md"
     },
     "skills/factory-code-review/references/severity-mapping.md": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "type": "skill-asset",
       "role": "Single tuning home: upstream agent scales → framework rubric 🔴🟡🟢❓. Per-agent tables + cross-cutting rules (iron law unverifiable→❓, advisory ceiling 🟡, dedupe, mandatory fix per 🔴/🟡). Orchestrator-side — agent files never edited for severity.",
       "changelog": [
+        "1.3.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.2.0: feat(EVOL-060) — cross-cutting: informational off the return.",
         "1.1.0: feat(EVOL-059) — RDR-3: cross-cutting rule 0 'Outside the diff' (the predicate: added, changed or adjacent to a removed hunk; ❓ and line-less findings exempt; counted in the marker as outside_delta).",
         "1.0.0: feat(EVOL-039) — initial provisional cutoffs, dogfood calibration expected."
@@ -4044,10 +4058,11 @@
       "path": ".claude/skills/factory-backlog-next-task/SKILL.md"
     },
     "skills/factory-preventive-sweep/SKILL.md": {
-      "version": "1.10.1",
+      "version": "1.11.0",
       "type": "skill",
       "role": "Preventive Defect Sweep — post-deploy runtime validation with parallel scope sub-agents (one per non-overlapping scope derived from the DC catalog), searches all cataloged defect classes invisible to static gates.",
       "changelog": [
+        "1.11.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.10.1: fix #118: work rounds, fix verification and the sweep control point point to their one definition; sweep_recommended advisory retired",
         "1.10.0: feat(EVOL-060) — consolidation reads the contract part; the returns written verbatim under § Critic returns; informational counted in the frontmatter; the falls from the originals.",
         "1.9.0: feat(EVOL-059) — the canary plan before the governance lens, --seen after its return under the engine's one FOLD_IDS rule; the sweep's not_delivered made real (the return check and one hand-back per scope, the ladder on a provider error, every fall recorded); an undelivered scope is UNVERIFIED, never CLEAN (consolidation, artefact, deploy gate).",
@@ -5056,11 +5071,12 @@
       "path": ".claude/skills/factory-po-intake/SKILL.md"
     },
     "scripts/test-measure.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "role": "T2 test of the measurement subproduct (EVOL-042, META-ONLY). Self-test of the template source, synthetic materialisation (placeholders → JSON, universal files byte-identical, real reports from fixtures, degradation, plain-language faults), exclusion class (imported by nobody, runbook closure). Wired into governance-check.yml T2 loop.",
       "path": "scripts/test-measure.sh",
       "changelog": [
+        "1.2.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.1.0: feat(EVOL-057) — the materialised reader reports returns by channel, pushes from the push log and the loop from the timings.",
         "1.0.0: feat(EVOL-042) — initial."
       ]
@@ -5075,11 +5091,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.18.0",
+      "version": "1.19.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.19.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.18.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
         "1.17.0: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
         "1.16.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
@@ -5154,11 +5171,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.21.1",
+      "version": "1.22.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.22.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.21.1: test(EVOL-114): the retired CODESIGN orders and the DEPRECATED feature state red, legacy wording and the live exits green; the template ships the orders entry only",
         "1.21.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
         "1.20.3: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
@@ -5190,11 +5208,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.21.1",
+      "version": "1.22.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.22.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.21.1: test(EVOL-114): synthetic plants a legacy feature (green, docs/spec exempt) and a retired order (red); static cases for the terminal exclusion, NEEDS_INFO to DRAFT and the retired flags",
         "1.21.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
         "1.20.2: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools",
@@ -5232,11 +5251,12 @@
       ]
     },
     "scripts/test-hooks.sh": {
-      "version": "1.8.3",
+      "version": "1.9.0",
       "type": "script",
       "role": "META-ONLY hook channel + red proof per shipped hook: PreToolUse block = exit 2 + stderr; context = hookSpecificOutput.additionalContext envelope; delivery hook narrowed by path, deduped, within budget; every hook never exits 1; meta ≡ template. Wired in governance-check.yml T2 loop.",
       "path": "scripts/test-hooks.sh",
       "changelog": [
+        "1.9.0: feat(EVOL-113) — the agent-spawn case states the budget its scope earns; a critic without its five budget lines is refused",
         "1.8.3: fix #171: the completion gate runs on Edit and Write — an Edit is replayed on the file (old_string → new_string, replace_all honoured) and the result is counted through gate.py checklist; a change it cannot replay blocks; SETUP --upgrade moves the entry from Write to Edit|Write",
         "1.8.2: fix #115: the completion-gate case — one [!] FAILED, zero [ ], terminal verdict → blocked",
         "1.8.1: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
@@ -5334,11 +5354,12 @@
       ]
     },
     "scripts/gates/agents.py": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "type": "script",
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes). Meta copy (lock-step pair).",
       "path": "scripts/gates/agents.py",
       "changelog": [
+        "1.7.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.6.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.5.0: feat(EVOL-060) — the two-part critic return: split_return; --check-return refuses an informational finding inside the findings, requires the Informational: N line and holds it to the appendix's length.",
         "1.4.0: feat(EVOL-059) — the Model: line (the template twin).",
@@ -5496,11 +5517,12 @@
       ]
     },
     "hooks/check-agent-spawn.sh": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "hook",
       "path": ".claude/hooks/check-agent-spawn.sh",
       "role": "PreToolUse hook (Agent) — a roster agent spawns on its family's alias, never on the other's: asks gate.py agents --spawn --hook-json (exit 1 = refused → exit 2 + stderr); a subagent_type outside factory-* is not ours (pass without the reader); the reader or the policy missing on a factory-* name → blocks, names SETUP --upgrade (Q34). Meta copy (lock-step pair .claude/hooks/*.sh).",
       "changelog": [
+        "1.1.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.0.0: feat(EVOL-049)! — initial: the mechanical hold of the writer/critic family separation at the spawn."
       ]
     },

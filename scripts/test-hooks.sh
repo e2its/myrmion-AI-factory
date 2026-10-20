@@ -154,8 +154,27 @@ PY
 cp "$ROOT/.context/templates/setup/rules/agents.md" "$REPO/.claude/rules/agents.md"
 run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","prompt":"x"}}'
 assert_pass "a type outside the roster (general-purpose): not ours — passes without the reader"
+printf 'diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1 +1,2 @@\n x\n+y\n' > "$SANDBOX/hold.diff"   # EVOL-113: a work critic states the budget its scope earns
+RES=$(cd "$REPO" && python3 scripts/gate.py agents --resolve --class work-critic --surface security --files 1 --lines 1 --json)
+HOLD=$(python3 - "$SANDBOX/hold.diff" "$RES" <<'PY2'
+import json, sys
+r = json.loads(sys.argv[2])
+p = "\n".join(["effort: " + str(r["effort"]), "turn budget: " + str(r["turn_budget"]), "probe budget: " + str(r["probe_budget"]), "round: 1", "scope: diff " + sys.argv[1], "review"])
+print(json.dumps({"tool_name": "Agent", "tool_input": {"subagent_type": "factory-critic-security", "model": "opus", "prompt": p}}))
+PY2
+)
+[ -n "$HOLD" ] || bad "the work-critic HOLD payload could not be built (the positive case would be vacuous)"
+rm -f "$REPO/.context/state/critic-round.json"
+run_hook check-agent-spawn.sh "$HOLD"
+assert_pass "a critic on the critic family, under the budget its scope earns: passes"
+python3 - "$REPO/.context/state/critic-round.json" <<'PY2'
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert any(isinstance(b, dict) and "diff" in b for b in d.values()), d
+PY2
+[ $? -eq 0 ] && ok "the admitted critic spawn reached gate.py: its round-1 diff record is written" || bad "the admitted critic spawn left no round-1 record (the hold never ran)"
 run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-critic-security","model":"opus","prompt":"x"}}'
-assert_pass "a critic on the critic family: passes"
+assert_block "a critic on the critic family without its five budget lines: exit 2, the lines named (EVOL-113)" "turn budget:"
 run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-critic-security","model":"sonnet","prompt":"x"}}'
 assert_block "a critic on the writer's family: exit 2, the alias named" "family's alias is"
 run_hook check-agent-spawn.sh '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-dev-backend","prompt":"x"}}'
