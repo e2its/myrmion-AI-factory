@@ -218,10 +218,21 @@ TRACKED_DIRS=(".claude/commands" ".claude/instructions" ".claude/skills" ".claud
 # a version-bump regress. Single member by design — extend only via EVOL.
 ORPHAN_EXEMPT=(".context/templates/setup/governance_versions.json")
 DIFF_ONLY=false
-# the one resolver (EVOL-045): the diff base of this branch; a red or faulting resolver is SAID (stderr) and main is used
-DB_OUT=$(python3 scripts/gate.py diff-base 2>&1) && DB_RC=0 || DB_RC=$?   # never trips set -e
-if [ "$DB_RC" -eq 0 ]; then BASE_BRANCH="${DB_OUT#origin/}"; else
-  BASE_BRANCH="main"; [ -f scripts/gate.py ] && [[ " $* " != *" --banner "* ]] && echo "validate-governance: diff base unavailable (gate.py diff-base exit $DB_RC: $DB_OUT) — comparing against main" >&2
+# the one resolver (EVOL-045): the diff base of this branch.
+# EVOL-065: with the reader present an unresolvable base blocks (never a silent `main`); an explicit --base wins;
+# no reader (a legacy tree) keeps `main`. --banner exits above and never reaches this.
+EXPLICIT_BASE=""; prev=""
+for arg in "$@"; do [ "$prev" = "--base" ] && EXPLICIT_BASE="$arg"; prev="$arg"; done
+if [ -n "$EXPLICIT_BASE" ]; then BASE_BRANCH="$EXPLICIT_BASE"
+elif [ ! -f scripts/gate.py ]; then BASE_BRANCH="main"
+else
+  DB_OUT=$(python3 scripts/gate.py diff-base 2>&1) && DB_RC=0 || DB_RC=$?   # never trips set -e
+  if [ "$DB_RC" -ne 0 ]; then
+    echo "validate-governance: BLOCKED — the diff base cannot be resolved (gate.py diff-base exit $DB_RC: $DB_OUT)." >&2
+    echo "Resolution: work on a branch whose name the reader recognises (feature/ID-slug, fix/slug, docs/slug, chore/slug) and fetch its base (git fetch origin), or pass --base <branch>." >&2
+    exit 1
+  fi
+  BASE_BRANCH="${DB_OUT#origin/}"
 fi
 VIOLATIONS=0
 WARNINGS=0
@@ -230,7 +241,7 @@ WARNINGS=0
 for arg in "$@"; do
   case "$arg" in
     --diff-only)  DIFF_ONLY=true ;;
-    --base)       shift; BASE_BRANCH="${1:-main}" ;;
+    --base)       ;;   # its value is read above (EXPLICIT_BASE)
     --help|-h)
       echo "Usage: $0 [--diff-only] [--base <branch>]"
       echo "  --diff-only   Show diffs without failing"

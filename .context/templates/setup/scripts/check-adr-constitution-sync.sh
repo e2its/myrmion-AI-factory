@@ -35,6 +35,12 @@
 # (added or modified). A BODY changes by rule-file edit + manifest bump, with
 # no record: rule files are never inspected here. Same [adr-backfill] bypass.
 #
+# Direction C (EVOL-069, orphan ADR): an ADR added or modified in the diff whose
+# status is accepted MUST be named by at least one other tracked file — by its
+# id (frontmatter `id`, or the filename up to its number: ADR-0030); an
+# ADR-EVOL-N also by the bare EVOL-N. Every accepted orphan already in the tree
+# is listed as a NOTICE, never red. Same [adr-backfill] bypass.
+#
 # Inputs:
 #   $1 (optional) — base ref to compare against. Defaults to:
 #                   $GITHUB_BASE_REF (GitHub Actions PR context),
@@ -247,6 +253,52 @@ if [ "$sentence_diff" = "yes" ]; then
     echo "Resolution: add the ADR (status: accepted) that records the sentence change, or revert the sentence." >&2
     exit 1
   fi
+fi
+
+# ────────────────────────────────────────────────────────────────────────────
+# Direction C: an accepted ADR is named by the record that uses it (EVOL-069).
+# ────────────────────────────────────────────────────────────────────────────
+adr_ids() {  # adr_ids <path> <content> → the ids another file may name it by, one per line
+  local stem id
+  stem=$(basename "$1" .md)
+  if [[ "$stem" =~ ^(ADR-(EVOL-)?[0-9]+) ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+    [ -n "${BASH_REMATCH[2]}" ] && printf '%s\n' "${BASH_REMATCH[1]#ADR-}"
+  fi
+  id=$(read_frontmatter_value "$2" id)
+  [ -n "$id" ] && printf '%s\n' "$id"
+  return 0
+}
+adr_named() {  # adr_named <path> <content>: exit 0 when another tracked file names one of its ids (word-bounded)
+  local i hits
+  while IFS= read -r i; do
+    [ -n "$i" ] || continue
+    hits=$(git grep -l -w -F -e "$i" -- . ":(exclude)$1" 2>/dev/null || true)
+    [ -n "$hits" ] && return 0
+  done < <(adr_ids "$1" "$2")
+  return 1
+}
+orphans=()
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  case "$path" in docs/project_log/adr/ADR-*.md|docs/project_log/evolutions/ADR-EVOL-*.md) ;; *) continue ;; esac
+  git cat-file -e "HEAD:$path" 2>/dev/null || continue
+  content=$(git show "HEAD:$path")
+  [ "$(read_frontmatter_value "$content" status)" = "accepted" ] || continue
+  adr_named "$path" "$content" || orphans+=("$path")
+done < <(printf '%s\n' "$diff_files")
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  in_lines "$diff_files" "$path" && continue
+  content=$(cat "$path" 2>/dev/null || true)
+  [ "$(read_frontmatter_value "$content" status)" = "accepted" ] || continue
+  adr_named "$path" "$content" || echo "check-adr-constitution-sync: NOTICE — $path is accepted but named by no other tracked file (history; never red)."
+done < <(git ls-files -- 'docs/project_log/adr/ADR-*.md' 'docs/project_log/evolutions/ADR-EVOL-*.md' 2>/dev/null || true)
+if [ ${#orphans[@]} -gt 0 ]; then
+  echo "check-adr-constitution-sync: FAIL — an accepted decision record is named by no other tracked file, so nothing that applies the decision points back to it:" >&2
+  for f in "${orphans[@]}"; do echo "  - $f" >&2; done
+  echo "Resolution: name the record (its id, e.g. ADR-0030 or EVOL-069) where its rule is stated or applied — the governance source, the rule, the skill or the changelog line." >&2
+  [ ${#offenders[@]} -eq 0 ] && exit 1
 fi
 
 # ────────────────────────────────────────────────────────────────────────────

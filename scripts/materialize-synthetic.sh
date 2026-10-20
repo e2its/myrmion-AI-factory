@@ -283,6 +283,17 @@ OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push --ba
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'verdict: ok' && ok "the profile runs every script member in the scratch project, one verdict: $(printf '%s' "$OUT" | grep -c '✓') green" || bad "profile run not green in the scratch (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py one-definition 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "the materialised hooks and workflow keep no second definition" || bad "second definition in the materialised tree (rc=$RC)" "$OUT"
+# EVOL-069: approved frontmatter is locked — a scope edit is red, an iteration appended is green
+FM_PREV=$(git -C "$P" rev-parse HEAD); mkdir -p "$P/docs/spec/FEAT-001"
+printf -- '---\nstatus: APPROVED\nscope: backend\niterations:\n  - id: ITER-FEAT-001-1\n---\n# design\n' > "$P/docs/spec/FEAT-001/design.md"
+git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm "approved design"; FM_BASE=$(git -C "$P" rev-parse HEAD)
+sed -i 's/^scope: backend$/scope: full-stack/' "$P/docs/spec/FEAT-001/design.md"
+OUT=$(cd "$P" && python3 scripts/gate.py frontmatter-lock --base "$FM_BASE" 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'scope' && ok "frontmatter-lock: an approved design's scope edited outside its refine is red" || bad "approved scope edit not red (rc=$RC)" "$OUT"
+printf -- '---\nstatus: APPROVED\nscope: backend\niterations:\n  - id: ITER-FEAT-001-1\n  - id: ITER-FEAT-001-2\n---\n# design\n' > "$P/docs/spec/FEAT-001/design.md"
+OUT=$(cd "$P" && python3 scripts/gate.py frontmatter-lock --base "$FM_BASE" 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "frontmatter-lock: an iteration appended to an approved design is green" || bad "iteration append judged red (rc=$RC)" "$OUT"
+git -C "$P" reset -q --hard "$FM_PREV"
 git -C "$P" update-ref refs/remotes/origin/feature/FEAT-001-inc-1-x HEAD; git -C "$P" checkout -q -b feature/FEAT-001-inc-1-x-sub-2
 mkdir -p "$P/docs/spec/FEAT-001/review"; printf 'notes\n' > "$P/docs/spec/FEAT-001/review/notes.md"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm sub   # outside the certified tree: the verdict stays fresh
 BEFORE=$(git -C "$P" status --porcelain | wc -l)
@@ -336,6 +347,19 @@ OUT=$(cd "$P" && printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"Exit
 [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -f "$P/.claude/state/plan-approved-fix-gated.json" ] && ok "the delivered recorder writes the marker silently from the harness's payload" || bad "recorder (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'plan approved on this branch' && ok "the harness's approval unblocks the governed write" || bad "approval did not unblock (rc=$RC)" "$OUT"
+# EVOL-065: a shell write meets the same delivered hooks — red on main, green on a working branch with its plan
+SED_P='{"tool_name":"Bash","tool_input":{"command":"sed -i s/1/2/ src/app.py"}}'
+mkdir -p "$SCRATCH/home"
+for h in check-branch-protection check-plan-approval; do
+  OUT=$(cd "$P" && printf '%s' "$SED_P" | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/$h.sh 2>&1 >/dev/null); RC=$?
+  [ "$RC" -eq 0 ] && ok "the delivered $h lets a Bash sed -i through on a fix branch with its approved plan" || bad "$h blocked a planned shell write (rc=$RC)" "$OUT"
+done
+git -C "$P" branch -f main HEAD; git -C "$P" checkout -q main
+OUT=$(cd "$P" && printf '%s' "$SED_P" | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-branch-protection.sh 2>&1 >/dev/null); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'BLOCKED: on protected branch' && ok "RED: the delivered branch hook blocks a Bash sed -i on main" || bad "shell write on main not blocked (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf '%s' '{"tool_name":"Bash","tool_input":{"command":"git status"}}' | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-branch-protection.sh 2>&1 >/dev/null); RC=$?
+[ "$RC" -eq 0 ] && ok "a read-only Bash call on main passes the delivered branch hook" || bad "read-only Bash blocked on main (rc=$RC)" "$OUT"
+git -C "$P" checkout -q fix/gated
 (cd "$P" && git check-ignore -q .claude/state/plan-approved-fix-gated.json) && ok "the marker is ignored by the materialised .gitignore — it never rides a PR" || bad "the plan-approval marker is not gitignored in the project"
 (cd "$P" && git check-ignore -q .context/state/code-review-0.marker) && ok "the agent's review seals are ignored in their home outside .claude/ (#165)" || bad "the materialised .gitignore does not ignore .context/state/ (#165)"
 git -C "$P" checkout -q -b docs/only

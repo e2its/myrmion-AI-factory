@@ -24,6 +24,10 @@
 #  11. A universal sentence in CLAUDE.md § Governance Rules changes, no ADR → FAIL.
 #  12. A sentence changes with an ADR that stays proposed → FAIL.
 #  13. The law reader is broken and a sentence changed → exit 2 (cannot decide ≠ ok).
+#  14. (EVOL-069 direction C) An accepted ADR in the diff that no other tracked
+#      file names → expect FAIL.
+#  15. An accepted ADR-EVOL-N in the diff named elsewhere as bare EVOL-N, and an
+#      accepted orphan already at the base → PASS with a NOTICE for the orphan.
 #
 # Exit codes:
 #   0 = ok
@@ -86,7 +90,9 @@ run_scenario() {
   ( cd "$repo" && bash "$GATE_SCRIPT" base ) >"$repo/gate.stdout" 2>"$repo/gate.stderr"
   local actual=$?
   set -e
-  if [ "$actual" -eq "$expect_exit" ]; then
+  if [ -n "${EXPECT_OUT:-}" ] && ! grep -qF -- "$EXPECT_OUT" "$repo/gate.stdout" "$repo/gate.stderr"; then
+    fail "$name (output lacks: $EXPECT_OUT)"
+  elif [ "$actual" -eq "$expect_exit" ]; then
     pass "$name (expected exit $expect_exit, got $actual)"
   else
     fail "$name (expected exit $expect_exit, got $actual)"
@@ -237,7 +243,7 @@ run_scenario "scenario 8: law sentence changed without an accepted ADR" 1 bash -
 
 # ─── Scenario 9: same sentence change WITH an ADR landing accepted → PASS ───
 run_scenario "scenario 9: law sentence changed with an accepted ADR in the diff" 0 bash -c '
-  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./" docs/constitution.md
+  sed -i "s/^> Build the simplest thing that works\.$/> Build the simplest thing that works, and nothing more./; s/ADR-0000/ADR-0000\`, \`ADR-009/" docs/constitution.md   # the index names the record that changed it (direction C)
   cat > docs/project_log/adr/ADR-009-test.md <<"EOF"
 ---
 adr_number: "009"
@@ -283,11 +289,28 @@ run_scenario "scenario 13: broken law reader + sentence change → infrastructur
   git add -A && git commit -q -m "reword with a broken reader"
 '
 
+# ─── Scenario 14: an accepted ADR no other file names → FAIL (EVOL-069 direction C) ───
+EXPECT_OUT="named by no other tracked file" run_scenario "scenario 14: accepted ADR named nowhere else → FAIL" 1 bash -c '
+  printf "\n## [PLAW-02] Test rule\n> A test sentence.\nBody: \`rules/test.md\` · Records: none\n" >> docs/constitution.md
+  printf -- "---\nid: ADR-0014\nstatus: accepted\n---\n# ADR-0014\n" > docs/project_log/adr/ADR-0014-orphan.md
+  git add -A && git commit -q -m "land an orphan ADR"
+'
+
+# ─── Scenario 15: ADR-EVOL-N named as bare EVOL-N → PASS; an orphan at the base is a NOTICE, never red ───
+EXPECT_OUT="NOTICE" run_scenario "scenario 15: ADR-EVOL named as EVOL-N passes; an old orphan is a notice" 0 bash -c '
+  mkdir -p docs/project_log/evolutions
+  printf -- "---\nid: ADR-EVOL-007\nstatus: accepted\n---\n# old\n" > docs/project_log/evolutions/ADR-EVOL-007.md
+  git add -A && git commit -q -m "old orphan [adr-backfill]" && git tag -f base >/dev/null
+  printf -- "---\nid: ADR-EVOL-015\nstatus: accepted\n---\n# new\n" > docs/project_log/evolutions/ADR-EVOL-015.md
+  printf "\n## [PLAW-02] Test rule\n> A test sentence.\nBody: \`rules/test.md\` · Records: EVOL-015\n" >> docs/constitution.md
+  git add -A && git commit -q -m "accept EVOL-015"
+'
+
 echo
 
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
-  echo "L5: ok — gate behaviour verified across 13 scenarios."
+  echo "L5: ok — gate behaviour verified across 15 scenarios."
   exit 0
 else
   echo "L5: FAIL — $failures scenario(s) produced unexpected outcome." >&2

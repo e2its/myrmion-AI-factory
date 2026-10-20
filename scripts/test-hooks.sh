@@ -276,6 +276,87 @@ assert_block "reader faulting: blocks, the fault and the shell-side fix are name
 mv "$SANDBOX/gate.py.bak" "$REPO/scripts/gate.py"
 git -C "$REPO" checkout -q feature/FEAT-001-x
 
+echo "── shell writes meet the branch and plan gates (EVOL-065) ──"
+FAKEHOME="$SANDBOX/home"; mkdir -p "$FAKEHOME/.claude" "$SANDBOX/scratch"
+mkdir -p "$REPO/src"; printf 'a\n' > "$REPO/src/app.py"
+bashp() { python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]}}))' "$1"; }
+WRITERS=("sed -i s/a/b/ src/app.py" "echo x > src/app.py" "echo x | tee src/app.py" "cp /etc/hostname src/app.py" "python3 -c \"open('src/app.py','w')\"")
+git -C "$REPO" checkout -q main
+for c in "${WRITERS[@]}"; do
+  HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "$c")"
+  assert_block "on main: Bash «$c» on a project file is blocked" "BLOCKED: on protected branch"
+done
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "echo x > $SANDBOX/scratch/f; sed -i s/a/b/ /dev/null")"
+assert_pass "on main: a shell write outside the project (scratch) passes"
+for c in "git status" "cat src/app.py" "grep -r a . 2>/dev/null" "ls > /dev/null"; do
+  HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "$c")"; assert_pass "on main: read-only Bash «$c» passes"
+done
+rm -f "$REPO"/.context/locks/*.lock
+HOME="$FAKEHOME" run_hook check-concurrency-lock.sh "$(bashp "git status")"
+[ "$RC" -eq 0 ] && [ -z "$(ls "$REPO/.context/locks" 2>/dev/null)" ] && ok "a read-only Bash call never touches the session lock" || bad "read-only Bash took the lock (rc=$RC)" "$ERR"
+HOME="$FAKEHOME" run_hook check-concurrency-lock.sh "$(bashp "sed -i s/a/b/ src/app.py")"
+[ "$RC" -eq 0 ] && [ -n "$(ls "$REPO/.context/locks" 2>/dev/null)" ] && ok "a shell write inside the project takes the session lock" || bad "shell write did not take the lock (rc=$RC)" "$ERR"
+rm -f "$REPO"/.context/locks/*.lock
+git -C "$REPO" checkout -q fix/gated
+for c in "${WRITERS[@]}"; do
+  HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "$c")"; assert_pass "fix branch: branch hook lets Bash «$c» through"
+  HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "$c")"; assert_pass "fix branch with an approved plan: plan hook lets Bash «$c» through"
+done
+git -C "$REPO" checkout -q -b fix/unplanned
+HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "sed -i s/a/b/ src/app.py")"
+assert_block "fix branch without a plan: Bash sed -i on a governed file is blocked by the planning gate" "no approved plan covers this write to 'src/app.py'"
+HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "cp /etc/host* src/")"
+assert_block "fix branch without a plan: a glob copied into a governed directory is judged as that directory's content" "no approved plan covers this write to 'src/*'"
+HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "echo x > docs/n.md")"
+assert_pass "fix branch without a plan: a shell write to documentation passes"
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "echo '{}' > ~/.claude/settings.json")"
+assert_block "working branch: a shell write to ~/.claude/settings.json (temp HOME) is blocked" "harness or user configuration"
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$FAKEHOME/.claude/settings.json\"}}"
+assert_block "working branch: a Write to ~/.claude/settings.json (temp HOME) is blocked" "harness or user configuration"
+HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp 'echo x > "$UNSET_X"/f')"
+assert_block "an unresolved shell target is blocked and the route is named" "Edit or Write"
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp 'echo x > $(pwd)/f')"
+assert_block "branch hook: an unresolved shell target is blocked too" "Edit or Write"
+git -C "$REPO" checkout -q fix/gated
+mv "$REPO/scripts/gate.py" "$SANDBOX/gate.py.wt"; printf 'import sys; print("gate: broken"); sys.exit(2)\n' > "$REPO/scripts/gate.py"
+HOME="$FAKEHOME" run_hook check-branch-protection.sh "$(bashp "git checkout origin/main -- scripts/gates")"
+assert_context "reader faulting: a Bash call passes with a notice the model sees (the envelope — the shell is the repair route)" "repair"
+HOME="$FAKEHOME" run_hook check-plan-approval.sh "$(bashp "sed -i s/a/b/ src/app.py")"
+assert_context "reader faulting: plan hook lets Bash through, said through the envelope" "repair"
+HOME="$FAKEHOME" run_hook check-plan-approval.sh '{"tool_name":"Edit","tool_input":{"file_path":"src/app.py"}}'
+assert_block "reader faulting: an Edit stays fail-closed" "BLOCKED"
+# the package itself broken (gate.py's import guard exits 3) is a fault, never «nothing to judge»
+printf 'import sys; print("gate: the scripts/gates package is missing or broken", file=sys.stderr); sys.exit(3)\n' > "$REPO/scripts/gate.py"
+for h in check-branch-protection.sh check-plan-approval.sh; do
+  HOME="$FAKEHOME" run_hook "$h" '{"tool_name":"Edit","tool_input":{"file_path":"src/app.py"}}'
+  assert_block "broken package (exit 3): $h keeps an Edit fail-closed" "BLOCKED"
+done
+grep -qF 'the shell is not gated' "$HOOKS/check-branch-protection.sh" "$HOOKS/check-plan-approval.sh" && bad "a hook still says «the shell is not gated»" || ok "no hook says «the shell is not gated» any more"
+mv "$SANDBOX/gate.py.wt" "$REPO/scripts/gate.py"
+# a merge commit is a commit: pre-merge-commit runs pre-commit (installed hooks are copies)
+git -C "$REPO" checkout -q -b side; printf 'x\n' > "$REPO/side.txt"; git -C "$REPO" add side.txt; git -C "$REPO" -c user.name=t -c user.email=t@t -c core.hooksPath=/dev/null commit -qm side
+git -C "$REPO" checkout -q main
+mkdir -p "$SANDBOX/ghooks"; cp "$ROOT/.context/templates/setup/scripts/hooks/"* "$SANDBOX/ghooks/" 2>/dev/null; chmod +x "$SANDBOX/ghooks/"* 2>/dev/null
+before=$(git -C "$REPO" rev-parse HEAD)
+(cd "$REPO" && HOME="$FAKEHOME" git -c user.name=t -c user.email=t@t -c core.hooksPath="$SANDBOX/ghooks" merge -q --no-ff -m "Merge branch side" side >/dev/null 2>"$SANDBOX/err"); RC=$?
+[ "$RC" -ne 0 ] && [ "$(git -C "$REPO" rev-parse HEAD)" = "$before" ] && grep -qF "Direct commits to 'main' are blocked" "$SANDBOX/err" && ok "a merge commit on main is refused (pre-merge-commit runs the pre-commit guard)" || bad "merge commit on main went through (rc=$RC)" "$(cat "$SANDBOX/err")"
+git -C "$REPO" merge --abort 2>/dev/null; git -C "$REPO" reset -q --hard "$before"
+git -C "$REPO" checkout -q -b fix/merge-target
+(cd "$REPO" && HOME="$FAKEHOME" git -c user.name=t -c user.email=t@t -c core.hooksPath="$SANDBOX/ghooks" merge -q --no-ff -m "Merge branch side" side >/dev/null 2>"$SANDBOX/err"); RC=$?
+[ "$RC" -eq 0 ] && [ -f "$REPO/side.txt" ] && ok "a merge commit on a working branch goes through (the positive control)" || bad "merge on a working branch refused (rc=$RC)" "$(cat "$SANDBOX/err")"
+grep -q 'Generated by Agent:' "$ROOT/scripts/hooks/pre-merge-commit" && ok "pre-merge-commit carries the header install-hooks.sh recognises as ours" || bad "pre-merge-commit header: install-hooks.sh would skip a re-install as a custom hook"
+git -C "$REPO" checkout -q feature/FEAT-001-x
+for sj in "$ROOT/.claude/settings.json" "$ROOT/.context/templates/setup/claude/settings.json"; do
+  python3 - "$sj" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))["hooks"]
+bash = [h["command"] for g in d["PreToolUse"] if g.get("matcher") == "Bash" for h in g["hooks"]]
+want = [f'cd "${{CLAUDE_PROJECT_DIR:-.}}" && bash .claude/hooks/{n}.sh' for n in ("check-branch-protection", "check-plan-approval", "check-concurrency-lock")]
+assert bash[:3] == want and bash[3].endswith("check-push-preflight.sh"), bash
+PY
+  [ $? -eq 0 ] && ok "$(basename "$(dirname "$sj")")/settings.json wires the branch, plan and lock hooks on Bash, before the push preflight" || bad "Bash write guard not wired in $sj"
+done
+
 echo "── check-concurrency-lock ──"
 mkdir -p "$REPO/.context/locks"
 sleep 300 & SLEEPER=$!

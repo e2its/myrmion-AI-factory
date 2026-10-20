@@ -434,12 +434,12 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
         if not _posint(pol.get(WORKER_CAP_KEY)):
             raise GateFault(f"agents.{WORKER_CAP_KEY} is not a positive integer — a worker is spawned under its cap (EVOL-062); gate.py agents names it")
         out["turn_cap"] = int(pol[WORKER_CAP_KEY])
-    if cls == "work-critic":   # EVOL-059: the canary's trigger rides on every work-critic spawn — the lens whose model moved is named here
+    if cls in ("work-critic", "plan-critic"):   # EVOL-059: the canary's trigger rides on every critic spawn — the lens whose model moved is named here (EVOL-069: the plan critic's lens is `plan`)
         from . import canary as canary_mod
-        lens = str(surface or "").lower()
+        lens = "plan" if cls == "plan-critic" else str(surface or "").lower()
         try:
             p = canary_mod.plan(repo)   # the one definition of "owed": a fixture the judge would refuse owes nothing and names its fault
-            out["canary_owed"] = [x for x in p["owed"] if not lens or x == lens]
+            out["canary_owed"] = [x for x in p["owed"] if (x == lens if lens else x != "plan")]
             if p.get("fault"):
                 out["canary_fault"] = p["fault"]
         except GateFault as e:   # a canary fault never stops a spawn (a red canary never blocks either): said, not raised

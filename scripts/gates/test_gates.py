@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -19,7 +20,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
+from gates import agents, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -1553,12 +1554,12 @@ class Agents(unittest.TestCase):
             write(repo / ".claude/rules/agents.md", RULE_AGENTS_LENSES)
             self.assertEqual(agents.resolve(repo, "work-critic", surface="security")["canary_owed"], ["security"], "never judged: the lens is owed on its own spawn")
             self.assertEqual(agents.resolve(repo, "work-critic")["canary_owed"], ["security", "correctness", "governance", "fidelity"], "no lens named: every owed lens")
+            self.assertEqual(agents.resolve(repo, "plan-critic")["canary_owed"], ["plan"], "EVOL-069: the plan critic's spawn names its own lens, a work critic's never names it")
             self.assertNotIn("canary_owed", agents.resolve(repo, "worker", files=2, lines=10), "a writer carries no canary")
-            self.assertNotIn("canary_owed", agents.resolve(repo, "plan-critic"), "the plan critic has no lens")
             canary.judge(repo, "security", "src/orders/repo.py:9 · 🔴 · confidence 95% · probe: read\nsrc/orders/repo.py:23 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 0\nModel: claude-a\n", "claude-a"); canary.seen(repo, "security", "claude-a")
             self.assertEqual(agents.resolve(repo, "work-critic", surface="security")["canary_owed"], [], "a lens judged on the model it last ran on owes nothing on its own spawn while others still do")
             self.assertEqual(agents.resolve(repo, "work-critic")["canary_owed"], ["correctness", "governance", "fidelity"], "the other lenses are still owed")
-            for lens in ("correctness", "governance", "fidelity"):
+            for lens in ("correctness", "governance", "fidelity", "plan"):
                 canary.judge(repo, lens, "no findings\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 0\nModel: claude-a\n", "claude-a"); canary.seen(repo, lens, "claude-a")
             self.assertTrue(canary.render_plan(canary.plan(repo)).startswith("canary: nothing owed — every lens judged on the model it last ran on"), "the plain header, once every lens is judged on the model it last ran on")
             (repo / ".claude/state/canary.json").unlink()
@@ -2431,6 +2432,9 @@ class Canary(unittest.TestCase):
         self.assertEqual(added["src/orders/repo.py"][9].strip()[:16], "rows = query(\"SE")
         self.assertEqual(added["docs/project_log/governance_versions.json"][7].strip()[:30], "\"1.2.0: feat(CAN-001) — the or")
         self.assertNotIn("sk-" + "canary", (HERE / "canary.py").read_text(encoding="utf-8"), "no scanner sees the planted credential in the repository")
+        self.assertEqual(canary.LENS_AGENT.get("plan"), "factory-plan-critic", "EVOL-069: the plan critic is calibrated too")
+        self.assertTrue(all(f == "docs/spec/CAN-001/increment_plan.md" for it in canary.EXPECTED["plan"] for f, _ in it["at"][:1]), "the plan lens's defects are planted in the plan")
+        self.assertIn("PayFlow", added["docs/spec/CAN-001/increment_plan.md"][canary.EXPECTED["plan"][0]["at"][0][1]], "an external premise stated as verified")
         self.assertEqual(set(canary.EXPECTED), set(canary.LENSES)); self.assertTrue(all(len(v) == 2 for v in canary.EXPECTED.values()), "two planted defects per lens")
         self.assertEqual(agents.check_return(self._return("security"), "work-critic"), [], "the synthetic return is in the critic's own contract shape")
 
@@ -3726,6 +3730,146 @@ class Discovery(unittest.TestCase):
             r = gt(); self.assertEqual(r.returncode, 2); self.assertIn("registry", r.stderr); self.assertNotIn("Traceback", r.stderr)
 
 
+class Writes(unittest.TestCase):
+    """EVOL-065: one answer to «where does this write land» — Edit/Write and the shell's recognised writers."""
+    def setUp(self):
+        from gates import writes
+        self.w = writes
+        self.tmp = tempfile.TemporaryDirectory(); t = Path(self.tmp.name)
+        self.repo = (t / "repo"); self.repo.mkdir()
+        subprocess.run(["git", "-C", str(self.repo), "init", "-q"], check=True)
+        write(self.repo / "src/app.py", "x\n"); (self.repo / "dir").mkdir()
+        self.home = t / "home"; self.home.mkdir()
+        self.scratch = t / "scratch"; self.scratch.mkdir()
+        self.env = {"HOME": str(self.home), "TMPDIR": str(self.scratch), "CLAUDE_PROJECT_DIR": str(self.repo)}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def bash(self, cmd, cwd=None):
+        p = {"tool_name": "Bash", "tool_input": {"command": cmd}}
+        if cwd:
+            p["cwd"] = cwd
+        return self.w.targets(self.repo, p, self.env)
+
+    def inside(self, cmd, expected, cwd=None):
+        t = self.bash(cmd, cwd)
+        self.assertTrue(t["writer"], cmd); self.assertIsNone(t["unresolved"], cmd); self.assertEqual(t["guarded"], [], cmd)
+        self.assertEqual(sorted(t["inside"]), sorted(expected), cmd)
+
+    def test_edit_write(self):
+        t = self.w.targets(self.repo, {"tool_name": "Edit", "tool_input": {"file_path": str(self.repo / "src/app.py")}}, self.env)
+        self.assertEqual(t["inside"], ["src/app.py"])
+        t = self.w.targets(self.repo, {"tool_name": "Write", "tool_input": {"file_path": str(self.scratch / "n.md")}}, self.env)
+        self.assertEqual(t["inside"], []); self.assertTrue(t["writer"])
+
+    def test_each_writer_form(self):
+        self.inside("echo x > src/a.txt", ["src/a.txt"])
+        self.inside("echo x >> src/a.txt", ["src/a.txt"])
+        self.inside("echo x >| src/a.txt", ["src/a.txt"])
+        self.inside("make &> build.log", ["build.log"])
+        self.inside("make &>> build.log", ["build.log"])
+        self.inside("make 2> err.log", ["err.log"])
+        self.inside("make 2>err.log", ["err.log"])
+        self.inside("echo x | tee -a src/a.txt src/b.txt", ["src/a.txt", "src/b.txt"])
+        self.inside("sed -i s/a/b/ src/app.py", ["src/app.py"])
+        self.inside("sed -i.bak -e s/a/b/ -e s/c/d/ src/app.py", ["src/app.py"])
+        self.inside("sed --in-place=.orig 's/a/b/' src/app.py", ["src/app.py"])
+        self.inside("sed -f script.sed -i src/app.py", ["src/app.py"])
+        self.inside("cp /etc/hosts src/hosts", ["src/hosts"])
+        self.inside("cp /etc/hosts dir", ["dir/hosts"])
+        self.inside("cp -t dir /etc/hosts /etc/passwd", ["dir/hosts", "dir/passwd"])
+        self.inside("mv src/app.py src/b.py", ["src/app.py", "src/b.py"])
+        self.inside("mv src/app.py dir", ["src/app.py", "dir/app.py"])
+        self.inside("python3 -c \"open('src/x.py','w').write('1')\"", ["src/x.py"])
+        self.inside("python -c \"open('src/x.py', mode='a')\"", ["src/x.py"])
+        self.inside("python3 -c \"from pathlib import Path; Path('src/y.txt').write_text('1')\"", ["src/y.txt"])
+        self.inside("env FOO=1 nohup time sed -i s/a/b/ src/app.py", ["src/app.py"])
+        self.inside("git status; echo x > a.txt\necho y > b.txt", ["a.txt", "b.txt"])
+
+    def test_not_writers(self):
+        for cmd in ("cat x", "grep -r y .", "git status", "ls 2>/dev/null", "echo hi 2>&1", "git diff > /dev/null",
+                    "cat < src/app.py", "grep x <<< 'abc'", "make >&2", "exec 3>&-", "sed s/a/b/ src/app.py",
+                    "bash -c 'echo x > src/a'", "python3 - <<EOF\nopen('src/a','w')\nEOF", "git apply p.diff",
+                    "python3 -c 'print(1)'", "python3 -c 'open(('"):
+            t = self.bash(cmd)
+            self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
+        self.assertEqual(self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "git status"}}, self.env)[0], 4)
+
+    def test_scratch_and_cd_and_heredoc(self):
+        t = self.bash(f"S={self.scratch}; mkdir -p $S && echo x > $S/f && echo y > ${{S}}/g")
+        self.assertTrue(t["writer"]); self.assertEqual(t["inside"], []); self.assertIsNone(t["unresolved"])
+        self.assertEqual(self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "echo x > $TMPDIR/f"}}, self.env)[0], 4)
+        self.inside(f"cd {self.repo / 'src'} && sed -i s/a/b/ app.py", ["src/app.py"])
+        self.inside("sed -i s/a/b/ app.py", ["src/app.py"], cwd=str(self.repo / "src"))
+        self.inside("cat > notes.txt <<'EOF'\nit's \"quoted\" ; > not-a-target\nEOF\necho done", ["notes.txt"])
+        self.inside("cat <<-EOF > out.txt\n\tbody ' unbalanced\n\tEOF", ["out.txt"])
+        self.inside("echo x > ~/../repo/z.txt".replace("~/../repo", str(self.repo)), ["z.txt"])
+
+    def test_quoting_and_shell_grammar(self):
+        """Round-1 cures: quoting survives the lexer; reserved words, subshells, continuations and braces."""
+        self.inside("echo '# t' > src/a.txt", ["src/a.txt"])
+        self.inside('printf "#!/bin/sh\\n" > scripts/x.sh', ["scripts/x.sh"])
+        self.inside("cp /etc/hosts \\\n  dir/h", ["dir/h"])
+        self.inside("for f in a; do sed -i s/a/b/ src/app.py; done", ["src/app.py"])
+        self.inside("if true; then cp /etc/hosts src/h; fi", ["src/h"])
+        self.inside("{ mv src/app.py src/b.py; }", ["src/app.py", "src/b.py"])
+        self.inside("! sudo tee src/t < /dev/null", ["src/t"])
+        self.inside("(cd /tmp && make); echo x > src/a", ["src/a"])
+        self.inside("cp src/*.py dir/", ["dir/*"])   # the directory judged as a prefix: `scripts/*` meets `scripts/**`
+        self.inside("echo $# ${#x} > src/n", ["src/n"])
+        self.inside('echo "a\\>b" a\\ #x > src/q', ["src/q"])
+        for cmd in ("echo a # b > c", 'grep -n ">" src/app.py', "tr '|' ' ' < src/app.py", 'echo ">>" x', "echo \\> x",
+                    "cut -d '|' -f1 src/app.py", "find . -name x ';'", f"cp src/*.py {self.scratch}/", "echo hi # don't > f"):
+            t = self.bash(cmd)
+            self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
+        self.assertIsNotNone(self.bash("mv src/app.py{,.old}")["unresolved"], "a brace expansion names paths the reader does not expand")
+        self.assertIsNotNone(self.bash("echo x > src/f{1,2}")["unresolved"])
+
+    def test_unresolved_blocks_and_names_the_route(self):
+        for cmd in ('echo x > "$UNSET"', "echo x > $(pwd)/f", "echo x > `pwd`/f", "echo x > src/*.py", "sed -i s/a/b/ src/?.py",
+                    "python3 -c \"p='a'; open(p,'w')\""):
+            t = self.bash(cmd)
+            self.assertIsNotNone(t["unresolved"], cmd)
+            rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": cmd}}, self.env)
+            self.assertEqual(rc, 1, cmd); self.assertIn("Edit or Write", text)
+
+    def test_guarded_on_every_branch(self):
+        for target in (self.home / ".claude/settings.json", self.home / ".claude/settings.local.json", self.home / ".claude/hooks/x.sh",
+                       self.home / ".gitconfig", self.home / ".config/git/config", self.repo / ".claude/settings.local.json",
+                       self.repo / ".git/hooks/pre-commit", self.repo / ".git/config"):
+            rc, text = self.w.verdict(self.repo, {"tool_name": "Write", "tool_input": {"file_path": str(target)}}, self.env)
+            self.assertEqual(rc, 1, target); self.assertIn("harness or user configuration", text)
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "echo '{}' > ~/.claude/settings.json"}}, self.env)
+        self.assertEqual(rc, 1)
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "echo x > ~/.claude/projects/m/memory/a.md"}}, self.env)
+        self.assertEqual(rc, 4, "the user memory is outside the project and not guarded")
+        hp = self.scratch / "hookdir"
+        subprocess.run(["git", "-C", str(self.repo), "config", "core.hooksPath", str(hp)], check=True)
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": f"cp x {hp}/pre-commit"}}, self.env)
+        self.assertEqual(rc, 1, "core.hooksPath outside the work tree is guarded")
+
+    def test_verdict_codes(self):
+        rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "sed -i s/a/b/ src/app.py"}}, self.env)
+        self.assertEqual((rc, text), (0, "src/app.py"))
+        rc, text = self.w.verdict(self.repo, {"tool_name": "Edit", "tool_input": {}}, self.env)
+        self.assertEqual((rc, text), (0, ""), "an Edit with no path is a write the branch judges")
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Read", "tool_input": {"file_path": "x"}}, self.env)
+        self.assertEqual(rc, 4)
+
+    def test_cli(self):
+        gate = str(HERE.parent / "gate.py")
+        env = {**os.environ, **self.env, "PYTHONDONTWRITEBYTECODE": "1"}
+        def run(payload):
+            return subprocess.run([sys.executable, gate, "--repo", str(self.repo), "write-target", "--hook-json"], input=payload, capture_output=True, text=True, env=env)
+        r = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "tee src/a src/b < /dev/null"}}))
+        self.assertEqual((r.returncode, r.stdout.split()), (0, ["src/a", "src/b"]))
+        self.assertEqual(run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}})).returncode, 4, "4 nothing to judge — never 3, the import guard's code")
+        r = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "echo > $NOPE"}}))
+        self.assertEqual(r.returncode, 1); self.assertIn("Edit or Write", r.stdout)
+        r = run("{not json"); self.assertEqual(r.returncode, 2); self.assertIn("could not be read", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+
 class Cli(unittest.TestCase):
     def test_cli_exit_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -3997,6 +4141,94 @@ class Cli(unittest.TestCase):
             self.assertEqual(r.returncode, 0)
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "plan", "--status", "--branch", "chore/z"], capture_output=True, text=True, env=env)
             self.assertEqual(r.returncode, 0, "the advisory never fails the prompt"); self.assertIn("will be BLOCKED", r.stdout)
+
+
+class FrontmatterLock(unittest.TestCase):
+    """EVOL-069: an approved artefact's frontmatter changes only through its permitted transitions."""
+
+    def _repo(self, tmp, fm):
+        repo = fixture_repo(Path(tmp))
+        write(repo / "docs/spec/F-001/design.md", fm + "body\n")
+        write(repo / "docs/spec/F-001/draft.md", "---\nstatus: DRAFT\nscope: a\n---\n")
+        for c in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], ["branch", "-M", "main"], ["checkout", "-qb", "feature/F-001-x"]):
+            subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+        return repo
+
+    def test_lock(self):
+        base_fm = "---\nstatus: APPROVED\nscope: backend\niterations:\n  - id: 1\n---\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, base_fm)
+            self.assertEqual(frontmatter.check(repo, "main"), [], "nothing changed: green")
+            # a permitted transition: an iteration appended, the status to a known state, approval stamped
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: draft\nscope: backend\niterations:\n  - id: 1\n  - id: 2\niteration_history:\n  - 2\napproved_by: x\n---\nbody\n")
+            self.assertEqual(frontmatter.check(repo, "main"), [])
+            # a draft at the base is not locked
+            write(repo / "docs/spec/F-001/draft.md", "---\nstatus: DRAFT\nscope: b\n---\n")
+            self.assertEqual(frontmatter.check(repo, "main"), [])
+            # a locked key changed, added, removed — red, humanised
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: APPROVED\nscope: frontend\niterations:\n  - id: 1\nowner: me\n---\n")
+            f = frontmatter.check(repo, "main")
+            self.assertEqual(sorted(x["key"] for x in f), ["owner", "scope"]); self.assertIn("refine", f[0]["reason"])
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: APPROVED\niterations:\n  - id: 1\n---\n")
+            self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["scope"])
+            # status outside the closed vocabulary — red
+            write(repo / "docs/spec/F-001/design.md", base_fm.replace("APPROVED", "SHIPPED"))
+            self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["status"])
+            write(repo / "docs/spec/F-001/design.md", base_fm.replace("APPROVED", "APPROVED (SUPERSEDED)"))
+            self.assertEqual(frontmatter.check(repo, "main"), [])
+            # a deleted file is not this gate's
+            os.remove(repo / "docs/spec/F-001/design.md")
+            self.assertEqual(frontmatter.check(repo, "main"), [])
+            # a committed change is judged too; the CLI exits 1 red
+            write(repo / "docs/spec/F-001/design.md", base_fm.replace("backend", "frontend"))
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "c"], check=True, capture_output=True)
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "frontmatter-lock", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr); self.assertIn("scope", r.stdout)
+            # an unreadable base is a fault
+            with self.assertRaises(GateFault):
+                frontmatter.check(repo, "no-such-ref")
+            self.assertIn("frontmatter-lock", [m[0] for m in profile.MEMBERS])
+
+    def test_flow_keys_and_non_artefacts(self):
+        """Round-1 cures: the keys the flows rewrite are permitted; a binary or a non-markdown file is not this gate's."""
+        for k in ("increments", "last_update", "last_iteration_scope", "invalidated_slices"):
+            self.assertIn(k, frontmatter.PERMITTED, k)
+        tpl = next((p / ".context/templates" for p in HERE.parents if (p / ".context/templates/develop").is_dir()), None)
+        if tpl is not None:   # every iteration-family key a shipped artefact template declares is permitted (LAW-09)
+            fam = re.compile(r"(iterations?|iteration_history|pending_\w+|cascade_\w+|invalidated_\w+|based_on_(iteration|schemas_version)|last_iteration_\w+|schemas_version|pending_design_items)")
+            for t in tpl.glob("*/*.md"):
+                m = re.search(r"^---\n(.*?)\n---", t.read_text(errors="replace"), re.S | re.M)
+                for k in re.findall(r"^([a-z_]+):", m.group(1) if m else "", re.M):
+                    if fam.fullmatch(k):
+                        self.assertIn(k, frontmatter.PERMITTED, f"{t.name}: {k}")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, "---\nstatus: APPROVED\nscope: a\n---\n")
+            (repo / "assets").mkdir(); (repo / "assets/logo.png").write_bytes(b"\xff\xfe\x00")
+            write(repo / "config/x.yaml", "---\nstatus: APPROVED\nscope: a\n---\nk: v\n")
+            for c in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "assets"]):
+                subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+            (repo / "assets/logo.png").write_bytes(b"\xff\xfe\x01")
+            write(repo / "config/x.yaml", "---\nstatus: APPROVED\nscope: b\n---\nk: v\n")
+            self.assertEqual(frontmatter.check(repo, "main"), [], "a binary and a non-markdown file are not approved artefacts")
+        with tempfile.TemporaryDirectory() as tmp:   # a refine — an iteration appended (LAW-09, the one reader) — owns any key
+            repo = self._repo(tmp, "---\nstatus: APPROVED\nscope: backend\niterations:\n  - id: ITER-F-001-1\n    iteration: 1\n---\n")
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: DRAFT\nscope: frontend\niterations:\n  - id: ITER-F-001-1\n    iteration: 1\n  - id: ITER-F-001-2\n    iteration: 2\n---\n")
+            self.assertEqual(frontmatter.check(repo, "main"), [])
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: SHIPPED\nscope: frontend\niterations:\n  - id: ITER-F-001-1\n    iteration: 1\n  - id: ITER-F-001-2\n    iteration: 2\n---\n")
+            self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["status"], "a refine still moves status within STATES only")
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: APPROVED\nscope: [backend\n---\n")
+            self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["(frontmatter)"], "a frontmatter broken on an approved artefact is red, never a fault")
+        with tempfile.TemporaryDirectory() as tmp:   # a base that does not parse is skipped; spec.feature is an approved artefact too
+            repo = self._repo(tmp, "---\nstatus: APPROVED\nscope: [a\n---\n")
+            write(repo / "docs/spec/F-001/spec.feature", "---\nstatus: APPROVED\nscope: backend\n---\nFeature: x\n")
+            for c in (["checkout", "-q", "main"], ["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "f"], ["checkout", "-qB", "feature/F-001-x"]):
+                subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: APPROVED\nscope: b\n---\n")
+            write(repo / "docs/spec/F-001/spec.feature", "---\nstatus: APPROVED\nscope: frontend\n---\nFeature: x\n")
+            self.assertEqual([(x["path"], x["key"]) for x in frontmatter.check(repo, "main")], [("docs/spec/F-001/spec.feature", "scope")])
+            from gates.common import iteration_state
+            self.assertEqual(iteration_state({"iteration": 2, "iteration_history": [1, 2]})["source"], "scalar-legacy")
+            self.assertEqual(iteration_state({"iterations": [{"id": "ITER-F-1", "iteration": 1}]})["n"], 1)
 
 
 if __name__ == "__main__":

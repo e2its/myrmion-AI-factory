@@ -18,6 +18,7 @@
   gate.py certify --subject diff|tree [--base B] [--branch B] [--paths p…] [--json]   the certifies: block a verdict embeds (paths + hash); diff base = gate.py diff-base
   gate.py certify --subject worktree --paths p…   the on-disk hash (tracked + untracked) taken before and after a read-only run — the guard, never a verdict subject
   gate.py currency [--base B] [--branch B]         the push's verdict artefacts still certify their files; exit 1 stale/missing/unknown branch · 2 could not judge
+  gate.py frontmatter-lock [--base B] [--branch B]   EVOL-069: an approved artefact's frontmatter changes only through its permitted transitions (gates/frontmatter.py PERMITTED, STATES); exit 1 red · 2 an unreadable base
   gate.py manifest-parity                          frontmatter version == manifest version for every governed file; exit 1 on drift
   gate.py manifest --bump --entry P … --level L --note "…" [--framework L] [--new P [--target T]] [--base REF | --no-base]   EVOL-061: the bump as a tool — the entry, its changelog line, the file's frontmatter, framework_version; idempotent on this branch; a base that cannot be read is a fault
   gate.py manifest --check --entry P … [--framework]   verify without writing: advanced against the base, the line names the version, parity
@@ -30,6 +31,7 @@
   gate.py runtime-surface [--json]                 parity: every path a deploying job or its scripts read is on surface.runtime_surface, a hard exclusion or a declared read; exit 1 on a finding
   gate.py runtime-surface --changed [--base B]     did base...HEAD touch the runtime surface (or a hard exclusion)? exit 0 touched · 1 untouched (the machinery may skip) · 2 could not judge
   gate.py plan --path P [--branch B]               may this write happen? governed path × branch class × approved plan; exit 0 pass · 1 blocked (reason + resolution) · 2 fault
+  gate.py write-target --hook-json                 where a PreToolUse write lands (EVOL-065: Edit/Write + the shell's recognised writers); exit 0 the in-project targets one per line · 4 nothing to judge · 1 guarded or unresolved (reason) · 2 fault (3 is the import guard)
   gate.py plan --status [--branch B]               one advisory line for the prompt hook (exit 0 always)
   gate.py plan --enter [--branch B]                may this session enter plan mode? exit 1 on a class a framework phase already plans (one stage, never two)
   gate.py plan --record --hook-json                write the approval marker from the harness's PostToolUse ExitPlanMode payload on stdin — refuses anything else
@@ -71,7 +73,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, corpus, digests as digests_mod, discovery as discovery_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod  # noqa: E402
+    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, corpus, digests as digests_mod, discovery as discovery_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, writes  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -240,6 +242,19 @@ def cmd_runtime_surface(repo, a):
     else:
         print(coherence.render("runtime-surface", findings, f"{stats['literals']} path(s) read by {len(stats['workflows'])} deploying workflow(s), {stats['declared']} declared read(s)"))
     return 1 if findings else 0
+
+
+def cmd_write_target(repo, a):
+    try:
+        payload = json.load(sys.stdin)
+        if not isinstance(payload, dict):
+            raise ValueError
+    except ValueError:
+        raise GateFault("the hook payload could not be read") from None
+    rc, text = writes.verdict(repo, payload)
+    if text:
+        print(text)
+    return rc
 
 
 def cmd_plan(repo, a):
@@ -508,6 +523,18 @@ def cmd_currency(repo, a):
     return 1 if findings else (2 if faults else 0)
 
 
+def cmd_frontmatter_lock(repo, a):
+    from gates import frontmatter as fm_mod
+    try:
+        base = _base(repo, a)
+    except branch_mod.UnknownBranch as e:
+        print(f"frontmatter-lock: RED — {e}", file=sys.stderr)
+        return 1
+    findings = fm_mod.check(repo, base)
+    print(coherence.render("frontmatter-lock", findings, "no approved artefact's frontmatter moved outside its transitions"))
+    return 1 if findings else 0
+
+
 def cmd_manifest(repo, a):
     from gates import manifest as manifest_mod
     if a.check:
@@ -580,6 +607,7 @@ def build_parser():
     p = sub.add_parser("checklist"); p.add_argument("--file", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_checklist)
     p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree", "worktree"), required=True); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
     p = sub.add_parser("currency"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_currency)
+    p = sub.add_parser("frontmatter-lock"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_frontmatter_lock)
     p = sub.add_parser("manifest-parity"); p.set_defaults(fn=cmd_manifest_parity)
     p = sub.add_parser("manifest"); p.add_argument("--bump", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--entry", action="append"); p.add_argument("--new", action="append"); p.add_argument("--level", default=None, choices=("patch", "minor", "major")); p.add_argument("--note", default=""); p.add_argument("--framework", nargs="?", const="check", default=None); p.add_argument("--base", default=None); p.add_argument("--no-base", action="store_true"); p.add_argument("--target", default=None); p.add_argument("--dry-run", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_manifest)
     p = sub.add_parser("branch-class"); p.add_argument("--branch", default=None); p.add_argument("--protected", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_branch_class)
@@ -596,6 +624,7 @@ def build_parser():
     p = sub.add_parser("traceability"); p.add_argument("--declared", action="store_true"); p.add_argument("--baseline", action="store_true"); p.add_argument("--init", action="store_true"); p.add_argument("--refresh", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_traceability)
     p = sub.add_parser("discovery"); g = p.add_mutually_exclusive_group(); g.add_argument("--resolve", action="store_true"); g.add_argument("--eval", default=None, metavar="COND"); p.add_argument("--answers", default=None, metavar="FILE"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_discovery)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
+    p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
     p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--spawn", action="store_true"); p.add_argument("--model", default=""); p.add_argument("--hook-json", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
     return ap

@@ -1006,7 +1006,7 @@ The rule lives in two places depending on context (framework/project split):
 
 ### Cross-Cutting Skills (Protocols)
 
-The framework ships 23 protocols reusable by every command and agent (`.claude/skills/`):
+The framework ships 23 protocols reusable by every command and agent (`.claude/skills/`); every skill's `name:` is lowercase `factory-*` (`^[a-z0-9-]+$`, the Claude Code skill spec — ADR-EVOL-031):
 
 | Skill | Purpose |
 |-------|---------|

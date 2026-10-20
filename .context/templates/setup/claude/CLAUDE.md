@@ -24,6 +24,8 @@ The only legitimate binary question without RDR is **factual** (asking for a dat
 
 **Two registers, in this order (EVOL-050).** Every RDR opens with a **plain-language** section — what is being decided, why now, what each path costs in everyday terms; no jargon, no file paths, no identifiers; in the language of the person deciding — and only then the **technical** section: evidence anchored at source, the adversarial pass, options with pros and cons per axis, the recommendation, the ratification. Both sections name the same options and the same costs; an option or a cost present in one and absent from the other makes the RDR malformed. Applies wherever an RDR is posed: commands, plan-mode decision queues, free-form turns, sub-agents returning open decisions to the main session.
 
+**Auto mode (EVOL-069).** Auto mode runs execution; a decision is still posed as RDR. A permission mode that skips confirmations never answers a decision in the user's place — the RDR waits for the user's verbatim choice whatever the mode.
+
 Persistence path is context-specific — see Core Protocols table below.
 
 ## Adversarial Reasoning — MANDATORY
@@ -149,7 +151,7 @@ Every feature ships as a chain of **vertical increments**. One PR per increment.
 
 ## Pre-Action Gate
 
-**Enforced deterministically** via `.claude/settings.json` PreToolUse hook — blocks `Edit`/`Write` on protected branches before any tool call executes.
+**Enforced deterministically** via `.claude/settings.json` PreToolUse hooks — block a write on a protected branch before the tool runs: `Edit`/`Write` and the shell's writers (`>`, `tee`, `sed -i`, `cp`, `mv`, `python -c`), their target named by one reader (`gate.py write-target`, EVOL-065). A write outside the project is not judged; the harness and user configuration are guarded on every branch.
 
 BEFORE any file modification:
 1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, and any `release` (including `release/{slug}`).
