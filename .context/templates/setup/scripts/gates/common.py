@@ -265,11 +265,26 @@ def read_frontmatter(path: Path) -> dict:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError as e:
         raise GateFault(f"cannot read {path}: {e}") from None
+    return frontmatter_of(text)
+
+
+def frontmatter_of(text: str) -> dict:
+    """The frontmatter of a text already in hand (a file at a git ref). Returns {} when it has none."""
     m = FM_RE.match(text)
     if not m:
         return {}
     data = parse_yaml(m.group(1))
     return data if isinstance(data, dict) else {}
+
+
+def iteration_state(fm: dict) -> dict:
+    """read_iteration_state (LAW-09, factory-iteration-model § Dual-format read): the one reader of an artefact's iteration."""
+    its = fm.get("iterations")
+    if isinstance(its, list) and its:
+        latest = its[-1] if isinstance(its[-1], dict) else {}
+        return {"n": latest.get("iteration"), "id": latest.get("id"), "history": its, "source": "array"}
+    hist = fm.get("iteration_history")
+    return {"n": fm.get("iteration") or 1, "id": None, "history": hist if isinstance(hist, list) else [], "source": "scalar-legacy"}
 
 
 def body_after_frontmatter(text: str) -> str:

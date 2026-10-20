@@ -40,6 +40,10 @@ The plan (design.md, test_plan.md, increment_plan.md) is read by a critic that d
 FUNCTION plan_gate(FEATURE_ID):
   cap   = rules/agents.md → rounds.plan_gate                   # 2 — a key, never a judgement
   scope = "docs/spec/{FEATURE_ID}"
+  # EVOL-069 — the plan critic is calibrated like the work critics (EVOL-059): owed ⇒ it reviews the canary fixture first; a red canary never blocks
+  IF "plan" IN RUN("python3 scripts/gate.py canary --plan --json").owed:
+    rep = SPAWN("factory-plan-critic", model = RUN("python3 scripts/gate.py agents --resolve --class plan-critic --round 1").model, inputs = [RUN("python3 scripts/gate.py canary --fixture") in a scratch file OUTSIDE the tree])
+    RUN("python3 scripts/gate.py canary --judge --lens plan --model {return_model(rep)}", rep)   # the verdict on the tracking item; red ⇒ RDR on the spawn policy; the gate still runs
   FOR round IN 1..cap:
     digest = RUN("python3 scripts/gate.py agents --digest --agent factory-plan-critic")
     model  = RUN("python3 scripts/gate.py agents --resolve --class plan-critic --round {round}").model
@@ -51,6 +55,7 @@ FUNCTION plan_gate(FEATURE_ID):
       #                  model = fb.model; IF NOT fb.separation: the round's findings go to the user's adjudication (the critic ran on the writer's family)
     after  = RUN("python3 scripts/gate.py certify --subject worktree --paths {scope}")
     IF before != after: REFUSE "working tree moved around a critic run" — the round is void
+    IF report delivered AND fb unset: RUN("python3 scripts/gate.py canary --seen --lens plan --model {return_model(report)}")   # after every real primary return: the model the plan lens last ran on — the canary's drift trigger (EVOL-059); a fallback or an undelivered round ran on another or no model, never the lens's id
     APPEND("docs/spec/{ID}/review/plan_critic_{timestamp}.md", report VERBATIM under `### factory-plan-critic · round {round}`)   # EVOL-060: the appendix's home at the plan gate — written after the round's `after` hash (never inside the certified window); the file carries no gate
     IF RUN("python3 scripts/gate.py agents --check-return --class plan-critic", report) refuses:
       re-spawn ONCE; refused again ⇒ every finding of the round is ❓

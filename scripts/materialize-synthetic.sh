@@ -283,6 +283,17 @@ OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push --ba
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'verdict: ok' && ok "the profile runs every script member in the scratch project, one verdict: $(printf '%s' "$OUT" | grep -c '✓') green" || bad "profile run not green in the scratch (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py one-definition 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "the materialised hooks and workflow keep no second definition" || bad "second definition in the materialised tree (rc=$RC)" "$OUT"
+# EVOL-069: approved frontmatter is locked — a scope edit is red, an iteration appended is green
+FM_PREV=$(git -C "$P" rev-parse HEAD); mkdir -p "$P/docs/spec/FEAT-001"
+printf -- '---\nstatus: APPROVED\nscope: backend\niterations:\n  - id: ITER-FEAT-001-1\n---\n# design\n' > "$P/docs/spec/FEAT-001/design.md"
+git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm "approved design"; FM_BASE=$(git -C "$P" rev-parse HEAD)
+sed -i 's/^scope: backend$/scope: full-stack/' "$P/docs/spec/FEAT-001/design.md"
+OUT=$(cd "$P" && python3 scripts/gate.py frontmatter-lock --base "$FM_BASE" 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'scope' && ok "frontmatter-lock: an approved design's scope edited outside its refine is red" || bad "approved scope edit not red (rc=$RC)" "$OUT"
+printf -- '---\nstatus: APPROVED\nscope: backend\niterations:\n  - id: ITER-FEAT-001-1\n  - id: ITER-FEAT-001-2\n---\n# design\n' > "$P/docs/spec/FEAT-001/design.md"
+OUT=$(cd "$P" && python3 scripts/gate.py frontmatter-lock --base "$FM_BASE" 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "frontmatter-lock: an iteration appended to an approved design is green" || bad "iteration append judged red (rc=$RC)" "$OUT"
+git -C "$P" reset -q --hard "$FM_PREV"
 git -C "$P" update-ref refs/remotes/origin/feature/FEAT-001-inc-1-x HEAD; git -C "$P" checkout -q -b feature/FEAT-001-inc-1-x-sub-2
 mkdir -p "$P/docs/spec/FEAT-001/review"; printf 'notes\n' > "$P/docs/spec/FEAT-001/review/notes.md"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm sub   # outside the certified tree: the verdict stays fresh
 BEFORE=$(git -C "$P" status --porcelain | wc -l)

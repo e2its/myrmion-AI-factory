@@ -228,8 +228,18 @@ else
 fi
 echo ""
 
+echo "7. RDR vocabulary (EVOL-069): auto mode never answers a decision"
+for f in CLAUDE.md "$TPL_ROOT/claude/CLAUDE.md"; do
+  if grep -qF "Auto mode runs execution; a decision is still posed as RDR" "$f"; then
+    ok "$f states that auto mode runs execution and a decision is still an RDR"
+  else
+    bad "$f: RDR Universal lacks the auto-mode sentence (EVOL-069)"
+  fi
+done
+echo ""
+
 if [ "$failures" -eq 0 ]; then
-  echo "T3: ok — materialization surface closed (6 assertion groups)."
+  echo "T3: ok — materialization surface closed (7 assertion groups)."
   exit 0
 else
   echo "T3: FAIL — $failures assertion(s) failed." >&2

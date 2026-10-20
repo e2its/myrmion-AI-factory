@@ -35,6 +35,7 @@ MEMBERS = [
     ("law-parity",       False, False, "gate.py",                 ["gate", "laws", "--parity"], False),
     ("manifest-parity",  False, False, "gate.py",                 ["gate", "manifest-parity"], False),
     ("currency",         False, False, "gate.py",                 ["gate", "currency", "--base", "{base}"], False),
+    ("frontmatter-lock", False, False, "gate.py",                 ["gate", "frontmatter-lock", "--base", "{base}"], False),
     ("surface",          False, False, "gate.py",                 ["gate", "surface", "--base", "{base}", "--branch", "{branch}"], False),
     ("runtime-surface",  False, False, "gate.py",                 ["gate", "runtime-surface"], False),
     ("agents",           False, False, "gate.py",                 ["gate", "agents"], False),

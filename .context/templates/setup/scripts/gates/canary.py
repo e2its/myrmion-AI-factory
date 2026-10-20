@@ -5,8 +5,8 @@ The framework keeps model ALIASES; the id behind an alias moves. As soon as a le
 model (its first real round on it tells the id), it reviews THIS before its next real work: one synthetic diff of a synthetic project with two planted defects per lens and the
 expected findings — security (a read without the tenant predicate, a planted credential), correctness (a dishonest
 test, a contract ↔ DTO mismatch), governance (an artefact without its manifest entry, a manifest changelog without
-its bump), fidelity (a specified scenario with no test, a mock state no code implements). Nothing here comes from a
-real project.
+its bump), fidelity (a specified scenario with no test, a mock state no code implements), plan (EVOL-069 — an
+external premise stated as verified, a premise a fixture file contradicts). Nothing here comes from a real project.
 
 fixture     the diff, stored base64 AT REST so that no scanner and no regex floor sees the planted credential in the
             repository (a literal scanner; one that decodes base64 is not fooled, and need not be — the credential is
@@ -38,7 +38,8 @@ from .common import GateFault
 STATE_DIR = ".claude/state"       # hook and gate.py state; the canary record lives there
 RECORD = "canary.json"
 LENS_AGENT = {"security": "factory-critic-security", "correctness": "factory-critic-correctness",
-              "governance": "factory-critic-governance", "fidelity": "factory-critic-fidelity"}
+              "governance": "factory-critic-governance", "fidelity": "factory-critic-fidelity",
+              "plan": "factory-plan-critic"}
 LENSES = tuple(LENS_AGENT)
 SEVERITY_ABOVE_INFO = ("🔴", "🟡")
 DEFAULT_TOLERANCE = 3   # the template's `agents.canary.line_tolerance`; the fixture is checked against it when no repo is at hand
@@ -143,7 +144,21 @@ FIXTURE_B64 = (
     "IjogIjguNi4wIiwKICAgInRlbXBsYXRlcyI6IHsKICAgICAicnVsZXMvdGVzdGluZy5tZCI6IHsKICAgICAgICJ2ZXJzaW9uIjog"
     "IjEuMi4wIiwKICAgICAgICJjaGFuZ2Vsb2ciOiBbCisgICAgICAgICIxLjIuMDogZmVhdChDQU4tMDAxKSDigJQgdGhlIG9yZGVy"
     "cyBydWxlOiBldmVyeSByZWFkIHNjb3BlZCB0byB0aGUgdGVuYW50IiwKICAgICAgICAgIjEuMi4wOiBmZWF0KEVWT0wtMDQwKSDi"
-    "gJQgaW5pdGlhbCIKICAgICAgIF0K"
+    "gJQgaW5pdGlhbCIKICAgICAgIF0KZGlmZiAtLWdpdCBhL2RvY3Mvc3BlYy9DQU4tMDAxL2luY3JlbWVudF9wbGFuLm1kIGIvZG9j"
+    "cy9zcGVjL0NBTi0wMDEvaW5jcmVtZW50X3BsYW4ubWQKbmV3IGZpbGUgbW9kZSAxMDA2NDQKLS0tIC9kZXYvbnVsbAorKysgYi9k"
+    "b2NzL3NwZWMvQ0FOLTAwMS9pbmNyZW1lbnRfcGxhbi5tZApAQCAtMCwwICsxLDI2IEBACisjIENBTi0wMDEg4oCUIGluY3JlbWVu"
+    "dCBwbGFuIChzeW50aGV0aWMgY2FuYXJ5IHByb2plY3QpCisKK05vdGhpbmcgaGVyZSBpcyByZWFsLiBUaGUgcGxhbiBvZiB0aGUg"
+    "Y2FuY2VsIGluY3JlbWVudCwgcmVhZCBieSB0aGUgcGxhbiBjcml0aWMgYmVmb3JlIGl0cyBhcHByb3ZhbC4KKworIyMgSW5jcmVt"
+    "ZW50IDEg4oCUIGNhbmNlbCBhbiBvcmRlcgorCitDb3ZlcnMgVEMtMDMgKGNhbmNlbCBhbiBvcmRlcikuIEZpbGVzOiBzcmMvb3Jk"
+    "ZXJzL2FwaS5weSwgc3JjL29yZGVycy9kdG8ucHksIHRlc3RzL3Rlc3Rfb3JkZXJzLnB5LgorCisjIyBQcmVtaXNlcworCistIFAx"
+    "OiB0aGUgcGF5bWVudCBwcm92aWRlciBQYXlGbG93IHJlZnVuZHMgYSBjYW5jZWxsZWQgb3JkZXIgd2l0aGluIDI0IGhvdXJzIGFu"
+    "ZCBpdHMgcmVmdW5kIGNhbGwgaXMgaWRlbXBvdGVudCDigJQgdmVyaWZpZWQuCisKKyMjIFN0ZXBzCisKKzEuIEFkZCBgY2FuY2Vs"
+    "bGVkYCB0byBTVEFUVVNFUyBpbiBzcmMvb3JkZXJzL2R0by5weS4KKzIuIExldCBzZXRfc3RhdHVzIGFjY2VwdCBgY2FuY2VsbGVk"
+    "YC4KKzMuIEFkZCB0aGUgVEMtMDMgdGVzdCBpbiB0ZXN0cy90ZXN0X29yZGVycy5weS4KKzQuIFJlbmRlciB0aGUgY2FuY2VsbGVk"
+    "IHN0YXRlIG9mIHRoZSBtb2NrLCBzdGVwIDMuCisKKyMjIENlaWxpbmcKKworT25lIGluY3JlbWVudCwgdGhyZWUgc291cmNlIGZp"
+    "bGVzIGFuZCBvbmUgdGVzdCBmaWxlIOKAlCB1bmRlciB0aGUgc3VyZmFjZSBjZWlsaW5nLgorCisjIyBQcmVtaXNlcyB0aGUgc3Rl"
+    "cHMgcmVseSBvbgorCistIFAyOiBzZXRfc3RhdHVzIGFuc3dlcnMgYW4gdW5rbm93biBzdGF0dXMgd2l0aCBIVFRQIDQwNCwgc28g"
+    "dGhlIGNsaWVudCBhbHJlYWR5IGhhbmRsZXMgdGhlIGNhbmNlbCdzIHJlamVjdGlvbiBwYXRoLgo="
 )
 
 EXPECTED: dict[str, list[dict]] = {
@@ -170,6 +185,12 @@ EXPECTED: dict[str, list[dict]] = {
          "at": [["docs/spec/CAN-001/spec.feature", 13], ["tests/test_orders.py", 19], ["src/orders/api.py", 20]]},   # a critic may fold the untested scenario and the unimplemented state into one finding at the stub
         {"id": "f2", "what": "a mock state (#step-3, cancelled) that no code implements",
          "at": [["docs/spec/CAN-001/mock.html", 5], ["src/orders/api.py", 20], ["src/orders/dto.py", 12]]},
+    ],
+    "plan": [
+        {"id": "p1", "what": "an external premise (the PayFlow provider's refund) stated as verified with no source — ❓ unverified — external",
+         "at": [["docs/spec/CAN-001/increment_plan.md", 11]]},
+        {"id": "p2", "what": "the plan says set_status answers an unknown status with 404; src/orders/api.py returns 400",
+         "at": [["docs/spec/CAN-001/increment_plan.md", 26], ["src/orders/api.py", 19]]},
     ],
 }
 
@@ -418,7 +439,7 @@ def render_plan(r: dict) -> str:
     if r.get("fault"):
         lines.append("  ✗ " + r["fault"])
     if r["owed"]:
-        lines.append("  run: for each owed lens — gate.py agents --resolve --class work-critic, the fixture (gate.py canary --fixture) as the diff, the return "
+        lines.append("  run: for each owed lens — gate.py agents --resolve --class work-critic (plan: --class plan-critic), the fixture (gate.py canary --fixture) as the diff, the return "
                      "check, then gate.py canary --judge --lens <lens> --model <the return's Model: line>; post the verdict on the tracking item; a red canary opens the spawn policy's review by RDR")
     return "\n".join(lines)
 

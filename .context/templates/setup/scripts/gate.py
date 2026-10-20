@@ -18,6 +18,7 @@
   gate.py certify --subject diff|tree [--base B] [--branch B] [--paths p…] [--json]   the certifies: block a verdict embeds (paths + hash); diff base = gate.py diff-base
   gate.py certify --subject worktree --paths p…   the on-disk hash (tracked + untracked) taken before and after a read-only run — the guard, never a verdict subject
   gate.py currency [--base B] [--branch B]         the push's verdict artefacts still certify their files; exit 1 stale/missing/unknown branch · 2 could not judge
+  gate.py frontmatter-lock [--base B] [--branch B]   EVOL-069: an approved artefact's frontmatter changes only through its permitted transitions (gates/frontmatter.py PERMITTED, STATES); exit 1 red · 2 an unreadable base
   gate.py manifest-parity                          frontmatter version == manifest version for every governed file; exit 1 on drift
   gate.py manifest --bump --entry P … --level L --note "…" [--framework L] [--new P [--target T]] [--base REF | --no-base]   EVOL-061: the bump as a tool — the entry, its changelog line, the file's frontmatter, framework_version; idempotent on this branch; a base that cannot be read is a fault
   gate.py manifest --check --entry P … [--framework]   verify without writing: advanced against the base, the line names the version, parity
@@ -522,6 +523,18 @@ def cmd_currency(repo, a):
     return 1 if findings else (2 if faults else 0)
 
 
+def cmd_frontmatter_lock(repo, a):
+    from gates import frontmatter as fm_mod
+    try:
+        base = _base(repo, a)
+    except branch_mod.UnknownBranch as e:
+        print(f"frontmatter-lock: RED — {e}", file=sys.stderr)
+        return 1
+    findings = fm_mod.check(repo, base)
+    print(coherence.render("frontmatter-lock", findings, "no approved artefact's frontmatter moved outside its transitions"))
+    return 1 if findings else 0
+
+
 def cmd_manifest(repo, a):
     from gates import manifest as manifest_mod
     if a.check:
@@ -594,6 +607,7 @@ def build_parser():
     p = sub.add_parser("checklist"); p.add_argument("--file", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_checklist)
     p = sub.add_parser("certify"); p.add_argument("--subject", choices=("diff", "tree", "worktree"), required=True); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--paths", nargs="*", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_certify)
     p = sub.add_parser("currency"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_currency)
+    p = sub.add_parser("frontmatter-lock"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.set_defaults(fn=cmd_frontmatter_lock)
     p = sub.add_parser("manifest-parity"); p.set_defaults(fn=cmd_manifest_parity)
     p = sub.add_parser("manifest"); p.add_argument("--bump", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--entry", action="append"); p.add_argument("--new", action="append"); p.add_argument("--level", default=None, choices=("patch", "minor", "major")); p.add_argument("--note", default=""); p.add_argument("--framework", nargs="?", const="check", default=None); p.add_argument("--base", default=None); p.add_argument("--no-base", action="store_true"); p.add_argument("--target", default=None); p.add_argument("--dry-run", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_manifest)
     p = sub.add_parser("branch-class"); p.add_argument("--branch", default=None); p.add_argument("--protected", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_branch_class)
