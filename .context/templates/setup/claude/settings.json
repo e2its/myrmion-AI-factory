@@ -85,6 +85,18 @@
         "hooks": [
           {
             "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-branch-protection.sh"
+          },
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-plan-approval.sh"
+          },
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-concurrency-lock.sh"
+          },
+          {
+            "type": "command",
             "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash .claude/hooks/check-push-preflight.sh"
           }
         ]

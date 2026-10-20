@@ -3726,6 +3726,146 @@ class Discovery(unittest.TestCase):
             r = gt(); self.assertEqual(r.returncode, 2); self.assertIn("registry", r.stderr); self.assertNotIn("Traceback", r.stderr)
 
 
+class Writes(unittest.TestCase):
+    """EVOL-065: one answer to «where does this write land» — Edit/Write and the shell's recognised writers."""
+    def setUp(self):
+        from gates import writes
+        self.w = writes
+        self.tmp = tempfile.TemporaryDirectory(); t = Path(self.tmp.name)
+        self.repo = (t / "repo"); self.repo.mkdir()
+        subprocess.run(["git", "-C", str(self.repo), "init", "-q"], check=True)
+        write(self.repo / "src/app.py", "x\n"); (self.repo / "dir").mkdir()
+        self.home = t / "home"; self.home.mkdir()
+        self.scratch = t / "scratch"; self.scratch.mkdir()
+        self.env = {"HOME": str(self.home), "TMPDIR": str(self.scratch), "CLAUDE_PROJECT_DIR": str(self.repo)}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def bash(self, cmd, cwd=None):
+        p = {"tool_name": "Bash", "tool_input": {"command": cmd}}
+        if cwd:
+            p["cwd"] = cwd
+        return self.w.targets(self.repo, p, self.env)
+
+    def inside(self, cmd, expected, cwd=None):
+        t = self.bash(cmd, cwd)
+        self.assertTrue(t["writer"], cmd); self.assertIsNone(t["unresolved"], cmd); self.assertEqual(t["guarded"], [], cmd)
+        self.assertEqual(sorted(t["inside"]), sorted(expected), cmd)
+
+    def test_edit_write(self):
+        t = self.w.targets(self.repo, {"tool_name": "Edit", "tool_input": {"file_path": str(self.repo / "src/app.py")}}, self.env)
+        self.assertEqual(t["inside"], ["src/app.py"])
+        t = self.w.targets(self.repo, {"tool_name": "Write", "tool_input": {"file_path": str(self.scratch / "n.md")}}, self.env)
+        self.assertEqual(t["inside"], []); self.assertTrue(t["writer"])
+
+    def test_each_writer_form(self):
+        self.inside("echo x > src/a.txt", ["src/a.txt"])
+        self.inside("echo x >> src/a.txt", ["src/a.txt"])
+        self.inside("echo x >| src/a.txt", ["src/a.txt"])
+        self.inside("make &> build.log", ["build.log"])
+        self.inside("make &>> build.log", ["build.log"])
+        self.inside("make 2> err.log", ["err.log"])
+        self.inside("make 2>err.log", ["err.log"])
+        self.inside("echo x | tee -a src/a.txt src/b.txt", ["src/a.txt", "src/b.txt"])
+        self.inside("sed -i s/a/b/ src/app.py", ["src/app.py"])
+        self.inside("sed -i.bak -e s/a/b/ -e s/c/d/ src/app.py", ["src/app.py"])
+        self.inside("sed --in-place=.orig 's/a/b/' src/app.py", ["src/app.py"])
+        self.inside("sed -f script.sed -i src/app.py", ["src/app.py"])
+        self.inside("cp /etc/hosts src/hosts", ["src/hosts"])
+        self.inside("cp /etc/hosts dir", ["dir/hosts"])
+        self.inside("cp -t dir /etc/hosts /etc/passwd", ["dir/hosts", "dir/passwd"])
+        self.inside("mv src/app.py src/b.py", ["src/app.py", "src/b.py"])
+        self.inside("mv src/app.py dir", ["src/app.py", "dir/app.py"])
+        self.inside("python3 -c \"open('src/x.py','w').write('1')\"", ["src/x.py"])
+        self.inside("python -c \"open('src/x.py', mode='a')\"", ["src/x.py"])
+        self.inside("python3 -c \"from pathlib import Path; Path('src/y.txt').write_text('1')\"", ["src/y.txt"])
+        self.inside("env FOO=1 nohup time sed -i s/a/b/ src/app.py", ["src/app.py"])
+        self.inside("git status; echo x > a.txt\necho y > b.txt", ["a.txt", "b.txt"])
+
+    def test_not_writers(self):
+        for cmd in ("cat x", "grep -r y .", "git status", "ls 2>/dev/null", "echo hi 2>&1", "git diff > /dev/null",
+                    "cat < src/app.py", "grep x <<< 'abc'", "make >&2", "exec 3>&-", "sed s/a/b/ src/app.py",
+                    "bash -c 'echo x > src/a'", "python3 - <<EOF\nopen('src/a','w')\nEOF", "git apply p.diff",
+                    "python3 -c 'print(1)'", "python3 -c 'open(('"):
+            t = self.bash(cmd)
+            self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
+        self.assertEqual(self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "git status"}}, self.env)[0], 4)
+
+    def test_scratch_and_cd_and_heredoc(self):
+        t = self.bash(f"S={self.scratch}; mkdir -p $S && echo x > $S/f && echo y > ${{S}}/g")
+        self.assertTrue(t["writer"]); self.assertEqual(t["inside"], []); self.assertIsNone(t["unresolved"])
+        self.assertEqual(self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "echo x > $TMPDIR/f"}}, self.env)[0], 4)
+        self.inside(f"cd {self.repo / 'src'} && sed -i s/a/b/ app.py", ["src/app.py"])
+        self.inside("sed -i s/a/b/ app.py", ["src/app.py"], cwd=str(self.repo / "src"))
+        self.inside("cat > notes.txt <<'EOF'\nit's \"quoted\" ; > not-a-target\nEOF\necho done", ["notes.txt"])
+        self.inside("cat <<-EOF > out.txt\n\tbody ' unbalanced\n\tEOF", ["out.txt"])
+        self.inside("echo x > ~/../repo/z.txt".replace("~/../repo", str(self.repo)), ["z.txt"])
+
+    def test_quoting_and_shell_grammar(self):
+        """Round-1 cures: quoting survives the lexer; reserved words, subshells, continuations and braces."""
+        self.inside("echo '# t' > src/a.txt", ["src/a.txt"])
+        self.inside('printf "#!/bin/sh\\n" > scripts/x.sh', ["scripts/x.sh"])
+        self.inside("cp /etc/hosts \\\n  dir/h", ["dir/h"])
+        self.inside("for f in a; do sed -i s/a/b/ src/app.py; done", ["src/app.py"])
+        self.inside("if true; then cp /etc/hosts src/h; fi", ["src/h"])
+        self.inside("{ mv src/app.py src/b.py; }", ["src/app.py", "src/b.py"])
+        self.inside("! sudo tee src/t < /dev/null", ["src/t"])
+        self.inside("(cd /tmp && make); echo x > src/a", ["src/a"])
+        self.inside("cp src/*.py dir/", ["dir/*"])   # the directory judged as a prefix: `scripts/*` meets `scripts/**`
+        self.inside("echo $# ${#x} > src/n", ["src/n"])
+        self.inside('echo "a\\>b" a\\ #x > src/q', ["src/q"])
+        for cmd in ("echo a # b > c", 'grep -n ">" src/app.py', "tr '|' ' ' < src/app.py", 'echo ">>" x', "echo \\> x",
+                    "cut -d '|' -f1 src/app.py", "find . -name x ';'", f"cp src/*.py {self.scratch}/", "echo hi # don't > f"):
+            t = self.bash(cmd)
+            self.assertEqual((t["inside"], t["guarded"], t["unresolved"]), ([], [], None), cmd)
+        self.assertIsNotNone(self.bash("mv src/app.py{,.old}")["unresolved"], "a brace expansion names paths the reader does not expand")
+        self.assertIsNotNone(self.bash("echo x > src/f{1,2}")["unresolved"])
+
+    def test_unresolved_blocks_and_names_the_route(self):
+        for cmd in ('echo x > "$UNSET"', "echo x > $(pwd)/f", "echo x > `pwd`/f", "echo x > src/*.py", "sed -i s/a/b/ src/?.py",
+                    "python3 -c \"p='a'; open(p,'w')\""):
+            t = self.bash(cmd)
+            self.assertIsNotNone(t["unresolved"], cmd)
+            rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": cmd}}, self.env)
+            self.assertEqual(rc, 1, cmd); self.assertIn("Edit or Write", text)
+
+    def test_guarded_on_every_branch(self):
+        for target in (self.home / ".claude/settings.json", self.home / ".claude/settings.local.json", self.home / ".claude/hooks/x.sh",
+                       self.home / ".gitconfig", self.home / ".config/git/config", self.repo / ".claude/settings.local.json",
+                       self.repo / ".git/hooks/pre-commit", self.repo / ".git/config"):
+            rc, text = self.w.verdict(self.repo, {"tool_name": "Write", "tool_input": {"file_path": str(target)}}, self.env)
+            self.assertEqual(rc, 1, target); self.assertIn("harness or user configuration", text)
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "echo '{}' > ~/.claude/settings.json"}}, self.env)
+        self.assertEqual(rc, 1)
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "echo x > ~/.claude/projects/m/memory/a.md"}}, self.env)
+        self.assertEqual(rc, 4, "the user memory is outside the project and not guarded")
+        hp = self.scratch / "hookdir"
+        subprocess.run(["git", "-C", str(self.repo), "config", "core.hooksPath", str(hp)], check=True)
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": f"cp x {hp}/pre-commit"}}, self.env)
+        self.assertEqual(rc, 1, "core.hooksPath outside the work tree is guarded")
+
+    def test_verdict_codes(self):
+        rc, text = self.w.verdict(self.repo, {"tool_name": "Bash", "tool_input": {"command": "sed -i s/a/b/ src/app.py"}}, self.env)
+        self.assertEqual((rc, text), (0, "src/app.py"))
+        rc, text = self.w.verdict(self.repo, {"tool_name": "Edit", "tool_input": {}}, self.env)
+        self.assertEqual((rc, text), (0, ""), "an Edit with no path is a write the branch judges")
+        rc, _ = self.w.verdict(self.repo, {"tool_name": "Read", "tool_input": {"file_path": "x"}}, self.env)
+        self.assertEqual(rc, 4)
+
+    def test_cli(self):
+        gate = str(HERE.parent / "gate.py")
+        env = {**os.environ, **self.env, "PYTHONDONTWRITEBYTECODE": "1"}
+        def run(payload):
+            return subprocess.run([sys.executable, gate, "--repo", str(self.repo), "write-target", "--hook-json"], input=payload, capture_output=True, text=True, env=env)
+        r = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "tee src/a src/b < /dev/null"}}))
+        self.assertEqual((r.returncode, r.stdout.split()), (0, ["src/a", "src/b"]))
+        self.assertEqual(run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}})).returncode, 4, "4 nothing to judge — never 3, the import guard's code")
+        r = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "echo > $NOPE"}}))
+        self.assertEqual(r.returncode, 1); self.assertIn("Edit or Write", r.stdout)
+        r = run("{not json"); self.assertEqual(r.returncode, 2); self.assertIn("could not be read", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+
 class Cli(unittest.TestCase):
     def test_cli_exit_codes(self):
         with tempfile.TemporaryDirectory() as tmp:

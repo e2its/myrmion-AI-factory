@@ -102,7 +102,7 @@ Every law is an index entry: **one normative sentence**, the **one body** that d
 
 ## Pre-Action Gate
 
-**Enforced deterministically** via `.claude/settings.json` PreToolUse hook — blocks `Edit`/`Write` on protected branches before any tool call executes.
+**Enforced deterministically** via `.claude/settings.json` PreToolUse hooks — block a write on a protected branch before the tool runs: `Edit`/`Write` and the shell's writers (`>`, `tee`, `sed -i`, `cp`, `mv`, `python -c`), their target named by one reader (`gate.py write-target`, EVOL-065). A write outside the project is not judged; the harness and user configuration are guarded on every branch.
 
 BEFORE any file modification:
 1. Ensure you're on a working branch. Base branches are blocked: `main`, `master`, `develop`, bare `hotfix`, any `release` (including `release/{slug}`), and a train (a per-increment branch whose increment plan declares sub-increments — `gate.py branch-class --protected`). Working patterns for framework work: `feature/EVOL-{NNN}-{slug}` (evolutions), `fix/{slug}` | `bugfix/{slug}` | `hotfix/{slug}` (fixes), `docs/{slug}` (documentation), `chore/{slug}` (tooling); a sub-increment is `feature/{ID}-inc-{N}-{slug}-sub-{M}`.

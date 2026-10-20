@@ -336,6 +336,19 @@ OUT=$(cd "$P" && printf '%s' '{"hook_event_name":"PostToolUse","tool_name":"Exit
 [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -f "$P/.claude/state/plan-approved-fix-gated.json" ] && ok "the delivered recorder writes the marker silently from the harness's payload" || bad "recorder (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py plan --path src/app.py 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'plan approved on this branch' && ok "the harness's approval unblocks the governed write" || bad "approval did not unblock (rc=$RC)" "$OUT"
+# EVOL-065: a shell write meets the same delivered hooks — red on main, green on a working branch with its plan
+SED_P='{"tool_name":"Bash","tool_input":{"command":"sed -i s/1/2/ src/app.py"}}'
+mkdir -p "$SCRATCH/home"
+for h in check-branch-protection check-plan-approval; do
+  OUT=$(cd "$P" && printf '%s' "$SED_P" | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/$h.sh 2>&1 >/dev/null); RC=$?
+  [ "$RC" -eq 0 ] && ok "the delivered $h lets a Bash sed -i through on a fix branch with its approved plan" || bad "$h blocked a planned shell write (rc=$RC)" "$OUT"
+done
+git -C "$P" branch -f main HEAD; git -C "$P" checkout -q main
+OUT=$(cd "$P" && printf '%s' "$SED_P" | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-branch-protection.sh 2>&1 >/dev/null); RC=$?
+[ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'BLOCKED: on protected branch' && ok "RED: the delivered branch hook blocks a Bash sed -i on main" || bad "shell write on main not blocked (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && printf '%s' '{"tool_name":"Bash","tool_input":{"command":"git status"}}' | HOME="$SCRATCH/home" CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-branch-protection.sh 2>&1 >/dev/null); RC=$?
+[ "$RC" -eq 0 ] && ok "a read-only Bash call on main passes the delivered branch hook" || bad "read-only Bash blocked on main (rc=$RC)" "$OUT"
+git -C "$P" checkout -q fix/gated
 (cd "$P" && git check-ignore -q .claude/state/plan-approved-fix-gated.json) && ok "the marker is ignored by the materialised .gitignore — it never rides a PR" || bad "the plan-approval marker is not gitignored in the project"
 (cd "$P" && git check-ignore -q .context/state/code-review-0.marker) && ok "the agent's review seals are ignored in their home outside .claude/ (#165)" || bad "the materialised .gitignore does not ignore .context/state/ (#165)"
 git -C "$P" checkout -q -b docs/only

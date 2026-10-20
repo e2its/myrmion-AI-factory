@@ -79,7 +79,8 @@ PRE_SETUP_GOVERNANCE:
     - No force-push to protected branches (except maintenance/ with CONFIRM DESTRUCTIVE)
 
   # These apply they are git-level rules that apply regardless of which command is running.
-  # Enforcement: git hooks (scripts/install-hooks.sh) + agent-level checks below.
+  # Enforcement: git hooks (scripts/install-hooks.sh — pre-commit, pre-merge-commit) + PreToolUse hooks on Edit/Write
+  # and on Bash (the shell's writers, targets named by gate.py write-target — EVOL-065) + agent-level checks below.
 ```
 
 ### Step -1: Auto-Branch Checkout Protocol (MANDATORY — EXECUTES FIRST)
@@ -431,7 +432,7 @@ BRANCH NAMING (sub-increment):
 TRAIN PROTECTION:
   # train = feature/{FEATURE_ID}-inc-{N}-{slug} with declared sub-increments. Protected like a base branch:
   # no direct commits. Hook check-branch-protection.sh asks
-  #   python3 scripts/gate.py branch-class --protected   # exit 1 = protected → BLOCK Edit/Write/commit
+  #   python3 scripts/gate.py branch-class --protected   # exit 1 = protected → BLOCK Edit/Write/shell write/commit/merge commit
 
 SUB-INCREMENT OPEN (READY → BUILDING on the sub entry):
   ON_SUB_INCREMENT_BRANCH_CREATED(FEATURE_ID, increment_id, sub_id):
@@ -486,6 +487,7 @@ PR_POLICY = LOAD_FROM(.claude/rules/branching.md OR docs/setup.md):
 ```yaml
 IF user_input contains "git merge" on protected branch:
   ❌ BLOCK: "Direct merge PROHIBITED. Use PR workflow."
+  # Deterministic: a merge commit runs pre-merge-commit → pre-commit, which refuses it on a protected branch (EVOL-065).
   GUIDE:
     1. git push origin {current_branch}
     2. Create PR at https://github.com/{owner}/{repo}/compare/{branch}?expand=1

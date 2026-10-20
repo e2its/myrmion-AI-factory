@@ -158,6 +158,23 @@ else
   echo "  FAIL: malformed manifest passed green"; FAIL=$((FAIL + 1))
 fi
 
+# 9. an unresolvable diff base blocks when the reader is present (EVOL-065); --base wins; no reader → legacy main
+d="$TMP_ROOT/s10"; make_sandbox "$d"; mkdir -p "$d/scripts"
+printf 'import sys\nif sys.argv[1:2] == ["diff-base"]:\n    print("gate: unknown branch name"); sys.exit(1)\n' > "$d/scripts/gate.py"
+manifest_edit "$d" "m['framework_core']['gate.py'] = {'version': '1.0.0', 'type': 'script', 'role': 't', 'path': 'scripts/gate.py', 'changelog': ['1.0.0: init']}"
+( cd "$d" && git add -A && git commit -qm reader && git checkout -q -b nonsense ) >/dev/null
+rc=$( cd "$d" && CLAUDE_PROJECT_DIR="$d" bash "$GATE" >/dev/null 2>"$TMP_ROOT/s10.err"; echo $? )
+if [ "$rc" != "0" ] && grep -q "cannot be resolved" "$TMP_ROOT/s10.err"; then
+  echo "  ok: unresolvable diff base with the reader present blocks with the reason (exit $rc)"; PASS=$((PASS + 1))
+else
+  echo "  FAIL: unresolvable diff base did not block (exit $rc): $(head -c 300 "$TMP_ROOT/s10.err")"; FAIL=$((FAIL + 1))
+fi
+( cd "$d" && CLAUDE_PROJECT_DIR="$d" bash "$GATE" --base main > "$TMP_ROOT/s10b.out" 2>&1 ); rc=$?; [ "$rc" = 0 ] || sed -n "/VIOLATION/p" "$TMP_ROOT/s10b.out" | head -5
+assert "an explicit --base wins over the resolver" 0 "$rc"
+d="$TMP_ROOT/s11"; make_sandbox "$d"; ( cd "$d" && git checkout -q -b nonsense )
+rc=$( cd "$d" && CLAUDE_PROJECT_DIR="$d" bash "$GATE" >/dev/null 2>&1; echo $? )
+assert "no reader: the legacy main base" 0 "$rc"
+
 echo ""
 echo "test-validate-governance: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

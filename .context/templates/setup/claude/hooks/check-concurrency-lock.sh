@@ -26,6 +26,15 @@ if [ -z "$BRANCH" ]; then
   exit 0
 fi
 
+# EVOL-065: a Bash call takes the lock only when it writes inside the project (gate.py write-target exit 0);
+# a read-only command, a write outside, or a reader fault never touches it. Edit/Write: unchanged.
+PAYLOAD=$(cat)
+if [[ "$PAYLOAD" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" ]]; then
+  WT_RC=0
+  (cd "$REPO_ROOT" && [ -f scripts/gate.py ] && printf '%s' "$PAYLOAD" | python3 scripts/gate.py write-target --hook-json >/dev/null 2>&1) || WT_RC=$?
+  [ "$WT_RC" -eq 0 ] || exit 0
+fi
+
 # Sanitize branch name for filesystem
 SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '-' | tr -cd '[:alnum:]-_.')
 LOCK_DIR="$REPO_ROOT/.context/locks"
