@@ -225,12 +225,10 @@ The `defect-prevention.md` template uses a `{{DC_ENTRIES}}` placeholder that MUS
 FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   dc_entries = []
 
-  # --- Field reference: setup_md fields come from docs/setup.md (SETUP --init Q answers) ---
-  # backend.topology: Q7 → B1..B12
-  # backend.runtime: Q5 → Node.js, Python, Java, Go, etc.
-  # frontend.framework: Q9 → React, Vue.js, Angular, Svelte, Solid, None
-  # frontend.pattern: Q11 → F1..F10
-  # auth.strategy: Q18 → "JWT (stateless)", "Session-based", "OAuth2/OIDC (external provider)", etc.
+  # --- Answers: docs/setup.md frontmatter; keys and options: .context/templates/setup/setup/discovery_registry.json.
+  #     Every IF below asks `gate.py discovery --eval` — never evaluate a condition by reading it.
+  #     Exit 0 → run the step · 1 → skip it · 2 → BLOCK materialisation (the condition or the answers
+  #     cannot be read; tell the user which, in plain words). A null key never satisfies `!=` / `NOT IN`. ---
 
   # ============================================================================
   # UNIVERSAL META-PATTERNS — shipped on every project regardless of stack
@@ -338,7 +336,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # BEFORE any feature exists — the catalog ships once, per project. The per-file
   # filter happens later at consult_defect_catalog time.
   # Don't materialise any of them into frontend-only projects.
-  IF setup_md.project_scope IN ["full-stack", "backend-only", "integration"]:
+  IF `python3 scripts/gate.py discovery --eval 'project_scope IN [full-stack, backend-only, integration]'` exits 0:
 
     # DC: Missing idempotency keys on mutating operations
     ADD DC: {
@@ -458,7 +456,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
   # DC: Async handler in serverless entry point
   # Q7 backend.topology == "B9" (Serverless)
-  IF setup_md.backend.topology == "B9":
+  IF `python3 scripts/gate.py discovery --eval 'backend.topology == B9'` exits 0:
     ADD DC: {
       name: "Async handler in serverless entry point",
       family: "runtime",
@@ -476,7 +474,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
   # DC: Missing frontend context providers
   # Q9 frontend.framework != "None"
-  IF setup_md.frontend.framework != "None":
+  IF `python3 scripts/gate.py discovery --eval 'frontend.framework != None'` exits 0:
     ADD DC: {
       name: "Missing frontend context providers",
       family: "ui",
@@ -494,7 +492,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
   # DC: Post-action navigation gaps
   # Q9 frontend.framework != "None" AND Q11 frontend.pattern uses client-side routing (F1, F2, F4, F8, F9)
-  IF setup_md.frontend.framework != "None" AND setup_md.frontend.pattern IN ["F1", "F2", "F4", "F8", "F9"]:
+  IF `python3 scripts/gate.py discovery --eval 'frontend.framework != None AND frontend.pattern IN [F1, F2, F4, F8, F9]'` exits 0:
     ADD DC: {
       name: "Post-action navigation gaps",
       family: "ui",
@@ -512,7 +510,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
   # DC: Session/state rehydration on mount
   # Q11 frontend.pattern uses SSR/hydration (F2 = SSR+hydration, F4 = ISR)
-  IF setup_md.frontend.pattern IN ["F2", "F4"]:
+  IF `python3 scripts/gate.py discovery --eval 'frontend.pattern IN [F2, F4]'` exits 0:
     ADD DC: {
       name: "Session/state rehydration on mount",
       family: "ui",
@@ -530,7 +528,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
   # DC: Responsive design / mobile gaps
   # Q9 frontend.framework != "None"
-  IF setup_md.frontend.framework != "None":
+  IF `python3 scripts/gate.py discovery --eval 'frontend.framework != None'` exits 0:
     ADD DC: {
       name: "Responsive design / mobile gaps",
       family: "ui",
@@ -548,7 +546,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
   # DC: Frontend env var injection mismatch
   # Q9 frontend.framework != "None" AND Q7 backend.topology == "B9" (serverless IaC manages env vars)
-  IF setup_md.frontend.framework != "None" AND setup_md.backend.topology == "B9":
+  IF `python3 scripts/gate.py discovery --eval 'frontend.framework != None AND backend.topology == B9'` exits 0:
     ADD DC: {
       name: "Frontend env var injection mismatch",
       family: "infra",
@@ -567,7 +565,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # DC: Hooks ordering violation
   # Q9 frontend.framework IN ["React", "Vue.js", "Solid"] — frameworks with hook/composition model
   # Note: Angular uses decorators (no hook ordering issue), Svelte uses stores (no hook ordering issue)
-  IF setup_md.frontend.framework IN ["React", "Vue.js", "Solid"]:
+  IF `python3 scripts/gate.py discovery --eval 'frontend.framework IN [React, Vue.js, Solid]'` exits 0:
     ADD DC: {
       name: "Hooks ordering violation",
       family: "ui",
@@ -587,7 +585,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # Applies when project has BOTH backend AND frontend AND uses contract-first policy
   # Contract-first policy is always materialized as .claude/rules/contract-first-policy.md
   # when both backend and frontend exist (Phase A standard rules)
-  IF setup_md.frontend.framework != "None" AND setup_md.backend.runtime != "None":
+  IF `python3 scripts/gate.py discovery --eval 'frontend.framework != None AND backend.runtime != None'` exits 0:
     ADD DC: {
       name: "Backend-frontend contract mismatch",
       family: "boundary",
@@ -606,7 +604,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # DC: External identity ID != internal DB primary key
   # Q18 auth.strategy == "OAuth2/OIDC" — external provider manages identity
   # Also applies when auth.strategy == "JWT" AND an external IdP is configured (Q18 follow-up)
-  IF setup_md.auth.strategy == "OAuth2/OIDC":
+  IF `python3 scripts/gate.py discovery --eval 'auth.strategy == OAuth2/OIDC'` exits 0:
     ADD DC: {
       name: "External identity ID != internal DB primary key",
       family: "data",
@@ -624,7 +622,7 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
 
   # DC: Cross-module direct data access
   # Q7 backend.topology NOT IN ["B1", "B12"] — any architecture with module boundaries
-  IF setup_md.backend.topology NOT IN ["B1", "B12", "None"]:
+  IF `python3 scripts/gate.py discovery --eval 'backend.topology NOT IN [B1, B12]'` exits 0:
     ADD DC: {
       name: "Cross-module direct data access",
       family: "data",
@@ -961,7 +959,7 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
 - Materialise `config/quality.json` from `.context/templates/setup/config/quality.json` resolving the two placeholders against Q23.1 answers:
   - `{{COMPLEXITY_MCP_SERVER}}` ← `quality.complexity.mcp_server` (`semgrep` | custom server name | `null` when Skip)
   - `{{COMPLEXITY_MCP_TOOL_NAME}}` ← `quality.complexity.mcp_tool_name` (`scan_complexity` for Semgrep | custom tool name | `null` when Skip)
-- When user picked **Skip**: write `null` (JSON literal, not the string `"null"`) for both placeholders AND set `complexity.enabled=false`. The skill `factory-complexity-check` short-circuits to `{ok: true, reason: "disabled"}` and never invokes any MCP. The file is still materialised so the project can enable later by editing.
+- When user picked **Skip**: write `null` (JSON literal, not the string `"null"`) for both placeholders AND set `complexity.enabled` ← `quality.complexity.enabled` (`false`). The skill `factory-complexity-check` short-circuits to `{ok: true, reason: "disabled"}` and never invokes any MCP. The file is still materialised so the project can enable later by editing.
 - All other fields (`thresholds`, `bvl_gate`, `pr_blocker`, `source_extensions`) keep template defaults unless Discovery captured overrides. Defaults: `soft=10`, `hard=15` (McCabe), `bvl_gate=true`, `pr_blocker=false`.
 - Resolve the three security-scanner placeholders against Q23.2 answers (EVOL-040 RDR-2):
   - `{{SECURITY_SCANNER}}` ← `quality.security_scan.scanner` (`gitleaks` | `trufflehog` | custom name)
@@ -992,7 +990,7 @@ Mirror the Governance Workflow shape — pick the platform-specific source from 
 **Scripts Materialization:**
 Copy ALL scripts from `.context/templates/setup/scripts/` → `scripts/` (recursively — `scripts/gates/*.py` is the one governance reader's package, `scripts/hooks/*` the git hooks):
 - Auto-scan template directory (no hardcoded list)
-- Stack conditionals from `governance_versions.json` filter scripts by stack
+- `python3 scripts/gate.py discovery --resolve` lists the entries that land and those skipped — never evaluate a `stack_conditional` by reading it
 - `stack_configured` scripts resolve placeholders
 - `chmod +x` for all `.sh` files
 - **Invariant (EVOL-040):** after the copy, every `templates::scripts/**` manifest entry with `delivery` ∈ {`setup`, `both`} MUST exist under the target `scripts/` path. If any is missing → BLOCK with the entry key and the expected path. This mirrors the hooks Invariant below — a materialised workflow invoking a script SETUP did not deliver is a broken-first-CI defect class (CVP CRITICAL 9-10).
@@ -1127,21 +1125,21 @@ Any future template that adopts a `{{*_COST}}` or `{{BUDGET_*}}` placeholder is 
 **Body-home check (BLOCKING):** every `Body:` pointer in `docs/constitution.md` resolves to a materialised file that contains the same `## [PLAW-NN]` heading followed by the byte-identical `> sentence` line. Unresolved pointer or sentence mismatch → materialisation error, fix before Checkpoint 3.1.
 
 **Special Integration — UX Constitution (scope-aware):**
-If `project_scope in [full-stack, frontend-only]` AND `frontend.framework != "None"`, populate `.claude/rules/ux-constitution.md` with:
-- Brand Identity from Visual DNA (Q13)
-- Layout preferences (border radius, shadows, animations)
+IF `python3 scripts/gate.py discovery --eval 'project_scope IN [full-stack, frontend-only] AND frontend.framework != None'` exits 0, populate `.claude/rules/ux-constitution.md` with:
+- Brand identity ← `frontend.visual_dna.references`, `frontend.visual_dna.personality`, `frontend.visual_dna.colors`, `frontend.visual_dna.typography`, `frontend.visual_dna.brand_assets` (Q13)
+- Layout ← `frontend.visual_dna.border_radius`, `frontend.visual_dna.shadow_depth`, `frontend.visual_dna.animation`
 - Pixel-level mapping of Visual DNA to CSS variables
 
 When `project_scope in [backend-only, integration]`, SKIP ux-constitution materialisation entirely — no `ux-constitution.md`, no Visual DNA processing, no design-system merge. Downstream CODESIGN `--vision` is blocked by `Factory-codesign-vision.instructions.md § Prerequisites` (scope guard).
 
 **Special Integration — External Design System:**
-If `frontend.external_design_system.exists == true`:
-1. **Semantic Merge:** DS tokens → ux-constitution.md (DS takes precedence except WCAG/security violations → create RDR)
-2. **Component Migration:** Compatible components → project folder structure + register in `docs/ux/component-registry.json` (schema + writer rules: `Factory-codesign-vision.instructions.md` § Component Registry; `origin: external_ds`, `status: DESIGNED`) + protect in `protected-paths.json`
+IF `python3 scripts/gate.py discovery --eval 'frontend.external_design_system.exists == true'` exits 0:
+1. **Semantic Merge:** DS tokens under `frontend.external_design_system.path` → ux-constitution.md (DS takes precedence except WCAG/security violations → create RDR)
+2. **Component Migration:** the components `frontend.external_design_system.compatibility` marks compatible → project folder structure + register in `docs/ux/component-registry.json` (schema + writer rules: `Factory-codesign-vision.instructions.md` § Component Registry; `origin: external_ds`, `status: DESIGNED`) + protect in `protected-paths.json`
 3. **Tokens-Only:** Extract design tokens, create CSS custom properties file
 
 **Branching Rule Placeholders:**
-Populate `.claude/rules/branching.md` with PR validation settings from Q22.1 (`pr_validation_mode`, `pr_approval_count`, `pr_merge_method`).
+Populate `.claude/rules/branching.md` with PR validation settings from Q22.1 (`branching.pr_validation_mode`, `branching.pr_approval_count`, `branching.pr_merge_method`).
 
 ### 4.2.9b Dynamic Validation Template Generation
 Generate per-agent validation templates based on coverage analysis:

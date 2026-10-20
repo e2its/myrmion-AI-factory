@@ -138,7 +138,7 @@ What the lite snapshot contains (the script is the contract; this list is descri
 
 ```yaml
 frontmatter: constitution_hash, setup_hash, dcs_hash, generated_at, generated_by, framework_version, profile
-## Stack Configuration      # constitution frontmatter keys (project_scope, backend, frontend, architecture, database, ci_cd, iac, cloud, project_mode)
+## Stack Configuration      # docs/setup.md frontmatter, the answer home (EVOL-102): corpus.STACK_KEYS — registry keys, gate.py discovery V9
 ## Rules Manifest           # every .claude/rules/*.md with its applicable_when (parsed, nested)
 ## Protected Paths          # config/protected-paths.json paths + yellow_zones
 ## Setup Configuration      # docs/setup.md frontmatter verbatim (project_mode, ai_budget, project_tracking, synthetic_data, codesign.authoring, measurement …)

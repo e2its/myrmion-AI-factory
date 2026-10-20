@@ -19,21 +19,29 @@
 #      the agent roster lands and its validator holds the tool matrix and the family separation (EVOL-049)
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
-#   0. every manifest stack_conditional is evaluated against a fixture answer set (#143): the keys discovery
-#      persists, the literals it offers; the fixture's expected files land and its stack has its BVL rows
+#   0. the ONE evaluator (gate.py discovery --resolve, EVOL-102) selects the manifest entries for a fixture answer set;
+#      the answers land in the docs/setup.md frontmatter; the expected files land, the stack has its BVL rows and
+#      the snapshot shows the answered stack keys
 #
 # Usage: materialize-synthetic.sh [--answers FIXTURE]   (default scripts/fixtures/synthetic-answers/default.json;
 #        another fixture proves step 0 only — the toolchain checks are written for the default stack)
 # Exit codes: 0 all green · 1 a check failed · 2 infrastructure. Set MATERIALIZE_KEEP=1 to keep the scratch tree.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ANSWERS="$ROOT/scripts/fixtures/synthetic-answers/default.json"
-[ "${1:-}" = "--answers" ] && ANSWERS="$2"
+DEFAULT_ANSWERS="$ROOT/scripts/fixtures/synthetic-answers/default.json"
+ANSWERS="$DEFAULT_ANSWERS"
+if [ "${1:-}" = "--answers" ]; then
+  [ $# -ge 2 ] && [ -n "$2" ] || { echo "Usage: materialize-synthetic.sh [--answers FIXTURE] — --answers needs a fixture path" >&2; exit 2; }
+  ANSWERS="$2"
+fi
 [ -f "$ANSWERS" ] || { echo "materialize-synthetic: answer fixture missing ($ANSWERS)" >&2; exit 2; }
+command -v python3 >/dev/null || { echo "materialize-synthetic: python3 required" >&2; exit 2; }
+# the default fixture by its resolved real path: a relative or symlinked path to it still runs the default-only checks
+IS_DEFAULT=$(python3 -c 'import os, sys; print(int(os.path.realpath(sys.argv[1]) == os.path.realpath(sys.argv[2])))' "$ANSWERS" "$DEFAULT_ANSWERS") || exit 2
+case "$IS_DEFAULT" in 0|1) ;; *) echo "materialize-synthetic: cannot compare the fixture with the default ($ANSWERS)" >&2; exit 2 ;; esac
 T="$ROOT/.context/templates/setup"
 MANIFEST="$T/governance_versions.json"
 [ -f "$MANIFEST" ] || { echo "materialize-synthetic: manifest missing" >&2; exit 2; }
-command -v python3 >/dev/null || { echo "materialize-synthetic: python3 required" >&2; exit 2; }
 command -v git >/dev/null || { echo "materialize-synthetic: git required" >&2; exit 2; }
 export PYTHONDONTWRITEBYTECODE=1
 SCRATCH=$(mktemp -d) || exit 2
@@ -50,25 +58,21 @@ from pathlib import Path
 T, P, M = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 m = json.loads(M.read_text())
 FX = json.loads(Path(sys.argv[4]).read_text()); A = FX["answers"]
-def clause_ok(cl):  # `key == value` · `key != value` · `key exists` (a non-None answer at the key or under it)
-    g = re.fullmatch(r"\s*([A-Za-z_][\w.]*)\s*(?:(==|!=)\s*(.+?)|(exists))\s*", cl)
-    if not g:
-        sys.exit(f"unparseable stack_conditional clause: {cl!r}")
-    key = g.group(1)
-    if g.group(4):
-        return any((k == key or k.startswith(key + ".")) and v not in (None, "None") for k, v in A.items())
-    val = g.group(3).strip().strip('"'); val = None if val == "null" else val
-    return (A.get(key) == val) if g.group(2) == "==" else (A.get(key) != val)
-def cond_ok(c):  # AND binds tighter than OR
-    if not c: return True
-    return any(all(clause_ok(x) for x in re.split(r"\s+AND\s+", alt)) for alt in re.split(r"\s+OR\s+", c))
+import subprocess
+# the ONE evaluator selects (EVOL-102): `gate.py discovery --resolve` over the fixture's answers — no matcher here
+R = Path(sys.argv[5])
+sel = subprocess.run([sys.executable, str(R / "scripts/gate.py"), "--repo", str(R), "discovery", "--resolve",
+                      "--answers", sys.argv[4], "--json"], capture_output=True, text=True)
+if sel.returncode != 0:
+    sys.exit(f"the evaluator cannot select for this fixture: {(sel.stdout + sel.stderr).strip()[-400:]}")
+LANDING = set(json.loads(sel.stdout)["landing"])
 landed, skipped = [], []
 for key, e in m["templates"].items():
     if key.startswith("_") or not isinstance(e, dict): continue
     src = T / key; tgt = e.get("target")
     if not tgt or not src.is_file():
         skipped.append(key); continue
-    if not cond_ok(e.get("stack_conditional")):
+    if key not in LANDING:
         skipped.append(key); continue
     if e.get("delivery") == "sync":
         skipped.append(key); continue
@@ -79,6 +83,26 @@ if (T / "constitution/constitution_template.md").is_file():
     (P / "docs").mkdir(exist_ok=True); shutil.copy2(T / "constitution/constitution_template.md", P / "docs/constitution.md"); landed.append("docs/constitution.md")
 if (T / "setup/setup_master_template.md").is_file():
     shutil.copy2(T / "setup/setup_master_template.md", P / "docs/setup.md"); landed.append("docs/setup.md")
+    # the one answer home (EVOL-102): the fixture's answers land in the docs/setup.md frontmatter under their keys
+    sys.path.insert(0, str(R / "scripts"))
+    from gates.common import FM_RE, parse_yaml
+    text = (P / "docs/setup.md").read_text(encoding="utf-8"); fm_m = FM_RE.match(text)
+    fm = parse_yaml(fm_m.group(1)) if fm_m else {}
+    for dotted, value in A.items():
+        node = fm
+        *parents, leaf = dotted.split(".")
+        for part in parents:
+            if not isinstance(node.get(part), dict):
+                node[part] = {}
+            node = node[part]
+        node[leaf] = value
+    def dump(d, ind=0):
+        for k, v in d.items():
+            if isinstance(v, dict) and v:
+                yield "  " * ind + f"{k}:"; yield from dump(v, ind + 1)
+            else:
+                yield "  " * ind + f"{k}: {json.dumps(v, ensure_ascii=False, default=str)}"   # a YAML date stays its text
+    (P / "docs/setup.md").write_text("---\n" + "\n".join(dump(fm)) + "\n---\n" + (text[fm_m.end():] if fm_m else text), encoding="utf-8")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
 NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0", "VERIFICATION_GATES": '{"tests": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "coverage": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "lint": {"reads": ["src/**", "scripts/**"], "command": "ruff check"}}'}
@@ -122,8 +146,24 @@ MISS=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print("\n".join(json
 [ -z "$MISS" ] && ok "the answers select their files and their BVL rows ($(basename "$ANSWERS"))" || bad "the answers do not select what they should" "$MISS"
 UNRES=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)["unresolved_json"]))')
 [ -z "$UNRES" ] && ok "no placeholder survives in config JSON" || bad "unresolved tokens in JSON: $UNRES"
+# the snapshot reads its stack keys from the one answer home (EVOL-102): every answered STACK_KEYS entry is shown
+SRC=0; SNAP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" snapshot-sections 2>&1) || SRC=$?
+SMISS=$(printf '%s\n' "$SNAP" | python3 -c '
+import json, sys
+sys.path.insert(0, sys.argv[2] + "/scripts")
+from gates.corpus import STACK_KEYS
+A = json.load(open(sys.argv[1]))["answers"]
+block = sys.stdin.read().split("## Rules Manifest")[0]
+for k in STACK_KEYS:
+    if A.get(k) not in (None, ""):
+        ln = "  " * k.count(".") + k.split(".")[-1] + ": " + str(A[k])
+        if ln not in block.splitlines():
+            print(f"{k}: `{ln.strip()}` not in the snapshot")
+' "$ANSWERS" "$ROOT" 2>&1)
+[ "$SRC" -eq 0 ] && [ -z "$SMISS" ] && ok "the snapshot shows the answered stack keys ($(basename "$ANSWERS"))" || bad "the snapshot does not show the stack answers (rc $SRC)" "$SMISS${SMISS:+
+}$(printf '%s' "$SNAP" | head -8)"
 # another stack's fixture proves its selection only: the toolchain checks below are written for the default stack
-if [ "$ANSWERS" != "$ROOT/scripts/fixtures/synthetic-answers/default.json" ]; then
+if [ "$IS_DEFAULT" != "1" ]; then
   echo; echo "materialize-synthetic: $PASS passed, $FAIL failed (selection of $(basename "$ANSWERS"))"; [ "$FAIL" -eq 0 ]; exit
 fi
 

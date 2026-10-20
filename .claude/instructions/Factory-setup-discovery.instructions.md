@@ -41,57 +41,14 @@ For EVERY question with predefined options, ALWAYS append:
 ## Discovery Phase Flow
 
 ### Initialization
-1. Create `docs/setup.md` with frontmatter: `phase: IN_PROGRESS`, `created_at: DATE`
-2. Initialize empty sections for all question categories
+1. Create `docs/setup.md` from `.context/templates/setup/setup/setup_master_template.md` (one `null` frontmatter slot per registry key) with `phase: IN_PROGRESS`, `created_at: DATE`
+2. Keep its body sections (rationale, derived content)
 3. If `docs/setup.md` already exists with `phase: IN_PROGRESS`: **RESUME** from last completed tier (BIP-aware)
 4. Create `docs/.bip/` directory for Decision Batch persistence
 
 ### BIP Tier Execution Model (replaces sequential Q&A)
 
-Instead of asking questions one-by-one, operate in **3 dependency tiers** + finalization:
-
-```yaml
-TIER_0_FOUNDATIONAL:
-  name: "Project Foundation"
-  questions: [Q1, Q2, Q3, Q4, Q4.5]
-  dependencies: none
-  mode: --harvest --tier 0
-  conditional_unlocks:
-    - Q3 == "Brownfield" → [Q3.1, Q3.2, Q3.3]
-
-TIER_1_STACK:
-  name: "Technology Stack"
-  questions: [Q5, Q6, Q7, Q8, Q8.1, Q9, Q10, Q11, Q12, Q13, Q14]
-  dependencies: [TIER_0]
-  mode: --harvest --tier 1
-  conditional_unlocks:
-    - Q4.5 in ["backend-only", "integration"] → skip [Q9, Q10, Q11, Q12, Q13, Q14]
-    - Q4.5 == "frontend-only" → skip [Q5, Q6, Q7, Q8, Q8.1]
-    - Q5 == "None" → skip [Q6, Q7, Q8, Q8.1]
-    - Q9 == "None" → skip [Q10, Q11, Q12, Q13, Q14]
-    - Q7 in [B5..B11] → include Q8
-    - Q5 != "None" → include Q8.1
-
-TIER_2_INFRASTRUCTURE:
-  name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q21.2, Q22, Q22.1, Q23, Q23.1, Q23.2, Q23.3, Q24, Q25, Q26, Q27, Q27.1, Q27.2, Q27.3, Q27.4, Q27.5, Q27.6, Q28, Q28.1, Q29, Q29.1, Q30, Q31, Q32, Q33, Q34]
-  dependencies: [TIER_0, TIER_1]
-  mode: --harvest --tier 2
-  conditional_unlocks:
-    - Q18 == "OAuth2/OIDC" → [Q18.1_provider]
-    - Q24a == true → [Q24a_details]
-    - Q24b == true → [Q24b_details]
-    - Q24c == true → [Q24c_details]
-    - Q27 != "None" → [Q27.1, Q27.2, Q27.3, Q27.4, Q27.6]
-    - Q27 != "None" AND Q27.2 == "full-sdlc" → [Q27.5]
-    - Q28 == true → [Q28.1]
-
-TIER_FINAL:
-  name: "Finalization"
-  questions: []
-  dependencies: [TIER_0, TIER_1, TIER_2]
-  mode: --propose-final
-```
+Instead of asking questions one-by-one, operate in **3 dependency tiers** (0 foundation, 1 stack, 2 infrastructure & tooling) + finalization (`--propose-final`). Tiers, order, unlocks, options and keys live in the registry `.context/templates/setup/setup/discovery_registry.json`. The next questions are `python3 scripts/gate.py discovery --resolve` (its `pending` list, tier order) — never evaluate an unlock by reading it. `--harvest --tier N` harvests registry tier N. After each tier, every answer is written to `docs/setup.md` frontmatter under its key (IPP section-atomic).
 
 ### BIP Sub-Commands
 
@@ -106,9 +63,9 @@ TIER_FINAL:
 
 #### `--resolve --tier {N}` (Process User Answers)
 1. Read AnswerSet from `docs/.bip/SETUP_answers_tier_{N}.md`
-2. Persist all answers to `docs/setup.md` atomically
-3. Evaluate conditional unlocks from this tier's answers
-4. If next tier exists → write `next_tier: N+1` to batch frontmatter → return to Factory
+2. Persist all answers to `docs/setup.md` frontmatter under their registry keys, atomically
+3. Next questions: `python3 scripts/gate.py discovery --resolve` (`pending`)
+4. A tier-N question still `pending` (its trigger answered in this batch) → harvest those questions before tier N+1. Else, if next tier exists → write `next_tier: N+1` to batch frontmatter → return to Factory
 5. If all tiers complete → write `next_tier: null` → return to Factory
 
 #### `--propose-final` (Generate Complete Proposal)
@@ -128,7 +85,7 @@ TIER_FINAL:
 
 ### Question Sequence (Q1-Q26+)
 
-Questions are organized in dependency order within tiers. Some questions are conditional on prior answers. Each question includes tier mapping for AI budget calculation.
+Questions are organized in dependency order within tiers; conditions live in the registry `when`. Every `**Persist:**` key is a `docs/setup.md` frontmatter key (nested YAML) — the one home for every answer; body sections hold rationale and derived content only.
 
 ---
 
@@ -181,7 +138,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Simplified:** es: "¿Qué partes tiene el proyecto? (backend, frontend, ambos, o integraciones)" / en: "What parts does the project include? (backend, frontend, both, or integrations)"
 - **RDR Recommendation:** `full-stack` when the product delivers both a user interface and its own backend services. `backend-only` for API-only platforms, data pipelines, batch jobs, CLI tools, or infrastructure services. `frontend-only` for marketing sites, dashboards over third-party APIs, or consumer apps on BaaS. `integration` when the project is primarily a set of adapters/webhooks/connectors — downstream `/codesign`, `/blueprint`, `/qa` will render integration-specific templates.
 - **Persist:** `project_scope`
-- **After:** Drives `TIER_1_STACK` conditional unlocks — `backend-only` / `integration` skips Q9-Q14; `frontend-only` skips Q5-Q8.1. Also drives per-feature `feature.scope` compatibility (see CODESIGN `--start` § Scope Compatibility Gate).
+- **After:** Gates the stack questions (unlock: registry `when`). Also drives per-feature `feature.scope` compatibility (see CODESIGN `--start` § Scope Compatibility Gate).
 - **Inference from audit:** If `docs/technical_due.md` is APPROVED and declares backend-only architecture → auto-resolve `project_scope=backend-only`, skip Q4.5. Same for frontend-only audits.
 - **Tier-filtered:** ALL tiers.
 
@@ -191,12 +148,10 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **After:** If "None" → skip backend topology, framework, DB questions
 
 #### Q6: Backend Framework (conditional on Q5)
-- **Dynamic options per runtime:**
-  - Node.js: Express.js | Fastify | NestJS | Hapi | Koa
-  - Python: FastAPI | Django | Flask | Starlette
-  - Java: Spring Boot | Quarkus | Micronaut
-  - Go: Gin | Echo | Fiber | Chi
-  - (etc. per runtime)
+- Node.js → Express.js | Fastify | NestJS | Hapi | Koa
+- Python → FastAPI | Django | Flask | Starlette
+- Java → Spring Boot | Quarkus | Micronaut
+- Go → Gin | Echo | Fiber | Chi
 - **Persist:** `backend.framework`
 
 #### Q7: Backend Topology
@@ -253,10 +208,10 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **Persist:** `frontend.pattern`
 
 #### Q12: State Management (conditional: frontend exists)
-- React: Redux Toolkit (+$50/mo) | Zustand (+$50/mo) | Context API (free) | Jotai (+$50/mo)
-- Vue: Pinia (free) | Vuex (+$50/mo)
-- Angular: NgRx (+$50/mo) | Signals (free) | Services (free)
-- Svelte: Stores (free) | Nanostores (+$50/mo)
+- React → Redux Toolkit (+$50/mo) | Zustand (+$50/mo) | Context API (free) | Jotai (+$50/mo)
+- Vue.js → Pinia (free) | Vuex (+$50/mo)
+- Angular → NgRx (+$50/mo) | Signals (free) | Services (free)
+- Svelte → Stores (free) | Nanostores (+$50/mo)
 - **Persist:** `frontend.state_management`
 
 #### Q13: Design Inspiration & Visual DNA (conditional: frontend exists)
@@ -359,7 +314,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 #### Q23.2: Security Scanner (secrets layer of scripts/security-scan.sh)
 - **Options:** `gitleaks (git-aware secrets detection, single static binary, range-scan support)` | `trufflehog (verified-secrets detection)` | `Custom (project declares a command template + report format)` — secret scanning is never optional (#116, LAW-04)
 - **RDR Recommendation:** gitleaks — house default: git-native range scanning (`--log-opts`), single binary, CI-friendly, no runtime deps. Choose trufflehog when verified-secret detection (live-credential checks) matters more than speed. Choose Custom for an org-mandated scanner.
-- **Persist:** `quality.security_scan.scanner` (`gitleaks` | `trufflehog` | custom name), `quality.security_scan.secrets_command` (from the resolution table below | custom template; `{{RANGE}}` token = commit range, stripped when scanning full tree), `quality.security_scan.report_format` (`exit-code` default | `sarif`), `quality.security_scan.fail_on` (`any` default), `quality.security_scan.install_hint` (per-scanner install line), `quality.security_scan.enabled` (true)
+- **Persist:** `quality.security_scan.scanner` (`gitleaks` | `trufflehog` | custom name), `quality.security_scan.secrets_command` (from the resolution table below | custom template; `{{RANGE}}` token = commit range, stripped when scanning full tree), `quality.security_scan.report_format` (`exit-code` default | `sarif`), `quality.security_scan.fail_on` (`any` default), `quality.security_scan.install_hint` (per-scanner install line); `enabled` stays `true` — derived, never asked
 - **Resolution table** (the ONLY place scanner commands live besides materialization): `gitleaks` → `gitleaks detect --source=. --redact --no-banner --log-opts={{RANGE}}` · `trufflehog` → `trufflehog git file://. --since-commit {{RANGE_BASE}} --fail`
 - **After:** Materialization resolves `{{SECURITY_SCANNER}}` + `{{SECURITY_SCANNER_COMMAND}}` + `{{SECURITY_SCANNER_INSTALL_HINT}}` in `config/quality.json`; `scripts/security-scan.sh --secrets` activates; the pre-push hook delegates with `--require-scanner` (fail-closed at push); QA `--verify` consumes the same dispatcher. Two-layer model: the regex floor (pr-review Block 3) is ALWAYS on regardless of this answer.
 
@@ -422,7 +377,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **RDR Recommendation:** GitHub Projects (native integration with GitHub Issues, zero setup cost, Kanban board via API). If the user already uses another tool, respect that choice.
 - **Tier-filtered:** ALL tiers. The framework is tool-agnostic — any external tool the user specifies will be supported via tool-adapter protocol materialized during `--generate`.
 - **Persist:** `project_tracking.tool`
-- **Conditional unlock:** `TIER_2_INFRASTRUCTURE.conditional_unlocks` above (the one list).
+- **Conditional unlock:** registry `when`.
 - **Integration model (Q27 != "None"):** The framework integrates with external tools exclusively via **pre-authenticated CLI tools** (e.g., `gh` for GitHub, `jira` CLI) or **MCP servers** — NEVER via raw API tokens or stored credentials. During `SETUP --generate`, a `docs/backlog/tool-adapter.md` is materialized with the specific CLI/MCP commands and setup instructions for the chosen tool.
 
 #### Q27.1: Kanban Board Columns (conditional: Q27 != "None")
@@ -480,7 +435,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **RDR Recommendation:** `true` if project has UI (Q9 != "None") OR database (Q15 != "None") — ensures staging environments have realistic, referentially coherent data for visual and QA verification. `false` for pure API/library projects without persistent state.
 - **Tier-filtered:** Recommended for ALL tiers. Zero infrastructure cost — only adds seed scripts and a registry file.
 - **Persist:** `synthetic_data.enabled`
-- **Conditional unlock:** Q28 == true → [Q28.1]
+- **Conditional unlock:** registry `when`.
 
 #### Q28.1: Seed ID Strategy (conditional: Q28 == true)
 - **Type:** Single-select
@@ -496,7 +451,7 @@ Questions are organized in dependency order within tiers. Some questions are con
 - **RDR Recommendation:** `external-full` when `project_scope IN [full-stack, frontend-only]` AND a non-engineer signs CODESIGN — main trade-off: a friendlier surface and no regeneration of the PO's work, against a zip round-trip per return. `external-features` when `project_scope IN [backend-only, integration]` (no first-party UI ⇒ no design system to author). `internal` for a solo engineer who is also the PO.
 - **Tier-filtered:** All tiers. Zero infrastructure cost.
 - **Persist:** `codesign.authoring` = `external` | `internal` · `po_package.mode` = `full` | `features-only` | `off` (`external-full` → `external` + `full`; `external-features` → `external` + `features-only`; `internal` → `internal` + `off`). For non-UI scopes `external-full` persists as `features-only`. Both keys are **frontmatter** of `docs/setup.md` (nested YAML `codesign.authoring`, `po_package.mode`) — the governance snapshot copies that frontmatter verbatim into its Setup Configuration section, so the authoring mode reaches every command from turn 1.
-- **Conditional unlock:** Q29 != `internal` AND `project_scope IN [full-stack, frontend-only]` → [Q29.1]
+- **Conditional unlock:** registry `when`.
 
 #### Q29.1: Design-System Cards Source (conditional: Q29 != "internal" AND UI scope)
 - **Type:** Single-select
@@ -851,6 +806,5 @@ If `docs/setup.md` exists with `phase: IN_PROGRESS`:
 - **EVERY** tier's answers saved to `docs/setup.md` atomically after `--resolve`
 - Update `last_completed_tier` after each tier resolution
 - Decision Batches and Answer Sets persisted in `docs/.bip/` for cross-invocation state
-- Use YAML frontmatter for structured data
-- Use body sections for free-text responses
+- Every answer, free text included, lives in the frontmatter under its registry key; body sections hold rationale and derived content only
 - Running cost accumulator updated after each budget-impacting tier

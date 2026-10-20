@@ -13,8 +13,8 @@ case-insensitively; Python also folds `-`, `_`, `.` (PEP 503); Java names are `g
 comparators (`>=1.2,<2`, `==1.4.0`, `!=`), `^`, `~`, `~=`, `1.2.*`. When a lockfile resolves a name at several
 versions, every one must fall in the range. A pom version a parent or BOM manages passes only a `*` entry.
 
-Seeding (`--seed`): Q26's answers (`docs/setup.md → dependencies.backend / frontend / denied`) and, with
-`--tools FILE`, the tools a platform pack brings (`{"tools": [{"name", "version"}]}`) merge into the
+Seeding (`--seed`): Q26's answers (`docs/setup.md → dependencies.backend / dependencies.frontend / dependencies.denied`)
+and, with `--tools FILE`, the tools a platform pack brings (`{"tools": [{"name", "version"}]}`) merge into the
 allowlist; an entry already listed is kept as written, a denied name is never seeded as allowed, an
 unreadable range stops the seed. Stdlib only (tomllib: Python ≥ 3.11).
 """

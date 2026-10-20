@@ -1,0 +1,1102 @@
+{
+ "$schema": "discovery_registry_v1",
+ "_doc": "SETUP discovery as data (EVOL-102): the questions in tier order, their keys, options and conditions; derived = decided by earlier answers, never asked. Answers live in docs/setup.md frontmatter under their key. Next questions: python3 scripts/gate.py discovery --resolve; one condition: --eval '<cond>'. Validated by python3 scripts/gate.py discovery.",
+ "questions": [
+  {
+   "id": "Q1",
+   "tier": 0,
+   "since": "1.0.0",
+   "keys": {
+    "project_name": {
+     "free": "text"
+    }
+   }
+  },
+  {
+   "id": "Q2",
+   "tier": 0,
+   "since": "1.0.0",
+   "keys": {
+    "business_goal": {
+     "free": "text"
+    }
+   }
+  },
+  {
+   "id": "Q3",
+   "tier": 0,
+   "since": "1.0.0",
+   "keys": {
+    "project_mode": {
+     "options": [
+      "Greenfield",
+      "Brownfield"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q3.1",
+   "tier": 0,
+   "since": "1.0.0",
+   "when": "project_mode == Brownfield",
+   "keys": {
+    "extension.strategy": {
+     "options": [
+      "E0",
+      "E1",
+      "E2",
+      "E3"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q3.2",
+   "tier": 0,
+   "since": "1.0.0",
+   "when": "project_mode == Brownfield AND extension.strategy IN [E1, E2, E3]",
+   "keys": {
+    "extension.coexistence_months": {
+     "options": [
+      "3 months",
+      "6 months",
+      "12 months",
+      "24+ months"
+     ],
+     "record_only": "recorded for the Brownfield extension plan; no phase reads it yet"
+    }
+   }
+  },
+  {
+   "id": "Q3.3",
+   "tier": 0,
+   "since": "1.0.0",
+   "when": "project_mode == Brownfield",
+   "keys": {
+    "extension.protected_paths": {
+     "free": "list",
+     "record_only": "discovery writes it straight to config/protected-paths.json (Q3.3), which the gates read; nothing reads this copy"
+    }
+   }
+  },
+  {
+   "id": "Q4",
+   "tier": 0,
+   "since": "1.0.0",
+   "keys": {
+    "ai_budget.tier": {
+     "options": [
+      "Starter",
+      "Professional",
+      "Enterprise",
+      "Unlimited"
+     ]
+    },
+    "ai_budget.monthly_limit": {
+     "free": "number"
+    }
+   }
+  },
+  {
+   "id": "Q4.5",
+   "tier": 0,
+   "since": "1.2.0",
+   "keys": {
+    "project_scope": {
+     "options": [
+      "full-stack",
+      "backend-only",
+      "frontend-only",
+      "integration"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q5",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope != frontend-only",
+   "keys": {
+    "backend.runtime": {
+     "options": [
+      "Node.js",
+      "Python",
+      "Java",
+      "Go",
+      ".NET",
+      "Ruby",
+      "PHP",
+      "Rust",
+      "Elixir",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q6",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope != frontend-only AND backend.runtime != None",
+   "keys": {
+    "backend.framework": {
+     "options_by": {
+      "key": "backend.runtime",
+      "values": {
+       "Node.js": [
+        "Express.js",
+        "Fastify",
+        "NestJS",
+        "Hapi",
+        "Koa"
+       ],
+       "Python": [
+        "FastAPI",
+        "Django",
+        "Flask",
+        "Starlette"
+       ],
+       "Java": [
+        "Spring Boot",
+        "Quarkus",
+        "Micronaut"
+       ],
+       "Go": [
+        "Gin",
+        "Echo",
+        "Fiber",
+        "Chi"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "Q7",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope != frontend-only AND backend.runtime != None",
+   "keys": {
+    "backend.topology": {
+     "options": [
+      "B1",
+      "B2",
+      "B3",
+      "B4",
+      "B5",
+      "B6",
+      "B7",
+      "B8",
+      "B9",
+      "B10",
+      "B11",
+      "B12"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q8",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope != frontend-only AND backend.runtime != None AND backend.topology IN [B5, B6, B7, B8, B9, B10, B11]",
+   "keys": {
+    "backend.communication_style": {
+     "options": [
+      "REST",
+      "GraphQL",
+      "gRPC",
+      "Mixed"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q8.1",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope != frontend-only AND backend.runtime != None",
+   "keys": {
+    "backend.webhooks": {
+     "options": [
+      "Inbound only",
+      "Outbound only",
+      "Both",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q9",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope NOT IN [backend-only, integration]",
+   "keys": {
+    "frontend.framework": {
+     "options": [
+      "React",
+      "Vue.js",
+      "Angular",
+      "Svelte",
+      "Solid",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q10",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope NOT IN [backend-only, integration] AND frontend.framework != None",
+   "keys": {
+    "frontend.meta_framework": {
+     "options_by": {
+      "key": "frontend.framework",
+      "values": {
+       "React": [
+        "Next.js",
+        "Remix",
+        "Vite",
+        "None"
+       ],
+       "Vue.js": [
+        "Nuxt",
+        "Vite",
+        "None"
+       ],
+       "Svelte": [
+        "SvelteKit",
+        "Vite",
+        "None"
+       ],
+       "Angular": [
+        "Angular Universal",
+        "None"
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "Q11",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope NOT IN [backend-only, integration] AND frontend.framework != None",
+   "keys": {
+    "frontend.pattern": {
+     "options": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
+      "F7",
+      "F8",
+      "F9",
+      "F10"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q12",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope NOT IN [backend-only, integration] AND frontend.framework != None",
+   "keys": {
+    "frontend.state_management": {
+     "options_by": {
+      "key": "frontend.framework",
+      "values": {
+       "React": [
+        "Redux Toolkit",
+        "Zustand",
+        "Context API",
+        "Jotai"
+       ],
+       "Vue.js": [
+        "Pinia",
+        "Vuex"
+       ],
+       "Angular": [
+        "NgRx",
+        "Signals",
+        "Services"
+       ],
+       "Svelte": [
+        "Stores",
+        "Nanostores"
+       ]
+      }
+     },
+     "record_only": "recorded in ADR-0000 ({{FRONTEND_STATE_MANAGEMENT}}); no gate or phase reads it"
+    }
+   }
+  },
+  {
+   "id": "Q13",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope NOT IN [backend-only, integration] AND frontend.framework != None",
+   "keys": {
+    "frontend.visual_dna.references": {
+     "free": "text"
+    },
+    "frontend.visual_dna.personality": {
+     "free": "list"
+    },
+    "frontend.visual_dna.colors": {
+     "free": "text"
+    },
+    "frontend.visual_dna.typography": {
+     "options": [
+      "serif",
+      "sans-serif",
+      "monospace",
+      "mixed",
+      "auto"
+     ]
+    },
+    "frontend.visual_dna.border_radius": {
+     "options": [
+      "sharp",
+      "subtle",
+      "rounded",
+      "pill"
+     ]
+    },
+    "frontend.visual_dna.shadow_depth": {
+     "options": [
+      "flat",
+      "subtle",
+      "elevated",
+      "dramatic"
+     ]
+    },
+    "frontend.visual_dna.animation": {
+     "options": [
+      "none",
+      "minimal",
+      "moderate",
+      "expressive"
+     ]
+    },
+    "frontend.visual_dna.brand_assets": {
+     "free": "path"
+    }
+   }
+  },
+  {
+   "id": "Q14",
+   "tier": 1,
+   "since": "1.0.0",
+   "when": "project_scope NOT IN [backend-only, integration] AND frontend.framework != None",
+   "keys": {
+    "frontend.external_design_system.exists": {
+     "options": [
+      true,
+      false
+     ]
+    },
+    "frontend.external_design_system.path": {
+     "free": "path"
+    },
+    "frontend.external_design_system.compatibility": {
+     "free": "text"
+    },
+    "frontend.external_design_system.resolved_fields": {
+     "free": "list",
+     "record_only": "records which setup fields Q14b took from the design-system tokens; the merge reads the tokens"
+    }
+   }
+  },
+  {
+   "id": "Q15",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "database.primary.engine": {
+     "options": [
+      "PostgreSQL",
+      "MySQL",
+      "MongoDB",
+      "DynamoDB",
+      "SQLite",
+      "Redis",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q16",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "database.secondary.engine": {
+     "options": [
+      "PostgreSQL",
+      "MySQL",
+      "MongoDB",
+      "DynamoDB",
+      "SQLite",
+      "Redis",
+      "None"
+     ],
+     "record_only": "recorded for the setup report and the CEP databases cost line; no gate or template reads it"
+    }
+   }
+  },
+  {
+   "id": "Q17",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "database.cache.engine": {
+     "options": [
+      "Redis",
+      "Memcached",
+      "In-memory",
+      "CDN-only",
+      "None"
+     ],
+     "record_only": "recorded for the setup report and the CEP databases cost line; no gate or template reads it"
+    }
+   }
+  },
+  {
+   "id": "Q18",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "auth.strategy": {
+     "options": [
+      "JWT",
+      "Session-based",
+      "OAuth2/OIDC",
+      "API Key",
+      "Custom",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q19",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "compliance.frameworks": {
+     "options": [
+      "GDPR",
+      "HIPAA",
+      "SOC2",
+      "PCI-DSS",
+      "None"
+     ],
+     "record_only": "recorded in ADR-0000 ({{COMPLIANCE_REQUIREMENTS}}); no gate reads it"
+    }
+   }
+  },
+  {
+   "id": "Q20",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "hosting.provider": {
+     "options": [
+      "AWS",
+      "GCP",
+      "Azure",
+      "Vercel",
+      "Railway",
+      "Fly.io",
+      "DigitalOcean",
+      "Self-hosted",
+      "Other"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q20.1",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "hosting.iac_tool": {
+     "options": [
+      "Terraform",
+      "Pulumi",
+      "AWS CDK",
+      "Docker Compose",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q20.2",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "hosting.secrets_manager": {
+     "options": [
+      "AWS Secrets Manager",
+      "GCP Secret Manager",
+      "Azure Key Vault",
+      "HashiCorp Vault",
+      ".env",
+      "None"
+     ],
+     "record_only": "read only through ci-cd.md {{SECRETS_MANAGER}} by the generic placeholder pass (named by phase 2 fills)"
+    }
+   }
+  },
+  {
+   "id": "Q21",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "ci_cd.platform": {
+     "options": [
+      "GitHub Actions",
+      "GitLab CI",
+      "Bitbucket Pipelines",
+      "Azure DevOps",
+      "Jenkins",
+      "AWS CodePipeline",
+      "GCP Cloud Build",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q21.2",
+   "tier": 2,
+   "since": "8.3.0",
+   "keys": {
+    "scm.platform": {
+     "options": [
+      "GitHub",
+      "GitLab",
+      "Bitbucket",
+      "Azure DevOps",
+      "Other"
+     ]
+    },
+    "scm.approvals": {
+     "free": "number"
+    },
+    "scm.required_checks": {
+     "free": "list"
+    }
+   }
+  },
+  {
+   "id": "Q21.1",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "ci_cd.tier": {
+     "options": [
+      "Starter",
+      "Professional",
+      "Enterprise"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q22",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "branching.strategy": {
+     "options": [
+      "GitHub Flow",
+      "Git Flow",
+      "Trunk-Based Development"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q22.1",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "branching.pr_validation_mode": {
+     "options": [
+      "manual",
+      "ci_automated",
+      "hybrid"
+     ]
+    },
+    "branching.pr_approval_count": {
+     "free": "number"
+    },
+    "branching.pr_merge_method": {
+     "options": [
+      "merge_commit",
+      "squash",
+      "rebase"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q23",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "testing.strategy": {
+     "options": [
+      "TDD",
+      "BDD",
+      "Hybrid TDD+BDD"
+     ],
+     "record_only": "recorded in the setup report; no gate reads it"
+    }
+   }
+  },
+  {
+   "id": "Q23.1",
+   "tier": 2,
+   "since": "5.1.0",
+   "keys": {
+    "quality.complexity.mcp_server": {
+     "free": "text",
+     "suggestions": [
+      "semgrep"
+     ]
+    },
+    "quality.complexity.mcp_tool_name": {
+     "free": "text",
+     "suggestions": [
+      "scan_complexity"
+     ]
+    },
+    "quality.complexity.enabled": {
+     "options": [
+      true,
+      false
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q23.2",
+   "tier": 2,
+   "since": "5.9.0",
+   "keys": {
+    "quality.security_scan.scanner": {
+     "free": "text",
+     "suggestions": [
+      "gitleaks",
+      "trufflehog"
+     ]
+    },
+    "quality.security_scan.secrets_command": {
+     "free": "command"
+    },
+    "quality.security_scan.report_format": {
+     "options": [
+      "exit-code",
+      "sarif"
+     ],
+     "record_only": "the config/quality.json template ships exit-code; no placeholder takes the answer yet"
+    },
+    "quality.security_scan.fail_on": {
+     "free": "text",
+     "suggestions": [
+      "any"
+     ],
+     "record_only": "the config/quality.json template ships any; no placeholder takes the answer yet"
+    },
+    "quality.security_scan.install_hint": {
+     "free": "text"
+    }
+   }
+  },
+  {
+   "id": "Q23.3",
+   "tier": 2,
+   "since": "8.12.5",
+   "keys": {
+    "quality.security_scan.sca_threshold": {
+     "options": [
+      "critical",
+      "high",
+      "medium",
+      "low"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q24",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "ai.training": {
+     "options": [
+      true,
+      false
+     ]
+    },
+    "ai.inference": {
+     "options": [
+      true,
+      false
+     ]
+    },
+    "ai.agentic": {
+     "options": [
+      true,
+      false
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q25",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "observability.logging": {
+     "free": "text",
+     "record_only": "read by no gate; ci-cd.md {{OBSERVABILITY_*}} resolve through the generic placeholder pass (named by phase 2 fills); the setup report records it"
+    },
+    "observability.monitoring": {
+     "options": [
+      "Prometheus+Grafana",
+      "Datadog",
+      "New Relic",
+      "CloudWatch",
+      "None"
+     ],
+     "record_only": "read by no gate; ci-cd.md {{OBSERVABILITY_*}} resolve through the generic placeholder pass (named by phase 2 fills); the setup report records it"
+    },
+    "observability.error_tracking": {
+     "options": [
+      "Sentry",
+      "Bugsnag",
+      "Rollbar",
+      "None"
+     ],
+     "record_only": "read by no gate; ci-cd.md {{OBSERVABILITY_*}} resolve through the generic placeholder pass (named by phase 2 fills); the setup report records it"
+    },
+    "observability.tracing": {
+     "options": [
+      "Jaeger",
+      "Zipkin",
+      "OpenTelemetry",
+      "X-Ray",
+      "None"
+     ],
+     "record_only": "read by no gate; ci-cd.md {{OBSERVABILITY_*}} resolve through the generic placeholder pass (named by phase 2 fills); the setup report records it"
+    }
+   }
+  },
+  {
+   "id": "Q26",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "dependencies.backend": {
+     "free": "list"
+    },
+    "dependencies.frontend": {
+     "free": "list"
+    },
+    "dependencies.denied": {
+     "free": "list"
+    }
+   }
+  },
+  {
+   "id": "Q27",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "project_tracking.tool": {
+     "free": "text",
+     "suggestions": [
+      "GitHub Projects",
+      "Jira",
+      "Linear",
+      "Azure Boards",
+      "Shortcut",
+      "Notion",
+      "None"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q27.1",
+   "tier": 2,
+   "since": "1.0.0",
+   "when": "project_tracking.tool != None",
+   "keys": {
+    "project_tracking.board_columns": {
+     "free": "list"
+    }
+   }
+  },
+  {
+   "id": "Q27.2",
+   "tier": 2,
+   "since": "1.0.0",
+   "when": "project_tracking.tool != None",
+   "keys": {
+    "project_tracking.feature_phases": {
+     "options": [
+      "full-sdlc",
+      "simplified",
+      "single"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q27.3",
+   "tier": 2,
+   "since": "1.0.0",
+   "when": "project_tracking.tool != None",
+   "keys": {
+    "project_tracking.milestone_strategy": {
+     "options": [
+      "epic-based",
+      "phase-based",
+      "sprint-based",
+      "none"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q27.4",
+   "tier": 2,
+   "since": "1.0.0",
+   "when": "project_tracking.tool != None",
+   "keys": {
+    "project_tracking.naming_convention": {
+     "options": [
+      "FEAT-NNN",
+      "USR-NNN",
+      "Custom prefix"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q27.5",
+   "tier": 2,
+   "since": "1.0.0",
+   "when": "project_tracking.tool != None AND project_tracking.feature_phases == full-sdlc",
+   "keys": {
+    "project_tracking.gate_enforcement_mode": {
+     "options": [
+      "enforce",
+      "warn",
+      "off"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q27.6",
+   "tier": 2,
+   "since": "1.0.0",
+   "when": "project_tracking.tool != None",
+   "keys": {
+    "project_tracking.appetite_sizing_enabled": {
+     "options": [
+      true,
+      false
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q28",
+   "tier": 2,
+   "since": "1.0.0",
+   "keys": {
+    "synthetic_data.enabled": {
+     "options": [
+      true,
+      false
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q28.1",
+   "tier": 2,
+   "since": "1.0.0",
+   "when": "synthetic_data.enabled == true",
+   "keys": {
+    "synthetic_data.id_strategy": {
+     "options": [
+      "deterministic_sequential",
+      "uuid_v5_namespace",
+      "natural_key"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q29",
+   "tier": 2,
+   "since": "6.1.0",
+   "keys": {
+    "codesign.authoring": {
+     "options": [
+      "external",
+      "internal"
+     ]
+    },
+    "po_package.mode": {
+     "options": [
+      "full",
+      "features-only",
+      "off"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q29.1",
+   "tier": 2,
+   "since": "6.1.0",
+   "when": "codesign.authoring == external AND project_scope IN [full-stack, frontend-only]",
+   "keys": {
+    "po_package.ds_cards_source": {
+     "options": [
+      "vision",
+      "code-manual",
+      "code-rebuild",
+      "defer"
+     ]
+    },
+    "po_package.ds_code_cards_dir": {
+     "free": "path"
+    },
+    "po_package.ds_rebuild_command": {
+     "free": "command"
+    }
+   }
+  },
+  {
+   "id": "Q30",
+   "tier": 2,
+   "since": "6.2.0",
+   "keys": {
+    "measurement.retention_days": {
+     "free": "number"
+    },
+    "measurement.report_interval_days": {
+     "free": "number"
+    }
+   }
+  },
+  {
+   "id": "Q31",
+   "tier": 2,
+   "since": "7.2.0",
+   "keys": {
+    "surface.ceiling_files": {
+     "free": "number"
+    },
+    "surface.ceiling_lines": {
+     "free": "number"
+    }
+   }
+  },
+  {
+   "id": "Q32",
+   "tier": 2,
+   "since": "7.3.0",
+   "keys": {
+    "delivery.mode": {
+     "options": [
+      "development",
+      "production"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q33",
+   "tier": 2,
+   "since": "7.4.0",
+   "keys": {
+    "surface.runtime_surface": {
+     "free": "list"
+    }
+   }
+  },
+  {
+   "id": "Q34",
+   "tier": 2,
+   "since": "8.0.0",
+   "keys": {
+    "agents.writer_model": {
+     "free": "text",
+     "suggestions": [
+      "opus",
+      "sonnet",
+      "haiku"
+     ]
+    },
+    "agents.critic_model": {
+     "free": "text",
+     "suggestions": [
+      "opus",
+      "sonnet",
+      "haiku"
+     ]
+    }
+   }
+  }
+ ],
+ "derived": {
+  "language": {
+   "from": "the session language of the person answering (session.language) — never asked"
+  },
+  "quality.complexity.thresholds.soft": {
+   "from": "fixed 10 at --generate (McCabe baseline); the project edits config/quality.json later"
+  },
+  "quality.complexity.thresholds.hard": {
+   "from": "fixed 15 at --generate (McCabe baseline); the project edits config/quality.json later"
+  },
+  "quality.complexity.bvl_gate": {
+   "from": "true at --generate: the verification loop fails on a hard violation"
+  },
+  "quality.complexity.pr_blocker": {
+   "from": "false at --generate: PR-review advisory until the project opts in"
+  },
+  "quality.security_scan.enabled": {
+   "from": "always true — secret scanning is never optional (LAW-04, #116)"
+  },
+  "verification.gates": {
+   "from": "the stack answers (backend.runtime, surface.runtime_surface) at --generate — Factory-setup-materialization"
+  },
+  "verification.commands": {
+   "from": "declared by RDR at --propose-final only when a stack answer has no factory-build-verification MATCH row"
+  },
+  "traceability.home": {
+   "from": "backend.runtime at --generate: the pytest case marker for Python, the title tag otherwise"
+  }
+ }
+}
