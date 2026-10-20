@@ -1,5 +1,5 @@
 ---
-version: 2.12.2
+version: 2.13.0
 date: 2026-04-21
 changelog:
   - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
@@ -14,38 +14,148 @@ changelog:
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
 retry_count: 0
-project_mode: Greenfield | Brownfield
-project_scope: full-stack | backend-only | frontend-only | integration
-language: EN | ES
+project_mode: null                    # Q3 — options and recommendation: the registry and the discovery instruction
+project_scope: null                   # Q4.5
+language: null                        # derived — the session language (EN | ES)
 codesign:
-  authoring: internal | external      # Q29 — read by the CODESIGN authoring guards and /codesign --sync; reaches the governance snapshot (Setup Configuration)
+  authoring: null                     # Q29 — read by the CODESIGN authoring guards and /codesign --sync; reaches the governance snapshot (Setup Configuration)
 po_package:
-  mode: off | full | features-only    # Q29 — subproducts/po-package materialisation switch
+  mode: null                          # Q29 — subproducts/po-package materialisation switch
+  ds_cards_source: null
+  ds_code_cards_dir: null
+  ds_rebuild_command: null
 measurement:
-  retention_days: 90                  # Q30
-  report_interval_days: 30            # Q30
+  retention_days: null                # Q30
+  report_interval_days: null          # Q30
 surface:
-  ceiling_files: 30                   # Q31 — the most files one pull request may touch → config/quality.json surface.ceiling_files
-  ceiling_lines: 800                  # Q31 — the most lines added + deleted → config/quality.json surface.ceiling_lines
-  runtime_surface: ["src/**", "tests/**", "infra/**", "scripts/**", "package.json"]   # Q33 — the POSITIVE list a deployment can change → config/quality.json surface.runtime_surface (EVOL-047)
+  ceiling_files: null                 # Q31 — the most files one pull request may touch → config/quality.json surface.ceiling_files
+  ceiling_lines: null                 # Q31 — the most lines added + deleted → config/quality.json surface.ceiling_lines
+  runtime_surface: null               # Q33 — the POSITIVE list a deployment can change → config/quality.json surface.runtime_surface (EVOL-047)
 delivery:
-  mode: development                   # Q32 — development | production → docs/project_log/governance_versions.json delivery_mode (gate profiles, EVOL-046)
+  mode: null                          # Q32 — development | production → docs/project_log/governance_versions.json delivery_mode (gate profiles, EVOL-046)
 agents:
-  writer_model: opus                  # Q34 — the writers' family (harness alias; few spawns) → config/quality.json agents.families.writer (EVOL-049)
-  critic_model: sonnet                # Q34 — the critics' family (many spawns), must differ → agents.families.critic
+  writer_model: null                  # Q34 — the writers' family (harness alias; few spawns) → config/quality.json agents.families.writer (EVOL-049)
+  critic_model: null                  # Q34 — the critics' family (many spawns), must differ → agents.families.critic
 scm:
-  platform: GitHub                    # Q21.2 — GitHub | GitLab | Bitbucket | Azure DevOps | Other → config/quality.json scm.platform; the runbook docs/scm/protection.md lands per platform (EVOL-054)
-  approvals: 0                        # Q21.2 — approvals a pull request needs (a project decision; 0 for a single author) → scm.approvals
-  required_checks: ["governance-check"]   # Q21.2 — the checks the server must require before merge → scm.required_checks
+  platform: null                      # Q21.2 — GitHub | GitLab | Bitbucket | Azure DevOps | Other → config/quality.json scm.platform; the runbook docs/scm/protection.md lands per platform (EVOL-054)
+  approvals: null                     # Q21.2 — approvals a pull request needs (a project decision; 0 for a single author) → scm.approvals
+  required_checks: null               # Q21.2 — the checks the server must require before merge → scm.required_checks
+# answers (EVOL-102) — keys, options, conditions: .context/templates/setup/setup/discovery_registry.json
+project_name: null
+business_goal: null
+extension:
+  strategy: null
+  coexistence_months: null
+  protected_paths: null
+ai_budget:
+  tier: null
+  monthly_limit: null
+backend:
+  runtime: null
+  framework: null
+  topology: null
+  communication_style: null
+  webhooks: null
+frontend:
+  framework: null
+  meta_framework: null
+  pattern: null
+  state_management: null
+  visual_dna:
+    references: null
+    personality: null
+    colors: null
+    typography: null
+    border_radius: null
+    shadow_depth: null
+    animation: null
+    brand_assets: null
+  external_design_system:
+    exists: null
+    path: null
+    compatibility: null
+    resolved_fields: null
+database:
+  primary:
+    engine: null
+  secondary:
+    engine: null
+  cache:
+    engine: null
+auth:
+  strategy: null
+compliance:
+  frameworks: null
+hosting:
+  provider: null
+  iac_tool: null
+  secrets_manager: null
+ci_cd:
+  platform: null
+  tier: null
+branching:
+  strategy: null
+  pr_validation_mode: null
+  pr_approval_count: null
+  pr_merge_method: null
+testing:
+  strategy: null
+quality:
+  complexity:
+    mcp_server: null
+    mcp_tool_name: null
+    enabled: null
+    thresholds:
+      soft: null
+      hard: null
+    bvl_gate: null
+    pr_blocker: null
+  security_scan:
+    scanner: null
+    secrets_command: null
+    report_format: null
+    fail_on: null
+    install_hint: null
+    sca_threshold: null
+    enabled: null
+ai:
+  training: null
+  inference: null
+  agentic: null
+observability:
+  logging: null
+  monitoring: null
+  error_tracking: null
+  tracing: null
+dependencies:
+  backend: null
+  frontend: null
+  denied: null
+project_tracking:
+  tool: null
+  board_columns: null
+  feature_phases: null
+  milestone_strategy: null
+  naming_convention: null
+  gate_enforcement_mode: null
+  appetite_sizing_enabled: null
+synthetic_data:
+  enabled: null
+  id_strategy: null
+verification:
+  gates: null
+  commands: null
+traceability:
+  home: null
 last_update: [TIMESTAMP]
 ---
 
 # 🏗️ Architecture Roadmap & Blueprint
 
 ## 1. Context & Business Goal
-- **Goal:** [Defined in Phase 1]
-- **Language:** [Detected/Defined]
-- **Deployment:** [Cloud/On-Prem]
+- **Goal:** frontmatter `business_goal`
+- **Language:** frontmatter `language`
+- **Deployment:** frontmatter `hosting.provider`
 
 ## 2. Execution Plan (The Queue)
 > Dynamic list. The agent resolves the first item and moves it to Logs.
@@ -54,12 +164,12 @@ last_update: [TIMESTAMP]
 ## 3. Decisions Log (Resolved)
 
 ### 0. AI Budget & Governance
-- **AI Budget Tier:** [Starter: <$500/month | Professional: $500-$2K/month | Enterprise: $2K-$10K/month | Unlimited: >$10K/month]
-- **Monthly Budget Limit:** [$X USD/month]
+- **AI Budget Tier:** frontmatter `ai_budget.tier`
+- **Monthly Budget Limit:** frontmatter `ai_budget.monthly_limit`
 - **Budget Tracking:** Enabled (cross-feature accumulation, 80% warning threshold, monthly reset with history archive)
 
 ### 0.1 Project Scope (dual-axis scope model)
-- **Project Scope:** [full-stack | backend-only | frontend-only | integration]
+- **Project Scope:** frontmatter `project_scope`
 - **Compatibility with feature.scope:**
   - `full-stack` → any feature.scope (full-stack | backend-only | frontend-only | integration)
   - `backend-only` → feature.scope in [backend-only, integration] only
@@ -73,25 +183,15 @@ last_update: [TIMESTAMP]
 - **Authoring impact:** Every new `spec.feature` inherits this default into its `slicing_strategy` frontmatter field. Authors can override per-feature at CODESIGN time. BLUEPRINT enforces the trivial-heuristic regardless of the project default.
 
 ### A. Backend Architecture
-- **Macro Topology (Backend):** 
-  - [Modular Monolith: Traditional | Modular by Bounded Contexts | Microkernel with Plugins]
-  - [Microservices: Pure REST | gRPC | Event-Driven (Async) | SOA with ESB]
-  - [Serverless: AWS Lambda | Azure Functions | GCP Functions | Cloudflare Workers]
-  - [Peer-to-Peer]
-  - [Broker/Pipeline: RabbitMQ | Kafka | Azure Service Bus]
+- **Macro Topology (Backend):** frontmatter `backend.topology`
 - **Internal Pattern (Backend):** [Onion | Hexagonal | Layered | MVC | Feature-based]
 - **Monthly Base Cost:** [$X] (calculated from topology selection)
 
 ### B. Frontend Architecture
-- **UX Strategy (Frontend):** 
-  - [SPA]
-  - [SSR: With hydration (Next.js/Nuxt) | Without hydration (pure SSR)]
-  - [Micro-Frontends: Module Federation | Web Components | iFrames]
-  - [Jamstack/SSG]
-  - [Islands Architecture: Astro | Qwik]
+- **UX Strategy (Frontend):** frontmatter `frontend.pattern`
 - **Internal Pattern (Frontend):** [FSD + Atomic + Headless] (Standard - No modificable)
 - **Styling:** [Tailwind]
-- **State Management:** [Redux | Zustand | Context API | Nano Stores | None]
+- **State Management:** frontmatter `frontend.state_management`
 - **Monthly Incremental Cost:** [$X] (calculated from strategy selection)
 
 ### C. Integration Strategy
@@ -103,9 +203,9 @@ last_update: [TIMESTAMP]
 - **ACL Integration Cost:** [$X] ($50 per integration + $100 for aggregator if applicable)
 
 ### C.1 AI Capabilities
-- **Training/Fine-tuning:** [Yes | No]
-- **Inference Local (Self-hosted):** [Yes | No]
-- **Agentic/RAG:** [Yes | No]
+- **Training/Fine-tuning:** frontmatter `ai.training`
+- **Inference Local (Self-hosted):** frontmatter `ai.inference`
+- **Agentic/RAG:** frontmatter `ai.agentic`
 - **AI Components Cost:** [$X] (training + inference serving + agentic tooling)
 
 ### C.2 Dynamic Path Variables (Derived)
@@ -127,7 +227,7 @@ last_update: [TIMESTAMP]
 - **Current Architecture:** [Detected from project scan]
 - **Target Architecture:** [From Macro Topology decision]
 - **Gap Analysis:** [Summary of architectural differences]
-- **Extension Strategy:** [Preserve Current + Wrapper | Strangler Fig | Parallel Run | Big Bang]
+- **Extension Strategy:** frontmatter `extension.strategy`
 - **Effort Estimate:** [$X USD, Y months]
 - **Risk Level:** [Low | Medium | High]
 - **Pros:** [Bullet list]
@@ -137,18 +237,18 @@ last_update: [TIMESTAMP]
 - **Current Architecture:** [Detected from project scan]
 - **Target Architecture:** [From UX Strategy decision]
 - **Gap Analysis:** [Summary of architectural differences]
-- **Extension Strategy:** [Preserve Current + Wrapper | Strangler Fig | Parallel Run | Big Bang]
+- **Extension Strategy:** frontmatter `extension.strategy`
 - **Effort Estimate:** [$X USD, Y months]
 - **Risk Level:** [Low | Medium | High]
 - **Pros:** [Bullet list]
 - **Cons:** [Bullet list]
 
 ### E. Operational Decisions
-- **Branching Strategy:** [GitHub Flow (default) | GitFlow | OneFlow | GitLab Flow | Trunk-Based Development]
+- **Branching Strategy:** frontmatter `branching.strategy`
 - **Semantic Versioning:** [Enabled on main | Disabled]
 - **Environment Strategy:** [Standard: Dev/Staging/Prod | Minimal: Dev/Prod | Custom: specify]
-- **CI/CD Platform:** [GitHub Actions | GitLab CI | Jenkins | Azure Pipelines | None]
-- **Pipeline Depth:** [Basic: lint/test/build | Advanced: +security/multi-env/rollback]
+- **CI/CD Platform:** frontmatter `ci_cd.platform`
+- **Pipeline Depth:** frontmatter `ci_cd.tier`
 - **IDE Preference:** [VSCode | IntelliJ IDEA | PyCharm | None]
 - **E2E Testing:** [Playwright (Web UI) | Newman (API) | Skip]
 - **DAST Tools:** [OWASP ZAP | Skip]
@@ -157,13 +257,13 @@ last_update: [TIMESTAMP]
 - **Security Baseline:** [OWASP Top 10 Controls | Secrets: Vault/AWS Secrets | SAST: Semgrep/Gitleaks | Network: Zero Trust/mTLS]
 - **Privacy Compliance:** [GDPR Art. 5+25 | PII Classification: Tier 1/2/3 | User Rights: Access/Erasure/Portability | Consent: Opt-In/Granular]
 - **Documentation Standard:** [Python: Google Docstrings | JS/TS: TSDoc | Java: Javadoc | C#: XML Comments | Go: Godoc]
-- **CODESIGN Authoring Surface (Q29):** [external-full | external-features | internal] → `codesign.authoring`: [external | internal] · `po_package.mode`: [full | features-only | off]
-- **Design-System Cards Source (Q29.1 — IF Q29 != internal AND UI scope):** [vision | code-manual | code-rebuild | defer] → `po_package.ds_cards_source` · `po_package.ds_code_cards_dir`: [repo-relative folder | null] · `po_package.ds_rebuild_command`: [one command | null]
-- **Measurement Window (Q30):** `measurement.retention_days`: [90] · `measurement.report_interval_days`: [30] → `subproducts/measure/measure.config.json`
-- **Surface Ceiling per Pull Request (Q31):** `surface.ceiling_files`: [30] · `surface.ceiling_lines`: [800] → `config/quality.json → surface.*`
-- **Delivery Mode (Q32):** `delivery.mode`: [development] → `docs/project_log/governance_versions.json → delivery_mode` (the gate profile per control point; return to production = set the key to `production` in one commit)
-- **Model Families (Q34):** `agents.writer_model`: [opus] · `agents.critic_model`: [sonnet] → `config/quality.json → agents.families` — writers and critics on different families by construction (EVOL-049)
-- **Runtime Surface (Q33):** `surface.runtime_surface`: [src/**, tests/**, infra/**, scripts/**, package.json] → `config/quality.json → surface.runtime_surface` — the positive list every deploying / release workflow asks (`gate.py runtime-surface --changed`); held to reality by the parity gate (EVOL-047)
+- **CODESIGN Authoring Surface (Q29):** frontmatter `codesign.authoring` · `po_package.mode`
+- **Design-System Cards Source (Q29.1):** frontmatter `po_package.ds_cards_source` · `po_package.ds_code_cards_dir` · `po_package.ds_rebuild_command`
+- **Measurement Window (Q30):** frontmatter `measurement.retention_days` · `measurement.report_interval_days` → `subproducts/measure/measure.config.json`
+- **Surface Ceiling per Pull Request (Q31):** frontmatter `surface.ceiling_files` · `surface.ceiling_lines` → `config/quality.json → surface.*`
+- **Delivery Mode (Q32):** frontmatter `delivery.mode` → `docs/project_log/governance_versions.json → delivery_mode` (the gate profile per control point; return to production = set the key to `production` in one commit)
+- **Model Families (Q34):** frontmatter `agents.writer_model` · `agents.critic_model` → `config/quality.json → agents.families` — writers and critics on different families by construction (EVOL-049)
+- **Runtime Surface (Q33):** frontmatter `surface.runtime_surface` → `config/quality.json → surface.runtime_surface` — the positive list every deploying / release workflow asks (`gate.py runtime-surface --changed`); held to reality by the parity gate (EVOL-047)
 
 ## 3.1. Budget Validation Summary
 > Calculated automatically before materialization.

@@ -114,7 +114,7 @@ Each finding above informational carries file, line, severity, confidence and an
 - When `docs_mcps NOT EMPTY`, query each named docs MCP for technologies/frameworks in the design scope and cite findings inline in design.md (per skill § Citation contract).
 
 ### Step 1: Load Constitution & Rules Manifest
-- Parse stack (backend.runtime, frontend.framework, architecture, topology) from `.context/governance_snapshot.md` § Stack Configuration
+- Parse stack (backend.runtime, frontend.framework, backend.topology, frontend.pattern) from `.context/governance_snapshot.md` § Stack Configuration
 - Rules manifest: snapshot § Rules Manifest; applicability per each rule's own `applicable_when:` frontmatter (ADP)
 - Constitution = `[PLAW-NN]` index (sentence + `Body:` pointer); read a law body on demand from its pointed rule file
 - If the snapshot is missing or stale → BLOCK (regenerate: `bash scripts/generate-governance-snapshot.sh`)

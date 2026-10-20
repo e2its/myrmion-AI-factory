@@ -120,6 +120,7 @@ FUNCTION agent_harvest(tier, context):
     conditional_navigation: [
       # Pre-computed IF/THEN rules for Factory to evaluate during RDR walk
       # NAVIGATION rules: show/skip/unlock questions based on prior answers
+      # SETUP: the navigation is the registry's `when`, evaluated by `gate.py discovery --resolve` (EVOL-102) — never these examples
       { trigger: "Q3 == 'Brownfield'", action: "unlock", targets: ["Q3.1", "Q3.2", "Q3.3"] },
       { trigger: "Q5 == 'None'",       action: "skip",   targets: ["Q6", "Q7", "Q8"] },
       { trigger: "Q7 in [B5..B11]",    action: "unlock", targets: ["Q8"] }
@@ -287,42 +288,7 @@ FUNCTION factory_converge(proposal):
 
 ### SETUP --init Tiers
 
-```yaml
-TIER_0_FOUNDATIONAL:
-  name: "Project Foundation"
-  questions: [Q1, Q2, Q3, Q4]
-  dependencies: none
-  description: "Project identity, business goal, mode, and budget. Everything else depends on these."
-  conditional_unlocks:
-    - { trigger: "Q3 == 'Brownfield'", unlocks: [Q3.1, Q3.2, Q3.3] }
-
-TIER_1_STACK:
-  name: "Technology Stack"
-  questions: [Q5, Q6, Q7, Q8, Q9, Q10, Q11, Q12, Q13, Q14]
-  dependencies: [TIER_0]
-  description: "Backend/frontend stack. Filtered by budget tier (Q4) and project mode (Q3)."
-  conditional_unlocks:
-    - { trigger: "Q5 == 'None'", skips: [Q6, Q7, Q8] }
-    - { trigger: "Q9 == 'None'", skips: [Q10, Q11, Q12, Q13, Q14] }
-    - { trigger: "Q7 in [B5..B11]", unlocks: [Q8] }
-
-TIER_2_INFRASTRUCTURE:
-  name: "Infrastructure & Tooling"
-  questions: [Q15, Q16, Q17, Q18, Q19, Q20, Q20.1, Q20.2, Q21, Q21.1, Q22, Q22.1, Q23, Q24, Q25, Q26]
-  dependencies: [TIER_0, TIER_1]
-  description: "Databases, auth, hosting, CI/CD, observability, dependencies."
-  conditional_unlocks:
-    - { trigger: "Q18 == 'OAuth2/OIDC'", unlocks: [Q18.1_provider] }
-    - { trigger: "Q24a == true", unlocks: [Q24a_details] }
-    - { trigger: "Q24b == true", unlocks: [Q24b_details] }
-    - { trigger: "Q24c == true", unlocks: [Q24c_details] }
-
-TIER_FINAL:
-  name: "Finalization"
-  questions: []
-  dependencies: [TIER_0, TIER_1, TIER_2]
-  description: "Budget validation, complete summary, ADR-0000 generation."
-```
+Tiers 0 (foundation), 1 (stack), 2 (infrastructure & tooling), then finalization (`--propose-final`). Questions, tiers, unlocks, options and keys: the registry `.context/templates/setup/setup/discovery_registry.json`; the next questions: `python3 scripts/gate.py discovery --resolve` (`pending`) — never evaluate an unlock by reading it.
 
 ### CODESIGN --start Tiers
 
@@ -451,25 +417,25 @@ actions:
 Questions marked `pivotal: true` in the Decision Batch are those whose user override invalidates downstream recommendations. Examples:
 - **Q4 (Budget Tier):** Changes which tools/services are cost-appropriate
 - **Q5 (Backend Runtime):** Changes framework, ORM, testing tool recommendations
-- **Q19 (Cloud Platform):** Changes queue, storage, hosting recommendations
+- **Q20 (Hosting Provider):** Changes IaC, secrets-manager, CI/CD recommendations
 
 ```yaml
 # In the decisions array, pivotal questions are marked:
 decisions:
-  - id: "Q19"
-    question: "Cloud Platform"
-    pivotal: true     # ← Override triggers partial re-harvest of Q20+
+  - id: "Q20"
+    question: "Hosting Provider"
+    pivotal: true     # ← Override triggers partial re-harvest of Q20.1+
     recommendation: "AWS"
     justification: "..."
-  - id: "Q20"
-    question: "Message Queue"
+  - id: "Q20.1"
+    question: "IaC Tool"
     pivotal: false
-    recommendation: "SQS"       # ← This recommendation assumes Q19=AWS
-    justification: "Native AWS message queue"
+    recommendation: "AWS CDK"   # ← This recommendation assumes Q20=AWS
+    justification: "Native AWS IaC"
 
-# When user overrides Q19 from AWS → Azure:
-# Factory invokes: --harvest --tier 2 --partial --from Q20 --answers [Q15=..., ..., Q19=Azure]
-# Agent regenerates Q20+ with governance context → Q20.recommendation becomes "Azure Service Bus"
+# When user overrides Q20 from AWS → Azure:
+# Factory invokes: --harvest --tier 2 --partial --from Q20.1 --answers [Q15=..., ..., Q20=Azure]
+# Agent regenerates Q20.1+ with governance context → Q20.1.recommendation becomes "Terraform"
 ```
 
 ---

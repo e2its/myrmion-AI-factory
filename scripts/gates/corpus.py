@@ -18,8 +18,8 @@ import json
 import re
 from pathlib import Path
 
-from .common import (GateFault, any_glob, body_after_frontmatter, constitution_path, context, read_frontmatter,
-                     resolve_pointer, rules_root, tracked_files)
+from .common import (FM_RE, GateFault, any_glob, body_after_frontmatter, constitution_path, context, parse_yaml,
+                     read_frontmatter, resolve_pointer, rules_root, tracked_files)
 
 LAW_LIST_RE = re.compile(r"^\s*\d+\.\s+\*\*\[(?P<id>P?LAW-\d{2})\]\s*(?P<title>[^*]+?)\*\*\s*[—–-]\s*(?P<rest>.*)$")
 LAW_H2_RE = re.compile(r"^##\s+\[(?P<id>P?LAW-\d{2})\]\s*(?P<title>.+?)\s*$")
@@ -451,7 +451,35 @@ def digest(repo: Path, paths: list[str], budget: int, include_always: bool = Fal
 
 # ─── snapshot sections (the generator delegates every corpus read here) ───────────
 
-STACK_KEYS = ("project_scope", "backend", "frontend", "architecture", "database", "ci_cd", "iac", "cloud", "project_mode")
+# The stack answers the snapshot shows: registry keys (gate.py discovery V9), read from the one answer home (EVOL-102)
+SETUP_MD = "docs/setup.md"
+STACK_KEYS = ("project_mode", "project_scope", "backend.runtime", "backend.framework", "backend.topology",
+              "frontend.framework", "frontend.meta_framework", "frontend.pattern", "database.primary.engine",
+              "hosting.provider", "hosting.iac_tool", "ci_cd.platform")
+
+
+def stack_answers(repo: Path) -> dict | None:
+    """The answered STACK_KEYS of the docs/setup.md frontmatter, nested as they are stored; an unanswered key is left out.
+    None when docs/setup.md exists without a readable frontmatter (no fence, or not a mapping: no answer home to read)."""
+    path = repo / SETUP_MD
+    if path.is_file():
+        m = FM_RE.match(path.read_text(encoding="utf-8", errors="replace"))
+        if not m or not isinstance(parse_yaml(m.group(1)), dict):
+            return None
+    fm = read_frontmatter(path) if path.is_file() else {}
+    out: dict = {}
+    for key in STACK_KEYS:
+        *parents, leaf = key.split(".")
+        node = fm
+        for part in key.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        if node is None or isinstance(node, dict):
+            continue
+        cur = out
+        for part in parents:
+            cur = cur.setdefault(part, {})
+        cur[leaf] = node
+    return out
 
 
 def _yaml_lines(key: str, value, indent: int = 0) -> list[str]:
@@ -462,12 +490,14 @@ def _yaml_lines(key: str, value, indent: int = 0) -> list[str]:
 
 
 def snapshot_sections(repo: Path, profile: str = "lite") -> str:
-    const = constitution_path(repo)
-    stack = read_frontmatter(const) if const else {}
+    stack = stack_answers(repo)
     law, cat, uni = laws(repo), catalog(repo), universe(repo)
     src = "docs/constitution.md" if context(repo) == "downstream" else "constitution template"
-    out = ["## Stack Configuration", f"> Source: {src} frontmatter.", "", "```yaml"]
-    out += [ln for k in STACK_KEYS if k in stack for ln in _yaml_lines(k, stack[k])] or ["# (no stack keys in the constitution frontmatter)"]
+    out = ["## Stack Configuration", f"> Source: {SETUP_MD} frontmatter (the answer home).", "", "```yaml"]
+    if stack is None:
+        out.append(f"# ({SETUP_MD} has no readable frontmatter)")
+    else:
+        out += [ln for k, v in stack.items() for ln in _yaml_lines(k, v)] or [f"# (no stack keys in the {SETUP_MD} frontmatter)"]
     out += ["```", "", "## Rules Manifest",
             "> Source: rule-file frontmatter. Applicability is resolved by `scripts/gate.py applicable` — never by hand.", "",
             "| Rule File | Applies When |", "|-----------|--------------|"]

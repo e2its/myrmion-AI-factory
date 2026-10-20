@@ -3,7 +3,7 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.9.0
+version: 2.9.1
 date: 2026-10-07
 changelog:
   - "2.9.0: feat(EVOL-064) — § Control points and gate profiles (EVOL-046) and § One planning stage (EVOL-048) moved verbatim from the project CLAUDE.md."
@@ -170,7 +170,7 @@ No gate is optional — it changes its control point. One key, `delivery_mode` i
 | --- | --- | --- | --- |
 | static round (before the critics, EVOL-051) | the **light** members through `gate.py profile --run --control-point static`, whatever the class or the mode, plus the workers' red-first scoped runs — nothing that needs a build or a database; an incomplete governance digest fails here first | same | none |
 | commit (`pre-commit`) | branch class through the reader; secrets on the staged files | same | none |
-| sub-increment push (to its train) | **light** profile: every member that needs no build and no database — ADR sync, retired terms, budgets, law parity, currency, manifest parity, surface, runtime-surface parity, agents, the seal's state, the planning artefacts' governance digests, the test-case traceability (every declared case linked at its one home, the baseline shrinking), the server-side protection (n/a here — a clone cannot see the server) (and, in the framework repo, manifest drift validation and applicability) — all report, one verdict; secrets per pushed ref; the review and coherence markers | **full** profile | writes none |
+| sub-increment push (to its train) | **light** profile: every member that needs no build and no database — ADR sync, retired terms, budgets, law parity, currency, manifest parity, surface, runtime-surface parity, agents, the seal's state, the planning artefacts' governance digests, the test-case traceability (every declared case linked at its one home, the baseline shrinking), the server-side protection (n/a here — a clone cannot see the server) (and, in the framework repo, manifest drift validation, applicability and the discovery registry — EVOL-102) — all report, one verdict; secrets per pushed ref; the review and coherence markers | **full** profile | writes none |
 | train close (last sub-increment) | **full**: the light members + the one full verification loop (tests, lint, typecheck, build, format, SAST, complexity, seed alignment — once, on the bytes the commit carries, after the artefacts; EVOL-051) + one deployment when the runtime surface moved | same | the loop's **seal** (`gate.py seal --check`: the read-sets at HEAD) + the push markers |
 | pull request to the main branch (CI) | **full** (the workflow runs `gate.py profile --run`; a sub-increment PR into its train owes light); the only control point that asks the server — `scm-protection` with the CI token (EVOL-054) | full | honours the loop's seal (`seal` member) |
 | main branch itself | no direct commit (reader-classified, fail-closed); every merge arrives through a PR that passed the full profile | same | — |

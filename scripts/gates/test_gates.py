@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 import urllib.error
 import urllib.parse
 from pathlib import Path
@@ -17,7 +18,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
+from gates import agents, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -88,7 +89,7 @@ def fixture_repo(root: Path, context_: str = "downstream") -> Path:
         "retired_terms": [{"term": RETIRED, "record": "ADR-EVOL-043", "exempt": ["docs/legacy/**"]}]}))
     write(repo / "CLAUDE.md", CLAUDE_MD)
     write(repo / "docs/constitution.md", CONSTITUTION)
-    write(repo / "docs/setup.md", "---\nproject_scope: full-stack\n---\n")
+    write(repo / "docs/setup.md", "---\nproject_scope: full-stack\nbackend:\n  runtime: Go\n  framework: null\n---\n")
     write(repo / ".claude/rules/defect-prevention.md", CATALOG)
     write(repo / ".claude/rules/protected-code.md", "---\ndescription: p\napplicable_when:\n  path_glob: [\"**/*.py\"]\n---\n## [LAW-02] Protected Code\n> Never modify protected code.\n\nbody\n")
     write(repo / ".claude/rules/architecture.md", "---\ndescription: a\napplicable_when:\n  always: true\n---\n## [PLAW-01] KISS & DRY\n> Every solution is the simplest one that satisfies the specification, written once.\n\nbody\n")
@@ -145,6 +146,20 @@ class Corpus(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_stack_section_names_an_unreadable_answer_home(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            stack = lambda: corpus.snapshot_sections(repo).split("## Rules Manifest")[0]
+            self.assertIn("runtime: Go", stack()); self.assertNotIn("framework: None", stack()); self.assertNotIn("framework: null", stack())
+            write(repo / "docs/setup.md", "# Setup\nno frontmatter\n")
+            self.assertIn("# (docs/setup.md has no readable frontmatter)", stack())
+            write(repo / "docs/setup.md", "---\n- a\n- b\n---\n")
+            self.assertIn("# (docs/setup.md has no readable frontmatter)", stack(), "a fence around a list is no mapping")
+            write(repo / "docs/setup.md", "---\nversion: 1.0.0\n---\n")
+            self.assertIn("# (no stack keys in the docs/setup.md frontmatter)", stack(), "readable, nothing answered")
+            (repo / "docs/setup.md").unlink()
+            self.assertIn("# (no stack keys in the docs/setup.md frontmatter)", stack(), "the framework repo: no answer home")
 
     def test_law_index_parses_both_shapes(self):
         laws = corpus.laws(self.repo)
@@ -2928,6 +2943,657 @@ class Scm(unittest.TestCase):
                 self.assertEqual(by["scm-protection"]["status"], "n/a"); self.assertIn("cannot see the server", by["scm-protection"]["tail"])
 
 
+DISC_REGISTRY = {
+    "_doc": "fixture",
+    "questions": [
+        {"id": "Q1", "tier": 0, "since": "1.0.0", "keys": {"project_name": {"free": "text", "record_only": "the report title, read by no gate"}}},
+        {"id": "Q5", "tier": 1, "since": "1.0.0", "keys": {"backend.runtime": {"options": ["Python", "Node.js", "None"]}}},
+        {"id": "Q6", "tier": 1, "since": "1.1.0", "when": "backend.runtime != \"None\"",
+         "keys": {"backend.framework": {"options_by": {"key": "backend.runtime", "values": {"Python": ["FastAPI", "Django"], "Node.js": ["Express.js", "NestJS"]}}}}},
+        {"id": "Q3", "tier": 0, "since": "1.0.0", "keys": {"project_mode": {"options": ["Greenfield", "Brownfield"]}}},
+        {"id": "Q15", "tier": 1, "since": "1.0.0", "keys": {"database.primary.engine": {"options": ["PostgreSQL", "None"]}}},
+        {"id": "Q21", "tier": 2, "since": "1.2.0", "keys": {"ci_cd.platform": {"options": ["GitHub Actions", "GitLab CI", "None"]}}},
+        {"id": "Q26", "tier": 2, "since": "1.0.0", "keys": {"dependencies.backend": {"free": "list"}}},
+    ],
+    "derived": {"verification.gates": {"from": "the stack answers pick the loop's gates"}},
+}
+DISC_INSTRUCTION = """# Discovery
+
+#### Q1: Project Name
+- **Persist:** `project_name`
+
+#### Q5: Backend Runtime
+- **Options:** Python | Node.js | None
+- **Persist:** `backend.runtime`
+
+#### Q6: Backend Framework (conditional on Q5)
+- Python → FastAPI | Django
+- Node.js → Express.js | NestJS
+- **Persist:** `backend.framework`
+
+#### Q3: Project Mode
+- **Options:** Greenfield (new project) | Brownfield (existing codebase)
+- **Persist:** `project_mode`
+
+#### Q15: Primary Database
+- **Options:** PostgreSQL | None
+- **Persist:** `database.primary.engine`
+
+#### Q21: CI/CD Platform
+- **Options:** GitHub Actions | GitLab CI | None
+- **Persist:** `ci_cd.platform`
+
+#### Q26: Dependencies
+- **Persist:** `dependencies.backend[]`
+"""
+DISC_TEMPLATE = """---
+version: 1.0.0
+date: 2026-01-01
+changelog:
+  - "1.0.0: init"
+phase: DISCOVERY
+status: NEEDS_INFO
+retry_count: 0
+project_name: null
+project_mode: null
+backend:
+  runtime: null
+  framework: null
+database:
+  primary:
+    engine: null
+ci_cd:
+  platform: null
+dependencies:
+  backend: null
+verification:
+  gates: null
+last_update: null
+---
+# Setup
+"""
+DISC_MANIFEST = {
+    "framework_version": "1.2.0",
+    "templates": {
+        "rules/python.md": {"version": "1.0.0", "stack_conditional": "backend.runtime == Python", "changelog": ["1.0.0: names ci_cd.platform in a changelog — never a consumer"]},
+        "workflows/governance-check.github-actions.yml": {"version": "1.0.0", "stack_conditional": "ci_cd.platform == \"GitHub Actions\""},
+        "rules/database.md": {"version": "1.0.0", "stack_conditional": "database exists"},
+        "rules/always.md": {"version": "1.0.0"},
+    },
+}
+DISC_CONSUMER = "#!/bin/sh\n# reads backend.runtime backend.framework project_mode database.primary.engine ci_cd.platform dependencies.backend\n"
+
+
+def disc_repo(root: Path) -> Path:
+    repo = Path(root) / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    write(repo / "config/coherence-context.json", json.dumps({"context": "meta"}))
+    write(repo / discovery.REGISTRY, json.dumps(DISC_REGISTRY, indent=1))
+    write(repo / discovery.INSTRUCTION, DISC_INSTRUCTION)
+    write(repo / discovery.TEMPLATE, DISC_TEMPLATE)
+    write(repo / discovery.MANIFEST, json.dumps(DISC_MANIFEST, indent=1))
+    write(repo / "scripts/consumer.sh", DISC_CONSUMER)
+    write(repo / discovery.MATERIALIZATION, "# Materialisation\n")
+    disc_add(repo)
+    return repo
+
+
+def disc_add(repo: Path):
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+
+
+class Discovery(unittest.TestCase):
+    """EVOL-102: one grammar, one evaluator, one registry validator (V1–V9) — every rule seen red."""
+
+    def _reg(self, repo: Path, mutate):
+        reg = json.loads((repo / discovery.REGISTRY).read_text())
+        mutate(reg)
+        write(repo / discovery.REGISTRY, json.dumps(reg))
+
+    def _q(self, reg, qid):
+        return next(q for q in reg["questions"] if q["id"] == qid)
+
+    def _rule(self, findings, rule):
+        return [f for f in findings if f.startswith(rule + " ")]
+
+    def _green(self, repo):
+        return [f for f in discovery.validate(repo) if not f.startswith("V8 ")]   # V8 reads the meta repo's consumer files, absent here
+
+    # ── grammar + evaluator ──────────────────────────────────────────────────────
+    def test_grammar_each_operator(self):
+        a = {"backend.runtime": "Python", "n": 3, "flag": True, "db.engine": None}
+        ev = lambda c: discovery.evaluate(discovery.parse(c), a)
+        self.assertTrue(ev("backend.runtime == Python")); self.assertTrue(ev('backend.runtime == "Python"'))
+        self.assertFalse(ev("backend.runtime != Python")); self.assertTrue(ev("backend.runtime != \"Node.js\""))
+        self.assertTrue(ev('backend.runtime IN ["Node.js", Python]')); self.assertFalse(ev('backend.runtime NOT IN ["Node.js", Python]'))
+        self.assertTrue(ev("backend.runtime NOT IN [Go]"))
+        self.assertTrue(ev("n == 3")); self.assertTrue(ev("flag == true")); self.assertFalse(ev("flag == false"))
+        self.assertTrue(ev("db.engine == null"), "null slot"); self.assertTrue(ev("missing.key == null"), "a missing key reads as null")
+        self.assertFalse(ev("missing.key != \"off\""), "a null key never differs: != holds only for an answered key")
+        self.assertTrue(ev("scm.platform == Azure DevOps") is False, "a bare token may carry a space")
+        self.assertTrue(discovery.evaluate(discovery.parse("scm.platform == Azure DevOps"), {"scm.platform": "Azure DevOps"}))
+
+    def test_grammar_exists(self):
+        ev = lambda c, a: discovery.evaluate(discovery.parse(c), a)
+        self.assertTrue(ev("database exists", {"database.primary.engine": "PostgreSQL"}), "a key under it counts")
+        self.assertFalse(ev("database exists", {"database.primary.engine": "None"}), "\"None\" is no value")
+        self.assertFalse(ev("database exists", {"database.primary.engine": ""}), "\"\" is no value")
+        self.assertFalse(ev("database exists", {"database.primary.engine": None}))
+        self.assertFalse(ev("database exists", {"databases.x": "y"}), "a prefix is a dotted prefix, never a string prefix")
+        self.assertTrue(ev("dependencies.backend exists", {"dependencies.backend": ["fastapi"]}), "a list answer with exists")
+
+    def test_grammar_precedence(self):
+        p = discovery.parse("a == x OR b == y AND c == z")
+        self.assertEqual(len(p), 2, "OR splits first: AND binds tighter")
+        self.assertTrue(discovery.evaluate(p, {"a": "x"}))
+        self.assertFalse(discovery.evaluate(p, {"b": "y"}), "b AND c both needed")
+        self.assertTrue(discovery.evaluate(p, {"b": "y", "c": "z"}))
+        self.assertFalse(discovery.evaluate(discovery.parse("a == x AND b == y"), {"a": "x"}))
+
+    def test_grammar_unparseable(self):
+        for bad in ("backend.runtime ~ Python", "", "backend.runtime ==", "backend.runtime IN []", "backend.runtime IN [Python", "a == x AND", "== x", "a == x y\"z"):
+            with self.assertRaises(GateFault, msg=bad) as cm:
+                discovery.parse(bad)
+            self.assertIn("grammar", str(cm.exception))
+        with self.assertRaises(GateFault) as cm:
+            discovery.parse("a == x AND b ~ y")
+        self.assertIn("`b ~ y`", str(cm.exception), "the clause is quoted")
+
+    def test_list_answer_only_with_exists(self):
+        with self.assertRaises(GateFault) as cm:
+            discovery.evaluate(discovery.parse("dependencies.backend == fastapi"), {"dependencies.backend": ["fastapi"]})
+        self.assertIn("only be tested with `exists`", str(cm.exception))
+
+    def test_flatten(self):
+        self.assertEqual(discovery.flatten({"a": {"b": 1, "c": {"d": None}}, "e": [1, 2], "f": "x"}), {"a.b": 1, "a.c.d": None, "e": [1, 2], "f": "x"})
+        self.assertEqual(discovery.flatten({"a.b": "x"}), {"a.b": "x"}, "a dotted key (fixture shape) stays as it is")
+
+    # ── resolve ──────────────────────────────────────────────────────────────────
+    def test_resolve_pending_order_and_landing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            r = discovery.resolve(repo, {})
+            self.assertEqual(r["pending"], ["Q1", "Q3", "Q5", "Q15", "Q21", "Q26"], "tier order, then registry order; Q6 (`!=`) waits for Q5's answer")
+            self.assertEqual(r["landing"], ["rules/always.md"]); self.assertEqual(sorted(r["skipped"]), ["rules/database.md", "rules/python.md", "workflows/governance-check.github-actions.yml"])
+            r = discovery.resolve(repo, {"project_name": "x", "project_mode": "Greenfield", "backend.runtime": "None", "database.primary.engine": "PostgreSQL", "ci_cd.platform": "GitHub Actions"})
+            self.assertEqual(r["pending"], ["Q26"], "Q6's when does not hold; answered questions are not pending")
+            self.assertEqual(sorted(r["landing"]), ["rules/always.md", "rules/database.md", "workflows/governance-check.github-actions.yml"])
+            r = discovery.resolve(repo, {"backend.runtime": "Python"})
+            self.assertIn("Q6", r["pending"]); self.assertIn("rules/python.md", r["landing"])
+
+    def test_resolve_question_asked_once_a_key_holds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda reg: self._q(reg, "Q1")["keys"].__setitem__("project_note", {"free": "text", "record_only": "r"}))
+            pend = lambda a: discovery.resolve(repo, a)["pending"]
+            self.assertIn("Q1", pend({}), "no key answered: asked")
+            self.assertNotIn("Q1", pend({"project_name": "Acme", "project_note": None}),
+                             "one key answered, its sibling left null on purpose: the question was asked")
+            self.assertNotIn("Q5", pend({"backend.runtime": "None"}), "the option `None` is an answer; only null is not")
+
+    def test_answers_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            with self.assertRaises(GateFault) as cm:
+                discovery.answers(repo)
+            self.assertIn("docs/setup.md is absent", str(cm.exception)); self.assertIn("SETUP creates it", str(cm.exception))
+            write(repo / "docs/setup.md", "# Setup\nno frontmatter here\n")
+            with self.assertRaises(GateFault) as cm:
+                discovery.answers(repo)
+            self.assertIn("frontmatter", str(cm.exception))
+            write(repo / "docs/setup.md", "---\nbackend:\n  runtime: Python\n---\n# Setup\n")
+            self.assertEqual(discovery.answers(repo), {"backend.runtime": "Python"})
+            write(repo / "a.json", json.dumps({"answers": {"ci_cd.platform": "GitLab CI"}}))
+            self.assertEqual(discovery.answers(repo, repo / "a.json"), {"ci_cd.platform": "GitLab CI"})
+            write(repo / "b.json", json.dumps({"nope": {}}))
+            with self.assertRaises(GateFault):
+                discovery.answers(repo, repo / "b.json")
+
+    # ── validator ────────────────────────────────────────────────────────────────
+    def test_validate_green_fixture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            with unittest.mock.patch.object(corpus, "STACK_KEYS", ("project_mode", "backend.runtime")):
+                self.assertEqual(self._green(repo), [])
+
+    def test_validate_absent_registry_is_a_fault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            (repo / discovery.REGISTRY).unlink()
+            with self.assertRaises(GateFault) as cm:
+                discovery.validate(repo)
+            self.assertIn("registry", str(cm.exception))
+
+    def test_v1_schema(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            def m(reg):
+                reg["questions"].append(dict(self._q(reg, "Q1"), keys={"other.key": {"free": "text", "record_only": "x"}}))   # duplicate id
+                self._q(reg, "Q5")["tier"] = 3
+                self._q(reg, "Q26")["keys"]["dependencies.backend"] = {"free": "blob"}
+                self._q(reg, "Q21")["since"] = "1.3.0"
+                self._q(reg, "Q6")["keys"]["backend.framework"]["options_by"]["values"]["Ruby"] = ["Rails", "Sinatra"]
+                self._q(reg, "Q15")["keys"]["database.primary.engine"] = {"options": ["PostgreSQL", "None"], "free": "text"}
+            self._reg(repo, m)
+            v1 = " | ".join(self._rule(discovery.validate(repo), "V1"))
+            for want in ("`Q1` is declared twice", "tier 3", "`blob`", "since 1.3.0", "`Ruby`", "exactly one of"):
+                self.assertIn(want, v1)
+
+    def test_v2_single_option_not_derived(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda reg: self._q(reg, "Q15")["keys"].__setitem__("database.primary.engine", {"options": ["PostgreSQL"]}))
+            self.assertTrue(self._rule(discovery.validate(repo), "V2"), "a single admissible option is derived, never asked (RDR C)")
+
+    def test_v3_credential_key_not_vault_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            write(repo / "scripts/consumer2.sh", "# database.password database.api_key hosting.secrets_manager\n"); disc_add(repo)
+            self._reg(repo, lambda reg: self._q(reg, "Q15")["keys"].update({"database.password": {"free": "text"}, "database.api_key": {"free": "vault_name"}, "hosting.secrets_manager": {"free": "text"}}))
+            v3 = self._rule(discovery.validate(repo), "V3")
+            self.assertEqual(len(v3), 1, v3); self.assertIn("database.password", v3[0])
+
+    def test_v4_persisted_key_without_consumer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda reg: self._q(reg, "Q21")["keys"].update({"branching.pr_validation_mode": {"options": ["manual", "hybrid"]}}))
+            v4 = self._rule(discovery.validate(repo), "V4")
+            self.assertEqual(len(v4), 1, v4); self.assertIn("branching.pr_validation_mode", v4[0])
+            self._reg(repo, lambda reg: self._q(reg, "Q21")["keys"]["branching.pr_validation_mode"].update({"record_only": "shown in the setup report"}))
+            self.assertFalse(self._rule(discovery.validate(repo), "V4"), "record_only with a reason is not owed a consumer")
+            self._reg(repo, lambda reg: self._q(reg, "Q21")["keys"]["branching.pr_validation_mode"].pop("record_only"))
+            write(repo / "docs/notes.md", "branching.pr_validation_mode\n"); write(repo / "src/x.py", "branching.pr_validation_mode\n"); disc_add(repo)
+            self.assertTrue(self._rule(discovery.validate(repo), "V4"), "documentation and a file outside the consumer roots never count")
+            write(repo / ".claude/skills/x/SKILL.md", "reads branching.pr_validation_mode\n")
+            self.assertTrue(self._rule(discovery.validate(repo), "V4"), "an untracked file never counts")
+            disc_add(repo)
+            self.assertFalse(self._rule(discovery.validate(repo), "V4"))
+
+    def test_v5_free_text_literals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            man = json.loads((repo / discovery.MANIFEST).read_text())
+            man["templates"]["rules/name.md"] = {"stack_conditional": "project_name == Acme"}   # free text, no suggestions
+            write(repo / discovery.MANIFEST, json.dumps(man)); disc_add(repo)
+            self.assertTrue(any("`Acme` is not offered for `project_name`" in f for f in self._rule(self._green(repo), "V5")),
+                            "a free-text key compared to a literal nobody offers is drift")
+            self._reg(repo, lambda reg: self._q(reg, "Q1")["keys"]["project_name"].__setitem__("suggestions", ["Acme"])); disc_add(repo)
+            self.assertEqual(self._rule(self._green(repo), "V5"), [], "a suggestion is a literal the question offers")
+            self._reg(repo, lambda reg: self._q(reg, "Q26")["keys"]["dependencies.backend"].__setitem__("suggestions", ["x"])); disc_add(repo)
+            self.assertTrue(any("suggestions is a non-empty list" in f for f in self._rule(self._green(repo), "V1")),
+                            "suggestions belong to free text only")
+
+    def test_v5_conditions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            man = json.loads((repo / discovery.MANIFEST).read_text())
+            man["templates"]["rules/cloud.md"] = {"stack_conditional": "cloud.provider == AWS"}        # a key absent from the registry
+            man["templates"]["rules/ruby.md"] = {"stack_conditional": "backend.runtime == Ruby"}       # a literal absent from the options
+            man["templates"]["rules/bad.md"] = {"stack_conditional": "backend.runtime ~ Python"}
+            man["templates"]["rules/prefix.md"] = {"stack_conditional": "database == PostgreSQL"}
+            man["templates"]["rules/list.md"] = {"stack_conditional": "dependencies.backend == fastapi"}
+            man["templates"]["rules/fw.md"] = {"stack_conditional": "backend.framework == Flask"}
+            man["templates"]["rules/ok.md"] = {"stack_conditional": "backend.framework == FastAPI AND verification.gates exists OR database.primary.engine != null"}
+            write(repo / discovery.MANIFEST, json.dumps(man))
+            self._reg(repo, lambda reg: self._q(reg, "Q21").__setitem__("when", "project_mode == Legacy"))
+            write(repo / discovery.MATERIALIZATION, "1. IF `python3 scripts/gate.py discovery --eval 'ci_cd.platform == Jenkins'` → x\n"
+                                                    "2. IF `python3 scripts/gate.py discovery --eval 'ci_cd.platform == \"GitLab CI\"'` → y\n")
+            disc_add(repo)
+            v5 = " | ".join(self._rule(discovery.validate(repo), "V5"))
+            for want in ("rules/cloud.md", "`cloud.provider`", "rules/ruby.md", "`Ruby`", "rules/bad.md", "rules/prefix.md", "prefix", "rules/list.md", "`exists`", "rules/fw.md", "`Flask`", "Q21", "`Legacy`", "`Jenkins`"):
+                self.assertIn(want, v5)
+            self.assertNotIn("rules/ok.md", v5); self.assertNotIn(".md:2:", v5, "an offered quoted literal is no finding")
+
+    def test_v6_instruction_parity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            text = DISC_INSTRUCTION.replace("- **Options:** PostgreSQL | None", "- **Options:** PostgreSQL | MySQL | None")
+            text = text.replace("#### Q1: Project Name", "#### Q99: Ghost\n- **Persist:** `ghost.key`\n\n#### Q1b: Project Name")
+            text = text.replace("- **Persist:** `ci_cd.platform`", "- **Persist:** `ci_cd.platform`, `ci_cd.tier`")
+            text = text.replace("- Node.js → Express.js | NestJS", "- Node.js → Express.js | Koa")
+            write(repo / discovery.INSTRUCTION, text)
+            v6 = " | ".join(self._rule(discovery.validate(repo), "V6"))
+            for want in ("Q1 ", "Q99", "Q1b", "MySQL", "ci_cd.tier", "Koa"):
+                self.assertIn(want, v6)
+            self.assertNotIn("Q5", v6, "parenthetical glosses and matching lists are parity")
+
+    def test_v6_shorthand_and_wildcard_persist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            write(repo / "scripts/consumer2.sh", "# observability.logging observability.tracing frontend.visual_dna.palette\n"); disc_add(repo)
+            self._reg(repo, lambda reg: reg["questions"].append({"id": "Q25", "tier": 2, "since": "1.0.0", "keys": {"observability.logging": {"free": "text"}, "observability.tracing": {"free": "text"}, "frontend.visual_dna.palette": {"free": "text"}}}))
+            write(repo / discovery.INSTRUCTION, DISC_INSTRUCTION + "\n#### Q25: Observability\n- **Persist:** `observability.logging`, `.tracing`, `frontend.visual_dna.*` (each sub-field)\n")
+            write(repo / discovery.TEMPLATE, DISC_TEMPLATE.replace("last_update: null", "observability:\n  logging: null\n  tracing: null\nfrontend:\n  visual_dna:\n    palette: null\nlast_update: null"))
+            self.assertFalse(self._rule(discovery.validate(repo), "V6"), "`.tracing` reads under the line's first key; `x.*` covers the keys under it")
+
+    def test_v7_template_parity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            write(repo / discovery.TEMPLATE, DISC_TEMPLATE.replace("  gates: null\n", "  other: null\n").replace("last_update: null", "language: EN\nlast_update: null"))
+            v7 = " | ".join(self._rule(discovery.validate(repo), "V7"))
+            for want in ("verification.gates", "verification.other", "language"):
+                self.assertIn(want, v7)
+            self.assertNotIn("slot `retry_count`", v7, "a declared non-answer slot"); self.assertNotIn("slot `changelog", v7)
+
+    def test_v8_consumer_literals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            write(repo / ".claude/skills/factory-build-verification/SKILL.md", 'MATCH stack.backend.runtime:\n    "Python" → pytest\n    "Ruby" → rspec\n')
+            write(repo / ".claude/skills/other/SKILL.md", 'Only when `backend.runtime == "Elixir"`.\n')
+            disc_add(repo)
+            v8 = " | ".join(self._rule(discovery.validate(repo), "V8"))
+            self.assertIn("`Ruby` — not offered", v8); self.assertIn("`backend.runtime == Elixir`", v8)
+            self.assertNotIn("`Python` — not offered", v8)
+            self.assertIn("is absent", v8, "an input file of a check missing is a finding, never a silent pass")
+
+    def test_v9_snapshot_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            with unittest.mock.patch.object(corpus, "STACK_KEYS", ("project_mode", "cloud")):
+                v9 = self._rule(discovery.validate(repo), "V9")
+            self.assertEqual(len(v9), 1, v9); self.assertIn("`cloud`", v9[0])
+
+    def test_eval_checks_against_registry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self.assertTrue(discovery.eval_condition(repo, "backend.runtime == Python", {"backend.runtime": "Python"}))
+            self.assertFalse(discovery.eval_condition(repo, "database exists", {}))
+            for bad, why in (("cloud.provider == AWS", "`cloud.provider`"), ("backend.runtime == Ruby", "`Ruby`"), ("backend.runtime ~ x", "grammar")):
+                with self.assertRaises(GateFault) as cm:
+                    discovery.eval_condition(repo, bad, {})
+                self.assertIn(why, str(cm.exception))
+
+    # ── cures: the null key, the answer home, resolve fail-closed, exists, the CLI (EVOL-102 review) ──
+    def test_grammar_null_never_differs(self):
+        ev = lambda c, a: discovery.evaluate(discovery.parse(c), a)
+        self.assertFalse(ev("frontend.framework != None", {"project_scope": "backend-only"}), "a null key never differs")
+        self.assertTrue(ev("frontend.framework != None", {"frontend.framework": "React"}))
+        self.assertFalse(ev("frontend.framework != None", {"frontend.framework": "None"}))
+        self.assertFalse(ev("a NOT IN [B1]", {}), "a null key is never NOT IN"); self.assertTrue(ev("a NOT IN [B1]", {"a": "B2"}))
+        self.assertFalse(ev("a NOT IN [B1, null]", {})); self.assertTrue(ev("a NOT IN [B1, null]", {"a": "B2"}))
+        self.assertTrue(ev("a == null", {}), "== null stays the test of an unanswered key")
+        self.assertTrue(ev("a IN [x, null]", {}), "IN unchanged"); self.assertFalse(ev("a exists", {}))
+
+    def test_resolve_no_ne_question_pending_before_its_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            pend = discovery.resolve(repo, {})["pending"]
+            reg = json.loads((repo / discovery.REGISTRY).read_text())
+            for q in reg["questions"]:
+                if " != " in q.get("when", "") or " NOT IN " in q.get("when", ""):
+                    self.assertNotIn(q["id"], pend, f"{q['id']}'s `{q['when']}` waits for its key")
+            self.assertIn("Q6", discovery.resolve(repo, {"backend.runtime": "Python"})["pending"])
+
+    def test_exists_empty_collection_is_no_value(self):
+        ev = lambda c, a: discovery.evaluate(discovery.parse(c), a)
+        self.assertFalse(ev("dependencies.backend exists", {"dependencies.backend": []}), "an empty list is no value")
+        self.assertFalse(ev("dependencies exists", {"dependencies": {}}), "an empty dict is no value")
+        self.assertTrue(ev("dependencies.backend exists", {"dependencies.backend": ["x"]}))
+
+    def test_resolve_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            def man(mut):
+                m = json.loads(json.dumps(DISC_MANIFEST)); mut(m); write(repo / discovery.MANIFEST, json.dumps(m))
+            for mut, want in ((lambda m: m["templates"].__setitem__("rules/typo.md", {"stack_conditional": "backend.runtme == Python"}), "rules/typo.md"),
+                              (lambda m: m["templates"].__setitem__("rules/bad.md", {"stack_conditional": "backend.runtime ~ Python"}), "rules/bad.md"),
+                              (lambda m: m["templates"].__setitem__("rules/ruby.md", {"stack_conditional": "backend.runtime == Ruby"}), "rules/ruby.md"),
+                              (lambda m: m.__setitem__("templates", {}), "templates"),
+                              (lambda m: m.pop("templates"), "templates")):
+                man(mut)
+                with self.assertRaises(GateFault, msg=want) as cm:
+                    discovery.resolve(repo, {})
+                self.assertIn(want, str(cm.exception))
+            man(lambda m: None)
+            self._reg(repo, lambda reg: self._q(reg, "Q21").__setitem__("when", "project_mod == Greenfield"))
+            with self.assertRaises(GateFault) as cm:
+                discovery.resolve(repo, {})
+            self.assertIn("Q21", str(cm.exception))
+
+    def test_answers_fixture_unknown_key_is_a_fault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            for ok in ({"backend.runtime": "Python"}, {"verification.gates": "x"}, {"dependencies.backend": ["a"]}, {"backend": {"runtime": "Go"}}):
+                write(repo / "a.json", json.dumps({"answers": ok})); discovery.answers(repo, repo / "a.json")
+            write(repo / "a.json", json.dumps({"answers": {"backend.runtime": "Python", "cloud.provider": "AWS"}}))
+            with self.assertRaises(GateFault) as cm:
+                discovery.answers(repo, repo / "a.json")
+            self.assertIn("`cloud.provider`", str(cm.exception))
+
+    def test_validate_never_reads_answers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            with unittest.mock.patch.object(discovery, "answers", side_effect=AssertionError("validate read the answers")):
+                discovery.validate(repo)
+            write(repo / "docs/setup.md", "no fence\n")
+            discovery.validate(repo)
+
+    def test_materialize_synthetic_answers_without_value(self):
+        r = subprocess.run(["bash", str(HERE.parent / "materialize-synthetic.sh"), "--answers"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr); self.assertIn("Usage", r.stderr)
+
+    def test_v5_eval_conditions_single_quoted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            write(repo / discovery.MATERIALIZATION, "1. IF `gate.py discovery --eval \"ci_cd.platform == None\"` → x\n"
+                                                    "2. IF gate.py discovery --eval ci_cd.platform==None → y\n"
+                                                    "3. IF `gate.py discovery --eval 'ci_cd.platform == None'` → z\n"
+                                                    "4. Every IF asks `gate.py discovery --eval` — never by reading it.\n"
+                                                    "5. `gate.py discovery --eval '<condition>'`\n"
+                                                    "6. IF `gate.py discovery --eval=\"ci_cd.platform == None\"` → w\n"
+                                                    "7. IF gate.py discovery --eval\n")
+            v5 = self._rule(self._green(repo), "V5")
+            quoted = [f for f in v5 if "single quotes" in f]
+            self.assertEqual(sorted(f.split(":")[1].split(" ")[0] for f in quoted), ["1", "2", "6", "7"], v5)
+            self.assertEqual(v5, quoted, "the single-quoted condition and the prose mention are no finding")
+            (repo / discovery.MATERIALIZATION).unlink()
+            self.assertTrue(any("is absent" in f for f in self._rule(self._green(repo), "V5")), "an absent materialisation is a finding")
+
+    # ── V1 · V2 · V3 · V6 mutations (each branch seen red) ─────────────────────────
+    def test_v1_each_rule(self):
+        cases = [
+            (lambda r: self._q(r, "Q3")["keys"].__setitem__("backend.runtime", {"options": ["Go", "Rust"]}), "key `backend.runtime` is declared twice"),
+            (lambda r: r["derived"].__setitem__("project_mode", {"from": "x"}), "`project_mode` is both asked and derived"),
+            (lambda r: self._q(r, "Q3").__setitem__("since", "1.0"), "since `1.0` is not a version"),
+            (lambda r: r.__setitem__("extra", 1), "top-level `extra`"),
+            (lambda r: self._q(r, "Q3").__setitem__("help", "x"), "`help` is not a question field"),
+            (lambda r: self._q(r, "Q3")["keys"]["project_mode"].__setitem__("label", "x"), "`label` is not a key-spec field"),
+            (lambda r: self._q(r, "Q3").__setitem__("id", "Question3"), "is not `Q<number>`"),
+            (lambda r: self._q(r, "Q3").__setitem__("when", "  "), "`when` is not a condition"),
+            (lambda r: self._q(r, "Q3").__setitem__("keys", {}), "no `keys`"),
+            (lambda r: self._q(r, "Q3")["keys"].__setitem__("Project.Mode2", {"options": ["a", "b"], "record_only": "r"}), "is not a dotted lower-case key"),
+            (lambda r: self._q(r, "Q3")["keys"]["project_mode"].__setitem__("record_only", " "), "record_only needs its reason"),
+            (lambda r: self._q(r, "Q3")["keys"]["project_mode"].__setitem__("options", []), "options is not a non-empty list"),
+            (lambda r: self._q(r, "Q3")["keys"]["project_mode"].__setitem__("options", ["Greenfield", "Greenfield"]), "options is not a non-empty list"),
+            (lambda r: self._q(r, "Q6")["keys"]["backend.framework"].__setitem__("options_by", {"values": {}}), "options_by is {key, values"),
+            (lambda r: self._q(r, "Q6")["keys"]["backend.framework"]["options_by"].__setitem__("key", "project_name"), "not a registry key with options"),
+            (lambda r: self._q(r, "Q6")["keys"]["backend.framework"]["options_by"]["values"].__setitem__("Python", []), "options_by `Python` is not a non-empty list"),
+            (lambda r: r["derived"].__setitem__("verification.gates", {"from": "x", "extra": 1}), "derived `verification.gates`"),
+            (lambda r: r["derived"].__setitem__("verification.gates", {"from": " "}), "derived `verification.gates`"),
+            (lambda r: r.__setitem__("derived", []), "`derived` is not an object"),
+        ]
+        for mut, want in cases:
+            with self.subTest(want=want), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self.assertFalse(self._rule(self._green(repo), "V1"))
+                self._reg(repo, mut)
+                v1 = " | ".join(self._rule(self._green(repo), "V1"))
+                self.assertIn(want, v1)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            write(repo / discovery.MANIFEST, json.dumps(dict(DISC_MANIFEST, framework_version="v1")))
+            self.assertIn("framework_version `v1`", " | ".join(self._rule(self._green(repo), "V1")))
+
+    def test_v2_single_option_by_parent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self.assertFalse(self._rule(self._green(repo), "V2"))
+            self._reg(repo, lambda reg: self._q(reg, "Q6")["keys"]["backend.framework"]["options_by"]["values"].__setitem__("Python", ["FastAPI"]))
+            v2 = self._rule(self._green(repo), "V2")
+            self.assertEqual(len(v2), 1, v2); self.assertIn("when `backend.runtime` is `Python`", v2[0])
+
+    def test_v3_credential_names(self):
+        for k, red in (("auth.token", True), ("x.private_key", True), ("x.apikey", True), ("x.credentials", True), ("x.passwd", True),
+                       ("x.password", True), ("x.secret", True), ("x.credential", True), ("x.api_key", True),
+                       ("token_store.x", True), ("x.keyboard", False), ("x.secrets_manager", False)):
+            with self.subTest(key=k), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self._reg(repo, lambda reg: self._q(reg, "Q1")["keys"].__setitem__(k, {"free": "text", "record_only": "r"}))
+                v3 = self._rule(self._green(repo), "V3")
+                self.assertEqual(bool(v3), red, v3)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda reg: self._q(reg, "Q1")["keys"].__setitem__("x.private_key", {"free": "vault_name", "record_only": "r"}))
+            self.assertFalse(self._rule(self._green(repo), "V3"), "vault_name holds the entry's name, never the secret")
+
+    def test_v6_each_direction(self):
+        cases = [
+            (lambda repo: self._reg(repo, lambda reg: self._q(reg, "Q21")["keys"].__setitem__("ci_cd.tier", {"free": "text", "record_only": "r"})), None,
+             "the registry persists `ci_cd.tier`"),
+            (None, lambda t: t.replace("#### Q1: Project Name\n- **Persist:** `project_name`\n", "#### Q1: Project Name\n- free text\n"),
+             "Q1: the instruction carries no `**Persist:**` line"),
+            (None, lambda t: t.replace("- **Persist:** `dependencies.backend[]`", "- **Persist:** `dependencies.backend[]`, `ghost.*`"),
+             "persists `ghost.*`, the registry question has no key under it"),
+            (None, lambda t: t.replace("#### Q1: Project Name\n", "#### Q1: Project Name\n- **Options:** Acme | Other\n"),
+             "the registry declares `project_name` free"),
+        ]
+        for reg_mut, text_mut, want in cases:
+            with self.subTest(want=want), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self.assertFalse(self._rule(self._green(repo), "V6"))
+                if reg_mut:
+                    reg_mut(repo)
+                if text_mut:
+                    write(repo / discovery.INSTRUCTION, text_mut(DISC_INSTRUCTION))
+                v6 = " | ".join(self._rule(self._green(repo), "V6"))
+                self.assertIn(want, v6)
+
+    def test_v5_derived_key_compared(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            man = json.loads(json.dumps(DISC_MANIFEST)); man["templates"]["rules/v.md"] = {"stack_conditional": "verification.gates == pytest"}
+            write(repo / discovery.MANIFEST, json.dumps(man))
+            self.assertEqual(self._rule(self._green(repo), "V5"), [], "a derived key holds no options to check a literal against")
+
+    # ── V8 · each consumer-literal check, from a green fixture ─────────────────────
+    V8_FILES = {
+        discovery.MATERIALIZATION: "| `GitHub Actions` | `governance-check.github-actions.yml` |\n| `GitLab CI` | `governance-check.gitlab-ci.yml` |\n",
+        ".context/templates/setup/rules/ci-cd.md": "  cloud_provider: {{CLOUD_PROVIDER}}  # AWS | None\n",
+        ".context/schemas/infrastructure_registry.schema.json": json.dumps({"properties": {"type": {"enum": ["database", "cache"]}}}),
+        ".claude/instructions/Factory-devops-provision-deploy.instructions.md":
+            "  Per architecture topology (codes):\n    B1 Traditional Monolith, B12 MVC Monolith: Build single deployable\n\nWhen resource.type == \"database\": back it up.\n",
+        ".context/templates/setup/scripts/lint-format.sh": "VALID=$(find .claude/rules -maxdepth 1 -name '*.md' -exec basename {} .md \\;)\n",
+        ".context/templates/setup/scripts/validate-migrations.sh": 'grep --include="*.php" "supabase/migrations" "drizzle/migrations"\n',
+        ".claude/instructions/Factory-backlog-operations.instructions.md": '  milestone_strategy: "{{milestone_strategy}}" # Q27.3: epic-based | none\n',
+        ".context/templates/setup/upgrade_safety_protocol.md": "The checksum is SHA-256.\n",
+        ".claude/skills/factory-build-verification/SKILL.md":
+            'MATCH stack.backend.runtime:\n    "Python" → pytest\n    "Node.js" → jest\nMATCH stack.frontend.framework:\n    "React" → vitest\n',
+    }
+
+    def _v8_repo(self, tmp):
+        repo = disc_repo(tmp)
+        for rel, text in self.V8_FILES.items():
+            write(repo / rel, text)
+        write(repo / discovery.INSTRUCTION, DISC_INSTRUCTION + "\nTopology: B1 (Traditional Monolith, $150/mo), B12 (MVC Monolith, $150/mo)\n")
+        self._reg(repo, lambda reg: reg["questions"].append({"id": "Q30", "tier": 2, "since": "1.0.0", "keys": {
+            "frontend.framework": {"options": ["React", "None"]}, "hosting.provider": {"options": ["AWS", "None"]},
+            "project_tracking.milestone_strategy": {"options": ["epic-based", "none"]}}}))
+        man = json.loads(json.dumps(DISC_MANIFEST))
+        man["templates"]["rules/python.md"]["target"] = ".claude/rules/python.md"
+        for kind in ("auto-tag", "governance-check"):
+            for slug, lit in (("github-actions", "GitHub Actions"), ("gitlab-ci", "GitLab CI")):
+                man["templates"][f"workflows/{kind}.{slug}.yml"] = {"version": "1.0.0", "stack_conditional": f'ci_cd.platform == "{lit}"'}
+        write(repo / discovery.MANIFEST, json.dumps(man))
+        disc_add(repo)
+        return repo
+
+    def _v8(self, repo):
+        return self._rule(discovery.validate(repo), "V8")
+
+    def test_v8_each_check(self):
+        def man(mut):
+            def f(repo):
+                m = json.loads((repo / discovery.MANIFEST).read_text()); mut(m); write(repo / discovery.MANIFEST, json.dumps(m))
+            return f
+        def text(rel, old, new):
+            def f(repo):
+                t = (repo / rel).read_text(); self.assertIn(old, t); write(repo / rel, t.replace(old, new))
+            return f
+        def reg(key, lit):
+            return lambda repo: self._reg(repo, lambda r: next(s for q in r["questions"] for k, s in q["keys"].items() if k == key)["options"].append(lit))
+        cases = [
+            ("CI platform table", lambda repo: write(repo / discovery.MATERIALIZATION, self.V8_FILES[discovery.MATERIALIZATION] + "| `Jenkins` | `governance-check.jenkins.groovy` |\n")),
+            ("CI platform table", lambda repo: write(repo / discovery.MATERIALIZATION, "no table\n")),
+            ("platform workflows", man(lambda m: m["templates"].__setitem__("workflows/governance-check.circleci.yml", {"version": "1.0.0"}))),
+            ("platform workflows", man(lambda m: m["templates"].__setitem__("workflows/auto-tag.github-actions.yaml", {"stack_conditional": 'ci_cd.platform == "GitLab CI"'}))),
+            ("pipeline templates", man(lambda m: m["templates"].pop("workflows/auto-tag.gitlab-ci.yml"))),
+            ("host enum", reg("hosting.provider", "GCP")),
+            ("infrastructure schema", text(".claude/instructions/Factory-devops-provision-deploy.instructions.md", '"database"', '"queue"')),
+            ("DEVOPS topology", text(".claude/instructions/Factory-devops-provision-deploy.instructions.md", "B1 Traditional Monolith", "B1 Classic Monolith")),
+            ("DEVOPS topology", text(".claude/instructions/Factory-devops-provision-deploy.instructions.md", ", B12 MVC Monolith", "")),
+            ("lint-format", text(".context/templates/setup/scripts/lint-format.sh", "'*.md'", "'*.mdc'")),
+            ("validate-migrations", text(".context/templates/setup/scripts/validate-migrations.sh", ' "drizzle/migrations"', "")),
+            ("one definition", text(".claude/instructions/Factory-backlog-operations.instructions.md", "epic-based | none", "epic-based | sprint-based | none")),
+            ("one definition", text(".context/templates/setup/upgrade_safety_protocol.md", "SHA-256.", "SHA-256 (MD5 before).")),
+            ("dependency readers", reg("backend.runtime", "Cobol")),
+        ]
+        for label, mut in cases:
+            with self.subTest(check=label), tempfile.TemporaryDirectory() as tmp:
+                repo = self._v8_repo(tmp)
+                self.assertEqual(self._v8(repo), [], "the V8 fixture is green")
+                mut(repo); disc_add(repo)
+                v8 = self._v8(repo)
+                self.assertTrue(v8, f"{label}: the mutation is seen")
+                self.assertEqual([f for f in v8 if not f.startswith(f"V8 · {label}:")], [], v8)
+        for rel in self.V8_FILES:
+            with self.subTest(absent=rel), tempfile.TemporaryDirectory() as tmp:
+                repo = self._v8_repo(tmp)
+                (repo / rel).unlink(); disc_add(repo)
+                v8 = self._v8(repo)
+                self.assertTrue(any(f"{rel} is absent" in f for f in v8), f"an absent consumer file is a finding, never a silent skip: {v8}")
+
+    def test_discovery_is_a_light_framework_member(self):
+        names = [m[0] for m in profile.MEMBERS]
+        self.assertEqual(names.index("discovery"), names.index("traceability") + 1)
+        row = next(m for m in profile.MEMBERS if m[0] == "discovery")
+        self.assertEqual(row, ("discovery", False, False, "gate.py", ["gate", "discovery"], True))
+        self.assertIn("discovery", {m["member"] for m in profile.owed("light")})
+
+    def test_cli(self):
+        gate = str(HERE.parent / "gate.py")
+        env = {**os.environ, "CLAUDE_PROJECT_DIR": ""}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            gt = lambda *a: subprocess.run([sys.executable, gate, "--repo", str(repo), "discovery", *a], capture_output=True, text=True, env=env)
+            write(repo / "a.json", json.dumps({"answers": {"backend.runtime": "Python", "ci_cd.platform": "GitHub Actions"}}))
+            r = gt("--eval", "backend.runtime == Python", "--answers", str(repo / "a.json")); self.assertEqual(r.returncode, 0, r.stderr); self.assertIn("holds", r.stdout)
+            r = gt("--eval", "backend.runtime == Node.js", "--answers", str(repo / "a.json")); self.assertEqual(r.returncode, 1); self.assertIn("does not hold", r.stdout)
+            for bad in ("cloud.provider == AWS", "backend.runtime == Ruby", "backend.runtime ~ x"):
+                r = gt("--eval", bad); self.assertEqual(r.returncode, 2, bad); self.assertNotIn("Traceback", r.stderr)
+            r = gt("--resolve", "--answers", str(repo / "a.json"), "--json"); self.assertEqual(r.returncode, 0, r.stderr)
+            j = json.loads(r.stdout); self.assertIn("Q6", j["pending"]); self.assertIn("rules/python.md", j["landing"])
+            r = gt("--resolve"); self.assertEqual(r.returncode, 2, "no answer home: a fault"); self.assertIn("docs/setup.md is absent", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            r = gt("--eval", "backend.runtme == Python"); self.assertEqual(r.returncode, 2); self.assertIn("backend.runtme", r.stderr, "the condition's fault comes before the answer home's")
+            r = gt("--eval", "backend.runtime == Python"); self.assertEqual(r.returncode, 2); self.assertNotIn("Traceback", r.stderr)
+            write(repo / "docs/setup.md", "no fence\n")
+            r = gt("--resolve"); self.assertEqual(r.returncode, 2); self.assertIn("frontmatter", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            write(repo / "docs/setup.md", "---\n- a\n---\n")
+            r = gt("--resolve"); self.assertEqual(r.returncode, 2); self.assertIn("not a mapping", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            write(repo / "docs/setup.md", "---\nbackend:\n  runtime: Python\n---\n")
+            r = gt("--resolve"); self.assertEqual(r.returncode, 0, r.stderr); self.assertIn("pending", r.stdout)
+            for args in (("--answers", str(repo / "a.json")), ("--json",), ("--eval", "backend.runtime == Python", "--json")):
+                r = gt(*args); self.assertEqual(r.returncode, 2, args); self.assertNotIn("Traceback", r.stderr)
+                self.assertIn("--resolve", r.stderr, "the plain message names the mode")
+            write(repo / "bad.json", json.dumps({"answers": {"cloud.provider": "AWS"}}))
+            r = gt("--resolve", "--answers", str(repo / "bad.json")); self.assertEqual(r.returncode, 2); self.assertIn("cloud.provider", r.stderr); self.assertNotIn("Traceback", r.stderr)
+            (repo / "docs/setup.md").unlink()
+            r = gt("--resolve", "--eval", "a == b"); self.assertEqual(r.returncode, 2, "mutually exclusive")
+            r = gt(); self.assertEqual(r.returncode, 1, r.stdout + r.stderr); self.assertIn("V8", r.stdout)
+            (repo / discovery.REGISTRY).unlink()
+            r = gt(); self.assertEqual(r.returncode, 2); self.assertIn("registry", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+
 class Cli(unittest.TestCase):
     def test_cli_exit_codes(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -3106,7 +3772,9 @@ class Cli(unittest.TestCase):
             r = subprocess.run([sys.executable, gate, "--repo", str(repo), "snapshot-sections"], capture_output=True, text=True, env=env)
             self.assertIn("### [PLAW-01] KISS & DRY", r.stdout)
             self.assertIn("| `runtime` |", r.stdout)
-            self.assertIn("runtime: Python", r.stdout, "stack configuration comes from the one reader")
+            self.assertIn("runtime: Go", r.stdout, "stack configuration comes from the one answer home, docs/setup.md (EVOL-102)")
+            self.assertNotIn("runtime: Python", r.stdout, "the constitution frontmatter is not an answer home")
+            self.assertNotIn("framework:", r.stdout.split("## Rules Manifest")[0], "an unanswered (null) stack key is left out")
             self.assertIn("| python.md | {", r.stdout, "rules manifest comes from the one reader")
             self.assertNotIn("Law Bodies", r.stdout)
             const = repo / "docs/constitution.md"

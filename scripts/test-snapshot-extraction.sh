@@ -45,10 +45,8 @@ EOF
 cat > "$P/docs/constitution.md" <<'EOF'
 ---
 version: 4.0.0
-project_scope: full-stack
 backend:
-  runtime: Python
-  framework: FastAPI
+  runtime: Ruby
 ---
 # Constitution — Fixture
 
@@ -65,6 +63,11 @@ EOF
 cat > "$P/docs/setup.md" <<'EOF'
 ---
 project_scope: full-stack
+backend:
+  runtime: Python
+  framework: FastAPI
+frontend:
+  framework: null
 codesign:
   authoring: internal
 ---
@@ -138,7 +141,9 @@ grep -q '^| `runtime` | `src/\*\*` | Every runtime path fails loudly. |$' "$S" &
 grep -q '| python.md | {"path_glob": \["\*\*/\*.py"\], "framework": \["fastapi"\]} |' "$S" && pass "rules manifest: nested applicable_when rendered by the one parser" || fail "rules manifest applicability wrong: $(grep 'python.md' "$S")"
 grep -q '^  authoring: internal$' "$S" && pass "setup.md frontmatter verbatim (codesign.authoring reaches the snapshot)" || fail "setup frontmatter missing"
 grep -q '^- src/core/$' "$S" && pass "protected paths rendered" || fail "protected paths missing"
-grep -q 'runtime: Python' "$S" && pass "stack configuration from the constitution frontmatter" || fail "stack config missing"
+grep -q 'runtime: Python' "$S" && ! grep -q 'runtime: Ruby' "$S" && pass "stack configuration from the docs/setup.md frontmatter, not the constitution (EVOL-102)" || fail "stack config not read from docs/setup.md"
+python3 -c 'import re, sys; t = open(sys.argv[1]).read(); s = t.split("## Stack Configuration", 1)[-1].split("\n## ", 1)[0]; sys.exit(1 if re.search(r"^ *framework: (None|null)$", s, re.M) else 0)' "$S" \
+  && pass "an unanswered key stays out of the stack section (frontend.framework: null)" || fail "an unanswered key (frontend.framework: null) printed in the stack section"
 BYTES=$(wc -c < "$S"); [ "$BYTES" -le 16000 ] && pass "lite snapshot within budgets.snapshot ($BYTES B)" || fail "over budget"
 
 OUT=$(run_gen --quiet --profile full); RC=$?

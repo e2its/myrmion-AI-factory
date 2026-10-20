@@ -44,6 +44,9 @@
   gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
   gate.py traceability --declared --json           the declared qualified case ids (FEATURE/CASE) and the manual ones — what the pytest plugin validates at collection; a listing, rc 0
   gate.py traceability --baseline --init|--refresh   record the unlinked debt once / shrink it (never adds)
+  gate.py discovery                                validate the SETUP question registry (EVOL-102, V1–V9): schema, single options, credential keys, consumers, conditions, instruction + template parity, consumer literals, snapshot keys; exit 1 findings · 2 fault
+  gate.py discovery --resolve [--answers FILE] [--json]   the pending questions (tier order) and the template entries that land / are skipped, for one answer set (docs/setup.md frontmatter, or FILE {"answers": {...}})
+  gate.py discovery --eval COND [--answers FILE]   evaluate one condition of the discovery grammar; exit 0 holds · 1 does not hold · 2 fault (unparseable, unknown key, a literal outside the options, an absent or fence-less docs/setup.md, --answers / --json without a mode, --json with --eval)
   gate.py scm-protection [--control-point P] [--json]   the server defends the branch rule (config: scm): at ci, with a token, the platform's API is asked per protected branch — a missing setting is RED; no token / no adapter / push / static → n/a with the checklist (docs/scm/protection.md)
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
   gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort; exit 1 when the round is over the class cap
@@ -68,7 +71,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, corpus, digests as digests_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod  # noqa: E402
+    from gates import agents as agents_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, corpus, digests as digests_mod, discovery as discovery_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -448,6 +451,26 @@ def cmd_traceability(repo, a):
     return 0 if r["ok"] else 1
 
 
+def cmd_discovery(repo, a):
+    if not a.resolve and a.eval is None and (a.answers or a.json):
+        raise GateFault(f"{'--answers' if a.answers else '--json'} needs a mode: --resolve (the pending questions and the templates) or --eval COND; plain `gate.py discovery` validates the registry")
+    if a.eval is not None and a.json:
+        raise GateFault("--json goes with --resolve; --eval answers by its exit code (0 holds · 1 does not hold · 2 fault)")
+    if a.resolve or a.eval is not None:
+        ast = discovery_mod.checked(repo, a.eval) if a.eval is not None else None   # the condition first: its fault names it
+        ans = discovery_mod.answers(repo, Path(a.answers) if a.answers else None)
+        if a.resolve:
+            r = discovery_mod.resolve(repo, ans)
+            print(json.dumps(r) if a.json else discovery_mod.render_resolve(r))
+            return 0
+        holds = discovery_mod.evaluate(ast, ans)
+        print(f"discovery: `{a.eval}` {'holds' if holds else 'does not hold'}")
+        return 0 if holds else 1
+    findings = discovery_mod.validate(repo)
+    print(discovery_mod.render(findings))
+    return 1 if findings else 0
+
+
 def cmd_one_definition(repo, a):
     f = profile_mod.one_definition(repo)
     print(coherence.render("one-definition", [{"path": f"{x['path']}:{x['line']}", "reason": x["reason"]} for x in f], "hooks, workflows and the preflight keep no second definition"))
@@ -567,6 +590,7 @@ def build_parser():
     p = sub.add_parser("push-log"); p.add_argument("--exit", type=int, required=True); p.add_argument("--start", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_push_log)
     p = sub.add_parser("scm-protection"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_scm)
     p = sub.add_parser("traceability"); p.add_argument("--declared", action="store_true"); p.add_argument("--baseline", action="store_true"); p.add_argument("--init", action="store_true"); p.add_argument("--refresh", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_traceability)
+    p = sub.add_parser("discovery"); g = p.add_mutually_exclusive_group(); g.add_argument("--resolve", action="store_true"); g.add_argument("--eval", default=None, metavar="COND"); p.add_argument("--answers", default=None, metavar="FILE"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_discovery)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
     p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--spawn", action="store_true"); p.add_argument("--model", default=""); p.add_argument("--hook-json", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
