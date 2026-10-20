@@ -200,7 +200,7 @@ After every command:
 
 ## Artifact States
 
-`DRAFT` → `APPROVED` (via approval/auto-approval), `NEEDS_INFO` (paused, needs `--refine`), `BLOCKED`, `BUILDING` → `IMPLEMENTED_AND_VERIFIED`, `CASCADE_PENDING_ITERATION`, `REJECTED` (QA).
+`DRAFT` → `APPROVED` (via approval/auto-approval), `NEEDS_INFO` (paused, needs `--refine`), `BLOCKED`, `BUILDING` → `IMPLEMENTED_AND_VERIFIED`, `CASCADE_PENDING_ITERATION`, `REJECTED` (QA). Terminal: `CANCELLED` (`--cancel`), `SUPERSEDED` (`--revise`); a terminal feature is never pending work.
 
 **Currency (EVOL-044).** A verdict artefact (`qa_report*`, `peer_review_*`, `sec_audit*`, `smoke_e2e_report`) declares what it certified in frontmatter `certifies:` (`subject: diff|tree`, `hash` from `python3 scripts/gate.py certify`); push gate and CI recompute it (`gate.py currency`) — a moved subject is STALE, re-taken, never re-blessed. A frontmatter `version:` moves with its manifest entry (`gate.py manifest-parity`; the manifest wins). Law bodies quote their index sentence byte-identically (`gate.py laws --parity`).
 

@@ -31,7 +31,9 @@ Canonical generation order (dependency order — the journey is the ROOT):
 
 All feature artifacts share these frontmatter fields:
 ```yaml
-status: DRAFT | NEEDS_INFO | APPROVED | DEPRECATED | CANCELLED | SUPERSEDED
+status: DRAFT | NEEDS_INFO | APPROVED | CANCELLED | SUPERSEDED   # terminal: CANCELLED, SUPERSEDED
+#   --revise writes v1 as `APPROVED (SUPERSEDED)`: a status containing SUPERSEDED is terminal
+#   a feature written before EVOL-114 may carry legacy DEPRECATED: reads as CANCELLED (terminal), never written
 feature_id: "{{FEATURE_ID}}"
 scope: full-stack | backend-only | frontend-only | integration   # dual-axis — set at --start, immutable after APPROVED
 iteration: 1              # Incremented on each --refine in Iteration Mode
@@ -726,6 +728,9 @@ IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-comman
 # Step 4: Change Classification Protocol (structural classification)
 # Step 5: Iteration Execution (bump iteration, cascade, changelog)
 # Step 6: Re-run Tripartite Alignment + auto-approval validations
+# Step 7: Status — NEEDS_INFO → DRAFT once no blocking question is left open; else stays NEEDS_INFO.
+#         APPROVED → DRAFT (new iteration, step 5); with downstream work Step 4 classifies each change — a blocked one → --revise.
+#         Terminal: HARD BLOCK.
 ```
 
 ### CIP Domain Concept Re-Check (CONDITIONAL — runs when refine introduces NEW concepts)
@@ -948,19 +953,10 @@ Creates a new Feature ID from an existing one (for pure BREAKING changes):
 ## Terminal State Commands
 
 ### `--cancel {{FEATURE_ID}}`
+- Abandons the feature at any non-terminal state (`DRAFT`, `NEEDS_INFO`, `APPROVED`)
 - Sets `status: CANCELLED` in all feature artifacts (slice_map.md included when incremental)
-- CANCELLED is a **terminal state** — no agent can modify these artifacts
+- CANCELLED is a **terminal state** — no agent can modify these artifacts; next-task never proposes its items
 - Logs cancellation reason in worklog
-
-### `--deprecate {{FEATURE_ID}}`
-- Sets `status: DEPRECATED` in all feature artifacts (slice_map.md included when incremental)
-- DEPRECATED is a **terminal state** — no agent can modify these artifacts
-- Used when feature is replaced by a newer version
-
-### `--reset {{FEATURE_ID}}`
-- Resets artifacts back to `status: DRAFT` from `NEEDS_INFO`
-- Clears blocking questions
-- Does NOT work on APPROVED, CANCELLED, or DEPRECATED artifacts
 
 ---
 
@@ -1052,7 +1048,7 @@ Scenario: Original scenario name
 | WCAG violation in mock | Run WCAG Auto-Repair Protocol (max 3 iterations) |
 | § 6 Business Fields incomplete at approve | BLOCK with list of incomplete concept tables |
 | Tripartite misalignment | Run Disparity Resolution Protocol per gap |
-| CANCELLED/DEPRECATED feature | HARD BLOCK — terminal state, no modifications allowed |
+| CANCELLED/SUPERSEDED feature (legacy DEPRECATED included) | HARD BLOCK — terminal state, no modifications allowed |
 
 ---
 

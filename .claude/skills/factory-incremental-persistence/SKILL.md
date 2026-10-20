@@ -137,7 +137,7 @@ FUNCTION resume_or_start(artifact_path, FEATURE_ID, command):
       RESUME_FROM(progress.pending_sections[0])
       RETURN "RESUMED"
     
-    ELIF fm.status IN [APPROVED, IMPLEMENTED_AND_VERIFIED, CANCELLED, DEPRECATED]:
+    ELIF fm.status IN [APPROVED, IMPLEMENTED_AND_VERIFIED, CANCELLED, SUPERSEDED, DEPRECATED]:   # DEPRECATED: legacy
       # TERMINAL STATE — do not overwrite
       LOG: "Artifact in terminal state: {fm.status}"
       RETURN "TERMINAL"
@@ -317,7 +317,7 @@ FUNCTION finalize_artifact(artifact_path, final_status):
 | `--refine {ID}` | Resume existing artifacts → save per modified scenario → persist changelog entry → persist CASCADE to downstream frontmatters → save alignment re-check results |
 | `--vision` | Skeleton 6 vision artifacts → save per artifact completion → save decisions |
 | `--vision-refine` | Resume vision artifacts → save per modified artifact → persist changelog |
-| `--cancel/--deprecate` | Terminal state write → status update → _progress → null |
+| `--cancel` | Terminal state write → status update → _progress → null |
 
 ### BLUEPRINT
 | Command | Key Persistence Points |

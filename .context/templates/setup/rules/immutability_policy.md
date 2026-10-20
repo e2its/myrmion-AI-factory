@@ -12,7 +12,7 @@ This policy guarantees the **traceability integrity** between specifications and
 ### Problem It Solves
 
 Without immutability, critical situations can occur:
-- `/CODESIGN --reset USR-001` is executed **after** the code is in production
+- `/CODESIGN --refine USR-001` rewrites the spec **after** the code is in production
 - Specifications disappear while the code remains active
 - Compliance violations (GDPR, SOX, HIPAA) due to audit trail loss
 - Inability to trace features back to their original requirements
@@ -29,9 +29,9 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 
 | SDLC Phase | Lock Trigger | Immutable Artifact | Blocked Commands | Allowed Command |
 |------------|--------------|--------------------|-----------------|-----------------|
-| **CODESIGN Approved** | `/CODESIGN --start` / `--refine` (auto-approval) | `spec.feature` | `/CODESIGN --reset` (with downstream), `/CODESIGN --refine` (if downstream APPROVED) | `/CODESIGN --revise` |
+| **CODESIGN Approved** | `/CODESIGN --start` / `--refine` (auto-approval) | `spec.feature` | `/CODESIGN --refine` (if downstream APPROVED) | `/CODESIGN --revise` |
 | **CODESIGN Approved (slice_map)** | `/CODESIGN --start` / `--refine` (auto-approval) | `slice_map.md` plan-level frontmatter + § 0; § 1 scenario membership frozen per-scenario as realizing increments reach MERGED (see Per-Slice Immutability) | `/CODESIGN --refine` re-slice touching a MERGED scenario | `/CODESIGN --revise` or additive follow-up slice |
-| **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --reset`, `/CODESIGN --refine`, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --revise` |
+| **BLUEPRINT Approved** | `/BLUEPRINT --approve` | `spec.feature` + `test_plan.md` + `design.md` + `increment_plan.md` (plan-level frontmatter; per-increment § 1 sections follow the Per-Increment Immutability table below) | `/CODESIGN --refine`, `/BLUEPRINT --refine` (except on increments in DRAFT/READY/INVALIDATED status) | `/CODESIGN --revise` |
 | **IMPLEMENT Plan Approved** | `/IMPLEMENT --plan` | All previous + `dev_plan.md` | All previous + `/BLUEPRINT --refine` (except per-increment allowance) | `/CODESIGN --revise` or `/BLUEPRINT --refine` (scoped to editable increments) |
 | **IMPLEMENT Approved** | `/IMPLEMENT --build` (the work critics pass — correctness, security, governance, fidelity) | All previous + source code | All previous + `/IMPLEMENT --fix` (without versioning) | `/CODESIGN --revise` (new version) |
 | **QA Verify+DAST Approved** | `/QA --verify` (post-staging auto-approval, includes the DAST security pass) | Entire chain | All previous | Only `/CODESIGN --revise` (creates new feature) |
@@ -41,19 +41,19 @@ Instead of allowing destructive modifications, the system **blocks** dangerous o
 
 #### Phase 0: DRAFT (No Restrictions)
 - **State:** `status: DRAFT`, `status: NEEDS_INFO`
-- **Allowed:** Any modification via `--refine`, `--reset`
+- **Allowed:** Any modification via `--refine` (`NEEDS_INFO` → `DRAFT` once no blocking question is open); `--cancel` abandons
 - **Immutability:** None
 
 #### Phase 1: PO APPROVED (Soft Lock)
 - **Trigger:** `/CODESIGN --start` or `--refine` auto-approval USR-001
-- **Lock:** `spec.feature` blocked for `/CODESIGN --reset` **IF** downstream work exists (`test_plan.md`, `design.md`, `dev_plan.md`)
+- **Lock:** `spec.feature` blocked for `/CODESIGN --refine` **IF** downstream work exists (`test_plan.md`, `design.md`, `dev_plan.md`)
 - **Exception:** Typographic corrections via `/CODESIGN --refine` allowed (maximum 3, recorded in history)
 - **Versioning:** Not required if no downstream work
 
 #### Phase 2: BLUEPRINT APPROVED (Hard Lock - Start)
 - **Trigger:** `/BLUEPRINT --approve USR-001` (mandatory manual checkpoint)
 - **Lock Cascade:**
-  - `spec.feature` → **BLOCKED** for PO (no more `--reset`, no more `--refine`)
+  - `spec.feature` → **BLOCKED** for PO (no more `--refine`)
   - `test_plan.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
   - `design.md` → **BLOCKED** for BLUEPRINT (no more `--refine` without versioning)
   - `increment_plan.md` → **PARTIALLY BLOCKED** — plan-level frontmatter and § 0 Refinement Record frozen; § 1 per-increment sections follow Per-Increment Immutability below
@@ -158,7 +158,7 @@ def check_slice_immutability(feature_id, proposed_slice_map):
 - **Versioning:** **MANDATORY** for any upstream or downstream change
 - **Next Phase:** DEVOPS deploy to staging → QA verification → SEC DAST
 
-#### Fase 3.5: ~~REVIEW APPROVED~~ (DEPRECATED — Absorbed into IMPLEMENT --build)
+#### Fase 3.5: ~~REVIEW APPROVED~~ (retired — absorbed into IMPLEMENT --build)
 > Review is now inline within `/IMPLEMENT --build` (the read-only work critics per phase). No separate review phase exists.
 
 #### Phase 4: QA VERIFY+DAST APPROVED (Hard Lock - Post-Staging Certified)
@@ -378,24 +378,20 @@ Downstream agents will detect parent version and offer inheritance options.
 
 ---
 
-### `/CODESIGN --deprecate {{FEATURE_ID}} "[REASON]"`
+### `/CODESIGN --cancel {{FEATURE_ID}} "[REASON]"`
 
-**Purpose:** Soft-cancel for approved features (marks as obsolete without breaking traceability)
-
-**Difference vs `/CODESIGN --cancel`:**
-- **`--cancel`:** Hard block, used for early-stage failures (DRAFT, NEEDS_INFO)
-- **`--deprecate`:** Soft archive, used for completed features that are no longer maintained
+**Purpose:** Abandon a feature at any non-terminal state (`DRAFT`, `NEEDS_INFO`, `APPROVED`) without breaking traceability.
 
 **Workflow:**
-1. **Validation:** Feature must exist with `status: APPROVED` or higher
-2. **Mark as DEPRECATED:**
+1. **Validation:** Feature exists and is not terminal (`CANCELLED`, `SUPERSEDED`, legacy `DEPRECATED`)
+2. **Mark as CANCELLED** in every feature artifact (slice_map.md included when incremental):
    ```yaml
-   status: DEPRECATED
-   deprecated_at: 2026-01-22T12:00:00Z
-   deprecation_reason: "Business requirements changed"
+   status: CANCELLED
    ```
-3. **Does not delete artifacts** — Only marks as inactive
-4. **Log:** `| PO | DEPRECATED | USR-001 | Reason: [REASON] |`
+3. **Does not delete artifacts** — only marks them terminal; next-task never proposes their items
+4. **Log:** `| PO | CANCELLED | USR-001 | Reason: [REASON] |` (worklog)
+
+A legacy `DEPRECATED` (written before EVOL-114) reads as `CANCELLED`; it is never rewritten (terminal artifacts are immutable).
 
 ---
 
@@ -553,7 +549,7 @@ def check_immutability(agent, command, feature_id):
     frontmatter = parse_frontmatter(artifact_path)
     
     # Check 1: CANCELLED state (universal block)
-    if frontmatter.get("status") == "CANCELLED":
+    if frontmatter.get("status") in ("CANCELLED", "DEPRECATED"):  # DEPRECATED: legacy, reads as CANCELLED
         raise BlockedError("Feature is CANCELLED. Cannot operate on cancelled features.")
     
     # Check 2: SUPERSEDED state
@@ -565,7 +561,7 @@ def check_immutability(agent, command, feature_id):
     
     # Check 3: Immutability lock (agent-specific)
     if frontmatter.get("status") == "APPROVED":
-        if command in ["--refine", "--plan", "--reset"]:
+        if command in ["--refine", "--plan"]:
             if has_downstream_work(agent, feature_id):
                 raise BlockedError(
                     f"Artifact is APPROVED with downstream work. "

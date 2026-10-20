@@ -155,7 +155,7 @@ See `.claude/rules/defect-prevention.md` § Mandatory Process Integration § 2 f
 ## Execution Guardrails
 
 ### CANCELLED Verification
-- If `design.md` or `test_plan.md` has `status: CANCELLED` → HARD BLOCK
+- If `design.md` or `test_plan.md` has a terminal status (`CANCELLED`, a status containing `SUPERSEDED`, or a legacy `DEPRECATED`) → HARD BLOCK
 
 ### Feature Concurrency Prevention
 - Lock: `.context/locks/feature-{{FEATURE_ID}}.lock`

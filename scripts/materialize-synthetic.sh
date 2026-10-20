@@ -204,6 +204,14 @@ OUT=$(cd "$P" && printf '%s' '{"tool_input":{"file_path":"src/app/models.py"},"s
 printf '%s' "$OUT" | grep -q '"additionalContext"' && printf '%s' "$OUT" | grep -q 'DC-' && ok "a real edit payload gets its defect classes delivered through the envelope" || bad "delivery hook delivered nothing for src/app/models.py" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "retired-term ratchet clean in the materialised tree" || bad "retired terms in the materialised tree" "$OUT"
+# EVOL-114: a legacy feature keeps its history (docs/spec/** exempt); the same order in a project rule is red
+mkdir -p "$P/docs/spec/F-OLD"; printf -- '---\nstatus: DEPRECATED\n---\n# history: /codesign --deprecate F-OLD\n' > "$P/docs/spec/F-OLD/spec.feature"; git -C "$P" add -A   # the legacy fixture
+OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "a legacy DEPRECATED feature citing /codesign --deprecate stays green (docs/spec/** exempt)" || bad "legacy feature history turned the ratchet red" "$OUT"
+printf 'Run `/codesign --deprecate F-OLD`.\n' > "$P/docs/old-order.md"; git -C "$P" add -A
+OUT=$(cd "$P" && python3 scripts/gate.py retired-terms 2>&1); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'docs/old-order.md:1' && ok "RED: a retired CODESIGN order outside the feature history is named" || bad "retired CODESIGN order not caught (rc=$RC)" "$OUT"
+git -C "$P" rm -q -f docs/old-order.md docs/spec/F-OLD/spec.feature
 # the project manifest SETUP writes (targets keyed by template path, versions carried over) — then parity must hold
 python3 - "$MANIFEST" "$P/docs/project_log/governance_versions.json" <<'PY'
 import json, sys, pathlib

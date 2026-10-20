@@ -64,7 +64,7 @@ Read `docs/backlog/execution-plan.md` top-to-bottom and identify checklist items
 
 ### Step 1.2: Select candidate
 
-Select the first pending item in natural plan order.
+Select the first pending item in natural plan order whose feature is not terminal (§ 5.3 step 0). None left → report no pending work and name each terminal feature that still holds open items.
 
 ### Step 1.3: Prerequisite gate
 
@@ -433,7 +433,7 @@ Pending gates (warn): {rendered_warns_or_none}
 
 1. **READ-ONLY.** `--eligible` MUST NOT write to the board, MUST NOT persist an eligible set, MUST NOT label items with `eligible:*`. Every invocation is a fresh compute.
 2. **Cache is optimization, never state.** Read-through caches (`/memories/repo/execution-plan-cache.md` in file mode, `/memories/repo/project-board-cache.md` in board mode) MAY be consulted as fast paths but NEVER treated as authoritative. Cache mismatches refresh from SSOT; they never override it.
-3. **Same filter chain as `--next-task`.** Eligibility = the item would NOT be rejected by any of: intra-feature prerequisite gate (§ 1.3), `blocked-by:#{N}` filter (§ 1.3.4), hard-gate enforcement with mode fallback (§ 1.3.5). Items gated by `warn` mode are ELIGIBLE but flagged; items gated by `enforce` are INELIGIBLE; items gated by `off` are ELIGIBLE with no flag.
+3. **Same filter chain as `--next-task`.** A terminal feature's item (§ 5.3 step 0) is excluded — not pending, not blocked. Eligibility = the item would NOT be rejected by any of: intra-feature prerequisite gate (§ 1.3), `blocked-by:#{N}` filter (§ 1.3.4), hard-gate enforcement with mode fallback (§ 1.3.5). Items gated by `warn` mode are ELIGIBLE but flagged; items gated by `enforce` are INELIGIBLE; items gated by `off` are ELIGIBLE with no flag.
 4. **Dual-mode source of truth** (same as `--next-task` § 0):
    - File mode (`tool == "None"`): enumerate pending checklist items from `docs/backlog/execution-plan.md`.
    - Board mode (`tool != "None"`): enumerate pending items from `ADAPTER.query_board()`; `execution-plan.md` does NOT exist on disk — do not read or write it.
@@ -453,9 +453,12 @@ FUNCTION compute_eligible_pool(limit=20):
     # terminal_statuses() derived from project_tracking.board_columns — last column
     # (typically "Done") plus any user-customised closed column. Tool-agnostic.
 
+  # Step 1b — a terminal feature's items are not pending work (§ 5.3 step 0)
+  pending = [c for c in candidates if NOT terminal_feature(c)]
+
   # Step 2 — Apply the SAME filter chain as --next-task, per candidate
   eligible = []
-  FOR EACH candidate IN candidates:
+  FOR EACH candidate IN pending:
     verdict = apply_filter_chain(candidate)  # reuses §§ 1.3, 1.3.4, 1.3.5 logic
     IF verdict.status == "blocked_hard":
       CONTINUE    # intra-feature prereq or blocked-by or enforce-gate → exclude
@@ -472,9 +475,9 @@ FUNCTION compute_eligible_pool(limit=20):
   RETURN {
     pool: eligible,
     mode: mode,
-    total_pending: len(candidates),
+    total_pending: len(pending),
     shown: len(eligible),
-    capped: len(candidates) > limit
+    capped: len(pending) > limit
   }
 ```
 
@@ -483,7 +486,16 @@ FUNCTION compute_eligible_pool(limit=20):
 The per-candidate logic lives in a single function reused by both resolvers:
 
 ```yaml
+FUNCTION terminal_feature(candidate):
+  # status of docs/spec/{candidate.feature_id}/spec.feature: CANCELLED, contains SUPERSEDED, or legacy DEPRECATED.
+  # No feature_id, or spec.feature absent / unreadable → not terminal: the item stays and the gates below judge it.
+  RETURN READ_FRONTMATTER("docs/spec/{candidate.feature_id}/spec.feature", "status") is terminal (above)
+
 FUNCTION apply_filter_chain(candidate):
+  # 0. Terminal feature (EVOL-114) — never pending work, never "blocked"
+  IF terminal_feature(candidate):
+    RETURN {status: "excluded", reason: "terminal-feature"}
+
   # 1. Intra-feature prerequisite (§ 1.3)
   IF candidate has upstream phase pending in same feature:
     RETURN {status: "blocked_hard", reason: "phase-order"}
@@ -510,7 +522,7 @@ FUNCTION apply_filter_chain(candidate):
   RETURN {status: "open"}
 ```
 
-`--next-task` reuses `apply_filter_chain` for its single candidate; `--eligible` calls it once per pending candidate.
+`--next-task` reuses `apply_filter_chain` for its single candidate (an `excluded` one is skipped to the next pending item); `--eligible` calls it once per pending candidate.
 
 ### 5.4 Response Contract
 

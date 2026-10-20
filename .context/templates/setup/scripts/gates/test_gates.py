@@ -603,6 +603,26 @@ class Retired(unittest.TestCase):
         for line in green:
             self.assertFalse(any(retired._matches(t, line) for t in shipped), f"correct wording is green: {line!r}")
 
+    def test_codesign_exits_patterns_red_and_green(self):
+        """EVOL-114: the retired orders and the DEPRECATED feature state are red; legacy wording and the live exits green; the state entry never ships (strings built at runtime: this file is scanned)."""
+        real = HERE.parent.parent
+        if not (real / "config/quality.json").is_file() or not (real / ".context/templates/setup").is_dir():
+            self.skipTest("not the framework repo")
+        shipped = [t for t in retired._terms(real) if t["record"].startswith("ADR-EVOL-114")]
+        self.assertEqual(len(shipped), 2, "EVOL-114 ships two retired shapes")
+        dep, rst, word = "--dep" + "recate", "--re" + "set", "DEPR" + "ECATED"
+        red = [f"status: {word}", f"/codesign {dep} F-1", f"`/CODESIGN {rst} F-1`", f"CODESIGN {rst}"]
+        for line in red:
+            self.assertTrue(any(retired._matches(t, line) for t in shipped), f"retired shape is red: {line!r}")
+        green = [f"legacy {word} reads as CANCELLED", f"Legacy {word}", f"NOT_{word}", "/codesign --refine F-1", "codesign --cancel F-1", "/codesign --revise F-1"]
+        for line in green:
+            self.assertFalse(any(retired._matches(t, line) for t in shipped), f"correct wording is green: {line!r}")
+        tpl = (real / ".context/templates/setup/config/quality.json").read_text(encoding="utf-8")  # placeholders: raw text, not JSON
+        (orders,), (state,) = [t["pattern"] for t in shipped if word not in t["pattern"]], [t["pattern"] for t in shipped if word in t["pattern"]]
+        self.assertEqual(tpl.count('"ADR-EVOL-114"'), 1, "the template ships one EVOL-114 entry")
+        self.assertIn(json.dumps(orders), tpl, "the template ships the orders entry")
+        self.assertNotIn(json.dumps(state), tpl, "the state entry never ships — a project's own code uses the word")
+
 
 class Budget(unittest.TestCase):
     def test_missing_key_is_a_red_verdict_and_corrupt_config_a_fault(self):

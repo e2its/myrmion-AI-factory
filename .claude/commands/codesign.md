@@ -52,8 +52,8 @@ With external authoring, `--start` / `--refine` (and `--vision` / `--vision-refi
 
 **Full protocol:** See `.claude/instructions/Factory-codesign-sync.instructions.md` · operator steps: `subproducts/po-package/RUNBOOK.md` · upstream skill: `factory-po-intake`.
 
-### 4. Lifecycle (`--revise {ID}`, `--cancel {ID}`, `--deprecate {ID}`, `--reset {ID}`)
-State sub-commands on an existing feature: `--revise` opens a new feature version (the only path for a breaking change to a MERGED scenario); `--cancel` / `--deprecate` set a terminal state; `--reset` returns `NEEDS_INFO` to `DRAFT`.
+### 4. Lifecycle (`--revise {ID}`, `--cancel {ID}`)
+State sub-commands on an existing feature: `--revise` opens a new feature version (the only path for a breaking change to a MERGED scenario); `--cancel` abandons it at any non-terminal state (`DRAFT`, `NEEDS_INFO`, `APPROVED`) and writes `CANCELLED`. A paused (`NEEDS_INFO`) feature resumes through `--refine`.
 
 **Full protocol:** See `.claude/instructions/Factory-codesign-feature.instructions.md` § Command: `--revise` · § Terminal State Commands.
 
