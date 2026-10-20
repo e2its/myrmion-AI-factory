@@ -74,7 +74,7 @@ Conditional Scripts:
 ## Execution Guardrails
 
 ### CANCELLED Status Check
-Before ANY command, check `spec.feature` or `test_plan.md` frontmatter. If `status: CANCELLED` → BLOCK and STOP.
+Before ANY command, check `spec.feature` or `test_plan.md` frontmatter. If the status is terminal (`CANCELLED`, a status containing `SUPERSEDED`, or a legacy `DEPRECATED`) → BLOCK and STOP.
 
 ### Concurrency Lock
 Acquire `.context/locks/feature-{{FEATURE_ID}}.lock` before execution. Release on completion (success or error).

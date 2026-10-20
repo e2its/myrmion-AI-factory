@@ -137,7 +137,7 @@ FUNCTION compute_feature_state(FEATURE_ID):
   spec_feature:
     exists: FILE_EXISTS("{{base_path}}/spec.feature")
     status: READ_FRONTMATTER("{{base_path}}/spec.feature", "status") OR NULL
-    # Valid: DRAFT | NEEDS_INFO | APPROVED | DEPRECATED | CANCELLED
+    # Valid: DRAFT | NEEDS_INFO | APPROVED | CANCELLED | SUPERSEDED (legacy DEPRECATED reads as CANCELLED)
     iteration: READ_FRONTMATTER("{{base_path}}/spec.feature", "iteration") OR 1
     scope: READ_FRONTMATTER("{{base_path}}/spec.feature", "scope") OR "full-stack"
   
@@ -154,7 +154,7 @@ FUNCTION compute_feature_state(FEATURE_ID):
   design_md:
     exists: FILE_EXISTS("{{base_path}}/design.md")
     status: READ_FRONTMATTER("{{base_path}}/design.md", "status") OR NULL
-    # Valid: DRAFT | NEEDS_INFO | READY | APPROVED | DEPRECATED
+    # Valid: DRAFT | NEEDS_INFO | READY | APPROVED | CANCELLED | SUPERSEDED (legacy DEPRECATED reads as CANCELLED)
     based_on_iteration: READ_FRONTMATTER("{{base_path}}/design.md", "based_on_iteration") OR 1
     pending_iteration: READ_FRONTMATTER("{{base_path}}/design.md", "pending_iteration") OR NULL
   
@@ -589,8 +589,8 @@ FUNCTION render_next_steps(actions, FEATURE_ID):
   # - Show max 3 actions (most relevant first) — EXCEPTION: PHASE 0 cascade results render ALL actions (no cap)
   # - NEVER suggest a command if its output artifact already exists with status APPROVED
   # - NEVER hardcode environment names — always read from ci-cd.md
-  # - NEVER suggest IMPLEMENT --plan if dev_plan.md exists (unless CANCELLED)
-  # - NEVER suggest BLUEPRINT --start if design.md + test_plan.md exist (unless DEPRECATED)
+  # - NEVER suggest IMPLEMENT --plan if dev_plan.md exists (unless terminal: CANCELLED | SUPERSEDED)
+  # - NEVER suggest BLUEPRINT --start if design.md + test_plan.md exist (unless terminal: CANCELLED | SUPERSEDED)
   # - ALWAYS check for NEEDS_INFO status before suggesting --approve
   # - If an action has alternatives, show the primary + 1 alternative max
   # - ALWAYS include user_explanation for each action (HUMANIZE_ACTION)
@@ -659,7 +659,7 @@ FUNCTION verify_smart_redirect_executed(draft_output):
 SAFEGUARDS:
   
   # 1. DUPLICATE PREVENTION
-  RULE: IF artifact.exists AND artifact.status NOT IN [CANCELLED, DEPRECATED]:
+  RULE: IF artifact.exists AND artifact.status NOT IN [CANCELLED, SUPERSEDED, DEPRECATED]:   # DEPRECATED: legacy
     SKIP suggestion to create it → OFFER refinement or approval instead
   
   # 2. BACKWARDS FLOW PREVENTION
@@ -686,11 +686,12 @@ SAFEGUARDS:
 ## Quick Reference: Artifact Status Lifecycle
 
 ```yaml
-spec.feature:     DRAFT → NEEDS_INFO → DRAFT → APPROVED → [DEPRECATED | CANCELLED]
-mock.html:        DRAFT → APPROVED → [DEPRECATED | CANCELLED]
-user_journey.md:  DRAFT → APPROVED → [DEPRECATED | CANCELLED]
-design.md:        DRAFT → NEEDS_INFO → READY → APPROVED → [DEPRECATED | CANCELLED]
-test_plan.md:     DRAFT → NEEDS_INFO → READY → APPROVED → [DEPRECATED | CANCELLED]
+spec.feature:     DRAFT → NEEDS_INFO → DRAFT → APPROVED → [CANCELLED | SUPERSEDED]
+mock.html:        DRAFT → APPROVED → [CANCELLED | SUPERSEDED]
+user_journey.md:  DRAFT → APPROVED → [CANCELLED | SUPERSEDED]
+design.md:        DRAFT → NEEDS_INFO → READY → APPROVED → [CANCELLED | SUPERSEDED]
+test_plan.md:     DRAFT → NEEDS_INFO → READY → APPROVED → [CANCELLED | SUPERSEDED]
+                  # legacy DEPRECATED (pre-EVOL-114) reads as CANCELLED
 devops_plan.md:   DRAFT → NEEDS_INFO → DRAFT → APPROVED → [BLOCKED]
 dev_plan.md:      DRAFT → NEEDS_INFO → READY → BUILDING → IMPLEMENTED_AND_VERIFIED
                   # Non-canonical statuses auto-normalized to BUILDING or READY

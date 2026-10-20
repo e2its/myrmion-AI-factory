@@ -363,7 +363,7 @@ Per-feature artifacts: `docs/spec/{ID}/spec.feature`, `mock.html`, `user_journey
 Global vision artifacts: `docs/ux/vision/vision.md`, `app_shell.html`, `style_guide.html`, `page_templates.html`, `component_library.html`, `navigation_map.md`.
 Design-system ↔ build alignment: `docs/ux/component-registry.json` (one entry per `data-component` anchor of the component library).
 
-**Authoring surface (SETUP Q29, `docs/setup.md` `codesign.authoring`).** `internal` — co-created in the CLI with the commands above. `external` — authored by the PO in a Claude Desktop project; `--start`, `--refine` (and `--vision`, `--vision-refine` when the package covers the design system) are **guarded** and point to `--sync`. State commands (`--vision-approve`, `--vision-propagate`, `--revise`, `--cancel`, `--deprecate`, `--reset`) behave the same in both. An absent key means `internal`.
+**Authoring surface (SETUP Q29, `docs/setup.md` `codesign.authoring`).** `internal` — co-created in the CLI with the commands above. `external` — authored by the PO in a Claude Desktop project; `--start`, `--refine` (and `--vision`, `--vision-refine` when the package covers the design system) are **guarded** and point to `--sync`. State commands (`--vision-approve`, `--vision-propagate`, `--revise`, `--cancel`) behave the same in both. An absent key means `internal`.
 
 ### 2. BLUEPRINT (Co-Design: ARCH ↔ QA)
 
@@ -724,6 +724,7 @@ graph TD
 | `NEEDS_INFO` | `/codesign --refine ID` | `DRAFT` or `NEEDS_INFO` |
 | `DRAFT` | (all auto-approval checks pass) | `APPROVED` |
 | `APPROVED` | `/codesign --refine ID` | `DRAFT` (new iteration) |
+| `DRAFT`, `NEEDS_INFO` or `APPROVED` | `/codesign --cancel ID` | `CANCELLED` |
 
 ### `design.md` + `test_plan.md` (BLUEPRINT)
 
@@ -767,7 +768,7 @@ graph TD
 | `DRAFT` | `/audit --approve` | `APPROVED` |
 | `APPROVED` | `/audit --refine SECTION` | `DRAFT` (re-approval required) |
 
-> `CANCELLED` is terminal across every artifact — it blocks any operation.
+> `CANCELLED` and `SUPERSEDED` are terminal across every artifact — they block any operation, and next-task never proposes their items.
 
 ---
 
@@ -783,9 +784,8 @@ graph TD
 | `REJECTED` | (QA) Verification rejected. Requires `/implement --fix`. |
 | `COMPLETED` | Process or phase finished successfully. |
 | `BLOCKED` | Task not achievable without external help. |
-| `CANCELLED` | Feature cancelled. Terminal state. |
-| `DEPRECATED` | Feature superseded by a new version. Kept for audit trail. |
-| `SUPERSEDED` | (ADR) Architectural decision superseded by a later ADR. |
+| `CANCELLED` | Feature cancelled (`--cancel`, any non-terminal state). Terminal. A legacy `DEPRECATED` reads the same. |
+| `SUPERSEDED` | Feature replaced by a new version (`--revise`), or an ADR superseded by a later ADR. Terminal. |
 | `CASCADE_PENDING_ITERATION` | Downstream artifact invalidated by an upstream change. Requires `--refine`. |
 
 ### IMPLEMENT states (`dev_plan.md`)

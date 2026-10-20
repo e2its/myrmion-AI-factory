@@ -23,7 +23,7 @@ package_mode = READ("docs/setup.md").po_package.mode OR "off"
 | `internal` | BLOCK | unchanged | unchanged |
 | `external` | this file | guarded | guarded only when `package_mode == "full"` |
 
-State sub-commands (`--vision-approve`, `--vision-propagate`, `--revise`, `--cancel`, `--deprecate`, `--reset`) are never guarded.
+State sub-commands (`--vision-approve`, `--vision-propagate`, `--revise`, `--cancel`) are never guarded.
 
 ### External-authoring guard (IDENTICAL text at the 4 authoring entry points)
 

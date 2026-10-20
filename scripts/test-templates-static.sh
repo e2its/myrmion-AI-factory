@@ -359,6 +359,15 @@ done
 rm -rf "$STUBDIR"
 echo
 
+# ─── CODESIGN exits (EVOL-114) ──────────────────────────────────────────────
+echo "CODESIGN exits: --revise / --cancel / --refine; a terminal feature is never pending"
+NT=".claude/instructions/Factory-backlog-next-task.instructions.md"
+CF=".claude/instructions/Factory-codesign-feature.instructions.md"
+assert "grep -q 'reason: \"terminal-feature\"' '$NT'" "next-task filter chain excludes a terminal feature"
+assert "grep -q 'NEEDS_INFO.*→.*DRAFT.*no blocking question' '$CF'" "--refine returns NEEDS_INFO to DRAFT once no blocking question is open"
+assert "[ -f .claude/commands/codesign.md ] && ! grep -qE -- '--(deprecate|reset)\b' .claude/commands/codesign.md" "codesign.md declares neither --deprecate nor --reset"
+echo
+
 # ─── Summary ────────────────────────────────────────────────────────────────
 if [ "$failures" -eq 0 ]; then
   echo "L1: ok — all template assertions passed."

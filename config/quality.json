@@ -267,6 +267,30 @@
       "pattern": "(?i)\\bunknown (?:stack|test runner)\\b[^\\n]{0,60}\\b(?:skip\\w*|semantic verification only)\\b",
       "record": "#116 — a stack with no declared verification command blocks (BVL UNDECLARED_STACK); only an infrastructure fault degrades",
       "exempt": []
+    },
+    {
+      "pattern": "(?:CODESIGN|/codesign)\\b[ `]*--(?:deprecate|reset)\\b",
+      "record": "ADR-EVOL-114",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**",
+        "scripts/materialize-synthetic.sh"
+      ]
+    },
+    {
+      "pattern": "^(?!.*\\b(?i:legacy)\\b).*\\bDEPRECATED\\b",
+      "record": "ADR-EVOL-114 — feature status is CANCELLED | SUPERSEDED; a line recognising DEPRECATED says legacy. Exempt files use the word in another sense (inventory, ADR, API, upgrade archive dir)",
+      "exempt": [
+        "docs/proposals/**",
+        "docs/spec/**",
+        "scripts/check-inventory-freshness.py",
+        ".context/templates/setup/scripts/check-inventory-freshness.py",
+        ".context/templates/setup/workflows/inventory-drift.github-actions.yml",
+        ".claude/instructions/Factory-blueprint-validation.instructions.md",
+        ".context/templates/setup/rules/contract-first-policy.md",
+        ".context/templates/setup/upgrade_safety_protocol.md",
+        ".context/templates/setup/scripts/validate-upgrade-integrity.sh"
+      ]
     }
   ],
   "coherence": {
