@@ -112,9 +112,17 @@ FUNCTION run_code_review(mode, args, profile):
   IF scope.files empty: RETURN { ok: true, reason: "no-source-files" }
   binding = governance_binding(scope, args.governance_context)   # § Governance Binding
   roster = select_agents(profile, type_def_trigger(scope.files))
-  n, m = COUNT(scope.files), LINES_CHANGED(scope)
-  r = args.round OR 1                                             # rules/agents.md → rounds.work = 2 on a completed diff: round 1 is the pass on the diff (full effort), round 2 the ONE pass on the cured bytes — the main session passes `--round 2` on the re-pass; the tier is the diff's (n, m — the whole scope), so the effort steps down by the diff's size, not the cure's; the resolver refuses round 3 — what remains above informational goes to the user's adjudication (RDR): accept with an `override` reason in the marker, or cure and start again at round 1 on the new bytes (RDR-3 of ADR-EVOL-059)
-  # a finding on a line the diff under review did not add or change is 🟢 by definition (the step `demote_outside` below, counted in the marker as `outside_delta`) — the engine reviews the diff; what the lenses see through it is recorded, never a cure owed in this pass
+  r = args.round OR 1                                             # rules/agents.md → rounds.work = 2 on a completed diff: round 1 is the pass on the diff (full effort), round 2 the ONE pass on the cure — the main session passes `--round 2` on the re-pass; the tier is the round's scope's, so round 2 steps by the cure's size; the resolver refuses round 3
+  # EVOL-113 — the round's scope is a diff file OUTSIDE the tree; the spawn hook re-measures it and holds the budget
+  IF r == 1:
+    diff_file = scratch file OUTSIDE the tree ← RUN("git diff --src-prefix=a/ --dst-prefix=b/ {base}..HEAD -- {scope.files}") IF mode == "branch"
+                ELSE the diff of the increment's files against HEAD, new files included (`git add -N` then `git diff --src-prefix=a/ --dst-prefix=b/ HEAD --`, or `git diff --src-prefix=a/ --dst-prefix=b/ --no-index /dev/null <file>` per new file)
+    KEEP a copy of the round-1 bytes of scope.files OUTSIDE the tree (increment mode: the cure is diffed against it)
+  ELSE:                                                           # r == 2: the scope is the cure, never the whole diff again
+    diff_file = scratch file OUTSIDE the tree ← RUN("git diff --src-prefix=a/ --dst-prefix=b/ {round-1 HEAD} -- {scope.files}") IF round 1 read committed bytes
+                ELSE the diff of scope.files against the round-1 copy (`git diff --src-prefix=a/ --dst-prefix=b/ --no-index`)   # the prefixes are forced: a mnemonic or no-prefix config is refused by the hook
+  n, m = from RUN("git apply --numstat {diff_file}"): its rows, the sum of added + removed   # the count the hook re-measures — what remains above informational goes to the user's adjudication (RDR): accept with an `override` reason in the marker, or cure and start again at round 1 on the new bytes (RDR-3 of ADR-EVOL-059)
+  # a finding on a line the round's scope did not add or change (round 1 the branch diff, round 2 the cure diff) is 🟢 by definition (the step `demote_outside` below, counted in the marker as `outside_delta`) — the engine reviews the diff; what the lenses see through it is recorded, never a cure owed in this pass
   content_hash = RUN(the hash pipeline of § Marker write step 1) IF mode == "branch" ELSE none   # bound once here: the no-cure check and the round artefact read it; increment mode has no hash and no marker
   IF mode == "branch" AND r == 2 AND content_hash == the round-1 marker's content_hash: RETURN { ok: false, reason: "no-cure" }   # round 2 is the re-check of a cure, never a second look at the same bytes (the marker carries the hash and the round)
   gate = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {n} --lines {m} --round {r}")
@@ -124,8 +132,9 @@ FUNCTION run_code_review(mode, args, profile):
   canary = RUN("python3 scripts/gate.py canary --plan --json")
   FOR lens IN canary.owed ∩ {"correctness"}:                       # this engine runs the correctness lens; the other lenses are judged at their own spawn sites
     fx  = RUN("python3 scripts/gate.py canary --fixture")
-    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {COUNT(files in fx)} --lines {COUNT(added lines in fx)}")   # the fixture's own size, never a digit here
-    rep = SPAWN(subagent_type = "factory-critic-correctness", model = res.model, prompt = budget lines + body_of("agents/code-reviewer.md") + { diff: a scratch file OUTSIDE the tree holding RUN("python3 scripts/gate.py canary --fixture") })
+    fx_file = a scratch file OUTSIDE the tree holding fx
+    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface correctness --files {COUNT(diff --git headers in fx)} --lines {COUNT(changed lines in fx, + and −)} --round 1")   # the fixture's own size, never a digit here
+    rep = SPAWN(subagent_type = "factory-critic-correctness", model = res.model, prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\nround: 1\nscope: diff {fx_file}\n" + body_of("agents/code-reviewer.md") + { diff: fx_file })   # the hook knows the fixture by its content: round 1, never recorded
     IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
     verdict = RUN("python3 scripts/gate.py canary --judge --lens correctness --model {return_model(rep)}", rep)   # every verdict is posted on the tracking item (the backlog adapter); a red one opens the RDR on the spawn policy; the round still runs
   # exit 2 of --plan (a malformed record; an inconsistent fixture — owed is empty, the cause named) or of --judge is a canary FAULT, not a verdict: say it to the user, continue the round — the canary never blocks
@@ -140,8 +149,9 @@ FUNCTION run_code_review(mode, args, profile):
     # The vendored lens is a PROMPT; the agent type is the rostered critic — its harness matrix (Read, Grep, Glob) is the read-only guarantee.
     report = SPAWN(subagent_type = "factory-critic-correctness",
       model  = res.model,                                          # passed at the spawn, never read from a file; the PreToolUse Agent hook refuses it missing
-      prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\n" + body_of("agents/{agent_file}") + inputs = {
+      prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\nround: {r}\nscope: diff {diff_file}\n" + body_of("agents/{agent_file}") + inputs = {   # the five lines open the prompt; the PreToolUse hook refuses any other budget for this scope and round (EVOL-113)
         files: scope.files,
+        diff: diff_file,                                               # the critic reads the round's scope: round 2 the cure only
         context: diff range or increment description,
         governance: binding.packet_for(agent),   # § Governance Binding per-agent slice, with citations
         directive: "REPORT findings only — never edit files; cite the bound rule for every convention finding; the return in two parts (EVOL-060): the findings above informational, one line each: file:line · 🔴|🟡|❓ · confidence N% · probe: <what was run>, or `no findings`; then the governance block with Informational: <count> and Model: <the id the harness states for you>; then `## Informational` with every informational finding in full — never a 🟢 before the governance block"
@@ -176,7 +186,7 @@ FUNCTION run_code_review(mode, args, profile):
   IF mode == "branch" AND content_hash NOT IN (none, "EMPTY"): APPEND(".context/state/code-review-{content_hash}.returns.md", every delivered report VERBATIM, one `## <agent_file> · round {r} · {ISO-8601}` heading each)   # EVOL-060: the round artefact of the push gate — the appendix (`## Informational`) lives here, never read by this engine; local and gitignored like the marker, one file per content hash, every pass appended under its own timestamp, never rotated (a clone's record); in increment mode the peer review artefact's § Critic returns is the home (Factory-implement-review-checks)
   findings = normalise(contract_part(r) FOR r IN reports)   # references/severity-mapping.md — the contract part only (`gate.py agents` split_return): the findings above informational and the governance block
   findings = dedupe(findings)           # same file+line+defect → highest severity, all agents cited
-  findings, outside_delta = demote_outside(findings, scope)
+  findings, outside_delta = demote_outside(findings, diff_file)     # the round's scope: round 1 the branch diff, round 2 the cure diff
   nit = SUM(the `Informational: N` line of each delivered report) + outside_delta   # the informational count (the appendix's, from the governance line) plus the demotions of this engine — what the user sees as informational (EVOL-060)   # a finding whose file:line is not an added or changed line of the diff under review → 🟢, tagged `outside-delta`, counted (references/severity-mapping.md § Cross-cutting rules); the counts below never see it above informational
   primary = [r FOR r IN reports IF r.agent_file NOT IN not_delivered AND NOT r.fallback]   # the delivered reports spawned on res.model — the sweep filters the same way; a fallback re-spawn ran on another id
   fold = FOLD_IDS(primary)                                           # the one rule (below) — the sweep calls it by name

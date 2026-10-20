@@ -98,11 +98,11 @@ Files matching these patterns are **automatically skipped** during peer review:
 
 ### The bounded work loop
 
-The cap is a key, never a judgement: `rules/agents.md → agents.rounds.work` — the critics' pass on the completed diff (round 1, full effort) and one pass on the cured bytes (round 2, the effort the diff's size tier earns); the resolver refuses the next (`gate.py agents --resolve --round N`):
+The cap is a key, never a judgement: `rules/agents.md → agents.rounds.work` — the critics' pass on the completed diff (round 1, full effort) and one pass on the cure diff (round 2, the effort the cure's size tier earns); the resolver refuses the next (`gate.py agents --resolve --round N`):
 
 ```
 Round 1: worker diff → work critics (findings, full effort) → worker cure
-Round 2: work critics on the cured bytes (effort by the size tier) — the one re-check
+Round 2: work critics on the cure diff (effort by the cure's size tier) — the one re-check
 Open after the cap: ⛔ the user adjudicates via RDR — no auto-escalation, no agent ratifies; a finding outside the diff's lines is informational
 ```
 

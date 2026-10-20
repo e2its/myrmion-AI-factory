@@ -52,7 +52,7 @@
   gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort; exit 1 when the round is over the class cap
   gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class; `separation: false` when a critic lands on the writer's family
   gate.py agents --digest --agent NAME             the slice of law governing the agent's surface (always-on rules included), within its class budget
-  gate.py agents --spawn --agent NAME --model M [--hook-json]   the model handed to a roster agent is its family's alias; exit 1 refused (the PreToolUse Agent hook)
+  gate.py agents --spawn --agent NAME --model M [--hook-json]   the model handed to a roster agent is its family's alias; with --hook-json (the PreToolUse Agent hook's payload) a work critic is also held to the budget, round and scope its prompt states (EVOL-113); exit 1 refused
   gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a critic finding outside the shape or without a real probe / a critic without its Model: or Informational: line / an informational finding before the governance block, a count that is not the appendix's length (EVOL-060)
   gate.py canary --fixture | --expected [--lens L] | --check   the lens canary (EVOL-059): the synthetic diff with planted defects, the expected findings per lens, the fixture's own consistency
   gate.py canary --judge --lens L --model ID < return.md   compare a critic's return over the fixture to the lens's planted defects; record; exit 1 when one was missed (never a block — an RDR on the spawn policy)
@@ -294,13 +294,17 @@ def cmd_agents(repo, a):
         return 0
     if a.spawn:
         agent, model = a.agent, a.model
-        if a.hook_json:   # the PreToolUse Agent payload: {"tool_input": {"subagent_type": …, "model": …}}
+        if a.hook_json:   # the PreToolUse Agent payload: {"tool_input": {"subagent_type": …, "model": …, "prompt": …, "effort": …}}
             try:
                 ti = (json.loads(sys.stdin.read() or "{}") or {}).get("tool_input") or {}
             except (json.JSONDecodeError, AttributeError):
                 ti = {}
             agent = str(ti.get("subagent_type") or agent or ""); model = str(ti.get("model") or model or "")
-        r = agents_mod.spawn_check(repo, agent, model)
+            prompt = ti.get("prompt"); prompt = prompt if isinstance(prompt, str) else ""   # EVOL-113: the work critic's five lines ride in it
+            eff = ti.get("effort"); eff = str(eff) if eff not in (None, "") else None
+            r = agents_mod.spawn_check(repo, agent, model, prompt=prompt, effort=eff)
+        else:
+            r = agents_mod.spawn_check(repo, agent, model)
         print(json.dumps(r) if a.json else f"agents: spawn {'ok' if r['ok'] else 'REFUSED'} — {r['reason']}")
         return 0 if r["ok"] else 1
     if a.check_return:

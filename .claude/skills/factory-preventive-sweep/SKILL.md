@@ -121,19 +121,21 @@ FUNCTION run_sweep(applicable_dcs, feature_id):
   digest = RUN("python3 scripts/gate.py agents --digest --agent factory-critic-governance")
   # EVOL-059: the governance lens reviews the canary fixture first when its resolved model moved; a red never blocks — an RDR on the spawn policy
   IF "governance" IN RUN("python3 scripts/gate.py canary --plan --json").owed:
-    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files in the fixture)} --lines {COUNT(added lines in the fixture)}")
-    rep = SPAWN(subagent_type = "factory-critic-governance", model = res.model, prompt = budget lines + digest + { diff: a scratch file OUTSIDE the tree holding RUN("python3 scripts/gate.py canary --fixture") })
+    fx_file = a scratch file OUTSIDE the tree holding RUN("python3 scripts/gate.py canary --fixture")
+    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(diff --git headers in the fixture)} --lines {COUNT(changed lines in the fixture, + and −)} --round 1")
+    rep = SPAWN(subagent_type = "factory-critic-governance", model = res.model, prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\nround: 1\nscope: diff {fx_file}\n" + digest + { diff: fx_file })   # the hook knows the fixture by its content: round 1, never recorded
     IF RUN("python3 scripts/gate.py agents --check-return --class work-critic", rep) refuses: rep = HANDBACK_ONCE(rep.agent)   # the canary return is held to the same contract
     RUN("python3 scripts/gate.py canary --judge --lens governance --model {return_model(rep)}", rep)   # every verdict on the tracking item; red ⇒ RDR
   # exit 2 of --plan (a malformed record; an inconsistent fixture — owed is empty, the cause named) or of --judge is a canary FAULT, not a verdict: say it to the user, continue the sweep — the canary never blocks
   not_delivered = []; degraded = false                               # EVOL-058: the scopes whose critic never delivered a report; a fall onto the writer's family
   reports = PARALLEL_MAP(scopes, LAMBDA(scope):
-    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(files under scope)} --lines 0")
+    roots = resolve_search_roots(scope.scope)
+    res = RUN("python3 scripts/gate.py agents --resolve --class work-critic --surface governance --files {COUNT(tracked files under roots)} --lines 0 --round 1")
     fell = none                                                      # per scope, never shared (EVOL-059)
     report = SPAWN(subagent_type = "factory-critic-governance",
       model = res.model,                  # per spawn, from the reader — never chosen here; the PreToolUse Agent hook refuses it missing
-      prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\n" + SLICE(digest, scope.dcs) +   # the DC rows of this scope, within the class budget
-               { scope: scope.scope, dcs: scope.dcs, search_roots: resolve_search_roots(scope.scope), feature_scope: feature_scope }
+      prompt = "effort: {res.effort}\nturn budget: {res.turn_budget}\nprobe budget: {res.probe_budget}\nround: 1\nscope: files {roots}\n" + SLICE(digest, scope.dcs) +   # the five lines open the prompt — the PreToolUse hook re-counts the tracked files the globs match and refuses another budget (EVOL-113); the DC rows of this scope, within the class budget
+               { scope: scope.scope, dcs: scope.dcs, search_roots: roots, feature_scope: feature_scope }
     )
     IF report.provider_error:                                        # the ladder, as the engine walks it (rules/agents.md § Model policy): one rung, said, never to a writer
       fb = RUN("python3 scripts/gate.py agents --fallback --class work-critic --family critic")

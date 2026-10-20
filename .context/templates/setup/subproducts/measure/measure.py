@@ -23,6 +23,10 @@ the git log and the per-feature worklog, and reports for a time window:
   context      the context diet (EVOL-062): tokens de-duplicated per message id (output, cache-read, cache-creation per
                spawn and per session), the median context per main session, the cache per spawn by turn bucket and
                class, the raw tool results above `agents.context_result_max_kb` of the rule
+  spend        requests and tokens by category (input, cache write 5 m / 1 h, cache read, output) per phase and role
+               (main or the subagent's roster class), in dollars when measure.config.json carries the optional `prices`
+               key (`per_family`: a model-id substring → the five $/MTok prices; `as_of`, `source`) — EVOL-113
+  main_context the main session's context per request (p50 / p90 / max), overall and per phase — EVOL-113
 
 Nothing leaves the machine. A missing data source degrades that section to
 `unavailable: <reason>`; it never fails the report. Exit 0 report written · 2 the tool
@@ -39,6 +43,7 @@ import argparse
 import collections
 import datetime as dt
 import json
+import math
 import os
 import re
 import subprocess
@@ -76,6 +81,10 @@ def load_config(path: Path) -> dict:
             raise ToolFault(f"config key {key} must be a positive integer: {path}")
     if "turn_bucket" in cfg and (isinstance(cfg["turn_bucket"], bool) or not isinstance(cfg["turn_bucket"], int) or cfg["turn_bucket"] <= 0):   # EVOL-062: optional, a positive integer when present
         raise ToolFault(f"config key turn_bucket must be a positive integer (the width in turns of the cache-per-spawn buckets): {path}")
+    if "prices" in cfg:   # EVOL-113: optional; when present every price is a non-negative number of dollars per million tokens
+        fam = (cfg["prices"] or {}).get("per_family") if isinstance(cfg["prices"], dict) else None
+        if not isinstance(fam, dict) or not all(isinstance(row, dict) and all(isinstance(row.get(k), (int, float)) and not isinstance(row.get(k), bool) and row[k] >= 0 for k in CATEGORIES) for row in fam.values()):
+            raise ToolFault(f"config key prices.per_family must map a model-id substring to the five prices (input, cache_write_5m, cache_write_1h, cache_read, output — $ per million tokens): {path}")
     return cfg
 
 
@@ -161,6 +170,8 @@ class Session:
         self.spawns: dict[str, dict] = {}         # tool_use id → {type, branch, background, channels: {direct, hand-back, notification}}
         self.agent_ids: dict[str, str] = {}       # background agent id (from the launch stub) → tool_use id
         self.pushes: list[tuple[str, float, str]] = []   # (branch, seconds, profile from the banner in the result, else unknown)
+        self.requests: list[dict] = []            # EVOL-113: per assistant message id — {ts, model, tokens by category}
+        self.commands: list[tuple] = []           # EVOL-113: (ts, slash command) — the session's command timeline, read outside the window too
         self._load()
 
     def _in_window(self, ts):
@@ -171,6 +182,10 @@ class Session:
         prev_ts = None
         for e in read_jsonl(self.path):
             ts = parse_ts(e.get("timestamp"))
+            if e.get("type") == "user" and ts is not None:   # EVOL-113: a command before the window still sets the phase inside it
+                m = COMMAND_RE.search(flat_text((e.get("message") or {}).get("content")))
+                if m:
+                    self.commands.append((ts, m.group(1).lower()))
             if not self._in_window(ts):
                 continue
             self.entries += 1
@@ -217,6 +232,10 @@ class Session:
             self.tokens["input"] += inp + cr + cc; self.tokens["cache_read"] += cr; self.tokens["cache_create"] += cc
             self.tokens["output"] += int(usage.get("output_tokens") or 0)
             self.contexts.append(inp + cr + cc)
+            split = usage.get("cache_creation") if isinstance(usage.get("cache_creation"), dict) else None   # EVOL-113: absent → every creation token is 5 m
+            w5, w1 = (int(split.get("ephemeral_5m_input_tokens") or 0), int(split.get("ephemeral_1h_input_tokens") or 0)) if split else (cc, 0)
+            self.requests.append({"ts": ts, "model": str(model or "unknown"), "context": inp + cr + cc,
+                                  "tokens": {"input": inp, "cache_write_5m": w5, "cache_write_1h": w1, "cache_read": cr, "output": int(usage.get("output_tokens") or 0)}})
         text = assistant_text(msg)
         if text:
             self.text_blocks.append(text)
@@ -320,6 +339,7 @@ HANDBACK_RE = re.compile(r'<agent-message from="([^"]+)">(.*?)(?:</agent-message
 BANNER_RE = re.compile(r"^\s*profile:\s*(light|full)\b", re.M)
 BUDGET_RE = re.compile(r"^\s*turn budget:\s*(\d+)\s*$", re.M | re.I)
 POINTER_RE = re.compile(r"report was delivered to you as a message", re.I)
+COMMAND_RE = re.compile(r"<command-name>\s*/?([^<\s]+)\s*</command-name>")   # EVOL-113: the slash command a user message ran
 
 
 def flat_text(content) -> str:
@@ -405,7 +425,7 @@ def agent_class(name: str, repo: Path | None = None) -> str:
     return "unclassed"
 
 
-def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: Path | None = None) -> list[dict]:
+def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: Path | None = None, sink: list | None = None) -> list[dict]:
     loaded = []
     for f in sorted((transcripts / session_id / "subagents").glob("agent-*.jsonl")):
         meta = {}
@@ -425,6 +445,8 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
     # spawn order = first timestamp, never the file name (agent ids are not chronological)
     for f, meta, s in sorted(loaded, key=lambda t: (t[2].first_ts or dt.datetime.min.replace(tzinfo=dt.timezone.utc), t[0].name)):
         atype = meta.get("agentType") or "?"
+        if sink is not None:
+            sink.append((agent_class(atype, repo), s))   # EVOL-113: the spend reader needs the requests, never the JSON row
         rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
         out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype, repo), "round": rounds[atype],
                     "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None,
@@ -694,12 +716,13 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
                                              "sources": {}, "sessions": 0}}
     sessions: list[Session] = []
     agents: list[dict] = []
+    subs: dict[str, list] = {}   # EVOL-113: session id → [(class, subagent Session)]
     if transcripts and transcripts.is_dir():
         for f in sorted(transcripts.glob("*.jsonl")):
             s = Session(f, cfg, since, until)
             if s.entries:
                 sessions.append(s)
-                agents.extend(load_subagents(transcripts, s.id, cfg, since, until, repo))
+                agents.extend(load_subagents(transcripts, s.id, cfg, since, until, repo, subs.setdefault(s.id, [])))
         report["window"]["sources"]["transcripts"] = f"ok ({transcripts})" if sessions else \
             f"unavailable: no session in window under {transcripts}"
     else:
@@ -716,7 +739,8 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
         why = "no transcript data in window"
         report.update({"gates": {"unavailable": why}, "branches": {"unavailable": why},
                        "governance_bytes": {"unavailable": why}, "agents": {"unavailable": why},
-                       "citations": {"unavailable": why}, "returns": {"unavailable": why}, "critics": {"unavailable": why}, "context": {"unavailable": why}})
+                       "citations": {"unavailable": why}, "returns": {"unavailable": why}, "critics": {"unavailable": why}, "context": {"unavailable": why},
+                       "spend": {"unavailable": why}, "main_context": {"unavailable": why}})
         report["rework"] = {"git": rework_git, "edits": {"unavailable": why}}
         return report
 
@@ -860,7 +884,114 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
 
     # returns (EVOL-057): every spawn's return through its three channels
     report["returns"] = returns_report(sessions, repo)
+    report["spend"], report["main_context"] = spend_report(sessions, subs, cfg.get("prices"), repo)   # EVOL-113
     return report
+
+
+CATEGORIES = ("input", "cache_write_5m", "cache_write_1h", "cache_read", "output")
+
+
+def price_of(model: str, prices) -> dict | None:
+    """EVOL-113: the $/MTok row of the first `prices.per_family` key the model id contains; None when unpriced."""
+    for key, row in ((prices or {}).get("per_family") or {}).items():
+        if key and key in str(model):
+            return row
+    return None
+
+
+def _rank(xs: list, p: int):
+    """Nearest-rank percentile: the value at rank ceil(p/100 × n) of the sorted list; None over nothing."""
+    xs = sorted(xs)
+    return xs[max(1, math.ceil(p / 100 * len(xs))) - 1] if xs else None
+
+
+def _phase_at(commands: list, ts) -> str:
+    phase = "none"
+    for at, name in commands:   # the timeline is in file order; the last command at or before the request wins
+        if ts is not None and at <= ts:
+            phase = name
+    return phase
+
+
+def is_phase(name: str, repo: Path | None) -> bool:
+    """EVOL-113: a phase is one of the project's own commands — `<repo>/.claude/commands/<name>.md` exists; a built-in
+    (`/model`, `/clear`) or a plugin skill never is. Data, no list."""
+    return repo is not None and bool(re.fullmatch(r"[\w-]+", name)) and (repo / ".claude" / "commands" / f"{name}.md").is_file()
+
+
+def spend_report(sessions: list, subs: dict, prices, repo: Path | None = None) -> tuple[dict, dict]:
+    """EVOL-113: requests and tokens by category per (phase, role), dollars when the model is priced; the main session's
+    context per request (p50 / p90 / max, nearest-rank) overall and per phase."""
+    phases = {}   # session id → its timeline of project commands only
+    for s in sessions:
+        phases[s.id] = [(at, n) for at, n in s.commands if is_phase(n, repo)]
+    def cell():
+        return {"requests": 0, "tokens": dict.fromkeys(CATEGORIES, 0), "usd": 0.0 if prices else None, "unpriced_tokens": 0}
+
+    cells: dict[tuple, dict] = {}
+    unpriced: set = set()
+    ctx: dict[str, list] = {}
+
+    def add(phase, role, rq):
+        c = cells.setdefault((phase, role), cell())
+        c["requests"] += 1
+        n = sum(rq["tokens"].values())
+        for k in CATEGORIES:
+            c["tokens"][k] += rq["tokens"][k]
+        row = price_of(rq["model"], prices)
+        if row is None:
+            c["unpriced_tokens"] += n
+            if n:
+                unpriced.add(rq["model"])
+        elif c["usd"] is not None:
+            c["usd"] += sum(rq["tokens"][k] * float(row.get(k) or 0) for k in CATEGORIES) / 1e6
+
+    for s in sessions:
+        for rq in s.requests:
+            ph = _phase_at(phases[s.id], rq["ts"])
+            add(ph, "main", rq)
+            ctx.setdefault(ph, []).append(rq["context"])
+        for cls, sub in subs.get(s.id, []):
+            first = sub.requests[0]["ts"] if sub.requests else sub.first_ts
+            ph = _phase_at(phases[s.id], first)
+            for rq in sub.requests:
+                add(ph, cls, rq)
+
+    def roll(keyf):
+        out: dict[str, dict] = {}
+        for k, c in cells.items():
+            o = out.setdefault(keyf(k), cell())
+            o["requests"] += c["requests"]; o["unpriced_tokens"] += c["unpriced_tokens"]
+            for cat in CATEGORIES:
+                o["tokens"][cat] += c["tokens"][cat]
+            if o["usd"] is not None:
+                o["usd"] += c["usd"]
+        return out
+
+    def finish(c):
+        c["total_tokens"] = sum(c["tokens"].values())
+        c["usd"] = round(c["usd"], 6) if c["usd"] is not None else None
+        return c
+
+    total = finish(roll(lambda k: "all").get("all") or cell())
+    spend = {"by_phase_role": {f"{p}/{r}": finish(c) for (p, r), c in sorted(cells.items())},
+             "by_phase": {k: finish(v) for k, v in sorted(roll(lambda k: k[0]).items())},
+             "by_role": {k: finish(v) for k, v in sorted(roll(lambda k: k[1]).items())},
+             "total": {"requests": total["requests"], "tokens": total["total_tokens"], "by_category": total["tokens"], "usd": total["usd"], "unpriced_tokens": total["unpriced_tokens"]},
+             "unpriced": sorted(unpriced),
+             "prices": (f"as_of {prices.get('as_of', '?')} — {prices.get('source', '?')}" if prices else "no prices in measure.config.json — tokens only"),
+             "definition": "a request = one assistant message id (usage counted once); phase = the last of the project's own commands (`<command-name>/X` with .claude/commands/X.md) the main session ran before it — "
+                           "a built-in or a plugin skill never changes it — else none — a subagent's requests take the parent's phase at the subagent's first request; role = main or the subagent's roster class; "
+                           "categories from usage: input, cache write 5 m / 1 h (usage.cache_creation; without it every cache-creation token is 5 m), cache read, output; "
+                           "usd = Σ tokens × $/MTok / 1e6 of the first prices.per_family key the model id contains — an unpriced model counts tokens only and is named"}
+    allc = [x for v in ctx.values() for x in v]
+
+    def dist(xs):
+        return {"requests": len(xs), "p50": _rank(xs, 50), "p90": _rank(xs, 90), "max": max(xs) if xs else None}
+
+    main_context = {**dist(allc), "by_phase": {k: dist(v) for k, v in sorted(ctx.items())},
+                    "definition": "per main-session request: input + cache-read + cache-creation tokens; p50 / p90 nearest-rank on the sorted list (the value at rank ceil(p × n)), max the largest"}
+    return spend, main_context
 
 
 def context_report(rows: list, cfg: dict, kb, rule_reason: str) -> dict:
@@ -906,7 +1037,8 @@ SCALARS = (("gates", "share"), ("branches", "avg_commits"), ("branches", "avg_re
            ("returns", "uncollected_share"), ("returns", "avg_bytes"), ("returns", "avg_bytes_adjudicated"), ("returns", "informational"),   # EVOL-060
            ("pushes", "unknown_share"), ("loop", "hours_total"), ("critics", "share"), ("critics", "orchestrator_tokens_out_per_round"),
            ("governance", "hours"), ("governance", "manifest_commits_per_week"), ("governance", "edit_share"),   # EVOL-061
-           ("context", "median_context_tokens"), ("context", "writer_cache_per_spawn_median"), ("context", "raw_results_over_threshold"))   # EVOL-062
+           ("context", "median_context_tokens"), ("context", "writer_cache_per_spawn_median"), ("context", "raw_results_over_threshold"),   # EVOL-062
+           ("spend", "total", "usd"), ("spend", "total", "tokens"), ("main_context", "p50"), ("main_context", "p90"))   # EVOL-113
 
 
 def dig(d, *keys):
@@ -942,6 +1074,10 @@ def _fmt(v):
     if isinstance(v, float):
         return f"{v:.3f}" if v < 10 else f"{v:,.1f}"
     return str(v)
+
+
+def _usd(v) -> str:
+    return "—" if v is None else f"{v:,.4f}"   # EVOL-113: a small request's cost never rounds to zero on screen
 
 
 def render_markdown(r: dict, delta: dict | None = None) -> str:
@@ -1030,6 +1166,20 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
             [f"| {_cell(k)} | {v['runs']} | {v['red']} | {_fmt(v['seconds'])} | {_fmt(v['hours'])} |" for k, v in sorted(lp["by_gate"].items())] +
             ["", "| profile | runs | seconds | hours |", "|---|---|---|---|"] +
             [f"| {_cell(k)} | {v['runs']} | {_fmt(v['seconds'])} | {_fmt(v['hours'])} |" for k, v in sorted(lp["by_profile"].items())] + ["", f"> {lp['definition']}"])
+    sp = r.get("spend") or {"unavailable": "not measured"}
+    section("Spend by phase and role (EVOL-113)", sp, [] if "unavailable" in sp else
+            [f"total requests {sp['total']['requests']:,} · tokens {sp['total']['tokens']:,} · $ **{_usd(sp['total']['usd'])}** · prices: {_cell(sp['prices'])}" +
+             (f" · unpriced: {', '.join(_cell(m) for m in sp['unpriced'])} (tokens {sp['total']['unpriced_tokens']:,})" if sp["unpriced"] else ""), "",
+             "| phase | role | requests | input | cache write 5m | cache write 1h | cache read | output | $ |", "|---|---|---|---|---|---|---|---|---|"] +
+            [f"| {_cell(k.split('/', 1)[0])} | {_cell(k.split('/', 1)[1])} | {v['requests']} | " + " | ".join(f"{v['tokens'][c]:,}" for c in CATEGORIES) + f" | {_usd(v['usd'])} |" for k, v in sp["by_phase_role"].items()] +
+            ["", "| phase | requests | tokens | $ |", "|---|---|---|---|"] + [f"| {_cell(k)} | {v['requests']} | {v['total_tokens']:,} | {_usd(v['usd'])} |" for k, v in sp["by_phase"].items()] +
+            ["", "| role | requests | tokens | $ |", "|---|---|---|---|"] + [f"| {_cell(k)} | {v['requests']} | {v['total_tokens']:,} | {_usd(v['usd'])} |" for k, v in sp["by_role"].items()] +
+            ["", f"> {sp['definition']}"])
+    mc = r.get("main_context") or {"unavailable": "not measured"}
+    section("Main-session context per request (EVOL-113)", mc, [] if "unavailable" in mc else
+            [f"requests {mc['requests']} · p50 **{_fmt(mc['p50'])}** · p90 **{_fmt(mc['p90'])}** · max {_fmt(mc['max'])} tokens (nearest-rank)", "",
+             "| phase | requests | p50 | p90 | max |", "|---|---|---|---|---|"] +
+            [f"| {_cell(k)} | {v['requests']} | {_fmt(v['p50'])} | {_fmt(v['p90'])} | {_fmt(v['max'])} |" for k, v in mc["by_phase"].items()] + ["", f"> {mc['definition']}"])
     if delta is not None:
         out += ["## Before → after", "", "| signal | before | after | delta |", "|---|---|---|---|"]
         out += [f"| {k} | {_fmt(v['before'])} | {_fmt(v['after'])} | {_fmt(v['delta'])} |" for k, v in delta.items()]
@@ -1233,6 +1383,40 @@ def _fixture_repo(root: Path) -> Path:
     return repo
 
 
+SELFTEST_PRICES = {"as_of": "2026-10-20", "source": "selftest", "per_family": {
+    "opus": {"input": 4.0, "cache_write_5m": 5.0, "cache_write_1h": 8.0, "cache_read": 0.20, "output": 20.0},
+    "sonnet": {"input": 2.0, "cache_write_5m": 2.5, "cache_write_1h": 4.0, "cache_read": 0.10, "output": 10.0}}}
+
+
+def _fixture_spend(root: Path, session="p1") -> Path:
+    """EVOL-113: a main session with a request before any command, then `/implement`, then a critic spawn."""
+    tdir = root / "projects" / "spend"
+    (tdir / session / "subagents").mkdir(parents=True)
+    t0 = dt.datetime(2026, 9, 2, 10, 0, 0, tzinfo=dt.timezone.utc)
+
+    def ts(seconds):
+        return (t0 + dt.timedelta(seconds=seconds)).strftime(ISO)
+
+    def req(mid, at, model, usage):
+        return _entry("assistant", ts(at), message={"id": mid, "role": "assistant", "model": model, "usage": usage, "content": [{"type": "text", "text": "ok"}]})
+
+    m1 = {"input_tokens": 100, "cache_creation_input_tokens": 1000, "cache_creation": {"ephemeral_5m_input_tokens": 400, "ephemeral_1h_input_tokens": 600}, "output_tokens": 10}
+    lines = [
+        _entry("user", ts(0), message={"role": "user", "content": "hello"}),
+        req("m1", 1, "claude-opus-5-5", m1), req("m1", 2, "claude-opus-5-5", m1),                 # streamed: counted once, phase none
+        _entry("user", ts(10), message={"role": "user", "content": "<command-name>/implement</command-name>\n<command-message>implement</command-message>\n<command-args>FEAT-001</command-args>"}),
+        _entry("user", ts(10.5), message={"role": "user", "content": "<command-name>/model</command-name>\n<command-message>model</command-message>\n<command-args>opus</command-args>"}),   # a built-in: never a phase
+        req("m2", 11, "claude-opus-5-5", {"input_tokens": 10, "cache_read_input_tokens": 2000, "cache_creation_input_tokens": 300, "output_tokens": 20}),   # no cache_creation: 5 m
+        req("m3", 12, "claude-mystery-1", {"input_tokens": 5, "output_tokens": 5}),             # a model with no price
+    ]
+    (tdir / f"{session}.jsonl").write_text("\n".join(json.dumps(e) for e in lines) + "\n", encoding="utf-8")
+    sub = [_entry("user", ts(21), message={"role": "user", "content": "effort: high\nturn budget: 3\nReview."}),
+           req("k1", 22, "claude-sonnet-4-6", {"input_tokens": 50, "cache_read_input_tokens": 500, "output_tokens": 30})]
+    (tdir / session / "subagents" / "agent-k1.jsonl").write_text("\n".join(json.dumps(e) for e in sub) + "\n", encoding="utf-8")
+    (tdir / session / "subagents" / "agent-k1.meta.json").write_text(json.dumps({"agentType": "factory-critic-security"}), encoding="utf-8")
+    return tdir
+
+
 def _sessions_of(tdir: Path, cfg: dict, since, until) -> list:
     return [s for s in (Session(f, cfg, since, until) for f in sorted(tdir.glob("*.jsonl"))) if s.entries]
 
@@ -1396,6 +1580,35 @@ def selftest() -> int:
         expect(all(k in compare(r, r) for k in ("returns.uncollected_share", "pushes.unknown_share", "loop.hours_total")), "the three signals are in the before/after table")
         d = compare(r, r)
         expect(all(v["delta"] == 0 for v in d.values() if v["delta"] is not None), "compare of a report with itself is zero delta")
+        # EVOL-113: spend by phase × role, the main session's context per request
+        sdir = _fixture_spend(root)
+        srepo = root / "spendrepo"; (srepo / ".claude" / "commands").mkdir(parents=True)
+        (srepo / ".claude" / "commands" / "implement.md").write_text("# implement\n", encoding="utf-8")   # the project's own commands are its phases
+        rs = build_report(srepo, {**cfg, "prices": SELFTEST_PRICES}, sdir, since, until)
+        sp_ = rs.get("spend") or {}
+        cells = sp_.get("by_phase_role") or {}
+        expect(set(cells) == {"none/main", "implement/main", "implement/work-critic"}, "phase = the last project command (.claude/commands/X.md) before the request — a built-in such as /model never changes it; none before any; a subagent inherits the parent's phase at its first request; role = main or the roster class")
+        expect((cells.get("none/main") or {}).get("tokens") == {"input": 100, "cache_write_5m": 400, "cache_write_1h": 600, "cache_read": 0, "output": 10} and (cells.get("none/main") or {}).get("requests") == 1,
+               "token categories from usage.cache_creation (5 m / 1 h); a streamed message counted once")
+        expect((cells.get("implement/main") or {}).get("tokens") == {"input": 15, "cache_write_5m": 300, "cache_write_1h": 0, "cache_read": 2000, "output": 25} and (cells.get("implement/main") or {}).get("requests") == 2,
+               "without usage.cache_creation the cache-creation tokens count as 5 m")
+        expect((cells.get("none/main") or {}).get("usd") == 0.0074 and (cells.get("implement/main") or {}).get("usd") == 0.00234 and (cells.get("implement/work-critic") or {}).get("usd") == 0.00045,
+               "dollars = tokens × $/MTok of the first price family the model id contains")
+        expect(sp_.get("unpriced") == ["claude-mystery-1"] and (cells.get("implement/main") or {}).get("unpriced_tokens") == 10, "a model with no price: its tokens counted, the model named as unpriced")
+        tot = sp_.get("total") or {}
+        expect(tot.get("usd") == 0.01019 and tot.get("tokens") == 4030 and tot.get("requests") == 4 and (sp_.get("by_phase") or {}).get("implement", {}).get("requests") == 3 and (sp_.get("by_role") or {}).get("work-critic", {}).get("usd") == 0.00045,
+               "totals per phase, per role and overall")
+        mc = rs.get("main_context") or {}
+        expect({k: mc.get(k) for k in ("p50", "p90", "max", "requests")} == {"p50": 1100, "p90": 2310, "max": 2310, "requests": 3} and (mc.get("by_phase") or {}).get("implement") == {"requests": 2, "p50": 5, "p90": 2310, "max": 2310},
+               "main-session context per request: p50 / p90 / max nearest-rank, overall and per phase")
+        mds = render_markdown(rs)
+        expect("## Spend by phase and role" in mds and "| implement | work-critic | 1 |" in mds and "unpriced: claude-mystery-1" in mds and "## Main-session context per request" in mds and "nearest-rank" in mds, "the two sections render")
+        rn = build_report(srepo, cfg, sdir, since, until)
+        expect((rn.get("spend") or {}).get("total", {}).get("usd", "x") is None and "no prices" in str((rn.get("spend") or {}).get("prices")) and "no prices" in render_markdown(rn), "no prices in the config: tokens only, the section says so")
+        dc = compare(rs, rs)
+        expect(all(k in dc for k in ("spend.total.usd", "spend.total.tokens", "main_context.p50", "main_context.p90")), "the spend totals and the context p50 / p90 are in the before/after table")
+        expect(price_of("claude-opus-5-5", SELFTEST_PRICES) is SELFTEST_PRICES["per_family"]["opus"] and price_of("x", SELFTEST_PRICES) is None and price_of("claude-opus-5-5", None) is None and _rank([], 50) is None and _rank([1, 2, 3, 4], 50) == 2 and _rank([1, 2, 3, 4], 90) == 4,
+               "the price lookup by model-id substring; nearest-rank of nothing is None")
         # degradation: no transcripts, no git
         r2 = build_report(root / "nope", cfg, root / "missing", since, until)
         expect(r2["window"]["sources"]["transcripts"].startswith("unavailable"), "missing transcripts folder is said, not raised")
@@ -1416,6 +1629,11 @@ def selftest() -> int:
             load_config(bad); expect(False, "a turn_bucket that is not a positive integer is refused")
         except ToolFault as e:
             expect("turn_bucket" in str(e), "a turn_bucket that is not a positive integer is refused in plain language (EVOL-062)")
+        bad.write_text('{"$schema": "measure_config_v1", "retention_days": 90, "report_interval_days": 30, "prices": {"per_family": {"opus": {"input": "4"}}}}', encoding="utf-8")
+        try:
+            load_config(bad); expect(False, "a price that is not a number is refused")
+        except ToolFault as e:
+            expect("prices.per_family" in str(e), "a price row without its five numbers is refused in plain language (EVOL-113)")
         try:
             compare({"schema": "other"}, r)
             expect(False, "baseline with wrong schema refused")

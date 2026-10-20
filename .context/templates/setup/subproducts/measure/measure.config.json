@@ -14,5 +14,6 @@
   "review_agent_patterns": ["critic", "review"],
   "governance_paths": ["CLAUDE.md", "docs/constitution.md", "docs/setup.md", ".context/governance_snapshot.md", ".claude/rules/", ".claude/instructions/", ".claude/skills/", ".claude/commands/", ".claude/agents/", "docs/project_log/adr/"],
   "corpus_files": ["CLAUDE.md", "docs/constitution.md", ".claude/rules/defect-prevention.md"],
-  "rework_commit_types": ["fix", "revert"]
+  "rework_commit_types": ["fix", "revert"],
+  "prices": {"as_of": "2026-10-20", "source": "Anthropic list prices, $ per million tokens", "per_family": {"opus": {"input": 4.0, "cache_write_5m": 5.0, "cache_write_1h": 8.0, "cache_read": 0.20, "output": 20.0}, "sonnet": {"input": 2.0, "cache_write_5m": 2.5, "cache_write_1h": 4.0, "cache_read": 0.10, "output": 10.0}, "haiku": {"input": 1.0, "cache_write_5m": 1.25, "cache_write_1h": 2.0, "cache_read": 0.05, "output": 5.0}}}
 }

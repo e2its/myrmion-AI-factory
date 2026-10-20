@@ -134,7 +134,7 @@ for flag in $(grep -oE '(^|[[:space:]`])--[a-z-]+' "$SRC/RUNBOOK.md" | grep -oE 
   printf '%s' "$HELP" | grep -q -- "$flag" || MISSING="$MISSING $flag"
 done
 if [ -z "$MISSING" ]; then ok "every flag the runbook cites exists in the real argument parser"; else bad "runbook cites flags the parser does not have:$MISSING"; fi
-for key in retention_days report_interval_days idle_cap_s governance_paths corpus_files rework_commit_types review_patterns review_agent_patterns; do
+for key in retention_days report_interval_days idle_cap_s governance_paths corpus_files rework_commit_types review_patterns review_agent_patterns prices; do
   grep -q "\"$key\"" "$SRC/measure.config.json" || MISSING="$MISSING $key"
 done
 if [ -z "$MISSING" ]; then ok "every config key the runbook documents exists in the config template"; else bad "runbook documents keys the config template lacks:$MISSING"; fi

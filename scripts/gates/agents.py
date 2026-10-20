@@ -21,12 +21,15 @@ fallback   the next rung for a resolved family; refused for a writer class (an a
            a critic landing on the writer's family says so (`separation: false`) — the call site surfaces it.
 digest     the slice of law governing the agent's surface (its roster globs expanded over the tracked tree, always-on
            rules included — the agent gets no snapshot), within its class budget (corpus.digest).
-spawn      the model passed at a spawn of a roster agent is its class family's alias — the PreToolUse hook's question.
+spawn      the model passed at a spawn of a roster agent is its class family's alias — the PreToolUse hook's question;
+           a work critic's prompt opens with effort / turn budget / probe budget / round / scope, re-measured and held to the
+           resolver's (EVOL-113): round 1 recorded in .context/state/critic-round.json, a round 2 reads the cure only.
 check      a worker return without its hand-off or its governance block, a critic finding without a real probe, a reader return
            without its sources / answer / unknowns sections or with a source or an unknown that names nothing: refused.
 """
 from __future__ import annotations
 
+import codecs
 import re
 from pathlib import Path
 
@@ -476,8 +479,9 @@ def digest(repo: Path, name: str) -> tuple[str, str, int]:
     return text, fp, budget
 
 
-def spawn_check(repo: Path, agent: str, model: str) -> dict:
-    """The model handed to a roster agent at its spawn is its class family's alias. Not a roster name → not ours."""
+def spawn_check(repo: Path, agent: str, model: str, prompt: str | None = None, effort: str | None = None) -> dict:
+    """The model handed to a roster agent at its spawn is its class family's alias. Not a roster name → not ours.
+    EVOL-113: a work critic's prompt (the hook passes it) is then held to the budget its scope earns (`_hold`)."""
     pol = policy(repo)
     entry = next((r for r in pol["roster"] if isinstance(r, dict) and r.get("name") == agent), None)
     if not entry:
@@ -491,7 +495,209 @@ def spawn_check(repo: Path, agent: str, model: str) -> dict:
         return {"ok": False, "expected": want, "reason": f"`{agent}` (class `{entry['class']}`, family `{fam}`) spawned without a model — pass model: {want} (python3 scripts/gate.py agents --resolve --class {entry['class']}); the definition carries none by design"}
     if _alias(model) != _alias(want):
         return {"ok": False, "expected": want, "reason": f"`{agent}` (class `{entry['class']}`, family `{fam}`) spawned on `{model}` — its family's alias is `{want}`; a critic on the writer's family inherits the writer's blind spots"}
+    if entry.get("class") == "work-critic" and prompt is not None:
+        try:
+            refused = _hold(repo, agent, str(entry.get("lens") or ""), str(prompt), effort)
+        except GateFault as e:   # a fault in the hold is a refusal with its reason (the hook turns exit 1 into exit 2), never a crash
+            refused = f"`{agent}`: the spawn's budget cannot be checked — {e}"
+        if refused:
+            return {"ok": False, "expected": want, "reason": refused}
     return {"ok": True, "expected": want, "reason": f"`{agent}` on `{want}` ({fam})"}
+
+
+# EVOL-113: the spawn hold — a work critic's prompt opens with five lines; the hook re-measures the scope
+HOLD_KEYS = ("effort", "turn budget", "probe budget", "round", "scope")
+HOLD_LINE = re.compile(r"^[ \t]*([A-Za-z][A-Za-z ]{0,30}?)[ \t]*:[ \t]*(\S.*?)[ \t]*$")
+HOLD_RULE = "rules/agents.md § The budget is enforced"
+HOLD_OWED = "`effort:` · `turn budget:` · `probe budget:` · `round: N` · `scope: diff <path>` | `scope: files <glob>…`"
+CRITIC_ROUND = ".context/state/critic-round.json"   # untracked state (gitignored): branch → scope form (diff | files) → the round-1 scope; a sweep never overwrites a review's record
+
+
+def _header(prompt: str) -> dict[str, str]:
+    """The consecutive `key: value` lines that open the prompt (leading blanks skipped), keys case-folded; first wins."""
+    out: dict[str, str] = {}
+    lines = prompt.splitlines()
+    i = 0
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    for ln in lines[i:]:
+        m = HOLD_LINE.match(ln)
+        if not m:
+            break
+        out.setdefault(re.sub(r"\s+", " ", m.group(1).strip().lower()), m.group(2))
+    return out
+
+
+HUNK = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
+
+
+def _diff_size(text: str) -> tuple[list[str], int]:
+    """(the b/ paths, the changed lines) of a unified diff — the count `git diff --numstat` gives (added + removed).
+    A hunk is read by its header's counts, so a removed `--` line is a line and the next file's `---` is a header.
+    Lines split on `\n` only (a trailing `\r` dropped) — git's split; a form feed or `\x85` inside a line is the line's.
+    A `diff --git` header without ` b/` (mnemonic or no prefix) is a GateFault naming the remedy."""
+    heads, plus, lines, old, new = [], [], 0, 0, 0
+    for ln in text.split("\n"):
+        ln = ln[:-1] if ln.endswith("\r") else ln
+        if old > 0 or new > 0:   # inside a hunk
+            c = ln[:1]
+            if c == "-":
+                old -= 1; lines += 1
+            elif c == "+":
+                new -= 1; lines += 1
+            elif c == "\\":   # "\ No newline at end of file"
+                pass
+            else:
+                old -= 1; new -= 1
+            continue
+        m = HUNK.match(ln)
+        if m:
+            old = int(m.group(1)) if m.group(1) is not None else 1
+            new = int(m.group(2)) if m.group(2) is not None else 1
+        elif ln.startswith("diff --git "):
+            q = ln.endswith('"') and ln.rsplit(' "b/', 1)   # core.quotePath: a quoted path keeps its prefix inside the quotes
+            b = ["", _unquote('"' + q[1])] if q and len(q) == 2 else ln.rsplit(" b/", 1)
+            if len(b) != 2 or not b[1]:
+                raise GateFault(f"the diff header `{ln[:120]}` carries no `a/` `b/` prefixes (diff.mnemonicPrefix, diff.noprefix or a custom prefix) — "
+                                "write the scope's diff with git diff --src-prefix=a/ --dst-prefix=b/ …")
+            heads.append(b[1])
+        elif ln.startswith("+++ "):
+            p = _unquote(ln[4:].split("\t", 1)[0].strip())
+            if p != "/dev/null":
+                plus.append(p[2:] if p.startswith("b/") else p)
+    return (heads or plus), lines
+
+
+def _unquote(p: str) -> str:
+    """git's C-quoted path (`"b/caf\\303\\251.py"`) → the path; an unquoted path as it is."""
+    if len(p) < 2 or p[0] != '"' or p[-1] != '"':
+        return p
+    try:
+        return codecs.escape_decode(p[1:-1].encode("utf-8"))[0].decode("utf-8", "replace")
+    except (ValueError, UnicodeError):
+        return p[1:-1]
+
+
+def _sha(p: Path) -> str | None:
+    import hashlib
+    try:
+        return hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
+    except OSError:
+        return None
+
+
+def _branch(repo: Path) -> str:
+    import subprocess
+    try:
+        out = subprocess.run(["git", "-C", str(repo), "branch", "--show-current"], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise GateFault(f"git could not name the branch ({e})") from None
+    return out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else "detached"
+
+
+def _read_rounds(repo: Path) -> dict:
+    import json
+    p = repo / CRITIC_ROUND
+    if not p.is_file():
+        return {}
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise GateFault(f"{CRITIC_ROUND} is unreadable ({e}) — delete it and run round 1 again") from None
+    return d if isinstance(d, dict) else {}
+
+
+def _write_round(repo: Path, branch: str, kind: str, rec: dict) -> None:
+    import json
+    import os
+    d = _read_rounds(repo)
+    b = d.get(branch) if isinstance(d.get(branch), dict) else {}
+    b[kind] = rec
+    d[branch] = b
+    p = repo / CRITIC_ROUND
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_name(p.name + f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(d, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(tmp, p)
+    except OSError as e:
+        raise GateFault(f"the round-1 record {CRITIC_ROUND} cannot be written ({e})") from None
+
+
+def _scope(repo: Path, scope: str) -> tuple[str, list[str], int, bool]:
+    """(kind, paths, lines, canary) of `diff <path>` | `files <glob>…`; a scope that cannot be read is a GateFault."""
+    from . import canary as canary_mod
+    form, _, rest = scope.strip().partition(" ")
+    rest = rest.strip()
+    if form == "diff" and rest:
+        shown = "".join(ch if ch.isprintable() else "?" for ch in rest)[:200]   # a control byte never reaches the refusal
+        p = Path(rest)
+        p = p if p.is_absolute() else repo / p
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")   # the count needs structure only
+        except (OSError, ValueError) as e:   # ValueError: a NUL in the path
+            raise GateFault(f"the scope's diff `{shown}` cannot be read ({e.__class__.__name__})") from None
+        paths, lines = _diff_size(text)
+        if not paths:
+            raise GateFault(f"the scope's diff `{shown}` names no file — hand the critic the diff it reviews")
+        return "diff", paths, lines, text.rstrip("\n") == canary_mod.fixture().rstrip("\n")
+    if form == "files" and rest:
+        globs = rest.split()
+        globs += [g.rstrip("/") + "/" for g in globs if not any(ch in g for ch in "*?[")]   # a bare directory matches what is under it
+        paths = [f for f in tracked_files(repo) if any_glob(f, globs)]
+        if not paths:
+            raise GateFault(f"the scope `files {rest}` matches no tracked file")
+        return "files", paths, 0, False
+    raise GateFault(f"`scope: {scope}` is neither `scope: diff <path>` nor `scope: files <glob>…`")
+
+
+def _hold(repo: Path, agent: str, lens: str, prompt: str, effort: str | None) -> str | None:
+    """None when the spawn states the resolver's budget for its scope and round; else the humanised refusal."""
+    import datetime as _dt
+    h = _header(prompt)
+    missing = [k for k in HOLD_KEYS if k not in h]
+    if missing:
+        return (f"`{agent}`: the spawn prompt does not open with {', '.join(f'`{k}:`' for k in missing)} — a work critic's prompt opens with "
+                f"{HOLD_OWED}; the values come from python3 scripts/gate.py agents --resolve --class work-critic --surface {lens or '<lens>'} --files N --lines M --round R ({HOLD_RULE})")
+    try:
+        rnd = int(h["round"]); turns = int(h["turn budget"]); probes = int(h["probe budget"])
+    except ValueError:
+        return f"`{agent}`: `round:`, `turn budget:` and `probe budget:` are integers — got `{h['round']}`, `{h['turn budget']}`, `{h['probe budget']}` ({HOLD_RULE})"
+    if rnd < 1:
+        return f"`{agent}`: `round: {rnd}` — rounds start at 1 ({HOLD_RULE})"
+    kind, paths, lines, is_canary = _scope(repo, h["scope"])
+    if is_canary and rnd != 1:
+        return f"`{agent}`: the canary fixture is reviewed at round 1 only — `round: {rnd}` refused ({HOLD_RULE})"
+    r = resolve(repo, "work-critic", lens, len(paths), lines, rnd)
+    if not r.get("ok"):
+        return f"`{agent}`: {r['reason']}"
+    size = f"a {len(paths)}-file, {lines}-line diff" if kind == "diff" else f"a {len(paths)}-file scope"
+    owed = (f"`{agent}`: {size} (tier {r['tier']}, round {rnd}) earns `effort: {r['effort']}` · `turn budget: {r['turn_budget']}` · "
+            f"`probe budget: {r['probe_budget']}` — open the prompt with those lines, then `round: {rnd}` · `scope: {h['scope']}` ({HOLD_RULE})")
+    stated = (h["effort"].strip().lower(), turns, probes)
+    if stated != (str(r["effort"]).lower(), int(r["turn_budget"]), int(r["probe_budget"])):
+        return owed
+    if effort is not None and str(effort).strip() and str(effort).strip().lower() != str(r["effort"]).lower():
+        return f"{owed}; the harness `effort` input says `{effort}`"
+    if is_canary:
+        return None   # the fixture is round 1 by definition and never recorded
+    br = _branch(repo)
+    if rnd == 1:
+        _write_round(repo, br, kind, {"lines": lines, "files": {p: _sha(repo / p) for p in paths},
+                                "at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")})
+        return None
+    b = _read_rounds(repo).get(br)
+    rec = b.get(kind) if isinstance(b, dict) else None
+    if not isinstance(rec, dict) or not isinstance(rec.get("files"), dict):
+        return f"`{agent}`: `round: {rnd}` with no round 1 recorded on `{br}` for a `scope: {kind}` — a second round reads the cure of a recorded round 1; start at `round: 1` ({HOLD_RULE})"
+    same = [p for p in paths if p in rec["files"] and _sha(repo / p) == rec["files"][p]]
+    if same:
+        return (f"`{agent}`: round {rnd} names {', '.join(f'`{p}`' for p in same)}, which did not change since round 1 — a second round reads the cure only: "
+                f"the diff of the scope's files against their round-1 bytes ({HOLD_RULE})")
+    if kind == "diff" and lines >= int(rec.get("lines") or 0):
+        return (f"`{agent}`: the round-{rnd} scope ({lines} lines) is not smaller than round 1's ({rec.get('lines')}) — a cure as large as the diff is a rewrite: "
+                f"start again at `round: 1` on the new bytes ({HOLD_RULE})")
+    return None
 
 
 def _section(text: str, name: str) -> str | None:
