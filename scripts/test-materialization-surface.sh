@@ -115,26 +115,15 @@ fi
 echo ""
 
 echo "3. placeholder resolvability"
-MISSING=$(python3 - <<'PY'
-import glob, json, re
-rules = open('.claude/instructions/Factory-setup-materialization.instructions.md', errors='replace').read()
-missing = set()
-manifest = json.load(open('.context/templates/setup/governance_versions.json'))
-configured = ['.context/templates/setup/' + k for k, v in manifest.get('templates', {}).items()
-              if isinstance(v, dict) and k.startswith('subproducts/') and v.get('content_type') == 'stack_configured']
-for cfg in glob.glob('.context/templates/setup/config/*.json') + configured:
-    txt = open(cfg, errors='replace').read()
-    for token in set(re.findall(r'\{\{([A-Z0-9_]+)\}\}', txt)):
-        if token not in rules:
-            missing.add(f'{{{{{token}}}}} in {cfg}')
-for m in sorted(missing):
-    print(m)
-PY
-) || MISSING="probe failed — python error above must be fixed, not ignored (a broken probe is not a pass)"
+# EVOL-102 ph.2: every {{TOKEN}} of every template with a target (config/*.json and the stack_configured subproduct files
+# included) has exactly one source in the discovery registry — gate.py discovery V10, the one check.
+DISC=$(python3 scripts/gate.py discovery 2>&1); DISC_RC=$?
+MISSING=$(printf '%s\n' "$DISC" | grep '^  ❌ V10 ' || true)
+[ "$DISC_RC" -ge 2 ] && MISSING="probe failed — gate.py discovery faulted: $(printf '%s' "$DISC" | tail -1)"
 if [ -z "$MISSING" ]; then
-  ok "every {{TOKEN}} in template configs has a materialization resolution rule"
+  ok "every {{TOKEN}} in a template with a target has one source in the discovery registry (V10)"
 else
-  while IFS= read -r m; do [ -n "$m" ] && bad "placeholder without resolution rule: $m"; done <<< "$MISSING"
+  while IFS= read -r m; do [ -n "$m" ] && bad "placeholder without one source: ${m#  ❌ }"; done <<< "$MISSING"
 fi
 echo ""
 

@@ -144,3 +144,43 @@ Delivered 2026-10-20 on `feature/EVOL-102-discovery-as-data`, framework 8.12.6 �
 - **Two changes beyond the ADR, found while delivering it:**
   - A question counts as asked once any of its keys holds an answer; null means not yet asked. Otherwise a sibling left null on purpose (Q14's path, Q29.1's directory, Q23.1 on Skip) would keep its question pending forever.
   - The template's slots that held option lists or defaults (`project_mode`, `project_scope`, Q21.2, Q29–Q34) are `null`. A value there would read as an answer and the question would never be asked. The recommendations stay in the discovery instruction (RDR C: a default is a recommendation, never a reason to skip).
+
+## Phase 2 — every placeholder has a source; the upgrade asks what a project lacks
+
+Delivered with train row 5b (epic #112, plan ADR-EVOL-067), 2026-10-21, framework 8.16.0 → 8.17.0. Phase 3 (`--reconfigure`, the MCP target) ships with its first consumers.
+
+### Decision
+
+1. **Placeholder sources live in the registry.**
+   - A key spec may carry `fills: [TOKEN…]`, and so may a `derived` entry.
+   - `constants` holds framework values and runtime tokens (`RANGE` is filled by a script at run time).
+   - `placeholder_baseline` holds the rest, each entry either `pending #NNN` (#147, #125, #145) or `unsourced`.
+   - **V10:** every UPPER_SNAKE token in a template that lands has exactly one source. The baseline only shrinks: an entry now sourced is red, and an entry naming no token is red. This is the traceability baseline's pattern.
+   - V4 counts a key's `fills` as a reader, because the template that carries the token reads the answer.
+2. **Upgrade clauses become `migrations` rows**, each `{id, since, detect, apply}`.
+   - `detect` is a project file plus a JSON pointer, where a markdown file is read as its frontmatter, or `always`.
+   - `apply` is an anchor in the upgrade instruction.
+   - **V11** checks every row and every anchor.
+   - The 11 Step 8 clauses and the iterations-array migration are rows.
+3. **`--resolve` reports the upgrade.**
+   - It adds `pending_since` and `placeholders` for the answer set.
+   - Against a project, it also reports `project_version`, `migrations_owed` (project version below `since` and the pointer missing, or `always`), `templates_to_add` and `templates_to_remove`.
+   - An answer outside its options is a fault, exit 2.
+4. **One generic upgrade step (8b):**
+   1. back-fill each pending key from the recorded `docs/setup.md` body when the mapping is unambiguous, otherwise an RDR;
+   2. ask the rest of `pending`, in tier order;
+   3. run the migrations owed;
+   4. offer template additions, and offer removals by RDR only.
+5. **§0.2 default slicing is removed** from the setup template: no question asked it and no reader used it.
+
+### Verification record
+
+- **Registry:**
+  - 54 keys fill 95 tokens;
+  - 6 new derived keys carry slots in the template;
+  - 58 constants;
+  - a baseline of 178 tokens (13 pending, 165 unsourced);
+  - 12 migrations.
+- **Red first:** `Discovery` covers V10 (an unsourced token, a token with two sources, a stale entry), V11, `migrations_owed`, template additions and removals, an answer outside its options, and `fills` as a reader. All are red before and green after (56 tests).
+- **The upgrade fixture.** `scripts/fixtures/synthetic-answers/upgrade-8.12.json` is a project at 8.12.0 with answers missing. `--resolve` lists exactly its 31 pending questions and no spurious migration; the owed path is proved by the unit test. CI runs it beside the default and dotnet fixtures.
+- **One check, not two.** `test-materialization-surface.sh` check 3 delegates to V10.

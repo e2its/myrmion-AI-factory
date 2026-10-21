@@ -21,7 +21,8 @@
 #
 #   0. the ONE evaluator (gate.py discovery --resolve, EVOL-102) selects the manifest entries for a fixture answer set;
 #      the answers land in the docs/setup.md frontmatter; the expected files land, the stack has its BVL rows and
-#      the snapshot shows the answered stack keys
+#      the snapshot shows the answered stack keys; an upgrade fixture (`framework_version`) proves `--resolve` against an
+#      installed project lists exactly its expected pending questions and owed migrations
 #
 # Usage: materialize-synthetic.sh [--answers FIXTURE]   (default scripts/fixtures/synthetic-answers/default.json;
 #        another fixture proves step 0 only — the toolchain checks are written for the default stack)
@@ -162,6 +163,27 @@ for k in STACK_KEYS:
 ' "$ANSWERS" "$ROOT" 2>&1)
 [ "$SRC" -eq 0 ] && [ -z "$SMISS" ] && ok "the snapshot shows the answered stack keys ($(basename "$ANSWERS"))" || bad "the snapshot does not show the stack answers (rc $SRC)" "$SMISS${SMISS:+
 }$(printf '%s' "$SNAP" | head -8)"
+# an upgrade fixture (EVOL-102 ph.2: `framework_version` + expect.pending / expect.migrations): the scratch tree is an
+# installed project at that version, the framework's registry and manifest delivered as factory-sync does; --resolve
+# against it lists exactly the expected pending questions and owed migrations, no others
+if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
+  mkdir -p "$P/docs/project_log" "$P/.context/templates/setup/setup"
+  cp "$T/setup/discovery_registry.json" "$P/.context/templates/setup/setup/discovery_registry.json"
+  cp "$MANIFEST" "$P/.context/templates/setup/governance_versions.json"
+  python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
+  URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
+  UMISS=$(printf '%s' "$UP" | python3 -c '
+import json, sys
+exp = json.load(open(sys.argv[1]))["expect"]; r = json.loads(sys.stdin.read())
+got = {"pending": r["pending"], "migrations": [m["id"] for m in r["migrations_owed"]]}
+for k in ("pending", "migrations"):
+    if got[k] != exp.get(k):
+        print(f"{k}: expected {exp.get(k)}, got {got[k]}")
+' "$ANSWERS" 2>&1)
+  [ "$URC" -eq 0 ] && [ -z "$UMISS" ] && ok "--resolve against a $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["framework_version"])' "$ANSWERS") project lists exactly the expected pending questions and owed migrations" \
+    || bad "the upgrade's resolve is not what the fixture expects (rc $URC)" "$UMISS${UMISS:+
+}$(printf '%s' "$UP" | tail -3)"
+fi
 # another stack's fixture proves its selection only: the toolchain checks below are written for the default stack
 if [ "$IS_DEFAULT" != "1" ]; then
   echo; echo "materialize-synthetic: $PASS passed, $FAIL failed (selection of $(basename "$ANSWERS"))"; [ "$FAIL" -eq 0 ]; exit

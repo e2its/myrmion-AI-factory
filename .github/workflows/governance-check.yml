@@ -92,6 +92,7 @@ jobs:
           chmod +x scripts/materialize-synthetic.sh
           bash scripts/materialize-synthetic.sh
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json
+          bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/upgrade-8.12.json
 
       - name: Iteration ID schema validation
         run: |

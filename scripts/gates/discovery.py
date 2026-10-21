@@ -14,11 +14,20 @@ answers     `docs/setup.md` frontmatter flattened to dotted keys (or a fixture `
             with `exists`.
 resolve     fail-closed: every `when` and `stack_conditional` held to the registry first; then the pending questions (tier order, then registry order: `when` holds, no key answered yet — null = not yet asked) and the manifest
             `templates` entries that land (no `stack_conditional`, or it holds) and those skipped.
+placeholders a key spec's `fills` (the UPPER_SNAKE template tokens its answer fills, verbatim), `derived.<key>.fills`,
+            top-level `constants {TOKEN: reason}` (framework values, runtime / example literals — never an answer) and
+            `placeholder_baseline {TOKEN: "pending #NNN" | "unsourced"}` (the debt; it only shrinks).
+upgrade     `migrations [{id, since, detect, apply}]`: owed by a project older than `since` whose `detect` pointer
+            (`<project file>#<JSON pointer>`, a .md file read as its frontmatter) is missing, or `detect: always`; `apply`
+            names an anchor (a heading or a bold label) of the upgrade instruction. `--resolve` against a project adds
+            `migrations_owed`, `templates_to_add` (lands, target absent) and `templates_to_remove` (skipped, target present).
 validate    V1 schema · V2 a single option not derived · V3 a credential-named key not `free: vault_name` · V4 a key with
-            no consumer and no `record_only` · V5 every condition parses and names registry keys and offered literals ·
+            no consumer, no `fills` and no `record_only` · V5 every condition parses and names registry keys and offered literals ·
             V6 parity with the discovery instruction · V7 parity with the setup template frontmatter · V8 the consumer
             literals (the checks of the retired test-discovery-literals.sh, read from the registry) · V9 the snapshot's
-            STACK_KEYS are registry keys.
+            STACK_KEYS are registry keys · V10 every UPPER_SNAKE token of a template with a target has exactly one source
+            (fills | derived fills | constants | baseline), and every entry names a token some template carries · V11 every
+            migration row parses and its anchor exists.
 """
 from __future__ import annotations
 
@@ -35,8 +44,16 @@ INSTRUCTION = ".claude/instructions/Factory-setup-discovery.instructions.md"
 MATERIALIZATION = ".claude/instructions/Factory-setup-materialization.instructions.md"
 TEMPLATE = ".context/templates/setup/setup/setup_master_template.md"
 SETUP_MD = "docs/setup.md"
+UPGRADE = ".claude/instructions/Factory-setup-upgrade.instructions.md"
+PROJECT_MANIFEST = "docs/project_log/governance_versions.json"
+TEMPLATE_ROOT = ".context/templates/setup/"
+TOKEN = re.compile(r"\{\{\s*([A-Z][A-Z0-9_]*)\s*\}\}")
+TOKEN_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
+BASELINE_VALUE = re.compile(r"^(?:pending #\d+|unsourced)$")
+DETECT = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|#))([^#\s]+)#(/[^#\s]*)$")
 
 TIERS = (0, 1, 2)
+TOP_FIELDS = ("questions", "derived", "constants", "placeholder_baseline", "migrations")
 FREE_KINDS = ("text", "number", "list", "path", "command", "vault_name")
 SPEC_KINDS = ("options", "options_by", "free")
 NON_ANSWER_SLOTS = ("version", "date", "changelog", "phase", "status", "retry_count", "last_update")
@@ -302,7 +319,67 @@ def _answered(key: str, ans: dict) -> bool:
     return any(v is not None for k, v in ans.items() if k == key or k.startswith(key + "."))
 
 
-def resolve(repo: Path, ans: dict) -> dict:
+def _offered_for(spec: dict, ans: dict) -> list[str] | None:
+    """The literals a key admits for this answer set: its options, or its parent's row of options_by (None: free / parent unanswered)."""
+    if isinstance(spec.get("options"), list):
+        return [canon(x) for x in spec["options"]]
+    ob = spec.get("options_by")
+    if isinstance(ob, dict) and isinstance(ob.get("values"), dict):
+        row = ob["values"].get(canon(ans.get(ob.get("key"))) if ans.get(ob.get("key")) is not None else None)
+        return [canon(x) for x in row] if isinstance(row, list) else None
+    return None
+
+
+def _check_answers(reg: dict, ans: dict):
+    """An answer outside its key's options is a fault naming the key — never a silent skip."""
+    for k, spec in _specs(reg).items():
+        v = ans.get(k)
+        offered = _offered_for(spec, ans)
+        if v is None or offered is None:
+            continue
+        for x in (v if isinstance(v, list) else [v]):
+            if canon(x) not in offered:
+                raise GateFault(f"the answer `{k}` = `{canon(x)}` is not one of its options ({' | '.join(offered)}) — "
+                                f"answer it again from {REGISTRY}, never a literal of your own")
+
+
+def _pointer(doc, ptr: str) -> bool:
+    for part in ptr.split("/")[1:]:
+        part = part.replace("~1", "/").replace("~0", "~")
+        if isinstance(doc, dict) and part in doc:
+            doc = doc[part]
+        elif isinstance(doc, list) and part.isdigit() and int(part) < len(doc):
+            doc = doc[int(part)]
+        else:
+            return False
+    return True
+
+
+def _detected(repo: Path, detect: str) -> bool:
+    """`<file>#<pointer>` holds when the file parses and the pointer resolves (a .md file: its frontmatter)."""
+    m = DETECT.match(detect)
+    if not m:
+        raise GateFault(f"the migration detect `{detect}` is not `always` or `<project file>#/<JSON pointer>` — run `gate.py discovery`")
+    p = repo / m.group(1)
+    if not p.is_file():
+        return False
+    try:
+        doc = read_frontmatter(p) if p.suffix == ".md" else json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return _pointer(doc, m.group(2))
+
+
+def project_version(repo: Path) -> tuple:
+    """The project's framework version (its manifest snapshot); absent or unreadable reads as 0.0.0 (upgrade Step 0)."""
+    try:
+        v = json.loads((repo / PROJECT_MANIFEST).read_text(encoding="utf-8")).get("framework_version")
+    except (OSError, ValueError, AttributeError):
+        v = None
+    return _semver(v) or (0, 0, 0)
+
+
+def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
     reg = load_registry(repo)
     manifest = load_manifest(repo)
     templates = manifest.get("templates")
@@ -315,6 +392,7 @@ def resolve(repo: Path, ans: dict) -> dict:
             raise GateFault(f"{where}: {e}") from None
         if problems:
             raise GateFault(f"{where}: `{c}` does not hold to the registry: " + "; ".join(problems))
+    _check_answers(reg, ans)
     qs = sorted(enumerate(_questions(reg)), key=lambda iq: (iq[1].get("tier") if isinstance(iq[1].get("tier"), int) else 99, iq[0]))
     pending = []
     for _, q in qs:
@@ -328,7 +406,20 @@ def resolve(repo: Path, ans: dict) -> dict:
             continue
         c = e.get("stack_conditional")
         (landing if not c or evaluate(parse(c), ans) else skipped).append(k)
-    return {"pending": pending, "landing": landing, "skipped": skipped}
+    since = {q.get("id"): q.get("since") for q in _questions(reg)}
+    fills = {t: ans.get(k) for k, s in _specs(reg).items() for t in (s.get("fills") or [])}
+    out = {"pending": pending, "pending_since": {q: since.get(q) for q in pending}, "landing": landing, "skipped": skipped,
+           "placeholders": fills}
+    if project:
+        ver = project_version(repo)
+        target = lambda k: templates[k].get("target") if isinstance(templates[k].get("target"), str) else None
+        out["project_version"] = ".".join(map(str, ver))
+        out["migrations_owed"] = [{"id": m.get("id"), "since": m.get("since"), "apply": m.get("apply")} for m in (reg.get("migrations") or [])
+                                  if isinstance(m, dict) and ver < (_semver(m.get("since")) or (0, 0, 0))
+                                  and (m.get("detect") == "always" or not _detected(repo, str(m.get("detect"))))]
+        out["templates_to_add"] = [k for k in landing if target(k) and not (repo / target(k)).exists()]
+        out["templates_to_remove"] = [k for k in skipped if target(k) and (repo / target(k)).exists()]
+    return out
 
 
 def checked(repo: Path, cond: str) -> list[list[dict]]:
@@ -345,8 +436,17 @@ def eval_condition(repo: Path, cond: str, ans: dict) -> bool:
 
 
 def render_resolve(r: dict) -> str:
-    lines = [f"discovery: {len(r['pending'])} pending question(s)" + (f": {', '.join(r['pending'])}" if r["pending"] else " — every question that applies is answered"),
-             f"  templates landing ({len(r['landing'])}):"]
+    pend = ", ".join(f"{q} (since {r['pending_since'].get(q)})" for q in r["pending"])
+    lines = [f"discovery: {len(r['pending'])} pending question(s)" + (f": {pend}" if r["pending"] else " — every question that applies is answered")]
+    empty = sorted(t for t, v in r.get("placeholders", {}).items() if v is None)
+    lines.append(f"  placeholders from answers: {len(r.get('placeholders', {})) - len(empty)} filled, {len(empty)} unanswered" + (f" ({', '.join(empty)})" if empty else ""))
+    if "migrations_owed" in r:
+        lines.append(f"  project at {r['project_version']} — migrations owed ({len(r['migrations_owed'])}):")
+        lines += [f"    > {m['id']} (since {m['since']}) — apply: {m['apply']}" for m in r["migrations_owed"]]
+        lines += [f"  templates to add ({len(r['templates_to_add'])}):"] + [f"    + {k}" for k in r["templates_to_add"]]
+        lines += [f"  templates to remove — offer, never silently ({len(r['templates_to_remove'])}):"] + [f"    - {k}" for k in r["templates_to_remove"]]
+        return "\n".join(lines)
+    lines.append(f"  templates landing ({len(r['landing'])}):")
     lines += [f"    + {k}" for k in r["landing"]]
     lines.append(f"  templates skipped ({len(r['skipped'])}):")
     lines += [f"    - {k}" for k in r["skipped"]]
@@ -363,8 +463,8 @@ def _semver(v) -> tuple | None:
 def _v1(reg: dict, fw: tuple | None) -> list[str]:
     out, ids, keys = [], {}, {}
     for top in reg:
-        if top not in ("questions", "derived") and not top.startswith(("_", "$")):
-            out.append(f"V1 · top-level `{top}` is not a registry field (questions, derived)")
+        if top not in TOP_FIELDS and not top.startswith(("_", "$")):
+            out.append(f"V1 · top-level `{top}` is not a registry field ({', '.join(TOP_FIELDS)})")
     for n, q in enumerate(reg.get("questions") or []):
         if not isinstance(q, dict):
             out.append(f"V1 · question #{n + 1} is not an object"); continue
@@ -401,8 +501,8 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
             if len(kinds) != 1:
                 out.append(f"V1 · `{k}`: a spec carries exactly one of options | options_by | free (it carries {', '.join(kinds) or 'none'})")
             for f in s:
-                if f not in SPEC_KINDS + ("record_only", "suggestions"):
-                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions)")
+                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills"):
+                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills)")
             if "suggestions" in s and (s.get("free") != "text" or not isinstance(s["suggestions"], list) or not s["suggestions"]
                                        or len({canon(x) for x in s["suggestions"]}) != len(s["suggestions"])):
                 out.append(f"V1 · `{k}`: suggestions is a non-empty list of distinct literals on a `free: text` key only")
@@ -435,8 +535,8 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
         for k, s in d.items():
             if k in specs:
                 out.append(f"V1 · `{k}` is both asked and derived")
-            if not isinstance(s, dict) or not isinstance(s.get("from"), str) or not s["from"].strip() or set(s) - {"from"}:
-                out.append(f"V1 · derived `{k}`: the spec is {{from: \"<how earlier answers decide it>\"}}")
+            if not isinstance(s, dict) or not isinstance(s.get("from"), str) or not s["from"].strip() or set(s) - {"from", "fills"}:
+                out.append(f"V1 · derived `{k}`: the spec is {{from: \"<how earlier answers decide it>\", fills?: [TOKEN, …]}}")
     return out
 
 
@@ -472,7 +572,8 @@ def _consumer_files(repo: Path) -> list[str]:
 
 
 def _v4(repo: Path, reg: dict) -> list[str]:
-    owed = [k for k, s in _specs(reg).items() if not (isinstance(s.get("record_only"), str) and s["record_only"].strip())]
+    # a key whose `fills` names a token is read by the template that carries it (V10 holds the token to a template)
+    owed = [k for k, s in _specs(reg).items() if not (isinstance(s.get("record_only"), str) and s["record_only"].strip()) and not s.get("fills")]
     if not owed:
         return []
     rx = re.compile(r"(?<![A-Za-z0-9_])(" + "|".join(re.escape(k) for k in sorted(owed, key=len, reverse=True)) + r")(?![A-Za-z0-9_])")
@@ -838,15 +939,102 @@ def _v8(repo: Path, reg: dict, manifest: dict) -> list[str]:
     return out
 
 
+def template_tokens(repo: Path, manifest: dict) -> dict:
+    """{TOKEN: [template entry, …]} — the UPPER_SNAKE placeholders of every manifest `templates` entry with a target."""
+    out: dict = {}
+    for k, e in (manifest.get("templates") or {}).items():
+        if not isinstance(e, dict) or not e.get("target"):
+            continue
+        p = repo / TEMPLATE_ROOT / k
+        if p.is_file():
+            for t in set(TOKEN.findall(p.read_text(encoding="utf-8", errors="replace"))):
+                out.setdefault(t, []).append(k)
+    return out
+
+
+def _sources(reg: dict) -> tuple[dict, list[str]]:
+    """{TOKEN: [source, …]} across fills, derived fills, constants and the baseline; plus shape findings."""
+    src, bad = {}, []
+    add = lambda t, where: src.setdefault(t, []).append(where)
+    for k, s in list(_specs(reg).items()) + [(k, s) for k, s in (reg.get("derived") or {}).items() if isinstance(s, dict)]:
+        f = s.get("fills")
+        if f is None:
+            continue
+        if not isinstance(f, list) or any(not isinstance(t, str) or not TOKEN_NAME.match(t) for t in f) or len(set(f)) != len(f):
+            bad.append(f"V10 · `{k}`: fills is a list of distinct UPPER_SNAKE tokens"); continue
+        for t in f:
+            add(t, f"fills of `{k}`" if k in _specs(reg) else f"fills of derived `{k}`")
+    for field in ("constants", "placeholder_baseline"):
+        d = reg.get(field, {})
+        if not isinstance(d, dict):
+            bad.append(f"V10 · `{field}` is not an object {{TOKEN: …}}"); continue
+        for t, why in d.items():
+            if not TOKEN_NAME.match(t):
+                bad.append(f"V10 · {field} `{t}` is not an UPPER_SNAKE token")
+            elif field == "constants" and (not isinstance(why, str) or not why.strip()):
+                bad.append(f"V10 · constant `{t}` needs its reason")
+            elif field == "placeholder_baseline" and not (isinstance(why, str) and BASELINE_VALUE.match(why)):
+                bad.append(f"V10 · baseline `{t}`: `{why}` is not `pending #<issue>` or `unsourced`")
+            add(t, field)
+    return src, bad
+
+
+def _v10(repo: Path, reg: dict, manifest: dict) -> list[str]:
+    toks = template_tokens(repo, manifest)
+    src, out = _sources(reg)
+    for t in sorted(toks):
+        s = src.get(t, [])
+        if not s:
+            out.append(f"V10 · `{t}` ({', '.join(sorted(toks[t])[:3])}) has no source — add it to a key's `fills`, a derived `fills`, `constants`, or the baseline as `unsourced`")
+        elif len(s) > 1:
+            out.append(f"V10 · `{t}` has {len(s)} sources ({', '.join(s)}) — one token, one source"
+                       + (" — it is now sourced: remove it from the baseline" if "placeholder_baseline" in s else ""))
+    out += [f"V10 · `{t}` ({', '.join(s)}) names a token no template with a target carries — remove the entry" for t, s in sorted(src.items()) if t not in toks]
+    return out
+
+
+def _anchors(text: str) -> set[str]:
+    return {m.strip() for m in re.findall(r"^#{1,6}\s+(.+?)\s*$", text, re.M)} | {m.strip().rstrip(".:") for m in re.findall(r"\*\*([^*\n]+?)\*\*", text)}
+
+
+def _v11(repo: Path, reg: dict, fw: tuple | None) -> list[str]:
+    rows = reg.get("migrations")
+    if rows is None:
+        return []
+    if not isinstance(rows, list):
+        return ["V11 · `migrations` is not a list of {id, since, detect, apply}"]
+    p = repo / UPGRADE
+    anchors = _anchors(p.read_text(encoding="utf-8", errors="replace")) if p.is_file() else set()
+    out, seen = [], set()
+    for n, m in enumerate(rows):
+        mid = m.get("id") if isinstance(m, dict) else None
+        where = f"migration `{mid}`" if mid else f"migration #{n + 1}"
+        if not isinstance(m, dict) or set(m) != {"id", "since", "detect", "apply"} or not isinstance(mid, str) or not mid.strip():
+            out.append(f"V11 · {where}: a row is exactly {{id, since, detect, apply}}"); continue
+        if mid in seen:
+            out.append(f"V11 · {where} is declared twice")
+        seen.add(mid)
+        sv = _semver(m["since"])
+        if sv is None:
+            out.append(f"V11 · {where}: since `{m['since']}` is not a version (x.y.z)")
+        elif fw is not None and sv > fw:
+            out.append(f"V11 · {where}: since {m['since']} is above framework_version {'.'.join(map(str, fw))}")
+        if m["detect"] != "always" and not (isinstance(m["detect"], str) and DETECT.match(m["detect"])):
+            out.append(f"V11 · {where}: detect `{m['detect']}` is not `always` or `<project-relative file>#/<JSON pointer>`")
+        if not isinstance(m["apply"], str) or m["apply"].strip() not in anchors:
+            out.append(f"V11 · {where}: apply `{m['apply']}` is no heading or bold label of {UPGRADE}")
+    return out
+
+
 def validate(repo: Path) -> list[str]:
-    """Every finding of V1–V9, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
+    """Every finding of V1–V11, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
     reg = load_registry(repo)
     manifest = load_manifest(repo)
     fw = _semver(manifest.get("framework_version"))
     out = _v1(reg, fw)
     if fw is None:
         out.append(f"V1 · framework_version `{manifest.get('framework_version')}` in {MANIFEST} is not x.y.z — `since` cannot be held to it")
-    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg)
+    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw)
 
 
 def render(findings: list[str]) -> str:

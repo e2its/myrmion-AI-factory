@@ -46,8 +46,8 @@
   gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
   gate.py traceability --declared --json           the declared qualified case ids (FEATURE/CASE) and the manual ones — what the pytest plugin validates at collection; a listing, rc 0
   gate.py traceability --baseline --init|--refresh   record the unlinked debt once / shrink it (never adds)
-  gate.py discovery                                validate the SETUP question registry (EVOL-102, V1–V9): schema, single options, credential keys, consumers, conditions, instruction + template parity, consumer literals, snapshot keys; exit 1 findings · 2 fault
-  gate.py discovery --resolve [--answers FILE] [--json]   the pending questions (tier order) and the template entries that land / are skipped, for one answer set (docs/setup.md frontmatter, or FILE {"answers": {...}})
+  gate.py discovery                                validate the SETUP question registry (EVOL-102, V1–V11): schema, single options, credential keys, consumers, conditions, instruction + template parity, consumer literals, snapshot keys, one source per placeholder, migration rows; exit 1 findings · 2 fault
+  gate.py discovery --resolve [--answers FILE] [--json]   the pending questions (tier order, each with its since), the placeholders the answers fill and the template entries that land / are skipped, for one answer set (docs/setup.md frontmatter, or FILE {"answers": {...}}); against the project (no FILE) also the migrations owed and the templates to add / remove; an answer outside its options exits 2
   gate.py discovery --eval COND [--answers FILE]   evaluate one condition of the discovery grammar; exit 0 holds · 1 does not hold · 2 fault (unparseable, unknown key, a literal outside the options, an absent or fence-less docs/setup.md, --answers / --json without a mode, --json with --eval)
   gate.py scm-protection [--control-point P] [--json]   the server defends the branch rule (config: scm): at ci, with a token, the platform's API is asked per protected branch — a missing setting is RED; no token / no adapter / push / static → n/a with the checklist (docs/scm/protection.md)
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
@@ -479,7 +479,7 @@ def cmd_discovery(repo, a):
         ast = discovery_mod.checked(repo, a.eval) if a.eval is not None else None   # the condition first: its fault names it
         ans = discovery_mod.answers(repo, Path(a.answers) if a.answers else None)
         if a.resolve:
-            r = discovery_mod.resolve(repo, ans)
+            r = discovery_mod.resolve(repo, ans, project=not a.answers)   # a project: its migrations and template delta too
             print(json.dumps(r) if a.json else discovery_mod.render_resolve(r))
             return 0
         holds = discovery_mod.evaluate(ast, ans)

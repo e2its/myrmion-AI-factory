@@ -121,7 +121,7 @@ For each ADR in `docs/project_log/adr/`:
 The three sections are mutually exclusive on target paths — a file appears in exactly one section. Walk all three in a single pass; do not deduplicate by checksum across sections.
 
 1. Compare framework versions vs project versions (SemVer)
-2. Evaluate `stack_conditional` filters (skip files that don't apply to current stack) against the keys `docs/setup.md` persists (`ci_cd.platform`, `hosting.iac_tool`, `backend.runtime` …). Before evaluating: a `ci_cd.platform` of `CircleCI` is no longer offered (#143) — ask Q21 again (no earlier answer determines it; nothing is lost, no CircleCI template ever shipped); a frontmatter `mode:` is renamed `project_mode:` with Q3's literal (`Greenfield` | `Brownfield`). A file the answers now select that the project lacks (the C# rules for `.NET`, the CodeBuild governance check for `AWS CodePipeline`) is offered as new.
+2. Select templates through `python3 scripts/gate.py discovery --resolve` against the project — never read a `stack_conditional` as prose. A project materialised before 8.13.0 is back-filled first (Step 8b.1). Before resolving: a `ci_cd.platform` of `CircleCI` is no longer offered (#143) — ask Q21 again; a frontmatter `mode:` is renamed `project_mode:` with Q3's literal (`Greenfield` | `Brownfield`).
 3. Detect user customizations (project checksum ≠ previous framework checksum → user modified file)
 4. Present upgrade summary with options: **ALL** (upgrade everything) | **SELECT** (choose files) | **ABORT**
 
@@ -167,7 +167,7 @@ Identify new sections/keys/content in framework template that don't exist in pro
 
 **Step 4 — Resolve Placeholders (Smart Discovery Cascade):**
 For any `{{PLACEHOLDER}}` in new content, resolve from 5 sources in order:
-1. `docs/setup.md` body fields
+1. `docs/setup.md` frontmatter — `gate.py discovery --resolve --json → placeholders`, then the registry's derived `fills` and `constants`
 2. `docs/constitution.md` values
 3. ADR decisions
 4. Existing rules files
@@ -207,7 +207,39 @@ Scan merged content for unresolved placeholders (`TODO`, `FIXME`, `XXX`, `{{...}
 
 **Step 6 — Show Diff:** Display unified diff for user confirmation.
 **Step 7 — Write:** Save merged content to file.
-**Step 8 — Update Snapshot:** Record new checksum in project `governance_versions.json`. When the project manifest carries no `delivery_mode` (a project materialised before EVOL-046), ask Q32 (Factory-setup-discovery) and write the answer at the top level — an absent key already resolves to `production` (every push owes the full profile), so say it rather than leave it implicit. When the project `config/quality.json` carries no `agents.families` (a project materialised before EVOL-049), ask Q34 (writer / critic model aliases — two different families) and materialise `.claude/rules/agents.md` + `.claude/agents/*.md` from the template tree. When `config/quality.json` carries `planning.docs_exempt` (a project materialised before EVOL-051): move that list to `documentation.paths`, add `documentation.exclusions` (the template defaults: the workflows and `.claude/{instructions,skills,commands,hooks}/**`) and the `verification` block (`seal.required: true`, `gates` derived from the stack and Q33 exactly as materialization resolves `{{VERIFICATION_GATES}}` — never a literal placeholder, `digest_artefacts: ["design.md"]`), in the same step as the `scripts/gates/` refresh (`seal.py`, `digests.py`, `traceability.py` arrive with it); until then the planning gate refuses the retired key and every governed write is blocked. When the project bumps its manifest by hand (pre-EVOL-061): the helper `gate.py manifest --bump` arrives with the gates refresh (`gate.py` and `scripts/gates/**` are lock-step pairs) — the check is unchanged either way. When a critic's return still carries informational findings before its governance block (pre-EVOL-060): the return reader refuses it with the reason; the five critic definitions and `scripts/gates/agents.py` arrive with the gates refresh, the next spawn carries the two-part shape, the round artefact (`code-review-<hash>.returns.md`, the peer review's § Critic returns) keeps the appendix. When `agents` carries no `canary` block (pre-EVOL-059): add `canary.line_tolerance` with the template's value — until then `gate.py canary --judge` faults and every lens stays owed; the critic definitions' `Model:` line arrives with the gates refresh. When `agents.tiers` carries no `turn_budget` (pre-EVOL-058): add `turn_budget` and `probe_budget` to every size tier with the template's values and the `medium` row, and `maxTurns` (= the large tier's `turn_budget`) to every read-only definition under `.claude/agents/`, in the same step as the `scripts/gates/` refresh — until then the validator is red and the resolver refuses every critic spawn. When `verification` carries no `logs` (pre-EVOL-057): add the template's block (`push`, `timings`, `max_kb` — the push record and the per-gate timings the measurement subproduct reads; absent, the hook and the loop write nothing and the instrument says so). When it carries no `traceability` block (pre-EVOL-053): add it (the home derived from the stack exactly as materialization resolves `{{TRACEABILITY_HOME}}`, the template's grammar, plans, roots and baseline path), deliver `tests/conftest_traceability.py` for a Python stack, then record the debt once — `python3 scripts/gate.py traceability --baseline --init` — so the gate ships green with the unlinked cases on the board, never red on half the suite. When it carries no `scm` block (pre-EVOL-054): ask Q21.2 (the SCM host, the approvals, the required checks), add the block and deliver `docs/scm/protection.md` from the platform's template; the repository's administrators apply it, CI verifies it (`gate.py scm-protection` at the `ci` control point) when it carries a read-only token. A project whose `rules/agents.md` lacks `worker_turn_cap` / `context_result_max_kb` (pre-EVOL-062) sees `gate.py agents` red naming the key until the rule, the four worker definitions (`maxTurns`), the `Stop` hook (`session-handoff.sh`) and its `settings.json` wiring are refreshed; the instrument's raw-results signal reads None naming the key meanwhile.
+**Step 8 — Update Snapshot:** Record new checksum in project `governance_versions.json`.
+
+**Step 8b — What the project lacks (EVOL-102).** One call: `python3 scripts/gate.py discovery --resolve --json` against the project (no `--answers`). Exit 2 names an answer outside its options — ask that question again. Then, in order:
+1. **Back-fill.** A project materialised before 8.13.0 holds its answers as `docs/setup.md` body bullets (`- **Backend Runtime:** Python`). Each `pending` question whose key the body states unambiguously, with a value inside its options → write it to the frontmatter; list each in the upgrade report. Anything else → RDR, never a guess.
+2. **Ask** the remaining `pending` questions in tier order (`pending_since` says why each is new), RDR with the recommendation shown; write each answer to the frontmatter. Q21.2 (`scm`), Q32 (`delivery_mode`) and Q34 (`agents.families`) arrive this way; their migration below writes the block the answer configures.
+3. **Migrate.** Run `migrations_owed` in order, each by its anchor below.
+4. **Templates.** Offer `templates_to_add` (Step 3). Offer `templates_to_remove` by RDR — never remove silently.
+
+Migration anchors (registry `migrations`; a row is owed when the project is older than its `since` and its `detect` pointer is missing):
+
+**iterations array (EVOL-032).** Run `bash scripts/migrate-iteration-frontmatter.sh` (idempotent), then set `governance_features.iterations_array_v1` in the project manifest.
+
+**delivery_mode (EVOL-046).** Write Q32's answer as top-level `delivery_mode` in the project manifest. Absent, it resolves to `production` — say so.
+
+**agents.families (EVOL-049).** Write Q34's two aliases to `config/quality.json → agents.families`; materialise `.claude/rules/agents.md` and `.claude/agents/*.md` from the template tree.
+
+**documentation + verification (EVOL-051).** Move `planning.docs_exempt` to `documentation.paths`; add `documentation.exclusions` (template defaults) and the `verification` block (`seal.required: true`, `gates` derived as materialisation resolves `{{VERIFICATION_GATES}}`, `digest_artefacts: ["design.md"]`) — same step as the `scripts/gates/` refresh. Until then the planning gate refuses the retired key.
+
+**traceability (EVOL-053).** Add the block (home derived as materialisation resolves `{{TRACEABILITY_HOME}}`; template grammar, plans, roots, baseline path); deliver `tests/conftest_traceability.py` for Python; then `python3 scripts/gate.py traceability --baseline --init` once.
+
+**scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
+
+**verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).
+
+**turn and probe budgets (EVOL-058).** Add `turn_budget` and `probe_budget` to every size tier of `.claude/rules/agents.md` (template values, the `medium` row) and `maxTurns` (= the large tier's `turn_budget`) to every read-only definition under `.claude/agents/` — same step as the `scripts/gates/` refresh.
+
+**canary (EVOL-059).** Add `agents.canary.line_tolerance` with the template's value; the critics' `Model:` line arrives with the gates refresh.
+
+**critic return shape (EVOL-060).** Refresh the five critic definitions and `scripts/gates/agents.py`; the next spawn carries the two-part return.
+
+**manifest --bump (EVOL-061).** Nothing to write: `gate.py manifest --bump` arrives with the gates refresh.
+
+**context diet (EVOL-062).** Refresh `rules/agents.md` (`worker_turn_cap`, `context_result_max_kb`), the four worker definitions (`maxTurns`), the `Stop` hook `session-handoff.sh` and its `settings.json` wiring.
 
 ---
 
@@ -272,7 +304,7 @@ When updating framework templates:
 - Follow SemVer bump rules (MAJOR: breaking, MINOR: additive, PATCH: fix)
 - Update changelog
 - Update `governance_versions.json` with new version + checksum
-- Document new placeholders in placeholder registry
+- Give every new `{{TOKEN}}` one source in `discovery_registry.json` (a key's `fills`, a derived `fills`, `constants`) — `gate.py discovery` V10 holds it
 
 ---
 

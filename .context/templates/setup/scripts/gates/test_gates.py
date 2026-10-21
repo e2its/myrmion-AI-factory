@@ -3179,6 +3179,11 @@ def disc_add(repo: Path):
     subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
 
 
+def _tok(name: str, pad: str = "") -> str:
+    """A template token built at run time — this file is itself a template (its twin lands), so it carries none literally."""
+    return "{" + "{" + pad + name + pad + "}}"
+
+
 class Discovery(unittest.TestCase):
     """EVOL-102: one grammar, one evaluator, one registry validator (V1–V9) — every rule seen red."""
 
@@ -3728,6 +3733,164 @@ class Discovery(unittest.TestCase):
             r = gt(); self.assertEqual(r.returncode, 1, r.stdout + r.stderr); self.assertIn("V8", r.stdout)
             (repo / discovery.REGISTRY).unlink()
             r = gt(); self.assertEqual(r.returncode, 2); self.assertIn("registry", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+    # ── phase 2: every placeholder has a source; the upgrade asks what a project lacks ──
+    def _tpl(self, repo, body="x " + _tok("FOO", "") + " " + _tok("BAR_BAZ", "") + " {{lower}} {{#each x}} " + _tok("FOO", " ") + "\n"):
+        m = json.loads((repo / discovery.MANIFEST).read_text())
+        m["templates"]["rules/tok.md"] = {"version": "1.0.0", "target": ".claude/rules/tok.md"}
+        write(repo / discovery.MANIFEST, json.dumps(m))
+        write(repo / ".context/templates/setup/rules/tok.md", body)
+
+    def _fills(self, reg, key, toks):
+        for q in reg["questions"]:
+            if key in q["keys"]:
+                q["keys"][key]["fills"] = toks
+
+    def test_v10_unsourced_token(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); self._tpl(repo)
+            f = self._rule(discovery.validate(repo), "V10")
+            self.assertEqual(len(f), 2, f); self.assertTrue(any("`FOO`" in x for x in f)); self.assertTrue(any("`BAR_BAZ`" in x for x in f))
+            self.assertFalse(any("lower" in x or "each" in x for x in f), "UPPER_SNAKE tokens only")
+            self._reg(repo, lambda r: (self._fills(r, "backend.runtime", ["FOO"]), r.__setitem__("constants", {"BAR_BAZ": "a literal of the document's prose"})))
+            self.assertEqual(self._rule(discovery.validate(repo), "V10"), [])
+            self._reg(repo, lambda r: r["derived"]["verification.gates"].__setitem__("fills", ["FOO"]))
+            f = self._rule(discovery.validate(repo), "V10")
+            self.assertTrue(f and "`FOO`" in f[0] and "backend.runtime" in f[0] and "verification.gates" in f[0], f)
+
+    def test_v4_fills_is_a_reader(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); self._tpl(repo, "x " + _tok("FOO", "") + "\n")
+            self._reg(repo, lambda r: self._q(r, "Q26")["keys"]["dependencies.backend"].__setitem__("fills", ["FOO"]))
+            write(repo / "scripts/consumer.sh", DISC_CONSUMER.replace(" dependencies.backend", "")); disc_add(repo)
+            self.assertEqual(self._rule(discovery.validate(repo), "V4"), [], "a key whose fills a template carries is read there")
+            self._reg(repo, lambda r: self._q(r, "Q26")["keys"]["dependencies.backend"].pop("fills"))
+            self.assertTrue(any("dependencies.backend" in f for f in self._rule(discovery.validate(repo), "V4")))
+
+    def test_v10_stale_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); self._tpl(repo, "x " + _tok("FOO", "") + "\n")
+            self._reg(repo, lambda r: (self._fills(r, "backend.runtime", ["FOO", "GONE1"]), r.__setitem__("constants", {"GONE2": "x"}),
+                                       r.__setitem__("placeholder_baseline", {"GONE3": "unsourced"})))
+            f = self._rule(discovery.validate(repo), "V10")
+            for t in ("GONE1", "GONE2", "GONE3"):
+                self.assertTrue(any(f"`{t}`" in x and "no template" in x for x in f), (t, f))
+            self.assertEqual(len(f), 3, f)
+
+    def test_v10_baseline_now_sourced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); self._tpl(repo, "x " + _tok("FOO", "") + " " + _tok("BAR", "") + "\n")
+            self._reg(repo, lambda r: r.__setitem__("placeholder_baseline", {"FOO": "pending #147", "BAR": "unsourced"}))
+            self.assertEqual(self._rule(discovery.validate(repo), "V10"), [])
+            self._reg(repo, lambda r: self._fills(r, "backend.runtime", ["FOO"]))
+            f = self._rule(discovery.validate(repo), "V10")
+            self.assertEqual(len(f), 1, f); self.assertIn("`FOO`", f[0]); self.assertIn("baseline", f[0])
+            self._reg(repo, lambda r: (self._fills(r, "backend.runtime", []), r["placeholder_baseline"].__setitem__("FOO", "later")))
+            f = self._rule(discovery.validate(repo), "V10")
+            self.assertTrue(any("`FOO`" in x and "pending #" in x for x in f), f)
+
+    def test_v11_migrations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            write(repo / discovery.UPGRADE, "# Upgrade\n\n#### Step 8 — anchors\n\n**scm block (EVOL-054).** add it\n")
+            row = {"id": "m1", "since": "1.1.0", "detect": "config/quality.json#/scm", "apply": "scm block (EVOL-054)"}
+            self._reg(repo, lambda r: r.__setitem__("migrations", [row, {"id": "m2", "since": "1.0.0", "detect": "always", "apply": "Step 8 — anchors"}]))
+            self.assertEqual(self._rule(discovery.validate(repo), "V11"), [])
+            bad = [{**row, "apply": "no such anchor"}, {**row, "id": "m3", "detect": "config/quality.json"}, {**row, "id": "m4", "since": "9.9.9"},
+                   {**row, "id": "m5", "detect": "/etc/x.json#/a"}, {**row, "id": "m6", "since": "1.x"}]
+            self._reg(repo, lambda r: r.__setitem__("migrations", bad))
+            f = self._rule(discovery.validate(repo), "V11")
+            self.assertTrue(any("no such anchor" in x for x in f)); self.assertTrue(any("`m3`" in x and "detect" in x for x in f))
+            self.assertTrue(any("`m4`" in x and "9.9.9" in x for x in f)); self.assertTrue(any("`m5`" in x for x in f)); self.assertTrue(any("`m6`" in x for x in f))
+            self.assertEqual(len(f), 5, f)
+
+    def _project(self, repo, version="1.0.0", quality=None):
+        write(repo / "docs/setup.md", "---\nbackend:\n  runtime: Python\n---\n")
+        write(repo / "docs/project_log/governance_versions.json", json.dumps({"framework_version": version}))
+        write(repo / "config/quality.json", json.dumps(quality or {}))
+
+    def test_resolve_migrations_owed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda r: r.__setitem__("migrations", [
+                {"id": "m1", "since": "1.1.0", "detect": "config/quality.json#/scm", "apply": "a"},
+                {"id": "m2", "since": "1.1.0", "detect": "always", "apply": "b"},
+                {"id": "m3", "since": "1.0.0", "detect": "config/quality.json#/x", "apply": "c"}]))
+            self._project(repo)
+            ids = lambda r: [m["id"] for m in r["migrations_owed"]]
+            r = discovery.resolve(repo, discovery.answers(repo), project=True)
+            self.assertEqual(ids(r), ["m1", "m2"], "older than since and the pointer missing, or always; m3's since is the project's own version")
+            self._project(repo, quality={"scm": {"platform": "github"}})
+            self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), ["m2"], "the pointer present: not owed")
+            self._project(repo, version="1.1.0")
+            self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), [], "a project at since owes nothing")
+            r = discovery.resolve(repo, discovery.answers(repo))
+            self.assertNotIn("migrations_owed", r, "an answer set alone has no project to migrate")
+
+    def test_resolve_templates_to_add_and_remove(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            m = json.loads((repo / discovery.MANIFEST).read_text())
+            m["templates"]["rules/python.md"]["target"] = ".claude/rules/python.md"
+            m["templates"]["rules/always.md"]["target"] = ".claude/rules/always.md"
+            m["templates"]["rules/database.md"]["target"] = ".claude/rules/database.md"
+            write(repo / discovery.MANIFEST, json.dumps(m))
+            self._project(repo, version="1.2.0")
+            write(repo / "docs/setup.md", "---\nbackend:\n  runtime: Node.js\ndatabase:\n  primary:\n    engine: PostgreSQL\n---\n")
+            write(repo / ".claude/rules/python.md", "x"); write(repo / ".claude/rules/database.md", "x")
+            r = discovery.resolve(repo, discovery.answers(repo), project=True)
+            self.assertEqual(r["templates_to_add"], ["rules/always.md"], "lands, target absent")
+            self.assertEqual(r["templates_to_remove"], ["rules/python.md"], "skipped, target present")
+
+    def test_resolve_placeholders_and_since(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda r: self._fills(r, "backend.runtime", ["BACKEND_RUNTIME", "PRIMARY_LANGUAGE"]))
+            r = discovery.resolve(repo, {"backend.runtime": "Python"})
+            self.assertEqual(r["placeholders"], {"BACKEND_RUNTIME": "Python", "PRIMARY_LANGUAGE": "Python"})
+            self.assertEqual(r["pending_since"]["Q6"], "1.1.0"); self.assertEqual(set(r["pending_since"]), set(r["pending"]))
+            self.assertEqual(discovery.resolve(repo, {})["placeholders"], {"BACKEND_RUNTIME": None, "PRIMARY_LANGUAGE": None})
+
+    def test_answer_outside_options(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            for bad, key in (({"backend.runtime": "Ruby"}, "backend.runtime"), ({"backend.runtime": "Python", "backend.framework": "Rails"}, "backend.framework")):
+                with self.assertRaises(GateFault) as cm:
+                    discovery.resolve(repo, bad)
+                self.assertIn(f"`{key}`", str(cm.exception))
+            discovery.resolve(repo, {"backend.runtime": "Python", "backend.framework": "Django"})
+            write(repo / "a.json", json.dumps({"answers": {"backend.runtime": "Ruby"}}))
+            gate = str(HERE.parent / "gate.py")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "discovery", "--resolve", "--answers", str(repo / "a.json")],
+                               capture_output=True, text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": ""})
+            self.assertEqual(r.returncode, 2); self.assertIn("backend.runtime", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+    def test_gates_parse_under_python_310(self):
+        """Every gate module parses on the oldest interpreter the projects run (rules/python.md: 3.10+) — the grammar through
+        ast's feature_version, and what it cannot see: a string nested in an f-string with the enclosing quote (valid from 3.12 only)."""
+        import ast, io, tokenize
+        files = sorted(HERE.glob("*.py")) + [HERE.parent / "gate.py"]
+        for f in files:
+            ast.parse(f.read_text(encoding="utf-8"), str(f), feature_version=(3, 10))
+        if sys.version_info < (3, 12):
+            return   # this interpreter's own parser refused a nested enclosing quote above
+
+        def nested_quotes(src):
+            bad, open_ = [], []
+            for t in tokenize.generate_tokens(io.StringIO(src).readline):
+                if t.type == tokenize.FSTRING_END:
+                    open_.pop()
+                elif t.type in (tokenize.STRING, tokenize.FSTRING_START):
+                    q = t.string.lstrip("rRbBuUfF")
+                    q = q[:3] if q[:3] in ('"""', "'''") else q[:1]
+                    if any(q.startswith(o) for o in open_):
+                        bad.append(t.start[0])
+                    if t.type == tokenize.FSTRING_START:
+                        open_.append(q)
+            return bad
+        self.assertTrue(nested_quotes('x = f"{", ".join(f\'{a["k"]}\' for a in b)}"\n'), "the rule sees the class it guards")
+        self.assertFalse(nested_quotes('x = f"""{a["k"]}""" + f"{a[\'k\']}"\n'), "a quote that does not close the enclosing one is fine")
+        self.assertEqual({f.name: n for f in files if (n := nested_quotes(f.read_text(encoding="utf-8")))}, {})
 
 
 class Writes(unittest.TestCase):
