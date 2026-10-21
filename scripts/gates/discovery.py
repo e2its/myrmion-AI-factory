@@ -22,6 +22,10 @@ upgrade     `migrations [{id, since, detect, apply}]`: owed by a project older t
             every upgrade, whatever `since`; `apply`
             names an anchor (a heading or a bold label) of the upgrade instruction. `--resolve` against a project adds
             `migrations_owed`, `templates_to_add` (lands, target absent) and `templates_to_remove` (skipped, target present).
+defects     EVOL-066 — `defect_classes.drop`: the tool-bound ids (any option's `configures → defect_prevention.classes`)
+            the answers do not select. Against a project also, per template row: `to_add` (absent, not dropped),
+            `to_remove` (the same class — invariant or case title equal — and dropped), `collisions` (another class under
+            the id, not dropped: {id, project, framework}). A row outside the template is never listed.
 validate    V1 schema · V2 a single option not derived · V3 a credential-named key not `free: vault_name` · V4 a key with
             no consumer, no `fills` and no `record_only` · V5 every condition parses and names registry keys and offered literals ·
             V6 parity with the discovery instruction · V7 parity with the setup template frontmatter · V8 the consumer
@@ -29,7 +33,9 @@ validate    V1 schema · V2 a single option not derived · V3 a credential-named
             STACK_KEYS are registry keys · V10 every UPPER_SNAKE token of a template with a target has exactly one source
             (fills | derived fills | constants | baseline), and every entry names a token some template carries · V11 every
             migration row parses and its anchor exists · V12 every `configures` row: a key's literal is offered, a
-            gate row is {command, scoped?, red_link?, report?} with a command.
+            gate row is {command, scoped?, red_link?, report?} with a command, `defect_prevention.classes` a list of
+            `DC-NN` · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
+            configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
 configures  EVOL-067 — a key spec's `configures {<option literal>: {<config pointer>: value}}` and a derived entry's
             `configures {<config pointer>: value}` (unconditional): `--resolve` merges the answered rows into
             `configures` — a mapping merges key by key (a gate from two sources is a fault), a list is a union.
@@ -58,6 +64,17 @@ TEMPLATE_ROOT = ".context/templates/setup/"
 TOKEN = re.compile(r"\{\{\s*([A-Z][A-Z0-9_]*)\s*\}\}")
 TOKEN_NAME = re.compile(r"^[A-Z][A-Z0-9_]*$")
 BASELINE_VALUE = re.compile(r"^(?:pending #\d+|unsourced)$")
+DC_POINTER = "defect_prevention.classes"
+DC_UNIVERSAL = re.compile(r"^DC-\d+$")
+TEMPLATE_CATALOG = TEMPLATE_ROOT + "rules/defect-prevention.md"
+TEMPLATE_CASES = TEMPLATE_ROOT + "rules/defect-prevention-cases.md"
+PROJECT_CATALOG = ".claude/rules/defect-prevention.md"
+PROJECT_CASES = ".claude/rules/defect-prevention-cases.md"
+# the stack and cloud vocabulary a universal row never names (V13, rules/defect-prevention.md § Promotion 1)
+STACK_LABEL_KEYS = ("backend.runtime", "frontend.framework", "database.primary.engine", "database.secondary.engine",
+                    "database.cache.engine", "hosting.provider", "hosting.iac_tool", "hosting.secrets_manager", "ci_cd.platform",
+                    "scm.platform", "observability.monitoring", "observability.error_tracking", "observability.tracing")
+LABEL_STOP = {"None", "Other", "Self-hosted", "In-memory", "CDN-only", ".env"}
 DETECT = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|#))([^#\s]+)#(/[^#\s]*)$")
 
 TIERS = (0, 1, 2)
@@ -424,6 +441,7 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
     fills = {t: ans.get(k) for k, s in _specs(reg).items() for t in (s.get("fills") or [])}
     out = {"pending": pending, "pending_since": {q: since.get(q) for q in pending}, "landing": landing, "skipped": skipped,
            "placeholders": fills, "configures": configures(reg, ans)}
+    out["defect_classes"] = defect_classes(repo, reg, out["configures"], ans, pending, project)
     lacking = _unverified_parts(reg, ans)
     if lacking:
         out["stop"] = STOP.format(parts="; ".join(lacking))
@@ -436,6 +454,51 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
                                   or (ver < (_semver(m.get("since")) or (0, 0, 0)) and not _detected(repo, str(m.get("detect")))))]
         out["templates_to_add"] = [k for k in landing if target(k) and not (repo / target(k)).exists()]
         out["templates_to_remove"] = [k for k in skipped if target(k) and (repo / target(k)).exists()]
+    return out
+
+
+def _tool_bound(reg: dict) -> dict[str, list[str]]:
+    """Every class id an option's `configures` names (a tool-bound row: it lands only where its tool is) → the keys that bind it."""
+    out: dict[str, list[str]] = {}
+    for k, s in _specs(reg).items():
+        for rows in (s.get("configures") or {}).values() if isinstance(s.get("configures"), dict) else []:
+            ids = rows.get(DC_POINTER) if isinstance(rows, dict) else None
+            for i in (ids if isinstance(ids, list) else []):
+                keys = out.setdefault(i, [])
+                if k not in keys:
+                    keys.append(k)
+    return out
+
+
+def defect_classes(repo: Path, reg: dict, conf: dict, ans: dict, pending: list, project: bool) -> dict:
+    """`drop`: the tool-bound ids the answers rule out — an id whose key is unanswered while questions are pending is
+    undecided and stays — any pending question, not only its own: a question whose `when` reads an unanswered key may
+    still become owed. Against a project also `to_add`, `to_remove` (dropped rows it holds as the same class) and
+    `collisions` (a template id it holds as another class, dropped ids excepted)."""
+    from . import corpus
+    picked = conf.get(DC_POINTER) or []
+    drop = [i for i, keys in _tool_bound(reg).items()
+            if i not in picked and not (pending and any(not _answered(k, ans) for k in keys))]
+    out: dict = {"drop": drop}
+    if not project:
+        return out
+    for rel in (TEMPLATE_CATALOG, TEMPLATE_CASES):
+        if not (repo / rel).is_file():
+            raise GateFault(f"the template defect catalog {rel} is missing — run factory-sync.sh to deliver the templates, then run again")
+    tpl, tcases = corpus.catalog(repo, repo / TEMPLATE_CATALOG), corpus.cases(repo / TEMPLATE_CASES)
+    mine = {d["id"]: d for d in corpus.catalog(repo, repo / PROJECT_CATALOG)["dcs"]}
+    pcases = corpus.cases(repo / PROJECT_CASES)
+    out.update(to_add=[], to_remove=[], collisions=[])
+    for d in tpl["dcs"]:
+        i, have = d["id"], mine.get(d["id"])
+        if have is None:
+            if i not in drop:
+                out["to_add"].append(i)
+        elif have["invariant"] == d["invariant"] or (i in pcases and pcases.get(i) == tcases.get(i)):
+            if i in drop:
+                out["to_remove"].append(i)
+        elif i not in drop:
+            out["collisions"].append({"id": i, "project": pcases.get(i) or have["invariant"], "framework": tcases.get(i) or d["invariant"]})
     return out
 
 
@@ -516,11 +579,17 @@ def render_resolve(r: dict) -> str:
         lines.append(f"  stop: {r['stop']}")
     empty = sorted(t for t, v in r.get("placeholders", {}).items() if v is None)
     lines.append(f"  placeholders from answers: {len(r.get('placeholders', {})) - len(empty)} filled, {len(empty)} unanswered" + (f" ({', '.join(empty)})" if empty else ""))
+    dc = r.get("defect_classes") or {}
+    lines.append(f"  defect classes dropped — the answers select no tool they bind to ({len(dc.get('drop', []))})" + (f": {', '.join(dc['drop'])}" if dc.get("drop") else ""))
     if "migrations_owed" in r:
         lines.append(f"  project at {r['project_version']} — migrations owed ({len(r['migrations_owed'])}):")
         lines += [f"    > {m['id']} (since {m['since']}) — apply: {m['apply']}" for m in r["migrations_owed"]]
         lines += [f"  templates to add ({len(r['templates_to_add'])}):"] + [f"    + {k}" for k in r["templates_to_add"]]
         lines += [f"  templates to remove — offer, never silently ({len(r['templates_to_remove'])}):"] + [f"    - {k}" for k in r["templates_to_remove"]]
+        if "to_add" in dc:
+            lines += [f"  defect classes to add ({len(dc['to_add'])}):"] + [f"    + {i}" for i in dc["to_add"]]
+            lines += [f"  defect classes to remove — offer, never silently ({len(dc['to_remove'])}):"] + [f"    - {i}" for i in dc["to_remove"]]
+            lines += [f"  defect class collisions — one RDR each ({len(dc['collisions'])}):"] + [f"    ! {c['id']}: project «{c['project']}» ≠ framework «{c['framework']}»" for c in dc["collisions"]]
         return "\n".join(lines)
     lines.append(f"  templates landing ({len(r['landing'])}):")
     lines += [f"    + {k}" for k in r["landing"]]
@@ -1097,6 +1166,9 @@ def _gate_rows(where: str, rows) -> list[str]:
     if not isinstance(rows, dict):
         return [f"V12 · {where}: configures is {{<config pointer>: value}}"]
     out = []
+    ids = rows.get(DC_POINTER)
+    if ids is not None and (not isinstance(ids, list) or not all(isinstance(i, str) and DC_UNIVERSAL.match(i) for i in ids)):
+        out.append(f"V12 · {where}: {DC_POINTER} is a list of universal class ids [DC-NN, …]")
     gates = rows.get("verification.gates")
     if gates is None:
         return out
@@ -1131,15 +1203,46 @@ def _v12(reg: dict) -> list[str]:
     return out
 
 
+def _labels(reg: dict) -> list[str]:
+    specs = _specs(reg)
+    return sorted({lit for k in STACK_LABEL_KEYS for lit in (_offered(specs.get(k) or {}) or []) if lit not in LABEL_STOP})
+
+
+def _v13(repo: Path, reg: dict) -> list[str]:
+    from . import corpus
+    try:
+        cat, cs = corpus.catalog(repo, repo / TEMPLATE_CATALOG), corpus.cases(repo / TEMPLATE_CASES)
+    except GateFault as e:
+        return [f"V13 · {e}"]
+    ids, bound, out = [d["id"] for d in cat["dcs"]], _tool_bound(reg), []
+    pats = [(lab, re.compile(r"(?<!\w)" + re.escape(lab) + r"(?!\w)")) for lab in _labels(reg)]
+    for d in cat["dcs"]:
+        i = d["id"]
+        if not DC_UNIVERSAL.match(i):
+            out.append(f"V13 · {i}: the template catalog holds universal rows only — a `PDC` class is the project's own (rules/defect-prevention.md § Promotion)")
+        if d["gate"].strip() in ("", "—", "-"):
+            out.append(f"V13 · {i}: no Gate — a universal class enters with its gate, or waits in the issue that builds it (§ Promotion 2)")
+        if i not in cs:
+            out.append(f"V13 · {i}: no case — add `### {i} — <title>` to {TEMPLATE_CASES} (§ Promotion 6)")
+        if i not in bound:
+            text = " ".join((d["invariant"], d["gate"], ", ".join(d["paths"])))
+            hits = [lab for lab, p in pats if p.search(text)]
+            if hits:
+                out.append(f"V13 · {i} names {', '.join('`' + h + '`' for h in hits)} — a universal row names no stack or cloud: generalise it, or bind it through the tool's option (`configures → {DC_POINTER}`)")
+    out += [f"V13 · case {i} has no row in {TEMPLATE_CATALOG} — add the row or remove the case" for i in cs if i not in ids]
+    out += [f"V13 · `configures → {DC_POINTER}` names {i}, not a template row — add the row and its case, or remove the id" for i in bound if i not in ids]
+    return out
+
+
 def validate(repo: Path) -> list[str]:
-    """Every finding of V1–V12, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
+    """Every finding of V1–V13, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
     reg = load_registry(repo)
     manifest = load_manifest(repo)
     fw = _semver(manifest.get("framework_version"))
     out = _v1(reg, fw)
     if fw is None:
         out.append(f"V1 · framework_version `{manifest.get('framework_version')}` in {MANIFEST} is not x.y.z — `since` cannot be held to it")
-    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw) + _v12(reg)
+    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw) + _v12(reg) + _v13(repo, reg)
 
 
 def render(findings: list[str]) -> str:

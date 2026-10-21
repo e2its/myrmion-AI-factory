@@ -544,7 +544,29 @@
      ],
      "fills": [
       "FRONTEND_PATTERN"
-     ]
+     ],
+     "configures": {
+      "F2": {
+       "defect_prevention.classes": [
+        "DC-18"
+       ]
+      },
+      "F3": {
+       "defect_prevention.classes": [
+        "DC-18"
+       ]
+      },
+      "F4": {
+       "defect_prevention.classes": [
+        "DC-18"
+       ]
+      },
+      "F8": {
+       "defect_prevention.classes": [
+        "DC-18"
+       ]
+      }
+     }
     }
    }
   },
@@ -1554,7 +1576,7 @@
   "CONFIG_BASE_PATH": "fixed by the framework layout",
   "CONTRACTS_BASE_PATH": "fixed by the framework layout",
   "DATE": "the system clock when the file is written",
-  "DC_ENTRIES": "the starter defect classes the stack selects at --generate (Factory-setup-materialization § defect-prevention seed)",
+  "DC_ENTRIES": "the project's own starter classes, PDC-numbered, the stack selects at --generate (Factory-setup-materialization § defect-prevention seed)",
   "DONE_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "END": "an example in the document's prose — never substituted",
   "FEATURE": "a runtime literal of the shipped script — never substituted",

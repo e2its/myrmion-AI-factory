@@ -9,7 +9,9 @@ Shapes (SPEC EVOL-043):
                     `## Defect Classes` table (DC | Family | Invariant | Gate | Paths | Applicable To | Severity)
 
 Every entry is fail-closed at parse: a law without a `Body:` pointer, a defect class row with the wrong
-column count, an unknown family or empty paths is a GateFault — never a silently shorter roll-call.
+column count, an unknown family or empty paths is a GateFault — never a silently shorter roll-call. A class id is
+`DC-NN` (universal) or `PDC-NN` (the project's own, EVOL-066); a mistyped id, a duplicate, a severity outside
+SEVERITIES, an agent outside AGENTS or an empty invariant is refused too.
 """
 from __future__ import annotations
 
@@ -28,6 +30,10 @@ RECORDS_RE = re.compile(r"Records:\s*(?P<records>.+?)\.?\s*$")
 BODY_HEADING_RE = r"^#{2,4}\s+\[%s\]"
 AXES = ("phase", "scope", "change_type", "command", "path_glob", "framework", "always")
 DC_COLUMNS = 7
+DC_ID = re.compile(r"^P?DC-\d+$")
+SEVERITIES = ("BLOCKER", "WARNING")
+AGENTS = ("CODESIGN", "BLUEPRINT", "IMPLEMENT", "REVIEW", "DEVOPS", "QA", "AUDIT")
+CASE_RE = re.compile(r"^###\s+(?P<id>P?DC-\d+)\s+[—–-]\s+(?P<title>.+?)\s*$", re.M)
 
 
 # ─── law index ──────────────────────────────────────────────────────────────────
@@ -262,10 +268,10 @@ def _globs(cell: str) -> list[str]:
     return [g.strip().strip("`") for g in cell.split(",") if g.strip()]
 
 
-def catalog(repo: Path) -> dict:
-    """Families and defect classes. Missing catalog → empty (a project before SETUP --generate).
-    Fail-closed on shape: a DC row with the wrong column count, an unknown family or empty paths."""
-    p = rules_root(repo) / "defect-prevention.md"
+def catalog(repo: Path, path: Path | None = None) -> dict:
+    """Families and defect classes of the rules root's catalog, or of `path` (the template's, read by discovery).
+    Missing catalog → empty (a project before SETUP --generate). Fail-closed on shape and vocabulary (module doc)."""
+    p = path or rules_root(repo) / "defect-prevention.md"
     if not p.is_file():
         return {"path": None, "families": [], "dcs": []}
     rel = str(p.relative_to(repo))
@@ -273,20 +279,42 @@ def catalog(repo: Path) -> dict:
     families = [{"name": r[0].strip("`"), "surface": _globs(r[1]), "invariant": r[2]}
                 for r in _table_rows(_section(text, "Families")) if len(r) >= 3 and not r[0].lower().startswith("family")]
     names = {f["name"] for f in families}
-    dcs = []
+    dcs, seen = [], set()
     for r in _table_rows(_section(text, "Defect Classes")):
-        if not re.match(r"^DC-\d+$", r[0]):
+        if r[0] == "DC":   # the header row
             continue
+        if not DC_ID.match(r[0]):
+            raise GateFault(f"{rel}: § Defect Classes row `{r[0] or '(empty)'}` is not a class id — write `DC-NN` (universal) or `PDC-NN` (the project's own), or remove the row")
+        if r[0] in seen:
+            raise GateFault(f"{rel}: {r[0]} is declared twice — one id, one row; renumber the project's own class to its next `PDC-NN`")
+        seen.add(r[0])
         if len(r) != DC_COLUMNS:
             raise GateFault(f"{rel}: {r[0]} has {len(r)} columns, the catalog row shape has {DC_COLUMNS} (DC | Family | Invariant | Gate | Paths | Applicable To | Severity)")
         family, paths = r[1].strip("`"), _globs(r[4])
+        agents = [a.strip() for a in r[5].split(",") if a.strip()]
         if family not in names:
             raise GateFault(f"{rel}: {r[0]} names family `{family}`, not in § Families ({', '.join(sorted(names)) or 'none'})")
+        if not r[2].strip():
+            raise GateFault(f"{rel}: {r[0]} has no Invariant — state in one sentence what must always hold")
         if not paths:
             raise GateFault(f"{rel}: {r[0]} has no Paths — declare the globs it governs, or `*` for universal")
+        if not agents:
+            raise GateFault(f"{rel}: {r[0]} names no agent in Applicable To — name who checks it ({', '.join(AGENTS)})")
+        for a in agents:
+            if a not in AGENTS:
+                raise GateFault(f"{rel}: {r[0]}: agent `{a}` is not one of {', '.join(AGENTS)} — name the phase agent that checks it")
+        if r[6] not in SEVERITIES:
+            raise GateFault(f"{rel}: {r[0]}: severity `{r[6]}` is not {' or '.join(SEVERITIES)} — BLOCKER fails the review, WARNING warns")
         dcs.append({"id": r[0], "family": family, "invariant": r[2], "gate": r[3].strip("`"), "paths": paths,
-                    "applicable_to": [a.strip() for a in r[5].split(",") if a.strip()], "severity": r[6]})
+                    "applicable_to": agents, "severity": r[6]})
     return {"path": rel, "families": families, "dcs": dcs}
+
+
+def cases(path: Path) -> dict[str, str]:
+    """The cases annex: {id: title} of its `### ID — Title` headings, in order. Missing annex → empty."""
+    if not path.is_file():
+        return {}
+    return {m.group("id"): m.group("title") for m in CASE_RE.finditer(path.read_text(encoding="utf-8", errors="replace"))}
 
 
 # ─── applicability (the single resolver) ────────────────────────────────────────

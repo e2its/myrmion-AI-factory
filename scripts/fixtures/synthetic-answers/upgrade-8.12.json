@@ -6,6 +6,7 @@
     "backend.runtime": "Python",
     "frontend.framework": "React",
     "frontend.meta_framework": "None",
+    "frontend.pattern": "F1",
     "database.primary.engine": "None",
     "hosting.provider": "AWS",
     "hosting.iac_tool": "None",
@@ -61,6 +62,7 @@
       "Q33",
       "Q34"
     ],
+    "defect_classes": {"present": ["DC-31", "PDC-1"], "absent": ["DC-18"], "to_add": ["DC-32", "DC-33", "DC-34"], "collisions": ["DC-31"], "to_remove": ["DC-18"]},
     "migrations": ["critic-return", "manifest-bump", "verification.gates (EVOL-067)"],
     "gates": {"tests": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q", "coverage": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q", "lint": "ruff check .", "sca": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi", "typecheck": "if [ -f mypy.ini ] || { [ -f pyproject.toml ] && grep -q '^\\[tool\\.mypy' pyproject.toml; }; then mypy .; fi", "frontend-tests": "npx jest --config jest.config.ts --no-coverage", "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"},
     "red": true, "coverage_report": "coverage/lcov.info", "red_link": null,

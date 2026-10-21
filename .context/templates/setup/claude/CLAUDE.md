@@ -100,7 +100,7 @@ No gate is optional — it changes its control point. `delivery_mode` in `docs/p
 
 ## Governance Rules
 
-Every law is an index entry: **one normative sentence**, the **one body** that details it (`Body:` — `rules/x.md` resolves against `.claude/rules/` in a project and `.context/templates/setup/rules/` in the framework repo; `inline` when the sentence is the whole rule), and the records that produced it. Bodies are read at the point of action, never re-typed here. Universal `[LAW-NN]` ids are one namespace across the lock-step pair; project law `[PLAW-NN]` lives in the constitution index.
+Every law is an index entry: **one normative sentence**, the **one body** that details it (`Body:` — `rules/x.md` resolves against `.claude/rules/` in a project and `.context/templates/setup/rules/` in the framework repo; `inline` when the sentence is the whole rule), and the records that produced it. Bodies are read at the point of action, never re-typed here. Universal `[LAW-NN]` ids are one namespace across the lock-step pair; project law `[PLAW-NN]` lives in the constitution index. Defect classes follow the same split: universal `DC-NN`, numbered by the framework; a project's own `PDC-NN` (`rules/defect-prevention.md`).
 
 1. **[LAW-01] Constitutional Supremacy (single source of truth)** — Operational law lives in one governance source as an index — one sentence, one body, its records per law — and changes only by ceremony: a sentence through an accepted ADR, a body through a rule-file edit. Body: `.claude/skills/factory-governance-loading/SKILL.md`. Records: `ADR-EVOL-026`, `ADR-EVOL-043`.
 

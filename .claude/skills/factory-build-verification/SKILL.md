@@ -50,17 +50,17 @@ FUNCTION defect_discovery_hook(errors, task, attempt):
 
       FOR EACH dc IN existing_dcs:
         IF pattern_signature SEMANTICALLY_MATCHES dc.invariant:
-          LOG: "Known DC-{dc.number} ({dc.name}) — already cataloged"
+          LOG: "Known {dc.id} ({dc.name}) — already cataloged"
           RETURN  # Already known, no action needed
 
       # Novel pattern — propose cataloging
       PROPOSE_TO_USER:
         "Recurring defect pattern detected: {errors.summary}
          This pattern is NOT in the Defect Prevention Catalog.
-         Propose cataloging as DC-{next_dc_number}?
+         Propose cataloging as PDC-{next_pdc}? (the project's next own id)
          Pattern: {pattern_signature}
          Prevention: {suggested_prevention}"
-      # If user approves → Discovery Protocol in defect-prevention.md Section 3
+      # If user approves → the Discovery Protocol of .claude/rules/defect-prevention.md
 ```
 
 ## Seed/Synthetic Data Alignment Gate

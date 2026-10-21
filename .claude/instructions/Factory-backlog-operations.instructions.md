@@ -242,31 +242,31 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
     RETURN
 
   READ .claude/rules/defect-prevention.md → existing_catalog
-  next_dc_number = max(existing_catalog.dc_numbers) + 1
+  next_pdc = max(existing_catalog PDC-NN numbers, default 0) + 1    # the project's own namespace (Discovery Protocol); DC-NN is the framework's
 
   FOR EACH candidate IN candidates:
     # Dedup: skip candidates that overlap an existing DC by name similarity
     IF candidate is substantially covered by an existing DC:
-      ADD comment to retrospective body: "Candidate merged into DC-{N}"
+      ADD comment to retrospective body: "Candidate merged into {id}"
       CONTINUE
 
     # Materialise the entry
     APPEND to .claude/rules/defect-prevention.md § Defect Classes (table, 7 columns):
-      | DC-{next_dc_number} | `{family}` | {invariant} | {gate} | {paths} | {applicable_to} | {severity} |
+      | PDC-{next_pdc} | `{family}` | {invariant} | {gate} | {paths} | {applicable_to} | {severity} |
     APPEND to .claude/rules/defect-prevention-cases.md:
-      ### DC-{next_dc_number} — {name}
+      ### PDC-{next_pdc} — {name}
       **Origin:** {evidence link, when discovered, epic retrospective reference}
       **Story:** {story}
       **Detection:** {detection, worked example}
 
-    next_dc_number += 1
+    next_pdc += 1
 
   # Governance bump — the canonical framework rule is enforced by the governance-check CI
   # workflow (.github/workflows/governance-check.yml). Every change to a tracked rule file
   # MUST bump its entry in governance_versions.json — python3 scripts/gate.py manifest --bump --entry <path> --level … --note "…" (EVOL-061).
   UPDATE docs/project_log/governance_versions.json → defect-prevention.md entry:
     version: bump minor (e.g. 2.0.0 → 2.1.0)
-    changelog.append: "{YYYY-MM-DD}: EPIC-{N} retrospective added {count} DC entries ({dc_numbers})"
+    changelog.append: "{YYYY-MM-DD}: EPIC-{N} retrospective added {count} DC entries ({dc_ids})"
 
   # Worklog
   APPEND_TO_WORKLOG: {phase: "RETROSPECTIVE", action: "writeback", added_dcs: [...]}
@@ -280,7 +280,7 @@ FUNCTION retrospective_writeback(retrospective_issue, epic_id):
 1. **The gate does NOT close without running the write-back.** Moving the RETROSPECTIVE issue to Done manually (without invoking the write-back procedure) is a governance violation, because the "zero candidates" branch is still a valid and explicit decision — it must be logged, not implied.
 2. **Zero candidates is a valid outcome.** An epic that produced no novel patterns closes the gate cleanly with a narrative-only issue body and the explicit "no new DC candidates" log line.
 3. **Write-back is additive and tool-agnostic.** It only appends to `.claude/rules/defect-prevention.md` and bumps `governance_versions.json`. It does NOT touch per-feature artefacts, does NOT invoke any tool-adapter operation beyond `read_issue` + `move_to_column`, and does NOT trigger cascade invalidation (cataloging a new pattern is forward-only — it does not retroactively invalidate past work).
-4. **Discovery Protocol alignment.** Write-back is the canonical execution of the Discovery Protocol documented in `.claude/rules/defect-prevention.md` § 8. Agents that discover novel patterns during development (IMPLEMENT --fix, BVL failure, preventive sweep finding a pattern not in the catalog) SHOULD still add them immediately, not wait for the retrospective — but they MUST also mirror the addition into the current epic's retrospective issue body so the closing write-back is idempotent.
+4. **Discovery Protocol alignment.** Write-back is the canonical execution of the Discovery Protocol documented in `.claude/rules/defect-prevention.md` § Discovery Protocol; a class worth every project is proposed upstream (§ Promotion). Agents that discover novel patterns during development (IMPLEMENT --fix, BVL failure, preventive sweep finding a pattern not in the catalog) SHOULD still add them immediately, not wait for the retrospective — but they MUST also mirror the addition into the current epic's retrospective issue body so the closing write-back is idempotent.
 
 ---
 

@@ -480,10 +480,10 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   # feature_scope already loaded above (before QA-REL block).
   applicable_dcs = consult_defect_catalog("QA", {feature_id: FEATURE_ID, feature_scope: feature_scope, stack: setup_md.stack})
   FOR EACH dc IN applicable_dcs:
-    checklist.push("- [ ] [QA-DC-{dc.number}]: {dc.name} — {dc.invariant}")
+    checklist.push("- [ ] [QA-{dc.id}]: {dc.name} — {dc.invariant}")
     checklist[-1].metadata = {
       source: "defect-prevention.md",
-      dc_number: dc.number,
+      dc_id: dc.id,
       severity: dc.severity,
       category: "defect_prevention"
     }

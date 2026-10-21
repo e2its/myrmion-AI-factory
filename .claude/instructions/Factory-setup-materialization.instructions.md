@@ -217,7 +217,7 @@ For each detected technology (backend.runtime, frontend.framework):
 
 **Phase B.1 — Defect Prevention Catalog (Stack-Aware Materialization):**
 
-The `defect-prevention.md` template uses a `{{DC_ENTRIES}}` placeholder that MUST be populated with starter defect classes based on the project's stack. These are defects that **pass all static gates** but **break at runtime** — the gap between static verification and deployed behavior. Each entry renders ONE row in the catalog table (7 columns) and ONE case in the annex `defect-prevention-cases.md`.
+The `defect-prevention.md` template carries the universal rows (`DC-NN`, the framework's) and a `{{DC_ENTRIES}}` placeholder that MUST be populated with the project's own starter classes (`PDC-NN`) based on the project's stack. A universal row the answers do not select is dropped with its case: `gate.py discovery --resolve --json → defect_classes.drop` (tool-bound rows, selected by their tool's registry option — never by reading a row). These are defects that **pass all static gates** but **break at runtime** — the gap between static verification and deployed behavior. Each entry renders ONE row in the catalog table (7 columns) and ONE case in the annex `defect-prevention-cases.md`.
 
 **Schema note:** every entry carries `family` (one of the catalog `## Families` ids), `invariant` (one line, ≤ `budgets.dc_invariant_max_chars`, no `|`), `gate` (the mechanical check that proves it, or `—`), `paths` (globs the DC governs; `["*"]` = universal, embedded in the governance snapshot), `applicable_to` (enum list of the SDLC agents that MUST consult this entry — `CODESIGN`, `BLUEPRINT`, `IMPLEMENT`, `REVIEW`, `DEVOPS`, `QA`, `AUDIT`; most entries are `[IMPLEMENT, REVIEW]`; UX patterns add `CODESIGN`; architectural add `BLUEPRINT`; infra add `DEVOPS`; test-surface add `QA`; enduring patterns add `AUDIT`), `severity`, and `case` (`origin`, `story`, `detection` — the narrative, never in the row). Scope filtering is by `paths`: a backend-only feature never touches `src/**/frontend/**`, so UI rows never fire for it. The starter DCs below use sensible defaults — projects extend them via the Discovery Protocol.
 
@@ -641,19 +641,18 @@ FUNCTION materialize_defect_prevention(setup_md, constitution_md):
   # Materialize: one row per entry into the catalog table, one case per entry into the annex.
   # Row columns MUST match the template header:
   #   DC | Family | Invariant | Gate | Paths | Applicable To | Severity
-  reserved  = ids already present in the template § Defect Classes (starter rows DC-18, DC-27, DC-28, DC-29)
-  dc_number = 1
+  # Starter entries are the project's own: PDC-1, PDC-2, … — never a DC-NN (the framework's), so no id collides.
   rows = []; cases = []
-  FOR EACH dc IN dc_entries:
-    WHILE "DC-{dc_number}" IN reserved: dc_number += 1
+  FOR EACH n, dc IN enumerate(dc_entries, start=1):
     ASSERT dc.family IN template § Families
     ASSERT len(dc.invariant) <= budgets.dc_invariant_max_chars AND "\n" NOT IN dc.invariant AND "|" NOT IN dc.invariant
-    rows.append("| DC-{dc_number} | `{dc.family}` | {dc.invariant} | {dc.gate} | {join(map(backtick, dc.paths), ', ')} | {join(dc.applicable_to, ', ')} | {dc.severity} |")
-    cases.append("### DC-{dc_number} — {dc.name}\n\n**Origin:** {dc.case.origin}\n\n**Story:** {dc.case.story}\n\n**Detection:** {dc.case.detection}\n")
-    dc_number += 1
+    rows.append("| PDC-{n} | `{dc.family}` | {dc.invariant} | {dc.gate} | {join(map(backtick, dc.paths), ', ')} | {join(dc.applicable_to, ', ')} | {dc.severity} |")
+    cases.append("### PDC-{n} — {dc.name}\n\n**Origin:** {dc.case.origin}\n\n**Story:** {dc.case.story}\n\n**Detection:** {dc.case.detection}\n")
   REPLACE {{DC_ENTRIES}} with rows (one per line)
+  REMOVE every row whose id is in defect_classes.drop          # gate.py discovery --resolve --json
   WRITE to .claude/rules/defect-prevention.md
-  COPY template rules/defect-prevention-cases.md → .claude/rules/defect-prevention-cases.md; APPEND cases after the starter cases
+  COPY template rules/defect-prevention-cases.md → .claude/rules/defect-prevention-cases.md; REMOVE the cases of defect_classes.drop; APPEND cases after the starter cases
+  # the catalog parser (gate.py budget) runs at § 4.2.10 Finalization, once config/quality.json has landed
 ```
 
 **Phase C — Global Validation:**
@@ -1143,6 +1142,8 @@ This ensures that even operations outside the slash command are blocked from com
 3. Create `docs/project_log/governance_versions.json` — the project manifest. Shape (declared, EVOL-044): `framework_version` (the framework version materialised), `delivery_mode` ← `docs/setup.md` frontmatter `delivery.mode` (Q32 — `development` | `production`, EVOL-046; the one key `python3 scripts/gate.py profile` reads, fail-closed to `production` when absent — so a forgotten key silently makes every push owe the full profile, never less), `templates` (the framework manifest's `templates` map, key → `{version, target, content_type, stack_conditional}`, filtered to the entries that landed — the source of truth every governed file's frontmatter `version:` must equal; `gate.py manifest-parity` reads it) and `files` (target → `{template_source, checksum}`, what `validate-upgrade-integrity.sh` compares at upgrade).
 4. Record framework version, materialization timestamp
 5. This snapshot enables future `--upgrade` to detect drift vs customization
+
+**Catalog and budgets:** `python3 scripts/gate.py budget` is green on the materialised tree — the catalog parser refuses a malformed or duplicate row, every injection budget holds — else BLOCK.
 
 **State Update:**
 - Set `docs/setup.md` → `materialization_complete: true`

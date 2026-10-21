@@ -70,10 +70,9 @@ applicable_when:
 ## Defect Classes
 | DC | Family | Invariant | Gate | Paths | Applicable To | Severity |
 |---|---|---|---|---|---|---|
-| DC-18 | `runtime` | Unused imports are removed. | `—` | `src/**` | DEV, REVIEW | WARNING |
-| DC-27 | `data` | A migration ships with its down step. | `scripts/validate-migrations.sh` | `**/migrations/**` | DEV | CRITICAL |
-| DC-29 | `runtime` | Build the least that satisfies the spec. | `—` | `*` | DEV | WARNING |
-| not-a-row | x | y | z | w | v | u |
+| DC-18 | `runtime` | Unused imports are removed. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |
+| DC-27 | `data` | A migration ships with its down step. | `scripts/validate-migrations.sh` | `**/migrations/**` | IMPLEMENT | BLOCKER |
+| DC-29 | `runtime` | Build the least that satisfies the spec. | `—` | `*` | IMPLEMENT | WARNING |
 """
 
 
@@ -239,21 +238,46 @@ class Corpus(unittest.TestCase):
     def test_discovery_hash_covers_laws_and_classes(self):
         before = corpus.applicable(self.repo, {"phase": "QA"})["discovery_hash"]
         cat = self.repo / ".claude/rules/defect-prevention.md"
-        cat.write_text(cat.read_text() + "| DC-30 | `runtime` | A new class. | `—` | `src/**` | DEV | WARNING |\n", encoding="utf-8")
+        cat.write_text(cat.read_text() + "| DC-30 | `runtime` | A new class. | `—` | `src/**` | IMPLEMENT | WARNING |\n", encoding="utf-8")
         self.assertNotEqual(before, corpus.applicable(self.repo, {"phase": "QA"})["discovery_hash"], "a new DC changes the roll-call hash")
 
     def test_catalog_shape_is_fail_closed(self):
         cat = self.repo / ".claude/rules/defect-prevention.md"
         base = cat.read_text()
-        cat.write_text(base + "| DC-31 | `runtime` | six columns | `—` | `src/**` | DEV |\n", encoding="utf-8")
+        cat.write_text(base + "| DC-31 | `runtime` | six columns | `—` | `src/**` | IMPLEMENT |\n", encoding="utf-8")
         with self.assertRaisesRegex(GateFault, "DC-31 has 6 columns"):
             corpus.catalog(self.repo)
-        cat.write_text(base + "| DC-32 | `ghost` | unknown family | `—` | `src/**` | DEV | WARNING |\n", encoding="utf-8")
+        cat.write_text(base + "| DC-32 | `ghost` | unknown family | `—` | `src/**` | IMPLEMENT | WARNING |\n", encoding="utf-8")
         with self.assertRaisesRegex(GateFault, "family `ghost`"):
             corpus.catalog(self.repo)
-        cat.write_text(base + "| DC-33 | `runtime` | no paths | `—` | — | DEV | WARNING |\n", encoding="utf-8")
+        cat.write_text(base + "| DC-33 | `runtime` | no paths | `—` | — | IMPLEMENT | WARNING |\n", encoding="utf-8")
         with self.assertRaisesRegex(GateFault, "no Paths"):
             corpus.catalog(self.repo)
+
+    def test_catalog_vocabulary_is_fail_closed(self):
+        """EVOL-066: a row the parser cannot place is refused, never skipped — its row and its repair named."""
+        cat = self.repo / ".claude/rules/defect-prevention.md"
+        base = cat.read_text()
+        cases = [("| DC-18 | `runtime` | twice | `—` | `src/**` | IMPLEMENT | WARNING |", "DC-18 is declared twice"),
+                 ("| DC-41 | `runtime` | bad severity | `—` | `src/**` | IMPLEMENT | CRITICAL |", "DC-41: severity `CRITICAL`"),
+                 ("| DC-42 | `runtime` | bad agent | `—` | `src/**` | IMPLEMENT, DEV | WARNING |", "DC-42: agent `DEV`"),
+                 ("| DC-43 | `runtime` | no agent | `—` | `src/**` |  | WARNING |", "DC-43 names no agent"),
+                 ("| DC-44 | `runtime` |  | `—` | `src/**` | IMPLEMENT | WARNING |", "DC-44 has no Invariant"),
+                 ("| DC31 | `runtime` | mistyped id | `—` | `src/**` | IMPLEMENT | WARNING |", "`DC31` is not a class id")]
+        for row, msg in cases:
+            with self.subTest(msg=msg):
+                cat.write_text(base + row + "\n", encoding="utf-8")
+                with self.assertRaisesRegex(GateFault, re.escape(msg)):
+                    corpus.catalog(self.repo)
+
+    def test_project_class_parses_and_is_delivered(self):
+        cat = self.repo / ".claude/rules/defect-prevention.md"
+        cat.write_text(cat.read_text() + "| PDC-1 | `data` | The project's own class. | `—` | `**/migrations/**` | IMPLEMENT, REVIEW | WARNING |\n", encoding="utf-8")
+        self.assertIn("PDC-1", [d["id"] for d in corpus.catalog(self.repo)["dcs"]])
+        text, _ = corpus.digest(self.repo, ["src/migrations/001.sql"], 6000)
+        self.assertIn("PDC-1 [data] The project's own class.", text, "a PDC row is delivered at the point of edit like a DC row")
+        self.assertNotIn("PDC-1", corpus.digest(self.repo, ["docs/x.txt"], 6000)[0])
+        self.assertIn("PDC-1", corpus.rollcall(corpus.applicable(self.repo, {"agent": "REVIEW"}, ["src/migrations/001.sql"])))
 
     def test_law_without_pointer_is_refused_and_records_read_after_pointer(self):
         with self.assertRaisesRegex(GateFault, "no `Body:` pointer"):
@@ -300,7 +324,7 @@ class Corpus(unittest.TestCase):
         self.assertNotIn("architecture.md", full, "always-rules are in the snapshot, not re-delivered")
         self.assertIn("rule .claude/rules/broken.md unreadable", full, "an unreadable rule is said, never silently dropped")
         cat = self.repo / ".claude/rules/defect-prevention.md"
-        cat.write_text(cat.read_text() + "| DC-40 | `runtime` | " + "— multibyte dashes — " * 12 + " | `—` | `src/**` | DEV | WARNING |\n", encoding="utf-8")
+        cat.write_text(cat.read_text() + "| DC-40 | `runtime` | " + "— multibyte dashes — " * 12 + " | `—` | `src/**` | IMPLEMENT | WARNING |\n", encoding="utf-8")
         for b in list(range(150, 420, 37)) + [60]:   # 60 < the head with its attributes: the envelope drops them and still fits
             text, _ = corpus.digest(self.repo, ["src/migrations/001.sql"], b)
             self.assertLessEqual(len(text.encode()), b, f"budget {b} is in bytes")
@@ -3525,6 +3549,8 @@ def disc_repo(root: Path) -> Path:
     write(repo / discovery.MANIFEST, json.dumps(DISC_MANIFEST, indent=1))
     write(repo / "scripts/consumer.sh", DISC_CONSUMER)
     write(repo / discovery.MATERIALIZATION, "# Materialisation\n")
+    write(repo / discovery.TEMPLATE_CATALOG, "## Defect Classes\n| DC | Family | Invariant | Gate | Paths | Applicable To | Severity |\n|---|---|---|---|---|---|---|\n")
+    write(repo / discovery.TEMPLATE_CASES, "# Cases\n")
     disc_add(repo)
     return repo
 
@@ -4354,6 +4380,110 @@ class Discovery(unittest.TestCase):
                 self._reg(repo, lambda r: mut(next(s for q in r["questions"] for k, s in q["keys"].items() if k == "backend.runtime")["configures"]))
                 v12 = self._rule(discovery.validate(repo), "V12")
                 self.assertTrue(any(msg in f for f in v12), v12)
+
+    # ── EVOL-066: the defect classes a stack selects, the template catalog held to its promotion rules ─────────
+    DC_HEAD = ("---\ndescription: c\n---\n## Families\n| Family | Surface (globs) | Invariant |\n|---|---|---|\n"
+               "| `ui` | `**/*.tsx` | UI. |\n| `process` | `*` | Process. |\n\n## Defect Classes\n"
+               "| DC | Family | Invariant | Gate | Paths | Applicable To | Severity |\n|---|---|---|---|---|---|---|\n")
+    DC_ROWS = {"DC-18": "| DC-18 | `ui` | A server-rendered component never reads browser state. | `grep window` | `**/*.tsx` | IMPLEMENT, REVIEW | BLOCKER |",
+               "DC-31": "| DC-31 | `process` | No literal credential enters the diff. | loop member `secrets` | `*` | IMPLEMENT, REVIEW | BLOCKER |"}
+    DC_CASES = {"DC-18": "Hydration mismatch", "DC-31": "Secret committed to the diff"}
+
+    def _dc_files(self, repo, root, rows, cases):
+        write(repo / root / "defect-prevention.md", self.DC_HEAD + "".join(r + "\n" for r in rows) + "\n## Cases\n")
+        write(repo / root / "defect-prevention-cases.md", "# Cases\n" + "".join(f"\n### {i} — {t}\n\n**Origin:** x\n" for i, t in cases.items()))
+
+    def _dc_reg(self, reg):
+        q = next(q for q in reg["questions"] if q["id"] == "Q5")
+        q["keys"]["frontend.pattern"] = {"options": ["F1", "F2"], "record_only": "fixture",
+                                         "configures": {"F2": {"defect_prevention.classes": ["DC-18"]}}}
+        q["keys"]["frontend.framework"] = {"options": ["React", "None"], "record_only": "fixture"}
+
+    def _dc_repo(self, tmp):
+        repo = disc_repo(tmp)
+        self._reg(repo, self._dc_reg)
+        self._dc_files(repo, discovery.TEMPLATE_ROOT + "rules", list(self.DC_ROWS.values()), self.DC_CASES)
+        return repo
+
+    def test_defect_classes_drop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._dc_repo(tmp)
+            self.assertEqual(discovery.resolve(repo, {"frontend.pattern": "F1"})["defect_classes"], {"drop": ["DC-18"]}, "no server rendering: its class is dropped")
+            self.assertEqual(discovery.resolve(repo, {})["defect_classes"], {"drop": []}, "its key unanswered while questions are pending: undecided, the row stays")
+            self.assertEqual(discovery.defect_classes(repo, discovery.load_registry(repo), {}, {}, [], False), {"drop": ["DC-18"]},
+                             "nothing pending and its key unanswered: no question can still select the tool — dropped")
+            self.assertEqual(discovery.resolve(repo, {"frontend.pattern": "F2"})["defect_classes"], {"drop": []})
+            self.assertIn("defect classes dropped", discovery.render_resolve(discovery.resolve(repo, {})))
+
+    def test_defect_classes_against_a_project(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._dc_repo(tmp)
+            proj = lambda ans: discovery.resolve(repo, ans, project=True)["defect_classes"]
+            self.assertEqual(proj({"frontend.pattern": "F2"}), {"drop": [], "to_add": ["DC-18", "DC-31"], "to_remove": [], "collisions": []},
+                             "a project with no catalog lacks every template row")
+            own = "| DC-31 | `process` | A project-own class of another kind. | `—` | `*` | IMPLEMENT | WARNING |"
+            pdc = "| PDC-1 | `process` | Never listed. | `—` | `*` | IMPLEMENT | WARNING |"
+            self._dc_files(repo, ".claude/rules", [self.DC_ROWS["DC-18"], own, pdc], {"DC-18": "Hydration mismatch", "DC-31": "Project login drift", "PDC-1": "x"})
+            r = proj({"frontend.pattern": "F1"})
+            self.assertEqual((r["to_add"], r["to_remove"]), ([], ["DC-18"]), "the dropped row the project holds is offered for removal")
+            self.assertEqual([c["id"] for c in r["collisions"]], ["DC-31"], "another class under a template id: a collision, never to_add")
+            self.assertEqual(r["collisions"][0], {"id": "DC-31", "project": "Project login drift", "framework": "Secret committed to the diff"})
+            self.assertEqual(proj({"frontend.pattern": "F2"})["to_remove"], [], "a selected row stays")
+            self.assertEqual(proj({})["to_remove"], [], "its question still pending: never offered for removal")
+            self._dc_files(repo, ".claude/rules", [self.DC_ROWS["DC-18"].replace("never reads browser state", "reads no window"), self.DC_ROWS["DC-31"]],
+                           {"DC-18": "Hydration mismatch", "DC-31": "Secret committed to the diff"})
+            self.assertEqual(proj({"frontend.pattern": "F1"})["to_remove"], ["DC-18"], "same case title, edited invariant: the same class")
+            text = discovery.render_resolve(discovery.resolve(repo, {"frontend.pattern": "F1"}, project=True))
+            for needle in ("defect classes to add (0)", "defect classes to remove — offer, never silently (1)", "defect class collisions — one RDR each (0)"):
+                self.assertIn(needle, text)
+            self._dc_files(repo, ".claude/rules", [self.DC_ROWS["DC-18"], self.DC_ROWS["DC-31"]], {"DC-18": "Hydration drift", "DC-31": "A title of the project's own"})
+            self.assertEqual(proj({"frontend.pattern": "F1"}), {"drop": ["DC-18"], "to_add": [], "to_remove": ["DC-18"], "collisions": []},
+                             "same invariant, another case title: the same class")
+            other = self.DC_ROWS["DC-18"].replace("A server-rendered component never reads browser state.", "Every widget names its owner.")
+            self._dc_files(repo, ".claude/rules", [other, self.DC_ROWS["DC-31"]], {"DC-18": "Ownerless widget", "DC-31": "Secret committed to the diff"})
+            r = proj({"frontend.pattern": "F1"})
+            self.assertEqual((r["to_remove"], r["collisions"]), ([], []), "a dropped id the project holds as its own class: the project's, never touched")
+            self.assertEqual([c["id"] for c in proj({"frontend.pattern": "F2"})["collisions"]], ["DC-18"], "selected, held as another class: a collision")
+            (repo / discovery.TEMPLATE_CATALOG).unlink()
+            with self.assertRaisesRegex(GateFault, "factory-sync"):
+                proj({"frontend.pattern": "F2"})
+            self.assertEqual(discovery.resolve(repo, {"frontend.pattern": "F1"})["defect_classes"], {"drop": ["DC-18"]}, "outside a project the template catalog is not read")
+
+    def test_v13_template_catalog(self):
+        cases = [
+            ("missing case", lambda rows, cs: cs.pop("DC-31"), "DC-31: no case"),
+            ("orphan case", lambda rows, cs: cs.__setitem__("DC-40", "x"), "case DC-40 has no row"),
+            ("gate —", lambda rows, cs: rows.__setitem__("DC-31", rows["DC-31"].replace("loop member `secrets`", "`—`")), "DC-31: no Gate"),
+            ("stack label", lambda rows, cs: rows.__setitem__("DC-31", rows["DC-31"].replace("enters the diff", "enters a React diff")), "DC-31 names `React`"),
+            ("project row", lambda rows, cs: (rows.__setitem__("PDC-1", rows["DC-31"].replace("DC-31", "PDC-1")), cs.__setitem__("PDC-1", "x")), "PDC-1: the template catalog holds universal rows only"),
+            ("unknown configured id", lambda rows, cs: (rows.pop("DC-18"), cs.pop("DC-18")), "names DC-18, not a template row"),
+        ]
+        for label, mut, msg in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as tmp:
+                repo = self._dc_repo(tmp)
+                self.assertEqual(self._rule(discovery.validate(repo), "V13"), [], "the fixture is green")
+                rows, cs = dict(self.DC_ROWS), dict(self.DC_CASES)
+                mut(rows, cs)
+                self._dc_files(repo, discovery.TEMPLATE_ROOT + "rules", list(rows.values()), cs)
+                v13 = self._rule(discovery.validate(repo), "V13")
+                self.assertTrue(any(msg in f for f in v13), v13)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._dc_repo(tmp)
+            self._reg(repo, lambda r: self._q(r, "Q5")["keys"]["frontend.pattern"]["configures"]["F2"].__setitem__("defect_prevention.classes", "DC-18"))
+            self.assertTrue(any("defect_prevention.classes is a list" in f for f in self._rule(discovery.validate(repo), "V12")))
+        real = HERE.parents[1]
+        if (real / discovery.REGISTRY).is_file():
+            reg = discovery.load_registry(real)
+            self.assertEqual(discovery._v13(real, reg), [], "the shipped template catalog is clean")
+            pat = discovery._specs(reg)["frontend.pattern"]["configures"]
+            self.assertEqual(sorted(o for o, row in pat.items() if "DC-18" in (row.get(discovery.DC_POINTER) or [])), ["F2", "F3", "F4", "F8"],
+                             "the patterns that render on the server select DC-18, no other")
+            dc32 = next(d for d in corpus.catalog(real, real / discovery.TEMPLATE_CATALOG)["dcs"] if d["id"] == "DC-32")
+            ci = [e["target"] for e in json.loads((real / discovery.MANIFEST).read_text(encoding="utf-8"))["templates"].values()
+                  if "ci_cd.platform" in str(e.get("stack_conditional"))]
+            self.assertEqual([t for t in ci if not any(glob_match(t, p) for p in dc32["paths"])], [], "DC-32 reaches every CI definition the framework ships")
+            self.assertEqual([k for k in discovery.STACK_LABEL_KEYS if discovery._offered(discovery._specs(reg).get(k) or {}) is None], [],
+                             "every label key is a registry key with options — a renamed key never silently weakens V13")
 
 
 class Writes(unittest.TestCase):
