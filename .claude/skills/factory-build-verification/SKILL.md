@@ -110,7 +110,7 @@ The TDD cycle in IMPLEMENT --build previously followed: RED (write test) → GRE
 
 ## THE LOOP'S MEMBERS — `verification.gates` (EVOL-067)
 
-The loop names no stack. Its members are `config/quality.json → verification.gates`: `{<gate>: {reads, command, scoped?}}`. SETUP derives them from the registry's `configures` rows (`gate.py discovery --resolve`); the project edits them like any config. `scoped` is the single-test form, `{paths}` the test files.
+The loop names no stack. Its members are `config/quality.json → verification.gates`: `{<gate>: {reads, command, scoped?, red_link?, report?, red?}}`. SETUP derives them from the registry's `configures` rows (`gate.py discovery --resolve`); the project edits them like any config. `scoped` is the single-test form, `{paths}` the test files. EVOL-068: `red_link` — paths linked into the diff base for the built-in `red` member; `report` — the `coverage` row's LCOV file; `red: false` — red not proven for this stack: its scoped run selects tests by name, not by file — give `tests.scoped` a per-file command and drop `red: false` to enable the proof.
 
 ```yaml
 FUNCTION gates():

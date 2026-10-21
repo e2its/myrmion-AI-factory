@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import unittest.mock
 import urllib.error
@@ -2237,13 +2238,13 @@ class Seal(unittest.TestCase):
             write(repo / "src/app.py", "print(2)\n")
             p = seal.plan(repo, base="main")
             self.assertNotIn("lint", p["owed"]); self.assertIn("tests", p["owed"])
-            self.assertEqual([(s["gate"], s["reason"]) for s in p["skipped"]], [("lint", "linter broken upstream")])
+            self.assertEqual([(s["gate"], s["reason"]) for s in p["skipped"] if s["gate"] != "red"], [("lint", "linter broken upstream")])
             self.assertEqual(seal.validate(repo), [])
             seal.write(repo, ["tests", "coverage", "docs-build"], ok=True, branch="feature/FEAT-001-x")
             self.assertTrue(seal.write(repo, [], ok=True, full=True, branch="feature/FEAT-001-x")["full"], "--full seals over a skipped gate")
             self._commit(repo, "code")
             c = seal.check(repo, base="main")
-            self.assertTrue(c["ok"], c["reason"]); self.assertEqual([s["gate"] for s in c["skipped"]], ["lint"])
+            self.assertTrue(c["ok"], c["reason"]); self.assertEqual([s["gate"] for s in c["skipped"] if s["gate"] != "red"], ["lint"])
             self.assertIn("lint", seal.render(c), "the check lists the skip with its reason")
 
     def test_expired_skip_is_owed_and_red(self):
@@ -2287,6 +2288,7 @@ class Seal(unittest.TestCase):
             body = f"#!/bin/sh\nexit {stub_rc}\n"
         write(bindir / "stubscan", body); os.chmod(bindir / "stubscan", 0o755)
         return repo, {"PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}"}
+
 
     def test_secrets_canary_detects(self):
         for stub in ("detect", "detect183"):   # trufflehog --fail exits 183 on a finding: a detection, never a signal
@@ -2360,6 +2362,205 @@ class Seal(unittest.TestCase):
             write(repo / "src/app.py", "print(3)\n")
             r = seal.run(repo, base="main")
             self.assertTrue(r["ok"]); self.assertNotIn("canary", r["reason"])
+
+
+class HonestTests(unittest.TestCase):
+    """EVOL-068: LAW-05 states the red proven; the loop's `red` member proves it at the diff base; coverage reaches the lens per file."""
+
+    DOCS, _commit = Seal.DOCS, Seal._commit
+    SENTENCE = "Every unit of logic has its unit test, proven red without its change: red, green, refactor, verify."
+    NEW = 'import sys\nsys.path.insert(0, "src")\nimport app\nassert app.f() == 2\n'   # fails at the base: app has no f there
+    WEAK = "assert True\n"                                                            # passes anywhere: could not fail
+
+    def _repo(self, tmp, scoped="python3 {paths}", red_link=None, extra=None):
+        tests = {"reads": ["src/**", "tests/**"], "command": "true", "scoped": scoped}
+        if red_link is not None:
+            tests["red_link"] = red_link
+        self.GATES = {"tests": tests, **(extra or {})}
+        repo = Seal._repo(self, tmp)
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["traceability"] = {"test_roots": ["tests/**"]}
+        write(repo / "config/quality.json", json.dumps(q)); self._commit(repo, "roots")
+        subprocess.run(["git", "-C", str(repo), "branch", "-f", "main"], check=True, capture_output=True)   # the roots are part of the base
+        write(repo / "src/app.py", "def f():\n    return 2\n")
+        return repo
+
+    @staticmethod
+    def _worktrees(repo):
+        return subprocess.run(["git", "-C", str(repo), "worktree", "list", "--porcelain"], capture_output=True, text=True).stdout.count("worktree ")
+
+    def test_law05_states_the_red_proven(self):
+        real = HERE.parent.parent
+        if not (real / ".context/templates/setup").is_dir():
+            self.skipTest("not the framework repo")
+        for rel in ("CLAUDE.md", ".context/templates/setup/claude/CLAUDE.md"):
+            law = {l["id"]: l for l in corpus.parse_law_list((real / rel).read_text(encoding="utf-8"), source=rel)}["LAW-05"]
+            self.assertEqual(law["sentence"], self.SENTENCE, rel); self.assertIn("ADR-EVOL-068", law["records"], rel)
+        body = (real / ".context/templates/setup/rules/testing.md").read_text(encoding="utf-8")
+        self.assertIn(f"> {self.SENTENCE}", body); self.assertIn("a green is worth what its red was worth", body); self.assertIn("DC-30", body)
+
+    def test_red_member_is_built_in_and_reads_the_test_roots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            g = seal.vcfg(repo)["gates"]
+            self.assertEqual(g["red"]["reads"], ["tests/**"]); self.assertIsNone(g["red"]["command"])
+            self.assertNotIn("red", seal.plan(repo, base="main")["owed"], "no test file changed: the red owes nothing")
+            write(repo / "tests/test_new.py", self.NEW)
+            self.assertIn("red", seal.plan(repo, base="main")["owed"])
+            q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]["gates"]["tests"]["scoped"]
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertNotIn("red", seal.vcfg(repo)["gates"], "no scoped run declared: no red member")
+
+    def test_red_proof_could_not_fail_and_proven(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "tests/test_new.py", self.NEW); write(repo / "tests/test_weak.py", self.WEAK)
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("could not fail", r["reason"]); self.assertIn("tests/test_weak.py", r["reason"])
+            self.assertNotIn("tests/test_new.py", r["reason"], "a test that fails at the base is proven")
+            self.assertEqual(self._worktrees(repo), 1, "the worktree is removed")
+            (repo / "tests/test_weak.py").unlink()
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertTrue(r["ok"], r["reason"]); self.assertEqual(r["files"], ["tests/test_new.py"])
+            run = seal.run(repo, base="main")
+            self.assertTrue(run["ok"], run["reason"]); self.assertIn("red", [g for x in run["ran"] for g in x["gates"]])
+            write(repo / "tests/test_weak.py", self.WEAK)
+            run = seal.run(repo, base="main")
+            self.assertFalse(run["ok"]); self.assertIn("could not fail", run["reason"])
+            self.assertFalse(seal.read_seal(repo, "feature/FEAT-001-x")["gates"]["red"]["ok"])
+
+    def test_red_proof_no_test_change_costs_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            with unittest.mock.patch.object(seal.tempfile, "mkdtemp", side_effect=AssertionError("no worktree")):
+                r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertTrue(r["ok"]); self.assertEqual(r["files"], []); self.assertIn("no test file", r["reason"])
+
+    def test_red_proof_faults_are_red_with_the_repair_and_leave_no_worktree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, scoped="no-such-runner-x {paths}")
+            write(repo / "tests/test_new.py", self.NEW)
+            before = set(Path(tempfile.gettempdir()).glob("seal-red-*"))
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("could not run", r["reason"]); self.assertIn("scoped", r["reason"])
+            with unittest.mock.patch.object(seal, "_scoped_at_base", side_effect=OSError("disk full")):
+                r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("disk full", r["reason"]); self.assertIn("worktree", r["reason"])
+            self.assertEqual(self._worktrees(repo), 1, "removed even on a fault"); self.assertEqual(set(Path(tempfile.gettempdir()).glob("seal-red-*")), before)
+
+    def test_red_link_paths_are_linked_from_the_working_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, red_link=["node_modules"])
+            write(repo / ".gitignore", ".claude/state/\nnode_modules/\n"); write(repo / "node_modules/dep.py", "X = 1\n")
+            write(repo / "tests/test_dep.py", 'import sys\nsys.path.insert(0, "node_modules")\nimport dep\nassert dep.X == 1\n')
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"], "with the link the dependency resolves at the base: the test could not fail"); self.assertIn("could not fail", r["reason"])
+
+    def test_red_false_creates_no_red_gate_and_says_so(self):
+        """RDR «1» (2026-10-21): a stack whose scoped run selects tests by name proves no red — said on every plan and run, never a false block."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["gates"]["tests"]["red"] = False
+            write(repo / "config/quality.json", json.dumps(q)); write(repo / "tests/test_weak.py", self.WEAK)
+            self.assertNotIn("red", seal.vcfg(repo)["gates"])
+            pl = seal.plan(repo, base="main")
+            self.assertIn(seal.RED_NOT_PROVEN, seal.render_skipped(pl)); self.assertIn(seal.RED_NOT_PROVEN, seal.render(pl))
+            r = seal.run(repo, full=True, base="main")
+            self.assertTrue(r["ok"], r["reason"]); self.assertTrue(r["sealed"], "a --full seal owes no red member"); self.assertIn(seal.RED_NOT_PROVEN, seal.render_run(r))
+            self.assertIn(seal.RED_NOT_PROVEN, seal.render_run(seal.run(repo, gates=["tests"], base="main")), "listed on every run")
+            self.assertEqual(seal.RED_NOT_PROVEN, "red not proven for this stack: its scoped run selects tests by name, not by file — give `tests.scoped` a per-file command and drop `red: false` to enable the proof")
+            q["verification"]["gates"]["tests"]["red"] = "no"; write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "red must be true or false"):
+                seal.vcfg(repo)
+
+    def test_registry_red_rows_and_python_scoped_prefix(self):
+        reg = next((p for p in (HERE.parents[1] / discovery.REGISTRY, HERE.parents[1] / "setup/discovery_registry.json") if p.is_file()), None)
+        if reg is None:
+            self.skipTest("the registry is not delivered beside these gates")
+        rows = {lit: c["verification.gates"] for q in json.loads(reg.read_text())["questions"] for k, s in q["keys"].items()
+                if k == "backend.runtime" for lit, c in s.get("configures", {}).items()}
+        for rt in ("Java", "Go", ".NET", "Rust"):
+            self.assertIs(rows[rt]["tests"].get("red"), False, f"{rt}: its scoped run selects by name — no red proof")
+        for rt in ("Python", "Node.js"):
+            self.assertNotIn("red", rows[rt]["tests"], f"{rt}: runs one file faithfully")
+        self.assertTrue(rows["Python"]["tests"]["scoped"].startswith("PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH} python -m pytest {paths}"), "the worktree's src wins over an editable install")
+
+    def test_full_seal_honours_an_unmoved_never_recorded_gate(self):
+        """--full uses _owed's rule — a gate never recorded whose read-set equals the merge-base's is covered; one that moved is refused."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = seal.run(repo, full=True, base="main")
+            self.assertTrue(r["sealed"], r["reason"]); self.assertIn("red", seal.vcfg(repo)["gates"])
+            self.assertNotIn("red", seal.read_seal(repo, "feature/FEAT-001-x")["gates"], "red never ran: its read-set is the base's")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "tests/test_new.py", self.NEW)
+            with self.assertRaisesRegex(GateFault, "not green yet: red"):
+                seal.write(repo, ["tests"], ok=True, full=True, base="main")
+
+    def test_red_member_absent_is_said(self):
+        """tests declared, red not false, but no scoped run or no test roots — the absence is listed, never silent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]["gates"]["tests"]["scoped"]
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("red not proven: no `tests.scoped` — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")))
+            q["verification"]["gates"]["tests"]["scoped"] = "x {paths}"; del q["traceability"]; write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("red not proven: no `traceability.test_roots` — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")))
+            q["verification"]["gates"] = {"frontend-tests": q["verification"]["gates"]["tests"]}; write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("red not proven: no `tests` gate — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")), "a map without `tests` (frontend-only) says so")
+
+    def test_red_proof_timeout_and_project_row(self):
+        """a run that does not finish has its own reason; a project row named `red` is refused."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "tests/test_new.py", self.NEW)
+            with unittest.mock.patch.object(seal, "_scoped_at_base", side_effect=subprocess.TimeoutExpired("x", 1800)):
+                r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("did not finish within 1800 s", r["reason"]); self.assertNotIn("laid out", r["reason"])
+            q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["gates"]["red"] = {"reads": ["tests/**"], "command": "x"}
+            write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "built-in member"):
+                seal.vcfg(repo)
+
+    def test_coverage_table_only_from_a_green_fresh_run(self):
+        """a failed coverage run, or a report this run did not write, is never tabled as measured."""
+        for cmd, msg in (("exit 1", "not measured this run: the coverage run failed"), ("true", "not measured this run: its report was not written by this run")):
+            with self.subTest(cmd=cmd), tempfile.TemporaryDirectory() as tmp:
+                repo = self._cov_repo(tmp, command=cmd)
+                old = time.time() - 100; os.utime(repo / "coverage/lcov.info", (old, old))
+                seal.run(repo, base="main")
+                t = (repo / ".claude/state/coverage-table.md").read_text(encoding="utf-8")
+                self.assertIn(msg, t); self.assertNotIn("| src/app.py | 10 |", t)
+
+    def _cov_repo(self, tmp, report="coverage/lcov.info", command="cp coverage/planted.info coverage/lcov.info"):
+        cov = {"reads": ["src/**", "tests/**"], "command": command}
+        if report:
+            cov["report"] = report
+        repo = self._repo(tmp, extra={"coverage": cov})
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["surface"] = {"runtime_surface": ["src/**", "tests/**"]}; q["verification"]["coverage"] = {"omit": ["src/gen/**"]}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / ".gitignore", ".claude/state/\ncoverage/\n")
+        write(repo / "src/other.py", "x = 1\n"); write(repo / "src/gen/x.py", "y = 1\n")
+        lcov = f"TN:\nSF:{repo}/src/app.py\nDA:1,1\nLF:10\nLH:8\nend_of_record\n"
+        write(repo / "coverage/planted.info", lcov); write(repo / "coverage/lcov.info", lcov)
+        return repo
+
+    def test_coverage_table_per_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._cov_repo(tmp)
+            r = seal.run(repo, base="main")
+            self.assertTrue(r["ok"], r["reason"])
+            t = (repo / ".claude/state/coverage-table.md").read_text(encoding="utf-8")
+            self.assertIn("| src/app.py | 10 | 8 | 80.0 |", t)
+            self.assertIn("| src/other.py | — | — | not measured |", t)
+            self.assertNotIn("src/gen/x.py", t, "an omitted file is declared, never listed"); self.assertNotIn("tests/", t, "a test file is no runtime file to cover")
+            (repo / "coverage/lcov.info").unlink()
+            self.assertIn("not found", seal.coverage_table(repo, seal.vcfg(repo)))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._cov_repo(tmp, report=None)
+            self.assertIn("no report declared", seal.coverage_table(repo, seal.vcfg(repo)))
 
 
 RULE_AGENTS_LENSES = RULE_AGENTS.replace(
@@ -2584,7 +2785,9 @@ class Canary(unittest.TestCase):
         self.assertEqual(canary.LENS_AGENT.get("plan"), "factory-plan-critic", "EVOL-069: the plan critic is calibrated too")
         self.assertTrue(all(f == "docs/spec/CAN-001/increment_plan.md" for it in canary.EXPECTED["plan"] for f, _ in it["at"][:1]), "the plan lens's defects are planted in the plan")
         self.assertIn("PayFlow", added["docs/spec/CAN-001/increment_plan.md"][canary.EXPECTED["plan"][0]["at"][0][1]], "an external premise stated as verified")
-        self.assertEqual(set(canary.EXPECTED), set(canary.LENSES)); self.assertTrue(all(len(v) == 2 for v in canary.EXPECTED.values()), "two planted defects per lens")
+        self.assertEqual(set(canary.EXPECTED), set(canary.LENSES)); self.assertTrue(all(len(v) >= 2 for v in canary.EXPECTED.values()), "at least two planted defects per lens")
+        self.assertIn("c3", [i["id"] for i in canary.EXPECTED["correctness"]], "EVOL-068: an always-green test"); self.assertIn("f3", [i["id"] for i in canary.EXPECTED["fidelity"]], "EVOL-068: a deferral comment")
+        self.assertIn("next slice", added["src/orders/repo.py"][canary.EXPECTED["fidelity"][2]["at"][0][1]]); self.assertEqual(added["tests/test_orders.py"][canary.EXPECTED["correctness"][2]["at"][0][1]].strip(), "assert out == out")
         self.assertEqual(agents.check_return(self._return("security"), "work-critic"), [], "the synthetic return is in the critic's own contract shape")
 
     def test_judge_green_red_and_tolerance(self):
@@ -2663,8 +2866,10 @@ class Canary(unittest.TestCase):
                 self.assertTrue(template_rule.is_file(), "the template rule moved — the pin must follow it")
                 self.assertEqual(read_frontmatter(template_rule)["agents"]["canary"]["line_tolerance"], canary.DEFAULT_TOLERANCE)
             self.assertTrue(canary.judge(repo, "governance", self._return("governance", shift=3), "m")["ok"], "within the tolerance window")
+            for lens, planted in (("correctness", "c3"), ("fidelity", "f3")):
+                r = canary.judge(repo, lens, self._return(lens, skip=(planted,)), "m"); self.assertEqual(r["missed"], [planted], f"a return that misses {planted} reports it")
             self.assertEqual(canary.judge(repo, "governance", self._return("governance", shift=4), "m")["missed"], ["g1", "g2"], "beyond the window: missed")
-            self.assertEqual(canary.judge(repo, "fidelity", self._return("fidelity", sev="🟢"), "m")["missed"], ["f1", "f2"], "a planted defect reported as informational is missed — the bar is above informational")
+            self.assertEqual(canary.judge(repo, "fidelity", self._return("fidelity", sev="🟢"), "m")["missed"], ["f1", "f2", "f3"], "a planted defect reported as informational is missed — the bar is above informational")
             alt = "src/orders/api.py:7 · 🟡 · confidence 80% · probe: read\nb/src/orders/repo.py:23 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 0\nModel: m\n"
             self.assertTrue(canary.judge(repo, "security", alt, "m")["ok"], "a finding at an alternative anchor counts")
             pos: dict = {}; canary.added_lines(canary.fixture(), pos)
@@ -2677,7 +2882,7 @@ class Canary(unittest.TestCase):
                 canary.judge(repo, "security", self._return("security"), "")
             with self.assertRaisesRegex(GateFault, "not one of"):
                 canary.judge(repo, "style", "x", "m")
-            rec = canary.read_record(repo); self.assertEqual(rec["judged"]["security"]["model"], "m"); self.assertEqual(rec["judged"]["fidelity"]["missed"], ["f1", "f2"])
+            rec = canary.read_record(repo); self.assertEqual(rec["judged"]["security"]["model"], "m"); self.assertEqual(rec["judged"]["fidelity"]["missed"], ["f1", "f2", "f3"])
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("  canary: {line_tolerance: 3}\n", ""))
             with self.assertRaisesRegex(GateFault, "line_tolerance"):
                 canary.judge(repo, "security", self._return("security"), "m")
@@ -4102,8 +4307,8 @@ class Discovery(unittest.TestCase):
             ("Python", "typecheck", "command", {"pyproject.toml": "[tool.mypy]\nstrict = true\n"}, "mypy", "."),
             ("Node.js", "typecheck", "command", {"tsconfig.json": "{}"}, "npx", "tsc --noEmit"),
             ("Node.js", "build", "command", {"package.json": '{"scripts": {"build": "x"}}'}, "npm", "run build --if-present"),
-            ("Node.js", "tests", "command", {"vitest.config.ts": ""}, "npx", "vitest run --coverage --reporter=text"),
-            ("Node.js", "tests", "command", {}, "npx", "jest --coverage --coverageReporters=text-summary --no-cache"),
+            ("Node.js", "tests", "command", {"vitest.config.ts": ""}, "npx", "vitest run --coverage --reporter=text --coverage.reporter=text --coverage.reporter=lcov"),
+            ("Node.js", "tests", "command", {}, "npx", "jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache"),
             ("Node.js", "tests", "scoped", {".mocharc.yml": ""}, "npx", "mocha t.js"),
             ("Node.js", "tests", "scoped", {"vitest.config.js": ""}, "npx", "vitest run t.js"),
             ("Node.js", "tests", "scoped", {}, "npx", "jest t.js --no-coverage --verbose"),
@@ -4138,6 +4343,7 @@ class Discovery(unittest.TestCase):
         cases = [
             ("unknown field", lambda s: s["Python"]["verification.gates"]["tests"].__setitem__("reads", ["x/**"]), "`reads` is not a gate-row field"),
             ("no command", lambda s: s["Python"]["verification.gates"]["tests"].pop("command"), "no `command`"),
+            ("red not a bool", lambda s: s["Python"]["verification.gates"]["tests"].__setitem__("red", "no"), "`red` is true or false"),
             ("literal not offered", lambda s: s.__setitem__("Ruby", {"verification.gates": {"tests": {"command": "rake"}}}), "`Ruby` is not one of"),
         ]
         for label, mut, msg in cases:

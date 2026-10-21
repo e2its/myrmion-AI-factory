@@ -75,7 +75,7 @@ Every law is an index entry: **one normative sentence**, the **one body** that d
 2. **[LAW-02] Protected Code** — Protected code blocks and protected paths are never modified. Body: `rules/protected-code.md`. Records: `ADR-EVOL-040`.
 3. **[LAW-03] DRY Enforcement** — Before creating any code artefact the codebase inventory is consulted, and an existing component is reused over a new one. Body: `.claude/skills/factory-codebase-inventory/SKILL.md`. Records: `ADR-EVOL-040`.
 4. **[LAW-04] Security** — No secret lives in code — configuration and vault supply them — and every change is checked against the OWASP Top 10. Body: `rules/security_policy.md`. Records: `ADR-EVOL-040`.
-5. **[LAW-05] Testing** — Every unit of logic has its unit test, written red first: red, green, refactor, verify. Body: `rules/testing.md`. Records: `ADR-EVOL-040`.
+5. **[LAW-05] Testing** — Every unit of logic has its unit test, proven red without its change: red, green, refactor, verify. Body: `rules/testing.md`. Records: `ADR-EVOL-040`, `ADR-EVOL-068`.
 6. **[LAW-06] Traceability** — Every generated artefact names the phase and the feature that produced it. Body: `rules/documentation.md`. Records: `ADR-EVOL-040`.
 7. **[LAW-07] Framework-shipped templates** — Framework-shipped templates carry no project data, secrets or machine-specific paths — only placeholder tokens resolved at materialisation. Body: `inline`. Records: `ADR-EVOL-040`, `ADR-EVOL-055`.
 8. **[LAW-08] Humanized Blocking** — A blocked action is explained in plain business language with a resolution path; raw tool errors, stack traces and CLI dumps never reach the user. Body: `.claude/skills/factory-agent-communication/SKILL.md`. Records: `ADR-EVOL-040`.

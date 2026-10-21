@@ -151,6 +151,12 @@ if '"test_roots": {{TRACEABILITY_TEST_ROOTS}}' not in (T / "config/quality.json"
     missing.append("the template's traceability.test_roots is a literal — it lands from --resolve configures (TRACEABILITY_TEST_ROOTS)")
 if Q["traceability"]["test_roots"] != exp.get("test_roots"):   # one definition with the gates' reads (EVOL-067)
     missing.append(f"traceability.test_roots: expected {exp.get('test_roots')}, got {Q['traceability']['test_roots']}")
+from gates import seal as seal_mod   # EVOL-068: the built-in red member, the coverage report and the empty omit list, as the answers select them
+honest = {"red": "red" in seal_mod.vcfg(P)["gates"], "coverage_report": Q["verification"]["gates"].get("coverage", {}).get("report"),
+          "red_link": Q["verification"]["gates"].get("tests", {}).get("red_link"), "omit": Q["verification"].get("coverage", {}).get("omit")}
+want = {"red": exp.get("red"), "coverage_report": exp.get("coverage_report"), "red_link": exp.get("red_link"), "omit": []}
+if honest != want:
+    missing.append(f"EVOL-068 honest tests: expected {want}, got {honest}")
 print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_json": unresolved, "expect_missing": missing}))
 PY
 ) || { echo "materialize-synthetic: materialisation step failed" >&2; exit 2; }
@@ -201,6 +207,8 @@ fi
 # the loop's members, as materialised (EVOL-067): every fixture's map is valid for the seal
 ALLG=$(python3 -c 'import json,sys; print(",".join(sorted(json.load(open(sys.argv[1]))["verification"]["gates"])))' "$P/config/quality.json")
 OWEDG=$(printf '%s' "$ALLG" | sed 's/,/, /g')
+# the full seal covers the built-in red member too (EVOL-068): every gate the seal's reader knows
+SEALG=$(python3 -c 'import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); from gates import seal; print(",".join(sorted(seal.vcfg(Path(sys.argv[2]))["gates"])))' "$ROOT/scripts" "$P")
 SUITE=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["verification"]["gates"]["tests"]["command"])' "$P/config/quality.json")
 OUT=$(python3 "$ROOT/scripts/gate.py" --repo "$P" seal --validate 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "gate.py seal --validate on the $(basename "$ANSWERS") map: $ALLG" || bad "seal map invalid for $(basename "$ANSWERS") (rc=$RC)" "$OUT"
@@ -319,7 +327,7 @@ CERT=$(cd "$P" && python3 scripts/gate.py certify --subject tree --paths 'src/**
 printf -- '---\nstatus: APPROVED\nverdict: APPROVED\ncertifies:\n%s\n---\n' "$CERT" > "$P/docs/spec/FEAT-001/qa/qa_report_final_20260925.md"
 git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm "manifest + re-taken verdict"
 # the full loop ran on these bytes (EVOL-051): its seal is what the push profile honours
-OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates "$ALLG" --ok --full --summary green 2>&1); RC=$?
+OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates "$SEALG" --ok --full --summary green 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "the full loop sealed the branch's tree (gate.py seal --write --full)" || bad "seal write failed (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'verdict: ok' && ok "the profile runs every script member in the scratch project, one verdict: $(printf '%s' "$OUT" | grep -c '✓') green" || bad "profile run not green in the scratch (rc=$RC)" "$OUT"
@@ -500,7 +508,7 @@ OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); 
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: the full loop' && printf '%s' "$OUT" | grep -q 'no gate reads' && ok "RED: paths no gate reads changed since the last green seal (a workflow, the config) — the full loop is owed, fail closed" || bad "unmapped delta not refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py seal --plan --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -qF "run: $SUITE  →  coverage, tests" && ok "the loop's plan: the suite that feeds coverage is one execution" || bad "seal plan wrong (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates "$ALLG" --ok --full --summary green 2>&1 && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
+OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates "$SEALG" --ok --full --summary green 2>&1 && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'seal: ok' && ok "a green full loop sealed the tree the commit carries — the push honours it" || bad "sealed tree refused (rc=$RC)" "$OUT"
 printf 'notes\n' > "$P/docs/notes.md"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'docs' >/dev/null
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
@@ -568,7 +576,7 @@ OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN GITHUB_ACTIONS=true python3 scr
 OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_ACTIONS python3 scripts/gate.py scm-protection --control-point ci --json 2>&1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["status"], len(d["checklist"]))')
 [ "$OUT" = "n/a 5" ] && ok "the five settings every host expresses are the checklist the JSON carries" || bad "scm-protection json wrong" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --control-point static --base origin/main 2>&1); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'advisory' && printf '%s' "$OUT" | grep -qF "owed now: $OWEDG" && ok "at the static round the seal is advisory: it names what the loop will owe, never a blocker before the loop ran" || bad "static seal not advisory (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'advisory' && printf '%s' "$OUT" | grep -qF "owed now: $(printf '%s' "$SEALG" | sed 's/,/, /g')" && ok "at the static round the seal is advisory: it names what the loop will owe, never a blocker before the loop ran" || bad "static seal not advisory (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

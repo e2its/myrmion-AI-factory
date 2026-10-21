@@ -62,7 +62,7 @@ DETECT = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|#))([^#\s]+)#(/[^#\s]*)$")
 
 TIERS = (0, 1, 2)
 TOP_FIELDS = ("questions", "derived", "constants", "placeholder_baseline", "migrations")
-GATE_ROW_FIELDS = ("command", "scoped", "red_link", "report")
+GATE_ROW_FIELDS = ("command", "scoped", "red_link", "report", "red")
 LOOP_PARTS = {"backend.runtime": ("tests", "sca"), "frontend.framework": ("frontend-tests",)}   # each answered part needs one of its gates
 STOP = ("the project has no declared way to verify {parts} — declare its gate rows (SETUP discovery § verification coverage, "
         "docs/setup.md → verification.gates) and run --generate again")
@@ -1101,13 +1101,15 @@ def _gate_rows(where: str, rows) -> list[str]:
     if gates is None:
         return out
     if not isinstance(gates, dict):
-        return [f"V12 · {where}: verification.gates is {{<gate>: {{command, scoped?, red_link?, report?}}}}"]
+        return [f"V12 · {where}: verification.gates is {{<gate>: {{command, scoped?, red_link?, report?, red?}}}}"]
     for g, row in gates.items():
         if not isinstance(row, dict):
             out.append(f"V12 · {where}: gate `{g}` is not a row {{command, …}}"); continue
         out += [f"V12 · {where}: gate `{g}`: `{f}` is not a gate-row field ({', '.join(GATE_ROW_FIELDS)}) — reads come from the answers" for f in row if f not in GATE_ROW_FIELDS]
         if not isinstance(row.get("command"), str) or not row["command"].strip():
             out.append(f"V12 · {where}: gate `{g}` has no `command`")
+        if "red" in row and not isinstance(row["red"], bool):
+            out.append(f"V12 · {where}: gate `{g}`: `red` is true or false — false when its scoped run selects tests by name, not by file (EVOL-068)")
     return out
 
 

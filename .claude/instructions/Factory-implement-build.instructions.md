@@ -1673,6 +1673,7 @@ FUNCTION enforce_strict_tdd(task, scenario_ref):
     STOP
 
   ✅ PROCEED — TDD cycle: RED → GREEN → REFACTOR
+  # The red is proven by the full loop's `red` member (EVOL-068): the test file run at the diff base must fail.
 ```
 
 ### Law 5 — Contract-First Verification Gate (BLOCKING — H-10)

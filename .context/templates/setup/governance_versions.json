@@ -240,10 +240,11 @@
       ]
     },
     "rules/testing.md": {
-      "version": "1.7.1",
+      "version": "1.8.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/testing.md",
       "changelog": [
+        "1.8.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.7.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "1.7.0: feat(EVOL-053) — § Test-case traceability: one home, strict ids, case → test, the shrink-only baseline, one gate at two control points",
         "1.6.0: feat(EVOL-051) — [LAW-05] body: one full loop per change — the static round before the critics, the artefacts, the loop once on the bytes the commit carries, sealed and honoured at the push; the incremental seal",
@@ -975,11 +976,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.16.0",
+      "version": "4.17.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.17.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "4.16.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "4.15.2: docs(EVOL-114): a flag that repeats another retires into it, a retired_terms entry keeps it out (meta §4); Artifact States name the terminal states (template)",
         "4.15.1: banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars",
@@ -1142,7 +1144,7 @@
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
-        "1.16.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.16.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.15.0: feat(EVOL-114): retired_terms ratchet — a CODESIGN --deprecate / --reset order (shipped); meta only: DEPRECATED as a feature state on a line that does not say legacy",
         "1.14.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.14.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
@@ -1904,7 +1906,7 @@
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
-        "1.24.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.24.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.23.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.22.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.21.1: test(EVOL-114): the retired CODESIGN orders and the DEPRECATED feature state red, legacy wording and the live exits green; the template ships the orders entry only",
@@ -2046,11 +2048,12 @@
       ]
     },
     "rules/agents.md": {
-      "version": "1.9.0",
+      "version": "1.10.0",
       "content_type": "universal",
       "target": ".claude/rules/agents.md",
       "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents.",
       "changelog": [
+        "1.10.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.9.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.8.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.7.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
@@ -2176,11 +2179,12 @@
       ]
     },
     "claude/agents/factory-critic-correctness.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-critic-correctness.md",
       "role": "Agent definition — work-critic — correctness lens (read-only; the vendored LAW-13 engine is its instrument). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.4.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.3.0: feat(EVOL-060) — the two-part return contract: findings above informational and the Informational: count in the contract part, the informational findings under ## Informational.",
         "1.2.0: feat(EVOL-059) — the return contract's Model: line (the lens canary's trigger).",
         "1.1.0: feat(EVOL-058) — maxTurns (the harness's hard stop = the large tier's turn_budget); the probe rule: one execution per finding within the probe budget, never the suite.",
@@ -2200,11 +2204,12 @@
       ]
     },
     "claude/agents/factory-critic-fidelity.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-critic-fidelity.md",
       "role": "Agent definition — work-critic — fidelity lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.4.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.3.0: feat(EVOL-060) — the two-part return contract: findings above informational and the Informational: count in the contract part, the informational findings under ## Informational.",
         "1.2.0: feat(EVOL-059) — the return contract's Model: line (the lens canary's trigger).",
         "1.1.0: feat(EVOL-058) — maxTurns (the harness's hard stop = the large tier's turn_budget).",
@@ -2228,7 +2233,7 @@
       "delivery": "both",
       "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map.",
       "changelog": [
-        "1.2.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.2.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.1.0: feat(EVOL-057) — verification.logs (push, timings, max_kb — n/a when absent, never a default in code); push_log (the push's record: profile, base, mode, class, start, end, exit); seal --run, the loop's executor: one execution per command, timed, output to loop-<gates>.log, one timing line per gate, the seal recorded right after, --full seals an all-green map; size rotation to <name>.1.",
         "1.0.0: feat(EVOL-051) — initial."
       ]
@@ -2340,7 +2345,7 @@
       "target": "scripts/gates/canary.py",
       "role": "The lens canary (EVOL-059): the synthetic fixture with planted defects per lens (encoded at rest), the expected findings, the judge, the record of the model each lens last ran on and was last judged on, the plan that owes a lens when its resolved model moved.",
       "changelog": [
-        "1.3.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.3.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.2.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.1.1: fix #165: the review markers, round artefact and commit-message suggestion the agent writes live in .context/state/; LAW-02 body: the framework runtime state under .context/ (locks/, state/) is not RED (RDR «1»)",
         "1.1.0: feat(EVOL-060) — the judge reads the contract part of a return: an appendix line never credits a planted defect, `no findings` is read where the contract puts it.",
@@ -2399,7 +2404,7 @@
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
       "changelog": [
-        "1.1.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.1.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.0.0: feat(EVOL-102): the ONE condition grammar and evaluator of SETUP discovery — parse/evaluate, resolve (pending questions in tier order, template entries landing and skipped), eval, the registry validator V1–V9"
       ],
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
@@ -2409,7 +2414,7 @@
       "content_type": "universal",
       "target": null,
       "changelog": [
-        "1.1.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.1.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.0.0: feat(EVOL-102): the question registry of SETUP discovery — every question with its tier, since, unlock condition and keys (closed options, options_by, free kinds, suggestions, record_only); derived values never asked"
       ],
       "role": "The SETUP discovery registry (EVOL-102) — consumed in place by SETUP and gate.py discovery, never copied: the questions, their tiers, keys, options and conditions; derived values never asked."
@@ -3157,9 +3162,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.21.0",
+      "version": "2.22.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.22.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "2.21.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "2.20.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "2.20.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
@@ -3263,7 +3269,7 @@
       "version": "2.21.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
-        "2.21.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "2.21.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "2.20.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "2.19.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "2.19.0: feat(EVOL-060) — the peer review artefact's § Critic returns (every return verbatim); informational counted, never adjudicated.",
@@ -3625,7 +3631,7 @@
       "version": "14.20.0",
       "path": "CLAUDE.md",
       "changelog": [
-        "14.20.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "14.20.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "14.19.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "14.18.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "14.17.1: docs(EVOL-114): a flag that repeats another retires into it, a retired_terms entry keeps it out (meta §4); Artifact States name the terminal states (template)",
@@ -3888,7 +3894,7 @@
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
-        "1.14.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.14.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.13.1: fix #116: the build verification loop fails closed on a missing declaration — undeclared stack, no secret scanner (Skip removed from Q23.2) or no dependency-audit threshold (new Q23.3) blocks; audits are no longer masked by || true; infrastructure faults stay fail-open",
         "1.13.0: feat(EVOL-057) — § Full Verification Gate: the gates the map names run through the loop's executor (gate.py seal --run — timed, output in the state folder, the seal right after); the steps keep the gates the map does not name; a gate without a command is recorded by its owner.",
         "1.12.0: feat(EVOL-051) — one full loop per change: the order (static round → critics → artefacts → one loop → commit), the plan from gate.py seal --plan, one execution per command, the seal written per gate and --full, nothing tracked after the green",
@@ -5259,7 +5265,7 @@
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
-        "1.24.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.24.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.23.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.22.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.21.1: test(EVOL-114): the retired CODESIGN orders and the DEPRECATED feature state red, legacy wording and the live exits green; the template ships the orders entry only",
@@ -5298,7 +5304,7 @@
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
-        "1.24.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.24.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.23.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.22.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.21.1: test(EVOL-114): synthetic plants a legacy feature (green, docs/spec exempt) and a retired order (red); static cases for the terminal exclusion, NEEDS_INFO to DRAFT and the retired flags",
@@ -5573,11 +5579,12 @@
       ]
     },
     "agents/factory-critic-correctness.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "agent",
       "path": ".claude/agents/factory-critic-correctness.md",
       "role": "Agent definition — work-critic — correctness lens (read-only; the vendored LAW-13 engine is its instrument). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.4.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.3.0: feat(EVOL-060) — the two-part return contract: findings above informational and the Informational: count in the contract part, the informational findings under ## Informational.",
         "1.2.0: feat(EVOL-059) — the Model: line (the meta twin).",
         "1.1.0: feat(EVOL-058) — maxTurns (the meta twin).",
@@ -5597,11 +5604,12 @@
       ]
     },
     "agents/factory-critic-fidelity.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "agent",
       "path": ".claude/agents/factory-critic-fidelity.md",
       "role": "Agent definition — work-critic — fidelity lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.4.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.3.0: feat(EVOL-060) — the two-part return contract: findings above informational and the Informational: count in the contract part, the informational findings under ## Informational.",
         "1.2.0: feat(EVOL-059) — the Model: line (the meta twin).",
         "1.1.0: feat(EVOL-058) — maxTurns (the meta twin).",
@@ -5624,7 +5632,7 @@
       "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/seal.py",
       "changelog": [
-        "1.2.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.2.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.1.0: feat(EVOL-057) — verification.logs, push_log, the runner seal --run with per-gate timings (the template twin).",
         "1.0.0: feat(EVOL-051) — initial."
       ]
@@ -5672,7 +5680,7 @@
       "path": "scripts/gates/canary.py",
       "role": "Meta copy (lock-step pair) of the lens canary module — see the templates entry.",
       "changelog": [
-        "1.3.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.3.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.2.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.1.1: fix #165: the review markers, round artefact and commit-message suggestion the agent writes live in .context/state/; LAW-02 body: the framework runtime state under .context/ (locks/, state/) is not RED (RDR «1»)",
         "1.1.0: feat(EVOL-060) — the judge reads the contract part of a return: an appendix line never credits a planted defect, `no findings` is read where the contract puts it.",
@@ -5746,7 +5754,7 @@
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json",
       "changelog": [
-        "1.1.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.1.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.0.0: fix #114: QA-PRE-1 really blocks — dependency-allowlist.sh execs gate.py dependencies (no dry run): every direct dependency at its lockfile-resolved version against config/allowlist.json; denied, unlisted, out of range or a missing declaration is red; the stack answers pick the readers; the allowlist is seeded from Q26 at --generate and --upgrade, a pack adds its tools with --seed --tools"
       ]
     },
@@ -5756,7 +5764,7 @@
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json",
       "changelog": [
-        "1.1.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.1.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.0.0: fix #143: synthetic answer sets — every stack_conditional evaluated against the keys and literals discovery offers"
       ]
     },
@@ -5774,7 +5782,7 @@
       "type": "script",
       "path": "scripts/gates/discovery.py",
       "changelog": [
-        "1.1.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
+        "1.1.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.0.0: feat(EVOL-102): the ONE condition grammar and evaluator of SETUP discovery — parse/evaluate, resolve (pending questions in tier order, template entries landing and skipped), eval, the registry validator V1–V9"
       ],
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
@@ -5810,7 +5818,7 @@
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json",
       "changelog": [
-        "1.0.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects"
+        "1.0.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3"
       ]
     }
   },

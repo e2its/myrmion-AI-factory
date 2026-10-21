@@ -378,7 +378,7 @@ def cmd_seal(repo, a):
     if a.write:
         if a.ok == a.red:
             raise GateFault("seal --write needs the outcome: --ok or --red (a forgotten flag is never a green)")
-        r = seal_mod.write(repo, gates, ok=a.ok, summary=a.summary or "", full=a.full, branch=a.branch)
+        r = seal_mod.write(repo, gates, ok=a.ok, summary=a.summary or "", full=a.full, branch=a.branch, base=a.base)
         print(json.dumps(r) if a.json else f"seal: recorded {', '.join(gates) or '(no gate)'} {'ok' if not a.red else 'RED'}{' · full loop sealed' if r['full'] else ''} → {r['path']}")
         return 0
     if a.validate:

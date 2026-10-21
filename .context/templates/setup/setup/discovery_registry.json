@@ -160,11 +160,12 @@
       "Python": {
        "verification.gates": {
         "tests": {
-         "command": "python -m pytest --cov --cov-report=term-missing -q",
-         "scoped": "python -m pytest {paths} -x --tb=short -q"
+         "command": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q",
+         "scoped": "PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH} python -m pytest {paths} -x --tb=short -q"
         },
         "coverage": {
-         "command": "python -m pytest --cov --cov-report=term-missing -q"
+         "command": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q",
+         "report": "coverage/lcov.info"
         },
         "lint": {
          "command": "ruff check ."
@@ -183,11 +184,15 @@
       "Node.js": {
        "verification.gates": {
         "tests": {
-         "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text; else npx jest --coverage --coverageReporters=text-summary --no-cache; fi",
-         "scoped": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run {paths}; elif [ -f .mocharc.yml ] || [ -f .mocharc.json ]; then npx mocha {paths}; else npx jest {paths} --no-coverage --verbose; fi"
+         "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text --coverage.reporter=text --coverage.reporter=lcov; else npx jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache; fi",
+         "scoped": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run {paths}; elif [ -f .mocharc.yml ] || [ -f .mocharc.json ]; then npx mocha {paths}; else npx jest {paths} --no-coverage --verbose; fi",
+         "red_link": [
+          "node_modules"
+         ]
         },
         "coverage": {
-         "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text; else npx jest --coverage --coverageReporters=text-summary --no-cache; fi"
+         "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text --coverage.reporter=text --coverage.reporter=lcov; else npx jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache; fi",
+         "report": "coverage/lcov.info"
         },
         "lint": {
          "command": "npx eslint . --max-warnings 0"
@@ -213,7 +218,8 @@
        "verification.gates": {
         "tests": {
          "command": "mvn verify -Djacoco.skip=false -q",
-         "scoped": "mvn test -q -Dtest={paths}"
+         "scoped": "mvn test -q -Dtest={paths}",
+         "red": false
         },
         "coverage": {
          "command": "mvn verify -Djacoco.skip=false -q"
@@ -233,7 +239,8 @@
        "verification.gates": {
         "tests": {
          "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out",
-         "scoped": "go test {paths} -v"
+         "scoped": "go test {paths} -v",
+         "red": false
         },
         "coverage": {
          "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out"
@@ -256,7 +263,8 @@
        "verification.gates": {
         "tests": {
          "command": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage",
-         "scoped": "dotnet test --filter {paths} --verbosity minimal"
+         "scoped": "dotnet test --filter {paths} --verbosity minimal",
+         "red": false
         },
         "coverage": {
          "command": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
@@ -276,7 +284,8 @@
        "verification.gates": {
         "tests": {
          "command": "cargo test",
-         "scoped": "cargo test {paths} -- --nocapture"
+         "scoped": "cargo test {paths} -- --nocapture",
+         "red": false
         },
         "lint": {
          "command": "cargo clippy -- -D warnings"
