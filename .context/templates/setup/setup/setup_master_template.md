@@ -146,10 +146,10 @@ synthetic_data:
   enabled: null
   id_strategy: null
 verification:
-  gates: null
-  commands: null
+  gates: null                        # derived — gate.py discovery --resolve (EVOL-067)
 traceability:
   home: null
+  test_roots: null                    # derived — gate.py discovery --resolve (EVOL-067)
 planning:
   governed_paths: null                # derived — runtime surface + governance paths
 paths: null                           # derived — base paths per the stack's idiomatic layout

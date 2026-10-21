@@ -373,6 +373,7 @@ def cmd_seal(repo, a):
             print(f"  run: {e['command']}  →  {', '.join(e['gates'])}")
         if not r["executions"]:
             print("  nothing owed")
+        print(seal_mod.render_skipped(r).lstrip("\n")) if r.get("skipped") else None
         return 0
     if a.write:
         if a.ok == a.red:

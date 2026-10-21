@@ -67,7 +67,7 @@ FUNCTION defect_discovery_hook(errors, task, attempt):
 
 > When a feature touches seed/synthetic data scripts OR migration/schema files, `full_verification_gate()` MUST run the project's seed alignment test suite. This catches schema drift between migration definitions and seed data generators.
 
-**Rule:** When `IMPLEMENT --build` runs `full_verification_gate(FEATURE_ID)` AND the feature touches files matching the project's seed script pattern OR schema/migration files, the gate MUST run the **Seed Alignment Tests** (resolved via `resolve_verification_commands()`).
+**Rule:** When `IMPLEMENT --build` runs `full_verification_gate(FEATURE_ID)` AND the feature touches files matching the project's seed script pattern OR schema/migration files, the gate MUST run the **Seed Alignment Tests** (the `seed-alignment` gate of `verification.gates`, or the `tests` gate's `scoped` command on the seed test files).
 
 The test suite verifies:
 - Every column written by seed scripts exists in the target schema
@@ -108,148 +108,16 @@ The TDD cycle in IMPLEMENT --build previously followed: RED (write test) → GRE
 
 ---
 
-## TEST COMMAND RESOLUTION (Automatic — No User Input Required)
+## THE LOOP'S MEMBERS — `verification.gates` (EVOL-067)
 
-Test commands are derived from the governance snapshot's Stack Configuration; the commands SETUP discovery declared for a stack (`docs/setup.md → verification.commands`, § verification coverage) win over the derived ones (#116).
-Uses `/memories/repo/bvl-commands-cache.md` as acceleration layer (see `factory-memory-cache/SKILL.md`).
+The loop names no stack. Its members are `config/quality.json → verification.gates`: `{<gate>: {reads, command, scoped?}}`. SETUP derives them from the registry's `configures` rows (`gate.py discovery --resolve`); the project edits them like any config. `scoped` is the single-test form, `{paths}` the test files.
 
 ```yaml
-FUNCTION resolve_verification_commands():
-  # Step 0: Cache Fast Path (MCP)
-  # Check memory cache before reading governance snapshot + detecting frameworks.
-  cache = MEMORY_READ("/memories/repo/bvl-commands-cache.md")
-  IF cache IS NOT NULL:
-    snapshot_hash = MD5(READ(".context/governance_snapshot.md") + READ("docs/setup.md"))
-    IF cache.frontmatter.source_hash == snapshot_hash:
-      LOG: "BVL commands loaded from cache"
-      RETURN PARSE_COMMANDS(cache)  # Cache hit — skip derivation
-    ELSE:
-      LOG: "BVL commands cache stale — snapshot or declared commands changed"
-  
-  # Step 1: derive from the stack (summarization-safe — INVARIANT 5), then the declared commands win key by key
-  snapshot = READ(".context/governance_snapshot.md")
-  stack = PARSE_SECTION(snapshot, "## Stack Configuration")
-  commands = derive_commands_from_stack(stack)
-  declared = READ_FRONTMATTER("docs/setup.md").verification.commands   # § DECLARED VERIFICATION COMMANDS
-  FOR key, command IN declared:
-    IF TRIM(command) NOT IN ["", "true", ":"]: commands[key] = command   # a blank or no-op declaration declares nothing
-  
-  # Step 2: Write-Through Cache
-  snapshot_hash = MD5(READ(".context/governance_snapshot.md") + READ("docs/setup.md"))
-  write_bvl_commands_cache(commands, snapshot_hash)
-  
-  RETURN commands
-
-FUNCTION derive_commands_from_stack(stack):
-  # Derives verification commands from the ## Stack Configuration section of the
-  # governance snapshot. Uses backend.runtime and frontend.framework fields.
-  # Testing framework is inferred from config files when not explicitly set.
-  commands = {}
-  
-  # Infer testing framework from project files
-  testing_framework = DETECT_TESTING_FRAMEWORK(stack.backend.runtime):
-    "Node.js"  → IF FILE_EXISTS("vitest.config.ts") OR FILE_EXISTS("vitest.config.js"): "vitest"
-                  ELIF FILE_EXISTS("jest.config.ts") OR FILE_EXISTS("jest.config.js") OR FILE_EXISTS("jest.config.mjs"): "jest"
-                  ELIF FILE_EXISTS(".mocharc.yml") OR FILE_EXISTS(".mocharc.json"): "mocha"
-                  ELSE: "jest"  # Default for Node.js
-    "Python"   → IF FILE_EXISTS("pytest.ini") OR FILE_EXISTS("pyproject.toml"): "pytest" ELSE: "pytest"
-    DEFAULT    → NULL  # Built-in test runners for Java/Go/C#/Rust
-  
-  # Test runner
-  commands.test_single = MATCH stack.backend.runtime:
-    "Node.js"  → MATCH testing_framework:
-                    "jest"    → "npx jest {test_file} --no-coverage --verbose"
-                    "vitest"  → "npx vitest run {test_file}"
-                    "mocha"   → "npx mocha {test_file}"
-                    DEFAULT   → "npx jest {test_file} --no-coverage --verbose"
-    "Python"   → MATCH testing_framework:
-                    "pytest"  → "python -m pytest {test_file} -x --tb=short -q"
-                    "unittest"→ "python -m pytest {test_file} -x --tb=short -q"
-                    DEFAULT   → "python -m pytest {test_file} -x --tb=short -q"
-    "Java"     → "mvn test -pl {module} -Dtest={test_class} -q"
-    "Go"       → "go test {test_package} -run {test_name} -v"
-    ".NET"     → "dotnet test --filter {test_class} --verbosity minimal"
-    "Rust"     → "cargo test {test_name} -- --nocapture"
-    DEFAULT    → NULL  # Undeclared stack — BVL blocks (§ GRACEFUL DEGRADATION → UNDECLARED_STACK)
-  
-  commands.test_suite = MATCH stack.backend.runtime:
-    "Node.js"  → "npx jest --no-coverage"
-    "Python"   → "python -m pytest -x --tb=short -q"
-    "Java"     → "mvn test -q"
-    "Go"       → "go test ./... -v"
-    ".NET"     → "dotnet test --verbosity minimal"
-    "Rust"     → "cargo test"
-    DEFAULT    → NULL
-  
-  # Lint runner
-  commands.lint = MATCH stack.backend.runtime:
-    "Node.js"  → "npx eslint {files} --max-warnings 0"
-    "Python"   → "ruff check {files}"
-    "Java"     → NULL  # IDE-based
-    "Go"       → "golangci-lint run {files}"
-    ".NET"     → "dotnet format --verify-no-changes"
-    "Rust"     → "cargo clippy -- -D warnings"
-    DEFAULT    → NULL
-  
-  # Type check
-  commands.typecheck = MATCH stack.backend.runtime:
-    "Node.js"  → IF FILE_EXISTS("tsconfig.json"): "npx tsc --noEmit" ELSE: NULL
-    "Python"   → IF FILE_EXISTS("mypy.ini") OR (FILE_EXISTS("pyproject.toml") AND TOML_HAS_SECTION("pyproject.toml", "tool.mypy")): "mypy {files}" ELSE: NULL
-    DEFAULT    → NULL  # Statically typed languages don't need separate type check
-  
-  # Build check
-  commands.build = MATCH stack.backend.runtime:
-    "Node.js"  → IF FILE_EXISTS("package.json") AND JSON_HAS_KEY("package.json", "scripts.build"): "npm run build" ELSE: NULL
-    "Python"   → NULL  # Interpreted
-    "Java"     → "mvn compile -q"
-    "Go"       → "go build ./..."
-    ".NET"     → "dotnet build --no-restore"
-    "Rust"     → "cargo build"
-    DEFAULT    → NULL
-  
-  # Frontend test runner (if frontend exists)
-  IF stack.frontend IS NOT NULL AND stack.frontend.framework != "None":
-    commands.frontend_test = MATCH stack.frontend.framework:
-      "React"             → "npx jest --config jest.config.ts {test_file} --no-coverage"
-      "Vue.js"            → "npx vitest run {test_file}"
-      "Angular"           → "npx ng test --no-watch --browsers=ChromeHeadless"
-      "Svelte"            → "npx vitest run {test_file}"
-      DEFAULT             → commands.test_single  # Same as backend
-  
-  # Coverage report (used by the governance lens — Check #2 GOV-TEST threshold verification)
-  commands.coverage = MATCH stack.backend.runtime:
-    "Node.js"  → MATCH testing_framework:
-                    "jest"    → "npx jest --coverage --coverageReporters=text-summary --no-cache"
-                    "vitest"  → "npx vitest run --coverage --reporter=text"
-                    DEFAULT   → "npx jest --coverage --coverageReporters=text-summary --no-cache"
-    "Python"   → "python -m pytest --cov --cov-report=term-missing -q"
-    "Java"     → "mvn verify -Djacoco.skip=false -q"
-    "Go"       → "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out"
-    ".NET"     → "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
-    "Rust"     → NULL  # Requires cargo-tarpaulin, optional
-    DEFAULT    → NULL
-  
-  # Dependency audit (used by the security lens — CVE detection). Exit code = verdict, never masked (#116).
-  # T = config/quality.json → security_scan.sca_threshold (critical | high | medium | low); unreadable → BLOCK.
-  # Only npm and OWASP grade by T; every other tool below blocks on any finding.
-  commands.dependency_audit = MATCH stack.backend.runtime:
-    "Node.js"  → "npm audit --omit=dev --audit-level={T == medium ? moderate : T}"   # npm names medium "moderate"
-    "Python"   → IF COMMAND_EXISTS("pip-audit"): "pip-audit --strict --desc"   # any finding blocks
-                  ELIF COMMAND_EXISTS("safety"): "safety check"                # any finding blocks
-                  ELSE: TOOL_MISSING("pip-audit")
-    "Java"     → "mvn -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS={CVSS(T)}"   # critical 9, high 7, medium 4, low 0
-    "Go"       → IF COMMAND_EXISTS("govulncheck"): "govulncheck ./..." ELSE: TOOL_MISSING("govulncheck")   # any finding blocks
-    ".NET"     → IF COMMAND_EXISTS("dotnet"): "out=$(dotnet list package --vulnerable --include-transitive 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; ! grep -qE 'has the following vulnerable packages|NU1900|Unable to load the service index' <<< \"$out\""
-                  ELSE: TOOL_MISSING("dotnet")   # any finding blocks; dotnet's own failure (not restored, feed unreachable or unauthorised) blocks too
-    "Rust"     → IF COMMAND_EXISTS("cargo-audit"): "cargo audit" ELSE: TOOL_MISSING("cargo-audit")   # any finding blocks
-    DEFAULT    → NULL   # undeclared → the security lens blocks (SEC-DEP-003)
-
-  # Secret scanning (used by the security lens): the project's declared scanner through the one dispatcher.
-  # No scanner declared → exit 1 with the resolution; declared but not installed → banner, exit 0 (infra).
-  commands.secret_scan = "bash scripts/security-scan.sh --secrets"
-  
-  RETURN commands
+FUNCTION gates():
+  RETURN READ_JSON("config/quality.json").verification.gates   # the one source; no stack match, no override
 ```
+
+Skips: `verification.skips [{gate, reason, at, until}]` — dated, expires; a security gate (`secrets`, `sast`, `sca`) is never skipped. `gate.py seal --plan` lists an active skip with its reason; an expired one is owed again.
 
 ---
 
@@ -260,8 +128,8 @@ Runs after each task's GREEN phase (code written to pass the test).
 ```yaml
 FUNCTION task_verification_loop(task, test_files, source_files):
   # Gate: Check if BVL is available for this stack
-  commands = resolve_verification_commands()
-  IF commands.test_single IS NULL:
+  g = gates()
+  IF g.tests.scoped IS NULL:
     RETURN BLOCK(UNDECLARED_STACK)   # § GRACEFUL DEGRADATION — the task is not marked [x]
   
   MAX_ATTEMPTS = 3
@@ -272,7 +140,7 @@ FUNCTION task_verification_loop(task, test_files, source_files):
     attempt += 1
     
     # Execute test
-    test_cmd = INTERPOLATE(commands.test_single, {test_file: test_files[0]})
+    test_cmd = INTERPOLATE(g.tests.scoped, {paths: test_files[0]})
     result = RUN_IN_TERMINAL(test_cmd, timeout: 60000)
     
     IF result.exit_code == 0:
@@ -280,7 +148,7 @@ FUNCTION task_verification_loop(task, test_files, source_files):
       RETURN GREEN
     
     # Parse errors
-    errors = parse_test_output(result.output, commands)
+    errors = parse_test_output(result.output)
     
     # Detect fix loop (same error after fix → stop)
     IF attempt > 1 AND errors.signature == previous_errors.signature:
@@ -303,7 +171,7 @@ FUNCTION task_verification_loop(task, test_files, source_files):
 ## ERROR PARSER (Token-Efficient Output Processing)
 
 ```yaml
-FUNCTION parse_test_output(raw_output, commands):
+FUNCTION parse_test_output(raw_output):
   # Step 1: Truncate if too large
   # Test output can be 500+ lines. Only extract what's actionable.
   IF raw_output.lines > 100:
@@ -378,52 +246,24 @@ Runs after all tasks in a phase are complete, before the work critics are spawne
 
 ```yaml
 FUNCTION phase_verification(phase, all_test_files):
-  commands = resolve_verification_commands()
-  IF commands.test_single IS NULL OR all_test_files IS EMPTY:
+  g = gates()
+  IF g.tests.scoped IS NULL OR all_test_files IS EMPTY:
     RETURN SKIPPED
 
   # The phase's scoped tests — the files its tasks wrote or touched (the same selection task_verification_loop used)
-  result = RUN_IN_TERMINAL(INTERPOLATE(commands.test_single, {test_file: JOIN(all_test_files, " ")}), timeout: 120000)
+  result = RUN_IN_TERMINAL(INTERPOLATE(g.tests.scoped, {paths: JOIN(all_test_files, " ")}), timeout: 120000)
 
   IF result.exit_code != 0:
-    errors = parse_test_output(result.output, commands)
+    errors = parse_test_output(result.output)
     LOG: "❌ BVL Phase {phase}: scoped regression detected — {errors.summary}"
     RETURN REGRESSION(errors)
     # Caller (Phase Loop) handles regression fix loop
-  
-  # Lint check (if available)
-  IF commands.lint IS NOT NULL AND "lint" NOT IN mapped:
-    phase_files = COLLECT_SOURCE_FILES(phase)
-    lint_cmd = INTERPOLATE(commands.lint, {files: phase_files})
-    lint_result = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
-    
-    IF lint_result.exit_code != 0:
-      LOG: "BVL Phase {phase}: Lint issues — auto-fixing"
-      autofix_cmd = derive_autofix_command(commands.lint)
-      
-      IF autofix_cmd IS NOT NULL:
-        RUN_IN_TERMINAL(autofix_cmd, timeout: 30000)
-        recheck = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
-        IF recheck.exit_code != 0:
-          RETURN LINT_ISSUES(recheck.output)
-      ELSE:
-        RETURN LINT_ISSUES(lint_result.output)
-  
-  # Format check (between lint and typecheck)
-  IF commands.format IS NOT NULL AND "format" NOT IN mapped:
-    format_result = RUN_IN_TERMINAL(commands.format, timeout: 30000)
-    IF format_result.exit_code != 0:
-      LOG: "BVL Phase {phase}: Format issues — auto-fixing"
-      # Derive format-fix command from format-check command
-      format_fix_cmd = derive_format_fix_command(commands.format)
-      IF format_fix_cmd IS NOT NULL:
-        RUN_IN_TERMINAL(format_fix_cmd, timeout: 30000)
-        recheck = RUN_IN_TERMINAL(commands.format, timeout: 30000)
-        IF recheck.exit_code != 0:
-          RETURN FORMAT_ISSUES(recheck.output)
-      ELSE:
-        RETURN FORMAT_ISSUES(format_result.output)
-  
+
+  # Lint and format, when declared — their own command; a red one: fix with the tool, run again
+  FOR gate IN ["lint", "format"] WHERE g[gate] IS NOT NULL:
+    r = RUN_IN_TERMINAL(g[gate].command, timeout: 30000)
+    IF r.exit_code != 0: RETURN ISSUES(gate, r.output)
+
   LOG: "BVL Phase {phase}: scoped tests GREEN + Lint clean + Format clean"
   RETURN GREEN
 ```
@@ -438,7 +278,6 @@ Runs after all phases complete, after the completion gate wrote the plan's statu
 
 ```yaml
 FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
-  commands = resolve_verification_commands()
   results = {}
   scope_label = increment_id IS NOT NULL ? "increment {increment_id}" : "feature aggregate"
 
@@ -456,9 +295,8 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   IF run.exit_code != 0: ❌ BLOCK: "{run.reason}" ; RETURN BLOCKED                 # cure, then `seal --plan` names what is owed; `seal --run` again
   mapped = KEYS(READ_JSON("config/quality.json").verification.gates)              # the runner's gates — every step below is guarded by it
   FOR g IN mapped: results[g] = {status: "GREEN (seal --run)"}
-  # A gate the map names is the runner's: the steps below do NOT run it again — they keep the gates the map does not
-  # name and the advisory scans. An auto-fix (lint / format) rewrites sources: the gates that read them are owed again
-  # (`seal --write --full` refuses a read-set that moved after its run) — `seal --run` re-runs exactly those.
+  # Every member is the runner's: the steps below keep the advisory scans. A red lint / format: fix with the tool,
+  # then `seal --run` again — the gates whose read-set moved are owed again (`seal --write --full` refuses a stale one).
   #   A gate the map gives no command (an MCP-driven check) is recorded by its owner:
   #   RUN("python3 scripts/gate.py seal --write --gates <gate> --ok|--red --summary '<one line>'")
   # When every gate of the map holds a green record on the tree as it stands: `seal --run --full` (the tree is sealed).
@@ -467,99 +305,14 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   # When increment_id is null this returns the feature-level set (legacy behaviour).
   scope_files = COLLECT_ALL_SOURCE_FILES(FEATURE_ID, increment_id)
 
-  # 1. Test suite (scope-aware)
-  # When increment_id is provided, run the suite filtered to tests whose target files
-  # lie inside scope_files OR tests created in the increment's Phase C. The runner
-  # invocation depends on the framework — most accept a list of test files or a
-  # path glob. Fall back to the full suite only if no per-file selection is possible.
-  IF commands.test_suite IS NOT NULL AND "tests" NOT IN mapped:
-    test_cmd = increment_id IS NOT NULL
-      ? RESOLVE_INCREMENT_TEST_CMD(commands, scope_files, increment_id)  # filtered selection
-      : commands.test_suite                                              # full suite
-    result = RUN_IN_TERMINAL(test_cmd, timeout: 180000)
-    results.tests = {
-      status: result.exit_code == 0 ? "GREEN" : "RED",
-      output: parse_test_output(result.output, commands) IF result.exit_code != 0 ELSE NULL
-    }
-    IF result.exit_code != 0:
-      ❌ BLOCK: "Test suite failed for {scope_label}. Fix before marking IMPLEMENTED_AND_VERIFIED."
-      SHOW: results.tests.output.summary
-      RETURN BLOCKED
-
-  # 2. Lint check
-  IF commands.lint IS NOT NULL:
-    lint_cmd = INTERPOLATE(commands.lint, {files: scope_files})
-    result = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
-    results.lint = {status: result.exit_code == 0 ? "CLEAN" : "ISSUES"}
-    IF result.exit_code != 0:
-      # Attempt auto-fix before blocking
-      autofix_cmd = derive_autofix_command(commands.lint)
-      IF autofix_cmd:
-        RUN_IN_TERMINAL(autofix_cmd, timeout: 30000)
-        recheck = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
-        IF recheck.exit_code != 0:
-          ❌ BLOCK: "Lint issues remain after auto-fix."
-          RETURN BLOCKED
-        results.lint.status = "CLEAN (auto-fixed)"
-      ELSE:
-        ❌ BLOCK: "Lint issues detected. Fix manually."
-        RETURN BLOCKED
-  
-  # 3. Type check
-  IF commands.typecheck IS NOT NULL AND "typecheck" NOT IN mapped:
-    result = RUN_IN_TERMINAL(commands.typecheck, timeout: 60000)
-    results.typecheck = {status: result.exit_code == 0 ? "CLEAN" : "ERRORS"}
-    IF result.exit_code != 0:
-      ❌ BLOCK: "Type errors detected."
-      SHOW: parse_test_output(result.output, commands).summary
-      RETURN BLOCKED
-  
-  # 4. Build check
-  IF commands.build IS NOT NULL AND "build" NOT IN mapped:
-    result = RUN_IN_TERMINAL(commands.build, timeout: 120000)
-    results.build = {status: result.exit_code == 0 ? "SUCCESS" : "FAILED"}
-    IF result.exit_code != 0:
-      ❌ BLOCK: "Build failed."
-      SHOW: parse_test_output(result.output, commands).summary
-      RETURN BLOCKED
-  
-  # 4a. Format check
-  IF commands.format IS NOT NULL:
-    result = RUN_IN_TERMINAL(commands.format, timeout: 30000)
-    results.format = {status: result.exit_code == 0 ? "CLEAN" : "ISSUES"}
-    IF result.exit_code != 0:
-      format_fix_cmd = derive_format_fix_command(commands.format)
-      IF format_fix_cmd:
-        RUN_IN_TERMINAL(format_fix_cmd, timeout: 30000)
-        recheck = RUN_IN_TERMINAL(commands.format, timeout: 30000)
-        IF recheck.exit_code != 0:
-          BLOCK: "Format issues remain after auto-fix."
-          RETURN BLOCKED
-        results.format.status = "CLEAN (auto-fixed)"
-      ELSE:
-        BLOCK: "Format issues detected. Fix manually."
-        RETURN BLOCKED
-
-  # 5. SAST check
-  IF commands.sast IS NOT NULL AND "sast" NOT IN mapped:
-    result = RUN_IN_TERMINAL(commands.sast, timeout: 120000)
-    sast_findings = parse_sast_results(result.output, commands)
-    results.sast = {
-      status: sast_findings.critical == 0 AND sast_findings.high == 0 ? "CLEAN" : "FINDINGS",
-      summary: sast_findings.summary
-    }
-    IF sast_findings.critical > 0 OR sast_findings.high > 0:
-      BLOCK: "SAST found {sast_findings.critical} CRITICAL + {sast_findings.high} HIGH"
-      RETURN BLOCKED
-
   # 6. Seed alignment check (conditional)
-  # Seed alignment tests are resolved from the project's test suite via commands.test_single.
+  # Seed alignment tests run through the `tests` gate's `scoped` command (when no `seed-alignment` gate is declared).
   # The resolver scans for test files matching the seed alignment naming convention
   # (e.g., test_seed_schema_alignment, test_seed_deployment_isolation) under the project's
-  # integration test directory. Stack-agnostic: uses BVL's test runner (pytest, jest, go test, etc.)
+  # integration test directory. Stack-agnostic: the project's declared runner.
   IF scope_files MATCHES seed_script_pattern OR scope_files MATCHES migration_pattern:
     seed_test_files = GLOB("tests/**/test_seed_*" OR "tests/**/*seed*alignment*")
-    seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_test_files})
+    seed_test_cmd = INTERPOLATE(gates().tests.scoped, {paths: seed_test_files})
     IF seed_test_cmd IS NOT NULL AND seed_test_files.length > 0 AND "seed-alignment" NOT IN mapped:
       result = RUN_IN_TERMINAL(seed_test_cmd, timeout: 60000)
       results.seed_alignment = {status: result.exit_code == 0 ? "ALIGNED" : "DRIFT"}
@@ -609,7 +362,7 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   # All checks passed — seal the tree (untracked); the commit follows; nothing tracked is written after this line
   run = RUN("python3 scripts/gate.py seal --run --full --summary '{scope_label}: green'")   # the owed executions (none when every record is green), then the tree sealed
   IF run.exit_code != 0: ❌ BLOCK: "{run.reason}" ; RETURN BLOCKED                       # not sealed is not green: a gate without its record, a read-set that moved after its run
-  LOG: "BVL Full Gate ({scope_label}): tests={results.tests.status}, lint={results.lint.status}, format={results.format.status}, types={results.typecheck.status}, build={results.build.status}, sast={results.sast.status}, complexity={results.complexity.status}, minimalism={results.minimalism.status}"
+  LOG: "BVL Full Gate ({scope_label}): {FOR g IN mapped: g=results[g].status}, complexity={results.complexity.status}, minimalism={results.minimalism.status}"
 
   RETURN PASSED(results)
 ```
@@ -617,24 +370,12 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
 ### `RESOLVE_INCREMENT_TEST_CMD` helper
 
 ```yaml
-FUNCTION RESOLVE_INCREMENT_TEST_CMD(commands, scope_files, increment_id):
-  # Map scope_files to corresponding test files: tests under the same module path,
-  # plus tests created in the increment's Phase C (path inside scope_files).
-  test_targets = []
-  FOR EACH source_file IN scope_files:
-    matching = GLOB(test_pattern_for_module(source_file))   # e.g. tests/**/test_<module>*
-    test_targets.push_all(matching)
-  test_targets.push_all(scope_files WHERE matches_test_naming_convention(file))
-  test_targets = DEDUPE(test_targets)
-
+FUNCTION RESOLVE_INCREMENT_TEST_CMD(scope_files, increment_id):
+  # Map scope_files to their test files: tests under the same module path, plus tests created in the increment.
+  test_targets = DEDUPE(GLOB(test_pattern_for_module(f)) FOR f IN scope_files) + scope_files WHERE matches_test_naming_convention(file)
   IF test_targets IS EMPTY:
-    LOG: "BVL: increment {increment_id} has no resolvable test targets — running full suite as fallback"
-    RETURN commands.test_suite
-
-  # Most runners accept a list of files via the same interpolation as test_single.
-  # Pass a glob/list rather than a single path. Stack-specific quoting is the runner's responsibility.
-  RETURN INTERPOLATE(commands.test_suite, {scope: test_targets}) OR
-         INTERPOLATE(commands.test_single, {test_file: JOIN(test_targets, " ")})
+    RETURN gates().tests.command          # the suite
+  RETURN INTERPOLATE(gates().tests.scoped, {paths: JOIN(test_targets, " ")})
 ```
 
 ---
@@ -642,7 +383,7 @@ FUNCTION RESOLVE_INCREMENT_TEST_CMD(commands, scope_files, increment_id):
 ## SAST OUTPUT PARSER
 
 ```yaml
-FUNCTION parse_sast_results(raw_output, commands):
+FUNCTION parse_sast_results(raw_output):
   # Parses SAST tool output into structured findings.
   # Supports JSON output format (preferred) and plain text fallback.
 
@@ -726,13 +467,13 @@ A missing declaration blocks; an infrastructure fault (a tool not installed, a c
 ```yaml
 DEGRADATION_SCENARIOS:
   
-  # No command declared for the stack (no BVL row, nothing declared in SETUP)
+  # No `tests` gate (or no `scoped` form) declared
   UNDECLARED_STACK:
     ACTION: BLOCK
-    MESSAGE: "No verification commands are declared for stack '{stack.backend.runtime}', so the build cannot be checked."
-    RESOLUTION: "Declare the commands in docs/setup.md → verification.commands (SETUP discovery § verification coverage); SETUP --generate merges them into config/quality.json → verification.gates."
+    MESSAGE: "No test command is declared for this project, so the build cannot be checked."
+    RESOLUTION: "Declare the gate rows in config/quality.json → verification.gates (SETUP discovery § verification coverage)."
   
-  # Tool missing (e.g., npx not installed)
+  # Tool missing (the declared command's tool is not installed)
   TOOL_MISSING:
     ACTION: WARN + SKIP BVL
     LOG: "BVL degraded: {tool} not found — install with {install_cmd}"
@@ -761,27 +502,19 @@ DEGRADATION_SCENARIOS:
 | **TDD Cycle (per task)** | After GREEN phase → `task_verification_loop()` → marks [x] only if GREEN (SKIPPED = infrastructure fault, logged) |
 | **Phase Loop (per phase)** | After all task [x] → `phase_verification()` (the phase's scoped tests + lint + format; no build) → before the work critics |
 | **Work critics (per phase)** | `review_verification_loop()` (run by the main session) → the static round (`gate.py profile --run --control-point static`, digests included) + scoped lint → blockers feed the critics' verdict; coverage, typecheck and the full suite are deferred to the one loop |
-| **Security lens (per phase)** | `sec_verification_loop()` (run by the main session) → dependency_audit + secret_scan → blockers feed the security verdict |
+| **Security lens (per phase)** | `sec_verification_loop()` (run by the main session) → the `sca` gate + the secrets dispatcher → blockers feed the security verdict |
 | **Completion Gate** | After the artefacts (reports, ticks, the plan's status — the last tracked writes) → `full_verification_gate()` ONCE → the seal → the commit on its green (EVOL-051) |
 | **--fix execution** | Same loop: write regression test → fix → `task_verification_loop()` |
 | **Escalation** | FLAGGED tasks → Resilience Protocol (user choice: retry/modify/escalate/skip) |
 
 ---
 
-## DECLARED VERIFICATION COMMANDS
+## DECLARED GATE ROWS
 
-A stack with no `MATCH` row above, or non-standard tooling, declares its commands at SETUP discovery (§ verification coverage). `resolve_verification_commands()` reads them over the derived ones; a declared key wins. `--generate` also merges them into `config/quality.json → verification.gates`.
+A stack with no registry `configures` rows, or non-standard tooling, declares its rows at SETUP discovery (§ verification coverage) into `verification.gates`; a new stack's rows ship with its platform pack. `tests` and `coverage` may share one command (one execution feeds both).
 
 ```yaml
-# docs/setup.md frontmatter:
-verification:
-  commands:
-    test_single: "{command with {test_file}}"
-    test_suite: "{command}"
-    lint: "{command}"
-    typecheck: "{command}"
-    build: "{command}"
-    frontend_test: "{command}"
-    coverage: "{command}"
-    dependency_audit: "{command}"   # exit code = verdict, never masked
+# config/quality.json
+"verification": {"gates": {"tests": {"reads": ["src/**", "tests/**"], "command": "<suite>", "scoped": "<one test: {paths}>"}},
+                 "skips": []}
 ```

@@ -6,6 +6,7 @@ import datetime as dt
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import re
 import subprocess
@@ -1921,13 +1922,15 @@ class Seal(unittest.TestCase):
              "lint": {"reads": ["src/**"], "command": "ruff check src"},
              "docs-build": {"reads": ["docs/site/**"], "command": "mkdocs build"}}       # a gate that DOES read documentation
 
-    def _repo(self, tmp, required=True, gates=None, logs=None):
+    def _repo(self, tmp, required=True, gates=None, logs=None, skips=None):
         repo = fixture_repo(Path(tmp))
         q = json.loads((repo / "config/quality.json").read_text())
         q["documentation"] = dict(self.DOCS)
         q["verification"] = {"seal": {"required": required, "dir": ".claude/state", "reason": "" if required else "CI is the loop"}, "gates": self.GATES if gates is None else gates, "digest_artefacts": ["design.md"]}
         if logs is not None:
             q["verification"]["logs"] = logs
+        if skips is not None:
+            q["verification"]["skips"] = skips
         write(repo / "config/quality.json", json.dumps(q))
         write(repo / "src/app.py", "print(1)\n"); write(repo / "tests/test_app.py", "def test_a(): pass\n"); write(repo / "docs/site/index.md", "# site\n")
         write(repo / ".gitignore", ".claude/state/\n")   # as the template ships it; the seal is never part of the tree it seals either way
@@ -2218,6 +2221,146 @@ class Seal(unittest.TestCase):
             self.assertEqual(profile.profile(repo, "feature/FEAT-001-x", "static")["profile"], "light", "the static round: no build, no database, whatever the class or the mode")
             self.assertEqual(profile.profile(repo, "feature/FEAT-001-x", "push")["profile"], "full")
 
+    # ── EVOL-067: a skip is data that expires; a security member is never skipped; the secret scanner proves it detects ──
+    def _skips(self, repo, skips):
+        q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["skips"] = skips
+        write(repo / "config/quality.json", json.dumps(q))
+
+    def test_member_without_reads_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates={"tests": {"command": "pytest -q"}})
+            self.assertTrue(any("non-empty `reads`" in f["reason"] for f in seal.validate(repo)))
+
+    def test_skip_until_future_is_not_owed_and_listed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, skips=[{"gate": "lint", "reason": "linter broken upstream", "at": "2026-10-01", "until": "2099-01-01"}])
+            write(repo / "src/app.py", "print(2)\n")
+            p = seal.plan(repo, base="main")
+            self.assertNotIn("lint", p["owed"]); self.assertIn("tests", p["owed"])
+            self.assertEqual([(s["gate"], s["reason"]) for s in p["skipped"]], [("lint", "linter broken upstream")])
+            self.assertEqual(seal.validate(repo), [])
+            seal.write(repo, ["tests", "coverage", "docs-build"], ok=True, branch="feature/FEAT-001-x")
+            self.assertTrue(seal.write(repo, [], ok=True, full=True, branch="feature/FEAT-001-x")["full"], "--full seals over a skipped gate")
+            self._commit(repo, "code")
+            c = seal.check(repo, base="main")
+            self.assertTrue(c["ok"], c["reason"]); self.assertEqual([s["gate"] for s in c["skipped"]], ["lint"])
+            self.assertIn("lint", seal.render(c), "the check lists the skip with its reason")
+
+    def test_expired_skip_is_owed_and_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, skips=[{"gate": "lint", "reason": "linter broken upstream", "at": "2026-01-01", "until": "2026-02-01"}])
+            p = seal.plan(repo, base="main")
+            self.assertIn("lint", p["owed"], "an expired skip makes the gate owed again")
+            self.assertIn("expired", p["reason"]); self.assertIn("2026-02-01", p["reason"])
+            c = seal.check(repo, base="main")
+            self.assertFalse(c["ok"]); self.assertIn("lint", c["owed"])
+            seal.write(repo, ["lint"], ok=True, branch="feature/FEAT-001-x")
+            self.assertNotIn("lint", seal.plan(repo, base="main")["owed"], "the gate ran green after the expiry: no longer owed")
+
+    def test_security_or_malformed_skip_fails_validate(self):
+        cases = [({"gate": "secrets", "reason": "r", "at": "2026-10-01", "until": "2099-01-01"}, "security member"),
+                 ({"gate": "lint", "reason": "r", "at": "2026-10-01"}, "{gate, reason, at, until}"),
+                 ({"gate": "lint", "reason": "r", "at": "2026-10-01", "until": "next week"}, "not a date"),
+                 ({"gate": "nope", "reason": "r", "at": "2026-10-01", "until": "2099-01-01"}, "not a gate of verification.gates"),
+                 ({"gate": "lint", "reason": "", "at": "2026-10-01", "until": "2099-01-01"}, "{gate, reason, at, until}")]
+        for skip, msg in cases:
+            with self.subTest(msg=msg), tempfile.TemporaryDirectory() as tmp:
+                gates = dict(self.GATES, secrets={"reads": ["src/**"], "command": "scan"})
+                repo = self._repo(tmp, gates=gates)
+                self._skips(repo, [skip])
+                f = seal.validate(repo)
+                self.assertTrue(any(msg in x["reason"] for x in f), f)
+                if skip["gate"] == "secrets":
+                    self.assertIn("secrets", seal.plan(repo, base="main")["owed"], "a refused skip is never honoured")
+
+    def _canary_repo(self, tmp, stub_rc):
+        repo = self._repo(tmp, gates={"secrets": {"reads": ["src/**"], "command": "true"}})
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["security_scan"] = {"enabled": True, "scanner": "stubscan", "secrets_command": "stubscan --log-opts={{RANGE}}"}
+        write(repo / "config/quality.json", json.dumps(q)); self._commit(repo, "scan")
+        bindir = Path(tmp) / "bin"; bindir.mkdir()
+        if stub_rc.startswith("detect"):   # a scanner that reads the range and finds the planted marker (exit 1, or the code named)
+            body = f'#!/bin/sh\nr="${{1#--log-opts=}}"\ngit log -p "$r" | grep -q canary-secret && {{ echo leak; exit {stub_rc[6:] or 1}; }}\nexit 0\n'
+        elif stub_rc == "signal":
+            body = "#!/bin/sh\nkill -9 $$\n"
+        else:
+            body = f"#!/bin/sh\nexit {stub_rc}\n"
+        write(bindir / "stubscan", body); os.chmod(bindir / "stubscan", 0o755)
+        return repo, {"PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}"}
+
+    def test_secrets_canary_detects(self):
+        for stub in ("detect", "detect183"):   # trufflehog --fail exits 183 on a finding: a detection, never a signal
+            with self.subTest(stub=stub), tempfile.TemporaryDirectory() as tmp:
+                repo, env = self._canary_repo(tmp, stub)
+                write(repo / "src/app.py", "print(3)\n")
+                with unittest.mock.patch.dict(os.environ, env):
+                    r = seal.run(repo, base="main")
+                self.assertTrue(r["ok"], r["reason"]); self.assertIn("canary", r["reason"])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, env = self._canary_repo(tmp, "detect")
+            write(repo / "src/app.py", "print(3)\n")
+            with unittest.mock.patch.dict(os.environ, env):
+                seal.run(repo, base="main")
+            self.assertEqual(subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=all", "--", "src"], capture_output=True, text=True).stdout.strip(), "M src/app.py", "the canary writes nothing in the tree")
+
+    def test_secrets_canary_not_detected_or_cannot_run_is_red(self):
+        for rc, msg in (("0", "found nothing"), ("127", "could not run")):
+            with self.subTest(rc=rc), tempfile.TemporaryDirectory() as tmp:
+                repo, env = self._canary_repo(tmp, rc)
+                write(repo / "src/app.py", "print(3)\n")
+                with unittest.mock.patch.dict(os.environ, env):
+                    r = seal.run(repo, base="main")
+                self.assertFalse(r["ok"]); self.assertIn(msg, r["reason"]); self.assertEqual(r["ran"], [], "nothing runs on a scanner that cannot be trusted")
+
+    def test_secrets_canary_differential_clean_commit_and_signal(self):
+        """the scanner must pass a commit with no secret, then fail the planted one — exit 1 everywhere reads as broken, never as detected."""
+        for rc, msg in (("1", "fails on a commit with no secret"), ("signal", "killed by a signal")):
+            with self.subTest(rc=rc), tempfile.TemporaryDirectory() as tmp:
+                repo, env = self._canary_repo(tmp, rc)
+                with unittest.mock.patch.dict(os.environ, env):
+                    ok, why = seal.secrets_canary(repo)
+                self.assertFalse(ok); self.assertIn(msg, why); self.assertIn("security_scan.secrets_command", why)
+
+    def test_secrets_canary_git_hygiene(self):
+        """no inherited GIT_* variable and no hook reaches the canary's git calls — the planted credential never lands in the real repo."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, env = self._canary_repo(tmp, "detect")
+            head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+            with unittest.mock.patch.dict(os.environ, {**env, "GIT_DIR": str(repo / ".git"), "GIT_WORK_TREE": str(repo), "GIT_INDEX_FILE": str(repo / ".git/index")}):
+                ok, why = seal.secrets_canary(repo)
+            self.assertTrue(ok, why)
+            self.assertEqual(subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout, head, "no commit landed in the real repo")
+            self.assertNotIn("canary-secret", subprocess.run(["git", "-C", str(repo), "log", "-p", "--all"], capture_output=True, text=True).stdout)
+
+    @unittest.skipUnless(__import__("shutil").which("gitleaks"), "gitleaks not installed")
+    def test_secrets_canary_real_gitleaks_detects(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates={"secrets": {"reads": ["src/**"], "command": "true"}})
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["security_scan"] = {"enabled": True, "scanner": "gitleaks", "secrets_command": "gitleaks detect --source=. --redact --no-banner --log-opts={{RANGE}}"}
+            write(repo / "config/quality.json", json.dumps(q))
+            ok, why = seal.secrets_canary(repo)
+            self.assertTrue(ok, why)
+
+    def test_refused_skip_is_said_and_dates_are_strict(self):
+        """a refused skip is named in the plan's reason, never dropped silently; a date is YYYY-MM-DD on every interpreter."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates=dict(self.GATES, secrets={"reads": ["src/**"], "command": "scan"}))
+            self._skips(repo, [{"gate": "secrets", "reason": "r", "at": "2026-10-01", "until": "2099-01-01"}])
+            write(repo / "src/app.py", "print(9)\n")
+            p = seal.plan(repo, base="main")
+            self.assertIn("secrets", p["owed"]); self.assertIn("skip refused", p["reason"]); self.assertIn("never skipped", p["reason"])
+            self._skips(repo, [{"gate": "lint", "reason": "r", "at": "2026-10-01", "until": "20991231"}])
+            self.assertTrue(any("not a date" in x["reason"] for x in seal.validate(repo)), "a basic-format date is refused even where fromisoformat reads it")
+            self.assertIn("skip refused", seal.plan(repo, base="main")["reason"])
+
+    def test_no_secrets_member_no_canary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates={"lint": {"reads": ["src/**"], "command": "true"}})
+            write(repo / "src/app.py", "print(3)\n")
+            r = seal.run(repo, base="main")
+            self.assertTrue(r["ok"]); self.assertNotIn("canary", r["reason"])
+
 
 RULE_AGENTS_LENSES = RULE_AGENTS.replace(
     '    - {name: factory-critic-security, class: work-critic, lens: security, surface: ["**"]}\n',
@@ -2432,6 +2575,12 @@ class Canary(unittest.TestCase):
         self.assertEqual(added["src/orders/repo.py"][9].strip()[:16], "rows = query(\"SE")
         self.assertEqual(added["docs/project_log/governance_versions.json"][7].strip()[:30], "\"1.2.0: feat(CAN-001) — the or")
         self.assertNotIn("sk-" + "canary", (HERE / "canary.py").read_text(encoding="utf-8"), "no scanner sees the planted credential in the repository")
+        planted = canary.planted_credential()
+        self.assertRegex(planted, r'^BILLING_API_KEY = "sk_' + r'live_[A-Za-z0-9]{32}"  # canary-secret$', "a shape real scanners flag (stripe-access-token)")
+        val = planted.split('"')[1].removeprefix("sk_" + "live_")
+        entropy = -sum(val.count(c) / len(val) * math.log2(val.count(c) / len(val)) for c in set(val))
+        self.assertGreaterEqual(entropy, 3.5, "at gitleaks' generic-api-key entropy floor — the shape alone is not a detection")
+        self.assertNotIn(planted.split('"')[1], (HERE / "canary.py").read_text(encoding="utf-8")); self.assertEqual(added["src/orders/repo.py"][23], planted)
         self.assertEqual(canary.LENS_AGENT.get("plan"), "factory-plan-critic", "EVOL-069: the plan critic is calibrated too")
         self.assertTrue(all(f == "docs/spec/CAN-001/increment_plan.md" for it in canary.EXPECTED["plan"] for f, _ in it["at"][:1]), "the plan lens's defects are planted in the plan")
         self.assertIn("PayFlow", added["docs/spec/CAN-001/increment_plan.md"][canary.EXPECTED["plan"][0]["at"][0][1]], "an external premise stated as verified")
@@ -3420,12 +3569,11 @@ class Discovery(unittest.TestCase):
     def test_v8_consumer_literals(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = disc_repo(tmp)
-            write(repo / ".claude/skills/factory-build-verification/SKILL.md", 'MATCH stack.backend.runtime:\n    "Python" → pytest\n    "Ruby" → rspec\n')
+            write(repo / ".claude/skills/factory-build-verification/SKILL.md", 'owed = seal --plan\n  RUN "python -m pytest -x"\n')
             write(repo / ".claude/skills/other/SKILL.md", 'Only when `backend.runtime == "Elixir"`.\n')
             disc_add(repo)
             v8 = " | ".join(self._rule(discovery.validate(repo), "V8"))
-            self.assertIn("`Ruby` — not offered", v8); self.assertIn("`backend.runtime == Elixir`", v8)
-            self.assertNotIn("`Python` — not offered", v8)
+            self.assertIn("BVL:2: `pytest` — a stack command", v8); self.assertIn("`backend.runtime == Elixir`", v8)
             self.assertIn("is absent", v8, "an input file of a check missing is a finding, never a silent pass")
 
     def test_v9_snapshot_keys(self):
@@ -3629,7 +3777,7 @@ class Discovery(unittest.TestCase):
         ".claude/instructions/Factory-backlog-operations.instructions.md": '  milestone_strategy: "{{milestone_strategy}}" # Q27.3: epic-based | none\n',
         ".context/templates/setup/upgrade_safety_protocol.md": "The checksum is SHA-256.\n",
         ".claude/skills/factory-build-verification/SKILL.md":
-            'MATCH stack.backend.runtime:\n    "Python" → pytest\n    "Node.js" → jest\nMATCH stack.frontend.framework:\n    "React" → vitest\n',
+            '  owed = gate.py seal --plan --json\n  scoped = INTERPOLATE(gates.tests.scoped, {paths: test_files})\n',
     }
 
     def _v8_repo(self, tmp):
@@ -3678,6 +3826,8 @@ class Discovery(unittest.TestCase):
             ("one definition", text(".claude/instructions/Factory-backlog-operations.instructions.md", "epic-based | none", "epic-based | sprint-based | none")),
             ("one definition", text(".context/templates/setup/upgrade_safety_protocol.md", "SHA-256.", "SHA-256 (MD5 before).")),
             ("dependency readers", reg("backend.runtime", "Cobol")),
+            ("verification loop", text(".claude/skills/factory-build-verification/SKILL.md", "seal --plan --json", "seal --plan --json\n  RUN \"python -m pytest -x\"")),
+            ("verification loop", text(".claude/skills/factory-build-verification/SKILL.md", "seal --plan --json", "seal --plan --json\n  x = \"npx eslint {files}\"")),
         ]
         for label, mut in cases:
             with self.subTest(check=label), tempfile.TemporaryDirectory() as tmp:
@@ -3823,7 +3973,9 @@ class Discovery(unittest.TestCase):
             self._project(repo, quality={"scm": {"platform": "github"}})
             self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), ["m2"], "the pointer present: not owed")
             self._project(repo, version="1.1.0")
-            self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), [], "a project at since owes nothing")
+            self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), ["m2"], "a project at since owes only the `always` rows")
+            self._project(repo, version="9.0.0")
+            self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), ["m2"], "an `always` row is owed on every upgrade, whatever its since")
             r = discovery.resolve(repo, discovery.answers(repo))
             self.assertNotIn("migrations_owed", r, "an answer set alone has no project to migrate")
 
@@ -3865,6 +4017,33 @@ class Discovery(unittest.TestCase):
                                capture_output=True, text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": ""})
             self.assertEqual(r.returncode, 2); self.assertIn("backend.runtime", r.stderr); self.assertNotIn("Traceback", r.stderr)
 
+    # ── EVOL-067: the loop's members come from the registry's `configures` ─────────
+    def _configures(self, reg):
+        spec = next(s for q in reg["questions"] for k, s in q["keys"].items() if k == "backend.runtime")
+        spec["configures"] = {
+            "Python": {"verification.gates": {"tests": {"command": "suite --cov", "scoped": "suite {paths}"},
+                                              "sca": {"command": "audit --level {sca_threshold}"}},
+                       "traceability.test_roots": ["tests/**"]},
+            "Node.js": {"verification.gates": {"lint": {"command": "lint ."}}, "traceability.test_roots": ["tests/**", "e2e/**"]}}
+        reg["questions"].append({"id": "Q33", "tier": 2, "since": "1.0.0", "keys": {
+            "surface.runtime_surface": {"free": "list", "record_only": "fixture"},
+            "quality.security_scan.sca_threshold": {"options": ["high", "low"], "record_only": "fixture"}}})
+        reg["derived"]["quality.security_scan.enabled"] = {"from": "always true", "configures": {
+            "verification.gates": {"secrets": {"command": "bash scripts/security-scan.sh --secrets --require-scanner"}}}}
+
+    def test_stop_per_stack_part(self):
+        """each answered stack part needs its own verifying gate; rows declared at discovery count."""
+        real = HERE.parents[1]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        res = lambda be, fe, **extra: discovery.resolve(real, {"backend.runtime": be, "frontend.framework": fe, "surface.runtime_surface": ["src/**"], **extra})
+        r = res("Ruby", "None"); self.assertIn("backend.runtime = Ruby", r["stop"]); self.assertNotIn("frontend.framework", r["stop"])
+        self.assertNotIn("stop", res("None", "React"))
+        r = res("Python", "Solid"); self.assertIn("frontend.framework = Solid", r["stop"]); self.assertNotIn("backend.runtime", r["stop"])
+        self.assertNotIn("stop", res("Python", "React"))
+        self.assertNotIn("stop", res("Ruby", "None", **{"verification.gates.tests.command": "bundle exec rake test"}), "a row declared at discovery counts")
+        self.assertIn("stop: ", discovery.render_resolve(res("Ruby", "None")), "the stop is printed")
+
     def test_gates_parse_under_python_310(self):
         """Every gate module parses on the oldest interpreter the projects run (rules/python.md: 3.10+) — the grammar through
         ast's feature_version, and what it cannot see: a string nested in an f-string with the enclosing quote (valid from 3.12 only)."""
@@ -3891,6 +4070,84 @@ class Discovery(unittest.TestCase):
         self.assertTrue(nested_quotes('x = f"{", ".join(f\'{a["k"]}\' for a in b)}"\n'), "the rule sees the class it guards")
         self.assertFalse(nested_quotes('x = f"""{a["k"]}""" + f"{a[\'k\']}"\n'), "a quote that does not close the enclosing one is fine")
         self.assertEqual({f.name: n for f in files if (n := nested_quotes(f.read_text(encoding="utf-8")))}, {})
+
+    def test_resolve_configures_gates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, self._configures)
+            r = discovery.resolve(repo, {"backend.runtime": "Python", "surface.runtime_surface": ["src/**"], "quality.security_scan.sca_threshold": "high"})
+            g = r["configures"]["verification.gates"]
+            self.assertEqual(sorted(g), ["sca", "secrets", "tests"], "the answered option's rows plus the unconditional derived rows")
+            self.assertEqual(g["tests"], {"command": "suite --cov", "scoped": "suite {paths}", "reads": ["src/**", "tests/**"]},
+                             "reads = the answered runtime surface plus the test roots")
+            self.assertEqual(g["sca"]["command"], "audit --level high", "the threshold answer is baked in")
+            self.assertEqual(r["configures"]["traceability.test_roots"], ["tests/**"])
+            self.assertNotIn("stop", r)
+            n = discovery.resolve(repo, {"backend.runtime": "Node.js", "frontend.framework": "None", "surface.runtime_surface": ["src/**"]})
+            self.assertEqual(sorted(n["configures"]["verification.gates"]), ["lint", "secrets"])
+            self.assertIn("no declared way to verify", n["stop"], "no tests and no sca: materialisation stops")
+            self.assertNotIn("stop", discovery.resolve(repo, {})["configures"], "an unanswered stack is pending, not a stop")
+            self.assertNotIn("stop", discovery.resolve(repo, {}))
+
+    def test_registry_conditional_rows(self):
+        """The rows the old skill made conditional on a project file keep their condition as a shell guard (EVOL-067):
+        the file absent → the row passes without running the tool; present → the tool runs with the old command."""
+        reg = next((p for p in (HERE.parents[1] / discovery.REGISTRY, HERE.parents[1] / "setup/discovery_registry.json") if p.is_file()), None)
+        if reg is None:
+            self.skipTest("the registry is not delivered beside these gates")
+        rows = {lit: c["verification.gates"] for q in json.loads(reg.read_text())["questions"] for k, s in q["keys"].items()
+                if k == "backend.runtime" for lit, c in s.get("configures", {}).items()}
+        cases = [   # runtime, gate, which command, the files turning it on, the tool, the args it must receive
+            ("Python", "typecheck", "command", {"mypy.ini": "[mypy]\n"}, "mypy", "."),
+            ("Python", "typecheck", "command", {"pyproject.toml": "[tool.mypy]\nstrict = true\n"}, "mypy", "."),
+            ("Node.js", "typecheck", "command", {"tsconfig.json": "{}"}, "npx", "tsc --noEmit"),
+            ("Node.js", "build", "command", {"package.json": '{"scripts": {"build": "x"}}'}, "npm", "run build --if-present"),
+            ("Node.js", "tests", "command", {"vitest.config.ts": ""}, "npx", "vitest run --coverage --reporter=text"),
+            ("Node.js", "tests", "command", {}, "npx", "jest --coverage --coverageReporters=text-summary --no-cache"),
+            ("Node.js", "tests", "scoped", {".mocharc.yml": ""}, "npx", "mocha t.js"),
+            ("Node.js", "tests", "scoped", {"vitest.config.js": ""}, "npx", "vitest run t.js"),
+            ("Node.js", "tests", "scoped", {}, "npx", "jest t.js --no-coverage --verbose"),
+        ]
+        for rt, gate, which, files, tool, args in cases:
+            with self.subTest(rt=rt, gate=gate, which=which, files=sorted(files)), tempfile.TemporaryDirectory() as tmp:
+                self.assertIn(gate, rows.get(rt, {}), f"{rt} has no `{gate}` row")
+                cmd = rows[rt][gate][which].replace("{paths}", "t.js")
+                bindir, work = Path(tmp) / "bin", Path(tmp) / "w"; work.mkdir()
+                write(bindir / tool, '#!/bin/sh\necho "$*" > "$ARGS_OUT"\nexit 7\n'); os.chmod(bindir / tool, 0o755)
+                env = {**os.environ, "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}", "ARGS_OUT": str(Path(tmp) / "args")}
+                if gate != "tests":   # the guard: the switching file absent → passes, the tool never runs
+                    r = subprocess.run(cmd, shell=True, cwd=work, env=env, capture_output=True, text=True)
+                    self.assertEqual((r.returncode, (Path(tmp) / "args").exists()), (0, False), f"{cmd}: {r.stderr}")
+                for name, body in files.items():
+                    write(work / name, body)
+                r = subprocess.run(cmd, shell=True, cwd=work, env=env, capture_output=True, text=True)
+                self.assertEqual(r.returncode, 7, f"{cmd}: the tool's exit is the verdict ({r.stderr})")
+                self.assertEqual((Path(tmp) / "args").read_text().strip(), args)
+
+    def test_resolve_configures_one_gate_one_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            def two(reg):
+                self._configures(reg)
+                reg["derived"]["quality.security_scan.enabled"]["configures"]["verification.gates"]["tests"] = {"command": "other"}
+            self._reg(repo, two)
+            with self.assertRaisesRegex(GateFault, "`tests`.*two"):
+                discovery.resolve(repo, {"backend.runtime": "Python"})
+
+    def test_v12_configures_rows(self):
+        cases = [
+            ("unknown field", lambda s: s["Python"]["verification.gates"]["tests"].__setitem__("reads", ["x/**"]), "`reads` is not a gate-row field"),
+            ("no command", lambda s: s["Python"]["verification.gates"]["tests"].pop("command"), "no `command`"),
+            ("literal not offered", lambda s: s.__setitem__("Ruby", {"verification.gates": {"tests": {"command": "rake"}}}), "`Ruby` is not one of"),
+        ]
+        for label, mut, msg in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self._reg(repo, self._configures)
+                self.assertEqual(self._rule(discovery.validate(repo), "V12"), [], "the configured fixture is green")
+                self._reg(repo, lambda r: mut(next(s for q in r["questions"] for k, s in q["keys"].items() if k == "backend.runtime")["configures"]))
+                v12 = self._rule(discovery.validate(repo), "V12")
+                self.assertTrue(any(msg in f for f in v12), v12)
 
 
 class Writes(unittest.TestCase):

@@ -456,12 +456,12 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
   # QA independently re-executes lint/typecheck/SAST even though IMPLEMENT's security lens
   # already ran them. This catches regressions introduced between IMPLEMENT and QA,
   # and eliminates trust dependency on upstream agent execution.
-  commands = resolve_verification_commands()  # From BVL
-  IF commands.lint IS NOT NULL:
+  g = READ_JSON("config/quality.json").verification.gates   # the one source (EVOL-067)
+  IF g.lint IS NOT NULL:
     checklist.push("- [ ] [QA-STATIC-1]: Lint verification (independent re-execution)")
-  IF commands.typecheck IS NOT NULL:
+  IF g.typecheck IS NOT NULL:
     checklist.push("- [ ] [QA-STATIC-2]: Type check verification (independent re-execution)")
-  IF commands.sast IS NOT NULL:
+  IF g.sast IS NOT NULL:
     checklist.push("- [ ] [QA-STATIC-3]: SAST tool verification (independent re-execution)")
 
   # DAST checks (conditional)
@@ -570,19 +570,19 @@ QA independently re-executes lint, typecheck, and SAST tools. This is NOT redund
 - Regressions introduced by merge conflicts or cherry-picks
 
 ```yaml
-commands = resolve_verification_commands()  # From BVL (Factory-build-verification/SKILL.md)
+g = READ_JSON("config/quality.json").verification.gates   # the one source (EVOL-067)
 
 # Lint
-IF commands.lint IS NOT NULL:
-  lint_result = RUN_IN_TERMINAL(commands.lint, timeout: 30000)
+IF g.lint IS NOT NULL:
+  lint_result = RUN_IN_TERMINAL(g.lint.command, timeout: 30000)
   IF lint_result.exit_code == 0:
     MARK [QA-STATIC-1] [x]
   ELSE:
     MARK [QA-STATIC-1] [x]  # Non-blocking (WARN) — documented; never [!], which is not done and blocks (#115)
 
 # Type check
-IF commands.typecheck IS NOT NULL:
-  type_result = RUN_IN_TERMINAL(commands.typecheck, timeout: 60000)
+IF g.typecheck IS NOT NULL:
+  type_result = RUN_IN_TERMINAL(g.typecheck.command, timeout: 60000)
   IF type_result.exit_code == 0:
     MARK [QA-STATIC-2] [x]
   ELSE:
@@ -591,8 +591,8 @@ IF commands.typecheck IS NOT NULL:
     ADD_BLOCKER: "Type check failed: {type_result.summary}"
 
 # SAST
-IF commands.sast IS NOT NULL:
-  sast_result = RUN_IN_TERMINAL(commands.sast, timeout: 120000)
+IF g.sast IS NOT NULL:
+  sast_result = RUN_IN_TERMINAL(g.sast.command, timeout: 120000)
   sast_findings = parse_sast_results(sast_result.output, commands)  # From BVL
 
   IF sast_findings.critical > 0 OR sast_findings.high > 0:

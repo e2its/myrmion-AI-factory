@@ -196,7 +196,7 @@ CONSTRAINT_IDS: [GOV-SHARED-{MISSING|INLINE|UNREG}-{N}]
 
 ```yaml
 # Triggers when the feature touches seed/synthetic data scripts OR migration/schema files.
-# Verifies seed data alignment + deployment isolation using BVL-resolved test commands.
+# Verifies seed data alignment + deployment isolation through the `tests` gate's scoped command.
 #
 # Triggered by ANY of:
 #   - feature_files INCLUDES seed script pattern (modified or new)
@@ -205,13 +205,10 @@ CONSTRAINT_IDS: [GOV-SHARED-{MISSING|INLINE|UNREG}-{N}]
 
 VERIFY:
   # Sub-check 1: seed schema alignment guardrail passes
-  # Resolve seed alignment tests from the project's test suite via BVL commands.
-  # Uses GLOB to find test files matching seed alignment naming convention,
-  # then runs them via BVL's resolve_verification_commands().test_single.
+  # Seed alignment tests: GLOB the naming convention, run them through the `tests` gate's `scoped` command.
   seed_alignment_tests = GLOB("tests/**/test_seed_*alignment*")
   IF seed_alignment_tests.length > 0:
-    commands = resolve_verification_commands()  # From BVL
-    seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_alignment_tests})
+    seed_test_cmd = INTERPOLATE(READ_JSON("config/quality.json").verification.gates.tests.scoped, {paths: seed_alignment_tests})
     RUN seed_test_cmd
     IF exit_code != 0:
       BLOCKER [GOV-SEED-ALIGNMENT-SCHEMA]:
@@ -221,7 +218,7 @@ VERIFY:
   # Sub-check 2: deployment isolation guardrail passes
   seed_isolation_tests = GLOB("tests/**/test_seed_*isolation*")
   IF seed_isolation_tests.length > 0:
-    isolation_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_isolation_tests})
+    isolation_test_cmd = INTERPOLATE(READ_JSON("config/quality.json").verification.gates.tests.scoped, {paths: seed_isolation_tests})
     RUN isolation_test_cmd
     IF exit_code != 0:
       BLOCKER [GOV-SEED-ALIGNMENT-DEPLOY]:
@@ -883,11 +880,11 @@ Step R.1b: Agentic Code Review
 > critics (EVOL-051): the light gate profile and scoped lint — no build, no coverage run, no full suite. Coverage,
 > typecheck and the suite are judged ONCE by the full loop after the artefacts (`verification.gates`).
 > The main session runs it (critics are read-only); results feed R.2; coverage against GOV-TEST is the loop's `coverage` gate.
-> Uses BVL's `resolve_verification_commands()` as the single source of truth for commands.
+> Commands: `config/quality.json → verification.gates`, the one source (EVOL-067).
 
 ```yaml
 FUNCTION review_verification_loop(phase, source_files, governance_context):
-  commands = resolve_verification_commands()  # From BVL SKILL.md
+  g = READ_JSON("config/quality.json").verification.gates   # the one source (EVOL-067)
   results = {}
 
   # 0. The static round (EVOL-051) — every gate that needs no build and no database, one call, all report.
@@ -903,9 +900,8 @@ FUNCTION review_verification_loop(phase, source_files, governance_context):
   #    threshold is judged there. No suite, no coverage command runs before the critics.
   results.coverage = { status: "DEFERRED", reason: "measured once in the full loop (EVOL-051)" }
   # 2. Lint on the phase files — a scoped gate (no build): re-checks the cures while working (gate.py seal --plan names it)
-  IF commands.lint IS NOT NULL:
-    phase_files = COLLECT_SOURCE_FILES(phase)
-    lint_cmd = INTERPOLATE(commands.lint, {files: phase_files})
+  IF g.lint IS NOT NULL:
+    lint_cmd = g.lint.command
     result = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
     
     IF result.exit_code != 0:
@@ -913,13 +909,13 @@ FUNCTION review_verification_loop(phase, source_files, governance_context):
         status: "BLOCKER",
         finding: "[GOV-LINT-001] Lint violations detected in Phase {phase}",
         output: TRUNCATE(result.output, MAX_LINES: 30),
-        remediation: "Fix lint issues. Auto-fix available: {derive_autofix_command(commands.lint)}"
+        remediation: "Fix lint issues (the linter's own fix mode), then run it again."
       }
     ELSE:
       results.lint = { status: "PASS" }
       LOG: "✅ REVIEW: Lint clean for Phase {phase}"
   ELSE:
-    results.lint = { status: "SKIPPED", reason: "No lint command for stack" }
+    results.lint = { status: "SKIPPED", reason: "no `lint` gate declared" }
   
   # 3. Type check — needs a build: runs ONCE in the full loop (EVOL-051), never here
   results.typecheck = { status: "DEFERRED", reason: "runs once in the full loop" }
@@ -1067,28 +1063,28 @@ IF brownfield (extension strategy E1/E2/E3):
 > **Purpose:** SAST pattern matching above is static (the lens reads code). This loop **executes**
 > real security tools to catch vulnerabilities that pattern matching alone cannot detect:
 > dependency CVEs, real secret leaks, and supply-chain risks.
-> Uses BVL's `resolve_verification_commands()` as the single source of truth for commands.
+> Commands: `config/quality.json → verification.gates`, the one source (EVOL-067).
 
 ```yaml
 FUNCTION sec_verification_loop(phase, source_files):
-  commands = resolve_verification_commands()  # From BVL SKILL.md
+  g = READ_JSON("config/quality.json").verification.gates   # the one source (EVOL-067)
   results = {}
   
   # 1. Dependency audit (MANDATORY — catches known CVEs). The command carries the project's threshold
-  #    (config/quality.json → security_scan.sca_threshold, factory-build-verification § dependency_audit) and its
+  #    (config/quality.json → security_scan.sca_threshold, baked into the `sca` gate's command at SETUP) and its
   #    exit code is the verdict — never masked (#116).
   sca_threshold = READ_JSON("config/quality.json").security_scan.sca_threshold   # absent or unreadable → NULL
-  IF commands.dependency_audit IS NULL OR sca_threshold NOT IN [critical, high, medium, low]:
+  IF g.sca IS NULL OR sca_threshold NOT IN [critical, high, medium, low]:
     results.dependency_audit = {
       status: "BLOCKER",
       finding: "[SEC-DEP-003] No dependency audit, or no readable threshold, declared for this stack",
-      remediation: "Declare the audit command in docs/setup.md → verification.commands.dependency_audit (SETUP discovery § verification coverage) and the threshold in config/quality.json → security_scan.sca_threshold (Q23.3)"
+      remediation: "Declare the `sca` gate in config/quality.json → verification.gates (SETUP discovery § verification coverage) and the threshold in config/quality.json → security_scan.sca_threshold (Q23.3)"
     }
-  ELIF commands.dependency_audit IS TOOL_MISSING(tool):
+  ELIF TOOL_MISSING(g.sca.command):
     results.dependency_audit = { status: "SKIPPED", reason: "{tool} not installed — infrastructure, fail-open" }
     LOG: "⚠️ SEC: dependency audit not run — install {tool}"
   ELSE:
-    result = RUN_IN_TERMINAL(commands.dependency_audit, timeout: 60000)
+    result = RUN_IN_TERMINAL(g.sca.command, timeout: 60000)
     IF result.exit_code != 0:
       vulnerabilities = parse_audit_output(result.output):   # tool-specific: package, installed version, id, severity, fix version
       results.dependency_audit = {
@@ -1104,9 +1100,9 @@ FUNCTION sec_verification_loop(phase, source_files):
       LOG: "✅ SEC: Dependency audit clean"
 
   # 2. Secret scanning (MANDATORY — catches leaked credentials): the project's declared scanner through the one
-  #    dispatcher (commands.secret_scan = `bash scripts/security-scan.sh --secrets`). No regex substitute here — the
+  #    dispatcher (`bash scripts/security-scan.sh --secrets`). No regex substitute here — the
   #    regex floor is pr-review Block 3.
-  result = RUN_IN_TERMINAL(commands.secret_scan, timeout: 30000)
+  result = RUN_IN_TERMINAL("bash scripts/security-scan.sh --secrets", timeout: 30000)
   IF result.exit_code == 1:   # findings, or no scanner declared — the dispatcher's message names which and the resolution
     results.secret_scan = {
       status: "BLOCKER",

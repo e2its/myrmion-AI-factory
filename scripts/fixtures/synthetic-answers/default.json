@@ -15,11 +15,13 @@
     "po_package.ds_rebuild_command": "npm run cards",
     "dependencies.backend": ["fastapi >=0.110,<1"],
     "dependencies.frontend": ["react ^18.2"],
-    "dependencies.denied": ["moment"]
+    "dependencies.denied": ["moment"],
+    "surface.runtime_surface": ["src/**", "scripts/**"]
   },
   "expect": {
     "landed": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml"],
     "absent": [".claude/rules/csharp.md", "buildspec-governance.yml"],
-    "bvl": {"backend.runtime": "Python", "frontend.framework": "React"}
+    "gates": {"tests": "python -m pytest --cov --cov-report=term-missing -q", "coverage": "python -m pytest --cov --cov-report=term-missing -q", "lint": "ruff check .", "sca": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi", "typecheck": "if [ -f mypy.ini ] || { [ -f pyproject.toml ] && grep -q '^\\[tool\\.mypy' pyproject.toml; }; then mypy .; fi", "frontend-tests": "npx jest --config jest.config.ts --no-coverage", "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"},
+    "test_roots": ["tests/**", "e2e/**", "src/**/*.test.*", "src/**/*.spec.*"]
   }
 }

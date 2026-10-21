@@ -155,7 +155,145 @@
      ],
      "fills": [
       "BACKEND_RUNTIME"
-     ]
+     ],
+     "configures": {
+      "Python": {
+       "verification.gates": {
+        "tests": {
+         "command": "python -m pytest --cov --cov-report=term-missing -q",
+         "scoped": "python -m pytest {paths} -x --tb=short -q"
+        },
+        "coverage": {
+         "command": "python -m pytest --cov --cov-report=term-missing -q"
+        },
+        "lint": {
+         "command": "ruff check ."
+        },
+        "sca": {
+         "command": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi"
+        },
+        "typecheck": {
+         "command": "if [ -f mypy.ini ] || { [ -f pyproject.toml ] && grep -q '^\\[tool\\.mypy' pyproject.toml; }; then mypy .; fi"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**"
+       ]
+      },
+      "Node.js": {
+       "verification.gates": {
+        "tests": {
+         "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text; else npx jest --coverage --coverageReporters=text-summary --no-cache; fi",
+         "scoped": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run {paths}; elif [ -f .mocharc.yml ] || [ -f .mocharc.json ]; then npx mocha {paths}; else npx jest {paths} --no-coverage --verbose; fi"
+        },
+        "coverage": {
+         "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text; else npx jest --coverage --coverageReporters=text-summary --no-cache; fi"
+        },
+        "lint": {
+         "command": "npx eslint . --max-warnings 0"
+        },
+        "sca": {
+         "command": "npm audit --omit=dev --audit-level=$(echo {sca_threshold} | sed s/medium/moderate/)"
+        },
+        "typecheck": {
+         "command": "test ! -f tsconfig.json || npx tsc --noEmit"
+        },
+        "build": {
+         "command": "test ! -f package.json || npm run build --if-present"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      },
+      "Java": {
+       "verification.gates": {
+        "tests": {
+         "command": "mvn verify -Djacoco.skip=false -q",
+         "scoped": "mvn test -q -Dtest={paths}"
+        },
+        "coverage": {
+         "command": "mvn verify -Djacoco.skip=false -q"
+        },
+        "build": {
+         "command": "mvn compile -q"
+        },
+        "sca": {
+         "command": "case {sca_threshold} in critical) c=9;; high) c=7;; medium) c=4;; *) c=0;; esac; mvn -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=$c"
+        }
+       },
+       "traceability.test_roots": [
+        "src/test/**"
+       ]
+      },
+      "Go": {
+       "verification.gates": {
+        "tests": {
+         "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out",
+         "scoped": "go test {paths} -v"
+        },
+        "coverage": {
+         "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out"
+        },
+        "lint": {
+         "command": "golangci-lint run ./..."
+        },
+        "build": {
+         "command": "go build ./..."
+        },
+        "sca": {
+         "command": "govulncheck ./..."
+        }
+       },
+       "traceability.test_roots": [
+        "**/*_test.go"
+       ]
+      },
+      ".NET": {
+       "verification.gates": {
+        "tests": {
+         "command": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage",
+         "scoped": "dotnet test --filter {paths} --verbosity minimal"
+        },
+        "coverage": {
+         "command": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
+        },
+        "lint": {
+         "command": "dotnet format --verify-no-changes"
+        },
+        "build": {
+         "command": "dotnet build --no-restore"
+        },
+        "sca": {
+         "command": "out=$(dotnet list package --vulnerable --include-transitive 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; ! printf '%s' \"$out\" | grep -qE 'has the following vulnerable packages|NU1900|Unable to load the service index'"
+        }
+       }
+      },
+      "Rust": {
+       "verification.gates": {
+        "tests": {
+         "command": "cargo test",
+         "scoped": "cargo test {paths} -- --nocapture"
+        },
+        "lint": {
+         "command": "cargo clippy -- -D warnings"
+        },
+        "build": {
+         "command": "cargo build"
+        },
+        "sca": {
+         "command": "cargo audit"
+        }
+       },
+       "traceability.test_roots": [
+        "src/**",
+        "tests/**"
+       ]
+      }
+     }
     }
    }
   },
@@ -280,7 +418,64 @@
      ],
      "fills": [
       "FRONTEND_FRAMEWORK"
-     ]
+     ],
+     "configures": {
+      "React": {
+       "verification.gates": {
+        "frontend-tests": {
+         "command": "npx jest --config jest.config.ts --no-coverage",
+         "scoped": "npx jest --config jest.config.ts {paths} --no-coverage"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      },
+      "Vue.js": {
+       "verification.gates": {
+        "frontend-tests": {
+         "command": "npx vitest run",
+         "scoped": "npx vitest run {paths}"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      },
+      "Angular": {
+       "verification.gates": {
+        "frontend-tests": {
+         "command": "npx ng test --no-watch --browsers=ChromeHeadless"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      },
+      "Svelte": {
+       "verification.gates": {
+        "frontend-tests": {
+         "command": "npx vitest run",
+         "scoped": "npx vitest run {paths}"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      }
+     }
     }
    }
   },
@@ -1247,21 +1442,31 @@
    "from": "false at --generate: PR-review advisory until the project opts in"
   },
   "quality.security_scan.enabled": {
-   "from": "always true — secret scanning is never optional (LAW-04, #116)"
+   "from": "always true — secret scanning is never optional (LAW-04, #116)",
+   "configures": {
+    "verification.gates": {
+     "secrets": {
+      "command": "bash scripts/security-scan.sh --secrets --require-scanner"
+     }
+    }
+   }
   },
   "verification.gates": {
-   "from": "the stack answers (backend.runtime, surface.runtime_surface) at --generate — Factory-setup-materialization",
+   "from": "gate.py discovery --resolve → configures.verification.gates: the configures rows of the answered backend.runtime, frontend.framework and the security scan, reads = surface.runtime_surface + the test roots (EVOL-067); a stack with no rows declares its rows by RDR at discovery (§ verification coverage), recorded here",
    "fills": [
     "VERIFICATION_GATES"
    ]
-  },
-  "verification.commands": {
-   "from": "declared by RDR at --propose-final only when a stack answer has no factory-build-verification MATCH row"
   },
   "traceability.home": {
    "from": "backend.runtime at --generate: the pytest case marker for Python, the title tag otherwise",
    "fills": [
     "TRACEABILITY_HOME"
+   ]
+  },
+  "traceability.test_roots": {
+   "from": "gate.py discovery --resolve → configures.traceability.test_roots: the rows of the answered backend.runtime and frontend.framework (EVOL-067); none → declared by RDR with the home",
+   "fills": [
+    "TRACEABILITY_TEST_ROOTS"
    ]
   },
   "costs": {
@@ -1645,6 +1850,12 @@
    "since": "8.10.0",
    "detect": ".claude/rules/agents.md#/agents/worker_turn_cap",
    "apply": "context diet (EVOL-062)"
+  },
+  {
+   "id": "verification.gates (EVOL-067)",
+   "since": "8.17.0",
+   "detect": "always",
+   "apply": "verification.gates (EVOL-067)"
   }
  ]
 }

@@ -215,7 +215,7 @@ Scan merged content for unresolved placeholders (`TODO`, `FIXME`, `XXX`, `{{...}
 3. **Migrate.** Run `migrations_owed` in order, each by its anchor below.
 4. **Templates.** Offer `templates_to_add` (Step 3). Offer `templates_to_remove` by RDR — never remove silently.
 
-Migration anchors (registry `migrations`; a row is owed when the project is older than its `since` and its `detect` pointer is missing):
+Migration anchors (registry `migrations`; a row is owed when the project is older than its `since` and its `detect` pointer is missing; a `detect: always` row on every upgrade):
 
 **iterations array (EVOL-032).** Run `bash scripts/migrate-iteration-frontmatter.sh` (idempotent), then set `governance_features.iterations_array_v1` in the project manifest.
 
@@ -240,6 +240,8 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 **manifest --bump (EVOL-061).** Nothing to write: `gate.py manifest --bump` arrives with the gates refresh.
 
 **context diet (EVOL-062).** Refresh `rules/agents.md` (`worker_turn_cap`, `context_result_max_kb`), the four worker definitions (`maxTurns`), the `Stop` hook `session-handoff.sh` and its `settings.json` wiring.
+
+**verification.gates (EVOL-067).** Re-derive `verification.gates` from `--resolve`'s `configures`. A project row is kept field by field: a derived field it lacks (`scoped`, `report`, `red_link`, `red`) is added, a field it carries keeps the project's value, nothing is dropped (EVOL-068). A `docs/setup.md → verification.commands` key moves into its `verification.gates` row (`test_suite` → `tests`, `test_single` → `tests.scoped` with `{paths}`, `lint`, `typecheck`, `build`, `coverage`, `dependency_audit` → `sca`), then the frontmatter key goes. Nothing dropped. Add `verification.skips: []` when absent.
 
 ---
 

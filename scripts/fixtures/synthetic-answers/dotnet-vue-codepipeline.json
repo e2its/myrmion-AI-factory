@@ -12,11 +12,13 @@
     "scm.platform": "GitHub",
     "project_tracking.tool": "None",
     "po_package.mode": "full",
-    "po_package.ds_rebuild_command": null
+    "po_package.ds_rebuild_command": null,
+    "surface.runtime_surface": ["src/**", "scripts/**"]
   },
   "expect": {
     "landed": [".claude/rules/csharp.md", "buildspec-governance.yml"],
     "absent": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml"],
-    "bvl": {"backend.runtime": ".NET", "frontend.framework": "Vue.js"}
+    "gates": {"tests": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage", "coverage": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage", "lint": "dotnet format --verify-no-changes", "build": "dotnet build --no-restore", "sca": "out=$(dotnet list package --vulnerable --include-transitive 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; ! printf '%s' \"$out\" | grep -qE 'has the following vulnerable packages|NU1900|Unable to load the service index'", "frontend-tests": "npx vitest run", "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"},
+    "test_roots": ["tests/**", "e2e/**", "src/**/*.test.*", "src/**/*.spec.*"]
   }
 }

@@ -18,7 +18,8 @@ placeholders a key spec's `fills` (the UPPER_SNAKE template tokens its answer fi
             top-level `constants {TOKEN: reason}` (framework values, runtime / example literals — never an answer) and
             `placeholder_baseline {TOKEN: "pending #NNN" | "unsourced"}` (the debt; it only shrinks).
 upgrade     `migrations [{id, since, detect, apply}]`: owed by a project older than `since` whose `detect` pointer
-            (`<project file>#<JSON pointer>`, a .md file read as its frontmatter) is missing, or `detect: always`; `apply`
+            (`<project file>#<JSON pointer>`, a .md file read as its frontmatter) is missing; `detect: always` is owed on
+            every upgrade, whatever `since`; `apply`
             names an anchor (a heading or a bold label) of the upgrade instruction. `--resolve` against a project adds
             `migrations_owed`, `templates_to_add` (lands, target absent) and `templates_to_remove` (skipped, target present).
 validate    V1 schema · V2 a single option not derived · V3 a credential-named key not `free: vault_name` · V4 a key with
@@ -27,7 +28,14 @@ validate    V1 schema · V2 a single option not derived · V3 a credential-named
             literals (the checks of the retired test-discovery-literals.sh, read from the registry) · V9 the snapshot's
             STACK_KEYS are registry keys · V10 every UPPER_SNAKE token of a template with a target has exactly one source
             (fills | derived fills | constants | baseline), and every entry names a token some template carries · V11 every
-            migration row parses and its anchor exists.
+            migration row parses and its anchor exists · V12 every `configures` row: a key's literal is offered, a
+            gate row is {command, scoped?, red_link?, report?} with a command.
+configures  EVOL-067 — a key spec's `configures {<option literal>: {<config pointer>: value}}` and a derived entry's
+            `configures {<config pointer>: value}` (unconditional): `--resolve` merges the answered rows into
+            `configures` — a mapping merges key by key (a gate from two sources is a fault), a list is a union.
+            `verification.gates` rows gain `reads` = the answered `surface.runtime_surface` + `traceability.test_roots`;
+            `{sca_threshold}` takes its answer. An answered stack part (not `None`) without its verifying gate — backend
+            `tests` or `sca`, frontend `frontend-tests`, from its rows or the rows declared at discovery — → `stop`.
 """
 from __future__ import annotations
 
@@ -54,6 +62,12 @@ DETECT = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|#))([^#\s]+)#(/[^#\s]*)$")
 
 TIERS = (0, 1, 2)
 TOP_FIELDS = ("questions", "derived", "constants", "placeholder_baseline", "migrations")
+GATE_ROW_FIELDS = ("command", "scoped", "red_link", "report")
+LOOP_PARTS = {"backend.runtime": ("tests", "sca"), "frontend.framework": ("frontend-tests",)}   # each answered part needs one of its gates
+STOP = ("the project has no declared way to verify {parts} — declare its gate rows (SETUP discovery § verification coverage, "
+        "docs/setup.md → verification.gates) and run --generate again")
+# a stack command named in the verification loop's skill (EVOL-067: the loop reads verification.gates, never a stack)
+STACK_COMMAND = re.compile(r"\b(?:pytest|npm |npx |yarn |pnpm |dotnet |mvn |gradle|go test|ruff|eslint|tsc |cargo|jest|vitest)")
 FREE_KINDS = ("text", "number", "list", "path", "command", "vault_name")
 SPEC_KINDS = ("options", "options_by", "free")
 NON_ANSWER_SLOTS = ("version", "date", "changelog", "phase", "status", "retry_count", "last_update")
@@ -409,16 +423,60 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
     since = {q.get("id"): q.get("since") for q in _questions(reg)}
     fills = {t: ans.get(k) for k, s in _specs(reg).items() for t in (s.get("fills") or [])}
     out = {"pending": pending, "pending_since": {q: since.get(q) for q in pending}, "landing": landing, "skipped": skipped,
-           "placeholders": fills}
+           "placeholders": fills, "configures": configures(reg, ans)}
+    lacking = _unverified_parts(reg, ans)
+    if lacking:
+        out["stop"] = STOP.format(parts="; ".join(lacking))
     if project:
         ver = project_version(repo)
         target = lambda k: templates[k].get("target") if isinstance(templates[k].get("target"), str) else None
         out["project_version"] = ".".join(map(str, ver))
         out["migrations_owed"] = [{"id": m.get("id"), "since": m.get("since"), "apply": m.get("apply")} for m in (reg.get("migrations") or [])
-                                  if isinstance(m, dict) and ver < (_semver(m.get("since")) or (0, 0, 0))
-                                  and (m.get("detect") == "always" or not _detected(repo, str(m.get("detect"))))]
+                                  if isinstance(m, dict) and (m.get("detect") == "always"   # every upgrade, whatever its since
+                                  or (ver < (_semver(m.get("since")) or (0, 0, 0)) and not _detected(repo, str(m.get("detect")))))]
         out["templates_to_add"] = [k for k in landing if target(k) and not (repo / target(k)).exists()]
         out["templates_to_remove"] = [k for k in skipped if target(k) and (repo / target(k)).exists()]
+    return out
+
+
+def _merge(into: dict, rows: dict, where: str):
+    for ptr, v in rows.items():
+        if isinstance(v, dict):
+            have = into.setdefault(ptr, {})
+            for name, row in v.items():
+                if name in have:
+                    raise GateFault(f"`{ptr}` → `{name}` is configured by two answered sources ({have[name]['_from'] if isinstance(have[name], dict) else '?'}, {where}) — one row, one source (registry {REGISTRY})")
+                have[name] = {**row, "_from": where} if isinstance(row, dict) else row
+        elif isinstance(v, list):
+            into[ptr] = into.get(ptr, []) + [x for x in v if x not in into.get(ptr, [])]
+        else:
+            into[ptr] = v
+
+
+def configures(reg: dict, ans: dict) -> dict:
+    """The answered options' `configures` rows and every derived entry's, merged; the gate rows completed with reads."""
+    out: dict = {}
+    for k, s in _specs(reg).items():
+        rows = s.get("configures") if isinstance(s.get("configures"), dict) else {}
+        v = ans.get(k)
+        if v is not None and isinstance(rows.get(canon(v)), dict):
+            _merge(out, rows[canon(v)], f"{k} = {canon(v)}")
+    for k, s in _derived(reg).items():
+        if isinstance(s, dict) and isinstance(s.get("configures"), dict):
+            _merge(out, s["configures"], f"derived {k}")
+    surface = ans.get("surface.runtime_surface")
+    reads = (list(surface) if isinstance(surface, list) else []) + [r for r in out.get("traceability.test_roots", []) if not (isinstance(surface, list) and r in surface)]
+    thr = ans.get("quality.security_scan.sca_threshold")
+    for name, row in out.get("verification.gates", {}).items():
+        row.pop("_from", None)
+        if isinstance(row.get("command"), str) and thr is not None:
+            row["command"] = row["command"].replace("{sca_threshold}", canon(thr))
+        row["reads"] = reads
+    for ptr, v in out.items():
+        if isinstance(v, dict):
+            for row in v.values():
+                if isinstance(row, dict):
+                    row.pop("_from", None)
     return out
 
 
@@ -435,9 +493,27 @@ def eval_condition(repo: Path, cond: str, ans: dict) -> bool:
     return evaluate(checked(repo, cond), ans)
 
 
+def _unverified_parts(reg: dict, ans: dict) -> list[str]:
+    """Each answered stack part (not `None`) with none of its verifying gates — from its own registry rows or the rows
+    declared at discovery (docs/setup.md → verification.gates, flattened `verification.gates.<gate>.<field>`)."""
+    declared = {k.split(".")[2] for k, v in ans.items() if k.startswith("verification.gates.") and len(k.split(".")) > 2 and v is not None}
+    specs, out = _specs(reg), []
+    for k, need in LOOP_PARTS.items():
+        v = ans.get(k)
+        if v is None or canon(v) == "None":
+            continue
+        rows = (specs.get(k) or {}).get("configures") or {}
+        own = set((rows.get(canon(v)) or {}).get("verification.gates") or {}) if isinstance(rows, dict) else set()
+        if not set(need) & (own | declared):
+            out.append(f"{k} = {canon(v)} (no {' or '.join(f'`{g}`' for g in need)} gate)")
+    return out
+
+
 def render_resolve(r: dict) -> str:
     pend = ", ".join(f"{q} (since {r['pending_since'].get(q)})" for q in r["pending"])
     lines = [f"discovery: {len(r['pending'])} pending question(s)" + (f": {pend}" if r["pending"] else " — every question that applies is answered")]
+    if r.get("stop"):
+        lines.append(f"  stop: {r['stop']}")
     empty = sorted(t for t, v in r.get("placeholders", {}).items() if v is None)
     lines.append(f"  placeholders from answers: {len(r.get('placeholders', {})) - len(empty)} filled, {len(empty)} unanswered" + (f" ({', '.join(empty)})" if empty else ""))
     if "migrations_owed" in r:
@@ -501,8 +577,8 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
             if len(kinds) != 1:
                 out.append(f"V1 · `{k}`: a spec carries exactly one of options | options_by | free (it carries {', '.join(kinds) or 'none'})")
             for f in s:
-                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills"):
-                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills)")
+                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills", "configures"):
+                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills, configures)")
             if "suggestions" in s and (s.get("free") != "text" or not isinstance(s["suggestions"], list) or not s["suggestions"]
                                        or len({canon(x) for x in s["suggestions"]}) != len(s["suggestions"])):
                 out.append(f"V1 · `{k}`: suggestions is a non-empty list of distinct literals on a `free: text` key only")
@@ -535,8 +611,8 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
         for k, s in d.items():
             if k in specs:
                 out.append(f"V1 · `{k}` is both asked and derived")
-            if not isinstance(s, dict) or not isinstance(s.get("from"), str) or not s["from"].strip() or set(s) - {"from", "fills"}:
-                out.append(f"V1 · derived `{k}`: the spec is {{from: \"<how earlier answers decide it>\", fills?: [TOKEN, …]}}")
+            if not isinstance(s, dict) or not isinstance(s.get("from"), str) or not s["from"].strip() or set(s) - {"from", "fills", "configures"}:
+                out.append(f"V1 · derived `{k}`: the spec is {{from: \"<how earlier answers decide it>\", fills?: [TOKEN, …], configures?: {{<config pointer>: value}}}}")
     return out
 
 
@@ -912,21 +988,12 @@ def _v8(repo: Path, reg: dict, manifest: dict) -> list[str]:
             found.append(f"upgrade_safety_protocol.md names {sorted(algos) or 'no'} checksum algorithm(s) for one checksum")
     add(lab, found)
 
-    # 11 · the verification loop's rows name offered literals
+    # 11 · the verification loop names no stack: its members are verification.gates (EVOL-067)
     lab = "verification loop"
     bvl = read(lab, ".claude/skills/factory-build-verification/SKILL.md")
     if bvl is not None:
-        found = []
-        for k in ("backend.runtime", "frontend.framework"):
-            blocks = [m.group(1) for m in re.finditer(r"MATCH stack\." + re.escape(k) + r":\n(([ \t]+)(?:\"|DEFAULT).*\n(?:\2[ \t]*\S.*\n)*)", bvl)]
-            if not blocks or not opts.get(k):
-                found.append(f"BVL: no `MATCH stack.{k}` block, or no {k} options in the registry — nothing compared")
-            for blk in blocks:
-                indent = re.match(r"[ \t]*", blk).group(0)
-                for row in re.findall(r"^" + indent + r"(\"[^→]+?)\s*→", blk, re.M):
-                    found += [f"BVL `MATCH stack.{k}` row `{lit}` — not offered ({' | '.join(opts.get(k, []))})"
-                              for lit in re.findall(r"\"([^\"]+)\"", row) if lit not in opts.get(k, [])]
-        add(lab, sorted(set(found)))
+        add(lab, [f"BVL:{n}: `{m.group(0).strip()}` — a stack command in the loop; it belongs in the registry's `configures` rows"
+                  for n, line in enumerate(bvl.splitlines(), 1) for m in [STACK_COMMAND.search(line)] if m])
 
     # 12 · every offered stack literal has a dependency reader (#114, QA-PRE-1)
     from . import dependencies
@@ -1026,15 +1093,51 @@ def _v11(repo: Path, reg: dict, fw: tuple | None) -> list[str]:
     return out
 
 
+def _gate_rows(where: str, rows) -> list[str]:
+    if not isinstance(rows, dict):
+        return [f"V12 · {where}: configures is {{<config pointer>: value}}"]
+    out = []
+    gates = rows.get("verification.gates")
+    if gates is None:
+        return out
+    if not isinstance(gates, dict):
+        return [f"V12 · {where}: verification.gates is {{<gate>: {{command, scoped?, red_link?, report?}}}}"]
+    for g, row in gates.items():
+        if not isinstance(row, dict):
+            out.append(f"V12 · {where}: gate `{g}` is not a row {{command, …}}"); continue
+        out += [f"V12 · {where}: gate `{g}`: `{f}` is not a gate-row field ({', '.join(GATE_ROW_FIELDS)}) — reads come from the answers" for f in row if f not in GATE_ROW_FIELDS]
+        if not isinstance(row.get("command"), str) or not row["command"].strip():
+            out.append(f"V12 · {where}: gate `{g}` has no `command`")
+    return out
+
+
+def _v12(reg: dict) -> list[str]:
+    out = []
+    for k, s in _specs(reg).items():
+        if "configures" not in s:
+            continue
+        c, offered = s["configures"], _offered(s)
+        if not isinstance(c, dict) or offered is None:
+            out.append(f"V12 · `{k}`: configures is {{<option literal>: {{<config pointer>: value}}}} on a key with options"); continue
+        for lit, rows in c.items():
+            if lit not in offered:
+                out.append(f"V12 · `{k}`: configures `{lit}` is not one of its options ({' | '.join(offered)})")
+            out += _gate_rows(f"`{k}` = {lit}", rows)
+    for k, s in _derived(reg).items():
+        if isinstance(s, dict) and "configures" in s:
+            out += _gate_rows(f"derived `{k}`", s["configures"])
+    return out
+
+
 def validate(repo: Path) -> list[str]:
-    """Every finding of V1–V11, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
+    """Every finding of V1–V12, each prefixed by its rule. GateFault when the registry or the manifest cannot be read."""
     reg = load_registry(repo)
     manifest = load_manifest(repo)
     fw = _semver(manifest.get("framework_version"))
     out = _v1(reg, fw)
     if fw is None:
         out.append(f"V1 · framework_version `{manifest.get('framework_version')}` in {MANIFEST} is not x.y.z — `since` cannot be held to it")
-    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw)
+    return out + _v2(reg) + _v3(reg) + _v4(repo, reg) + _v5(repo, reg, manifest) + _v6(repo, reg) + _v7(repo, reg) + _v8(repo, reg, manifest) + _v9(reg) + _v10(repo, reg, manifest) + _v11(repo, reg, fw) + _v12(reg)
 
 
 def render(findings: list[str]) -> str:

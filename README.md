@@ -838,7 +838,7 @@ graph TD
 `docs/constitution.md` is an index of project law: one `## [PLAW-NN]` entry per law — normative sentence, `Body:` pointer to the rule file (or skill / instruction) that hosts the full text, `Records:` ADR ids. One body per law, under the same heading + byte-identical sentence. Universal `[LAW-NN]` law lives in `CLAUDE.md` § Governance Rules.
 
 - Rules manifest (what is loaded, per-rule `applicable_when`): `.context/governance_snapshot.md` — file-based cache, summarization-safe (see `.claude/skills/factory-governance-loading/SKILL.md`).
-- Verification commands: the path-to-gate map `config/quality.json → verification.gates` (tests, coverage, lint, typecheck, build, format, SAST, complexity, seed alignment — those the stack has) and the seal (`verification.seal`), derived at SETUP (EVOL-051).
+- Verification members: the path-to-gate map `config/quality.json → verification.gates`, derived at SETUP from the discovery registry's rows for the stack (EVOL-067); dated skips that expire (`verification.skips`, never a security member) and the seal (`verification.seal`, EVOL-051).
 
 ### Governance always-on enforcement (5-tier)
 

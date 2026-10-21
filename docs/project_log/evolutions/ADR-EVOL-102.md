@@ -182,5 +182,5 @@ Delivered with train row 5b (epic #112, plan ADR-EVOL-067), 2026-10-21, framewor
   - a baseline of 178 tokens (13 pending, 165 unsourced);
   - 12 migrations.
 - **Red first:** `Discovery` covers V10 (an unsourced token, a token with two sources, a stale entry), V11, `migrations_owed`, template additions and removals, an answer outside its options, and `fills` as a reader. All are red before and green after (56 tests).
-- **The upgrade fixture.** `scripts/fixtures/synthetic-answers/upgrade-8.12.json` is a project at 8.12.0 with answers missing. `--resolve` lists exactly its 31 pending questions and no spurious migration; the owed path is proved by the unit test. CI runs it beside the default and dotnet fixtures.
+- **The upgrade fixture.** `scripts/fixtures/synthetic-answers/upgrade-8.12.json` is a project at 8.12.0 with answers missing. `--resolve` lists exactly its 31 pending questions and exactly the migrations its `expect.migrations` names (the `always` rows of EVOL-067 included); the owed path is proved by the unit test. CI runs it beside the default and dotnet fixtures.
 - **One check, not two.** `test-materialization-surface.sh` check 3 delegates to V10.
