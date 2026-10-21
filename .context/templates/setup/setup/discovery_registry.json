@@ -1,6 +1,6 @@
 {
  "$schema": "discovery_registry_v1",
- "_doc": "SETUP discovery as data (EVOL-102): the questions in tier order, their keys, options and conditions; derived = decided by earlier answers, never asked. Answers live in docs/setup.md frontmatter under their key. Next questions: python3 scripts/gate.py discovery --resolve; one condition: --eval '<cond>'. Validated by python3 scripts/gate.py discovery.",
+ "_doc": "SETUP discovery as data (EVOL-102): the questions in tier order, their keys, options and conditions; derived = decided by earlier answers, never asked. Placeholders: a key's fills, a derived fills, constants, or the shrink-only placeholder_baseline — one source each. migrations = what SETUP --upgrade owes a project older than since. Answers live in docs/setup.md frontmatter under their key. Next questions: python3 scripts/gate.py discovery --resolve; one condition: --eval '<cond>'. Validated by python3 scripts/gate.py discovery.",
  "questions": [
   {
    "id": "Q1",
@@ -8,7 +8,10 @@
    "since": "1.0.0",
    "keys": {
     "project_name": {
-     "free": "text"
+     "free": "text",
+     "fills": [
+      "PROJECT_NAME"
+     ]
     }
    }
   },
@@ -18,7 +21,10 @@
    "since": "1.0.0",
    "keys": {
     "business_goal": {
-     "free": "text"
+     "free": "text",
+     "fills": [
+      "BUSINESS_GOAL"
+     ]
     }
    }
   },
@@ -31,6 +37,9 @@
      "options": [
       "Greenfield",
       "Brownfield"
+     ],
+     "fills": [
+      "PROJECT_MODE"
      ]
     }
    }
@@ -47,6 +56,9 @@
       "E1",
       "E2",
       "E3"
+     ],
+     "fills": [
+      "EXTENSION_STRATEGY"
      ]
     }
    }
@@ -91,10 +103,16 @@
       "Professional",
       "Enterprise",
       "Unlimited"
+     ],
+     "fills": [
+      "AI_BUDGET_TIER"
      ]
     },
     "ai_budget.monthly_limit": {
-     "free": "number"
+     "free": "number",
+     "fills": [
+      "MONTHLY_BUDGET_LIMIT"
+     ]
     }
    }
   },
@@ -109,6 +127,9 @@
       "backend-only",
       "frontend-only",
       "integration"
+     ],
+     "fills": [
+      "PROJECT_SCOPE"
      ]
     }
    }
@@ -131,7 +152,157 @@
       "Rust",
       "Elixir",
       "None"
-     ]
+     ],
+     "fills": [
+      "BACKEND_RUNTIME"
+     ],
+     "configures": {
+      "Python": {
+       "verification.gates": {
+        "tests": {
+         "command": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q",
+         "scoped": "PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH} python -m pytest {paths} -x --tb=short -q"
+        },
+        "coverage": {
+         "command": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q",
+         "report": "coverage/lcov.info"
+        },
+        "lint": {
+         "command": "ruff check ."
+        },
+        "sca": {
+         "command": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi"
+        },
+        "typecheck": {
+         "command": "if [ -f mypy.ini ] || { [ -f pyproject.toml ] && grep -q '^\\[tool\\.mypy' pyproject.toml; }; then mypy .; fi"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**"
+       ]
+      },
+      "Node.js": {
+       "verification.gates": {
+        "tests": {
+         "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text --coverage.reporter=text --coverage.reporter=lcov; else npx jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache; fi",
+         "scoped": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run {paths}; elif [ -f .mocharc.yml ] || [ -f .mocharc.json ]; then npx mocha {paths}; else npx jest {paths} --no-coverage --verbose; fi",
+         "red_link": [
+          "node_modules"
+         ]
+        },
+        "coverage": {
+         "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text --coverage.reporter=text --coverage.reporter=lcov; else npx jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache; fi",
+         "report": "coverage/lcov.info"
+        },
+        "lint": {
+         "command": "npx eslint . --max-warnings 0"
+        },
+        "sca": {
+         "command": "npm audit --omit=dev --audit-level=$(echo {sca_threshold} | sed s/medium/moderate/)"
+        },
+        "typecheck": {
+         "command": "test ! -f tsconfig.json || npx tsc --noEmit"
+        },
+        "build": {
+         "command": "test ! -f package.json || npm run build --if-present"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      },
+      "Java": {
+       "verification.gates": {
+        "tests": {
+         "command": "mvn verify -Djacoco.skip=false -q",
+         "scoped": "mvn test -q -Dtest={paths}",
+         "red": false
+        },
+        "coverage": {
+         "command": "mvn verify -Djacoco.skip=false -q"
+        },
+        "build": {
+         "command": "mvn compile -q"
+        },
+        "sca": {
+         "command": "case {sca_threshold} in critical) c=9;; high) c=7;; medium) c=4;; *) c=0;; esac; mvn -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=$c"
+        }
+       },
+       "traceability.test_roots": [
+        "src/test/**"
+       ]
+      },
+      "Go": {
+       "verification.gates": {
+        "tests": {
+         "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out",
+         "scoped": "go test {paths} -v",
+         "red": false
+        },
+        "coverage": {
+         "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out"
+        },
+        "lint": {
+         "command": "golangci-lint run ./..."
+        },
+        "build": {
+         "command": "go build ./..."
+        },
+        "sca": {
+         "command": "govulncheck ./..."
+        }
+       },
+       "traceability.test_roots": [
+        "**/*_test.go"
+       ]
+      },
+      ".NET": {
+       "verification.gates": {
+        "tests": {
+         "command": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage",
+         "scoped": "dotnet test --filter {paths} --verbosity minimal",
+         "red": false
+        },
+        "coverage": {
+         "command": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
+        },
+        "lint": {
+         "command": "dotnet format --verify-no-changes"
+        },
+        "build": {
+         "command": "dotnet build --no-restore"
+        },
+        "sca": {
+         "command": "out=$(dotnet list package --vulnerable --include-transitive 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; ! printf '%s' \"$out\" | grep -qE 'has the following vulnerable packages|NU1900|Unable to load the service index'"
+        }
+       }
+      },
+      "Rust": {
+       "verification.gates": {
+        "tests": {
+         "command": "cargo test",
+         "scoped": "cargo test {paths} -- --nocapture",
+         "red": false
+        },
+        "lint": {
+         "command": "cargo clippy -- -D warnings"
+        },
+        "build": {
+         "command": "cargo build"
+        },
+        "sca": {
+         "command": "cargo audit"
+        }
+       },
+       "traceability.test_roots": [
+        "src/**",
+        "tests/**"
+       ]
+      }
+     }
     }
    }
   },
@@ -170,7 +341,10 @@
         "Chi"
        ]
       }
-     }
+     },
+     "fills": [
+      "BACKEND_FRAMEWORK"
+     ]
     }
    }
   },
@@ -194,6 +368,9 @@
       "B10",
       "B11",
       "B12"
+     ],
+     "fills": [
+      "BACKEND_TOPOLOGY"
      ]
     }
    }
@@ -210,6 +387,9 @@
       "GraphQL",
       "gRPC",
       "Mixed"
+     ],
+     "fills": [
+      "BACKEND_COMMUNICATION_STYLE"
      ]
     }
    }
@@ -244,7 +424,67 @@
       "Svelte",
       "Solid",
       "None"
-     ]
+     ],
+     "fills": [
+      "FRONTEND_FRAMEWORK"
+     ],
+     "configures": {
+      "React": {
+       "verification.gates": {
+        "frontend-tests": {
+         "command": "npx jest --config jest.config.ts --no-coverage",
+         "scoped": "npx jest --config jest.config.ts {paths} --no-coverage"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      },
+      "Vue.js": {
+       "verification.gates": {
+        "frontend-tests": {
+         "command": "npx vitest run",
+         "scoped": "npx vitest run {paths}"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      },
+      "Angular": {
+       "verification.gates": {
+        "frontend-tests": {
+         "command": "npx ng test --no-watch --browsers=ChromeHeadless"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      },
+      "Svelte": {
+       "verification.gates": {
+        "frontend-tests": {
+         "command": "npx vitest run",
+         "scoped": "npx vitest run {paths}"
+        }
+       },
+       "traceability.test_roots": [
+        "tests/**",
+        "e2e/**",
+        "src/**/*.test.*",
+        "src/**/*.spec.*"
+       ]
+      }
+     }
     }
    }
   },
@@ -301,6 +541,9 @@
       "F8",
       "F9",
       "F10"
+     ],
+     "fills": [
+      "FRONTEND_PATTERN"
      ]
     }
    }
@@ -336,7 +579,9 @@
        ]
       }
      },
-     "record_only": "recorded in ADR-0000 ({{FRONTEND_STATE_MANAGEMENT}}); no gate or phase reads it"
+     "fills": [
+      "FRONTEND_STATE_MANAGEMENT"
+     ]
     }
    }
   },
@@ -370,6 +615,9 @@
       "subtle",
       "rounded",
       "pill"
+     ],
+     "fills": [
+      "VISUAL_DNA_BORDER_RADIUS"
      ]
     },
     "frontend.visual_dna.shadow_depth": {
@@ -378,6 +626,9 @@
       "subtle",
       "elevated",
       "dramatic"
+     ],
+     "fills": [
+      "VISUAL_DNA_SHADOW_DEPTH"
      ]
     },
     "frontend.visual_dna.animation": {
@@ -501,7 +752,9 @@
       "PCI-DSS",
       "None"
      ],
-     "record_only": "recorded in ADR-0000 ({{COMPLIANCE_REQUIREMENTS}}); no gate reads it"
+     "fills": [
+      "COMPLIANCE_REQUIREMENTS"
+     ]
     }
    }
   },
@@ -521,6 +774,9 @@
       "DigitalOcean",
       "Self-hosted",
       "Other"
+     ],
+     "fills": [
+      "HOSTING_PROVIDER"
      ]
     }
    }
@@ -537,6 +793,9 @@
       "AWS CDK",
       "Docker Compose",
       "None"
+     ],
+     "fills": [
+      "IAC_TOOL"
      ]
     }
    }
@@ -555,7 +814,9 @@
       ".env",
       "None"
      ],
-     "record_only": "read only through ci-cd.md {{SECRETS_MANAGER}} by the generic placeholder pass (named by phase 2 fills)"
+     "fills": [
+      "SECRETS_MANAGER"
+     ]
     }
    }
   },
@@ -574,6 +835,9 @@
       "AWS CodePipeline",
       "GCP Cloud Build",
       "None"
+     ],
+     "fills": [
+      "CI_CD_PLATFORM"
      ]
     }
    }
@@ -590,13 +854,22 @@
       "Bitbucket",
       "Azure DevOps",
       "Other"
+     ],
+     "fills": [
+      "SCM_PLATFORM"
      ]
     },
     "scm.approvals": {
-     "free": "number"
+     "free": "number",
+     "fills": [
+      "SCM_APPROVALS"
+     ]
     },
     "scm.required_checks": {
-     "free": "list"
+     "free": "list",
+     "fills": [
+      "SCM_REQUIRED_CHECKS"
+     ]
     }
    }
   },
@@ -624,6 +897,9 @@
       "GitHub Flow",
       "Git Flow",
       "Trunk-Based Development"
+     ],
+     "fills": [
+      "BRANCHING_STRATEGY"
      ]
     }
    }
@@ -638,16 +914,25 @@
       "manual",
       "ci_automated",
       "hybrid"
+     ],
+     "fills": [
+      "PR_VALIDATION_MODE"
      ]
     },
     "branching.pr_approval_count": {
-     "free": "number"
+     "free": "number",
+     "fills": [
+      "PR_APPROVAL_COUNT"
+     ]
     },
     "branching.pr_merge_method": {
      "options": [
       "merge_commit",
       "squash",
       "rebase"
+     ],
+     "fills": [
+      "PR_MERGE_METHOD"
      ]
     }
    }
@@ -676,12 +961,18 @@
      "free": "text",
      "suggestions": [
       "semgrep"
+     ],
+     "fills": [
+      "COMPLEXITY_MCP_SERVER"
      ]
     },
     "quality.complexity.mcp_tool_name": {
      "free": "text",
      "suggestions": [
       "scan_complexity"
+     ],
+     "fills": [
+      "COMPLEXITY_MCP_TOOL_NAME"
      ]
     },
     "quality.complexity.enabled": {
@@ -702,10 +993,16 @@
      "suggestions": [
       "gitleaks",
       "trufflehog"
+     ],
+     "fills": [
+      "SECURITY_SCANNER"
      ]
     },
     "quality.security_scan.secrets_command": {
-     "free": "command"
+     "free": "command",
+     "fills": [
+      "SECURITY_SCANNER_COMMAND"
+     ]
     },
     "quality.security_scan.report_format": {
      "options": [
@@ -722,7 +1019,10 @@
      "record_only": "the config/quality.json template ships any; no placeholder takes the answer yet"
     },
     "quality.security_scan.install_hint": {
-     "free": "text"
+     "free": "text",
+     "fills": [
+      "SECURITY_SCANNER_INSTALL_HINT"
+     ]
     }
    }
   },
@@ -737,6 +1037,9 @@
       "high",
       "medium",
       "low"
+     ],
+     "fills": [
+      "SCA_THRESHOLD"
      ]
     }
    }
@@ -750,18 +1053,27 @@
      "options": [
       true,
       false
+     ],
+     "fills": [
+      "AI_TRAINING"
      ]
     },
     "ai.inference": {
      "options": [
       true,
       false
+     ],
+     "fills": [
+      "AI_INFERENCE"
      ]
     },
     "ai.agentic": {
      "options": [
       true,
       false
+     ],
+     "fills": [
+      "AI_AGENTIC"
      ]
     }
    }
@@ -773,7 +1085,9 @@
    "keys": {
     "observability.logging": {
      "free": "text",
-     "record_only": "read by no gate; ci-cd.md {{OBSERVABILITY_*}} resolve through the generic placeholder pass (named by phase 2 fills); the setup report records it"
+     "fills": [
+      "OBSERVABILITY_LOGGING"
+     ]
     },
     "observability.monitoring": {
      "options": [
@@ -802,7 +1116,9 @@
       "X-Ray",
       "None"
      ],
-     "record_only": "read by no gate; ci-cd.md {{OBSERVABILITY_*}} resolve through the generic placeholder pass (named by phase 2 fills); the setup report records it"
+     "fills": [
+      "OBSERVABILITY_TRACING"
+     ]
     }
    }
   },
@@ -848,7 +1164,10 @@
    "when": "project_tracking.tool != None",
    "keys": {
     "project_tracking.board_columns": {
-     "free": "list"
+     "free": "list",
+     "fills": [
+      "BOARD_COLUMNS"
+     ]
     }
    }
   },
@@ -879,6 +1198,9 @@
       "phase-based",
       "sprint-based",
       "none"
+     ],
+     "fills": [
+      "MILESTONE_STRATEGY"
      ]
     }
    }
@@ -894,6 +1216,9 @@
       "FEAT-NNN",
       "USR-NNN",
       "Custom prefix"
+     ],
+     "fills": [
+      "NAMING_CONVENTION"
      ]
     }
    }
@@ -923,6 +1248,9 @@
      "options": [
       true,
       false
+     ],
+     "fills": [
+      "APPETITE_SIZING_ENABLED"
      ]
     }
    }
@@ -971,6 +1299,9 @@
       "full",
       "features-only",
       "off"
+     ],
+     "fills": [
+      "PO_PACKAGE_MODE"
      ]
     }
    }
@@ -987,13 +1318,22 @@
       "code-manual",
       "code-rebuild",
       "defer"
+     ],
+     "fills": [
+      "DS_CARDS_SOURCE"
      ]
     },
     "po_package.ds_code_cards_dir": {
-     "free": "path"
+     "free": "path",
+     "fills": [
+      "DS_CODE_CARDS_DIR"
+     ]
     },
     "po_package.ds_rebuild_command": {
-     "free": "command"
+     "free": "command",
+     "fills": [
+      "DS_REBUILD_COMMAND"
+     ]
     }
    }
   },
@@ -1003,10 +1343,16 @@
    "since": "6.2.0",
    "keys": {
     "measurement.retention_days": {
-     "free": "number"
+     "free": "number",
+     "fills": [
+      "MEASURE_RETENTION_DAYS"
+     ]
     },
     "measurement.report_interval_days": {
-     "free": "number"
+     "free": "number",
+     "fills": [
+      "MEASURE_REPORT_INTERVAL_DAYS"
+     ]
     }
    }
   },
@@ -1016,10 +1362,16 @@
    "since": "7.2.0",
    "keys": {
     "surface.ceiling_files": {
-     "free": "number"
+     "free": "number",
+     "fills": [
+      "SURFACE_CEILING_FILES"
+     ]
     },
     "surface.ceiling_lines": {
-     "free": "number"
+     "free": "number",
+     "fills": [
+      "SURFACE_CEILING_LINES"
+     ]
     }
    }
   },
@@ -1042,7 +1394,10 @@
    "since": "7.4.0",
    "keys": {
     "surface.runtime_surface": {
-     "free": "list"
+     "free": "list",
+     "fills": [
+      "RUNTIME_SURFACE"
+     ]
     }
    }
   },
@@ -1057,6 +1412,9 @@
       "opus",
       "sonnet",
       "haiku"
+     ],
+     "fills": [
+      "AGENT_WRITER_MODEL"
      ]
     },
     "agents.critic_model": {
@@ -1065,6 +1423,9 @@
       "opus",
       "sonnet",
       "haiku"
+     ],
+     "fills": [
+      "AGENT_CRITIC_MODEL"
      ]
     }
    }
@@ -1072,7 +1433,10 @@
  ],
  "derived": {
   "language": {
-   "from": "the session language of the person answering (session.language) — never asked"
+   "from": "the session language of the person answering (session.language) — never asked",
+   "fills": [
+    "PROJECT_LANGUAGE"
+   ]
   },
   "quality.complexity.thresholds.soft": {
    "from": "fixed 10 at --generate (McCabe baseline); the project edits config/quality.json later"
@@ -1087,16 +1451,420 @@
    "from": "false at --generate: PR-review advisory until the project opts in"
   },
   "quality.security_scan.enabled": {
-   "from": "always true — secret scanning is never optional (LAW-04, #116)"
+   "from": "always true — secret scanning is never optional (LAW-04, #116)",
+   "configures": {
+    "verification.gates": {
+     "secrets": {
+      "command": "bash scripts/security-scan.sh --secrets --require-scanner"
+     }
+    }
+   }
   },
   "verification.gates": {
-   "from": "the stack answers (backend.runtime, surface.runtime_surface) at --generate — Factory-setup-materialization"
-  },
-  "verification.commands": {
-   "from": "declared by RDR at --propose-final only when a stack answer has no factory-build-verification MATCH row"
+   "from": "gate.py discovery --resolve → configures.verification.gates: the configures rows of the answered backend.runtime, frontend.framework and the security scan, reads = surface.runtime_surface + the test roots (EVOL-067); a stack with no rows declares its rows by RDR at discovery (§ verification coverage), recorded here",
+   "fills": [
+    "VERIFICATION_GATES"
+   ]
   },
   "traceability.home": {
-   "from": "backend.runtime at --generate: the pytest case marker for Python, the title tag otherwise"
+   "from": "backend.runtime at --generate: the pytest case marker for Python, the title tag otherwise",
+   "fills": [
+    "TRACEABILITY_HOME"
+   ]
+  },
+  "traceability.test_roots": {
+   "from": "gate.py discovery --resolve → configures.traceability.test_roots: the rows of the answered backend.runtime and frontend.framework (EVOL-067); none → declared by RDR with the home",
+   "fills": [
+    "TRACEABILITY_TEST_ROOTS"
+   ]
+  },
+  "costs": {
+   "from": "the Cost Estimation Protocol at discovery finalization (Factory-setup-discovery § 4.1.3.2) — its placeholder map there",
+   "fills": [
+    "BACKEND_COST",
+    "FRONTEND_COST",
+    "INTEGRATION_COST",
+    "DATABASE_COST",
+    "HOSTING_COST",
+    "IAC_COST",
+    "OBSERVABILITY_COST",
+    "CICD_COST",
+    "AI_COMPONENTS_COST",
+    "MAINTENANCE_COST",
+    "PO_COST",
+    "ARCH_COST",
+    "DEV_COST",
+    "QA_COST",
+    "REVIEW_COST",
+    "SEC_COST",
+    "INFRA_TOTAL",
+    "TOTAL_COST",
+    "ESTIMATED_MONTHLY_COST",
+    "BUDGET_PERCENTAGE",
+    "BUDGET_STATUS",
+    "BUDGET_RISK",
+    "BUDGET_RISK_MITIGATION",
+    "BUDGET_ALIGNMENT"
+   ]
+  },
+  "paths": {
+   "from": "the idiomatic layout of backend.runtime, backend.topology, frontend.framework, frontend.pattern and the AI answers at --generate, RDR when ambiguous (Factory-setup-materialization § Rules Generation)",
+   "fills": [
+    "BACKEND_BASE_PATH",
+    "BACKEND_MODULES_PATH",
+    "FRONTEND_BASE_PATH",
+    "INTEGRATION_BASE_PATH",
+    "AI_BASE_PATH",
+    "ML_BASE_PATH",
+    "INFRA_BASE_PATH",
+    "MONOREPO_APPS_PATH"
+   ]
+  },
+  "ci_cd.workflow_paths": {
+   "from": "ci_cd.platform at --generate: the platform's workflow files and its deploying workflows (Factory-setup-materialization, quality configuration table)",
+   "fills": [
+    "CI_WORKFLOW_PATHS",
+    "DEPLOYING_WORKFLOWS"
+   ]
+  },
+  "planning.governed_paths": {
+   "from": "surface.runtime_surface plus the governance paths at --generate (Factory-setup-materialization, the planning block)",
+   "fills": [
+    "PLANNING_GOVERNED_PATHS"
+   ]
+  },
+  "po_package.ds_active_section": {
+   "from": "po_package.ds_code_cards_dir, ds_rebuild_command and ci_cd.platform at --generate: 6A | 6B | 6C and the rebuild workflow status",
+   "fills": [
+    "DS_ACTIVE_SECTION",
+    "DS_CI_WORKFLOW_STATUS"
+   ]
+  },
+  "project_tracking.feature_id_pattern": {
+   "from": "project_tracking.naming_convention at --generate: FEAT-NNN → ^FEAT-\\\\d{3,}$; no tracker → ^[A-Z][A-Z0-9]*-\\\\d{3,}$",
+   "fills": [
+    "FEATURE_ID_PATTERN"
+   ]
   }
- }
+ },
+ "constants": {
+  "BACKUP_DIR": "an example in the document's prose — never substituted",
+  "CLI_BINARY": "the backlog adapter's own frontmatter `cli_binary`",
+  "COMPLETED_TASKS": "written by the materialisation run into its own report",
+  "CONFIG_BASE_PATH": "fixed by the framework layout",
+  "CONTRACTS_BASE_PATH": "fixed by the framework layout",
+  "DATE": "the system clock when the file is written",
+  "DC_ENTRIES": "the starter defect classes the stack selects at --generate (Factory-setup-materialization § defect-prevention seed)",
+  "DONE_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "END": "an example in the document's prose — never substituted",
+  "FEATURE": "a runtime literal of the shipped script — never substituted",
+  "FEATURE_ID": "filled per feature by the agent that writes the artefact",
+  "GENERATED_TIMESTAMP": "the system clock when the file is written",
+  "GENERATION_DATE": "the system clock when the file is written",
+  "ID": "a runtime literal of the shipped script — never substituted",
+  "IN_PROGRESS_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "JIRA_BOARD_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "JIRA_PROJECT_KEY": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "LAST_UPDATE": "the system clock when the file is written",
+  "LAST_UPDATED": "the system clock when the file is written",
+  "LINEAR_PROJECT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "LINEAR_TEAM_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "LINEAR_WORKSPACE_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "M": "a runtime literal of the shipped script — never substituted",
+  "MATERIALIZATION_STATUS": "written by the materialisation run into its own report",
+  "N": "an example in the document's prose — never substituted",
+  "OPERATION_TYPE": "written by the materialisation run into its own report",
+  "ORG_OR_USER": "the first segment of REPO_SLUG",
+  "PERCENTAGE": "written by the materialisation run into its own report",
+  "PLACEHOLDER": "an example in the document's prose — never substituted",
+  "PLACEHOLDER_NAME": "an example in the document's prose — never substituted",
+  "PROGRESS_BAR": "written by the materialisation run into its own report",
+  "PROJECT_NODE_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "PROJECT_NUMBER": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "PROJECT_ROOT": "written by the materialisation run into its own report",
+  "RANGE": "a runtime literal of the shipped script — never substituted",
+  "REPO_SLUG": "read from `git remote get-url origin` at --generate (owner/repo); the user is asked when there is no remote",
+  "RESOURCE_NAME": "an example in the document's prose — never substituted",
+  "REVIEW_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "S": "a runtime literal of the shipped script — never substituted",
+  "SCREAMING_SNAKE": "an example in the document's prose — never substituted",
+  "SCRIPTS_BASE_PATH": "fixed by the framework layout",
+  "SETUP_MD5_CHECKSUM": "written by the materialisation run into its own report",
+  "STATE_ID_DONE": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "STATE_ID_IN_PROGRESS": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "STATE_ID_REVIEW": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "STATE_ID_TODO": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "STATUS_FIELD_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "TIMESTAMP": "the system clock when the file is written",
+  "TODO_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "TOTAL_TASKS": "written by the materialisation run into its own report",
+  "TRANSITION_ID_DONE": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "TRANSITION_ID_IN_PROGRESS": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "TRANSITION_ID_REVIEW": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "TRANSITION_ID_TODO": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
+  "VAR": "an example in the document's prose — never substituted",
+  "VARIABLE": "an example in the document's prose — never substituted",
+  "VAR_NAME": "an example in the document's prose — never substituted",
+  "VERSION": "written by the materialisation run into its own report"
+ },
+ "placeholder_baseline": {
+  "ACL_COUNT": "unsourced",
+  "ADVANTAGE_1": "unsourced",
+  "ADVANTAGE_2": "unsourced",
+  "ADVANTAGE_3": "unsourced",
+  "AGENTIC_TOTAL": "unsourced",
+  "AI_CAPABILITY_AGENTIC": "unsourced",
+  "AI_CAPABILITY_INFERENCE": "unsourced",
+  "AI_CAPABILITY_TRAINING": "unsourced",
+  "ARCHITECTURE_CONSTRAINTS_ALIGNMENT": "unsourced",
+  "ARCHITECTURE_PATTERN": "pending #145",
+  "ARCHITECTURE_RULES_COMPLIANCE": "unsourced",
+  "BACKEND_AGGREGATOR_ENABLED": "unsourced",
+  "BACKEND_ALT_1": "unsourced",
+  "BACKEND_ALT_1_REASON": "unsourced",
+  "BACKEND_ALT_2": "unsourced",
+  "BACKEND_ALT_2_REASON": "unsourced",
+  "BACKEND_PATH": "unsourced",
+  "BACKEND_RATIONALE": "unsourced",
+  "BACKEND_TOPOLOGY_CODE": "unsourced",
+  "BACKEND_TOPOLOGY_NAME": "unsourced",
+  "BACKEND_TOPOLOGY_RATIONALE": "unsourced",
+  "BASE_PATH": "unsourced",
+  "BRAND_ACCENT_COLOR": "unsourced",
+  "BRAND_DARK_BACKGROUND": "unsourced",
+  "BRAND_DARK_MODE_ENABLED": "unsourced",
+  "BRAND_DARK_SURFACE": "unsourced",
+  "BRAND_DARK_TEXT": "unsourced",
+  "BRAND_ENFORCEMENT_LEVEL": "unsourced",
+  "BRAND_ERROR_COLOR": "unsourced",
+  "BRAND_FAVICON_PATH": "unsourced",
+  "BRAND_FONT_STACK": "unsourced",
+  "BRAND_INFO_COLOR": "unsourced",
+  "BRAND_LOGO_PATH": "unsourced",
+  "BRAND_NEUTRAL_DARK": "unsourced",
+  "BRAND_NEUTRAL_LIGHT": "unsourced",
+  "BRAND_PRIMARY_COLOR": "unsourced",
+  "BRAND_PRIMARY_DARK": "unsourced",
+  "BRAND_PRIMARY_FONT": "unsourced",
+  "BRAND_SECONDARY_COLOR": "unsourced",
+  "BRAND_SECONDARY_FONT": "unsourced",
+  "BRAND_SEMANTIC_STRATEGY": "unsourced",
+  "BRAND_SUCCESS_COLOR": "unsourced",
+  "BRAND_WARNING_COLOR": "unsourced",
+  "CI_CD_RULES_COMPLIANCE": "unsourced",
+  "CI_CD_STRATEGY": "unsourced",
+  "CLOUD_PROVIDER": "unsourced",
+  "CONTEXT": "unsourced",
+  "CSS_FRAMEWORK": "unsourced",
+  "DATABASE_GRAPH": "unsourced",
+  "DATABASE_NOSQL": "unsourced",
+  "DATABASE_RULES_COMPLIANCE": "unsourced",
+  "DATABASE_SQL": "unsourced",
+  "DB_MIGRATION_TOOL": "pending #125",
+  "DEPLOYMENT_ALT_1": "unsourced",
+  "DEPLOYMENT_ALT_1_REASON": "unsourced",
+  "DEPLOYMENT_ALT_2": "unsourced",
+  "DEPLOYMENT_ALT_2_REASON": "unsourced",
+  "DEPLOYMENT_STRATEGY": "unsourced",
+  "DESCRIPTION": "unsourced",
+  "DETECTED_BACKEND_PATTERN": "unsourced",
+  "DEV_COMMAND": "unsourced",
+  "DEV_PORT": "unsourced",
+  "E2E_TOOL": "unsourced",
+  "ENCRYPTION_AT_REST": "unsourced",
+  "ENCRYPTION_IN_TRANSIT": "unsourced",
+  "ENVIRONMENT_STRATEGY": "pending #147",
+  "ENV_1": "pending #147",
+  "ENV_1_HOSTING": "pending #147",
+  "ENV_1_SECRETS_MANAGER": "pending #147",
+  "ENV_2": "pending #147",
+  "ENV_2_HOSTING": "pending #147",
+  "ENV_2_SECRETS_MANAGER": "pending #147",
+  "ENV_3": "pending #147",
+  "ENV_3_HOSTING": "pending #147",
+  "ENV_3_SECRETS_MANAGER": "pending #147",
+  "EXTENSION_BACKEND_STRATEGY": "unsourced",
+  "EXTENSION_DIRECT_MODIFICATION": "unsourced",
+  "EXTENSION_FRONTEND_STRATEGY": "unsourced",
+  "EXTENSION_STRATEGY_NAME": "unsourced",
+  "FEEDBACK": "unsourced",
+  "FRONTEND_ALT_1": "unsourced",
+  "FRONTEND_ALT_1_REASON": "unsourced",
+  "FRONTEND_ALT_2": "unsourced",
+  "FRONTEND_ALT_2_REASON": "unsourced",
+  "FRONTEND_PATH": "unsourced",
+  "FRONTEND_PATTERN_CODE": "unsourced",
+  "FRONTEND_PATTERN_NAME": "unsourced",
+  "FRONTEND_PATTERN_RATIONALE": "unsourced",
+  "FRONTEND_RATIONALE": "unsourced",
+  "HOSTING_RATIONALE": "unsourced",
+  "HOSTING_STRATEGY": "unsourced",
+  "I18N_CURRENCY_STRATEGY": "unsourced",
+  "I18N_DEFAULT_LOCALE": "unsourced",
+  "I18N_LOCALE_SELECTOR_POSITION": "unsourced",
+  "I18N_RTL_SUPPORT": "unsourced",
+  "I18N_SCOPE": "unsourced",
+  "I18N_SUPPORTED_LOCALES": "unsourced",
+  "I18N_TRANSLATION_MANAGEMENT": "unsourced",
+  "IAC_CMD_APPLY": "unsourced",
+  "IAC_CMD_DESTROY": "unsourced",
+  "IAC_CMD_FORMAT": "unsourced",
+  "IAC_CMD_PLAN": "unsourced",
+  "IAC_CMD_VALIDATE": "unsourced",
+  "IAC_ENTRY_POINT": "unsourced",
+  "IAC_ENV_CONFIG_PATTERN": "unsourced",
+  "IAC_ENV_PATTERN": "unsourced",
+  "IAC_LANGUAGE": "unsourced",
+  "IAC_MODULE_DIR": "unsourced",
+  "IAC_NATIVE_FIT": "unsourced",
+  "IAC_PROVIDER_CONFIG": "unsourced",
+  "IAC_STATE_MANAGEMENT": "unsourced",
+  "IAC_STATE_MGMT": "unsourced",
+  "IAC_TOOL_TYPE": "unsourced",
+  "INTEGRATION_ACL_COUNT": "unsourced",
+  "INTEGRATION_RATIONALE": "unsourced",
+  "INTEGRATION_STRATEGY": "unsourced",
+  "LAYOUT_PERSISTENT_FOOTER": "unsourced",
+  "LAYOUT_PERSISTENT_HEADER": "unsourced",
+  "LAYOUT_SIDEBAR_SCOPE": "unsourced",
+  "MIGRATION_SCENARIO": "unsourced",
+  "NETWORK_POLICY": "unsourced",
+  "NUMBER": "unsourced",
+  "OBSERVABILITY_ALERTING": "unsourced",
+  "OBSERVABILITY_METRICS": "unsourced",
+  "PACKAGE_MANAGER": "unsourced",
+  "PIPELINE_DEPTH": "pending #147",
+  "PRIMARY_FRAMEWORK": "unsourced",
+  "PRIMARY_LANGUAGE": "unsourced",
+  "PRIMARY_LAYOUT": "unsourced",
+  "PR_CI_CHECKS_DETAIL": "unsourced",
+  "PR_CI_CHECKS_RULE": "unsourced",
+  "PR_MERGE_METHOD_LABEL": "unsourced",
+  "PR_VALIDATION_LABEL": "unsourced",
+  "SCALABILITY_PATH": "unsourced",
+  "SECRETS_CICD": "unsourced",
+  "SECURITY_RULES_COMPLIANCE": "unsourced",
+  "SEMVER_ENABLED": "unsourced",
+  "SERVICE_NAME": "unsourced",
+  "SESSION_STRATEGY": "unsourced",
+  "STACK_ALIGNMENT": "unsourced",
+  "STATUS": "unsourced",
+  "STYLING_SYSTEM": "unsourced",
+  "TEAM_RISK": "unsourced",
+  "TEAM_RISK_MITIGATION": "unsourced",
+  "TECHNICAL_RISK": "unsourced",
+  "TECHNOLOGY_1": "unsourced",
+  "TECHNOLOGY_2": "unsourced",
+  "TECHNOLOGY_3": "unsourced",
+  "TECHNOLOGY_4": "unsourced",
+  "TECHNOLOGY_5": "unsourced",
+  "TECHNOLOGY_N": "unsourced",
+  "TECHNOLOGY_X": "unsourced",
+  "TITLE": "unsourced",
+  "TRADEOFF_1": "unsourced",
+  "TRADEOFF_2": "unsourced",
+  "TRADEOFF_3": "unsourced",
+  "VISUAL_DNA_ANIMATION_STYLE": "unsourced",
+  "VISUAL_DNA_ANIM_BASE": "unsourced",
+  "VISUAL_DNA_ANIM_FAST": "unsourced",
+  "VISUAL_DNA_ANIM_SLOW": "unsourced",
+  "VISUAL_DNA_COLOR_TEMPERATURE": "unsourced",
+  "VISUAL_DNA_DECORATIVE_ELEMENTS": "unsourced",
+  "VISUAL_DNA_EASING": "unsourced",
+  "VISUAL_DNA_GRADIENT_USAGE": "unsourced",
+  "VISUAL_DNA_ICON_STYLE": "unsourced",
+  "VISUAL_DNA_RADIUS_FULL": "unsourced",
+  "VISUAL_DNA_RADIUS_LG": "unsourced",
+  "VISUAL_DNA_RADIUS_MD": "unsourced",
+  "VISUAL_DNA_RADIUS_SM": "unsourced",
+  "VISUAL_DNA_RADIUS_XL": "unsourced",
+  "VISUAL_DNA_SHADOW_LG": "unsourced",
+  "VISUAL_DNA_SHADOW_MD": "unsourced",
+  "VISUAL_DNA_SHADOW_SM": "unsourced",
+  "VISUAL_DNA_SHADOW_XL": "unsourced",
+  "VISUAL_DNA_SPACING_PHILOSOPHY": "unsourced",
+  "VISUAL_DNA_TYPOGRAPHY_CONTRAST": "unsourced",
+  "VISUAL_DNA_VISUAL_DENSITY": "unsourced",
+  "VISUAL_DNA_WHITESPACE_RATIO": "unsourced"
+ },
+ "migrations": [
+  {
+   "id": "iterations-array",
+   "since": "5.0.0",
+   "detect": "docs/project_log/governance_versions.json#/governance_features/iterations_array_v1",
+   "apply": "iterations array (EVOL-032)"
+  },
+  {
+   "id": "delivery-mode",
+   "since": "7.3.0",
+   "detect": "docs/project_log/governance_versions.json#/delivery_mode",
+   "apply": "delivery_mode (EVOL-046)"
+  },
+  {
+   "id": "agents-families",
+   "since": "8.0.0",
+   "detect": "config/quality.json#/agents/families",
+   "apply": "agents.families (EVOL-049)"
+  },
+  {
+   "id": "documentation-verification",
+   "since": "8.1.0",
+   "detect": "config/quality.json#/documentation",
+   "apply": "documentation + verification (EVOL-051)"
+  },
+  {
+   "id": "traceability",
+   "since": "8.2.0",
+   "detect": "config/quality.json#/traceability",
+   "apply": "traceability (EVOL-053)"
+  },
+  {
+   "id": "scm",
+   "since": "8.3.0",
+   "detect": "config/quality.json#/scm",
+   "apply": "scm (EVOL-054)"
+  },
+  {
+   "id": "verification-logs",
+   "since": "8.5.0",
+   "detect": "config/quality.json#/verification/logs",
+   "apply": "verification.logs (EVOL-057)"
+  },
+  {
+   "id": "turn-budgets",
+   "since": "8.8.0",
+   "detect": ".claude/rules/agents.md#/agents/tiers/large/turn_budget",
+   "apply": "turn and probe budgets (EVOL-058)"
+  },
+  {
+   "id": "canary",
+   "since": "8.8.0",
+   "detect": ".claude/rules/agents.md#/agents/canary/line_tolerance",
+   "apply": "canary (EVOL-059)"
+  },
+  {
+   "id": "critic-return",
+   "since": "8.8.0",
+   "detect": "always",
+   "apply": "critic return shape (EVOL-060)"
+  },
+  {
+   "id": "manifest-bump",
+   "since": "8.9.0",
+   "detect": "always",
+   "apply": "manifest --bump (EVOL-061)"
+  },
+  {
+   "id": "context-diet",
+   "since": "8.10.0",
+   "detect": ".claude/rules/agents.md#/agents/worker_turn_cap",
+   "apply": "context diet (EVOL-062)"
+  },
+  {
+   "id": "verification.gates (EVOL-067)",
+   "since": "8.17.0",
+   "detect": "always",
+   "apply": "verification.gates (EVOL-067)"
+  }
+ ]
 }

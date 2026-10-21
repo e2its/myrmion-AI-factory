@@ -20,8 +20,9 @@
 #   7. every hook wired in settings.json is delivered and executable; a real edit payload gets its law delivered
 #
 #   0. the ONE evaluator (gate.py discovery --resolve, EVOL-102) selects the manifest entries for a fixture answer set;
-#      the answers land in the docs/setup.md frontmatter; the expected files land, the stack has its BVL rows and
-#      the snapshot shows the answered stack keys
+#      the answers land in the docs/setup.md frontmatter; the expected files land, the stack has its verification gates (EVOL-067) and
+#      the snapshot shows the answered stack keys; an upgrade fixture (`framework_version`) proves `--resolve` against an
+#      installed project lists exactly its expected pending questions and owed migrations
 #
 # Usage: materialize-synthetic.sh [--answers FIXTURE]   (default scripts/fixtures/synthetic-answers/default.json;
 #        another fixture proves step 0 only — the toolchain checks are written for the default stack)
@@ -65,7 +66,11 @@ sel = subprocess.run([sys.executable, str(R / "scripts/gate.py"), "--repo", str(
                       "--answers", sys.argv[4], "--json"], capture_output=True, text=True)
 if sel.returncode != 0:
     sys.exit(f"the evaluator cannot select for this fixture: {(sel.stdout + sel.stderr).strip()[-400:]}")
-LANDING = set(json.loads(sel.stdout)["landing"])
+RES = json.loads(sel.stdout)
+LANDING = set(RES["landing"])
+if RES.get("stop"):   # the materialisation's stop rule (EVOL-067): no tests and no sca gate for the stack
+    sys.exit(f"materialisation stops: {RES['stop']}")
+GATES = RES["configures"].get("verification.gates", {})   # the loop's members, from the registry rows of the answers
 landed, skipped = [], []
 for key, e in m["templates"].items():
     if key.startswith("_") or not isinstance(e, dict): continue
@@ -105,7 +110,11 @@ if (T / "setup/setup_master_template.md").is_file():
     (P / "docs/setup.md").write_text("---\n" + "\n".join(dump(fm)) + "\n---\n" + (text[fm_m.end():] if fm_m else text), encoding="utf-8")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0", "VERIFICATION_GATES": '{"tests": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "coverage": {"reads": ["src/**", "tests/**"], "command": "pytest"}, "lint": {"reads": ["src/**", "scripts/**"], "command": "ruff check"}}'}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0"}
+NUM["VERIFICATION_GATES"] = json.dumps(GATES)
+NUM["TRACEABILITY_TEST_ROOTS"] = json.dumps(RES["configures"].get("traceability.test_roots", []))
+if isinstance(A.get("surface.runtime_surface"), list):
+    NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -132,10 +141,22 @@ exp = FX.get("expect", {})
 missing = [f"{x} did not land" for x in exp.get("landed", []) if x not in landed]
 missing += [f"{x} landed, the answers do not select it" for x in exp.get("absent", []) if x in landed]
 bvl = (Path(sys.argv[5]) / ".claude/skills/factory-build-verification/SKILL.md").read_text(encoding="utf-8")
-for key, lit in exp.get("bvl", {}).items():
-    blocks = re.findall(r"MATCH stack\." + re.escape(key) + r":\n((?:[ \t]+.*\n)+)", bvl)
-    if not any(re.search(r'^[ \t]+"' + re.escape(lit) + r'"', b, re.M) for b in blocks):
-        missing.append(f"BVL has no `MATCH stack.{key}` row for `{lit}`")
+if re.search(r"MATCH stack\.", bvl):
+    missing.append("BVL carries a `MATCH stack.*` row — the loop names no stack (EVOL-067)")
+Q = json.loads((P / "config/quality.json").read_text())
+got = {g: r.get("command") for g, r in Q["verification"]["gates"].items()}
+if got != exp.get("gates"):
+    missing.append(f"verification.gates: expected {exp.get('gates')}, got {got}")
+if '"test_roots": {{TRACEABILITY_TEST_ROOTS}}' not in (T / "config/quality.json").read_text(encoding="utf-8"):
+    missing.append("the template's traceability.test_roots is a literal — it lands from --resolve configures (TRACEABILITY_TEST_ROOTS)")
+if Q["traceability"]["test_roots"] != exp.get("test_roots"):   # one definition with the gates' reads (EVOL-067)
+    missing.append(f"traceability.test_roots: expected {exp.get('test_roots')}, got {Q['traceability']['test_roots']}")
+from gates import seal as seal_mod   # EVOL-068: the built-in red member, the coverage report and the empty omit list, as the answers select them
+honest = {"red": "red" in seal_mod.vcfg(P)["gates"], "coverage_report": Q["verification"]["gates"].get("coverage", {}).get("report"),
+          "red_link": Q["verification"]["gates"].get("tests", {}).get("red_link"), "omit": Q["verification"].get("coverage", {}).get("omit")}
+want = {"red": exp.get("red"), "coverage_report": exp.get("coverage_report"), "red_link": exp.get("red_link"), "omit": []}
+if honest != want:
+    missing.append(f"EVOL-068 honest tests: expected {want}, got {honest}")
 print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_json": unresolved, "expect_missing": missing}))
 PY
 ) || { echo "materialize-synthetic: materialisation step failed" >&2; exit 2; }
@@ -143,7 +164,7 @@ echo "  $REPORT"
 LANDED=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["landed"])')
 [ "$LANDED" -ge 60 ] && ok "manifest targets landed ($LANDED)" || bad "too few targets landed ($LANDED)"
 MISS=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin)["expect_missing"]))')
-[ -z "$MISS" ] && ok "the answers select their files and their BVL rows ($(basename "$ANSWERS"))" || bad "the answers do not select what they should" "$MISS"
+[ -z "$MISS" ] && ok "the answers select their files and their verification gates ($(basename "$ANSWERS"))" || bad "the answers do not select what they should" "$MISS"
 UNRES=$(printf '%s' "$REPORT" | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)["unresolved_json"]))')
 [ -z "$UNRES" ] && ok "no placeholder survives in config JSON" || bad "unresolved tokens in JSON: $UNRES"
 # the snapshot reads its stack keys from the one answer home (EVOL-102): every answered STACK_KEYS entry is shown
@@ -162,7 +183,36 @@ for k in STACK_KEYS:
 ' "$ANSWERS" "$ROOT" 2>&1)
 [ "$SRC" -eq 0 ] && [ -z "$SMISS" ] && ok "the snapshot shows the answered stack keys ($(basename "$ANSWERS"))" || bad "the snapshot does not show the stack answers (rc $SRC)" "$SMISS${SMISS:+
 }$(printf '%s' "$SNAP" | head -8)"
-# another stack's fixture proves its selection only: the toolchain checks below are written for the default stack
+# an upgrade fixture (EVOL-102 ph.2: `framework_version` + expect.pending / expect.migrations): the scratch tree is an
+# installed project at that version, the framework's registry and manifest delivered as factory-sync does; --resolve
+# against it lists exactly the expected pending questions and owed migrations, no others
+if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(open(sys.argv[1])) else 1)' "$ANSWERS"; then
+  mkdir -p "$P/docs/project_log" "$P/.context/templates/setup/setup"
+  cp "$T/setup/discovery_registry.json" "$P/.context/templates/setup/setup/discovery_registry.json"
+  cp "$MANIFEST" "$P/.context/templates/setup/governance_versions.json"
+  python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
+  URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
+  UMISS=$(printf '%s' "$UP" | python3 -c '
+import json, sys
+exp = json.load(open(sys.argv[1]))["expect"]; r = json.loads(sys.stdin.read())
+got = {"pending": r["pending"], "migrations": [m["id"] for m in r["migrations_owed"]]}
+for k in ("pending", "migrations"):
+    if got[k] != exp.get(k):
+        print(f"{k}: expected {exp.get(k)}, got {got[k]}")
+' "$ANSWERS" 2>&1)
+  [ "$URC" -eq 0 ] && [ -z "$UMISS" ] && ok "--resolve against a $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["framework_version"])' "$ANSWERS") project lists exactly the expected pending questions and owed migrations" \
+    || bad "the upgrade's resolve is not what the fixture expects (rc $URC)" "$UMISS${UMISS:+
+}$(printf '%s' "$UP" | tail -3)"
+fi
+# the loop's members, as materialised (EVOL-067): every fixture's map is valid for the seal
+ALLG=$(python3 -c 'import json,sys; print(",".join(sorted(json.load(open(sys.argv[1]))["verification"]["gates"])))' "$P/config/quality.json")
+OWEDG=$(printf '%s' "$ALLG" | sed 's/,/, /g')
+# the full seal covers the built-in red member too (EVOL-068): every gate the seal's reader knows
+SEALG=$(python3 -c 'import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); from gates import seal; print(",".join(sorted(seal.vcfg(Path(sys.argv[2]))["gates"])))' "$ROOT/scripts" "$P")
+SUITE=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["verification"]["gates"]["tests"]["command"])' "$P/config/quality.json")
+OUT=$(python3 "$ROOT/scripts/gate.py" --repo "$P" seal --validate 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "gate.py seal --validate on the $(basename "$ANSWERS") map: $ALLG" || bad "seal map invalid for $(basename "$ANSWERS") (rc=$RC)" "$OUT"
+# another stack's fixture proves its selection and its map only: the toolchain checks below are written for the default stack
 if [ "$IS_DEFAULT" != "1" ]; then
   echo; echo "materialize-synthetic: $PASS passed, $FAIL failed (selection of $(basename "$ANSWERS"))"; [ "$FAIL" -eq 0 ]; exit
 fi
@@ -277,7 +327,7 @@ CERT=$(cd "$P" && python3 scripts/gate.py certify --subject tree --paths 'src/**
 printf -- '---\nstatus: APPROVED\nverdict: APPROVED\ncertifies:\n%s\n---\n' "$CERT" > "$P/docs/spec/FEAT-001/qa/qa_report_final_20260925.md"
 git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm "manifest + re-taken verdict"
 # the full loop ran on these bytes (EVOL-051): its seal is what the push profile honours
-OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates tests,coverage,lint --ok --full --summary green 2>&1); RC=$?
+OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates "$SEALG" --ok --full --summary green 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "the full loop sealed the branch's tree (gate.py seal --write --full)" || bad "seal write failed (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py profile --run --control-point push --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'verdict: ok' && ok "the profile runs every script member in the scratch project, one verdict: $(printf '%s' "$OUT" | grep -c '✓') green" || bad "profile run not green in the scratch (rc=$RC)" "$OUT"
@@ -457,15 +507,15 @@ OUT=$(cd "$P" && python3 scripts/gate.py documentation --path .github/workflows/
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: the full loop' && printf '%s' "$OUT" | grep -q 'no gate reads' && ok "RED: paths no gate reads changed since the last green seal (a workflow, the config) — the full loop is owed, fail closed" || bad "unmapped delta not refused (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py seal --plan --base origin/main 2>&1); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'run: pytest  →  coverage, tests' && ok "the loop's plan: the suite that feeds coverage is one execution" || bad "seal plan wrong (rc=$RC)" "$OUT"
-OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates tests,coverage,lint --ok --full --summary green 2>&1 && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -qF "run: $SUITE  →  coverage, tests" && ok "the loop's plan: the suite that feeds coverage is one execution" || bad "seal plan wrong (rc=$RC)" "$OUT"
+OUT=$(cd "$P" && python3 scripts/gate.py seal --write --gates "$SEALG" --ok --full --summary green 2>&1 && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'seal: ok' && ok "a green full loop sealed the tree the commit carries — the push honours it" || bad "sealed tree refused (rc=$RC)" "$OUT"
 printf 'notes\n' > "$P/docs/notes.md"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'docs' >/dev/null
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
 [ "$RC" -eq 0 ] && ok "a documentation-only delta after a green seal owes no test, security or build gate" || bad "docs delta owed a gate (rc=$RC)" "$OUT"
 mkdir -p "$P/src"; printf 'x = 1\n' > "$P/src/new.py"; git -C "$P" add -A; git -C "$P" -c user.name=t -c user.email=t@t commit -qm 'code' >/dev/null
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --base origin/main 2>&1); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'owed: coverage, lint, tests' && printf '%s' "$OUT" | grep -q 'moved: src/new.py' && ok "RED: a code delta owes exactly the gates that read it and names the path (incremental seal)" || bad "code delta not owed (rc=$RC)" "$OUT"
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -qF "owed: $OWEDG" && printf '%s' "$OUT" | grep -q 'moved: src/new.py' && ok "RED: a code delta owes exactly the gates that read it and names the path (incremental seal)" || bad "code delta not owed (rc=$RC)" "$OUT"
 # the records the instrument reads (EVOL-057): the push log through the reader (the hook's trap itself is proven in test-hooks.sh), the per-gate timings from the loop's executor
 OUT=$(cd "$P" && python3 scripts/gate.py push-log --exit 1 --start 2026-10-06T10:00:00Z 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'push-log: recorded full' && python3 -c "import json,sys; r=json.loads(open('$P/.claude/state/push-log.jsonl').read().splitlines()[-1]); sys.exit(0 if r['exit']==1 and r['profile']=='full' and r['base']=='origin/main' and r['start']=='2026-10-06T10:00:00Z' and r['end'] else 1)" \
@@ -526,7 +576,7 @@ OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN GITHUB_ACTIONS=true python3 scr
 OUT=$(cd "$P" && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_ACTIONS python3 scripts/gate.py scm-protection --control-point ci --json 2>&1 | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["status"], len(d["checklist"]))')
 [ "$OUT" = "n/a 5" ] && ok "the five settings every host expresses are the checklist the JSON carries" || bad "scm-protection json wrong" "$OUT"
 OUT=$(cd "$P" && python3 scripts/gate.py seal --check --control-point static --base origin/main 2>&1); RC=$?
-[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'advisory' && printf '%s' "$OUT" | grep -q 'owed now: coverage, lint, tests' && ok "at the static round the seal is advisory: it names what the loop will owe, never a blocker before the loop ran" || bad "static seal not advisory (rc=$RC)" "$OUT"
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'advisory' && printf '%s' "$OUT" | grep -qF "owed now: $(printf '%s' "$SEALG" | sed 's/,/, /g')" && ok "at the static round the seal is advisory: it names what the loop will owe, never a blocker before the loop ran" || bad "static seal not advisory (rc=$RC)" "$OUT"
 MISSING=$(cd "$P" && python3 -c "
 import json; d=json.load(open('.claude/settings.json')); import os
 scripts=[t for g in d['hooks'].values() for grp in g for h in grp['hooks'] for t in h['command'].split() if t.endswith('.sh')]

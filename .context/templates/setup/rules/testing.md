@@ -6,7 +6,7 @@ applicable_when:
     - "**/tests/**"
     - "**/*.test.*"
     - "**/*.spec.*"
-version: 1.7.1
+version: 1.8.0
 date: 2026-09-25
 changelog:
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -73,6 +73,7 @@ changelog:
 - Coverage gate: **80%** minimum, measured in CI
 - Mutation testing (optional): enable if mutation score <90%
 - Block merge on failing tests or coverage regression
+- Per file, never an aggregate (EVOL-068): the `coverage` member's `report` (LCOV) becomes `coverage-table.md` beside the loop's logs — lines, covered, % per file; a runtime file the report lacks is «not measured» unless `verification.coverage.omit` declares it. The correctness lens reads the table.
 
 ## Test-case traceability (EVOL-053)
 - **One home.** A test states the case it proves in ONE machine-readable place — `config/quality.json → traceability.home`: the `case` marker for pytest (`@pytest.mark.case("FEAT-001/TC-01")` on the test, its class or the module's `pytestmark`, read from the syntax tree), the title tag for runners without markers (a literal `[FEAT-001/TC-01]` opening the title of `test(` / `it(` / `t.Run(`; one id per title), `@DisplayName("[FEAT-001/TC-01] …")` for JUnit, or a custom pattern. A comment, a docstring, a bare name, a `describe` title, a skipped / todo / xfail test link nothing — a suite title or a skipped test proves no case.
@@ -105,6 +106,6 @@ changelog:
 - OWASP ASVS testing guidance
 
 ## [LAW-05] Testing
-> Every unit of logic has its unit test, written red first: red, green, refactor, verify.
+> Every unit of logic has its unit test, proven red without its change: red, green, refactor, verify.
 
-Every declared test case has a linking test at the ONE home (§ Test-case traceability). 1 Logic = 1 Unit Test. TDD cycle per task: Red (a failing test names the behaviour) → Green (the least code that passes) → Refactor (under the tests) → Verify (the scoped suite, then the one full verification loop per change). A unit of logic without its test does not reach review. **One full loop per change (EVOL-051):** the static round (no build, no database) and the workers' scoped runs before the critics; the artefacts written; then the full loop once, on the bytes the commit carries, each suite executed once (the suite that feeds coverage feeds both), its green sealed (`python3 scripts/gate.py seal`) and honoured at the push; after a green seal a delta re-runs only the gates whose read-set it touched, a documentation-only delta none, an unmapped path the whole loop.
+Every declared test case has a linking test at the ONE home (§ Test-case traceability). 1 Logic = 1 Unit Test. TDD cycle per task: Red (a failing test names the behaviour) → Green (the least code that passes) → Refactor (under the tests) → Verify (the scoped suite, then the one full verification loop per change). A unit of logic without its test does not reach review. **Honest tests (EVOL-068):** a green is worth what its red was worth — the loop's `red` member proves the red — each test file the diff adds or changes runs at the diff base, without its change, and must fail; one that passes there could not fail and the loop is red. A fix's regression test follows DC-30. **One full loop per change (EVOL-051):** the static round (no build, no database) and the workers' scoped runs before the critics; the artefacts written; then the full loop once, on the bytes the commit carries, each suite executed once (the suite that feeds coverage feeds both), its green sealed (`python3 scripts/gate.py seal`) and honoured at the push; after a green seal a delta re-runs only the gates whose read-set it touched, a documentation-only delta none, an unmapped path the whole loop.

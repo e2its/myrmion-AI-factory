@@ -32,6 +32,25 @@ records       EVOL-057 — what the instrument (the measurement subproduct) read
                written once the loop is running is said in the verdict and never stops the loop; the push record is
                never a fault — n/a with its reason, marked FAULT so the hook can say it (an unconfigured block is
                silent); never part of the tree, never in a read-set.
+skips          EVOL-067 — `verification.skips [{gate, reason, at, until}]`: a gate skipped until a date at or after today
+               is not owed and is listed with its reason; past `until` it is owed again until it runs green or the skip
+               is renewed (a reviewed config change; the commit's author is who). A skip of a SECURITY gate, or a
+               malformed one, fails `--validate` and is never honoured.
+canary         EVOL-067 — when the map declares `secrets`, `--run` first commits the lens canary's planted credential
+               into a temporary repository outside the tree and runs `security_scan.secrets_command` there; nothing
+               found, or a scanner that cannot run, makes the run red before any execution.
+red            EVOL-068 — the built-in member that proves the red: present whenever `gates.tests` declares `scoped` and
+               `traceability.test_roots` is set; reads the test roots (its seal caches by the test files' bytes). The
+               diff base's merge-base is checked out as a `git worktree` outside the tree (always removed), the test files
+               the diff adds or changes are laid over it, the tests row's `red_link` paths linked from the working tree, and
+               `tests.scoped` runs one file at a time: each must fail. A file that passes there could not fail (red); a
+               worktree or a runner that cannot run is red with its repair; no test file changed costs nothing. Limits: per
+               file; a new file failing only because its module is absent at the base counts as red; who wrote it is moot.
+               A tests row with `red: false` (a scoped run that selects tests by name, not by file) has no red member, and
+               every plan and run lists RED_NOT_PROVEN beside the live skips.
+coverage       EVOL-068 — after the `coverage` member ran, `seal --run` writes `coverage-table.md` beside the logs: per file
+               lines, covered, % from the row's `report` (LCOV); a runtime-surface file the report lacks, not a test file and
+               not in `verification.coverage.omit`, is listed «not measured»; no `report` declared is said in the table.
 """
 from __future__ import annotations
 
@@ -39,14 +58,23 @@ import hashlib
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
+import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from .common import GateFault, _glob_regex, key
 
 DEFAULT_SEAL_DIR = ".claude/state"
+SECURITY = {"secrets", "sast", "sca"}
+SKIP_FIELDS = ("gate", "reason", "at", "until")
+RED = "red"                         # EVOL-068: the built-in member that proves the red
+RED_NOT_PROVEN = ("red not proven for this stack: its scoped run selects tests by name, not by file — "
+                  "give `tests.scoped` a per-file command and drop `red: false` to enable the proof")
+COVERAGE_TABLE = "coverage-table.md"
 CI_REASON = ("the seal is local state honoured at the push (pre-push, gate.py profile --run) and is not on this runner; "
              "CI does not run the loop — a push that bypasses the hook bypasses the loop; the project's own CI test job, "
              "when it has one, is the compensating control")
@@ -137,11 +165,80 @@ def vcfg(repo: Path) -> dict:
         cmd = g.get("command")
         if cmd is not None and not isinstance(cmd, str):
             raise GateFault(f"verification.gates.{name}.command must be a string or null")
-        out_gates[str(name)] = {"reads": g["reads"], "command": cmd or None}
+        if name == RED:
+            raise GateFault(f"verification.gates.{RED} is the loop's built-in member (EVOL-068) — it runs from tests.scoped; rename the project's row")
+        for f, ok in (("scoped", isinstance(g.get("scoped"), str)), ("report", isinstance(g.get("report"), str)),
+                      ("red_link", isinstance(g.get("red_link"), list) and all(isinstance(x, str) for x in g.get("red_link", []))),
+                      ("red", isinstance(g.get("red"), bool))):
+            if f in g and not ok:
+                raise GateFault(f"verification.gates.{name}.{f} must be {'a list of paths' if f == 'red_link' else 'true or false' if f == 'red' else 'a string'}")
+        out_gates[str(name)] = {"reads": g["reads"], "command": cmd or None, **{f: g[f] for f in ("scoped", "red_link", "report", "red") if f in g}}
+    roots = key(repo, "traceability.test_roots", default=None)
+    has_roots = isinstance(roots, list) and bool(roots) and all(isinstance(x, str) for x in roots)
+    tests = out_gates.get("tests")
+    red_absent = (["no `tests` gate"] if out_gates else []) if tests is None else [] if tests.get("red") is False else \
+        [m for m, ok in (("no `tests.scoped`", bool(tests.get("scoped"))), ("no `traceability.test_roots`", has_roots)) if not ok]
+    if tests is not None and tests.get("red") is not False and not red_absent:
+        out_gates[RED] = {"reads": roots, "command": None, "builtin": True}
+    omit = (v.get("coverage") or {}).get("omit", []) if isinstance(v.get("coverage", {}), dict) else None
+    if not isinstance(omit, list) or not all(isinstance(x, str) for x in omit):
+        raise GateFault("verification.coverage.omit must be a list of globs — the runtime files the project declares unmeasured")
     arts = v.get("digest_artefacts", ["design.md"])
     if not isinstance(arts, list) or not all(isinstance(x, str) for x in arts):
         raise GateFault("verification.digest_artefacts must be a list of file names under docs/spec/{ID}/")
-    return {"required": required, "reason": str(seal.get("reason") or ""), "dir": d, "gates": out_gates, "digest_artefacts": arts}
+    skips = v.get("skips", [])
+    return {"required": required, "reason": str(seal.get("reason") or ""), "dir": d, "gates": out_gates, "digest_artefacts": arts,
+            "skips": skips if isinstance(skips, list) else [skips], "coverage_omit": omit, "red_absent": red_absent}
+
+
+def _today() -> date:
+    return date.today()
+
+
+DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")   # YYYY-MM-DD only: fromisoformat reads more shapes from 3.11 on — one verdict on every interpreter
+
+
+def _date(s) -> date | None:
+    try:
+        return date.fromisoformat(s) if isinstance(s, str) and DATE.match(s) else None
+    except ValueError:
+        return None
+
+
+def _not_proven(cfg: dict) -> list[dict]:
+    """The red a stack cannot prove (`tests.red: false`), listed beside the live skips on every plan and run — never silent."""
+    if (cfg["gates"].get("tests") or {}).get("red") is False:
+        return [{"gate": RED, "reason": RED_NOT_PROVEN}]
+    if cfg.get("red_absent"):
+        return [{"gate": RED, "reason": f"red not proven: {' / '.join(cfg['red_absent'])} — declare it to enable the proof"}]
+    return []
+
+
+def skip_problems(cfg: dict) -> list[tuple[int, str]]:
+    """Each malformed or refused skip: (index, why). A refused skip is never honoured."""
+    out = []
+    for n, s in enumerate(cfg["skips"]):
+        where = f"verification.skips[{n}]"
+        if not isinstance(s, dict) or set(s) != set(SKIP_FIELDS) or not all(isinstance(s[f], str) and s[f].strip() for f in SKIP_FIELDS):
+            out.append((n, f"{where} is exactly {{gate, reason, at, until}}, every field a non-empty text")); continue
+        if s["gate"] in SECURITY:
+            out.append((n, f"{where} skips `{s['gate']}`, a security member ({', '.join(sorted(SECURITY))}) — never skipped (LAW-04)")); continue
+        if s["gate"] not in cfg["gates"]:
+            out.append((n, f"{where}: `{s['gate']}` is not a gate of verification.gates ({', '.join(cfg['gates']) or 'empty'})")); continue
+        for f in ("at", "until"):
+            if _date(s[f]) is None:
+                out.append((n, f"{where}.{f} `{s[f]}` is not a date (YYYY-MM-DD)"))
+    return out
+
+
+def skips(cfg: dict) -> tuple[dict, dict]:
+    """({gate: skip} active — until ≥ today, {gate: skip} expired); a malformed or refused skip is neither."""
+    bad = {n for n, _ in skip_problems(cfg)}
+    active, expired = {}, {}
+    for n, s in enumerate(cfg["skips"]):
+        if n not in bad:
+            (active if _date(s["until"]) >= _today() else expired)[s["gate"]] = s
+    return active, expired
 
 
 def blob_id(data: bytes) -> str:
@@ -236,7 +333,8 @@ def _owed(cfg: dict, seal: dict | None, entries: dict[str, str], doc: dict, base
     loop sealed one, else the merge-base's tree: a gate is owed when its read-set moved since its recorded green
     (or since the base when it was never recorded); a changed path no gate reads and no documentation covers owes
     the full loop. Every owed gate names the paths that moved."""
-    gates = cfg["gates"]
+    active, expired = skips(cfg)
+    gates = {n: g for n, g in cfg["gates"].items() if n not in active}
     seal = seal or {"gates": {}}
     sealed_tree = isinstance(seal.get("tree"), dict)
     tree = seal["tree"] if sealed_tree else base_entries
@@ -252,8 +350,22 @@ def _owed(cfg: dict, seal: dict | None, entries: dict[str, str], doc: dict, base
                 moved[name] = [p for p in delta if _in_readset(p, g["reads"])] or ["(a path the seal's tree does not show)"]
         elif readset_hash(base_entries, g["reads"]) != now:
             moved[name] = [p for p in _delta(entries, base_entries) if _in_readset(p, g["reads"])]
-    unmapped = [p for p in delta if not any(_in_readset(p, g["reads"]) for g in gates.values()) and not is_documentation(p, doc)[0]]
-    if not gates:
+        if name in expired and not (rec and rec.get("ok") and rec.get("hash") == now):
+            moved[name] = moved.get(name) or [f"(skip expired {expired[name]['until']})"]
+    exp = [n for n in expired if n in moved]
+    unmapped = [p for p in delta if not any(_in_readset(p, g["reads"]) for g in cfg["gates"].values()) and not is_documentation(p, doc)[0]]
+    o = _owed_verdict(cfg, gates, moved, unmapped, delta, against, against_key)
+    o["skipped"] = [{"gate": n, "reason": s["reason"], "until": s["until"]} for n, s in active.items()] + _not_proven(cfg)
+    refused = skip_problems(cfg)
+    if refused:
+        o["reason"] += " · skip refused, never honoured: " + "; ".join(why for _, why in refused)
+    if exp:
+        o["reason"] += " · skip expired: " + ", ".join(f"{n} (until {expired[n]['until']}: {expired[n]['reason']}) — run it or renew the skip" for n in exp)
+    return o
+
+
+def _owed_verdict(cfg: dict, gates: dict, moved: dict, unmapped: list, delta: list, against: str, against_key: str) -> dict:
+    if not cfg["gates"]:
         return {"owed": [], "full": True, "unmapped": delta, "moved": {}, "paths": [], "against": against_key,
                 "reason": "verification.gates is empty — with no map every change is unmapped and the full loop has nothing to run; declare the loop's gates and what each reads"}
     if unmapped:
@@ -313,7 +425,7 @@ def plan(repo: Path, branch: str | None = None, base: str | None = None) -> dict
     o = _owed(cfg, read_seal(repo, branch, cfg), entries, doc, tree_entries(repo, _reference(repo, base), skip=cfg["dir"]), base)
     ok = bool(cfg["gates"]) or not o["full"]
     return {"ok": ok, "required": True, "branch": branch, "owed": o["owed"], "full": o["full"], "unmapped": o["unmapped"], "paths": o["paths"], "against": o["against"],
-            "executions": _executions(cfg, o["owed"]), "reason": o["reason"]}
+            "executions": _executions(cfg, o["owed"]), "skipped": o["skipped"], "reason": o["reason"]}
 
 
 def _executions(cfg: dict, names: list[str]) -> list[dict]:
@@ -324,7 +436,7 @@ def _executions(cfg: dict, names: list[str]) -> list[dict]:
     return [{"command": c, "gates": g} for c, g in execs.items()]
 
 
-def write(repo: Path, gates: list[str], ok: bool, summary: str = "", full: bool = False, branch: str | None = None) -> dict:
+def write(repo: Path, gates: list[str], ok: bool, summary: str = "", full: bool = False, branch: str | None = None, base: str | None = None) -> dict:
     """Record a run of `gates` (their read-set hashes on disk NOW — call it right after the execution, before any
     auto-fix touches the tree) with its outcome. `full` also seals the tree: every gate not recorded in this call
     must already hold a green record whose read-set is still what it hashed — a read-set that moved after its run
@@ -342,12 +454,20 @@ def write(repo: Path, gates: list[str], ok: bool, summary: str = "", full: bool 
         if not ok:
             raise GateFault("--full seals a green loop; a red run is recorded per gate without --full")
         stale, missing = [], []
+        active = skips(cfg)[0]
+        base_entries = None
         for name, g in cfg["gates"].items():
-            if name in gates:
+            if name in gates or name in active:
                 continue
             rec = seal["gates"].get(name)
             if not rec or not rec.get("ok"):
-                missing.append(name)
+                if base_entries is None:   # _owed's rule: never green, its read-set as the merge-base left it → not owed
+                    try:
+                        base_entries = tree_entries(repo, _reference(repo, _base_of(repo, branch, base)), skip=cfg["dir"])
+                    except GateFault:      # no base to compare with: fail closed, the gate stays missing
+                        base_entries = {}
+                if readset_hash(base_entries, g["reads"]) != readset_hash(entries, g["reads"]):
+                    missing.append(name)
             elif rec.get("hash") != readset_hash(entries, g["reads"]):
                 stale.append(name)
         if missing:
@@ -389,7 +509,8 @@ def check(repo: Path, branch: str | None = None, ref: str = "HEAD", control_poin
     base = _base_of(repo, branch, base)
     entries = tree_entries(repo, ref, skip=cfg["dir"])
     o = _owed(cfg, read_seal(repo, branch, cfg), entries, doc, tree_entries(repo, _reference(repo, base, ref), skip=cfg["dir"]), base)
-    return {"ok": not o["owed"], "required": True, "owed": o["owed"], "full": o["full"], "unmapped": o["unmapped"], "paths": o["paths"], "against": o["against"], "ref": ref, "reason": o["reason"]}
+    return {"ok": not o["owed"], "required": True, "owed": o["owed"], "full": o["full"], "unmapped": o["unmapped"], "paths": o["paths"], "against": o["against"], "ref": ref,
+            "skipped": o["skipped"], "reason": o["reason"]}
 
 
 def validate(repo: Path) -> list[dict]:
@@ -407,6 +528,7 @@ def validate(repo: Path) -> list[dict]:
         f.append({"path": "config/quality.json", "reason": "verification.seal.required is true and verification.gates is empty — every change would owe a loop nothing can run"})
     if not cfg["required"] and not cfg["reason"]:
         f.append({"path": "config/quality.json", "reason": "verification.seal.required is false without a `reason` — say where this repo's loop runs instead"})
+    f += [{"path": "config/quality.json", "reason": why} for _, why in skip_problems(cfg)]
     return f
 
 
@@ -497,6 +619,188 @@ def _tail(p: Path, lines: int = 15) -> str:
         return ""
 
 
+class _CanaryGit(Exception):
+    pass
+
+
+def _canary_env() -> dict:
+    """The canary's environment: no inherited GIT_* variable — a hook's GIT_DIR / GIT_INDEX_FILE would aim the temporary
+    repository's commits at the real one."""
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
+def _canary_git(tmp: str, env: dict, *args: str) -> None:
+    r = subprocess.run(["git", "-c", "core.hooksPath=/dev/null", "-c", "user.name=canary", "-c", "user.email=canary@invalid",
+                        "-c", "commit.gpgsign=false", "-C", tmp, *args], capture_output=True, text=True, env=env, timeout=120)
+    if r.returncode != 0:
+        raise _CanaryGit(f"git {args[0]} failed: {((r.stderr or r.stdout).strip().splitlines() or ['no message'])[-1]}")
+
+
+def _scan(cmd: str, tmp: str, env: dict) -> subprocess.CompletedProcess:
+    """The scanner over the last commit — `{{RANGE}}` substituted exactly as scripts/security-scan.sh does, nothing else."""
+    return subprocess.run(cmd.replace("{{RANGE}}", "HEAD~1..HEAD"), shell=True, cwd=tmp, capture_output=True, text=True, timeout=300, env=env)
+
+
+def _scan_fault(r: subprocess.CompletedProcess) -> str | None:
+    last = ((r.stderr or r.stdout or "").strip().splitlines() or ["no output"])[-1]
+    if r.returncode in (126, 127):
+        return f"secret-scanner canary: the scanner could not run (exit {r.returncode}: {last}) — install it or fix security_scan.secrets_command"
+    sig = -r.returncode if r.returncode < 0 else r.returncode - 128 if 128 < r.returncode <= 159 else 0   # through the shell a signal reads as 128+N (N ≤ 31); trufflehog --fail's 183 is a detection
+    if sig:
+        return f"secret-scanner canary: the scanner was killed by a signal ({sig}) — run it by hand to see why, then fix security_scan.secrets_command"
+    return None
+
+
+def secrets_canary(repo: Path) -> tuple[bool, str]:
+    """The secret scanner proves it detects, differentially, in a temporary repository OUTSIDE the tree (no hook, no
+    inherited GIT_*): a clean commit must pass (exit 0) — a scanner that fails everywhere is broken, never "detected" —
+    then the lens canary's planted credential (decoded only there) must fail it (non-zero, not 126/127, not a signal)."""
+    from .canary import planted_credential
+    ss = key(repo, "security_scan", default=None)
+    cmd = ss.get("secrets_command") if isinstance(ss, dict) else None
+    if not isinstance(cmd, str) or not cmd.strip():
+        return False, "secret-scanner canary: security_scan.secrets_command is not declared — the secrets member cannot prove it detects; declare the scanner (SETUP Q23.2)"
+    env = _canary_env()
+    with tempfile.TemporaryDirectory(prefix="seal-canary-") as tmp:
+        try:
+            _canary_git(tmp, env, "init", "-q")
+            Path(tmp, "README.txt").write_text("canary\n", encoding="utf-8")
+            _canary_git(tmp, env, "add", "-A"); _canary_git(tmp, env, "commit", "-qm", "base")
+            Path(tmp, "NOTES.txt").write_text("nothing secret here\n", encoding="utf-8")
+            _canary_git(tmp, env, "add", "-A"); _canary_git(tmp, env, "commit", "-qm", "clean")
+            clean = _scan(cmd, tmp, env)
+            fault = _scan_fault(clean)
+            if fault:
+                return False, fault
+            if clean.returncode != 0:
+                last = ((clean.stderr or clean.stdout).strip().splitlines() or ["no output"])[-1]
+                return False, f"secret-scanner canary: the scanner fails on a commit with no secret (exit {clean.returncode}: {last}) — fix security_scan.secrets_command"
+            Path(tmp, "settings.py").write_text(planted_credential() + "\n", encoding="utf-8")
+            _canary_git(tmp, env, "add", "-A"); _canary_git(tmp, env, "commit", "-qm", "canary")
+            r = _scan(cmd, tmp, env)
+        except _CanaryGit as e:
+            return False, f"secret-scanner canary: could not set up its temporary repository ({e}) — check that git runs here; the secrets member is red until it does"
+        except (OSError, subprocess.SubprocessError) as e:
+            return False, f"secret-scanner canary: could not run ({e.__class__.__name__}) — the secrets member is red until the scanner runs"
+    fault = _scan_fault(r)
+    if fault:
+        return False, fault
+    if r.returncode == 0:
+        return False, "secret-scanner canary: the scanner found nothing in a commit that carries a planted credential — its rules or its command no longer detect; fix security_scan.secrets_command before trusting a green"
+    return True, "secret-scanner canary: detected"
+
+
+# ─── honest tests (EVOL-068): the red proven at the base, coverage per file ─────
+
+def _test_files(repo: Path, cfg: dict, ref: str) -> list[str]:
+    """The test files the diff adds or changes: on disk now, under the test roots, moved since `ref`."""
+    entries = tree_entries(repo, skip=cfg["dir"])
+    return [p for p in _delta(entries, tree_entries(repo, ref, skip=cfg["dir"])) if p in entries and _in_readset(p, cfg["gates"][RED]["reads"])]
+
+
+def _scoped_at_base(wt: Path, scoped: str, rel: str) -> subprocess.CompletedProcess:
+    return subprocess.run(scoped.replace("{paths}", shlex.quote(rel)), shell=True, cwd=str(wt), capture_output=True, text=True, timeout=1800)
+
+
+def red_proof(repo: Path, cfg: dict, base: str) -> dict:
+    """Each test file the diff adds or changes must FAIL at the base's merge-base, laid out in a worktree outside the
+    tree (always removed): {ok, files, detail, reason}. No test file changed: ok at zero cost."""
+    row = cfg["gates"].get("tests") or {}
+    if RED not in cfg["gates"]:
+        return {"ok": True, "files": [], "detail": [], "reason": "no red member — verification.gates.tests declares no scoped run"}
+    ref = _reference(repo, base)
+    files = _test_files(repo, cfg, ref)
+    if not files:
+        return {"ok": True, "files": [], "detail": [], "reason": "no test file added or changed since the base — nothing to prove"}
+    tmp = Path(tempfile.mkdtemp(prefix="seal-red-"))
+    wt, added, results = tmp / "base", False, []
+    try:
+        try:
+            _git(repo, "worktree", "add", "--detach", "--quiet", str(wt), ref)
+            added = True
+            for rel in files:
+                (wt / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(repo / rel, wt / rel, follow_symlinks=False)
+            for rel in row.get("red_link", []):
+                if (repo / rel).exists() and not (wt / rel).exists():
+                    (wt / rel).parent.mkdir(parents=True, exist_ok=True)
+                    os.symlink(repo / rel, wt / rel)
+            results = [(rel, _scoped_at_base(wt, row["scoped"], rel)) for rel in files]
+        except subprocess.TimeoutExpired as e:
+            return {"ok": False, "files": files, "detail": [], "reason": f"the scoped run at the base did not finish within {e.timeout:g} s — "
+                    "run that test file alone at the base to find what hangs (a wait on a service, a prompt), make it finish, then run the loop again"}
+        except (GateFault, OSError, subprocess.SubprocessError) as e:
+            return {"ok": False, "files": files, "detail": [], "reason": f"the red could not be proven — the worktree at the base could not be laid out ({e}); "
+                    "free the temporary space, run `git worktree prune`, fetch the diff base, then run the loop again"}
+    finally:
+        if added:
+            subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)], capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "worktree", "prune"], capture_output=True)
+        shutil.rmtree(tmp, ignore_errors=True)
+    detail, green, broken = [], [], []
+    for rel, r in results:
+        last = ((r.stderr or r.stdout or "").strip().splitlines() or ["no output"])[-1]
+        if r.returncode in (126, 127):
+            broken.append(f"{rel} (exit {r.returncode}: {last})")
+        elif r.returncode == 0:
+            green.append(rel)
+        detail.append(f"{rel}: exit {r.returncode} at the base — {'could not run' if r.returncode in (126, 127) else 'could not fail' if r.returncode == 0 else 'proven red'} · {last}")
+    if broken:
+        return {"ok": False, "files": files, "detail": detail, "reason": f"the scoped run (verification.gates.tests.scoped) could not run at the base: {', '.join(broken)} — "
+                "install its runner, or link what it needs from the working tree with verification.gates.tests.red_link"}
+    if green:
+        return {"ok": False, "files": files, "detail": detail, "reason": f"could not fail — passes at the base, without its change: {', '.join(green)}; "
+                "make each assert the behaviour the change adds (a green is worth what its red was worth)"}
+    return {"ok": True, "files": files, "detail": detail, "reason": f"red proven at the base: {len(files)} test file(s)"}
+
+
+def parse_lcov(p: Path, repo: Path) -> dict[str, tuple[int, int]]:
+    """LCOV by hand (SF, LF, LH, end_of_record): path relative to the repository → (lines, covered); a file twice keeps its widest record."""
+    out: dict[str, tuple[int, int]] = {}
+    sf, lf, lh = None, 0, 0
+    root = repo.resolve()
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        tag, _, val = line.strip().partition(":")
+        if tag == "SF":
+            path = Path(val)
+            try:
+                sf = _norm_path(str(path.resolve().relative_to(root)) if path.is_absolute() else val)
+            except ValueError:
+                sf = _norm_path(val)
+            lf = lh = 0
+        elif tag in ("LF", "LH") and val.strip().isdigit():
+            lf, lh = (int(val), lh) if tag == "LF" else (lf, int(val))
+        elif tag == "end_of_record" and sf:
+            out[sf] = max(out.get(sf, (0, 0)), (lf, lh))
+            sf = None
+    return out
+
+
+def coverage_table(repo: Path, cfg: dict, failed: bool = False, since: float | None = None) -> str:
+    """The table from this run's report only: `failed` (the coverage execution exited non-zero) or a report older than
+    `since` (the execution's start) is said, never tabled as measured."""
+    rep = (cfg["gates"].get("coverage") or {}).get("report")
+    head = ["# Coverage per file", ""]
+    if not rep:
+        return "\n".join(head + ["no report declared — verification.gates.coverage.report names the LCOV file of the combined suites; until then no file is measured", ""])
+    if failed:
+        return "\n".join(head + ["not measured this run: the coverage run failed — its log is beside this table; cure it and run the loop again", ""])
+    p = repo / _norm_path(rep)
+    if not p.is_file():
+        return "\n".join(head + [f"report `{rep}` not found — the coverage command did not write it; make verification.gates.coverage.command emit LCOV at that path", ""])
+    if since is not None and p.stat().st_mtime < since:
+        return "\n".join(head + [f"not measured this run: its report was not written by this run (`{rep}` predates it) — make verification.gates.coverage.command write LCOV at that path", ""])
+    rows = parse_lcov(p, repo)
+    surface = key(repo, "surface.runtime_surface", default=[]) or []
+    roots = key(repo, "traceability.test_roots", default=[]) or []
+    missing = sorted(f for f in tree_entries(repo, skip=cfg["dir"]) if _root_match(f, surface) and f not in rows
+                     and not _root_match(f, roots) and not _root_match(f, cfg["coverage_omit"]))
+    lines = head + [f"report `{rep}`", "", "| file | lines | covered | % |", "|---|---|---|---|"]
+    lines += [f"| {f} | {lf} | {lh} | {100 * lh / lf:.1f} |" if lf else f"| {f} | 0 | 0 | — |" for f, (lf, lh) in sorted(rows.items())]
+    lines += [f"| {f} | — | — | not measured |" for f in missing]
+    return "\n".join(lines + ["", f"omitted by declaration (verification.coverage.omit): {', '.join(cfg['coverage_omit']) or 'none'}", ""])
+
+
 def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary: str = "", branch: str | None = None, base: str | None = None) -> dict:
     """The loop's executor: the executions the plan names (or the commands of `gates`), one per distinct command, in
     the repository root through the shell; each is timed, its output streamed to `<seal.dir>/loop-<gates>.log` (the
@@ -522,25 +826,38 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         if not pl["ok"]:
             return {"ok": False, "required": True, "branch": branch, "ran": [], "not_run": [], "sealed": False, "reason": pl["reason"]}
         executions = pl["executions"]
+    skipped = _not_proven(cfg) if gates else pl.get("skipped", [])
+    canary_note = ""
+    if "secrets" in cfg["gates"] and executions:
+        ok_, canary_note = secrets_canary(repo)
+        if not ok_:
+            return {"ok": False, "required": True, "branch": branch, "ran": [], "not_run": [], "sealed": False, "reason": canary_note}
     logs = logs_cfg(repo)
     from . import profile as profile_mod
     prof = profile_mod.profile(repo, branch)["profile"]
     state = _state_dir(repo, cfg["dir"])
     state.mkdir(parents=True, exist_ok=True)
-    ran, not_run, all_ok, unwritten = [], [], True, []
+    ran, not_run, all_ok, unwritten, notes, cov_run = [], [], True, [], [], None
     for e in executions:
         cmd, gs = e["command"], e["gates"]
-        if cmd.startswith("<"):
+        builtin = cmd == f"<{RED}>" and cfg["gates"][RED].get("builtin")
+        if cmd.startswith("<") and not builtin:
             not_run.extend(gs)
             continue
         log = _plain(state / f"loop-{_slug('-'.join(gs))}.log")
-        start, t0 = _now(), time.monotonic()
-        try:
-            with log.open("w", encoding="utf-8") as fh:
-                rc = subprocess.run(cmd, shell=True, cwd=str(repo), stdout=fh, stderr=subprocess.STDOUT).returncode
-        except OSError as ex:
-            rc = 2
-            log.write_text(f"could not run: {ex}\n", encoding="utf-8")
+        start, t0, wall0 = _now(), time.monotonic(), time.time()
+        if builtin:   # in process: the red proven at the base
+            proof = red_proof(repo, cfg, _base_of(repo, branch, base))
+            log.write_text("\n".join(proof["detail"] + [proof["reason"]]) + "\n", encoding="utf-8")
+            rc = 0 if proof["ok"] else 1
+            notes += [] if proof["ok"] else [proof["reason"]]
+        else:
+            try:
+                with log.open("w", encoding="utf-8") as fh:
+                    rc = subprocess.run(cmd, shell=True, cwd=str(repo), stdout=fh, stderr=subprocess.STDOUT).returncode
+            except OSError as ex:
+                rc = 2
+                log.write_text(f"could not run: {ex}\n", encoding="utf-8")
         end, seconds = _now(), round(time.monotonic() - t0, 1)
         ok = rc == 0
         all_ok = all_ok and ok
@@ -552,15 +869,29 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
                                   {"gate": g, "command": cmd, "branch": branch, "profile": prof, "start": start, "end": end, "exit": rc})
             except (GateFault, OSError) as ex:   # observability never stops the loop: said in the verdict, the seal already holds
                 unwritten.append(f"{', '.join(gs)}: {ex}")
+        if "coverage" in gs:
+            cov_run = (rc, wall0)
         ran.append({"command": cmd, "gates": gs, "exit": rc, "seconds": seconds, "log": str(log.relative_to(repo)), "tail": "" if ok else _tail(log)})
+    table = None
+    if cov_run:
+        try:
+            table = _plain(state / COVERAGE_TABLE)
+            table.write_text(coverage_table(repo, cfg, failed=cov_run[0] != 0, since=cov_run[1] - 1), encoding="utf-8")
+            table = str(table.relative_to(repo))
+        except (GateFault, OSError) as ex:
+            unwritten.append(f"{COVERAGE_TABLE}: {ex}"); table = None
     sealed, why = False, ""
     if full and all_ok:
         try:
-            write(repo, [], ok=True, summary=summary or "seal --run: full loop green", full=True, branch=branch)
+            write(repo, [], ok=True, summary=summary or "seal --run: full loop green", full=True, branch=branch, base=base)
             sealed = True
         except GateFault as e:
             why = str(e)
     reason = ("every execution green" if all_ok else "red: " + ", ".join(g for r in ran if r["exit"] != 0 for g in r["gates"])) if ran else "nothing to run"
+    if notes:
+        reason += " · " + " · ".join(notes)
+    if canary_note:
+        reason += f" · {canary_note}"
     if not_run:
         reason += f" · not run (no command in the map — their owner records them with seal --write): {', '.join(not_run)}"
     if why:
@@ -568,15 +899,15 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
     if unwritten:
         reason += " · timing not written: " + "; ".join(unwritten)
     ok = all_ok and (sealed or not full)   # --full asked and the tree not sealed is not green: the push would refuse it later
-    return {"ok": ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed, "unwritten": unwritten,
-            "timings": (str(Path(cfg["dir"]) / logs["timings"]) if logs else None), "reason": reason}
+    return {"ok": ok, "required": True, "branch": branch, "profile": prof, "ran": ran, "not_run": not_run, "sealed": sealed, "unwritten": unwritten, "skipped": skipped,
+            "timings": (str(Path(cfg["dir"]) / logs["timings"]) if logs else None), "coverage_table": table, "reason": reason}
 
 
 def render_run(res: dict) -> str:
     if not res.get("required", True):
         return f"seal: n/a — {res['reason']}"
     if not res.get("ran") and not res.get("not_run"):
-        return f"seal: run — {res['reason']}" + (" · full loop sealed" if res.get("sealed") else "")
+        return f"seal: run — {res['reason']}" + (" · full loop sealed" if res.get("sealed") else "") + render_skipped(res)
     lines = [f"seal: run — profile {res.get('profile', '?')} · {len(res['ran'])} execution(s), every one recorded right after it ran:"]
     for r in res["ran"]:
         mark = "✓" if r["exit"] == 0 else "✗"
@@ -585,21 +916,27 @@ def render_run(res: dict) -> str:
             lines.extend("      " + ln for ln in r["tail"].splitlines() if ln.strip())
     if res.get("unwritten"):
         lines.append("  ⚠ timing not written: " + "; ".join(res["unwritten"]))
+    if res.get("coverage_table"):
+        lines.append(f"  coverage per file → {res['coverage_table']}")
     lines.append(f"  timings → {res['timings']}" if res.get("timings") and not res.get("unwritten") else "" if res.get("timings") else "  no timings written — verification.logs is not configured (SETUP --upgrade adds the block)")
     lines = [ln for ln in lines if ln]
-    lines.append(f"verdict: {'ok' if res['ok'] else 'RED'} — {res['reason']}" + (" · full loop sealed" if res.get("sealed") else ""))
+    lines.append(f"verdict: {'ok' if res['ok'] else 'RED'} — {res['reason']}" + (" · full loop sealed" if res.get("sealed") else "") + render_skipped(res))
     return "\n".join(lines)
+
+
+def render_skipped(res: dict) -> str:
+    return "".join(f"\n  skipped: {s['gate']} until {s['until']} — {s['reason']}" if s.get("until") else f"\n  {s['reason']}" for s in res.get("skipped") or [])
 
 
 def render(res: dict) -> str:
     if not res.get("required", True):
         return f"seal: n/a — {res['reason']}"
     if res.get("advisory"):
-        return f"seal: ok (advisory, static round) — {res['reason']}"
+        return f"seal: ok (advisory, static round) — {res['reason']}" + render_skipped(res)
     if res["ok"]:
-        return f"seal: ok — {res['reason']}"
+        return f"seal: ok — {res['reason']}" + render_skipped(res)
     what = "the full loop" if res.get("full") else ", ".join(res["owed"])
     paths = res.get("paths") or []
     tail = f"\n  moved: {', '.join(paths[:10])}{' …' if len(paths) > 10 else ''}" if paths else ""
     return (f"seal: RED — {res['reason']}\n  owed: {what} — run it (factory-build-verification § Full Verification Gate → python3 scripts/gate.py seal --plan), "
-            f"commit the bytes it sealed (the whole tree on disk, the loop hashed it), push again{tail}")
+            f"commit the bytes it sealed (the whole tree on disk, the loop hashed it), push again{tail}") + render_skipped(res)

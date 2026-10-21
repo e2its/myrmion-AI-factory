@@ -1,6 +1,6 @@
 ---
 name: factory-memory-cache
-description: "Factory Memory Cache Protocol (FMCP) — unified /memories/repo/ caching layer for cross-command performance optimization. Use when: any agent reads frequently-accessed data (feature state, BVL commands, CIP inventory, execution plan)."
+description: "Factory Memory Cache Protocol (FMCP) — unified /memories/repo/ caching layer for cross-command performance optimization. Use when: any agent reads frequently-accessed data (feature state, CIP inventory, execution plan)."
 applicable_when:
   always: true
 ---
@@ -21,7 +21,6 @@ applicable_when:
 
 Agent commands in myrmion-AI-factory repeatedly read the same files:
 - **Smart Redirect** reads 9-15 artifact frontmatters after every command
-- **BVL** derives test commands from stack config on every `--build`
 - **CIP** parses the full `codebase_inventory.json` and runs 4-Criteria matching 3-5 times per build
 - **Next-Task Resolver** reads the execution plan on every "what's next?" query
 
@@ -48,7 +47,6 @@ The `/memories/repo/` system provides repository-scoped, conversation-persistent
 | Cache File | Source(s) | Updated By | Read By | Invalidation Trigger |
 |-----------|-----------|------------|---------|---------------------|
 | `/memories/repo/feature-state-cache.md` | `docs/spec/*/` frontmatters | Smart Redirect (post-command) | Smart Redirect, Factory, any agent | Any artifact status change |
-| `/memories/repo/bvl-commands-cache.md` | `.context/governance_snapshot.md` § Stack Configuration + `docs/setup.md → verification.commands` + project config files | BVL `resolve_verification_commands()` | IMPLEMENT `--build`, `--fix` | Stack config change, declared commands change, governance snapshot regeneration |
 | `/memories/repo/codebase-inventory-cache.md` | `config/codebase_inventory.json` | CIP `cip_consultation_gate()`, IMPLEMENT `--build` (post-task registration) | BLUEPRINT, IMPLEMENT, CODESIGN | Any inventory modification |
 | `/memories/repo/execution-plan-cache.md` | `docs/backlog/execution-plan.md` | BACKLOG `--plan-execution`, `--update-execution`, `--sync-execution` | Next-Task Resolver, Factory | Execution plan modification |
 
@@ -60,7 +58,6 @@ The `/memories/repo/` system provides repository-scoped, conversation-persistent
 
 Examples:
 - `/memories/repo/feature-state-cache.md`
-- `/memories/repo/bvl-commands-cache.md`
 - `/memories/repo/codebase-inventory-cache.md`
 - `/memories/repo/execution-plan-cache.md`
 
@@ -224,55 +221,9 @@ next_action: BLUEPRINT --start USR-002
 
 ---
 
-## CACHE TYPE 2: BVL COMMANDS CACHE
+## CACHE TYPE 2: BVL COMMANDS CACHE — retired (EVOL-067)
 
-**Purpose:** Cached verification commands (test_single, lint, typecheck, build) derived from stack config. Eliminates framework detection file searches on every `--build`.
-
-**Source:** `.context/governance_snapshot.md` § Stack Configuration + `docs/setup.md → verification.commands` + project config files
-
-**Cache Location:** `/memories/repo/bvl-commands-cache.md`
-
-```yaml
-FUNCTION write_bvl_commands_cache(commands, snapshot_hash):
-  payload = """
----
-source_hash: "{snapshot_hash}"
-generated_at: "{ISO_8601}"
-generated_by: "IMPLEMENT --build (BVL)"
-cache_version: "1.0"
----
-
-# BVL Commands Cache (Auto-Generated — DO NOT EDIT)
-
-> Source: .context/governance_snapshot.md § Stack Configuration + docs/setup.md → verification.commands + config file detection
-
-## Verification Commands
-test_single: {commands.test_single}
-test_suite: {commands.test_suite}
-lint: {commands.lint}
-typecheck: {commands.typecheck}
-build: {commands.build}
-frontend_test: {commands.frontend_test OR "NULL"}
-
-## Detection Metadata
-backend_runtime: {commands.backend_runtime}
-testing_framework: {commands.testing_framework}
-frontend_framework: {commands.frontend_framework OR "None"}
-"""
-  MEMORY_DELETE("/memories/repo/bvl-commands-cache.md")
-  MEMORY_CREATE("/memories/repo/bvl-commands-cache.md", payload)
-
-FUNCTION read_bvl_commands_cache():
-  cache = MEMORY_READ("/memories/repo/bvl-commands-cache.md")
-  IF cache IS NULL: RETURN NULL
-  
-  # Validate against current governance snapshot hash
-  snapshot_hash = MD5(READ(".context/governance_snapshot.md"))
-  IF cache.frontmatter.source_hash != snapshot_hash:
-    RETURN NULL  # Stale — governance changed
-  
-  RETURN PARSE_COMMANDS(cache)
-```
+The loop reads `config/quality.json → verification.gates` directly; nothing is derived, nothing cached.
 
 ---
 
@@ -360,8 +311,7 @@ total_artifacts: 12
 |-------|---------|------------|-------------|----------|
 | **Factory** | Every routing | Feature State | — | Full artifact scan |
 | **Smart Redirect** | Post-command | Feature State | Feature State | Full artifact scan |
-| **IMPLEMENT** | `--build` | BVL Commands, CIP Inventory | BVL Commands, CIP Inventory | derive_commands_from_stack(), full JSON parse |
-| **IMPLEMENT** | `--fix` | BVL Commands | — | derive_commands_from_stack() |
+| **IMPLEMENT** | `--build` | CIP Inventory | CIP Inventory | full JSON parse |
 | **BLUEPRINT** | `--start`, `--refine` | CIP Inventory | CIP Inventory | Full JSON parse |
 | **CODESIGN** | `--start` | CIP Inventory | — | Full JSON parse |
 | **BACKLOG** | `--plan-execution` | — | Execution Plan | — |
@@ -372,8 +322,6 @@ total_artifacts: 12
 | Event | Caches to Invalidate |
 |-------|---------------------|
 | Artifact status change (any agent modifies frontmatter) | Feature State |
-| `SETUP --generate` or `SETUP --upgrade` (governance changes) | BVL Commands |
-| Governance snapshot regenerated | BVL Commands |
 | `config/codebase_inventory.json` modified | CIP Inventory |
 | `IMPLEMENT --build` registers new artifact | CIP Inventory |
 | `BACKLOG --plan-execution` | Execution Plan |
@@ -385,7 +333,6 @@ total_artifacts: 12
 The **Governance Snapshot** (`.context/governance_snapshot.md`) remains the PRIMARY mechanism for governance context recovery. It is:
 - **In-repo** (trackable, inspectable by humans, survives git operations)
 - **Dual-hash validated** (constitution + setup)
-- **The foundation** for BVL Commands Cache (snapshot hash is the BVL cache's validation key)
 
 The FMCP caches in `/memories/repo/` are **complementary acceleration layers**:
 - They cache DERIVED or COMPUTED data (artifact states, resolved commands, domain groupings)

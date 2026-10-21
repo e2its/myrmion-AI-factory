@@ -13,16 +13,20 @@ applicable_when:
 
 spawn-policy: work-critic
 
-Spawned by name by the **main session** (no agent carries `Agent`; the phase agent `factory-implement` receives the results) after the worker completes each phase — `factory-critic-correctness`, `factory-critic-governance`, `factory-critic-fidelity` (and `factory-critic-security`, § Security lens below). Each receives its corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) and the model resolved per spawn (`python3 scripts/gate.py agents --resolve --class work-critic --surface <lens> --files N --lines M`; the PreToolUse hook on `Agent` refuses a spawn without it). The spawn prompt opens with `effort:`, `turn budget:` and `probe budget:` from the resolver, then `round: N` and `scope: diff <a diff file of the increment's files, outside the tree>`; round 2 reads the cure diff only (the files against their round-1 bytes), and the PreToolUse hook re-measures the scope and refuses any other budget, a repeated file or a cure not smaller than round 1 (EVOL-113); the harness stops a critic at its ceiling (`maxTurns`) and marks the return partial — the main session then sends ONE hand-back request and resumes it; a critic that still does not deliver is fully unverified, never silence (`rules/agents.md § The bounded loop`, EVOL-058); at most `probe_budget` executions run on a critic's behalf per round, each the test a finding names, never the suite. Before the round, `python3 scripts/gate.py canary --plan` names the lenses whose resolved model moved: each reviews the canary fixture first (`gate.py canary --fixture`, `--judge --lens <lens> --model <the return's Model: line>`), the verdict goes on the tracking item, a red one opens the spawn policy's review by RDR and never blocks; after every real return, `gate.py canary --seen --lens <lens> --model <id>` (`rules/agents.md § The lens canary`, EVOL-059). Read-only by tool matrix; the main session hashes the working tree before and after each run (`python3 scripts/gate.py certify --subject worktree --paths <the increment's files>` — a non-zero exit is a refusal) and refuses a run around which it moved; a return outside the finding shape or without a real probe is refused (`python3 scripts/gate.py agents --check-return --class work-critic`). The passes `rounds.work` allows (`rules/agents.md`), then the user adjudicates. No critic edits, commits or decides.
+Spawned by name by the **main session** (no agent carries `Agent`; the phase agent `factory-implement` receives the results) after the worker completes each phase — `factory-critic-correctness`, `factory-critic-governance`, `factory-critic-fidelity` (and `factory-critic-security`, § Security lens below). Each receives its corpus digest (`python3 scripts/gate.py agents --digest --agent <name>`) and the model resolved per spawn (`python3 scripts/gate.py agents --resolve --class work-critic --surface <lens> --files N --lines M`; the PreToolUse hook on `Agent` refuses a spawn without it). The spawn prompt opens with `effort:`, `turn budget:` and `probe budget:` from the resolver, then `round: N` and `scope: diff <a diff file of the increment's files, outside the tree>`; round 2 reads the cure diff only (the files against their round-1 bytes), and the PreToolUse hook re-measures the scope and refuses any other budget, a repeated file or a cure not smaller than round 1 (EVOL-113); the harness stops a critic at its ceiling (`maxTurns`) and marks the return partial — the main session then sends ONE hand-back request and resumes it; a critic that still does not deliver is fully unverified, never silence (`rules/agents.md § The bounded loop`, EVOL-058); at most `probe_budget` executions run on a critic's behalf per round, each the test a finding names, never the suite. Before the round, `python3 scripts/gate.py canary --plan` names the lenses whose resolved model moved: each reviews the canary fixture first (`gate.py canary --fixture`, `--judge --lens <lens> --model <the return's Model: line>`), the verdict goes on the tracking item, a red one opens the spawn policy's review by RDR and never blocks; after every real return, `gate.py canary --seen --lens <lens> --model <id>` (`rules/agents.md § The lens canary`, EVOL-059). The correctness spawn also carries `coverage: <verification.seal.dir>/coverage-table.md` — the last `seal --run`'s table — or `coverage: not measured yet` before the first full loop (EVOL-068). Read-only by tool matrix; the main session hashes the working tree before and after each run (`python3 scripts/gate.py certify --subject worktree --paths <the increment's files>` — a non-zero exit is a refusal) and refuses a run around which it moved; a return outside the finding shape or without a real probe is refused (`python3 scripts/gate.py agents --check-return --class work-critic`). The passes `rounds.work` allows (`rules/agents.md`), then the user adjudicates. No critic edits, commits or decides.
 
 **Check ownership per lens:**
 
 | Lens | Checks |
 |---|---|
-| correctness (`factory-critic-correctness`) | #1 ARCH (partly: layer separation, dependency direction), #5 SCHEMA, #6 TYPE, #8 MIGRATION, plus the engine at Step R.1b |
+| correctness (`factory-critic-correctness`) | #1 ARCH (partly: layer separation, dependency direction), #5 SCHEMA, #6 TYPE, #8 MIGRATION, the honest-test items below, plus the engine at Step R.1b |
 | governance (`factory-critic-governance`) | #1 ARCH (partly: module boundaries, extension strategy), #2 GOV, #2b GOV-SHARED, #2c GOV-SEED, #2d GOV-DC, #3 SEC (patterns only), #4 PATH, #9 IAC, #10 CFP, #11 EXT-STRATEGY, #12 ACL-EXT, #13 POLICY |
-| fidelity (`factory-critic-fidelity`) | #7 UX, #14 DESIGN |
+| fidelity (`factory-critic-fidelity`) | #7 UX, #14 DESIGN, the scope items below |
 | security (`factory-critic-security`) | § Security lens — SAST scan, pattern library, verification loop, verdict |
+
+**Lens items (EVOL-068)** — until the question catalog holds them:
+- correctness: a test that cannot fail (the loop's `red` member proves each test file red at the base; the lens judges the assertion); every edge case of the test plan has its test; one regression test per fix (DC-30); the coverage table — a «not measured» file the increment touches is a finding.
+- fidelity: exact scope against the task — nothing missing, nothing extra; deferral language in code or plan («next slice», «later», TODO/FIXME) is 🔴.
 
 All 14 checks run per phase, filtered by feature scope. The verification loops (`review_verification_loop`, `sec_verification_loop`) execute tools — the main session runs them (critics carry no Bash) and hands the results to the lens that reads them. **Before the critics only the static round runs (EVOL-051)**: `python3 scripts/gate.py profile --run --control-point static` (every gate that needs no build and no database — the retired vocabulary, the budgets, law and manifest parity, currency, the surface, the agents, the seal's state and the planning artefacts' governance digests) plus the workers' red-first scoped runs as the test evidence. No full suite, no coverage run, no typecheck, no build before the critics: the one full loop runs after the artefacts are written (Factory-implement-build § Completion Gate) and seals the bytes the commit carries. A cure is re-checked by its scoped gate (`gate.py seal --plan`).
 
@@ -196,7 +200,7 @@ CONSTRAINT_IDS: [GOV-SHARED-{MISSING|INLINE|UNREG}-{N}]
 
 ```yaml
 # Triggers when the feature touches seed/synthetic data scripts OR migration/schema files.
-# Verifies seed data alignment + deployment isolation using BVL-resolved test commands.
+# Verifies seed data alignment + deployment isolation through the `tests` gate's scoped command.
 #
 # Triggered by ANY of:
 #   - feature_files INCLUDES seed script pattern (modified or new)
@@ -205,13 +209,10 @@ CONSTRAINT_IDS: [GOV-SHARED-{MISSING|INLINE|UNREG}-{N}]
 
 VERIFY:
   # Sub-check 1: seed schema alignment guardrail passes
-  # Resolve seed alignment tests from the project's test suite via BVL commands.
-  # Uses GLOB to find test files matching seed alignment naming convention,
-  # then runs them via BVL's resolve_verification_commands().test_single.
+  # Seed alignment tests: GLOB the naming convention, run them through the `tests` gate's `scoped` command.
   seed_alignment_tests = GLOB("tests/**/test_seed_*alignment*")
   IF seed_alignment_tests.length > 0:
-    commands = resolve_verification_commands()  # From BVL
-    seed_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_alignment_tests})
+    seed_test_cmd = INTERPOLATE(READ_JSON("config/quality.json").verification.gates.tests.scoped, {paths: seed_alignment_tests})
     RUN seed_test_cmd
     IF exit_code != 0:
       BLOCKER [GOV-SEED-ALIGNMENT-SCHEMA]:
@@ -221,7 +222,7 @@ VERIFY:
   # Sub-check 2: deployment isolation guardrail passes
   seed_isolation_tests = GLOB("tests/**/test_seed_*isolation*")
   IF seed_isolation_tests.length > 0:
-    isolation_test_cmd = INTERPOLATE(commands.test_single, {test_file: seed_isolation_tests})
+    isolation_test_cmd = INTERPOLATE(READ_JSON("config/quality.json").verification.gates.tests.scoped, {paths: seed_isolation_tests})
     RUN isolation_test_cmd
     IF exit_code != 0:
       BLOCKER [GOV-SEED-ALIGNMENT-DEPLOY]:
@@ -883,11 +884,11 @@ Step R.1b: Agentic Code Review
 > critics (EVOL-051): the light gate profile and scoped lint — no build, no coverage run, no full suite. Coverage,
 > typecheck and the suite are judged ONCE by the full loop after the artefacts (`verification.gates`).
 > The main session runs it (critics are read-only); results feed R.2; coverage against GOV-TEST is the loop's `coverage` gate.
-> Uses BVL's `resolve_verification_commands()` as the single source of truth for commands.
+> Commands: `config/quality.json → verification.gates`, the one source (EVOL-067).
 
 ```yaml
 FUNCTION review_verification_loop(phase, source_files, governance_context):
-  commands = resolve_verification_commands()  # From BVL SKILL.md
+  g = READ_JSON("config/quality.json").verification.gates   # the one source (EVOL-067)
   results = {}
 
   # 0. The static round (EVOL-051) — every gate that needs no build and no database, one call, all report.
@@ -903,9 +904,8 @@ FUNCTION review_verification_loop(phase, source_files, governance_context):
   #    threshold is judged there. No suite, no coverage command runs before the critics.
   results.coverage = { status: "DEFERRED", reason: "measured once in the full loop (EVOL-051)" }
   # 2. Lint on the phase files — a scoped gate (no build): re-checks the cures while working (gate.py seal --plan names it)
-  IF commands.lint IS NOT NULL:
-    phase_files = COLLECT_SOURCE_FILES(phase)
-    lint_cmd = INTERPOLATE(commands.lint, {files: phase_files})
+  IF g.lint IS NOT NULL:
+    lint_cmd = g.lint.command
     result = RUN_IN_TERMINAL(lint_cmd, timeout: 30000)
     
     IF result.exit_code != 0:
@@ -913,13 +913,13 @@ FUNCTION review_verification_loop(phase, source_files, governance_context):
         status: "BLOCKER",
         finding: "[GOV-LINT-001] Lint violations detected in Phase {phase}",
         output: TRUNCATE(result.output, MAX_LINES: 30),
-        remediation: "Fix lint issues. Auto-fix available: {derive_autofix_command(commands.lint)}"
+        remediation: "Fix lint issues (the linter's own fix mode), then run it again."
       }
     ELSE:
       results.lint = { status: "PASS" }
       LOG: "✅ REVIEW: Lint clean for Phase {phase}"
   ELSE:
-    results.lint = { status: "SKIPPED", reason: "No lint command for stack" }
+    results.lint = { status: "SKIPPED", reason: "no `lint` gate declared" }
   
   # 3. Type check — needs a build: runs ONCE in the full loop (EVOL-051), never here
   results.typecheck = { status: "DEFERRED", reason: "runs once in the full loop" }
@@ -1067,28 +1067,28 @@ IF brownfield (extension strategy E1/E2/E3):
 > **Purpose:** SAST pattern matching above is static (the lens reads code). This loop **executes**
 > real security tools to catch vulnerabilities that pattern matching alone cannot detect:
 > dependency CVEs, real secret leaks, and supply-chain risks.
-> Uses BVL's `resolve_verification_commands()` as the single source of truth for commands.
+> Commands: `config/quality.json → verification.gates`, the one source (EVOL-067).
 
 ```yaml
 FUNCTION sec_verification_loop(phase, source_files):
-  commands = resolve_verification_commands()  # From BVL SKILL.md
+  g = READ_JSON("config/quality.json").verification.gates   # the one source (EVOL-067)
   results = {}
   
   # 1. Dependency audit (MANDATORY — catches known CVEs). The command carries the project's threshold
-  #    (config/quality.json → security_scan.sca_threshold, factory-build-verification § dependency_audit) and its
+  #    (config/quality.json → security_scan.sca_threshold, baked into the `sca` gate's command at SETUP) and its
   #    exit code is the verdict — never masked (#116).
   sca_threshold = READ_JSON("config/quality.json").security_scan.sca_threshold   # absent or unreadable → NULL
-  IF commands.dependency_audit IS NULL OR sca_threshold NOT IN [critical, high, medium, low]:
+  IF g.sca IS NULL OR sca_threshold NOT IN [critical, high, medium, low]:
     results.dependency_audit = {
       status: "BLOCKER",
       finding: "[SEC-DEP-003] No dependency audit, or no readable threshold, declared for this stack",
-      remediation: "Declare the audit command in docs/setup.md → verification.commands.dependency_audit (SETUP discovery § verification coverage) and the threshold in config/quality.json → security_scan.sca_threshold (Q23.3)"
+      remediation: "Declare the `sca` gate in config/quality.json → verification.gates (SETUP discovery § verification coverage) and the threshold in config/quality.json → security_scan.sca_threshold (Q23.3)"
     }
-  ELIF commands.dependency_audit IS TOOL_MISSING(tool):
+  ELIF TOOL_MISSING(g.sca.command):
     results.dependency_audit = { status: "SKIPPED", reason: "{tool} not installed — infrastructure, fail-open" }
     LOG: "⚠️ SEC: dependency audit not run — install {tool}"
   ELSE:
-    result = RUN_IN_TERMINAL(commands.dependency_audit, timeout: 60000)
+    result = RUN_IN_TERMINAL(g.sca.command, timeout: 60000)
     IF result.exit_code != 0:
       vulnerabilities = parse_audit_output(result.output):   # tool-specific: package, installed version, id, severity, fix version
       results.dependency_audit = {
@@ -1104,9 +1104,9 @@ FUNCTION sec_verification_loop(phase, source_files):
       LOG: "✅ SEC: Dependency audit clean"
 
   # 2. Secret scanning (MANDATORY — catches leaked credentials): the project's declared scanner through the one
-  #    dispatcher (commands.secret_scan = `bash scripts/security-scan.sh --secrets`). No regex substitute here — the
+  #    dispatcher (`bash scripts/security-scan.sh --secrets`). No regex substitute here — the
   #    regex floor is pr-review Block 3.
-  result = RUN_IN_TERMINAL(commands.secret_scan, timeout: 30000)
+  result = RUN_IN_TERMINAL("bash scripts/security-scan.sh --secrets", timeout: 30000)
   IF result.exit_code == 1:   # findings, or no scanner declared — the dispatcher's message names which and the resolution
     results.secret_scan = {
       status: "BLOCKER",
@@ -1300,17 +1300,16 @@ VERIFY before marking complete:
   [ ] 3. Zero CRITICAL/HIGH findings from SEC
   [ ] 4. All tests passing (unit + integration + E2E)
   [ ] 5. Test coverage meets threshold from testing.md
-  [ ] 6. No TODO/FIXME in business-critical code
-  [ ] 7. All contracts implemented (OpenAPI/GraphQL/gRPC/AsyncAPI)
-  [ ] 8. Schema compliance verified (journey § 6 existence + design.md § Schema Constraints typing)
-  [ ] 9. Protected paths not violated
-  [ ] 10. Traceability comments present in generated files
-  [ ] 11. .env.example updated with all required variables
-  [ ] 12. No cross-domain direct imports (contract-first)
-  [ ] 13. Vision fidelity verified (if frontend)
-  [ ] 14. Design materialization fidelity verified (shared components + ADR bindings)
-  [ ] 15. Peer review report generated
-  [ ] 16. Security audit report generated
+  [ ] 6. All contracts implemented (OpenAPI/GraphQL/gRPC/AsyncAPI)
+  [ ] 7. Schema compliance verified (journey § 6 existence + design.md § Schema Constraints typing)
+  [ ] 8. Protected paths not violated
+  [ ] 9. Traceability comments present in generated files
+  [ ] 10. .env.example updated with all required variables
+  [ ] 11. No cross-domain direct imports (contract-first)
+  [ ] 12. Vision fidelity verified (if frontend)
+  [ ] 13. Design materialization fidelity verified (shared components + ADR bindings)
+  [ ] 14. Peer review report generated
+  [ ] 15. Security audit report generated
 ```
 
 ### 3.5: CIP Update (Codebase Inventory)

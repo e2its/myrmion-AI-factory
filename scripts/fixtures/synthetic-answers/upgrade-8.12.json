@@ -1,0 +1,69 @@
+{
+  "_doc": "Synthetic installed project at framework 8.12.0 (EVOL-102 ph.2): only the stack answers back-filled into the frontmatter, every other key left null (pending, Q23.3 newer than the project). A migration row older than 8.12.0 is not owed; the three `always` rows (critic-return, manifest-bump, verification.gates) are owed on every upgrade. materialize-synthetic.sh resolves against it as SETUP --upgrade does. META-ONLY.",
+  "framework_version": "8.12.0",
+  "answers": {
+    "project_mode": "Greenfield",
+    "backend.runtime": "Python",
+    "frontend.framework": "React",
+    "frontend.meta_framework": "None",
+    "database.primary.engine": "None",
+    "hosting.provider": "AWS",
+    "hosting.iac_tool": "None",
+    "ci_cd.platform": "GitHub Actions",
+    "project_tracking.tool": "GitHub Projects",
+    "dependencies.backend": [
+      "fastapi >=0.110,<1"
+    ],
+    "dependencies.frontend": [
+      "react ^18.2"
+    ],
+    "dependencies.denied": [
+      "moment"
+    ]
+  },
+  "expect": {
+    "landed": [
+      ".claude/rules/python.md"
+    ],
+    "absent": [
+      ".claude/rules/csharp.md"
+    ],
+    "pending": [
+      "Q1",
+      "Q2",
+      "Q4",
+      "Q4.5",
+      "Q16",
+      "Q17",
+      "Q18",
+      "Q19",
+      "Q20.2",
+      "Q21.2",
+      "Q21.1",
+      "Q22",
+      "Q22.1",
+      "Q23",
+      "Q23.1",
+      "Q23.2",
+      "Q23.3",
+      "Q24",
+      "Q25",
+      "Q27.1",
+      "Q27.2",
+      "Q27.3",
+      "Q27.4",
+      "Q27.6",
+      "Q28",
+      "Q29",
+      "Q30",
+      "Q31",
+      "Q32",
+      "Q33",
+      "Q34"
+    ],
+    "migrations": ["critic-return", "manifest-bump", "verification.gates (EVOL-067)"],
+    "gates": {"tests": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q", "coverage": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q", "lint": "ruff check .", "sca": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi", "typecheck": "if [ -f mypy.ini ] || { [ -f pyproject.toml ] && grep -q '^\\[tool\\.mypy' pyproject.toml; }; then mypy .; fi", "frontend-tests": "npx jest --config jest.config.ts --no-coverage", "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"},
+    "red": true, "coverage_report": "coverage/lcov.info", "red_link": null,
+    "test_roots": ["tests/**", "e2e/**", "src/**/*.test.*", "src/**/*.spec.*"]
+  }
+}

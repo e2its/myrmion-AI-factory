@@ -6,11 +6,13 @@ import datetime as dt
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import re
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import unittest.mock
 import urllib.error
@@ -1921,13 +1923,15 @@ class Seal(unittest.TestCase):
              "lint": {"reads": ["src/**"], "command": "ruff check src"},
              "docs-build": {"reads": ["docs/site/**"], "command": "mkdocs build"}}       # a gate that DOES read documentation
 
-    def _repo(self, tmp, required=True, gates=None, logs=None):
+    def _repo(self, tmp, required=True, gates=None, logs=None, skips=None):
         repo = fixture_repo(Path(tmp))
         q = json.loads((repo / "config/quality.json").read_text())
         q["documentation"] = dict(self.DOCS)
         q["verification"] = {"seal": {"required": required, "dir": ".claude/state", "reason": "" if required else "CI is the loop"}, "gates": self.GATES if gates is None else gates, "digest_artefacts": ["design.md"]}
         if logs is not None:
             q["verification"]["logs"] = logs
+        if skips is not None:
+            q["verification"]["skips"] = skips
         write(repo / "config/quality.json", json.dumps(q))
         write(repo / "src/app.py", "print(1)\n"); write(repo / "tests/test_app.py", "def test_a(): pass\n"); write(repo / "docs/site/index.md", "# site\n")
         write(repo / ".gitignore", ".claude/state/\n")   # as the template ships it; the seal is never part of the tree it seals either way
@@ -2218,6 +2222,346 @@ class Seal(unittest.TestCase):
             self.assertEqual(profile.profile(repo, "feature/FEAT-001-x", "static")["profile"], "light", "the static round: no build, no database, whatever the class or the mode")
             self.assertEqual(profile.profile(repo, "feature/FEAT-001-x", "push")["profile"], "full")
 
+    # ── EVOL-067: a skip is data that expires; a security member is never skipped; the secret scanner proves it detects ──
+    def _skips(self, repo, skips):
+        q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["skips"] = skips
+        write(repo / "config/quality.json", json.dumps(q))
+
+    def test_member_without_reads_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates={"tests": {"command": "pytest -q"}})
+            self.assertTrue(any("non-empty `reads`" in f["reason"] for f in seal.validate(repo)))
+
+    def test_skip_until_future_is_not_owed_and_listed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, skips=[{"gate": "lint", "reason": "linter broken upstream", "at": "2026-10-01", "until": "2099-01-01"}])
+            write(repo / "src/app.py", "print(2)\n")
+            p = seal.plan(repo, base="main")
+            self.assertNotIn("lint", p["owed"]); self.assertIn("tests", p["owed"])
+            self.assertEqual([(s["gate"], s["reason"]) for s in p["skipped"] if s["gate"] != "red"], [("lint", "linter broken upstream")])
+            self.assertEqual(seal.validate(repo), [])
+            seal.write(repo, ["tests", "coverage", "docs-build"], ok=True, branch="feature/FEAT-001-x")
+            self.assertTrue(seal.write(repo, [], ok=True, full=True, branch="feature/FEAT-001-x")["full"], "--full seals over a skipped gate")
+            self._commit(repo, "code")
+            c = seal.check(repo, base="main")
+            self.assertTrue(c["ok"], c["reason"]); self.assertEqual([s["gate"] for s in c["skipped"] if s["gate"] != "red"], ["lint"])
+            self.assertIn("lint", seal.render(c), "the check lists the skip with its reason")
+
+    def test_expired_skip_is_owed_and_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, skips=[{"gate": "lint", "reason": "linter broken upstream", "at": "2026-01-01", "until": "2026-02-01"}])
+            p = seal.plan(repo, base="main")
+            self.assertIn("lint", p["owed"], "an expired skip makes the gate owed again")
+            self.assertIn("expired", p["reason"]); self.assertIn("2026-02-01", p["reason"])
+            c = seal.check(repo, base="main")
+            self.assertFalse(c["ok"]); self.assertIn("lint", c["owed"])
+            seal.write(repo, ["lint"], ok=True, branch="feature/FEAT-001-x")
+            self.assertNotIn("lint", seal.plan(repo, base="main")["owed"], "the gate ran green after the expiry: no longer owed")
+
+    def test_security_or_malformed_skip_fails_validate(self):
+        cases = [({"gate": "secrets", "reason": "r", "at": "2026-10-01", "until": "2099-01-01"}, "security member"),
+                 ({"gate": "lint", "reason": "r", "at": "2026-10-01"}, "{gate, reason, at, until}"),
+                 ({"gate": "lint", "reason": "r", "at": "2026-10-01", "until": "next week"}, "not a date"),
+                 ({"gate": "nope", "reason": "r", "at": "2026-10-01", "until": "2099-01-01"}, "not a gate of verification.gates"),
+                 ({"gate": "lint", "reason": "", "at": "2026-10-01", "until": "2099-01-01"}, "{gate, reason, at, until}")]
+        for skip, msg in cases:
+            with self.subTest(msg=msg), tempfile.TemporaryDirectory() as tmp:
+                gates = dict(self.GATES, secrets={"reads": ["src/**"], "command": "scan"})
+                repo = self._repo(tmp, gates=gates)
+                self._skips(repo, [skip])
+                f = seal.validate(repo)
+                self.assertTrue(any(msg in x["reason"] for x in f), f)
+                if skip["gate"] == "secrets":
+                    self.assertIn("secrets", seal.plan(repo, base="main")["owed"], "a refused skip is never honoured")
+
+    def _canary_repo(self, tmp, stub_rc):
+        repo = self._repo(tmp, gates={"secrets": {"reads": ["src/**"], "command": "true"}})
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["security_scan"] = {"enabled": True, "scanner": "stubscan", "secrets_command": "stubscan --log-opts={{RANGE}}"}
+        write(repo / "config/quality.json", json.dumps(q)); self._commit(repo, "scan")
+        bindir = Path(tmp) / "bin"; bindir.mkdir()
+        if stub_rc.startswith("detect"):   # a scanner that reads the range and finds the planted marker (exit 1, or the code named)
+            body = f'#!/bin/sh\nr="${{1#--log-opts=}}"\ngit log -p "$r" | grep -q canary-secret && {{ echo leak; exit {stub_rc[6:] or 1}; }}\nexit 0\n'
+        elif stub_rc == "signal":
+            body = "#!/bin/sh\nkill -9 $$\n"
+        else:
+            body = f"#!/bin/sh\nexit {stub_rc}\n"
+        write(bindir / "stubscan", body); os.chmod(bindir / "stubscan", 0o755)
+        return repo, {"PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}"}
+
+
+    def test_secrets_canary_detects(self):
+        for stub in ("detect", "detect183"):   # trufflehog --fail exits 183 on a finding: a detection, never a signal
+            with self.subTest(stub=stub), tempfile.TemporaryDirectory() as tmp:
+                repo, env = self._canary_repo(tmp, stub)
+                write(repo / "src/app.py", "print(3)\n")
+                with unittest.mock.patch.dict(os.environ, env):
+                    r = seal.run(repo, base="main")
+                self.assertTrue(r["ok"], r["reason"]); self.assertIn("canary", r["reason"])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, env = self._canary_repo(tmp, "detect")
+            write(repo / "src/app.py", "print(3)\n")
+            with unittest.mock.patch.dict(os.environ, env):
+                seal.run(repo, base="main")
+            self.assertEqual(subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=all", "--", "src"], capture_output=True, text=True).stdout.strip(), "M src/app.py", "the canary writes nothing in the tree")
+
+    def test_secrets_canary_not_detected_or_cannot_run_is_red(self):
+        for rc, msg in (("0", "found nothing"), ("127", "could not run")):
+            with self.subTest(rc=rc), tempfile.TemporaryDirectory() as tmp:
+                repo, env = self._canary_repo(tmp, rc)
+                write(repo / "src/app.py", "print(3)\n")
+                with unittest.mock.patch.dict(os.environ, env):
+                    r = seal.run(repo, base="main")
+                self.assertFalse(r["ok"]); self.assertIn(msg, r["reason"]); self.assertEqual(r["ran"], [], "nothing runs on a scanner that cannot be trusted")
+
+    def test_secrets_canary_differential_clean_commit_and_signal(self):
+        """the scanner must pass a commit with no secret, then fail the planted one — exit 1 everywhere reads as broken, never as detected."""
+        for rc, msg in (("1", "fails on a commit with no secret"), ("signal", "killed by a signal")):
+            with self.subTest(rc=rc), tempfile.TemporaryDirectory() as tmp:
+                repo, env = self._canary_repo(tmp, rc)
+                with unittest.mock.patch.dict(os.environ, env):
+                    ok, why = seal.secrets_canary(repo)
+                self.assertFalse(ok); self.assertIn(msg, why); self.assertIn("security_scan.secrets_command", why)
+
+    def test_secrets_canary_git_hygiene(self):
+        """no inherited GIT_* variable and no hook reaches the canary's git calls — the planted credential never lands in the real repo."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, env = self._canary_repo(tmp, "detect")
+            head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout
+            with unittest.mock.patch.dict(os.environ, {**env, "GIT_DIR": str(repo / ".git"), "GIT_WORK_TREE": str(repo), "GIT_INDEX_FILE": str(repo / ".git/index")}):
+                ok, why = seal.secrets_canary(repo)
+            self.assertTrue(ok, why)
+            self.assertEqual(subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout, head, "no commit landed in the real repo")
+            self.assertNotIn("canary-secret", subprocess.run(["git", "-C", str(repo), "log", "-p", "--all"], capture_output=True, text=True).stdout)
+
+    @unittest.skipUnless(__import__("shutil").which("gitleaks"), "gitleaks not installed")
+    def test_secrets_canary_real_gitleaks_detects(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates={"secrets": {"reads": ["src/**"], "command": "true"}})
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["security_scan"] = {"enabled": True, "scanner": "gitleaks", "secrets_command": "gitleaks detect --source=. --redact --no-banner --log-opts={{RANGE}}"}
+            write(repo / "config/quality.json", json.dumps(q))
+            ok, why = seal.secrets_canary(repo)
+            self.assertTrue(ok, why)
+
+    def test_refused_skip_is_said_and_dates_are_strict(self):
+        """a refused skip is named in the plan's reason, never dropped silently; a date is YYYY-MM-DD on every interpreter."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates=dict(self.GATES, secrets={"reads": ["src/**"], "command": "scan"}))
+            self._skips(repo, [{"gate": "secrets", "reason": "r", "at": "2026-10-01", "until": "2099-01-01"}])
+            write(repo / "src/app.py", "print(9)\n")
+            p = seal.plan(repo, base="main")
+            self.assertIn("secrets", p["owed"]); self.assertIn("skip refused", p["reason"]); self.assertIn("never skipped", p["reason"])
+            self._skips(repo, [{"gate": "lint", "reason": "r", "at": "2026-10-01", "until": "20991231"}])
+            self.assertTrue(any("not a date" in x["reason"] for x in seal.validate(repo)), "a basic-format date is refused even where fromisoformat reads it")
+            self.assertIn("skip refused", seal.plan(repo, base="main")["reason"])
+
+    def test_no_secrets_member_no_canary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates={"lint": {"reads": ["src/**"], "command": "true"}})
+            write(repo / "src/app.py", "print(3)\n")
+            r = seal.run(repo, base="main")
+            self.assertTrue(r["ok"]); self.assertNotIn("canary", r["reason"])
+
+
+class HonestTests(unittest.TestCase):
+    """EVOL-068: LAW-05 states the red proven; the loop's `red` member proves it at the diff base; coverage reaches the lens per file."""
+
+    DOCS, _commit = Seal.DOCS, Seal._commit
+    SENTENCE = "Every unit of logic has its unit test, proven red without its change: red, green, refactor, verify."
+    NEW = 'import sys\nsys.path.insert(0, "src")\nimport app\nassert app.f() == 2\n'   # fails at the base: app has no f there
+    WEAK = "assert True\n"                                                            # passes anywhere: could not fail
+
+    def _repo(self, tmp, scoped="python3 {paths}", red_link=None, extra=None):
+        tests = {"reads": ["src/**", "tests/**"], "command": "true", "scoped": scoped}
+        if red_link is not None:
+            tests["red_link"] = red_link
+        self.GATES = {"tests": tests, **(extra or {})}
+        repo = Seal._repo(self, tmp)
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["traceability"] = {"test_roots": ["tests/**"]}
+        write(repo / "config/quality.json", json.dumps(q)); self._commit(repo, "roots")
+        subprocess.run(["git", "-C", str(repo), "branch", "-f", "main"], check=True, capture_output=True)   # the roots are part of the base
+        write(repo / "src/app.py", "def f():\n    return 2\n")
+        return repo
+
+    @staticmethod
+    def _worktrees(repo):
+        return subprocess.run(["git", "-C", str(repo), "worktree", "list", "--porcelain"], capture_output=True, text=True).stdout.count("worktree ")
+
+    def test_law05_states_the_red_proven(self):
+        real = HERE.parent.parent
+        if not (real / ".context/templates/setup").is_dir():
+            self.skipTest("not the framework repo")
+        for rel in ("CLAUDE.md", ".context/templates/setup/claude/CLAUDE.md"):
+            law = {l["id"]: l for l in corpus.parse_law_list((real / rel).read_text(encoding="utf-8"), source=rel)}["LAW-05"]
+            self.assertEqual(law["sentence"], self.SENTENCE, rel); self.assertIn("ADR-EVOL-068", law["records"], rel)
+        body = (real / ".context/templates/setup/rules/testing.md").read_text(encoding="utf-8")
+        self.assertIn(f"> {self.SENTENCE}", body); self.assertIn("a green is worth what its red was worth", body); self.assertIn("DC-30", body)
+
+    def test_red_member_is_built_in_and_reads_the_test_roots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            g = seal.vcfg(repo)["gates"]
+            self.assertEqual(g["red"]["reads"], ["tests/**"]); self.assertIsNone(g["red"]["command"])
+            self.assertNotIn("red", seal.plan(repo, base="main")["owed"], "no test file changed: the red owes nothing")
+            write(repo / "tests/test_new.py", self.NEW)
+            self.assertIn("red", seal.plan(repo, base="main")["owed"])
+            q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]["gates"]["tests"]["scoped"]
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertNotIn("red", seal.vcfg(repo)["gates"], "no scoped run declared: no red member")
+
+    def test_red_proof_could_not_fail_and_proven(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "tests/test_new.py", self.NEW); write(repo / "tests/test_weak.py", self.WEAK)
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("could not fail", r["reason"]); self.assertIn("tests/test_weak.py", r["reason"])
+            self.assertNotIn("tests/test_new.py", r["reason"], "a test that fails at the base is proven")
+            self.assertEqual(self._worktrees(repo), 1, "the worktree is removed")
+            (repo / "tests/test_weak.py").unlink()
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertTrue(r["ok"], r["reason"]); self.assertEqual(r["files"], ["tests/test_new.py"])
+            run = seal.run(repo, base="main")
+            self.assertTrue(run["ok"], run["reason"]); self.assertIn("red", [g for x in run["ran"] for g in x["gates"]])
+            write(repo / "tests/test_weak.py", self.WEAK)
+            run = seal.run(repo, base="main")
+            self.assertFalse(run["ok"]); self.assertIn("could not fail", run["reason"])
+            self.assertFalse(seal.read_seal(repo, "feature/FEAT-001-x")["gates"]["red"]["ok"])
+
+    def test_red_proof_no_test_change_costs_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            with unittest.mock.patch.object(seal.tempfile, "mkdtemp", side_effect=AssertionError("no worktree")):
+                r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertTrue(r["ok"]); self.assertEqual(r["files"], []); self.assertIn("no test file", r["reason"])
+
+    def test_red_proof_faults_are_red_with_the_repair_and_leave_no_worktree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, scoped="no-such-runner-x {paths}")
+            write(repo / "tests/test_new.py", self.NEW)
+            before = set(Path(tempfile.gettempdir()).glob("seal-red-*"))
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("could not run", r["reason"]); self.assertIn("scoped", r["reason"])
+            with unittest.mock.patch.object(seal, "_scoped_at_base", side_effect=OSError("disk full")):
+                r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("disk full", r["reason"]); self.assertIn("worktree", r["reason"])
+            self.assertEqual(self._worktrees(repo), 1, "removed even on a fault"); self.assertEqual(set(Path(tempfile.gettempdir()).glob("seal-red-*")), before)
+
+    def test_red_link_paths_are_linked_from_the_working_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, red_link=["node_modules"])
+            write(repo / ".gitignore", ".claude/state/\nnode_modules/\n"); write(repo / "node_modules/dep.py", "X = 1\n")
+            write(repo / "tests/test_dep.py", 'import sys\nsys.path.insert(0, "node_modules")\nimport dep\nassert dep.X == 1\n')
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"], "with the link the dependency resolves at the base: the test could not fail"); self.assertIn("could not fail", r["reason"])
+
+    def test_red_false_creates_no_red_gate_and_says_so(self):
+        """RDR «1» (2026-10-21): a stack whose scoped run selects tests by name proves no red — said on every plan and run, never a false block."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["gates"]["tests"]["red"] = False
+            write(repo / "config/quality.json", json.dumps(q)); write(repo / "tests/test_weak.py", self.WEAK)
+            self.assertNotIn("red", seal.vcfg(repo)["gates"])
+            pl = seal.plan(repo, base="main")
+            self.assertIn(seal.RED_NOT_PROVEN, seal.render_skipped(pl)); self.assertIn(seal.RED_NOT_PROVEN, seal.render(pl))
+            r = seal.run(repo, full=True, base="main")
+            self.assertTrue(r["ok"], r["reason"]); self.assertTrue(r["sealed"], "a --full seal owes no red member"); self.assertIn(seal.RED_NOT_PROVEN, seal.render_run(r))
+            self.assertIn(seal.RED_NOT_PROVEN, seal.render_run(seal.run(repo, gates=["tests"], base="main")), "listed on every run")
+            self.assertEqual(seal.RED_NOT_PROVEN, "red not proven for this stack: its scoped run selects tests by name, not by file — give `tests.scoped` a per-file command and drop `red: false` to enable the proof")
+            q["verification"]["gates"]["tests"]["red"] = "no"; write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "red must be true or false"):
+                seal.vcfg(repo)
+
+    def test_registry_red_rows_and_python_scoped_prefix(self):
+        reg = next((p for p in (HERE.parents[1] / discovery.REGISTRY, HERE.parents[1] / "setup/discovery_registry.json") if p.is_file()), None)
+        if reg is None:
+            self.skipTest("the registry is not delivered beside these gates")
+        rows = {lit: c["verification.gates"] for q in json.loads(reg.read_text())["questions"] for k, s in q["keys"].items()
+                if k == "backend.runtime" for lit, c in s.get("configures", {}).items()}
+        for rt in ("Java", "Go", ".NET", "Rust"):
+            self.assertIs(rows[rt]["tests"].get("red"), False, f"{rt}: its scoped run selects by name — no red proof")
+        for rt in ("Python", "Node.js"):
+            self.assertNotIn("red", rows[rt]["tests"], f"{rt}: runs one file faithfully")
+        self.assertTrue(rows["Python"]["tests"]["scoped"].startswith("PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH} python -m pytest {paths}"), "the worktree's src wins over an editable install")
+
+    def test_full_seal_honours_an_unmoved_never_recorded_gate(self):
+        """--full uses _owed's rule — a gate never recorded whose read-set equals the merge-base's is covered; one that moved is refused."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = seal.run(repo, full=True, base="main")
+            self.assertTrue(r["sealed"], r["reason"]); self.assertIn("red", seal.vcfg(repo)["gates"])
+            self.assertNotIn("red", seal.read_seal(repo, "feature/FEAT-001-x")["gates"], "red never ran: its read-set is the base's")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "tests/test_new.py", self.NEW)
+            with self.assertRaisesRegex(GateFault, "not green yet: red"):
+                seal.write(repo, ["tests"], ok=True, full=True, base="main")
+
+    def test_red_member_absent_is_said(self):
+        """tests declared, red not false, but no scoped run or no test roots — the absence is listed, never silent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]["gates"]["tests"]["scoped"]
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("red not proven: no `tests.scoped` — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")))
+            q["verification"]["gates"]["tests"]["scoped"] = "x {paths}"; del q["traceability"]; write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("red not proven: no `traceability.test_roots` — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")))
+            q["verification"]["gates"] = {"frontend-tests": q["verification"]["gates"]["tests"]}; write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("red not proven: no `tests` gate — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")), "a map without `tests` (frontend-only) says so")
+
+    def test_red_proof_timeout_and_project_row(self):
+        """a run that does not finish has its own reason; a project row named `red` is refused."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / "tests/test_new.py", self.NEW)
+            with unittest.mock.patch.object(seal, "_scoped_at_base", side_effect=subprocess.TimeoutExpired("x", 1800)):
+                r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("did not finish within 1800 s", r["reason"]); self.assertNotIn("laid out", r["reason"])
+            q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["gates"]["red"] = {"reads": ["tests/**"], "command": "x"}
+            write(repo / "config/quality.json", json.dumps(q))
+            with self.assertRaisesRegex(GateFault, "built-in member"):
+                seal.vcfg(repo)
+
+    def test_coverage_table_only_from_a_green_fresh_run(self):
+        """a failed coverage run, or a report this run did not write, is never tabled as measured."""
+        for cmd, msg in (("exit 1", "not measured this run: the coverage run failed"), ("true", "not measured this run: its report was not written by this run")):
+            with self.subTest(cmd=cmd), tempfile.TemporaryDirectory() as tmp:
+                repo = self._cov_repo(tmp, command=cmd)
+                old = time.time() - 100; os.utime(repo / "coverage/lcov.info", (old, old))
+                seal.run(repo, base="main")
+                t = (repo / ".claude/state/coverage-table.md").read_text(encoding="utf-8")
+                self.assertIn(msg, t); self.assertNotIn("| src/app.py | 10 |", t)
+
+    def _cov_repo(self, tmp, report="coverage/lcov.info", command="cp coverage/planted.info coverage/lcov.info"):
+        cov = {"reads": ["src/**", "tests/**"], "command": command}
+        if report:
+            cov["report"] = report
+        repo = self._repo(tmp, extra={"coverage": cov})
+        q = json.loads((repo / "config/quality.json").read_text())
+        q["surface"] = {"runtime_surface": ["src/**", "tests/**"]}; q["verification"]["coverage"] = {"omit": ["src/gen/**"]}
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / ".gitignore", ".claude/state/\ncoverage/\n")
+        write(repo / "src/other.py", "x = 1\n"); write(repo / "src/gen/x.py", "y = 1\n")
+        lcov = f"TN:\nSF:{repo}/src/app.py\nDA:1,1\nLF:10\nLH:8\nend_of_record\n"
+        write(repo / "coverage/planted.info", lcov); write(repo / "coverage/lcov.info", lcov)
+        return repo
+
+    def test_coverage_table_per_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._cov_repo(tmp)
+            r = seal.run(repo, base="main")
+            self.assertTrue(r["ok"], r["reason"])
+            t = (repo / ".claude/state/coverage-table.md").read_text(encoding="utf-8")
+            self.assertIn("| src/app.py | 10 | 8 | 80.0 |", t)
+            self.assertIn("| src/other.py | — | — | not measured |", t)
+            self.assertNotIn("src/gen/x.py", t, "an omitted file is declared, never listed"); self.assertNotIn("tests/", t, "a test file is no runtime file to cover")
+            (repo / "coverage/lcov.info").unlink()
+            self.assertIn("not found", seal.coverage_table(repo, seal.vcfg(repo)))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._cov_repo(tmp, report=None)
+            self.assertIn("no report declared", seal.coverage_table(repo, seal.vcfg(repo)))
+
 
 RULE_AGENTS_LENSES = RULE_AGENTS.replace(
     '    - {name: factory-critic-security, class: work-critic, lens: security, surface: ["**"]}\n',
@@ -2432,10 +2776,18 @@ class Canary(unittest.TestCase):
         self.assertEqual(added["src/orders/repo.py"][9].strip()[:16], "rows = query(\"SE")
         self.assertEqual(added["docs/project_log/governance_versions.json"][7].strip()[:30], "\"1.2.0: feat(CAN-001) — the or")
         self.assertNotIn("sk-" + "canary", (HERE / "canary.py").read_text(encoding="utf-8"), "no scanner sees the planted credential in the repository")
+        planted = canary.planted_credential()
+        self.assertRegex(planted, r'^BILLING_API_KEY = "sk_' + r'live_[A-Za-z0-9]{32}"  # canary-secret$', "a shape real scanners flag (stripe-access-token)")
+        val = planted.split('"')[1].removeprefix("sk_" + "live_")
+        entropy = -sum(val.count(c) / len(val) * math.log2(val.count(c) / len(val)) for c in set(val))
+        self.assertGreaterEqual(entropy, 3.5, "at gitleaks' generic-api-key entropy floor — the shape alone is not a detection")
+        self.assertNotIn(planted.split('"')[1], (HERE / "canary.py").read_text(encoding="utf-8")); self.assertEqual(added["src/orders/repo.py"][23], planted)
         self.assertEqual(canary.LENS_AGENT.get("plan"), "factory-plan-critic", "EVOL-069: the plan critic is calibrated too")
         self.assertTrue(all(f == "docs/spec/CAN-001/increment_plan.md" for it in canary.EXPECTED["plan"] for f, _ in it["at"][:1]), "the plan lens's defects are planted in the plan")
         self.assertIn("PayFlow", added["docs/spec/CAN-001/increment_plan.md"][canary.EXPECTED["plan"][0]["at"][0][1]], "an external premise stated as verified")
-        self.assertEqual(set(canary.EXPECTED), set(canary.LENSES)); self.assertTrue(all(len(v) == 2 for v in canary.EXPECTED.values()), "two planted defects per lens")
+        self.assertEqual(set(canary.EXPECTED), set(canary.LENSES)); self.assertTrue(all(len(v) >= 2 for v in canary.EXPECTED.values()), "at least two planted defects per lens")
+        self.assertIn("c3", [i["id"] for i in canary.EXPECTED["correctness"]], "EVOL-068: an always-green test"); self.assertIn("f3", [i["id"] for i in canary.EXPECTED["fidelity"]], "EVOL-068: a deferral comment")
+        self.assertIn("next slice", added["src/orders/repo.py"][canary.EXPECTED["fidelity"][2]["at"][0][1]]); self.assertEqual(added["tests/test_orders.py"][canary.EXPECTED["correctness"][2]["at"][0][1]].strip(), "assert out == out")
         self.assertEqual(agents.check_return(self._return("security"), "work-critic"), [], "the synthetic return is in the critic's own contract shape")
 
     def test_judge_green_red_and_tolerance(self):
@@ -2514,8 +2866,10 @@ class Canary(unittest.TestCase):
                 self.assertTrue(template_rule.is_file(), "the template rule moved — the pin must follow it")
                 self.assertEqual(read_frontmatter(template_rule)["agents"]["canary"]["line_tolerance"], canary.DEFAULT_TOLERANCE)
             self.assertTrue(canary.judge(repo, "governance", self._return("governance", shift=3), "m")["ok"], "within the tolerance window")
+            for lens, planted in (("correctness", "c3"), ("fidelity", "f3")):
+                r = canary.judge(repo, lens, self._return(lens, skip=(planted,)), "m"); self.assertEqual(r["missed"], [planted], f"a return that misses {planted} reports it")
             self.assertEqual(canary.judge(repo, "governance", self._return("governance", shift=4), "m")["missed"], ["g1", "g2"], "beyond the window: missed")
-            self.assertEqual(canary.judge(repo, "fidelity", self._return("fidelity", sev="🟢"), "m")["missed"], ["f1", "f2"], "a planted defect reported as informational is missed — the bar is above informational")
+            self.assertEqual(canary.judge(repo, "fidelity", self._return("fidelity", sev="🟢"), "m")["missed"], ["f1", "f2", "f3"], "a planted defect reported as informational is missed — the bar is above informational")
             alt = "src/orders/api.py:7 · 🟡 · confidence 80% · probe: read\nb/src/orders/repo.py:23 · 🔴 · confidence 95% · probe: read\n## Governance\nRules read: x\nLaws applied: y\nDefect classes: z\nSources: s\nInformational: 0\nModel: m\n"
             self.assertTrue(canary.judge(repo, "security", alt, "m")["ok"], "a finding at an alternative anchor counts")
             pos: dict = {}; canary.added_lines(canary.fixture(), pos)
@@ -2528,7 +2882,7 @@ class Canary(unittest.TestCase):
                 canary.judge(repo, "security", self._return("security"), "")
             with self.assertRaisesRegex(GateFault, "not one of"):
                 canary.judge(repo, "style", "x", "m")
-            rec = canary.read_record(repo); self.assertEqual(rec["judged"]["security"]["model"], "m"); self.assertEqual(rec["judged"]["fidelity"]["missed"], ["f1", "f2"])
+            rec = canary.read_record(repo); self.assertEqual(rec["judged"]["security"]["model"], "m"); self.assertEqual(rec["judged"]["fidelity"]["missed"], ["f1", "f2", "f3"])
             write(repo / ".claude/rules/agents.md", RULE_AGENTS.replace("  canary: {line_tolerance: 3}\n", ""))
             with self.assertRaisesRegex(GateFault, "line_tolerance"):
                 canary.judge(repo, "security", self._return("security"), "m")
@@ -3179,6 +3533,11 @@ def disc_add(repo: Path):
     subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
 
 
+def _tok(name: str, pad: str = "") -> str:
+    """A template token built at run time — this file is itself a template (its twin lands), so it carries none literally."""
+    return "{" + "{" + pad + name + pad + "}}"
+
+
 class Discovery(unittest.TestCase):
     """EVOL-102: one grammar, one evaluator, one registry validator (V1–V9) — every rule seen red."""
 
@@ -3415,12 +3774,11 @@ class Discovery(unittest.TestCase):
     def test_v8_consumer_literals(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = disc_repo(tmp)
-            write(repo / ".claude/skills/factory-build-verification/SKILL.md", 'MATCH stack.backend.runtime:\n    "Python" → pytest\n    "Ruby" → rspec\n')
+            write(repo / ".claude/skills/factory-build-verification/SKILL.md", 'owed = seal --plan\n  RUN "python -m pytest -x"\n')
             write(repo / ".claude/skills/other/SKILL.md", 'Only when `backend.runtime == "Elixir"`.\n')
             disc_add(repo)
             v8 = " | ".join(self._rule(discovery.validate(repo), "V8"))
-            self.assertIn("`Ruby` — not offered", v8); self.assertIn("`backend.runtime == Elixir`", v8)
-            self.assertNotIn("`Python` — not offered", v8)
+            self.assertIn("BVL:2: `pytest` — a stack command", v8); self.assertIn("`backend.runtime == Elixir`", v8)
             self.assertIn("is absent", v8, "an input file of a check missing is a finding, never a silent pass")
 
     def test_v9_snapshot_keys(self):
@@ -3624,7 +3982,7 @@ class Discovery(unittest.TestCase):
         ".claude/instructions/Factory-backlog-operations.instructions.md": '  milestone_strategy: "{{milestone_strategy}}" # Q27.3: epic-based | none\n',
         ".context/templates/setup/upgrade_safety_protocol.md": "The checksum is SHA-256.\n",
         ".claude/skills/factory-build-verification/SKILL.md":
-            'MATCH stack.backend.runtime:\n    "Python" → pytest\n    "Node.js" → jest\nMATCH stack.frontend.framework:\n    "React" → vitest\n',
+            '  owed = gate.py seal --plan --json\n  scoped = INTERPOLATE(gates.tests.scoped, {paths: test_files})\n',
     }
 
     def _v8_repo(self, tmp):
@@ -3673,6 +4031,8 @@ class Discovery(unittest.TestCase):
             ("one definition", text(".claude/instructions/Factory-backlog-operations.instructions.md", "epic-based | none", "epic-based | sprint-based | none")),
             ("one definition", text(".context/templates/setup/upgrade_safety_protocol.md", "SHA-256.", "SHA-256 (MD5 before).")),
             ("dependency readers", reg("backend.runtime", "Cobol")),
+            ("verification loop", text(".claude/skills/factory-build-verification/SKILL.md", "seal --plan --json", "seal --plan --json\n  RUN \"python -m pytest -x\"")),
+            ("verification loop", text(".claude/skills/factory-build-verification/SKILL.md", "seal --plan --json", "seal --plan --json\n  x = \"npx eslint {files}\"")),
         ]
         for label, mut in cases:
             with self.subTest(check=label), tempfile.TemporaryDirectory() as tmp:
@@ -3728,6 +4088,272 @@ class Discovery(unittest.TestCase):
             r = gt(); self.assertEqual(r.returncode, 1, r.stdout + r.stderr); self.assertIn("V8", r.stdout)
             (repo / discovery.REGISTRY).unlink()
             r = gt(); self.assertEqual(r.returncode, 2); self.assertIn("registry", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+    # ── phase 2: every placeholder has a source; the upgrade asks what a project lacks ──
+    def _tpl(self, repo, body="x " + _tok("FOO", "") + " " + _tok("BAR_BAZ", "") + " {{lower}} {{#each x}} " + _tok("FOO", " ") + "\n"):
+        m = json.loads((repo / discovery.MANIFEST).read_text())
+        m["templates"]["rules/tok.md"] = {"version": "1.0.0", "target": ".claude/rules/tok.md"}
+        write(repo / discovery.MANIFEST, json.dumps(m))
+        write(repo / ".context/templates/setup/rules/tok.md", body)
+
+    def _fills(self, reg, key, toks):
+        for q in reg["questions"]:
+            if key in q["keys"]:
+                q["keys"][key]["fills"] = toks
+
+    def test_v10_unsourced_token(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); self._tpl(repo)
+            f = self._rule(discovery.validate(repo), "V10")
+            self.assertEqual(len(f), 2, f); self.assertTrue(any("`FOO`" in x for x in f)); self.assertTrue(any("`BAR_BAZ`" in x for x in f))
+            self.assertFalse(any("lower" in x or "each" in x for x in f), "UPPER_SNAKE tokens only")
+            self._reg(repo, lambda r: (self._fills(r, "backend.runtime", ["FOO"]), r.__setitem__("constants", {"BAR_BAZ": "a literal of the document's prose"})))
+            self.assertEqual(self._rule(discovery.validate(repo), "V10"), [])
+            self._reg(repo, lambda r: r["derived"]["verification.gates"].__setitem__("fills", ["FOO"]))
+            f = self._rule(discovery.validate(repo), "V10")
+            self.assertTrue(f and "`FOO`" in f[0] and "backend.runtime" in f[0] and "verification.gates" in f[0], f)
+
+    def test_v4_fills_is_a_reader(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); self._tpl(repo, "x " + _tok("FOO", "") + "\n")
+            self._reg(repo, lambda r: self._q(r, "Q26")["keys"]["dependencies.backend"].__setitem__("fills", ["FOO"]))
+            write(repo / "scripts/consumer.sh", DISC_CONSUMER.replace(" dependencies.backend", "")); disc_add(repo)
+            self.assertEqual(self._rule(discovery.validate(repo), "V4"), [], "a key whose fills a template carries is read there")
+            self._reg(repo, lambda r: self._q(r, "Q26")["keys"]["dependencies.backend"].pop("fills"))
+            self.assertTrue(any("dependencies.backend" in f for f in self._rule(discovery.validate(repo), "V4")))
+
+    def test_v10_stale_entry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); self._tpl(repo, "x " + _tok("FOO", "") + "\n")
+            self._reg(repo, lambda r: (self._fills(r, "backend.runtime", ["FOO", "GONE1"]), r.__setitem__("constants", {"GONE2": "x"}),
+                                       r.__setitem__("placeholder_baseline", {"GONE3": "unsourced"})))
+            f = self._rule(discovery.validate(repo), "V10")
+            for t in ("GONE1", "GONE2", "GONE3"):
+                self.assertTrue(any(f"`{t}`" in x and "no template" in x for x in f), (t, f))
+            self.assertEqual(len(f), 3, f)
+
+    def test_v10_baseline_now_sourced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); self._tpl(repo, "x " + _tok("FOO", "") + " " + _tok("BAR", "") + "\n")
+            self._reg(repo, lambda r: r.__setitem__("placeholder_baseline", {"FOO": "pending #147", "BAR": "unsourced"}))
+            self.assertEqual(self._rule(discovery.validate(repo), "V10"), [])
+            self._reg(repo, lambda r: self._fills(r, "backend.runtime", ["FOO"]))
+            f = self._rule(discovery.validate(repo), "V10")
+            self.assertEqual(len(f), 1, f); self.assertIn("`FOO`", f[0]); self.assertIn("baseline", f[0])
+            self._reg(repo, lambda r: (self._fills(r, "backend.runtime", []), r["placeholder_baseline"].__setitem__("FOO", "later")))
+            f = self._rule(discovery.validate(repo), "V10")
+            self.assertTrue(any("`FOO`" in x and "pending #" in x for x in f), f)
+
+    def test_v11_migrations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            write(repo / discovery.UPGRADE, "# Upgrade\n\n#### Step 8 — anchors\n\n**scm block (EVOL-054).** add it\n")
+            row = {"id": "m1", "since": "1.1.0", "detect": "config/quality.json#/scm", "apply": "scm block (EVOL-054)"}
+            self._reg(repo, lambda r: r.__setitem__("migrations", [row, {"id": "m2", "since": "1.0.0", "detect": "always", "apply": "Step 8 — anchors"}]))
+            self.assertEqual(self._rule(discovery.validate(repo), "V11"), [])
+            bad = [{**row, "apply": "no such anchor"}, {**row, "id": "m3", "detect": "config/quality.json"}, {**row, "id": "m4", "since": "9.9.9"},
+                   {**row, "id": "m5", "detect": "/etc/x.json#/a"}, {**row, "id": "m6", "since": "1.x"}]
+            self._reg(repo, lambda r: r.__setitem__("migrations", bad))
+            f = self._rule(discovery.validate(repo), "V11")
+            self.assertTrue(any("no such anchor" in x for x in f)); self.assertTrue(any("`m3`" in x and "detect" in x for x in f))
+            self.assertTrue(any("`m4`" in x and "9.9.9" in x for x in f)); self.assertTrue(any("`m5`" in x for x in f)); self.assertTrue(any("`m6`" in x for x in f))
+            self.assertEqual(len(f), 5, f)
+
+    def _project(self, repo, version="1.0.0", quality=None):
+        write(repo / "docs/setup.md", "---\nbackend:\n  runtime: Python\n---\n")
+        write(repo / "docs/project_log/governance_versions.json", json.dumps({"framework_version": version}))
+        write(repo / "config/quality.json", json.dumps(quality or {}))
+
+    def test_resolve_migrations_owed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda r: r.__setitem__("migrations", [
+                {"id": "m1", "since": "1.1.0", "detect": "config/quality.json#/scm", "apply": "a"},
+                {"id": "m2", "since": "1.1.0", "detect": "always", "apply": "b"},
+                {"id": "m3", "since": "1.0.0", "detect": "config/quality.json#/x", "apply": "c"}]))
+            self._project(repo)
+            ids = lambda r: [m["id"] for m in r["migrations_owed"]]
+            r = discovery.resolve(repo, discovery.answers(repo), project=True)
+            self.assertEqual(ids(r), ["m1", "m2"], "older than since and the pointer missing, or always; m3's since is the project's own version")
+            self._project(repo, quality={"scm": {"platform": "github"}})
+            self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), ["m2"], "the pointer present: not owed")
+            self._project(repo, version="1.1.0")
+            self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), ["m2"], "a project at since owes only the `always` rows")
+            self._project(repo, version="9.0.0")
+            self.assertEqual(ids(discovery.resolve(repo, discovery.answers(repo), project=True)), ["m2"], "an `always` row is owed on every upgrade, whatever its since")
+            r = discovery.resolve(repo, discovery.answers(repo))
+            self.assertNotIn("migrations_owed", r, "an answer set alone has no project to migrate")
+
+    def test_resolve_templates_to_add_and_remove(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            m = json.loads((repo / discovery.MANIFEST).read_text())
+            m["templates"]["rules/python.md"]["target"] = ".claude/rules/python.md"
+            m["templates"]["rules/always.md"]["target"] = ".claude/rules/always.md"
+            m["templates"]["rules/database.md"]["target"] = ".claude/rules/database.md"
+            write(repo / discovery.MANIFEST, json.dumps(m))
+            self._project(repo, version="1.2.0")
+            write(repo / "docs/setup.md", "---\nbackend:\n  runtime: Node.js\ndatabase:\n  primary:\n    engine: PostgreSQL\n---\n")
+            write(repo / ".claude/rules/python.md", "x"); write(repo / ".claude/rules/database.md", "x")
+            r = discovery.resolve(repo, discovery.answers(repo), project=True)
+            self.assertEqual(r["templates_to_add"], ["rules/always.md"], "lands, target absent")
+            self.assertEqual(r["templates_to_remove"], ["rules/python.md"], "skipped, target present")
+
+    def test_resolve_placeholders_and_since(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda r: self._fills(r, "backend.runtime", ["BACKEND_RUNTIME", "PRIMARY_LANGUAGE"]))
+            r = discovery.resolve(repo, {"backend.runtime": "Python"})
+            self.assertEqual(r["placeholders"], {"BACKEND_RUNTIME": "Python", "PRIMARY_LANGUAGE": "Python"})
+            self.assertEqual(r["pending_since"]["Q6"], "1.1.0"); self.assertEqual(set(r["pending_since"]), set(r["pending"]))
+            self.assertEqual(discovery.resolve(repo, {})["placeholders"], {"BACKEND_RUNTIME": None, "PRIMARY_LANGUAGE": None})
+
+    def test_answer_outside_options(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            for bad, key in (({"backend.runtime": "Ruby"}, "backend.runtime"), ({"backend.runtime": "Python", "backend.framework": "Rails"}, "backend.framework")):
+                with self.assertRaises(GateFault) as cm:
+                    discovery.resolve(repo, bad)
+                self.assertIn(f"`{key}`", str(cm.exception))
+            discovery.resolve(repo, {"backend.runtime": "Python", "backend.framework": "Django"})
+            write(repo / "a.json", json.dumps({"answers": {"backend.runtime": "Ruby"}}))
+            gate = str(HERE.parent / "gate.py")
+            r = subprocess.run([sys.executable, gate, "--repo", str(repo), "discovery", "--resolve", "--answers", str(repo / "a.json")],
+                               capture_output=True, text=True, env={**os.environ, "CLAUDE_PROJECT_DIR": ""})
+            self.assertEqual(r.returncode, 2); self.assertIn("backend.runtime", r.stderr); self.assertNotIn("Traceback", r.stderr)
+
+    # ── EVOL-067: the loop's members come from the registry's `configures` ─────────
+    def _configures(self, reg):
+        spec = next(s for q in reg["questions"] for k, s in q["keys"].items() if k == "backend.runtime")
+        spec["configures"] = {
+            "Python": {"verification.gates": {"tests": {"command": "suite --cov", "scoped": "suite {paths}"},
+                                              "sca": {"command": "audit --level {sca_threshold}"}},
+                       "traceability.test_roots": ["tests/**"]},
+            "Node.js": {"verification.gates": {"lint": {"command": "lint ."}}, "traceability.test_roots": ["tests/**", "e2e/**"]}}
+        reg["questions"].append({"id": "Q33", "tier": 2, "since": "1.0.0", "keys": {
+            "surface.runtime_surface": {"free": "list", "record_only": "fixture"},
+            "quality.security_scan.sca_threshold": {"options": ["high", "low"], "record_only": "fixture"}}})
+        reg["derived"]["quality.security_scan.enabled"] = {"from": "always true", "configures": {
+            "verification.gates": {"secrets": {"command": "bash scripts/security-scan.sh --secrets --require-scanner"}}}}
+
+    def test_stop_per_stack_part(self):
+        """each answered stack part needs its own verifying gate; rows declared at discovery count."""
+        real = HERE.parents[1]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        res = lambda be, fe, **extra: discovery.resolve(real, {"backend.runtime": be, "frontend.framework": fe, "surface.runtime_surface": ["src/**"], **extra})
+        r = res("Ruby", "None"); self.assertIn("backend.runtime = Ruby", r["stop"]); self.assertNotIn("frontend.framework", r["stop"])
+        self.assertNotIn("stop", res("None", "React"))
+        r = res("Python", "Solid"); self.assertIn("frontend.framework = Solid", r["stop"]); self.assertNotIn("backend.runtime", r["stop"])
+        self.assertNotIn("stop", res("Python", "React"))
+        self.assertNotIn("stop", res("Ruby", "None", **{"verification.gates.tests.command": "bundle exec rake test"}), "a row declared at discovery counts")
+        self.assertIn("stop: ", discovery.render_resolve(res("Ruby", "None")), "the stop is printed")
+
+    def test_gates_parse_under_python_310(self):
+        """Every gate module parses on the oldest interpreter the projects run (rules/python.md: 3.10+) — the grammar through
+        ast's feature_version, and what it cannot see: a string nested in an f-string with the enclosing quote (valid from 3.12 only)."""
+        import ast, io, tokenize
+        files = sorted(HERE.glob("*.py")) + [HERE.parent / "gate.py"]
+        for f in files:
+            ast.parse(f.read_text(encoding="utf-8"), str(f), feature_version=(3, 10))
+        if sys.version_info < (3, 12):
+            return   # this interpreter's own parser refused a nested enclosing quote above
+
+        def nested_quotes(src):
+            bad, open_ = [], []
+            for t in tokenize.generate_tokens(io.StringIO(src).readline):
+                if t.type == tokenize.FSTRING_END:
+                    open_.pop()
+                elif t.type in (tokenize.STRING, tokenize.FSTRING_START):
+                    q = t.string.lstrip("rRbBuUfF")
+                    q = q[:3] if q[:3] in ('"""', "'''") else q[:1]
+                    if any(q.startswith(o) for o in open_):
+                        bad.append(t.start[0])
+                    if t.type == tokenize.FSTRING_START:
+                        open_.append(q)
+            return bad
+        self.assertTrue(nested_quotes('x = f"{", ".join(f\'{a["k"]}\' for a in b)}"\n'), "the rule sees the class it guards")
+        self.assertFalse(nested_quotes('x = f"""{a["k"]}""" + f"{a[\'k\']}"\n'), "a quote that does not close the enclosing one is fine")
+        self.assertEqual({f.name: n for f in files if (n := nested_quotes(f.read_text(encoding="utf-8")))}, {})
+
+    def test_resolve_configures_gates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, self._configures)
+            r = discovery.resolve(repo, {"backend.runtime": "Python", "surface.runtime_surface": ["src/**"], "quality.security_scan.sca_threshold": "high"})
+            g = r["configures"]["verification.gates"]
+            self.assertEqual(sorted(g), ["sca", "secrets", "tests"], "the answered option's rows plus the unconditional derived rows")
+            self.assertEqual(g["tests"], {"command": "suite --cov", "scoped": "suite {paths}", "reads": ["src/**", "tests/**"]},
+                             "reads = the answered runtime surface plus the test roots")
+            self.assertEqual(g["sca"]["command"], "audit --level high", "the threshold answer is baked in")
+            self.assertEqual(r["configures"]["traceability.test_roots"], ["tests/**"])
+            self.assertNotIn("stop", r)
+            n = discovery.resolve(repo, {"backend.runtime": "Node.js", "frontend.framework": "None", "surface.runtime_surface": ["src/**"]})
+            self.assertEqual(sorted(n["configures"]["verification.gates"]), ["lint", "secrets"])
+            self.assertIn("no declared way to verify", n["stop"], "no tests and no sca: materialisation stops")
+            self.assertNotIn("stop", discovery.resolve(repo, {})["configures"], "an unanswered stack is pending, not a stop")
+            self.assertNotIn("stop", discovery.resolve(repo, {}))
+
+    def test_registry_conditional_rows(self):
+        """The rows the old skill made conditional on a project file keep their condition as a shell guard (EVOL-067):
+        the file absent → the row passes without running the tool; present → the tool runs with the old command."""
+        reg = next((p for p in (HERE.parents[1] / discovery.REGISTRY, HERE.parents[1] / "setup/discovery_registry.json") if p.is_file()), None)
+        if reg is None:
+            self.skipTest("the registry is not delivered beside these gates")
+        rows = {lit: c["verification.gates"] for q in json.loads(reg.read_text())["questions"] for k, s in q["keys"].items()
+                if k == "backend.runtime" for lit, c in s.get("configures", {}).items()}
+        cases = [   # runtime, gate, which command, the files turning it on, the tool, the args it must receive
+            ("Python", "typecheck", "command", {"mypy.ini": "[mypy]\n"}, "mypy", "."),
+            ("Python", "typecheck", "command", {"pyproject.toml": "[tool.mypy]\nstrict = true\n"}, "mypy", "."),
+            ("Node.js", "typecheck", "command", {"tsconfig.json": "{}"}, "npx", "tsc --noEmit"),
+            ("Node.js", "build", "command", {"package.json": '{"scripts": {"build": "x"}}'}, "npm", "run build --if-present"),
+            ("Node.js", "tests", "command", {"vitest.config.ts": ""}, "npx", "vitest run --coverage --reporter=text --coverage.reporter=text --coverage.reporter=lcov"),
+            ("Node.js", "tests", "command", {}, "npx", "jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache"),
+            ("Node.js", "tests", "scoped", {".mocharc.yml": ""}, "npx", "mocha t.js"),
+            ("Node.js", "tests", "scoped", {"vitest.config.js": ""}, "npx", "vitest run t.js"),
+            ("Node.js", "tests", "scoped", {}, "npx", "jest t.js --no-coverage --verbose"),
+        ]
+        for rt, gate, which, files, tool, args in cases:
+            with self.subTest(rt=rt, gate=gate, which=which, files=sorted(files)), tempfile.TemporaryDirectory() as tmp:
+                self.assertIn(gate, rows.get(rt, {}), f"{rt} has no `{gate}` row")
+                cmd = rows[rt][gate][which].replace("{paths}", "t.js")
+                bindir, work = Path(tmp) / "bin", Path(tmp) / "w"; work.mkdir()
+                write(bindir / tool, '#!/bin/sh\necho "$*" > "$ARGS_OUT"\nexit 7\n'); os.chmod(bindir / tool, 0o755)
+                env = {**os.environ, "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}", "ARGS_OUT": str(Path(tmp) / "args")}
+                if gate != "tests":   # the guard: the switching file absent → passes, the tool never runs
+                    r = subprocess.run(cmd, shell=True, cwd=work, env=env, capture_output=True, text=True)
+                    self.assertEqual((r.returncode, (Path(tmp) / "args").exists()), (0, False), f"{cmd}: {r.stderr}")
+                for name, body in files.items():
+                    write(work / name, body)
+                r = subprocess.run(cmd, shell=True, cwd=work, env=env, capture_output=True, text=True)
+                self.assertEqual(r.returncode, 7, f"{cmd}: the tool's exit is the verdict ({r.stderr})")
+                self.assertEqual((Path(tmp) / "args").read_text().strip(), args)
+
+    def test_resolve_configures_one_gate_one_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            def two(reg):
+                self._configures(reg)
+                reg["derived"]["quality.security_scan.enabled"]["configures"]["verification.gates"]["tests"] = {"command": "other"}
+            self._reg(repo, two)
+            with self.assertRaisesRegex(GateFault, "`tests`.*two"):
+                discovery.resolve(repo, {"backend.runtime": "Python"})
+
+    def test_v12_configures_rows(self):
+        cases = [
+            ("unknown field", lambda s: s["Python"]["verification.gates"]["tests"].__setitem__("reads", ["x/**"]), "`reads` is not a gate-row field"),
+            ("no command", lambda s: s["Python"]["verification.gates"]["tests"].pop("command"), "no `command`"),
+            ("red not a bool", lambda s: s["Python"]["verification.gates"]["tests"].__setitem__("red", "no"), "`red` is true or false"),
+            ("literal not offered", lambda s: s.__setitem__("Ruby", {"verification.gates": {"tests": {"command": "rake"}}}), "`Ruby` is not one of"),
+        ]
+        for label, mut, msg in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self._reg(repo, self._configures)
+                self.assertEqual(self._rule(discovery.validate(repo), "V12"), [], "the configured fixture is green")
+                self._reg(repo, lambda r: mut(next(s for q in r["questions"] for k, s in q["keys"].items() if k == "backend.runtime")["configures"]))
+                v12 = self._rule(discovery.validate(repo), "V12")
+                self.assertTrue(any(msg in f for f in v12), v12)
 
 
 class Writes(unittest.TestCase):

@@ -1,6 +1,6 @@
 ---
 name: factory-critic-fidelity
-description: "Read-only critic — fidelity to what was specified: the diff against the spec, the design, the plan's tasks and the acceptance items; a task marked done whose assertions do not reach the declared expected result is a finding."
+description: "Read-only critic — fidelity to what was specified: the diff against the spec, the design, the plan's tasks and the acceptance items; a task marked done whose assertions do not reach the declared expected result is a finding; exact scope against the task (nothing missing, nothing extra); deferral language in code or plan («next slice», «later», TODO/FIXME) is 🔴."
 tools: Read, Grep, Glob
 effort: high
 maxTurns: 60
@@ -9,7 +9,7 @@ class: work-critic
 
 # factory-critic-fidelity (work-critic)
 
-Read-only critic — fidelity to what was specified: the diff against the spec, the design, the plan's tasks and the acceptance items; a task marked done whose assertions do not reach the declared expected result is a finding.
+Read-only critic — fidelity to what was specified: the diff against the spec, the design, the plan's tasks and the acceptance items; a task marked done whose assertions do not reach the declared expected result is a finding; exact scope against the task (nothing missing, nothing extra); deferral language in code or plan («next slice», «later», TODO/FIXME) is 🔴.
 
 Policy: `rules/agents.md` (class `work-critic` — tools, budget, family, effort; the model is passed at your spawn from `gate.py agents --resolve`). Severity bar (rules/agents.md § Severity bar): a finding rises above informational only by naming a concrete path to the deployed product (incl. any exposure of a credential or a personal datum) or to the machinery that produces or polices the work; on a governance surface informational is the default and escalation must be justified. Cite the limb.
 

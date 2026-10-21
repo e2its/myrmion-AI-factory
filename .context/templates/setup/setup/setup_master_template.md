@@ -1,5 +1,5 @@
 ---
-version: 2.13.0
+version: 2.14.0
 date: 2026-04-21
 changelog:
   - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
@@ -24,6 +24,7 @@ po_package:
   ds_cards_source: null
   ds_code_cards_dir: null
   ds_rebuild_command: null
+  ds_active_section: null             # derived — 6A | 6B | 6C
 measurement:
   retention_days: null                # Q30
   report_interval_days: null          # Q30
@@ -93,6 +94,7 @@ hosting:
 ci_cd:
   platform: null
   tier: null
+  workflow_paths: null                # derived from ci_cd.platform
 branching:
   strategy: null
   pr_validation_mode: null
@@ -139,14 +141,19 @@ project_tracking:
   naming_convention: null
   gate_enforcement_mode: null
   appetite_sizing_enabled: null
+  feature_id_pattern: null            # derived from naming_convention
 synthetic_data:
   enabled: null
   id_strategy: null
 verification:
-  gates: null
-  commands: null
+  gates: null                        # derived — gate.py discovery --resolve (EVOL-067)
 traceability:
   home: null
+  test_roots: null                    # derived — gate.py discovery --resolve (EVOL-067)
+planning:
+  governed_paths: null                # derived — runtime surface + governance paths
+paths: null                           # derived — base paths per the stack's idiomatic layout
+costs: null                           # derived — the Cost Estimation Protocol's breakdown
 last_update: [TIMESTAMP]
 ---
 
@@ -176,11 +183,6 @@ last_update: [TIMESTAMP]
   - `frontend-only` → feature.scope in [frontend-only] only
   - `integration` → feature.scope in [backend-only, integration] only
 - **Materialization impact:** When `project_scope in [backend-only, integration]`, SETUP skips frontend directory scaffolding, UX rules (`ux-constitution`, `frontend_architecture_compatibility`), vision artifacts, and frontend-specific CI jobs. When `frontend-only`, SETUP skips backend directory scaffolding, backend rules, and backend-specific CI jobs. See `Factory-setup-materialization.instructions.md § 4.2.6 Scope-Keyed Conditional Materialization`.
-
-### 0.2 Default Slicing Strategy (Incremental Dev Plan)
-- **Default slicing strategy:** [incremental | monolithic] — applied to every new feature unless spec.feature overrides. Default `incremental` (recommended). `monolithic` sets the project default but individual features still require trivial-heuristic approval at `BLUEPRINT --start` (`≤2 scenarios AND ≤3 contract operations AND scope ≠ full-stack`).
-- **Resolution:** Discovery asks this after Project Scope. Greenfield projects start at `incremental` unless the team explicitly opts out. Brownfield projects may start `monolithic` if the legacy surface is small and then migrate per-feature.
-- **Authoring impact:** Every new `spec.feature` inherits this default into its `slicing_strategy` frontmatter field. Authors can override per-feature at CODESIGN time. BLUEPRINT enforces the trivial-heuristic regardless of the project default.
 
 ### A. Backend Architecture
 - **Macro Topology (Backend):** frontmatter `backend.topology`

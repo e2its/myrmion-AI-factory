@@ -52,6 +52,16 @@
   },
   "retired_terms": [
     {
+      "term": "resolve_verification_commands",
+      "record": "ADR-EVOL-067 — the loop reads config/quality.json → verification.gates; nothing derives commands from the stack",
+      "exempt": []
+    },
+    {
+      "term": "verification.commands",
+      "record": "ADR-EVOL-067 — gate rows live in verification.gates only; SETUP --upgrade moves a project's verification.commands into them",
+      "exempt": [".claude/instructions/Factory-setup-upgrade.instructions.md"]
+    },
+    {
       "term": "Governance Index (Auto-Generated)",
       "record": "ADR-EVOL-043",
       "exempt": []
@@ -398,6 +408,7 @@
       "reason": "the framework repo's full loop is the T2 suite governance-check.yml runs on every pull request; no product build, no local seal"
     },
     "gates": {},
+    "skips": [],
     "logs": {
       "push": "push-log.jsonl",
       "timings": "gate-timings.jsonl",
