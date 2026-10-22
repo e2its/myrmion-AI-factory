@@ -653,10 +653,10 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
       dc_catalog = READ(".claude/rules/defect-prevention.md")
       FOR EACH dc IN dc_catalog:
         IF dc.paths == "*" OR ANY(GLOB_MATCH(dc.paths, f) FOR f IN task.files):
-          VERIFY planned code satisfies dc.invariant   # detail on demand: defect-prevention-cases.md § DC-{dc.number}
+          VERIFY planned code satisfies dc.invariant   # detail on demand: defect-prevention-cases.md § {dc.id}
           IF prevention check NOT satisfied:
             REWRITE to follow the documented prevention approach
-            LOG: "DC-{dc.number} prevented: {dc.name}"
+            LOG: "{dc.id} prevented: {dc.name}"
     
     EXECUTE WORKER(worker, task)   # spawn by name — § Spawn protocol above; return refused without its ## Hand-off and ## Governance blocks (EVOL-062)
     # BVL: task_verification_loop runs inside TDD Cycle step 4 (VERIFY)
@@ -1892,25 +1892,24 @@ FUNCTION defect_discovery_check(error, context):
   # Check if error pattern matches any existing DC
   FOR EACH dc IN existing_dcs:
     IF error.pattern SEMANTICALLY_MATCHES dc.invariant:
-      LOG: "Known DC-{dc.number} ({dc.name}) — already cataloged"
+      LOG: "Known {dc.id} ({dc.name}) — already cataloged"
       RETURN
 
-  # Novel pattern — propose to user
-  next_dc_number = existing_dcs.length + 1
+  # Novel pattern — propose to user; the id is the project's next PDC-NN (Discovery Protocol)
+  next_pdc = max(PDC-NN numbers in existing_dcs, default 0) + 1
   PROPOSE_TO_USER:
     "Recurring defect pattern detected that is NOT in the Defect Prevention Catalog.
      Pattern: {error.summary}
      Affected files: {error.files}
-     Suggested DC-{next_dc_number}: {suggested_name}
+     Suggested PDC-{next_pdc}: {suggested_name}
      Suggested invariant: {suggested_invariant}
 
      Catalog this as a new DC? (yes/no)"
 
   IF user_approves:
-    # Follow Discovery Protocol from defect-prevention.md Section 3:
-    # 1. Add entry to .claude/rules/defect-prevention.md
-    # 2. Add search methodology to Factory-preventive-sweep/SKILL.md
-    # 3. Bump version in governance_versions.json — python3 scripts/gate.py manifest --bump --entry <the two files> --level minor --note "<the DC and why>" (EVOL-061)
-    # 4. Save feedback memory for cross-session awareness
-    EXECUTE_DISCOVERY_PROTOCOL(next_dc_number, suggested_name, error)
+    # Follow the Discovery Protocol of .claude/rules/defect-prevention.md:
+    # 1. Add the row and its case (the sweep derives its search from them)
+    # 2. Bump version in governance_versions.json — python3 scripts/gate.py manifest --bump --entry <the two files> --level minor --note "<the DC and why>" (EVOL-061)
+    # 3. Save feedback memory for cross-session awareness
+    EXECUTE_DISCOVERY_PROTOCOL(next_pdc, suggested_name, error)
 ```

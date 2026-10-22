@@ -5,6 +5,7 @@
     "backend.runtime": "Python",
     "frontend.framework": "React",
     "frontend.meta_framework": "None",
+    "frontend.pattern": "F2",
     "database.primary.engine": "None",
     "hosting.provider": "AWS",
     "hosting.iac_tool": "None",
@@ -21,6 +22,7 @@
   "expect": {
     "landed": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml"],
     "absent": [".claude/rules/csharp.md", "buildspec-governance.yml"],
+    "defect_classes": {"present": ["DC-18", "DC-31", "PDC-1"], "absent": []},
     "gates": {"tests": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q", "coverage": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q", "lint": "ruff check .", "sca": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi", "typecheck": "if [ -f mypy.ini ] || { [ -f pyproject.toml ] && grep -q '^\\[tool\\.mypy' pyproject.toml; }; then mypy .; fi", "frontend-tests": "npx jest --config jest.config.ts --no-coverage", "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"},
     "red": true, "coverage_report": "coverage/lcov.info", "red_link": null,
     "test_roots": ["tests/**", "e2e/**", "src/**/*.test.*", "src/**/*.spec.*"]

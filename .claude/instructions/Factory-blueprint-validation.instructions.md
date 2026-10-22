@@ -342,12 +342,12 @@ applicable_dcs = consult_defect_catalog("BLUEPRINT", {feature_id: FEATURE_ID, fe
 FOR EACH dc IN applicable_dcs:
   IF dc.severity == "BLOCKER":
     # Every BLOCKER-severity DC applicable to BLUEPRINT must be explicitly addressed
-    IF "DC-{dc.number}" NOT present in design.md § Constraints and Rules:
-      ❌ BLOCK: "Blueprint missing required DC-{dc.number} ({dc.name}) constraint."
+    IF "{dc.id}" NOT present in design.md § Constraints and Rules:
+      ❌ BLOCK: "Blueprint missing required {dc.id} ({dc.name}) constraint."
       REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC reference to design.md § Constraints and Rules."
       STOP
-    IF "DC-{dc.number}" NOT present in test_plan.md § 2 (Detailed Technical Test Plan):
-      ❌ BLOCK: "Test plan missing required DC-{dc.number} ({dc.name}) edge case."
+    IF "{dc.id}" NOT present in test_plan.md § 2 (Detailed Technical Test Plan):
+      ❌ BLOCK: "Test plan missing required {dc.id} ({dc.name}) edge case."
       REDIRECT: "Run BLUEPRINT --refine {FEATURE_ID} to add the missing DC edge case to test_plan.md."
       STOP
 

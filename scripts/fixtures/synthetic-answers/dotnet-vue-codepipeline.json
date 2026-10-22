@@ -5,6 +5,7 @@
     "backend.runtime": ".NET",
     "frontend.framework": "Vue.js",
     "frontend.meta_framework": "Nuxt",
+    "frontend.pattern": "F1",
     "database.primary.engine": "PostgreSQL",
     "hosting.provider": "AWS",
     "hosting.iac_tool": "AWS CDK",
@@ -18,6 +19,7 @@
   "expect": {
     "landed": [".claude/rules/csharp.md", "buildspec-governance.yml"],
     "absent": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml"],
+    "defect_classes": {"present": ["DC-31", "PDC-1"], "absent": ["DC-18"]},
     "gates": {"tests": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage", "coverage": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage", "lint": "dotnet format --verify-no-changes", "build": "dotnet build --no-restore", "sca": "out=$(dotnet list package --vulnerable --include-transitive 2>&1) || { echo \"$out\"; exit 1; }; echo \"$out\"; ! printf '%s' \"$out\" | grep -qE 'has the following vulnerable packages|NU1900|Unable to load the service index'", "frontend-tests": "npx vitest run", "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"},
     "red": false, "coverage_report": null, "red_link": null,
     "test_roots": ["tests/**", "e2e/**", "src/**/*.test.*", "src/**/*.spec.*"]

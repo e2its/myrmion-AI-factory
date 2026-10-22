@@ -266,16 +266,16 @@ VERIFY:
         # Verify modified code satisfies the documented prevention check
         IF NOT CHANGE_SATISFIES(dc.invariant, modified_file):
           IF dc.severity == "BLOCKER":
-            BLOCKER [GOV-DC-{dc.number}]:
-              "Defect prevention check DC-{dc.number} ({dc.name}) not satisfied in {file}:{line}.
+            BLOCKER [GOV-{dc.id}]:
+              "Defect prevention check {dc.id} ({dc.name}) not satisfied in {file}:{line}.
                Invariant: {dc.invariant}. Gate: {dc.gate}.
                Reference: .claude/rules/defect-prevention.md"
           ELSE:
-            WARNING [GOV-DC-{dc.number}]:
-              "Potential defect pattern DC-{dc.number} ({dc.name}) in {file}:{line}. Verify invariant: {dc.invariant}."
+            WARNING [GOV-{dc.id}]:
+              "Potential defect pattern {dc.id} ({dc.name}) in {file}:{line}. Verify invariant: {dc.invariant}."
 
 SEVERITY: per-DC (BLOCKER or WARNING as defined in catalog Review Severity column)
-CONSTRAINT_IDS: [GOV-DC-{N}]
+CONSTRAINT_IDS: [GOV-{dc.id}]  # GOV-DC-NN or GOV-PDC-NN
 REFERENCE: .claude/rules/defect-prevention.md
 ```
 

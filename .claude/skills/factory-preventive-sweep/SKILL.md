@@ -14,7 +14,7 @@ applicable_when:
 
 **Core Principle:** Static gates (lint + typecheck + SAST + unit tests) form a strong build verification loop, but they **cannot catch defects that only appear under real infrastructure execution** — real auth providers, real databases, real CDNs, real browsers. This sweep closes that gap.
 
-**Governance integration:** The Defect Prevention Catalog at `.claude/rules/defect-prevention.md` is the authoritative list of known defect patterns. This skill provides the search methodology; the rule provides the mandatory process hooks (DEV pre-write check, REVIEW Check #2d). When this sweep discovers a new DC, it MUST be added to BOTH the governance rule AND this skill's search table.
+**Governance integration:** The Defect Prevention Catalog at `.claude/rules/defect-prevention.md` is the authoritative list of known defect patterns. This skill provides the search methodology; the rule provides the mandatory process hooks (DEV pre-write check, REVIEW Check #2d). A class this sweep discovers enters through the rule's Discovery Protocol (`PDC-NN`, row and case); its search derives from that row and case, never from a table here.
 
 ---
 
@@ -48,9 +48,9 @@ FUNCTION build_search_plan(dc_catalog):
   FOR EACH dc IN dc_entries:
     # Derive the search from the row (Family, Gate, Paths) + the case Detection
     # (defect-prevention-cases.md § DC-N). The search VERIFIES the invariant holds.
-    case = READ_CASE(".claude/rules/defect-prevention-cases.md", dc.number)
+    case = READ_CASE(".claude/rules/defect-prevention-cases.md", dc.id)
     search = {
-      dc_id: dc.number,
+      dc_id: dc.id,
       dc_name: dc.name,
       scope: dc.family,                                    # runtime | ui | boundary | data | tests | infra | process
       search_roots: dc.paths == "*" ? ALL : dc.paths,      # row Paths, else the family Surface globs
@@ -271,8 +271,7 @@ fallback: []                           # every fall: {alias, id, delivered}
 ## EVOLUTION
 
 When a sweep discovers a new defect pattern that doesn't fit existing DCs:
-1. Assign it the next DC number (DC-{last+1})
+1. Assign it the project's next own id (`PDC-NN`, the Discovery Protocol); `DC-NN` is the framework's
 2. Document it: one row in `.claude/rules/defect-prevention.md § Defect Classes` (Family, Invariant, Gate, Paths, Applicable To, Severity) + one case in `defect-prevention-cases.md` (Origin, Story, Detection)
-3. Add its search methodology to this skill's search strategy
-4. Bump the rule version in `governance_versions.json`
-5. Save a feedback memory so future sessions are aware
+3. Bump the rule version in `governance_versions.json` — the search derives from the row and the case (§ Search Strategy per DC); nothing to add here
+4. Save a feedback memory so future sessions are aware

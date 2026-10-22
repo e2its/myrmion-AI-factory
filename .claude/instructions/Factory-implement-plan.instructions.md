@@ -259,7 +259,7 @@ IF applicable_dcs is not empty:
   ADD SECTION to dev_plan.md § DC Compliance (created if absent):
     FOR EACH dc IN applicable_dcs:
       ADD task:
-        "- [ ] [DC-{dc.number}] Verify {dc.name}: {dc.invariant}"
+        "- [ ] [{dc.id}] Verify {dc.name}: {dc.invariant}"
         # Every DC becomes an explicit dev_plan task tracked by the BVL loop.
         # The worker's pre-write check (Factory-implement-build) also reads the same catalog.
 

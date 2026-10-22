@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Catalog — families, defect classes, gates, governed paths. Cases annex: defect-prevention-cases.md"
-version: 3.2.0
+version: 3.3.0
 date: 2026-09-25
 changelog:
   - "3.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -39,9 +39,13 @@ Runtime defect patterns that pass every static gate (lint, typecheck, SAST, unit
 | DC-28 | `runtime` | No function in the diff exceeds `config/quality.json.complexity.thresholds.hard` (block) or `.soft` (advisory) McCabe complexity. | BVL `full_verification_gate` Step 7 · factory-pr-review axis 6 / Block 19 (`factory-complexity-check`) | `src/**` | IMPLEMENT, REVIEW, QA | BLOCKER |
 | DC-29 | `process` | Code exists only after the YAGNI ladder stops at its first viable rung — a simpler *how*, never a cut of the specified *what*. | BVL `full_verification_gate` Step 8 (advisory, fail-open) · factory-adversarial-reasoning do-less lens | `*` | CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, AUDIT | WARNING |
 | DC-30 | `process` | A fix is verified by its red test turning green, then by the read-set re-run — never by re-running everything. | seal plan: `gate.py seal --plan` names the gates the delta's read-set touched | `*` | IMPLEMENT, REVIEW | WARNING |
+| DC-31 | `process` | No literal credential enters the diff: configuration and the vault supply it, and a credential that reached any branch is rotated at once. | loop member `secrets`, proven to detect by its canary (`gate.py seal --run`) · pre-push secret scan (`security-scan.sh --secrets --require-scanner`) | `*` | IMPLEMENT, REVIEW, DEVOPS, AUDIT | BLOCKER |
+| DC-32 | `infra` | Every path a deploying job or a script it runs reads is on the declared runtime surface or a declared read, so no source changes a release unseen. | profile member `runtime-surface` (`gate.py runtime-surface` parity) | `.github/workflows/**`, `.gitlab-ci*.yml`, `.gitlab/**`, `bitbucket-pipelines.yml`, `azure-pipelines*.yml`, `governance-check-pipeline.yml`, `Jenkinsfile*`, `buildspec*.yml`, `cloudbuild*.yaml`, `scripts/**`, `config/quality.json` | IMPLEMENT, REVIEW, DEVOPS, AUDIT | BLOCKER |
+| DC-33 | `tests` | A coverage figure names what it did not measure: every runtime-surface file absent from the report is listed «not measured» or declared omitted. | per-file table of `gate.py seal --run` (`coverage-table.md`), read by the correctness lens | `config/quality.json`, `tests/**`, `**/*.config.*`, `**/*.toml` | IMPLEMENT, REVIEW, QA | WARNING |
+| DC-34 | `process` | Every in-scope scenario's declared cases are linked to tests that ran, and a fresh-context lens judges the build against spec, journey and mock. | profile member `traceability` (each declared case → its test) · the fidelity lens (`factory-critic-fidelity`) | `src/**`, `tests/**`, `e2e/**` | IMPLEMENT, REVIEW, QA | BLOCKER |
 {{DC_ENTRIES}}
 
-Columns. `Invariant`: one line, ≤ `budgets.dc_invariant_max_chars`. `Gate`: the mechanical check that proves the DC (`scripts/` script, BVL step, CVP check id, pr-review Block, named test) or `—`. `Paths`: globs the DC governs; `*` = universal — delivered everywhere and embedded in the governance snapshot. `Applicable To`: agents that MUST consult — CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT (SETUP materialises, never consumes). `Severity`: BLOCKER or WARNING when a consumer finds the pattern.
+Columns. `DC`: `DC-NN` is a universal class, numbered by the framework (§ Promotion); `PDC-NN` is the project's own (§ Discovery Protocol). `Invariant`: one line, ≤ `budgets.dc_invariant_max_chars`. `Gate`: the mechanical check that proves the DC (`scripts/` script, BVL step, CVP check id, pr-review Block, named test) or `—`. `Paths`: globs the DC governs; `*` = universal — delivered everywhere and embedded in the governance snapshot. `Applicable To`: agents that MUST consult — CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT (SETUP materialises, never consumes). `Severity`: BLOCKER or WARNING when a consumer finds the pattern.
 
 ## Cases
 
@@ -72,17 +76,31 @@ Caller contract: pass `ctx.files` when the touched files are known (IMPLEMENT `-
 
 ```yaml
 WHEN a runtime defect surfaces that no row covers:
-  1. novel → id = DC-{last+1}
+  1. novel → id = PDC-{highest PDC + 1}     # the project's own; never a DC-NN, never an alias
      ADD row (Family, Invariant ≤ budget, Gate or `—`, Paths, Applicable To, Severity) to § Defect Classes
-     ADD `### DC-{N} — {name}` (Origin, Story, Detection) to defect-prevention-cases.md
-     ADD search methodology to factory-preventive-sweep/SKILL.md
-     BUMP this rule in governance_versions.json · SAVE feedback memory · LOG "New defect class DC-{N} cataloged: {name}"
-  2. variant of an existing DC → extend its row / case · BUMP version
+     ADD `### PDC-{N} — {name}` (Origin, Story, Detection) to defect-prevention-cases.md
+     BUMP this rule in governance_versions.json · SAVE feedback memory · LOG "New defect class PDC-{N} cataloged: {name}"
+  2. variant of an existing row → extend its row / case · BUMP version
 ```
 
-Any agent proposes; the write lands through the `[EPIC-{N}] RETROSPECTIVE` gate (Factory-backlog-operations § 3.4.1) or an emergency hotfix commit when the defect is critical and recurrent. Rationale lives on the ticket; the row and the case carry the prevention.
+Any agent proposes; the write lands through the `[EPIC-{N}] RETROSPECTIVE` gate (Factory-backlog-operations § 3.4.1) or an emergency hotfix commit when the defect is critical and recurrent. Rationale lives on the ticket; the row and the case carry the prevention. The preventive sweep derives its search from the row and the case — nothing to add there. Every minting site (retrospective, build loop, sweep) follows this protocol.
+
+## Promotion
+
+A project's class may become universal; it is proposed upstream as an issue. It enters the framework's catalog only when all hold:
+
+1. **Generic** — names no stack, cloud or domain; generalised before it enters («function» → «function or service»). Stack and cloud are checked against the discovery registry's vocabulary (`gate.py discovery`); domain at review.
+2. **Gated** — its Gate exists, or is built in the same change. No gate yet → it waits in the issue that builds the gate; that issue names the class and adds the row in its DoD.
+3. **Novel** — not a variant of an existing row (Discovery Protocol 2).
+4. **Numbered by the framework** — the next `DC-NN`; the project's `PDC-NN` is not carried over (a fork's numbering is not a compatibility contract).
+5. **Tool-bound only through discovery** — a class true only where a tool is, is selected by that tool's registry option (`configures → defect_prevention.classes`); a row exists or it does not. A tool no registry question names → the class waits for its question, or enters generic.
+6. **Complete** — row and case in one change.
+
+Project-specific classes stay `PDC`. An upgrade lands new universal rows and never touches a `PDC` row.
 
 ## Mandatory Process Integration
+
+`DC-{N}` in an output format below or in a phase template stands for the row's id as the catalog writes it: `DC-NN` or `PDC-NN`; a `DC-*` pattern over such ids (`[GOV-DC-*]`, `[QA-DC-*]`) covers both.
 
 | Agent | When | Mode | Output | Where |
 |---|---|---|---|---|

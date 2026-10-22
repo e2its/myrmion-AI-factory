@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.0.1
+version: 1.1.0
 date: 2026-09-25
 changelog:
   - "1.0.0: feat(EVOL-043) — annex created; narratives moved out of the catalog prose columns into one case per DC"
@@ -52,3 +52,35 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 **Story:** Any fix, in any phase. The cost grows with the codebase, the one test that names the bug drowns in the noise, and the loop's seal — which already knows which gates a delta touches — is bypassed. One full loop per change (EVOL-051): after a green seal, a delta re-runs only the gates whose read-set it touched.
 
 **Detection:** The fix's red test fails before the fix and passes after it, in the scoped suite. Then `python3 scripts/gate.py seal --plan` names the stale gates and `--run` re-runs only those. Framework text that prescribes otherwise is a retired pattern, red in meta CI (#118).
+
+### DC-31 — Secret committed to the diff
+
+**Origin:** A generic class from a downstream instantiation (#120): provider keys, personal access tokens and private-key blocks reached a branch as literals, and the diff check that should have stopped them was the only one in place.
+
+**Story:** Any file, any phase — source, configuration, a test fixture, a script, a document. A credential that reaches any branch is compromised the moment it is pushed, whatever happens to the commit afterwards. A scanner that is installed but cannot detect (wrong rules, wrong range, an error exit read as clean) gives the same green as one that found nothing.
+
+**Detection:** The loop's `secrets` member runs the project's scanner, and `gate.py seal --run` first proves it detects: a clean commit must pass and a planted provider-shaped credential must fail, in a temporary repository outside the tree. The pre-push hook scans every pushed ref. A hit is removed from the diff and the credential is rotated at once — removal alone is not a cure. LAW-04 is the law; this class is its runtime prevention.
+
+### DC-32 — A deploying job blind to one of its sources
+
+**Origin:** A generic class from a downstream instantiation (#120): a job's trigger filter routed by directory while the job read sources outside its filter, so a change to such a source skipped the job and CI stayed green — a declared gate that never executed.
+
+**Story:** Pipelines that decide by path what to run — deploy and release jobs, and the scripts they call. A path the job reads but the trigger does not name changes what ships without the machinery firing. The same defect one layer down is a hook whose matcher omits a tool that writes.
+
+**Detection:** `python3 scripts/gate.py runtime-surface` (a profile member): every path literal in the deploying jobs, and transitively in the scripts they run, matches `surface.runtime_surface`, a hard exclusion or a declared read with its reason; a declared read nothing reads any more is a finding. A non-deploying job's filter against what its compiler resolves (path aliases, generated clients) is toolchain-specific: it stays a project class (`PDC`), searched by the sweep where the toolchain is known.
+
+### DC-33 — Phantom coverage
+
+**Origin:** A generic class from a downstream instantiation (#120): a coverage run lost the data of a worker killed for memory; the run exited green and the threshold held on the files that remained.
+
+**Story:** Any coverage run that aggregates per-process data, or whose configuration excludes paths. A file dropped from the report raises the percentage instead of lowering it, so the figure claims more than it measured. A coverage number that moves without a code change is the symptom.
+
+**Detection:** `gate.py seal --run` writes `coverage-table.md` from this run's LCOV report only: one row per measured file, and every runtime-surface file absent from the report listed «not measured» unless `verification.coverage.omit` declares it. A stale report or a failed run is said, never tabled. The correctness lens reads the table; an undeclared «not measured» file is its finding. Cap the runner's workers to its memory before chasing a number.
+
+### DC-34 — Implementation drifts from the journey and the mock
+
+**Origin:** A generic class from a downstream instantiation (#120): the built product diverged from what co-design defined, visually and in its journeys; the fidelity checks existed as prose in the author's own context and none of the review records adjudicated them.
+
+**Story:** Any feature with a spec, a journey and a mock. Scenarios ship untraced, journey steps exist but cannot be reached, mock states, copy or accessible names are left out, or scope grows beyond the task — and nobody with fresh context compares the build with what was agreed before the deploy.
+
+**Detection:** The `traceability` member: every test case the plan declares is linked to its test at its one home, and the baseline only shrinks. The fidelity lens (`factory-critic-fidelity`) reads the diff against spec, journey, mock and plan with fresh context; a step that cannot be reached or a state not built is its finding. Reachability through the project's navigation model is project-specific (`PDC`).

@@ -83,9 +83,9 @@ applicable_when:
 ## Defect Classes
 | DC | Family | Invariant | Gate | Paths | Applicable To | Severity |
 |---|---|---|---|---|---|---|
-| DC-18 | `runtime` | Unused imports are removed before commit. | `—` | `src/**` | DEV, REVIEW | WARNING |
-| DC-27 | `data` | A migration ships with its down step. | `scripts/validate-migrations.sh` | `**/migrations/**` | DEV | CRITICAL |
-| DC-29 | `runtime` | Build the least that satisfies the spec. | `—` | `*` | DEV, ARCH | WARNING |
+| DC-18 | `runtime` | Unused imports are removed before commit. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |
+| DC-27 | `data` | A migration ships with its down step. | `scripts/validate-migrations.sh` | `**/migrations/**` | IMPLEMENT | BLOCKER |
+| DC-29 | `runtime` | Build the least that satisfies the spec. | `—` | `*` | IMPLEMENT, BLUEPRINT | WARNING |
 EOF
 
 echo "── check-plan-approval · one planning stage (EVOL-048) ──"
@@ -486,7 +486,7 @@ H=$(md5sum "$REPO/docs/constitution.md" | cut -d' ' -f1); HD=$(md5sum "$REPO/.cl
 printf -- '---\nconstitution_hash: "%s"\nsetup_hash: "null"\ndcs_hash: "%s"\n---\n' "$H" "$HD" > "$REPO/.context/governance_snapshot.md"
 run_hook check-governance-drift.sh '{"tool_name":"Edit"}'
 if [ "$RC" -eq 0 ] && [ -z "$OUT" ]; then ok "fresh snapshot: silent"; else bad "fresh snapshot should be silent" "$OUT"; fi
-printf '| DC-99 | `runtime` | x | — | `*` | DEV | LOW |\n' >> "$REPO/.claude/rules/defect-prevention.md"
+printf '| DC-99 | `runtime` | x | — | `*` | IMPLEMENT | WARNING |\n' >> "$REPO/.claude/rules/defect-prevention.md"
 run_hook check-governance-drift.sh '{"tool_name":"Edit"}'
 assert_context "catalog edited: dcs_hash drift is reported too" "defect-prevention.md"
 

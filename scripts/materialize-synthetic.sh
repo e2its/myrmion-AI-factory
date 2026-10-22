@@ -112,6 +112,7 @@ if (T / "setup/setup_master_template.md").is_file():
 # {{#if}}/{{#each}} blocks keep their content)
 NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0"}
 NUM["VERIFICATION_GATES"] = json.dumps(GATES)
+NUM["DC_ENTRIES"] = "| PDC-1 | `runtime` | sample project class. | — | `src/**` | IMPLEMENT, REVIEW | WARNING |"   # the seed, PDC-numbered (EVOL-066)
 NUM["TRACEABILITY_TEST_ROOTS"] = json.dumps(RES["configures"].get("traceability.test_roots", []))
 if isinstance(A.get("surface.runtime_surface"), list):
     NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])
@@ -137,8 +138,25 @@ for f in P.rglob("*"):
         f.write_text(resolve(text, f.suffix == ".json"), encoding="utf-8")
     if f.suffix == ".json" and "{{" in f.read_text(encoding="utf-8"):
         unresolved.append(str(f.relative_to(P)))
+# the defect-prevention seed (EVOL-066): one sample project row PDC-1 with its case; the classes --resolve drops leave
+# the catalog with their cases
+CAT, CASES = P / ".claude/rules/defect-prevention.md", P / ".claude/rules/defect-prevention-cases.md"
+DROP = RES["defect_classes"]["drop"]
+if CAT.is_file():
+    CAT.write_text("".join(ln for ln in CAT.read_text(encoding="utf-8").splitlines(True)
+                           if not any(ln.startswith(f"| {i} |") for i in DROP)), encoding="utf-8")
+if CASES.is_file():
+    text = CASES.read_text(encoding="utf-8")
+    for i in DROP:
+        text = re.sub(r"(?ms)^### " + re.escape(i) + r" — .*?(?=^### |\Z)", "", text)
+    CASES.write_text(text.rstrip("\n") + "\n\n### PDC-1 — sample\n\n**Origin:** sample.\n\n**Story:** sample.\n\n**Detection:** sample.\n", encoding="utf-8")
 exp = FX.get("expect", {})
-missing = [f"{x} did not land" for x in exp.get("landed", []) if x not in landed]
+from gates import corpus
+have = {d["id"] for d in corpus.catalog(P, CAT)["dcs"]} & set(corpus.cases(CASES))   # the stricter parser reads the seed
+want_dc = exp.get("defect_classes", {})
+missing = [f"defect class {i}: row and case expected" for i in want_dc.get("present", []) if i not in have]
+missing += [f"defect class {i}: landed, the answers drop it" for i in want_dc.get("absent", []) if i in corpus.cases(CASES) or i in {d["id"] for d in corpus.catalog(P, CAT)["dcs"]}]
+missing += [f"{x} did not land" for x in exp.get("landed", []) if x not in landed]
 missing += [f"{x} landed, the answers do not select it" for x in exp.get("absent", []) if x in landed]
 bvl = (Path(sys.argv[5]) / ".claude/skills/factory-build-verification/SKILL.md").read_text(encoding="utf-8")
 if re.search(r"MATCH stack\.", bvl):
@@ -190,17 +208,43 @@ if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(o
   mkdir -p "$P/docs/project_log" "$P/.context/templates/setup/setup"
   cp "$T/setup/discovery_registry.json" "$P/.context/templates/setup/setup/discovery_registry.json"
   cp "$MANIFEST" "$P/.context/templates/setup/governance_versions.json"
+  # the catalog delta (EVOL-066): the template catalog delivered as factory-sync does; the project's predates DC-32..34,
+  # holds its own DC-31 (another class) and the template DC-18 its answers no longer select
+  mkdir -p "$P/.context/templates/setup/rules"
+  cp "$T/rules/defect-prevention.md" "$P/.context/templates/setup/rules/defect-prevention.md"
+  cp "$T/rules/defect-prevention-cases.md" "$P/.context/templates/setup/rules/defect-prevention-cases.md"
+  python3 - "$T/rules" "$P/.claude/rules" <<'PY' || { echo "materialize-synthetic: cannot age the project's defect catalog" >&2; exit 2; }
+import re, sys
+from pathlib import Path
+tpl, proj = Path(sys.argv[1]), Path(sys.argv[2])
+rows = {m.group(1): m.group(0) for m in re.finditer(r"(?m)^\| (DC-\d+) \|.*$", (tpl / "defect-prevention.md").read_text(encoding="utf-8"))}
+case = lambda text, i: re.search(r"(?ms)^### " + i + r" — .*?(?=^### |\Z)", text)
+tcases = (tpl / "defect-prevention-cases.md").read_text(encoding="utf-8")
+cat, cases = (proj / "defect-prevention.md").read_text(encoding="utf-8"), (proj / "defect-prevention-cases.md").read_text(encoding="utf-8")
+for i in ("DC-32", "DC-33", "DC-34"):
+    cat = cat.replace(rows[i] + "\n", "")
+    cases = cases.replace(case(cases, i).group(0), "")
+cat = cat.replace(rows["DC-31"], "| DC-31 | `process` | Every login of the project names its tenant. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |")
+cases = cases.replace(case(cases, "DC-31").group(0), "### DC-31 — Tenant-less login\n\n**Origin:** the project's own.\n\n")
+if "| DC-18 |" not in cat:
+    cat = cat.replace(rows["DC-27"], rows["DC-18"] + "\n" + rows["DC-27"])
+    cases = cases.rstrip("\n") + "\n\n" + case(tcases, "DC-18").group(0)
+(proj / "defect-prevention.md").write_text(cat, encoding="utf-8"); (proj / "defect-prevention-cases.md").write_text(cases, encoding="utf-8")
+PY
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
   URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
   UMISS=$(printf '%s' "$UP" | python3 -c '
 import json, sys
 exp = json.load(open(sys.argv[1]))["expect"]; r = json.loads(sys.stdin.read())
-got = {"pending": r["pending"], "migrations": [m["id"] for m in r["migrations_owed"]]}
-for k in ("pending", "migrations"):
-    if got[k] != exp.get(k):
-        print(f"{k}: expected {exp.get(k)}, got {got[k]}")
+dc = r["defect_classes"]
+got = {"pending": r["pending"], "migrations": [m["id"] for m in r["migrations_owed"]],
+       "to_add": dc.get("to_add"), "collisions": [c["id"] for c in dc.get("collisions", [])], "to_remove": dc.get("to_remove")}
+want = {**exp, **exp.get("defect_classes", {})}
+for k in got:
+    if got[k] != want.get(k):
+        print(f"{k}: expected {want.get(k)}, got {got[k]}")
 ' "$ANSWERS" 2>&1)
-  [ "$URC" -eq 0 ] && [ -z "$UMISS" ] && ok "--resolve against a $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["framework_version"])' "$ANSWERS") project lists exactly the expected pending questions and owed migrations" \
+  [ "$URC" -eq 0 ] && [ -z "$UMISS" ] && ok "--resolve against a $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["framework_version"])' "$ANSWERS") project lists exactly the expected pending questions, owed migrations and defect-class delta" \
     || bad "the upgrade's resolve is not what the fixture expects (rc $URC)" "$UMISS${UMISS:+
 }$(printf '%s' "$UP" | tail -3)"
 fi
