@@ -199,5 +199,12 @@
     "protected_branches": ["main"],
     "required_checks": {{SCM_REQUIRED_CHECKS}},
     "approvals": {{SCM_APPROVALS}}
+  },
+  "train": {
+    "_doc": "A train stacks its changes by file (EVOL-104): close_ledgers are the paths written once per train, by the train-close sub only — python3 scripts/gate.py train (a light member of the gate profile) is red when a sub-increment branch writes one while another sub of its increment is not MERGED; the same gate holds each increment plan's sub rows to stacking by file (paths, after, concerns, enables) against surface.ceiling_*.",
+    "close_ledgers": [
+      "docs/project_log/governance_versions.json",
+      "config/codebase_inventory.json"
+    ]
   }
 }

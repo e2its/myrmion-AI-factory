@@ -9,6 +9,7 @@ the git log and the per-feature worklog, and reports for a time window:
   branches     commits and review rounds per branch (one branch = one pull request); trains (EVOL-045) group
                their sub-increment branches (`…-inc-{N}-{slug}-sub-{M}`): commits, review rounds, sub-increment branches seen
   rework       share of rework commits and of repeated edits
+  retouch      per local train branch (EVOL-104): subs (first-parent commits off main), unique files, file-touches, re-touch
   governance   bytes emitted by hooks vs bytes delivered to the model vs bytes read
   agents       per agent: model, tokens, bytes read, citations
   citations    per law / defect-class id; ids never cited = pruning candidates (user decides)
@@ -567,6 +568,30 @@ def rework_from_git(repo: Path, cfg: dict, since, until) -> dict:
             "share": round(len(rework) / len(subjects), 3) if subjects else None}
 
 
+TRAIN_RE = re.compile(r"^feature/[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*-inc-\d+-[a-z0-9-]+$")   # the branch grammar of gate.py, never a -sub-
+
+
+def retouch_from_git(repo: Path, since, until) -> dict:
+    """Per local train branch (EVOL-104): its first-parent commits not on the main branch — one squash commit per sub —
+    and the files they name: subs, unique files, file-touches, re-touch (file-touches minus unique files — the gate's `train --figures` figure)."""
+    refs = git(repo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+    if refs is None:
+        return {"unavailable": "git refs not readable (not a repository, or git missing)"}
+    base = next((b for b in ("main", "master") if git(repo, "rev-parse", "--verify", "-q", f"refs/heads/{b}") is not None), None)
+    out: dict[str, dict] = {}
+    for b in sorted(r.strip() for r in refs.splitlines()):
+        if not TRAIN_RE.match(b) or re.search(r"-sub-[1-9]\d*$", b):
+            continue
+        log = git(repo, "log", "--first-parent", "--name-only", "--format=%x00", f"--since={since.isoformat()}", f"--until={until.isoformat()}",
+                  *( [f"{base}..{b}"] if base else [b]))
+        if log is None:
+            continue
+        subs = [{ln.strip() for ln in chunk.splitlines() if ln.strip()} for chunk in log.split("\x00")[1:]]
+        seen = collections.Counter(f for files in subs for f in files)
+        out[b] = {"subs": len(subs), "unique_files": len(seen), "file_touches": sum(seen.values()), "retouch": sum(seen.values()) - len(seen)}
+    return out
+
+
 # ─── returns, pushes, loop (EVOL-057) ───────────────────────────────────────────
 
 def final_return(spawn: dict) -> tuple[str | None, str | None]:
@@ -791,6 +816,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
 
     rework_git = rework_from_git(repo, cfg, since, until)
     report["window"]["sources"]["git"] = "ok" if "unavailable" not in rework_git else rework_git["unavailable"]
+    report["retouch"] = retouch_from_git(repo, since, until)
     # the loop's records are files beside the seal (EVOL-057): read with or without transcripts
     report["pushes"] = pushes_report(repo, sessions, since, until)
     report["loop"] = loop_report(repo, since, until)
@@ -1201,6 +1227,10 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
                    f"{gitp['rework_commits']} of {gitp['commits']} commits are fix/revert (share {_fmt(gitp['share'])})"),
         "edits: " + (f"unavailable: {ed['unavailable']}" if "unavailable" in ed else
                      f"{ed['repeated']} of {ed['total']} edits hit a file already edited on the same branch (share {_fmt(ed['share'])})")])
+    rt = r.get("retouch") or {}
+    section("Re-touch per train (EVOL-104)", rt, [] if "unavailable" in rt else
+            ["| train | subs | unique files | file-touches | re-touch |", "|---|---|---|---|---|"] +
+            [f"| {k} | {v['subs']} | {v['unique_files']} | {v['file_touches']} | {v['retouch']} |" for k, v in rt.items()])
     gb = r["governance_bytes"]
     section("Governance bytes", gb, [] if "unavailable" in gb else
             [f"emitted by hooks {gb['emitted_by_hooks']:,} · delivered to the model {gb['delivered_to_model']:,} · "
@@ -1472,6 +1502,16 @@ def _fixture_repo(root: Path) -> Path:
     (repo / "docs/project_log/governance_versions.json").write_text('{"framework_version": "1.0.0", "templates": {}}\n', encoding="utf-8")
     for a in (["add", "-A"], ["commit", "-q", "-m", "chore(EVOL-061): governance manifest"]):   # one commit touching the manifest, inside the window
         subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, env=env)
+    # a train (EVOL-104): one squash commit per sub on its first parent; src/b.py comes back in the second sub
+    run("branch", "-M", "main")
+    run("checkout", "-q", "-b", "feature/FEAT-002-inc-1-x")
+    for msg, files in (("feat(FEAT-002): SUB-1-1", ("src/a.py", "src/b.py")), ("feat(FEAT-002): SUB-1-2", ("src/b.py", "src/c.py"))):
+        for f in files:
+            (repo / f).parent.mkdir(parents=True, exist_ok=True)
+            (repo / f).write_text(msg, encoding="utf-8")
+        run("add", "-A")
+        run("commit", "-q", "-m", msg)
+    run("checkout", "-q", "main")
     return repo
 
 
@@ -1578,6 +1618,9 @@ def selftest() -> int:
         expect("| train | commits |" in md and "| feature/FEAT-002-inc-1-x | 2 | 0 | 2 |" in md, "the train table renders")
         expect(r["rework"]["git"] == {"commits": 4, "rework_commits": 1, "share": 0.25}, "rework share from git commit types (the fourth commit is the manifest's, EVOL-061)")
         expect(r["rework"]["edits"] == {"total": 3, "repeated": 1, "share": 0.333}, "repeated-edit share from Edit tool uses")
+        expect(r["retouch"] == {"feature/FEAT-002-inc-1-x": {"subs": 2, "unique_files": 3, "file_touches": 4, "retouch": 1}},
+               "a train's re-touch from its first-parent history: subs, unique files, file-touches, re-touch = touches minus unique (EVOL-104)")
+        expect("| train | subs | unique files | file-touches | re-touch |" in md and "| feature/FEAT-002-inc-1-x | 2 | 3 | 4 | 1 |" in md, "the re-touch table renders")
         gb = r["governance_bytes"]
         expect(gb["emitted_by_hooks"] == 6079 and gb["delivered_to_model"] == 3000, "hook bytes: emitted vs delivered")
         expect(gb["truncated_deliveries"] == 1, "a delivery shorter than its stdout is a truncation")
@@ -1766,6 +1809,7 @@ def selftest() -> int:
         r2 = build_report(root / "nope", cfg, root / "missing", since, until)
         expect(r2["window"]["sources"]["transcripts"].startswith("unavailable"), "missing transcripts folder is said, not raised")
         expect("unavailable" in r2["rework"]["git"], "missing git is said, not raised")
+        expect("unavailable" in r2["retouch"], "missing git: the re-touch is said unavailable")
         expect("unavailable" in r2["gates"] and "unavailable" in r2["citations"], "sections degrade to unavailable")
         expect("unavailable" in r2["critics"], "no transcripts: the critics section is said unavailable")
         expect("unavailable" in render_markdown(r2), "partial report still renders")

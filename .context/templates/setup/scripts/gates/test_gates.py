@@ -22,7 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
+from gates import agents, aligned, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -5218,6 +5218,97 @@ class Aligned(unittest.TestCase):
             self._log(repo, self._entry(id="AC-FEAT-001-1\x1b[2J"))
             out = aligned.render(aligned.check(repo, "main"))
             self.assertNotIn("\x1b", out); self.assertTrue(all(ch.isprintable() for ln in out.splitlines() for ch in ln), out)
+
+
+class Train(unittest.TestCase):
+    """EVOL-104: a train stacks its changes by file — no stackable re-touch, no early gate, ledgers once per train."""
+    PLAN = "docs/spec/FEAT-001/increment_plan.md"
+    LEDGER = "docs/project_log/governance_versions.json"
+
+    def _repo(self, tmp, plan=None, branch="feature/FEAT-001-x"):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text())
+        q.update({"surface": {"ceiling_files": 10, "ceiling_lines": 100}, "train": {"close_ledgers": [self.LEDGER]}})
+        write(repo / "config/quality.json", json.dumps(q))
+        write(repo / self.LEDGER, "{}\n")
+        if plan is not None:
+            write(repo / self.PLAN, plan)
+        for c in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], ["branch", "-M", "main"], ["checkout", "-qb", branch]):
+            subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+        return repo
+
+    @staticmethod
+    def _plan(*rows):
+        return "# Plan\n\n### INC-1: x\n\n**Sub-increments:**\n" + "".join(f"- {r}\n" for r in rows)
+
+    def test_na_without_a_changed_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, plan=self._plan("SUB-1-1: a · paths [src/a.py] · ~2 files · ~10 lines · status: READY",
+                                                   "SUB-1-2: b · paths [src/a.py] · ~2 files · ~10 lines · status: READY"))
+            write(repo / "src/x.py", "x\n")
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(r["entries"], [])
+            self.assertTrue(train.render(r).startswith("train: n/a — "), train.render(r))
+            self.assertIn("train", [m[0] for m in profile.MEMBERS])
+
+    def test_a_independent_shared_glob_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.PLAN, self._plan("SUB-1-1: a · paths [src/a.py, ./src/b.py] · ~2 files · ~10 lines · branch x · status: READY",
+                                               "SUB-1-2: b · paths [src/b.py] · ~2 files · ~10 lines · status: READY"))
+            r = train.check(repo, "main"); self.assertFalse(r["ok"], r)
+            out = train.render(r); self.assertIn("src/b.py", out); self.assertIn("stack them", out)
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "train", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+
+    def test_a_shared_glob_ordered_by_after_green(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.PLAN, self._plan("SUB-1-1: a · paths [src/a.py] · ~2 files · ~10 lines · status: READY",
+                                               "SUB-1-2: m · paths [src/m.py] · after [SUB-1-1] · status: READY",
+                                               "SUB-1-3: b · paths [src/a.py] · after [SUB-1-2] · ~2 files · ~10 lines · status: READY"))
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(len(r["entries"]), 1)
+
+    def test_a_shared_glob_over_the_ceiling_green(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.PLAN, self._plan("SUB-1-1: a · paths [src/a.py] · ~6 files · ~10 lines · status: READY",
+                                               "SUB-1-2: b · paths [src/a.py] · ~6 files · ~10 lines · status: READY"))
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], r)
+            write(repo / self.PLAN, self._plan("SUB-1-1: a · paths [src/a.py] · ~2 files · ~60 lines · status: READY",
+                                               "SUB-1-2: b · paths [src/a.py] · ~2 files · ~60 lines · status: READY"))
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], r)
+
+    def test_b_enabling_sub_before_a_site_sub_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.PLAN, self._plan("SUB-1-1: site · paths [src/a.py] · concerns [auth] · status: READY",
+                                               "SUB-1-2: gate · paths [src/g.py] · after [SUB-1-1] · enables [auth] · status: READY",
+                                               "SUB-1-3: late site · paths [src/c.py] · concerns [auth] · status: READY"))
+            r = train.check(repo, "main"); self.assertFalse(r["ok"], r); self.assertIn("SUB-1-3", train.render(r))
+            write(repo / self.PLAN, self._plan("SUB-1-1: site · paths [src/a.py] · concerns [auth] · status: READY",
+                                               "SUB-1-3: late site · paths [src/c.py] · concerns [auth] · status: READY",
+                                               "SUB-1-2: gate · paths [src/g.py] · after [SUB-1-3, SUB-1-1] · enables [auth] · status: READY"))
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], r)
+
+    def test_c_ledger_in_a_non_last_sub_red_in_the_last_green(self):
+        rows = ("SUB-1-1: a · paths [src/a.py] · status: {s1}", "SUB-1-2: b · paths [src/b.py] · after [SUB-1-1] · status: BUILDING")
+        for s1, ok in (("READY", False), ("MERGED", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, plan=self._plan(rows[0].format(s1=s1), rows[1]), branch="feature/FEAT-001-inc-1-x-sub-2")
+                write(repo / self.LEDGER, '{"v": 2}\n')
+                r = train.check(repo, "main", "feature/FEAT-001-inc-1-x-sub-2"); self.assertEqual(r["ok"], ok, r)
+                if not ok:
+                    self.assertIn("SUB-1-1", train.render(r)); self.assertIn("train-close sub", train.render(r))
+
+    def test_figures_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, plan=self._plan("SUB-1-1: a · paths [src/a.py, src/b.py] · status: MERGED",
+                                                   "SUB-1-2: b · paths [src/b.py, src/c.py] · after [SUB-1-1] · status: READY",
+                                                   "SUB-1-3: c · paths [] · after [SUB-1-2] · status: READY"))
+            f = train.figures(repo)["figures"]
+            self.assertEqual([(x["inc"], x["subs"], x["unique_paths"], x["path_touches"], x["retouch"]) for x in f], [("INC-1", 3, 3, 4, 1)])
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "train", "--figures", "--plan", self.PLAN, "--json"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, res.stderr); self.assertEqual(json.loads(res.stdout)["figures"][0]["retouch"], 1)
 
 
 if __name__ == "__main__":

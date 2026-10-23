@@ -596,6 +596,9 @@ FUNCTION determine_build_scope(FEATURE_ID):
       ❌ BLOCK: "Concurrency violation — {sub_building.length} sub-increments in BUILDING. Only one may build at a time."
       STOP
     sub = sub_building[0]
+    # EVOL-104 — found work lands where its files are pending: a cure, a close debt or a routed task goes to the pending
+    # (READY | BUILDING) sub whose `paths` cover its files; only when none does, a new sub through the split's RDR (Factory-blueprint-design Step B.4).
+    # A path in `config/quality.json → train.close_ledgers` (the manifest, the inventory) is written by the train-close sub only — `gate.py train` (c).
   # Build the per-increment task regex from the full increment id (not a bare index).
   # target.id has the form "INC-<digits>"; escape the dash for regex literal safety.
   id_literal = REGEX_ESCAPE(target.id)    # e.g. "INC-2" → "INC\-2"
@@ -791,7 +794,8 @@ FUNCTION verify_completion_gate(FEATURE_ID):
     IF build_scope.target_sub_increment:
       sub = build_scope.target_sub_increment
       IF ANY(build_scope.target_increment.sub_increments, s.id != sub.id AND s.status != "MERGED"):
-        # not the last sub-increment — no ACC / BVL / deploy; the train stays open
+        # not the last sub-increment — no ACC / BVL / deploy; the train stays open; no `train.close_ledgers` write (the close sub owns them, EVOL-104);
+        # a debt found here lands in the pending sub whose `paths` cover its files, never in this one
         UPDATE sub.status: BUILDING → (push to the train; PR into the train: gh pr create --base <train>) → MERGED on merge
         # EVOL-062 — a fresh session per sub-increment: END THE SESSION here with the hand-off line (the Stop hook records it in .claude/state/handoff.json);
         # the next sub-increment opens in a FRESH session that resumes from the plan's first unticked task — never continue into it in this one (the context is the cost).
@@ -1541,7 +1545,7 @@ FUNCTION execute_fix_tasks(FEATURE_ID, fix_items):
 IF dev_plan.md status == BUILDING:
   1. ANALYZE failure (test failure, review blocker, security issue)
   2. IDENTIFY root cause in specific phase/task
-  3. GENERATE fix task: `- [ ] [FIX-N]` in current phase section
+  3. GENERATE fix task: `- [ ] [FIX-N]` in current phase section (in a train: under the pending sub whose `paths` cover its files — EVOL-104; none → a new sub through the split's RDR)
   4. APPLY fix following TDD:
      - Write test that reproduces the bug
      - Fix code to pass test

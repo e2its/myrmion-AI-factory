@@ -6,7 +6,7 @@ applicable_when:
     - "docs/spec/**/slice_map.md"
     - "docs/spec/**/increment_plan.md"
     - "docs/spec/**/dev_plan.md"
-version: 1.0.1
+version: 1.1.0
 date: 2026-10-07
 changelog:
   - "1.0.0: feat(EVOL-064) — body moved verbatim from the project CLAUDE.md § Incremental Dev Plan (Vertical Slicing); CLAUDE.md keeps the always-on lines and a pointer here."
@@ -31,6 +31,8 @@ Every feature ships as a chain of **vertical increments**. One PR per increment.
 **Branching.** `feature/{FEATURE_ID}-inc-N-{slug}` per increment, merged as independent PR. One branch open at a time per feature (concurrency lock). Merge hook stamps `Merged at:` and flips status.
 
 **Trains and the surface ceiling (EVOL-045).** The reviewable unit is bounded **per pull request** by `config/quality.json → surface.ceiling_files / ceiling_lines` (SETUP Q31; keys, never digits in prose). BLUEPRINT estimates every increment's surface (paths · ~files · ~lines, ratified by RDR) and splits an over-ceiling increment into sub-increments; the per-increment branch then becomes a **train** — protected like a base branch, receiving one PR per sub-increment `feature/{FEATURE_ID}-inc-N-{slug}-sub-M` (branched from the train), closed to the base branch by one PR when every sub-increment has landed. One full verification loop and one deployment per train (none when its diff touches no `surface.runtime_surface` glob), never per sub-increment. **One diff base** for every gate, review and measurement: `python3 scripts/gate.py diff-base` (a sub-increment → its train; else the default base branch; an unrecognised name is red). The push measures the real surface — `gate.py surface`: files + lines of the diff, no exclusion list — and blocks over the ceiling unless a commit trailer `Surface-Escape: <term>` names one of the closed `surface.escapes` (extending the list is a decision record). CVP Check `21` `surface_declared` warns on an increment without an estimate. See `.claude/skills/factory-branching-strategy/SKILL.md § Trains`.
+
+**Stack by file (EVOL-104).** Each sub row names `paths`, `after`, `concerns`, `enables`. The split stacks the changes a file needs in as few subs as the dependency order allows — a shared component before its consumers, a concern's gate after its last site. Found work (a cure, a close debt, a routed task) lands in the pending sub whose `paths` cover its files; none → a new sub through the split's RDR. A path in `config/quality.json → train.close_ledgers` is written once per train, by the train-close sub. `python3 scripts/gate.py train` (light and full profile) is red on a stackable re-touch, an early gate, a ledger written before the close; `--figures` counts subs, unique paths, path-touches, re-touch.
 
 **Consumption.** `IMPLEMENT --plan` reads `increment_plan.md`, emits `dev_plan.md` with one `## Increment INC-N` section per increment. Task tags: `[INC-N.A.M]` / `[INC-N.B.M]` / `[INC-N.C.M]` + `[INC-N.ACC.k]` acceptance. Plan-level `IMPLEMENTED_AND_VERIFIED` only when every target increment closes. Monolithic preserves legacy `[A.M]`/`[B.M]`/`[C.M]` tagging for backward compat.
 

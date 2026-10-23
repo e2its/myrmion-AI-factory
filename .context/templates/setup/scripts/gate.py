@@ -43,6 +43,7 @@
   gate.py seal --run [--gates a,b] [--full] [--summary S]   the loop's executor (EVOL-057): the plan's executions one per command, each timed, output to <seal.dir>/loop-<gates>.log, the seal recorded right after it, one timing line per gate; --full seals the tree on an all-green map
   gate.py push-log --exit N [--start ISO]          the push's record for the instrument (profile, base, mode, class, start, end, exit) — the pre-push hook's EXIT trap; n/a without verification.logs; exit 0 always
   gate.py aligned [--base B --branch B] [--json]   EVOL-103 [LAW-17]: every accepted-change entry added to a decision log the diff changes (any branch) is ratified (rdr | delegation), its artefacts aligned in the diff, its paths not reverted, a registration-only realignment keeps APPROVED and names a ratified entry; exit 1 red · n/a without a changed log
+  gate.py train [--base B --branch B] [--figures [--plan P]] [--json]   EVOL-104: a train stacks its changes by file — every increment plan the diff changes: (a) a path glob in two subs neither after the other that fit the ceiling together, (b) a sub enabling a concern's gate before a sub carrying it; (c) a sub-increment branch writing a train.close_ledgers path while a sibling sub is not MERGED; exit 1 red · n/a without a changed plan off a sub branch · --figures: per INC subs, unique paths, path-touches, re-touch
   gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
   gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
   gate.py traceability --declared --json           the declared qualified case ids (FEATURE/CASE) and the manual ones — what the pytest plugin validates at collection; a listing, rc 0
@@ -74,7 +75,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, aligned as aligned_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, corpus, digests as digests_mod, discovery as discovery_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, writes  # noqa: E402
+    from gates import agents as agents_mod, aligned as aligned_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, corpus, digests as digests_mod, discovery as discovery_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
     from gates.common import GateFault, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -409,6 +410,21 @@ def cmd_aligned(repo, a):
     return 0 if r["ok"] else 1
 
 
+def cmd_train(repo, a):
+    if a.figures:
+        r = train_mod.figures(repo, a.plan)
+        print(json.dumps(r) if a.json else train_mod.render(r))
+        return 0
+    try:
+        base = _base(repo, a)
+    except branch_mod.UnknownBranch as e:
+        print(f"train: RED — {e}", file=sys.stderr)
+        return 1
+    r = train_mod.check(repo, base, a.branch)
+    print(json.dumps(r) if a.json else train_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
 def cmd_canary(repo, a):
     if a.fixture:
         print(canary_mod.fixture(), end=""); return 0
@@ -637,6 +653,7 @@ def build_parser():
     p = sub.add_parser("traceability"); p.add_argument("--declared", action="store_true"); p.add_argument("--baseline", action="store_true"); p.add_argument("--init", action="store_true"); p.add_argument("--refresh", action="store_true"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_traceability)
     p = sub.add_parser("discovery"); g = p.add_mutually_exclusive_group(); g.add_argument("--resolve", action="store_true"); g.add_argument("--eval", default=None, metavar="COND"); p.add_argument("--answers", default=None, metavar="FILE"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_discovery)
     p = sub.add_parser("aligned"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_aligned)
+    p = sub.add_parser("train"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--figures", action="store_true"); p.add_argument("--plan", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_train)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
