@@ -730,6 +730,8 @@ IF READ("docs/setup.md").codesign.authoring == "external":   # vision sub-comman
 # Step 6: Re-run Tripartite Alignment + auto-approval validations
 # Step 7: Status — NEEDS_INFO → DRAFT once no blocking question is left open; else stays NEEDS_INFO.
 #         APPROVED → DRAFT (new iteration, step 5); with downstream work Step 4 classifies each change — a blocked one → --revise.
+#         Iteration with only `kind: accepted_change` changes (pre-approved realignment, rules/branching.md § [LAW-17]) → stays APPROVED;
+#         form-only realignment cascades nothing.
 #         Terminal: HARD BLOCK.
 ```
 
@@ -856,7 +858,7 @@ date: {ISO_8601}
 source: user-feedback | cascade
 classification: {DELTA|BREAKING|HYBRID}
 scope_summary: "one-line"
-changes: [{kind: scenario_added|scenario_modified|nfr_added|..., ref: "..."}, ...]
+changes: [{kind: scenario_added|scenario_modified|nfr_added|accepted_change|..., ref: "..." (accepted_change: "AC-{FEAT}-{N}")}, ...]
 downstream_impact: [design.md, test_plan.md, dev_plan.md, devops_plan.md]
 anchor: "#iter-{N+1}"
 rdr_rounds: {round}

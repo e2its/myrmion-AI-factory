@@ -3,7 +3,7 @@ description: "Branching strategy — branch naming, merge policy, PR requirement
 applicable_when:
   always: true
 default_base_branch: main
-version: 2.11.0
+version: 2.12.0
 date: 2026-10-20
 changelog:
   - "2.10.0: feat(EVOL-065) — the PreToolUse guard judges shell writes too (one write-target reader); a write outside the project is not judged; pre-merge-commit refuses a merge commit on a protected branch."
@@ -171,7 +171,7 @@ No gate is optional — it changes its control point. One key, `delivery_mode` i
 | --- | --- | --- | --- |
 | static round (before the critics, EVOL-051) | the **light** members through `gate.py profile --run --control-point static`, whatever the class or the mode, plus the workers' red-first scoped runs — nothing that needs a build or a database; an incomplete governance digest fails here first | same | none |
 | commit (`pre-commit`) | branch class through the reader; secrets on the staged files | same | none |
-| sub-increment push (to its train) | **light** profile: every member that needs no build and no database — ADR sync, retired terms, budgets, law parity, currency, manifest parity, surface, runtime-surface parity, agents, the seal's state, the planning artefacts' governance digests, the test-case traceability (every declared case linked at its one home, the baseline shrinking), the server-side protection (n/a here — a clone cannot see the server) (and, in the framework repo, manifest drift validation, applicability and the discovery registry — EVOL-102) — all report, one verdict; secrets per pushed ref; the review and coherence markers | **full** profile | writes none |
+| sub-increment push (to its train) | **light** profile: every member that needs no build and no database — ADR sync, retired terms, budgets, law parity, currency, manifest parity, surface, runtime-surface parity, agents, the accepted changes (`aligned`), the seal's state, the planning artefacts' governance digests, the test-case traceability (every declared case linked at its one home, the baseline shrinking), the server-side protection (n/a here — a clone cannot see the server) (and, in the framework repo, manifest drift validation, applicability and the discovery registry — EVOL-102) — all report, one verdict; secrets per pushed ref; the review and coherence markers | **full** profile | writes none |
 | train close (last sub-increment) | **full**: the light members + the one full verification loop (the project's declared members, `verification.gates`; a skip is dated and expires, a security member never skipped — once, on the bytes the commit carries, after the artefacts; EVOL-051, EVOL-067) + one deployment when the runtime surface moved | same | the loop's **seal** (`gate.py seal --check`: the read-sets at HEAD) + the push markers |
 | pull request to the main branch (CI) | **full** (the workflow runs `gate.py profile --run`; a sub-increment PR into its train owes light); the only control point that asks the server — `scm-protection` with the CI token (EVOL-054) | full | honours the loop's seal (`seal` member) |
 | main branch itself | no direct commit (reader-classified, fail-closed); every merge arrives through a PR that passed the full profile | same | — |
@@ -182,6 +182,19 @@ No gate is optional — it changes its control point. One key, `delivery_mode` i
 > Moved verbatim from `CLAUDE.md` § Pre-Action Gate (EVOL-064); `CLAUDE.md` keeps the rule in two sentences.
 
 **One planning stage (EVOL-048).** Every change to a governed path is covered by exactly one approved plan — never zero, never two. `config/quality.json → planning` names the governed paths (the runtime code, the rules, the config) and the gate-input carve-out — the documentation exemption is the one definition in `config/quality.json → documentation` (EVOL-051) — (`docs/constitution.md`, `docs/setup.md`, the rules, the config, the manifest are governed whatever their extension), and the exempt branch classes — `feature`, `increment`, `train`, `sub-increment`, `epic`, whose plan CODESIGN, BLUEPRINT and IMPLEMENT `--plan` own. **Every other class is gated** (`fix/*`, `chore/*`, `docs/*`, `breaking/*`, an unrecognised name): `python3 scripts/gate.py plan --path <file>` is the one reader behind the PreToolUse hook `check-plan-approval.sh`, which blocks (exit 2, a humanised reason) a governed write without an approved plan. The approval marker is written only by the harness's plan approval (PostToolUse `ExitPlanMode` → `record-plan-approval.sh`); a plan approved just before the branch is cut is adopted once by the first gated branch, within `planning.adoption_window_minutes`. A command that owns a planning phase never enters plan mode (one stage, never two). The prompt-submit hook warns before the block lands.
+
+## [LAW-17] Accepted change aligned
+> An accepted change aligns every written artefact it contradicts in the same pull request through the artefact's owner phase, and nothing reverts an accepted change to match a stale artefact.
+
+- **Accepted** — ratified by the user (the RDR's verbatim choice), or decided under a standing delegation and recorded in the decision log.
+- **Standing delegation** — an owner instruction naming a class of decisions the agent takes without asking; quoted verbatim with its date.
+- **Decision log** — the feature's worklog (`docs/project_log/features/{FEAT}.log.jsonl`). An accepted change is one entry `action: accepted-change`: `id` (`AC-{FEAT}-{N}`), `artefacts` (the written artefacts it contradicts), `paths` (the code paths that carry it), and exactly one of `rdr: "<verbatim choice>"` or `delegation: {quote, date}` (the verbatim quote, its date). `artefacts` and `paths` are repo-relative files — never a directory, never the log itself.
+- **Owner phase** — scenario, journey, mock: CODESIGN `--refine`, or `--sync` of the PO return when `codesign.authoring` is `external` (the guard in Factory-codesign-feature routes it there); design, test plan: BLUEPRINT `--refine`; contract: BLUEPRINT `--refine`, then its CONTRACT-FREEZE re-closed (Factory-backlog-next-task Step 1.3.4.5); rule body: a rule-file edit plus a manifest bump. A form-only realignment (copy, layout, design-system vocabulary) cascades nothing.
+- **Alignment pass** — every realignment spawn is one (`rules/agents.md` § Model policy), `aligns: AC-…`.
+- **Pre-approved realignment** — the refine records its iteration (LAW-09) with `changes: [{kind: accepted_change, ref: AC-…}]`. Every change of that kind → the artefact stays `APPROVED`, no return to draft, no new approval. Any other kind → the approval gate.
+- **Never revert** — a fix or a critic finding never reverts an accepted change to match a stale artefact; the artefact aligns. An accepted divergence is not left behind as a backlog issue.
+
+`python3 scripts/gate.py aligned` checks it (light and full profile, no build). Every changed decision log is judged, whatever the branch; the feature id is the log's file name. For each `accepted-change` entry the branch adds, red on no `rdr` and no `delegation`, a named artefact not in the diff (stale artefact), `paths` equal to the diff base (revert), or an artefact `APPROVED` at the base and not at HEAD whose latest iteration holds only `accepted_change` changes. Red too when a changed artefact's latest iteration carries an `accepted_change` whose `ref` names no ratified entry in the log, from this branch or an earlier one. No decision log → n/a.
 
 ## See Also
 - `docs/constitution.md` — `[PLAW-11]` index entry (this file is its body)

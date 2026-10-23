@@ -2,7 +2,7 @@
 description: "Role agents and read-only critics — the class policy (tools per class, prompt budgets, model families as aliases, per-spawn resolution, fallback ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies."
 applicable_when:
   always: true
-version: 1.10.0
+version: 1.11.0
 date: 2026-10-20
 changelog:
   - "1.9.0: feat(EVOL-069) — the lens canary calibrates the plan critic too (the `plan` lens: a premise stated as verified with no source, a premise a fixture file contradicts)."
@@ -58,6 +58,7 @@ agents:
   resolve:
     - {class: worker, tier: small, effort: low}
     - {class: worker, tier: large, effort: high}
+    - {class: phase, pass: alignment, family: writer, effort: low}   # EVOL-105: an alignment pass costs what an alignment needs; discovery keeps the class row
     - {class: work-critic, round: 2, tier: small, effort: medium}    # the second pass (the cured bytes) earns the effort its size earns; the first pass is always full (RDR-3 of ADR-EVOL-059)
     - {class: work-critic, round: 2, tier: medium, effort: high}
   ladder:
@@ -95,6 +96,7 @@ agents:
     - {path: ".claude/instructions/Factory-implement-build.instructions.md", policy: worker}
     - {path: ".claude/instructions/Factory-implement-review-checks.instructions.md", policy: work-critic}
     - {path: ".claude/instructions/Factory-blueprint-design.instructions.md", policy: plan-critic}
+    - {path: ".claude/instructions/Factory-blueprint-design.instructions.md", policy: phase}
     - {path: ".claude/skills/factory-code-review/SKILL.md", policy: work-critic}
     - {path: ".claude/skills/factory-preventive-sweep/SKILL.md", policy: work-critic}
     - {path: ".claude/instructions/Factory-blueprint-design.instructions.md", policy: reader}
@@ -116,7 +118,18 @@ A design, an implementation plan and an infrastructure configuration rest on ext
 
 ## Model policy — aliases, families, per spawn
 
-Writers and critics live on **different model families by construction** (`agents.families.writer` ≠ `agents.families.critic` in `config/quality.json`, harness aliases chosen at SETUP — the separation is the invariant, the aliases are the project's); the model is passed at the spawn from the resolver (`gate.py agents --resolve`), never written into an agent definition; the validator refuses families where the critic alias equals the writer alias, and the PreToolUse hook on `Agent` (`check-agent-spawn.sh` → `gate.py agents --spawn`) refuses a roster agent spawned without its family's alias — the mechanical hold. Two aliases the account maps to one model are invisible to both; the separation is then the project's to keep. Model and effort are computed **per spawn** by the resolver (`gate.py agents`) from the class, the surface, the size tier of the work and the review round (`resolve` rows, first match wins; a row's `round` matches its round and every later one; the class defaults otherwise; a row that restates a default is refused as dead data) — strongest where the risk is highest, stepping down where the diff is small — never chosen at the call site. A size nobody measured (0 files, 0 lines) is tier `unknown` and matches no tier row. `effort:` in a definition is the harness default the file registers; the resolver's effort is passed at the call where the harness accepts one and otherwise written as the first line of the spawn prompt (`effort: <level>`). A round over the class cap (`rounds`) is refused by the resolver. A spawn the harness ends on a provider error falls down the **ladder** keyed by the resolved family: critics fall to another family — and when that rung is the writer's family the resolver says so (`separation: false`): the round's findings go to the user's adjudication and the review marker records `degraded`; **agents that write never degrade** (an empty rung — the spawn is retried or surfaced). Every site that spawns declares which policy it follows (`spawn_sites`), checked both directions — the five commands for the phase class, the build loop for workers, the plan gate for the plan critic, the review passes and the preventive sweep for work critics, the three Beat 0 sites for the reader.
+Writers and critics live on **different model families by construction** (`agents.families.writer` ≠ `agents.families.critic` in `config/quality.json`, harness aliases chosen at SETUP — the separation is the invariant, the aliases are the project's); the model is passed at the spawn from the resolver (`gate.py agents --resolve`), never written into an agent definition; the validator refuses families where the critic alias equals the writer alias, and the PreToolUse hook on `Agent` (`check-agent-spawn.sh` → `gate.py agents --spawn`) refuses a roster agent spawned without its family's alias — the mechanical hold. Two aliases the account maps to one model are invisible to both; the separation is then the project's to keep. Model and effort are computed **per spawn** by the resolver (`gate.py agents`) from the class, the surface, the size tier of the work and the review round (`resolve` rows, first match wins; a row's `round` matches its round and every later one; a row's `pass` matches that pass only, and a row's `family` never crosses writer ≠ critic; the class defaults otherwise; a row that restates a default is refused as dead data) — strongest where the risk is highest, stepping down where the diff is small — never chosen at the call site. A size nobody measured (0 files, 0 lines) is tier `unknown` and matches no tier row. `effort:` in a definition is the harness default the file registers; the resolver's effort is passed at the call where the harness accepts one and otherwise written as the first line of the spawn prompt (`effort: <level>`). A round over the class cap (`rounds`) is refused by the resolver. A spawn the harness ends on a provider error falls down the **ladder** keyed by the resolved family: critics fall to another family — and when that rung is the writer's family the resolver says so (`separation: false`): the round's findings go to the user's adjudication and the review marker records `degraded`; **agents that write never degrade** (an empty rung — the spawn is retried or surfaced). Every site that spawns declares which policy it follows (`spawn_sites`), checked both directions — the five commands for the phase class, the build loop for workers, the plan gate for the plan critic, the review passes and the preventive sweep for work critics, the three Beat 0 sites for the reader.
+
+**A phase agent's model and effort follow the pass (EVOL-105).**
+- The phase class resolves only with a pass (`--pass discovery|alignment`); absent → refused.
+- **Alignment**: the artefact is already approved, and the fact it aligns to was decided outside the pass — a critic finding, a frozen contract, a decision ratified before the pass starts, a digest heal, an accepted change (`rules/branching.md` § [LAW-17]).
+- **Digest heal**: regenerating a planning artefact's stale or incomplete governance digest (`gate.py digests`) with no content decision.
+- **Discovery**: a pass that poses or consumes a new decision. When in doubt, discovery.
+- An alignment that meets an open decision returns it; the pass that then consumes the decision ratified inside it is discovery.
+- Discovery keeps the class's family and effort; alignment takes its `resolve` row.
+- The spawn prompt opens with `pass: <discovery|alignment>` and `effort: <level>`; an alignment adds `aligns: <ref>` (the decided fact). The resolved model and effort are passed at the Agent call.
+- The hook refuses a phase spawn with no `pass:`, an alignment with no `aligns:`, or a model or effort (the harness input when present, and the header line) that is not the declared pass's. The pass is never inferred from the prose.
+- Every phase site's resolve names its `--pass`; every file that resolves the phase class is a declared site. A phase definition's `effort:` is the class's.
 
 ## The bounded loop
 

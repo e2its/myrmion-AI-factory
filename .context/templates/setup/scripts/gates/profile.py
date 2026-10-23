@@ -41,6 +41,7 @@ MEMBERS = [
     ("agents",           False, False, "gate.py",                 ["gate", "agents"], False),
     ("seal",             False, False, "gate.py",                 ["gate", "seal", "--check", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
     ("digests",          False, False, "gate.py",                 ["gate", "digests", "--base", "{base}", "--branch", "{branch}", "--control-point", "{control_point}"], False),
+    ("aligned",          False, False, "gate.py",                 ["gate", "aligned", "--base", "{base}", "--branch", "{branch}"], False),
     ("traceability",     False, False, "gate.py",                 ["gate", "traceability"], False),
     ("discovery",        False, False, "gate.py",                 ["gate", "discovery"], True),   # the SETUP question registry lives in the framework repo; a project consumes it in place
     ("scm-protection",   False, False, "gate.py",                 ["gate", "scm-protection", "--control-point", "{control_point}"], False),

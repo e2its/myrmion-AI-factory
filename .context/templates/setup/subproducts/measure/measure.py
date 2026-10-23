@@ -50,6 +50,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import time
 from pathlib import Path
 
 SCHEMA = "measure_report_v1"
@@ -85,6 +86,10 @@ def load_config(path: Path) -> dict:
         fam = (cfg["prices"] or {}).get("per_family") if isinstance(cfg["prices"], dict) else None
         if not isinstance(fam, dict) or not all(isinstance(row, dict) and all(isinstance(row.get(k), (int, float)) and not isinstance(row.get(k), bool) and row[k] >= 0 for k in CATEGORIES) for row in fam.values()):
             raise ToolFault(f"config key prices.per_family must map a model-id substring to the five prices (input, cache_write_5m, cache_write_1h, cache_read, output — $ per million tokens): {path}")
+    if "output_unrecorded_chars_per_token" in cfg:   # EVOL-105: optional; absent → output is not judged
+        v = cfg["output_unrecorded_chars_per_token"]
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+            raise ToolFault(f"config key output_unrecorded_chars_per_token must be a positive number (visible characters per recorded output token above which a request's output is unrecorded): {path}")
     return cfg
 
 
@@ -166,6 +171,9 @@ class Session:
         self.contexts: list[int] = []             # per message: input + cache-read + cache-creation — what the turn re-sent
         self.results: list[int] = []              # bytes of every tool result that entered this context raw
         self.turns = 0                            # distinct assistant message ids — a streamed message repeats its id across entries (EVOL-058)
+        self.pass_ = self.effort = "-"            # EVOL-105: the `pass:` / `effort:` lines of this agent's spawn prompt; absent → `-`, never a guess
+        self._req_of: dict = {}                   # EVOL-105: message id → its request, to add the visible characters of every entry of the id
+        self._blocks: set = set()                 # EVOL-105: (message id, block) already counted — a repeated block is counted once
         self.budget = None                        # the `turn budget:` line of this agent's spawn prompt (its first user entry)
         self.spawns: dict[str, dict] = {}         # tool_use id → {type, branch, background, channels: {direct, hand-back, notification}}
         self.agent_ids: dict[str, str] = {}       # background agent id (from the launch stub) → tool_use id
@@ -234,8 +242,15 @@ class Session:
             self.contexts.append(inp + cr + cc)
             split = usage.get("cache_creation") if isinstance(usage.get("cache_creation"), dict) else None   # EVOL-113: absent → every creation token is 5 m
             w5, w1 = (int(split.get("ephemeral_5m_input_tokens") or 0), int(split.get("ephemeral_1h_input_tokens") or 0)) if split else (cc, 0)
-            self.requests.append({"ts": ts, "model": str(model or "unknown"), "context": inp + cr + cc,
+            self.requests.append({"ts": ts, "model": str(model or "unknown"), "context": inp + cr + cc, "chars": 0,
                                   "tokens": {"input": inp, "cache_write_5m": w5, "cache_write_1h": w1, "cache_read": cr, "output": int(usage.get("output_tokens") or 0)}})
+            self._req_of[mid] = self.requests[-1]
+        rq = self._req_of.get(mid)
+        if rq is not None:
+            for c in msg.get("content") or []:
+                if isinstance(c, dict) and (mid, json.dumps(c, sort_keys=True)) not in self._blocks:
+                    self._blocks.add((mid, json.dumps(c, sort_keys=True)))
+                    rq["chars"] += visible_chars(c)
         text = assistant_text(msg)
         if text:
             self.text_blocks.append(text)
@@ -266,8 +281,9 @@ class Session:
         msg = e.get("message") or {}
         content = msg.get("content")
         if self.budget is None and not self.tool_uses:                      # the spawn prompt: the first user entry before any tool ran
-            m = BUDGET_RE.search(flat_text(content))
-            self.budget = int(m.group(1)) if m else 0
+            h = spawn_header(flat_text(content))
+            self.budget = int(h["turn budget"]) if h.get("turn budget", "").isdecimal() else 0
+            self.pass_, self.effort = ((v if HEADER_WORD.fullmatch(v) else "-") for v in (h.get("pass", ""), h.get("effort", "")))
         texts: list[str] = []
         if isinstance(content, str):
             texts.append(content)
@@ -337,7 +353,50 @@ STUB_RE = re.compile(r"^\s*Async agent launched.*?agentId:\s*([A-Za-z0-9_-]+)", 
 NOTIFICATION_RE = re.compile(r"<task-notification>.*?(?:</task-notification>|\Z)", re.S)
 HANDBACK_RE = re.compile(r'<agent-message from="([^"]+)">(.*?)(?:</agent-message>|\Z)', re.S)
 BANNER_RE = re.compile(r"^\s*profile:\s*(light|full)\b", re.M)
-BUDGET_RE = re.compile(r"^\s*turn budget:\s*(\d+)\s*$", re.M | re.I)
+HEADER_KEY = re.compile(r"[a-z][a-z ]{0,30}")   # EVOL-105: a header key — `pass`, `effort`, `turn budget`
+HEADER_WORD = re.compile(r"[\w-]+")
+HEADER_LINE_MAX = 600   # a header line names a value, never pastes work; a longer line ends the header
+
+
+def spawn_header(text: str) -> dict[str, str]:
+    """EVOL-105: the consecutive `key: value` lines that open a spawn prompt (leading blank lines skipped), keys case-folded,
+    first wins — a key quoted in the body is never read. Split on the first `:`, no regex over the value: linear."""
+    out: dict[str, str] = {}
+    started = False
+    for ln in text.split("\n"):
+        if not started and not ln.strip():
+            continue
+        started = True
+        k, sep, v = ln.partition(":")
+        k = " ".join(k.split()).lower()
+        if len(ln) > HEADER_LINE_MAX or not sep or not HEADER_KEY.fullmatch(k):
+            break
+        out.setdefault(k, v.strip())
+    return out
+
+
+def visible_chars(block: dict) -> int:
+    """EVOL-105: the characters a content block shows — text, thinking (a redacted one shows none), a tool call's input JSON."""
+    kind = block.get("type")
+    if kind == "text":
+        return len(str(block.get("text") or ""))
+    if kind == "thinking":
+        return len(str(block.get("thinking") or ""))
+    if kind == "tool_use":
+        return len(json.dumps(block.get("input") or {}))
+    return 0
+
+
+def is_unrecorded(rq: dict, threshold) -> bool | None:
+    """EVOL-105: visible characters over recorded output tokens above the key → the output was not recorded; None without the key."""
+    if threshold is None:
+        return None
+    out = rq["tokens"]["output"]
+    return rq.get("chars", 0) > threshold * out if out else rq.get("chars", 0) > 0
+
+
+def unrecorded_count(s, threshold) -> int | None:
+    return None if threshold is None else sum(1 for rq in s.requests if is_unrecorded(rq, threshold))
 POINTER_RE = re.compile(r"report was delivered to you as a message", re.I)
 COMMAND_RE = re.compile(r"<command-name>\s*/?([^<\s]+)\s*</command-name>")   # EVOL-113: the slash command a user message ran
 
@@ -449,6 +508,7 @@ def load_subagents(transcripts: Path, session_id: str, cfg, since, until, repo: 
             sink.append((agent_class(atype, repo), s))   # EVOL-113: the spend reader needs the requests, never the JSON row
         rounds[atype] = rounds.get(atype, 0) + 1   # the n-th spawn of the same agent type in the session = its round (EVOL-049)
         out.append({"session": session_id, "agent": f.stem.replace("agent-", ""), "type": atype, "class": agent_class(atype, repo), "round": rounds[atype],
+                    "pass": s.pass_, "effort": s.effort, "output_unrecorded": unrecorded_count(s, cfg.get("output_unrecorded_chars_per_token")),   # EVOL-105
                     "description": meta.get("description") or "", "model": _top(s.models), "turns": s.turns, "budget": s.budget or None,
                     "budget_source": "prompt" if s.budget else ("ceiling" if agent_class(atype, repo) in ("plan-critic", "work-critic", "reader") else "none"),   # every read-only class is held at the ceiling
                     "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
@@ -845,7 +905,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
 
     # agents (main sessions + subagents)
     kb = result_threshold_kb(repo) if repo is not None else None   # EVOL-062
-    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "description": "", "model": _top(s.models), "turns": s.turns, "budget": None, "budget_source": "none",
+    rows = [{"session": s.id, "agent": "main", "type": "main", "class": "main", "round": 1, "pass": "-", "effort": "-", "output_unrecorded": unrecorded_count(s, cfg.get("output_unrecorded_chars_per_token")), "description": "", "model": _top(s.models), "turns": s.turns, "budget": None, "budget_source": "none",
              "tokens_in": s.tokens["input"], "tokens_out": s.tokens["output"],
              "cache_read": s.tokens["cache_read"], "cache_create": s.tokens["cache_create"], "context_median": _median(s.contexts), "raw_results_over": _over(s.results, kb),   # EVOL-062
              "bytes_read": sum(b for _, b in s.reads),
@@ -884,7 +944,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
 
     # returns (EVOL-057): every spawn's return through its three channels
     report["returns"] = returns_report(sessions, repo)
-    report["spend"], report["main_context"] = spend_report(sessions, subs, cfg.get("prices"), repo)   # EVOL-113
+    report["spend"], report["main_context"] = spend_report(sessions, subs, cfg.get("prices"), repo, cfg.get("output_unrecorded_chars_per_token"))   # EVOL-113, EVOL-105
     return report
 
 
@@ -919,22 +979,26 @@ def is_phase(name: str, repo: Path | None) -> bool:
     return repo is not None and bool(re.fullmatch(r"[\w-]+", name)) and (repo / ".claude" / "commands" / f"{name}.md").is_file()
 
 
-def spend_report(sessions: list, subs: dict, prices, repo: Path | None = None) -> tuple[dict, dict]:
+def spend_report(sessions: list, subs: dict, prices, repo: Path | None = None, threshold=None) -> tuple[dict, dict]:
     """EVOL-113: requests and tokens by category per (phase, role), dollars when the model is priced; the main session's
     context per request (p50 / p90 / max, nearest-rank) overall and per phase."""
     phases = {}   # session id → its timeline of project commands only
     for s in sessions:
         phases[s.id] = [(at, n) for at, n in s.commands if is_phase(n, repo)]
     def cell():
-        return {"requests": 0, "tokens": dict.fromkeys(CATEGORIES, 0), "usd": 0.0 if prices else None, "unpriced_tokens": 0}
+        return {"requests": 0, "tokens": dict.fromkeys(CATEGORIES, 0), "usd": 0.0 if prices else None, "unpriced_tokens": 0,
+                "output_unrecorded": 0 if threshold is not None else None}
 
     cells: dict[tuple, dict] = {}
     unpriced: set = set()
     ctx: dict[str, list] = {}
 
-    def add(phase, role, rq):
-        c = cells.setdefault((phase, role), cell())
+    by_pe: dict[str, dict] = {}   # EVOL-105: "pass/effort" → the spawns' spend
+
+    def charge(c, rq):
         c["requests"] += 1
+        if is_unrecorded(rq, threshold):
+            c["output_unrecorded"] += 1
         n = sum(rq["tokens"].values())
         for k in CATEGORIES:
             c["tokens"][k] += rq["tokens"][k]
@@ -946,6 +1010,9 @@ def spend_report(sessions: list, subs: dict, prices, repo: Path | None = None) -
         elif c["usd"] is not None:
             c["usd"] += sum(rq["tokens"][k] * float(row.get(k) or 0) for k in CATEGORIES) / 1e6
 
+    def add(phase, role, rq):
+        charge(cells.setdefault((phase, role), cell()), rq)
+
     for s in sessions:
         for rq in s.requests:
             ph = _phase_at(phases[s.id], rq["ts"])
@@ -956,12 +1023,18 @@ def spend_report(sessions: list, subs: dict, prices, repo: Path | None = None) -
             ph = _phase_at(phases[s.id], first)
             for rq in sub.requests:
                 add(ph, cls, rq)
+            pe = by_pe.setdefault(f"{sub.pass_}/{sub.effort}", {**cell(), "spawns": 0, "turns": 0})
+            pe["spawns"] += 1; pe["turns"] += sub.turns
+            for rq in sub.requests:
+                charge(pe, rq)
 
     def roll(keyf):
         out: dict[str, dict] = {}
         for k, c in cells.items():
             o = out.setdefault(keyf(k), cell())
             o["requests"] += c["requests"]; o["unpriced_tokens"] += c["unpriced_tokens"]
+            if o["output_unrecorded"] is not None:
+                o["output_unrecorded"] += c["output_unrecorded"]
             for cat in CATEGORIES:
                 o["tokens"][cat] += c["tokens"][cat]
             if o["usd"] is not None:
@@ -977,13 +1050,18 @@ def spend_report(sessions: list, subs: dict, prices, repo: Path | None = None) -
     spend = {"by_phase_role": {f"{p}/{r}": finish(c) for (p, r), c in sorted(cells.items())},
              "by_phase": {k: finish(v) for k, v in sorted(roll(lambda k: k[0]).items())},
              "by_role": {k: finish(v) for k, v in sorted(roll(lambda k: k[1]).items())},
-             "total": {"requests": total["requests"], "tokens": total["total_tokens"], "by_category": total["tokens"], "usd": total["usd"], "unpriced_tokens": total["unpriced_tokens"]},
+             "by_pass_effort": {k: finish(v) for k, v in sorted(by_pe.items())},
+             "total": {"requests": total["requests"], "tokens": total["total_tokens"], "by_category": total["tokens"], "usd": total["usd"], "unpriced_tokens": total["unpriced_tokens"],
+                       "output_unrecorded": total["output_unrecorded"]},
+             "output_judged": "yes" if threshold is not None else "not judged — output_unrecorded_chars_per_token absent from measure.config.json",
              "unpriced": sorted(unpriced),
              "prices": (f"as_of {prices.get('as_of', '?')} — {prices.get('source', '?')}" if prices else "no prices in measure.config.json — tokens only"),
              "definition": "a request = one assistant message id (usage counted once); phase = the last of the project's own commands (`<command-name>/X` with .claude/commands/X.md) the main session ran before it — "
                            "a built-in or a plugin skill never changes it — else none — a subagent's requests take the parent's phase at the subagent's first request; role = main or the subagent's roster class; "
                            "categories from usage: input, cache write 5 m / 1 h (usage.cache_creation; without it every cache-creation token is 5 m), cache read, output; "
-                           "usd = Σ tokens × $/MTok / 1e6 of the first prices.per_family key the model id contains — an unpriced model counts tokens only and is named"}
+                           "usd = Σ tokens × $/MTok / 1e6 of the first prices.per_family key the model id contains — an unpriced model counts tokens only and is named; "
+                           "pass / effort = the `pass:` / `effort:` header lines of a spawn's prompt (absent → -); a request is output unrecorded when its visible characters "
+                           "(text, thinking shown, tool-call input JSON) over its recorded output tokens exceed output_unrecorded_chars_per_token — its output and its dollars are a floor, flagged"}
     allc = [x for v in ctx.values() for x in v]
 
     def dist(xs):
@@ -1006,10 +1084,11 @@ def context_report(rows: list, cfg: dict, kb, rule_reason: str) -> dict:
     buckets = {k: {c: {"spawns": len(v), "cache_median": _median(v)} for c, v in sorted(d.items())} for k, d in sorted(by.items(), key=lambda kv: int(kv[0].split("-")[0]))}
     writers = [int(a.get("cache_read") or 0) + int(a.get("cache_create") or 0) for a in spawns if a.get("class") in ("worker", "phase")]
     tot = {k: sum(int(a.get(k) or 0) for a in rows) for k in ("tokens_out", "cache_read", "cache_create")}
+    judged = [a["output_unrecorded"] for a in rows if a.get("output_unrecorded") is not None]   # EVOL-105: None when nobody was judged
     return {"median_context_tokens": _median([a["context_median"] for a in mains if a.get("context_median") is not None]),
             "per_session": {a["session"]: {"median_context_tokens": a.get("context_median"), "raw_results_over_threshold": a.get("raw_results_over")} for a in mains},
             "writer_cache_per_spawn_median": _median(writers), "writer_spawns": len(writers),
-            "tokens": {"output": tot["tokens_out"], "cache_read": tot["cache_read"], "cache_create": tot["cache_create"]},
+            "tokens": {"output": tot["tokens_out"], "output_unrecorded": sum(judged) if judged else None, "cache_read": tot["cache_read"], "cache_create": tot["cache_create"]},
             "cache_by_turn_bucket": buckets, "turn_bucket": bucket, "threshold_kb": kb,
             "raw_results_over_threshold": (sum(int(a.get("raw_results_over") or 0) for a in rows) if kb is not None else None),
             "threshold_source": (".claude/rules/agents.md → agents.context_result_max_kb" if kb is not None else
@@ -1080,6 +1159,15 @@ def _usd(v) -> str:
     return "—" if v is None else f"{v:,.4f}"   # EVOL-113: a small request's cost never rounds to zero on screen
 
 
+def _out(tokens, unrecorded) -> str:
+    """EVOL-105: an output with an unrecorded request reads `output unrecorded`, never a low number."""
+    return "output unrecorded" if unrecorded else f"{tokens:,}"
+
+
+def _flag(unrecorded) -> str:
+    return " (output unrecorded: a floor)" if unrecorded else ""
+
+
 def render_markdown(r: dict, delta: dict | None = None) -> str:
     w = r["window"]
     out = [f"# SDLC measurement — {w['since'][:10]} → {w['until'][:10]} ({w['days']} days, {w['sessions']} sessions)", ""]
@@ -1122,15 +1210,15 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
             [f"| {k} | {v['fired']} | {v['emitted']:,} | {v['delivered']:,} | {v['truncated']} | {v['undelivered']} |" for k, v in gb["by_hook"].items()])
     ag = r["agents"]
     section("Agents", ag if isinstance(ag, dict) else {}, [] if isinstance(ag, dict) else
-            ["| session | agent | type | class | round | model | turns | budget | tokens in | tokens out | cache | bytes read | seconds | citations |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"] +
-            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {a['model']} | {a.get('turns', 0)} | {_fmt(a.get('budget'))} | {a['tokens_in']:,} | {a['tokens_out']:,} | {int(a.get('cache_read') or 0) + int(a.get('cache_create') or 0):,} | "
+            ["| session | agent | type | class | round | pass | effort | model | turns | budget | tokens in | tokens out | cache | bytes read | seconds | citations |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"] +
+            [f"| {a['session'][:8]} | {a['agent'][:8]} | {a['type']} | {a.get('class', '?')} | {a.get('round', 1)} | {_cell(a.get('pass', '-'))} | {_cell(a.get('effort', '-'))} | {a['model']} | {a.get('turns', 0)} | {_fmt(a.get('budget'))} | {a['tokens_in']:,} | {_out(a['tokens_out'], a.get('output_unrecorded'))} | {int(a.get('cache_read') or 0) + int(a.get('cache_create') or 0):,} | "
              f"{a['bytes_read']:,} | {_fmt(a['duration_s'])} | {sum(a['citations'].values())} |" for a in ag])
     cx = r.get("context") or {"unavailable": "not measured"}
     section("Context (EVOL-062)", cx, [] if "unavailable" in cx else
             [f"median context per message (main sessions) **{_fmt(cx['median_context_tokens'])}** tokens · writer cache per spawn (median) {_fmt(cx['writer_cache_per_spawn_median'])} over {cx['writer_spawns']} spawns · "
              f"raw results over {cx['threshold_kb'] if cx['threshold_kb'] is not None else '—'} KB: {_fmt(cx['raw_results_over_threshold'])} ({_cell(cx['threshold_source'])}) · "
-             f"output {cx['tokens']['output']:,} · cache-read {cx['tokens']['cache_read']:,} · cache-creation {cx['tokens']['cache_create']:,}", "",
+             f"{'output unrecorded' if cx['tokens'].get('output_unrecorded') else 'output ' + format(cx['tokens']['output'], ',')} · cache-read {cx['tokens']['cache_read']:,} · cache-creation {cx['tokens']['cache_create']:,}", "",
              "| turns | class | spawns | cache (median) |", "|---|---|---|---|"] +
             [f"| {b} | {_cell(c)} | {v['spawns']} | {_fmt(v['cache_median'])} |" for b, d in cx["cache_by_turn_bucket"].items() for c, v in d.items()] + ["", f"> {cx['definition']}"])
     cr = r.get("critics") or {"unavailable": "not measured"}
@@ -1168,13 +1256,17 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
             [f"| {_cell(k)} | {v['runs']} | {_fmt(v['seconds'])} | {_fmt(v['hours'])} |" for k, v in sorted(lp["by_profile"].items())] + ["", f"> {lp['definition']}"])
     sp = r.get("spend") or {"unavailable": "not measured"}
     section("Spend by phase and role (EVOL-113)", sp, [] if "unavailable" in sp else
-            [f"total requests {sp['total']['requests']:,} · tokens {sp['total']['tokens']:,} · $ **{_usd(sp['total']['usd'])}** · prices: {_cell(sp['prices'])}" +
+            [f"total requests {sp['total']['requests']:,} · tokens {sp['total']['tokens']:,} · $ **{_usd(sp['total']['usd'])}**{_flag(sp['total'].get('output_unrecorded'))} · prices: {_cell(sp['prices'])} · output: {_cell(sp.get('output_judged', 'not judged'))}" +
              (f" · unpriced: {', '.join(_cell(m) for m in sp['unpriced'])} (tokens {sp['total']['unpriced_tokens']:,})" if sp["unpriced"] else ""), "",
              "| phase | role | requests | input | cache write 5m | cache write 1h | cache read | output | $ |", "|---|---|---|---|---|---|---|---|---|"] +
-            [f"| {_cell(k.split('/', 1)[0])} | {_cell(k.split('/', 1)[1])} | {v['requests']} | " + " | ".join(f"{v['tokens'][c]:,}" for c in CATEGORIES) + f" | {_usd(v['usd'])} |" for k, v in sp["by_phase_role"].items()] +
-            ["", "| phase | requests | tokens | $ |", "|---|---|---|---|"] + [f"| {_cell(k)} | {v['requests']} | {v['total_tokens']:,} | {_usd(v['usd'])} |" for k, v in sp["by_phase"].items()] +
-            ["", "| role | requests | tokens | $ |", "|---|---|---|---|"] + [f"| {_cell(k)} | {v['requests']} | {v['total_tokens']:,} | {_usd(v['usd'])} |" for k, v in sp["by_role"].items()] +
+            [f"| {_cell(k.split('/', 1)[0])} | {_cell(k.split('/', 1)[1])} | {v['requests']} | " + " | ".join(f"{v['tokens'][c]:,}" for c in CATEGORIES[:-1]) + f" | {_out(v['tokens']['output'], v.get('output_unrecorded'))} | {_usd(v['usd'])}{_flag(v.get('output_unrecorded'))} |" for k, v in sp["by_phase_role"].items()] +
+            ["", "| phase | requests | tokens | $ |", "|---|---|---|---|"] + [f"| {_cell(k)} | {v['requests']} | {v['total_tokens']:,} | {_usd(v['usd'])}{_flag(v.get('output_unrecorded'))} |" for k, v in sp["by_phase"].items()] +
+            ["", "| role | requests | tokens | $ |", "|---|---|---|---|"] + [f"| {_cell(k)} | {v['requests']} | {v['total_tokens']:,} | {_usd(v['usd'])}{_flag(v.get('output_unrecorded'))} |" for k, v in sp["by_role"].items()] +
             ["", f"> {sp['definition']}"])
+    section("Spend by pass and effort (EVOL-105)", sp, [] if "unavailable" in sp else
+            ["| pass | effort | spawns | turns | requests | tokens | output | $ |", "|---|---|---|---|---|---|---|---|"] +
+            [f"| {_cell(k.split('/', 1)[0])} | {_cell(k.split('/', 1)[1])} | {v['spawns']} | {v['turns']} | {v['requests']} | {v['total_tokens']:,} | {_out(v['tokens']['output'], v.get('output_unrecorded'))} | {_usd(v['usd'])}{_flag(v.get('output_unrecorded'))} |"
+             for k, v in (sp.get("by_pass_effort") or {}).items()] + ["", f"output: {_cell(sp.get('output_judged', 'not judged'))}"])
     mc = r.get("main_context") or {"unavailable": "not measured"}
     section("Main-session context per request (EVOL-113)", mc, [] if "unavailable" in mc else
             [f"requests {mc['requests']} · p50 **{_fmt(mc['p50'])}** · p90 **{_fmt(mc['p90'])}** · max {_fmt(mc['max'])} tokens (nearest-rank)", "",
@@ -1417,6 +1509,35 @@ def _fixture_spend(root: Path, session="p1") -> Path:
     return tdir
 
 
+def _fixture_passes(root: Path, session="q1") -> Path:
+    """EVOL-105: a discovery spawn and an alignment spawn (header lines `pass:` / `effort:`); the alignment's one request
+    carries far more visible content than its recorded output — output unrecorded."""
+    tdir = root / "projects" / "passes"
+    (tdir / session / "subagents").mkdir(parents=True)
+    t0 = dt.datetime(2026, 9, 3, 10, 0, 0, tzinfo=dt.timezone.utc)
+
+    def ts(seconds):
+        return (t0 + dt.timedelta(seconds=seconds)).strftime(ISO)
+
+    def req(mid, at, usage, content):
+        return _entry("assistant", ts(at), message={"id": mid, "role": "assistant", "model": "claude-opus-5-5", "usage": usage, "content": content})
+
+    main = [_entry("user", ts(0), message={"role": "user", "content": "go"}),
+            req("q0", 1, {"input_tokens": 10, "output_tokens": 4}, [{"type": "text", "text": "ok"}])]
+    (tdir / f"{session}.jsonl").write_text("\n".join(json.dumps(e) for e in main) + "\n", encoding="utf-8")
+    disc = [_entry("user", ts(5), message={"role": "user", "content": "effort: high\npass: discovery\nturn budget: 9\nFind."}),
+            req("d1", 6, {"input_tokens": 100, "output_tokens": 50}, [{"type": "text", "text": "x" * 120}]),
+            req("d2", 7, {"input_tokens": 100, "output_tokens": 50}, [{"type": "thinking", "thinking": "", "signature": "s"}, {"type": "text", "text": "y" * 80}])]
+    big = {"input_tokens": 100, "output_tokens": 1}   # streamed: every line of the message id carries the same small value
+    align = [_entry("user", ts(10), message={"role": "user", "content": "effort: low\npass: alignment\nturn budget: 3\nAlign."}),
+             req("a1", 11, big, [{"type": "text", "text": "z" * 400}]),
+             req("a1", 12, big, [{"type": "tool_use", "id": "u1", "name": "Write", "input": {"file_path": "f", "content": "w" * 2000}}])]
+    for aid, lines, atype in (("d1", disc, "factory-critic-security"), ("a1", align, "factory-critic-security")):
+        (tdir / session / "subagents" / f"agent-{aid}.jsonl").write_text("\n".join(json.dumps(e) for e in lines) + "\n", encoding="utf-8")
+        (tdir / session / "subagents" / f"agent-{aid}.meta.json").write_text(json.dumps({"agentType": atype}), encoding="utf-8")
+    return tdir
+
+
 def _sessions_of(tdir: Path, cfg: dict, since, until) -> list:
     return [s for s in (Session(f, cfg, since, until) for f in sorted(tdir.glob("*.jsonl"))) if s.entries]
 
@@ -1531,7 +1652,7 @@ def selftest() -> int:
         expect(cx["median_context_tokens"] == 5 and cx["per_session"]["s1"]["median_context_tokens"] == 5, "the median context per message over the main sessions (the fixture's main session: twelve messages of 10 and twelve of 1 — the median 5)")
         expect(cx["cache_by_turn_bucket"]["0-39"]["worker"] == {"spawns": 1, "cache_median": 500} and cx["cache_by_turn_bucket"]["0-39"]["work-critic"] == {"spawns": 4, "cache_median": 0} and cx["cache_by_turn_bucket"]["40-79"]["work-critic"] == {"spawns": 1, "cache_median": 0} and cx["writer_cache_per_spawn_median"] == 500 and cx["writer_spawns"] == 1,
                "cache per spawn by turn bucket (turn_bucket 40) and roster class; the writer median over the worker spawns")
-        expect(cx["tokens"] == {"output": 72 + 50 + 1 + 1 + 1 + 61 + 1, "cache_read": 1500, "cache_create": 200}, "the totals over every row, once per message")
+        expect(cx["tokens"] == {"output": 72 + 50 + 1 + 1 + 1 + 61 + 1, "output_unrecorded": None, "cache_read": 1500, "cache_create": 200}, "the totals over every row, once per message")
         expect(all(k in compare(r, r) for k in ("context.median_context_tokens", "context.writer_cache_per_spawn_median", "context.raw_results_over_threshold")), "the three context signals are in the before/after table")
         expect("## Context (EVOL-062)" in md and "| 0-39 | worker | 1 | 500 |" in md and "| cache |" in md, "the context section and the agents table's cache column render")
         expect(r3["context"]["raw_results_over_threshold"] is None and r3["context"]["threshold_kb"] is None and "context_result_max_kb" in r3["context"]["threshold_source"] and r3["context"]["median_context_tokens"] == 5, "a rule without the key: the raw-results signal is None naming the key; the tokens still count")
@@ -1609,6 +1730,38 @@ def selftest() -> int:
         expect(all(k in dc for k in ("spend.total.usd", "spend.total.tokens", "main_context.p50", "main_context.p90")), "the spend totals and the context p50 / p90 are in the before/after table")
         expect(price_of("claude-opus-5-5", SELFTEST_PRICES) is SELFTEST_PRICES["per_family"]["opus"] and price_of("x", SELFTEST_PRICES) is None and price_of("claude-opus-5-5", None) is None and _rank([], 50) is None and _rank([1, 2, 3, 4], 50) == 2 and _rank([1, 2, 3, 4], 90) == 4,
                "the price lookup by model-id substring; nearest-rank of nothing is None")
+        # EVOL-105: per spawn its pass and effort from the spawn prompt's header lines; spend by pass and effort; output unrecorded
+        expect(all(a.get("pass") == "-" for a in rs["agents"]) and [a.get("effort") for a in rs["agents"] if a["class"] != "main"] == ["high"], "a spawn prompt with no `pass:` line reads `-`, never a guess; its `effort:` line is read")
+        qdir = _fixture_passes(root)
+        qcfg = {**cfg, "prices": SELFTEST_PRICES, "output_unrecorded_chars_per_token": 20}
+        rq_ = build_report(srepo, qcfg, qdir, since, until)
+        subs_ = {a["agent"]: a for a in rq_["agents"] if a["class"] != "main"}
+        expect({k: (v.get("pass"), v.get("effort")) for k, v in subs_.items()} == {"d1": ("discovery", "high"), "a1": ("alignment", "low")}, "per spawn: pass and effort from the header lines of its first user message")
+        expect(subs_.get("a1", {}).get("output_unrecorded") == 1 and subs_.get("d1", {}).get("output_unrecorded") == 0, "a request whose visible characters over its recorded output tokens exceed the key is output unrecorded; a real ratio is not")
+        pe = (rq_.get("spend") or {}).get("by_pass_effort") or {}
+        expect(set(pe) == {"alignment/low", "discovery/high"} and pe.get("discovery/high", {}).get("turns") == 2 and pe.get("discovery/high", {}).get("tokens", {}).get("output") == 100
+               and pe.get("discovery/high", {}).get("spawns") == 1 and pe.get("discovery/high", {}).get("usd") == 0.0028, "spend by pass and effort: spawns, turns, tokens (output included) and dollars per spawn")
+        expect(pe.get("alignment/low", {}).get("output_unrecorded") == 1 and (rq_.get("spend") or {}).get("total", {}).get("output_unrecorded") == 1, "a cell and the total with an unrecorded request carry it")
+        mdq = render_markdown(rq_)
+        expect("## Spend by pass and effort" in mdq and "| alignment | low | 1 | 1 | 1 |" in mdq and "output unrecorded" in mdq and "| discovery | high |" in mdq, "the pass/effort table renders; an unrecorded output reads `output unrecorded`, never a low number")
+        expect(any("| alignment | low |" in ln and "output unrecorded" in ln for ln in mdq.splitlines() if ln.startswith("| q1")), "the agents table carries pass, effort and the unrecorded flag")
+        rq0 = build_report(srepo, {**cfg, "prices": SELFTEST_PRICES}, qdir, since, until)
+        expect(all(a.get("output_unrecorded") is None for a in rq0["agents"]) and "not judged" in render_markdown(rq0), "without the key output is not judged, and the section says so")
+        spq = rq_.get("spend") or {}
+        flagged = [(t, k, v) for t in ("by_phase", "by_role") for k, v in (spq.get(t) or {}).items() if v.get("output_unrecorded")]
+        expect({t for t, _, _ in flagged} == {"by_phase", "by_role"} and all(any(ln.startswith(f"| {_cell(k)} | {v['requests']} | ") and "output unrecorded" in ln for ln in mdq.splitlines()) for _, k, v in flagged),
+               "the phase and role rollups carry the unrecorded flag, in the data and on their rows")
+        expect(((rq_.get("context") or {}).get("tokens") or {}).get("output_unrecorded") == 1 and any(ln.startswith("median context") and "output unrecorded" in ln for ln in mdq.splitlines()),
+               "the Context section's output total shows the flag, never a bare low number")
+        hdir = root / "hdr"; hdir.mkdir()
+
+        def first_user(content):
+            (hdir / "h.jsonl").write_text(json.dumps(_entry("user", "2026-09-03T10:00:00Z", message={"role": "user", "content": content})) + "\n", encoding="utf-8")
+            return Session(hdir / "h.jsonl", cfg, since, until)
+        hs = first_user("effort: high\nturn budget: 7\n\nThe rule says:\npass: alignment\nturn budget: 99\n")
+        expect((hs.pass_, hs.effort, hs.budget) == ("-", "high", 7), "only the opening header lines are read: a `pass:` quoted in the body is not the spawn's pass")
+        t0 = time.time(); first_user("effort: low\n" + "\n" * 40000 + " " * 40000 + "x\n")
+        expect(time.time() - t0 < 1.0, "a prompt with a long run of blanks is read in linear time")
         # degradation: no transcripts, no git
         r2 = build_report(root / "nope", cfg, root / "missing", since, until)
         expect(r2["window"]["sources"]["transcripts"].startswith("unavailable"), "missing transcripts folder is said, not raised")
@@ -1634,6 +1787,11 @@ def selftest() -> int:
             load_config(bad); expect(False, "a price that is not a number is refused")
         except ToolFault as e:
             expect("prices.per_family" in str(e), "a price row without its five numbers is refused in plain language (EVOL-113)")
+        bad.write_text('{"$schema": "measure_config_v1", "retention_days": 90, "report_interval_days": 30, "output_unrecorded_chars_per_token": 0}', encoding="utf-8")
+        try:
+            load_config(bad); expect(False, "an output_unrecorded_chars_per_token that is not a positive number is refused")
+        except ToolFault as e:
+            expect("output_unrecorded_chars_per_token" in str(e), "an output_unrecorded_chars_per_token that is not a positive number is refused in plain language (EVOL-105)")
         try:
             compare({"schema": "other"}, r)
             expect(False, "baseline with wrong schema refused")
