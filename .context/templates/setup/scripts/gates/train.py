@@ -3,8 +3,11 @@
 
 Every `docs/spec/*/increment_plan.md` the change touches (the tree on disk against the merge-base with the diff base)
 is read: each `- SUB-{N}-{M}: {scope} · paths [g] · after [SUB-N-k] · concerns [c] · enables [c] · ~F files ·
-~L lines · branch … · status: …` row (every field optional but the id; `[]` is an empty list), grouped by its INC-N.
-Red when:
+~L lines · branch … · status: …` row (every field optional but the id; `[]` is an empty list; a list item may carry
+`[…]` and `{a,b}`, commas split outside them; sub ids compare case-insensitively), grouped by its INC-N. Globs read by
+the push gate's ruler (`common.glob_match`). Red when:
+
+  (o) no order            an `after` names a sub its increment does not declare, or the `after` graph has a cycle.
 
   (a) stackable re-touch  a path glob (normalised string; overlap between two different globs is not judged) is listed
                           in two subs, neither in the other's transitive `after` closure, and the two subs' summed
@@ -14,8 +17,17 @@ Red when:
 And on a sub-increment branch (gates/branch.py's classifier), whatever plan changed:
   (c) ledger per sub      its diff touches a path in `train.close_ledgers` while another sub of its INC is not MERGED —
                           a ledger is written by the train-close sub only.
+And on every changed plan (EVOL-115) — its `## Seam map` table (use case | handler | grant/route | integration test |
+client | e2e case | sub; a client or e2e cell may say `closes: SUB-…`, a row may say `stub until SUB-…`), the row
+fields `tasks [..]` / `measured [..]` and the INC line `**Ratified sub-increments:** N`:
+  (d) split seam          a seam row's use case, handler or integration test path is matched by no `paths` glob of its sub.
+  (e) stale stub          a seam row still says `stub until SUB-x` while SUB-x is MERGED (DC-35); a `stub until` or
+                          `closes:` target the plan does not declare is red too.
+  (f) not re-measured     a sub's `tasks` set differs from the set its estimate `measured`.
+  (g) over the ratified   an INC declares more subs than its `Ratified sub-increments`.
 
-Nothing to judge → `train: n/a`. `--figures` counts per INC: subs, unique paths, path-touches, re-touch.
+A seam table is one whose header carries `use case` and `sub`; the template's placeholder row in a plan that declares
+no sub is nothing to judge. Nothing to judge → `train: n/a`. `--figures` counts per INC: subs, unique paths, path-touches, re-touch, train total.
 """
 from __future__ import annotations
 
@@ -23,25 +35,44 @@ import re
 from pathlib import Path
 
 from . import branch as branch_mod
-from .common import GateFault, key
+from .common import GateFault, any_glob, clean as _clean, key
 from .digests import changed_paths
 from .seal import DEFAULT_SEAL_DIR, _norm_path, vcfg
 
 PLAN_RE = re.compile(r"docs/spec/([^/]+)/increment_plan\.md")
 ROW_RE = re.compile(r"(?m)^\s*-\s*\**SUB-(\d+)-(\d+)\**\s*(?::|—)(.*)$")   # the row shape of branch.declares_sub_increments
-LISTS = ("paths", "after", "concerns", "enables")
-
-
-def _clean(s) -> str:
-    """A byte read from a plan never reaches the terminal raw."""
-    return "".join(ch if ch.isprintable() else "?" for ch in str(s))
+LISTS = ("paths", "after", "concerns", "enables", "tasks", "measured")
+INC_RE = re.compile(r"(?m)^#{2,}\s*INC-(\d+)\b")
+RATIFIED_RE = re.compile(r"\*\*Ratified sub-increments:\*\*\s*(\d+)")
+SUB_ID = re.compile(r"SUB-\d+-\d+", re.I)
+TARGET_RE = re.compile(r"(stub until|closes:)\s*`?(SUB-\d+-\d+)", re.I)
+SEAM_COLS = ("use case", "handler", "integration test")
 
 
 def _list(rest: str, name: str) -> list[str]:
-    m = re.search(rf"(?<![\w-]){name}\s*\[([^\]]*)\]", rest)
+    """`name [a, b]`: the list ends at its own closing bracket (nested `[id]` kept); commas split only outside `[…]` and `{…}`."""
+    m = re.search(rf"(?<![\w-]){name}\s*\[", rest)
     if not m:
         return []
-    return [x.strip().strip("`").strip() for x in m.group(1).split(",") if x.strip().strip("`").strip()]
+    items, cur, depth = [], "", 0
+    for ch in rest[m.end():]:
+        if ch in "[{":
+            depth += 1
+        elif ch in "]}":
+            if depth == 0 and ch == "]":
+                break
+            depth = max(depth - 1, 0)
+        elif ch == "," and depth == 0:
+            items.append(cur); cur = ""
+            continue
+        cur += ch
+    items.append(cur)
+    return [x.strip().strip("`").strip() for x in items if x.strip().strip("`").strip()]
+
+
+def _sid(v: str) -> str:
+    """A sub id as the plan declares it, whatever the case it is cited in."""
+    return v.upper()
 
 
 def _num(rest: str, unit: str) -> int:
@@ -57,20 +88,109 @@ def parse(text: str) -> dict[str, list[dict]]:
         row = {"id": sub, "m": int(m.group(2)), "files": _num(rest, "files"), "lines": _num(rest, "lines")}
         for k in LISTS:
             row[k] = list(dict.fromkeys(_norm_path(p) for p in _list(rest, k))) if k == "paths" else _list(rest, k)
+        row["after"] = [_sid(x) for x in row["after"]]
         st = re.search(r"status:\s*\**\s*([A-Za-z]+)", rest)
         row["status"] = st.group(1).upper() if st else ""
         incs.setdefault(f"INC-{n}", []).append(row)
     return incs
 
 
-def closure(subs: list[dict], sid: str) -> set[str]:
-    """The transitive `after` closure of one sub (never itself)."""
+def ratified(text: str) -> dict[str, int]:
+    """INC-N → its `**Ratified sub-increments:** N` (absent → not judged)."""
+    out, heads = {}, list(INC_RE.finditer(text or ""))
+    for i, h in enumerate(heads):
+        body = text[h.end(): heads[i + 1].start() if i + 1 < len(heads) else len(text)]
+        m = RATIFIED_RE.search(body)
+        if m:
+            out[f"INC-{h.group(1)}"] = int(m.group(1))
+    return out
+
+
+def seams(text: str) -> list[dict]:
+    """The `## Seam map` rows: column (lower-case header) → cell, plus `stub` (the SUB a placeholder waits for)."""
+    rows, inside, header = [], False, None
+    for line in (text or "").splitlines():
+        if re.match(r"^#{1,6}\s", line):
+            inside, header = bool(re.match(r"^#{1,6}\s*Seam map\s*$", line, re.I)), None
+            continue
+        if not inside or not line.strip().startswith("|"):
+            header = None   # a table ends at its first non-table line; the next one brings its own header
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if header is None:
+            header = [c.lower() for c in cells]
+        elif "use case" in header and "sub" in header and not all(set(c) <= set(":- ") for c in cells):
+            row = dict(zip(header, cells))
+            stub = re.search(r"stub until\s*`?(SUB-\d+-\d+)", line, re.I)
+            row["stub"] = _sid(stub.group(1)) if stub else ""
+            row["targets"] = [(w.lower(), _sid(t)) for w, t in TARGET_RE.findall(line)]
+            rows.append(row)
+    return rows
+
+
+def live_seams(text: str) -> list[dict]:
+    """The seam rows to judge: the template's placeholder row in a plan that declares no sub is nothing to judge."""
+    has_subs = bool(parse(text))
+    return [r for r in seams(text) if has_subs or "{{" not in r.get("sub", "")]
+
+
+def _seam_path(cell: str) -> str:
+    v = re.sub(r"(?i)closes:\s*SUB-\d+-\d+|stub until\s*`?SUB-\d+-\d+`?", "", cell or "").strip().strip("`*").strip()
+    return "" if v.lower() in ("", "—", "-", "n/a", "none") else _norm_path(v.split()[0].strip("`"))
+
+
+def judge_seams(text: str) -> list[str]:
+    """Clauses (d)–(g) on one plan."""
+    incs, problems = parse(text), []
+    subs = {s["id"]: s for ss in incs.values() for s in ss}
+    for row in live_seams(text):
+        m = SUB_ID.search(row.get("sub", ""))
+        sid = _sid(m.group(0)) if m else None
+        uc = row.get("use case", "?")
+        if sid not in subs:
+            problems.append(f"seam `{uc}` names sub `{row.get('sub', '')}`, which the plan does not declare — name the sub that builds it")
+        else:
+            for col in SEAM_COLS:
+                p = _seam_path(row.get(col, ""))
+                if p and not (p in subs[sid]["paths"] or any_glob(p, subs[sid]["paths"])):
+                    problems.append(f"seam `{uc}`: its {col} {p} lies outside {sid}'s paths — a use case, its handler and its integration test ship in one sub")
+        for word, t in row["targets"]:
+            if t not in subs:
+                problems.append(f"seam `{uc}` says `{word} {t}`, which the plan does not declare — name the sub that closes it")
+        st = row["stub"]
+        if st and subs.get(st, {}).get("status") == "MERGED":
+            problems.append(f"seam `{uc}` still says `stub until {st}`, and {st} is MERGED — wire the real producer and drop the stub")
+    for s in subs.values():
+        if (s["tasks"] or s["measured"]) and set(s["tasks"]) != set(s["measured"]):
+            problems.append(f"{s['id']} carries tasks [{', '.join(s['tasks'])}] but its estimate measured [{', '.join(s['measured'])}] — "
+                            f"re-measure the sub after routing work into it")
+    for inc, n in ratified(text).items():
+        if len(incs.get(inc, [])) > n:
+            problems.append(f"{inc} declares {len(incs[inc])} subs, {n} ratified — re-plan the remaining work by file through the split's RDR before another sub")
+    return problems
+
+
+def order(subs: list[dict]) -> list[str]:
+    """The `after` graph itself: a dangling target or a cycle leaves the order undefined."""
+    by, problems = {s["id"]: s for s in subs}, []
+    for s in subs:
+        for x in s["after"]:
+            if x not in by:
+                problems.append(f"{s['id']} comes after {x}, which its increment does not declare — name a declared sub or drop it")
+    for s in subs:
+        if s["id"] in closure(subs, s["id"], with_self=True):
+            problems.append(f"{s['id']} comes after itself through `after` (a cycle) — break the cycle so the train has an order")
+    return problems
+
+
+def closure(subs: list[dict], sid: str, with_self: bool = False) -> set[str]:
+    """The transitive `after` closure of one sub (itself only when `with_self` or a cycle returns to it)."""
     by = {s["id"]: s for s in subs}
     seen: set[str] = set()
     todo = list(by.get(sid, {}).get("after", []))
     while todo:
         x = todo.pop()
-        if x in seen or x == sid:
+        if x in seen or (x == sid and not with_self):
             continue
         seen.add(x)
         todo += by.get(x, {}).get("after", [])
@@ -79,7 +199,7 @@ def closure(subs: list[dict], sid: str) -> set[str]:
 
 def judge(subs: list[dict], ceiling_files: int, ceiling_lines: int) -> list[str]:
     """Clauses (a) and (b) on one increment's subs."""
-    problems = []
+    problems = order(subs)
     clo = {s["id"]: closure(subs, s["id"]) for s in subs}
     for i, s in enumerate(subs):
         for t in subs[i + 1:]:
@@ -148,6 +268,11 @@ def check(repo: Path, base: str, branch: str | None = None) -> dict:
             for inc, subs in parse(_read(repo, plan)).items():
                 problems = judge(subs, cf, cl)
                 rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} {inc}", "ok": not problems, "problems": problems, "note": f"{len(subs)} sub(s) stacked by file"})
+            text = _read(repo, plan)
+            if live_seams(text) or ratified(text) or any(s["tasks"] or s["measured"] for ss in parse(text).values() for s in ss):
+                problems = judge_seams(text)
+                rows.append({"id": f"{PLAN_RE.fullmatch(plan).group(1)} seams", "ok": not problems, "problems": problems,
+                             "note": "seams in one sub, no stale stub, every routing re-measured, within the ratified count"})
     led = ledger(repo, branch, changed)
     if led:
         rows.append(led)
@@ -169,7 +294,8 @@ def figures(repo: Path, plan: str | None = None) -> dict:
         for inc, subs in parse(_read(repo, p)).items():
             touches = sum(len(s["paths"]) for s in subs)
             unique = len({x for s in subs for x in s["paths"]})
-            out.append({"plan": p, "inc": inc, "subs": len(subs), "unique_paths": unique, "path_touches": touches, "retouch": touches - unique})
+            out.append({"plan": p, "inc": inc, "subs": len(subs), "unique_paths": unique, "path_touches": touches, "retouch": touches - unique,
+                        "total_files": sum(s["files"] for s in subs), "total_lines": sum(s["lines"] for s in subs)})
     return {"ok": True, "figures": out}
 
 
@@ -178,7 +304,8 @@ def render(res: dict) -> str:
         if not res["figures"]:
             return "train: n/a — no increment plan declares sub-increments"
         return "\n".join(_clean(f"train: {f['plan']} {f['inc']} — subs {f['subs']} · unique paths {f['unique_paths']} · "
-                                f"path-touches {f['path_touches']} · re-touch {f['retouch']}") for f in res["figures"])
+                                f"path-touches {f['path_touches']} · re-touch {f['retouch']} · "
+                                f"train total ~{f['total_files']} files ~{f['total_lines']} lines") for f in res["figures"])
     if not res.get("entries"):
         return _clean(f"train: {'n/a' if res['ok'] else 'RED'} — {res['reason']}")
     lines = [f"train: {'ok' if res['ok'] else 'RED'} — {res['reason']} ({', '.join(res['plans']) or 'no increment plan changed'})"]

@@ -75,7 +75,8 @@ iterations: []
 - **Contract surface:** [{{POST /api/v1/foo}}, {{GET /api/v1/bar/:id}}] (or GraphQL fields / AsyncAPI topics / gRPC RPCs)
 - **Estimated surface:** paths [{{src/claims/**}}, {{tests/claims/**}}] · ~{{files}} files · ~{{lines}} lines   *(the same ruler the push gate uses — files + lines of the diff, no exclusions; compare with config/quality.json surface.ceiling_files / ceiling_lines; ratified by RDR — see Factory-blueprint-design Step B.4)*
 - **Escape:** none   *(none | one term of surface.escapes — the closed vocabulary; the commit trailer Surface-Escape: <term> repeats it)*
-- **Sub-increments:** none   *(only when the estimate exceeds a ceiling — then a list: `- SUB-1-{M}: {scope: task groups / scenarios} · paths [{{globs}}] · after [SUB-1-{K}] · concerns [{{concern}}] · enables [{{concern}}] · ~files · ~lines · branch feature/{{FEATURE_ID}}-inc-1-{{slug}}-sub-{M} · status: READY` (`paths`: the files it touches, push-gate ruler; `after`: the subs it depends on; `concerns`: the concerns its sites carry; `enables`: the concerns whose blocking gate it turns on — a shared file stacks in one sub, a gate comes after its last site; `gate.py train` judges it, `[]` when empty) (status READY | BUILDING | MERGED — written by the branching skill § Trains; mirrored in dev_plan.md `sub_increments[]`); the per-increment branch becomes a train, one PR per sub-increment into it, one closing PR; `gate.py branch-class` reads this list)*
+- **Ratified sub-increments:** {{N}}   *(only with sub-increments — the count the split's RDR ratified; `gate.py train` (g) is red when the rows outnumber it; a re-plan by file, through the split's RDR, raises it)*
+- **Sub-increments:** none   *(only when the estimate exceeds a ceiling — then a list: `- SUB-1-{M}: {scope: task groups / scenarios} · paths [{{globs}}] · after [SUB-1-{K}] · concerns [{{concern}}] · enables [{{concern}}] · tasks [{{task ids}}] · measured [{{task ids}}] · ~files · ~lines · branch feature/{{FEATURE_ID}}-inc-1-{{slug}}-sub-{M} · status: READY` (`paths`: the files it touches, push-gate ruler; `after`: the subs it depends on; `concerns`: the concerns its sites carry; `enables`: the concerns whose blocking gate it turns on — a shared file stacks in one sub, a gate comes after its last site; `gate.py train` judges it, `[]` when empty) (status READY | BUILDING | MERGED — written by the branching skill § Trains; mirrored in dev_plan.md `sub_increments[]`); `tasks`: the tasks routed into it, `measured`: the task set its estimate was last measured on — equal, or `gate.py train` (f) is red; risk-first order: the subs carrying an external provider, permissions, contracts or a data migration come first, presentation after; the per-increment branch becomes a train, one PR per sub-increment into it, one closing PR; `gate.py branch-class` reads this list)*
 - **Depends on:** []   *(INC-1 always empty — intra-feature INC→INC DAG edge)*
 - **cascade_source:** `SLICE-{{FEATURE_ID}}-1`   *(Rule 9 join key → the slice_map.md slice this increment realizes; CVP Check 18 resolves it)*
 - **depends_on_slice:** []        *(inherited from the realized slice — intra-feature slice ordering; `[SLICE-{{FEATURE_ID}}-X]`)*
@@ -125,6 +126,13 @@ iterations: []
 ### INC-N …
 
 > **Canonical DAG.** The dependency graph is encoded by each increment's `depends_on:` field in § 1 above. CVP `increment_deployability` builds the graph from those fields and verifies acyclicity + that every referenced increment exists. § 3 below renders the same graph in Mermaid for human readers and is non-authoritative — if § 3 disagrees with § 1, § 1 wins.
+
+## Seam map
+> Only with sub-increments (EVOL-115). One row per use case: the seam between its parts never falls between two subs. Paths are files the sub's `paths` globs match — `gate.py train` (d) is red otherwise. A client or end-to-end cell built later says `closes: SUB-…`; a placeholder says `stub until SUB-…` — red (e, DC-35) once that sub is MERGED.
+
+| use case | handler | grant/route | integration test | client | e2e case | sub |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `{{src/…/use_case}}` | `{{src/…/handler}}` | {{grant}} · {{METHOD /route}} | `{{tests/…/it}}` | closes: SUB-{{N}}-{{M}} | closes: SUB-{{N}}-{{M}} | SUB-{{N}}-{{M}} |
 
 ## 2. Monolithic Escape Declaration
 

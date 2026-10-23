@@ -1,5 +1,5 @@
 ---
-description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q34 questions. Use when: SETUP --init command execution."
+description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q35 questions. Use when: SETUP --init command execution."
 applicable_when:
   phase: [SETUP]
   command: [setup]
@@ -499,6 +499,22 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **RDR Recommendation:** `writer: opus` · `critic: sonnet` — the writers on the strongest tier (few spawns: one per phase, one per surface), the critics on the reading tier at full effort (many spawns: every lens, every round; the one reading-tier canary run of EVOL-059 found its planted defects — the canary measures drift, not equivalence; the recommendation stands on the cost argument — the framework's own evolutions run so since 2026-10, RDR-2 of ADR-EVOL-059). `writer: sonnet` · `critic: opus` inverts it for a codebase where the review is the hard part and the writing is routine. `haiku` as the writer only for a prototype. Whatever the pair, **the two must differ** — `python3 scripts/gate.py agents` refuses a roster where they resolve to the same alias; per-spawn effort and the fallback ladder live in `.claude/rules/agents.md` (a data edit plus a manifest bump, with its measurement window).
 - **Tier-filtered:** All tiers.
 - **Persist:** `agents.writer_model` · `agents.critic_model` (frontmatter of `docs/setup.md`, nested YAML `agents:`) → `config/quality.json → agents.families.writer / critic` at `--generate`
+
+#### Q35: Security Standard (EVOL-115)
+- **Type:** Single choice
+- **Options:** `asvs-5.0` (OWASP Application Security Verification Standard 5.0) | `none`
+- **Simplified:** es: "¿Con qué estándar de seguridad se verifica el producto? Cada pregunta de fiabilidad del diseño se enlaza con su requisito." / en: "Which security standard verifies the product? Each reliability question of a design maps to its requirement."
+- **RDR Recommendation:** `asvs-5.0` — an official, versioned requirement list; the design cites a requirement, not an opinion. `none` keeps the questions, without the mapping.
+- **Tier-filtered:** All tiers.
+- **Persist:** `security.standard` (frontmatter of `docs/setup.md`, nested YAML `security:`) → `rules/security_policy.md § Verification Standard` at `--generate`
+
+#### Q35.1: Security Level (EVOL-115)
+- **Type:** Single choice — asked only when Q35 is not `none`
+- **Options:** `L1` | `L2` | `L3`
+- **Simplified:** es: "¿Qué nivel del estándar? L1 lo mínimo, L2 la mayoría de aplicaciones con datos de usuarios, L3 lo crítico." / en: "Which level of the standard? L1 the minimum, L2 most applications holding user data, L3 the critical ones."
+- **RDR Recommendation:** `L2` — the standard's own recommendation for applications that hold sensitive data; `L3` only where a breach endangers life, money at scale or critical infrastructure.
+- **Tier-filtered:** All tiers.
+- **Persist:** `security.level` (frontmatter of `docs/setup.md`, nested YAML `security:`) → `rules/security_policy.md § Verification Standard` at `--generate`
 
 > **Derived, no question (EVOL-051 / EVOL-053):** `verification.gates` (the path-to-gate map) and `traceability.home` (the one place a test states its case: the pytest `case` marker for Python, the title tag otherwise) are derived from the stack answers (Q5 runtime, Q33 runtime surface) at `--generate` — see Factory-setup-materialization. They are project configuration, editable after materialisation; they are never asked.
 

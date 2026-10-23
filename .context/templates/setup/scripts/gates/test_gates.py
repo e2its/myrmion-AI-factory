@@ -22,7 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
+from gates import agents, aligned, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -5309,6 +5309,261 @@ class Train(unittest.TestCase):
             self.assertEqual([(x["inc"], x["subs"], x["unique_paths"], x["path_touches"], x["retouch"]) for x in f], [("INC-1", 3, 3, 4, 1)])
             res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "train", "--figures", "--plan", self.PLAN, "--json"], capture_output=True, text=True)
             self.assertEqual(res.returncode, 0, res.stderr); self.assertEqual(json.loads(res.stdout)["figures"][0]["retouch"], 1)
+
+    def test_d_seam_split_from_its_handler_red_together_green(self):
+        seam = ("\n## Seam map\n\n| use case | handler | grant/route | integration test | client | e2e case | sub |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+                "| `src/uc/login.py` | `{h}` | POST /login | `tests/it/test_login.py` | closes: SUB-1-2 | closes: SUB-1-2 | SUB-1-1 |\n")
+        for h, ok in (("web/handlers/login.py", False), ("src/handlers/login.py", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp)
+                write(repo / self.PLAN, self._plan("SUB-1-1: api · paths [src/**, tests/it/*] · status: READY",
+                                                   "SUB-1-2: ui · paths [web/ui/*] · after [SUB-1-1] · status: READY") + seam.format(h=h))
+                r = train.check(repo, "main"); self.assertEqual(r["ok"], ok, r)
+                if not ok:
+                    self.assertIn("web/handlers/login.py", train.render(r)); self.assertIn("one sub", train.render(r))
+
+    def test_e_stub_past_its_merged_sub_red(self):
+        seam = ("\n## Seam map\n\n| use case | handler | grant/route | integration test | client | e2e case | sub |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+                "| `src/uc/pay.py` | `src/h/pay.py` | POST /pay | `src/t/pay_it.py` | stub until SUB-1-2 | closes: SUB-1-2 | SUB-1-1 |\n")
+        for st, ok in (("MERGED", False), ("READY", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp)
+                write(repo / self.PLAN, self._plan("SUB-1-1: api · paths [src/**] · status: MERGED",
+                                                   f"SUB-1-2: provider · paths [lib/p.py] · after [SUB-1-1] · status: {st}") + seam)
+                r = train.check(repo, "main"); self.assertEqual(r["ok"], ok, r)
+                if not ok:
+                    self.assertIn("stub until SUB-1-2", train.render(r))
+
+    def test_f_routed_task_not_re_measured_red(self):
+        for measured, ok in (("[T1]", False), ("[T2, T1]", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp)
+                write(repo / self.PLAN, self._plan(f"SUB-1-1: a · paths [src/a.py] · tasks [T1, T2] · measured {measured} · ~2 files · ~10 lines · status: READY"))
+                r = train.check(repo, "main"); self.assertEqual(r["ok"], ok, r)
+                if not ok:
+                    self.assertIn("re-measure", train.render(r))
+
+    def test_g_more_subs_than_ratified_red(self):
+        for n, ok in (("1", False), ("2", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp)
+                write(repo / self.PLAN, self._plan("SUB-1-1: a · paths [src/a.py] · status: MERGED",
+                                                   "SUB-1-2: b · paths [src/b.py] · after [SUB-1-1] · status: READY").replace(
+                                                       "**Sub-increments:**", f"- **Ratified sub-increments:** {n}\n\n**Sub-increments:**"))
+                r = train.check(repo, "main"); self.assertEqual(r["ok"], ok, r)
+                if not ok:
+                    self.assertIn("1 ratified", train.render(r))
+
+    def test_figures_train_total(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, plan=self._plan("SUB-1-1: a · paths [src/a.py] · ~3 files · ~40 lines · status: READY",
+                                                   "SUB-1-2: b · paths [src/b.py] · after [SUB-1-1] · ~2 files · ~10 lines · status: READY"))
+            f = train.figures(repo)["figures"][0]
+            self.assertEqual((f["total_files"], f["total_lines"]), (5, 50))
+            self.assertIn("train total ~5 files ~50 lines", train.render(train.figures(repo)))
+
+    SEAM = ("\n## Seam map\n\n| use case | handler | grant/route | integration test | client | e2e case | sub |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+            "| `{uc}` | `{h}` | POST /x | `{it}` | {cl} | closes: SUB-1-2 | {sub} |\n")
+
+    def _seam(self, paths, h, uc="src/uc/x.py", it="tests/it/test_x.py", cl="closes: SUB-1-2", sub="SUB-1-1", s2="READY"):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.PLAN, self._plan(f"SUB-1-1: api · paths [{paths}] · status: READY",
+                                               f"SUB-1-2: ui · paths [web/ui/*] · after [SUB-1-1] · status: {s2}") + self.SEAM.format(uc=uc, h=h, it=it, cl=cl, sub=sub))
+            r = train.check(repo, "main"); return r, train.render(r)
+
+    def test_d_paths_read_by_the_push_gate_ruler(self):
+        """`**/` spans zero directories, `*` stays in a segment, a trailing slash covers its tree, brackets and braces are literal list content."""
+        for paths, h, ok in (("src/**/*.py, tests/it/*", "src/h.py", True),
+                             ("src/uc/*, src/handlers/*, tests/it/*", "src/handlers/v2/login.py", False),
+                             ("src/uc/*, src/handlers/, tests/it/*", "src/handlers/v2/login.py", True),
+                             ("src/uc/*, app/[id]/page.tsx, tests/it/*", "app/[id]/page.tsx", True),
+                             ("src/{uc,handlers}/*.py, tests/it/*", "src/handlers/login.py", True),
+                             ("src/{uc,handlers}/*.py, tests/it/*", "src/web/login.py", False)):
+            r, out = self._seam(paths, h)
+            self.assertEqual(r["ok"], ok, (paths, h, out))
+        self.assertEqual(train._list("paths [a/[id]/b.tsx, src/{x,y}/*.py] · after [SUB-1-1]", "paths"), ["a/[id]/b.tsx", "src/{x,y}/*.py"])
+
+    def test_e_undeclared_stub_or_closes_target_red_ids_case_insensitive(self):
+        r, out = self._seam("src/**, tests/**", "src/h.py", cl="stub until SUB-1-9")
+        self.assertFalse(r["ok"], out); self.assertIn("SUB-1-9", out); self.assertIn("does not declare", out)
+        r, out = self._seam("src/**, tests/**", "src/h.py", cl="closes: SUB-1-7")
+        self.assertFalse(r["ok"], out); self.assertIn("SUB-1-7", out)
+        r, out = self._seam("src/**, tests/**", "src/h.py", cl="stub until sub-1-2", sub="sub-1-1", s2="MERGED")
+        self.assertFalse(r["ok"], out); self.assertIn("is MERGED", out)
+        r, out = self._seam("src/**, tests/**", "src/h.py", sub="sub-1-1")
+        self.assertTrue(r["ok"], out)
+
+    def test_seam_placeholder_without_subs_na_and_second_table_ignored(self):
+        tpl = ("# Plan\n\n### INC-1: x\n\nno subs\n\n## Seam map\n\n| use case | handler | grant/route | integration test | client | e2e case | sub |\n| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n"
+               "| `{{src/…/use_case}}` | `{{src/…/handler}}` | {{grant}} · {{METHOD /route}} | `{{tests/…/it}}` | closes: SUB-{{N}}-{{M}} | closes: SUB-{{N}}-{{M}} | SUB-{{N}}-{{M}} |\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / self.PLAN, tpl)
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(r["entries"], [], r)
+        r, out = self._seam("src/**, tests/**", "src/h.py")
+        self.assertTrue(r["ok"], out)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.PLAN, self._plan("SUB-1-1: api · paths [src/**, tests/**] · status: READY",
+                                               "SUB-1-2: ui · paths [web/ui/*] · after [SUB-1-1] · status: READY")
+                  + self.SEAM.format(uc="src/uc/x.py", h="src/h.py", it="tests/it/x.py", cl="closes: SUB-1-2", sub="SUB-1-1")
+                  + "\nNotes:\n\n| term | meaning |\n| --- | --- |\n| seam | where parts meet |\n")
+            r = train.check(repo, "main"); self.assertTrue(r["ok"], train.render(r))
+
+    def test_dangling_after_and_after_cycle_red(self):
+        for rows, word in ((("SUB-1-1: a · paths [src/a.py] · after [SUB-1-9] · status: READY",), "SUB-1-9"),
+                           (("SUB-1-1: a · paths [src/a.py] · after [SUB-1-2] · status: READY",
+                             "SUB-1-2: b · paths [src/b.py] · after [SUB-1-1] · status: READY"), "cycle")):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.PLAN, self._plan(*rows))
+                r = train.check(repo, "main"); out = train.render(r)
+                self.assertFalse(r["ok"], out); self.assertIn(word, out)
+
+
+class Freeze(unittest.TestCase):
+    """EVOL-115: reliability is planned up front — the design's questions answered, the contract's outage and inputs bounded."""
+    DESIGN = "docs/spec/FEAT-001/design.md"
+    API = "contracts/openapi/api.yaml"
+
+    def _repo(self, tmp):
+        repo = fixture_repo(Path(tmp))
+        q = json.loads((repo / "config/quality.json").read_text()); q["contracts"] = {"outage_status": "503"}
+        write(repo / "config/quality.json", json.dumps(q))
+        for c in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], ["branch", "-M", "main"], ["checkout", "-qb", "feature/FEAT-001-x"]):
+            subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+        return repo
+
+    @staticmethod
+    def _design(cell):
+        return ("# Design\n\n## Reliability Questions\n\n| Capability | Weight | RQ-1 | RQ-2 | RQ-3 | RQ-4 | RQ-5 |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+                f"| login | security | {cell} | a · s | a · s | a · s | a · s |\n| theme | none |  |  |  |  |  |\n\n"
+                "| RQ | Requirement |\n| --- | --- |\n| RQ-1 | V7.4.3 |\n\n## Next\n")
+
+    @staticmethod
+    def _api(responses="'200': {description: ok}\n        '503': {description: down}", prop="{type: string, maxLength: 64, x-sensitive: true}"):
+        return ("openapi: 3.0.3\ninfo: {title: t, version: '1'}\npaths:\n  /login:\n    post:\n      responses:\n        " + responses + "\n"
+                "      requestBody:\n        content:\n          application/json:\n            schema:\n              type: object\n"
+                "              properties:\n                credential: " + prop + "\n")
+
+    def test_na_without_a_changed_design_or_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / "src/x.py", "x\n")
+            r = freeze.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(r["entries"], [])
+            self.assertTrue(freeze.render(r).startswith("freeze: n/a — "), freeze.render(r))
+            self.assertIn("freeze", [m[0] for m in profile.MEMBERS])
+
+    def test_a_blank_answer_and_blank_source_red(self):
+        for cell, ok, word in (("", False, "an answer"), ("revoke all · ", False, "a source"), ("{{answer}} · {{source}}", False, "an answer"),
+                               ("revoke all · https://datatracker.ietf.org/doc/html/rfc7009", True, "")):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.DESIGN, self._design(cell))
+                r = freeze.check(repo, "main"); self.assertEqual(r["ok"], ok, (cell, r))
+                if not ok:
+                    out = freeze.render(r); self.assertIn("RQ-1", out); self.assertIn(word, out); self.assertNotIn("theme", out)
+
+    def test_b_operation_without_outage_response_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / self.API, self._api(responses="'200': {description: ok}"))
+            r = freeze.check(repo, "main"); self.assertFalse(r["ok"], r); self.assertIn("POST /login declares no `503`", freeze.render(r))
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "freeze", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+            write(repo / self.API, self._api(responses="'200': {description: ok}\n        503: {description: down}"))
+            r = freeze.check(repo, "main"); self.assertTrue(r["ok"], r)
+
+    def test_c_sensitive_field_without_constraint_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / self.API, self._api(prop="{type: string, x-sensitive: true}"))
+            r = freeze.check(repo, "main"); self.assertFalse(r["ok"], r); self.assertIn("properties/credential", freeze.render(r))
+            nested = {"openapi": "3.0.3", "paths": {}, "components": {"schemas": {"U": {"allOf": [{"properties": {"tags": {"type": "array", "items": {"type": "string", "x-sensitive": True}}}}]}}}}
+            write(repo / "contracts/openapi/u.json", json.dumps(nested)); write(repo / self.API, self._api())
+            r = freeze.check(repo, "main"); self.assertFalse(r["ok"], r); self.assertIn("items", freeze.render(r))
+            nested["components"]["schemas"]["U"]["allOf"][0]["properties"]["tags"]["items"]["pattern"] = "^[a-z]+$"
+            write(repo / "contracts/openapi/u.json", json.dumps(nested))
+            r = freeze.check(repo, "main"); self.assertTrue(r["ok"], r)
+
+    def test_unparseable_contract_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / self.API, "paths: [unclosed\n  : :\n")
+            r = freeze.check(repo, "main"); self.assertFalse(r["ok"], r)
+            out = freeze.render(r); self.assertIn("cannot be read as a contract", out); self.assertNotIn("Traceback", out)
+
+    def _design_w(self, weight, cell="", section="## Reliability Questions"):
+        return self._design(cell).replace("| login | security |", f"| login | {weight} |").replace("## Reliability Questions", section)
+
+    def test_a_closed_weight_vocabulary(self):
+        for weight, ok, word in (("both", False, "RQ-1"), ("high", False, "`high`"), ("Availability", False, "RQ-1"), ("none", True, "")):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.DESIGN, self._design_w(weight))
+                r = freeze.check(repo, "main"); out = freeze.render(r); self.assertEqual(r["ok"], ok, (weight, out))
+                if not ok:
+                    self.assertIn(word, out)
+                else:
+                    self.assertIn("n/a", out); self.assertNotIn("answered", out)
+
+    def test_a_absent_section_or_unknown_header_na_never_the_ok_note(self):
+        for design, word in (("# Design\n\n## Next\n", "no `## Reliability Questions`"),
+                             (self._design_w("security", section="## Reliability"), "no `## Reliability Questions`"),
+                             ("# Design\n\n## Reliability Questions\n\n| Cap | Prio | Q1 |\n| --- | --- | --- |\n| login | security | a |\n", "header")):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.DESIGN, design)
+                r = freeze.check(repo, "main"); out = freeze.render(r)
+                self.assertTrue(r["ok"], out); self.assertIn("n/a", out); self.assertIn(word, out); self.assertNotIn("answered", out)
+                self.assertTrue(out.startswith("freeze: n/a — nothing judged"), out); self.assertNotIn("planned up front", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / self.DESIGN, self._design("a · s"))
+            r = freeze.check(repo, "main"); out = freeze.render(r); self.assertTrue(r["ok"], out); self.assertIn("1 weighted capability answered", out)
+
+    def test_c_marker_never_stringified(self):
+        # a shared (aliased) list stringified re-expands every alias: the marker is decided by type, never by str()
+        class Bomb(list):
+            def __str__(self): raise AssertionError("stringified")
+            __repr__ = __str__
+        for v, marked in ((Bomb([1]), True), (Bomb(), False), ({"a": 1}, True), (0, False), (2, True), ("No", False), (True, True)):
+            self.assertEqual(freeze._sensitive(v), marked, type(v).__name__)
+
+    def test_b_quoted_status_key_counts_without_pyyaml(self):
+        # the subset parser keeps a key's quotes: `'503':` must still declare the outage response
+        for k in ("'503'", '"503"', "503", 503):
+            self.assertEqual(freeze.contract({"paths": {"/a": {"get": {"responses": {k: {"description": "down"}}}}}}, "503"), [], k)
+
+    def test_c_any_non_false_marker_counts_and_the_count_shows(self):
+        for marker in ("true", "'true'", "1"):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.API, self._api(prop="{type: string, x-sensitive: " + marker + "}"))
+                r = freeze.check(repo, "main"); self.assertFalse(r["ok"], (marker, r))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / self.API, self._api())
+            out = freeze.render(freeze.check(repo, "main")); self.assertIn("1 sensitive field bounded", out)
+            write(repo / self.API, self._api(prop="{type: string, maxLength: 64}"))
+            out = freeze.render(freeze.check(repo, "main")); self.assertIn("0 sensitive fields bounded", out)
+
+    def test_contract_robustness_humanised(self):
+        deep = {"openapi": "3.0.3", "paths": {}}; node = deep
+        for _ in range(5000):
+            node["x"] = {}; node = node["x"]
+        for doc, word in ((deep, "nested"), ({"paths": ["a"]}, "mapping"), ({"paths": {"/a": {"get": {"responses": ["503"]}}}}, "mapping")):
+            with self.assertRaises(GateFault) as cm:
+                freeze.contract(doc, "503")
+            self.assertIn(word, str(cm.exception)); self.assertNotIn("Traceback", str(cm.exception))
+        shared = {"type": "string", "x-sensitive": True}; alias = {"paths": {}, "a": shared, "b": shared}
+        self.assertEqual(len(freeze.contract(alias, "503")), 1, "an alias is walked once")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / self.API, "")
+            r = freeze.check(repo, "main"); out = freeze.render(r); self.assertFalse(r["ok"], out); self.assertIn("empty contract", out)
+            write(repo / self.API, "openapi: 3.0.3\nx: " + "9" * 5000 + "\npaths: {}\n")
+            r = freeze.check(repo, "main"); out = freeze.render(r); self.assertNotIn("Traceback", out)
+
+    def test_contract_without_pyyaml_names_the_cause(self):
+        """PyYAML hidden: a contract with a list of mappings the subset parser cannot read is red with its cause named."""
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as hide:
+            write(Path(hide) / "yaml.py", "raise ImportError('PyYAML hidden for the test')\n")
+            env = {**os.environ, "PYTHONPATH": hide, "PYTHONDONTWRITEBYTECODE": "1"}
+            repo = self._repo(tmp)
+            write(repo / self.API, "openapi: 3.0.3\npaths:\n  /a:\n    get:\n      parameters:\n        - name: id\n          in: query\n      responses:\n        '503':\n          description: down\n")
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "freeze", "--base", "main"], capture_output=True, text=True, env=env)
+            out = r.stdout + r.stderr
+            self.assertEqual(r.returncode, 1, out); self.assertIn("install PyYAML", out); self.assertNotIn("Traceback", out)
+
 
 
 if __name__ == "__main__":

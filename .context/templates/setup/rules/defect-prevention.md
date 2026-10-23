@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Catalog — families, defect classes, gates, governed paths. Cases annex: defect-prevention-cases.md"
-version: 3.3.0
+version: 3.4.0
 date: 2026-09-25
 changelog:
   - "3.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -43,6 +43,7 @@ Runtime defect patterns that pass every static gate (lint, typecheck, SAST, unit
 | DC-32 | `infra` | Every path a deploying job or a script it runs reads is on the declared runtime surface or a declared read, so no source changes a release unseen. | profile member `runtime-surface` (`gate.py runtime-surface` parity) | `.github/workflows/**`, `.gitlab-ci*.yml`, `.gitlab/**`, `bitbucket-pipelines.yml`, `azure-pipelines*.yml`, `governance-check-pipeline.yml`, `Jenkinsfile*`, `buildspec*.yml`, `cloudbuild*.yaml`, `scripts/**`, `config/quality.json` | IMPLEMENT, REVIEW, DEVOPS, AUDIT | BLOCKER |
 | DC-33 | `tests` | A coverage figure names what it did not measure: every runtime-surface file absent from the report is listed «not measured» or declared omitted. | per-file table of `gate.py seal --run` (`coverage-table.md`), read by the correctness lens | `config/quality.json`, `tests/**`, `**/*.config.*`, `**/*.toml` | IMPLEMENT, REVIEW, QA | WARNING |
 | DC-34 | `process` | Every in-scope scenario's declared cases are linked to tests that ran, and a fresh-context lens judges the build against spec, journey and mock. | profile member `traceability` (each declared case → its test) · the fidelity lens (`factory-critic-fidelity`) | `src/**`, `tests/**`, `e2e/**` | IMPLEMENT, REVIEW, QA | BLOCKER |
+| DC-35 | `process` | No placeholder outlives its producer: a seam's stub goes in the change that merges the sub it waits for. | profile member `train` (e) — the seam map's `stub until` | `docs/spec/**`, `src/**`, `tests/**` | BLUEPRINT, IMPLEMENT, REVIEW | BLOCKER |
 {{DC_ENTRIES}}
 
 Columns. `DC`: `DC-NN` is a universal class, numbered by the framework (§ Promotion); `PDC-NN` is the project's own (§ Discovery Protocol). `Invariant`: one line, ≤ `budgets.dc_invariant_max_chars`. `Gate`: the mechanical check that proves the DC (`scripts/` script, BVL step, CVP check id, pr-review Block, named test) or `—`. `Paths`: globs the DC governs; `*` = universal — delivered everywhere and embedded in the governance snapshot. `Applicable To`: agents that MUST consult — CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT (SETUP materialises, never consumes). `Severity`: BLOCKER or WARNING when a consumer finds the pattern.

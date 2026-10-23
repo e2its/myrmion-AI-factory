@@ -10,6 +10,8 @@ the git log and the per-feature worklog, and reports for a time window:
                their sub-increment branches (`…-inc-{N}-{slug}-sub-{M}`): commits, review rounds, sub-increment branches seen
   rework       share of rework commits and of repeated edits
   retouch      per local train branch (EVOL-104): subs (first-parent commits off main), unique files, file-touches, re-touch
+  reliability  per local train branch (EVOL-115): subs ratified vs delivered, files in more than one sub, routings and
+               re-estimates, premises found by critics vs at design, contract bumps inside the train
   governance   bytes emitted by hooks vs bytes delivered to the model vs bytes read
   agents       per agent: model, tokens, bytes read, citations
   citations    per law / defect-class id; ids never cited = pruning candidates (user decides)
@@ -592,6 +594,73 @@ def retouch_from_git(repo: Path, since, until) -> dict:
     return out
 
 
+TRAIN_ID_RE = re.compile(r"^feature/(?P<id>[A-Z][A-Z0-9]*-[0-9A-Z]+(?:-[0-9A-Z]+)*)-inc-(?P<n>\d+)-")
+CONTRACTS_RE = re.compile(r"^contracts/")
+
+
+def _ratified(repo: Path, fid: str, n: str):
+    """The INC's `**Ratified sub-increments:** N` in the feature's increment plan; None when unreadable or absent."""
+    try:
+        text = (repo / "docs/spec" / fid / "increment_plan.md").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    heads = list(re.finditer(r"(?m)^#{2,}\s*INC-(\d+)\b", text))
+    for i, h in enumerate(heads):
+        if h.group(1) == n:
+            m = re.search(r"\*\*Ratified sub-increments:\*\*\s*(\d+)", text[h.end(): heads[i + 1].start() if i + 1 < len(heads) else len(text)])
+            return int(m.group(1)) if m else None
+    return None
+
+
+def _worklog(repo: Path, fid: str, inc: str) -> list[dict]:
+    """The feature's worklog entries scoped to the increment (an entry without increment_id counts for every increment)."""
+    try:
+        lines = (repo / "docs/project_log/features" / f"{fid}.log.jsonl").read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    out = []
+    for ln in lines:
+        try:
+            e = json.loads(ln)
+        except ValueError:
+            continue
+        if isinstance(e, dict) and e.get("increment_id") in (None, inc):
+            out.append(e)
+    return out
+
+
+def reliability_from_git(repo: Path, since, until) -> dict:
+    """Per local train branch (EVOL-115): subs ratified (the plan's line) vs delivered (first-parent commits off main), files in
+    more than one sub, routings and re-estimates (worklog `IMPLEMENT.train.routed`), premises by origin (worklog `premise_found`),
+    contract bumps inside the train (first-parent commits touching contracts/** after the first that does)."""
+    refs = git(repo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+    if refs is None:
+        return {"unavailable": "git refs not readable (not a repository, or git missing)"}
+    base = next((b for b in ("main", "master") if git(repo, "rev-parse", "--verify", "-q", f"refs/heads/{b}") is not None), None)
+    out: dict[str, dict] = {}
+    for b in sorted(r.strip() for r in refs.splitlines()):
+        m = TRAIN_ID_RE.match(b)
+        if not TRAIN_RE.match(b) or re.search(r"-sub-[1-9]\d*$", b) or not m:
+            continue
+        log = git(repo, "log", "--first-parent", "--reverse", "--name-only", "--format=%x00", f"--since={since.isoformat()}", f"--until={until.isoformat()}",
+                  *([f"{base}..{b}"] if base else [b]))
+        if log is None:
+            continue
+        subs = [{ln.strip() for ln in chunk.splitlines() if ln.strip()} for chunk in log.split("\x00")[1:]]
+        seen = collections.Counter(f for files in subs for f in files)
+        inc = f"INC-{m.group('n')}"
+        wl = _worklog(repo, m.group("id"), inc)
+        routed = [e for e in wl if e.get("action") == "IMPLEMENT.train.routed"]
+        premises = collections.Counter(str(e.get("origin")) for e in wl if e.get("action") == "premise_found")
+        touching = sum(1 for files in subs if any(CONTRACTS_RE.match(f) for f in files))
+        out[b] = {"subs_ratified": _ratified(repo, m.group("id"), m.group("n")), "subs_delivered": len(subs),
+                  "multi_sub_files": sum(1 for v in seen.values() if v > 1),
+                  "routings": len(routed), "re_estimates": sum(1 for e in routed if e.get("before") != e.get("after")),
+                  "premises_critic": premises.get("critic", 0), "premises_design": premises.get("design", 0),
+                  "contract_bumps": max(touching - 1, 0)}
+    return out
+
+
 # ─── returns, pushes, loop (EVOL-057) ───────────────────────────────────────────
 
 def final_return(spawn: dict) -> tuple[str | None, str | None]:
@@ -817,6 +886,7 @@ def build_report(repo: Path, cfg: dict, transcripts: Path | None, since, until) 
     rework_git = rework_from_git(repo, cfg, since, until)
     report["window"]["sources"]["git"] = "ok" if "unavailable" not in rework_git else rework_git["unavailable"]
     report["retouch"] = retouch_from_git(repo, since, until)
+    report["reliability"] = reliability_from_git(repo, since, until)
     # the loop's records are files beside the seal (EVOL-057): read with or without transcripts
     report["pushes"] = pushes_report(repo, sessions, since, until)
     report["loop"] = loop_report(repo, since, until)
@@ -1231,6 +1301,12 @@ def render_markdown(r: dict, delta: dict | None = None) -> str:
     section("Re-touch per train (EVOL-104)", rt, [] if "unavailable" in rt else
             ["| train | subs | unique files | file-touches | re-touch |", "|---|---|---|---|---|"] +
             [f"| {k} | {v['subs']} | {v['unique_files']} | {v['file_touches']} | {v['retouch']} |" for k, v in rt.items()])
+    rl = r.get("reliability") or {}
+    section("Reliability per train (EVOL-115)", rl, [] if "unavailable" in rl else
+            ["| train | subs ratified | subs delivered | files in more than one sub | routings | re-estimates | premises critic / design | contract bumps |",
+             "|---|---|---|---|---|---|---|---|"] +
+            [f"| {k} | {_fmt(v['subs_ratified'])} | {v['subs_delivered']} | {v['multi_sub_files']} | {v['routings']} | {v['re_estimates']} | "
+             f"{v['premises_critic']} / {v['premises_design']} | {v['contract_bumps']} |" for k, v in rl.items()])
     gb = r["governance_bytes"]
     section("Governance bytes", gb, [] if "unavailable" in gb else
             [f"emitted by hooks {gb['emitted_by_hooks']:,} · delivered to the model {gb['delivered_to_model']:,} · "
@@ -1506,12 +1582,23 @@ def _fixture_repo(root: Path) -> Path:
     run("branch", "-M", "main")
     run("checkout", "-q", "-b", "feature/FEAT-002-inc-1-x")
     for msg, files in (("feat(FEAT-002): SUB-1-1", ("src/a.py", "src/b.py")), ("feat(FEAT-002): SUB-1-2", ("src/b.py", "src/c.py"))):
+        files = files + ({"feat(FEAT-002): SUB-1-1": ("contracts/openapi/api.yaml",), "feat(FEAT-002): SUB-1-2": ("contracts/openapi/api.yaml",)}[msg])   # EVOL-115: the contract moves again in the second sub
         for f in files:
             (repo / f).parent.mkdir(parents=True, exist_ok=True)
             (repo / f).write_text(msg, encoding="utf-8")
         run("add", "-A")
         run("commit", "-q", "-m", msg)
     run("checkout", "-q", "main")
+    # EVOL-115: the plan ratified three subs; the worklog routed twice (one re-estimate) and found premises at design and by a critic
+    (repo / "docs/spec/FEAT-002").mkdir(parents=True, exist_ok=True)
+    (repo / "docs/spec/FEAT-002/increment_plan.md").write_text("# Plan\n\n### INC-1 — x\n\n- **Ratified sub-increments:** 3\n\n### INC-2 — y\n\n- **Ratified sub-increments:** 1\n", encoding="utf-8")
+    (repo / "docs/project_log/features").mkdir(parents=True, exist_ok=True)
+    wl = [{"action": "IMPLEMENT.train.routed", "increment_id": "INC-1", "sub": "SUB-1-2", "tasks": ["T3"], "before": {"files": 2, "lines": 40}, "after": {"files": 3, "lines": 70}},
+          {"action": "IMPLEMENT.train.routed", "increment_id": "INC-1", "sub": "SUB-1-2", "tasks": ["T4"], "before": {"files": 3, "lines": 70}, "after": {"files": 3, "lines": 70}},
+          {"action": "IMPLEMENT.train.routed", "increment_id": "INC-2", "sub": "SUB-2-1", "tasks": ["T9"], "before": {}, "after": {"files": 1}},
+          {"action": "premise_found", "origin": "design", "premise": "lockout after five tries"}, {"action": "premise_found", "origin": "design", "premise": "token ttl"},
+          {"action": "premise_found", "increment_id": "INC-1", "origin": "critic", "premise": "reset revokes sessions"}]
+    (repo / "docs/project_log/features/FEAT-002.log.jsonl").write_text("\n".join(json.dumps(e) for e in wl) + "\nnot json\n", encoding="utf-8")
     return repo
 
 
@@ -1618,9 +1705,13 @@ def selftest() -> int:
         expect("| train | commits |" in md and "| feature/FEAT-002-inc-1-x | 2 | 0 | 2 |" in md, "the train table renders")
         expect(r["rework"]["git"] == {"commits": 4, "rework_commits": 1, "share": 0.25}, "rework share from git commit types (the fourth commit is the manifest's, EVOL-061)")
         expect(r["rework"]["edits"] == {"total": 3, "repeated": 1, "share": 0.333}, "repeated-edit share from Edit tool uses")
-        expect(r["retouch"] == {"feature/FEAT-002-inc-1-x": {"subs": 2, "unique_files": 3, "file_touches": 4, "retouch": 1}},
+        expect(r["retouch"] == {"feature/FEAT-002-inc-1-x": {"subs": 2, "unique_files": 4, "file_touches": 6, "retouch": 2}},
                "a train's re-touch from its first-parent history: subs, unique files, file-touches, re-touch = touches minus unique (EVOL-104)")
-        expect("| train | subs | unique files | file-touches | re-touch |" in md and "| feature/FEAT-002-inc-1-x | 2 | 3 | 4 | 1 |" in md, "the re-touch table renders")
+        expect("| train | subs | unique files | file-touches | re-touch |" in md and "| feature/FEAT-002-inc-1-x | 2 | 4 | 6 | 2 |" in md, "the re-touch table renders")
+        expect(r["reliability"] == {"feature/FEAT-002-inc-1-x": {"subs_ratified": 3, "subs_delivered": 2, "multi_sub_files": 2, "routings": 2, "re_estimates": 1,
+                                                                 "premises_critic": 1, "premises_design": 2, "contract_bumps": 1}},
+               "a train's reliability figures (EVOL-115): ratified vs delivered, files in more than one sub, routings and re-estimates of its INC, premises by origin, contract bumps after the first")
+        expect("| feature/FEAT-002-inc-1-x | 3 | 2 | 2 | 2 | 1 | 1 / 2 | 1 |" in md, "the reliability table renders")
         gb = r["governance_bytes"]
         expect(gb["emitted_by_hooks"] == 6079 and gb["delivered_to_model"] == 3000, "hook bytes: emitted vs delivered")
         expect(gb["truncated_deliveries"] == 1, "a delivery shorter than its stdout is a truncation")
@@ -1810,6 +1901,7 @@ def selftest() -> int:
         expect(r2["window"]["sources"]["transcripts"].startswith("unavailable"), "missing transcripts folder is said, not raised")
         expect("unavailable" in r2["rework"]["git"], "missing git is said, not raised")
         expect("unavailable" in r2["retouch"], "missing git: the re-touch is said unavailable")
+        expect("unavailable" in r2["reliability"], "missing git: the reliability figures are said unavailable")
         expect("unavailable" in r2["gates"] and "unavailable" in r2["citations"], "sections degrade to unavailable")
         expect("unavailable" in r2["critics"], "no transcripts: the critics section is said unavailable")
         expect("unavailable" in render_markdown(r2), "partial report still renders")

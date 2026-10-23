@@ -22,6 +22,13 @@ class GateFault(Exception):
     """The gate cannot do its job (missing config, unreadable input). Plain language (LAW-08)."""
 
 
+def clean(s, cap: int | None = None) -> str:
+    """The one sanitiser: a byte read from a file, a branch name or a model return never reaches the terminal raw
+    (a control or bidi byte becomes `?`), the length capped when asked."""
+    out = "".join(ch if ch.isprintable() else "?" for ch in str(s))
+    return out if cap is None else out[:cap]
+
+
 # ─── repo + context ─────────────────────────────────────────────────────────────
 
 def repo_root(start: Path | None = None) -> Path:

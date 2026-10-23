@@ -1451,6 +1451,40 @@
      ]
     }
    }
+  },
+  {
+   "id": "Q35",
+   "tier": 2,
+   "since": "8.20.0",
+   "keys": {
+    "security.standard": {
+     "options": [
+      "asvs-5.0",
+      "none"
+     ],
+     "fills": [
+      "SECURITY_STANDARD"
+     ]
+    }
+   }
+  },
+  {
+   "id": "Q35.1",
+   "tier": 2,
+   "since": "8.20.0",
+   "when": "security.standard != none",
+   "keys": {
+    "security.level": {
+     "options": [
+      "L1",
+      "L2",
+      "L3"
+     ],
+     "fills": [
+      "SECURITY_LEVEL"
+     ]
+    }
+   }
   }
  ],
  "derived": {
@@ -1887,6 +1921,18 @@
    "since": "8.17.0",
    "detect": "always",
    "apply": "verification.gates (EVOL-067)"
+  },
+  {
+   "id": "train.close_ledgers (EVOL-104)",
+   "since": "8.20.0",
+   "detect": "config/quality.json#/train/close_ledgers",
+   "apply": "train.close_ledgers (EVOL-104)"
+  },
+  {
+   "id": "contracts.outage_status (EVOL-115)",
+   "since": "8.20.0",
+   "detect": "config/quality.json#/contracts/outage_status",
+   "apply": "contracts.outage_status (EVOL-115)"
   }
  ]
 }

@@ -599,6 +599,10 @@ FUNCTION determine_build_scope(FEATURE_ID):
     # EVOL-104 — found work lands where its files are pending: a cure, a close debt or a routed task goes to the pending
     # (READY | BUILDING) sub whose `paths` cover its files; only when none does, a new sub through the split's RDR (Factory-blueprint-design Step B.4).
     # A path in `config/quality.json → train.close_ledgers` (the manifest, the inventory) is written by the train-close sub only — `gate.py train` (c).
+    # EVOL-115 — every routing re-measures its sub: its estimate and `measured [..]` updated in the same change (`gate.py train` (f));
+    # the notice to the person carries the new figure, the delta, the train total and its unique paths (`gate.py train --figures`);
+    # worklog `IMPLEMENT.train.routed`. Subs beyond `Ratified sub-increments` ⇒ re-plan the remaining work by file through the
+    # split's RDR (Factory-blueprint-design Step B.4) before opening another (`gate.py train` (g)).
   # Build the per-increment task regex from the full increment id (not a bare index).
   # target.id has the form "INC-<digits>"; escape the dash for regex literal safety.
   id_literal = REGEX_ESCAPE(target.id)    # e.g. "INC-2" → "INC\-2"
@@ -638,6 +642,7 @@ FUNCTION determine_build_scope(FEATURE_ID):
 > - pass the model the resolver returns (`python3 scripts/gate.py agents --resolve --class work-critic`) — the PreToolUse hook on `Agent` refuses a roster agent spawned without its family's alias; a fallback that lands on the writer's family (`separation: false`) sends the round's findings to the user's adjudication;
 > - every case the increment realises has a linking test at the ONE home (`rules/testing.md § Test-case traceability`: `@pytest.mark.case("FEATURE/CASE")`, the title tag, `@DisplayName`) — the static round's `traceability` member is red for a declared case with no link, never for a helper test without one;
 > - refuse a worker return without its `## Hand-off` and `## Governance` blocks (EVOL-062) and a critic return without probes (`python3 scripts/gate.py agents --check-return --class <class>`);
+> - each work-critic finding that names a premise the design missed appends one worklog line `{"action":"premise_found", "increment_id": …, "premise": …, "origin": "critic", "source": "<critic> · round N"}` (factory-worklog § Premise found; read by `measure` § Reliability);
 > - a provider error on a critic falls down the ladder (`python3 scripts/gate.py agents --fallback`); a writer never degrades — retry or surface;
 > - no subagent commits, no subagent decides: RDR and version-control operations return to the main session.
 >

@@ -441,5 +441,9 @@
       ".context/templates/setup/governance_versions.json",
       "config/codebase_inventory.json"
     ]
+  },
+  "contracts": {
+    "_doc": "Reliability is planned up front (EVOL-115): outage_status is the response every OpenAPI operation declares for a dependency down — python3 scripts/gate.py freeze (a light member of the gate profile) is red when an operation of a changed contracts/openapi/** file lacks it, when an x-sensitive field carries no constraint, or when a changed design leaves a security/availability capability's reliability question without answer or source.",
+    "outage_status": "503"
   }
 }

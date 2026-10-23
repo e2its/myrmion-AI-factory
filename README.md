@@ -1083,6 +1083,10 @@ The framework ships 23 protocols reusable by every command and agent (`.claude/s
 | `traceability` | every declared test case has a linked test at its one home; the shrink-only baseline |
 | `scm-protection` | the server defends the branch rule (rulesets, protected branches, restrictions, policies) — asked at `ci` with the CI token |
 | `agents` | the roster and the class policy; `--resolve`, `--fallback`, `--digest`, `--spawn`, `--check-return` |
+| `aligned` | an accepted change aligned every artefact it contradicts in the same pull request (LAW-17) |
+| `discovery` | the SETUP registry, its conditions and consumers agree; `--resolve` the pending questions and owed migrations |
+| `train` | a train stacks its changes by file: no stackable re-touch, no early gate, ledgers at the train close, seams in one sub; `--figures` |
+| `freeze` | reliability planned up front: weighted reliability questions answered with a source, every operation's outage response, sensitive fields bounded |
 
 **Control points** (`CLAUDE.md` § Pre-Action Gate): the static round before the critics → the commit (`pre-commit`: branch class, secrets on the staged files) → the push (`pre-push`: the gate profile — light for a sub-increment on its train in development mode, full otherwise — the secrets scan on the pushed range, the review and coherence markers, the push preflight) → the train close (the full verification loop, the seal) → the pull request (`governance-check.yml` runs the same `gate.py profile --run --control-point ci`, the only point that asks the server) → the main branch (no direct commit) → the deployment (`DEVOPS --deploy`: sweep + smoke). No gate is optional — it changes its control point.
 

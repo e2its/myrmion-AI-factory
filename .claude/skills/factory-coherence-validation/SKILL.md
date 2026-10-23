@@ -1330,7 +1330,7 @@ FUNCTION extract_traceable_elements(artifacts, scope):
     #   branch,                 # "feature/{FEATURE_ID}-inc-N-{slug}" — the train when sub_increments is non-empty
     #   estimated_surface,      # EVOL-045 — "- **Estimated surface:**" (paths · ~files · ~lines) or null; Check 21
     #   escape,                 # EVOL-045 — none | one term of config/quality.json surface.escapes
-    #   sub_increments,         # EVOL-045 — [] or [{id: "SUB-N-M", scope, estimated_surface, branch: "…-sub-M", status}]
+    #   sub_increments,         # EVOL-045 — [] or [{id: "SUB-N-M", scope, paths, after, concerns, enables, tasks, measured, estimated_surface, branch: "…-sub-M", status}] (EVOL-104, EVOL-115 — `gate.py train`)
     #   merged_at,              # ISO timestamp or null — set by merge hook
     #   layer_tasks             # list of [INC-N.A.M]/[INC-N.B.M]/[INC-N.C.M] task ids declared here (mirror of dev_plan tags)
     # }

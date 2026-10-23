@@ -28,7 +28,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 spawn-policy: reader
 
-Before design.md is written, the **main session** spawns the read-only `factory-docs-reader` by name — `rules/agents.md` § Beat 0: the libraries and services of the surface with their pinned versions and the questions the work rests on; the model from `python3 scripts/gate.py agents --resolve --class reader`; the return held to its contract (`python3 scripts/gate.py agents --check-return --class reader < return.md`) and handed to `factory-blueprint` in its spawn prompt. Every external claim in design.md cites its source index; a premise without a source is written `known-cold`; the sources land under `## External sources` at the end of design.md. No documentation MCP and no web: the unknowns are named, nothing is guessed. The reader's spawn prompt opens with `effort:`, `turn budget:`, `probe budget:` from the resolver; a partial return (its ceiling, `maxTurns`), or one the return check refuses, gets ONE hand-back request and a resume; a reader that still does not deliver returns every question as an unknown and the artefact proceeds `known-cold` (`rules/agents.md § The bounded loop`, EVOL-058).
+Before design.md is written, the **main session** spawns the read-only `factory-docs-reader` by name — `rules/agents.md` § Beat 0: the libraries and services of the surface with their pinned versions and the questions the work rests on; the model from `python3 scripts/gate.py agents --resolve --class reader`; the return held to its contract (`python3 scripts/gate.py agents --check-return --class reader < return.md`) and handed to `factory-blueprint` in its spawn prompt. Every external claim in design.md cites its source index; a premise without a source is written `known-cold`; the sources land under `## External sources` at the end of design.md. Each premise the reader's return names becomes one worklog line `premise_found {premise, origin: design, source}` (factory-worklog § Premise found). No documentation MCP and no web: the unknowns are named, nothing is guessed. The reader's spawn prompt opens with `effort:`, `turn budget:`, `probe budget:` from the resolver; a partial return (its ceiling, `maxTurns`), or one the return check refuses, gets ONE hand-back request and a resume; a reader that still does not deliver returns every question as an unknown and the artefact proceeds `known-cold` (`rules/agents.md § The bounded loop`, EVOL-058).
 
 ## Plan Gate — before `--approve` (MANDATORY)
 
@@ -59,6 +59,7 @@ FUNCTION plan_gate(FEATURE_ID):
     APPEND("docs/spec/{ID}/review/plan_critic_{timestamp}.md", report VERBATIM under `### factory-plan-critic · round {round}`)   # EVOL-060: the appendix's home at the plan gate — written after the round's `after` hash (never inside the certified window); the file carries no gate
     IF RUN("python3 scripts/gate.py agents --check-return --class plan-critic", report) refuses:
       re-spawn ONCE; refused again ⇒ every finding of the round is ❓
+    FOR finding IN report.findings WHERE finding names a premise the design missed: APPEND worklog `{"action":"premise_found", "increment_id": …, "premise": …, "origin": "critic", "source": "factory-plan-critic · round {round}"}`   # factory-worklog § Premise found; read by measure § Reliability
     open = report.findings WHERE severity > 🟢
     IF open empty: RETURN PASS
     IF round < cap: factory-blueprint (re-spawned on `gate.py agents --resolve --class phase --pass discovery` — the plan is not approved yet, so the cure is never an alignment) cures the findings it accepts (design / test plan / increment plan edits) and disputes the rest in writing
@@ -91,10 +92,10 @@ Each finding above informational carries file, line, severity, confidence and an
 
 ## Generated Outputs (9 Artifact Types)
 
-1. **`design.md`** — every heading of `.context/templates/architect/design_template.md`, in its order, by name: design.md § Technical Resolutions Log, § Reuse Analysis, § Existing Contract Analysis, § Architecture Diagram, § Technical Sequence Diagram, § Constraints and Rules, § Implementation Inventory, § Cross-Layer Type Mapping, § Wire-Format Mapping, § Contracts, § Cross-Domain Dependencies, § Decision History, § Infrastructure Needs (§ Required Resources, § External Integrations, § Infrastructure Constraints), § Frontend UI Contract, § Reliability Contract, § Governance & Constraints Digest, § External sources; § Coherence Validation, § Carried-Over Gaps and § Changelog are appended by their own steps. Readers cite a section by name, never by number
+1. **`design.md`** — every heading of `.context/templates/architect/design_template.md`, in its order, by name: design.md § Technical Resolutions Log, § Reuse Analysis, § Existing Contract Analysis, § Architecture Diagram, § Technical Sequence Diagram, § Constraints and Rules, § Implementation Inventory, § Cross-Layer Type Mapping, § Wire-Format Mapping, § Contracts, § Cross-Domain Dependencies, § Decision History, § Infrastructure Needs (§ Required Resources, § External Integrations, § Infrastructure Constraints), § Frontend UI Contract, § Reliability Contract, § Reliability Questions, § Governance & Constraints Digest, § External sources; § Coherence Validation, § Carried-Over Gaps and § Changelog are appended by their own steps. Readers cite a section by name, never by number
 2. **`test_plan.md`** — Test strategy (acceptance, edge cases, integration, WCAG)
 3. **`adr/`** — Architecture Decision Records for significant decisions
-4. **OpenAPI 3.1 YAML** — `contracts/openapi/{SLUG}/v1.yaml` (REST APIs)
+4. **OpenAPI 3.1 YAML** — `contracts/openapi/{SLUG}/v1.yaml` (REST APIs). Mark every credential, token and personal-data field (`format: password`, `writeOnly`, a field `rules/privacy.md` names) `x-sensitive: true` and bound it (maxLength, pattern, enum, format, minimum or maximum); every operation declares `contracts.outage_status`.
 5. **GraphQL SDL** — `contracts/graphql/{SLUG}/schema.graphql` (GraphQL)
 6. **AsyncAPI 2.6+** — `contracts/asyncapi/{SLUG}/asyncapi.yaml` (Event-based)
 7. **gRPC Proto3** — `contracts/grpc/{SLUG}/service.proto` (gRPC)
@@ -696,6 +697,16 @@ The journey states business guarantees in plain language (`§ Section 8`, e.g. "
 - `test_plan.md § 2.2 Reliability Testing` is generated FROM design.md § Reliability Contract (not from the journey).
 - DEVOPS consumes § Reliability Contract for infra alarms.
 
+### Reliability Questions (design.md § Reliability Questions — EVOL-115)
+
+Every capability with a security or availability weight answers the closed question set of the template (RQ-1…RQ-5), all scopes. Weight is one of `security`, `availability`, `both`, `none` — any other word is red. Each cell: answer · cited source. External facts come from the docs reader (Beat 0), never from memory. Map each question to the requirement of the declared standard and level (`rules/security_policy.md § Verification Standard`). New questions only through the discovery registry. `gate.py freeze` is red on a blank answer or source.
+
+**Freeze checklist** (before `--approve`, on the contracts the design writes):
+- Every operation declares the outage response (`config/quality.json → contracts.outage_status`) — `gate.py freeze`.
+- Every status the design says the handler raises is declared — checklist only, until the contract parity reader lands.
+- Every credential, token and personal-data field (`format: password`, `writeOnly`, a field `rules/privacy.md` names) is marked `x-sensitive: true` where the contract is written, and carries an input constraint — `gate.py freeze` (its green line counts the marked fields; 0 on a contract with a credential is a finding).
+- A contract bump inside a train is a plan finding — `measure` counts it.
+
 ### Frontend Hosting Auto-Declaration (MANDATORY when frontend.framework != None)
 
 ```yaml
@@ -835,7 +846,9 @@ CODESIGN owns capability-VALUE slicing and emits it as `slice_map.md`. BLUEPRINT
 3. **Contract-feasibility veto (recorded, never silent).** If contract reality forces a re-order or re-group of CODESIGN's value-order (e.g. an operation a slice needs is owned by a later slice), BLUEPRINT does NOT silently override — it records the deviation in § 0 (refinement record) with the contract reason, preserving single-authority discipline. A deviation is a feasibility signal CODESIGN may revisit via `--refine`.
 4. **Surface estimate + split (EVOL-045).** Per increment, estimate the surface its diff will touch (paths globs · ~files · ~lines — the same ruler the push gate uses: `gate.py surface`, files + lines, no exclusion list) against `config/quality.json → surface.ceiling_files` / `surface.ceiling_lines` (read the keys — never a digit). Over either ceiling ⇒ split into sub-increments, each with its own estimate. The split groups the changes by the files they touch, under the dependency order: the changes a file needs stack in as few subs as the order allows; a shared component before its consumers (`after`); a concern's enforcing gate after its last site (`enables` after every sub whose `concerns` carry it). `gate.py train` refuses a re-touch that could stack.
    - Estimate and split are ratified by RDR (`.claude/skills/factory-rdr/SKILL.md`): ≥3 splits offered, the recommended one justified by the seam; per alternative, beside the surface estimate, the figures of `python3 scripts/gate.py train --figures --plan <draft>` (subs, unique paths, path-touches, re-touch); two registers per EVOL-050. An escape only from `surface.escapes`, justified in one line.
-   - Write `Estimated surface:` / `Escape:` / `Sub-increments:` on each `### INC-N` (template § 1: `- SUB-{N}-{M}: {scope: task groups / scenarios} · paths [globs] · after [SUB-…] · concerns [c] · enables [c] · ~files · ~lines · branch feature/{ID}-inc-{N}-{slug}-sub-{M}`).
+   - Write `Estimated surface:` / `Escape:` / `Sub-increments:` on each `### INC-N` (template § 1: `- SUB-{N}-{M}: {scope: task groups / scenarios} · paths [globs] · after [SUB-…] · concerns [c] · enables [c] · tasks [ids] · measured [ids] · ~files · ~lines · branch feature/{ID}-inc-{N}-{slug}-sub-{M}`).
+   - Risk first (EVOL-115): subs carrying an external provider, permissions, contracts or a data migration come first; presentation after.
+   - Write `Ratified sub-increments:` (the count the RDR ratified) and the `## Seam map` (template): one row per use case — handler, grant and route, integration test, client, end-to-end case, its sub; use case, handler and integration test in one sub; a later client or end-to-end cell says `closes: SUB-…`; a placeholder says `stub until SUB-…`. `gate.py train` judges them.
    - Worklog action `BLUEPRINT.increment_plan.surface_ratified` payload `{increment, estimated_files, estimated_lines, sub_increments: N, escape, rdr_ratified_at}`.
 
 **Step C — Increment Plan Emission (IPP-compliant):**
