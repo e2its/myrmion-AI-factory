@@ -100,7 +100,7 @@ Before exit:
 1. `verify_cascade_completion(FEAT_ID, target_iteration, "BLUEPRINT")` (factory-iteration-model § Cascade Completion Verification Gate).
 2. `cvp_coherence_gate(FEAT_ID, CODESIGN_BLUEPRINT, BLUEPRINT)` — re-validates spec↔design↔test alignment post-refine.
 3. CI gate `scripts/check-iteration-id-format.sh` — local dry-run.
-4. Status transitions: `design.md.status` and `test_plan.md.status` flip back from `INVALIDATED` (if set by cascade) to the value they held pre-cascade (typically `APPROVED`). Re-approval is NOT automatic — explicit `/blueprint --approve` is still required when scope expanded; advisory note in completion summary.
+4. Status transitions: `design.md.status` and `test_plan.md.status` flip back from `INVALIDATED` (if set by cascade) to the value they held pre-cascade (typically `APPROVED`). Re-approval is NOT automatic — explicit `/blueprint --approve` is still required when scope expanded; advisory note in completion summary. An iteration whose `changes` are all `kind: accepted_change` (pre-approved realignment — `rules/branching.md` § [LAW-17]) keeps `APPROVED`: no re-approval.
 
 ## Output Schema (per iteration entry)
 
@@ -111,8 +111,8 @@ Before exit:
   source: cascade | user-feedback | impl-gap-probe | rdr-ratification
   scope_summary: "one-line"
   changes:
-    - kind: design_section_modified | test_category_added | contract_op_changed | increment_invalidated | carried_over_added | emergent_flagged_for_adr
-      ref: "Section 3.2" | "TC-API-04" | "POST /auth/refresh" | "INC-2" | "AuditLogger component" | ...
+    - kind: design_section_modified | test_category_added | contract_op_changed | increment_invalidated | carried_over_added | emergent_flagged_for_adr | accepted_change
+      ref: "Section 3.2" | "TC-API-04" | "POST /auth/refresh" | "INC-2" | "AuditLogger component" | "AC-{FEAT}-{N}" | ...
   downstream_impact: [dev_plan.md, devops_plan.md, contracts/]
   anchor: "#iter-{N}"
   rdr_rounds: {n}   # only when step 2.5 drift resolution required RDR

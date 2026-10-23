@@ -22,7 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
+from gates import agents, aligned, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -1987,6 +1987,35 @@ class Agents(unittest.TestCase):
             self.assertEqual(p.returncode, 0, p.stdout + p.stderr); self.assertIn("effort low", p.stdout)
             p = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--resolve", "--class", "phase"], capture_output=True, text=True)
             self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+
+    def test_phase_pass_review_cures(self):
+        """EVOL-105 cures: resolve fails closed on a row across writer/critic; a pass on a class that takes none is dead data and refused;
+        a refusal echoes no control byte and points at the rule; the header is read in linear time."""
+        import time as _t
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            small = "    - {class: worker, tier: small, effort: low}\n"
+            base = RULE_AGENTS.replace("  roster:\n", "  roster:\n    - {name: factory-implement, class: phase, surface: [\"docs/**\"]}\n")
+            row = lambda r: write(repo / ".claude/rules/agents.md", base.replace(small, small + r))
+            write(repo / ".claude/agents/factory-implement.md", agent_def("factory-implement", "phase", "Read, Edit, Write, Bash", effort="medium"))
+            self.manifest["templates"]["claude/agents/factory-implement.md"] = {"version": "1.0.0"}
+            row("    - {class: phase, pass: alignment, family: critic, effort: low}\n")
+            r = agents.resolve(repo, "phase", pass_="alignment"); self.assertFalse(r["ok"], "a row across writer/critic fails closed at the resolve, not only at validate"); self.assertIn("writer ≠ critic", r["reason"])
+            self.assertTrue(agents.resolve(repo, "phase", pass_="discovery")["ok"], "the other pass keeps the class row")
+            row("    - {class: worker, pass: alignment, effort: high}\n")
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("takes no pass" in x["reason"] for x in f), "a pass row on a class outside PASS_CLASSES is dead data")
+            r = agents.resolve(repo, "worker", files=2, lines=10, pass_="alignment"); self.assertFalse(r["ok"], "a pass on a class that takes none is refused"); self.assertIn("takes no pass", r["reason"])
+            row("    - {class: phase, pass: alignment, family: writer, effort: low}\n")
+            spawn = lambda prompt, effort=None: agents.spawn_check(repo, "factory-implement", "sonnet", prompt=prompt, effort=effort)
+            for prompt, effort in (("pass: \x1b[31mred\x07\neffort: medium\n", None), ("pass: discovery\neffort: \x1b]0;t\x07\n", None),
+                                   ("pass: discovery\neffort: medium\n", "\x1b[2Jlow"), ("pass: discovery‮\neffort: medium\n", None)):
+                r = spawn(prompt, effort); self.assertFalse(r["ok"], repr(prompt))
+                self.assertTrue(all(ch.isprintable() for ch in r["reason"]), f"a control byte never reaches the refusal: {r['reason']!r}")
+            r = spawn("pass: alignment\neffort: low\n\nAlign.\n"); self.assertFalse(r["ok"]); self.assertIn(agents.PASS_RULE, r["reason"])
+            self.assertNotIn("frozen contract", r["reason"], "the refusal points at the rule, never restates its list")
+            t0 = _t.time(); agents._header("pass: a" + " " * 40000 + "b\neffort: low\n" + " " * 40000 + "\n"); self.assertLess(_t.time() - t0, 1.0, "a long blank run in a header value is read in linear time")
+            self.assertEqual(agents._header("\n  Pass :  discovery  \nEffort: low\n\nbody: x\n"), {"pass": "discovery", "effort": "low"}, "split on the first colon, stripped, the header ends at a blank")
+            self.assertEqual(agents._header("pass: " + "v" * 1000 + "\neffort: low\n"), {}, "a header line over the cap ends the header")
 
 class Seal(unittest.TestCase):
     """EVOL-051: one full verification loop — the documentation class (one definition), the path-to-gate map, the seal the push honours."""
@@ -5035,6 +5064,160 @@ class FrontmatterLock(unittest.TestCase):
             from gates.common import iteration_state
             self.assertEqual(iteration_state({"iteration": 2, "iteration_history": [1, 2]})["source"], "scalar-legacy")
             self.assertEqual(iteration_state({"iterations": [{"id": "ITER-F-1", "iteration": 1}]})["n"], 1)
+
+
+class Aligned(unittest.TestCase):
+    """EVOL-103: an accepted change the branch records aligns its artefact in the same pull request and is never reverted."""
+    LOG = "docs/project_log/features/FEAT-001.log.jsonl"
+    ART = "docs/spec/FEAT-001/design.md"
+    BASE_FM = "---\nstatus: APPROVED\niterations:\n  - id: ITER-FEAT-001-1\n    iteration: 1\n---\nbody\n"
+    ALIGNED_FM = ("---\nstatus: APPROVED\niterations:\n  - id: ITER-FEAT-001-1\n    iteration: 1\n  - id: ITER-FEAT-001-2\n    iteration: 2\n"
+                  "    changes:\n      - kind: accepted_change\n        ref: AC-FEAT-001-1\n---\nbody, aligned\n")
+
+    def _repo(self, tmp, log=None, branch="feature/FEAT-001-x"):
+        repo = fixture_repo(Path(tmp))
+        write(repo / self.ART, self.BASE_FM)
+        if log is not None:
+            write(repo / self.LOG, log)
+        for c in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], ["branch", "-M", "main"], ["checkout", "-qb", branch]):
+            subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+        return repo
+
+    def _entry(self, **kw):
+        e = {"ts": "2026-10-23T10:00:00Z", "action": "accepted-change", "id": "AC-FEAT-001-1", "artefacts": [self.ART], "paths": ["src/app.py"], "rdr": "«1» keep the built behaviour"}
+        e.update(kw)
+        return json.dumps({k: v for k, v in e.items() if v is not None})
+
+    def _log(self, repo, *lines, base=""):
+        write(repo / self.LOG, base + "".join(line + "\n" for line in lines))
+
+    def _aligned_change(self, repo):
+        write(repo / "src/app.py", "print(2)\n")
+        write(repo / self.ART, self.ALIGNED_FM)
+
+    def test_no_log_or_no_added_entry_is_na(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(r["entries"], []); self.assertIn("no decision log", r["reason"])
+            self.assertTrue(aligned.render(r).startswith("aligned: n/a — "), aligned.render(r))   # the profile's n/a convention
+        with tempfile.TemporaryDirectory() as tmp:   # an entry already on the base is not this branch's: not judged
+            repo = self._repo(tmp, log=self._entry(rdr=None) + "\n")
+            write(repo / "src/app.py", "print(2)\n")
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(r["entries"], [])
+            self._log(repo, json.dumps({"action": "task-done", "task": "T-1"}), base=self._entry(rdr=None) + "\n")
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(r["entries"], [], "another worklog action is not this gate's")
+        with tempfile.TemporaryDirectory() as tmp:   # a fix branch that changes no decision log: n/a, whatever its name
+            repo = self._repo(tmp, branch="fix/x")
+            write(repo / "src/app.py", "print(2)\n")
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertIn("no decision log", r["reason"])
+
+    def test_proper_entry_green(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._log(repo, self._entry())
+            self._aligned_change(repo)
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], r); self.assertEqual(len(r["entries"]), 1)
+            self._log(repo, self._entry(rdr=None, delegation={"quote": "fix copy without asking", "date": "2026-10-20"}))
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], r)
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "c"], check=True, capture_output=True)
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "aligned", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("aligned", [m[0] for m in profile.MEMBERS])
+
+    def test_a_unratified_or_malformed_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._aligned_change(repo)
+            for line, needle in ((self._entry(rdr=None), "not ratified"),
+                                 (self._entry(delegation={"quote": "q", "date": "2026-10-20"}), "both"),
+                                 (self._entry(rdr=None, delegation={"quote": "q"}), "not ratified"),
+                                 (self._entry(id="AC-OTHER-1"), "AC-FEAT-001-"),
+                                 (self._entry(paths=[]), "paths"),
+                                 ('{"action": "accepted-change", "id": ', "not JSON")):
+                self._log(repo, line)
+                r = aligned.check(repo, "main"); self.assertFalse(r["ok"], line); self.assertIn(needle, aligned.render(r), line)
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "aligned", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr); self.assertIn("RED", r.stdout)
+
+    def test_b_stale_artefact_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._log(repo, self._entry())
+            write(repo / "src/app.py", "print(2)\n")
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("stale artefact", aligned.render(r)); self.assertIn(self.ART, aligned.render(r))
+
+    def test_c_reverted_paths_red(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._log(repo, self._entry())
+            write(repo / self.ART, self.ALIGNED_FM)
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("revert", aligned.render(r))
+
+    def test_d_registration_only_realignment_keeps_approved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._log(repo, self._entry())
+            self._aligned_change(repo)
+            write(repo / self.ART, self.ALIGNED_FM.replace("status: APPROVED", "status: DRAFT"))
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("keeps APPROVED", aligned.render(r))
+            # any other change kind goes through the approval gate: DRAFT is legitimate then
+            write(repo / self.ART, self.ALIGNED_FM.replace("status: APPROVED", "status: DRAFT").replace("      - kind: accepted_change", "      - kind: scope\n      - kind: accepted_change"))
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], r)
+
+    def test_dot_paths_normalised_and_unsafe_paths_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / ".claude/rules/x.md", "rule\n")
+            write(repo / ".github/workflows/ci.yml", "on: push\n")
+            self._log(repo, self._entry(artefacts=[".claude/rules/x.md"], paths=[".github/workflows/ci.yml"]))
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))
+            self._log(repo, self._entry(artefacts=["./.claude/rules/x.md"], paths=[".github/workflows/ci.yml"]))
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))
+            for bad in ("/etc/passwd", "docs/../.claude/rules/x.md", ".claude/rules/x\x00.md", ".claude/rules/x\x01.md"):
+                self._log(repo, self._entry(artefacts=[bad], paths=[".github/workflows/ci.yml"]))
+                r = aligned.check(repo, "main"); self.assertFalse(r["ok"], bad); self.assertIn("not a repo-relative file path", aligned.render(r), bad)
+
+    def test_bc_never_vacuous(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._aligned_change(repo)
+            for arts, paths in ((["docs"], ["docs"]), (["docs/"], ["src/app.py"]), ([self.LOG], [self.LOG]), ([self.ART], [self.LOG])):
+                self._log(repo, self._entry(artefacts=arts, paths=paths))
+                r = aligned.check(repo, "main"); self.assertFalse(r["ok"], (arts, paths)); self.assertIn("✗", aligned.render(r))
+
+    def test_e_registration_claim_needs_an_accepted_change(self):
+        with tempfile.TemporaryDirectory() as tmp:   # a claim with no entry behind it, no log changed
+            repo = self._repo(tmp)
+            write(repo / self.ART, self.ALIGNED_FM)
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"], r); self.assertIn("registration-only claim", aligned.render(r))
+        with tempfile.TemporaryDirectory() as tmp:   # the claim names an unratified entry an earlier branch left
+            repo = self._repo(tmp, log=self._entry(rdr=None) + "\n")
+            write(repo / self.ART, self.ALIGNED_FM)
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"], r); self.assertIn("registration-only claim", aligned.render(r))
+        with tempfile.TemporaryDirectory() as tmp:   # an earlier branch's ratified entry backs the claim
+            repo = self._repo(tmp, log=self._entry() + "\n")
+            write(repo / self.ART, self.ALIGNED_FM)
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r))
+
+    def test_fix_branch_log_judged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, branch="fix/x")
+            self._aligned_change(repo)
+            self._log(repo, self._entry(rdr=None))
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"], r); self.assertIn("not ratified", aligned.render(r))
+            self._log(repo, self._entry())
+            r = aligned.check(repo, "main"); self.assertTrue(r["ok"], aligned.render(r)); self.assertIn("FEAT-001", aligned.render(r))
+
+    def test_near_miss_action_and_control_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            self._aligned_change(repo)
+            self._log(repo, self._entry(action="Accepted_Change"))
+            r = aligned.check(repo, "main"); self.assertFalse(r["ok"], r); self.assertIn("`accepted-change`", aligned.render(r))
+            self._log(repo, self._entry(id="AC-FEAT-001-1\x1b[2J"))
+            out = aligned.render(aligned.check(repo, "main"))
+            self.assertNotIn("\x1b", out); self.assertTrue(all(ch.isprintable() for ln in out.splitlines() for ch in ln), out)
 
 
 if __name__ == "__main__":

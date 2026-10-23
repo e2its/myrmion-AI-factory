@@ -119,6 +119,7 @@ Every law is an index entry: **one normative sentence**, the **one body** that d
 12. **[LAW-14] SETUP scaffolding** — SETUP generation creates directories and configuration only — never source or test files. Body: `.claude/instructions/Factory-setup-materialization.instructions.md`. Records: `ADR-EVOL-040`.
 13. **[LAW-15] Applicability Discovery vocabulary** — Every governance entry declares where it applies through the closed applicable_when vocabulary, and one resolver decides what applies. Body: `.claude/skills/factory-applicability-discovery/SKILL.md`. Records: `ADR-EVOL-028`, `ADR-EVOL-043`.
 14. **[LAW-16] CODESIGN Business Purity** — Co-design artefacts carry only business-validatable content; technical formalisation belongs to the blueprint, and downstream agents never invent business facts. Body: `.claude/instructions/Factory-codesign-feature.instructions.md`. Records: `ADR-EVOL-041`.
+15. **[LAW-17] Accepted change aligned** — An accepted change aligns every written artefact it contradicts in the same pull request through the artefact's owner phase, and nothing reverts an accepted change to match a stale artefact. Body: `rules/branching.md`. Records: `ADR-EVOL-103`.
 
 ## Project Scope & Feature Scope Taxonomy (dual-axis)
 

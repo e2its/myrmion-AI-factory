@@ -51,6 +51,8 @@ FUNCTION APPEND_TO_WORKLOG(entry):
 
 **`increment_id` (optional).** Populate when the action scopes to a specific increment under `slicing_strategy: incremental` — e.g., `IMPLEMENT --build USR-001` working on INC-2 writes `"increment_id": "INC-2"`. Omit (or set null) for feature-wide actions (CODESIGN, BLUEPRINT plan-level, QA verify of full chain). Canonical BLUEPRINT-emitted increment actions: `BLUEPRINT.increment_plan.emitted`, `BLUEPRINT.increment_plan.rdr_ratified`. Reports querying per-increment progress should filter on this field.
 
+**Accepted change (decision log, LAW-17).** `"action":"accepted-change"` plus `id` (`AC-{FEAT}-{N}`), `artefacts`, `paths` (repo-relative files), and exactly one of `rdr: "<verbatim choice>"` | `delegation: {quote, date}`. Definition: `rules/branching.md` § [LAW-17].
+
 **`user_agent` Attribution Rule (MANDATORY):** The `user_agent` field MUST reflect the **actual agent that performed the work**, NOT a default or assumed agent.
 - If IMPLEMENT executed the command → `"user_agent": "IMPLEMENT"`
 - If Factory handled it directly (SCM, read-only) → `"user_agent": "FACTORY"`

@@ -7,7 +7,7 @@
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "v8.19.0 (feature/EVOL-103-accepted-change-aligned): feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded. v8.18.0 (feature/EVOL-066-defect-class-intake): EVOL-066: DC-31..DC-34 enter the universal catalog with their gates and cases; universal DC-NN vs a project's own PDC-NN; § Promotion (generic, gated, novel, framework-numbered, tool-bound through configures, complete); the Discovery Protocol mints PDC and its stale sweep step goes. v8.17.0 (feature/EVOL-067-verification-loop): EVOL-102 phase 2 (#159): every placeholder has one source in the discovery registry (fills, derived fills, constants, a shrink-only baseline — V10); SETUP --upgrade's Step 8 clauses become registry migrations (V11) run by one generic step that back-fills, asks what the project lacks (--resolve pending), runs the migrations owed and offers template additions and removals by RDR; an answer outside its options is a fault. v8.16.0 (feature/EVOL-065-gate-hygiene): feat(EVOL-065) — a file written through the shell meets the branch and plan gates: one write-target reader (gate.py write-target) for Edit, Write and Bash; a write outside the project is never judged; the harness and user configuration guarded on every branch; pre-merge-commit refuses a merge commit where a commit is refused; an unresolvable diff base blocks validate-governance. v8.15.0 (feature/EVOL-113-delivery-cost): feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request. v8.14.0 (feature/EVOL-114-codesign-exits): feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked). v8.13.0 (feature/EVOL-102-discovery-as-data): feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home. v8.12.6 (fix/wave-0-follow-ups): fix #170: the review block reads the diff-base exit code with `|| BASE_RC=$?`; under set -e the bare assignment ended the hook silently, so the humanised reason (exit 1) and the origin/main fallback (other exits) never ran. v8.12.5 (fix/wave-0-framework-defects): fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]. v8.12.4 (fix/codesign-check-count): fix #113: a retired_terms entry takes `pattern` (a regex, matched per line) besides `term` — a retired shape, red on any value it takes; a malformed entry is a GateFault. v8.12.3 (fix/review-seals-home): fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/. v8.12.2 (docs/banner-readme-blocks): banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars. v8.12.1 (fix/hook-project-dir): fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it. v8.12.0 (feature/EVOL-064-lean-project-claude-md): feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks). v8.11.0 (feature/EVOL-063-autocompact-window): feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value. v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
+  "description": "v8.19.0 (feature/EVOL-103-accepted-change-aligned): feat(EVOL-105, EVOL-103): EVOL-105 — a phase agent model and effort follow the declared pass (pass resolver): discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded. EVOL-103 — [LAW-17] an accepted change aligns every artefact it contradicts in the same pull request and is never reverted; the decision log records it; gate.py aligned (light and full profile) checks it. v8.18.0 (feature/EVOL-066-defect-class-intake): EVOL-066: DC-31..DC-34 enter the universal catalog with their gates and cases; universal DC-NN vs a project's own PDC-NN; § Promotion (generic, gated, novel, framework-numbered, tool-bound through configures, complete); the Discovery Protocol mints PDC and its stale sweep step goes. v8.17.0 (feature/EVOL-067-verification-loop): EVOL-102 phase 2 (#159): every placeholder has one source in the discovery registry (fills, derived fills, constants, a shrink-only baseline — V10); SETUP --upgrade's Step 8 clauses become registry migrations (V11) run by one generic step that back-fills, asks what the project lacks (--resolve pending), runs the migrations owed and offers template additions and removals by RDR; an answer outside its options is a fault. v8.16.0 (feature/EVOL-065-gate-hygiene): feat(EVOL-065) — a file written through the shell meets the branch and plan gates: one write-target reader (gate.py write-target) for Edit, Write and Bash; a write outside the project is never judged; the harness and user configuration guarded on every branch; pre-merge-commit refuses a merge commit where a commit is refused; an unresolvable diff base blocks validate-governance. v8.15.0 (feature/EVOL-113-delivery-cost): feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request. v8.14.0 (feature/EVOL-114-codesign-exits): feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked). v8.13.0 (feature/EVOL-102-discovery-as-data): feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home. v8.12.6 (fix/wave-0-follow-ups): fix #170: the review block reads the diff-base exit code with `|| BASE_RC=$?`; under set -e the bare assignment ended the hook silently, so the humanised reason (exit 1) and the origin/main fallback (other exits) never ran. v8.12.5 (fix/wave-0-framework-defects): fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]. v8.12.4 (fix/codesign-check-count): fix #113: a retired_terms entry takes `pattern` (a regex, matched per line) besides `term` — a retired shape, red on any value it takes; a malformed entry is a GateFault. v8.12.3 (fix/review-seals-home): fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/. v8.12.2 (docs/banner-readme-blocks): banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars. v8.12.1 (fix/hook-project-dir): fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it. v8.12.0 (feature/EVOL-064-lean-project-claude-md): feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks). v8.11.0 (feature/EVOL-063-autocompact-window): feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value. v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -206,10 +206,11 @@
       ]
     },
     "rules/branching.md": {
-      "version": "2.11.0",
+      "version": "2.12.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md",
       "changelog": [
+        "2.12.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "2.11.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
         "2.10.0: feat(EVOL-065) — a file written through the shell meets the branch and plan gates: one write-target reader (gate.py write-target) for Edit, Write and Bash; a write outside the project is never judged; the harness and user configuration guarded on every branch; pre-merge-commit refuses a merge commit where a commit is refused; an unresolvable diff base blocks validate-governance",
         "2.9.1: fix(EVOL-102): copies become pointers — tier lists, unlocks and the snapshot source name the discovery registry, gate.py discovery --resolve and the docs/setup.md frontmatter; the discovery member named among the framework-repo light members; test-discovery-literals.sh retired for the gate",
@@ -977,11 +978,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.18.0",
+      "version": "4.19.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.19.0: feat(EVOL-103): an accepted change aligns its artefact in the same pull request and is never reverted — LAW-17, its body in rules/branching.md, gate.py aligned (unratified, stale artefact, reverted, registration-only realignment that drops APPROVED)",
         "4.18.0: EVOL-066: defect classes follow the law namespace split — universal DC-NN, numbered by the framework; a project's own PDC-NN",
         "4.17.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "4.16.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
@@ -1709,7 +1711,7 @@
       "target": "subproducts/measure/measure.py",
       "role": "Measurement subproduct — SDLC cost reader over local data (Claude Code transcripts, git log, worklog): share of active agent clock under gates, commits and review rounds per branch, rework, governance bytes emitted/delivered/read, per-agent model/tokens/bytes/citations, pruning candidates. Degrades per section, never fails; --selftest; --compare for the before/after protocol. Stdlib only.",
       "changelog": [
-        "1.11.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.11.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.10.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.9.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
         "1.8.0: feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week",
@@ -1824,7 +1826,7 @@
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
-        "1.23.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.23.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.22.0: EVOL-066: --resolve returns defect_classes (drop; against a project to_add, to_remove, collisions); V12 holds defect_prevention.classes to a list of DC-NN; V13 checks the template catalog (row DC-NN with gate and case, case with row, configured id a row, no stack label on an unbound row)",
         "1.21.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
         "1.20.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
@@ -1916,7 +1918,7 @@
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
-        "1.26.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.26.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.25.0: EVOL-066: red-first tests for the catalog vocabulary, a PDC row delivered, defect_classes drop and project delta, V13; fixture rows on the valid vocabulary",
         "1.24.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.23.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
@@ -1974,12 +1976,13 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "content_type": "universal",
       "target": "scripts/gates/profile.py",
       "delivery": "both",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override).",
       "changelog": [
+        "1.9.0: feat(EVOL-103): an accepted change aligns its artefact in the same pull request and is never reverted — LAW-17, its body in rules/branching.md, gate.py aligned (unratified, stale artefact, reverted, registration-only realignment that drops APPROVED)",
         "1.8.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.7.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
         "1.6.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
@@ -2048,7 +2051,7 @@
       "delivery": "both",
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes).",
       "changelog": [
-        "1.9.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.9.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.8.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.7.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.6.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
@@ -2066,7 +2069,7 @@
       "target": ".claude/rules/agents.md",
       "role": "The one data home of the agent class policy (tools per class, budgets, families, per-spawn resolution, ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies. Read by gate.py agents.",
       "changelog": [
-        "1.11.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.11.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.10.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.9.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.8.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
@@ -2218,11 +2221,12 @@
       ]
     },
     "claude/agents/factory-critic-fidelity.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-critic-fidelity.md",
       "role": "Agent definition — work-critic — fidelity lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.5.0: feat(EVOL-103): an accepted change aligns its artefact in the same pull request and is never reverted — LAW-17, its body in rules/branching.md, gate.py aligned (unratified, stale artefact, reverted, registration-only realignment that drops APPROVED)",
         "1.4.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.3.0: feat(EVOL-060) — the two-part return contract: findings above informational and the Informational: count in the contract part, the informational findings under ## Informational.",
         "1.2.0: feat(EVOL-059) — the return contract's Model: line (the lens canary's trigger).",
@@ -2231,11 +2235,12 @@
       ]
     },
     "claude/hooks/check-agent-spawn.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "target": ".claude/hooks/check-agent-spawn.sh",
       "role": "PreToolUse hook (Agent) — a roster agent spawns on its family's alias, never on the other's: asks gate.py agents --spawn --hook-json (exit 1 = refused → exit 2 + stderr); a subagent_type outside factory-* is not ours (pass without the reader); the reader or the policy missing on a factory-* name → blocks, names SETUP --upgrade (Q34).",
       "changelog": [
+        "1.2.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.1.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.0.0: feat(EVOL-049)! — initial: the mechanical hold of the writer/critic family separation at the spawn."
       ]
@@ -2461,6 +2466,15 @@
       "target": "scripts/gates/frontmatter.py",
       "changelog": [
         "1.0.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR"
+      ]
+    },
+    "scripts/gates/aligned.py": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "delivery": "both",
+      "target": "scripts/gates/aligned.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed"
       ]
     }
   },
@@ -2838,7 +2852,7 @@
       "version": "1.11.0",
       "path": ".claude/commands/blueprint.md",
       "changelog": [
-        "1.11.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.11.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.10.3: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "1.10.2: feat(EVOL-056) — names the Beat 0 reader before the design.",
         "1.10.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -2860,7 +2874,7 @@
       "version": "1.11.0",
       "path": ".claude/commands/codesign.md",
       "changelog": [
-        "1.11.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.11.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.10.0: feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked)",
         "1.9.0: fix #117: zero ghost command flags — the 4 CODESIGN lifecycle flags the protocol defines (--revise, --cancel, --deprecate, --reset) are declared in codesign.md; the 7 defined nowhere (CODESIGN --pause/--resume with ON_HOLD, IMPLEMENT --pause/--override, SETUP --regenerate-templates/--rollback-last/--analyze-upgrade) leave every text for the path that exists today (owner RDR «1»); scripts/check-command-flags.py keeps both trees honest in meta CI",
         "1.8.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -3021,9 +3035,10 @@
       ]
     },
     "instructions/Factory-blueprint-refine.instructions.md": {
-      "version": "1.1.2",
+      "version": "1.2.0",
       "path": ".claude/instructions/Factory-blueprint-refine.instructions.md",
       "changelog": [
+        "1.2.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.1.2: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "1.1.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
         "1.1.0: feat(EVOL-036) coherence — --refine ingests slice_map.md: Step 2.1 upstream diff set adds slice_map.md; Step 2.7 adds slice re-ingestion (re-run Step A0 gate, realize new/unrealized SLICE-{FEAT}-N into increments with cascade_source/seam + back-ref) — closes the additive follow-up-slice loop that CVP Check 18(a) guards.",
@@ -3063,9 +3078,10 @@
       ]
     },
     "instructions/Factory-codesign-feature.instructions.md": {
-      "version": "3.5.0",
+      "version": "3.6.0",
       "path": ".claude/instructions/Factory-codesign-feature.instructions.md",
       "changelog": [
+        "3.6.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "3.5.0: feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked)",
         "3.4.2: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "3.4.1: fix #113: an auto-approval check count lives only in its check list — the copied counts are cured, three retired_terms patterns keep any count from coming back",
@@ -3186,9 +3202,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.23.0",
+      "version": "2.24.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.24.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "2.23.0: EVOL-066: a project's new defect class is PDC-NN, minted through the Discovery Protocol of rules/defect-prevention.md; a class worth every project is proposed upstream (§ Promotion)",
         "2.22.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "2.21.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
@@ -3659,9 +3676,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.21.0",
+      "version": "14.22.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.22.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "14.21.0: EVOL-066: defect classes follow the law namespace split — universal DC-NN, numbered by the framework; a project's own PDC-NN",
         "14.20.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "14.19.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
@@ -3911,10 +3929,11 @@
       "path": ".claude/skills/factory-commit-prompt/SKILL.md"
     },
     "skills/factory-worklog/SKILL.md": {
-      "version": "1.1.2",
+      "version": "1.2.0",
       "type": "skill",
       "role": "Worklog v2.0.0 — per-feature JSONL audit trail, action registration, phase mapping, dispatcher enforcement.",
       "changelog": [
+        "1.2.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.1.2: chore(EVOL-032 cleanup): strip version refs from artefact body per universal rule (memory: framework artefact bodies stay caveman + free of version refs; why-of-change lives in commits + governance_versions.json + ADRs).",
         "1.1.0: feat(EVOL-028) Fase 2 backfill — applicable_when frontmatter added (closed-vocabulary axes per ADR-EVOL-028). Always vs phase/command filtering set per skill role. Consumed by factory-applicability-discovery at command Step 0.",
         "1.0.0: feat: extracted from copilot-instructions.md — worklog enforcement protocol"
@@ -5218,7 +5237,7 @@
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
-        "1.23.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.23.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.22.0: EVOL-066: --resolve returns defect_classes (drop; against a project to_add, to_remove, collisions); V12 holds defect_prevention.classes to a list of DC-NN; V13 checks the template catalog (row DC-NN with gate and case, case with row, configured id a row, no stack label on an unbound row)",
         "1.21.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
         "1.20.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
@@ -5304,7 +5323,7 @@
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
-        "1.26.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.26.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.25.0: EVOL-066: red-first tests for the catalog vocabulary, a PDC row delivered, defect_classes drop and project delta, V13; fixture rows on the valid vocabulary",
         "1.24.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.23.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
@@ -5428,11 +5447,12 @@
       ]
     },
     "scripts/gates/profile.py": {
-      "version": "1.8.0",
+      "version": "1.9.0",
       "type": "script",
       "role": "gates: gate profiles per control point (EVOL-046) — `mode` (the one delivery_mode key of the governance manifest, fail-closed to production, no env override), `profile` (mode × branch class → light only for a sub-increment to its train in development mode, else full), `owed` (members by property: needs build · needs database · owner), `run` (all-report execution of the script members at the push / CI control point, one verdict), `one_definition` (hooks, workflows and the preflight keep no branch list, mode read or mode override). Meta copy (lock-step pair).",
       "path": "scripts/gates/profile.py",
       "changelog": [
+        "1.9.0: feat(EVOL-103): an accepted change aligns its artefact in the same pull request and is never reverted — LAW-17, its body in rules/branching.md, gate.py aligned (unratified, stale artefact, reverted, registration-only realignment that drops APPROVED)",
         "1.8.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.7.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
         "1.6.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
@@ -5498,7 +5518,7 @@
       "role": "gates: role agents and read-only critics (EVOL-049) — `policy` (rules/agents.md classes/tiers/resolve/ladder/rounds/roster/spawn_sites + config agents.families), `validate` (roster parity with the manifest, tools per class = the harness matrix, no model in a definition, effort, prompt budget, pointers, critic family ≠ writer family, ladder keyed by families never degrading a writer, spawn sites both directions), `resolve` (per-spawn model alias + effort), `fallback` (readers/critics fall to the other family; writers never), `digest` (the slice of law within the class budget), `check_return` (worker governance block; critic findings with probes). Meta copy (lock-step pair).",
       "path": "scripts/gates/agents.py",
       "changelog": [
-        "1.9.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
+        "1.9.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.8.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.7.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.6.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key",
@@ -5648,11 +5668,12 @@
       ]
     },
     "agents/factory-critic-fidelity.md": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "type": "agent",
       "path": ".claude/agents/factory-critic-fidelity.md",
       "role": "Agent definition — work-critic — fidelity lens (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.5.0: feat(EVOL-103): an accepted change aligns its artefact in the same pull request and is never reverted — LAW-17, its body in rules/branching.md, gate.py aligned (unratified, stale artefact, reverted, registration-only realignment that drops APPROVED)",
         "1.4.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
         "1.3.0: feat(EVOL-060) — the two-part return contract: findings above informational and the Informational: count in the contract part, the informational findings under ## Informational.",
         "1.2.0: feat(EVOL-059) — the Model: line (the meta twin).",
@@ -5661,11 +5682,12 @@
       ]
     },
     "hooks/check-agent-spawn.sh": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "hook",
       "path": ".claude/hooks/check-agent-spawn.sh",
       "role": "PreToolUse hook (Agent) — a roster agent spawns on its family's alias, never on the other's: asks gate.py agents --spawn --hook-json (exit 1 = refused → exit 2 + stderr); a subagent_type outside factory-* is not ours (pass without the reader); the reader or the policy missing on a factory-* name → blocks, names SETUP --upgrade (Q34). Meta copy (lock-step pair .claude/hooks/*.sh).",
       "changelog": [
+        "1.2.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
         "1.1.0: feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request",
         "1.0.0: feat(EVOL-049)! — initial: the mechanical hold of the writer/critic family separation at the spawn."
       ]
@@ -5867,6 +5889,14 @@
       "changelog": [
         "1.1.0: feat(EVOL-066): each answer set states frontend.pattern and expects its defect classes — DC-18 with server rendering, none without; the upgrade expects the catalog delta",
         "1.0.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3"
+      ]
+    },
+    "scripts/gates/aligned.py": {
+      "version": "1.0.0",
+      "type": "script",
+      "path": "scripts/gates/aligned.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed"
       ]
     }
   },
