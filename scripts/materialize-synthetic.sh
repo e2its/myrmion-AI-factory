@@ -116,6 +116,9 @@ NUM["DC_ENTRIES"] = "| PDC-1 | `runtime` | sample project class. | — | `src/**
 NUM["TRACEABILITY_TEST_ROOTS"] = json.dumps(RES["configures"].get("traceability.test_roots", []))
 if isinstance(A.get("surface.runtime_surface"), list):
     NUM["RUNTIME_SURFACE"] = json.dumps(A["surface.runtime_surface"])
+if A.get("security.standard"):   # Q35 / Q35.1: standard `none` asks no level — the level renders `n/a` (Factory-setup-materialization)
+    NUM["SECURITY_STANDARD"] = str(A["security.standard"])
+    NUM["SECURITY_LEVEL"] = "n/a" if A["security.standard"] == "none" else str(A.get("security.level") or "n/a")
 def resolve(text, is_json):
     if is_json:  # greenfield sample: conditional blocks are dropped whole (a kept block would leave a trailing comma)
         text = re.sub(r"[ \t]*\{\{#if[^}]*\}\}.*?\{\{/if\}\}[ \t]*\n?", "", text, flags=re.S)
@@ -208,7 +211,7 @@ if python3 -c 'import json,sys; sys.exit(0 if "framework_version" in json.load(o
   mkdir -p "$P/docs/project_log" "$P/.context/templates/setup/setup"
   cp "$T/setup/discovery_registry.json" "$P/.context/templates/setup/setup/discovery_registry.json"
   cp "$MANIFEST" "$P/.context/templates/setup/governance_versions.json"
-  # the catalog delta (EVOL-066): the template catalog delivered as factory-sync does; the project's predates DC-32..34,
+  # the catalog delta (EVOL-066): the template catalog delivered as factory-sync does; the project's predates DC-32..35,
   # holds its own DC-31 (another class) and the template DC-18 its answers no longer select
   mkdir -p "$P/.context/templates/setup/rules"
   cp "$T/rules/defect-prevention.md" "$P/.context/templates/setup/rules/defect-prevention.md"
@@ -221,7 +224,7 @@ rows = {m.group(1): m.group(0) for m in re.finditer(r"(?m)^\| (DC-\d+) \|.*$", (
 case = lambda text, i: re.search(r"(?ms)^### " + i + r" — .*?(?=^### |\Z)", text)
 tcases = (tpl / "defect-prevention-cases.md").read_text(encoding="utf-8")
 cat, cases = (proj / "defect-prevention.md").read_text(encoding="utf-8"), (proj / "defect-prevention-cases.md").read_text(encoding="utf-8")
-for i in ("DC-32", "DC-33", "DC-34"):
+for i in ("DC-32", "DC-33", "DC-34", "DC-35"):
     cat = cat.replace(rows[i] + "\n", "")
     cases = cases.replace(case(cases, i).group(0), "")
 cat = cat.replace(rows["DC-31"], "| DC-31 | `process` | Every login of the project names its tenant. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |")
@@ -231,6 +234,8 @@ if "| DC-18 |" not in cat:
     cases = cases.rstrip("\n") + "\n\n" + case(tcases, "DC-18").group(0)
 (proj / "defect-prevention.md").write_text(cat, encoding="utf-8"); (proj / "defect-prevention-cases.md").write_text(cases, encoding="utf-8")
 PY
+  # the project's config predates 8.20.0: no `train` and no `contracts` block (EVOL-104, EVOL-115) — their migrations are owed
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
   URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
   UMISS=$(printf '%s' "$UP" | python3 -c '
@@ -485,6 +490,11 @@ OUT=$(cd "$P" && python3 scripts/gate.py agents 2>&1); RC=$?
 sed -i 's/^effort: high$/effort: high\nmaxTurns: 60/' "$P/.claude/agents/factory-critic-security.md"
 OUT=$(cd "$P" && python3 scripts/gate.py agents --digest --agent factory-critic-security 2>&1); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'read .claude/rules/security_policy.md' && printf '%s' "$OUT" | grep -qE 'B within [0-9]+ B' && ok "the security critic's digest carries the security rule of the materialised tree, within its class budget" || bad "digest lacks the lens's law (rc=$RC)" "$OUT"
+SP="$P/.claude/rules/security_policy.md"
+SEC_STD=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["answers"].get("security.standard", ""))' "$ANSWERS")
+if [ "$SEC_STD" = "none" ]; then
+  grep -qF '**Standard:** `none` · **level:** `n/a`' "$SP" && ok "security.standard none renders the level n/a in rules/security_policy.md, never a sample level" || bad "security_policy.md Verification Standard line wrong for standard none" "$(grep -n 'Standard:' "$SP" 2>&1 | head -2)"
+fi
 OUT=$(cd "$P" && printf '%s' '{"tool_input":{"subagent_type":"factory-critic-security","model":"sonnet"}}' | python3 scripts/gate.py agents --spawn --hook-json 2>&1); RC=$?
 [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "family's alias is" && ok "RED: a critic spawned on the writer's alias is refused by the spawn check (the PreToolUse Agent hook's question)" || bad "spawn check did not refuse (rc=$RC)" "$OUT"
 OUT=$(cd "$P" && printf '%s' '{"tool_name":"Agent","tool_input":{"subagent_type":"factory-critic-security","model":"sonnet"}}' | CLAUDE_PROJECT_DIR="$P" bash .claude/hooks/check-agent-spawn.sh 2>&1 >/dev/null); RC=$?

@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.1.0
+version: 1.2.0
 date: 2026-09-25
 changelog:
   - "1.0.0: feat(EVOL-043) — annex created; narratives moved out of the catalog prose columns into one case per DC"
@@ -84,3 +84,11 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 **Story:** Any feature with a spec, a journey and a mock. Scenarios ship untraced, journey steps exist but cannot be reached, mock states, copy or accessible names are left out, or scope grows beyond the task — and nobody with fresh context compares the build with what was agreed before the deploy.
 
 **Detection:** The `traceability` member: every test case the plan declares is linked to its test at its one home, and the baseline only shrinks. The fidelity lens (`factory-critic-fidelity`) reads the diff against spec, journey, mock and plan with fresh context; a step that cannot be reached or a state not built is its finding. Reachability through the project's navigation model is project-specific (`PDC`).
+
+### DC-35 — A stub outlives its producer
+
+**Origin:** A generic class from a downstream instantiation (#184): a sub-increment shipped a placeholder for a dependency built by a later sub; the later sub merged, and the placeholder kept answering.
+
+**Story:** Any train that splits a use case from what it consumes. The first sub stubs the producer so its tests run; nothing records the stub's end, so the real producer lands beside it, both pass their own tests, and the product answers from the stub.
+
+**Detection:** The increment plan's `## Seam map` names each stub with `stub until SUB-…`; the `train` member is red while that row still says it and the named sub is MERGED. Finding the stub in code (a fake client, a fixture wired at runtime) is stack-specific (`PDC`).

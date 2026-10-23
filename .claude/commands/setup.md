@@ -28,7 +28,7 @@ Interactive requirements gathering. Creates `docs/setup.md` and generates `ADR-0
 - AUDIT Detection Protocol (pre-populate from `docs/technical_due.md` if available)
 - Template Scanning Protocol (scan `.context/templates/`)
 - Universal Option Protocol ("Other" + "Help me decide" on every question)
-- Questions Q1-Q34 with their wording, options and sub-questions
+- Questions Q1-Q35 with their wording, options and sub-questions
 - Architecture topology selection (B1-B12 backend, F1-F10 frontend)
 - Visual DNA and Design System integration
 - ADR-0000 generation upon finalization

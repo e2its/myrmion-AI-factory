@@ -434,5 +434,16 @@
       "Verify lock-step pair integrity"
     ],
     "approvals": 0
+  },
+  "train": {
+    "_doc": "A train stacks its changes by file (EVOL-104): close_ledgers are the paths written once per train, by the train-close sub only — python3 scripts/gate.py train (a light member of the gate profile) is red when a sub-increment branch writes one while another sub of its increment is not MERGED; the same gate holds each increment plan's sub rows to stacking by file (paths, after, concerns, enables) against surface.ceiling_*.",
+    "close_ledgers": [
+      ".context/templates/setup/governance_versions.json",
+      "config/codebase_inventory.json"
+    ]
+  },
+  "contracts": {
+    "_doc": "Reliability is planned up front (EVOL-115): outage_status is the response every OpenAPI operation declares for a dependency down — python3 scripts/gate.py freeze (a light member of the gate profile) is red when an operation of a changed contracts/openapi/** file lacks it, when an x-sensitive field carries no constraint, or when a changed design leaves a security/availability capability's reliability question without answer or source.",
+    "outage_status": "503"
   }
 }

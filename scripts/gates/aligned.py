@@ -25,7 +25,7 @@ import json
 import re
 from pathlib import Path
 
-from .common import GateFault, frontmatter_of, iteration_state, read_frontmatter
+from .common import GateFault, clean as _clean, frontmatter_of, iteration_state, read_frontmatter
 from .digests import changed_paths
 from .seal import DEFAULT_SEAL_DIR, _git, _norm_path, _reference, vcfg
 
@@ -33,11 +33,6 @@ ACTION = "accepted-change"
 KIND = "accepted_change"
 LOG = "docs/project_log/features/{fid}.log.jsonl"
 LOG_RE = re.compile(r"docs/project_log/features/([^/]+)\.log\.jsonl")
-
-
-def _clean(s) -> str:
-    """A byte read from a log never reaches the terminal raw."""
-    return "".join(ch if ch.isprintable() else "?" for ch in str(s))
 
 
 def _lines(text: str | None) -> list[str]:

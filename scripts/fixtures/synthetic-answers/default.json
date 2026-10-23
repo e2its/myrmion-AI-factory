@@ -17,7 +17,8 @@
     "dependencies.backend": ["fastapi >=0.110,<1"],
     "dependencies.frontend": ["react ^18.2"],
     "dependencies.denied": ["moment"],
-    "surface.runtime_surface": ["src/**", "scripts/**"]
+    "surface.runtime_surface": ["src/**", "scripts/**"],
+    "security.standard": "none"
   },
   "expect": {
     "landed": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml"],

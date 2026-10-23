@@ -539,6 +539,7 @@ FUNCTION generate_dev_plan_body(target_increments, fm_plan):
         WRITE "### Sub-increment {sub.id}"
         WRITE "> **Branch:** feature/{FEATURE_ID}-inc-{N}-{slug}-sub-{M} (PR into the train)"
         WRITE "> **Scope:** {sub.scope} · ~{sub.files} files / ~{sub.lines} lines"
+        WRITE "> **Paths:** {sub.paths} · after {sub.after} · concerns {sub.concerns} · enables {sub.enables}"   # EVOL-104 — copied from the SUB row; found work lands in the pending sub whose paths cover its files
         FOR EACH task IN increment_tasks OWNED_BY sub.scope: WRITE "- [{task.id}]"   # references, e.g. "- [INC-1.A.3]"
 ```
 
@@ -1004,7 +1005,7 @@ increments:                       # populated when slicing_strategy == increment
   - id: "INC-1"
     status: "READY"               # READY | BUILDING | IMPLEMENTED_AND_VERIFIED | INVALIDATED (mirror of increment_plan.md § 1 INC-N status; READY-or-later only — DRAFT stays in increment_plan.md)
     tasks: { A: N, B: N, C: N, ACC: N }
-    sub_increments: []             # EVOL-045 — [{id: "SUB-1-1", status: "READY", tasks: ["INC-1.A.1", …]}] when the increment plan declares them; status READY | BUILDING | MERGED — mirror of the `· status:` segment of the SUB item in increment_plan.md § 1
+    sub_increments: []             # EVOL-045 — [{id: "SUB-1-1", status: "READY", paths: ["src/a/**"], after: [], concerns: [], enables: [], tasks: ["INC-1.A.1", …]}] when the increment plan declares them; status READY | BUILDING | MERGED — mirror of the `· status:` segment of the SUB item in increment_plan.md § 1
   - id: "INC-2"
     status: "READY"
     tasks: { A: N, B: N, C: N, ACC: N }

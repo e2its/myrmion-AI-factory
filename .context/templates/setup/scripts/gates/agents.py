@@ -36,7 +36,7 @@ import re
 from pathlib import Path
 
 from . import corpus
-from .common import GateFault, any_glob, key, read_frontmatter, resolve_pointer, rules_root, tracked_files
+from .common import GateFault, any_glob, clean, key, read_frontmatter, resolve_pointer, rules_root, tracked_files
 
 AGENTS_DIR = ".claude/agents"
 ENGINE_AGENTS = ".claude/skills/factory-code-review/agents"   # vendored lenses: prompts for a rostered critic, never spawned as themselves
@@ -74,7 +74,7 @@ def _posint(v) -> bool:
 
 def _shown(v, cap: int = 200) -> str:
     """A model- or harness-written value as a refusal may echo it: a control or bidi byte never reaches the refusal, the length capped."""
-    return "".join(ch if ch.isprintable() else "?" for ch in str(v))[:cap]
+    return clean(v, cap)
 
 
 def budgets(pol: dict, t: str) -> dict:

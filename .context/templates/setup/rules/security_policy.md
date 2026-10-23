@@ -2,7 +2,7 @@
 description: "Security policy — OWASP Top 10 compliance, secret management, Zero Trust principles, vulnerability remediation."
 applicable_when:
   always: true
-version: 1.4.1
+version: 1.5.0
 date: 2026-09-25
 changelog:
   - "1.4.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -37,6 +37,10 @@ stack: "{{PRIMARY_LANGUAGE}} + {{PRIMARY_FRAMEWORK}}"
 - **Default Deny:** Firewall rules whitelist-only.
 - **mTLS:** For inter-service communication in production.
 - **API Gateway:** Centralized auth + rate limiting.
+
+### Verification Standard
+- **Standard:** `{{SECURITY_STANDARD}}` · **level:** `{{SECURITY_LEVEL}}` (SETUP Q35, Q35.1 — `none` asks no level).
+- The design's `## Reliability Questions` map each question to this standard's requirement at this level; `gate.py freeze` holds every security- or availability-weighted capability to an answer and a cited source (EVOL-115).
 
 ### Further Reading
 - [OWASP Top 10](https://owasp.org/Top10/)

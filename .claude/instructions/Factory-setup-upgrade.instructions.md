@@ -244,6 +244,10 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 
 **verification.gates (EVOL-067).** Re-derive `verification.gates` from `--resolve`'s `configures`. A project row is kept field by field: a derived field it lacks (`scoped`, `report`, `red_link`, `red`) is added, a field it carries keeps the project's value, nothing is dropped (EVOL-068). A `docs/setup.md → verification.commands` key moves into its `verification.gates` row (`test_suite` → `tests`, `test_single` → `tests.scoped` with `{paths}`, `lint`, `typecheck`, `build`, `coverage`, `dependency_audit` → `sca`), then the frontmatter key goes. Nothing dropped. Add `verification.skips: []` when absent.
 
+**train.close_ledgers (EVOL-104).** Add the template's `train` block (`close_ledgers`: the paths written once per train — the manifest, the changelog) to `config/quality.json`; `gate.py train` reads it.
+
+**contracts.outage_status (EVOL-115).** Add the template's `contracts` block (`outage_status`, default `503`) to `config/quality.json`; `gate.py freeze` is red on the first changed contract without it.
+
 ---
 
 ### Step 3: New File Handling (4.4.3)

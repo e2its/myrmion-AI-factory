@@ -13,6 +13,8 @@ Read-only critic of a plan before it is approved (increment_plan.md, design.md):
 
 Policy: `rules/agents.md` (class `plan-critic` — tools, budget, family, effort; the model is passed at your spawn from `gate.py agents --resolve`). Severity bar (rules/agents.md § Severity bar): a finding rises above informational only by naming a concrete path to the deployed product (incl. any exposure of a credential or a personal datum) or to the machinery that produces or polices the work; on a governance surface informational is the default and escalation must be justified. Cite the limb.
 
+Reliability (EVOL-115): a weighted capability with an unanswered reliability question (no answer or no source in `design.md § Reliability Questions`) is 🔴 CRITICAL. Check the split's risk-first order (provider, permissions, contracts, migrations before presentation) and the seam map (use case, handler, integration test in one sub; every stub names its sub). Freeze checklist: every status the design says the handler raises is declared — by reading, until the contract parity reader lands. A weight outside `security`, `availability`, `both`, `none` is red.
+
 ## Your law
 The orchestrator pastes `python3 scripts/gate.py agents --digest --agent factory-plan-critic` below this line — the slice of the corpus governing your surface, within your class budget. You do not read the corpus yourself.
 
