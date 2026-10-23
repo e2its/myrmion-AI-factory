@@ -1436,11 +1436,11 @@ READER_TOOLS = "Read, Grep, Glob, WebFetch, mcp__context7__query-docs, mcp__aws-
 DOCS_SCAN = "---\nname: factory-mcp-docs-scan\ndocs_mcp_allowlist:\n  - context7\n  - aws-knowledge\n---\n"
 
 
-def agent_def(name, cls, tools, extra="", body="", max_turns="default"):
+def agent_def(name, cls, tools, extra="", body="", max_turns="default", effort="high"):
     if max_turns == "default":   # the ceiling every read-only definition declares (EVOL-058); the cap every worker declares (EVOL-062); a phase definition none
         max_turns = "80" if cls == "worker" else ("60" if cls in ("plan-critic", "work-critic", "reader") else None)
     turns = f"maxTurns: {max_turns}\n" if max_turns is not None else ""
-    return f"---\nname: {name}\ndescription: x\ntools: {tools}\neffort: high\n{turns}class: {cls}\n{extra}---\n\n# {name}\n{body}\n"
+    return f"---\nname: {name}\ndescription: x\ntools: {tools}\neffort: {effort}\n{turns}class: {cls}\n{extra}---\n\n# {name}\n{body}\n"
 
 
 class Agents(unittest.TestCase):
@@ -1461,7 +1461,7 @@ class Agents(unittest.TestCase):
         write(repo / ".claude/instructions/Factory-implement-build.instructions.md", "---\ndescription: b\napplicable_when:\n  phase: [IMPLEMENT]\n---\nspawn-policy: worker\n")
         write(repo / ".claude/instructions/Factory-blueprint-design.instructions.md", "---\ndescription: d\n---\nspawn-policy: plan-critic\n")
         write(repo / ".claude/skills/factory-code-review/SKILL.md", "---\nname: cr\n---\nspawn-policy: work-critic\n")
-        write(repo / ".claude/commands/implement.md", "---\ndescription: i\n---\nspawn-policy: phase\n")
+        write(repo / ".claude/commands/implement.md", "---\ndescription: i\n---\nspawn-policy: phase — `gate.py agents --resolve --class phase --pass discovery`\n")
         self.manifest = {"templates": {f"claude/agents/{n}.md": {"version": "1.0.0"} for n in ("factory-dev-backend", "factory-plan-critic", "factory-critic-security", "factory-docs-reader")}}
         return repo
 
@@ -1937,6 +1937,56 @@ class Agents(unittest.TestCase):
             payload = lambda e: json.dumps({"tool_input": {"subagent_type": "factory-critic-security", "model": "opus", "prompt": prompt, "effort": e}})
             p = run(["--hook-json"], payload("low")); self.assertEqual(p.returncode, 1, p.stdout + p.stderr); self.assertIn("`low`", p.stdout, "the payload's effort reaches the hold: one differing from the resolver's is refused")
             p = run(["--hook-json"], payload("high")); self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+
+    def test_phase_pass_resolve_spawn_and_sites(self):
+        """EVOL-105: a phase agent's model and effort follow the pass — resolved per pass, declared in the header, held at the spawn."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            rule = RULE_AGENTS.replace("    - {class: worker, tier: small, effort: low}\n", "    - {class: worker, tier: small, effort: low}\n    - {class: phase, pass: alignment, family: writer, effort: low}\n")
+            rule = rule.replace("  roster:\n", "  roster:\n    - {name: factory-implement, class: phase, surface: [\"docs/**\"]}\n")
+            write(repo / ".claude/rules/agents.md", rule)
+            write(repo / ".claude/agents/factory-implement.md", agent_def("factory-implement", "phase", "Read, Edit, Write, Bash", effort="medium"))
+            self.manifest["templates"]["claude/agents/factory-implement.md"] = {"version": "1.0.0"}
+            self.assertEqual(agents.validate(repo, self.manifest), [], "green: the alignment row, a phase definition on the class effort, a site naming its pass")
+            r = agents.resolve(repo, "phase"); self.assertFalse(r["ok"], "a phase resolve without a pass is refused"); self.assertIn("--pass", r["reason"])
+            self.assertFalse(agents.resolve(repo, "phase", pass_="bogus")["ok"], "a pass outside discovery | alignment is refused")
+            r = agents.resolve(repo, "phase", pass_="discovery"); self.assertEqual((r["ok"], r["model"], r["effort"]), (True, "sonnet", "medium"), "discovery keeps the class row")
+            r = agents.resolve(repo, "phase", pass_="alignment"); self.assertEqual((r["model"], r["effort"], r["pass"]), ("sonnet", "low", "alignment"), "alignment: the row's family and effort")
+            self.assertEqual(agents.resolve(repo, "worker", files=2, lines=10)["effort"], "low", "a class without pass rows resolves as before")
+            spawn = lambda prompt, effort=None: agents.spawn_check(repo, "factory-implement", "sonnet", prompt=prompt, effort=effort)
+            r = spawn("Do the work.\n"); self.assertFalse(r["ok"], "a phase spawn without `pass:` is refused"); self.assertIn("`pass:`", r["reason"])
+            r = spawn("pass: alignment\neffort: low\n\nAlign.\n"); self.assertFalse(r["ok"], "an alignment without `aligns:` is refused"); self.assertIn("`aligns:`", r["reason"])
+            r = spawn("pass: alignment\neffort: medium\naligns: RDR-1\n\nAlign.\n"); self.assertFalse(r["ok"], "an alignment on the discovery effort is refused"); self.assertIn("`effort: low`", r["reason"])
+            r = spawn("pass: discovery\neffort: low\n\nDiscover.\n"); self.assertFalse(r["ok"], "a discovery on the alignment row's effort is refused"); self.assertIn("`effort: medium`", r["reason"])
+            r = spawn("pass: discovery\neffort: medium\n\nDiscover.\n", effort="low"); self.assertFalse(r["ok"], "the harness effort input is checked when present"); self.assertIn("`low`", r["reason"])
+            r = spawn("pass: sideways\neffort: medium\n"); self.assertFalse(r["ok"], "an unknown pass is refused")
+            self.assertTrue(spawn("pass: discovery\neffort: medium\n\nDiscover.\n")["ok"], "a valid discovery spawn passes")
+            self.assertTrue(spawn("pass: alignment\neffort: low\naligns: critic finding F-3\n\nAlign.\n", effort="low")["ok"], "a valid alignment spawn passes")
+            self.assertFalse(agents.spawn_check(repo, "factory-implement", "opus", prompt="pass: discovery\neffort: medium\n")["ok"], "the alias is still the writer's")
+            self.assertTrue(agents.spawn_check(repo, "factory-implement", "sonnet")["ok"], "no prompt: model only, as before")
+            # a definition never disagrees with the class
+            write(repo / ".claude/agents/factory-implement.md", agent_def("factory-implement", "phase", "Read, Edit, Write, Bash", effort="high"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("discovery effort" in x["reason"] for x in f), "a phase definition whose effort is not the class's is red")
+            write(repo / ".claude/agents/factory-implement.md", agent_def("factory-implement", "phase", "Read, Edit, Write, Bash", effort="medium"))
+            # the rows: a known pass, a writer class never on the critic family
+            write(repo / ".claude/rules/agents.md", rule.replace("pass: alignment, family: writer", "pass: tidy, family: writer"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("pass `tidy`" in x["reason"] for x in f), "a row's pass is discovery | alignment")
+            write(repo / ".claude/rules/agents.md", rule.replace("pass: alignment, family: writer", "pass: alignment, family: critic"))
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("writer ≠ critic" in x["reason"] for x in f), "a writer class row never takes the critic family")
+            write(repo / ".claude/rules/agents.md", rule)
+            # the sites, both directions
+            write(repo / ".claude/commands/implement.md", "---\ndescription: i\n---\nspawn-policy: phase — `gate.py agents --resolve --class phase`\n")
+            f = agents.validate(repo, self.manifest); self.assertTrue(any("--pass" in x["reason"] and x["path"] == ".claude/commands/implement.md" for x in f), "a phase site's resolve names its pass")
+            write(repo / ".claude/commands/implement.md", "---\ndescription: i\n---\nspawn-policy: phase — `gate.py agents --resolve --class phase --pass discovery`\n")
+            write(repo / ".claude/commands/qa.md", "---\ndescription: q\n---\nspawn it with `gate.py agents --resolve --class phase --pass discovery`\n")
+            subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+            f = agents.validate(repo, self.manifest); self.assertTrue(any(x["path"] == ".claude/commands/qa.md" and "not a declared" in x["reason"] for x in f), "a file resolving the phase class is a declared site")
+            # the CLI carries the pass
+            gate = str(HERE.parent / "gate.py")
+            p = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--resolve", "--class", "phase", "--pass", "alignment"], capture_output=True, text=True)
+            self.assertEqual(p.returncode, 0, p.stdout + p.stderr); self.assertIn("effort low", p.stdout)
+            p = subprocess.run([sys.executable, gate, "--repo", str(repo), "agents", "--resolve", "--class", "phase"], capture_output=True, text=True)
+            self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
 
 class Seal(unittest.TestCase):
     """EVOL-051: one full verification loop — the documentation class (one definition), the path-to-gate map, the seal the push honours."""

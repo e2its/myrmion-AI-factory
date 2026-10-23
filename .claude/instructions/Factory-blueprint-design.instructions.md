@@ -14,7 +14,7 @@ This instruction file defines the **Pre-Flight, Analysis, and Artifact Generatio
 
 ## Phase Agent — one context, both concerns (EVOL-049)
 
-`/blueprint` delegates by name to `factory-blueprint`; the orchestrator hands it its corpus digest (`gate.py agents --digest --agent factory-blueprint`) and the model from `gate.py agents --resolve --class phase`. No persona switch, no second context — a concern is a lens on the same work:
+`/blueprint` delegates by name to `factory-blueprint`; the orchestrator hands it its corpus digest (`gate.py agents --digest --agent factory-blueprint`) and the model and effort from `gate.py agents --resolve --class phase --pass discovery` (`spawn-policy: phase`; the prompt opens with `pass:` and `effort:`). No persona switch, no second context — a concern is a lens on the same work:
 
 | Topic | Concern |
 |-------|---------|
@@ -61,7 +61,7 @@ FUNCTION plan_gate(FEATURE_ID):
       re-spawn ONCE; refused again ⇒ every finding of the round is ❓
     open = report.findings WHERE severity > 🟢
     IF open empty: RETURN PASS
-    IF round < cap: factory-blueprint cures the findings it accepts (design / test plan / increment plan edits) and disputes the rest in writing
+    IF round < cap: factory-blueprint (re-spawned on `gate.py agents --resolve --class phase --pass discovery` — the plan is not approved yet, so the cure is never an alignment) cures the findings it accepts (design / test plan / increment plan edits) and disputes the rest in writing
   RETURN open                                                  # after the cap: the user's call
 ```
 

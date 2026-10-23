@@ -15,15 +15,17 @@ validate   roster parity (every roster name has a definition, every definition i
            directions); the vendored engine lenses (prompts run by a rostered critic) carry no write tool; a read-only
            class with `tools.allow_mcp: docs_mcp_allowlist` (the reader, EVOL-056) may carry `mcp__<server>__<op>` tools
            only for a server the [LAW-10] docs-scan allowlist names and only for a read operation (a closed verb list).
-resolve    per-spawn model alias + effort from class × surface × tier × round — first matching row, class default;
-           a round over the class cap is refused; a size nobody measured (0 files, 0 lines) is `unknown`, never small.
+resolve    per-spawn model alias + effort from class × surface × tier × round × pass — first matching row, class default;
+           a round over the class cap is refused; a size nobody measured (0 files, 0 lines) is `unknown`, never small;
+           a phase agent's pass (discovery | alignment) is required — its model and effort follow the pass (EVOL-105).
 fallback   the next rung for a resolved family; refused for a writer class (an agent that writes never degrades);
            a critic landing on the writer's family says so (`separation: false`) — the call site surfaces it.
 digest     the slice of law governing the agent's surface (its roster globs expanded over the tracked tree, always-on
            rules included — the agent gets no snapshot), within its class budget (corpus.digest).
 spawn      the model passed at a spawn of a roster agent is its class family's alias — the PreToolUse hook's question;
            a work critic's prompt opens with effort / turn budget / probe budget / round / scope, re-measured and held to the
-           resolver's (EVOL-113): round 1 recorded in .context/state/critic-round.json, a round 2 reads the cure only.
+           resolver's (EVOL-113): round 1 recorded in .context/state/critic-round.json, a round 2 reads the cure only;
+           a phase agent's prompt opens with `pass:` and `effort:` (an alignment with `aligns:` too), held to its pass (EVOL-105).
 check      a worker return without its hand-off or its governance block, a critic finding without a real probe, a reader return
            without its sources / answer / unknowns sections or with a source or an unknown that names nothing: refused.
 """
@@ -48,6 +50,11 @@ WRITE_VERBS = {"create", "update", "delete", "put", "patch", "set", "write", "de
 NEVER_SERVER_PREFIXES = ("claude_ai_",)   # the user's personal-data connectors (mail, drive, docs, office): never a documentation source, whatever a list says
 WRITE_TOOLS = {"edit", "write", "notebookedit", "multiedit", "bash", "agent", "task"}
 EFFORTS = ("low", "medium", "high", "max")
+PASSES = ("discovery", "alignment")          # EVOL-105: a phase agent's pass — rules/agents.md § Model policy defines alignment once
+PASS_CLASSES = ("phase",)                    # the classes whose resolve needs a pass
+PHASE_RESOLVE = re.compile(r"agents --resolve --class phase\b[^`\n]*")   # a site's resolve call for the phase class
+PASS_ARG = re.compile(r"--pass\s+\S")
+PASS_RULE = "rules/agents.md § Model policy"
 TIERS = ("small", "medium", "large")                        # EVOL-058: every tier declares its budgets
 BUDGET_KEYS = ("turn_budget", "probe_budget")
 WORKER_CAP_KEY = "worker_turn_cap"           # EVOL-062: the harness's hard stop on a worker — every worker definition's maxTurns; the resolver hands it
@@ -63,6 +70,11 @@ HANDOFF_LINE_MAX = 600   # characters per hand-off line — a register line name
 
 def _posint(v) -> bool:
     return isinstance(v, int) and not isinstance(v, bool) and v > 0 or (isinstance(v, str) and v.isdecimal() and int(v) > 0)
+
+
+def _shown(v, cap: int = 200) -> str:
+    """A model- or harness-written value as a refusal may echo it: a control or bidi byte never reaches the refusal, the length capped."""
+    return "".join(ch if ch.isprintable() else "?" for ch in str(v))[:cap]
 
 
 def budgets(pol: dict, t: str) -> dict:
@@ -248,6 +260,8 @@ def _check_definition(repo: Path, p: Path, cls: str, c: dict, f: list[dict], *, 
     eff = fv("effort").lower()
     if eff not in EFFORTS:
         f.append({"path": rel, "reason": f"`effort: {eff or '(none)'}` — every definition declares one of {', '.join(EFFORTS)} (the harness default; the resolver's effort overrides it per spawn)"})
+    if cls in PASS_CLASSES and eff in EFFORTS and eff != str(c["effort"]).lower():   # EVOL-105: the pass sets the effort per spawn; the file never disagrees with the class
+        f.append({"path": rel, "reason": f"`effort: {eff}` — a {cls} definition carries the class's discovery effort `{c['effort']}` (agents.classes.{cls}.effort); the alignment effort is passed per spawn (EVOL-105)"})
     mt = fv("maxTurns")
     if _class_writes(c):
         if cls == "worker" and roster_class is not None:   # EVOL-062: the cap is the harness's hard stop on every worker — the orchestrator hands off at the partial return
@@ -373,6 +387,16 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
             f.append({"path": rule, "reason": f"resolve row {row} restates the class default `{row['effort']}` — a row that changes nothing is dead data"})
         if "round" in row and (not str(row["round"]).isdigit() or int(row["round"]) < 1):
             f.append({"path": rule, "reason": f"resolve row {row}: round must be a positive integer"})
+        if "pass" in row and row["class"] not in PASS_CLASSES:
+            f.append({"path": rule, "reason": f"resolve row {row}: class `{row['class']}` takes no pass (only {', '.join(PASS_CLASSES)} does) — the row never matches, dead data (EVOL-105)"})
+        elif "pass" in row and str(row["pass"]).lower() not in PASSES:
+            f.append({"path": rule, "reason": f"resolve row {row}: pass `{row['pass']}` is not one of {', '.join(PASSES)} (EVOL-105)"})
+        if "family" in row:   # a row may pin a family; a writer class never takes the critic family, a read-only class never the writer's
+            writes = _class_writes(pol["classes"][row["class"]])
+            if row["family"] not in families:
+                f.append({"path": rule, "reason": f"resolve row {row}: family `{row['family']}` is not one of {', '.join(sorted(families))}"})
+            elif writes == (row["family"] == "critic"):
+                f.append({"path": rule, "reason": f"resolve row {row}: family `{row['family']}` on a class that {'writes' if writes else 'only reads'} — writer ≠ critic holds on every row"})
     # spawn sites ↔ policies, both directions
     sites = [s for s in pol["spawn_sites"] if isinstance(s, dict)]
     for s in sites:
@@ -384,6 +408,14 @@ def validate(repo: Path, manifest: dict | None = None) -> list[dict]:
             body = (repo / str(s["path"])).read_text(encoding="utf-8", errors="replace")
             if f"spawn-policy: {s['policy']}" not in body:
                 f.append({"path": str(s["path"]), "reason": f"spawn site does not declare `spawn-policy: {s['policy']}` in its text — a site that spawns says which policy it follows"})
+            calls = PHASE_RESOLVE.findall(body) if s["policy"] in PASS_CLASSES else []
+            if s["policy"] in PASS_CLASSES and (not calls or not all(PASS_ARG.search(x) for x in calls)):
+                f.append({"path": str(s["path"]), "reason": f"a {s['policy']} spawn site resolves with `--pass discovery|alignment` — the pass its mode orders ({PASS_RULE}, EVOL-105)"})
+    phase_sites = {str(s.get("path")) for s in sites if s.get("policy") in PASS_CLASSES}
+    for rel in tracked_files(repo):   # the other direction: a file that resolves the phase class is a declared site
+        if rel.startswith(".claude/") and rel.endswith(".md") and rel not in phase_sites and (repo / rel).is_file():
+            if PHASE_RESOLVE.search((repo / rel).read_text(encoding="utf-8", errors="replace")):
+                f.append({"path": rel, "reason": "resolves `--class phase` but is not a declared phase spawn site (spawn_sites) — a site that spawns a phase agent is declared (EVOL-105)"})
     declared = {s.get("policy") for s in sites}
     for cls in pol["classes"]:
         if cls not in declared:
@@ -405,16 +437,23 @@ def tier(pol: dict, files: int, lines: int) -> str:
     return "medium"
 
 
-def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int = 0, round_: int = 1) -> dict:
+def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int = 0, round_: int = 1, pass_: str = "") -> dict:
     pol = policy(repo)
     c = pol["classes"].get(cls)
     if not c:
         raise GateFault(f"class `{cls}` is not one of {', '.join(pol['classes'])}")
+    pass_ = str(pass_ or "").strip().lower()
+    if pass_ and pass_ not in PASSES:
+        return {"ok": False, "class": cls, "reason": f"pass `{_shown(pass_)}` is not one of {', '.join(PASSES)} ({PASS_RULE})"}
+    if pass_ and cls not in PASS_CLASSES:
+        return {"ok": False, "class": cls, "reason": f"class `{cls}` takes no pass — `--pass` is for {', '.join(PASS_CLASSES)} only; resolve it without one ({PASS_RULE})"}
+    if cls in PASS_CLASSES and not pass_:
+        return {"ok": False, "class": cls, "reason": f"a {cls} agent is resolved for its pass — add `--pass discovery` or `--pass alignment` (alignment: an approved artefact aligned to a fact decided outside the pass; when in doubt, discovery — {PASS_RULE})"}
     cap = pol["rounds"].get(CAPS.get(cls, ""))
     if cap is not None and int(round_) > int(cap):
         return {"ok": False, "class": cls, "round": round_, "reason": f"round {round_} is over the cap {cap} (agents.rounds.{CAPS[cls]}) — the loop ends in the user's adjudication, never in another round"}
     t = tier(pol, files, lines)
-    effort = c["effort"]; matched = "class default"
+    effort = c["effort"]; fam = c["family"]; matched = "class default"
     for row in pol["resolve"]:
         if not isinstance(row, dict) or row.get("class") != cls:
             continue
@@ -424,12 +463,19 @@ def resolve(repo: Path, cls: str, surface: str = "", files: int = 0, lines: int 
             continue
         if row.get("round") and int(row["round"]) > int(round_):   # a round row matches its round and every later one
             continue
-        effort = row.get("effort", effort); matched = ", ".join(f"{k}: {v}" for k, v in row.items() if k != "class"); break
-    fam = c["family"]
+        if row.get("pass") and str(row["pass"]).lower() != pass_:
+            continue
+        effort = row.get("effort", effort); fam = str(row.get("family") or fam); matched = ", ".join(f"{k}: {v}" for k, v in row.items() if k != "class"); break
+    if fam not in pol["families"]:
+        raise GateFault(f"family `{fam}` is not one of {', '.join(sorted(pol['families']))} — gate.py agents names the row")
+    if _class_writes(c) == (fam == "critic"):   # fail closed: a row across writer/critic never hands a model (validate names it too)
+        return {"ok": False, "class": cls, "reason": f"the matching resolve row ({matched}) puts class `{cls}`, which {'writes' if _class_writes(c) else 'only reads'}, on family `{fam}` — writer ≠ critic holds on every row; fix the row (python3 scripts/gate.py agents names it)"}
     b = budgets(pol, t)
     if not _class_writes(c) and len(b) != len(BUDGET_KEYS):   # a read-only class is spawned under its budgets; a writer's cap is a key of its own
         raise GateFault(f"agents.tiers.{t if t in TIERS else 'large'} lacks turn_budget / probe_budget — a critic's budget is a key (EVOL-058); gate.py agents names it")
     out = {"ok": True, "class": cls, "family": fam, "model": pol["families"][fam], "effort": effort, "tier": t, "round": round_, "surface": surface, "matched": matched, **b}
+    if pass_:
+        out["pass"] = pass_
     if cls == "worker":   # EVOL-062: a worker is spawned under its cap — the spawn prompt opens with `turn cap:`
         if not _posint(pol.get(WORKER_CAP_KEY)):
             raise GateFault(f"agents.{WORKER_CAP_KEY} is not a positive integer — a worker is spawned under its cap (EVOL-062); gate.py agents names it")
@@ -493,8 +539,11 @@ def spawn_check(repo: Path, agent: str, model: str, prompt: str | None = None, e
     want = pol["families"][fam]
     if not str(model or "").strip():
         return {"ok": False, "expected": want, "reason": f"`{agent}` (class `{entry['class']}`, family `{fam}`) spawned without a model — pass model: {want} (python3 scripts/gate.py agents --resolve --class {entry['class']}); the definition carries none by design"}
+    if entry.get("class") in PASS_CLASSES and prompt is not None:   # EVOL-105: the model and effort of the declared pass
+        r = _pass_hold(repo, agent, str(entry["class"]), str(prompt), effort, model)
+        return {"ok": r is None, "expected": r and r[0] or want, "reason": r[1] if r else f"`{agent}` on `{_shown(model)}` ({fam})"}
     if _alias(model) != _alias(want):
-        return {"ok": False, "expected": want, "reason": f"`{agent}` (class `{entry['class']}`, family `{fam}`) spawned on `{model}` — its family's alias is `{want}`; a critic on the writer's family inherits the writer's blind spots"}
+        return {"ok": False, "expected": want, "reason": f"`{agent}` (class `{entry['class']}`, family `{fam}`) spawned on `{_shown(model)}` — its family's alias is `{want}`; a critic on the writer's family inherits the writer's blind spots"}
     if entry.get("class") == "work-critic" and prompt is not None:
         try:
             refused = _hold(repo, agent, str(entry.get("lens") or ""), str(prompt), effort)
@@ -505,26 +554,53 @@ def spawn_check(repo: Path, agent: str, model: str, prompt: str | None = None, e
     return {"ok": True, "expected": want, "reason": f"`{agent}` on `{want}` ({fam})"}
 
 
+def _pass_hold(repo: Path, agent: str, cls: str, prompt: str, effort: str | None, model: str) -> tuple[str, str] | None:
+    """None when a phase spawn states its pass and the resolver's model and effort for it; else (expected alias, the humanised refusal).
+    The pass is read from the header, never inferred from the prose (EVOL-105)."""
+    h = _header(prompt)
+    owed = f"a {cls} agent's prompt opens with `pass: discovery|alignment` and `effort: <level>` (an alignment with `aligns: <ref>` too) ({PASS_RULE})"
+    p = h.get("pass", "").strip().lower()
+    if not p:
+        return "", f"`{agent}`: the spawn prompt does not open with `pass:` — {owed}"
+    r = resolve(repo, cls, pass_=p)
+    if not r.get("ok"):
+        return "", f"`{agent}`: {r['reason']}"
+    if p == "alignment" and not h.get("aligns", "").strip():
+        return r["model"], f"`{agent}`: an alignment without `aligns:` — name the fact decided outside the pass, as {PASS_RULE} defines it; when in doubt the pass is discovery"
+    want = (f"`{agent}`: pass `{p}` resolves `model: {r['model']}` · `effort: {r['effort']}` — pass them at the call and open the prompt with `pass: {p}` · `effort: {r['effort']}`"
+            f" (python3 scripts/gate.py agents --resolve --class {cls} --pass {p}; {PASS_RULE})")
+    if _alias(model) != _alias(r["model"]):
+        return r["model"], f"{want}; spawned on `{_shown(model)}`"
+    stated = h.get("effort", "").strip().lower()
+    if stated != str(r["effort"]).lower():
+        return r["model"], f"{want}; the prompt says `effort: {_shown(stated) or '(none)'}`"
+    if effort is not None and str(effort).strip() and str(effort).strip().lower() != str(r["effort"]).lower():
+        return r["model"], f"{want}; the harness `effort` input says `{_shown(effort)}`"
+    return None
+
+
 # EVOL-113: the spawn hold — a work critic's prompt opens with five lines; the hook re-measures the scope
 HOLD_KEYS = ("effort", "turn budget", "probe budget", "round", "scope")
-HOLD_LINE = re.compile(r"^[ \t]*([A-Za-z][A-Za-z ]{0,30}?)[ \t]*:[ \t]*(\S.*?)[ \t]*$")
+HOLD_KEY = re.compile(r"[a-z][a-z ]{0,30}")   # a header key, case-folded and its blanks collapsed; the value is never matched by a regex (linear)
 HOLD_RULE = "rules/agents.md § The budget is enforced"
 HOLD_OWED = "`effort:` · `turn budget:` · `probe budget:` · `round: N` · `scope: diff <path>` | `scope: files <glob>…`"
 CRITIC_ROUND = ".context/state/critic-round.json"   # untracked state (gitignored): branch → scope form (diff | files) → the round-1 scope; a sweep never overwrites a review's record
 
 
 def _header(prompt: str) -> dict[str, str]:
-    """The consecutive `key: value` lines that open the prompt (leading blanks skipped), keys case-folded; first wins."""
+    """The consecutive `key: value` lines that open the prompt (leading blanks skipped), keys case-folded; first wins.
+    Split on the first `:` and stripped — no backtracking over a model-written value; a line over HANDOFF_LINE_MAX ends the header."""
     out: dict[str, str] = {}
     lines = prompt.splitlines()
     i = 0
     while i < len(lines) and not lines[i].strip():
         i += 1
     for ln in lines[i:]:
-        m = HOLD_LINE.match(ln)
-        if not m:
+        k, sep, v = ln.partition(":")
+        k, v = " ".join(k.split()).lower(), v.strip()
+        if len(ln) > HANDOFF_LINE_MAX or not sep or not v or not HOLD_KEY.fullmatch(k):
             break
-        out.setdefault(re.sub(r"\s+", " ", m.group(1).strip().lower()), m.group(2))
+        out.setdefault(k, v)
     return out
 
 
@@ -630,7 +706,7 @@ def _scope(repo: Path, scope: str) -> tuple[str, list[str], int, bool]:
     form, _, rest = scope.strip().partition(" ")
     rest = rest.strip()
     if form == "diff" and rest:
-        shown = "".join(ch if ch.isprintable() else "?" for ch in rest)[:200]   # a control byte never reaches the refusal
+        shown = _shown(rest)   # a control byte never reaches the refusal
         p = Path(rest)
         p = p if p.is_absolute() else repo / p
         try:
@@ -646,9 +722,9 @@ def _scope(repo: Path, scope: str) -> tuple[str, list[str], int, bool]:
         globs += [g.rstrip("/") + "/" for g in globs if not any(ch in g for ch in "*?[")]   # a bare directory matches what is under it
         paths = [f for f in tracked_files(repo) if any_glob(f, globs)]
         if not paths:
-            raise GateFault(f"the scope `files {rest}` matches no tracked file")
+            raise GateFault(f"the scope `files {_shown(rest)}` matches no tracked file")
         return "files", paths, 0, False
-    raise GateFault(f"`scope: {scope}` is neither `scope: diff <path>` nor `scope: files <glob>…`")
+    raise GateFault(f"`scope: {_shown(scope)}` is neither `scope: diff <path>` nor `scope: files <glob>…`")
 
 
 def _hold(repo: Path, agent: str, lens: str, prompt: str, effort: str | None) -> str | None:
@@ -662,7 +738,7 @@ def _hold(repo: Path, agent: str, lens: str, prompt: str, effort: str | None) ->
     try:
         rnd = int(h["round"]); turns = int(h["turn budget"]); probes = int(h["probe budget"])
     except ValueError:
-        return f"`{agent}`: `round:`, `turn budget:` and `probe budget:` are integers — got `{h['round']}`, `{h['turn budget']}`, `{h['probe budget']}` ({HOLD_RULE})"
+        return f"`{agent}`: `round:`, `turn budget:` and `probe budget:` are integers — got `{_shown(h['round'])}`, `{_shown(h['turn budget'])}`, `{_shown(h['probe budget'])}` ({HOLD_RULE})"
     if rnd < 1:
         return f"`{agent}`: `round: {rnd}` — rounds start at 1 ({HOLD_RULE})"
     kind, paths, lines, is_canary = _scope(repo, h["scope"])
@@ -673,12 +749,12 @@ def _hold(repo: Path, agent: str, lens: str, prompt: str, effort: str | None) ->
         return f"`{agent}`: {r['reason']}"
     size = f"a {len(paths)}-file, {lines}-line diff" if kind == "diff" else f"a {len(paths)}-file scope"
     owed = (f"`{agent}`: {size} (tier {r['tier']}, round {rnd}) earns `effort: {r['effort']}` · `turn budget: {r['turn_budget']}` · "
-            f"`probe budget: {r['probe_budget']}` — open the prompt with those lines, then `round: {rnd}` · `scope: {h['scope']}` ({HOLD_RULE})")
+            f"`probe budget: {r['probe_budget']}` — open the prompt with those lines, then `round: {rnd}` · `scope: {_shown(h['scope'])}` ({HOLD_RULE})")
     stated = (h["effort"].strip().lower(), turns, probes)
     if stated != (str(r["effort"]).lower(), int(r["turn_budget"]), int(r["probe_budget"])):
         return owed
     if effort is not None and str(effort).strip() and str(effort).strip().lower() != str(r["effort"]).lower():
-        return f"{owed}; the harness `effort` input says `{effort}`"
+        return f"{owed}; the harness `effort` input says `{_shown(effort)}`"
     if is_canary:
         return None   # the fixture is round 1 by definition and never recorded
     br = _branch(repo)

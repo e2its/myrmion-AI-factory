@@ -51,10 +51,10 @@
   gate.py discovery --eval COND [--answers FILE]   evaluate one condition of the discovery grammar; exit 0 holds · 1 does not hold · 2 fault (unparseable, unknown key, a literal outside the options, an absent or fence-less docs/setup.md, --answers / --json without a mode, --json with --eval)
   gate.py scm-protection [--control-point P] [--json]   the server defends the branch rule (config: scm): at ci, with a token, the platform's API is asked per protected branch — a missing setting is RED; no token / no adapter / push / static → n/a with the checklist (docs/scm/protection.md)
   gate.py agents [--json]                          validate the roster and the class policy (rules/agents.md + agents.families): tools per class, budgets, pointers, critic ≠ writer family, ladder, rows, spawn sites, vendored lenses; exit 1 on a finding · 2 policy/manifest unreadable
-  gate.py agents --resolve --class C [--surface S --files N --lines M --round R]   per-spawn model alias + effort; exit 1 when the round is over the class cap
+  gate.py agents --resolve --class C [--surface S --files N --lines M --round R --pass discovery|alignment]   per-spawn model alias + effort; exit 1 when the round is over the class cap or a phase agent has no pass (EVOL-105)
   gate.py agents --fallback --class C --family F   the next rung after a provider error; refused for a writer class; `separation: false` when a critic lands on the writer's family
   gate.py agents --digest --agent NAME             the slice of law governing the agent's surface (always-on rules included), within its class budget
-  gate.py agents --spawn --agent NAME --model M [--hook-json]   the model handed to a roster agent is its family's alias; with --hook-json (the PreToolUse Agent hook's payload) a work critic is also held to the budget, round and scope its prompt states (EVOL-113); exit 1 refused
+  gate.py agents --spawn --agent NAME --model M [--hook-json]   the model handed to a roster agent is its family's alias; with --hook-json (the PreToolUse Agent hook's payload) a work critic is also held to the budget, round and scope its prompt states (EVOL-113), a phase agent to the model and effort of the pass its prompt states (EVOL-105); exit 1 refused
   gate.py agents --check-return --class C < return.md   refuse a return missing its governance block / a critic finding outside the shape or without a real probe / a critic without its Model: or Informational: line / an informational finding before the governance block, a count that is not the appendix's length (EVOL-060)
   gate.py canary --fixture | --expected [--lens L] | --check   the lens canary (EVOL-059): the synthetic diff with planted defects, the expected findings per lens, the fixture's own consistency
   gate.py canary --judge --lens L --model ID < return.md   compare a critic's return over the fixture to the lens's planted defects; record; exit 1 when one was missed (never a block — an RDR on the spawn policy)
@@ -290,14 +290,14 @@ def cmd_plan(repo, a):
 
 def cmd_agents(repo, a):
     if a.resolve:
-        r = agents_mod.resolve(repo, a.cls, a.surface or "", a.files or 0, a.lines or 0, a.round or 1)
+        r = agents_mod.resolve(repo, a.cls, a.surface or "", a.files or 0, a.lines or 0, a.round or 1, a.pass_ or "")
         if not r["ok"]:
             print(json.dumps(r) if a.json else f"agents: REFUSED — {r['reason']}")
             return 1
         budget = f" · turns {r['turn_budget']} · probes {r['probe_budget']}" if "turn_budget" in r and "probe_budget" in r else ""
         owed = f" · canary owed: {', '.join(r['canary_owed'])} (gate.py canary --plan)" if r.get("canary_owed") else (f" · canary fault: {r['canary_fault']}" if r.get("canary_fault") else "")
         cap = f" · turn cap {r['turn_cap']}" if "turn_cap" in r else ""   # EVOL-062: a worker's spawn prompt opens with it
-        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget}{cap} · round {r['round']} · {r['matched']}{owed}")
+        print(json.dumps(r) if a.json else f"agents: {r['class']} → model {r['model']} ({r['family']}) · effort {r['effort']} · tier {r['tier']}{budget}{cap} · round {r['round']}{' · pass ' + r['pass'] if r.get('pass') else ''} · {r['matched']}{owed}")
         return 0
     if a.fallback:
         r = agents_mod.fallback(repo, a.cls, a.family or "")
@@ -627,7 +627,7 @@ def build_parser():
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
-    p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--spawn", action="store_true"); p.add_argument("--model", default=""); p.add_argument("--hook-json", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
+    p = sub.add_parser("agents"); p.add_argument("--resolve", action="store_true"); p.add_argument("--fallback", action="store_true"); p.add_argument("--digest", action="store_true"); p.add_argument("--spawn", action="store_true"); p.add_argument("--model", default=""); p.add_argument("--hook-json", action="store_true"); p.add_argument("--check-return", action="store_true"); p.add_argument("--class", dest="cls", default=""); p.add_argument("--surface", default=""); p.add_argument("--files", type=int, default=0); p.add_argument("--lines", type=int, default=0); p.add_argument("--round", type=int, default=1); p.add_argument("--pass", dest="pass_", choices=("discovery", "alignment"), default=""); p.add_argument("--family", default=""); p.add_argument("--agent", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_agents)
     return ap
 
 
