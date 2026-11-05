@@ -1,0 +1,38 @@
+{
+  "_doc": "Synthetic SETUP answers (EVOL-116): Java backend, None frontend. The per-file scoped rows land without `red: false` and without `was`; the red member proves through tests. META-ONLY.",
+  "answers": {
+    "project_mode": "Greenfield",
+    "backend.runtime": "Java",
+    "frontend.framework": "None",
+    "database.primary.engine": "PostgreSQL",
+    "hosting.provider": "AWS",
+    "hosting.iac_tool": "Terraform",
+    "ci_cd.platform": "GitHub Actions",
+    "scm.platform": "GitHub",
+    "project_tracking.tool": "None",
+    "po_package.mode": "full",
+    "po_package.ds_rebuild_command": null,
+    "surface.runtime_surface": [
+      "src/**",
+      "scripts/**"
+    ]
+  },
+  "expect": {
+    "gates": {
+      "tests": "mvn verify -Djacoco.skip=false -q",
+      "coverage": "mvn verify -Djacoco.skip=false -q",
+      "build": "mvn compile -q",
+      "sca": "case {sca_threshold} in critical) c=9;; high) c=7;; medium) c=4;; *) c=0;; esac; mvn -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=$c",
+      "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"
+    },
+    "red": true,
+    "red_sources": [
+      "tests"
+    ],
+    "coverage_report": null,
+    "red_link": null,
+    "test_roots": [
+      "src/test/**"
+    ]
+  }
+}

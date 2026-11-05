@@ -674,6 +674,7 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
   # BVL Phase Verification (post-worker, pre-critics) — the phase's SCOPED tests + lint + format; never the full suite (EVOL-051)
   bvl_phase = EXECUTE phase_verification(phase, all_phase_test_files)
   # See: Factory-build-verification/SKILL.md → Phase Verification
+  IF bvl_phase == BLOCKED: STOP — a test file no row runs (BVL § GRACEFUL DEGRADATION, UNDECLARED_STACK); never on to the critics
   IF bvl_phase == REGRESSION:
     # Fix regression before the critics run
     FOR attempt IN 1..3:
@@ -1113,7 +1114,7 @@ FOR EACH implementation task:
      # See: Factory-build-verification/SKILL.md → Task-Level Verification Loop
      # Runs tests in terminal, parses errors, auto-fixes (max 3 attempts)
      # If GREEN → proceed. If FLAGGED → Resilience Protocol (user choice).
-     # If BLOCK (undeclared stack) → stop: the message names the commands to declare (BVL § GRACEFUL DEGRADATION).
+     # If BLOCKED (undeclared stack) → stop: the message names the commands to declare (BVL § GRACEFUL DEGRADATION).
   5. COMMIT mental checkpoint (save file state)
 ```
 

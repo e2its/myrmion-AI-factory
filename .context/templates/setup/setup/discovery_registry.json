@@ -161,7 +161,11 @@
        "verification.gates": {
         "tests": {
          "command": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q",
-         "scoped": "PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH} python -m pytest {paths} -x --tb=short -q"
+         "scoped": "PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH} python -m pytest {paths} -x --tb=short -q",
+         "red_reads": [
+          "tests/**/test_*.py",
+          "tests/**/*_test.py"
+         ]
         },
         "coverage": {
          "command": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q",
@@ -185,10 +189,19 @@
        "verification.gates": {
         "tests": {
          "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text --coverage.reporter=text --coverage.reporter=lcov; else npx jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache; fi",
-         "scoped": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run {paths}; elif [ -f .mocharc.yml ] || [ -f .mocharc.json ]; then npx mocha {paths}; else npx jest {paths} --no-coverage --verbose; fi",
+         "scoped": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run {paths}; elif [ -f .mocharc.yml ] || [ -f .mocharc.json ]; then out=$(npx mocha {paths} 2>&1); rc=$?; printf '%s\\n' \"$out\"; [ \"$rc\" -eq 0 ] || exit \"$rc\"; printf '%s\\n' \"$out\" | grep -qE '[1-9][0-9]* (passing|failing)' || { echo 'scoped run: no test ran'; exit 1; }; else npx jest --runTestsByPath {paths} --no-coverage --verbose; fi",
          "red_link": [
           "node_modules"
-         ]
+         ],
+         "red_reads": [
+          "tests/**/*.{test,spec}.*",
+          "src/**/*.{test,spec}.*"
+         ],
+         "was": {
+          "scoped": [
+           "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run {paths}; elif [ -f .mocharc.yml ] || [ -f .mocharc.json ]; then npx mocha {paths}; else npx jest {paths} --no-coverage --verbose; fi"
+          ]
+         }
         },
         "coverage": {
          "command": "if [ -f vitest.config.ts ] || [ -f vitest.config.js ]; then npx vitest run --coverage --reporter=text --coverage.reporter=text --coverage.reporter=lcov; else npx jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache; fi",
@@ -218,8 +231,20 @@
        "verification.gates": {
         "tests": {
          "command": "mvn verify -Djacoco.skip=false -q",
-         "scoped": "mvn test -q -Dtest={paths}",
-         "red": false
+         "scoped": "out=$(mvn -B test -Dsurefire.failIfNoSpecifiedTests=false -Dtest=\"$(for f in {paths}; do basename \"$f\" .java; done | paste -sd, -)\" 2>&1); rc=$?; printf '%s\\n' \"$out\"; [ \"$rc\" -eq 0 ] || exit \"$rc\"; printf '%s\\n' \"$out\" | grep -qE 'Tests run: [1-9]' || { echo 'scoped run: no test ran'; exit 1; }",
+         "red_reads": [
+          "**/src/test/**/*Test.java",
+          "**/src/test/**/*Tests.java",
+          "**/src/test/**/*TestCase.java"
+         ],
+         "was": {
+          "scoped": [
+           "mvn test -q -Dtest={paths}"
+          ],
+          "red": [
+           false
+          ]
+         }
         },
         "coverage": {
          "command": "mvn verify -Djacoco.skip=false -q"
@@ -239,8 +264,18 @@
        "verification.gates": {
         "tests": {
          "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out",
-         "scoped": "go test {paths} -v",
-         "red": false
+         "scoped": "out=$(go test $(for f in {paths}; do echo \"./$(dirname \"$f\")\"; done | sort -u) -run \"^($(sed -n 's/^func \\(Test[A-Za-z0-9_]*\\)(.*/\\1/p' {paths} | paste -sd'|' -))\\$\" -v 2>&1); rc=$?; printf '%s\\n' \"$out\"; [ \"$rc\" -eq 0 ] || exit \"$rc\"; printf '%s\\n' \"$out\" | grep -qE '^=== RUN' || { echo 'scoped run: no test ran'; exit 1; }",
+         "red_reads": [
+          "**/*_test.go"
+         ],
+         "was": {
+          "scoped": [
+           "go test {paths} -v"
+          ],
+          "red": [
+           false
+          ]
+         }
         },
         "coverage": {
          "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out"
@@ -263,8 +298,19 @@
        "verification.gates": {
         "tests": {
          "command": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage",
-         "scoped": "dotnet test --filter {paths} --verbosity minimal",
-         "red": false
+         "scoped": "out=$(dotnet test --filter \"$(awk '{for(i=1;i<NF;i++) if($i==\"class\"){n=$(i+1); sub(/[^A-Za-z0-9_].*/,\"\",n); printf \"FullyQualifiedName~.%s.|\", n}} END{printf \"FullyQualifiedName=_\"}' {paths})\" --verbosity minimal 2>&1); rc=$?; printf '%s\\n' \"$out\"; [ \"$rc\" -eq 0 ] || exit \"$rc\"; printf '%s\\n' \"$out\" | grep -qE '[Tt]otal: *[1-9]' || { echo 'scoped run: no test ran'; exit 1; }",
+         "red_reads": [
+          "**/*Tests.cs",
+          "**/*Test.cs"
+         ],
+         "was": {
+          "scoped": [
+           "dotnet test --filter {paths} --verbosity minimal"
+          ],
+          "red": [
+           false
+          ]
+         }
         },
         "coverage": {
          "command": "dotnet test --collect:'XPlat Code Coverage' --results-directory ./coverage"
@@ -284,8 +330,25 @@
        "verification.gates": {
         "tests": {
          "command": "cargo test",
-         "scoped": "cargo test {paths} -- --nocapture",
-         "red": false
+         "scoped": "out=$(cargo test $(for f in {paths}; do printf '%s %s ' --test \"$(basename \"$f\" .rs)\"; done) 2>&1); rc=$?; printf '%s\\n' \"$out\"; [ \"$rc\" -eq 0 ] || exit \"$rc\"; printf '%s\\n' \"$out\" | grep -qE 'running [1-9][0-9]* tests?' || { echo 'scoped run: no test ran'; exit 1; }",
+         "red_reads": [
+          "tests/*.rs"
+         ],
+         "inline": {
+          "start": "^#\\[cfg\\(test\\)\\]\\s*$",
+          "reads": [
+           "src/**/*.rs"
+          ],
+          "scoped": "out=$(cargo test -- __none__ $(awk '/#\\[test\\]/{p=1;next} p&&/fn[[:space:]]/{sub(/.*fn[[:space:]]+/,\"\");sub(/[^A-Za-z0-9_].*/,\"\");print;p=0}' {paths}) 2>&1); rc=$?; printf '%s\\n' \"$out\"; [ \"$rc\" -eq 0 ] || exit \"$rc\"; printf '%s\\n' \"$out\" | grep -qE 'running [1-9][0-9]* tests?' || { echo 'scoped run: no test ran'; exit 1; }"
+         },
+         "was": {
+          "scoped": [
+           "cargo test {paths} -- --nocapture"
+          ],
+          "red": [
+           false
+          ]
+         }
         },
         "lint": {
          "command": "cargo clippy -- -D warnings"
@@ -433,7 +496,19 @@
        "verification.gates": {
         "frontend-tests": {
          "command": "npx jest --config jest.config.ts --no-coverage",
-         "scoped": "npx jest --config jest.config.ts {paths} --no-coverage"
+         "scoped": "npx jest --config jest.config.ts --runTestsByPath {paths} --no-coverage",
+         "red_reads": [
+          "tests/**/*.{test,spec}.*",
+          "src/**/*.{test,spec}.*"
+         ],
+         "red_link": [
+          "node_modules"
+         ],
+         "was": {
+          "scoped": [
+           "npx jest --config jest.config.ts {paths} --no-coverage"
+          ]
+         }
         }
        },
        "traceability.test_roots": [
@@ -447,7 +522,14 @@
        "verification.gates": {
         "frontend-tests": {
          "command": "npx vitest run",
-         "scoped": "npx vitest run {paths}"
+         "scoped": "npx vitest run {paths}",
+         "red_reads": [
+          "tests/**/*.{test,spec}.*",
+          "src/**/*.{test,spec}.*"
+         ],
+         "red_link": [
+          "node_modules"
+         ]
         }
        },
        "traceability.test_roots": [
@@ -460,7 +542,20 @@
       "Angular": {
        "verification.gates": {
         "frontend-tests": {
-         "command": "npx ng test --no-watch --browsers=ChromeHeadless"
+         "command": "npx ng test --no-watch",
+         "scoped": "npx ng test --no-watch $(for f in {paths}; do printf '%s ' \"--include=$f\"; done)",
+         "red_reads": [
+          "tests/**/*.{test,spec}.*",
+          "src/**/*.{test,spec}.*"
+         ],
+         "red_link": [
+          "node_modules"
+         ],
+         "was": {
+          "command": [
+           "npx ng test --no-watch --browsers=ChromeHeadless"
+          ]
+         }
         }
        },
        "traceability.test_roots": [
@@ -474,7 +569,14 @@
        "verification.gates": {
         "frontend-tests": {
          "command": "npx vitest run",
-         "scoped": "npx vitest run {paths}"
+         "scoped": "npx vitest run {paths}",
+         "red_reads": [
+          "tests/**/*.{test,spec}.*",
+          "src/**/*.{test,spec}.*"
+         ],
+         "red_link": [
+          "node_modules"
+         ]
         }
        },
        "traceability.test_roots": [
@@ -1517,7 +1619,7 @@
    }
   },
   "verification.gates": {
-   "from": "gate.py discovery --resolve → configures.verification.gates: the configures rows of the answered backend.runtime, frontend.framework and the security scan, reads = surface.runtime_surface + the test roots (EVOL-067); a stack with no rows declares its rows by RDR at discovery (§ verification coverage), recorded here",
+   "from": "gate.py discovery --resolve → configures.verification.gates: the configures rows of the answered backend.runtime, frontend.framework and the security scan, reads = surface.runtime_surface + the test roots (EVOL-067); each row's `was` (superseded template values) stays in the registry for the upgrade merge (EVOL-116); a stack with no rows declares its rows by RDR at discovery (§ verification coverage), recorded here",
    "fills": [
     "VERIFICATION_GATES"
    ]
@@ -1933,6 +2035,12 @@
    "since": "8.20.0",
    "detect": "config/quality.json#/contracts/outage_status",
    "apply": "contracts.outage_status (EVOL-115)"
+  },
+  {
+   "id": "verification.gates per-file (EVOL-116)",
+   "since": "8.21.0",
+   "detect": "always",
+   "apply": "verification.gates per-file (EVOL-116)"
   }
  ]
 }

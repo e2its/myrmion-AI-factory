@@ -67,7 +67,7 @@ FUNCTION defect_discovery_hook(errors, task, attempt):
 
 > When a feature touches seed/synthetic data scripts OR migration/schema files, `full_verification_gate()` MUST run the project's seed alignment test suite. This catches schema drift between migration definitions and seed data generators.
 
-**Rule:** When `IMPLEMENT --build` runs `full_verification_gate(FEATURE_ID)` AND the feature touches files matching the project's seed script pattern OR schema/migration files, the gate MUST run the **Seed Alignment Tests** (the `seed-alignment` gate of `verification.gates`, or the `tests` gate's `scoped` command on the seed test files).
+**Rule:** When `IMPLEMENT --build` runs `full_verification_gate(FEATURE_ID)` AND the feature touches files matching the project's seed script pattern OR schema/migration files, the gate MUST run the **Seed Alignment Tests** (the `seed-alignment` gate of `verification.gates`, or the seed test files through `SCOPED_RUNS`).
 
 The test suite verifies:
 - Every column written by seed scripts exists in the target schema
@@ -110,11 +110,18 @@ The TDD cycle in IMPLEMENT --build previously followed: RED (write test) → GRE
 
 ## THE LOOP'S MEMBERS — `verification.gates` (EVOL-067)
 
-The loop names no stack. Its members are `config/quality.json → verification.gates`: `{<gate>: {reads, command, scoped?, red_link?, report?, red?}}`. SETUP derives them from the registry's `configures` rows (`gate.py discovery --resolve`); the project edits them like any config. `scoped` is the single-test form, `{paths}` the test files. EVOL-068: `red_link` — paths linked into the diff base for the built-in `red` member; `report` — the `coverage` row's LCOV file; `red: false` — red not proven for this stack: its scoped run selects tests by name, not by file — give `tests.scoped` a per-file command and drop `red: false` to enable the proof.
+The loop names no stack. Its members are `config/quality.json → verification.gates`: `{<gate>: {reads, command, scoped?, red_reads?, inline?, red_link?, report?, red?}}`. SETUP derives them from the registry's `configures` rows (`gate.py discovery --resolve`); the project edits them like any config. `scoped` runs the test files `{paths}` names and exits non-zero when none of them ran a test (EVOL-116); `red_reads` — the test files the row runs and proves (default `traceability.test_roots`); `inline` — tests that live in the code file. EVOL-068: `red_link` — paths linked into the diff base for the built-in `red` member; `report` — the `coverage` row's LCOV file; `red: false` — the project's own opt-out: the row proves no red, every run says so.
+
+**Which run for a test file:** `python3 scripts/gate.py seal --scoped <path>[,<path>…] --json` → `runs [{gate, files, command}]`, `unrouted`, `notices` — the seal's own dispatch (owner RDR «1»); `SCOPED_RUNS(files)` below is that call. Never interpolate a row by hand.
 
 ```yaml
 FUNCTION gates():
   RETURN READ_JSON("config/quality.json").verification.gates   # the one source; no stack match, no override
+
+FUNCTION SCOPED_RUNS(files):   # EVOL-116: the row of each file, by the seal's dispatch
+  r = RUN("python3 scripts/gate.py seal --scoped " + QUOTE(JOIN(files, ",")) + " --json")   # QUOTE: POSIX single quotes, each ' as '\'' (shlex.quote) — one shell word
+  SHOW r.notices   # a row that proves no red, or a glob two rows read (the first row runs it) — said, never silent
+  RETURN {command: JOIN(x.command FOR x IN r.runs, " && "), unrouted: r.unrouted, empty: r.runs IS EMPTY OR r.unrouted IS NOT EMPTY}   # a file no row runs never passes
 ```
 
 Skips: `verification.skips [{gate, reason, at, until}]` — dated, expires; a security gate (`secrets`, `sast`, `sca`) is never skipped. `gate.py seal --plan` lists an active skip with its reason; an expired one is owed again.
@@ -128,9 +135,9 @@ Runs after each task's GREEN phase (code written to pass the test).
 ```yaml
 FUNCTION task_verification_loop(task, test_files, source_files):
   # Gate: Check if BVL is available for this stack
-  g = gates()
-  IF g.tests.scoped IS NULL:
-    RETURN BLOCK(UNDECLARED_STACK)   # § GRACEFUL DEGRADATION — the task is not marked [x]
+  runs = SCOPED_RUNS(test_files)
+  IF runs.empty:
+    RETURN BLOCKED(UNDECLARED_STACK)   # § GRACEFUL DEGRADATION — no row runs these files; the task is not marked [x]
   
   MAX_ATTEMPTS = 3
   attempt = 0
@@ -140,7 +147,7 @@ FUNCTION task_verification_loop(task, test_files, source_files):
     attempt += 1
     
     # Execute test
-    test_cmd = INTERPOLATE(g.tests.scoped, {paths: test_files[0]})
+    test_cmd = runs.command
     result = RUN_IN_TERMINAL(test_cmd, timeout: 60000)
     
     IF result.exit_code == 0:
@@ -246,12 +253,14 @@ Runs after all tasks in a phase are complete, before the work critics are spawne
 
 ```yaml
 FUNCTION phase_verification(phase, all_test_files):
-  g = gates()
-  IF g.tests.scoped IS NULL OR all_test_files IS EMPTY:
+  IF all_test_files IS EMPTY:
     RETURN SKIPPED
+  runs = SCOPED_RUNS(all_test_files)
+  IF runs.empty:
+    RETURN BLOCKED(UNDECLARED_STACK)
 
   # The phase's scoped tests — the files its tasks wrote or touched (the same selection task_verification_loop used)
-  result = RUN_IN_TERMINAL(INTERPOLATE(g.tests.scoped, {paths: JOIN(all_test_files, " ")}), timeout: 120000)
+  result = RUN_IN_TERMINAL(runs.command, timeout: 120000)
 
   IF result.exit_code != 0:
     errors = parse_test_output(result.output)
@@ -306,15 +315,17 @@ FUNCTION full_verification_gate(FEATURE_ID, increment_id=null):
   scope_files = COLLECT_ALL_SOURCE_FILES(FEATURE_ID, increment_id)
 
   # 6. Seed alignment check (conditional)
-  # Seed alignment tests run through the `tests` gate's `scoped` command (when no `seed-alignment` gate is declared).
+  # Seed alignment tests run through SCOPED_RUNS (when no `seed-alignment` gate is declared).
   # The resolver scans for test files matching the seed alignment naming convention
   # (e.g., test_seed_schema_alignment, test_seed_deployment_isolation) under the project's
   # integration test directory. Stack-agnostic: the project's declared runner.
   IF scope_files MATCHES seed_script_pattern OR scope_files MATCHES migration_pattern:
     seed_test_files = GLOB("tests/**/test_seed_*" OR "tests/**/*seed*alignment*")
-    seed_test_cmd = INTERPOLATE(gates().tests.scoped, {paths: seed_test_files})
-    IF seed_test_cmd IS NOT NULL AND seed_test_files.length > 0 AND "seed-alignment" NOT IN mapped:
-      result = RUN_IN_TERMINAL(seed_test_cmd, timeout: 60000)
+    IF seed_test_files.length > 0 AND "seed-alignment" NOT IN mapped:
+      seed = SCOPED_RUNS(seed_test_files)
+      IF seed.empty:
+        RETURN BLOCKED(UNDECLARED_STACK)   # a seed test no row runs is never ALIGNED
+      result = RUN_IN_TERMINAL(seed.command, timeout: 60000)
       results.seed_alignment = {status: result.exit_code == 0 ? "ALIGNED" : "DRIFT"}
       IF result.exit_code != 0:
         BLOCK: "Seed schema alignment failed. Seed data drifted from migration schemas."
@@ -374,8 +385,11 @@ FUNCTION RESOLVE_INCREMENT_TEST_CMD(scope_files, increment_id):
   # Map scope_files to their test files: tests under the same module path, plus tests created in the increment.
   test_targets = DEDUPE(GLOB(test_pattern_for_module(f)) FOR f IN scope_files) + scope_files WHERE matches_test_naming_convention(file)
   IF test_targets IS EMPTY:
-    RETURN gates().tests.command          # the suite
-  RETURN INTERPOLATE(gates().tests.scoped, {paths: JOIN(test_targets, " ")})
+    RETURN JOIN(g.command FOR g IN gates() WHERE g.scoped, " && ")          # the suites
+  r = SCOPED_RUNS(test_targets)
+  IF r.empty:
+    RETURN BLOCKED(UNDECLARED_STACK)
+  RETURN r.command
 ```
 
 ---
@@ -467,11 +481,11 @@ A missing declaration blocks; an infrastructure fault (a tool not installed, a c
 ```yaml
 DEGRADATION_SCENARIOS:
   
-  # No `tests` gate (or no `scoped` form) declared
+  # A test file no row with `scoped` reads (seal --scoped: no run, or the file unrouted)
   UNDECLARED_STACK:
     ACTION: BLOCK
-    MESSAGE: "No test command is declared for this project, so the build cannot be checked."
-    RESOLUTION: "Declare the gate rows in config/quality.json → verification.gates (SETUP discovery § verification coverage)."
+    MESSAGE: "These test files have no declared test command, so the build cannot be checked: {unrouted, or every file when no row has `scoped`}."
+    RESOLUTION: "Declare the gate rows in config/quality.json → verification.gates (SETUP discovery § verification coverage), or widen the row's red_reads to hold the file."
   
   # Tool missing (the declared command's tool is not installed)
   TOOL_MISSING:

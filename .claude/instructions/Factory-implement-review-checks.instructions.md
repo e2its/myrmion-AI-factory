@@ -200,7 +200,7 @@ CONSTRAINT_IDS: [GOV-SHARED-{MISSING|INLINE|UNREG}-{N}]
 
 ```yaml
 # Triggers when the feature touches seed/synthetic data scripts OR migration/schema files.
-# Verifies seed data alignment + deployment isolation through the `tests` gate's scoped command.
+# Verifies seed data alignment + deployment isolation through the seal's dispatch (`gate.py seal --scoped`).
 #
 # Triggered by ANY of:
 #   - feature_files INCLUDES seed script pattern (modified or new)
@@ -209,11 +209,12 @@ CONSTRAINT_IDS: [GOV-SHARED-{MISSING|INLINE|UNREG}-{N}]
 
 VERIFY:
   # Sub-check 1: seed schema alignment guardrail passes
-  # Seed alignment tests: GLOB the naming convention, run them through the `tests` gate's `scoped` command.
+  # Seed alignment tests: GLOB the naming convention, run them through the seal's dispatch.
   seed_alignment_tests = GLOB("tests/**/test_seed_*alignment*")
   IF seed_alignment_tests.length > 0:
-    seed_test_cmd = INTERPOLATE(READ_JSON("config/quality.json").verification.gates.tests.scoped, {paths: seed_alignment_tests})
-    RUN seed_test_cmd
+    seed_test_cmd = SCOPED_RUNS(seed_alignment_tests)   # BVL § SCOPED_RUNS — the seal's dispatch (EVOL-116)
+    IF seed_test_cmd.empty: BLOCKER [UNDECLARED_STACK]: "A seed test file has no declared test command (seed_test.unrouted) — declare it in config/quality.json → verification.gates." STOP
+    RUN seed_test_cmd.command
     IF exit_code != 0:
       BLOCKER [GOV-SEED-ALIGNMENT-SCHEMA]:
         "Seed schema alignment test failed. Seed scripts drift from
@@ -222,8 +223,9 @@ VERIFY:
   # Sub-check 2: deployment isolation guardrail passes
   seed_isolation_tests = GLOB("tests/**/test_seed_*isolation*")
   IF seed_isolation_tests.length > 0:
-    isolation_test_cmd = INTERPOLATE(READ_JSON("config/quality.json").verification.gates.tests.scoped, {paths: seed_isolation_tests})
-    RUN isolation_test_cmd
+    isolation_test_cmd = SCOPED_RUNS(seed_isolation_tests)   # BVL § SCOPED_RUNS — the seal's dispatch (EVOL-116)
+    IF isolation_test_cmd.empty: BLOCKER [UNDECLARED_STACK]: "A seed test file has no declared test command (isolation_test.unrouted) — declare it in config/quality.json → verification.gates." STOP
+    RUN isolation_test_cmd.command
     IF exit_code != 0:
       BLOCKER [GOV-SEED-ALIGNMENT-DEPLOY]:
         "Seed deployment isolation test failed. Either packaging scope

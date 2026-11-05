@@ -1,0 +1,20 @@
+{
+ "key": "frontend.framework",
+ "literal": "Angular",
+ "gate": "frontend-tests",
+ "scaffold": "npx -y @angular/cli@22.2.6 new demo --defaults --skip-git --skip-install --directory . && npm install --no-audit --no-fund --silent",
+ "expect": {
+  "src/app/add.spec.ts": "proven",
+  "src/app/sub.spec.ts": "could not fail",
+  "src/app/empty.spec.ts": "head"
+ },
+ "base": {
+  "src/app/calc.ts": "export const add = (a: number, b: number): number => a + b + 1;\nexport const sub = (a: number, b: number): number => a - b;\n"
+ },
+ "head": {
+  "src/app/add.spec.ts": "import { add } from './calc';\ndescribe('add', () => { it('adds', () => { expect(add(1, 2)).toBe(3); }); });\n",
+  "src/app/calc.ts": "export const add = (a: number, b: number): number => a + b;\nexport const sub = (a: number, b: number): number => a - b;\n",
+  "src/app/empty.spec.ts": "export const helper = 1;\n",
+  "src/app/sub.spec.ts": "import { sub } from './calc';\ndescribe('sub', () => { it('subs', () => { expect(sub(3, 1)).toBe(2); }); });\n"
+ }
+}

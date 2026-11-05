@@ -40,6 +40,7 @@
   gate.py seal --write --gates a,b --ok|--red [--summary S] [--full]   record a run (read-set hashes on disk, right after the execution); --full seals the tree over green records (refused when a read-set moved after its run)
   gate.py seal --check [--branch B --base B --ref R --control-point P]   the push's question: the seal covers the tree the commit carries; exit 1 gates owed · n/a when not required
   gate.py seal --validate                          the map is sound (documentation defined, every gate reads something)
+  gate.py seal --scoped P[,P…] [--json]            EVOL-116: the run of each test file through the seal's dispatch — one command per row (its `scoped`, {paths} interpolated), the paths no row reads; exit 1 when one is unrouted
   gate.py seal --run [--gates a,b] [--full] [--summary S]   the loop's executor (EVOL-057): the plan's executions one per command, each timed, output to <seal.dir>/loop-<gates>.log, the seal recorded right after it, one timing line per gate; --full seals the tree on an all-green map
   gate.py push-log --exit N [--start ISO]          the push's record for the instrument (profile, base, mode, class, start, end, exit) — the pre-push hook's EXIT trap; n/a without verification.logs; exit 0 always
   gate.py aligned [--base B --branch B] [--json]   EVOL-103 [LAW-17]: every accepted-change entry added to a decision log the diff changes (any branch) is ratified (rdr | delegation), its artefacts aligned in the diff, its paths not reverted, a registration-only realignment keeps APPROVED and names a ratified entry; exit 1 red · n/a without a changed log
@@ -384,6 +385,13 @@ def cmd_seal(repo, a):
         r = seal_mod.write(repo, gates, ok=a.ok, summary=a.summary or "", full=a.full, branch=a.branch, base=a.base)
         print(json.dumps(r) if a.json else f"seal: recorded {', '.join(gates) or '(no gate)'} {'ok' if not a.red else 'RED'}{' · full loop sealed' if r['full'] else ''} → {r['path']}")
         return 0
+    if a.scoped is not None:
+        paths = [p for p in a.scoped.split(",") if p.strip()]
+        if not paths:
+            raise GateFault("seal --scoped needs at least one test file path (comma-separated) — an empty list runs nothing and is never a green")
+        r = seal_mod.scoped(repo, paths)
+        print(json.dumps(r) if a.json else seal_mod.render_scoped(r))
+        return 0 if r["ok"] else 1
     if a.validate:
         f = seal_mod.validate(repo)
         print(coherence.render("seal", f, "documentation defined, every gate reads something, the seal's home"))
@@ -658,7 +666,7 @@ def build_parser():
     p = sub.add_parser("one-definition"); p.set_defaults(fn=cmd_one_definition)
     p = sub.add_parser("runtime-surface"); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_runtime_surface)
     p = sub.add_parser("documentation"); p.add_argument("--path", default=None); p.add_argument("--changed", action="store_true"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_documentation)
-    p = sub.add_parser("seal"); p.add_argument("--base", default=None); p.add_argument("--plan", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--write", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--validate", action="store_true"); p.add_argument("--gates", default=""); p.add_argument("--ok", action="store_true"); p.add_argument("--red", action="store_true"); p.add_argument("--summary", default=""); p.add_argument("--full", action="store_true"); p.add_argument("--branch", default=None); p.add_argument("--ref", default="HEAD"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_seal)
+    p = sub.add_parser("seal"); p.add_argument("--base", default=None); p.add_argument("--plan", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--write", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--validate", action="store_true"); p.add_argument("--scoped", default=None, metavar="PATHS"); p.add_argument("--gates", default=""); p.add_argument("--ok", action="store_true"); p.add_argument("--red", action="store_true"); p.add_argument("--summary", default=""); p.add_argument("--full", action="store_true"); p.add_argument("--branch", default=None); p.add_argument("--ref", default="HEAD"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_seal)
     p = sub.add_parser("canary"); p.add_argument("--fixture", action="store_true"); p.add_argument("--expected", action="store_true"); p.add_argument("--check", action="store_true"); p.add_argument("--judge", action="store_true"); p.add_argument("--seen", action="store_true"); p.add_argument("--plan", action="store_true"); p.add_argument("--all", action="store_true"); p.add_argument("--status", action="store_true"); p.add_argument("--lens", default=""); p.add_argument("--model", default=""); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_canary)
     p = sub.add_parser("push-log"); p.add_argument("--exit", type=int, required=True); p.add_argument("--start", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_push_log)
     p = sub.add_parser("scm-protection"); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_scm)

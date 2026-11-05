@@ -242,7 +242,9 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 
 **context diet (EVOL-062).** Refresh `rules/agents.md` (`worker_turn_cap`, `context_result_max_kb`), the four worker definitions (`maxTurns`), the `Stop` hook `session-handoff.sh` and its `settings.json` wiring.
 
-**verification.gates (EVOL-067).** Re-derive `verification.gates` from `--resolve`'s `configures`. A project row is kept field by field: a derived field it lacks (`scoped`, `report`, `red_link`, `red`) is added, a field it carries keeps the project's value, nothing is dropped (EVOL-068). A `docs/setup.md → verification.commands` key moves into its `verification.gates` row (`test_suite` → `tests`, `test_single` → `tests.scoped` with `{paths}`, `lint`, `typecheck`, `build`, `coverage`, `dependency_audit` → `sca`), then the frontmatter key goes. Nothing dropped. Add `verification.skips: []` when absent.
+**verification.gates (EVOL-067).** Write `--resolve --json → gates_upgrade.gates` into `verification.gates` — the merge is the script's, field by field: a derived field the project lacks is added, a value equal to a superseded template value (the registry's `was`) is replaced, a value the project changed is kept (EVOL-068, EVOL-116); report its `replaced` and `kept` lists. A `docs/setup.md → verification.commands` key moves into its `verification.gates` row (`test_suite` → `tests`, `test_single` → `tests.scoped` with `{paths}`, `lint`, `typecheck`, `build`, `coverage`, `dependency_audit` → `sca`), then the frontmatter key goes. Nothing dropped. Add `verification.skips: []` when absent.
+
+**verification.gates per-file (EVOL-116).** The same write: the Java, Go, .NET, Rust, Node and frontend rows move to their per-file `scoped` (red when no test ran), gain `red_reads` (and Rust `inline`), and lose the template's `red: false`; a row the project edited is kept and named in `kept`.
 
 **train.close_ledgers (EVOL-104).** Add the template's `train` block (`close_ledgers`: the paths written once per train — the manifest, the changelog) to `config/quality.json`; `gate.py train` reads it.
 
