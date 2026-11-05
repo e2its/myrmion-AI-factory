@@ -173,11 +173,18 @@ if '"test_roots": {{TRACEABILITY_TEST_ROOTS}}' not in (T / "config/quality.json"
 if Q["traceability"]["test_roots"] != exp.get("test_roots"):   # one definition with the gates' reads (EVOL-067)
     missing.append(f"traceability.test_roots: expected {exp.get('test_roots')}, got {Q['traceability']['test_roots']}")
 from gates import seal as seal_mod   # EVOL-068: the built-in red member, the coverage report and the empty omit list, as the answers select them
-honest = {"red": "red" in seal_mod.vcfg(P)["gates"], "coverage_report": Q["verification"]["gates"].get("coverage", {}).get("report"),
-          "red_link": Q["verification"]["gates"].get("tests", {}).get("red_link"), "omit": Q["verification"].get("coverage", {}).get("omit")}
-want = {"red": exp.get("red"), "coverage_report": exp.get("coverage_report"), "red_link": exp.get("red_link"), "omit": []}
+VC = seal_mod.vcfg(P)["gates"]   # EVOL-116: every scoped row is a red source, in declared order; no `was` lands
+honest = {"red": "red" in VC, "coverage_report": Q["verification"]["gates"].get("coverage", {}).get("report"),
+          "red_link": Q["verification"]["gates"].get("tests", {}).get("red_link"), "omit": Q["verification"].get("coverage", {}).get("omit"),
+          "red_sources": [s["gate"] for s in VC.get("red", {}).get("sources", [])]}
+want = {"red": exp.get("red"), "coverage_report": exp.get("coverage_report"), "red_link": exp.get("red_link"), "omit": [],
+        "red_sources": exp.get("red_sources", [])}
 if honest != want:
-    missing.append(f"EVOL-068 honest tests: expected {want}, got {honest}")
+    missing.append(f"EVOL-068/116 honest tests: expected {want}, got {honest}")
+missing += [f"verification.gates.{g}: carries `{f}` — registry data, never lands (EVOL-116)" for g, r in Q["verification"]["gates"].items()
+            for f in ("was",) if f in r]
+missing += [f"verification.gates.{g}: carries `red: false` — no template row opts out (EVOL-116)" for g, r in Q["verification"]["gates"].items()
+            if r.get("red") is False]
 print(json.dumps({"landed": len(landed), "skipped": len(skipped), "unresolved_json": unresolved, "expect_missing": missing}))
 PY
 ) || { echo "materialize-synthetic: materialisation step failed" >&2; exit 2; }
@@ -236,6 +243,11 @@ if "| DC-18 |" not in cat:
 PY
   # the project's config predates 8.20.0: no `train` and no `contracts` block (EVOL-104, EVOL-115) — their migrations are owed
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
+  # tests command the project edited (kept), no red_reads (added)
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]
+g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-coverage"; g["tests"]["command"]="python -m pytest -q -x"
+[r.pop("red_reads", None) for r in g.values()]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
   URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
   UMISS=$(printf '%s' "$UP" | python3 -c '
@@ -243,8 +255,9 @@ import json, sys
 exp = json.load(open(sys.argv[1]))["expect"]; r = json.loads(sys.stdin.read())
 dc = r["defect_classes"]
 got = {"pending": r["pending"], "migrations": [m["id"] for m in r["migrations_owed"]],
-       "to_add": dc.get("to_add"), "collisions": [c["id"] for c in dc.get("collisions", [])], "to_remove": dc.get("to_remove")}
-want = {**exp, **exp.get("defect_classes", {})}
+       "to_add": dc.get("to_add"), "collisions": [c["id"] for c in dc.get("collisions", [])], "to_remove": dc.get("to_remove"),
+       "replaced": r["gates_upgrade"]["replaced"], "kept": r["gates_upgrade"]["kept"]}
+want = {**exp, **exp.get("defect_classes", {}), **exp.get("gates_upgrade", {})}
 for k in got:
     if got[k] != want.get(k):
         print(f"{k}: expected {want.get(k)}, got {got[k]}")

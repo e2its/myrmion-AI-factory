@@ -2475,12 +2475,14 @@ class HonestTests(unittest.TestCase):
     NEW = 'import sys\nsys.path.insert(0, "src")\nimport app\nassert app.f() == 2\n'   # fails at the base: app has no f there
     WEAK = "assert True\n"                                                            # passes anywhere: could not fail
 
-    def _repo(self, tmp, scoped="python3 {paths}", red_link=None, extra=None):
+    def _repo(self, tmp, scoped="python3 {paths}", red_link=None, extra=None, gates=None, base_files=None):
         tests = {"reads": ["src/**", "tests/**"], "command": "true", "scoped": scoped}
         if red_link is not None:
             tests["red_link"] = red_link
-        self.GATES = {"tests": tests, **(extra or {})}
+        self.GATES = gates if gates is not None else {"tests": tests, **(extra or {})}
         repo = Seal._repo(self, tmp)
+        for rel, text in (base_files or {}).items():
+            write(repo / rel, text)
         q = json.loads((repo / "config/quality.json").read_text())
         q["traceability"] = {"test_roots": ["tests/**"]}
         write(repo / "config/quality.json", json.dumps(q)); self._commit(repo, "roots")
@@ -2546,7 +2548,7 @@ class HonestTests(unittest.TestCase):
             before = set(Path(tempfile.gettempdir()).glob("seal-red-*"))
             r = seal.red_proof(repo, seal.vcfg(repo), "main")
             self.assertFalse(r["ok"]); self.assertIn("could not run", r["reason"]); self.assertIn("scoped", r["reason"])
-            with unittest.mock.patch.object(seal, "_scoped_at_base", side_effect=OSError("disk full")):
+            with unittest.mock.patch.object(seal, "_scoped_run", side_effect=OSError("disk full")):
                 r = seal.red_proof(repo, seal.vcfg(repo), "main")
             self.assertFalse(r["ok"]); self.assertIn("disk full", r["reason"]); self.assertIn("worktree", r["reason"])
             self.assertEqual(self._worktrees(repo), 1, "removed even on a fault"); self.assertEqual(set(Path(tempfile.gettempdir()).glob("seal-red-*")), before)
@@ -2560,33 +2562,38 @@ class HonestTests(unittest.TestCase):
             self.assertFalse(r["ok"], "with the link the dependency resolves at the base: the test could not fail"); self.assertIn("could not fail", r["reason"])
 
     def test_red_false_creates_no_red_gate_and_says_so(self):
-        """RDR «1» (2026-10-21): a stack whose scoped run selects tests by name proves no red — said on every plan and run, never a false block."""
+        """EVOL-116: `red: false` is a project's own opt-out — no red member from that row, said on every plan and run, never a false block."""
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["gates"]["tests"]["red"] = False
             write(repo / "config/quality.json", json.dumps(q)); write(repo / "tests/test_weak.py", self.WEAK)
             self.assertNotIn("red", seal.vcfg(repo)["gates"])
+            note = seal.RED_OPT_OUT.format(gate="tests")
             pl = seal.plan(repo, base="main")
-            self.assertIn(seal.RED_NOT_PROVEN, seal.render_skipped(pl)); self.assertIn(seal.RED_NOT_PROVEN, seal.render(pl))
+            self.assertIn(note, seal.render_skipped(pl)); self.assertIn(note, seal.render(pl))
             r = seal.run(repo, full=True, base="main")
-            self.assertTrue(r["ok"], r["reason"]); self.assertTrue(r["sealed"], "a --full seal owes no red member"); self.assertIn(seal.RED_NOT_PROVEN, seal.render_run(r))
-            self.assertIn(seal.RED_NOT_PROVEN, seal.render_run(seal.run(repo, gates=["tests"], base="main")), "listed on every run")
-            self.assertEqual(seal.RED_NOT_PROVEN, "red not proven for this stack: its scoped run selects tests by name, not by file — give `tests.scoped` a per-file command and drop `red: false` to enable the proof")
+            self.assertTrue(r["ok"], r["reason"]); self.assertTrue(r["sealed"], "a --full seal owes no red member"); self.assertIn(note, seal.render_run(r))
+            self.assertIn(note, seal.render_run(seal.run(repo, gates=["tests"], base="main")), "listed on every run")
+            self.assertTrue(note.startswith("red not proven for `tests`: the project declares `red: false`"))
             q["verification"]["gates"]["tests"]["red"] = "no"; write(repo / "config/quality.json", json.dumps(q))
             with self.assertRaisesRegex(GateFault, "red must be true or false"):
                 seal.vcfg(repo)
 
     def test_registry_red_rows_and_python_scoped_prefix(self):
+        """EVOL-116: no template row opts out of the red; every test row says which files it proves."""
         reg = next((p for p in (HERE.parents[1] / discovery.REGISTRY, HERE.parents[1] / "setup/discovery_registry.json") if p.is_file()), None)
         if reg is None:
             self.skipTest("the registry is not delivered beside these gates")
-        rows = {lit: c["verification.gates"] for q in json.loads(reg.read_text())["questions"] for k, s in q["keys"].items()
-                if k == "backend.runtime" for lit, c in s.get("configures", {}).items()}
-        for rt in ("Java", "Go", ".NET", "Rust"):
-            self.assertIs(rows[rt]["tests"].get("red"), False, f"{rt}: its scoped run selects by name — no red proof")
-        for rt in ("Python", "Node.js"):
-            self.assertNotIn("red", rows[rt]["tests"], f"{rt}: runs one file faithfully")
-        self.assertTrue(rows["Python"]["tests"]["scoped"].startswith("PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH} python -m pytest {paths}"), "the worktree's src wins over an editable install")
+        rows = {(k, lit): c["verification.gates"] for q in json.loads(reg.read_text())["questions"] for k, s in q["keys"].items()
+                if k in ("backend.runtime", "frontend.framework") for lit, c in s.get("configures", {}).items() if "verification.gates" in c}
+        for (k, lit), gates in rows.items():
+            row = gates["tests" if k == "backend.runtime" else "frontend-tests"]
+            self.assertNotIn("red", row, f"{lit}: no template row carries red: false")
+            self.assertTrue(row.get("scoped") and "{paths}" in row["scoped"], f"{lit}: a per-file scoped run")
+            self.assertTrue(row.get("red_reads"), f"{lit}: the test files it proves")
+        rust = rows[("backend.runtime", "Rust")]["tests"]
+        self.assertEqual(rust["inline"]["start"], "^#\\[cfg\\(test\\)\\]\\s*$", "Rust's in-source tests: the graft (owner RDR «2»)")
+        self.assertTrue(rows[("backend.runtime", "Python")]["tests"]["scoped"].startswith("PYTHONPATH=src${PYTHONPATH:+:$PYTHONPATH} python -m pytest {paths}"), "the worktree's src wins over an editable install")
 
     def test_full_seal_honours_an_unmoved_never_recorded_gate(self):
         """--full uses _owed's rule — a gate never recorded whose read-set equals the merge-base's is covered; one that moved is refused."""
@@ -2602,23 +2609,124 @@ class HonestTests(unittest.TestCase):
                 seal.write(repo, ["tests"], ok=True, full=True, base="main")
 
     def test_red_member_absent_is_said(self):
-        """tests declared, red not false, but no scoped run or no test roots — the absence is listed, never silent."""
+        """no row with scoped, or a row with no test reads — the absence is listed, never silent."""
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             q = json.loads((repo / "config/quality.json").read_text()); del q["verification"]["gates"]["tests"]["scoped"]
             write(repo / "config/quality.json", json.dumps(q))
-            self.assertIn("red not proven: no `tests.scoped` — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")))
+            self.assertIn("red not proven: no gate declares `scoped`", seal.render_skipped(seal.plan(repo, base="main")))
             q["verification"]["gates"]["tests"]["scoped"] = "x {paths}"; del q["traceability"]; write(repo / "config/quality.json", json.dumps(q))
-            self.assertIn("red not proven: no `traceability.test_roots` — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")))
-            q["verification"]["gates"] = {"frontend-tests": q["verification"]["gates"]["tests"]}; write(repo / "config/quality.json", json.dumps(q))
-            self.assertIn("red not proven: no `tests` gate — declare it to enable the proof", seal.render_skipped(seal.plan(repo, base="main")), "a map without `tests` (frontend-only) says so")
+            self.assertIn("red not proven for `tests`: no `red_reads` and no `traceability.test_roots`", seal.render_skipped(seal.plan(repo, base="main")))
+            q["verification"]["gates"] = {"frontend-tests": {**q["verification"]["gates"]["tests"], "red_reads": ["tests/**"]}}; write(repo / "config/quality.json", json.dumps(q))
+            self.assertEqual(seal.vcfg(repo)["gates"]["red"]["reads"], ["tests/**"], "a frontend-only map proves its red through frontend-tests")
+            self.assertEqual(seal.render_skipped(seal.plan(repo, base="main")), "")
+
+    def test_head_first_a_failing_or_empty_run_is_red(self):
+        """EVOL-116: a test proves its red only when it passes with its change and runs a test — the row's own check fails an empty run."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, scoped="grep -q assert {paths} && python3 {paths}")
+            write(repo / "tests/test_new.py", self.NEW); write(repo / "tests/test_broken.py", "assert 1 == 2\n"); write(repo / "tests/test_empty.py", "x = 1\n")
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertFalse(r["ok"]); self.assertIn("fails at the head or runs no test", r["reason"])
+            for f in ("tests/test_broken.py", "tests/test_empty.py"):
+                self.assertIn(f, r["reason"])
+            self.assertNotIn("tests/test_new.py (", r["reason"]); self.assertIn("tests/test_new.py: exit 1 at the base — proven red", "\n".join(r["detail"]))
+            self.assertEqual(self._worktrees(repo), 1)
+            (repo / "tests/test_broken.py").unlink(); (repo / "tests/test_empty.py").unlink()
+            self.assertTrue(seal.red_proof(repo, seal.vcfg(repo), "main")["ok"])
+
+    def test_rows_dispatch_by_red_reads(self):
+        """EVOL-116: each changed test file is proven by the first row whose red_reads hold it; a helper is no test file."""
+        gates = {"tests": {"reads": ["src/**", "tests/**"], "command": "true", "scoped": "python3 {paths}", "red_reads": ["tests/**/test_*.py"]},
+                 "frontend-tests": {"reads": ["web/**"], "command": "true", "scoped": "sh {paths}", "red_reads": ["web/**/*.test.sh"]}}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates=gates)
+            self.assertEqual(seal.vcfg(repo)["gates"]["red"]["reads"], ["tests/**/test_*.py", "web/**/*.test.sh"])
+            write(repo / "tests/test_new.py", self.NEW); write(repo / "tests/conftest.py", "x = 1\n")
+            write(repo / "web/a.test.sh", "test -f web/a.js\n"); write(repo / "web/a.js", "1\n")
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertTrue(r["ok"], r["reason"]); self.assertEqual(r["files"], ["tests/test_new.py", "web/a.test.sh"], "conftest.py is a helper")
+            sc = seal.scoped(repo, ["tests/test_new.py", "web/a.test.sh", "./tests/test_x.py", "docs/a.md"])
+            self.assertEqual([(x["gate"], x["files"]) for x in sc["runs"]], [("tests", ["tests/test_new.py", "tests/test_x.py"]), ("frontend-tests", ["web/a.test.sh"])])
+            self.assertEqual(sc["runs"][0]["command"], "python3 tests/test_new.py tests/test_x.py"); self.assertEqual(sc["unrouted"], ["docs/a.md"]); self.assertFalse(sc["ok"])
+            q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["gates"]["frontend-tests"]["red"] = False
+            write(repo / "config/quality.json", json.dumps(q))
+            sc = seal.scoped(repo, ["web/a.test.sh"])
+            self.assertEqual(sc["runs"][0]["gate"], "frontend-tests", "an opted-out row still runs its files"); self.assertIn(seal.RED_OPT_OUT.format(gate="frontend-tests"), sc["notices"])
+            self.assertIn("unrouted", seal.render_scoped(seal.scoped(repo, ["x.md"])))
+
+    def test_shared_reads_are_said_and_paths_stay_one_word(self):
+        """EVOL-116: a glob two rows read goes to the first row — said, never silent; a path is one shell word, never an option."""
+        js = ["src/**/*.test.*"]
+        gates = {"tests": {"reads": ["src/**"], "command": "true", "scoped": "sh {paths}", "red_reads": js},
+                 "frontend-tests": {"reads": ["src/**"], "command": "true", "scoped": "sh {paths}", "red_reads": js + ["web/**/*.test.*"]}}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates=gates)
+            notes = seal.scoped(repo, ["src/a.test.sh"])["notices"]
+            self.assertEqual(len([n for n in notes if "src/**/*.test.*" in n and "`frontend-tests`" in n and "`tests`" in n]), 1, notes)
+            self.assertFalse([n for n in notes if "web/**" in n], "a glob only one row reads is no notice")
+            cmd = seal.scoped(repo, ["src/-x.test.sh", "src/a b.test.sh"])["runs"][0]["command"]
+            self.assertEqual(cmd, "sh src/-x.test.sh 'src/a b.test.sh'")
+            self.assertEqual(seal._arg("-e.test.go"), "./-e.test.go"); self.assertEqual(seal._arg("a;b"), "'a;b'")
+            self.assertEqual(seal._last(subprocess.CompletedProcess([], 1, "\x1b[31mboom\x07\n", "")), "?[31mboom?")
+
+    INLINE = {"start": "^# tests$", "reads": ["src/**/*.py"], "scoped": "python3 {paths}"}
+
+    def test_inline_tests_are_grafted_onto_the_base(self):
+        """EVOL-116, owner RDR «2»: a test that lives in the code file runs at the base on the base's code."""
+        gates = {"tests": {"reads": ["src/**", "tests/**"], "command": "true", "scoped": "python3 {paths}", "red_reads": ["tests/*.py"], "inline": self.INLINE}}
+        base = {"src/fix.py": "def add(a, b):\n    return a + b + 1\n",                      # a bug, no tests yet
+                "src/weak.py": "def one():\n    return 1",                                    # no newline at the end: the graft keeps lines apart
+                "src/same.py": "def k():\n    return 1\n# tests\nassert k() == 1\n",
+                "src/many.py": "def m():\n    return 1\n"}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates=gates, base_files=base)
+            write(repo / "src/fix.py", "def add(a, b):\n    return a + b\n# tests\nassert add(1, 2) == 3\n")
+            write(repo / "src/weak.py", "def one():\n    return 1\n\ndef two():\n    return 2\n# tests\nassert one() == 1\n")
+            write(repo / "src/same.py", "def k():\n    return 1 + 0\n# tests\nassert k() == 1\n")
+            write(repo / "src/many.py", "def m():\n    return 2\n# tests\nassert m() == 2\n# tests\nassert m()\n")
+            write(repo / "src/new.py", "def n():\n    return 3\n# tests\nassert n() == 3\n")
+            write(repo / "src/plain.py", "x = 1\n")
+            r = seal.red_proof(repo, seal.vcfg(repo), "main")
+            self.assertEqual(r["files"], ["src/fix.py", "src/new.py", "src/weak.py"], "same tail and no block: no test changed; many: declared")
+            self.assertFalse(r["ok"]); self.assertIn("could not fail", r["reason"]); self.assertIn("src/weak.py", r["reason"])
+            d = "\n".join(r["detail"])
+            self.assertIn("src/fix.py: exit 1 at the base — proven red", d); self.assertIn("src/new.py: exit 1 at the base — proven red", d)
+            self.assertIn("src/many.py: not proven — more than one test block", d)
+            self.assertEqual(self._worktrees(repo), 1)
+            self.assertEqual(seal._graft(None, "a\n# tests\nt\n", "^# tests$"), ("test", "# tests\nt\n"))
+            self.assertEqual(seal._graft("b\n", "a\n", "^# tests$"), ("none", None))
+            st = "^# tests$"   # the base already holds a block: its own block goes, the head's comes — never both
+            self.assertEqual(seal._graft("def e():\n    return 1\n# tests\nassert e()\n", "def e():\n    return 2\n# tests\nassert e() == 2\n", st),
+                             ("test", "def e():\n    return 1\n# tests\nassert e() == 2\n"))
+            self.assertEqual(seal._graft("b", "a\n# tests\nt\n", st), ("test", "b\n# tests\nt\n"), "a base with no final newline stays a line apart")
+            self.assertEqual(seal._graft("a\n# tests\nx\n# tests\ny\n", "a\n# tests\nz\n", st), ("many", None), "two blocks at the base: declared")
+
+    def test_a_declared_unproven_file_is_said_on_a_green_run(self):
+        """EVOL-116: a changed inline file with two test blocks is never proven — the loop's green says so, never silent."""
+        gates = {"tests": {"reads": ["src/**"], "command": "true", "scoped": "python3 {paths}", "red_reads": ["tests/*.py"], "inline": self.INLINE}}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates=gates, base_files={"src/many.py": "def m():\n    return 1\n"})
+            write(repo / "src/many.py", "def m():\n    return 2\n# tests\nassert m() == 2\n# tests\nassert m()\n")
+            r = seal.run(repo, gates=["red"], base="main")
+            self.assertIn("src/many.py: not proven — more than one test block", r["reason"])
+
+    def test_inline_is_validated(self):
+        for bad, msg in (({"start": "(", "reads": ["src/**"], "scoped": "x {paths}"}, "no regex"), ({"start": "x", "reads": [], "scoped": "x {paths}"}, "non-empty list"),
+                         ({"start": "x", "reads": ["s"], "scoped": "x"}, "with \\{paths\\}"), ({"start": "x"}, "exactly")):
+            with self.subTest(msg=msg), tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp)
+                q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["gates"]["tests"]["inline"] = bad
+                write(repo / "config/quality.json", json.dumps(q))
+                with self.assertRaisesRegex(GateFault, msg):
+                    seal.vcfg(repo)
 
     def test_red_proof_timeout_and_project_row(self):
         """a run that does not finish has its own reason; a project row named `red` is refused."""
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             write(repo / "tests/test_new.py", self.NEW)
-            with unittest.mock.patch.object(seal, "_scoped_at_base", side_effect=subprocess.TimeoutExpired("x", 1800)):
+            with unittest.mock.patch.object(seal, "_scoped_run", side_effect=subprocess.TimeoutExpired("x", 1800)):
                 r = seal.red_proof(repo, seal.vcfg(repo), "main")
             self.assertFalse(r["ok"]); self.assertIn("did not finish within 1800 s", r["reason"]); self.assertNotIn("laid out", r["reason"])
             q = json.loads((repo / "config/quality.json").read_text()); q["verification"]["gates"]["red"] = {"reads": ["tests/**"], "command": "x"}
@@ -2664,6 +2772,51 @@ class HonestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._cov_repo(tmp, report=None)
             self.assertIn("no report declared", seal.coverage_table(repo, seal.vcfg(repo)))
+
+
+class GatesUpgrade(unittest.TestCase):
+    """EVOL-116: the upgrade merge of verification.gates is the script's — added, replaced (a superseded template value), kept."""
+
+    def test_merge_added_replaced_kept(self):
+        derived = {"verification.gates": {"tests": {"command": "go test ./...", "scoped": "NEW {paths}", "red_reads": ["**/*_test.go"], "reads": ["src/**"]},
+                                          "frontend-tests": {"command": "npx vitest run", "scoped": "npx vitest run {paths}", "reads": ["web/**"]}},
+                   "verification.gates.was": {"tests": {"scoped": ["go test {paths} -v"], "red": [False]}}}
+        cases = (({"scoped": "go test {paths} -v", "red": False}, ["tests.scoped", "tests.red"], [], {"scoped": "NEW {paths}"}),
+                 ({"scoped": "mine {paths}", "red": False}, ["tests.red"], ["tests.scoped"], {"scoped": "mine {paths}"}))
+        for mine, replaced, kept, want in cases:
+            with self.subTest(mine=mine), tempfile.TemporaryDirectory() as tmp:
+                repo = Path(tmp)
+                write(repo / "config/quality.json", json.dumps({"verification": {"gates": {"tests": {"reads": ["mine/**"], "command": "go test ./...", **mine}, "lint": {"reads": ["x"], "command": "l"}}}}))
+                r = discovery.gates_upgrade(repo, derived)
+                self.assertEqual(r["replaced"], replaced); self.assertEqual(r["kept"], kept)
+                self.assertEqual(r["added"], ["tests.red_reads", "frontend-tests"])
+                t = r["gates"]["tests"]
+                self.assertEqual(t["scoped"], want["scoped"]); self.assertNotIn("red", t, "the superseded opt-out goes"); self.assertEqual(t["reads"], ["mine/**"], "reads stay the project's")
+                self.assertEqual(r["gates"]["lint"], {"reads": ["x"], "command": "l"}, "a row the registry does not derive is untouched")
+                self.assertIn("frontend-tests", r["gates"])
+
+    def test_unreadable_config_is_never_no_rows(self):
+        """A present config/quality.json that does not parse stops the merge — read as «no rows» it would drop the project's own."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            self.assertEqual(discovery.gates_upgrade(repo, {"verification.gates": {"t": {"command": "c"}}})["added"], ["t"], "absent: every row is added")
+            for bad in ("{not json", "[1, 2]", '{"verification": {"gates": ["tests"]}}'):
+                write(repo / "config/quality.json", bad)
+                with self.subTest(bad=bad), self.assertRaises(GateFault):
+                    discovery.gates_upgrade(repo, {"verification.gates": {"t": {"command": "c"}}})
+
+    def test_v12_row_shapes(self):
+        ok = {"verification.gates": {"tests": {"command": "x", "scoped": "x {paths}", "red_reads": ["t/**"], "inline": {"start": "^#$", "reads": ["s/**"], "scoped": "y {paths}"}, "was": {"scoped": ["old"]}}}}
+        self.assertEqual(discovery._gate_rows("w", ok), [])
+        for field, bad in (("red_reads", []), ("inline", {"start": "(", "reads": ["s"], "scoped": "y {paths}"}), ("inline", {"start": "x"}), ("was", {"nope": ["a"]}), ("was", {"scoped": []})):
+            row = json.loads(json.dumps(ok)); row["verification.gates"]["tests"][field] = bad
+            with self.subTest(field=field, bad=bad):
+                self.assertTrue(any(f"`{field}`" in m for m in discovery._gate_rows("w", row)), discovery._gate_rows("w", row))
+
+    def test_was_never_lands(self):
+        reg = {"questions": [{"id": "Q", "keys": {"backend.runtime": {"options": ["Go"], "configures": {"Go": {"verification.gates": {"tests": {"command": "c", "was": {"command": ["o"]}}}}}}}}]}
+        out = discovery.configures(reg, {"backend.runtime": "Go"})
+        self.assertNotIn("was", out["verification.gates"]["tests"]); self.assertEqual(out["verification.gates.was"], {"tests": {"command": ["o"]}})
 
 
 RULE_AGENTS_LENSES = RULE_AGENTS.replace(
@@ -4416,7 +4569,7 @@ class Discovery(unittest.TestCase):
             ("Node.js", "tests", "command", {}, "npx", "jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --no-cache"),
             ("Node.js", "tests", "scoped", {".mocharc.yml": ""}, "npx", "mocha t.js"),
             ("Node.js", "tests", "scoped", {"vitest.config.js": ""}, "npx", "vitest run t.js"),
-            ("Node.js", "tests", "scoped", {}, "npx", "jest t.js --no-coverage --verbose"),
+            ("Node.js", "tests", "scoped", {}, "npx", "jest --runTestsByPath t.js --no-coverage --verbose"),
         ]
         for rt, gate, which, files, tool, args in cases:
             with self.subTest(rt=rt, gate=gate, which=which, files=sorted(files)), tempfile.TemporaryDirectory() as tmp:
@@ -4839,6 +4992,10 @@ class Cli(unittest.TestCase):
             subprocess.run(["git", "-C", str(srepo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "code"], check=True, capture_output=True)
             r = gp("seal", "--check", "--base", "main"); self.assertEqual(r.returncode, 1); self.assertIn("moved: src/app.py", r.stdout)
             self.assertEqual(gp("seal", "--plan", "--base", "main").returncode, 0)
+            self.assertEqual(gp("seal", "--scoped", "\t,\n").returncode, 2, "only blanks: no path")
+            r = gp("seal", "--scoped", " , "); self.assertEqual(r.returncode, 2, "EVOL-116: an empty --scoped list runs nothing, never a green"); self.assertIn("at least one test file", r.stderr)
+            r = gp("seal", "--scoped", "x.md", "--json"); self.assertEqual(r.returncode, 1, "a path no row reads: exit 1")
+            self.assertEqual(json.loads(r.stdout)["unrouted"], ["x.md"]); self.assertIn("runs", json.loads(r.stdout))
             r = gp("seal", "--write", "--gates", "tests"); self.assertEqual(r.returncode, 2, "no outcome flag is never a green"); self.assertIn("--ok or --red", r.stderr)
             self.assertEqual(gp("seal", "--write", "--gates", "tests,coverage,lint,docs-build", "--ok", "--full", "--base", "main").returncode, 0)
             self.assertEqual(gp("seal", "--check", "--base", "main").returncode, 0)

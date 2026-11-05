@@ -79,7 +79,7 @@ DETECT = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|#))([^#\s]+)#(/[^#\s]*)$")
 
 TIERS = (0, 1, 2)
 TOP_FIELDS = ("questions", "derived", "constants", "placeholder_baseline", "migrations")
-GATE_ROW_FIELDS = ("command", "scoped", "red_link", "report", "red")
+GATE_ROW_FIELDS = ("command", "scoped", "red_link", "report", "red", "red_reads", "inline", "was")   # `was`: superseded template values, registry-only (EVOL-116)
 LOOP_PARTS = {"backend.runtime": ("tests", "sca"), "frontend.framework": ("frontend-tests",)}   # each answered part needs one of its gates
 STOP = ("the project has no declared way to verify {parts} — declare its gate rows (SETUP discovery § verification coverage, "
         "docs/setup.md → verification.gates) and run --generate again")
@@ -454,7 +454,49 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
                                   or (ver < (_semver(m.get("since")) or (0, 0, 0)) and not _detected(repo, str(m.get("detect")))))]
         out["templates_to_add"] = [k for k in landing if target(k) and not (repo / target(k)).exists()]
         out["templates_to_remove"] = [k for k in skipped if target(k) and (repo / target(k)).exists()]
+        out["gates_upgrade"] = gates_upgrade(repo, out["configures"])
+    out["configures"].pop("verification.gates.was", None)
     return out
+
+
+def gates_upgrade(repo: Path, conf: dict) -> dict:
+    """The project's verification.gates against the derived rows, field by field (EVOL-067, EVOL-116): a field it lacks is
+    added; a value equal to a superseded template value (`was`) is replaced — dropped when the row no longer derives it;
+    a value it changed is kept. Nothing else moves. {gates, added, replaced, kept}, each list `<gate>.<field>`."""
+    derived, was = conf.get("verification.gates") or {}, conf.get("verification.gates.was") or {}
+    q = repo / "config/quality.json"   # absent: no rows yet; present and unreadable: never read as «no rows» (it would drop the project's own)
+    try:
+        have = (((json.loads(q.read_text(encoding="utf-8")) if q.is_file() else {}).get("verification") or {}).get("gates")) or {}
+    except (OSError, ValueError) as e:
+        raise GateFault(f"config/quality.json cannot be read ({e}) — repair it, then run the upgrade again; its gate rows are never guessed")
+    except AttributeError:
+        raise GateFault("config/quality.json is not a JSON object — repair it, then run the upgrade again; its gate rows are never guessed") from None
+    if not isinstance(have, dict):
+        raise GateFault("config/quality.json → verification.gates is not a map of rows — repair it, then run the upgrade again; its gate rows are never guessed")
+    gates, added, replaced, kept = {}, [], [], []
+    for name in list(have) + [n for n in derived if n not in have]:
+        mine, new, old = have.get(name), derived.get(name), was.get(name) or {}
+        if not isinstance(mine, dict) or not isinstance(new, dict):
+            gates[name] = mine if isinstance(mine, dict) else new
+            if not isinstance(mine, dict):
+                added.append(name)
+            continue
+        row = dict(mine)
+        for f in list(dict.fromkeys(list(mine) + list(new))):
+            if f == "reads":
+                continue
+            if f not in mine:
+                row[f] = new[f]; added.append(f"{name}.{f}")
+            elif mine[f] in (old.get(f) or []):
+                if f in new:
+                    row[f] = new[f]
+                else:
+                    row.pop(f)
+                replaced.append(f"{name}.{f}")
+            elif f in new and mine[f] != new[f]:
+                kept.append(f"{name}.{f}")
+        gates[name] = row
+    return {"gates": gates, "added": added, "replaced": replaced, "kept": kept}
 
 
 def _tool_bound(reg: dict) -> dict[str, list[str]]:
@@ -532,6 +574,9 @@ def configures(reg: dict, ans: dict) -> dict:
     thr = ans.get("quality.security_scan.sca_threshold")
     for name, row in out.get("verification.gates", {}).items():
         row.pop("_from", None)
+        was = row.pop("was", None)
+        if was:
+            out.setdefault("verification.gates.was", {})[name] = was   # read by the upgrade merge only; never lands in the project
         if isinstance(row.get("command"), str) and thr is not None:
             row["command"] = row["command"].replace("{sca_threshold}", canon(thr))
         row["reads"] = reads
@@ -586,6 +631,9 @@ def render_resolve(r: dict) -> str:
         lines += [f"    > {m['id']} (since {m['since']}) — apply: {m['apply']}" for m in r["migrations_owed"]]
         lines += [f"  templates to add ({len(r['templates_to_add'])}):"] + [f"    + {k}" for k in r["templates_to_add"]]
         lines += [f"  templates to remove — offer, never silently ({len(r['templates_to_remove'])}):"] + [f"    - {k}" for k in r["templates_to_remove"]]
+        gu = r.get("gates_upgrade") or {}
+        for label, k in (("added", "added"), ("replaced — a superseded template value", "replaced"), ("kept — the project changed it", "kept")):
+            lines += [f"  verification.gates {label} ({len(gu.get(k, []))})" + (f": {', '.join(gu[k])}" if gu.get(k) else "")]
         if "to_add" in dc:
             lines += [f"  defect classes to add ({len(dc['to_add'])}):"] + [f"    + {i}" for i in dc["to_add"]]
             lines += [f"  defect classes to remove — offer, never silently ({len(dc['to_remove'])}):"] + [f"    - {i}" for i in dc["to_remove"]]
@@ -1173,7 +1221,7 @@ def _gate_rows(where: str, rows) -> list[str]:
     if gates is None:
         return out
     if not isinstance(gates, dict):
-        return [f"V12 · {where}: verification.gates is {{<gate>: {{command, scoped?, red_link?, report?, red?}}}}"]
+        return [f"V12 · {where}: verification.gates is {{<gate>: {{command, scoped?, red_link?, report?, red?, red_reads?, inline?, was?}}}}"]
     for g, row in gates.items():
         if not isinstance(row, dict):
             out.append(f"V12 · {where}: gate `{g}` is not a row {{command, …}}"); continue
@@ -1181,8 +1229,25 @@ def _gate_rows(where: str, rows) -> list[str]:
         if not isinstance(row.get("command"), str) or not row["command"].strip():
             out.append(f"V12 · {where}: gate `{g}` has no `command`")
         if "red" in row and not isinstance(row["red"], bool):
-            out.append(f"V12 · {where}: gate `{g}`: `red` is true or false — false when its scoped run selects tests by name, not by file (EVOL-068)")
+            out.append(f"V12 · {where}: gate `{g}`: `red` is true or false — a project's own opt-out; no template row carries it (EVOL-116)")
+        if "red_reads" in row and not (isinstance(row["red_reads"], list) and row["red_reads"] and all(isinstance(x, str) for x in row["red_reads"])):
+            out.append(f"V12 · {where}: gate `{g}`: `red_reads` is a non-empty list of globs — the test files the row proves")
+        inl = row.get("inline")
+        if inl is not None and not (isinstance(inl, dict) and set(inl) == {"start", "reads", "scoped"} and isinstance(inl["start"], str) and _is_regex(inl["start"])
+                                    and isinstance(inl["reads"], list) and inl["reads"] and isinstance(inl["scoped"], str) and "{paths}" in inl["scoped"]):
+            out.append(f"V12 · {where}: gate `{g}`: `inline` is {{start: regex, reads: [globs], scoped: command with {{paths}}}}")
+        was = row.get("was")
+        if was is not None and not (isinstance(was, dict) and all(f in GATE_ROW_FIELDS and f != "was" and isinstance(v, list) and v for f, v in was.items())):
+            out.append(f"V12 · {where}: gate `{g}`: `was` is {{<row field>: [superseded template values]}}")
     return out
+
+
+def _is_regex(s: str) -> bool:
+    try:
+        re.compile(s)
+        return True
+    except re.error:
+        return False
 
 
 def _v12(reg: dict) -> list[str]:

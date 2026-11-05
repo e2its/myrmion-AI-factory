@@ -1,0 +1,22 @@
+{
+ "key": "backend.runtime",
+ "literal": "Node.js",
+ "gate": "tests",
+ "install": "npm install --no-audit --no-fund --silent mocha@10.8.2",
+ "expect": {
+  "tests/add.test.js": "proven",
+  "tests/sub.test.js": "could not fail",
+  "tests/empty.test.js": "head"
+ },
+ "base": {
+  ".mocharc.json": "{\"spec\": []}\n",
+  "package.json": "{\"name\": \"demo\", \"version\": \"1.0.0\", \"private\": true}\n",
+  "src/calc.js": "exports.add = (a, b) => a + b + 1;\nexports.sub = (a, b) => a - b;\n"
+ },
+ "head": {
+  "src/calc.js": "exports.add = (a, b) => a + b;\nexports.sub = (a, b) => a - b;\n",
+  "tests/add.test.js": "const assert = require('assert');\nconst { add } = require('../src/calc');\nit('adds', () => { assert.strictEqual(add(1, 2), 3); });\n",
+  "tests/empty.test.js": "module.exports = { helper: () => 1 };\n",
+  "tests/sub.test.js": "const assert = require('assert');\nconst { sub } = require('../src/calc');\nit('subs', () => { assert.strictEqual(sub(3, 1), 2); });\n"
+ }
+}

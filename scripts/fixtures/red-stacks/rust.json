@@ -1,0 +1,24 @@
+{
+ "key": "backend.runtime",
+ "literal": "Rust",
+ "gate": "tests",
+ "expect": {
+  "tests/add.rs": "proven",
+  "tests/sub.rs": "could not fail",
+  "tests/empty.rs": "head",
+  "src/lib.rs": "proven",
+  "src/sub.rs": "could not fail"
+ },
+ "base": {
+  "Cargo.toml": "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+  "src/lib.rs": "pub mod sub;\n\npub fn add(a: i32, b: i32) -> i32 {\n    a + b + 1\n}\n",
+  "src/sub.rs": "pub fn sub(a: i32, b: i32) -> i32 {\n    a - b\n}\n"
+ },
+ "head": {
+  "src/lib.rs": "pub mod sub;\n\npub fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn adds_in_source() {\n        assert_eq!(add(1, 2), 3);\n    }\n}\n",
+  "src/sub.rs": "pub fn sub(a: i32, b: i32) -> i32 {\n    a - b\n}\n\n#[cfg(test)]\nmod tests {\n    use super::*;\n\n    #[test]\n    fn subs_in_source() {\n        assert_eq!(sub(3, 1), 2);\n    }\n}\n",
+  "tests/add.rs": "#[test]\nfn adds() {\n    assert_eq!(demo::add(1, 2), 3);\n}\n",
+  "tests/empty.rs": "#[allow(dead_code)]\nfn helper() -> i32 {\n    1\n}\n",
+  "tests/sub.rs": "#[test]\nfn subs() {\n    assert_eq!(demo::sub::sub(3, 1), 2);\n}\n"
+ }
+}

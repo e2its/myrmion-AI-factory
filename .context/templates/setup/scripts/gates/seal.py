@@ -39,15 +39,21 @@ skips          EVOL-067 — `verification.skips [{gate, reason, at, until}]`: a 
 canary         EVOL-067 — when the map declares `secrets`, `--run` first commits the lens canary's planted credential
                into a temporary repository outside the tree and runs `security_scan.secrets_command` there; nothing
                found, or a scanner that cannot run, makes the run red before any execution.
-red            EVOL-068 — the built-in member that proves the red: present whenever `gates.tests` declares `scoped` and
-               `traceability.test_roots` is set; reads the test roots (its seal caches by the test files' bytes). The
-               diff base's merge-base is checked out as a `git worktree` outside the tree (always removed), the test files
-               the diff adds or changes are laid over it, the tests row's `red_link` paths linked from the working tree, and
-               `tests.scoped` runs one file at a time: each must fail. A file that passes there could not fail (red); a
-               worktree or a runner that cannot run is red with its repair; no test file changed costs nothing. Limits: per
-               file; a new file failing only because its module is absent at the base counts as red; who wrote it is moot.
-               A tests row with `red: false` (a scoped run that selects tests by name, not by file) has no red member, and
-               every plan and run lists RED_NOT_PROVEN beside the live skips.
+red            EVOL-068, EVOL-116 — the built-in member that proves the red. Its sources are the gate rows that declare
+               `scoped` (no gate name is special), in declared order, each proving the test files its `red_reads` hold
+               (default `traceability.test_roots`); it reads their union (its seal caches by the test files' bytes). Each
+               test file the diff adds or changes runs with its row's `scoped`, one file per run: at the head first, in the
+               working tree — a non-zero exit is red (fails at the head, or runs no test: the rows' own check) — then at
+               the diff base's merge-base, checked out as a `git worktree` outside the tree (always removed), the file laid
+               over it and the row's `red_link` paths linked from the working tree: there it must fail. A file that passes
+               there could not fail (red); a worktree or a runner that cannot run is red with its repair; no test file
+               changed costs nothing. A row's `inline {start, reads, scoped}` proves tests that live in the code file: a
+               changed file under `inline.reads` with exactly one `start` line at the head, whose tail from it moved, is
+               grafted — the base file's lines before its own `start`, then the head's from `start` on; more than one
+               block is declared, never guessed. Limits: per file; a new file failing only because its module is absent at
+               the base counts as red; who wrote it is moot. A row with `red: false` (the project's own opt-out) proves
+               nothing, and every plan and run lists its notice beside the live skips.
+               `scoped(repo, paths)` (`gate.py seal --scoped`) is the same dispatch for the workers and BVL.
 coverage       EVOL-068 — after the `coverage` member ran, `seal --run` writes `coverage-table.md` beside the logs: per file
                lines, covered, % from the row's `report` (LCOV); a runtime-surface file the report lacks, not a test file and
                not in `verification.coverage.omit`, is listed «not measured»; no `report` declared is said in the table.
@@ -66,14 +72,14 @@ import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from .common import GateFault, _glob_regex, key
+from .common import GateFault, _glob_regex, clean, key
 
 DEFAULT_SEAL_DIR = ".claude/state"
 SECURITY = {"secrets", "sast", "sca"}
 SKIP_FIELDS = ("gate", "reason", "at", "until")
 RED = "red"                         # EVOL-068: the built-in member that proves the red
-RED_NOT_PROVEN = ("red not proven for this stack: its scoped run selects tests by name, not by file — "
-                  "give `tests.scoped` a per-file command and drop `red: false` to enable the proof")
+RED_OPT_OUT = ("red not proven for `{gate}`: the project declares `red: false` — give `{gate}.scoped` a per-file command "
+               "that fails when no test ran, then drop `red: false` to enable the proof")
 COVERAGE_TABLE = "coverage-table.md"
 CI_REASON = ("the seal is local state honoured at the push (pre-push, gate.py profile --run) and is not on this runner; "
              "CI does not run the loop — a push that bypasses the hook bypasses the loop; the project's own CI test job, "
@@ -166,20 +172,35 @@ def vcfg(repo: Path) -> dict:
         if cmd is not None and not isinstance(cmd, str):
             raise GateFault(f"verification.gates.{name}.command must be a string or null")
         if name == RED:
-            raise GateFault(f"verification.gates.{RED} is the loop's built-in member (EVOL-068) — it runs from tests.scoped; rename the project's row")
+            raise GateFault(f"verification.gates.{RED} is the loop's built-in member (EVOL-068) — it runs from the rows' `scoped`; rename the project's row")
         for f, ok in (("scoped", isinstance(g.get("scoped"), str)), ("report", isinstance(g.get("report"), str)),
-                      ("red_link", isinstance(g.get("red_link"), list) and all(isinstance(x, str) for x in g.get("red_link", []))),
+                      ("red_link", _strs(g.get("red_link"))), ("red_reads", _strs(g.get("red_reads")) and bool(g.get("red_reads"))),
                       ("red", isinstance(g.get("red"), bool))):
             if f in g and not ok:
-                raise GateFault(f"verification.gates.{name}.{f} must be {'a list of paths' if f == 'red_link' else 'true or false' if f == 'red' else 'a string'}")
-        out_gates[str(name)] = {"reads": g["reads"], "command": cmd or None, **{f: g[f] for f in ("scoped", "red_link", "report", "red") if f in g}}
+                raise GateFault(f"verification.gates.{name}.{f} must be {'a list of paths' if f == 'red_link' else 'a non-empty list of globs' if f == 'red_reads' else 'true or false' if f == 'red' else 'a string'}")
+        if "inline" in g:
+            _check_inline(name, g["inline"])
+        out_gates[str(name)] = {"reads": g["reads"], "command": cmd or None, **{f: g[f] for f in ("scoped", "red_link", "report", "red", "red_reads", "inline") if f in g}}
     roots = key(repo, "traceability.test_roots", default=None)
-    has_roots = isinstance(roots, list) and bool(roots) and all(isinstance(x, str) for x in roots)
-    tests = out_gates.get("tests")
-    red_absent = (["no `tests` gate"] if out_gates else []) if tests is None else [] if tests.get("red") is False else \
-        [m for m, ok in (("no `tests.scoped`", bool(tests.get("scoped"))), ("no `traceability.test_roots`", has_roots)) if not ok]
-    if tests is not None and tests.get("red") is not False and not red_absent:
-        out_gates[RED] = {"reads": roots, "command": None, "builtin": True}
+    roots = roots if isinstance(roots, list) and roots and all(isinstance(x, str) for x in roots) else []
+    runners = [{"gate": n, "scoped": g["scoped"], "reads": g.get("red_reads") or roots, "inline": g.get("inline"),
+                "red_link": g.get("red_link", []), "red": g.get("red") is not False}
+               for n, g in out_gates.items() if g.get("scoped")]   # every row that runs a test file, in declared order (EVOL-116)
+    sources = [r for r in runners if r["red"] and (r["reads"] or r["inline"])]
+    red_absent = [RED_OPT_OUT.format(gate=r["gate"]) for r in runners if not r["red"]]
+    red_absent += [f"red not proven for `{r['gate']}`: no `red_reads` and no `traceability.test_roots` — declare the test files it proves"
+                   for r in runners if r["red"] and not (r["reads"] or r["inline"])]
+    for n, r in enumerate(runners):   # the first row in declared order runs a file: a glob an earlier row holds is never this row's
+        for g in r["reads"]:
+            first = next((e["gate"] for e in runners[:n] if g in e["reads"]), None)
+            if first:
+                red_absent.append(f"`{r['gate']}` reads `{g}` as `{first}` does — `{first}` runs those files (first in declared order); "
+                                  f"give `{r['gate']}` its own `red_reads` (its directory) when its tests need its runner")
+    if out_gates and not runners:
+        red_absent.append("red not proven: no gate declares `scoped` — give the test gate a per-file command to enable the proof")
+    if sources:
+        reads = list(dict.fromkeys(x for r in sources for x in r["reads"] + ((r["inline"] or {}).get("reads") or [])))
+        out_gates[RED] = {"reads": reads, "command": None, "builtin": True, "sources": sources}
     omit = (v.get("coverage") or {}).get("omit", []) if isinstance(v.get("coverage", {}), dict) else None
     if not isinstance(omit, list) or not all(isinstance(x, str) for x in omit):
         raise GateFault("verification.coverage.omit must be a list of globs — the runtime files the project declares unmeasured")
@@ -188,7 +209,26 @@ def vcfg(repo: Path) -> dict:
         raise GateFault("verification.digest_artefacts must be a list of file names under docs/spec/{ID}/")
     skips = v.get("skips", [])
     return {"required": required, "reason": str(seal.get("reason") or ""), "dir": d, "gates": out_gates, "digest_artefacts": arts,
-            "skips": skips if isinstance(skips, list) else [skips], "coverage_omit": omit, "red_absent": red_absent}
+            "skips": skips if isinstance(skips, list) else [skips], "coverage_omit": omit, "red_absent": red_absent, "runners": runners}
+
+
+def _strs(v) -> bool:
+    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+
+def _check_inline(name: str, v) -> None:
+    """`inline {start, reads, scoped}`: tests that live in the code file (EVOL-116) — the start line a regex, reads globs, a run."""
+    where = f"verification.gates.{name}.inline"
+    if not isinstance(v, dict) or set(v) != {"start", "reads", "scoped"}:
+        raise GateFault(f"{where} is exactly {{start, reads, scoped}} — the test block's first line (a regex), the files that hold code and tests, the run that names them")
+    if not isinstance(v["start"], str) or not v["start"]:
+        raise GateFault(f"{where}.start must be a regex")
+    try:
+        re.compile(v["start"])
+    except re.error as e:
+        raise GateFault(f"{where}.start `{v['start']}` is no regex: {e}") from None
+    if not _strs(v["reads"]) or not v["reads"] or not isinstance(v["scoped"], str) or "{paths}" not in v["scoped"]:
+        raise GateFault(f"{where}: `reads` is a non-empty list of globs and `scoped` a command with {{paths}}")
 
 
 def _today() -> date:
@@ -206,12 +246,9 @@ def _date(s) -> date | None:
 
 
 def _not_proven(cfg: dict) -> list[dict]:
-    """The red a stack cannot prove (`tests.red: false`), listed beside the live skips on every plan and run — never silent."""
-    if (cfg["gates"].get("tests") or {}).get("red") is False:
-        return [{"gate": RED, "reason": RED_NOT_PROVEN}]
-    if cfg.get("red_absent"):
-        return [{"gate": RED, "reason": f"red not proven: {' / '.join(cfg['red_absent'])} — declare it to enable the proof"}]
-    return []
+    """The red a row cannot prove (a project's `red: false`, a row with no test reads, no row with `scoped`), listed
+    beside the live skips on every plan and run — never silent."""
+    return [{"gate": RED, "reason": m} for m in cfg.get("red_absent") or []]
 
 
 def skip_problems(cfg: dict) -> list[tuple[int, str]]:
@@ -692,43 +729,116 @@ def secrets_canary(repo: Path) -> tuple[bool, str]:
 
 # ─── honest tests (EVOL-068): the red proven at the base, coverage per file ─────
 
-def _test_files(repo: Path, cfg: dict, ref: str) -> list[str]:
-    """The test files the diff adds or changes: on disk now, under the test roots, moved since `ref`."""
+def _source(rel: str, sources: list[dict]) -> tuple[dict, str] | None:
+    """The first row, in declared order, that proves `rel`: (row, "file") when its test reads hold it, (row, "inline")
+    when its `inline.reads` do — one dispatch for the seal and `scoped` (EVOL-116)."""
+    for s in sources:
+        if s["reads"] and _in_readset(rel, s["reads"]):
+            return s, "file"
+        if s.get("inline") and _in_readset(rel, s["inline"]["reads"]):
+            return s, "inline"
+    return None
+
+
+def _blocks(text: str, start: str) -> list[int]:
+    rx = re.compile(start)
+    return [n for n, line in enumerate(text.splitlines(keepends=True)) if rx.search(line.rstrip("\r\n"))]
+
+
+def _graft(base: str | None, head: str, start: str) -> tuple[str, str | None]:
+    """An inline test file at the base: (verdict, text). `test` with the graft — the base file's lines before its own
+    test block (all of it without one, nothing when the file is new), then the head's lines from its block on; `none`
+    no block at the head (not a test file); `same` the head's block equals the base's (no test changed); `many` more
+    than one block at the head or the base — declared, never guessed."""
+    hb = _blocks(head, start)
+    bb = _blocks(base, start) if base is not None else []
+    if len(hb) > 1 or len(bb) > 1:
+        return "many", None
+    if not hb:
+        return "none", None
+    hl, bl = head.splitlines(keepends=True), (base or "").splitlines(keepends=True)
+    tail = hl[hb[0]:]
+    if bb and bl[bb[0]:] == tail:
+        return "same", None
+    body = bl[:bb[0]] if bb else bl
+    if body and not body[-1].endswith("\n"):
+        body[-1] += "\n"
+    return "test", "".join(body + tail)
+
+
+def _test_files(repo: Path, cfg: dict, ref: str) -> tuple[list[dict], list[str]]:
+    """The test files the diff adds or changes — on disk now, moved since `ref`, held by a red source — each with its row
+    and its text at the base ({path, row, command, graft}); and the inline files declared unproven (more than one block)."""
     entries = tree_entries(repo, skip=cfg["dir"])
-    return [p for p in _delta(entries, tree_entries(repo, ref, skip=cfg["dir"])) if p in entries and _in_readset(p, cfg["gates"][RED]["reads"])]
+    sources = cfg["gates"][RED]["sources"]
+    out, declared = [], []
+    for p in _delta(entries, tree_entries(repo, ref, skip=cfg["dir"])):
+        hit = _source(p, sources) if p in entries else None
+        if hit is None:
+            continue
+        row, kind = hit
+        if kind == "file":
+            out.append({"path": p, "row": row, "command": row["scoped"], "graft": None})
+            continue
+        try:
+            base = _git(repo, "show", f"{ref}:{p}")
+        except GateFault:
+            base = None   # a new file: nothing before its block
+        verdict, text = _graft(base, (repo / p).read_text(encoding="utf-8", errors="replace"), row["inline"]["start"])
+        if verdict == "many":
+            declared.append(f"{p}: not proven — more than one test block (`{row['inline']['start']}`) at the head or the base")
+        elif verdict == "test":
+            out.append({"path": p, "row": row, "command": row["inline"]["scoped"], "graft": text})
+    return out, declared
 
 
-def _scoped_at_base(wt: Path, scoped: str, rel: str) -> subprocess.CompletedProcess:
-    return subprocess.run(scoped.replace("{paths}", shlex.quote(rel)), shell=True, cwd=str(wt), capture_output=True, text=True, timeout=1800)
+def _arg(rel: str) -> str:
+    """A path as one shell word: quoted, and `./`-prefixed when it starts with `-` so no tool reads it as an option."""
+    return shlex.quote("./" + rel if rel.startswith("-") else rel)
+
+
+def _scoped_run(cwd: Path, scoped: str, rel: str) -> subprocess.CompletedProcess:
+    return subprocess.run(scoped.replace("{paths}", _arg(rel)), shell=True, cwd=str(cwd), capture_output=True, text=True, timeout=1800)
+
+
+def _last(r: subprocess.CompletedProcess) -> str:
+    return clean(((r.stderr or r.stdout or "").strip().splitlines() or ["no output"])[-1], 300)
 
 
 def red_proof(repo: Path, cfg: dict, base: str) -> dict:
-    """Each test file the diff adds or changes must FAIL at the base's merge-base, laid out in a worktree outside the
-    tree (always removed): {ok, files, detail, reason}. No test file changed: ok at zero cost."""
-    row = cfg["gates"].get("tests") or {}
+    """Each test file the diff adds or changes must PASS at the head and FAIL at the base's merge-base, laid out in a
+    worktree outside the tree (always removed): {ok, files, detail, reason}. No test file changed: ok at zero cost."""
     if RED not in cfg["gates"]:
-        return {"ok": True, "files": [], "detail": [], "reason": "no red member — verification.gates.tests declares no scoped run"}
+        return {"ok": True, "files": [], "detail": [], "reason": "no red member — no verification.gates row declares a scoped run"}
     ref = _reference(repo, base)
-    files = _test_files(repo, cfg, ref)
-    if not files:
-        return {"ok": True, "files": [], "detail": [], "reason": "no test file added or changed since the base — nothing to prove"}
+    items, declared = _test_files(repo, cfg, ref)
+    files = [i["path"] for i in items]
+    if not items:
+        return {"ok": True, "files": [], "detail": declared, "declared": declared, "reason": "no test file added or changed since the base — nothing to prove"
+                + (f"; {len(declared)} declared unproven" if declared else "")}
     tmp = Path(tempfile.mkdtemp(prefix="seal-red-"))
-    wt, added, results = tmp / "base", False, []
+    wt, added, heads, results = tmp / "base", False, [], []
     try:
         try:
-            _git(repo, "worktree", "add", "--detach", "--quiet", str(wt), ref)
-            added = True
-            for rel in files:
-                (wt / rel).parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(repo / rel, wt / rel, follow_symlinks=False)
-            for rel in row.get("red_link", []):
+            heads = [(i, _scoped_run(repo, i["command"], i["path"])) for i in items]   # the head first: a test proves nothing unless it passes with its change
+            todo = [i for i, r in heads if r.returncode == 0]
+            if todo:
+                _git(repo, "worktree", "add", "--detach", "--quiet", str(wt), ref)
+                added = True
+            for i in todo:
+                (wt / i["path"]).parent.mkdir(parents=True, exist_ok=True)
+                if i["graft"] is None:
+                    shutil.copy2(repo / i["path"], wt / i["path"], follow_symlinks=False)
+                else:
+                    (wt / i["path"]).write_text(i["graft"], encoding="utf-8")
+            for rel in dict.fromkeys(x for i in todo for x in i["row"]["red_link"]):
                 if (repo / rel).exists() and not (wt / rel).exists():
                     (wt / rel).parent.mkdir(parents=True, exist_ok=True)
                     os.symlink(repo / rel, wt / rel)
-            results = [(rel, _scoped_at_base(wt, row["scoped"], rel)) for rel in files]
+            results = [(i, _scoped_run(wt, i["command"], i["path"])) for i in todo]
         except subprocess.TimeoutExpired as e:
-            return {"ok": False, "files": files, "detail": [], "reason": f"the scoped run at the base did not finish within {e.timeout:g} s — "
-                    "run that test file alone at the base to find what hangs (a wait on a service, a prompt), make it finish, then run the loop again"}
+            return {"ok": False, "files": files, "detail": [], "reason": f"a scoped run did not finish within {e.timeout:g} s — "
+                    "run that test file alone (with its change, then at the base) to find what hangs (a wait on a service, a prompt), make it finish, then run the loop again"}
         except (GateFault, OSError, subprocess.SubprocessError) as e:
             return {"ok": False, "files": files, "detail": [], "reason": f"the red could not be proven — the worktree at the base could not be laid out ({e}); "
                     "free the temporary space, run `git worktree prune`, fetch the diff base, then run the loop again"}
@@ -737,21 +847,64 @@ def red_proof(repo: Path, cfg: dict, base: str) -> dict:
             subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)], capture_output=True)
         subprocess.run(["git", "-C", str(repo), "worktree", "prune"], capture_output=True)
         shutil.rmtree(tmp, ignore_errors=True)
-    detail, green, broken = [], [], []
-    for rel, r in results:
-        last = ((r.stderr or r.stdout or "").strip().splitlines() or ["no output"])[-1]
+    detail, green, broken, head_red = [], [], [], []
+    for i, r in heads:
+        rel, gate = i["path"], i["row"]["gate"]
         if r.returncode in (126, 127):
-            broken.append(f"{rel} (exit {r.returncode}: {last})")
+            broken.append((gate, f"{rel} (exit {r.returncode} with its change: {_last(r)})"))
+            detail.append(f"{rel}: exit {r.returncode} at the head — could not run · {_last(r)}")
+        elif r.returncode != 0:
+            head_red.append(f"{rel} (exit {r.returncode}: {_last(r)})")
+            detail.append(f"{rel}: exit {r.returncode} at the head — fails with its change, or runs no test · {_last(r)}")
+    for i, r in results:
+        rel, gate = i["path"], i["row"]["gate"]
+        if r.returncode in (126, 127):
+            broken.append((gate, f"{rel} (exit {r.returncode}: {_last(r)})"))
         elif r.returncode == 0:
             green.append(rel)
-        detail.append(f"{rel}: exit {r.returncode} at the base — {'could not run' if r.returncode in (126, 127) else 'could not fail' if r.returncode == 0 else 'proven red'} · {last}")
+        detail.append(f"{rel}: exit {r.returncode} at the base — {'could not run' if r.returncode in (126, 127) else 'could not fail' if r.returncode == 0 else 'proven red'} · {_last(r)}")
+    detail += declared
     if broken:
-        return {"ok": False, "files": files, "detail": detail, "reason": f"the scoped run (verification.gates.tests.scoped) could not run at the base: {', '.join(broken)} — "
-                "install its runner, or link what it needs from the working tree with verification.gates.tests.red_link"}
+        gates = ", ".join(dict.fromkeys(f"verification.gates.{g}.scoped" for g, _ in broken))
+        return {"ok": False, "files": files, "detail": detail, "reason": f"the scoped run ({gates}) could not run: {', '.join(b for _, b in broken)} — "
+                "install its runner, or link what it needs from the working tree with the row's red_link"}
+    if head_red:
+        return {"ok": False, "files": files, "detail": detail, "reason": f"fails at the head or runs no test: {', '.join(head_red)} — "
+                "a test proves its red only when it passes with its change and runs at least one test; run it alone and make it pass "
+                "(a helper that holds no test is no test file: narrow the row's red_reads)"}
     if green:
         return {"ok": False, "files": files, "detail": detail, "reason": f"could not fail — passes at the base, without its change: {', '.join(green)}; "
                 "make each assert the behaviour the change adds (a green is worth what its red was worth)"}
-    return {"ok": True, "files": files, "detail": detail, "reason": f"red proven at the base: {len(files)} test file(s)"}
+    return {"ok": True, "files": files, "detail": detail, "declared": declared, "reason": f"red proven at the base: {len(files)} test file(s)"
+            + (f"; {len(declared)} declared unproven" if declared else "")}
+
+
+def scoped(repo: Path, paths: list[str]) -> dict:
+    """The run of each named test file through the seal's own dispatch (EVOL-116, owner RDR «1»): {runs: [{gate, files,
+    command}], unrouted, notices} — one run per row, `{paths}` interpolated with the files it holds; a path no row reads
+    is unrouted. Every row that declares `scoped` runs, a `red: false` row too (it proves no red, it still runs)."""
+    cfg = vcfg(repo)
+    groups: dict[tuple[str, str], dict] = {}
+    unrouted = []
+    for p in dict.fromkeys(_norm_path(x) for x in paths if str(x).strip()):
+        hit = _source(p, cfg["runners"])
+        if hit is None:
+            unrouted.append(p)
+            continue
+        row, kind = hit
+        cmd = row["scoped"] if kind == "file" else row["inline"]["scoped"]
+        groups.setdefault((row["gate"], cmd), {"gate": row["gate"], "files": [], "template": cmd})["files"].append(p)
+    runs = [{"gate": g["gate"], "files": g["files"], "command": g["template"].replace("{paths}", " ".join(_arg(f) for f in g["files"]))}
+            for g in groups.values()]
+    return {"ok": not unrouted, "runs": runs, "unrouted": unrouted, "notices": [n["reason"] for n in _not_proven(cfg)]}
+
+
+def render_scoped(res: dict) -> str:
+    lines = [f"scoped: {len(res['runs'])} run(s)" + (f", {len(res['unrouted'])} path(s) no row reads" if res["unrouted"] else "")]
+    lines += [f"  run ({r['gate']}): {r['command']}" for r in res["runs"]]
+    lines += [f"  unrouted: {clean(p, 300)} — no verification.gates row with `scoped` reads it (its red_reads, else traceability.test_roots)" for p in res["unrouted"]]
+    lines += [f"  {n}" for n in res["notices"]]
+    return "\n".join(lines)
 
 
 def parse_lcov(p: Path, repo: Path) -> dict[str, tuple[int, int]]:
@@ -850,7 +1003,7 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
             proof = red_proof(repo, cfg, _base_of(repo, branch, base))
             log.write_text("\n".join(proof["detail"] + [proof["reason"]]) + "\n", encoding="utf-8")
             rc = 0 if proof["ok"] else 1
-            notes += [] if proof["ok"] else [proof["reason"]]
+            notes += [proof["reason"]] if not proof["ok"] else proof.get("declared", [])   # a declared unproven file is said on a green too
         else:
             try:
                 with log.open("w", encoding="utf-8") as fh:

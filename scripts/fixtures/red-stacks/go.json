@@ -1,0 +1,20 @@
+{
+ "key": "backend.runtime",
+ "literal": "Go",
+ "gate": "tests",
+ "expect": {
+  "calc/add_test.go": "proven",
+  "calc/sub_test.go": "could not fail",
+  "calc/empty_test.go": "head"
+ },
+ "base": {
+  "calc/calc.go": "package calc\n\nfunc Add(a, b int) int { return a + b + 1 }\n\nfunc Sub(a, b int) int { return a - b }\n",
+  "go.mod": "module demo\n\ngo 1.22\n"
+ },
+ "head": {
+  "calc/add_test.go": "package calc\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\tif Add(1, 2) != 3 {\n\t\tt.Fatal(\"add\")\n\t}\n}\n",
+  "calc/calc.go": "package calc\n\nfunc Add(a, b int) int { return a + b }\n\nfunc Sub(a, b int) int { return a - b }\n",
+  "calc/empty_test.go": "package calc\n\nfunc helper() int { return 1 }\n",
+  "calc/sub_test.go": "package calc\n\nimport \"testing\"\n\nfunc TestSub(t *testing.T) {\n\tif Sub(3, 1) != 2 {\n\t\tt.Fatal(\"sub\")\n\t}\n}\n"
+ }
+}
