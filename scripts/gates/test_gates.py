@@ -130,6 +130,31 @@ class Common(unittest.TestCase):
         self.assertFalse(glob_match("src/a.py", "tests/**"))
         self.assertTrue(glob_match("infra/main.tf", "infra/"))
 
+    def test_scanner_command_resolves_every_range_placeholder(self):
+        """#189: one definition for the dispatcher and the canary — every placeholder resolved, or a fault; none reaches a scanner."""
+        from gates.common import scanner_command
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            g = lambda *a: subprocess.run(["git", "-C", tmp, "-c", "user.name=t", "-c", "user.email=t@t", *a], capture_output=True, text=True, check=True).stdout.strip()
+            g("init", "-q", "-b", "main"); write(repo / "a", "a\n"); g("add", "-A"); g("commit", "-qm", "a")
+            a = g("rev-parse", "HEAD"); g("checkout", "-qb", "f"); write(repo / "b", "b\n"); g("add", "-A"); g("commit", "-qm", "b")
+            b = g("rev-parse", "HEAD"); g("checkout", "-q", "main"); write(repo / "c", "c\n"); g("add", "-A"); g("commit", "-qm", "c")
+            th = "trufflehog git file://. --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}} --fail"
+            self.assertEqual(scanner_command(th, "main~1..f", repo), f"trufflehog git file://. --since-commit={a} --branch={b} --fail")
+            self.assertEqual(scanner_command(th, "main...f", repo), f"trufflehog git file://. --since-commit={a} --branch={b} --fail", "`...` resolves its base through the merge-base")
+            self.assertEqual(scanner_command("gitleaks detect --log-opts={{RANGE}}", "main~1..f", repo), "gitleaks detect --log-opts=main~1..f")
+            self.assertEqual(scanner_command("t git --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}} --fail", "", repo), "t git --fail", "no range: the placeholder words drop whole")
+            self.assertEqual(scanner_command("custom-scan {{RANGE}} --fail", "", repo), "custom-scan --fail", "a positional placeholder drops alone")
+            self.assertEqual(scanner_command("custom-scan --fail {{RANGE}}", "main~1..f", repo), "custom-scan --fail main~1..f", "with a value the bare form resolves")
+            self.assertEqual(scanner_command("gitleaks detect --log-opts={{RANGE}} --redact", "", repo), "gitleaks detect --redact")
+            self.assertEqual(scanner_command("t --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}}", "f", repo), f"t --branch={b}", "a one-ref range has no base")
+            for cmd, rng, msg in (("t --x={{tip}}", "main~1..f", "tip"), ("t --x={{tip}}", "", "tip"),
+                                  ("t --since-commit={{RANGE_BASE}}", "nope..f", "nope"), ("t --branch={{RANGE_HEAD}}", "main..nope", "nope"),
+                                  ("custom-scan --fail {{RANGE}}", "", "--fail={{RANGE}}"), ("t --since-commit {{RANGE_BASE}}", "", "--since-commit={{RANGE_BASE}}"),
+                                  ("t --x={{RANGE}}", "a..b;touch x", "not a git range"), ("t --since-commit={{RANGE_BASE}}", "main..", "empty side")):
+                with self.subTest(cmd=cmd, rng=rng), self.assertRaisesRegex(GateFault, msg):
+                    scanner_command(cmd, rng, repo)
+
     def test_frontmatter_subset_parser(self):
         from gates.common import _mini_yaml
         self.assertEqual(_mini_yaml('status: APPROVED   # DRAFT | APPROVED\nq: "a # not a comment"\n'), {"status": "APPROVED", "q": "a # not a comment"})
@@ -2436,6 +2461,34 @@ class Seal(unittest.TestCase):
             self.assertTrue(ok, why)
             self.assertEqual(subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout, head, "no commit landed in the real repo")
             self.assertNotIn("canary-secret", subprocess.run(["git", "-C", str(repo), "log", "-p", "--all"], capture_output=True, text=True).stdout)
+
+    def test_secrets_canary_resolves_base_and_head(self):
+        """#189: a trufflehog-shaped command gets real commits for its base and head — a placeholder never reaches the scanner, and one the dispatcher does not know is a red with its name."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo, env = self._canary_repo(tmp, "0")
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["security_scan"]["secrets_command"] = "stubscan --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}}"
+            write(repo / "config/quality.json", json.dumps(q))
+            body = '#!/bin/sh\ncase "$*" in *"{{"*) echo literal; exit 2 ;; esac\nb="${1#--since-commit=}"; h="${2#--branch=}"\ngit log -p "$b..$h" | grep -q canary-secret && { echo leak; exit 183; }\nexit 0\n'
+            write(Path(tmp) / "bin/stubscan", body)
+            with unittest.mock.patch.dict(os.environ, env):
+                ok, why = seal.secrets_canary(repo)
+            self.assertTrue(ok, why)
+            q["security_scan"]["secrets_command"] = "stubscan --x={{tip}}"
+            write(repo / "config/quality.json", json.dumps(q))
+            with unittest.mock.patch.dict(os.environ, env):
+                ok, why = seal.secrets_canary(repo)
+            self.assertFalse(ok); self.assertIn("{{tip}}", why)
+
+    @unittest.skipUnless(__import__("shutil").which("trufflehog"), "trufflehog not installed")
+    def test_secrets_canary_real_trufflehog_detects(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, gates={"secrets": {"reads": ["src/**"], "command": "true"}})
+            q = json.loads((repo / "config/quality.json").read_text())
+            q["security_scan"] = {"enabled": True, "scanner": "trufflehog", "secrets_command": "trufflehog git file://. --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}} --fail --fail-on-scan-errors --no-update"}
+            write(repo / "config/quality.json", json.dumps(q))
+            ok, why = seal.secrets_canary(repo)
+            self.assertTrue(ok, why)
 
     @unittest.skipUnless(__import__("shutil").which("gitleaks"), "gitleaks not installed")
     def test_secrets_canary_real_gitleaks_detects(self):

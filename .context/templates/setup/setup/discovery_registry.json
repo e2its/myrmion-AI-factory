@@ -1741,6 +1741,8 @@
   "PROJECT_NUMBER": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
   "PROJECT_ROOT": "written by the materialisation run into its own report",
   "RANGE": "a runtime literal of the shipped script — never substituted",
+  "RANGE_BASE": "a runtime literal of the shipped script — never substituted",
+  "RANGE_HEAD": "a runtime literal of the shipped script — never substituted",
   "REPO_SLUG": "read from `git remote get-url origin` at --generate (owner/repo); the user is asked when there is no remote",
   "RESOURCE_NAME": "an example in the document's prose — never substituted",
   "REVIEW_OPT_ID": "filled by BACKLOG --init-board on its first run (the tracker's own ids)",
@@ -2041,6 +2043,12 @@
    "since": "8.21.0",
    "detect": "always",
    "apply": "verification.gates per-file (EVOL-116)"
+  },
+  {
+   "id": "security_scan.secrets_command trufflehog (#189)",
+   "since": "8.21.1",
+   "detect": "always",
+   "apply": "security_scan.secrets_command trufflehog (#189)"
   }
  ]
 }

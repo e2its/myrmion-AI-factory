@@ -72,7 +72,7 @@ import time
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from .common import GateFault, _glob_regex, clean, key
+from .common import GateFault, _glob_regex, clean, key, scanner_command
 
 DEFAULT_SEAL_DIR = ".claude/state"
 SECURITY = {"secrets", "sast", "sca"}
@@ -674,8 +674,8 @@ def _canary_git(tmp: str, env: dict, *args: str) -> None:
 
 
 def _scan(cmd: str, tmp: str, env: dict) -> subprocess.CompletedProcess:
-    """The scanner over the last commit — `{{RANGE}}` substituted exactly as scripts/security-scan.sh does, nothing else."""
-    return subprocess.run(cmd.replace("{{RANGE}}", "HEAD~1..HEAD"), shell=True, cwd=tmp, capture_output=True, text=True, timeout=300, env=env)
+    """The scanner over the last commit — its placeholders resolved by the one definition scripts/security-scan.sh uses (common.scanner_command, #189)."""
+    return subprocess.run(scanner_command(cmd, "HEAD~1..HEAD", Path(tmp), env), shell=True, cwd=tmp, capture_output=True, text=True, timeout=300, env=env)
 
 
 def _scan_fault(r: subprocess.CompletedProcess) -> str | None:
@@ -717,6 +717,8 @@ def secrets_canary(repo: Path) -> tuple[bool, str]:
             r = _scan(cmd, tmp, env)
         except _CanaryGit as e:
             return False, f"secret-scanner canary: could not set up its temporary repository ({e}) — check that git runs here; the secrets member is red until it does"
+        except GateFault as e:
+            return False, f"secret-scanner canary: {e}"
         except (OSError, subprocess.SubprocessError) as e:
             return False, f"secret-scanner canary: could not run ({e.__class__.__name__}) — the secrets member is red until the scanner runs"
     fault = _scan_fault(r)

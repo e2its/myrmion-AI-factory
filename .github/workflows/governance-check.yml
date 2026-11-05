@@ -153,3 +153,22 @@ jobs:
 
       - name: Red proven per file (${{ matrix.stack }})
         run: bash scripts/test-red-stacks.sh "${{ matrix.stack }}"
+
+  secret-scanner-trufflehog:
+    # #189: the shipped trufflehog row, {{RANGE_BASE}} / {{RANGE_HEAD}} resolved, proven with the real binary in its pinned
+    # image — the seal's canary (unit test) and the dispatcher (test-security-scan.sh scenario 14). Alpine: git present,
+    # python3 added; the image's entrypoint runs trufflehog, so sh is named. A test not run or skipped is never a green.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: trufflehog canary and dispatcher (trufflesecurity/trufflehog:3.99.3)
+        run: |
+          docker run --rm --entrypoint sh -v "$PWD:/src" -w /src trufflesecurity/trufflehog:3.99.3 -c \
+            'apk add -q python3 && git config --global safe.directory "*" && python3 -m unittest scripts/gates/test_gates.py -k trufflehog -v 2>/tmp/u; r=$?; cat /tmp/u; [ "$r" -eq 0 ] && grep -q "^Ran [1-9]" /tmp/u && ! grep -q skipped /tmp/u && bash scripts/test-security-scan.sh >/tmp/s 2>&1; r=$?; cat /tmp/s; [ "$r" -eq 0 ] && grep -q "ok: real trufflehog through the dispatcher" /tmp/s'

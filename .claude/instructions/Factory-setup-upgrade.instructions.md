@@ -246,6 +246,8 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 
 **verification.gates per-file (EVOL-116).** The same write: the Java, Go, .NET, Rust, Node and frontend rows move to their per-file `scoped` (red when no test ran), gain `red_reads` (and Rust `inline`), and lose the template's `red: false`; a row the project edited is kept and named in `kept`.
 
+**security_scan.secrets_command trufflehog (#189).** When `config/quality.json → security_scan.secrets_command` is byte for byte `trufflehog git file://. --since-commit {{RANGE_BASE}} --fail` (the former template), replace it with `trufflehog git file://. --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}} --fail --fail-on-scan-errors --no-update`; any other value is the project's — keep it and name it in the report; a kept value with a bare placeholder after a flag (`--since-commit {{RANGE_BASE}}`) is named with its `--flag={{X}}` form, since the dispatcher refuses it on a scan with no range. Nothing to write on a later upgrade.
+
 **train.close_ledgers (EVOL-104).** Add the template's `train` block (`close_ledgers`: the paths written once per train — the manifest, the changelog) to `config/quality.json`; `gate.py train` reads it.
 
 **contracts.outage_status (EVOL-115).** Add the template's `contracts` block (`outage_status`, default `503`) to `config/quality.json`; `gate.py freeze` is red on the first changed contract without it.
