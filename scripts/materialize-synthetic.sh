@@ -110,7 +110,7 @@ if (T / "setup/setup_master_template.md").is_file():
     (P / "docs/setup.md").write_text("---\n" + "\n".join(dump(fm)) + "\n---\n" + (text[fm_m.end():] if fm_m else text), encoding="utf-8")
 # placeholder resolution with sample values (the SETUP rule: quoted tokens → strings, bare numeric tokens → integers,
 # {{#if}}/{{#each}} blocks keep their content)
-NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0"}
+NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "security/sast/**", ".semgrepignore", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0"}
 NUM["VERIFICATION_GATES"] = json.dumps(GATES)
 NUM["DC_ENTRIES"] = "| PDC-1 | `runtime` | sample project class. | — | `src/**` | IMPLEMENT, REVIEW | WARNING |"   # the seed, PDC-numbered (EVOL-066)
 NUM["TRACEABILITY_TEST_ROOTS"] = json.dumps(RES["configures"].get("traceability.test_roots", []))
@@ -244,10 +244,11 @@ PY
   # the project's config predates 8.20.0: no `train` and no `contracts` block (EVOL-104, EVOL-115) — their migrations are owed
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
-  # tests command the project edited (kept), no red_reads (added)
+  # tests command the project edited (kept), no red_reads (added); no `sast` row (EVOL-074 — added)
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]
 g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-coverage"; g["tests"]["command"]="python -m pytest -q -x"
-[r.pop("red_reads", None) for r in g.values()]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+[r.pop("red_reads", None) for r in g.values()]; g.pop("sast", None); json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  rm -rf "$P/security/sast"   # it predates the SAST packs (EVOL-074): the packs and the `sast` row are owed (templates_to_add, added)
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
   URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
   UMISS=$(printf '%s' "$UP" | python3 -c '
@@ -256,7 +257,7 @@ exp = json.load(open(sys.argv[1]))["expect"]; r = json.loads(sys.stdin.read())
 dc = r["defect_classes"]
 got = {"pending": r["pending"], "migrations": [m["id"] for m in r["migrations_owed"]],
        "to_add": dc.get("to_add"), "collisions": [c["id"] for c in dc.get("collisions", [])], "to_remove": dc.get("to_remove"),
-       "replaced": r["gates_upgrade"]["replaced"], "kept": r["gates_upgrade"]["kept"]}
+       "replaced": r["gates_upgrade"]["replaced"], "kept": r["gates_upgrade"]["kept"], "added": r["gates_upgrade"]["added"], "templates_to_add": r["templates_to_add"]}
 want = {**exp, **exp.get("defect_classes", {}), **exp.get("gates_upgrade", {})}
 for k in got:
     if got[k] != want.get(k):

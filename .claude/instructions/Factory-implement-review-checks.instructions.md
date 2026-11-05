@@ -1125,6 +1125,41 @@ FUNCTION sec_verification_loop(phase, source_files):
   ELSE:
     results.secret_scan = { status: "SKIPPED", reason: "security-scan.sh infrastructure fault: {result.first_line}" }
 
+  # 3. SAST packs (EVOL-074): the framework's pinned rule packs (security/sast/<pack>.yml, one per language the stack
+  #    uses) through the `sast` gate. A security member is never skipped: no engine is a BLOCKER, not a fail-open.
+  PACKS = security/sast/{python,javascript,ui-templates,java,go,csharp,rust}.yml   # the framework's packs, by name
+  IF g.sast IS NULL AND EXISTS(any of PACKS):   # a framework pack landed, the member is gone: a security member never vanishes
+    results.sast = { status: "BLOCKER", finding: "[SEC-SAST-004] SAST packs are present but config/quality.json has no `sast` gate",
+                     remediation: "Restore verification.gates.sast (SETUP --upgrade adds it)" }
+  ELIF g.sast IS NULL AND EXISTS("security/sast/*.yml"):   # a stack with no pack, the project's own rules only
+    results.sast = { status: "BLOCKER", finding: "[SEC-SAST-004] security/sast/ holds the project's own rules but config/quality.json has no `sast` gate",
+                     remediation: "Add verification.gates.sast with the packs' command (`semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .`) — config/quality.json is governed: plan it" }
+  ELIF g.sast IS NULL:
+    results.sast = { status: "INFO", reason: "no SAST pack for this stack" }   # the setup report named the literal
+  ELIF TOOL_MISSING("semgrep"):
+    results.sast = { status: "BLOCKER", finding: "[SEC-SAST-002] semgrep is not installed — the SAST packs cannot run",
+                     remediation: "pipx install semgrep==1.182.0 (or run the image semgrep/semgrep:1.182.0)" }
+  ELSE:
+    IF semgrep --version != "1.182.0":   # the packs are proven on this engine
+      LOG: "⚠️ SEC: semgrep {semgrep --version} runs the packs; they are proven on 1.182.0"
+    result = RUN_IN_TERMINAL(g.sast.command, timeout: 300000)
+    IF result.exit_code == 1:   # findings: each names its rule id, file and line
+      results.sast = { status: "BLOCKER", finding: "[SEC-SAST-001] {COUNT(result.output, lines matching '❯❯❱ ')} finding(s): {each rule id with its file}", details: result.output,
+                       remediation: "The rule's message names the safe form; fix the code, never the pack. A false positive: `nosemgrep: <rule-id> — <reason>` on the line, reviewed by the security lens." }
+    ELIF result.exit_code != 0:
+      results.sast = { status: "BLOCKER", finding: "[SEC-SAST-003] the SAST engine failed (exit {result.exit_code}): {result.first_line}" }
+    ELSE:
+      results.sast = { status: "PASS" }
+    # A suppression the engine honours unread: a bare `nosem`/`nosemgrep` silences every rule on its line, and a
+    # .semgrepignore replaces the engine's default ignore list. Both are read from the diff, on code files.
+    bare = DIFF_ADDED_LINES(base, exclude: "*.md") matching /nosem(grep)?\b/ AND NOT matching /nosemgrep: [a-z0-9-]+ — \S/
+    IF bare:
+      results.sast = { status: "BLOCKER", finding: "[SEC-SAST-005] a suppression with no rule id or no reason: {bare file:line}",
+                       remediation: "Write `nosemgrep: <rule-id> — <reason>` — the security lens reviews it" }
+    ELIF ".semgrepignore" IN DIFF_FILES(base):
+      results.sast = { status: "BLOCKER", finding: "[SEC-SAST-006] .semgrepignore changed — it removes paths from the scan",
+                       remediation: "The security lens adjudicates each ignored path; vendored or generated code only" }
+
   RETURN results
 ```
 

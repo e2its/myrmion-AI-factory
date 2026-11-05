@@ -1,0 +1,75 @@
+# SAST base pack — Python (EVOL-074). Framework-shipped, run by the `sast` verification member:
+#   semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .
+# Proven on semgrep 1.182.0, each rule fires on a positive fixture and stays quiet on a negative one (framework meta CI).
+# Our own rules, written from each API's documentation — no Semgrep registry rule is copied. Every class has a rule.
+# Each rule covers the forms written here, not every form: the security lens reads the rest.
+rules:
+  - id: python-debug-mode
+    languages: [python]
+    severity: ERROR
+    message: Debug mode is switched on in code that can run outside development — it exposes stack traces and an interactive console. Read it from configuration, off by default.
+    paths:
+      exclude: ["/dev/", "/development/", "/local/", "dev.*", "local.*", "dev_settings.*", "local_settings.*", "development.*", "*.dev.*", "*_dev.*", "*-dev.*", "*.local.*", "*_local.*", "*-local.*", "*.development.*", "*_development.*", "tests/", "test/"]
+    pattern-either:
+      - pattern: $APP.run(..., debug=True, ...)
+      - pattern: DEBUG = True
+      - pattern: $APP.debug = True
+      - pattern: $APP.config["DEBUG"] = True
+  - id: python-insecure-temp-file
+    languages: [python]
+    severity: ERROR
+    message: tempfile.mktemp returns a name another process can create first (a race). Use tempfile.mkstemp, NamedTemporaryFile or TemporaryDirectory.
+    pattern: tempfile.mktemp(...)
+  - id: python-autoescape-disabled
+    languages: [python]
+    severity: ERROR
+    message: HTML is rendered without escaping — a script in the data runs in the browser (XSS). Keep autoescape on; mark only a constant safe.
+    pattern-either:
+      - pattern: jinja2.Environment(..., autoescape=False, ...)
+      - patterns:   # Jinja2's default is autoescape off
+          - pattern: jinja2.Environment(...)
+          - pattern-not: jinja2.Environment(..., autoescape=$A, ...)
+      - patterns:
+          - pattern: django.utils.safestring.mark_safe($X)
+          - pattern-not: django.utils.safestring.mark_safe("...")
+  - id: python-shell-non-literal
+    languages: [python]
+    severity: ERROR
+    message: A shell runs a command built at run time — any quote or ; in the input becomes a command (injection). Pass an argument list without shell=True.
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: subprocess.$F($CMD, ..., shell=True, ...)
+              - pattern: subprocess.$F(..., args=$CMD, ..., shell=True, ...)
+          - pattern-not: subprocess.$F("...", ..., shell=True, ...)
+          - pattern-not: subprocess.$F(..., args="...", ..., shell=True, ...)
+      - patterns:
+          - pattern: subprocess.$F([$SH, "-c", $CMD, ...], ...)
+          - metavariable-regex:
+              metavariable: $SH
+              regex: ^"(/bin/)?(sh|bash|zsh)"$
+          - pattern-not: subprocess.$F([$SH, "-c", "...", ...], ...)
+      - patterns:
+          - pattern-either:
+              - pattern: os.system($CMD)
+              - pattern: os.popen($CMD, ...)
+          - pattern-not: os.system("...")
+          - pattern-not: os.popen("...", ...)
+      - patterns:
+          - pattern-either:
+              - pattern: subprocess.getoutput($CMD)
+              - pattern: subprocess.getstatusoutput($CMD)
+              - pattern: asyncio.create_subprocess_shell($CMD, ...)
+          - pattern-not: subprocess.getoutput("...")
+          - pattern-not: subprocess.getstatusoutput("...")
+          - pattern-not: asyncio.create_subprocess_shell("...", ...)
+  - id: python-tls-verify-disabled
+    languages: [python]
+    severity: ERROR
+    message: TLS certificate verification is turned off — anyone on the path can read and change the traffic. Keep verification on; trust a private CA by its bundle.
+    pattern-either:
+      - pattern: $LIB.$F(..., verify=False, ...)
+      - pattern: $SESSION.verify = False
+      - pattern: $CTX.check_hostname = False
+      - pattern: ssl._create_unverified_context(...)
+      - pattern: $CTX.verify_mode = ssl.CERT_NONE

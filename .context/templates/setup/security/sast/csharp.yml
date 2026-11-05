@@ -1,0 +1,72 @@
+# SAST base pack — C# / .NET (EVOL-074). Framework-shipped, run by the `sast` verification member:
+#   semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .
+# Proven on semgrep 1.182.0, each rule fires on a positive fixture and stays quiet on a negative one (framework meta CI).
+# Our own rules, written from each API's documentation — no Semgrep registry rule is copied. Every class has a rule.
+# Each rule covers the forms written here, not every form: the security lens reads the rest.
+# Razor views (.cshtml, .razor) are not parsed by the CE engine: Html.Raw there is the security lens's.
+rules:
+  - id: csharp-debug-mode
+    languages: [csharp]
+    severity: ERROR
+    message: The developer exception page is on outside an IsDevelopment() check — it shows stack traces and configuration to any caller. Guard it with the environment.
+    paths:
+      exclude: ["/dev/", "/development/", "/local/", "dev.*", "local.*", "dev_settings.*", "local_settings.*", "development.*", "*.dev.*", "*_dev.*", "*-dev.*", "*.local.*", "*_local.*", "*-local.*", "*.development.*", "*_development.*", "tests/", "test/", "*Tests/"]
+    patterns:
+      - pattern: $APP.UseDeveloperExceptionPage(...)
+      - pattern-not-inside: |
+          if ($ENV.IsDevelopment()) { ... }
+  - id: csharp-insecure-temp-file
+    languages: [csharp]
+    severity: ERROR
+    message: A file with a predictable name in the shared temporary directory — another user can create or link it first. Use Path.GetRandomFileName inside a private directory.
+    patterns:
+      - pattern: File.$W(Path.Combine(Path.GetTempPath(), "..."), ...)
+      - metavariable-regex:
+          metavariable: $W
+          regex: ^(WriteAllText|WriteAllBytes|WriteAllLines|AppendAllText|Create|Open|OpenWrite)$
+  - id: csharp-raw-html
+    languages: [csharp]
+    severity: ERROR
+    message: A run-time value is written as raw HTML — Razor stops encoding it (XSS). Output it with @value, or sanitise first.
+    pattern-either:
+      - patterns:
+          - pattern: Html.Raw($X)
+          - pattern-not: Html.Raw("...")
+      - patterns:
+          - pattern: new HtmlString($X)
+          - pattern-not: new HtmlString("...")
+  - id: csharp-shell-non-literal
+    languages: [csharp]
+    severity: ERROR
+    message: A shell runs a command built at run time — any quote or & in the input becomes a command (injection). Start the program itself with ArgumentList, no shell.
+    patterns:
+      - pattern-either:
+          - pattern: Process.Start($SH, $ARGS)
+          - pattern: new ProcessStartInfo($SH, $ARGS)
+          - pattern: 'new ProcessStartInfo { ..., FileName = $SH, ..., Arguments = $ARGS, ... }'
+          - pattern: 'new ProcessStartInfo { ..., Arguments = $ARGS, ..., FileName = $SH, ... }'
+      - metavariable-regex:
+          metavariable: $SH
+          regex: ^"(/bin/)?(sh|bash|cmd(\.exe)?|powershell(\.exe)?|pwsh)"$
+      - metavariable-pattern:
+          metavariable: $ARGS
+          patterns:
+            - pattern-not: '"..."'
+  - id: csharp-tls-verify-disabled
+    languages: [csharp]
+    severity: ERROR
+    message: TLS certificate validation is turned off — anyone on the path can read and change the traffic. Keep the default validation; trust a private CA in the machine store.
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $H.ServerCertificateCustomValidationCallback = $CB
+              - pattern: ServicePointManager.ServerCertificateValidationCallback = $CB
+              - pattern: ServicePointManager.ServerCertificateValidationCallback += $CB
+          - metavariable-pattern:
+              metavariable: $CB
+              pattern-either:
+                - pattern: (...) => true
+                - pattern: '(...) => { return true; }'
+                - pattern: 'delegate { return true; }'
+                - pattern: 'delegate (...) { return true; }'
+      - pattern: HttpClientHandler.DangerousAcceptAnyServerCertificateValidator

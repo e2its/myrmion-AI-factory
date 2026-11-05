@@ -705,7 +705,7 @@ FOR EACH phase IN [A, B, C] WHERE phase has unchecked tasks IN build_scope:
   EXECUTE SECURITY_LENS(phase, governance_context, gcd_loaded)   # factory-critic-security, spawned by name, tree hashed around the run
   # See implement-review-checks.md § Security lens for SAST scan + sec_verification_loop() details
   # governance_context.sast_patterns passed in — the security lens uses pre-compiled patterns (no re-derive)
-  # sec_verification_loop() (dependency_audit + secret_scan via BVL commands) is run by this orchestrator —
+  # sec_verification_loop() (dependency_audit + secret_scan + sast via BVL commands) is run by this orchestrator —
   #   blockers from real execution merge with the SAST pattern findings.
 
   IF sec_verdict == BLOCKER:

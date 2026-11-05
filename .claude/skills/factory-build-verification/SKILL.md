@@ -8,7 +8,7 @@ applicable_when:
 
 # BUILD VERIFICATION LOOP (BVL)
 
-> **Shared Protocol** — Referenced by: IMPLEMENT agent (--build, --fix commands), the critics' verification loop (coverage + lint — run by the orchestrator, read by the governance lens), the security lens's loop (dependency audit + secret scan).
+> **Shared Protocol** — Referenced by: IMPLEMENT agent (--build, --fix commands), the critics' verification loop (coverage + lint — run by the orchestrator, read by the governance lens), the security lens's loop (dependency audit + secret scan + the SAST packs).
 > Closes the TDD feedback loop by executing tests in the terminal, parsing errors, and auto-fixing.
 > **Prerequisite:** The IMPLEMENT agent has `execute/runInTerminal` and `execute/getTerminalOutput` tools.
 
@@ -98,7 +98,7 @@ The `COLLECT_ALL_SOURCE_FILES(FEATURE_ID)` resolver MUST consult `design.md` § 
 
 **Order compliance (EVOL-051):** the critics' verdict precedes the loop — it is written as an artefact BEFORE `full_verification_gate` runs; the **commit** MUST NOT follow until the loop's seal is green (`python3 scripts/gate.py seal --check`). Never run the loop to earn a verdict and again after it.
 
-**Security lens compliance:** the security lens MUST NOT issue `verdict: PASS` until SAST tools run against the FULL module scope.
+**Security lens compliance:** the security lens MUST NOT issue `verdict: PASS` until SAST tools run against the FULL module scope. The `sast` member's result (the pinned packs, EVOL-074) is that run for what the packs cover — the lens reads it and does not re-derive those patterns; its own pattern library stays for what no pack covers.
 
 ---
 
@@ -516,7 +516,7 @@ DEGRADATION_SCENARIOS:
 | **TDD Cycle (per task)** | After GREEN phase → `task_verification_loop()` → marks [x] only if GREEN (SKIPPED = infrastructure fault, logged) |
 | **Phase Loop (per phase)** | After all task [x] → `phase_verification()` (the phase's scoped tests + lint + format; no build) → before the work critics |
 | **Work critics (per phase)** | `review_verification_loop()` (run by the main session) → the static round (`gate.py profile --run --control-point static`, digests included) + scoped lint → blockers feed the critics' verdict; coverage, typecheck and the full suite are deferred to the one loop |
-| **Security lens (per phase)** | `sec_verification_loop()` (run by the main session) → the `sca` gate + the secrets dispatcher → blockers feed the security verdict |
+| **Security lens (per phase)** | `sec_verification_loop()` (run by the main session) → the `sca` gate + the secrets dispatcher + the `sast` gate (EVOL-074) → blockers feed the security verdict |
 | **Completion Gate** | After the artefacts (reports, ticks, the plan's status — the last tracked writes) → `full_verification_gate()` ONCE → the seal → the commit on its green (EVOL-051) |
 | **--fix execution** | Same loop: write regression test → fix → `task_verification_loop()` |
 | **Escalation** | FLAGGED tasks → Resilience Protocol (user choice: retry/modify/escalate/skip) |

@@ -23,7 +23,8 @@
       "lint": "cargo clippy -- -D warnings",
       "build": "cargo build",
       "sca": "cargo audit",
-      "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"
+      "secrets": "bash scripts/security-scan.sh --secrets --require-scanner",
+      "sast": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet ."
     },
     "red": true,
     "red_sources": [

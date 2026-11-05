@@ -1,0 +1,24 @@
+# SAST base pack — UI template files: Vue (.vue) and Svelte (.svelte) (EVOL-074). Framework-shipped,
+# run by the `sast` verification member:
+#   semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .
+# Semgrep has no parser for these files, so the rules are `generic` (text patterns).
+# Proven on semgrep 1.182.0, each rule fires on a positive fixture and stays quiet on a negative one (framework meta CI).
+# Our own rules, written from each framework's documentation — no Semgrep registry rule is copied. Covered class: raw HTML.
+# Gaps: debug mode, temporary files, shell and TLS have no template-file form; the <script> blocks of these files are not
+# parsed by the CE engine either — the security lens reads them. Angular's [innerHTML] binding is sanitised by Angular;
+# its bypass (bypassSecurityTrustHtml) is javascript.yml's.
+rules:
+  - id: ui-templates-vue-raw-html
+    languages: [generic]
+    severity: ERROR
+    message: v-html inserts HTML without escaping — a script in the data runs in the browser (XSS). Bind text with {{ }} or v-text, or sanitise first.
+    paths:
+      include: ["*.vue"]
+    pattern: v-html="..."
+  - id: ui-templates-svelte-raw-html
+    languages: [generic]
+    severity: ERROR
+    message: '{@html} inserts HTML without escaping — a script in the data runs in the browser (XSS). Render text with {value}, or sanitise first.'
+    paths:
+      include: ["*.svelte"]
+    pattern: "{@html ...}"

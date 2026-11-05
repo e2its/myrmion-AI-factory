@@ -1,6 +1,6 @@
 {
  "$schema": "discovery_registry_v1",
- "_doc": "SETUP discovery as data (EVOL-102): the questions in tier order, their keys, options and conditions; derived = decided by earlier answers, never asked. Placeholders: a key's fills, a derived fills, constants, or the shrink-only placeholder_baseline — one source each. migrations = what SETUP --upgrade owes a project older than since. Answers live in docs/setup.md frontmatter under their key. Next questions: python3 scripts/gate.py discovery --resolve; one condition: --eval '<cond>'. Validated by python3 scripts/gate.py discovery.",
+ "_doc": "SETUP discovery as data (EVOL-102): the questions in tier order, their keys, options and conditions; derived = decided by earlier answers, never asked; a derived configures with a when condition lands only when it holds (EVOL-074). Placeholders: a key's fills, a derived fills, constants, or the shrink-only placeholder_baseline — one source each. migrations = what SETUP --upgrade owes a project older than since. Answers live in docs/setup.md frontmatter under their key. Next questions: python3 scripts/gate.py discovery --resolve; one condition: --eval '<cond>'. Validated by python3 scripts/gate.py discovery.",
  "questions": [
   {
    "id": "Q1",
@@ -1614,6 +1614,17 @@
     "verification.gates": {
      "secrets": {
       "command": "bash scripts/security-scan.sh --secrets --require-scanner"
+     }
+    }
+   }
+  },
+  "quality.sast": {
+   "from": "the stack: a SAST base pack lands per backend.runtime / frontend.framework literal (security/sast/<pack>.yml, manifest stack_conditional) and one sast member runs them all (EVOL-074); no pack for the stack → no member, said in the setup report",
+   "when": "backend.runtime IN [Python, Node.js, Java, Go, .NET, Rust] OR frontend.framework IN [React, Vue.js, Angular, Svelte, Solid]",
+   "configures": {
+    "verification.gates": {
+     "sast": {
+      "command": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet ."
      }
     }
    }

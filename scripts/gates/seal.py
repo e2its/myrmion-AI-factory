@@ -675,7 +675,7 @@ def _canary_git(tmp: str, env: dict, *args: str) -> None:
 
 def _scan(cmd: str, tmp: str, env: dict) -> subprocess.CompletedProcess:
     """The scanner over the last commit — its placeholders resolved by the one definition scripts/security-scan.sh uses (common.scanner_command, #189)."""
-    return subprocess.run(scanner_command(cmd, "HEAD~1..HEAD", Path(tmp), env), shell=True, cwd=tmp, capture_output=True, text=True, timeout=300, env=env)
+    return subprocess.run(scanner_command(cmd, "HEAD~1..HEAD", Path(tmp), env), shell=True, cwd=tmp, capture_output=True, text=True, timeout=300, env=env)  # nosemgrep: python-shell-non-literal — the project's declared secrets command (config), never input
 
 
 def _scan_fault(r: subprocess.CompletedProcess) -> str | None:
@@ -800,7 +800,7 @@ def _arg(rel: str) -> str:
 
 
 def _scoped_run(cwd: Path, scoped: str, rel: str) -> subprocess.CompletedProcess:
-    return subprocess.run(scoped.replace("{paths}", _arg(rel)), shell=True, cwd=str(cwd), capture_output=True, text=True, timeout=1800)
+    return subprocess.run(scoped.replace("{paths}", _arg(rel)), shell=True, cwd=str(cwd), capture_output=True, text=True, timeout=1800)  # nosemgrep: python-shell-non-literal — the project's declared scoped command (config), paths quoted by _arg
 
 
 def _last(r: subprocess.CompletedProcess) -> str:
@@ -1009,7 +1009,7 @@ def run(repo: Path, gates: list[str] | None = None, full: bool = False, summary:
         else:
             try:
                 with log.open("w", encoding="utf-8") as fh:
-                    rc = subprocess.run(cmd, shell=True, cwd=str(repo), stdout=fh, stderr=subprocess.STDOUT).returncode
+                    rc = subprocess.run(cmd, shell=True, cwd=str(repo), stdout=fh, stderr=subprocess.STDOUT).returncode  # nosemgrep: python-shell-non-literal — the project's declared gate command (config/quality.json), never input
             except OSError as ex:
                 rc = 2
                 log.write_text(f"could not run: {ex}\n", encoding="utf-8")
