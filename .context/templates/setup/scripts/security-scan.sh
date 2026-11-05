@@ -16,7 +16,8 @@
 #
 # Exit codes (secrets lane): 0 clean / declared-scanner-not-installed-fail-open
 #             1 findings, or no scanner declared (fail-closed, ALWAYS)
-#             2 infra failure under --require-scanner, or malformed invocation
+#             2 infra failure under --require-scanner (a scanner command that cannot
+#               be resolved — resolve-error — included), or malformed invocation
 # Legacy lanes (--dast/--contracts/--validate-ux/--drift) predate this contract
 # and exit 1 on their own tooling failures under --apply.
 # ============================================================================
@@ -75,8 +76,9 @@ if [ "$SECRETS" -eq 1 ]; then
   # missing / JSON broken / python3 absent). Probing scalars separately would
   # leave the fallback illusory: a missing python3 would kill the script under
   # set -euo pipefail before the header-contracted fail-open could run.
-  SS_META=$(RANGE_VAL="$RANGE" python3 - <<'PY' 2>/dev/null
-import json, os
+  SS_META=$(RANGE_VAL="$RANGE" SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" python3 -I - <<'PY' 2>/dev/null
+import json, os, sys
+from pathlib import Path
 try:
     cfg = json.load(open('config/quality.json')).get('security_scan')
     cfg = cfg if isinstance(cfg, dict) else {}   # null or not an object = no scanner declared: blocks (#116)
@@ -89,25 +91,33 @@ enabled = 'true' if cfg.get('enabled', True) is True else 'false'   # only the b
 scanner = cfg.get('scanner') or ''
 hint = cfg.get('install_hint') or 'configure security_scan in config/quality.json'
 cmd = cfg.get('secrets_command') or ''
-rng = os.environ.get('RANGE_VAL', '')
-words = []
-for w in cmd.split():
-    if '{{RANGE}}' in w:
-        if rng:
-            words.append(w.replace('{{RANGE}}', rng))   # rng already validated in bash
+rng = os.environ.get('RANGE_VAL', '')   # already validated in bash
+status, reason, resolved = ('ok' if cfg_ok else 'parse-error'), '', ''
+if cfg_ok and enabled == 'true' and scanner and cmd:
+    # the one resolution of every placeholder (#189) — the seal's canary calls the same function
+    try:
+        sys.path.insert(0, os.environ.get('SCRIPTS_DIR') or 'scripts')
+        from gates.common import GateFault, scanner_command
+    except Exception as e:   # the resolver missing or broken
+        status, reason = 'resolve-error', f'scripts/gates/common.py cannot be loaded ({e.__class__.__name__}) — restore it with factory-sync'
     else:
-        words.append(w)
-resolved = ' '.join(words)
-# tab-joined; install_hint sanitised of tabs/newlines
+        try:
+            resolved = scanner_command(cmd, rng, Path('.'))
+        except GateFault as e:   # a placeholder, the range or a range side unresolved
+            status, reason = 'resolve-error', str(e)
+        except Exception as e:   # git absent, a timeout — the resolver itself failed
+            status, reason = 'resolve-error', f'the placeholder resolver failed ({e.__class__.__name__}: {e})'
+# tab-joined; install_hint and the reason sanitised of tabs/newlines
 hint = hint.replace('\t', ' ').replace('\n', ' ')
-print('\t'.join(['ok' if cfg_ok else 'parse-error', enabled, scanner, hint, resolved]))
+reason = reason.replace('\t', ' ').replace('\n', ' ')
+print('\t'.join([status, enabled, scanner, hint, reason or '-', resolved]))
 PY
   ) || SS_META=""
   if [ -z "$SS_META" ]; then
     # python3 absent or crashed entirely — the real fail-open path.
-    SS_STATUS="python-missing"; SS_ENABLED="true"; SS_SCANNER=""; SS_HINT="python3 required to read config/quality.json"; SS_CMD=""
+    SS_STATUS="python-missing"; SS_ENABLED="true"; SS_SCANNER=""; SS_HINT="python3 required to read config/quality.json"; SS_REASON=""; SS_CMD=""
   else
-    IFS=$'\t' read -r SS_STATUS SS_ENABLED SS_SCANNER SS_HINT SS_CMD <<< "$SS_META"
+    IFS=$'\t' read -r SS_STATUS SS_ENABLED SS_SCANNER SS_HINT SS_REASON SS_CMD <<< "$SS_META"
   fi
 
   if [ "$SS_STATUS" = "parse-error" ]; then
@@ -116,6 +126,12 @@ PY
       exit 2
     fi
     echo "🔒 security-scan: config/quality.json unparseable (JSON syntax error) — fail-open. Regex floor still active. Fix the file's JSON." >&2
+  elif [ "$SS_STATUS" = "resolve-error" ]; then
+    if [ "$REQUIRE_SCANNER" -eq 1 ]; then
+      echo "❌ security-scan: the scanner command cannot be resolved, so it does not run — $SS_REASON" >&2
+      exit 2
+    fi
+    echo "🔒 security-scan: the scanner command cannot be resolved — fail-open, the scanner does not run. Regex floor still active. $SS_REASON" >&2
   elif [ "$SS_STATUS" = "python-missing" ]; then
     if [ "$REQUIRE_SCANNER" -eq 1 ]; then
       echo "❌ security-scan: python3 unavailable — cannot read scanner config and this context requires a scan (--require-scanner). Install python3." >&2

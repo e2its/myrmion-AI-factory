@@ -366,5 +366,61 @@ def tracked_files(repo: Path) -> list[str]:
     return [str(p.relative_to(repo)) for p in repo.rglob("*") if p.is_file() and ".git" not in p.parts]
 
 
+# ─── the secret scanner's command (#189) ────────────────────────────────────────
+
+_RANGE_WORD = re.compile(r"\{\{(RANGE|RANGE_BASE|RANGE_HEAD)\}\}")
+_ANY_PLACEHOLDER = re.compile(r"\{\{[^{}]*\}\}")
+_RANGE_SHAPE = re.compile(r"[A-Za-z0-9._/~^-]+(\.\.\.?[A-Za-z0-9._/~^-]+)?")   # twin of the bash guard in scripts/security-scan.sh
+
+
+def _range_commit(repo: Path, ref: str, env: dict | None) -> str:
+    r = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+                       capture_output=True, text=True, timeout=30, env=env)
+    if r.returncode or not r.stdout.strip():
+        raise GateFault(f"the scan range side `{clean(ref, 120)}` is not a commit here — fetch it (a shallow clone needs more history; a range cannot start before the first commit), then scan again; the scanner never runs on a range it cannot resolve")
+    return r.stdout.strip()
+
+
+def scanner_command(cmd: str, rng: str, repo: Path, env: dict | None = None) -> str:
+    """The one resolution of `security_scan.secrets_command` (#189) — the dispatcher (scripts/security-scan.sh) and the
+    seal's canary both call it. `{{RANGE}}` is the range as given; `{{RANGE_BASE}}` the commit of its left side (the
+    merge-base for `A...B`; none for a one-ref range); `{{RANGE_HEAD}}` the commit of its right side. Without a value a
+    word carrying a placeholder is dropped; a bare placeholder after a `-flag` is refused — it cannot tell a boolean flag
+    from a valued one, write the flag and its placeholder as one word, `--flag=…`. A malformed range, a side that does not resolve, or any other `{{…}}` left
+    is a GateFault: a placeholder never reaches a scanner as a literal."""
+    if rng and not _RANGE_SHAPE.fullmatch(rng):
+        raise GateFault(f"the scan range `{clean(rng, 120)}` is not a git range (ref, A..B or A...B) — the scanner never runs on it")
+    sep = "..." if "..." in rng else ".." if ".." in rng else None
+    left, right = rng.split(sep, 1) if sep else ("", rng)
+    if sep and not (left and right):
+        raise GateFault(f"the scan range `{clean(rng, 120)}` has an empty side — name both (A..B or A...B); the scanner never runs on it")
+    need = set(_RANGE_WORD.findall(cmd))
+    values = {"RANGE": rng}
+    if rng and "RANGE_HEAD" in need:
+        values["RANGE_HEAD"] = _range_commit(repo, right, env)
+    if rng and "RANGE_BASE" in need and sep:
+        base = _range_commit(repo, left, env)
+        if sep == "...":
+            head = values.get("RANGE_HEAD") or _range_commit(repo, right, env)
+            r = subprocess.run(["git", "-C", str(repo), "merge-base", base, head], capture_output=True, text=True, timeout=30, env=env)
+            if r.returncode or not r.stdout.strip():
+                raise GateFault(f"the scan range `{clean(rng, 120)}` has no merge-base here — fetch more history, then scan again")
+            base = r.stdout.strip()
+        values["RANGE_BASE"] = base
+    out: list[str] = []
+    for w in cmd.split():
+        names = _RANGE_WORD.findall(w)
+        if names and not all(values.get(n) for n in names):
+            if _RANGE_WORD.fullmatch(w) and out and out[-1].startswith("-") and "=" not in out[-1]:
+                raise GateFault(f"security_scan.secrets_command has `{clean(out[-1], 60)} {w}` and this scan has no value for it — write it as `{clean(out[-1], 60)}={w}`, so the word drops whole; the scanner never runs on a command that loses or keeps a flag by guess")
+            continue
+        out.append(_RANGE_WORD.sub(lambda m: values[m.group(1)], w))
+    resolved = " ".join(out)
+    left_over = _ANY_PLACEHOLDER.findall(resolved)
+    if left_over:
+        raise GateFault(f"security_scan.secrets_command carries {clean(left_over[0], 60)}, a placeholder the dispatcher does not know — use {{{{RANGE}}}}, {{{{RANGE_BASE}}}} or {{{{RANGE_HEAD}}}}; the scanner never receives it as text")
+    return resolved
+
+
 def fnmatch_any(name: str, patterns) -> bool:
     return any(fnmatch.fnmatch(name, p) for p in (patterns or []))

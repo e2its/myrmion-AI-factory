@@ -22,6 +22,12 @@
 #   9. Findings → exit 1 (fail-closed on findings, ALWAYS) — uses a stub
 #      scanner that exits 1, so no real scanner binary is required in CI.
 #  10. Discovery offers no Skip for Q23.2 and the materialisation has no Skip branch (#116).
+#  11. {{RANGE_BASE}} / {{RANGE_HEAD}} reach the scanner as commits, never as text (#189).
+#  12. No range: a bare placeholder after a flag is refused — exit 2 under
+#      --require-scanner, the scanner never runs, the `--flag={{X}}` form named (#189).
+#  13. A placeholder the dispatcher does not know: the scanner never runs; exit 2 under --require-scanner (#189).
+#  14. The real trufflehog through the dispatcher with the shipped row: a clean range exits 0, a planted
+#      credential 1 (#189; only where trufflehog is installed — meta CI requires it).
 #
 # Exit codes: 0 = ok, 1 = at least one scenario failed.
 # ============================================================================
@@ -61,7 +67,7 @@ make_sandbox() { # $1 dir ; $2 stub-exit-code (empty = no stub on PATH)
   fi
   cat > "$dir/config/quality.json" <<'JSON'
 { "security_scan": { "enabled": true, "scanner": "stubscan",
-    "secrets_command": "stubscan --range {{RANGE}}",
+    "secrets_command": "stubscan --range={{RANGE}}",
     "report_format": "exit-code", "fail_on": "any",
     "install_hint": "test stub" } }
 JSON
@@ -165,6 +171,56 @@ m = (r / ".claude/instructions/Factory-setup-materialization.instructions.md").r
 q = re.search(r"#### Q23\.2:.*?(?=\n#### )", d, re.S).group(0)
 sys.exit(1 if re.search(r"\bSkip\b", q) or re.search(r"\bSkip\*\* on Q23\.2", m) else 0)
 PY
+
+set_cmd() { # $1 dir ; $2 secrets_command
+  python3 - "$1/config/quality.json" "$2" <<'PY'
+import json, sys
+p, c = sys.argv[1], sys.argv[2]
+q = json.load(open(p)); q["security_scan"]["secrets_command"] = c; json.dump(q, open(p, "w"))
+PY
+}
+
+# 11. base and head resolved to commits (#189)
+d="$TMP_ROOT/s11"; make_sandbox "$d" 0
+( cd "$d" && echo y > g.txt && git add -A && git commit -qm next )
+BASE_SHA=$(git -C "$d" rev-parse HEAD~1); HEAD_SHA=$(git -C "$d" rev-parse HEAD)
+set_cmd "$d" "stubscan --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}} --fail"
+out=$(out_in "$d" --secrets --require-scanner --range "main~1..main")
+echo "$out" | grep -q "stubscan ran: --since-commit=$BASE_SHA --branch=$HEAD_SHA --fail" && ! echo "$out" | grep -q "stubscan ran:.*{{" \
+  && { echo "  ok: base and head reach the scanner as commits"; PASS=$((PASS+1)); } || { echo "  FAIL: base/head not resolved — $out"; FAIL=$((FAIL+1)); }
+
+# 12. no range: a bare placeholder after a flag is refused, never guessed (#189)
+d="$TMP_ROOT/s12"; make_sandbox "$d" 0
+set_cmd "$d" "stubscan --since-commit {{RANGE_BASE}} --fail"
+rc=$(run_in "$d" --secrets --require-scanner); out=$(out_in "$d" --secrets --require-scanner)
+assert_exit "bare placeholder after a flag strict" 2 "$rc"
+! echo "$out" | grep -q "stubscan ran:" && echo "$out" | grep -qF -- "--since-commit={{RANGE_BASE}}" \
+  && { echo "  ok: no range → refused, the --flag={{X}} form named"; PASS=$((PASS+1)); } || { echo "  FAIL: the flag was guessed or the form not named — $out"; FAIL=$((FAIL+1)); }
+
+# 13. unknown placeholder: never run (#189)
+d="$TMP_ROOT/s13"; make_sandbox "$d" 0
+set_cmd "$d" "stubscan --x={{RANGE_TIP}}"
+rc=$(run_in "$d" --secrets --require-scanner --range "main~1..main"); out=$(out_in "$d" --secrets --require-scanner --range "main~1..main")
+assert_exit "unknown placeholder strict" 2 "$rc"
+! echo "$out" | grep -q "stubscan ran:" && echo "$out" | grep -q "RANGE_TIP" \
+  && { echo "  ok: the scanner never received the placeholder; it is named"; PASS=$((PASS+1)); } || { echo "  FAIL: placeholder reached the scanner or was not named — $out"; FAIL=$((FAIL+1)); }
+
+# 14. the real trufflehog through the dispatcher, the shipped row (#189) — runs where trufflehog is installed
+#     (meta CI: governance-check.yml → secret-scanner-trufflehog, which requires the ok line)
+if command -v trufflehog >/dev/null 2>&1; then
+  d="$TMP_ROOT/s14"; make_sandbox "$d" ""
+  set_cmd "$d" "trufflehog git file://. --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}} --fail --fail-on-scan-errors --no-update"
+  ( cd "$d" && git checkout -qb f && echo clean > n.txt && git add -A && git commit -qm clean )
+  rc_clean=$(run_in "$d" --secrets --require-scanner --range "main..f")
+  ( cd "$d" && python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); from gates.canary import planted_credential; open("settings.py", "w").write(planted_credential() + "\n")' "$R/scripts" \
+    && git add -A && git commit -qm planted )
+  rc_planted=$(run_in "$d" --secrets --require-scanner --range "main..f")
+  [ "$rc_clean" = 0 ] && [ "$rc_planted" = 1 ] \
+    && { echo "  ok: real trufflehog through the dispatcher — clean range 0, planted credential 1"; PASS=$((PASS+1)); } \
+    || { echo "  FAIL: real trufflehog through the dispatcher — clean $rc_clean (want 0), planted $rc_planted (want 1)"; FAIL=$((FAIL+1)); }
+else
+  echo "  skip: trufflehog not installed (scenario 14 runs in meta CI)"
+fi
 
 echo ""
 echo "test-security-scan: $PASS passed, $FAIL failed"
