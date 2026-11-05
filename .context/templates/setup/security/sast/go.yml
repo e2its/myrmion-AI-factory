@@ -1,0 +1,56 @@
+# SAST base pack — Go (EVOL-074). Framework-shipped, run by the `sast` verification member:
+#   semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .
+# Proven on semgrep 1.182.0, each rule fires on a positive fixture and stays quiet on a negative one (framework meta CI).
+# Our own rules, written from each API's documentation — no Semgrep registry rule is copied. Every class has a rule.
+# Each rule covers the forms written here, not every form: the security lens reads the rest.
+rules:
+  - id: go-debug-mode
+    languages: [go]
+    severity: ERROR
+    message: The web framework runs in debug mode — it exposes routes, stack traces and internals. Set release mode from configuration.
+    paths:
+      exclude: ["/dev/", "/development/", "/local/", "dev.*", "local.*", "dev_settings.*", "local_settings.*", "development.*", "*.dev.*", "*_dev.*", "*-dev.*", "*.local.*", "*_local.*", "*-local.*", "*.development.*", "*_development.*", "tests/", "test/", "*_test.go"]
+    pattern-either:
+      - pattern: gin.SetMode(gin.DebugMode)
+      - pattern: $E.Debug = true
+  - id: go-insecure-temp-file
+    languages: [go]
+    severity: ERROR
+    message: A file with a predictable name in the shared temporary directory — another user can create or link it first. Use os.CreateTemp or os.MkdirTemp.
+    patterns:
+      - pattern-either:
+          - pattern: $PKG.$F(filepath.Join(os.TempDir(), ...), ...)
+          - pattern: $PKG.$F("=~/^\/tmp\//", ...)
+      - metavariable-regex:
+          metavariable: $PKG
+          regex: ^(os|ioutil)$
+      - metavariable-regex:
+          metavariable: $F
+          regex: ^(Create|OpenFile|WriteFile)$
+  - id: go-raw-html
+    languages: [go]
+    severity: ERROR
+    message: template.HTML marks a run-time value as safe HTML — html/template stops escaping it (XSS). Pass the plain string and let the template escape it.
+    patterns:
+      - pattern: template.HTML($X)
+      - pattern-not: template.HTML("...")
+  - id: go-shell-non-literal
+    languages: [go]
+    severity: ERROR
+    message: A shell runs a command built at run time — any quote or ; in the input becomes a command (injection). Call the program with an argument list, no shell.
+    patterns:
+      - pattern-either:
+          - pattern: exec.Command($SH, "-c", $CMD, ...)
+          - pattern: exec.CommandContext($CTX, $SH, "-c", $CMD, ...)
+      - metavariable-regex:
+          metavariable: $SH
+          regex: ^"(/bin/)?(sh|bash|zsh)"$
+      - pattern-not: exec.Command($SH, "-c", "...", ...)
+      - pattern-not: exec.CommandContext($CTX, $SH, "-c", "...", ...)
+  - id: go-tls-verify-disabled
+    languages: [go]
+    severity: ERROR
+    message: InsecureSkipVerify turns TLS certificate verification off — anyone on the path can read and change the traffic. Keep it false; trust a private CA through RootCAs.
+    pattern-either:
+      - pattern: 'tls.Config{..., InsecureSkipVerify: true, ...}'
+      - pattern: $C.InsecureSkipVerify = true

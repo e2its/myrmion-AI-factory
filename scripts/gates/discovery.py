@@ -37,7 +37,8 @@ validate    V1 schema · V2 a single option not derived · V3 a credential-named
             `DC-NN` · V13 the template catalog: every row `DC-NN` with a Gate and its case, every case its row, every
             configured id a row, a row no option configures names no STACK_LABEL_KEYS label.
 configures  EVOL-067 — a key spec's `configures {<option literal>: {<config pointer>: value}}` and a derived entry's
-            `configures {<config pointer>: value}` (unconditional): `--resolve` merges the answered rows into
+            `configures {<config pointer>: value}` (unconditional, or only when its `when` condition holds — EVOL-074; V5 checks
+            it): `--resolve` merges the answered rows into
             `configures` — a mapping merges key by key (a gate from two sources is a fault), a list is a union.
             `verification.gates` rows gain `reads` = the answered `surface.runtime_surface` + `traceability.test_roots`;
             `{sca_threshold}` takes its answer. An answered stack part (not `None`) without its verifying gate — backend
@@ -568,6 +569,8 @@ def configures(reg: dict, ans: dict) -> dict:
             _merge(out, rows[canon(v)], f"{k} = {canon(v)}")
     for k, s in _derived(reg).items():
         if isinstance(s, dict) and isinstance(s.get("configures"), dict):
+            if isinstance(s.get("when"), str) and not evaluate(parse(s["when"]), ans):
+                continue   # a stack-bound derived row (EVOL-074): configured only when its condition holds
             _merge(out, s["configures"], f"derived {k}")
     surface = ans.get("surface.runtime_surface")
     reads = (list(surface) if isinstance(surface, list) else []) + [r for r in out.get("traceability.test_roots", []) if not (isinstance(surface, list) and r in surface)]
@@ -728,8 +731,9 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
         for k, s in d.items():
             if k in specs:
                 out.append(f"V1 · `{k}` is both asked and derived")
-            if not isinstance(s, dict) or not isinstance(s.get("from"), str) or not s["from"].strip() or set(s) - {"from", "fills", "configures"}:
-                out.append(f"V1 · derived `{k}`: the spec is {{from: \"<how earlier answers decide it>\", fills?: [TOKEN, …], configures?: {{<config pointer>: value}}}}")
+            if not isinstance(s, dict) or not isinstance(s.get("from"), str) or not s["from"].strip() or set(s) - {"from", "fills", "configures", "when"} \
+                    or ("when" in s and not (isinstance(s["when"], str) and "configures" in s)):
+                out.append(f"V1 · derived `{k}`: the spec is {{from: \"<how earlier answers decide it>\", fills?: [TOKEN, …], configures?: {{<config pointer>: value}}, when?: \"<condition>\" (with configures)}}")
     return out
 
 
@@ -787,6 +791,7 @@ def _v4(repo: Path, reg: dict) -> list[str]:
 
 def _conditions(repo: Path, reg: dict, manifest: dict) -> list[tuple[str, str]]:
     out = [(f"registry {q.get('id')} when", q["when"]) for q in _questions(reg) if isinstance(q.get("when"), str)]
+    out += [(f"registry derived {k} when", s["when"]) for k, s in _derived(reg).items() if isinstance(s, dict) and isinstance(s.get("when"), str)]
     for sect, entries in manifest.items():
         if isinstance(entries, dict):
             for k, e in entries.items():

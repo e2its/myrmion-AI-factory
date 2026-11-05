@@ -4632,11 +4632,11 @@ class Discovery(unittest.TestCase):
                 write(bindir / tool, '#!/bin/sh\necho "$*" > "$ARGS_OUT"\nexit 7\n'); os.chmod(bindir / tool, 0o755)
                 env = {**os.environ, "PATH": f"{bindir}{os.pathsep}{os.environ['PATH']}", "ARGS_OUT": str(Path(tmp) / "args")}
                 if gate != "tests":   # the guard: the switching file absent → passes, the tool never runs
-                    r = subprocess.run(cmd, shell=True, cwd=work, env=env, capture_output=True, text=True)
+                    r = subprocess.run(cmd, shell=True, cwd=work, env=env, capture_output=True, text=True)  # nosemgrep: python-shell-non-literal — the registry's own row under test
                     self.assertEqual((r.returncode, (Path(tmp) / "args").exists()), (0, False), f"{cmd}: {r.stderr}")
                 for name, body in files.items():
                     write(work / name, body)
-                r = subprocess.run(cmd, shell=True, cwd=work, env=env, capture_output=True, text=True)
+                r = subprocess.run(cmd, shell=True, cwd=work, env=env, capture_output=True, text=True)  # nosemgrep: python-shell-non-literal — the registry's own row under test
                 self.assertEqual(r.returncode, 7, f"{cmd}: the tool's exit is the verdict ({r.stderr})")
                 self.assertEqual((Path(tmp) / "args").read_text().strip(), args)
 
@@ -4649,6 +4649,42 @@ class Discovery(unittest.TestCase):
             self._reg(repo, two)
             with self.assertRaisesRegex(GateFault, "`tests`.*two"):
                 discovery.resolve(repo, {"backend.runtime": "Python"})
+
+    def test_resolve_derived_when(self):
+        """A derived row bound to the stack (EVOL-074): configured only when its `when` holds; V5 checks the condition;
+        a `when` without `configures`, or not a string, is a V1 shape finding."""
+        sast = {"from": "the stack", "when": "backend.runtime IN [Python]",
+                "configures": {"verification.gates": {"sast": {"command": "semgrep scan --config security/sast --error"}}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp)
+            self._reg(repo, lambda reg: (self._configures(reg), reg["derived"].__setitem__("quality.sast", sast)))
+            on = discovery.resolve(repo, {"backend.runtime": "Python", "surface.runtime_surface": ["src/**"]})["configures"]["verification.gates"]
+            self.assertEqual(on["sast"], {"command": "semgrep scan --config security/sast --error", "reads": ["src/**", "tests/**"]})
+            off = discovery.resolve(repo, {"backend.runtime": "Node.js", "surface.runtime_surface": ["src/**"]})["configures"]["verification.gates"]
+            self.assertNotIn("sast", off, "the condition does not hold: no row")
+            self.assertIn("secrets", off, "a derived row with no `when` stays unconditional")
+            self.assertEqual(self._rule(self._green(repo), "V5"), [])
+        for label, spec, rule, msg in [
+                ("unknown literal", {**sast, "when": "backend.runtime IN [Cobol]"}, "V5", "registry derived quality.sast when"),
+                ("unknown key", {**sast, "when": "stack.lang == Python"}, "V5", "registry derived quality.sast when"),
+                ("when without configures", {"from": "x", "when": "backend.runtime == Python"}, "V1", "derived `quality.sast`"),
+                ("when not a string", {**sast, "when": ["backend.runtime == Python"]}, "V1", "derived `quality.sast`")]:
+            with self.subTest(label), tempfile.TemporaryDirectory() as tmp:
+                repo = disc_repo(tmp)
+                self._reg(repo, lambda reg: reg["derived"].__setitem__("quality.sast", spec))
+                self.assertIn(msg, " | ".join(self._rule(self._green(repo), rule)))
+
+    def test_sast_member_one_source(self):
+        """The real registry: one `sast` row for every stack a pack covers, Node + React included (no two-source
+        collision); none for a stack with no pack (EVOL-074)."""
+        real = HERE.parents[1]
+        if not (real / discovery.REGISTRY).is_file():
+            self.skipTest("not the framework repo")
+        g = lambda be, fe: discovery.resolve(real, {"backend.runtime": be, "frontend.framework": fe,
+                                                     "surface.runtime_surface": ["src/**"]})["configures"].get("verification.gates", {})
+        for be, fe in [("Node.js", "React"), ("Python", "None"), ("None", "Vue.js"), (".NET", "Vue.js"), ("Rust", "None"), ("Go", "Svelte")]:
+            self.assertIn("semgrep scan --config security/sast", g(be, fe).get("sast", {}).get("command", ""), f"{be} + {fe}")
+        self.assertNotIn("sast", g("Ruby", "None")); self.assertNotIn("sast", g("PHP", "None"))
 
     def test_v12_configures_rows(self):
         cases = [

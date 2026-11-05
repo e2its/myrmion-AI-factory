@@ -1,0 +1,142 @@
+# SAST base pack — JavaScript and TypeScript, JSX/TSX included (EVOL-074). Framework-shipped, run by the `sast` verification member:
+#   semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .
+# Proven on semgrep 1.182.0, each rule fires on a positive fixture and stays quiet on a negative one (framework meta CI).
+# Our own rules, written from each API's documentation — no Semgrep registry rule is copied.
+# Each rule covers the forms written here, not every form: the security lens reads the rest.
+# Vue / Svelte template files: ui-templates.yml. The CE engine does not parse a .vue or .svelte file, so the JavaScript in
+# their <script> blocks is not scanned here — the security lens reads it.
+rules:
+  - id: javascript-debug-mode
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Debug mode is switched on in code that can run outside development — it exposes stack traces and internals. Read it from configuration, off by default.
+    paths:
+      exclude: ["/dev/", "/development/", "/local/", "dev.*", "local.*", "dev_settings.*", "local_settings.*", "development.*", "*.dev.*", "*_dev.*", "*-dev.*", "*.local.*", "*_local.*", "*-local.*", "*.development.*", "*_development.*", "tests/", "test/", "*.test.*", "*.spec.*"]
+    pattern-either:
+      - pattern: 'new ApolloServer({..., debug: true, ...})'
+      - pattern: process.env.NODE_ENV = "development"
+  - id: javascript-insecure-temp-file
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: A file with a predictable name in the shared temporary directory — another user can create or link it first. Use fs.mkdtemp for a private directory.
+    patterns:
+      - pattern-either:
+          - pattern: fs.$W(path.join(os.tmpdir(), ...), ...)
+          - pattern: fs.$W(os.tmpdir() + $X, ...)
+          - pattern: fs.$W(`${os.tmpdir()}...`, ...)
+      - metavariable-regex:
+          metavariable: $W
+          regex: ^(writeFile|writeFileSync|open|openSync|createWriteStream|appendFile|appendFileSync)$
+  - id: javascript-raw-html
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: HTML is inserted without escaping — a script in the data runs in the browser (XSS). Render text, or sanitise with a vetted library first.
+    pattern-either:
+      - pattern: '<$EL dangerouslySetInnerHTML={...} />'
+      - pattern: '<$EL dangerouslySetInnerHTML={...}>...</$EL>'
+      - patterns:
+          - pattern-either:
+              - pattern: $NODE.innerHTML = $X
+              - pattern: $NODE.innerHTML += $X
+              - pattern: $NODE.outerHTML = $X
+              - pattern: $NODE.insertAdjacentHTML($POS, $X)
+              - pattern: document.write($X)
+          - metavariable-pattern:
+              metavariable: $X
+              patterns:
+                - pattern-not: '"..."'
+      - pattern: $SANITIZER.bypassSecurityTrustHtml(...)
+      - pattern: 'Handlebars.compile($T, {..., noEscape: true, ...})'
+  - id: javascript-shell-non-literal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: A shell runs a command built at run time — any quote or ; in the input becomes a command (injection). Use execFile / spawn with an argument list and no shell.
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: child_process.$F($CMD, ...)
+              - pattern: require('child_process').$F($CMD, ...)
+              - pattern: require('node:child_process').$F($CMD, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          import { $F } from 'child_process';
+                          ...
+                      - pattern-inside: |
+                          import { $F } from 'node:child_process';
+                          ...
+                      - pattern-inside: |
+                          const { $F } = require('child_process');
+                          ...
+                      - pattern-inside: |
+                          const { $F } = require('node:child_process');
+                          ...
+                  - pattern: $F($CMD, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          import * as $CP from 'child_process';
+                          ...
+                      - pattern-inside: |
+                          import * as $CP from 'node:child_process';
+                          ...
+                      - pattern-inside: |
+                          const $CP = require('child_process');
+                          ...
+                      - pattern-inside: |
+                          const $CP = require('node:child_process');
+                          ...
+                  - pattern: $CP.$F($CMD, ...)
+          - metavariable-regex:
+              metavariable: $F
+              regex: ^(exec|execSync)$
+          - metavariable-pattern:
+              metavariable: $CMD
+              patterns:
+                - pattern-not: '"..."'
+      - patterns:
+          - pattern-either:
+              - pattern: "child_process.$F($CMD, ..., {..., shell: true, ...})"
+              - pattern: "require('child_process').$F($CMD, ..., {..., shell: true, ...})"
+              - pattern: "require('node:child_process').$F($CMD, ..., {..., shell: true, ...})"
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          import { $F } from 'child_process';
+                          ...
+                      - pattern-inside: |
+                          import { $F } from 'node:child_process';
+                          ...
+                      - pattern-inside: |
+                          const { $F } = require('child_process');
+                          ...
+                      - pattern-inside: |
+                          const { $F } = require('node:child_process');
+                          ...
+                  - pattern: "$F($CMD, ..., {..., shell: true, ...})"
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          import * as $CP from 'child_process';
+                          ...
+                      - pattern-inside: |
+                          import * as $CP from 'node:child_process';
+                          ...
+                      - pattern-inside: |
+                          const $CP = require('child_process');
+                          ...
+                      - pattern-inside: |
+                          const $CP = require('node:child_process');
+                          ...
+                  - pattern: "$CP.$F($CMD, ..., {..., shell: true, ...})"
+          - metavariable-regex:
+              metavariable: $F
+              regex: ^(spawn|spawnSync|execFile|execFileSync)$
+  - id: javascript-tls-verify-disabled
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: TLS certificate verification is turned off — anyone on the path can read and change the traffic. Keep verification on; trust a private CA with the `ca` option.
+    pattern-either:
+      - pattern: '{..., rejectUnauthorized: false, ...}'
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+      - pattern: process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"

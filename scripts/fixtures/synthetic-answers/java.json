@@ -23,7 +23,8 @@
       "coverage": "mvn verify -Djacoco.skip=false -q",
       "build": "mvn compile -q",
       "sca": "case {sca_threshold} in critical) c=9;; high) c=7;; medium) c=4;; *) c=0;; esac; mvn -q org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=$c",
-      "secrets": "bash scripts/security-scan.sh --secrets --require-scanner"
+      "secrets": "bash scripts/security-scan.sh --secrets --require-scanner",
+      "sast": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet ."
     },
     "red": true,
     "red_sources": [

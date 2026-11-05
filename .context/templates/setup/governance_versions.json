@@ -1,13 +1,13 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.21.1",
+  "framework_version": "8.22.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-05",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "v8.21.1 (fix/secrets-range-base): #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image, the canary and the dispatcher. v8.21.0 (feature/EVOL-116-per-file-red): feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.. v8.20.0 (feature/EVOL-104-train-stacks-by-file): EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability is planned up front — gate freeze (reliability questions with a closed weight vocabulary, outage response, bounded sensitive fields), seam map, re-measure on routing, ratified sub count, DC-35, security standard question (Q35). v8.19.0 (feature/EVOL-103-accepted-change-aligned): feat(EVOL-105, EVOL-103): EVOL-105 — a phase agent model and effort follow the declared pass (pass resolver): discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded. EVOL-103 — [LAW-17] an accepted change aligns every artefact it contradicts in the same pull request and is never reverted; the decision log records it; gate.py aligned (light and full profile) checks it. v8.18.0 (feature/EVOL-066-defect-class-intake): EVOL-066: DC-31..DC-34 enter the universal catalog with their gates and cases; universal DC-NN vs a project's own PDC-NN; § Promotion (generic, gated, novel, framework-numbered, tool-bound through configures, complete); the Discovery Protocol mints PDC and its stale sweep step goes. v8.17.0 (feature/EVOL-067-verification-loop): EVOL-102 phase 2 (#159): every placeholder has one source in the discovery registry (fills, derived fills, constants, a shrink-only baseline — V10); SETUP --upgrade's Step 8 clauses become registry migrations (V11) run by one generic step that back-fills, asks what the project lacks (--resolve pending), runs the migrations owed and offers template additions and removals by RDR; an answer outside its options is a fault. v8.16.0 (feature/EVOL-065-gate-hygiene): feat(EVOL-065) — a file written through the shell meets the branch and plan gates: one write-target reader (gate.py write-target) for Edit, Write and Bash; a write outside the project is never judged; the harness and user configuration guarded on every branch; pre-merge-commit refuses a merge commit where a commit is refused; an unresolvable diff base blocks validate-governance. v8.15.0 (feature/EVOL-113-delivery-cost): feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request. v8.14.0 (feature/EVOL-114-codesign-exits): feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked). v8.13.0 (feature/EVOL-102-discovery-as-data): feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home. v8.12.6 (fix/wave-0-follow-ups): fix #170: the review block reads the diff-base exit code with `|| BASE_RC=$?`; under set -e the bare assignment ended the hook silently, so the humanised reason (exit 1) and the origin/main fallback (other exits) never ran. v8.12.5 (fix/wave-0-framework-defects): fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]. v8.12.4 (fix/codesign-check-count): fix #113: a retired_terms entry takes `pattern` (a regex, matched per line) besides `term` — a retired shape, red on any value it takes; a malformed entry is a GateFault. v8.12.3 (fix/review-seals-home): fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/. v8.12.2 (docs/banner-readme-blocks): banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars. v8.12.1 (fix/hook-project-dir): fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it. v8.12.0 (feature/EVOL-064-lean-project-claude-md): feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks). v8.11.0 (feature/EVOL-063-autocompact-window): feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value. v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
+  "description": "v8.22.0 (feature/EVOL-074-sast-packs): feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0. v8.21.1 (fix/secrets-range-base): #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image, the canary and the dispatcher. v8.21.0 (feature/EVOL-116-per-file-red): feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.. v8.20.0 (feature/EVOL-104-train-stacks-by-file): EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability is planned up front — gate freeze (reliability questions with a closed weight vocabulary, outage response, bounded sensitive fields), seam map, re-measure on routing, ratified sub count, DC-35, security standard question (Q35). v8.19.0 (feature/EVOL-103-accepted-change-aligned): feat(EVOL-105, EVOL-103): EVOL-105 — a phase agent model and effort follow the declared pass (pass resolver): discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded. EVOL-103 — [LAW-17] an accepted change aligns every artefact it contradicts in the same pull request and is never reverted; the decision log records it; gate.py aligned (light and full profile) checks it. v8.18.0 (feature/EVOL-066-defect-class-intake): EVOL-066: DC-31..DC-34 enter the universal catalog with their gates and cases; universal DC-NN vs a project's own PDC-NN; § Promotion (generic, gated, novel, framework-numbered, tool-bound through configures, complete); the Discovery Protocol mints PDC and its stale sweep step goes. v8.17.0 (feature/EVOL-067-verification-loop): EVOL-102 phase 2 (#159): every placeholder has one source in the discovery registry (fills, derived fills, constants, a shrink-only baseline — V10); SETUP --upgrade's Step 8 clauses become registry migrations (V11) run by one generic step that back-fills, asks what the project lacks (--resolve pending), runs the migrations owed and offers template additions and removals by RDR; an answer outside its options is a fault. v8.16.0 (feature/EVOL-065-gate-hygiene): feat(EVOL-065) — a file written through the shell meets the branch and plan gates: one write-target reader (gate.py write-target) for Edit, Write and Bash; a write outside the project is never judged; the harness and user configuration guarded on every branch; pre-merge-commit refuses a merge commit where a commit is refused; an unresolvable diff base blocks validate-governance. v8.15.0 (feature/EVOL-113-delivery-cost): feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request. v8.14.0 (feature/EVOL-114-codesign-exits): feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked). v8.13.0 (feature/EVOL-102-discovery-as-data): feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home. v8.12.6 (fix/wave-0-follow-ups): fix #170: the review block reads the diff-base exit code with `|| BASE_RC=$?`; under set -e the bare assignment ended the hook silently, so the humanised reason (exit 1) and the origin/main fallback (other exits) never ran. v8.12.5 (fix/wave-0-framework-defects): fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]. v8.12.4 (fix/codesign-check-count): fix #113: a retired_terms entry takes `pattern` (a regex, matched per line) besides `term` — a retired shape, red on any value it takes; a malformed entry is a GateFault. v8.12.3 (fix/review-seals-home): fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/. v8.12.2 (docs/banner-readme-blocks): banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars. v8.12.1 (fix/hook-project-dir): fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it. v8.12.0 (feature/EVOL-064-lean-project-claude-md): feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks). v8.11.0 (feature/EVOL-063-autocompact-window): feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value. v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -231,10 +231,11 @@
       ]
     },
     "rules/security_policy.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/security_policy.md",
       "changelog": [
+        "1.6.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; suppression only as nosemgrep: <rule-id> — <reason> (a bare one blocks), .semgrepignore governed and adjudicated, the engine's default ignore list and the silent parse skip declared",
         "1.5.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
         "1.4.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed.",
         "1.4.0: feat(EVOL-043) — hosts law bodies in the index model (EVOL-043) — see file frontmatter changelog.",
@@ -983,11 +984,12 @@
       ]
     },
     "claude/CLAUDE.md": {
-      "version": "4.19.1",
+      "version": "4.20.0",
       "content_type": "universal",
       "target": "CLAUDE.md",
       "upgrade_strategy": "smart-additive-merge",
       "changelog": [
+        "4.20.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "4.19.1: docs(EVOL-116) — LAW-05 records ADR-EVOL-116: its body (rules/testing.md) states the head run first and that a scoped run that ran no test is red; the sentence is unchanged.",
         "4.19.0: feat(EVOL-103): an accepted change aligns its artefact in the same pull request and is never reverted — LAW-17, its body in rules/branching.md, gate.py aligned (unratified, stale artefact, reverted, registration-only realignment that drops APPROVED)",
         "4.18.0: EVOL-066: defect classes follow the law namespace split — universal DC-NN, numbered by the framework; a project's own PDC-NN",
@@ -1049,10 +1051,11 @@
       ]
     },
     "setup/setup_master_template.md": {
-      "version": "2.15.0",
+      "version": "2.16.0",
       "content_type": "stack_configured",
       "target": "docs/setup.md",
       "changelog": [
+        "2.16.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "2.15.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question",
         "2.14.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
         "2.13.0: feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home",
@@ -1929,11 +1932,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.28.1",
+      "version": "1.29.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.29.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; review cures: security/sast/** is a governed path, a suppression carries its rule id and reason, the debug exclusions are anchored, the proof scans the delivered tree clean, Angular [innerHTML] is left to its sanitiser",
         "1.28.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
         "1.28.0: feat(EVOL-116) — a test runs as one file on every stack: the red proof runs head first (a red or empty run at the head is red); every row with `scoped` is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; `discovery --resolve` returns `gates_upgrade` (added / replaced / kept, by the rows' `was`); the fixtures of the red-stacks CI job, one per stack (base, head, expected verdicts).",
         "1.27.0: EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations; round-2 — quoted key, n/a headline, marker-by-type tests",
@@ -2268,12 +2272,13 @@
       ]
     },
     "scripts/gates/seal.py": {
-      "version": "1.3.1",
+      "version": "1.3.2",
       "content_type": "universal",
       "target": "scripts/gates/seal.py",
       "delivery": "both",
       "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map.",
       "changelog": [
+        "1.3.2: fix(EVOL-074): the three configured-command shell=True sites carry nosemgrep with their reason, so the delivered tree scans clean under the python pack",
         "1.3.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
         "1.3.0: feat(EVOL-116) — a test runs as one file on every stack: the red proof runs head first (a red or empty run at the head is red); every row with `scoped` is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; `discovery --resolve` returns `gates_upgrade` (added / replaced / kept, by the rows' `was`); the fixtures of the red-stacks CI job, one per stack (base, head, expected verdicts).",
         "1.2.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
@@ -2443,11 +2448,12 @@
       ]
     },
     "scripts/gates/discovery.py": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/discovery.py",
       "changelog": [
+        "1.4.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.3.0: feat(EVOL-116) — a test runs as one file on every stack: the red proof runs head first (a red or empty run at the head is red); every row with `scoped` is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; `discovery --resolve` returns `gates_upgrade` (added / replaced / kept, by the rows' `was`); the fixtures of the red-stacks CI job, one per stack (base, head, expected verdicts).",
         "1.2.0: EVOL-066: --resolve returns defect_classes (drop; against a project to_add, to_remove, collisions); V12 holds defect_prevention.classes to a list of DC-NN; V13 checks the template catalog (row DC-NN with gate and case, case with row, configured id a row, no stack label on an unbound row)",
         "1.1.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
@@ -2456,10 +2462,11 @@
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
     },
     "setup/discovery_registry.json": {
-      "version": "1.4.1",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": null,
       "changelog": [
+        "1.5.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.4.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
         "1.4.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.3.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
@@ -2523,6 +2530,76 @@
       "target": "scripts/gates/freeze.py",
       "changelog": [
         "1.0.0: EVOL-115: reliability planned up front — gate freeze (reliability questions, outage response, sensitive fields); review cures — closed weight vocabulary, n/a with reason, non-false x-sensitive counted, humanised contract faults, empty contract red, PyYAML cause named; round-2 cures — quoted status keys counted, n/a headline when nothing judged, marker decided by type (no alias re-expansion), no pointer per leaf"
+      ]
+    },
+    "security/sast/python.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/sast/python.yml",
+      "stack_conditional": "backend.runtime == Python",
+      "role": "SAST base pack (EVOL-074) for Python: our own Semgrep rules, run by the `sast` verification member; lands only when the stack uses the language.",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ]
+    },
+    "security/sast/javascript.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/sast/javascript.yml",
+      "stack_conditional": "backend.runtime == Node.js OR frontend.framework IN [React, Vue.js, Angular, Svelte, Solid]",
+      "role": "SAST base pack (EVOL-074) for JavaScript and TypeScript (JSX/TSX): our own Semgrep rules, run by the `sast` verification member; lands only when the stack uses the language.",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ]
+    },
+    "security/sast/ui-templates.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/sast/ui-templates.yml",
+      "stack_conditional": "frontend.framework IN [Vue.js, Svelte]",
+      "role": "SAST base pack (EVOL-074) for Vue and Svelte templates (generic: v-html, {@html}): our own Semgrep rules, run by the `sast` verification member; lands only when the stack uses the language.",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ]
+    },
+    "security/sast/java.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/sast/java.yml",
+      "stack_conditional": "backend.runtime == Java",
+      "role": "SAST base pack (EVOL-074) for Java: our own Semgrep rules, run by the `sast` verification member; lands only when the stack uses the language.",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ]
+    },
+    "security/sast/go.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/sast/go.yml",
+      "stack_conditional": "backend.runtime == Go",
+      "role": "SAST base pack (EVOL-074) for Go: our own Semgrep rules, run by the `sast` verification member; lands only when the stack uses the language.",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ]
+    },
+    "security/sast/csharp.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/sast/csharp.yml",
+      "stack_conditional": "backend.runtime == .NET",
+      "role": "SAST base pack (EVOL-074) for C# / .NET: our own Semgrep rules, run by the `sast` verification member; lands only when the stack uses the language.",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ]
+    },
+    "security/sast/rust.yml": {
+      "version": "1.0.0",
+      "content_type": "universal",
+      "target": "security/sast/rust.yml",
+      "stack_conditional": "backend.runtime == Rust",
+      "role": "SAST base pack (EVOL-074) for Rust: our own Semgrep rules, run by the `sast` verification member; lands only when the stack uses the language.",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
       ]
     }
   },
@@ -3255,9 +3332,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.26.0",
+      "version": "2.26.1",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.26.1: fix(EVOL-074): the security members it names include the sast gate",
         "2.26.0: EVOL-116: the phase caller stops on BLOCKED(UNDECLARED_STACK) — a test file no row runs never reaches the critics",
         "2.25.0: EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations; round-2 — premise_found per finding, with increment_id",
         "2.24.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
@@ -3365,9 +3443,10 @@
       ]
     },
     "instructions/Factory-implement-review-checks.instructions.md": {
-      "version": "2.23.0",
+      "version": "2.24.0",
       "path": ".claude/instructions/Factory-implement-review-checks.instructions.md",
       "changelog": [
+        "2.24.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; the SEC loop blocks a framework pack with no sast row (SEC-SAST-004), a bare nosem/nosemgrep added in the diff (SEC-SAST-005) and a changed .semgrepignore (SEC-SAST-006), warns on an engine other than 1.182.0, and names each finding's rule id and file",
         "2.23.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "2.22.0: EVOL-066: a catalog reader names a class by its id as written (DC-NN or PDC-NN), never by a DC- prefix on its number",
         "2.21.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
@@ -3566,9 +3645,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.29.0",
+      "version": "3.30.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.30.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; docs/setup.md quality.sast records the packs that landed ([] when none); security/sast/** and .semgrepignore join the governed planning seed",
         "3.29.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "3.28.0: EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
         "3.27.0: EVOL-066: Phase B.1 numbers the starter classes PDC-1… and drops the tool-bound rows defect_classes.drop names, with their cases; the reserved-id skip goes",
@@ -3632,9 +3712,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.23.1",
+      "version": "2.23.2",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.23.2: fix(EVOL-074): an upgrade reports the added sast row (install semgrep 1.182.0) and governs security/sast/** and .semgrepignore when absent",
         "2.23.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
         "2.23.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "2.22.0: EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
@@ -3741,9 +3822,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.23.1",
+      "version": "14.24.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.24.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "14.23.1: docs(EVOL-116) — LAW-05 records ADR-EVOL-116: its body (rules/testing.md) states the head run first and that a scoped run that ran no test is red; the sentence is unchanged.",
         "14.23.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question",
         "14.22.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
@@ -4009,10 +4091,11 @@
       "path": ".claude/skills/factory-worklog/SKILL.md"
     },
     "skills/factory-build-verification/SKILL.md": {
-      "version": "1.16.0",
+      "version": "1.17.0",
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
+        "1.17.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; review cures: security/sast/** is a governed path, a suppression carries its rule id and reason, the debug exclusions are anchored, the proof scans the delivered tree clean, Angular [innerHTML] is left to its sanitiser",
         "1.16.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.15.0: EVOL-066: a project's new defect class is PDC-NN, minted through the Discovery Protocol of rules/defect-prevention.md; a class worth every project is proposed upstream (§ Promotion)",
         "1.14.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
@@ -4695,11 +4778,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.19.1",
+      "version": "1.20.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.20.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; review cures: security/sast/** is a governed path, a suppression carries its rule id and reason, the debug exclusions are anchored, the proof scans the delivered tree clean, Angular [innerHTML] is left to its sanitiser",
         "1.19.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
         "1.19.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.18.0: EVOL-102 phase 2 (#159): every placeholder has one source in the discovery registry (fills, derived fills, constants, a shrink-only baseline — V10); SETUP --upgrade's Step 8 clauses become registry migrations (V11) run by one generic step that back-fills, asks what the project lacks (--resolve pending), runs the migrations owed and offers template additions and removals by RDR; an answer outside its options is a fault",
@@ -5397,11 +5481,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.28.1",
+      "version": "1.29.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.29.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; review cures: security/sast/** is a governed path, a suppression carries its rule id and reason, the debug exclusions are anchored, the proof scans the delivered tree clean, Angular [innerHTML] is left to its sanitiser",
         "1.28.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
         "1.28.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.27.0: EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations; round-2 — quoted key, n/a headline, marker-by-type tests",
@@ -5441,11 +5526,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.27.0",
+      "version": "1.28.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.28.0: feat(EVOL-074) — the upgrade selection simulates a project that predates the SAST packs (no sast row, no security/sast/) and asserts gates_upgrade.added and templates_to_add; the planning seed governs security/sast/** and .semgrepignore",
         "1.27.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.26.0: EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
         "1.25.0: EVOL-066: synthetic proof — the seed lands as PDC-1, dropped rows leave with their cases, each fixture asserts its classes; the upgrade fixture asserts to_add, to_remove and a collision; fixture rows on the valid vocabulary",
@@ -5780,11 +5866,12 @@
       ]
     },
     "scripts/gates/seal.py": {
-      "version": "1.3.1",
+      "version": "1.3.2",
       "type": "script",
       "role": "gates: one full verification loop per change (EVOL-051) — the documentation class (one definition: config → documentation), the path-to-gate map (verification.gates), the seal per branch (untracked; read-set hashes over the tree the commit carries: `plan` the gates owed now, `write` a run, `check` at the push — moved read-set owed, unmapped path owes the full loop, documentation owes nothing unless a gate declares it), `validate` the map. Meta copy (lock-step pair scripts/gates/*.py).",
       "path": "scripts/gates/seal.py",
       "changelog": [
+        "1.3.2: fix(EVOL-074): the three configured-command shell=True sites carry nosemgrep with their reason, so the delivered tree scans clean under the python pack",
         "1.3.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
         "1.3.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.2.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
@@ -5904,11 +5991,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/default.json": {
-      "version": "1.4.0",
+      "version": "1.5.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json",
       "changelog": [
+        "1.5.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.4.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.3.0: EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
         "1.2.0: feat(EVOL-066): each answer set states frontend.pattern and expects its defect classes — DC-18 with server rendering, none without; the upgrade expects the catalog delta",
@@ -5917,11 +6005,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json",
       "changelog": [
+        "1.4.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.3.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.2.0: feat(EVOL-066): each answer set states frontend.pattern and expects its defect classes — DC-18 with server rendering, none without; the upgrade expects the catalog delta",
         "1.1.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
@@ -5938,10 +6027,11 @@
       ]
     },
     "scripts/gates/discovery.py": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "type": "script",
       "path": "scripts/gates/discovery.py",
       "changelog": [
+        "1.4.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.3.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.2.0: EVOL-066: --resolve returns defect_classes (drop; against a project to_add, to_remove, collisions); V12 holds defect_prevention.classes to a list of DC-NN; V13 checks the template catalog (row DC-NN with gate and case, case with row, configured id a row, no stack label on an unbound row)",
         "1.1.0: EVOL-068 (#122): honest tests — LAW-05 states the red proven; the loop proves a new test red at the diff base (red: false where the runner selects by name, #188); scope and deferral judged by the fidelity lens; coverage per file; canary c3/f3",
@@ -5975,11 +6065,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json",
       "changelog": [
+        "1.4.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.3.1: fix(#189): the upgrade from 8.12 also owes the trufflehog secrets_command migration",
         "1.3.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.2.0: EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
@@ -6021,38 +6112,42 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/java.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/java.json",
       "changelog": [
+        "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack."
       ]
     },
     "scripts/fixtures/synthetic-answers/go.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/go.json",
       "changelog": [
+        "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack."
       ]
     },
     "scripts/fixtures/synthetic-answers/rust.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/rust.json",
       "changelog": [
+        "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack."
       ]
     },
     "scripts/fixtures/synthetic-answers/frontend-only.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/frontend-only.json",
       "changelog": [
+        "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack."
       ]
     },
@@ -6103,6 +6198,96 @@
       "changelog": [
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: the red proof runs head first (a red or empty run at the head is red); every row with `scoped` is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; `discovery --resolve` returns `gates_upgrade` (added / replaced / kept, by the rows' `was`); the fixtures of the red-stacks CI job, one per stack (base, head, expected verdicts)."
       ]
+    },
+    "scripts/test-sast-packs.sh": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/test-sast-packs.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY proof of the SAST base packs (EVOL-074): both ways per rule, semgrep --test never vacuous, and per synthetic answer set the landing packs red on planted defects and green without them. Wired into governance-check job sast-packs (semgrep/semgrep:1.182.0)."
+    },
+    "scripts/fixtures/sast/csharp.cs": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/csharp.cs",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
+    },
+    "scripts/fixtures/sast/go.go": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/go.go",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
+    },
+    "scripts/fixtures/sast/java.java": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/java.java",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
+    },
+    "scripts/fixtures/sast/javascript.js": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/javascript.js",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
+    },
+    "scripts/fixtures/sast/javascript.tsx": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/javascript.tsx",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
+    },
+    "scripts/fixtures/sast/python.py": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/python.py",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
+    },
+    "scripts/fixtures/sast/rust.rs": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/rust.rs",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
+    },
+    "scripts/fixtures/sast/ui-templates.svelte": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/ui-templates.svelte",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
+    },
+    "scripts/fixtures/sast/ui-templates.vue": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/fixtures/sast/ui-templates.vue",
+      "changelog": [
+        "1.0.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): our own rules for debug mode, insecure temp files, raw HTML, shell with non-literal input and TLS verification off; one sast verification member when a pack lands; proven both ways on semgrep 1.182.0"
+      ],
+      "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
     }
   },
   "runtime_artefacts": {

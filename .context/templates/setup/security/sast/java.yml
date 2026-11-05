@@ -1,0 +1,51 @@
+# SAST base pack — Java (EVOL-074). Framework-shipped, run by the `sast` verification member:
+#   semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .
+# Proven on semgrep 1.182.0, each rule fires on a positive fixture and stays quiet on a negative one (framework meta CI).
+# Our own rules, written from each API's documentation — no Semgrep registry rule is copied.
+# Each rule covers the forms written here, not every form: the security lens reads the rest. Gaps: raw HTML (server templates — Thymeleaf th:utext, JSP
+# escapeXml — are not Java files; the security lens reads them).
+rules:
+  - id: java-debug-mode
+    languages: [java]
+    severity: ERROR
+    message: Spring Security debug is on — it logs every request with its headers and session. Remove it outside a local profile.
+    paths:
+      exclude: ["/dev/", "/development/", "/local/", "dev.*", "local.*", "dev_settings.*", "local_settings.*", "development.*", "*.dev.*", "*_dev.*", "*-dev.*", "*.local.*", "*_local.*", "*-local.*", "*.development.*", "*_development.*", "tests/", "test/", "src/test/"]
+    pattern: "@EnableWebSecurity(debug = true)"
+  - id: java-insecure-temp-file
+    languages: [java]
+    severity: ERROR
+    message: File.createTempFile may leave the file readable by other users of the machine. Use java.nio.file.Files.createTempFile (owner-only permissions).
+    pattern: java.io.File.createTempFile(...)
+  - id: java-shell-non-literal
+    languages: [java]
+    severity: ERROR
+    message: A command built at run time reaches a shell or Runtime.exec — any quote or ; in the input becomes a command (injection). Pass a fixed program and an argument list.
+    pattern-either:
+      - patterns:
+          - pattern: Runtime.getRuntime().exec($CMD, ...)
+          - pattern-not: Runtime.getRuntime().exec("...", ...)
+      - patterns:
+          - pattern: new ProcessBuilder($SH, "-c", $CMD, ...)
+          - metavariable-regex:
+              metavariable: $SH
+              regex: ^"(/bin/)?(sh|bash|zsh|cmd(\.exe)?)"$
+          - pattern-not: new ProcessBuilder($SH, "-c", "...", ...)
+  - id: java-tls-verify-disabled
+    languages: [java]
+    severity: ERROR
+    message: TLS certificate or hostname verification is turned off — anyone on the path can read and change the traffic. Keep the default trust manager and verifier; trust a private CA through a trust store.
+    pattern-either:
+      - pattern: |
+          public void checkServerTrusted(...) {}
+      - pattern: (String $H, SSLSession $S) -> true
+      - pattern: $X.setDefaultHostnameVerifier(($H, $S) -> true)
+      - pattern: $X.setHostnameVerifier(($H, $S) -> true)
+      - pattern: $X.setSSLHostnameVerifier(($H, $S) -> true)
+      - pattern: $X.hostnameVerifier(($H, $S) -> true)
+      - pattern: new SSLConnectionSocketFactory($CTX, ($H, $S) -> true)
+      - pattern: HostnameVerifier $V = ($H, $S) -> true;
+      - pattern: |
+          public boolean verify(String $H, SSLSession $S) { return true; }
+      - pattern: NoopHostnameVerifier.INSTANCE
+      - pattern: new NoopHostnameVerifier()

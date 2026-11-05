@@ -2,7 +2,7 @@
 description: "Security policy — OWASP Top 10 compliance, secret management, Zero Trust principles, vulnerability remediation."
 applicable_when:
   always: true
-version: 1.5.0
+version: 1.6.0
 date: 2026-09-25
 changelog:
   - "1.4.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -31,6 +31,7 @@ stack: "{{PRIMARY_LANGUAGE}} + {{PRIMARY_FRAMEWORK}}"
 
 ### Static Analysis (SAST)
 - **Tools:** Semgrep (code), Gitleaks (secrets), Dependabot (dependencies).
+- **Base packs (EVOL-074):** `security/sast/<pack>.yml` — the framework's own Semgrep rules, one pack per language the project uses and only those (Python, JavaScript/TypeScript, UI templates, Java, Go, C#, Rust): debug mode outside development, insecure temporary files, raw HTML, a shell fed a non-literal, TLS verification off. The `sast` verification member runs them all (`config/quality.json → verification.gates.sast`); a finding blocks, and the member is never skipped. Engine pinned to the version the packs are proven on: `pipx install semgrep==1.182.0`, or the image `semgrep/semgrep:1.182.0`. A stack with no pack gets no member, and the setup report says so. Fix the code, never the pack; a project's own rule goes in a file of its own under `security/sast/` (a governed path: a pack edit needs an approved plan; on a stack with no pack, the project adds the `sast` row itself). A false positive is suppressed on its line only — `nosemgrep: <rule-id> — <reason>` — never with a bare `nosemgrep`, which the security loop blocks; the security lens reviews every new suppression in the diff. A `.semgrepignore` (governed) replaces the engine's default ignore list (`tests/`, `build/`, `dist/`, `vendor/`, `node_modules/` are skipped by default); the security lens adjudicates every change to it. The packs cover the common forms of each class, not every form: the security lens still reads the code. A file the engine cannot parse is skipped silently — the gate's `--quiet` output does not name it.
 - **CI/CD:** Block merge if HIGH/CRITICAL vulnerabilities.
 
 ### Network Security

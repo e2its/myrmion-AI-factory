@@ -1,0 +1,48 @@
+# SAST base pack — Rust (EVOL-074). Framework-shipped, run by the `sast` verification member:
+#   semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .
+# Proven on semgrep 1.182.0, each rule fires on a positive fixture and stays quiet on a negative one (framework meta CI).
+# Our own rules, written from each API's documentation — no Semgrep registry rule is copied.
+# Each rule covers the forms written here, not every form: the security lens reads the rest. Gaps: debug mode (no web-framework debug switch in code; it is the
+# build profile).
+rules:
+  - id: rust-insecure-temp-file
+    languages: [rust]
+    severity: ERROR
+    message: A file with a predictable name in the shared temporary directory — another user can create or link it first. Use the tempfile crate (tempfile(), tempdir()).
+    pattern-either:
+      - pattern: File::create(std::env::temp_dir().join(...))
+      - pattern: File::create(env::temp_dir().join(...))
+      - pattern: std::fs::write(std::env::temp_dir().join(...), ...)
+      - pattern: fs::write(env::temp_dir().join(...), ...)
+  - id: rust-raw-html
+    languages: [rust]
+    severity: ERROR
+    message: HTML is emitted without escaping — a script in the data runs in the browser (XSS). Keep the template engine's escaping on; pre-escape only constants.
+    pattern-either:
+      - patterns:
+          - pattern: PreEscaped($X)
+          - pattern-not: PreEscaped("...")
+      - pattern: $T.autoescape_on(vec![])
+  - id: rust-shell-non-literal
+    languages: [rust]
+    severity: ERROR
+    message: A shell runs a command built at run time — any quote or ; in the input becomes a command (injection). Run the program itself with .arg / .args, no shell.
+    patterns:
+      - pattern-either:
+          - pattern: Command::new($SH).arg("-c").arg($CMD)
+          - pattern: Command::new($SH).args(["-c", $CMD])
+          - pattern: Command::new($SH).args(&["-c", $CMD])
+      - metavariable-regex:
+          metavariable: $SH
+          regex: ^"(/bin/)?(sh|bash|zsh)"$
+      - metavariable-pattern:
+          metavariable: $CMD
+          patterns:
+            - pattern-not: '"..."'
+  - id: rust-tls-verify-disabled
+    languages: [rust]
+    severity: ERROR
+    message: TLS certificate or hostname verification is turned off — anyone on the path can read and change the traffic. Keep verification on; add a private CA with add_root_certificate.
+    pattern-either:
+      - pattern: $B.danger_accept_invalid_certs(true)
+      - pattern: $B.danger_accept_invalid_hostnames(true)

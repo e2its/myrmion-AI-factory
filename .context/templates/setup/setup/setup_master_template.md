@@ -1,5 +1,5 @@
 ---
-version: 2.15.0
+version: 2.16.0
 date: 2026-04-21
 changelog:
   - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
@@ -123,6 +123,7 @@ quality:
     install_hint: null
     sca_threshold: null
     enabled: null
+  sast: null                          # derived: the SAST packs that landed for the stack (EVOL-074)
 ai:
   training: null
   inference: null
