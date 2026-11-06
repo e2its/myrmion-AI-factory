@@ -210,6 +210,10 @@
   },
   "contracts": {
     "_doc": "Reliability is planned up front (EVOL-115): outage_status is the response every OpenAPI operation declares for a dependency down — python3 scripts/gate.py freeze (a light member of the gate profile) is red when an operation of a changed contracts/openapi/** file lacks it, when an x-sensitive field carries no constraint, or when a changed design leaves a security/availability capability's reliability question without answer or source.",
-    "outage_status": "503"
+    "outage_status": "503",
+    "_doc_parity": "Contract parity (EVOL-070): python3 scripts/gate.py contracts --parity, the loop member contract-parity of API scopes. emit is the shell command that writes the code's OpenAPI under {out}, mirroring contracts/openapi/ — null until the first increment that builds the backend writes it (rules/contract-first-policy.md § Contract parity names each framework's emitter); while null the member is red. tests_root (default tests/api, the TC-API home) holds the contract tests the member runs through the seal's own dispatch (each verification.gates row with scoped, by its red_reads), each response recorded in CONTRACT_OBSERVED; timeout_s bounds each command it runs.",
+    "emit": null,
+    "tests_root": "tests/api",
+    "timeout_s": 1800
   }
 }

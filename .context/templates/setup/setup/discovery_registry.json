@@ -135,20 +135,38 @@
       "full-stack": {
        "defect_prevention.classes": [
         "DC-36",
-        "DC-37"
-       ]
+        "DC-37",
+        "DC-39"
+       ],
+       "verification.gates": {
+        "contract-parity": {
+         "command": "python3 scripts/gate.py contracts --parity"
+        }
+       }
       },
       "backend-only": {
        "defect_prevention.classes": [
         "DC-36",
-        "DC-37"
-       ]
+        "DC-37",
+        "DC-39"
+       ],
+       "verification.gates": {
+        "contract-parity": {
+         "command": "python3 scripts/gate.py contracts --parity"
+        }
+       }
       },
       "integration": {
        "defect_prevention.classes": [
         "DC-36",
-        "DC-37"
-       ]
+        "DC-37",
+        "DC-39"
+       ],
+       "verification.gates": {
+        "contract-parity": {
+         "command": "python3 scripts/gate.py contracts --parity"
+        }
+       }
       }
      }
     }
@@ -1664,7 +1682,7 @@
    }
   },
   "verification.gates": {
-   "from": "gate.py discovery --resolve → configures.verification.gates: the configures rows of the answered backend.runtime, frontend.framework and the security scan, reads = surface.runtime_surface + the test roots (EVOL-067); each row's `was` (superseded template values) stays in the registry for the upgrade merge (EVOL-116); a stack with no rows declares its rows by RDR at discovery (§ verification coverage), recorded here",
+   "from": "gate.py discovery --resolve → configures.verification.gates: the configures rows of the answered backend.runtime, frontend.framework, project_scope (contract-parity, EVOL-070) and the security scan, reads = surface.runtime_surface + the test roots (EVOL-067); each row's `was` (superseded template values) stays in the registry for the upgrade merge (EVOL-116); a stack with no rows declares its rows by RDR at discovery (§ verification coverage), recorded here",
    "fills": [
     "VERIFICATION_GATES"
    ]
@@ -2100,6 +2118,18 @@
    "since": "8.23.0",
    "detect": "docs/project_log/crud_baseline.json#/undeclared",
    "apply": "contracts (EVOL-072)"
+  },
+  {
+   "id": "contracts.emit (EVOL-070)",
+   "since": "8.24.0",
+   "detect": "config/quality.json#/contracts/emit",
+   "apply": "contracts.emit (EVOL-070)"
+  },
+  {
+   "id": "feature_map Version (EVOL-070)",
+   "since": "8.24.0",
+   "detect": "always",
+   "apply": "feature_map Version (EVOL-070)"
   }
  ]
 }

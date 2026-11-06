@@ -30,11 +30,13 @@
       "present": [
         "DC-36",
         "DC-37",
+        "DC-39",
         "DC-38"
       ],
       "absent": []
     },
     "gates": {
+      "contract-parity": "python3 scripts/gate.py contracts --parity",
       "tests": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out",
       "coverage": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out",
       "lint": "golangci-lint run ./...",

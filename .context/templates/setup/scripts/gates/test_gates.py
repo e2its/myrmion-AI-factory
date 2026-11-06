@@ -9,6 +9,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -6060,6 +6061,282 @@ class Contracts(unittest.TestCase):
                 p = repo / (self.API if target == "contract" else "docs/project_log/crud_baseline.json")
                 p.parent.mkdir(parents=True, exist_ok=True); p.unlink(missing_ok=True); p.symlink_to(outside)
                 r = contracts.check(repo); out = contracts.render(r); self.assertFalse(r["ok"], out); self.assertIn("outside the repository", out)
+
+class ContractPlans(unittest.TestCase):
+    """EVOL-070 light clauses of the contract reader: the registry at info.version, one TC-API row per new operation,
+    the journey covered by operations in the test plan."""
+    API = "contracts/openapi/orders-core/v1.yaml"
+
+    @staticmethod
+    def _api(ops, version="1.2.0"):
+        paths = {}
+        for (m, path), oid in ops.items():
+            paths.setdefault(path, {})[m] = {"responses": {"200": {"description": "ok"}}, **({"operationId": oid} if oid else {})}
+        return json.dumps({"openapi": "3.0.3", "info": {"title": "t", "version": version}, "paths": paths})
+
+    def _git(self, repo, *c):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)
+
+    def _row(self, r, rid):
+        return next(e for e in r["entries"] if e["id"] == rid)
+
+    def test_registry_states_info_version(self):
+        head = "| Contract Slug | Contract Path | Feature ID | Version | Status |\n|---|---|---|---|---|\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp)); write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder"}))
+            write(repo / "contracts/feature_map.md", "| Contract Slug | Contract Path | Feature ID | Status |\n|---|---|---|---|\n| o | `openapi/orders-core/v1.yaml` | F-1 | ACTIVE |\n")
+            out = contracts.render(contracts.check(repo)); self.assertIn("no `Version` column", out)
+            write(repo / "contracts/feature_map.md", head + "| o | `openapi/orders-core/v1.yaml` | F-1 | v1.1.0 | ACTIVE |\n")
+            out = contracts.render(contracts.check(repo)); self.assertIn("is at 1.2.0 but its row states 1.1.0", out)
+            write(repo / "contracts/feature_map.md", head + "| o | `openapi/orders-core/v1.yaml` | F-1 | v1.2.0 | ACTIVE |\n"
+                  "| o | `openapi/orders-core/v1.yaml` | F-0 | 0.9.0 | SUPERSEDED |\n```\n| x | `openapi/gone.yaml` | F | 1 | ACTIVE |\n```\n")
+            r = contracts.check(repo); self.assertTrue(self._row(r, "contracts/feature_map.md")["ok"], contracts.render(r))
+            write(repo / "contracts/feature_map.md", head + "| g | `contracts/openapi/gone/v1.yaml` | F-1 | 1.0.0 | ACTIVE |\n")
+            self.assertIn("which is no file of the project", contracts.render(contracts.check(repo)))
+            write(repo / "contracts/graphql/user/schema.graphql", "type Query {\n  user(id: ID!): User\n}\n")
+            write(repo / "contracts/feature_map.md", head + "| o | `openapi/orders-core/v1.yaml` | F-1 | 1.2.0 | ACTIVE |\n| u | `graphql/user/schema.graphql` | F-2 | — | ACTIVE |\n")
+            r = contracts.check(repo); self.assertTrue(self._row(r, "contracts/feature_map.md")["ok"], contracts.render(r))
+            (repo / "contracts/graphql/user/schema.graphql").unlink()
+            self.assertIn("`contracts/graphql/user/schema.graphql`, which is no file", contracts.render(contracts.check(repo)), "a GraphQL row still names a file")
+            write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder"}).replace('"version": "1.2.0"', '"version": 1.1'))
+            self.assertIn("info.version is not a string", contracts.render(contracts.check(repo)))
+
+    def test_new_operation_is_planned_by_a_tc_api_row(self):
+        plan = "docs/spec/F-1/test_plan.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp)); write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder"}))
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base"); self._git(repo, "branch", "-M", "main"); self._git(repo, "checkout", "-qb", "feature/F-1-x")
+            write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder", ("post", "/orders"): "createOrder", ("get", "/orders"): None}))
+            r = contracts.check(repo, "main"); out = contracts.render(r)
+            self.assertFalse(self._row(r, "contract tests")["ok"], out); self.assertIn("`createOrder` is new and no TC-API row names it", out)
+            self.assertIn("`GET /orders` is new and has no operationId", out); self.assertNotIn("`getOrder` is new", out, "an operation older than the base passed a build")
+            write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder", ("post", "/orders"): "createOrder", ("get", "/orders"): "listOrders"}))
+            write(repo / plan, "| ID | Operation |\n|---|---|\n| UX-01 | `createOrder` |\n")
+            self.assertIn("`createOrder` is new and no TC-API row names it", contracts.render(contracts.check(repo, "main")), "only a TC-API row plans an operation")
+            write(repo / plan, "| ID | Endpoint | Method | Operation |\n|---|---|---|---|\n| TC-API-01 | /orders | POST | `createOrder` |\n| TC-API-02 | /orders | GET | listOrders |\n")
+            r = contracts.check(repo, "main"); self.assertTrue(self._row(r, "contract tests")["ok"], contracts.render(r))
+            self.assertEqual([e["id"] for e in r["entries"] if e["id"] == plan], [], "a plan whose feature has no journey owes no coverage")
+            self.assertIsNone(next((e for e in contracts.check(repo)["entries"] if e["id"] == "contract tests"), None), "no base, no change-scoped clause")
+
+    def test_journey_covered_in_the_test_plan(self):
+        plan, journey = "docs/spec/F-1/test_plan.md", "docs/spec/F-1/user_journey.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp)); write(repo / self.API, self._api({("get", "/orders/{id}"): "getOrder"}))
+            write(repo / journey, "## Section 2: Journey Steps\n### Paso 1\nThe buyer opens the order.\n### Paso 2\nThe buyer reads it.\n")
+            write(repo / plan, "| ID | Operation |\n|---|---|\n")
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base"); self._git(repo, "branch", "-M", "main"); self._git(repo, "checkout", "-qb", "feature/F-1-x")
+            r = contracts.check(repo, "main"); self.assertEqual([e["id"] for e in r["entries"] if e["id"] == plan], [], "an unchanged plan is not judged")
+            write(repo / plan, "| ID | Operation |\n|---|---|\n\n### Journey coverage\n")
+            out = contracts.render(contracts.check(repo, "main")); self.assertIn("Paso 1 has no coverage row", out); self.assertIn("Paso 2 has no coverage row", out)
+            write(repo / plan, "| ID | Operation |\n|---|---|\n| TC-API-01 | `getOrder` |\n")
+            self.assertIn("no `### Journey coverage`", contracts.render(contracts.check(repo, "main")))
+            write(repo / plan, "### Journey coverage\n\n| Paso | Operation |\n|---|---|\n| Paso 1 | `getOrder` |\n| Paso 2 | deleteOrder |\n")
+            self.assertIn("Paso 2: `deleteOrder` is no operation", contracts.render(contracts.check(repo, "main")))
+            write(repo / plan, "### Journey coverage\n\n| Paso | Operation |\n|---|---|\n| Paso 1 | `getOrder` |\n| 2 | none — reading the screen calls nothing |\n")
+            r = contracts.check(repo, "main"); self.assertTrue(self._row(r, plan)["ok"], contracts.render(r))
+            write(repo / plan, "### Journey coverage\n\n| Paso | Operation |\n|---|---|\n| Paso 01 | `getOrder` |\n| Paso 2 | none — reads the screen |\n")
+            r = contracts.check(repo, "main"); self.assertTrue(self._row(r, plan)["ok"], contracts.render(r))
+            write(repo / journey, "## Section 2: Journey Steps\n### Paso 01\nThe buyer opens the order.\n### Paso 2\nThe buyer reads it.\n")
+            write(repo / plan, "### Journey coverage\n\n| Paso | Operation |\n|---|---|\n| Paso 1 | `getOrder` |\n| Paso 2 | none — reads the screen |\n")
+            r = contracts.check(repo, "main"); self.assertTrue(self._row(r, plan)["ok"], contracts.render(r))
+            write(repo / plan, "### Journey coverage\n\n### 2.2 Other\n\n| Paso | Operation |\n|---|---|\n| Paso 1 | `getOrder` |\n| Paso 2 | `getOrder` |\n")
+            self.assertIn("Paso 1 has no coverage row", contracts.render(contracts.check(repo, "main")), "a table under the next heading is no coverage")
+            write(repo / plan, "### Journey coverage\n\n| Paso | Operation |\n|---|---|\n| Paso 1 | `getOrder` |\n| Paso 2 | none |\n")
+            self.assertIn("Paso 2: `none` is no operation", contracts.render(contracts.check(repo, "main")), "a none needs its reason")
+
+
+@unittest.skipUnless(shutil.which("oasdiff") or os.environ.get("REQUIRE_OASDIFF"), "oasdiff not installed (the contract-parity CI job pins it)")
+class ContractParity(unittest.TestCase):
+    """EVOL-070 loop member `contract-parity`: the contract tests' answers and the code's emitted OpenAPI against the
+    authored contracts — each rule red on its own mismatch (scripts/test-contract-parity.sh runs this in CI)."""
+    API = "contracts/openapi/orders-core/v1.yaml"
+    CAT = "VALIDATION_REQUIRED:\n  meaning: a required field is missing\n  status: 422\nNOT_FOUND:\n  meaning: the order does not exist\n  status: 404\n"
+
+    @staticmethod
+    def _doc(max_len=10, secured=True, extra_status=None, codes=("NOT_FOUND",)):
+        op = {"operationId": "getOrder", "description": "authored words",
+              "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string", "maxLength": max_len}}],
+              "responses": {"200": {"description": "ok"}, "404": {"description": "missing", "x-error-codes": list(codes)}}}
+        if secured:
+            op["security"] = [{"bearer": []}]
+        if extra_status:
+            op["responses"][extra_status] = {"description": "x"}
+        return {"openapi": "3.0.3", "info": {"title": "t", "version": "1.0.0"}, "paths": {"/orders/{id}": {"get": op}},
+                "components": {"securitySchemes": {"bearer": {"type": "http", "scheme": "bearer"}}}}
+
+    def _repo(self, tmp, answers, emitted=None, emit=True):
+        repo = fixture_repo(Path(tmp))
+        cfg = json.loads((repo / "config/quality.json").read_text())
+        cfg["verification"] = {"seal": {"dir": ".claude/state"}, "gates": {"tests": {"reads": ["**"], "command": "true", "scoped": "python3 run_contract_tests.py {paths}",
+                                                                              "red_reads": ["tests/**/test_*.py"]}}}
+        # any root the key names (the shipped default is tests/api): a non-default root also proves the key is read
+        cfg["contracts"] = {"tests_root": "tests/contract", **({"emit": "python3 emit.py {out}"} if emit else {"emit": None})}
+        write(repo / "config/quality.json", json.dumps(cfg))
+        write(repo / "contracts/errors.yaml", self.CAT)
+        write(repo / self.API, json.dumps(self._doc()))
+        write(repo / "tests/contract/answers.json", json.dumps(answers))
+        write(repo / "tests/contract/test_orders.py", "")
+        # the scoped row of a per-file stack (EVOL-116): it is handed test files, never a folder — exit 9 otherwise
+        write(repo / "run_contract_tests.py", "import json, os, sys, time\nif not sys.argv[1:] or not all(os.path.isfile(a) for a in sys.argv[1:]):\n    sys.exit(9)\n"
+              "rec = json.load(open('tests/contract/answers.json'))\nif rec == 'sleep':\n    import subprocess; subprocess.Popen(['sleep', '30']); time.sleep(30)\n"
+              "if rec == 'fail':\n    sys.exit(3)\nwith open(os.path.join(os.environ['CONTRACT_OBSERVED'], 'a.jsonl'), 'w') as f:\n"
+              "    f.write(''.join((r if isinstance(r, str) else json.dumps(r)) + '\\n' for r in rec))\n")
+        for rel, doc in (emitted if emitted is not None else {"orders-core/v1.json": self._doc() | {"info": {"title": "emitted", "version": "1.0.0"}}}).items():
+            write(repo / "emitted" / rel, json.dumps(doc))
+        (repo / "emitted").mkdir(exist_ok=True)
+        write(repo / "emit.py", "import shutil, sys\nshutil.copytree('emitted', sys.argv[1], dirs_exist_ok=True)\n")
+        return repo
+
+    OK = [{"operation": "getOrder", "status": 200, "code": None}, {"operation": "getOrder", "status": 404, "code": "NOT_FOUND"}]
+
+    def _out(self, repo):
+        r = contracts.parity(repo); return r, contracts.render(r)
+
+    def test_green_when_code_and_contract_agree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self._out(self._repo(tmp, self.OK)); self.assertTrue(r["ok"], out)
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(Path(tmp) / "repo"), "contracts", "--parity"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+
+    def _cfg(self, repo, **contracts):
+        cfg = json.loads((repo / "config/quality.json").read_text()); cfg["contracts"].update(contracts)
+        write(repo / "config/quality.json", json.dumps(cfg))
+
+    def test_documentation_and_deployment_choices_are_no_parity(self):
+        doc = self._doc(); op = doc["paths"]["/orders/{id}"]["get"]
+        op.update({"description": "other words", "summary": "s", "tags": ["orders"], "x-handler": "orders.get"})
+        op["responses"]["200"]["description"] = "fine"; op["parameters"][0]["example"] = "o-1"
+        doc.update({"openapi": "3.1.0", "servers": [{"url": "http://localhost:8000"}], "tags": [{"name": "orders"}]})
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self._out(self._repo(tmp, self.OK, {"orders-core/v1.json": doc})); self.assertTrue(r["ok"], out)
+        with tempfile.TemporaryDirectory() as tmp:   # every method's tags are the emitter's, head and options included
+            a = self._doc(); a["paths"]["/orders/{id}"]["head"] = {"operationId": "headOrder", "responses": {"200": {"description": "h"}}}
+            e = json.loads(json.dumps(a)); e["paths"]["/orders/{id}"]["head"]["tags"] = ["orders"]
+            repo = self._repo(tmp, self.OK, {"orders-core/v1.json": e}); write(repo / self.API, json.dumps(a))
+            self.assertNotIn("differs from what the code emits", self._out(repo)[1])
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out(self._repo(tmp, self.OK, {"orders-core/v1.json": self._doc(), "orders-core/v1.yaml": self._doc()}))[1]
+            self.assertIn("emits 2 documents for `orders-core/v1`", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out(self._repo(tmp, self.OK, {"orders-core/v1.json": []}))[1]; self.assertIn("the emitted twin is no OpenAPI document", out)
+
+    def test_declared_responses_and_codes_as_written(self):
+        def doc(**resp):
+            d = self._doc(); d["paths"]["/orders/{id}"]["get"]["responses"] = {"200": {"description": "ok"}, **resp}; return d
+        ref = doc(**{"404": {"$ref": "#/components/responses/NotFound"}})
+        ref["components"]["responses"] = {"NotFound": {"description": "missing", "x-error-codes": ["NOT_FOUND"]}}
+        cases = [("a range", doc(**{"4XX": {"description": "client"}}), [{"operation": "getOrder", "status": 409, "code": None}], None),
+                 ("default", doc(default={"description": "any"}), [{"operation": "getOrder", "status": 500, "code": None}], None),
+                 ("no x-error-codes", doc(**{"422": {"description": "bad"}}), [{"operation": "getOrder", "status": 422, "code": "VALIDATION_REQUIRED"}], None),
+                 ("no x-error-codes, uncatalogued", doc(**{"422": {"description": "bad"}}), [{"operation": "getOrder", "status": 422, "code": "GONE"}], "which the catalog lacks"),
+                 ("a $ref response", ref, [{"operation": "getOrder", "status": 404, "code": "NOT_FOUND"}], None),
+                 ("a $ref response, outside", ref, [{"operation": "getOrder", "status": 404, "code": "VALIDATION_REQUIRED"}], "outside its `x-error-codes`")]
+        for what, d, answers, red in cases:
+            with self.subTest(what), tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, [{"operation": "getOrder", "status": 200, "code": None}] + answers, {"orders-core/v1.json": d})
+                write(repo / self.API, json.dumps(d)); r, out = self._out(repo)
+                (self.assertIn(red, out) if red else self.assertTrue(r["ok"], out))
+
+    def test_operation_ids(self):
+        d = self._doc(); d["paths"]["/orders"] = {"get": {"operationId": "getOrder", "responses": {"200": {"description": "ok"}}},
+                                                 "post": {"responses": {"201": {"description": "c"}}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, self.OK, {"orders-core/v1.json": d}); write(repo / self.API, json.dumps(d)); out = self._out(repo)[1]
+            self.assertIn("`getOrder` names two operations of contracts/openapi/orders-core/v1.yaml", out)
+            self.assertIn("`POST /orders` has no operationId", out)
+        with tempfile.TemporaryDirectory() as tmp:   # an unnamed operation answered by its method and path is no record
+            repo = self._repo(tmp, self.OK + [{"operation": "POST /orders", "status": 201, "code": None}], {"orders-core/v1.json": d})
+            write(repo / self.API, json.dumps(d)); self.assertIn("`POST /orders` answered and no contract declares it", self._out(repo)[1])
+        with tempfile.TemporaryDirectory() as tmp:   # v1 and v2 share an operationId: one record serves both
+            repo = self._repo(tmp, self.OK, {"orders-core/v1.json": self._doc(), "orders-core/v2.json": self._doc()})
+            write(repo / "contracts/openapi/orders-core/v2.yaml", json.dumps(self._doc())); r, out = self._out(repo); self.assertTrue(r["ok"], out)
+
+    def test_bounded_and_unlinked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, "sleep"); self._cfg(repo, timeout_s=1)
+            t0 = time.monotonic(); out = self._out(repo)[1]; self.assertIn("timed out after 1 s", out)
+            self.assertLess(time.monotonic() - t0, 6, "a timeout stops the whole tree, never waits for it")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, self.OK); self._cfg(repo, timeout_s="soon")
+            with self.assertRaises(contracts.GateFault):
+                contracts.parity(repo)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, self.OK); elsewhere = Path(tmp) / "elsewhere"; (elsewhere / "observed").mkdir(parents=True)
+            (repo / ".claude/state").mkdir(parents=True, exist_ok=True); (repo / ".claude/state/contract-parity").symlink_to(elsewhere)
+            with self.assertRaises(contracts.GateFault):
+                contracts.parity(repo)
+            self.assertTrue((elsewhere / "observed").is_dir(), "the link's target was cleaned")
+        with tempfile.TemporaryDirectory() as tmp:   # a file where the state folder goes is a named fault, never a traceback
+            repo = self._repo(tmp, self.OK); write(repo / ".claude/state/contract-parity", "a file in the way")
+            with self.assertRaises(contracts.GateFault):
+                contracts.parity(repo)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, self.OK); write(repo / ".claude/state/contract-parity/observed", "a file in the way")
+            write(repo / ".claude/state/contract-parity/emitted/stale.jsonl", "x"); r, out = self._out(repo); self.assertTrue(r["ok"], out)
+
+    def test_emitted_differs(self):
+        cases = {"a constraint": self._doc(max_len=20), "the security": self._doc(secured=False), "a response": self._doc(extra_status="409"), "the version": self._doc() | {"info": {"title": "t", "version": "0.9.0"}},
+                 "an operation": {"openapi": "3.0.3", "info": {"title": "t", "version": "1"}, "paths": {}}}
+        for what, doc in cases.items():
+            with self.subTest(what), tempfile.TemporaryDirectory() as tmp:
+                r, out = self._out(self._repo(tmp, self.OK, {"orders-core/v1.json": doc}))
+                self.assertFalse(r["ok"], out); self.assertIn("differs from what the code emits", out)
+        with tempfile.TemporaryDirectory() as tmp:   # a YAML date is compared as its text, never a traceback
+            text = json.dumps(self._doc()).replace('"info": {', '"info": {"x-released": 2020-01-01, ', 1)
+            repo = self._repo(tmp, self.OK); write(repo / self.API, text); r, out = self._out(repo); self.assertTrue(r["ok"], out)
+        with tempfile.TemporaryDirectory() as tmp:   # an anchor that refers to itself is no contract
+            repo = self._repo(tmp, self.OK); write(repo / self.API, json.dumps(self._doc())[:-1] + ', "x-loop": &l {"self": *l}}')
+            r, out = self._out(repo); self.assertFalse(r["ok"], out); self.assertIn("cannot be compared", out)
+        with tempfile.TemporaryDirectory() as tmp:   # a `$ref` to another file is refused, never followed
+            d = self._doc(); d["paths"]["/orders/{id}"]["get"]["responses"]["200"] = {"$ref": "../../shared/ok.yaml#/ok"}
+            repo = self._repo(tmp, self.OK, {"orders-core/v1.json": d}); write(repo / self.API, json.dumps(d))
+            write(repo / "contracts/shared/ok.yaml", json.dumps({"ok": {"description": "ok"}}))
+            r, out = self._out(repo); self.assertFalse(r["ok"], out); self.assertIn("disallowed external reference", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out(self._repo(tmp, self.OK, {}))[1]; self.assertIn("the code emits no `orders-core/v1`", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out(self._repo(tmp, self.OK, {"orders-core/v1.json": self._doc(), "admin/v1.yaml": self._doc()}))[1]
+            self.assertIn("the code emits `admin/v1` and no contract declares it", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out(self._repo(tmp, self.OK, emit=False))[1]; self.assertIn("`contracts.emit` is not declared", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, self.OK); cfg = json.loads((repo / "config/quality.json").read_text())
+            cfg["contracts"]["emit"] = "python3 emit.py emitted-here"; write(repo / "config/quality.json", json.dumps(cfg))
+            self.assertIn("`contracts.emit` is not declared", self._out(repo)[1], "an emit command must write under {out}")
+        with tempfile.TemporaryDirectory() as tmp, unittest.mock.patch.object(contracts.shutil, "which", return_value=None):
+            out = self._out(self._repo(tmp, self.OK))[1]; self.assertIn("oasdiff is not installed", out)
+
+    def test_observed_answers(self):
+        cases = {"its contract does not declare it": self.OK + [{"operation": "getOrder", "status": 409, "code": None}],
+                 "which the catalog lacks": self.OK + [{"operation": "getOrder", "status": 404, "code": "GONE"}],
+                 "outside its `x-error-codes`": self.OK + [{"operation": "getOrder", "status": 404, "code": "VALIDATION_REQUIRED"}],
+                 "no contract declares it": self.OK + [{"operation": "deleteOrder", "status": 204, "code": None}],
+                 "is no record": self.OK + ["{not json", {"operation": "getOrder", "status": "404"}],
+                 "was never answered": [],
+                 "recorded nothing": "empty",
+                 "the contract tests failed": "fail"}
+        for what, answers in cases.items():
+            with self.subTest(what), tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, [] if answers == "empty" else answers)
+                if what == "was never answered":
+                    write(repo / "tests/contract/answers.json", json.dumps([{"operation": "getOrder", "status": 200, "code": None}]))
+                    doc = self._doc(); doc["paths"]["/orders"] = {"post": {"operationId": "createOrder", "responses": {"201": {"description": "c"}}}}
+                    write(repo / self.API, json.dumps(doc)); write(repo / "emitted/orders-core/v1.json", json.dumps(doc))
+                r, out = self._out(repo); self.assertFalse(r["ok"], out); self.assertIn(what, out)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, self.OK); write(repo / "config/quality.json", json.dumps({**json.loads((repo / "config/quality.json").read_text()), "contracts": {"emit": "python3 emit.py {out}", "tests_root": "nowhere"}}))
+            self.assertIn("no contract tests under `nowhere`", self._out(repo)[1])
+        for bad in ("/abs/tests", "../tests", "/", " "):
+            with self.subTest(bad), tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, self.OK); cfg = json.loads((repo / "config/quality.json").read_text())
+                cfg["contracts"]["tests_root"] = bad; write(repo / "config/quality.json", json.dumps(cfg))
+                self.assertIn("a folder of the project, relative to its root", self._out(repo)[1])
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, self.OK); (repo / "tests/contract/test_orders.py").unlink()
+            self.assertIn("is a test a `verification.gates` row with `scoped` runs", self._out(repo)[1], "a helper alone is no contract test")
+        with tempfile.TemporaryDirectory() as tmp:
+            r = contracts.parity(fixture_repo(Path(tmp))); self.assertTrue(r.get("na"), r)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

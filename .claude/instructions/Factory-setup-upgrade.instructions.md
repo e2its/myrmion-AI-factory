@@ -230,6 +230,10 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 
 **contracts (EVOL-072).** After the `scripts/gates/` refresh, with the contracts unchanged: run `python3 scripts/gate.py contracts --json` — exit 1 is expected here, the findings are what it seeds. `n/a` (no contract, no catalog) → nothing to write. Otherwise write its `undeclared` list verbatim to `docs/project_log/crud_baseline.json` as `{"_doc": "CRUD-First findings older than the law (EVOL-072); the list only shrinks", "undeclared": [...]}` (`[]` when empty — the row is then done) and commit it in the upgrade commit: the base's contracts carry those findings, so the gate accepts them; nothing new enters later. Report the count. A catalog finding is no CRUD debt: fix it.
 
+**contracts.emit (EVOL-070).** Add the template's contract-parity keys to `config/quality.json → contracts` (`emit: null`, `tests_root`, `timeout_s`, `_doc_parity`). An API scope (Q4.5 full-stack, backend-only, integration) also gets the loop row `verification.gates.contract-parity` through the derived rows. Say that its next full loop is red until the backend's emit command is written (`rules/contract-first-policy.md` § Contract parity), or a dated skip names why.
+
+**feature_map Version (EVOL-070).** `contracts/feature_map.md` absent → nothing to do. Otherwise add a `Version` column after `Contract Path` to each registry table, and fill each row with its contract's `info.version` (`—` where the contract has none). Run `python3 scripts/gate.py contracts`: its `contracts/feature_map.md` row is green. A row naming no file is fixed or marked SUPERSEDED, never dropped.
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).

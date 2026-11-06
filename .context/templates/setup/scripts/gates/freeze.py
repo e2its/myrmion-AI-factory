@@ -12,7 +12,7 @@ the merge-base with the diff base) is read. Red when:
   (c) open sensitive field a schema carrying a non-false `x-sensitive` (anywhere: components, inline, items, allOf)
                            carries none of maxLength, pattern, enum, format, minimum, maximum. The green line counts them.
 An unparseable, empty or malformed contract is red with its reason (LAW-08). Nothing to judge → `freeze: n/a`.
-Raised ⊆ declared belongs to the one contract reader, gates/contracts.py (its parity clause, #124) — not this one.
+Raised ⊆ declared belongs to the one contract reader, gates/contracts.py (`--parity`, the loop member contract-parity, EVOL-070) — not this one.
 """
 from __future__ import annotations
 

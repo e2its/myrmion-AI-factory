@@ -46,7 +46,8 @@
   gate.py aligned [--base B --branch B] [--json]   EVOL-103 [LAW-17]: every accepted-change entry added to a decision log the diff changes (any branch) is ratified (rdr | delegation), its artefacts aligned in the diff, its paths not reverted, a registration-only realignment keeps APPROVED and names a ratified entry; exit 1 red · n/a without a changed log
   gate.py train [--base B --branch B] [--figures [--plan P]] [--json]   EVOL-104: a train stacks its changes by file — every increment plan the diff changes: (a) a path glob in two subs neither after the other that fit the ceiling together, (b) a sub enabling a concern's gate before a sub carrying it; (c) a sub-increment branch writing a train.close_ledgers path while a sibling sub is not MERGED; EVOL-115: (d) a seam-map row's use case, handler or integration test outside its sub's paths, (e) a `stub until SUB-x` past a MERGED SUB-x, (f) a sub's tasks ≠ its measured set, (g) more subs than the INC's Ratified sub-increments; exit 1 red · n/a without a changed plan off a sub branch · --figures: per INC subs, unique paths, path-touches, re-touch, train total
   gate.py freeze [--base B --branch B] [--json]    EVOL-115: every design.md and contracts/openapi/** the diff changes — (a) a security/availability capability's reliability question without answer or source, (b) an operation without the contracts.outage_status response, (c) an x-sensitive field without a constraint, an unparseable contract; exit 1 red · n/a without a changed design or contract
-  gate.py contracts [--base B] [--branch X] [--json]  EVOL-072: contracts/errors.yaml one code per meaning (a code listed twice, two codes one meaning, an entry with no meaning), every x-error-codes code in the catalog (the whole tree), CRUD-First single and batch on the whole tree (every resource with its eight operations, an omission or an operation outside CRUD-First with a non-empty x-crud-exception), older findings in docs/project_log/crud_baseline.json that only shrinks (`undeclared` in --json seeds it at SETUP --upgrade); exit 1 red · n/a without a catalog and a contract
+  gate.py contracts [--base B] [--branch X] [--json]  EVOL-072: contracts/errors.yaml one code per meaning (a code listed twice, two codes one meaning, an entry with no meaning), every x-error-codes code in the catalog (the whole tree), CRUD-First single and batch on the whole tree (every resource with its eight operations, an omission or an operation outside CRUD-First with a non-empty x-crud-exception), older findings in docs/project_log/crud_baseline.json that only shrinks (`undeclared` in --json seeds it at SETUP --upgrade); EVOL-070: contracts/feature_map.md rows at their contract's info.version, every operation new since the base named by a TC-API row's Operation cell, a changed test plan's Journey coverage complete; exit 1 red · n/a without a catalog and a contract
+  gate.py contracts --parity [--json]               EVOL-070, the loop member contract-parity (needs a build): the contract tests (the test files under contracts.tests_root, through seal --scoped's dispatch) record each answer to CONTRACT_OBSERVED — every status declared, every code in the catalog and the operation's x-error-codes, every operation answered; contracts.emit writes the code's OpenAPI and oasdiff diff --fail-on-diff compares each twin (shapes, constraints, security, responses, info.version); exit 1 red · n/a without an OpenAPI contract
   gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
   gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
   gate.py traceability --declared --json           the declared qualified case ids (FEATURE/CASE) and the manual ones — what the pytest plugin validates at collection; a listing, rc 0
@@ -448,12 +449,16 @@ def cmd_freeze(repo, a):
 
 def cmd_contracts(repo, a):
     try:
-        base = _base(repo, a)
+        base = None if a.parity else _base(repo, a)
     except branch_mod.UnknownBranch as e:
         print(f"contracts: RED — {clean(e)}", file=sys.stderr)
         return 1
-    r = contracts_mod.check(repo, base)
-    print(json.dumps(r) if a.json else contracts_mod.render(r))
+    try:
+        r = contracts_mod.parity(repo) if a.parity else contracts_mod.check(repo, base)
+    except GateFault as e:
+        print(f"contracts: RED — {clean(e)}", file=sys.stderr)
+        return 1
+    print(json.dumps(r, default=sorted) if a.json else contracts_mod.render(r))
     return 0 if r["ok"] else 1
 
 
@@ -687,7 +692,7 @@ def build_parser():
     p = sub.add_parser("aligned"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_aligned)
     p = sub.add_parser("train"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--figures", action="store_true"); p.add_argument("--plan", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_train)
     p = sub.add_parser("freeze"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_freeze)
-    p = sub.add_parser("contracts"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_contracts)
+    p = sub.add_parser("contracts"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--parity", action="store_true"); p.set_defaults(fn=cmd_contracts)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)

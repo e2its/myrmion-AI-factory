@@ -120,13 +120,15 @@ paths:
 ```markdown
 # Contract → Feature Mapping
 
-| Contract Slug | Contract Path | Feature ID | Spec Location | Status | Role | Notes | Superseded By | Superseded At |
-|---------------|---------------|------------|---------------|--------|------|-------|---------------|---------------|
-| auth-oauth-login | `openapi/auth-oauth-login/v1.yaml` | AUTH-001 | `docs/spec/AUTH-001/` | ACTIVE | OWNER | | | |
-| user-profile | `graphql/user-profile/schema.graphql` | USER-003 | `docs/spec/USER-003/` | ACTIVE | OWNER | | | |
-| payment-checkout | `openapi/payment-checkout/v2.yaml` | PAY-005 | `docs/spec/PAY-005/` | ACTIVE | OWNER | | | |
-| auth-oauth-login | `openapi/auth-oauth-login/v1.yaml` | AUTH-001 | `docs/spec/AUTH-001/` | SUPERSEDED | OWNER | | AUTH-002 | 2026-02-20 |
+| Contract Slug | Contract Path | Version | Feature ID | Spec Location | Status | Role | Notes | Superseded By | Superseded At |
+|---------------|---------------|---------|------------|---------------|--------|------|-------|---------------|---------------|
+| auth-oauth-login | `openapi/auth-oauth-login/v1.yaml` | 1.2.0 | AUTH-001 | `docs/spec/AUTH-001/` | ACTIVE | OWNER | | | |
+| user-profile | `graphql/user-profile/schema.graphql` | — | USER-003 | `docs/spec/USER-003/` | ACTIVE | OWNER | | | |
+| payment-checkout | `openapi/payment-checkout/v2.yaml` | 2.0.1 | PAY-005 | `docs/spec/PAY-005/` | ACTIVE | OWNER | | | |
+| auth-oauth-login | `openapi/auth-oauth-login/v1.yaml` | 1.0.0 | AUTH-001 | `docs/spec/AUTH-001/` | SUPERSEDED | OWNER | | AUTH-002 | 2026-02-20 |
 ```
+
+> **Version (EVOL-070):** each ACTIVE row states its contract's `info.version` (a leading `v` is allowed). `gate.py contracts` is red on a mismatch, on a row naming no file, and on a registry without the column. A contract with no `info.version` (GraphQL, proto) writes `—`. A version bump of the contract updates its rows in the same commit.
 
 > **Status Values:** `ACTIVE` (authoritative), `SUPERSEDED` (replaced by another feature — kept for audit trail, excluded from collision detection and runtime routing), `DEPRECATED` (sunset in progress).
 
@@ -167,10 +169,10 @@ See `BLUEPRINT.AGENT.MD` Phase 3 Step 1b for the full algorithm.
 When a feature REUSES an endpoint from another feature's contract, a **consumer entry** is appended:
 
 ```markdown
-| Contract Slug | Contract Path | Feature ID | Spec Location | Status | Role | Notes | Superseded By | Superseded At |
-|---|---|---|---|---|---|---|---|---|
-| auth-oauth-login | `openapi/auth-oauth-login/v1.yaml` | AUTH-001 | `docs/spec/AUTH-001/` | ACTIVE | OWNER | | | |
-| auth-oauth-login | `openapi/auth-oauth-login/v1.yaml` | ADMIN-003 | `docs/spec/ADMIN-003/` | ACTIVE | CONSUMER | Reuses GET /api/v1/auth/users/{id} | | |
+| Contract Slug | Contract Path | Version | Feature ID | Spec Location | Status | Role | Notes | Superseded By | Superseded At |
+|---|---|---|---|---|---|---|---|---|---|
+| auth-oauth-login | `openapi/auth-oauth-login/v1.yaml` | 1.2.0 | AUTH-001 | `docs/spec/AUTH-001/` | ACTIVE | OWNER | | | |
+| auth-oauth-login | `openapi/auth-oauth-login/v1.yaml` | 1.2.0 | ADMIN-003 | `docs/spec/ADMIN-003/` | ACTIVE | CONSUMER | Reuses GET /api/v1/auth/users/{id} | | |
 ```
 
 > **Role Values:** `OWNER` (feature that created the contract), `CONSUMER` (feature that reuses endpoints without modifying the contract), `CO-OWNER` (feature that extended the contract with new operations).
@@ -1898,6 +1900,59 @@ rules:
 
 ---
 
+## 🧪 Contract parity (EVOL-070, DC-39)
+
+The code, the contract and the test plan agree, proven by a gate. Two places:
+
+| Where | Member | Proves |
+|---|---|---|
+| verification loop (needs a build) | `contract-parity` (`gate.py contracts --parity`) | the emitted OpenAPI equals the authored one; the contract tests' answers are declared |
+| push profile (no build) | `contracts` (`gate.py contracts`) | the registry `Version`; one TC-API row per new operation; the journey coverage |
+
+**Emitted ↔ authored.** `config/quality.json → contracts.emit` is a shell command that writes the code's OpenAPI under `{out}`, mirroring `contracts/openapi/`: `{out}/<slug>/v1.json` is the twin of `contracts/openapi/<slug>/v1.yaml`.
+
+- SETUP writes `null`. The first increment that builds the backend writes the command, from the table below. While it is `null` the member is red.
+- Each contract is compared with its twin: `oasdiff diff <authored> <emitted> --fail-on-diff --allow-external-refs=false --exclude-elements description,examples,title,summary,extensions`.
+- Compared: everything else — operations, operationIds, parameters, shapes and their constraints, `security`, declared responses, `info.version`. Not compared: prose, examples, `x-` extensions, `tags`, `servers`, and the `openapi` line (both copies take the authored one).
+- A contract reads as one self-contained document: a `$ref` to another file is not followed (no remote read), so it is red.
+- A contract with no twin is red, and so is a twin with no contract, or two twins of one stem.
+- **oasdiff** is required. The tested version is 1.15.2: the release binary from `github.com/oasdiff/oasdiff/releases`, checked against the release's `checksums.txt` (`go install github.com/oasdiff/oasdiff@v1.15.2` builds the same). Without it the member is red.
+- A request constraint the contract declares and the handler omits, or the reverse, is DC-39: the emitted shape carries it.
+
+| Framework | Emitter | Command shape |
+|---|---|---|
+| FastAPI | built in | a script writing `json.dumps(app.openapi())` |
+| Django REST | drf-spectacular | `python manage.py spectacular --format openapi-json --file {out}/<slug>/v1.json` |
+| Flask | flask-smorest | `flask openapi write {out}/<slug>/v1.json` |
+| NestJS | @nestjs/swagger | a script writing `SwaggerModule.createDocument(app, config)` |
+| Fastify | @fastify/swagger | a script writing `fastify.swagger()` after `ready()` |
+| Spring Boot | springdoc-openapi | the maven / gradle plugin (`generateOpenApiDocs`) with its output directory at `{out}` |
+| Quarkus | smallrye-openapi | `quarkus.smallrye-openapi.store-schema-directory={out}/<slug>` at build |
+| Micronaut | micronaut-openapi | the compile-time document under `META-INF/swagger/`, copied to `{out}` |
+| ASP.NET Core | Microsoft.Extensions.ApiDescription.Server / Swashbuckle CLI | `dotnet build` with `OpenApiDocumentsDirectory={out}/<slug>`, or `swagger tofile` |
+| Rust (axum, actix) | utoipa | a bin writing `ApiDoc::openapi().to_pretty_json()` |
+| Go | huma | `go run . openapi` written to `{out}/<slug>/v1.json` |
+
+An emitter that writes its own file name (`openapi.json`, `<project>.json`) is followed by a move to `{out}/<slug>/v1.json` in the same command. One app serving several contracts emits one document per contract slug (a group per slug, or a filter by path prefix).
+
+A framework with no code-derived emitter (Starlette docstrings, Express with swagger-jsdoc, Go with swag, Hapi, Koa) carries a dated skip of `contract-parity` in `verification.skips`, which expires. The plan adopts an emitter before it does: Flask → flask-smorest, a Go router → huma, Express → a code-first framework above.
+
+**Observed answers.** `--parity` runs the contract tests itself: the test files under `contracts.tests_root` (default `tests/api`, the TC-API tests) through the seal's own dispatch (`gate.py seal --scoped`: each `verification.gates` row with `scoped` gets the files its `red_reads` hold), with `CONTRACT_OBSERVED` naming a fresh directory. The commands inherit the environment: a secret present there is visible to the tests. Each response appends one JSON line to a `*.jsonl` file there (`develop/api_test_template.md` § Recording the answers):
+
+```json
+{"operation": "getOrder", "status": 404, "code": "ORDER_NOT_FOUND"}
+```
+
+Red when a line is malformed, an operation is unknown or has no operationId, an operationId names two operations of one document, a status is not declared on its operation (`default` and a range such as `4XX`, upper case, count; a local `$ref` response is read where it points), a code is outside `contracts/errors.yaml` or outside the operation's `x-error-codes`, an operation is never answered, nothing was recorded, or the tests fail. An error no test provokes stays unproven; one TC-API row per status bounds it. Two versions sharing an operationId share its records. `contracts.timeout_s` bounds every command.
+
+**Light clauses** (`gate.py contracts`, every push):
+
+- **Registry:** each ACTIVE row of `contracts/feature_map.md` states its contract's `info.version` (§ Cross-Reference File).
+- **One contract test per operation:** every operation added since the merge-base has an operationId and is named in the `Operation` cell of a TC-API row of some `docs/spec/*/test_plan.md`. Its test is linked (`traceability`) and red at the base (the seal's `red`).
+- **Journey coverage:** a changed `test_plan.md` whose feature has a `user_journey.md` carries `### Journey coverage` (`| Paso | Operation |`): one row per `Paso N`, each cell an operationId of the tree or `none — <reason>`. The journey itself names no operation (LAW-16).
+
+---
+
 ## 🔒 Enforcement & Escape Hatches
 
 ### Mandatory Checkpoints
@@ -1913,7 +1968,7 @@ rules:
 
 3. **QA Agent (`/QA --verify`):**
    - MUST validate implementation matches contract
-   - Uses spectral/graphql-inspector/ts-morph for automated checks
+   - Reads the verification loop's `contract-parity` member (§ Contract parity); spectral/graphql-inspector for the rest
 
 ### Escape Hatches (Require ADR)
 

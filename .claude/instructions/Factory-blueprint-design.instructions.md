@@ -437,7 +437,7 @@ candidates = find_inventory_matches(planned_artifact, topology):
 - `x-generated-by: BLUEPRINT`
 
 **Step 2c**: Update `contracts/feature_map.md`:
-- Add row: SLUG → Feature ID → contract path → spec reference
+- Add row: SLUG → contract path → `Version` (the contract's `info.version`) → Feature ID → spec reference (`gate.py contracts` checks the version)
 
 **Step 2d**: Reference contracts in design.md § Contracts
 
@@ -703,7 +703,7 @@ Every capability with a security or availability weight answers the closed quest
 
 **Freeze checklist** (before `--approve`, on the contracts the design writes):
 - Every operation declares the outage response (`config/quality.json → contracts.outage_status`) — `gate.py freeze`.
-- Every status the design says the handler raises is declared — checklist only, until the contract parity reader lands.
+- Every status the design says the handler raises is declared on its operation, and each has its TC-API row — proven after the build by the loop member `contract-parity` (`rules/contract-first-policy.md` § Contract parity).
 - Every credential, token and personal-data field (`format: password`, `writeOnly`, a field `rules/privacy.md` names) is marked `x-sensitive: true` where the contract is written, and carries an input constraint — `gate.py freeze` (its green line counts the marked fields; 0 on a contract with a credential is a finding).
 - A contract bump inside a train is a plan finding — `measure` counts it.
 
@@ -784,6 +784,8 @@ FUNCTION auto_declare_frontend_resource():
 **Section 2.1: API Integration Tests**
 - Test ID format: `TC-API-{NUMBER}`
 - Per contract endpoint: happy path + error paths
+- `Operation` cell = the contract's `operationId`; every operation the feature adds has a row (`gate.py contracts`)
+- `### Journey coverage` (feature with a `user_journey.md`): one row per `Paso N` → its `operationId`s, or `none — <reason>`; the journey names no operation (LAW-16)
 - Request/response validation against contract schemas
 - Authentication/authorization test coverage
 
