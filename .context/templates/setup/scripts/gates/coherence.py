@@ -26,7 +26,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from .common import GateFault, any_glob, key, load_coherence, read_frontmatter, tracked_files
+from .common import GateFault, any_glob, clean, key, load_coherence, read_frontmatter, tracked_files
 
 TERMINAL = {"APPROVED", "PASSED", "PASS", "SECURE", "IMPLEMENTED_AND_VERIFIED"}
 DEFAULT_CERTIFYING = ["docs/spec/*/qa/qa_report*.md", "docs/spec/*/review/peer_review_*.md",
@@ -250,5 +250,5 @@ def manifest_parity(repo: Path) -> tuple[list[dict], dict]:
 def render(name: str, findings: list[dict], note: str = "") -> str:
     if not findings:
         return f"{name}: ok" + (f" ({note})" if note else "")
-    out = [f"{name}: FAIL — {len(findings)} finding(s):"] + [f"  {f['path']}: {f['reason']}" for f in findings]
+    out = [f"{name}: FAIL — {len(findings)} finding(s):"] + [f"  {clean(str(f['path']))}: {clean(str(f['reason']))}" for f in findings]   # a path is data: no control byte reaches a terminal or a CI log
     return "\n".join(out)

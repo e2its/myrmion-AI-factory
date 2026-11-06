@@ -8,7 +8,7 @@ applicable_when:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/*.vue"
-version: 1.6.2
+version: 1.7.0
 date: 2026-01-26
 changelog:
   - "1.6.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -569,6 +569,15 @@ inset-inline-start: 0;      /* ✅ Instead of left: 0 */
 ```
 
 **Reasoning:** Composition reduces coupling, improves testability, and enables token efficiency for AI agents (smaller component context).
+
+---
+
+### 3. Canonical Components (EVOL-072)
+**Policy:** The UI is built from the canonical components and the mock primitives, imported and never redefined.
+- **Canonical components** are the entries of `docs/ux/component-registry.json` with a `cip_name`, plus the atoms of `src/components/ui/`. A feature imports them and never writes a local copy, a fork or a same-named component.
+- **Mock primitives** are the `data-component` anchors of the mocks (`docs/spec/*/mock.html`, `component_library.html`). Each one maps to its canonical component; the product never re-creates its markup by hand.
+- **The mock's vocabulary never ships.** Placeholder copy, sample data, `data-component` anchors and mock-only class names stay in the mock. The UI carries the product's copy (`rules/ux-constitution.md` § 5.1).
+- **Check:** the component-catalog class-usage gate is the one gate for this rule, and it brings its defect class and red test. Until it ships, the governance lens reads this rule at review.
 
 ---
 

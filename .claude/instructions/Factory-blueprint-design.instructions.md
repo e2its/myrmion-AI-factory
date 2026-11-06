@@ -424,7 +424,7 @@ candidates = find_inventory_matches(planned_artifact, topology):
 - Example: `auth-login`, `order-management`, `notification-email`
 
 **Step 2a**: CREATE contract file(s) following spec + rules:
-- OpenAPI 3.1: paths, schemas, responses, error codes
+- OpenAPI 3.1: paths, schemas, responses, error codes. Every code a response names (`x-error-codes: [CODE, …]`) comes from `contracts/errors.yaml`; a new meaning adds a catalog entry, never a second code (`rules/api-standards.md` § Error codes). Every resource exposes CRUD single and batch (create, list, read, update, delete, bulk-create, bulk-update, bulk-delete) or declares each omission on its path item, and an operation outside CRUD-First declares `x-crud-exception: <reason>` (`contract-first-policy.md` § Completeness and exceptions); a batch operation states its size cap, per-item authorization, failure mode and safe retry (§ Bulk Operations). `python3 scripts/gate.py contracts` is green before the push (a profile member — EVOL-072).
 - GraphQL SDL: types, queries, mutations, subscriptions
 - AsyncAPI 2.6+: channels, messages, schemas
 - gRPC Proto3: service definitions, message types

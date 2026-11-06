@@ -2,6 +2,8 @@
   "_doc": "Synthetic SETUP answers (EVOL-116): Java backend, None frontend. The per-file scoped rows land without `red: false` and without `was`; the red member proves through tests. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
+    "project_scope": "integration",
+    "domain.monetary_amounts": true,
     "backend.runtime": "Java",
     "frontend.framework": "None",
     "database.primary.engine": "PostgreSQL",
@@ -18,6 +20,19 @@
     ]
   },
   "expect": {
+    "landed": [
+      "contracts/errors.yaml",
+      ".claude/rules/monetary-amounts.md"
+    ],
+    "absent": [],
+    "defect_classes": {
+      "present": [
+        "DC-36",
+        "DC-37",
+        "DC-38"
+      ],
+      "absent": []
+    },
     "gates": {
       "tests": "mvn verify -Djacoco.skip=false -q",
       "coverage": "mvn verify -Djacoco.skip=false -q",

@@ -6,7 +6,7 @@ applicable_when:
     - "**/asyncapi/**"
     - "**/api/**"
     - "**/*.proto"
-version: 1.3.1
+version: 1.4.0
 date: 2026-01-26
 changelog:
   - "1.3.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -26,6 +26,13 @@ changelog:
 - Pagination: `limit`, `offset` or `cursor` with `next`/`prev` tokens
 - Sorting & filtering: explicit query params; no implicit ordering
 - Errors: machine-readable structure `{ code, message, details, trace_id }`
+
+## Error codes (EVOL-072, DC-36)
+- **One catalog:** `contracts/errors.yaml`, one entry per meaning: `CODE: {meaning, status}`.
+- **One code per meaning.** No code has two meanings, and no meaning has two codes.
+- **Contracts name catalog codes only:** a response lists them as `x-error-codes: [CODE, …]`.
+- **A new meaning gets a new entry.** An entry is never reused for another meaning, and never renamed.
+- **Gate:** profile member `contracts` (`gate.py contracts`). It is red on a code listed twice, two codes with one meaning, an entry with no meaning, or a contract code the catalog lacks.
 
 ## GraphQL Standards
 - Schema-first; no implicit any/JSON scalar usage

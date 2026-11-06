@@ -1038,7 +1038,7 @@ The framework ships 23 protocols reusable by every command and agent (`.claude/s
 
 **Critical (every project):** `architecture.md`, `stateless.md`, `security_policy.md`, `protected-code.md`, `contract-first-policy.md`, `testing.md`.
 
-- `+ ux-constitution.md` (when UI exists), `+ database.md` (when a DB exists), `+ api-standards.md` (when APIs exist).
+- `+ ux-constitution.md` (when UI exists), `+ database.md` (when a DB exists), `+ api-standards.md` (when APIs exist), `+ monetary-amounts.md` (when the product handles money — Q36).
 
 **Tech-Specific (only when the stack matches):** `python.md`, `React.md`, `java.md`, `node.md`, `csharp.md`, …
 
@@ -1087,6 +1087,7 @@ The framework ships 23 protocols reusable by every command and agent (`.claude/s
 | `discovery` | the SETUP registry, its conditions and consumers agree; `--resolve` the pending questions and owed migrations |
 | `train` | a train stacks its changes by file: no stackable re-touch, no early gate, ledgers at the train close, seams in one sub; `--figures` |
 | `freeze` | reliability planned up front: weighted reliability questions answered with a source, every operation's outage response, sensitive fields bounded |
+| `contracts` | the one contract reader: one error code per meaning in `contracts/errors.yaml`, every code a contract names in the catalog, every resource with CRUD single and batch, an omission or an operation outside CRUD-First with its `x-crud-exception` reason; older findings in a shrink-only baseline |
 
 **Control points** (`CLAUDE.md` § Pre-Action Gate): the static round before the critics → the commit (`pre-commit`: branch class, secrets on the staged files) → the push (`pre-push`: the gate profile — light for a sub-increment on its train in development mode, full otherwise — the secrets scan on the pushed range, the review and coherence markers, the push preflight) → the train close (the full verification loop, the seal) → the pull request (`governance-check.yml` runs the same `gate.py profile --run --control-point ci`, the only point that asks the server) → the main branch (no direct commit) → the deployment (`DEVOPS --deploy`: sweep + smoke). No gate is optional — it changes its control point.
 
@@ -1192,7 +1193,7 @@ config/                            # quality.json · coherence-context.json
                                    # codebase_inventory.json
                                    # inventory_aliases.json · protected-paths.json
                                    # system_resources.json · infrastructure_registry.json
-contracts/                         # OpenAPI · GraphQL · gRPC · AsyncAPI
+contracts/                         # OpenAPI · GraphQL · gRPC · AsyncAPI · errors.yaml (one code per meaning)
 infra/                             # IaC (modules/ + features/)
 scripts/                           # gate.py + gates/ · the git hooks · validate-governance · …
 .github/workflows/                 # (or the platform's) governance-check + auto-tag

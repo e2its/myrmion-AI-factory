@@ -93,6 +93,7 @@ jobs:
           bash scripts/materialize-synthetic.sh
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json
           bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/upgrade-8.12.json
+          bash scripts/materialize-synthetic.sh --answers scripts/fixtures/synthetic-answers/upgrade-8.12-api.json   # EVOL-072: scope answered, the product laws owed
           for a in java go rust frontend-only; do   # EVOL-116: the per-file rows land on every stack, red sources included
             bash scripts/materialize-synthetic.sh --answers "scripts/fixtures/synthetic-answers/$a.json"
           done

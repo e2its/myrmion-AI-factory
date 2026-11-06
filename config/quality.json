@@ -370,7 +370,8 @@
       "CLAUDE.md",
       ".github/workflows/**",
       "scripts/**",
-      "docs/project_log/traceability_baseline.json"
+      "docs/project_log/traceability_baseline.json",
+      "docs/project_log/crud_baseline.json"
     ],
     "exempt_classes": [],
     "plan_artefact": "docs/project_log/evolutions/ADR-{ID}.md",

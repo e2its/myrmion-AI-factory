@@ -147,6 +147,7 @@
       "config/**",
       "docs/project_log/governance_versions.json",
       "docs/project_log/traceability_baseline.json",
+      "docs/project_log/crud_baseline.json",
       "CLAUDE.md"
     ],
     "exempt_classes": [

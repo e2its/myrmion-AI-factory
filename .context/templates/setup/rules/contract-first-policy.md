@@ -93,6 +93,7 @@ paths:
   /api/v1/auth/login:
     post:
       operationId: authLogin
+      x-crud-exception: a sign-in starts a session; it creates no resource   # § Completeness and exceptions (DC-37)
       x-serverless-handler: src/handlers/auth.login   # Entry point (file.export)
       x-serverless-memory: 256                         # Memory MB (default: 128)
       x-serverless-timeout: 30                         # Timeout seconds (default: 30)
@@ -1481,6 +1482,11 @@ For resource `{resource}` (e.g., `users`, `products`, `orders`):
 | **Update (Full)** | PUT | `/api/v1/{resource}/{id}` | Replace entire resource |
 | **Update (Partial)** | PATCH | `/api/v1/{resource}/{id}` | Update specific fields |
 | **Delete** | DELETE | `/api/v1/{resource}/{id}` | Soft/hard delete resource |
+| **Bulk create** | POST | `/api/v1/{resource}/bulk-create` | Create many in one batch |
+| **Bulk update** | PATCH | `/api/v1/{resource}/bulk-update` | Update many in one batch |
+| **Bulk delete** | DELETE | `/api/v1/{resource}/bulk-delete` | Delete many in one batch |
+
+CRUD-First is single and batch: the batch rows are part of CRUD, not an extension (§ Completeness and exceptions).
 
 ### Extension Patterns (Beyond CRUD)
 
@@ -1497,18 +1503,64 @@ GET /api/v1/users/{userId}/orders
 GET /api/v1/orders/{orderId}/line-items
 ```
 
-**3. Bulk Operations**
+**3. Bulk Operations** (the batch rows of the CRUD table)
 ```
 POST /api/v1/users/bulk-create
 PATCH /api/v1/products/bulk-update
 DELETE /api/v1/orders/bulk-delete
 ```
 
+A batch operation states four behaviours in its contract, and the code keeps them (the security lens reads them at review — OWASP API1, API4):
+
+- **Size cap:** `maxItems` on the request list. A request over it is refused whole (`413 BATCH_TOO_LARGE`, the catalog's one code for it), never truncated.
+- **Per-item authorization:** each item is authorized as its single operation would be. A foreign item is refused, never applied, and answers `NOT_FOUND` — the same answer as a missing one, so the batch reveals nothing about what exists.
+- **Failure mode:** `all-or-nothing` (one transaction) or `per-item` (one result per item: index, status, error code), named in the operation's description.
+- **Safe retry:** a repeated batch applies once — an `Idempotency-Key` header scoped to the caller and the route and bound to the request body (the same key with another body is refused), or a natural key per item.
+
 **4. Search & Filtering**
 ```
 GET /api/v1/users?search=john&status=active&role=admin
 GET /api/v1/products?category=electronics&priceMin=100&priceMax=500
 ```
+
+### Completeness and exceptions (EVOL-072, DC-37)
+
+CRUD-First is single and batch. Every resource exposes all eight operations, or declares why one is missing:
+
+| Operation | Single | Batch |
+|---|---|---|
+| Create | `POST /x` | `POST /x/bulk-create` |
+| Read | `GET /x/{id}`, `GET /x` (paginated list) | the list, filtered (`GET /x?ids=…`) |
+| Update | `PUT` or `PATCH /x/{id}` | `PATCH /x/bulk-update` |
+| Delete | `DELETE /x/{id}` | `DELETE /x/bulk-delete` |
+
+A resource is a CRUD-shaped collection, or the parent of an item path. A `POST` after a `{param}` with nothing below it is a custom action, not a resource. A missing operation is declared on the resource's path item (the collection's or an item's):
+
+```yaml
+  /api/v1/orders:
+    x-crud-exception:
+      bulk-delete: orders are cancelled one by one, never deleted in bulk   # one reason per omission
+  /api/v1/stores/{id}/settings:
+    x-crud-exception: one settings record per store — read and replace only  # one reason for every omission
+```
+
+The operations are named `create`, `list`, `read`, `update`, `delete`, `bulk-create`, `bulk-update` and `bulk-delete`.
+
+An operation outside the CRUD table and the four patterns above declares its reason on the operation:
+
+```yaml
+  /api/v1/users/me:
+    get:
+      x-crud-exception: the signed-in user's own record, without the client knowing its id
+```
+
+- **CRUD-shaped** means the following. Strip a leading `api` / `v<N>` (`v1`, `v1.0`, `v2beta`). The rest of the path alternates collections and single `{param}`s, starting with a collection.
+- **A path ending in a collection** takes `GET` or `POST`. After a `{param}`, `POST` is a custom action.
+- **A path ending in a `{param}`** takes `GET`, `PUT`, `PATCH` or `DELETE`.
+- **`…/<collection>/bulk-<verb>`** takes `POST`, `PATCH` or `DELETE`.
+- **Anything else** carries a non-empty `x-crud-exception`, for example `/users/me`, two `{param}`s in a row, or `DELETE` on a collection.
+- **Gate:** profile member `contracts` (`gate.py contracts`) judges shape and completeness on every contract under `contracts/openapi/**`. It also checks the error codes a contract names (`x-error-codes`) against `contracts/errors.yaml` (`rules/api-standards.md` § Error codes).
+- **Older contracts:** `SETUP --upgrade` records the findings a project already carries in `docs/project_log/crud_baseline.json` (`undeclared`, from `gate.py contracts --json`), committed. The list only shrinks. A paid entry is removed. An entry whose finding the base did not already carry is red, so new debt never enters.
 
 ### Auto-Generated CRUD Contract Template
 
@@ -1582,6 +1634,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/{{Resource}}Response'
+        '404':
+          description: Not found
+          x-error-codes: [NOT_FOUND]    # every code from contracts/errors.yaml (rules/api-standards.md § Error codes)
     put:
       operationId: replace{{Resource}}
       summary: Replace {{resource_singular}}
@@ -1634,6 +1689,63 @@ paths:
         '204':
           description: Deleted
 
+  /api/v1/{{resource_plural}}/bulk-create:
+    post:
+      operationId: bulkCreate{{Resource}}s
+      summary: Create {{resource_plural}} in one batch
+      description: "Each item authorized as its single operation. Failure mode: per-item. Retry: Idempotency-Key. Over maxItems: 413 BATCH_TOO_LARGE. (§ Bulk Operations)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/{{Resource}}BulkCreateRequest'
+      responses:
+        '200':
+          description: One result per item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResponse'
+
+  /api/v1/{{resource_plural}}/bulk-update:
+    patch:
+      operationId: bulkUpdate{{Resource}}s
+      summary: Update {{resource_plural}} in one batch
+      description: "Each item authorized as its single operation. Failure mode: per-item. Retry: Idempotency-Key. Over maxItems: 413 BATCH_TOO_LARGE. (§ Bulk Operations)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/{{Resource}}BulkUpdateRequest'
+      responses:
+        '200':
+          description: One result per item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResponse'
+
+  /api/v1/{{resource_plural}}/bulk-delete:
+    delete:
+      operationId: bulkDelete{{Resource}}s
+      summary: Delete {{resource_plural}} in one batch
+      description: "Each item authorized as its single operation. Failure mode: per-item. Retry: Idempotency-Key. Over maxItems: 413 BATCH_TOO_LARGE. (§ Bulk Operations)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkIdsRequest'
+      responses:
+        '200':
+          description: One result per item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkResponse'
+
 components:
   schemas:
     {{Resource}}CreateRequest:
@@ -1671,6 +1783,43 @@ components:
             limit: { type: integer }
             total: { type: integer }
             totalPages: { type: integer }
+
+    {{Resource}}BulkCreateRequest:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/{{Resource}}CreateRequest' } }
+
+    {{Resource}}BulkUpdateRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/{{Resource}}PatchRequest' }
+              - { type: object, required: [id], properties: { id: { type: string } } }
+
+    BulkIdsRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids: { type: array, maxItems: 100, items: { type: string } }
+
+    BulkResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              index: { type: integer }
+              status: { type: integer }
+              id: { type: string }
+              code: { type: string }   # from contracts/errors.yaml when the item failed
 ```
 
 ---

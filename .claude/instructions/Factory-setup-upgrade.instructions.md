@@ -228,6 +228,8 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 
 **traceability (EVOL-053).** Add the block (home derived as materialisation resolves `{{TRACEABILITY_HOME}}`; template grammar, plans, roots, baseline path); deliver `tests/conftest_traceability.py` for Python; then `python3 scripts/gate.py traceability --baseline --init` once.
 
+**contracts (EVOL-072).** After the `scripts/gates/` refresh, with the contracts unchanged: run `python3 scripts/gate.py contracts --json` — exit 1 is expected here, the findings are what it seeds. `n/a` (no contract, no catalog) → nothing to write. Otherwise write its `undeclared` list verbatim to `docs/project_log/crud_baseline.json` as `{"_doc": "CRUD-First findings older than the law (EVOL-072); the list only shrinks", "undeclared": [...]}` (`[]` when empty — the row is then done) and commit it in the upgrade commit: the base's contracts carry those findings, so the gate accepts them; nothing new enters later. Report the count. A catalog finding is no CRUD debt: fix it.
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).

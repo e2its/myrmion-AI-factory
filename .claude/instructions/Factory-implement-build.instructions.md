@@ -1069,6 +1069,8 @@ READ design.md → contract references
 FOR EACH contract_slug:
   VERIFY file exists: contracts/openapi/{slug}/v1.yaml (or graphql/grpc/asyncapi)
   IF missing: ❌ BLOCK: "Contract file missing. Run BLUEPRINT --start {ID}."
+RUN python3 scripts/gate.py contracts   # EVOL-072: one error code per meaning, every code in contracts/errors.yaml, CRUD-First single and batch — each operation kept or its omission or departure declared in x-crud-exception; a batch handler keeps the size cap, per-item authorization, failure mode and safe retry its contract states (contract-first-policy.md § Bulk Operations)
+  IF red: ❌ BLOCK with its lines — a code the build needs and the catalog lacks is a contract change: BLUEPRINT --refine, never a code coined in src/
 ```
 
 #### Business Policies Enforcement

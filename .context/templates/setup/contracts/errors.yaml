@@ -1,0 +1,34 @@
+# Error-code catalog (EVOL-072, DC-36) — rules/api-standards.md § Error codes.
+# One entry per meaning: CODE: {meaning, status}. No code has two meanings; no meaning has two codes.
+# A contract names its codes on a response: `x-error-codes: [CODE, …]`. A new meaning gets a new entry;
+# an entry is never reused for another meaning, never renamed. Gate: `gate.py contracts` (profile member `contracts`).
+VALIDATION_REQUIRED:
+  meaning: a required field is missing or empty
+  status: 422
+VALIDATION_INVALID:
+  meaning: a field's value breaks its declared constraint
+  status: 422
+UNAUTHENTICATED:
+  meaning: the request carries no valid credential
+  status: 401
+FORBIDDEN:
+  meaning: the caller is authenticated but not allowed this operation
+  status: 403
+NOT_FOUND:
+  meaning: the resource does not exist or is not visible to the caller
+  status: 404
+CONFLICT:
+  meaning: the change conflicts with the resource's current state
+  status: 409
+RATE_LIMITED:
+  meaning: the caller exceeded its request quota
+  status: 429
+DEPENDENCY_UNAVAILABLE:
+  meaning: a dependency the operation needs is down
+  status: 503
+BATCH_TOO_LARGE:
+  meaning: a batch request holds more items than the operation accepts
+  status: 413
+INTERNAL:
+  meaning: an unexpected failure on the server
+  status: 500
