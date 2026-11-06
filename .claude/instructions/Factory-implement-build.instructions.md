@@ -1073,6 +1073,16 @@ RUN python3 scripts/gate.py contracts   # EVOL-072: one error code per meaning, 
   IF red: ❌ BLOCK with its lines — a code the build needs and the catalog lacks is a contract change: BLUEPRINT --refine, never a code coined in src/
 ```
 
+#### Contract parity (EVOL-070, DC-39)
+```yaml
+IF config/quality.json → contracts.emit IS null AND this increment builds the backend:
+  WRITE contracts.emit — the emitter of the project's framework, from rules/contract-first-policy.md § Contract parity,
+        writing {out}/<slug>/v1.json per contract; no emitter → a dated skip of contract-parity, and a task to adopt one
+EVERY contract test under contracts.tests_root records each answer (develop/api_test_template.md § Recording the answers)
+RUN python3 scripts/gate.py contracts --parity   # the loop member contract-parity: emitted = authored, answers declared
+  IF red: fix the code, or the contract through BLUEPRINT --refine — never a status or a code the contract does not declare
+```
+
 #### Business Policies Enforcement
 ```yaml
 READ user_journey.md → § 7 Business Rules (When/Then rows)

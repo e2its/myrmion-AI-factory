@@ -29,11 +29,13 @@
       "present": [
         "DC-36",
         "DC-37",
+        "DC-39",
         "DC-38"
       ],
       "absent": []
     },
     "gates": {
+      "contract-parity": "python3 scripts/gate.py contracts --parity",
       "tests": "mvn verify -Djacoco.skip=false -q",
       "coverage": "mvn verify -Djacoco.skip=false -q",
       "build": "mvn compile -q",

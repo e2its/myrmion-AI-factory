@@ -193,8 +193,97 @@ func TestGetResource_NotFound_404(t *testing.T) {
 5. **Edge/error cases** from `test_plan.md` Section 2 (Edge, Security, Negative rows with HTTP status codes).
 6. **Status codes** from `contracts/` OpenAPI responses or `.claude/rules/api-standards.md`.
 7. **Auth headers** if feature requires authentication (detect from `design.md` security section).
-8. **File location:** `tests/api/` directory (stack-agnostic; `tests/` root from `constitution.md`).
+8. **File location:** `tests/api/` directory (stack-agnostic; `tests/` root from `constitution.md`) — `config/quality.json → contracts.tests_root`, the folder `contract-parity` runs.
 9. **Runner command:** `./scripts/test.sh api --apply` or direct runner (`npx jest tests/api/`, `pytest tests/api/`, `go test ./tests/api/`).
+
+## Recording the answers (EVOL-070 — contract parity)
+
+These tests are the contract tests: they live under `contracts.tests_root` (default `tests/api/`, item 8) and send every request through one wrapper that records the answer. The loop member `contract-parity` runs them with `CONTRACT_OBSERVED` set and reads the records (`rules/contract-first-policy.md` § Contract parity). Outside that run the variable is unset and the wrapper records nothing.
+
+One JSON line per response, in a `*.jsonl` file of that directory: `{"operation": "<operationId>", "status": <int>, "code": "<CODE>"|null}`. `code` is the error body's top-level `code` (`rules/api-standards.md`), or `null`. Every operation of the contracts is answered at least once.
+
+```python
+# Python
+import json, os
+def record(operation, response):
+    d = os.environ.get("CONTRACT_OBSERVED")
+    if d:
+        body = response.json() if "json" in response.headers.get("content-type", "") else {}
+        with open(os.path.join(d, f"{os.getpid()}.jsonl"), "a") as f:
+            f.write(json.dumps({"operation": operation, "status": response.status_code, "code": body.get("code") if isinstance(body, dict) else None}) + "\n")
+    return response
+```
+
+```typescript
+// TypeScript (supertest)
+import { appendFileSync } from 'fs';
+export function record(operation: string, res: { status: number; body?: any }) {
+  const d = process.env.CONTRACT_OBSERVED;
+  if (d) appendFileSync(`${d}/${process.pid}.jsonl`, JSON.stringify({ operation, status: res.status, code: res.body?.code ?? null }) + '\n');
+  return res;
+}
+```
+
+```java
+// Java (MockMvc result) — ObjectMapper from Jackson
+static MvcResult record(String operation, MvcResult r) throws Exception {
+  String d = System.getenv("CONTRACT_OBSERVED");
+  if (d != null) {
+    String raw = r.getResponse().getContentAsString();
+    JsonNode b = raw.isEmpty() ? null : new ObjectMapper().readTree(raw);
+    String code = b != null && b.hasNonNull("code") ? b.get("code").asText() : null;
+    Files.writeString(Path.of(d, ProcessHandle.current().pid() + ".jsonl"), new ObjectMapper().writeValueAsString(
+        Map.of("operation", operation, "status", r.getResponse().getStatus(), "code", code == null ? NullNode.getInstance() : code)) + "\n",
+        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+  }
+  return r;
+}
+```
+
+```go
+// Go (httptest.ResponseRecorder)
+func record(operation string, w *httptest.ResponseRecorder) *httptest.ResponseRecorder {
+	if d := os.Getenv("CONTRACT_OBSERVED"); d != "" {
+		var b struct{ Code *string `json:"code"` }
+		_ = json.Unmarshal(w.Body.Bytes(), &b)
+		line, _ := json.Marshal(map[string]any{"operation": operation, "status": w.Code, "code": b.Code})
+		f, _ := os.OpenFile(filepath.Join(d, fmt.Sprintf("%d.jsonl", os.Getpid())), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		defer f.Close()
+		_, _ = f.Write(append(line, '\n'))
+	}
+	return w
+}
+```
+
+```csharp
+// C# (HttpResponseMessage from WebApplicationFactory) — one lock: xUnit runs test classes in parallel in one process
+static readonly SemaphoreSlim Gate = new(1, 1);
+static async Task<HttpResponseMessage> Record(string operation, HttpResponseMessage r) {
+  var d = Environment.GetEnvironmentVariable("CONTRACT_OBSERVED");
+  if (d is not null) {
+    string? code = null;
+    try { code = JsonDocument.Parse(await r.Content.ReadAsStringAsync()).RootElement.GetProperty("code").GetString(); } catch { }
+    await Gate.WaitAsync();
+    try { await File.AppendAllTextAsync(Path.Combine(d, $"{Environment.ProcessId}.jsonl"),
+      JsonSerializer.Serialize(new { operation, status = (int)r.StatusCode, code }) + "\n"); }
+    finally { Gate.Release(); }
+  }
+  return r;
+}
+```
+
+```rust
+// Rust (status + body bytes from the test client)
+fn record(operation: &str, status: u16, body: &[u8]) {
+    if let Ok(d) = std::env::var("CONTRACT_OBSERVED") {
+        let code = serde_json::from_slice::<serde_json::Value>(body).ok().and_then(|v| v.get("code").and_then(|c| c.as_str().map(String::from)));
+        let line = serde_json::json!({"operation": operation, "status": status, "code": code}).to_string() + "\n";
+        use std::io::Write;
+        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(format!("{d}/{}.jsonl", std::process::id())).unwrap();
+        f.write_all(line.as_bytes()).unwrap();
+    }
+}
+```
 
 ## Contract Validation (Optional — Advanced)
 

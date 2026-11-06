@@ -51,7 +51,7 @@ IF issue.status != "Done":
   IF has_backend_surface:
     ❌ BLOCK (humanised, backend-authoritative): "CONTRACT-FREEZE gate not passed for {FEATURE_ID} (current: {issue.status}).
       For scope=`{feature_scope}` this gate is the PRIMARY design output — the feature is defined by its frozen contract surface.
-      Required artefacts under docs/spec/{FEATURE_ID}/contracts/ (filenames depend on SETUP stack — OpenAPI YAML, TypeScript interface files, GraphQL SDL, Protobuf, AsyncAPI event schemas) plus the contract test harness under tests/contract/{FEATURE_ID}/. Complete them, move the CONTRACT-FREEZE issue to Done, then re-run IMPLEMENT --plan."
+      Required artefacts under docs/spec/{FEATURE_ID}/contracts/ (filenames depend on SETUP stack — OpenAPI YAML, TypeScript interface files, GraphQL SDL, Protobuf, AsyncAPI event schemas) plus the contract test harness under tests/api/ (contracts.tests_root — the TC-API tests, each recording its answers). Complete them, move the CONTRACT-FREEZE issue to Done, then re-run IMPLEMENT --plan."
   ELSE:
     # feature_scope == "frontend-only"
     ❌ BLOCK (humanised, consumer-view): "CONTRACT-FREEZE gate not passed for {FEATURE_ID} (current: {issue.status}).
@@ -84,7 +84,15 @@ IF "stale-after-cascade" IN issue.labels:
   SUGGEST: "Run BLUEPRINT --refine {FEATURE_ID} to re-sync the contracts, then reopen and re-close the CONTRACT-FREEZE issue (removing the stale label) to re-freeze."
   STOP
 
-✅ PROCEED — contract-freeze issue is Done, contracts appropriate for scope, not stale
+# 4. One contract test per operation, planned (EVOL-070): every operation the branch adds has an operationId and a
+#    TC-API row naming it; a test plan with a journey covers every Paso (rules/contract-first-policy.md § Contract parity)
+IF has_backend_surface:
+  RUN python3 scripts/gate.py contracts
+  IF its `contract tests` row or a `docs/spec/{FEATURE_ID}/test_plan.md` row is red:
+    ❌ BLOCK with its lines — BLUEPRINT --refine {FEATURE_ID} adds the TC-API rows or the coverage, then re-run IMPLEMENT --plan
+    STOP
+
+✅ PROCEED — contract-freeze issue is Done, contracts appropriate for scope, not stale, every new operation planned
 ```
 
 > **Rationale.** Without this gate, `IMPLEMENT --plan` reads `design.md` for contract references but the concrete contract files may be absent, outdated, or out of sync with the design. A downstream production retrospective recorded six cases of contract drift (class DC-6) where implementation proceeded against a stale or inferred contract and the bug surfaced only at QA. The gate eliminates that class entirely by making the frozen contract a hard prerequisite.

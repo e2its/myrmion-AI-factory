@@ -1,13 +1,13 @@
 {
   "$schema": "governance_versions_v2",
   "manifest_version": "2.0.0",
-  "framework_version": "8.23.0",
+  "framework_version": "8.24.0",
   "delivery_mode": "development",
   "last_updated": "2026-11-06",
   "governance_features": {
     "iterations_array_v1": "1.0.0"
   },
-  "description": "v8.23.0 (feature/EVOL-072-product-laws): EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline), a delivered artefact never deleted, the error catalog and the money guide by scope. v8.22.0 (feature/EVOL-074-sast-packs): feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0. v8.21.1 (fix/secrets-range-base): #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image, the canary and the dispatcher. v8.21.0 (feature/EVOL-116-per-file-red): feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.. v8.20.0 (feature/EVOL-104-train-stacks-by-file): EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability is planned up front — gate freeze (reliability questions with a closed weight vocabulary, outage response, bounded sensitive fields), seam map, re-measure on routing, ratified sub count, DC-35, security standard question (Q35). v8.19.0 (feature/EVOL-103-accepted-change-aligned): feat(EVOL-105, EVOL-103): EVOL-105 — a phase agent model and effort follow the declared pass (pass resolver): discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded. EVOL-103 — [LAW-17] an accepted change aligns every artefact it contradicts in the same pull request and is never reverted; the decision log records it; gate.py aligned (light and full profile) checks it. v8.18.0 (feature/EVOL-066-defect-class-intake): EVOL-066: DC-31..DC-34 enter the universal catalog with their gates and cases; universal DC-NN vs a project's own PDC-NN; § Promotion (generic, gated, novel, framework-numbered, tool-bound through configures, complete); the Discovery Protocol mints PDC and its stale sweep step goes. v8.17.0 (feature/EVOL-067-verification-loop): EVOL-102 phase 2 (#159): every placeholder has one source in the discovery registry (fills, derived fills, constants, a shrink-only baseline — V10); SETUP --upgrade's Step 8 clauses become registry migrations (V11) run by one generic step that back-fills, asks what the project lacks (--resolve pending), runs the migrations owed and offers template additions and removals by RDR; an answer outside its options is a fault. v8.16.0 (feature/EVOL-065-gate-hygiene): feat(EVOL-065) — a file written through the shell meets the branch and plan gates: one write-target reader (gate.py write-target) for Edit, Write and Bash; a write outside the project is never judged; the harness and user configuration guarded on every branch; pre-merge-commit refuses a merge commit where a commit is refused; an unresolvable diff base blocks validate-governance. v8.15.0 (feature/EVOL-113-delivery-cost): feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request. v8.14.0 (feature/EVOL-114-codesign-exits): feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked). v8.13.0 (feature/EVOL-102-discovery-as-data): feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home. v8.12.6 (fix/wave-0-follow-ups): fix #170: the review block reads the diff-base exit code with `|| BASE_RC=$?`; under set -e the bare assignment ended the hook silently, so the humanised reason (exit 1) and the origin/main fallback (other exits) never ran. v8.12.5 (fix/wave-0-framework-defects): fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]. v8.12.4 (fix/codesign-check-count): fix #113: a retired_terms entry takes `pattern` (a regex, matched per line) besides `term` — a retired shape, red on any value it takes; a malformed entry is a GateFault. v8.12.3 (fix/review-seals-home): fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/. v8.12.2 (docs/banner-readme-blocks): banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars. v8.12.1 (fix/hook-project-dir): fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it. v8.12.0 (feature/EVOL-064-lean-project-claude-md): feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks). v8.11.0 (feature/EVOL-063-autocompact-window): feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value. v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
+  "description": "v8.24.0 (feature/EVOL-070-contract-parity): feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract. v8.23.0 (feature/EVOL-072-product-laws): EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline), a delivered artefact never deleted, the error catalog and the money guide by scope. v8.22.0 (feature/EVOL-074-sast-packs): feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0. v8.21.1 (fix/secrets-range-base): #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image, the canary and the dispatcher. v8.21.0 (feature/EVOL-116-per-file-red): feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.. v8.20.0 (feature/EVOL-104-train-stacks-by-file): EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability is planned up front — gate freeze (reliability questions with a closed weight vocabulary, outage response, bounded sensitive fields), seam map, re-measure on routing, ratified sub count, DC-35, security standard question (Q35). v8.19.0 (feature/EVOL-103-accepted-change-aligned): feat(EVOL-105, EVOL-103): EVOL-105 — a phase agent model and effort follow the declared pass (pass resolver): discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded. EVOL-103 — [LAW-17] an accepted change aligns every artefact it contradicts in the same pull request and is never reverted; the decision log records it; gate.py aligned (light and full profile) checks it. v8.18.0 (feature/EVOL-066-defect-class-intake): EVOL-066: DC-31..DC-34 enter the universal catalog with their gates and cases; universal DC-NN vs a project's own PDC-NN; § Promotion (generic, gated, novel, framework-numbered, tool-bound through configures, complete); the Discovery Protocol mints PDC and its stale sweep step goes. v8.17.0 (feature/EVOL-067-verification-loop): EVOL-102 phase 2 (#159): every placeholder has one source in the discovery registry (fills, derived fills, constants, a shrink-only baseline — V10); SETUP --upgrade's Step 8 clauses become registry migrations (V11) run by one generic step that back-fills, asks what the project lacks (--resolve pending), runs the migrations owed and offers template additions and removals by RDR; an answer outside its options is a fault. v8.16.0 (feature/EVOL-065-gate-hygiene): feat(EVOL-065) — a file written through the shell meets the branch and plan gates: one write-target reader (gate.py write-target) for Edit, Write and Bash; a write outside the project is never judged; the harness and user configuration guarded on every branch; pre-merge-commit refuses a merge commit where a commit is refused; an unresolvable diff base blocks validate-governance. v8.15.0 (feature/EVOL-113-delivery-cost): feat(EVOL-113) — a delivery costs what its change warrants: the spawn hook re-measures a work critic's scope (diff file or globs) and refuses a budget that is not the resolver's for that size and round; round 2 reads the cure only (round-1 record per branch and scope form); measure reports spend by phase and role, dollars from declared prices, and the main session's context per request. v8.14.0 (feature/EVOL-114-codesign-exits): feat(EVOL-114): one CODESIGN exit per intent — --deprecate and --reset retire (--cancel at any non-terminal state; --refine returns NEEDS_INFO to DRAFT once no blocking question is open); terminal set CANCELLED | SUPERSEDED, a legacy DEPRECATED reads as CANCELLED; next-task excludes a terminal feature (not pending, not blocked). v8.13.0 (feature/EVOL-102-discovery-as-data): feat(EVOL-102): SETUP discovery as data, phase 1 — one question registry (setup/discovery_registry.json), the docs/setup.md frontmatter the one answer home, one condition grammar and evaluator (gate.py discovery: validator V1–V9, --resolve, --eval), the snapshot stack keys read from the answer home. v8.12.6 (fix/wave-0-follow-ups): fix #170: the review block reads the diff-base exit code with `|| BASE_RC=$?`; under set -e the bare assignment ended the hook silently, so the humanised reason (exit 1) and the origin/main fallback (other exits) never ran. v8.12.5 (fix/wave-0-framework-defects): fix #115: one done vocabulary — gate.py checklist (new gates/checklist.py): only [x] is done; [ ], [!] FAILED and any other mark are not. The completion hook and QA auto-approval count through it; a lint WARN is [x] documented, never [!]. v8.12.4 (fix/codesign-check-count): fix #113: a retired_terms entry takes `pattern` (a regex, matched per line) besides `term` — a retired shape, red on any value it takes; a malformed entry is a GateFault. v8.12.3 (fix/review-seals-home): fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/. v8.12.2 (docs/banner-readme-blocks): banner text matches validate-governance.sh --banner (meta form in CLAUDE.md; dcs + laws/families counts in the project form); README tree comment ≤95 chars. v8.12.1 (fix/hook-project-dir): fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it. v8.12.0 (feature/EVOL-064-lean-project-claude-md): feat(EVOL-064) — lean project CLAUDE.md: on-demand content leaves the template behind a pointer (54 470 → 26 903 bytes), verbatim to its home — rules/vertical-slicing.md (new), § Control points to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory (advisory, never blocks). v8.11.0 (feature/EVOL-063-autocompact-window): feat(EVOL-063) — the compaction window: autoCompactWindow 300000 shipped in settings.json; merge-preserve adds it only when absent and keeps a project value. v8.10.0 (feature/EVOL-062-context-diet): feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it; the resolver hands turn_cap; the return ends with ## Hand-off), context_result_max_kb (the file-and-tail convention, the payload-verbatim invariant), a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds; the banner names it), the instrument's tokens de-duplicated per message id, the median context, the cache per spawn by turn bucket and the raw results above the key. v8.9.0 (feature/EVOL-061-manifest-bump-helper): feat(EVOL-061) — the manifest bump as a tool: gate.py manifest --bump/--check (the entry, its line, the frontmatter, framework_version; idempotent on the branch); the sites that bump name it; the measurement's governance hours and manifest commits per week. v8.7.0 (feature/EVOL-059-lens-canary): a lens canary — planted defects per critic in a synthetic fixture shipped inside the reader, judged again whenever a lens's resolved model moves; a critic's return carries its Model: line; a red canary never blocks (an RDR on the spawn policy). v8.6.0 (feature/EVOL-058-enforced-budget): a critic's turn budget enforced, not requested — turn_budget and probe_budget per tier, maxTurns on every read-only definition, the orchestrator's hand-back, the correctness critic probes only what its finding names. v8.5.0 (feature/EVOL-057-instrument-channels): the instrument sees every channel it measures — agent returns through the direct result, the hand-back and the task notification; the push profile in a file (gate.py push-log from the hook's trap); per-gate timings from the loop's executor (gate.py seal --run); verification.logs on both lock-step sides. Version manifest for all governance templates and framework core files. Used by SETUP --upgrade to detect and apply template changes to materialized projects. v5.3.3 (fix/skillspector-hardening): post_review.py hardened after NVIDIA Skillspector scan triage (2026-06-11, 19 findings: 17 false positives documented in docs/project_log/validation/skillspector-triage-2026-06-11.md, 4 OH1 confirmed as hardening-worthy). Script contract change: dry-run is now the DEFAULT; publishing requires explicit --publish flag (--dry-run kept as deprecated no-op override) — post_review.py 1.1.1->2.0.0 MAJOR (breaking CLI default flip), README usage example synced (1.0.2). Review body (model output, untrusted) sanitised of control characters and handed to gh via --body-file temp file instead of inline argv (ARG_MAX + process-table exposure). parse_github_url tightened to [\\w.-]+ owner/repo charset with anchored end. glab mr approve return code now checked (was fire-and-forget). SKILL.md Phase 6 documents the publish-opt-in contract. Also in v5.3.3: preflight.sh 1.3.3 — --json mode multiline-injection bug fixed (unquoted heredoc expanded $CHANGED_FILES inside a python literal; all dynamics now env-passed, heredoc quoted). v8.0.0 (EVOL-049, BREAKING): the one-agent-wearing-hats model is replaced by role agents and read-only critics — the REVIEW and SEC hats no longer exist; instructions that named a hat resolve to the lenses.",
   "upgrade_strategy": "Smart Additive Merge — ALL files use the same unified strategy: format-aware structural diff → add new content only → resolve placeholders in additions → preserve all existing content. No separate Cat A/B/C upgrade paths.",
   "content_types": {
     "universal": "No placeholders. New structural additions are merged additively.",
@@ -16,10 +16,11 @@
   },
   "templates": {
     "rules/defect-prevention.md": {
-      "version": "3.5.0",
+      "version": "3.6.0",
       "content_type": "universal",
       "target": ".claude/rules/defect-prevention.md",
       "changelog": [
+        "3.6.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "3.5.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "3.4.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question",
         "3.3.0: EVOL-066: DC-31..DC-34 enter the universal catalog with their gates and cases; universal DC-NN vs a project's own PDC-NN; § Promotion (generic, gated, novel, framework-numbered, tool-bound through configures, complete); the Discovery Protocol mints PDC and its stale sweep step goes",
@@ -208,10 +209,11 @@
       ]
     },
     "rules/branching.md": {
-      "version": "2.14.0",
+      "version": "2.15.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/branching.md",
       "changelog": [
+        "2.15.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "2.14.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "2.13.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question",
         "2.12.0: feat(EVOL-103, EVOL-105): review cures — aligned judges every changed decision log (fix branches too), a registration-only claim must name a ratified entry, literal ./ normalisation, no directory or log as artefact; resolve fails closed across writer/critic, a pass on a class that takes none is refused, header read in linear time, control bytes never echoed",
@@ -341,10 +343,11 @@
       ]
     },
     "rules/contract-first-policy.md": {
-      "version": "3.8.0",
+      "version": "3.9.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/contract-first-policy.md",
       "changelog": [
+        "3.9.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "3.8.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "3.7.2: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "3.7.1: fix(EVOL-049) — review pass — hat-era vocabulary retired in the roster vocabulary / spawn wording (the main session spawns by name)",
@@ -1162,10 +1165,11 @@
       ]
     },
     "config/quality.json": {
-      "version": "1.19.0",
+      "version": "1.20.0",
       "content_type": "stack_configured",
       "target": "config/quality.json",
       "changelog": [
+        "1.20.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.19.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.18.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.17.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question",
@@ -1833,11 +1837,12 @@
       ]
     },
     "rules/defect-prevention-cases.md": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "content_type": "universal",
       "target": ".claude/rules/defect-prevention-cases.md",
       "role": "Cases annex of the defect catalog: Origin / Story / Detection per DC-NN, read on demand by id, never in a roll-call (applicable_when path_glob docs/project_log/**).",
       "changelog": [
+        "1.4.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.3.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.2.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question",
         "1.1.0: EVOL-066: DC-31..DC-34 enter the universal catalog with their gates and cases; universal DC-NN vs a project's own PDC-NN; § Promotion (generic, gated, novel, framework-numbered, tool-bound through configures, complete); the Discovery Protocol mints PDC and its stale sweep step goes",
@@ -1846,11 +1851,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.26.0",
+      "version": "1.27.0",
       "content_type": "universal",
       "target": "scripts/gate.py",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language.",
       "changelog": [
+        "1.27.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.26.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.25.0: feat(EVOL-116) — a test runs as one file on every stack: the red proof runs head first (a red or empty run at the head is red); every row with `scoped` is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; `discovery --resolve` returns `gates_upgrade` (added / replaced / kept, by the rows' `was`); the fixtures of the red-stacks CI job, one per stack (base, head, expected verdicts).",
         "1.24.0: EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
@@ -1943,11 +1949,12 @@
       "delivery": "both"
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.30.0",
+      "version": "1.31.0",
       "content_type": "universal",
       "target": "scripts/gates/test_gates.py",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them.",
       "changelog": [
+        "1.31.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.30.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.29.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; review cures: security/sast/** is a governed path, a suppression carries its rule id and reason, the debug exclusions are anchored, the proof scans the delivered tree clean, Angular [innerHTML] is left to its sanitiser",
         "1.28.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
@@ -2209,11 +2216,12 @@
       ]
     },
     "claude/agents/factory-plan-critic.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "content_type": "universal",
       "target": ".claude/agents/factory-plan-critic.md",
       "role": "Agent definition — plan-critic (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete.",
       "changelog": [
+        "1.6.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.5.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
         "1.4.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.3.0: feat(EVOL-060) — the two-part return contract: findings above informational and the Informational: count in the contract part, the informational findings under ## Informational.",
@@ -2476,10 +2484,11 @@
       "role": "gates: SETUP discovery as data (EVOL-102) — the ONE condition grammar and evaluator (parse, evaluate, resolve: pending questions and the template entries that land, eval), the registry validator V1–V9 (schema, single option, credential keys, consumers, conditions, instruction and template parity, consumer literals, snapshot keys)."
     },
     "setup/discovery_registry.json": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "content_type": "universal",
       "target": null,
       "changelog": [
+        "1.7.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.6.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.5.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.4.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
@@ -2540,11 +2549,12 @@
       ]
     },
     "scripts/gates/freeze.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/freeze.py",
       "changelog": [
+        "1.2.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.1.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.0.0: EVOL-115: reliability planned up front — gate freeze (reliability questions, outage response, sensitive fields); review cures — closed weight vocabulary, n/a with reason, non-false x-sensitive counted, humanised contract faults, empty contract red, PyYAML cause named; round-2 cures — quoted status keys counted, n/a headline when nothing judged, marker decided by type (no alias re-expansion), no pointer per leaf"
       ]
@@ -2620,11 +2630,12 @@
       ]
     },
     "scripts/gates/contracts.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/contracts.py",
       "changelog": [
+        "1.1.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.0.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope"
       ]
     },
@@ -2787,10 +2798,11 @@
       ]
     },
     "develop/api_test_template.md": {
-      "version": "1.2.2",
+      "version": "1.3.0",
       "content_type": "universal",
       "target": ".context/templates/develop/api_test_template.md",
       "changelog": [
+        "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.2: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "1.2.1: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: tests cite test_plan § 2.1 TC-API-XX ids (anchoring parity with e2e_spec_template).",
         "1.2.0: feat(EVOL-041) — test data authority split: field existence from journey § 6, types/formats from design § 7.4 type_format_registry.",
@@ -2910,10 +2922,11 @@
       ]
     },
     "qa/test_plan_template.md": {
-      "version": "1.4.1",
+      "version": "1.5.0",
       "content_type": "universal",
       "target": ".context/templates/qa/test_plan_template.md",
       "changelog": [
+        "1.5.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.4.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "1.4.0: fix(EVOL-041 coherencia) — global coherence remediation post-redesign: frontmatter gains optional dast_scan_type (QA-DAST-2 enabler); slicing note scoped to anchored families (AC/TC-API); REL-*-XX canonical.",
         "1.3.0: feat(EVOL-041) — Gherkin Ref documented as EXACT scenario title (machine join for Paths + CVP 4b); canonical ID-family note (AC/TC/TC-API/REL/UX/A11Y/BRAND/LAYOUT — kills TC-UX phantom); § 2.2 source of truth → design.md § 6 Reliability Contract.",
@@ -2945,9 +2958,10 @@
     "_description": "Framework-internal files (agents, orchestration, utilities). NOT materialized to projects — used directly by the LLM. Tracked for upgrade auditing and changelog traceability.",
     "_architecture": "Claude Code (v1.0.0) — Single agent with slash commands. Command definitions in .claude/commands/, detailed instructions in .claude/instructions/, cross-cutting protocols as Skills in .claude/skills/. Materialized rules as .instructions.md in .claude/rules/.",
     "README.md": {
-      "version": "2.24.0",
+      "version": "2.25.0",
       "path": "README.md",
       "changelog": [
+        "2.25.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "2.24.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "2.23.0: EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
         "2.22.0: EVOL-067 (#121): verification members as configuration — registry configures rows, the skill names no stack, dated skips that expire, security never skipped, the secret scanner proves it detects",
@@ -3160,9 +3174,10 @@
       ]
     },
     "instructions/Factory-blueprint-design.instructions.md": {
-      "version": "3.18.0",
+      "version": "3.19.0",
       "path": ".claude/instructions/Factory-blueprint-design.instructions.md",
       "changelog": [
+        "3.19.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "3.18.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "3.17.0: EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations; round-2 — premise_found fires per finding naming a missed premise, with increment_id",
         "3.16.0: feat(EVOL-105): a phase agent model and effort follow the declared pass — discovery keeps the class row, alignment resolves to the standard writer at the alignment effort; the spawn check refuses a missing or mismatched pass; measure reports by pass and effort and flags output unrecorded",
@@ -3381,9 +3396,10 @@
       ]
     },
     "instructions/Factory-implement-build.instructions.md": {
-      "version": "2.27.0",
+      "version": "2.28.0",
       "path": ".claude/instructions/Factory-implement-build.instructions.md",
       "changelog": [
+        "2.28.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "2.27.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "2.26.1: fix(EVOL-074): the security members it names include the sast gate",
         "2.26.0: EVOL-116: the phase caller stops on BLOCKED(UNDECLARED_STACK) — a test file no row runs never reaches the critics",
@@ -3445,9 +3461,10 @@
       ]
     },
     "instructions/Factory-implement-plan.instructions.md": {
-      "version": "2.20.0",
+      "version": "2.21.0",
       "path": ".claude/instructions/Factory-implement-plan.instructions.md",
       "changelog": [
+        "2.21.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "2.20.0: EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train",
         "2.19.0: EVOL-066: a catalog reader names a class by its id as written (DC-NN or PDC-NN), never by a DC- prefix on its number",
         "2.18.1: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
@@ -3696,9 +3713,10 @@
       ]
     },
     "instructions/Factory-setup-materialization.instructions.md": {
-      "version": "3.31.0",
+      "version": "3.32.0",
       "path": ".claude/instructions/Factory-setup-materialization.instructions.md",
       "changelog": [
+        "3.32.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "3.31.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline), a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "3.30.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; docs/setup.md quality.sast records the packs that landed ([] when none); security/sast/** and .semgrepignore join the governed planning seed",
         "3.29.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
@@ -3764,9 +3782,10 @@
       ]
     },
     "instructions/Factory-setup-upgrade.instructions.md": {
-      "version": "2.24.0",
+      "version": "2.25.0",
       "path": ".claude/instructions/Factory-setup-upgrade.instructions.md",
       "changelog": [
+        "2.25.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "2.24.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "2.23.2: fix(EVOL-074): an upgrade reports the added sast row (install semgrep 1.182.0) and governs security/sast/** and .semgrepignore when absent",
         "2.23.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
@@ -3875,9 +3894,10 @@
       ]
     },
     "CLAUDE.md": {
-      "version": "14.25.0",
+      "version": "14.26.0",
       "path": "CLAUDE.md",
       "changelog": [
+        "14.26.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "14.25.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "14.24.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "14.23.1: docs(EVOL-116) — LAW-05 records ADR-EVOL-116: its body (rules/testing.md) states the head run first and that a scoped run that ran no test is red; the sentence is unchanged.",
@@ -4832,11 +4852,12 @@
       ]
     },
     "workflows/governance-check.yml": {
-      "version": "1.21.0",
+      "version": "1.22.0",
       "path": ".github/workflows/governance-check.yml",
       "type": "ci",
       "role": "Governance Check CI gate — validates governance_versions.json manifest consistency on every PR to main. Blocks drift when framework_core files change without manifest updates.",
       "changelog": [
+        "1.22.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.21.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.20.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; review cures: security/sast/** is a governed path, a suppression carries its rule id and reason, the debug exclusions are anchored, the proof scans the delivered tree clean, Angular [innerHTML] is left to its sanitiser",
         "1.19.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
@@ -5447,11 +5468,12 @@
       ]
     },
     "scripts/gate.py": {
-      "version": "1.26.0",
+      "version": "1.27.0",
       "type": "script",
       "role": "The ONE governance reader/CLI (EVOL-043): key · context · laws · applicable (resolver, roll-call) · digest · deliver (pre-edit envelope) · snapshot-sections · budget · retired-terms. Exit 0/1/2, plain language. Meta copy (lock-step pair with the template).",
       "path": "scripts/gate.py",
       "changelog": [
+        "1.27.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.26.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.25.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.24.0: EVOL-104: a train stacks its changes by file — gate train, split by file, found work lands where its files are pending, ledgers once per train; EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
@@ -5538,11 +5560,12 @@
       ]
     },
     "scripts/gates/test_gates.py": {
-      "version": "1.30.0",
+      "version": "1.31.0",
       "type": "script",
       "role": "Unit tests of the gates package (every gate red at least once). Delivered with the package so a project can run them. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/test_gates.py",
       "changelog": [
+        "1.31.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.30.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.29.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; review cures: security/sast/** is a governed path, a suppression carries its rule id and reason, the debug exclusions are anchored, the proof scans the delivered tree clean, Angular [innerHTML] is left to its sanitiser",
         "1.28.1: #189: one resolution of the secret scanner command — {{RANGE}}, {{RANGE_BASE}}, {{RANGE_HEAD}} resolved by common.scanner_command for the dispatcher and the seal canary; with no range a placeholder word drops, a bare one after a flag is refused (write --flag=…); an unknown placeholder or an unresolved range side stops the scan; the trufflehog row gains --branch, --fail-on-scan-errors and --no-update (it exited 0 on a literal or unknown base); upgrade migration; meta CI proves real trufflehog in its pinned image",
@@ -5584,11 +5607,12 @@
       ]
     },
     "scripts/materialize-synthetic.sh": {
-      "version": "1.29.0",
+      "version": "1.30.0",
       "type": "script",
       "role": "META-ONLY materialisation smoke: manifest targets + sample answers into a scratch project, framework tree as factory-sync delivers it, then the governance toolchain there (snapshot within budget, roll-call, law pointer parity, budgets, ratchet, hooks delivered, banner). Wired in governance-check.yml.",
       "path": "scripts/materialize-synthetic.sh",
       "changelog": [
+        "1.30.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.29.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.28.0: feat(EVOL-074) — the upgrade selection simulates a project that predates the SAST packs (no sast row, no security/sast/) and asserts gates_upgrade.added and templates_to_add; the planning seed governs security/sast/** and .semgrepignore",
         "1.27.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
@@ -5850,11 +5874,12 @@
       ]
     },
     "agents/factory-plan-critic.md": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "type": "agent",
       "path": ".claude/agents/factory-plan-critic.md",
       "role": "Agent definition — plan-critic (read-only). Tools per class enforced by the harness matrix; the model is passed per spawn (gate.py agents --resolve); the corpus digest replaces corpus reads; the return contract is refused when incomplete. Meta copy (lock-step pair .claude/agents/*.md).",
       "changelog": [
+        "1.6.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.5.0: EVOL-115: reliability planned up front — gate freeze, reliability questions, seam map, re-measure on routing, ratified sub count, DC-35, security standard question; EVOL-104/115 review cures — push-gate glob ruler, closed weight vocabulary, n/a with reason, sensitive-field count, humanised contract faults, one sanitiser, upgrade migrations",
         "1.4.0: feat(EVOL-069) — auto mode runs execution, a decision is still posed as RDR (RDR Universal, both CLAUDE.md); gate.py frontmatter-lock: an approved artefact frontmatter changes only through its permitted transitions; the plan critic verifies a premise at its source or returns it unverified, calibrated by the canary plan lens; adr-sync direction C catches an orphan ADR",
         "1.3.0: feat(EVOL-060) — the two-part return contract: findings above informational and the Informational: count in the contract part, the informational findings under ## Informational.",
@@ -6052,11 +6077,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/default.json": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json",
       "changelog": [
+        "1.7.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.6.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.5.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.4.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
@@ -6067,11 +6093,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json",
       "changelog": [
+        "1.6.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.5.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.4.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.3.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
@@ -6129,11 +6156,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.5.0",
+      "version": "1.6.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json",
       "changelog": [
+        "1.6.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.5.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.4.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.3.1: fix(#189): the upgrade from 8.12 also owes the trufflehog secrets_command migration",
@@ -6161,10 +6189,11 @@
       ]
     },
     "scripts/gates/freeze.py": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "type": "script",
       "path": "scripts/gates/freeze.py",
       "changelog": [
+        "1.2.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.1.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.0.0: EVOL-115: reliability planned up front — gate freeze (reliability questions, outage response, sensitive fields); review cures — closed weight vocabulary, n/a with reason, non-false x-sensitive counted, humanised contract faults, empty contract red, PyYAML cause named; round-2 cures — quoted status keys counted, n/a headline when nothing judged, marker decided by type (no alias re-expansion), no pointer per leaf"
       ]
@@ -6178,44 +6207,48 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/java.json": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/java.json",
       "changelog": [
+        "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack."
       ]
     },
     "scripts/fixtures/synthetic-answers/go.json": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/go.json",
       "changelog": [
+        "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack."
       ]
     },
     "scripts/fixtures/synthetic-answers/rust.json": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/rust.json",
       "changelog": [
+        "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack."
       ]
     },
     "scripts/fixtures/synthetic-answers/frontend-only.json": {
-      "version": "1.2.0",
+      "version": "1.3.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/frontend-only.json",
       "changelog": [
+        "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
         "1.0.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack."
@@ -6360,21 +6393,32 @@
       "role": "META-ONLY fixture of the SAST base packs: ruleid / ok annotations read by semgrep --test (EVOL-074)."
     },
     "scripts/gates/contracts.py": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "type": "script",
       "path": "scripts/gates/contracts.py",
       "changelog": [
+        "1.1.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.0.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope"
       ]
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json": {
-      "version": "1.0.0",
+      "version": "1.1.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json",
       "changelog": [
+        "1.1.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.0.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope"
       ]
+    },
+    "scripts/test-contract-parity.sh": {
+      "version": "1.0.0",
+      "type": "utility",
+      "path": "scripts/test-contract-parity.sh",
+      "changelog": [
+        "1.0.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract"
+      ],
+      "role": "META-ONLY proof of contract parity (EVOL-070): the ContractParity and ContractPlans unit classes on oasdiff 1.15.2, never skipped, never vacuous. Wired into governance-check job contract-parity."
     }
   },
   "runtime_artefacts": {

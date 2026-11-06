@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.3.0
+version: 1.4.0
 date: 2026-09-25
 changelog:
   - "1.0.0: feat(EVOL-043) — annex created; narratives moved out of the catalog prose columns into one case per DC"
@@ -116,3 +116,11 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 **Story:** Any feature past approval. Cancelling or replacing it feels like deleting its files; the next reader of the code, the audit or the measurement finds a feature id that points nowhere.
 
 **Detection:** The `frontmatter-lock` member: a markdown or `.feature` file whose base `status` is delivered or terminal is red when deleted, replaced by a link, or moved to a name that is no artefact. A move to another artefact name is not a deletion.
+
+### DC-39 — Request validation that does not mirror the contract
+
+**Origin:** A generic class proven in a downstream instantiation (#124).
+
+**Story:** Any API whose handlers validate their own input. The contract caps a name at 80 characters; the DTO caps it at 255, or not at all. The contract makes a field optional; the handler refuses a request without it. Each reads well alone; the client built from the contract meets a different API.
+
+**Detection:** The loop member `contract-parity`: the code's emitted OpenAPI is compared with the authored contract by `oasdiff diff`, so a constraint, a required field, a security requirement or a response on one side only is red; the contract tests record every answer, so a status or an error code the contract does not declare is red. A constraint enforced outside the emitted schema (a hand-written check in the handler) stays a review question.
