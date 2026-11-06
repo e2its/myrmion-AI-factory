@@ -235,7 +235,21 @@ Questions are organized in dependency order within tiers; conditions live in the
 #### Q15: Primary Database
 - **Options:** PostgreSQL | MySQL | MongoDB | DynamoDB | SQLite | Redis | None
 - **Persist:** `database.primary.engine`
-- **After:** Conditional sub-questions for connection pool size, migrations tool
+- **After:** Q15.1 (the migration tool) when the engine is SQL and a backend exists
+
+#### Q15.1: Migration Tool (conditional on Q15 SQL + Q5) — EVOL-071
+- Node.js → Prisma Migrate | Drizzle Kit | Knex | TypeORM | node-pg-migrate | Flyway
+- Python → Alembic | Flyway | Liquibase
+- Java → Flyway | Liquibase
+- Go → golang-migrate | goose | Atlas
+- .NET → EF Core migrations | Flyway | DbUp
+- Ruby → Active Record migrations | Sequel | Flyway
+- PHP → Doctrine Migrations | Phinx | Flyway
+- Rust → sqlx-cli | Diesel | refinery
+- Elixir → Ecto migrations | Flyway
+- **Derived, never asked:** Django → Django migrations (the registry's `decided_by`; `--resolve` lists it under `derived_answers`, written beside the answers and shown in the report).
+- **Not covered:** MongoDB, DynamoDB, Redis, or a SQL engine with no backend — no migration pack lands; the setup report says so.
+- **Persist:** `database.migrations_tool`
 
 #### Q16: Secondary Database (optional)
 - Same options as Q15 + "None"

@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.4.0
+version: 1.5.0
 date: 2026-09-25
 changelog:
   - "1.0.0: feat(EVOL-043) — annex created; narratives moved out of the catalog prose columns into one case per DC"
@@ -124,3 +124,27 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 **Story:** Any API whose handlers validate their own input. The contract caps a name at 80 characters; the DTO caps it at 255, or not at all. The contract makes a field optional; the handler refuses a request without it. Each reads well alone; the client built from the contract meets a different API.
 
 **Detection:** The loop member `contract-parity`: the code's emitted OpenAPI is compared with the authored contract by `oasdiff diff`, so a constraint, a required field, a security requirement or a response on one side only is red; the contract tests record every answer, so a status or an error code the contract does not declare is red. A constraint enforced outside the emitted schema (a hand-written check in the handler) stays a review question.
+
+### DC-40 — A shipped migration edited
+
+**Origin:** A generic class proven in a downstream instantiation (#125).
+
+**Story:** A migration already merged has a typo, or misses a column. Editing it in place looks cleaner than a new one. Every database that already ran it keeps the old shape; every fresh database gets the new one. The environments drift with no trace. Two branches that each add migration 0042 do the same at merge time: one of them never runs.
+
+**Detection:** The `data` member: a migration present at the merge-base that differs, or is gone, at HEAD is red. Two migrations of one directory with one version, or two Alembic heads, are red.
+
+### DC-41 — A destructive schema step with no decision behind it
+
+**Origin:** A generic class proven in a downstream instantiation (#125).
+
+**Story:** A column retires with `DROP COLUMN` in the same increment that stops using it. The step reads like cleanup. A failed deploy then triggers the automatic rollback, which runs the down: the column comes back empty, and the rollback looks like a success. A plain `CREATE INDEX` on a large live table locks its writes for minutes.
+
+**Detection:** The `data` member: a destructive or table-locking step in the up part of a new migration with no `ADR: ADR-NNN` tag naming an accepted ADR is red. The member lists the migration's class (`expand` or `contract`); the DEVOPS rollback never runs a contract step backwards.
+
+### DC-42 — Data reached around its owner
+
+**Origin:** A generic class proven in a downstream instantiation (#125).
+
+**Story:** A repository class owns the database access. A handler opens its own connection for one quick query; a seed script inserts rows straight into the tables. Each skips the owner's validation and invariants. A baseline of those shortcuts, deleted and seeded again, quietly grows.
+
+**Detection:** The `data` member: a connection built outside `data.connection_factory` (the migrations and the test roots aside) is red; older ones sit in a baseline compared with its merge-base copy, so it only shrinks. Each seeded entity names its owner's create and delete, and a seeder or fixture that writes a table is red.

@@ -234,6 +234,16 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 
 **feature_map Version (EVOL-070).** `contracts/feature_map.md` absent → nothing to do. Otherwise add a `Version` column after `Contract Path` to each registry table, and fill each row with its contract's `info.version` (`—` where the contract has none). Run `python3 scripts/gate.py contracts`: its `contracts/feature_map.md` row is green. A row naming no file is fixed or marked SUPERSEDED, never dropped.
 
+**data (EVOL-071).** Add the template's `data` block to `config/quality.json` (`connection_factory`, `baseline`, `migrations_paths`, `_doc`). Then, in this order:
+
+1. **The answer.** `database.migrations_tool` empty while the engine is SQL and a backend exists → Q15.1 is owed through `pending_since`. A Django backend decides it (`derived_answers`); write that value beside the answers.
+2. **The old validator.** Delete `scripts/validate-migrations.sh` and every call to it. `gate.py data` replaces it.
+3. **The factory.** Name the one module that builds connections in `data.connection_factory`, or leave it `null` when no backend code exists yet.
+4. **The baseline.** Run `python3 scripts/gate.py data --json`. Write each connection it finds outside the factory into `docs/project_log/data_baseline.json` (`{"undeclared": [...]}`). The list only shrinks from here.
+5. **The seed registry.** `config/seed_registry.json` absent → nothing to do. Otherwise move it to `seed_registry_v2`: name the `seeder`, and give each entity its `owner` (`{module, create, delete}` or the API's `{create, delete}` operationIds), read from its `owner_domain` module. An owner that cannot be read from the code is one RDR per entity, never a guess.
+
+Run `python3 scripts/gate.py data`: green, or each finding named.
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).

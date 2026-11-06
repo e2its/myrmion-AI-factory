@@ -25,6 +25,7 @@
       ".claude/rules/ux-constitution.md"
     ],
     "absent": [
+      ".claude/rules/database.md",
       "contracts/errors.yaml",
       ".claude/rules/monetary-amounts.md"
     ],
@@ -44,6 +45,7 @@
       ]
     },
     "pending_absent": [
+      "Q15.1",
       "Q36"
     ],
     "gates": {

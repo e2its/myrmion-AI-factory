@@ -238,8 +238,14 @@ VERIFY:
       BLOCKER [GOV-SEED-ALIGNMENT-REGISTRY]:
         "{new_seed} is not registered in config/seed_registry.json."
 
+  # Sub-check 4: seeds through the owner, migrations safe (EVOL-071) — where the data pack landed
+  RUN python3 scripts/gate.py data
+  IF red:
+    BLOCKER [GOV-SEED-ALIGNMENT-OWNER]: its lines — an entity with no owner, a seeder or fixture that writes a table,
+      a shipped migration changed, a destructive step without its accepted ADR, a connection outside the factory
+
 SEVERITY: BLOCKER — synthetic data integrity is a project-wide guarantee
-CONSTRAINT_IDS: [GOV-SEED-ALIGNMENT-{SCHEMA|DEPLOY|REGISTRY}-{N}]
+CONSTRAINT_IDS: [GOV-SEED-ALIGNMENT-{SCHEMA|DEPLOY|REGISTRY|OWNER}-{N}]
 ```
 
 ### Check #2d: [GOV-DEFECT-PREVENTION] Known Defect Pattern Scan

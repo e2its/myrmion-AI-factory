@@ -23,7 +23,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
+from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, data, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -72,7 +72,7 @@ applicable_when:
 | DC | Family | Invariant | Gate | Paths | Applicable To | Severity |
 |---|---|---|---|---|---|---|
 | DC-18 | `runtime` | Unused imports are removed. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |
-| DC-27 | `data` | A migration ships with its down step. | `scripts/validate-migrations.sh` | `**/migrations/**` | IMPLEMENT | BLOCKER |
+| DC-27 | `data` | A migration ships with its down step. | `gate.py data` | `**/migrations/**` | IMPLEMENT | BLOCKER |
 | DC-29 | `runtime` | Build the least that satisfies the spec. | `—` | `*` | IMPLEMENT | WARNING |
 """
 
@@ -221,7 +221,7 @@ class Corpus(unittest.TestCase):
         self.assertEqual([f["name"] for f in cat["families"]], ["runtime", "data"])
         self.assertEqual(cat["families"][1]["surface"], ["**/migrations/**", "**/*.sql"])
         self.assertEqual([d["id"] for d in cat["dcs"]], ["DC-18", "DC-27", "DC-29"])
-        self.assertEqual(cat["dcs"][1]["gate"], "scripts/validate-migrations.sh")
+        self.assertEqual(cat["dcs"][1]["gate"], "gate.py data")
         self.assertEqual(cat["dcs"][2]["paths"], ["*"])
 
     def test_resolver_axes(self):
@@ -3939,6 +3939,70 @@ class Discovery(unittest.TestCase):
                              "one key answered, its sibling left null on purpose: the question was asked")
             self.assertNotIn("Q5", pend({"backend.runtime": "None"}), "the option `None` is an answer; only null is not")
 
+    def _decided_repo(self, tmp, decided=None):
+        repo = disc_repo(tmp)
+        spec = {"options_by": {"key": "backend.runtime", "values": {"Python": ["Alembic", "Flyway"], "Node.js": ["Knex", "Prisma Migrate"]}},
+                "decided_by": decided or {"key": "backend.framework", "values": {"Django": "Django migrations"}}, "fills": ["DB_MIGRATION_TOOL"]}
+        self._reg(repo, lambda reg: reg["questions"].append({"id": "Q15.1", "tier": 1, "since": "1.0.0",
+                  "when": "database.primary.engine == PostgreSQL AND backend.runtime exists", "keys": {"database.migrations_tool": spec}}))
+        return repo
+
+    def test_decided_by_derives_the_key_an_earlier_answer_decides(self):
+        """EVOL-071: Django decides its migration tool — never pending, written beside the answers, read by conditions."""
+        base = {"project_name": "x", "project_mode": "Greenfield", "backend.runtime": "Python", "database.primary.engine": "PostgreSQL", "ci_cd.platform": "None"}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._decided_repo(tmp)
+            r = discovery.resolve(repo, {**base, "backend.framework": "FastAPI"})
+            self.assertIn("Q15.1", r["pending"], "FastAPI decides nothing: the tool is asked")
+            self.assertEqual(r["derived_answers"], {})
+            r = discovery.resolve(repo, {**base, "backend.framework": "Django"})
+            self.assertNotIn("Q15.1", r["pending"], "Django decides the tool: never pending")
+            self.assertEqual(r["derived_answers"], {"database.migrations_tool": "Django migrations"})
+            self.assertEqual(r["placeholders"]["DB_MIGRATION_TOOL"], "Django migrations", "the derived value fills its token")
+            self.assertIn("derived — an earlier answer decides them, never asked: database.migrations_tool = Django migrations", discovery.render_resolve(r))
+            self.assertTrue(discovery.eval_condition(repo, "database.migrations_tool exists", {**base, "backend.framework": "Django"}),
+                            "a condition reads the decided value")
+            self.assertFalse(discovery.eval_condition(repo, "database.migrations_tool exists", {**base, "backend.framework": "FastAPI"}))
+            r = discovery.resolve(repo, {**base, "backend.framework": "Django", "database.migrations_tool": "Django migrations"})
+            self.assertEqual(r["derived_answers"], {}, "already written beside the answers: nothing more to write")
+            with self.assertRaises(GateFault) as cm:
+                discovery.resolve(repo, {**base, "backend.framework": "Django", "database.migrations_tool": "Alembic"})
+            self.assertIn("contradicts `backend.framework` = `Django`, which decides `Django migrations`", str(cm.exception))
+            r = discovery.resolve(repo, {**base, "backend.framework": "FastAPI", "database.migrations_tool": "Alembic"})
+            self.assertNotIn("Q15.1", r["pending"])
+            with self.assertRaises(GateFault):
+                discovery.resolve(repo, {**base, "backend.framework": "FastAPI", "database.migrations_tool": "Django migrations"})
+
+    def test_a_conditional_derived_class_is_dropped_when_its_condition_fails(self):
+        """EVOL-071: a derived `configures` with `when` binds its classes to the keys its condition reads."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._decided_repo(tmp)
+            self._reg(repo, lambda reg: reg["derived"].__setitem__("quality.data", {"from": "x", "when": "database.migrations_tool exists",
+                                                                                     "configures": {"defect_prevention.classes": ["DC-40"]}}))
+            done = {"project_name": "x", "project_mode": "Greenfield", "backend.runtime": "Python", "backend.framework": "FastAPI",
+                    "ci_cd.platform": "None", "dependencies.backend": ["fastapi"]}
+            r = discovery.resolve(repo, {**done, "database.primary.engine": "None"})
+            self.assertIn("DC-40", r["defect_classes"]["drop"], "no tool: the class is dropped")
+            r = discovery.resolve(repo, {**done, "database.primary.engine": "PostgreSQL", "database.migrations_tool": "Alembic"})
+            self.assertNotIn("DC-40", r["defect_classes"]["drop"]); self.assertIn("DC-40", r["configures"]["defect_prevention.classes"])
+            r = discovery.resolve(repo, {**done, "backend.framework": "Django", "database.primary.engine": "PostgreSQL"})
+            self.assertNotIn("DC-40", r["defect_classes"]["drop"], "a decided tool selects it too")
+            r = discovery.resolve(repo, {**done, "database.primary.engine": "PostgreSQL"})
+            self.assertIn("Q15.1", r["pending"]); self.assertNotIn("DC-40", r["defect_classes"]["drop"], "its key still pending: undecided, it stays")
+
+    def test_decided_by_is_validated(self):
+        for decided, word in (({"key": "backend.framework"}, "decided_by is {key, values"),
+                              ({"key": "backend.framework", "values": {"Django": ""}}, "decided_by is {key, values"),
+                              ({"key": "backend.nope", "values": {"Django": "x"}}, "decided_by names `backend.nope`, which is not another registry key"),
+                              ({"key": "database.migrations_tool", "values": {"Alembic": "x"}}, "which is not another registry key"),
+                              ({"key": "backend.framework", "values": {"Rails": "x"}}, "decided_by literal `Rails` is not one of `backend.framework`'s options")):
+            with self.subTest(decided=decided), tempfile.TemporaryDirectory() as tmp:
+                v1 = self._rule(self._green(self._decided_repo(tmp, decided)), "V1")
+                self.assertTrue(any(word in f for f in v1), v1)
+        with tempfile.TemporaryDirectory() as tmp:
+            v1 = self._rule(self._green(self._decided_repo(tmp)), "V1")
+            self.assertFalse([f for f in v1 if "decided_by" in f], v1)
+
     def test_answers_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = disc_repo(tmp)
@@ -4290,7 +4354,7 @@ class Discovery(unittest.TestCase):
         ".claude/instructions/Factory-devops-provision-deploy.instructions.md":
             "  Per architecture topology (codes):\n    B1 Traditional Monolith, B12 MVC Monolith: Build single deployable\n\nWhen resource.type == \"database\": back it up.\n",
         ".context/templates/setup/scripts/lint-format.sh": "VALID=$(find .claude/rules -maxdepth 1 -name '*.md' -exec basename {} .md \\;)\n",
-        ".context/templates/setup/scripts/validate-migrations.sh": 'grep --include="*.php" "supabase/migrations" "drizzle/migrations"\n',
+        ".context/templates/setup/scripts/gates/data.py": 'EXTS = (".php",)\nLAYOUTS = ("supabase/migrations/**", "drizzle/migrations/**")\n',
         ".claude/instructions/Factory-backlog-operations.instructions.md": '  milestone_strategy: "{{milestone_strategy}}" # Q27.3: epic-based | none\n',
         ".context/templates/setup/upgrade_safety_protocol.md": "The checksum is SHA-256.\n",
         ".claude/skills/factory-build-verification/SKILL.md":
@@ -4339,7 +4403,7 @@ class Discovery(unittest.TestCase):
             ("DEVOPS topology", text(".claude/instructions/Factory-devops-provision-deploy.instructions.md", "B1 Traditional Monolith", "B1 Classic Monolith")),
             ("DEVOPS topology", text(".claude/instructions/Factory-devops-provision-deploy.instructions.md", ", B12 MVC Monolith", "")),
             ("lint-format", text(".context/templates/setup/scripts/lint-format.sh", "'*.md'", "'*.mdc'")),
-            ("validate-migrations", text(".context/templates/setup/scripts/validate-migrations.sh", ' "drizzle/migrations"', "")),
+            ("data layouts", text(".context/templates/setup/scripts/gates/data.py", ', "drizzle/migrations/**"', "")),
             ("one definition", text(".claude/instructions/Factory-backlog-operations.instructions.md", "epic-based | none", "epic-based | sprint-based | none")),
             ("one definition", text(".context/templates/setup/upgrade_safety_protocol.md", "SHA-256.", "SHA-256 (MD5 before).")),
             ("dependency readers", reg("backend.runtime", "Cobol")),
@@ -6337,6 +6401,218 @@ class ContractParity(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             r = contracts.parity(fixture_repo(Path(tmp))); self.assertTrue(r.get("na"), r)
 
+
+class Data(unittest.TestCase):
+    """EVOL-071, the data pack: shipped migrations unchanged, an ADR tag per destructive step, index discipline, one
+    version per migration, one connection factory with a shrink-only baseline, seeds through the owner."""
+    ADR = "docs/project_log/adr/ADR-007-drop-legacy.md"
+
+    def _git(self, repo, *c):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)
+
+    def _repo(self, tmp, tool="Flyway", engine="PostgreSQL", quality=None, adr="accepted"):
+        repo = fixture_repo(Path(tmp))
+        write(repo / "docs/setup.md", "---\nproject_scope: backend-only\nbackend:\n  runtime: Go\n  framework: null\n"
+              f"database:\n  primary:\n    engine: {engine}\n" + (f"  migrations_tool: {tool}\n" if tool else "") + "---\n")
+        if adr:
+            write(repo / self.ADR, f"---\nid: ADR-007\nstatus: {adr}\n---\n# drop\n")
+        if quality is not None:
+            q = json.loads((repo / "config/quality.json").read_text()); q.update(quality)
+            write(repo / "config/quality.json", json.dumps(q))
+        self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base")
+        return repo
+
+    def _row(self, r, rid):
+        return next(e for e in r["entries"] if e["id"] == rid)
+
+    def _mig(self, repo, rel, text, base="HEAD"):
+        write(repo / rel, text)
+        r = data.check(repo, base)
+        return r, data.render(r)
+
+    def test_na_in_meta_and_without_the_answer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = data.check(fixture_repo(Path(tmp), "meta"), "HEAD"); self.assertTrue(r.get("na"), r)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = data.check(self._repo(tmp, tool=None), "HEAD"); self.assertTrue(r.get("na"), r)
+            self.assertTrue(data.render(r).startswith("data: n/a — no `database.migrations_tool`"), data.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            out = data.render(data.check(self._repo(tmp, tool="Hibernate"), "HEAD")); self.assertIn("`Hibernate` has no adapter", out)
+        self.assertIn("data", [m[0] for m in profile.MEMBERS])
+        self.assertFalse(any(m[1] or m[2] for m in profile.MEMBERS if m[0] == "data"), "the data member needs no build and no database")
+
+    def test_a_shipped_migration_never_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r = data.check(repo, "HEAD"); self.assertTrue(r["ok"], data.render(r))
+            r, out = self._mig(repo, "src/migrations/001.sql", "select 2;\n"); self.assertIn("src/migrations/001.sql: a shipped migration changed", out)
+            (repo / "src/migrations/001.sql").unlink()
+            out = data.render(data.check(repo, "HEAD")); self.assertIn("src/migrations/001.sql: a shipped migration is gone", out)
+            r = data.check(repo); self.assertTrue(self._row(r, "migrations")["ok"], "without a base nothing is shipped")
+
+    def test_an_unreadable_migration_is_red_and_a_bad_config_is_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            (repo / "src/migrations/002.sql").write_bytes(b"\xff\xfe DROP TABLE t;")
+            self.assertIn("src/migrations/002.sql: cannot be read as a migration (UnicodeDecodeError)", data.render(data.check(repo, "HEAD")))
+        with tempfile.TemporaryDirectory() as tmp:
+            out = data.render(data.check(self._repo(tmp, quality={"data": {"connection_factory": ""}}), "HEAD"))
+            self.assertIn("`data.connection_factory` must be null or the path", out)
+        for text, word in (("{", "cannot be read as the seed registry"), ("[]", "the seed registry is not an object")):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / "config/seed_registry.json", text)
+                self.assertIn(word, data.render(data.check(repo, "HEAD")))
+
+    def test_every_destructive_step_carries_its_accepted_adr(self):
+        cases = (("ALTER TABLE orders\n  DROP COLUMN legacy;\n", False, "src/migrations/002.sql:1: DROP COLUMN has no `ADR: ADR-NNN` tag"),
+                 ("-- ADR: ADR-007 the legacy column retires\nALTER TABLE orders DROP COLUMN legacy;\n", True, ""),
+                 ("ALTER TABLE orders DROP COLUMN legacy; -- ADR: ADR-007\n", True, ""),
+                 ("-- ADR: ADR-099\nDROP TABLE orders;\n", False, "names ADR-099, and no docs/project_log/adr/ADR-099-*.md exists"),
+                 ("-- DROP TABLE orders;\nselect 1;\n", True, ""),
+                 ("/* DROP TABLE orders; */\nselect 1;\n", True, ""),
+                 ("TRUNCATE orders;\n", False, "TRUNCATE has no"),
+                 ("DELETE FROM orders;\n", False, "DELETE ALL has no"),
+                 ("DELETE FROM orders WHERE 1 = 1;\n", False, "DELETE ALL has no"),
+                 ("DELETE FROM orders\nWHERE id = 3;\n", True, ""),
+                 ("ALTER TABLE orders RENAME TO purchases;\n", False, "RENAME has no"),
+                 ("ALTER TABLE orders ADD COLUMN note text;\n", True, ""),
+                 ("-- ADR: ADR-007\n\nDROP TABLE orders;\n", False, "DROP has no"))   # a blank line ends the comment block
+        for sql, ok, word in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                r, out = self._mig(self._repo(tmp), "src/migrations/002.sql", sql)
+                self.assertEqual(self._row(r, "migrations")["ok"], ok, f"{sql!r}: {out}")
+                if word:
+                    self.assertIn(word, out)
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self._mig(self._repo(tmp, adr="proposed"), "src/migrations/002.sql", "-- ADR: ADR-007\nDROP TABLE orders;\n")
+            self.assertIn("names ADR-007, which is `proposed`", out)
+
+    def test_the_down_part_is_never_judged(self):
+        for tool, rel, text in (("Flyway", "src/migrations/002.down.sql", "DROP TABLE orders;\n"),
+                                ("Flyway", "src/migrations/U2__undo.sql", "DROP TABLE orders;\n"),
+                                ("goose", "src/migrations/002_add.sql", "-- +goose Up\nCREATE TABLE t (id int);\n-- +goose Down\nDROP TABLE t;\n"),
+                                ("Alembic", "alembic/versions/a1_add.py", "revision = 'a1'\ndown_revision = None\ndef upgrade():\n    op.add_column('t', sa.Column('x'))\n\ndef downgrade():\n    op.drop_column('t', 'x')\n"),
+                                ("Knex", "src/migrations/20240101_add.js", "exports.up = (k) => k.schema.table('t', (t) => t.string('x'));\nexports.down = (k) => k.schema.table('t', (t) => t.dropColumn('x'));\n"),
+                                ("EF Core migrations", "src/Migrations/20240101_Add.cs", "protected override void Up(MigrationBuilder migrationBuilder) { migrationBuilder.AddColumn<string>(\"x\"); }\nprotected override void Down(MigrationBuilder migrationBuilder) {\n migrationBuilder.DropColumn(name: \"x\");\n}\n")):
+            with tempfile.TemporaryDirectory() as tmp:
+                r, out = self._mig(self._repo(tmp, tool=tool), rel, text)
+                self.assertTrue(self._row(r, "migrations")["ok"], f"{tool}: {out}")
+                self.assertEqual([c["class"] for c in r["migrations"] if c["path"] == rel], [] if "down" in rel.lower() or "U2__" in rel else ["expand"], out)
+        for tool, rel, text, word in (("Alembic", "alembic/versions/a2_drop.py", "revision = 'a2'\ndown_revision = None\ndef upgrade():\n    op.drop_column('t', 'x')\n", "op.drop_column has no"),
+                                      ("Django migrations", "orders/migrations/0002_drop.py", "operations = [\n    migrations.RemoveField(model_name='order', name='x'),\n]\n", "migrations.RemoveField has no"),
+                                      ("Knex", "src/migrations/20240102_drop.js", "exports.up = (k) => k.schema.dropTable('t');\n", "dropTable has no"),
+                                      ("Active Record migrations", "db/migrate/20240101_drop.rb", "def change\n  remove_column :orders, :x\nend\n", "remove_column has no")):
+            with tempfile.TemporaryDirectory() as tmp:
+                r, out = self._mig(self._repo(tmp, tool=tool), rel, text); self.assertIn(word, out)
+                self.assertEqual([c["class"] for c in r["migrations"] if c["path"] == rel], ["contract"], out)
+
+    def test_postgres_index_on_a_live_table_is_built_concurrently(self):
+        for engine, sql, ok in (("PostgreSQL", "CREATE INDEX ix_o ON orders (placed_at);\n", False),
+                                ("PostgreSQL", "CREATE INDEX CONCURRENTLY ix_o ON orders (placed_at);\n", True),
+                                ("PostgreSQL", "CREATE UNIQUE INDEX CONCURRENTLY ix_o ON orders (placed_at);\n", True),
+                                ("PostgreSQL", "CREATE TABLE orders (id int);\nCREATE INDEX ix_o ON orders (id);\n", True),
+                                ("PostgreSQL", "-- ADR: ADR-007 a small table\nCREATE INDEX ix_o ON orders (placed_at);\n", True),
+                                ("MySQL", "CREATE INDEX ix_o ON orders (placed_at);\n", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                r, out = self._mig(self._repo(tmp, engine=engine), "src/migrations/002.sql", sql)
+                self.assertEqual(self._row(r, "migrations")["ok"], ok, f"{engine} {sql!r}: {out}")
+                if not ok:
+                    self.assertIn("an index on `orders` locks writes on a live table", out)
+        for tool, rel, text, ok in (("Django migrations", "orders/migrations/0002_ix.py", "migrations.AddIndex(model_name='order', index=models.Index(fields=['x']))\n", False),
+                                    ("Django migrations", "orders/migrations/0002_ix.py", "AddIndexConcurrently(model_name='order', index=models.Index(fields=['x']))\n", True),
+                                    ("Django migrations", "orders/migrations/0002_ix.py", "migrations.CreateModel(name='order', fields=[])\nmigrations.AddIndex(model_name='order', index=x)\n", True),
+                                    ("Alembic", "alembic/versions/b1_ix.py", "revision = 'b1'\ndown_revision = None\ndef upgrade():\n    op.create_index('ix', 'orders', ['x'])\n", False),
+                                    ("Alembic", "alembic/versions/b1_ix.py", "revision = 'b1'\ndown_revision = None\ndef upgrade():\n    op.create_index('ix', 'orders', ['x'], postgresql_concurrently=True)\n", True)):
+            with tempfile.TemporaryDirectory() as tmp:
+                r, out = self._mig(self._repo(tmp, tool=tool), rel, text)
+                self.assertEqual(self._row(r, "migrations")["ok"], ok, f"{tool} {text!r}: {out}")
+
+    def test_one_version_one_migration_and_one_head(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self._mig(self._repo(tmp), "src/migrations/001_other.sql", "select 3;\n")
+            self.assertIn("version 001 is also src/migrations/001.sql", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / "src/migrations/003.up.sql", "select 1;\n")
+            r, out = self._mig(repo, "src/migrations/003.down.sql", "DROP TABLE x;\n"); self.assertTrue(self._row(r, "migrations")["ok"], out)
+        heads = {"alembic/versions/a1.py": "revision = 'a1'\ndown_revision = None\n", "alembic/versions/a2.py": "revision = 'a2'\ndown_revision = 'a1'\n"}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, tool="Alembic")
+            for f, t in heads.items():
+                write(repo / f, t)
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "alembic")
+            r, out = self._mig(repo, "alembic/versions/a3.py", "revision = 'a3'\ndown_revision = 'a1'\n"); self.assertIn("2 heads (a2, a3)", out)
+            r, out = self._mig(repo, "alembic/versions/a4.py", "revision = 'a4'\ndown_revision = ('a2', 'a3')\n")
+            self.assertTrue(self._row(r, "migrations")["ok"], out)
+
+    def test_one_connection_factory_and_a_baseline_that_only_shrinks(self):
+        conn = "import psycopg\n\ndef connect():\n    return psycopg.connect(DSN)\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            r, out = self._mig(repo, "src/db.py", conn); self.assertIn("src/db.py: opens a connection (psycopg) — declare `data.connection_factory`", out)
+            write(repo / "src/db.py", "# psycopg.connect(DSN) is the factory's job\n")
+            self.assertTrue(self._row(data.check(repo, "HEAD"), "connection factory")["ok"], "a comment is no connection")
+            write(repo / "tests/test_db.py", conn)
+            self.assertTrue(self._row(data.check(repo, "HEAD"), "connection factory")["ok"], "the test roots are not the product")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, quality={"data": {"connection_factory": "src/db.py", "baseline": "docs/project_log/data_baseline.json"}})
+            r, out = self._mig(repo, "src/db.py", conn); self.assertTrue(r["ok"], out)
+            write(repo / "src/orders/repo.go", "db, err := sql.Open(\"postgres\", dsn)\n")
+            out = data.render(data.check(repo, "HEAD")); self.assertIn("src/orders/repo.go: opens a connection (go-sql) outside the factory `src/db.py`", out)
+            write(repo / "src/web.ts", "const p = new Pool({})\n")
+            self.assertNotIn("src/web.ts", data.render(data.check(repo, "HEAD")), "`new Pool(` is pg's only with its import")
+            write(repo / "src/web.ts", "import { Pool } from 'pg'\nconst p = new Pool({})\n")
+            self.assertIn("src/web.ts: opens a connection (pg)", data.render(data.check(repo, "HEAD")))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, quality={"data": {"connection_factory": "src/db.py", "baseline": "docs/project_log/data_baseline.json"}})
+            write(repo / "src/db.py", conn); write(repo / "src/old.py", conn)
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "old debt")
+            write(repo / "docs/project_log/data_baseline.json", json.dumps({"undeclared": ["src/old.py#psycopg"]}))
+            r = data.check(repo, "HEAD"); self.assertTrue(r["ok"], data.render(r))   # the base's file held it: seeding the debt is allowed
+            write(repo / "src/new.py", conn)
+            write(repo / "docs/project_log/data_baseline.json", json.dumps({"undeclared": ["src/old.py#psycopg", "src/new.py#psycopg"]}))
+            out = data.render(data.check(repo, "HEAD")); self.assertIn("`src/new.py#psycopg` is new since the base — the baseline only shrinks", out)
+            write(repo / "docs/project_log/data_baseline.json", json.dumps({"undeclared": ["src/old.py#psycopg", "src/gone.py#psycopg"]}))
+            (repo / "src/new.py").unlink()
+            out = data.render(data.check(repo, "HEAD")); self.assertIn("`src/gone.py#psycopg` is no longer found", out)
+            write(repo / "docs/project_log/data_baseline.json", "{")
+            self.assertIn("cannot be read as the data baseline", data.render(data.check(repo, "HEAD")))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, quality={"data": {"connection_factory": "src/missing.py"}})
+            self.assertIn("the connection factory `src/missing.py` does not exist", data.render(data.check(repo, "HEAD")))
+
+    def _seed(self, repo, ents, seeder="scripts/seed.py", schema="seed_registry_v2", seeder_text="from src.orders import service\n"):
+        write(repo / "src/orders/service.py", "def create_order(o):\n    ...\n\ndef delete_order(i):\n    ...\n")
+        write(repo / "config/seed_fixtures/orders.json", "[{\"id\": 1}]\n")
+        if seeder and seeder_text is not None:
+            write(repo / seeder, seeder_text)
+        write(repo / "config/seed_registry.json", json.dumps({"$schema": schema, "seeder": seeder, "shared_entities": ents}))
+        r = data.check(repo, "HEAD")
+        return r, data.render(r)
+
+    def test_seeds_go_through_the_owner(self):
+        good = {"orders": {"owner": {"module": "src/orders/service.py", "create": "create_order", "delete": "delete_order"},
+                           "fixture_path": "config/seed_fixtures/orders.json", "table_or_collection": "orders", "count": 1}}
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self._seed(self._repo(tmp), good); self.assertTrue(r["ok"], out)
+        for ents, kw, word in (
+                (good, {"schema": "seed_registry_v1"}, "`$schema` is `seed_registry_v1`"),
+                ({"orders": {**good["orders"], "owner": None}}, {}, "orders: no `owner`"),
+                ({"orders": {**good["orders"], "owner": {**good["orders"]["owner"], "delete": "purge"}}}, {}, "`purge` is not in src/orders/service.py"),
+                ({"orders": {**good["orders"], "owner": {**good["orders"]["owner"], "module": "src/nope.py"}}}, {}, "the owner module `src/nope.py` does not exist"),
+                ({"orders": {**good["orders"], "owner": {"create": "createOrder", "delete": "deleteOrder"}}}, {}, "`createOrder` is no operationId of contracts/openapi"),
+                ({"orders": {**good["orders"], "fixture_path": "config/seed_fixtures/orders.sql"}}, {}, "is not .json — a fixture is data"),
+                (good, {"seeder_text": "cur.execute(\"INSERT INTO orders (id) VALUES (1)\")\n"}, "scripts/seed.py: writes a table directly (`INSERT INTO`)"),
+                (good, {"seeder_text": "conn = psycopg.connect(DSN)\n"}, "scripts/seed.py: opens a database connection"),
+                (good, {"seeder": None}, "no `seeder`"),
+                (good, {"seeder": "scripts/seed.py", "seeder_text": None}, "the seeder `scripts/seed.py` does not exist"),
+                ({"orders": {**good["orders"], "fixture_path": "config/seed_fixtures/gone.json"}}, {}, "the fixture `config/seed_fixtures/gone.json` does not exist")):
+            with tempfile.TemporaryDirectory() as tmp:
+                r, out = self._seed(self._repo(tmp), ents, **kw); self.assertFalse(r["ok"], out); self.assertIn(word, out)
+        api = {"openapi": "3.0.3", "info": {"title": "t", "version": "1"}, "paths": {"/orders": {"post": {"operationId": "createOrder", "responses": {"201": {"description": "c"}}}},
+                                                                                     "/orders/{id}": {"delete": {"operationId": "deleteOrder", "responses": {"204": {"description": "d"}}}}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / "contracts/openapi/orders/v1.json", json.dumps(api))
+            r, out = self._seed(repo, {"orders": {**good["orders"], "owner": {"create": "createOrder", "delete": "deleteOrder"}}}); self.assertTrue(r["ok"], out)
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

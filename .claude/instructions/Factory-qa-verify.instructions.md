@@ -64,7 +64,7 @@ Conditional Scripts:
   - security-scan.sh --dast: ZAP baseline (IF DAST_TOOLS != "Skip")
   - security-scan.sh --dast-full: ZAP full scan (IF test_plan specifies)
   - security-scan.sh --dast-api: ZAP API scan (IF API contracts)
-  - validate-migrations.sh --strict: Migration safety (IF migrations exist)
+  - gate.py data: the data pack — migrations, destructive steps, the connection factory, seeds (IF database.migrations_tool is answered; n/a otherwise)
   - validate-iac.sh --strict: IaC governance (IF infra/ exists)
   - ux-validation.sh: WCAG compliance (IF has_ui)
 ```
@@ -522,8 +522,8 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
 0. **Dependency Allowlist:** `scripts/dependency-allowlist.sh --strict` (= `python3 scripts/gate.py dependencies`, #114)
    - Exit 0: Continue | Exit 1: REJECT — a denied, unlisted or out-of-range dependency, or a missing declaration (constitution, allowlist, stack, lockfile); each line names its resolution | Exit 2: REJECT — the tool could not run
 
-0b. **Migration Safety:** `scripts/validate-migrations.sh --strict`
-    - Exit 1: REJECT (destructive operations) | Exit 2: WARN (suspicious, continue with warning)
+0b. **Data pack:** `python3 scripts/gate.py data` (EVOL-071; a light profile member, so CI ran it on the PR)
+    - Exit 0: Continue (green or n/a) | Exit 1: REJECT — each line names the migration, the step or the file and its resolution
 
 0c. **IaC Governance:** `scripts/validate-iac.sh --strict` (if infra/ exists)
     - Exit 1,4: REJECT (secrets/state files) | Exit 2,3: WARN (naming/tags, continue)
@@ -735,7 +735,7 @@ reviewed_by: QA
 | Check | Script | Result | Details |
 |-------|--------|--------|---------|
 | Dependency Allowlist | dependency-allowlist.sh --strict (exit 0 PASS, else FAIL) | PASS/FAIL | {{details}} |
-| Migration Safety | validate-migrations.sh --strict | PASS/FAIL/SKIP | {{details}} |
+| Data pack | gate.py data (exit 0 PASS or n/a, else FAIL) | PASS/FAIL/N/A | {{details}} |
 | IaC Governance | validate-iac.sh --strict | PASS/FAIL/SKIP | {{details}} |
 
 ## 2. Drift Detection

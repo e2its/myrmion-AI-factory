@@ -7,6 +7,7 @@
     "backend.runtime": "Java",
     "frontend.framework": "None",
     "database.primary.engine": "PostgreSQL",
+    "database.migrations_tool": "Flyway",
     "hosting.provider": "AWS",
     "hosting.iac_tool": "Terraform",
     "ci_cd.platform": "GitHub Actions",
@@ -21,12 +22,14 @@
   },
   "expect": {
     "landed": [
+      ".claude/rules/database.md",
       "contracts/errors.yaml",
       ".claude/rules/monetary-amounts.md"
     ],
     "absent": [],
     "defect_classes": {
       "present": [
+        "DC-40", "DC-41", "DC-42",
         "DC-36",
         "DC-37",
         "DC-39",

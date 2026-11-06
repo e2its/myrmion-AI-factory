@@ -713,24 +713,21 @@ TASKS:
     - CI/CD pipeline configuration (if needed)
   
   C.5: Synthetic Data for Staging (conditional — see Synthetic Data Protocol below)
-    # Minimum tasks (applies to ALL modules when C.5 is REQUIRED):
-    - [ ] C.5.1: Read migration/schema files for target tables and build a column manifest
-           (prevention step — know the schema BEFORE writing seed generators)
-    - [ ] C.5.2: Create seed data factory/generator with schema-aligned record shapes
-           (every key matches a real column, every NOT NULL column is provided)
-    - [ ] C.5.3: Implement INSERTs with schema-qualified table names + named parameters
-           (no positional placeholders — prevents silent corruption from reordering)
-    - [ ] C.5.4: Implement idempotent upsert logic (ON CONFLICT DO NOTHING / DO UPDATE)
-    - [ ] C.5.5: Honor UNIQUE constraints across the generated row set
-    - [ ] C.5.6: Honor CHECK constraints (enum values match the schema)
-    - [ ] C.5.7: Implement reset command (teardown + re-seed in FK-reverse order)
-    - [ ] C.5.8: Add fail-secure environment guard (refuse to run when env is unset/ambiguous)
-    - [ ] C.5.9: Register in config/seed_registry.json (owned + consumed entities)
-    - [ ] C.5.10: Add seed generator to guardrail test registration
-    - [ ] C.5.11: Run seed alignment test suite locally and verify exit 0
-           (BLOCKING — task cannot be marked [x] if guardrail fails)
-    - [ ] C.5.12: Wire seed/reset to the dev/staging deployment pipeline
-           (NEVER prod — enforced by both packaging exclusion + runtime guard)
+    # Minimum tasks (applies to ALL modules when C.5 is REQUIRED) — the one list; seeds write through the owner (EVOL-071):
+    - [ ] C.5.1: Name each target entity's owner: its create and delete — a module function, or the API's operationIds
+           (no owner create yet → its module builds it first, as a task of that module, never a seed shortcut)
+    - [ ] C.5.2: Build one .json fixture per entity, aligned to what the owner's create accepts
+           (every key a real field, every required field provided, UNIQUE and CHECK constraints honoured)
+    - [ ] C.5.3: Write the seeder: each fixture record → the owner's create, in seed_order
+           (no INSERT, no UPDATE, no connection of its own — the owner validates and writes)
+    - [ ] C.5.4: Make it idempotent: deterministic ids; an id that exists is skipped
+    - [ ] C.5.5: Register in config/seed_registry.json (seed_registry_v2: owner, fixture, the seeder; owned + consumed entities)
+    - [ ] C.5.6: Implement the reset: delete only the seeded ids through the owner's delete, in reset_order (never TRUNCATE)
+    - [ ] C.5.7: Add a fail-secure environment guard (refuse to run when env is unset, ambiguous or production)
+    - [ ] C.5.8: Register the seeder in the guardrail tests and run the seed alignment suite locally — exit 0
+           (BLOCKING — the task cannot be marked [x] while it fails)
+    - [ ] C.5.9: `python3 scripts/gate.py data` green (its config/seed_registry.json row)
+    - [ ] C.5.10: Wire the seeder to the dev/staging deployment pipeline (NEVER prod — packaging exclusion + runtime guard)
 ```
 
 ### Synthetic Data Protocol (Staging / Preview Environments)
@@ -763,23 +760,15 @@ FUNCTION evaluate_synthetic_data_need(FEATURE_ID):
 
 | Property | Requirement | Implementation Pattern |
 |----------|-------------|------------------------|
-| **Idempotency** | Running seed twice must NOT duplicate data | Upsert (ON CONFLICT), check-before-insert, or deterministic IDs with IF NOT EXISTS |
-| **Reset capability** | Full teardown + clean re-seed to a known baseline | Dedicated reset command/script: truncate target tables → re-seed (respecting FK order) |
+| **Through the owner** | Every seeded record is written by the module or the API that owns the entity | The seeder calls `owner.create` per record; no SQL, no connection of its own (`gate.py data`, DC-42) |
+| **Idempotency** | Running seed twice must NOT duplicate data | Deterministic IDs; an id that exists is skipped |
+| **Reset capability** | Remove what the seed wrote, then re-seed | Delete the seeded ids through `owner.delete`, children first; never TRUNCATE. A full reset at deploy is the owner's RDR (`FORCE_RESEED`) |
 | **Referential coherence** | All IDs across related entities must be valid and consistent | Use deterministic ID generation (sequential or UUID v5 with namespace) — build entity graphs respecting FK dependencies (parent → child order) |
 | **Schema alignment** | Synthetic data must match `design.md § Schema Constraints` | Field names from journey § 6 (existence); types/formats/constraints from § Schema Constraints + type_format_registry (typing authority — LAW-16) |
 | **Non-production guard** | Seed scripts must NEVER execute on production | Environment check gate: `IF env == production → ABORT` |
 | **Cross-domain registration** | Feature's seed entities MUST be registered in Shared Seed Registry | Register owned entities + declare consumed entities (see below) |
 
-**Task Decomposition Guidance:**
-```yaml
-# Minimum tasks for C.5:
-- [ ] C.5.1: Create seed data factory/generator (entity graph with FK ordering)
-- [ ] C.5.2: Implement idempotent upsert logic (safe re-runs)
-- [ ] C.5.3: Implement reset command (teardown + re-seed)
-- [ ] C.5.4: Add environment guard (block production execution)
-- [ ] C.5.5: Register in Shared Seed Registry (owned + consumed entities)
-- [ ] C.5.6: Wire seed/reset to deployment pipeline (DEVOPS post-deploy hook)
-```
+**Task Decomposition Guidance:** the C.5 list above is the one list.
 
 ### Shared Seed Registry Protocol (Cross-Domain Referential Integrity)
 
@@ -791,13 +780,15 @@ FUNCTION evaluate_synthetic_data_need(FEATURE_ID):
 
 ```json
 {
-  "$schema": "seed_registry_v1",
+  "$schema": "seed_registry_v2",
+  "seeder": "{the one script that seeds every entity through its owner}",
   "shared_fixtures_dir": "config/seed_fixtures/_shared/",
   "shared_entities": {
     "{entity_name}": {
+      "owner": {"module": "{source file}", "create": "{function}", "delete": "{function}"},
       "owner_domain": "{bounded_context}",
       "owner_feature": "{FEATURE_ID or _shared}",
-      "fixture_path": "{relative path to fixture JSON/SQL}",
+      "fixture_path": "{relative path to the fixture .json}",
       "id_strategy": "deterministic_sequential | uuid_v5_namespace | natural_key",
       "id_config": { "prefix": "{prefix}", "namespace": "{ns}", "start": 1 },
       "table_or_collection": "{target table/collection name}",
@@ -823,7 +814,7 @@ FUNCTION register_seed_entities(FEATURE_ID):
   
   # Step 1: Load or create registry
   IF NOT FILE_EXISTS(registry_path):
-    CREATE registry with $schema + empty shared_entities/dependency_graph
+    CREATE registry with $schema seed_registry_v2 + the seeder + empty shared_entities/dependency_graph
   registry = READ(registry_path)
   
   # Step 2: Read feature's data model from design.md
@@ -835,6 +826,7 @@ FUNCTION register_seed_entities(FEATURE_ID):
     IF entity is NEW to registry (not in shared_entities):
       # Register as OWNED by this feature
       registry.shared_entities[entity.name] = {
+        owner: {module, create, delete} of entity.module   # or {create, delete} operationIds of its API
         owner_domain: entity.module,
         owner_feature: FEATURE_ID,
         fixture_path: "config/seed_fixtures/{FEATURE_ID}/{entity.name}.json",

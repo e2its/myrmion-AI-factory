@@ -445,6 +445,9 @@ Phase 5: Post-Deploy Verification
   
   IF verification fails:
     OFFER: Auto-rollback, Manual investigation, Retry deploy
+    # Auto-rollback = code + traffic + the expand downs of the deployed range — never a contract step (EVOL-071):
+    #   python3 scripts/gate.py data --base {previous deploy ref} --json → a migration of class `contract` in the range
+    #   → nothing automatic touches the data; offer forward-fix, or a restore from backup by the owner's RDR.
   
   IF verification passes:
     GENERATE docs/spec/{FEATURE_ID}/devops/deployment_report_{timestamp}.md
@@ -542,34 +545,33 @@ FUNCTION seed_pipeline_protocol(FEATURE_ID, ENV):
   
   registry = READ(registry_path)
   
+  # GATE 3: The registry holds (EVOL-071) — seed_registry_v2, every entity's owner, a seeder that writes no table
+  RUN python3 scripts/gate.py data → its config/seed_registry.json row red → BLOCK the seed with its findings
+
   # STEP 1: Detect seed state (idempotency at pipeline level)
-  existing_count = CHECK_ENTITY_COUNTS(registry.shared_entities)
+  existing_count = CHECK_ENTITY_COUNTS(registry.shared_entities)   # read only: table_or_collection
   
-  IF existing_count > 0 AND NOT ENV_VAR("FORCE_RESEED"):
-    LOG: "Data exists ({existing_count} entities). Skipping seed. Set FORCE_RESEED=true to override."
+  IF existing_count > 0 AND NOT FORCE_RESEED:
+    LOG: "Data exists ({existing_count} entities). Skipping seed."
     # Still run integrity validation even if not re-seeding
     GOTO STEP 4
   
-  # STEP 2: Reset if FORCE_RESEED (teardown in reverse FK order)
-  IF ENV_VAR("FORCE_RESEED"):
-    LOG: "FORCE_RESEED=true — teardown in reverse dependency order"
-    FOR EACH entity IN registry.reset_order:
-      TRUNCATE entity.table_or_collection
-      # reset_order is children-first (reverse topological) — no FK violations
+  # STEP 2: Reset — FORCE_RESEED is the owner's RDR at this deploy, never set by the agent
+  IF FORCE_RESEED:   # the owner's verbatim choice, recorded in the deployment report
+    FOR EACH entity IN registry.reset_order:   # children first (reverse topological)
+      DELETE the seeded ids only, through entity.owner.delete   # never TRUNCATE; data the seed did not write stays
   
-  # STEP 3: Seed in topological order (parents first)
-  FOR EACH entity IN registry.seed_order:
-    fixture = READ(registry.shared_entities[entity].fixture_path)
-    UPSERT fixture INTO entity.table_or_collection:
-      strategy: ON_CONFLICT(id) DO UPDATE  # Idempotent
-    LOG: "Seeded {entity}: {fixture.length} records"
+  # STEP 3: Seed in topological order (parents first) — through the owner
+  RUN registry.seeder   # per entity in registry.seed_order: each fixture record → entity.owner.create
+                        # (a module function, or the API operation); an id that exists is skipped (idempotent)
+  LOG: "Seeded {entity}: {fixture.length} records" per entity
   
   # STEP 4: Cross-domain referential integrity validation (BLOCKING)
   validation_result = validate_seed_integrity_runtime(registry)
   IF validation_result.failed:
     ❌ DEPLOYMENT WARNING: "Seed data integrity check FAILED"
     LOG errors: validation_result.errors[]
-    OFFER: "Rollback deployment? Data is inconsistent."
+    OFFER: "Rollback deployment? Data is inconsistent."   # the same rule: code + traffic + expand downs, never a contract step
   ELSE:
     LOG: "✅ Seed integrity validated: {validation_result.entities_checked} entities, {validation_result.fk_checks} FK checks, 0 orphans"
 
@@ -607,7 +609,7 @@ When seed pipeline runs, append to `deployment_report_{timestamp}.md`:
 ```markdown
 ## Synthetic Data
 - **Seed executed:** YES | NO (existing data) | SKIP (production)
-- **Force reseed:** YES | NO
+- **Force reseed:** YES (the owner's RDR: «{verbatim choice}») | NO
 - **Entities seeded:** {{N}} (in topological order)
 - **Registry:** config/seed_registry.json
 - **Integrity validation:** PASS | FAIL
@@ -676,6 +678,10 @@ PROCESS:
   1. Resolve scope
   2. READ deployment history from deployment_report_*.md files
   3. DETERMINE rollback target (previous successful deployment)
+  3b. CLASSIFY the data range (EVOL-071): python3 scripts/gate.py data --base {target ref} --json → each migration
+      after the target with its class. Only `expand` → their downs run, newest first. Any `contract` → no down runs:
+      the code and the traffic roll back, the data stays, and the report offers forward-fix or a restore from backup
+      by the owner's RDR — the agent never decides a destructive data operation.
   4. EXECUTE rollback per strategy:
      
      blue-green: Switch traffic back to old slot (instant)

@@ -215,5 +215,11 @@
     "emit": null,
     "tests_root": "tests/api",
     "timeout_s": 1800
+  },
+  "data": {
+    "_doc": "The data pack (EVOL-071), read by python3 scripts/gate.py data, a light member of the gate profile — n/a while docs/setup.md holds no database.migrations_tool. connection_factory is the path of the one module that builds database connections — null until the first increment that builds the backend writes it; a connection built outside it, the migrations and the test roots is red. baseline holds the older direct connections (`<path>#<driver>`); it only shrinks against its merge-base copy. migrations_paths overrides the migration layouts the reader scans (null: the layouts of every supported tool). Rules: rules/database.md.",
+    "connection_factory": null,
+    "baseline": "docs/project_log/data_baseline.json",
+    "migrations_paths": null
   }
 }
