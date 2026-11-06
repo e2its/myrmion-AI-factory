@@ -22,7 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, branch, budget, canary, checklist, coherence, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
+from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -5257,9 +5257,13 @@ class FrontmatterLock(unittest.TestCase):
             self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["status"])
             write(repo / "docs/spec/F-001/design.md", base_fm.replace("APPROVED", "APPROVED (SUPERSEDED)"))
             self.assertEqual(frontmatter.check(repo, "main"), [])
-            # a deleted file is not this gate's
+            # a delivered artefact deleted — red (DC-38); a draft deleted — green
             os.remove(repo / "docs/spec/F-001/design.md")
-            self.assertEqual(frontmatter.check(repo, "main"), [])
+            f = frontmatter.check(repo, "main")
+            self.assertEqual([x["key"] for x in f], ["(deleted)"]); self.assertIn("never delete", f[0]["reason"]); self.assertIn("CANCELLED", f[0]["reason"])
+            os.remove(repo / "docs/spec/F-001/draft.md")
+            self.assertEqual([x["path"] for x in frontmatter.check(repo, "main")], ["docs/spec/F-001/design.md"])
+            write(repo / "docs/spec/F-001/draft.md", "---\nstatus: DRAFT\nscope: a\n---\n")
             # a committed change is judged too; the CLI exits 1 red
             write(repo / "docs/spec/F-001/design.md", base_fm.replace("backend", "frontend"))
             subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "c"], check=True, capture_output=True)
@@ -5269,6 +5273,44 @@ class FrontmatterLock(unittest.TestCase):
             with self.assertRaises(GateFault):
                 frontmatter.check(repo, "no-such-ref")
             self.assertIn("frontmatter-lock", [m[0] for m in profile.MEMBERS])
+
+    def test_delivered_artefact_never_deleted(self):
+        """EVOL-072 (DC-38): deleting a delivered or terminal artefact is red; a draft deleted or an artefact moved is not."""
+        for status, red in (("MERGED", True), ("IMPLEMENTED_AND_VERIFIED", True), ("CANCELLED", True), ("SUPERSEDED", True), ("DRAFT", False)):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, f"---\nstatus: {status}\nscope: a\n---\n")
+                subprocess.run(["git", "-C", str(repo), "rm", "-q", "docs/spec/F-001/design.md"], check=True, capture_output=True)
+                subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "rm"], check=True, capture_output=True)
+                f = frontmatter.check(repo, "main")
+                self.assertEqual(bool(f), red, (status, f))
+        with tempfile.TemporaryDirectory() as tmp:   # moved, content kept: not deleted
+            repo = self._repo(tmp, "---\nstatus: APPROVED\nscope: a\n---\n")
+            subprocess.run(["git", "-C", str(repo), "mv", "docs/spec/F-001/design.md", "docs/spec/F-001/design-v1.md"], check=True, capture_output=True)
+            subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "mv"], check=True, capture_output=True)
+            self.assertEqual(frontmatter.check(repo, "main"), [])
+        art = "docs/spec/F-001/design.md"
+        with tempfile.TemporaryDirectory() as tmp:   # moved to a name that is no artefact: it left the tree
+            repo = self._repo(tmp, "---\nstatus: APPROVED\nscope: a\n---\n")
+            subprocess.run(["git", "-C", str(repo), "mv", art, "docs/spec/F-001/design.md.txt"], check=True, capture_output=True)
+            self.assertEqual([x["path"] for x in frontmatter.check(repo, "main")], [art])
+        with tempfile.TemporaryDirectory() as tmp:   # a link in place of the file (a type change, never a `D`)
+            repo = self._repo(tmp, "---\nstatus: APPROVED\nscope: a\n---\n")
+            (repo / art).unlink(); (repo / art).symlink_to("/dev/null")
+            self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["(deleted)"])
+        with tempfile.TemporaryDirectory() as tmp:   # a base the parser cannot read is judged by its status line
+            repo = self._repo(tmp, "---\nstatus: APPROVED\ntitle: a: b: [\n---\n")
+            (repo / art).unlink()
+            self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["(deleted)"])
+        self.assertEqual(frontmatter._base_status("---\r\nstatus: APPROVED\r\ntitle: a: b: [\r\n---\r\n"), "APPROVED", "a CRLF base is read too")
+        with tempfile.TemporaryDirectory() as tmp:   # a spec.feature is an artefact too; the CLI exits 1
+            repo = self._repo(tmp, "---\nstatus: DRAFT\n---\n")
+            write(repo / "docs/spec/F-001/spec.feature", "---\nstatus: APPROVED\n---\nFeature: a\n")
+            for c in (["checkout", "-q", "main"], ["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "spec"], ["checkout", "-q", "feature/F-001-x"], ["merge", "-q", "main"]):
+                subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+            (repo / "docs/spec/F-001/spec.feature").unlink()
+            self.assertEqual([x["path"] for x in frontmatter.check(repo, "main")], ["docs/spec/F-001/spec.feature"])
+            r = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "frontmatter-lock", "--base", "main"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
 
     def test_flow_keys_and_non_artefacts(self):
         """Round-1 cures: the keys the flows rewrite are permitted; a binary or a non-markdown file is not this gate's."""
@@ -5811,6 +5853,213 @@ class Freeze(unittest.TestCase):
             self.assertEqual(r.returncode, 1, out); self.assertIn("install PyYAML", out); self.assertNotIn("Traceback", out)
 
 
+class Contracts(unittest.TestCase):
+    """EVOL-072: one error code per meaning (DC-36), CRUD-First single and batch, kept or declared (DC-37) — the one contract reader."""
+    CAT = "contracts/errors.yaml"
+    API = "contracts/openapi/orders-core/v1.json"
+    GOOD = "VALIDATION_REQUIRED:\n  meaning: a required field is missing or empty\n  status: 422\nNOT_FOUND:\n  meaning: the resource does not exist\n  status: 404\n"
+
+    RO = {"/orders/{id}": "a read-only view for the test"}   # every omission of /orders declared at once
+    FULL = (("post", "/orders"), ("get", "/orders"), ("get", "/orders/{id}"), ("patch", "/orders/{id}"), ("delete", "/orders/{id}"),
+            ("post", "/orders/bulk-create"), ("patch", "/orders/bulk-update"), ("delete", "/orders/bulk-delete"))
+
+    @staticmethod
+    def _api(ops: dict, res: dict | None = None) -> str:
+        """ops: {(method, path): extra-operation-fields}; res: {path: path-item `x-crud-exception`}."""
+        paths: dict = {}
+        for (meth, path), extra in ops.items():
+            paths.setdefault(path, {})[meth] = {"responses": {"200": {"description": "ok"}}, **extra}
+        for path, v in (res or {}).items():
+            paths.setdefault(path, {})["x-crud-exception"] = v
+        return json.dumps({"openapi": "3.0.3", "info": {"title": "t", "version": "1"}, "paths": paths})
+
+    def _repo(self, tmp, catalog=None, api=None):
+        repo = fixture_repo(Path(tmp))
+        if catalog is not None:
+            write(repo / self.CAT, catalog)
+        if api is not None:
+            write(repo / self.API, api)
+        return repo
+
+    def test_na_without_contracts_or_catalog(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = contracts.check(self._repo(tmp)); self.assertTrue(r["ok"], r); self.assertTrue(r.get("na"), r)
+            self.assertTrue(contracts.render(r).startswith("contracts: n/a — "), contracts.render(r))
+            self.assertIn("contracts", [m[0] for m in profile.MEMBERS])
+
+    def test_catalog_one_code_per_meaning(self):
+        dup_code = self.GOOD + "VALIDATION_REQUIRED:\n  meaning: something else\n  status: 400\n"
+        dup_meaning = self.GOOD + "FIELD_MISSING:\n  meaning: A required field is missing, or empty.\n  status: 422\n"
+        no_meaning = self.GOOD + "CONFLICT:\n  status: 409\n"
+        for cat, ok, word in ((self.GOOD, True, ""), (dup_code, False, "`VALIDATION_REQUIRED` is listed 2 times"),
+                              (dup_meaning, False, "`FIELD_MISSING` and `VALIDATION_REQUIRED` share one meaning"),
+                              (no_meaning, False, "`CONFLICT` has no meaning")):
+            with tempfile.TemporaryDirectory() as tmp:
+                r = contracts.check(self._repo(tmp, catalog=cat)); out = contracts.render(r)
+                self.assertEqual(r["ok"], ok, out)
+                if word:
+                    self.assertIn(word, out)
+
+    def test_every_code_a_contract_names_is_in_the_catalog(self):
+        named = self._api({("get", "/orders/{id}"): {"x-error-codes": ["NOT_FOUND"]}}, self.RO)
+        unknown = self._api({("get", "/orders/{id}"): {"responses": {"404": {"description": "x", "x-error-codes": ["ORDER_GONE"]}}}}, self.RO)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = contracts.check(self._repo(tmp, catalog=self.GOOD, api=named)); self.assertTrue(r["ok"], contracts.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            r = contracts.check(self._repo(tmp, catalog=self.GOOD, api=unknown)); out = contracts.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("`ORDER_GONE`", out); self.assertIn("add it to contracts/errors.yaml", out)
+        with tempfile.TemporaryDirectory() as tmp:   # codes named, no catalog
+            r = contracts.check(self._repo(tmp, api=named)); out = contracts.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("no catalog", out)
+        with tempfile.TemporaryDirectory() as tmp:   # YAML contract, flow list
+            repo = self._repo(tmp, catalog=self.GOOD)
+            write(repo / "contracts/openapi/orders-core/v2.yaml", "openapi: 3.0.3\npaths:\n  /orders:\n    x-crud-exception: a read-only list for the test\n    get:\n      responses:\n        '400':\n          description: bad\n          x-error-codes: [VALIDATION_REQUIRED, BAD_SORT]\n")
+            r = contracts.check(repo); out = contracts.render(r); self.assertFalse(r["ok"], out); self.assertIn("`BAD_SORT`", out); self.assertNotIn("`VALIDATION_REQUIRED`", out)
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "contracts", "--base", "HEAD"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 1, res.stdout + res.stderr); self.assertIn("`BAD_SORT`", res.stdout)
+
+    def test_crud_shape_or_declared_exception(self):
+        cases = [
+            ("get", "/api/v1/orders", True), ("post", "/orders", True), ("get", "/orders/{id}", True),
+            ("put", "/orders/{id}", True), ("patch", "/orders/{id}", True), ("delete", "/orders/{id}", True),
+            ("get", "/users/{id}/orders", True), ("post", "/orders/{id}/cancel", True),
+            ("post", "/orders/bulk-create", True), ("patch", "/orders/bulk-update", True), ("delete", "/orders/bulk-delete", True),
+            ("get", "/users/me", False), ("post", "/orders/{id}", False), ("delete", "/orders", False), ("put", "/orders", False),
+            ("get", "/orders/bulk-export", False), ("get", "/orders/{id}/{line}", False), ("get", "/", False), ("get", "/v1", False),
+        ]
+        for meth, path, ok in cases:
+            self.assertEqual(contracts.crud(meth, path), ok, (meth, path))
+            if not ok:
+                with tempfile.TemporaryDirectory() as tmp:
+                    r = contracts.check(self._repo(tmp, api=self._api({(meth, path): {}}))); out = contracts.render(r)
+                    self.assertFalse(r["ok"], out); self.assertIn(f"{meth.upper()} {path} is outside CRUD-First", out); self.assertIn("x-crud-exception", out)
+        for reason, ok in (("the signed-in user's own record", True), ("", False), ("   ", False), (None, False)):
+            with tempfile.TemporaryDirectory() as tmp:
+                r = contracts.check(self._repo(tmp, api=self._api({("get", "/users/me"): {"x-crud-exception": reason}})))
+                self.assertEqual(r["ok"], ok, (reason, contracts.render(r)))
+
+    def test_unreadable_contract_red_with_its_reason(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = contracts.check(self._repo(tmp, api="{not json")); out = contracts.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("cannot be read", out); self.assertNotIn("Traceback", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            r = contracts.check(self._repo(tmp, catalog="- a\n- b\n")); out = contracts.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("not a mapping", out)
+        with tempfile.TemporaryDirectory() as tmp:   # an unreadable catalog is its own red row: the codes are not reported twice
+            repo = self._repo(tmp, catalog="- a\n- b\n", api=self._api({("get", "/orders/{id}"): {"x-error-codes": ["NOT_FOUND"]}}, self.RO))
+            out = contracts.render(contracts.check(repo)); self.assertNotIn("`NOT_FOUND`", out)
+        for empty in ("", "{}\n"):   # an empty catalog is red, and accepts no code unchecked
+            with tempfile.TemporaryDirectory() as tmp:
+                r = contracts.check(self._repo(tmp, catalog=empty, api=self._api({("get", "/orders/{id}"): {"x-error-codes": ["X"]}}, self.RO)))
+                self.assertFalse(r["ok"]); self.assertIn("no entry", contracts.render(r))
+        with tempfile.TemporaryDirectory() as tmp:   # a link out of the repository is never read
+            repo = self._repo(tmp, catalog=self.GOOD); outside = Path(tmp) / "secret.yaml"; outside.write_text("K:\n  meaning: m\n")
+            (repo / self.CAT).unlink(); (repo / self.CAT).symlink_to(outside)
+            r = contracts.check(repo); out = contracts.render(r); self.assertFalse(r["ok"], out); self.assertIn("outside the repository", out)
+
+    def test_meanings_in_any_script_and_key_spellings(self):
+        cyr = "A:\n  meaning: заказ не найден\nB:\n  meaning: пользователь не найден\n"
+        self.assertEqual(contracts.catalog(cyr)[1], [], "two distinct non-Latin meanings are two meanings")
+        self.assertTrue(contracts.catalog(cyr + "C:\n  meaning: Заказ не найден!\n")[1], "the same meaning, folded, repeats")
+        self.assertIn("`D` has no meaning", contracts.catalog("D:\n  meaning: '!!!'\n")[1][0])
+        self.assertIn("`A` is listed 2 times", contracts.catalog("A :\n  meaning: x\n'A':\n  meaning: y\n")[1][0])
+        self.assertTrue(contracts.crud("get", "/api/v1.0/orders") and contracts.crud("get", "/v2beta/orders/{id}"))
+        line = "a" + " " * 4000 + "b"   # under MAX_LINE: the regex itself runs
+        start = time.monotonic(); contracts.catalog(line + "\n"); self.assertLess(time.monotonic() - start, 2, "the key scan is linear")
+
+    def test_crud_first_is_single_and_batch(self):
+        full = {op: {} for op in self.FULL}
+        with tempfile.TemporaryDirectory() as tmp:
+            r = contracts.check(self._repo(tmp, api=self._api({**full, ("post", "/orders/{id}/cancel"): {}}))); self.assertTrue(r["ok"], contracts.render(r))
+        put = {**{k: v for k, v in full.items() if k != ("patch", "/orders/{id}")}, ("put", "/orders/{id}"): {}}
+        self.assertEqual(contracts.crud_findings(json.loads(self._api(put))), {}, "update is PUT or PATCH")
+        for gone, name in ((("delete", "/orders/bulk-delete"), "bulk-delete"), (("post", "/orders/bulk-create"), "bulk-create"),
+                           (("patch", "/orders/bulk-update"), "bulk-update"), (("get", "/orders/{id}"), "read"), (("post", "/orders"), "create"),
+                           (("get", "/orders"), "list"), (("delete", "/orders/{id}"), "delete"), (("patch", "/orders/{id}"), "update")):
+            ops = {k: v for k, v in full.items() if k != gone}
+            with tempfile.TemporaryDirectory() as tmp:
+                r = contracts.check(self._repo(tmp, api=self._api(ops))); out = contracts.render(r)
+                self.assertFalse(r["ok"], out); self.assertIn(f"/orders lacks {name} (", out); self.assertIn("x-crud-exception", out)
+            for at, decl, ok in (("/orders", {name: "kept out by decision"}, True), ("/orders/{id}", {name: "kept out"}, True),
+                                 ("/orders", "every omission: a reason", True), ("/orders", {name: "  "}, False),
+                                 ("/orders", {"other": "x"}, False), ("/orders", ["x"], False)):
+                self.assertEqual(not contracts.crud_findings(json.loads(self._api(ops, {at: decl}))), ok, (gone, at, decl))
+        nested = contracts.crud_findings(json.loads(self._api({("get", "/users/{id}/orders"): {}})))
+        self.assertIn("/users/{id}/orders lacks create", nested); self.assertNotIn("/users/{id}/orders lacks list", nested)
+        self.assertEqual(contracts.resources({"/orders/{id}/cancel": {"post": {}}}), {}, "a custom action is no resource")
+        self.assertEqual(contracts.resources({"/auth/login": {"post": {}}, "/users/me": {"get": {}}}), {}, "a non-CRUD path is a shape finding, no resource")
+
+    def test_baseline_only_shrinks(self):
+        bl = "docs/project_log/crud_baseline.json"
+        git = lambda repo, *c: subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)  # noqa: E731
+        legacy = self._api({("post", "/auth/login"): {}, ("get", "/orders/{id}"): {}})
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, api=legacy)
+            write(repo / "contracts/openapi/examples/order.json", json.dumps([{"id": 1}]))   # a payload, not an OpenAPI document
+            git(repo, "add", "-A"); git(repo, "commit", "-qm", "base"); git(repo, "branch", "-M", "main"); git(repo, "checkout", "-qb", "feature/F-1-x")
+            r = contracts.check(repo, "main"); out = contracts.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("POST /auth/login", out); self.assertIn("/orders lacks create", out, "the whole tree, from the first day")
+            self.assertIn("not an OpenAPI document", out)
+            seed = r["undeclared"]; self.assertIn(f"{self.API}#POST /auth/login", seed); self.assertIn(f"{self.API}#/orders lacks bulk-delete", seed)
+            write(repo / bl, json.dumps({"undeclared": seed}))
+            r = contracts.check(repo, "main"); self.assertFalse(r["ok"]); self.assertIn("git does not track it", contracts.render(r))
+            git(repo, "add", bl)
+            r = contracts.check(repo, "main"); out = contracts.render(r); self.assertTrue(r["ok"], out); self.assertIn("in the baseline", out); self.assertIn("still owed", out)
+            res = subprocess.run([sys.executable, str(HERE.parent / "gate.py"), "--repo", str(repo), "contracts", "--base", "main", "--json"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr); self.assertEqual(json.loads(res.stdout)["undeclared"], seed)
+            git(repo, "commit", "-qm", "seed"); git(repo, "checkout", "-qb", "feature/F-2-y")
+            new = json.loads(legacy); new["paths"]["/users/me"] = {"get": {"responses": {}}}
+            write(repo / self.API, json.dumps(new)); write(repo / bl, json.dumps({"undeclared": seed + [f"{self.API}#GET /users/me"]})); git(repo, "add", bl)
+            r = contracts.check(repo, "feature/F-1-x"); out = contracts.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("is new since the base", out, "new debt never enters the baseline")
+            write(repo / self.API, self._api({("post", "/auth/login"): {"x-crud-exception": "a session is no resource"}, ("get", "/orders/{id}"): {}}))
+            write(repo / bl, json.dumps({"undeclared": seed})); git(repo, "add", bl)
+            r = contracts.check(repo, "feature/F-1-x"); out = contracts.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("POST /auth/login` is no longer found", out, "a paid debt leaves the list")
+            write(repo / bl, json.dumps({"undeclared": [e for e in seed if not e.endswith("#POST /auth/login")]})); git(repo, "add", bl)
+            r = contracts.check(repo, "feature/F-1-x"); self.assertTrue(r["ok"], contracts.render(r))   # the debt paid, the entry removed: green
+            write(repo / bl, json.dumps({"undeclared": seed + ["../../etc/x#GET /a", "README.md#GET /b"]})); git(repo, "add", bl)
+            out = contracts.render(contracts.check(repo, "feature/F-1-x")); self.assertIn("names no contract", out); self.assertNotIn("Traceback", out)
+            write(repo / bl, "[1]"); r = contracts.check(repo, "feature/F-1-x"); self.assertIn("cannot be read as the CRUD baseline", contracts.render(r))
+            write(repo / bl, "[" * 100000 + "]" * 100000); self.assertIn("cannot be read as the CRUD baseline", contracts.render(contracts.check(repo, "feature/F-1-x")))
+            write(repo / self.API, "{broken"); write(repo / bl, json.dumps({"undeclared": seed})); git(repo, "add", bl)
+            out = contracts.render(contracts.check(repo, "feature/F-1-x")); self.assertIn("cannot be read", out)
+            self.assertNotIn("no longer found", out, "an unreadable contract's entries are neither paid nor stale")
+
+    def test_baseline_reads_the_merge_base(self):
+        bl = "docs/project_log/crud_baseline.json"
+        git = lambda repo, *c: subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)  # noqa: E731
+        legacy = self._api({("post", "/auth/login"): {}, ("get", "/orders/{id}"): {}})
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, api=legacy)
+            seed = contracts.check(repo)["undeclared"]; write(repo / bl, json.dumps({"undeclared": seed}))
+            git(repo, "add", "-A"); git(repo, "commit", "-qm", "seed"); git(repo, "branch", "-M", "main"); git(repo, "branch", "feature/F-1-x")
+            write(repo / self.API, self._api({("post", "/auth/login"): {"x-crud-exception": "a session is no resource"}, ("get", "/orders/{id}"): {}}))
+            write(repo / bl, json.dumps({"undeclared": [e for e in seed if not e.endswith("#POST /auth/login")]}))
+            git(repo, "commit", "-qam", "main pays a debt after the fork"); git(repo, "checkout", "-q", "feature/F-1-x")
+            r = contracts.check(repo, "main"); out = contracts.render(r)
+            self.assertTrue(r["ok"], out); self.assertNotIn("is new since the base", out, "the base is what the branch forked from, not main's tip")
+
+    def test_base_not_utf8_refs_and_links(self):
+        git = lambda repo, *c: subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)  # noqa: E731
+        with tempfile.TemporaryDirectory() as tmp:   # a base contract that is not UTF-8 reads, never faults
+            repo = self._repo(tmp)
+            (repo / self.API).parent.mkdir(parents=True, exist_ok=True)
+            (repo / self.API).write_bytes(self._api({("get", "/users/me"): {"summary": "caf\u00e9"}}).replace("\\u00e9", "\xe9").encode("latin-1"))
+            git(repo, "add", "-A"); git(repo, "commit", "-qm", "base"); git(repo, "branch", "-M", "main"); git(repo, "checkout", "-qb", "feature/F-1-x")
+            write(repo / "docs/project_log/crud_baseline.json", json.dumps({"undeclared": [f"{self.API}#GET /users/me"]})); git(repo, "add", "-A")
+            r = contracts.check(repo, "main"); self.assertTrue(r["ok"], contracts.render(r))
+        ref = {"openapi": "3.0.3", "paths": {"/orders": {"$ref": "p/o.yaml"}, "/orders/{id}": {"$ref": "p/i.yaml"}}}
+        self.assertEqual(contracts.crud_findings(ref), {}, "a referenced path item is not judged")
+        bulk = json.loads(self._api({op: {} for op in self.FULL})); bulk["paths"]["/orders/bulk-create"] = {"$ref": "p/b.yaml"}
+        self.assertEqual(contracts.crud_findings(bulk), {}, "a referenced bulk path is not a missing one")
+        for target in ("contract", "baseline"):   # a link out of the repository is never read
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp, api=self._api({op: {} for op in self.FULL})); outside = Path(tmp) / "secret.json"
+                outside.write_text('{"undeclared": []}' if target == "baseline" else "{\"openapi\": \"3\", \"paths\": {}}")
+                p = repo / (self.API if target == "contract" else "docs/project_log/crud_baseline.json")
+                p.parent.mkdir(parents=True, exist_ok=True); p.unlink(missing_ok=True); p.symlink_to(outside)
+                r = contracts.check(repo); out = contracts.render(r); self.assertFalse(r["ok"], out); self.assertIn("outside the repository", out)
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

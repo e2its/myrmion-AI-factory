@@ -161,6 +161,9 @@ missing = [f"defect class {i}: row and case expected" for i in want_dc.get("pres
 missing += [f"defect class {i}: landed, the answers drop it" for i in want_dc.get("absent", []) if i in corpus.cases(CASES) or i in {d["id"] for d in corpus.catalog(P, CAT)["dcs"]}]
 missing += [f"{x} did not land" for x in exp.get("landed", []) if x not in landed]
 missing += [f"{x} landed, the answers do not select it" for x in exp.get("absent", []) if x in landed]
+missing += [f"{f} does not carry `{s}`" for f, subs in exp.get("contains", {}).items() for s in subs
+            if not (P / f).is_file() or s not in (P / f).read_text(encoding="utf-8")]   # a law's text lands with its surface (EVOL-072)
+missing += [f"{q} is asked, the answers do not select it" for q in exp.get("pending_absent", []) if q in RES["pending"]]
 bvl = (Path(sys.argv[5]) / ".claude/skills/factory-build-verification/SKILL.md").read_text(encoding="utf-8")
 if re.search(r"MATCH stack\.", bvl):
     missing.append("BVL carries a `MATCH stack.*` row — the loop names no stack (EVOL-067)")
@@ -231,7 +234,7 @@ rows = {m.group(1): m.group(0) for m in re.finditer(r"(?m)^\| (DC-\d+) \|.*$", (
 case = lambda text, i: re.search(r"(?ms)^### " + i + r" — .*?(?=^### |\Z)", text)
 tcases = (tpl / "defect-prevention-cases.md").read_text(encoding="utf-8")
 cat, cases = (proj / "defect-prevention.md").read_text(encoding="utf-8"), (proj / "defect-prevention-cases.md").read_text(encoding="utf-8")
-for i in ("DC-32", "DC-33", "DC-34", "DC-35"):
+for i in ("DC-32", "DC-33", "DC-34", "DC-35", "DC-36", "DC-37", "DC-38"):   # rows after 8.12 (DC-36..38: EVOL-072)
     cat = cat.replace(rows[i] + "\n", "")
     cases = cases.replace(case(cases, i).group(0), "")
 cat = cat.replace(rows["DC-31"], "| DC-31 | `process` | Every login of the project names its tenant. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |")
@@ -249,6 +252,7 @@ PY
 g["frontend-tests"]["scoped"]="npx jest --config jest.config.ts {paths} --no-coverage"; g["tests"]["command"]="python -m pytest -q -x"
 [r.pop("red_reads", None) for r in g.values()]; g.pop("sast", None); json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   rm -rf "$P/security/sast"   # it predates the SAST packs (EVOL-074): the packs and the `sast` row are owed (templates_to_add, added)
+  rm -f "$P/contracts/errors.yaml" "$P/.claude/rules/monetary-amounts.md"   # it predates the product laws (EVOL-072): owed where the answers select them
   python3 -c 'import json,sys; json.dump({"framework_version": json.load(open(sys.argv[1]))["framework_version"]}, open(sys.argv[2], "w"))' "$ANSWERS" "$P/docs/project_log/governance_versions.json"
   URC=0; UP=$(python3 "$ROOT/scripts/gate.py" --repo "$P" discovery --resolve --json 2>&1) || URC=$?
   UMISS=$(printf '%s' "$UP" | python3 -c '

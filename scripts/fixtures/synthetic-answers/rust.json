@@ -2,6 +2,8 @@
   "_doc": "Synthetic SETUP answers (EVOL-116): Rust backend, None frontend. The per-file scoped rows land without `red: false` and without `was`; the red member proves through tests. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
+    "project_scope": "backend-only",
+    "domain.monetary_amounts": false,
     "backend.runtime": "Rust",
     "frontend.framework": "None",
     "database.primary.engine": "PostgreSQL",
@@ -18,6 +20,20 @@
     ]
   },
   "expect": {
+    "landed": [
+      "contracts/errors.yaml"
+    ],
+    "absent": [
+      ".claude/rules/monetary-amounts.md"
+    ],
+    "defect_classes": {
+      "present": [
+        "DC-36",
+        "DC-37",
+        "DC-38"
+      ],
+      "absent": []
+    },
     "gates": {
       "tests": "cargo test",
       "lint": "cargo clippy -- -D warnings",

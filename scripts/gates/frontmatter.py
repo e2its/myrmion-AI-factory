@@ -5,10 +5,17 @@ A file changed in the diff (the tree on disk against the merge-base with the dif
 `status` is approved (planning.APPROVED_STATES) — markdown or .feature only — is compared key by key with its frontmatter on disk. A top-level
 key added, removed or changed is red unless it is in PERMITTED (iteration state — LAW-09 —, build counters,
 persistence, approval) or the change is a refine — an iteration appended, read through the one reader
-(common.iteration_state); `status` may move only to a value of STATES. A deleted or a new file is not this gate's.
+(common.iteration_state); `status` may move only to a value of STATES. A new file is not this gate's.
+
+A delivered artefact is never deleted (EVOL-072, DC-38): a markdown or .feature file that leaves the diff — deleted,
+replaced by a non-file (a link), or moved to a name that is no artefact — whose BASE `status` is delivered
+(APPROVED_STATES or MERGED) or terminal (CANCELLED / SUPERSEDED: the trace it keeps) is red. A move to another
+markdown or .feature name keeps the artefact (renames detected). A base frontmatter the parser cannot read is still
+judged: its `status:` line is read directly (a gate that cannot read never reads green).
 """
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -42,10 +49,44 @@ STATES = frozenset(s.upper() for s in (
 ))
 
 RESOLUTION = "change it through the phase's refine, which appends an iteration"
+DELIVERED = APPROVED_STATES | {"MERGED"}
+KEPT = DELIVERED | {"CANCELLED", "SUPERSEDED", "APPROVED (SUPERSEDED)"}   # never deleted: delivered, or terminal
+ARTEFACT = (".md", ".feature")
+STATUS_LINE = re.compile(r"^status:[ \t]*['\"]?([^'\"#\r\n]*)", re.M)
 
 
 def _status(fm: dict) -> str:
-    return str(fm.get("status") or "").strip().upper()
+    s = fm.get("status")
+    return s.strip().upper() if isinstance(s, str) else ""   # by type: never the repr of an aliased structure
+
+
+def _base_status(text: str) -> str:
+    """The base's status; the `status:` line of the frontmatter block when the parser cannot read it."""
+    try:
+        return _status(frontmatter_of(text))
+    except (GateFault, RecursionError):
+        block = re.match(r"---\r?\n(.*?)\r?\n---", text, re.S)
+        m = STATUS_LINE.search(block.group(1)) if block else None
+        return m.group(1).strip().upper() if m else ""
+
+
+def _gone(repo: Path, ref: str) -> list[str]:
+    """The artefacts that leave the diff: deleted, type-changed (a link in place of the file), or renamed to a non-artefact."""
+    out, f = [], _git(repo, "diff", "--name-status", "-z", "-M", ref).split("\0")
+    i = 0
+    while i < len(f) - 1:
+        st = f[i]
+        if st[:1] in ("R", "C"):
+            old, new = f[i + 1], f[i + 2]
+            i += 3
+            if st[:1] == "R" and old.endswith(ARTEFACT) and not new.endswith(ARTEFACT):
+                out.append(old)
+            continue
+        path = f[i + 1]
+        i += 2
+        if st[:1] in ("D", "T") and path.endswith(ARTEFACT):
+            out.append(path)
+    return out
 
 
 def _at(repo: Path, ref: str, path: str) -> str | None:
@@ -58,10 +99,16 @@ def check(repo: Path, base: str) -> list[dict]:
     """[{path, key, reason}] — one per key changed outside the permitted transitions. GateFault on an unreadable base."""
     ref = _reference(repo, base)
     findings = []
+    for path in _gone(repo, ref):
+        status = _base_status(_at(repo, ref, path) or "")
+        if status in KEPT:
+            findings.append({"path": path, "key": "(deleted)", "reason": f"a delivered artefact ({status}) was deleted — "
+                             "mark it terminal (status CANCELLED or SUPERSEDED) and keep the file; never delete it" if status in DELIVERED else
+                             f"a terminal artefact ({status}) was deleted — it is the trace of what was decided; keep the file"})
     for path in [p for p in _git(repo, "diff", "--name-only", "--no-renames", ref).splitlines() if p.endswith((".md", ".feature"))]:
         disk = repo / path   # an approved artefact is markdown or a spec.feature: a binary or a YAML document is not this gate's
         if not disk.is_file():
-            continue  # deleted: not this gate's
+            continue  # deleted or no longer a file: judged above
         before_text = _at(repo, ref, path)
         if before_text is None:
             continue

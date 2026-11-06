@@ -1,5 +1,5 @@
 ---
-version: 2.16.0
+version: 2.17.0
 date: 2026-04-21
 changelog:
   - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
@@ -40,6 +40,8 @@ agents:
 security:
   standard: null                      # Q35 — asvs-5.0 | none → rules/security_policy.md § Verification Standard; the design's Reliability Questions map to it (EVOL-115)
   level: null                         # Q35.1 — L1 | L2 | L3, asked only when a standard is set
+domain:
+  monetary_amounts: null              # Q36 — true | false, asked only when project_scope is full-stack, backend-only or integration → rules/monetary-amounts.md on true (EVOL-072)
 scm:
   platform: null                      # Q21.2 — GitHub | GitLab | Bitbucket | Azure DevOps | Other → config/quality.json scm.platform; the runbook docs/scm/protection.md lands per platform (EVOL-054)
   approvals: null                     # Q21.2 — approvals a pull request needs (a project decision; 0 for a single author) → scm.approvals
@@ -270,6 +272,7 @@ last_update: [TIMESTAMP]
 - **Delivery Mode (Q32):** frontmatter `delivery.mode` → `docs/project_log/governance_versions.json → delivery_mode` (the gate profile per control point; return to production = set the key to `production` in one commit)
 - **Model Families (Q34):** frontmatter `agents.writer_model` · `agents.critic_model` → `config/quality.json → agents.families` — writers and critics on different families by construction (EVOL-049)
 - **Security Standard (Q35, Q35.1):** frontmatter `security.standard` · `security.level` → `rules/security_policy.md § Verification Standard` — the requirement each reliability question of a design maps to (EVOL-115)
+- **Monetary Amounts (Q36):** frontmatter `domain.monetary_amounts` → `true` lands `rules/monetary-amounts.md` (one money value object; domain guidance, no gate — EVOL-072)
 - **Runtime Surface (Q33):** frontmatter `surface.runtime_surface` → `config/quality.json → surface.runtime_surface` — the positive list every deploying / release workflow asks (`gate.py runtime-surface --changed`); held to reality by the parity gate (EVOL-047)
 
 ## 3.1. Budget Validation Summary

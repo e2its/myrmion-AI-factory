@@ -130,7 +130,27 @@
      ],
      "fills": [
       "PROJECT_SCOPE"
-     ]
+     ],
+     "configures": {
+      "full-stack": {
+       "defect_prevention.classes": [
+        "DC-36",
+        "DC-37"
+       ]
+      },
+      "backend-only": {
+       "defect_prevention.classes": [
+        "DC-36",
+        "DC-37"
+       ]
+      },
+      "integration": {
+       "defect_prevention.classes": [
+        "DC-36",
+        "DC-37"
+       ]
+      }
+     }
     }
    }
   },
@@ -1587,6 +1607,20 @@
      ]
     }
    }
+  },
+  {
+   "id": "Q36",
+   "tier": 2,
+   "since": "8.23.0",
+   "when": "project_scope IN [full-stack, backend-only, integration]",
+   "keys": {
+    "domain.monetary_amounts": {
+     "options": [
+      true,
+      false
+     ]
+    }
+   }
   }
  ],
  "derived": {
@@ -2060,6 +2094,12 @@
    "since": "8.21.1",
    "detect": "always",
    "apply": "security_scan.secrets_command trufflehog (#189)"
+  },
+  {
+   "id": "contracts baseline (EVOL-072)",
+   "since": "8.23.0",
+   "detect": "docs/project_log/crud_baseline.json#/undeclared",
+   "apply": "contracts (EVOL-072)"
   }
  ]
 }

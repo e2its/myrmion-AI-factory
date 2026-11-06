@@ -2,7 +2,7 @@
 description: "Security policy — OWASP Top 10 compliance, secret management, Zero Trust principles, vulnerability remediation."
 applicable_when:
   always: true
-version: 1.6.0
+version: 1.7.0
 date: 2026-09-25
 changelog:
   - "1.4.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -27,6 +27,7 @@ stack: "{{PRIMARY_LANGUAGE}} + {{PRIMARY_FRAMEWORK}}"
 - **Injection:** Prepared statements, ORM, input validation.
 - **Broken Auth:** MFA, rate limiting, JWT rotation.
 - **XSS/CSRF:** CSP headers, SameSite cookies.
+- **Batch operations (API1, API4):** a size cap, per-item authorization, a named failure mode and a safe retry — `rules/contract-first-policy.md` § Bulk Operations.
 - **Secrets:** NEVER hardcode. Use tiered strategy: CI/CD vault (Tier A) → Cloud vault (Tier B) → `.env` local only (Tier C). See `[PLAW-05]` in `.claude/rules/configuration.md`.
 
 ### Static Analysis (SAST)

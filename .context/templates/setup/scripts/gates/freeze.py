@@ -12,7 +12,7 @@ the merge-base with the diff base) is read. Red when:
   (c) open sensitive field a schema carrying a non-false `x-sensitive` (anywhere: components, inline, items, allOf)
                            carries none of maxLength, pattern, enum, format, minimum, maximum. The green line counts them.
 An unparseable, empty or malformed contract is red with its reason (LAW-08). Nothing to judge → `freeze: n/a`.
-Raised ⊆ declared belongs to the contract parity reader, when it lands — not this one.
+Raised ⊆ declared belongs to the one contract reader, gates/contracts.py (its parity clause, #124) — not this one.
 """
 from __future__ import annotations
 
@@ -154,8 +154,12 @@ def contract(doc, outage: str, counted: list | None = None) -> list[str]:
 
 
 def _load(path: Path):
-    text = path.read_text(encoding="utf-8", errors="replace")
-    if path.suffix == ".json":
+    return _parse(path.read_text(encoding="utf-8", errors="replace"), path.suffix)
+
+
+def _parse(text: str, suffix: str):
+    """A contract's text as data — `.json` by JSON, anything else by YAML (a file on disk, or one read at a ref)."""
+    if suffix == ".json":
         try:
             return json.loads(text)
         except ValueError as e:

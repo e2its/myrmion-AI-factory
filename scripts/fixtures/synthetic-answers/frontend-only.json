@@ -2,6 +2,7 @@
   "_doc": "Synthetic SETUP answers (EVOL-116): None backend, Angular frontend. The per-file scoped rows land without `red: false` and without `was`; the red member proves through frontend-tests. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
+    "project_scope": "frontend-only",
     "backend.runtime": "None",
     "frontend.framework": "Angular",
     "frontend.meta_framework": "None",
@@ -20,6 +21,30 @@
     ]
   },
   "expect": {
+    "landed": [
+      ".claude/rules/ux-constitution.md"
+    ],
+    "absent": [
+      "contracts/errors.yaml",
+      ".claude/rules/monetary-amounts.md"
+    ],
+    "defect_classes": {
+      "present": [
+        "DC-38"
+      ],
+      "absent": [
+        "DC-36",
+        "DC-37"
+      ]
+    },
+    "contains": {
+      ".claude/rules/ux-constitution.md": [
+        "### 3. Canonical Components"
+      ]
+    },
+    "pending_absent": [
+      "Q36"
+    ],
     "gates": {
       "frontend-tests": "npx ng test --no-watch",
       "secrets": "bash scripts/security-scan.sh --secrets --require-scanner",

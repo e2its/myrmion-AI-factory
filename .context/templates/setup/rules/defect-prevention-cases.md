@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.2.0
+version: 1.3.0
 date: 2026-09-25
 changelog:
   - "1.0.0: feat(EVOL-043) — annex created; narratives moved out of the catalog prose columns into one case per DC"
@@ -92,3 +92,27 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 **Story:** Any train that splits a use case from what it consumes. The first sub stubs the producer so its tests run; nothing records the stub's end, so the real producer lands beside it, both pass their own tests, and the product answers from the stub.
 
 **Detection:** The increment plan's `## Seam map` names each stub with `stub until SUB-…`; the `train` member is red while that row still says it and the named sub is MERGED. Finding the stub in code (a fake client, a fixture wired at runtime) is stack-specific (`PDC`).
+
+### DC-36 — One error code, two meanings
+
+**Origin:** A generic class proven in a downstream instantiation (#126).
+
+**Story:** Any API with more than one contract. A new endpoint needs an error, its author coins a code instead of finding the existing one, or reuses a familiar code for a different failure. Every contract reads well alone; the catalog nobody keeps tells two stories.
+
+**Detection:** The `contracts` member reads `contracts/errors.yaml` and every contract: a code listed twice, two codes with one meaning, an entry without a meaning, or a contract code the catalog lacks is red. Whether two differently worded meanings are the same failure stays a review question.
+
+### DC-37 — An undeclared departure from CRUD-First, single or batch
+
+**Origin:** A generic class proven in a downstream instantiation (#126).
+
+**Story:** Any REST contract. A route like `GET /users/me` or `DELETE /orders` is convenient for one screen; a resource ships without its delete or its batch update because no screen needed it yet. Nobody records why, so the next author copies the shape and the client discovers the gap at runtime.
+
+**Detection:** The `contracts` member reads every contract: an operation outside the CRUD table and its four extension patterns, or a resource missing one of its eight operations (single and batch), with no non-empty `x-crud-exception`, is red. Findings older than the law sit in a baseline that only shrinks. Whether the stated reason is sound stays a review question.
+
+### DC-38 — A delivered artefact deleted
+
+**Origin:** A generic class proven in a downstream instantiation (#126).
+
+**Story:** Any feature past approval. Cancelling or replacing it feels like deleting its files; the next reader of the code, the audit or the measurement finds a feature id that points nowhere.
+
+**Detection:** The `frontmatter-lock` member: a markdown or `.feature` file whose base `status` is delivered or terminal is red when deleted, replaced by a link, or moved to a name that is no artefact. A move to another artefact name is not a deletion.

@@ -2,6 +2,8 @@
   "_doc": "Synthetic SETUP answers (#143), keyed by the keys discovery persists, under the literals it offers. materialize-synthetic.sh evaluates every manifest stack_conditional against them. META-ONLY.",
   "answers": {
     "project_mode": "Greenfield",
+    "project_scope": "full-stack",
+    "domain.monetary_amounts": true,
     "backend.runtime": "Python",
     "frontend.framework": "React",
     "frontend.meta_framework": "None",
@@ -21,9 +23,10 @@
     "security.standard": "none"
   },
   "expect": {
-    "landed": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml", "security/sast/python.yml", "security/sast/javascript.yml"],
+    "landed": [".claude/rules/python.md", ".claude/rules/React.md", ".github/workflows/governance-check.yml", ".github/workflows/inventory-drift.yml", "security/sast/python.yml", "security/sast/javascript.yml", "contracts/errors.yaml", ".claude/rules/monetary-amounts.md"],
     "absent": [".claude/rules/csharp.md", "buildspec-governance.yml", "security/sast/csharp.yml", "security/sast/ui-templates.yml"],
-    "defect_classes": {"present": ["DC-18", "DC-31", "PDC-1"], "absent": []},
+    "defect_classes": {"present": ["DC-18", "DC-31", "PDC-1", "DC-36", "DC-37", "DC-38"], "absent": []},
+    "contains": {".claude/rules/ux-constitution.md": ["### 3. Canonical Components"]},
     "gates": {"tests": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q", "coverage": "python -m pytest --cov --cov-report=term-missing --cov-report=lcov:coverage/lcov.info -q", "lint": "ruff check .", "sca": "if command -v pip-audit >/dev/null 2>&1; then pip-audit --strict --desc; elif command -v safety >/dev/null 2>&1; then safety check; else pip-audit --strict --desc; fi", "typecheck": "if [ -f mypy.ini ] || { [ -f pyproject.toml ] && grep -q '^\\[tool\\.mypy' pyproject.toml; }; then mypy .; fi", "frontend-tests": "npx jest --config jest.config.ts --no-coverage", "secrets": "bash scripts/security-scan.sh --secrets --require-scanner", "sast": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet ."},
     "red": true, "red_sources": ["tests", "frontend-tests"], "coverage_report": "coverage/lcov.info", "red_link": null,
     "test_roots": ["tests/**", "e2e/**", "src/**/*.test.*", "src/**/*.spec.*"]

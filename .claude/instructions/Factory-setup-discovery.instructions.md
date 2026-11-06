@@ -1,5 +1,5 @@
 ---
-description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q35 questions. Use when: SETUP --init command execution."
+description: "Factory SETUP discovery — interactive requirements gathering, Smart Discovery, RDR pattern, Q1-Q36 questions. Use when: SETUP --init command execution."
 applicable_when:
   phase: [SETUP]
   command: [setup]
@@ -515,6 +515,14 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **RDR Recommendation:** `L2` — the standard's own recommendation for applications that hold sensitive data; `L3` only where a breach endangers life, money at scale or critical infrastructure.
 - **Tier-filtered:** All tiers.
 - **Persist:** `security.level` (frontmatter of `docs/setup.md`, nested YAML `security:`) → `rules/security_policy.md § Verification Standard` at `--generate`
+
+#### Q36: Monetary Amounts (EVOL-072)
+- **Type:** Yes / No — asked only when Q4.5 is `full-stack`, `backend-only` or `integration`
+- **Options:** `true` | `false`
+- **Simplified:** es: "¿El producto maneja importes de dinero (precios, pagos, saldos)?" / en: "Does the product handle money amounts (prices, payments, balances)?"
+- **RDR Recommendation:** read from Q2 (the purpose) and the audit (a price, payment, invoice or balance in the code or the documents). It is a recommendation only, never inferred: the answer is the user's.
+- **Tier-filtered:** All tiers.
+- **Persist:** `domain.monetary_amounts` (frontmatter of `docs/setup.md`, nested YAML `domain:`) → on `true`, `rules/monetary-amounts.md` lands at `--generate`
 
 > **Derived, no question (EVOL-051 / EVOL-053):** `verification.gates` (the path-to-gate map) and `traceability.home` (the one place a test states its case: the pytest `case` marker for Python, the title tag otherwise) are derived from the stack answers (Q5 runtime, Q33 runtime surface) at `--generate` — see Factory-setup-materialization. They are project configuration, editable after materialisation; they are never asked.
 
