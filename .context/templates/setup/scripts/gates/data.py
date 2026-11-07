@@ -8,9 +8,10 @@ migrations  the files under LAYOUTS (or `data.migrations_paths`) with a migratio
           every adapter (SQL strings inside DSL files included). Only the up part is judged — a down file or section
           undoes an expand, and its DROP is the undo. Comments are masked before a step is read. Red when:
   shipped    a migration file present at the merge-base differs, or is gone, on disk (the base tree is the ledger)
-  tag        a destructive step of a new migration — drop, rename, truncate, a DELETE with no WHERE or WHERE 1=1, the
-             adapter's DSL twins — carries no `ADR: ADR-NNN` on its lines or in the comment block right above, or the
-             tag names no `docs/project_log/adr/ADR-NNN*.md` whose frontmatter status is accepted
+  tag        a destructive step of a new migration (or of a changed file re-applied by design, `R__`) — drop, rename,
+             truncate, a DELETE with no WHERE or WHERE 1=1, the adapter's DSL twins — carries no decision tag on its
+             lines or in the comment block right above — `FDR: <feature>/FDR-NNNN` (docs/spec/<feature>/fdr/) or
+             `ADR: ADR-NNN` (docs/project_log/adr/) — or the tag names no record whose frontmatter status is accepted
   index      PostgreSQL: a new index on a table the same migration does not create is built without CONCURRENTLY
              (SQL), as AddIndex (Django) or without postgresql_concurrently=True (Alembic) — the tag excuses it
   ledger     a new migration shares its version with another of its directory (an up/down pair excepted), or the
@@ -81,18 +82,23 @@ def _calls(*names: str, prefix: str = r"[.\s]") -> re.Pattern:
 # runs from a down marker to the next up marker (or the end)
 DOWN_FILE = re.compile(r"(?:^|\.)down$", I)
 FLYWAY_UNDO = re.compile(r"^U\d+(?:[._]\d+)*__")
-SQL = {"up": (r"^\s*--\s*\+goose\s+Up\b", r"^\s*--\s*migrate:up\b"), "down": (r"^\s*--\s*\+goose\s+Down\b", r"^\s*--\s*migrate:down\b"), "dsl": None}
+SQL = {"up": (), "down": (), "dsl": None}   # a plain SQL file is all up: its down, when the tool has one, is its own file
+GOOSE = {"up": (r"^\s*--\s*\+goose\s+Up\b",), "down": (r"^\s*--\s*\+goose\s+Down\b",), "dsl": None}   # only goose gives a comment that meaning
+DOWN_FILE_TOOLS = ("golang-migrate", "sqlx-cli", "Diesel")   # `<v>_<name>.down.sql` / a folder's `down.sql`
 JS_UP, JS_DOWN = (r"^\s*(?:exports\.up|module\.exports\.up|export\s+(?:async\s+)?function\s+up|export\s+const\s+up|(?:public\s+)?async\s+up\s*\()",), \
     (r"^\s*(?:exports\.down|module\.exports\.down|export\s+(?:async\s+)?function\s+down|export\s+const\s+down|(?:public\s+)?async\s+down\s*\()",)
 RB_UP, RB_DOWN = (r"^\s*def\s+(?:up|change)\b", r"^\s*(?:up|change)\s+do\b"), (r"^\s*def\s+down\b", r"^\s*down\s+do\b")
+DJ_ARG = r"""[rRbBuU]*(?:\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|\[[^\]]*\]"""   # one RunSQL argument
 ADAPTERS = {
     "sql": SQL,
+    "goose": GOOSE,
     "alembic": {"up": (r"^def\s+upgrade\s*\(",), "down": (r"^def\s+downgrade\s*\(",),
                 "strip": (re.compile(r"\A\s*[rRuU]?(\"\"\"|\'\'\')[\s\S]*?\1"),),
                 "dsl": re.compile(r"\b(?:op|batch_op)\.(?:drop_table|drop_column|drop_index|drop_constraint|rename_table)\s*\("
                                   r"|\b(?:op|batch_op)\.alter_column\s*\([^)]*\bnew_column_name\s*=", re.M)},
     "django": {"up": (), "down": (),   # the down part: RunSQL's reverse_sql
-               "strip": (re.compile(r"""\breverse_sql\s*=\s*(?:[rRbBuU]*(?:\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|\[[^\]]*\])"""),),
+               "strip": (re.compile(r"\breverse_sql\s*=\s*(?P<r>" + DJ_ARG + ")"),
+                         re.compile(r"\bRunSQL\s*\(\s*(?:sql\s*=\s*)?(?:" + DJ_ARG + r")\s*,\s*(?P<r>" + DJ_ARG + ")")),
                "dsl": _calls(r"migrations\.(?:RemoveField|DeleteModel|RenameField|RenameModel|RemoveIndex|RemoveConstraint|AlterModelTable)", prefix=r"\W")},
     "knex": {"up": JS_UP, "down": JS_DOWN, "dsl": _calls(r"\.(?:dropTable|dropTableIfExists|dropColumn|dropColumns|renameColumn|renameTable|dropIndex|dropForeign|dropPrimary|dropUnique)", prefix=r"")},
     "typeorm": {"up": JS_UP, "down": JS_DOWN, "dsl": _calls(r"\.(?:dropTable|dropColumn|dropColumns|renameColumn|renameTable|dropIndex|dropForeignKey|dropPrimaryKey|clearTable)", prefix=r"")},
@@ -112,7 +118,7 @@ ADAPTERS = {
 }
 # the registry's offered tools (discovery Q15.1) → adapter; a tool not listed is an error, never the generic guess
 TOOLS = {"Alembic": "alembic", "Django migrations": "django", "Flyway": "sql", "Liquibase": "liquibase", "Prisma Migrate": "sql",
-         "Drizzle Kit": "sql", "Knex": "knex", "TypeORM": "typeorm", "node-pg-migrate": "pgm", "golang-migrate": "sql", "goose": "sql",
+         "Drizzle Kit": "sql", "Knex": "knex", "TypeORM": "typeorm", "node-pg-migrate": "pgm", "golang-migrate": "sql", "goose": "goose",
          "Atlas": "sql", "EF Core migrations": "efcore", "DbUp": "sql", "Active Record migrations": "activerecord", "Sequel": "activerecord",
          "Doctrine Migrations": "doctrine", "Phinx": "phinx", "sqlx-cli": "sql", "Diesel": "sql", "refinery": "sql", "Ecto migrations": "ecto"}
 # index calls PostgreSQL builds while locking writes: (pattern; group 1 = the table) — SQL in every adapter
@@ -173,8 +179,9 @@ def answers(repo: Path) -> dict:
 # ─── text ──────────────────────────────────────────────────────────────────────
 
 STRINGS = {   # the language's string literals, kept whole by mask: single-line, except a backtick or a triple quote
-    "sql": (r"'(?:[^'\n]|'')*'", r'"[^"\n]*"'),
+    "sql": (r"'(?:[^'\n]|'')*'", r'"[^"\n]*"', r"\$(?P<dq>(?:[A-Za-z_]\w*)?)\$[\s\S]*?\$(?P=dq)\$"),   # PostgreSQL $$…$$ / $t$…$t$
     "py": (r'[rRbBuU]*"""[\s\S]*?"""', r"[rRbBuU]*'''[\s\S]*?'''", r'"(?:[^"\\\n]|\\.)*"', r"'(?:[^'\\\n]|\\.)*'"),
+    "xml": (r"<!\[CDATA\[[\s\S]*?\]\]>",),
     "c": (r"`[^`]*`", r'"(?:[^"\\\n]|\\.)*"', r"'(?:[^'\\\n]|\\.)*'"),
 }
 
@@ -185,7 +192,7 @@ def _strings(path: str) -> tuple[str, ...]:
         return STRINGS["sql"]
     if ext in (".py", ".rb", ".exs", ".ex"):
         return STRINGS["py"]
-    return () if ext in (".xml", ".yaml", ".yml") else STRINGS["c"]
+    return STRINGS["xml"] if ext == ".xml" else () if ext in (".yaml", ".yml") else STRINGS["c"]
 
 
 def _comment_style(path: str) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
@@ -207,12 +214,13 @@ _MASKS: dict[tuple, re.Pattern] = {}
 
 def mask(text: str, path: str) -> str:
     """Comments blanked (newlines kept), so a commented-out step is no step and a line number stays a line number; a
-    string literal is kept whole — `'a--b'` or `"http://x"` hides nothing after it."""
+    string literal is kept whole — `'a--b'`, `"http://x"`, `$$/*$$`, a CDATA section hide nothing after them. A block
+    comment that never closes, and MySQL's executable `/*! … */`, stay code: an opener never blanks the rest of a file."""
     style = (_comment_style(path), _strings(path))
     if style not in _MASKS:
         (lines, blocks), strs = style
         _MASKS[style] = re.compile("|".join([f"(?P<s{k}>{s})" for k, s in enumerate(strs)]
-                                            + [re.escape(o) + r".*?(?:" + re.escape(c) + r"|\Z)" for o, c in blocks]
+                                            + [re.escape(o) + (r"(?!!)" if strs is STRINGS["sql"] and o == "/*" else "") + r".*?" + re.escape(c) for o, c in blocks]
                                             + [re.escape(t) + r"[^\n]*" for t in lines]), re.S)
     return _MASKS[style].sub(lambda m: m.group(0) if any(v is not None for v in m.groupdict().values()) else re.sub(r"[^\n]", " ", m.group(0)), text)
 
@@ -225,8 +233,12 @@ def _is_comment(line: str, path: str) -> bool:
 
 def up_part(text: str, adapter: dict) -> str:
     """The text with every down region blanked: from a down marker to the next up marker, or the end."""
+    def blank(m: re.Match) -> str:   # the named group `r` when the pattern has one (RunSQL's reverse), else the match
+        a, b = m.span("r") if "r" in m.re.groupindex else m.span()
+        g, o = m.group(0), m.start()
+        return g[:a - o] + re.sub(r"[^\n]", " ", g[a - o:b - o]) + g[b - o:]
     for pat in adapter.get("strip", ()):
-        text = pat.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
+        text = pat.sub(blank, text)
     ups = [re.compile(p, re.M) for p in adapter.get("up", ())]
     downs = [re.compile(p, re.M) for p in adapter.get("down", ())]
     if not downs:
@@ -247,7 +259,7 @@ def _line(text: str, pos: int) -> int:
 
 
 def _tag(raw: list[str], first: int, last: int, path: str) -> str | None:
-    """The ADR tag on the step's lines, or in the comment block right above its first line."""
+    """The decision tag (FDR or ADR) on the step's lines, or in the comment block right above its first line."""
     for k in range(first, min(last, len(raw) - 1) + 1):
         m = TAG.search(raw[k])
         if m:
@@ -332,10 +344,11 @@ def is_migration(path: str, layouts, tests) -> bool:
 
 
 def _is_down(path: str, adapter: str, tool: str = "") -> bool:
-    """A down file, by its form — `<v>_<name>.down.sql`, `down.sql`, a `down/` folder, a Flyway undo `U<v>__` — never by
-    a word inside the name (`V8__revert_discount.sql` is an up). Only SQL-file tools keep the undo in its own file."""
+    """A down file, by the form its own tool gives it — `<v>_<name>.down.sql` or a folder's `down.sql` (golang-migrate,
+    sqlx-cli, Diesel), a Flyway undo `U<v>__` — never by a word inside the name (`V8__revert_discount.sql` is an up), and
+    never a form another tool would run as an up (Flyway runs `V3__drop.down.sql`)."""
     p = Path(path)
-    return adapter == "sql" and (bool(DOWN_FILE.search(p.stem)) or p.parent.name.lower() == "down"
+    return adapter == "sql" and ((tool in DOWN_FILE_TOOLS and bool(DOWN_FILE.search(p.stem)))
                                  or (tool == "Flyway" and bool(FLYWAY_UNDO.match(p.name))))
 
 
@@ -370,7 +383,7 @@ def _heads(texts: dict[str, str]) -> list[str]:
 
 
 def _accepted(repo: Path, adr: str, cache: dict) -> str | None:
-    """None when the ADR exists accepted; else the reason."""
+    """None when the decision record (FDR or ADR) exists and is accepted; else the reason."""
     if adr in cache:
         return cache[adr]
     feature, _, rid = adr.rpartition("/")
@@ -413,13 +426,15 @@ def migrations(repo: Path, ref: str | None, tool: str, engine: str | None) -> tu
         elif mine[p].split(":")[-1] != base[p].split(":")[-1] and not MUTABLE.search(Path(p).name):
             problems.append(f"{p}: a shipped migration changed — a shipped migration never changes; restore it and write a new one")
     new = sorted(p for p in mine if p not in base)
+    # a file re-applied on change (`R__`, the Liquibase master) runs again whole: a changed one is judged like a new one
+    rerun = sorted(p for p in base if p in mine and MUTABLE.search(Path(p).name) and mine[p].split(":")[-1] != base[p].split(":")[-1])
     classes, cache = [], {}
     units: dict[tuple[str, str], list[str]] = {}
     for p in mine:
         u, v = _unit(p)
         if v is not None:
             units.setdefault((u, v), []).append(p)
-    for p in new:
+    for p in sorted(set(new) | set(rerun)):
         try:
             text = (repo / p).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as e:
@@ -436,7 +451,7 @@ def migrations(repo: Path, ref: str | None, tool: str, engine: str | None) -> tu
             for s in index_steps(text, p, adapter):
                 why = _accepted(repo, s["adr"], cache) if s["adr"] else "locks writes on a live table"
                 if why:
-                    problems.append(f"{p}:{s['line']}: an index on `{s['table']}` {why} — build it CONCURRENTLY, or tag the step with its ADR")
+                    problems.append(f"{p}:{s['line']}: an index on `{s['table']}` {why} — build it CONCURRENTLY, or tag the step with its decision record (FDR or ADR)")
         u, v = _unit(p) if adapter != "alembic" else ("", None)
         if v is not None:
             same = [q for q in units.get((u, v), []) if q != p and _is_down(q, adapter, tool) == down]

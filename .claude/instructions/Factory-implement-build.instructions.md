@@ -1090,7 +1090,7 @@ IF config/quality.json → data.connection_factory IS null AND this increment bu
 A schema change: an expand step (with its down) now; a contract step (drop, rename) in a later increment, tagged
   `FDR: <feature>/FDR-NNNN` (or `ADR: ADR-NNN`) naming an accepted record — never edit a migration the base branch already carries (rules/database.md)
 RUN python3 scripts/gate.py data
-  IF red: fix with its lines — a new migration instead of an edit, the ADR tag, CONCURRENTLY, the factory, the owner's create
+  IF red: fix with its lines — a new migration instead of an edit, the decision tag (FDR or ADR), CONCURRENTLY, the factory, the owner's create
 ```
 
 #### Business Policies Enforcement

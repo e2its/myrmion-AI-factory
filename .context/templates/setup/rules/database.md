@@ -44,7 +44,7 @@ BLUEPRINT plans a contract step as its own task in a later increment, with its d
 
 ## Destructive steps
 
-Destructive steps are: `DROP TABLE | COLUMN | SCHEMA | DATABASE | INDEX | VIEW | TYPE | SEQUENCE`, `TRUNCATE`, `DELETE` with no `WHERE` (or `WHERE 1=1`), any `RENAME` in an `ALTER TABLE` and `RENAME TABLE`, and the tool's DSL twins. `DROP NOT NULL` and `DROP DEFAULT` are expand steps (`op.drop_column`, `migrations.RemoveField`, `dropTable`, `remove_column`, …).
+Destructive steps are: `DROP TABLE | COLUMN | SCHEMA | DATABASE | INDEX | VIEW | TYPE | SEQUENCE`, `TRUNCATE`, `DELETE` with no `WHERE` (or `WHERE 1=1`), any `RENAME` in an `ALTER TABLE` and `RENAME TABLE`, and the tool's DSL twins (`op.drop_column`, `migrations.RemoveField`, `dropTable`, `remove_column`, …). `DROP NOT NULL` and `DROP DEFAULT` are expand steps.
 
 - Every destructive step in the up part carries its decision tag on its line or in the comment block right above it, in the file's comment syntax:
   - `FDR: <feature>/FDR-NNNN` — the feature's decision record at `docs/spec/<feature>/fdr/FDR-NNNN-*.md` (`/blueprint --fdr`). The default: a schema change is feature-local.
@@ -56,7 +56,7 @@ Destructive steps are: `DROP TABLE | COLUMN | SCHEMA | DATABASE | INDEX | VIEW |
 ## Index discipline (PostgreSQL)
 
 - An index on a table the same migration did not create is built `CONCURRENTLY` (SQL), with `AddIndexConcurrently` (Django) or with `postgresql_concurrently=True` (Alembic). A plain `CREATE INDEX` locks writes on a live table.
-- A small table that tolerates the lock: tag the step with its ADR.
+- A small table that tolerates the lock: tag the step with its decision record (FDR or ADR).
 
 ## Rollback
 

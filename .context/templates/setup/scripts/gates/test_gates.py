@@ -721,6 +721,11 @@ class Budget(unittest.TestCase):
             with unittest.mock.patch.object(budget, "any_glob", counted):
                 deep = budget.worst_case_path(many)
             self.assertEqual(sum(1 for d in many["dcs"] if budget.any_glob(deep, d["paths"])), 18, "every prefix that adds a class is kept")
+            two = {"families": [], "dcs": [{"id": "DC-1", "paths": ["src/**"]}, {"id": "DC-2", "paths": ["**/*.py", "**/*.jsx"]}]}
+            self.assertEqual(budget.worst_case_path(two), "src/x/x.py", "equal scores: the shortest path")
+            self.assertEqual(budget.worst_case_path(two, [["**/*.jsx"]]), "src/x/x.jsx", "a path-bound rule is a delivered line: it counts")
+            nested = {"families": [], "dcs": [{"id": "DC-1", "paths": ["contracts/**"]}, {"id": "DC-2", "paths": ["contracts/openapi/**"]}]}
+            self.assertEqual(budget.worst_case_path(nested), "contracts/openapi/x/x.py", "a prefix a later one made redundant is dropped")
             self.assertGreater(rows["pre_edit"]["bytes"], 150, "the real payload was measured")
             self.assertEqual(rows["pre_edit"]["bytes"], budget.measure(repo)["pre_edit"]["bytes"], "a fresh session per run: never the dedupe pointer")
             self.assertFalse(list((repo / ".claude/state").glob("governance-delivered-budget-*")), "no marker left behind")
@@ -6575,8 +6580,37 @@ class Data(unittest.TestCase):
             repo = self._repo(tmp); (repo / "src/migrations/001.sql").unlink(); self._git(repo, "commit", "-qam", "x")
             self.assertIn("none under the known layouts: set data.migrations_paths", data.render(data.check(repo, "HEAD")))
 
+    def test_no_form_hides_a_destructive_step(self):
+        drop = "DROP TABLE users;\n"
+        for tool, rel, text in (
+                ("Flyway", "src/migrations/V9__x.sql", "-- +goose Down\n" + drop),        # a marker only goose gives meaning to
+                ("Flyway", "src/migrations/V10__x.sql", "-- migrate:down\n" + drop),
+                ("Flyway", "src/migrations/V3__drop.down.sql", drop),                  # Flyway runs it as an up
+                ("Prisma Migrate", "prisma/migrations/20240101_x/down.sql", drop),
+                ("Flyway", "src/migrations/V11__x.sql", "SELECT $$/*$$;\n" + drop),    # a dollar-quoted string, no comment
+                ("Flyway", "src/migrations/V12__x.sql", "SELECT $f$ -- $f$;\n" + drop),
+                ("Flyway", "src/migrations/V13__x.sql", "/*!50100 DROP TABLE users */;\n"),   # MySQL runs it
+                ("Flyway", "src/migrations/V14__x.sql", "/* never closed\n" + drop),
+                ("Liquibase", "db/changelog/002.xml", "<databaseChangeLog><changeSet id=\"2\" author=\"a\"><sql><![CDATA[<!--]]></sql>\n<dropTable tableName=\"users\"/>\n</changeSet></databaseChangeLog>\n"),
+                ("Django migrations", "orders/migrations/0003_x.py", "operations = [migrations.RunSQL(\"SELECT 1\", reverse_sql=\"SELECT 2\"), migrations.RunSQL(\"DROP TABLE users\")]\n")):
+            with tempfile.TemporaryDirectory() as tmp:
+                r, out = self._mig(self._repo(tmp, tool=tool), rel, text)
+                self.assertFalse(self._row(r, "migrations")["ok"], f"{tool} {rel}: {out}")
+                self.assertIn("has no decision tag", out, f"{tool} {rel}")
+        with tempfile.TemporaryDirectory() as tmp:   # Django RunSQL's positional reverse is the down: never judged
+            r, out = self._mig(self._repo(tmp, tool="Django migrations"), "orders/migrations/0002_p.py",
+                               'operations = [migrations.RunSQL("CREATE TABLE x (id int)", "DROP TABLE x")]\n')
+            self.assertTrue(self._row(r, "migrations")["ok"], out)
+        with tempfile.TemporaryDirectory() as tmp:   # a file re-applied on change runs again whole: a changed one is judged
+            repo = self._repo(tmp); write(repo / "src/migrations/R__views.sql", "create view v as select 1;\n")
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "r")
+            r, out = self._mig(repo, "src/migrations/R__views.sql", "create or replace view v as select 2;\n" + drop)
+            self.assertIn("src/migrations/R__views.sql:2: DROP has no decision tag", out)
+            self.assertEqual([c["class"] for c in r["migrations"] if c["path"] == "src/migrations/R__views.sql"], ["contract"], out)
+
     def test_the_down_part_is_never_judged(self):
-        for tool, rel, text in (("Flyway", "src/migrations/002.down.sql", "DROP TABLE orders;\n"),
+        for tool, rel, text in (("golang-migrate", "src/migrations/002.down.sql", "DROP TABLE orders;\n"),
+                                ("Diesel", "migrations/2024-01-01-000000_a/down.sql", "DROP TABLE orders;\n"),
                                 ("Flyway", "src/migrations/U2__undo.sql", "DROP TABLE orders;\n"),
                                 ("goose", "src/migrations/002_add.sql", "-- +goose Up\nCREATE TABLE t (id int);\n-- +goose Down\nDROP TABLE t;\n"),
                                 ("Alembic", "alembic/versions/a1_add.py", "revision = 'a1'\ndown_revision = None\ndef upgrade():\n    op.add_column('t', sa.Column('x'))\n\ndef downgrade():\n    op.drop_column('t', 'x')\n"),
@@ -6620,7 +6654,7 @@ class Data(unittest.TestCase):
             r, out = self._mig(self._repo(tmp), "src/migrations/001_other.sql", "select 3;\n")
             self.assertIn("version 001 is also src/migrations/001.sql", out)
         with tempfile.TemporaryDirectory() as tmp:
-            repo = self._repo(tmp); write(repo / "src/migrations/003.up.sql", "select 1;\n")
+            repo = self._repo(tmp, tool="golang-migrate"); write(repo / "src/migrations/003.up.sql", "select 1;\n")
             r, out = self._mig(repo, "src/migrations/003.down.sql", "DROP TABLE x;\n"); self.assertTrue(self._row(r, "migrations")["ok"], out)
         heads = {"alembic/versions/a1.py": "revision = 'a1'\ndown_revision = None\n", "alembic/versions/a2.py": "revision = 'a2'\ndown_revision = 'a1'\n"}
         with tempfile.TemporaryDirectory() as tmp:
@@ -6637,6 +6671,7 @@ class Data(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp)
             r, out = self._mig(repo, "src/db.py", conn); self.assertIn("src/db.py: opens a connection (psycopg) — declare `data.connection_factory`", out)
+            self.assertEqual(self._row(r, "connection factory")["owed"], ["src/db.py#psycopg"], "SETUP --upgrade step 4 copies this list into the baseline")
             write(repo / "src/db.py", "# psycopg.connect(DSN) is the factory's job\n")
             self.assertTrue(self._row(data.check(repo, "HEAD"), "connection factory")["ok"], "a comment is no connection")
             write(repo / "tests/test_db.py", conn)

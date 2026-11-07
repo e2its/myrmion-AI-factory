@@ -33,7 +33,7 @@ A project with a database gets a migration rule (`rules/database.md`) and a vali
    - It is n/a in the framework repo, and in a project whose `docs/setup.md` holds no `database.migrations_tool`. The answer is read in its one home, never copied into config.
 2. **Migrations, per adapter.** The tool selects an adapter: a data row naming its file globs, its up/down markers and its destructive and locking calls. SQL text is scanned in every adapter. Only the up part is judged. **Red when:**
    - **(a) A shipped migration changed.** A migration file present at the merge-base differs, or is gone, at HEAD. The base tree is the ledger of shipped migrations; no second ledger file can drift from it.
-   - **(b) A destructive step has no tag.** A destructive step of a new migration (drop, rename, retire, truncate, unbounded delete) carries no `ADR: ADR-NNN` tag on its line or in the comment block above it. A tag must name a decision record that exists with `status: accepted`: `FDR: <feature>/FDR-NNNN` — the feature's record that `/blueprint --fdr` writes, the default for a schema change — or `ADR: ADR-NNN` for a project-wide record. This is the existing tag, checked step by step, widened to the framework's two record types (critic round 1).
+   - **(b) A destructive step has no tag.** A destructive step of a new migration (drop, rename, retire, truncate, unbounded delete) carries no decision tag on its line or in the comment block above it. A tag must name a decision record that exists with `status: accepted`: `FDR: <feature>/FDR-NNNN` — the feature's record that `/blueprint --fdr` writes, the default for a schema change — or `ADR: ADR-NNN` for a project-wide record. This is the existing tag, checked step by step, widened to the framework's two record types (critic round 1).
    - **(c) An index locks a live PostgreSQL table.** A new index on a table that the same migration did not create is built without `CONCURRENTLY` (or its DSL twin). The same tag excuses it.
    - **(d) The ledger is not reconciled.** Two migrations of one directory claim one version (an up/down pair excepted), or two Alembic revisions share a parent (two heads).
    - Each new migration's class — `expand`, or `contract` when it holds a destructive step — is listed in `--json`. DEVOPS reads it there; no agent classifies.
@@ -46,7 +46,7 @@ A project with a database gets a migration rule (`rules/database.md`) and a vali
    - **Red when:** an entity has no owner; an owner cannot be found; a fixture is not JSON; the seeder or a fixture writes a table directly or opens a connection.
    - **DEVOPS:** the pipeline runs the seeder. A re-seed deletes only the seeded ids, through the owner. `FORCE_RESEED` is the owner's RDR, never the agent's. No `TRUNCATE`.
 5. **Rollback.**
-   - `database.md`: an expand step carries its down. A contract step carries its ADR tag, declares itself irreversible and ships after the code stops reading the old shape. «Keep last 3 reversible» goes.
+   - `database.md`: an expand step carries its down. A contract step carries its decision tag (FDR or ADR), declares itself irreversible and ships after the code stops reading the old shape. «Keep last 3 reversible» goes.
    - DEVOPS: automatic rollback = code + traffic + the expand downs of the deployed range. When `gate.py data --base <previous deploy ref> --json` lists a contract migration in that range, nothing automatic touches the data.
 6. **Discovery.**
    - New Q15.1 `database.migrations_tool`, asked when the engine is PostgreSQL, MySQL or SQLite and a backend runtime exists. Its options are per runtime, and it fills `{{DB_MIGRATION_TOOL}}`.
@@ -55,14 +55,14 @@ A project with a database gets a migration rule (`rules/database.md`) and a vali
    - MongoDB, DynamoDB, Redis, and a SQL database with no backend (#149) are stated as not covered in the setup report.
 7. **Three universal classes, family `data`, gate `data`.** Each is selected through discovery (Promotion 5):
    - **DC-40:** a shipped migration never changes, and one version names one migration.
-   - **DC-41:** every destructive or table-locking step carries its ADR tag.
+   - **DC-41:** every destructive or table-locking step carries a tag naming an accepted FDR or ADR.
    - **DC-42:** one connection factory, and seeds through the owner.
 8. **The same change aligns every reader.** That covers QA verify, the `database.md` enforcement line, `Factory-implement-plan` C.5 (one task list; «call the owner's create»), `Factory-implement-build` (the factory path), `Factory-blueprint-design` (expand now, contract later), the README gate rows, the light-member lists of `CLAUDE.md` and `rules/branching.md`, `retired_terms` and the upgrade migration row.
 
 ## Consequences
 
-- **What is proven on every push.** Shipped migrations are unchanged. Every destructive or locking step names an accepted ADR. One connection factory. Seeds through the owner.
-- **What stays judgement.** Whether a contract step is safe to ship (the code no longer reads the old shape) stays with the ADR and the critics. The gate proves that the ADR exists, not that it is right.
+- **What is proven on every push.** Shipped migrations are unchanged. Every destructive or locking step names an accepted FDR or ADR. One connection factory. Seeds through the owner.
+- **What stays judgement.** Whether a contract step is safe to ship (the code no longer reads the old shape) stays with the decision record and the critics. The gate proves that the record exists and is accepted, not that it is right.
 - **What an upgrade brings.** An installed project gets the `data` block, a baseline of its existing direct connections, the seed registry's owners and the Q15.1 question. `validate-migrations.sh` and its callers go.
 - **The data classes (`reference | environment`)** are #146's. A project in between seeds through the owner with no data class.
 
@@ -124,3 +124,36 @@ Recorded on 2026-11-07 on branch `feature/EVOL-071-data-migrations-pack`.
   - It now takes one pass per candidate: a prefix stays only when it adds a class, a prefix made redundant later is dropped, and equal scores take the shortest path. It runs in seconds.
   - A test caps `any_glob` calls at 200k over 18 prefixes. It is red with the old search.
   - The new worst-case path adds two rule pointers (`React.md`, `ux-constitution.md`). The DC-40..42 gate columns were shortened, and `pre_edit` measures 5979 of 6000.
+
+### Critic round 2 cures (2026-11-07)
+
+Round 2 read the cure only, with four lenses. No lens raised a 🔴. Every 🟡 was cured by the adjudication default (rules/agents.md § The bounded loop): each one closes a gap against the decision above and none changes it.
+
+- **Security: no form hides a destructive step.**
+  - Down markers apply only to goose (`-- +goose Down`). In any other SQL tool a marker comment is plain text.
+  - A down file is known by its own tool's form: `.down.sql` and `down.sql` for golang-migrate, sqlx-cli and Diesel, and `U<v>__` for Flyway. Flyway runs `V3__drop.down.sql` as an up, so it is judged.
+  - A changed file that its tool re-applies by design (`R__`, the Liquibase master) runs again whole, so it is judged like a new one.
+  - `mask` never lets an opener blank the rest of a file. These stay code:
+    - a block comment that never closes;
+    - MySQL `/*! … */`;
+    - PostgreSQL `$$…$$` and `$t$…$t$` strings;
+    - Liquibase CDATA sections.
+- **Correctness:**
+  - Django `RunSQL`'s positional reverse is the down part, so it is never judged.
+  - The pre-edit budget's worst case now also counts path-bound rule pointers, each a line the delivery carries. Ties take the shortest path, and a test pins that.
+- **Fidelity:**
+  - `rules/database.md` puts the DSL examples back on the destructive list.
+  - The ADR-only wording is aligned to "FDR or ADR" in the index message, the docstrings, this record's Decision and Consequences, `Factory-implement-build`, the README and the light-member list (CLAUDE.md, rules/branching.md).
+  - The factory row's `owed` key is asserted, and upgrade step 4 says what an entry with no `owed` key means.
+- **Accepted as declared (informational):**
+  - `batch_op.create_index` names its table in the enclosing `batch_alter_table`, so the index check does not see it.
+  - The destructive list stays a heuristic. `DELETE FROM ONLY`, `ALTER … TYPE` and MySQL `CHANGE` are not on it. The critics judge these.
+  - `SQL_WRITE` may flag prose in a seeder docstring. That is a loud red, never a silent pass.
+  - An ADR or FDR created and accepted in the same pull request is the owner's ratification.
+- **Tests:**
+  - `test_no_form_hides_a_destructive_step`: 10 of its 12 cases are red on the round-2 head. The other 2 are regression guards.
+  - Two older tests named the old Flyway down form. They now use golang-migrate and Diesel.
+  - The full suite runs 276 tests, OK, 2 skipped. 24/24 mutants in `data.py` are killed.
+- **Checks:**
+  - Synthetic: 8/8 fixtures green.
+  - All green: the gates `discovery`, `manifest-parity`, `retired-terms`, `one-definition`, `agents` and `budget`; lock-step (88 files); applicability; ADR sync; `test-hooks` (202/0); the snapshot test; the static profile.
