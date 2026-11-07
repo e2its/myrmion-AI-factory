@@ -47,7 +47,7 @@ BLUEPRINT plans a contract step as its own task in a later increment, with its d
 Destructive steps are: `DROP TABLE | COLUMN | SCHEMA | DATABASE | INDEX | VIEW | TYPE | SEQUENCE`, `TRUNCATE`, `DELETE` with no `WHERE` (or `WHERE 1=1`), any `RENAME` in an `ALTER TABLE` and `RENAME TABLE`, and the tool's DSL twins (`op.drop_column`, `migrations.RemoveField`, `dropTable`, `remove_column`, …). `DROP NOT NULL` and `DROP DEFAULT` are expand steps.
 
 - Every destructive step in the up part carries its decision tag on its line or in the comment block right above it, in the file's comment syntax:
-  - `FDR: <feature>/FDR-NNNN` — the feature's decision record at `docs/spec/<feature>/fdr/FDR-NNNN-*.md` (`/blueprint --fdr`). The default: a schema change is feature-local.
+  - `FDR: <feature>/FDR-NNNN` — the feature's decision record at `docs/spec/<feature>/fdr/FDR-NNNN-*.md`, written at BLUEPRINT. The default: a schema change is feature-local.
   - `ADR: ADR-NNN` — a project-wide record at `docs/project_log/adr/ADR-NNN-*.md` (factory-adr-management).
 - The record carries `status: accepted`. A proposed record is not enough. The owner ratifies it (RDR), never the agent.
 - The record names the backup taken before the step and who decides a restore.

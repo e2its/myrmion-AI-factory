@@ -33,7 +33,7 @@ A project with a database gets a migration rule (`rules/database.md`) and a vali
    - It is n/a in the framework repo, and in a project whose `docs/setup.md` holds no `database.migrations_tool`. The answer is read in its one home, never copied into config.
 2. **Migrations, per adapter.** The tool selects an adapter: a data row naming its file globs, its up/down markers and its destructive and locking calls. SQL text is scanned in every adapter. Only the up part is judged. **Red when:**
    - **(a) A shipped migration changed.** A migration file present at the merge-base differs, or is gone, at HEAD. The base tree is the ledger of shipped migrations; no second ledger file can drift from it.
-   - **(b) A destructive step has no tag.** A destructive step of a new migration (drop, rename, retire, truncate, unbounded delete) carries no decision tag on its line or in the comment block above it. A tag must name a decision record that exists with `status: accepted`: `FDR: <feature>/FDR-NNNN` — the feature's record that `/blueprint --fdr` writes, the default for a schema change — or `ADR: ADR-NNN` for a project-wide record. This is the existing tag, checked step by step, widened to the framework's two record types (critic round 1).
+   - **(b) A destructive step has no tag.** A destructive step of a new migration (drop, rename, retire, truncate, unbounded delete) carries no decision tag on its line or in the comment block above it. A tag must name a decision record that exists with `status: accepted`: `FDR: <feature>/FDR-NNNN` — the feature's record that BLUEPRINT writes, the default for a schema change — or `ADR: ADR-NNN` for a project-wide record. This is the existing tag, checked step by step, widened to the framework's two record types (critic round 1).
    - **(c) An index locks a live PostgreSQL table.** A new index on a table that the same migration did not create is built without `CONCURRENTLY` (or its DSL twin). The same tag excuses it.
    - **(d) The ledger is not reconciled.** Two migrations of one directory claim one version (an up/down pair excepted), or two Alembic revisions share a parent (two heads).
    - Each new migration's class — `expand`, or `contract` when it holds a destructive step — is listed in `--json`. DEVOPS reads it there; no agent classifies.
@@ -103,7 +103,7 @@ Recorded on 2026-11-07 on branch `feature/EVOL-071-data-migrations-pack`.
 
 ### Critic round 1 cures (2026-11-07)
 
-- **Decision tag:** a step names `FDR: <feature>/FDR-NNNN` (the default, `/blueprint --fdr`) or `ADR: ADR-NNN`. The record must be accepted. The owner ratifies it, never the agent.
+- **Decision tag:** a step names `FDR: <feature>/FDR-NNNN` (the default, written at BLUEPRINT) or `ADR: ADR-NNN`. The record must be accepted. The owner ratifies it, never the agent.
 - **Real layouts:**
   - Flyway `db/migration` and Liquibase `db/changelog` are covered.
   - Files that change by design (`R__`, the Liquibase master) are exempt from immutability. So are tools with their own ledger (Alembic, Diesel dated folders).

@@ -6507,7 +6507,7 @@ class Data(unittest.TestCase):
             self.assertIn("names ADR-007, which is `proposed`", out)
 
     def test_a_decision_record_is_an_accepted_adr_or_a_features_fdr(self):
-        """The tag resolves to a project ADR or to a feature's FDR (/blueprint --fdr); a trailing dot is prose, not the id."""
+        """The tag resolves to a project ADR or to a feature's FDR (written at BLUEPRINT); a trailing dot is prose, not the id."""
         fdr = "docs/spec/FEAT-3/fdr/FDR-0002-drop-legacy.md"
         for status, text, ok, word in (("accepted", "-- FDR: FEAT-3/FDR-0002 the column retires\nDROP TABLE orders;\n", True, ""),
                                        ("proposed", "-- FDR: FEAT-3/FDR-0002\nDROP TABLE orders;\n", False, "names FEAT-3/FDR-0002, which is `proposed`"),

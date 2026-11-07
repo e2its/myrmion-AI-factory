@@ -393,7 +393,7 @@ def _accepted(repo: Path, adr: str, cache: dict) -> str | None:
     why = None
     if not hits:
         why = (f"names {adr}, and no {rel}/{rid}-*.md exists — record the decision before the step: a feature's FDR "
-               f"(/blueprint --fdr, tag `FDR: <feature>/FDR-NNNN`) or a project ADR (tag `ADR: ADR-NNN`)")
+               f"(written at BLUEPRINT, tag `FDR: <feature>/FDR-NNNN`) or a project ADR (tag `ADR: ADR-NNN`)")
     else:
         try:
             m = FM_RE.match(hits[0].read_text(encoding="utf-8", errors="replace"))
