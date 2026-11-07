@@ -448,6 +448,7 @@ Phase 5: Post-Deploy Verification
     # Auto-rollback = code + traffic + the expand downs of the deployed range — never a contract step (EVOL-071):
     #   python3 scripts/gate.py data --base {previous deploy ref} --json → a migration of class `contract` in the range
     #   → nothing automatic touches the data; offer forward-fix, or a restore from backup by the owner's RDR.
+    #   A fault, an output that is no JSON, or `n/a` counts as `contract`: no down runs (fail-closed).
   
   IF verification passes:
     GENERATE docs/spec/{FEATURE_ID}/devops/deployment_report_{timestamp}.md
@@ -513,7 +514,7 @@ duration_seconds: N
 ## Rollback Information
 - **Rollback available:** YES/NO
 - **Previous version:** {{git_sha|tag}}
-- **Rollback method:** {{blue-green switch|redeploy previous|restore snapshot}}
+- **Rollback method:** {{blue-green switch|redeploy previous}} — a restore from backup is never a method: it is the owner's RDR (rules/database.md § Rollback)
 - **Estimated rollback time:** {{N}} seconds
 
 ## Post-Deploy Notes
@@ -681,7 +682,9 @@ PROCESS:
   3b. CLASSIFY the data range (EVOL-071): python3 scripts/gate.py data --base {target ref} --json → each migration
       after the target with its class. Only `expand` → their downs run, newest first. Any `contract` → no down runs:
       the code and the traffic roll back, the data stays, and the report offers forward-fix or a restore from backup
-      by the owner's RDR — the agent never decides a destructive data operation.
+      by the owner's RDR — the agent never decides a destructive data operation. Fail-closed: a gate fault, an
+      output that is no JSON, or `n/a` (no answered migration tool, an engine the pack does not cover) counts as
+      `contract` — no down runs.
   4. EXECUTE rollback per strategy:
      
      blue-green: Switch traffic back to old slot (instant)

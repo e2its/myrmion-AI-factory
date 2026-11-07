@@ -273,10 +273,11 @@
       ]
     },
     "rules/ci-cd.md": {
-      "version": "1.7.1",
+      "version": "1.8.0",
       "content_type": "stack_configured",
       "target": ".claude/rules/ci-cd.md",
       "changelog": [
+        "1.8.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.7.1: fix #143: discovery literals agree downstream — conditionals read the persisted keys (ci_cd.platform, hosting.iac_tool) and the offered literals (.NET, Vue.js, AWS CodePipeline, Q3/Q8/Q18), CircleCI leaves Q21, one definition per fact",
         "1.7.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.6.0: feat(EVOL-047) — deploying / release jobs ask gate.py runtime-surface --changed first; the branch rule is untouched.",
@@ -1921,11 +1922,12 @@
       "delivery": "both"
     },
     "scripts/gates/budget.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "target": "scripts/gates/budget.py",
       "role": "gates: injection budgets — runs the real producers (banner, onprompt worst case, pre-edit hook on the worst-case path, snapshot bytes, sentence/invariant lengths) against config/quality.json budgets; missing key or overflow = red.",
       "changelog": [
+        "1.1.1: EVOL-071: the worst-case pre-edit path is found in one pass per candidate, keeping a prefix only when it adds a class and dropping one a later prefix made redundant; equal scores take the shortest path. The old search built every combination of prefixes (2^15 with the data pack's globs) and ran for minutes on every push.",
         "1.1.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.0.0: feat(EVOL-043)! — initial."
       ],
@@ -4183,10 +4185,11 @@
       "path": ".claude/skills/factory-worklog/SKILL.md"
     },
     "skills/factory-build-verification/SKILL.md": {
-      "version": "1.17.0",
+      "version": "1.18.0",
       "type": "skill",
       "role": "BVL v1.6.0 — Build Verification Loop with per-increment verification scope + MCP-driven complexity gate. Closed-loop test execution, error parsing, auto-fix cycle, full verification gate (accepts optional increment_id), SAST output parser, format gate, seed alignment gate, complexity gate (DC-28), minimalism advisory (DC-29), defect discovery hook.",
       "changelog": [
+        "1.18.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.17.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0; review cures: security/sast/** is a governed path, a suppression carries its rule id and reason, the debug exclusions are anchored, the proof scans the delivered tree clean, Angular [innerHTML] is left to its sanitiser",
         "1.16.0: feat(EVOL-116) — a test runs as one file on every stack: per-file scoped rows for Java, Go, .NET, Rust, Jest, Angular (no `red: false` in any template row); a scoped run that ran no test is red in the run itself; the red proof runs head first, every scoped row is a red source by `red_reads`, Rust in-source tests by an `inline` graft; `gate.py seal --scoped` is the one dispatch for workers, BVL and the review checks; the upgrade merges rows by `was` (added / replaced / kept); meta CI proves each stack in its pinned container (red-stacks job) and by a synthetic materialisation per stack.",
         "1.15.0: EVOL-066: a project's new defect class is PDC-NN, minted through the Discovery Protocol of rules/defect-prevention.md; a class worth every project is proposed upstream (§ Promotion)",
@@ -4476,10 +4479,11 @@
       "path": ".claude/skills/factory-rdr/SKILL.md"
     },
     "skills/factory-pr-review/SKILL.md": {
-      "version": "1.13.6",
+      "version": "1.14.0",
       "type": "skill",
       "role": "Factory PR Review — seven-axis review (code, code↔docs, API contracts, ADR, traceability, complexity, agentic code review) wired as a LOCAL push gate (NOT a merge gate) plus an assistive PR reviewer for already-pushed branches. Phase 0 Coherence Audit (agentic, semantic) runs BEFORE preflight Phases 1-6 when the diff is governance-sensitive. Phase 0 reads `config/coherence-context.json` (single source of truth for `context: meta|downstream`), extracts changed symbols (renames, deletions, moved identifiers, public artefact names), builds a bounded collateral set via `git grep` against `audit.root_sets` minus `audit.exclusions`, applies six detectors (13 Reference coherence, 14 Placeholder leakage, 15 Manifest↔disk coherence, 16-meta meta↔template lock-step, 16-downstream code↔docs lock-step, 17 Commit↔diff coherence, 18 Bump severity↔change kind), and writes a session+sha-scoped marker `.context/state/coherence-audit-${branch_sha}.marker`. Axis 6 (complexity) runs in Phase 3 when has_code AND config/quality.json present — invokes factory-complexity-check skill on changed source files, emits Block 19 (DC-28 Cyclomatic complexity exceeds project threshold). Hard blocks total: 20. Axis 7 (agentic code review) runs in Phase 3 when has_code — INVOKE_SKILL factory-code-review scope=branch, the ONLY writer of the Block 20 marker .context/state/code-review-${content_hash}.marker; preflight.sh Step 0-bis verifies it (RDR-1 content-hash keying, RDR-2 fail-open infra / fail-closed findings with audited override, RDR-4 gate profile 3 blocking + 1 conditional + 2 advisory). Mode `--preflight` is the push-gate entry point invoked by the PreToolUse Bash hook; mode `--review {PR}` is manual and may publish to the platform with explicit user confirmation. Docs-only fast-lane allowlist matches CLAUDE.md Generation Standards §3 verbatim — every-path-in-allowlist exits 0 silently and skips Phase 0. Project-rule precedence documented in § Project rules and ADR precedence — the push gate consumes `branching.instructions.md`, `security_policy.md`, `testing.md`, `protected-code.md` + `protected-paths.json`, `codebase_inventory.json`, `contract-first-policy.md` + `api-standards.md`, `architecture.md`, `defect-prevention.md`, `coherence-context.json` (Phase 0), and `quality.json` (axis 6). Explicitly does NOT consume `review-policy.md` (BVL/IMPLEMENT increment pass — work critics; separate concern). ADR-driven exemptions via `pr_review_overrides:` frontmatter on ADRs under `docs/project_log/adr/` (project-wide) or `docs/spec/{ID}/adr/` (feature-scoped).",
       "changelog": [
+        "1.14.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.13.6: fix #160: design.md readers cite sections by name, one section map in the template; contract paths by slug, never by feature id",
         "1.13.5: fix #165: the agent-written review seals (coherence audit, code review, round artefact) live in .context/state/ — outside the protected .claude/, where auto mode refused the writes; hook state stays in .claude/state/",
         "1.13.4: fix(hooks): every hook command anchors to the project root (cd \"${CLAUDE_PROJECT_DIR:-.}\" && bash …) — a relative command from a subdirectory cwd exited 127, non-blocking, every guard silently open; merge-preserve replaces an unanchored framework entry in place, never duplicates it",
@@ -4526,10 +4530,11 @@
       "path": ".claude/skills/factory-pr-review/README.md"
     },
     "skills/factory-pr-review/references/severity-rubric.md": {
-      "version": "1.0.2",
+      "version": "1.1.0",
       "type": "skill-asset",
       "role": "Factory PR Review severity rubric — 6 levels (🔴 Blocker, 🟡 Important, 🟢 Nit, 💡 Suggestion, ❓ Question, 👏 Praise). Blockers map to framework Hard-Gate violations (CIP, CVP, IPP, branch-protection, governance-bump, protected-code) plus universal patterns (security, data loss, undeclared breaking change, public-endpoint-without-spec).",
       "changelog": [
+        "1.1.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.0.2: fix(EVOL-041) — CVP chain includes slice_map (matches SKILL.md Block 8 row — D17 companion).",
         "1.0.1: chore(EVOL-040 backfill) — changelog line for the historical patch bump that landed without one (brand-rename/cleanup pass). Content unchanged.",
         "1.0.0: feat(EVOL-024): initial — community-origin rubric adapted; rebadged 'merge-blocking' → 'push-blocking' to reflect the gate's actual position in the SDLC; appended Framework Hard-Gate violation mapping (Hard Blocks 7-12)."
@@ -4537,10 +4542,11 @@
       "path": ".claude/skills/factory-pr-review/references/severity-rubric.md"
     },
     "skills/factory-pr-review/references/code-review-criteria.md": {
-      "version": "1.0.1",
+      "version": "1.1.0",
       "type": "skill-asset",
       "role": "Factory PR Review code criteria — 5 axes (correctness, readability, architecture, security, performance) + per-language notes (Python, TypeScript, Java/Kotlin, Go, SQL). Architecture axis explicitly references CIP Hard Block 7 for DRY enforcement against config/codebase_inventory.json.",
       "changelog": [
+        "1.1.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.0.1: chore(EVOL-040 backfill) — changelog line for the historical patch bump that landed without one (brand-rename/cleanup pass). Content unchanged.",
         "1.0.0: feat(EVOL-024): initial — community-origin criteria adapted; § 3 Architecture cross-references Factory-codebase-inventory/SKILL.md and Hard Block 7 (CIP)."
       ],
@@ -5561,11 +5567,12 @@
       ]
     },
     "scripts/gates/budget.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "type": "script",
       "role": "gates: injection budgets — runs the real producers (banner, onprompt worst case, pre-edit hook on the worst-case path, snapshot bytes, sentence/invariant lengths) against config/quality.json budgets; missing key or overflow = red. Meta copy (lock-step pair with the template).",
       "path": "scripts/gates/budget.py",
       "changelog": [
+        "1.1.1: EVOL-071: the worst-case pre-edit path is found in one pass per candidate, keeping a prefix only when it adds a class and dropping one a later prefix made redundant; equal scores take the shortest path. The old search built every combination of prefixes (2^15 with the data pack's globs) and ran for minutes on every push.",
         "1.1.0: feat(EVOL-064) — lean project CLAUDE.md (54 470 → 27 131 bytes): on-demand content leaves the template behind a pointer, verbatim to its home — rules/vertical-slicing.md (new), § Control points and § One planning stage to rules/branching.md, §3 mechanics to rules/ci-cd.md, template lookup to rules/documentation.md, scope taxonomy to Factory-codesign-feature, hard-gate facts to Factory-backlog-operations § 1.1, framework-editor invariants to the meta docs-sync checklist; budgets.claude_md_advisory 28000 (advisory, never blocks — the template in the framework repo, a project its own CLAUDE.md; the warning on the verdict line and the profile board); the synthetic materialisation proves the rule lands and applies",
         "1.0.0: feat(EVOL-043)! — initial."
       ]
@@ -6102,11 +6109,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/default.json": {
-      "version": "1.7.0",
+      "version": "1.8.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/default.json",
       "changelog": [
+        "1.8.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.7.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.6.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.5.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
@@ -6118,11 +6126,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/dotnet-vue-codepipeline.json",
       "changelog": [
+        "1.7.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.6.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.5.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.4.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
@@ -6182,11 +6191,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12.json": {
-      "version": "1.6.0",
+      "version": "1.7.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12.json",
       "changelog": [
+        "1.7.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.6.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.5.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope",
         "1.4.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
@@ -6233,11 +6243,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/java.json": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/java.json",
       "changelog": [
+        "1.4.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
@@ -6245,11 +6256,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/go.json": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/go.json",
       "changelog": [
+        "1.4.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
@@ -6257,11 +6269,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/rust.json": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/rust.json",
       "changelog": [
+        "1.4.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
@@ -6269,11 +6282,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/frontend-only.json": {
-      "version": "1.3.0",
+      "version": "1.4.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/frontend-only.json",
       "changelog": [
+        "1.4.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.3.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.2.0: feat(EVOL-072) — product laws: one error code per meaning and CRUD-First single and batch declared (gate.py contracts; CRUD-First single and batch on the whole tree, older findings in a shrink-only baseline), delivered or terminal artefacts never deleted (frontmatter-lock), canonical components (UI), Q36 money guide; every fixture states project_scope and proves the laws land with their surface; upgrade-8.12-api proves the answered-scope upgrade",
         "1.1.0: feat(EVOL-074) — a pinned SAST base pack per language the project uses, run by one sast verification member: a derived registry entry with a when condition (the union of the pack conditions) configures it, so Node.js + React gives one row; V5 checks a derived when; the security loop blocks on a finding, an engine fault or no engine; the setup report names a stack with no pack; meta CI job sast-packs proves every rule both ways on semgrep 1.182.0",
@@ -6436,11 +6450,12 @@
       ]
     },
     "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json": {
-      "version": "1.1.0",
+      "version": "1.2.0",
       "delivery": "sync",
       "type": "utility",
       "path": "scripts/fixtures/synthetic-answers/upgrade-8.12-api.json",
       "changelog": [
+        "1.2.0: feat(EVOL-071): the data and migrations pack — gate.py data (a light profile member, n/a without database.migrations_tool): a shipped migration unchanged against the merge-base, an ADR tag naming an accepted ADR per destructive or table-locking step (down parts skipped), one version per migration and one Alembic head, one connection factory with a shrink-only baseline, seeds through the owner (seed_registry_v2); Q15.1 the migration tool, decided_by (Django decides its own); DC-40..42; automatic rollback never runs a contract step (RDR «1»); validate-migrations.sh retired",
         "1.1.0: feat(EVOL-070): contract parity — the loop member contract-parity (API scopes) compares the code's emitted OpenAPI with the authored contract (oasdiff diff) and the contract tests' recorded answers with the declared statuses and catalog codes; gate.py contracts adds the registry Version, one planned TC-API row per new operation and the journey coverage; DC-39 request validation mirrors the contract",
         "1.0.0: EVOL-072: product laws — the one contract reader `contracts` (one error code per meaning; CRUD-First single and batch, every omission or departure declared; older findings in a shrink-only baseline seeded at upgrade), batch behaviours stated, a delivered artefact never deleted (frontmatter-lock), the error catalog and the money guide (Q36) by scope"
       ]

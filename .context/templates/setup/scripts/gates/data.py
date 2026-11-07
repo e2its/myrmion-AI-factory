@@ -44,28 +44,31 @@ TOOL_KEY = "database.migrations_tool"
 ENGINE_KEY = "database.primary.engine"
 REGISTRY = "config/seed_registry.json"
 ADR_DIR = "docs/project_log/adr"
+FDR_GLOB = "docs/spec/{feature}/fdr"
 DEFAULT_BASELINE = "docs/project_log/data_baseline.json"
 CONTRACTS = "contracts/openapi"
 # the layouts a migration lives in (#143's literals included: supabase, drizzle, php)
 LAYOUTS = ("**/migrations/**", "migrations/**", "**/Migrations/**", "Migrations/**", "alembic/versions/**", "**/alembic/versions/**", "db/migrate/**",
-           "flyway/sql/**", "liquibase/**", "supabase/migrations/**", "drizzle/migrations/**", "drizzle/**")
+           "**/db/migration/**", "db/migration/**", "**/db/changelog/**", "db/changelog/**", "flyway/sql/**", "**/flyway/sql/**",
+           "liquibase/**", "**/liquibase/**", "supabase/migrations/**", "drizzle/migrations/**", "drizzle/**")
 EXTS = (".sql", ".py", ".ts", ".js", ".mjs", ".cjs", ".rb", ".java", ".cs", ".php", ".exs", ".go", ".rs", ".xml", ".yaml", ".yml")
 CODE_EXTS = (".py", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".java", ".kt", ".go", ".cs", ".rs", ".rb", ".php", ".ex", ".exs")
-SKIP_NAMES = ("__init__.py",)
+SKIP_NAMES = ("__init__.py", "env.py", "schema.ts", "relations.ts")
 SKIP_SUFFIX = (".Designer.cs", "ModelSnapshot.cs")   # EF Core's generated companions are no migration
-TAG = re.compile(r"\bADR:\s*(ADR-[A-Za-z0-9][\w.-]*)")
+MUTABLE = re.compile(r"^R__|^(?:db\.)?changelog[-_.]master\.|^master\.(?:xml|ya?ml|json|sql)$", re.I)   # re-applied or appended by design
+TAG = re.compile(r"\b(?:ADR:\s*(ADR-[A-Za-z0-9](?:[\w.-]*[A-Za-z0-9])?)|FDR:\s*([A-Za-z0-9][\w-]*/FDR-[A-Za-z0-9](?:[\w.-]*[A-Za-z0-9])?))")
 I = re.I
 
 # SQL text, every adapter: (label, pattern) — read on comment-masked text, a step spanning lines
 SQL_DESTRUCTIVE = (
     ("DROP", re.compile(r"\bDROP\s+(?:TABLE|SCHEMA|DATABASE|INDEX|VIEW|MATERIALIZED\s+VIEW|TYPE|SEQUENCE)\b", I)),
-    ("DROP COLUMN", re.compile(r"\bALTER\s+TABLE\b[^;]*?\bDROP\b", I)),
-    ("RENAME", re.compile(r"\bRENAME\s+(?:TABLE|COLUMN|TO)\b", I)),
+    ("DROP COLUMN", re.compile(r"\bALTER\s+TABLE\b[^;]*?\bDROP\b(?!\s+(?:NOT\s+NULL|DEFAULT|IDENTITY|EXPRESSION)\b)", I)),
+    ("RENAME", re.compile(r"\bRENAME\s+TABLE\b|\bALTER\s+TABLE\b[^;]*?\bRENAME\b", I)),
     ("TRUNCATE", re.compile(r"\bTRUNCATE\b", I)),
     ("DELETE ALL", re.compile(r"\bDELETE\s+FROM\s+[\w.\"`\[\]]+\s*(?:;|\"|'|\)|\Z|WHERE\s+1\s*=\s*1\b)", I)),
 )
 SQL_CREATE_TABLE = re.compile(r"\bCREATE\s+(?:UNLOGGED\s+|TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.\"`]+)", I)
-SQL_INDEX = re.compile(r"\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?!CONCURRENTLY\b)[^;]*?\bON\s+(?:ONLY\s+)?([\w.\"`]+)", I)
+SQL_INDEX = re.compile(r"\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?!\s|CONCURRENTLY\b)[^;]*?\bON\s+(?:ONLY\s+)?([\w.\"`]+)", I)
 SQL_WRITE = re.compile(r"\bINSERT\s+(?:OR\s+\w+\s+)?INTO\b|\bUPDATE\s+[\w.\"`\[\]]+\s+SET\b|\bDELETE\s+FROM\b|\bTRUNCATE\b"
                        r"|\bCOPY\s+[\w.\"]+\s*(?:\([^)]*\)\s*)?FROM\b|\bMERGE\s+INTO\b|\bREPLACE\s+INTO\b", I)
 
@@ -76,17 +79,20 @@ def _calls(*names: str, prefix: str = r"[.\s]") -> re.Pattern:
 
 # adapter = (up markers, down markers, DSL destructive calls, down file names); markers are line regexes — a down region
 # runs from a down marker to the next up marker (or the end)
-DOWN_FILE = re.compile(r"(?:^|[._-])(?:down|undo|rollback|revert)(?:[._-]|$)|^U\d", I)
+DOWN_FILE = re.compile(r"(?:^|\.)down$", I)
+FLYWAY_UNDO = re.compile(r"^U\d+(?:[._]\d+)*__")
 SQL = {"up": (r"^\s*--\s*\+goose\s+Up\b", r"^\s*--\s*migrate:up\b"), "down": (r"^\s*--\s*\+goose\s+Down\b", r"^\s*--\s*migrate:down\b"), "dsl": None}
 JS_UP, JS_DOWN = (r"^\s*(?:exports\.up|module\.exports\.up|export\s+(?:async\s+)?function\s+up|export\s+const\s+up|(?:public\s+)?async\s+up\s*\()",), \
     (r"^\s*(?:exports\.down|module\.exports\.down|export\s+(?:async\s+)?function\s+down|export\s+const\s+down|(?:public\s+)?async\s+down\s*\()",)
-RB_UP, RB_DOWN = (r"^\s*def\s+(?:up|change)\b",), (r"^\s*def\s+down\b",)
+RB_UP, RB_DOWN = (r"^\s*def\s+(?:up|change)\b", r"^\s*(?:up|change)\s+do\b"), (r"^\s*def\s+down\b", r"^\s*down\s+do\b")
 ADAPTERS = {
     "sql": SQL,
     "alembic": {"up": (r"^def\s+upgrade\s*\(",), "down": (r"^def\s+downgrade\s*\(",),
-                "dsl": re.compile(r"(?:^|\W)op\.(?:drop_table|drop_column|drop_index|drop_constraint|rename_table)\s*\("
-                                  r"|(?:^|\W)op\.alter_column\s*\([^)]*\bnew_column_name\s*=", re.M)},
-    "django": {"up": (), "down": (),
+                "strip": (re.compile(r"\A\s*[rRuU]?(\"\"\"|\'\'\')[\s\S]*?\1"),),
+                "dsl": re.compile(r"\b(?:op|batch_op)\.(?:drop_table|drop_column|drop_index|drop_constraint|rename_table)\s*\("
+                                  r"|\b(?:op|batch_op)\.alter_column\s*\([^)]*\bnew_column_name\s*=", re.M)},
+    "django": {"up": (), "down": (),   # the down part: RunSQL's reverse_sql
+               "strip": (re.compile(r"""\breverse_sql\s*=\s*(?:[rRbBuU]*(?:\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|\[[^\]]*\])"""),),
                "dsl": _calls(r"migrations\.(?:RemoveField|DeleteModel|RenameField|RenameModel|RemoveIndex|RemoveConstraint|AlterModelTable)", prefix=r"\W")},
     "knex": {"up": JS_UP, "down": JS_DOWN, "dsl": _calls(r"\.(?:dropTable|dropTableIfExists|dropColumn|dropColumns|renameColumn|renameTable|dropIndex|dropForeign|dropPrimary|dropUnique)", prefix=r"")},
     "typeorm": {"up": JS_UP, "down": JS_DOWN, "dsl": _calls(r"\.(?:dropTable|dropColumn|dropColumns|renameColumn|renameTable|dropIndex|dropForeignKey|dropPrimaryKey|clearTable)", prefix=r"")},
@@ -94,7 +100,7 @@ ADAPTERS = {
     "efcore": {"up": (r"\boverride\s+void\s+Up\s*\(",), "down": (r"\boverride\s+void\s+Down\s*\(",),
                "dsl": _calls(r"migrationBuilder\.(?:DropTable|DropColumn|DropIndex|DropForeignKey|DropPrimaryKey|RenameColumn|RenameTable|DropSchema|DropSequence)", prefix=r"\W")},
     "activerecord": {"up": RB_UP, "down": RB_DOWN,
-                     "dsl": re.compile(r"(?:^|\W)(?:drop_table|remove_column|remove_columns|rename_column|rename_table|remove_index|remove_reference|remove_foreign_key|drop_join_table)\b", re.M)},
+                     "dsl": re.compile(r"(?:^|\W)(?:drop_table|remove_column|remove_columns|rename_column|rename_table|remove_index|remove_reference|remove_foreign_key|drop_join_table|drop_column|drop_index|drop_constraint|drop_foreign_key)\b", re.M)},
     "ecto": {"up": RB_UP, "down": RB_DOWN,
              "dsl": re.compile(r"(?:^|\W)(?:drop(?:_if_exists)?\s*\(?\s*(?:table|index|constraint)\b|remove\s*\(?\s*:\w+|rename\s*\(?\s*table\b)", re.M)},
     "doctrine": {"up": (r"\bfunction\s+up\s*\(",), "down": (r"\bfunction\s+down\s*\(",),
@@ -112,8 +118,9 @@ TOOLS = {"Alembic": "alembic", "Django migrations": "django", "Flyway": "sql", "
 # index calls PostgreSQL builds while locking writes: (pattern; group 1 = the table) — SQL in every adapter
 DSL_INDEX = {
     "django": (re.compile(r"migrations\.AddIndex\s*\(\s*model_name\s*=\s*['\"](\w+)['\"]"), re.compile(r"migrations\.CreateModel\s*\(\s*name\s*=\s*['\"](\w+)['\"]")),
-    "alembic": (re.compile(r"op\.create_index\s*\((?![^)]*postgresql_concurrently\s*=\s*True)\s*[^,]*,\s*['\"]([\w.]+)['\"]"), re.compile(r"op\.create_table\s*\(\s*['\"]([\w.]+)['\"]")),
+    "alembic": (re.compile(r"\bop\.create_index\s*\(\s*[^,]*,\s*['\"]([\w.]+)['\"]"), re.compile(r"op\.create_table\s*\(\s*['\"]([\w.]+)['\"]")),
 }
+CONCURRENT_KW = re.compile(r"\bpostgresql_concurrently\s*=\s*True\b")
 # a database connection built in code: (driver label, pattern, an import the file must carry — None: the call alone)
 CONNECT = (
     ("psycopg", re.compile(r"\bpsycopg2?\.connect\s*\("), None),
@@ -165,6 +172,22 @@ def answers(repo: Path) -> dict:
 
 # ─── text ──────────────────────────────────────────────────────────────────────
 
+STRINGS = {   # the language's string literals, kept whole by mask: single-line, except a backtick or a triple quote
+    "sql": (r"'(?:[^'\n]|'')*'", r'"[^"\n]*"'),
+    "py": (r'[rRbBuU]*"""[\s\S]*?"""', r"[rRbBuU]*'''[\s\S]*?'''", r'"(?:[^"\\\n]|\\.)*"', r"'(?:[^'\\\n]|\\.)*'"),
+    "c": (r"`[^`]*`", r'"(?:[^"\\\n]|\\.)*"', r"'(?:[^'\\\n]|\\.)*'"),
+}
+
+
+def _strings(path: str) -> tuple[str, ...]:
+    ext = Path(path).suffix.lower()
+    if ext == ".sql":
+        return STRINGS["sql"]
+    if ext in (".py", ".rb", ".exs", ".ex"):
+        return STRINGS["py"]
+    return () if ext in (".xml", ".yaml", ".yml") else STRINGS["c"]
+
+
 def _comment_style(path: str) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
     """(line comment tokens, block comment pairs) of the file's language."""
     ext = Path(path).suffix.lower()
@@ -183,13 +206,15 @@ _MASKS: dict[tuple, re.Pattern] = {}
 
 
 def mask(text: str, path: str) -> str:
-    """Comments blanked (newlines kept), so a commented-out step is no step and a line number stays a line number."""
-    style = _comment_style(path)
+    """Comments blanked (newlines kept), so a commented-out step is no step and a line number stays a line number; a
+    string literal is kept whole — `'a--b'` or `"http://x"` hides nothing after it."""
+    style = (_comment_style(path), _strings(path))
     if style not in _MASKS:
-        lines, blocks = style
-        _MASKS[style] = re.compile("|".join([re.escape(o) + r".*?(?:" + re.escape(c) + r"|\Z)" for o, c in blocks]
+        (lines, blocks), strs = style
+        _MASKS[style] = re.compile("|".join([f"(?P<s{k}>{s})" for k, s in enumerate(strs)]
+                                            + [re.escape(o) + r".*?(?:" + re.escape(c) + r"|\Z)" for o, c in blocks]
                                             + [re.escape(t) + r"[^\n]*" for t in lines]), re.S)
-    return _MASKS[style].sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
+    return _MASKS[style].sub(lambda m: m.group(0) if any(v is not None for v in m.groupdict().values()) else re.sub(r"[^\n]", " ", m.group(0)), text)
 
 
 def _is_comment(line: str, path: str) -> bool:
@@ -200,6 +225,8 @@ def _is_comment(line: str, path: str) -> bool:
 
 def up_part(text: str, adapter: dict) -> str:
     """The text with every down region blanked: from a down marker to the next up marker, or the end."""
+    for pat in adapter.get("strip", ()):
+        text = pat.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
     ups = [re.compile(p, re.M) for p in adapter.get("up", ())]
     downs = [re.compile(p, re.M) for p in adapter.get("down", ())]
     if not downs:
@@ -224,12 +251,12 @@ def _tag(raw: list[str], first: int, last: int, path: str) -> str | None:
     for k in range(first, min(last, len(raw) - 1) + 1):
         m = TAG.search(raw[k])
         if m:
-            return m.group(1)
+            return m.group(1) or m.group(2)
     k = first - 1
     while k >= 0 and _is_comment(raw[k], path):
         m = TAG.search(raw[k])
         if m:
-            return m.group(1)
+            return m.group(1) or m.group(2)
         k -= 1
     return None
 
@@ -253,6 +280,16 @@ def _bare(name: str) -> str:
     return name.strip('"`[]').split(".")[-1].lower()
 
 
+def _call(text: str, open_at: int) -> str:
+    """The balanced argument list that opens at `open_at` (to the end when it never closes)."""
+    depth = 0
+    for k in range(open_at, len(text)):
+        depth += {"(": 1, ")": -1}.get(text[k], 0)
+        if depth == 0:
+            return text[open_at:k + 1]
+    return text[open_at:]
+
+
 def index_steps(text: str, path: str, adapter: str) -> list[dict]:
     """PostgreSQL: the index steps of the up part that lock a live table (its table not created in the same file)."""
     raw = text.split("\n")
@@ -265,7 +302,7 @@ def index_steps(text: str, path: str, adapter: str) -> list[dict]:
     out = []
     for pat in pats:
         for m in pat.finditer(body):
-            if _bare(m.group(1)) in created:
+            if _bare(m.group(1)) in created or (pat is not SQL_INDEX and CONCURRENT_KW.search(_call(body, body.index("(", m.start())))):
                 continue
             first, last = _line(body, m.start()), _line(body, m.end())
             out.append({"line": first + 1, "table": _bare(m.group(1)), "adr": _tag(raw, first, last, path)})
@@ -294,13 +331,15 @@ def is_migration(path: str, layouts, tests) -> bool:
             and _match(path, layouts) and not _match(path, tests) and "/node_modules/" not in f"/{path}")
 
 
-def _is_down(path: str, adapter: str) -> bool:
-    """A down file — only SQL-file tools keep the undo in its own file; a DSL keeps it in a section (up_part)."""
+def _is_down(path: str, adapter: str, tool: str = "") -> bool:
+    """A down file, by its form — `<v>_<name>.down.sql`, `down.sql`, a `down/` folder, a Flyway undo `U<v>__` — never by
+    a word inside the name (`V8__revert_discount.sql` is an up). Only SQL-file tools keep the undo in its own file."""
     p = Path(path)
-    return adapter == "sql" and (bool(DOWN_FILE.search(p.stem)) or p.parent.name.lower() == "down")
+    return adapter == "sql" and (bool(DOWN_FILE.search(p.stem)) or p.parent.name.lower() == "down"
+                                 or (tool == "Flyway" and bool(FLYWAY_UNDO.match(p.name))))
 
 
-VERSION = re.compile(r"^[Vv]?(\d+(?:[._]\d+)*)(?=[_.-]|$)")
+VERSION = re.compile(r"^[Vv]?(\d+(?:[._-]\d+)*)(?=[_.-]|$)")
 
 
 def _unit(path: str) -> tuple[str, str | None]:
@@ -310,7 +349,7 @@ def _unit(path: str) -> tuple[str, str | None]:
     if p.name in ("migration.sql", "up.sql", "down.sql"):
         m = VERSION.match(p.parent.name)
         return p.parent.parent.as_posix(), m.group(1) if m else None
-    m = VERSION.match(re.sub(r"^U(?=\d)", "", p.name))
+    m = VERSION.match(re.sub(r"^U(?=\d)", "", p.name)) if not MUTABLE.search(p.name) else None
     return p.parent.as_posix(), m.group(1) if m else None
 
 
@@ -334,20 +373,26 @@ def _accepted(repo: Path, adr: str, cache: dict) -> str | None:
     """None when the ADR exists accepted; else the reason."""
     if adr in cache:
         return cache[adr]
-    d = repo / ADR_DIR
-    hits = sorted(p for p in d.glob(f"{adr}*.md") if re.fullmatch(re.escape(adr) + r"(?:[-_].*)?\.md", p.name)) if d.is_dir() else []
+    feature, _, rid = adr.rpartition("/")
+    rel = FDR_GLOB.format(feature=feature) if feature else ADR_DIR
+    d = repo / rel
+    hits = sorted(p for p in d.glob(f"{rid}*.md") if re.fullmatch(re.escape(rid) + r"(?:[-_].*)?\.md", p.name)) if d.is_dir() else []
     why = None
     if not hits:
-        why = f"names {adr}, and no {ADR_DIR}/{adr}-*.md exists — file the ADR (/blueprint --adr) before the step"
+        why = (f"names {adr}, and no {rel}/{rid}-*.md exists — record the decision before the step: a feature's FDR "
+               f"(/blueprint --fdr, tag `FDR: <feature>/FDR-NNNN`) or a project ADR (tag `ADR: ADR-NNN`)")
     else:
-        m = FM_RE.match(hits[0].read_text(encoding="utf-8", errors="replace"))
+        try:
+            m = FM_RE.match(hits[0].read_text(encoding="utf-8", errors="replace"))
+        except OSError as e:
+            m, why = None, f"names {adr}, which cannot be read ({type(e).__name__})"
         try:
             fm = parse_yaml(m.group(1)) if m else {}
         except GateFault:
             fm = {}
         status = str((fm or {}).get("status", "")).strip().lower() if isinstance(fm, dict) else ""
-        if status != "accepted":
-            why = f"names {adr}, which is `{status or 'without status'}` — only an accepted ADR sanctions a destructive step"
+        if status != "accepted" and why is None:
+            why = f"names {adr}, which is `{status or 'without status'}` — only an accepted decision record sanctions a destructive step"
     cache[adr] = why
     return why
 
@@ -365,7 +410,7 @@ def migrations(repo: Path, ref: str | None, tool: str, engine: str | None) -> tu
     for p in sorted(base):
         if p not in mine:
             problems.append(f"{p}: a shipped migration is gone — a shipped migration never changes; write a new one that undoes it")
-        elif mine[p].split(":")[-1] != base[p].split(":")[-1]:
+        elif mine[p].split(":")[-1] != base[p].split(":")[-1] and not MUTABLE.search(Path(p).name):
             problems.append(f"{p}: a shipped migration changed — a shipped migration never changes; restore it and write a new one")
     new = sorted(p for p in mine if p not in base)
     classes, cache = [], {}
@@ -380,10 +425,11 @@ def migrations(repo: Path, ref: str | None, tool: str, engine: str | None) -> tu
         except (OSError, UnicodeDecodeError) as e:
             problems.append(f"{p}: cannot be read as a migration ({type(e).__name__}) — the gate never skips a file it cannot read")
             continue
-        down = _is_down(p, adapter)
+        down = _is_down(p, adapter, tool)
         st = [] if down else steps(text, p, adapter)
         for s in st:
-            why = f"has no `ADR: ADR-NNN` tag on its line or in the comment right above" if not s["adr"] else _accepted(repo, s["adr"], cache)
+            why = (f"has no decision tag (`ADR: ADR-NNN` or `FDR: <feature>/FDR-NNNN`) on its line or in the comment right above"
+                   if not s["adr"] else _accepted(repo, s["adr"], cache))
             if why:
                 problems.append(f"{p}:{s['line']}: {s['kind']} {why} (rules/database.md § Destructive steps)")
         if engine == "PostgreSQL" and not down:
@@ -391,9 +437,9 @@ def migrations(repo: Path, ref: str | None, tool: str, engine: str | None) -> tu
                 why = _accepted(repo, s["adr"], cache) if s["adr"] else "locks writes on a live table"
                 if why:
                     problems.append(f"{p}:{s['line']}: an index on `{s['table']}` {why} — build it CONCURRENTLY, or tag the step with its ADR")
-        u, v = _unit(p)
+        u, v = _unit(p) if adapter != "alembic" else ("", None)
         if v is not None:
-            same = [q for q in units.get((u, v), []) if q != p and _is_down(q, adapter) == down]
+            same = [q for q in units.get((u, v), []) if q != p and _is_down(q, adapter, tool) == down]
             if same:
                 problems.append(f"{p}: version {v} is also {', '.join(sorted(same))} — one version, one migration; renumber the new one")
         if not down:
@@ -411,7 +457,8 @@ def migrations(repo: Path, ref: str | None, tool: str, engine: str | None) -> tu
                 heads = _heads(texts)
                 if len(heads) > 1:
                     problems.append(f"{d}: {len(heads)} heads ({', '.join(heads)}) — reconcile the ledger: a merge revision, or rebase the new one")
-    note = f"{len(mine)} migration(s), {len(new)} new ({sum(c['class'] == 'contract' for c in classes)} contract)"
+    note = f"{len(mine)} migration(s), {len(new)} new ({sum(c['class'] == 'contract' for c in classes)} contract)" + (
+        "" if mine else " — none under the known layouts: set data.migrations_paths when they live elsewhere")
     return {"id": "migrations", "ok": not problems, "problems": problems, "note": note}, classes
 
 
@@ -445,13 +492,15 @@ def factory(repo: Path, ref: str | None, layouts, tests) -> list[dict]:
     surface = key(repo, "surface.runtime_surface") or ["src/**"]
     surface = surface if isinstance(surface, list) else ["src/**"]
     found: dict[str, set[str]] = {}
+    unread: list[str] = []
     for p in sorted(tree_entries(repo)):
         if not p.endswith(CODE_EXTS) or p == fac or not _match(p, surface) or _match(p, tests) \
                 or _match(p, ("scripts/gates/**",)) or is_migration(p, layouts, tests):
             continue
         try:
             hit = findings((repo / p).read_text(encoding="utf-8", errors="replace"), p)
-        except OSError:
+        except OSError as e:
+            unread.append(f"{p}: cannot be read ({type(e).__name__}) — the gate never skips a file it cannot read")
             continue
         if hit:
             found[p] = hit
@@ -484,7 +533,8 @@ def factory(repo: Path, ref: str | None, layouts, tests) -> list[dict]:
     else:
         problems = [] if (repo / fac).is_file() else [f"the connection factory `{fac}` does not exist — name the module that builds the connections"]
         problems += [f"{e.replace('#', ': opens a connection (')}) outside the factory `{fac}` — get it from the factory" for e in owed]
-    rows.insert(0, {"id": "connection factory", "ok": not problems, "problems": problems,
+    problems = unread + problems
+    rows.insert(0, {"id": "connection factory", "ok": not problems, "problems": problems, "owed": owed,
                     "note": f"one path to the database ({fac})" if fac else "no connection built yet — the first backend increment declares data.connection_factory"})
     return rows
 
@@ -529,6 +579,8 @@ def seeds(repo: Path) -> dict | None:
     if reg.get("$schema") != "seed_registry_v2":
         problems.append(f"`$schema` is `{reg.get('$schema')}` — seed_registry_v2 names each entity's owner (SETUP --upgrade moves v1)")
     ents = reg.get("shared_entities")
+    if ents is not None and not isinstance(ents, dict):
+        problems.append("`shared_entities` is not an object — one key per entity, each with its owner")
     ents = ents if isinstance(ents, dict) else {}
     ops, scan = None, []
     seeder = reg.get("seeder")
@@ -547,8 +599,12 @@ def seeds(repo: Path) -> dict | None:
             if not isinstance(mod, str) or not _inside(repo, mod) or not (repo / mod).is_file():
                 problems.append(f"{name}: the owner module `{mod}` does not exist")
             else:
-                text = (repo / mod).read_text(encoding="utf-8", errors="replace")
-                problems += [f"{name}: `{own[k]}` is not in {mod} — name the owner's {k} function" for k in ("create", "delete")
+                try:
+                    text = (repo / mod).read_text(encoding="utf-8", errors="replace")
+                except OSError as err:
+                    problems.append(f"{name}: the owner module `{mod}` cannot be read ({type(err).__name__})")
+                    text = None
+                problems += [] if text is None else [f"{name}: `{own[k]}` is not in {mod} — name the owner's {k} function" for k in ("create", "delete")
                              if not re.search(r"\b" + re.escape(own[k]) + r"\b", text)]
         else:
             ops = _operation_ids(repo) if ops is None else ops
@@ -562,7 +618,11 @@ def seeds(repo: Path) -> dict | None:
         else:
             scan.append(fx)
     for f in scan:
-        text = (repo / f).read_text(encoding="utf-8", errors="replace")
+        try:
+            text = (repo / f).read_text(encoding="utf-8", errors="replace")
+        except OSError as e:
+            problems.append(f"{f}: cannot be read ({type(e).__name__}) — the gate never skips a file it cannot read")
+            continue
         body = mask(text, f) if not f.endswith(".json") else text
         if SQL_WRITE.search(body):
             problems.append(f"{f}: writes a table directly (`{SQL_WRITE.search(body).group(0)}`) — call the owner's create instead")

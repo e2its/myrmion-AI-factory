@@ -529,8 +529,8 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     - Exit 1,4: REJECT (secrets/state files) | Exit 2,3: WARN (naming/tags, continue)
 
 0d. **Synthetic Data (if UI feature on staging):** Verify staging environment data quality
-    - Check seed scripts exist and include idempotent upsert logic
-    - Verify reset capability (teardown + re-seed command available)
+    - Check the registry's `seeder` exists and seeds each entity through its owner's create (an id that exists is skipped) — `gate.py data` green
+    - Verify reset capability: a re-seed deletes only the seeded ids through the owner's delete; a full reset is the owner's decision (`FORCE_RESEED`), never TRUNCATE
     - Validate referential coherence: related entity IDs are consistent (no orphan FKs)
     - Confirm data aligns with `user_journey.md § 6 Business Fields` (existence/required) + `design.md § Schema Constraints` (types, formats, constraints)
     - Confirm production execution guard is present (`IF env == production → ABORT`)

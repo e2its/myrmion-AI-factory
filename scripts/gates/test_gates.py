@@ -711,6 +711,16 @@ class Budget(unittest.TestCase):
             self.assertEqual(budget.worst_case_path(cat), "src/x/migrations/x/x.py", "the path under the most globs at once")
             tie = {"families": [{"name": "a", "surface": ["**/*.zz"], "invariant": "x"}, {"name": "b", "surface": ["**/*.aa"], "invariant": "y"}], "dcs": []}
             self.assertEqual(budget.worst_case_path(tie), "x/x.aa", "equal scores resolve to the sorted-first candidate, every run")
+            many = {"families": [], "dcs": [{"id": f"DC-{i}", "paths": [f"d{i}/**"]} for i in range(18)]}
+            calls, real = [0], budget.any_glob
+            def counted(p, pats):
+                calls[0] += 1
+                if calls[0] > 200_000:
+                    raise AssertionError("the worst-case search grows with every combination of prefixes")
+                return real(p, pats)
+            with unittest.mock.patch.object(budget, "any_glob", counted):
+                deep = budget.worst_case_path(many)
+            self.assertEqual(sum(1 for d in many["dcs"] if budget.any_glob(deep, d["paths"])), 18, "every prefix that adds a class is kept")
             self.assertGreater(rows["pre_edit"]["bytes"], 150, "the real payload was measured")
             self.assertEqual(rows["pre_edit"]["bytes"], budget.measure(repo)["pre_edit"]["bytes"], "a fresh session per run: never the dedupe pointer")
             self.assertFalse(list((repo / ".claude/state").glob("governance-delivered-budget-*")), "no marker left behind")
@@ -3958,6 +3968,10 @@ class Discovery(unittest.TestCase):
             r = discovery.resolve(repo, {**base, "backend.framework": "Django"})
             self.assertNotIn("Q15.1", r["pending"], "Django decides the tool: never pending")
             self.assertEqual(r["derived_answers"], {"database.migrations_tool": "Django migrations"})
+            r2 = discovery.resolve(repo, {**base, "backend.framework": "Django", "database.primary.engine": "None"})
+            self.assertEqual(r2["derived_answers"], {}, "an engine the pack does not cover: its question is not owed, nothing is decided")
+            self.assertFalse(discovery.eval_condition(repo, "database.migrations_tool exists",
+                                                      {**base, "backend.framework": "Django", "database.primary.engine": "None"}))
             self.assertEqual(r["placeholders"]["DB_MIGRATION_TOOL"], "Django migrations", "the derived value fills its token")
             self.assertIn("derived — an earlier answer decides them, never asked: database.migrations_tool = Django migrations", discovery.render_resolve(r))
             self.assertTrue(discovery.eval_condition(repo, "database.migrations_tool exists", {**base, "backend.framework": "Django"}),
@@ -6464,7 +6478,7 @@ class Data(unittest.TestCase):
                 self.assertIn(word, data.render(data.check(repo, "HEAD")))
 
     def test_every_destructive_step_carries_its_accepted_adr(self):
-        cases = (("ALTER TABLE orders\n  DROP COLUMN legacy;\n", False, "src/migrations/002.sql:1: DROP COLUMN has no `ADR: ADR-NNN` tag"),
+        cases = (("ALTER TABLE orders\n  DROP COLUMN legacy;\n", False, "src/migrations/002.sql:1: DROP COLUMN has no decision tag (`ADR: ADR-NNN` or `FDR: <feature>/FDR-NNNN`)"),
                  ("-- ADR: ADR-007 the legacy column retires\nALTER TABLE orders DROP COLUMN legacy;\n", True, ""),
                  ("ALTER TABLE orders DROP COLUMN legacy; -- ADR: ADR-007\n", True, ""),
                  ("-- ADR: ADR-099\nDROP TABLE orders;\n", False, "names ADR-099, and no docs/project_log/adr/ADR-099-*.md exists"),
@@ -6486,6 +6500,80 @@ class Data(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             r, out = self._mig(self._repo(tmp, adr="proposed"), "src/migrations/002.sql", "-- ADR: ADR-007\nDROP TABLE orders;\n")
             self.assertIn("names ADR-007, which is `proposed`", out)
+
+    def test_a_decision_record_is_an_accepted_adr_or_a_features_fdr(self):
+        """The tag resolves to a project ADR or to a feature's FDR (/blueprint --fdr); a trailing dot is prose, not the id."""
+        fdr = "docs/spec/FEAT-3/fdr/FDR-0002-drop-legacy.md"
+        for status, text, ok, word in (("accepted", "-- FDR: FEAT-3/FDR-0002 the column retires\nDROP TABLE orders;\n", True, ""),
+                                       ("proposed", "-- FDR: FEAT-3/FDR-0002\nDROP TABLE orders;\n", False, "names FEAT-3/FDR-0002, which is `proposed`"),
+                                       ("accepted", "-- FDR: FEAT-9/FDR-0002\nDROP TABLE orders;\n", False, "no docs/spec/FEAT-9/fdr/FDR-0002-*.md exists"),
+                                       ("accepted", "-- FDR: ../FDR-0002\nDROP TABLE orders;\n", False, "has no decision tag"),
+                                       ("accepted", "-- ADR: ADR-007. The column retires\nDROP TABLE orders;\n", True, "")):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / fdr, f"---\nid: FDR-0002\nstatus: {status}\n---\n# drop\n")
+                r, out = self._mig(repo, "src/migrations/002.sql", text)
+                self.assertEqual(self._row(r, "migrations")["ok"], ok, f"{text!r}: {out}")
+                if word:
+                    self.assertIn(word, out)
+
+    def test_real_layouts_names_and_dialects(self):
+        """The tools' own layouts and forms: a word in a name is no down file, a string hides no step, an expand is no drop."""
+        flyway = "src/main/resources/db/migration/"
+        for tool, rel, text, ok, word in (
+                ("Flyway", "src/migrations/V8__revert_discount.sql", "ALTER TABLE orders DROP COLUMN discount;\n", False, "DROP COLUMN has no"),
+                ("Flyway", "src/migrations/V9__add_down_payment.sql", "TRUNCATE orders;\n", False, "TRUNCATE has no"),
+                ("refinery", "src/migrations/U3__drop.sql", "DROP TABLE orders;\n", False, "DROP has no"),
+                ("Flyway", flyway + "V2__drop.sql", "DROP TABLE orders;\n", False, "DROP has no"),
+                ("Liquibase", "src/main/resources/db/changelog/002.xml", "<changeSet id='2'><dropTable tableName='t'/></changeSet>\n", False, "dropTable has no"),
+                ("Flyway", "src/migrations/002.sql", "INSERT INTO t VALUES ('a--b'); DROP TABLE t;\n", False, "DROP has no"),
+                ("Flyway", "src/migrations/002.sql", "SELECT 1 WHERE x LIKE '/*';\nDROP TABLE t;\n", False, "DROP has no"),
+                ("Knex", "src/migrations/20240103_x.js", "exports.up = (k) => { k.raw(\"http://x\"); return k.schema.dropTable('t'); };\n", False, "dropTable has no"),
+                ("Flyway", "src/migrations/002.sql", "ALTER TABLE t ALTER COLUMN c DROP NOT NULL;\nALTER TABLE t ALTER COLUMN d DROP DEFAULT;\n", True, ""),
+                ("Flyway", "src/migrations/002.sql", "ALTER TABLE t RENAME c TO d;\n", False, "RENAME has no"),
+                ("Flyway", "src/migrations/002.sql", "CREATE INDEX  CONCURRENTLY ix ON orders (x);\n", True, ""),
+                ("Django migrations", "orders/migrations/0002_sql.py", "migrations.RunSQL(\"CREATE TABLE x (id int)\", reverse_sql=\"DROP TABLE x\")\n", True, ""),
+                ("Alembic", "alembic/versions/c1_x.py", '"""drop table legacy_users\n\nRevision ID: c1\n"""\nrevision = \'c1\'\ndown_revision = None\ndef upgrade():\n    # ADR: ADR-007\n    op.drop_table(\'legacy_users\')\n', True, ""),
+                ("Alembic", "alembic/versions/c2_x.py", "revision = 'c2'\ndown_revision = None\ndef upgrade():\n    with op.batch_alter_table('t') as batch_op:\n        batch_op.drop_column('x')\n", False, "batch_op.drop_column has no"),
+                ("Alembic", "alembic/versions/c3_x.py", "revision = 'c3'\ndown_revision = None\ndef upgrade():\n    op.create_index(op.f('ix_orders_x'), 'orders', ['x'], postgresql_concurrently=True)\n", True, ""),
+                ("Alembic", "alembic/versions/c4_x.py", "revision = 'c4'\ndown_revision = None\ndef upgrade():\n    op.create_index(op.f('ix_orders_x'), 'orders', ['x'])\n", False, "an index on `orders` locks writes"),
+                ("Sequel", "db/migrate/002_x.rb", "Sequel.migration do\n  up do\n    add_column :t, :x, String\n  end\n  down do\n    drop_column :t, :x\n  end\nend\n", True, ""),
+                ("Sequel", "db/migrate/003_x.rb", "Sequel.migration do\n  up do\n    drop_column :t, :x\n  end\nend\n", False, "drop_column has no"),
+                ("TypeORM", "src/migrations/1700000000000-X.ts", "export class X {\n  public async up(q) { await q.dropColumn('t', 'x'); }\n  public async down(q) { await q.dropTable('t'); }\n}\n", False, "dropColumn has no"),
+                ("node-pg-migrate", "src/migrations/1700000000000_x.js", "exports.up = (pgm) => { pgm.dropColumns('t', ['x']); };\nexports.down = (pgm) => { pgm.dropTable('t'); };\n", False, "pgm.dropColumns has no"),
+                ("Doctrine Migrations", "src/migrations/Version2.php", "public function up(Schema $s): void { $s->dropTable('t'); }\npublic function down(Schema $s): void { $s->dropTable('u'); }\n", False, "Version2.php:1: dropTable has no"),
+                ("Phinx", "db/migrate/20240101_x.php", "public function up() { $this->table('t')->removeColumn('x'); }\n", False, "removeColumn has no"),
+                ("Ecto migrations", "priv/repo/migrations/20240101_x.exs", "def up do\n  drop table(:t)\nend\ndef down do\n  create table(:t)\nend\n", False, "20240101_x.exs:2: DROP has no"),
+                ("Ecto migrations", "priv/repo/migrations/20240102_x.exs", "def up do\n  create table(:t)\nend\ndef down do\n  drop table(:t)\nend\n", True, "")):
+            with tempfile.TemporaryDirectory() as tmp:
+                r, out = self._mig(self._repo(tmp, tool=tool), rel, text)
+                self.assertEqual(self._row(r, "migrations")["ok"], ok, f"{tool} {rel} {text!r}: {out}")
+                if word:
+                    self.assertIn(word, out)
+                if not ok and "locks" not in word:
+                    self.assertEqual([c["class"] for c in r["migrations"] if c["path"] == rel], ["contract"], out)
+
+    def test_files_that_change_by_design_and_tools_with_their_own_ledger(self):
+        with tempfile.TemporaryDirectory() as tmp:   # Diesel: a dated folder per migration — one year holds many
+            repo = self._repo(tmp, tool="Diesel"); write(repo / "migrations/2024-01-01-000000_a/up.sql", "select 1;\n")
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "a")
+            r, out = self._mig(repo, "migrations/2024-02-03-120000_b/up.sql", "select 2;\n"); self.assertTrue(self._row(r, "migrations")["ok"], out)
+        with tempfile.TemporaryDirectory() as tmp:   # a Flyway repeatable and a Liquibase master changelog change by design
+            repo = self._repo(tmp); write(repo / "src/migrations/R__views.sql", "create view v as select 1;\n")
+            write(repo / "liquibase/db.changelog-master.yaml", "databaseChangeLog: []\n")
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "r")
+            write(repo / "liquibase/db.changelog-master.yaml", "databaseChangeLog:\n  - include: {file: 002.yaml}\n")
+            r, out = self._mig(repo, "src/migrations/R__views.sql", "create or replace view v as select 2;\n")
+            self.assertTrue(self._row(r, "migrations")["ok"], out)
+        with tempfile.TemporaryDirectory() as tmp:   # Alembic's env.py is no migration; its file names number nothing
+            repo = self._repo(tmp, tool="Alembic"); write(repo / "migrations/env.py", "x = 1\n")
+            write(repo / "alembic/versions/2024_01_15_1030-a1_x.py", "revision = 'a1'\ndown_revision = None\n")
+            self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "e")
+            write(repo / "migrations/env.py", "x = 2\n")
+            r, out = self._mig(repo, "alembic/versions/2024_01_15_1030-b2_y.py", "revision = 'b2'\ndown_revision = 'a1'\n")
+            self.assertTrue(self._row(r, "migrations")["ok"], out)
+        with tempfile.TemporaryDirectory() as tmp:   # no migration found: the note says where to point the gate
+            repo = self._repo(tmp); (repo / "src/migrations/001.sql").unlink(); self._git(repo, "commit", "-qam", "x")
+            self.assertIn("none under the known layouts: set data.migrations_paths", data.render(data.check(repo, "HEAD")))
 
     def test_the_down_part_is_never_judged(self):
         for tool, rel, text in (("Flyway", "src/migrations/002.down.sql", "DROP TABLE orders;\n"),
@@ -6613,6 +6701,25 @@ class Data(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = self._repo(tmp); write(repo / "contracts/openapi/orders/v1.json", json.dumps(api))
             r, out = self._seed(repo, {"orders": {**good["orders"], "owner": {"create": "createOrder", "delete": "deleteOrder"}}}); self.assertTrue(r["ok"], out)
+
+    def test_a_malformed_registry_or_an_unreadable_seed_file_is_red(self):
+        good = {"orders": {"owner": {"module": "src/orders/service.py", "create": "create_order", "delete": "delete_order"},
+                           "fixture_path": "config/seed_fixtures/orders.json", "table_or_collection": "orders", "count": 1}}
+        with tempfile.TemporaryDirectory() as tmp:
+            r, out = self._seed(self._repo(tmp), [good["orders"]]); self.assertFalse(r["ok"], out)
+            self.assertIn("`shared_entities` is not an object", out, "a list of entities is never read as no entities")
+        real = Path.read_text
+        for target, word in (("service.py", "the owner module `src/orders/service.py` cannot be read (PermissionError)"),
+                             ("orders.json", "config/seed_fixtures/orders.json: cannot be read (PermissionError)")):
+            def deny(self_, *a, _t=target, **k):
+                if self_.name == _t:
+                    raise PermissionError(self_)
+                return real(self_, *a, **k)
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp)
+                with unittest.mock.patch.object(Path, "read_text", deny):
+                    r, out = self._seed(repo, good)
+                self.assertFalse(r["ok"], out); self.assertIn(word, out, "an unreadable seed file is named, never skipped")
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

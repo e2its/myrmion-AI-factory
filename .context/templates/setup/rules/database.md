@@ -4,6 +4,8 @@ applicable_when:
   path_glob:
     - "**/migrations/**"
     - "**/Migrations/**"
+    - "**/db/migration/**"
+    - "**/db/changelog/**"
     - "**/*.sql"
     - "**/models/**"
     - "config/seed_registry.json"
@@ -38,15 +40,17 @@ A schema change ships in two kinds of step:
 | **expand** | Adds: a table, a nullable column, an index, a new name beside the old one. | Carries its down. The down drops only what the step added. | With the code that starts using the new shape. |
 | **contract** | Removes or renames: a drop, a rename, a truncate, an unbounded delete. | None. It declares itself irreversible. | In a later increment, after no deployed code reads the old shape. |
 
-BLUEPRINT plans a contract step as its own task in a later increment, with its ADR.
+BLUEPRINT plans a contract step as its own task in a later increment, with its decision record (FDR).
 
 ## Destructive steps
 
-Destructive steps are: `DROP TABLE | COLUMN | SCHEMA | DATABASE | INDEX`, `TRUNCATE`, `DELETE` with no `WHERE` (or `WHERE 1=1`), `RENAME` of a table or a column, and the tool's DSL twins (`op.drop_column`, `migrations.RemoveField`, `dropTable`, `remove_column`, …).
+Destructive steps are: `DROP TABLE | COLUMN | SCHEMA | DATABASE | INDEX | VIEW | TYPE | SEQUENCE`, `TRUNCATE`, `DELETE` with no `WHERE` (or `WHERE 1=1`), any `RENAME` in an `ALTER TABLE` and `RENAME TABLE`, and the tool's DSL twins. `DROP NOT NULL` and `DROP DEFAULT` are expand steps (`op.drop_column`, `migrations.RemoveField`, `dropTable`, `remove_column`, …).
 
-- Every destructive step in the up part carries `ADR: ADR-NNN` on its line or in the comment block right above it, in the file's comment syntax (`-- ADR: ADR-012 …`, `# ADR: ADR-012 …`).
-- The tag names an ADR at `docs/project_log/adr/ADR-NNN-*.md` with `status: accepted`. Propose it through `/blueprint --adr`. A proposed ADR is not enough.
-- The ADR names the backup taken before the step and who decides a restore.
+- Every destructive step in the up part carries its decision tag on its line or in the comment block right above it, in the file's comment syntax:
+  - `FDR: <feature>/FDR-NNNN` — the feature's decision record at `docs/spec/<feature>/fdr/FDR-NNNN-*.md` (`/blueprint --fdr`). The default: a schema change is feature-local.
+  - `ADR: ADR-NNN` — a project-wide record at `docs/project_log/adr/ADR-NNN-*.md` (factory-adr-management).
+- The record carries `status: accepted`. A proposed record is not enough. The owner ratifies it (RDR), never the agent.
+- The record names the backup taken before the step and who decides a restore.
 - The down part is never judged: an expand's down drops what the expand added.
 
 ## Index discipline (PostgreSQL)

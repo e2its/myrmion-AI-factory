@@ -139,7 +139,7 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 
 **Story:** A column retires with `DROP COLUMN` in the same increment that stops using it. The step reads like cleanup. A failed deploy then triggers the automatic rollback, which runs the down: the column comes back empty, and the rollback looks like a success. A plain `CREATE INDEX` on a large live table locks its writes for minutes.
 
-**Detection:** The `data` member: a destructive or table-locking step in the up part of a new migration with no `ADR: ADR-NNN` tag naming an accepted ADR is red. The member lists the migration's class (`expand` or `contract`); the DEVOPS rollback never runs a contract step backwards.
+**Detection:** The `data` member: a destructive or table-locking step in the up part of a new migration with no decision tag (`FDR: <feature>/FDR-NNNN` or `ADR: ADR-NNN`) naming an accepted record is red. The member lists the migration's class (`expand` or `contract`); the DEVOPS rollback never runs a contract step backwards.
 
 ### DC-42 — Data reached around its owner
 

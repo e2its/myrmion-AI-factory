@@ -275,11 +275,14 @@ def _offered(spec: dict) -> list[str] | None:
 
 
 def decided(reg: dict, ans: dict) -> dict:
-    """{key: value} — the asked keys an earlier answer decides (`decided_by`), for an answer set that leaves them null."""
+    """{key: value} — the asked keys an earlier answer decides (`decided_by`), for an answer set that leaves them null;
+    only where the key's question is owed (its `when` holds) — an engine the pack does not cover decides nothing."""
     out = {}
+    owed = {k for q in _questions(reg) if not (isinstance(q.get("when"), str) and not evaluate(parse(q["when"]), ans))
+            for k in ((q.get("keys") or {}) if isinstance(q.get("keys"), dict) else {})}
     for k, s in _specs(reg).items():
         db = s.get("decided_by")
-        if not isinstance(db, dict) or not isinstance(db.get("values"), dict) or ans.get(db.get("key")) is None:
+        if k not in owed or not isinstance(db, dict) or not isinstance(db.get("values"), dict) or ans.get(db.get("key")) is None:
             continue
         v = db["values"].get(canon(ans.get(db["key"])))
         if v is not None:

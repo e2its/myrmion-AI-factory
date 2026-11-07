@@ -33,7 +33,7 @@ A project with a database gets a migration rule (`rules/database.md`) and a vali
    - It is n/a in the framework repo, and in a project whose `docs/setup.md` holds no `database.migrations_tool`. The answer is read in its one home, never copied into config.
 2. **Migrations, per adapter.** The tool selects an adapter: a data row naming its file globs, its up/down markers and its destructive and locking calls. SQL text is scanned in every adapter. Only the up part is judged. **Red when:**
    - **(a) A shipped migration changed.** A migration file present at the merge-base differs, or is gone, at HEAD. The base tree is the ledger of shipped migrations; no second ledger file can drift from it.
-   - **(b) A destructive step has no tag.** A destructive step of a new migration (drop, rename, retire, truncate, unbounded delete) carries no `ADR: ADR-NNN` tag on its line or in the comment block above it. A tag must name an ADR that exists with `status: accepted`. This is the existing tag, checked step by step; there is no second marker vocabulary.
+   - **(b) A destructive step has no tag.** A destructive step of a new migration (drop, rename, retire, truncate, unbounded delete) carries no `ADR: ADR-NNN` tag on its line or in the comment block above it. A tag must name a decision record that exists with `status: accepted`: `FDR: <feature>/FDR-NNNN` — the feature's record that `/blueprint --fdr` writes, the default for a schema change — or `ADR: ADR-NNN` for a project-wide record. This is the existing tag, checked step by step, widened to the framework's two record types (critic round 1).
    - **(c) An index locks a live PostgreSQL table.** A new index on a table that the same migration did not create is built without `CONCURRENTLY` (or its DSL twin). The same tag excuses it.
    - **(d) The ledger is not reconciled.** Two migrations of one directory claim one version (an up/down pair excepted), or two Alembic revisions share a parent (two heads).
    - Each new migration's class — `expand`, or `contract` when it holds a destructive step — is listed in `--json`. DEVOPS reads it there; no agent classifies.
@@ -100,3 +100,27 @@ Recorded on 2026-11-07 on branch `feature/EVOL-071-data-migrations-pack`.
   - Both upgrade fixtures owe `data (EVOL-071)`.
 - **Gates:** `gate.py discovery`, `manifest-parity`, `retired-terms`, `one-definition` and `agents` pass. So do `check-lockstep-pairs.sh` (88 files), `check-applicability-frontmatter.sh`, `check-adr-constitution-sync.sh`, `validate-governance.sh --base origin/main`, `test-hooks.sh` (202/0) and `test-snapshot-extraction.sh`.
 - **Static profile:** `gate.py profile --run --control-point static`. The member `data` reports n/a in the framework repo.
+
+### Critic round 1 cures (2026-11-07)
+
+- **Decision tag:** a step names `FDR: <feature>/FDR-NNNN` (the default, `/blueprint --fdr`) or `ADR: ADR-NNN`. The record must be accepted. The owner ratifies it, never the agent.
+- **Real layouts:**
+  - Flyway `db/migration` and Liquibase `db/changelog` are covered.
+  - Files that change by design (`R__`, the Liquibase master) are exempt from immutability. So are tools with their own ledger (Alembic, Diesel dated folders).
+  - A down file is known by its form. The `U` prefix counts only for Flyway.
+  - String literals no longer hide or fake comments.
+  - The DSL twins of Alembic `batch_op`, Sequel, Doctrine, Phinx and Ecto are covered.
+- **Text alignment (LAW-17):** review Check #8, factory-pr-review, QA 0d, the BVL seed gate, the DEVOPS rollback (fail-closed: a fault or `n/a` counts as `contract`), `rules/ci-cd.md` and upgrade step 4.
+- **Discovery:** a `decided_by` key derives only where its question is owed.
+- **Tests:** `test_gates.Data` 13/13; the full suite runs 275 tests, OK, 2 skipped.
+  - The 4 new tests are red on the round-1 head. In the real-layouts test, 16 of 24 cases are red on that head; the other 8 cover adapters that already passed.
+  - The seed test found a real fault: an `except OSError as e` shadowed the loop's entity.
+- **Mutants:** 24/24 `problems.append` mutants in `data.py` are killed.
+- **Checks:**
+  - Synthetic: 8/8 fixtures green.
+  - Gates `discovery`, `manifest-parity`, `retired-terms`, `one-definition` and `agents`, plus lock-step (88 files), applicability, ADR sync, `test-hooks` (202/0) and the snapshot test: all green.
+- **The budget search:**
+  - The data pack's globs bring the literal prefixes to 15. `worst_case_path` built every combination of them, and `gate.py budget` ran for more than ten minutes.
+  - It now takes one pass per candidate: a prefix stays only when it adds a class, a prefix made redundant later is dropped, and equal scores take the shortest path. It runs in seconds.
+  - A test caps `any_glob` calls at 200k over 18 prefixes. It is red with the old search.
+  - The new worst-case path adds two rule pointers (`React.md`, `ux-constitution.md`). The DC-40..42 gate columns were shortened, and `pre_edit` measures 5979 of 6000.

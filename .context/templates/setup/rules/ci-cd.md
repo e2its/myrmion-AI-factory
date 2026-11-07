@@ -6,7 +6,7 @@ applicable_when:
     - "**/Jenkinsfile"
     - "**/.gitlab-ci.yml"
     - "**/azure-pipelines.yml"
-version: 1.7.1
+version: 1.8.0
 date: 2026-10-07
 changelog:
   - "1.7.0: feat(EVOL-064) — § The branch rule and the runtime surface (EVOL-047) moved verbatim from the project CLAUDE.md Generation Standards §3."
@@ -47,7 +47,7 @@ changelog:
 8. **Performance Tests:** Load testing on staging
 9. **Deploy Prod:** Manual approval required
 10. **Smoke Tests:** Health checks post-deploy
-11. **Rollback:** Auto-rollback on health check failure
+11. **Rollback:** Auto-rollback on health check failure — code and traffic, plus the expand downs of the range; never a contract data step, never a restore from backup (the owner's decision — rules/database.md § Rollback)
 {{/if}}
 
 ## Quality Gates
@@ -58,7 +58,7 @@ changelog:
 | Security Scan | No HIGH/CRITICAL vulns | Block deploy |
 | Integration Tests | 100% pass rate | Block staging deploy |
 | Performance Tests | p95 <200ms | Alert + manual review |
-| Smoke Tests (Prod) | All health endpoints 200 OK | Trigger auto-rollback |
+| Smoke Tests (Prod) | All health endpoints 200 OK | Trigger auto-rollback (code + traffic; data per rules/database.md § Rollback) |
 
 ## Secrets Management in Pipelines (Tier A — CI/CD Vault)
 

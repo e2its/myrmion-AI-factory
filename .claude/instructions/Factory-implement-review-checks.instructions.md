@@ -242,7 +242,7 @@ VERIFY:
   RUN python3 scripts/gate.py data
   IF red:
     BLOCKER [GOV-SEED-ALIGNMENT-OWNER]: its lines — an entity with no owner, a seeder or fixture that writes a table,
-      a shipped migration changed, a destructive step without its accepted ADR, a connection outside the factory
+      a shipped migration changed, a destructive step without its accepted decision record (FDR or ADR), a connection outside the factory
 
 SEVERITY: BLOCKER — synthetic data integrity is a project-wide guarantee
 CONSTRAINT_IDS: [GOV-SEED-ALIGNMENT-{SCHEMA|DEPLOY|REGISTRY|OWNER}-{N}]
@@ -575,8 +575,9 @@ SEVERITY: BLOCKER for shell duplication, token hardcoding, component duplication
 ```yaml
 IF implementation includes database migrations:
   VERIFY:
-    - Migration is reversible (has down/rollback function)
-    - No data loss in migration
+    - An expand step carries its down; a contract step (drop, rename, truncate, unbounded delete) carries its decision
+      tag naming an accepted record and declares itself irreversible — never a fabricated down (rules/database.md § Expand and contract)
+    - `python3 scripts/gate.py data` green where the data pack landed (shipped migrations unchanged, tags, index discipline)
     - Large table migrations use batching
     - Indexes created before queries that need them
   

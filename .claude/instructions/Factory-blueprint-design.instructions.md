@@ -942,7 +942,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     GOV-SEC:    security_policy.md → auth requirements, CORS, headers, session rules
     GOV-TEST:   testing.md → coverage threshold (%), required frameworks, file patterns
     GOV-API:    api-standards.md → versioning, status codes, pagination, error format
-    GOV-DB:     database.md → expand now, contract later: a drop or rename is its own task in a later increment, with its accepted ADR; index discipline; one connection factory; seeds through the owner (if the data pack landed)
+    GOV-DB:     database.md → expand now, contract later: a drop or rename is its own task in a later increment, with its accepted FDR (or a project ADR); index discipline; one connection factory; seeds through the owner (if the data pack landed)
     GOV-OBS:    observability.md → required log fields, trace headers, metrics
     GOV-PERF:   performance.md → SLA targets, caching rules, query limits
     GOV-PRIV:   privacy.md → PII field handling, data retention, masking requirements

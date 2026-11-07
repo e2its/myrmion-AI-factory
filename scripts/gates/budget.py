@@ -64,22 +64,36 @@ def _sample(glob: str) -> str:
 
 
 def worst_case_path(cat: dict) -> str:
-    """The path that the most defect classes and families govern (sample paths derived from their globs).
+    """The path that the most defect classes and families govern (sample paths derived from their globs); the shortest such path.
     Deterministic: candidates are sorted before the max."""
     globs = [g for f in cat["families"] for g in f["surface"]] + [g for d in cat["dcs"] for g in d["paths"]]
     candidates = {_sample(g) for g in globs if g != "*"}
     # a path can sit under several globs at once (src/** AND **/migrations/**): prepend literal directory
     # prefixes only — a wildcard prefix such as `**/migrations/` is not a directory to prepend
     prefixes = sorted({g[:-3] + "/" for g in globs if g.endswith("/**") and "*" not in g[:-3]})
-    for pre in prefixes:
-        candidates |= {pre + c for c in sorted(candidates) if not c.startswith(pre)}
     if not candidates:
         return "src/example.py"
 
     def score(p: str) -> int:
         return sum(1 for d in cat["dcs"] if d["paths"] == ["*"] or any_glob(p, d["paths"])) \
             + sum(1 for f in cat["families"] if any_glob(p, f["surface"]))
-    return max(sorted(candidates), key=score)
+    # a glob matches at any depth, so a prepended prefix never loses a match: keep a prefix only when it adds
+    # one — one pass per candidate, never every combination of prefixes (2^prefixes candidates); then drop a
+    # kept prefix that a later one made redundant (`contracts/` under `contracts/openapi/`)
+    grown = set(candidates)
+    for c in sorted(candidates):
+        kept: list[str] = []
+        for pre in prefixes:
+            p = "".join(reversed(kept)) + c
+            if not p.startswith(pre) and score(pre + p) > score(p):
+                kept.append(pre)
+        best = score("".join(reversed(kept)) + c)
+        for pre in list(kept):
+            rest = [k for k in kept if k != pre]
+            if score("".join(reversed(rest)) + c) == best:
+                kept = rest
+        grown.add("".join(reversed(kept)) + c)
+    return max(sorted(grown), key=lambda p: (score(p), -len(p)))   # equal scores: the shortest, then the sorted-first
 
 
 def measure(repo: Path) -> dict:
