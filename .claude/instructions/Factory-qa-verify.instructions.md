@@ -444,7 +444,7 @@ FUNCTION generate_verification_checklist(FEATURE_ID, INCREMENT_ID=null):
     checklist.push("- [ ] [QA-REL-4]: Dead-letter handling — messages exceeding max_retries land in DLQ with full context (payload + retry history + last error); DLQ replay re-processes successfully or loops back (test_plan § REL-DLQ-01, REL-DLQ-02)")
     checklist.push("- [ ] [QA-REL-5]: Timeout handling — downstream hang past configured timeout returns 504 or enqueues retry; no indefinite hang; downstream_timeout metric emitted (test_plan § REL-TIMEOUT-01)")
     checklist.push("- [ ] [QA-REL-6]: Graceful shutdown — SIGTERM during in-flight request drains within configured window; health endpoint goes unhealthy; process exits 0 or 143 (test_plan § REL-SHUTDOWN-01, REL-SHUTDOWN-02)")
-    checklist.push("- [ ] [QA-REL-7]: Observability contract — trace_id propagated across all hops; structured log fields present (trace_id, correlation_id, feature_id, error_code); metrics latency_p95 within SLA (test_plan § REL-OBS-01, REL-OBS-02)")
+    checklist.push("- [ ] [QA-REL-7]: Observability contract — trace_id propagated across all hops; structured log fields present (trace_id, correlation_id, feature_id, error_code); latency_p95 judged by the deploy's `gate.py performance --run --site` verdict against `performance.thresholds` (test_plan § REL-OBS-01, REL-OBS-02)")
     # Integration scope adds contract versioning verification
     IF feature_scope == "integration":
       checklist.push("- [ ] [QA-REL-8]: Contract versioning strategy — no breaking changes without major version bump; deprecation window honoured; @deprecated or sunset dates documented (defect-prevention DC for API versioning)")

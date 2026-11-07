@@ -18,7 +18,7 @@
 7. **[documentation.md](documentation.md)** - Docstrings, architecture docs, comment policy — hosts `[PLAW-09]`
 8. **[i18n.md](i18n.md)** - Internationalization strategy — hosts `[PLAW-08]`
 9. **[observability.md](observability.md)** - Monitoring & logging rules
-10. **[performance.md](performance.md)** - Performance budgets & optimization
+10. **[performance.md](performance.md)** - Performance as law: thresholds in one home, a baseline per site (EVOL-073)
 11. **[privacy.md](privacy.md)** - GDPR compliance & data privacy — hosts `[PLAW-07]`
 12. **[project-mode.md](project-mode.md)** - Greenfield / Brownfield extension strategy — hosts `[PLAW-03]`
 13. **[protected-code.md](protected-code.md)** - Anti-drift enforcement (red zones)

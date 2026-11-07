@@ -282,6 +282,11 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **Options (filtered by hosting):** AWS Secrets Manager | GCP Secret Manager | Azure Key Vault | HashiCorp Vault | .env (local only) | None
 - **Persist:** `hosting.secrets_manager`
 
+#### Q20.3: Hosting Type (EVOL-073)
+- **Options:** `container` | `function` | `cdn` — how the deployed build runs; it selects what the performance measurement reads (container → start time; function → cold start; cdn → no cold figure, the latency probe opt-in)
+- **Derived, never asked:** Railway, Fly.io → `container` (the registry's `decided_by` on `hosting.provider`, until the host catalog #144). Asked for every host with more than one type (AWS, GCP, Azure, Vercel, DigitalOcean, Self-hosted, Other).
+- **Persist:** `hosting.type`
+
 #### Q21: CI/CD Platform
 - **Options:** GitHub Actions | GitLab CI | Bitbucket Pipelines | Azure DevOps | Jenkins | AWS CodePipeline | GCP Cloud Build | None (the literal is the one the workflow templates' `stack_conditional` names — `ci_cd.platform == "Azure DevOps"`)
 - **Not offered:** CircleCI — the framework ships no governance-check or auto-tag template for it (#143). A CircleCI team answers `None`: no server-side governance check, the gates run locally (pre-push hook), and the setup report says so.
@@ -537,6 +542,17 @@ Questions are organized in dependency order within tiers; conditions live in the
 - **RDR Recommendation:** read from Q2 (the purpose) and the audit (a price, payment, invoice or balance in the code or the documents). It is a recommendation only, never inferred: the answer is the user's.
 - **Tier-filtered:** All tiers.
 - **Persist:** `domain.monetary_amounts` (frontmatter of `docs/setup.md`, nested YAML `domain:`) → on `true`, `rules/monetary-amounts.md` lands at `--generate`
+
+#### Q37: API Latency Threshold (EVOL-073, conditional: backend exists)
+- **Options:** `200 ms` (recommended — the template default) | `100 ms` | `500 ms` | `1000 ms` — the p95 per probed endpoint on a deployed build
+- **Simplified:** es: "¿Cuánto puede tardar como máximo la API en responder (el 95 % de las peticiones)?" / en: "How long may the API take to answer (95 % of requests)?"
+- **Persist:** `performance.api_p95` → `config/quality.json → performance.thresholds.api_p95_ms`
+
+#### Q37.1: Web Performance Thresholds (EVOL-073, conditional: frontend exists)
+- **Options:** `standard` (recommended — the template default: LCP 2.5 s · FCP 1.5 s · CLS 0.1 · 200 KB gzip per route) | `strict` (2.0 s · 1.0 s · 0.05 · 150 KB) | `relaxed` (4.0 s · 3.0 s · 0.25 · 350 KB)
+- **Simplified:** es: "¿Qué exigencia de velocidad tiene la web (carga, estabilidad visual, tamaño por página)?" / en: "How fast must the web be (load, visual stability, size per page)?"
+- **Persist:** `performance.web` → `config/quality.json → performance.thresholds` (`lcp_ms`, `fcp_ms`, `cls`, `bundle_kb`) and the loop member `performance`
+- **One RDR per surface present.** No threshold is invented and no baseline is written at materialisation: the first deployed measurement writes it (rules/performance.md).
 
 > **Derived, no question (EVOL-051 / EVOL-053):** `verification.gates` (the path-to-gate map) and `traceability.home` (the one place a test states its case: the pytest `case` marker for Python, the title tag otherwise) are derived from the stack answers (Q5 runtime, Q33 runtime surface) at `--generate` — see Factory-setup-materialization. They are project configuration, editable after materialisation; they are never asked.
 

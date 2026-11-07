@@ -506,7 +506,7 @@ For SMOKE-E2E gate issues specifically, the DoD checklist is **scope-aware** —
 - [ ] Every SMOKE-{N} block (one per `user_journey.md § 3` Path — caller-persona routes) executed on dev deploy, all verdicts PASS with caller request + downstream state + observability triple-verified
 - [ ] Structured logs emitted with mandatory fields (`trace_id`, `correlation_id`, `feature_id`, `idempotency_key`, `error_code`) — grep confirms presence in dev log sink
 - [ ] Trace propagation end-to-end: a single `trace_id` spans every hop (caller → our service → downstream systems); verified in trace backend
-- [ ] Metrics dashboard green during smoke window (`latency_p95` within SLA, `error_rate` == 0 on success path)
+- [ ] Metrics dashboard green during smoke window (the deploy's `gate.py performance --run --site` verdict green, `error_rate` == 0 on success path)
 - [ ] **Scope=integration ONLY** — reliability blocks MANDATORY: SMOKE-REL-IDEMP PASS (idempotency replay), SMOKE-REL-RETRY PASS (exponential backoff + retry_count metric), SMOKE-REL-DLQ PASS (DLQ routes with full context, replay tooling works), SMOKE-REL-SHUTDOWN PASS (graceful SIGTERM drain, exit 0)
 - [ ] Zero downstream orphaned state after smoke (no zombie rows, no stuck queue messages, no leaked locks)
 - [ ] Zero open `stale-after-*` labels on this issue

@@ -46,6 +46,7 @@ MEMBERS = [
     ("freeze",           False, False, "gate.py",                 ["gate", "freeze", "--base", "{base}", "--branch", "{branch}"], False),
     ("contracts",        False, False, "gate.py",                 ["gate", "contracts", "--base", "{base}", "--branch", "{branch}"], False),
     ("data",             False, False, "gate.py",                 ["gate", "data", "--base", "{base}", "--branch", "{branch}"], False),
+    ("performance",      False, False, "gate.py",                 ["gate", "performance", "--base", "{base}", "--branch", "{branch}"], False),
     ("traceability",     False, False, "gate.py",                 ["gate", "traceability"], False),
     ("discovery",        False, False, "gate.py",                 ["gate", "discovery"], True),   # the SETUP question registry lives in the framework repo; a project consumes it in place
     ("scm-protection",   False, False, "gate.py",                 ["gate", "scm-protection", "--control-point", "{control_point}"], False),
@@ -65,6 +66,7 @@ MEMBERS = [
     ("seed-alignment",   False, True,  "BVL full loop", None, False),
     ("preventive-sweep", True,  True,  "DEVOPS --deploy (pre-deploy)", None, False),
     ("smoke-e2e",        True,  True,  "QA --verify on the deployed build", None, False),
+    ("performance-deployed", True, False, "DEVOPS --deploy (gate.py performance --run --site --url, on the deployed build)", None, False),
 ]
 
 

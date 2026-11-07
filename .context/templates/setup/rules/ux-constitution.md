@@ -8,7 +8,7 @@ applicable_when:
     - "**/*.jsx"
     - "**/*.tsx"
     - "**/*.vue"
-version: 1.7.0
+version: 1.8.0
 date: 2026-01-26
 changelog:
   - "1.6.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -509,7 +509,7 @@ inset-inline-start: 0;      /* ✅ Instead of left: 0 */
 
 **Enforcement:**
 - **QA Agent:** Adds responsive testing to test matrix (320px, 768px, 1024px, 1920px breakpoints).
-- **CI/CD:** Lighthouse CI runs mobile audits (score ≥90).
+- **CI/CD:** Lighthouse CI runs mobile accessibility audits (score ≥90). Performance is measured by `gate.py performance` (`rules/performance.md`).
 
 ---
 
@@ -1072,7 +1072,7 @@ QA Verification Checklist MUST include:
 **Strict Mode Enforcement:**
 - **Tailwind Token Validation:** Blocks merge if raw pixel values (e.g., `p-[13px]`) detected.
 - **Axe-core Audit:** Blocks merge if accessibility violations found.
-- **Lighthouse CI:** Blocks merge if Accessibility score <90 or Performance score <85.
+- **Lighthouse CI:** Blocks merge if Accessibility score <90. Performance belongs to `gate.py performance` (`rules/performance.md`).
 - **Visual Regression:** (Optional) Chromatic blocks merge if Storybook snapshots differ without approval.
 
 **Script Location:** `scripts/ux-validation.sh` (see Section XI).
@@ -1105,10 +1105,7 @@ QA Verification Checklist MUST include:
 - Screen readers: Semantic HTML + ARIA labels
 
 ### Performance Budgets
-- FCP: <1.5s
-- LCP: <2.5s
-- CLS: <0.1
-- Bundle size: <200KB (initial JS, gzipped)
+- FCP, LCP, CLS and the bundle per route: `config/quality.json → performance.thresholds`, measured by `gate.py performance` (`rules/performance.md`).
 
 ---
 

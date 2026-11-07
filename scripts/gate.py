@@ -47,7 +47,10 @@
   gate.py train [--base B --branch B] [--figures [--plan P]] [--json]   EVOL-104: a train stacks its changes by file — every increment plan the diff changes: (a) a path glob in two subs neither after the other that fit the ceiling together, (b) a sub enabling a concern's gate before a sub carrying it; (c) a sub-increment branch writing a train.close_ledgers path while a sibling sub is not MERGED; EVOL-115: (d) a seam-map row's use case, handler or integration test outside its sub's paths, (e) a `stub until SUB-x` past a MERGED SUB-x, (f) a sub's tasks ≠ its measured set, (g) more subs than the INC's Ratified sub-increments; exit 1 red · n/a without a changed plan off a sub branch · --figures: per INC subs, unique paths, path-touches, re-touch, train total
   gate.py freeze [--base B --branch B] [--json]    EVOL-115: every design.md and contracts/openapi/** the diff changes — (a) a security/availability capability's reliability question without answer or source, (b) an operation without the contracts.outage_status response, (c) an x-sensitive field without a constraint, an unparseable contract; exit 1 red · n/a without a changed design or contract
   gate.py contracts [--base B] [--branch X] [--json]  EVOL-072: contracts/errors.yaml one code per meaning (a code listed twice, two codes one meaning, an entry with no meaning), every x-error-codes code in the catalog (the whole tree), CRUD-First single and batch on the whole tree (every resource with its eight operations, an omission or an operation outside CRUD-First with a non-empty x-crud-exception), older findings in docs/project_log/crud_baseline.json that only shrinks (`undeclared` in --json seeds it at SETUP --upgrade); EVOL-070: contracts/feature_map.md rows at their contract's info.version, every operation new since the base named by a TC-API row's Operation cell, a changed test plan's Journey coverage complete; exit 1 red · n/a without a catalog and a contract
-  gate.py data [--base B] [--branch X] [--json]      EVOL-071: the data pack where database.migrations_tool is answered — a migration at the merge-base unchanged and present, every destructive step of a new migration tagged `ADR: ADR-NNN` naming an accepted ADR (down parts skipped), a PostgreSQL index on a live table built concurrently, one version per migration and one Alembic head, no connection built outside data.connection_factory (older ones in data.baseline, which only shrinks), seeds through the owner (config/seed_registry.json v2); --json lists each new migration's class (expand | contract); exit 1 red · n/a without the answer
+  gate.py data [--base B] [--branch X] [--json]      EVOL-071: the data pack where database.migrations_tool is answered — a migration at the merge-base unchanged and present, every destructive step of a new migration tagged `FDR: <feature>/FDR-NNNN` or `ADR: ADR-NNN` naming an accepted record (down parts skipped), a PostgreSQL index on a live table built concurrently, one version per migration and one Alembic head, no connection built outside data.connection_factory (older ones in data.baseline, which only shrinks), seeds through the owner (config/seed_registry.json v2); --json lists each new migration's class (expand | contract); exit 1 red · n/a without the answer
+  gate.py performance [--base B] [--branch X] [--json]   EVOL-073, the light member: performance.thresholds complete for the answered surfaces (the one home), the baseline append-only against the merge base, each line naming site / sha / at / hosting, a new line never worse than the previous line of its own site nor missing a figure it held, unless it names an accepted ADR/FDR (`rebaseline`, once per site); the baseline inside the repository; n/a without the block or a surface
+  gate.py performance --run [--json]                 the loop member (needs a build): each route of performance.bundles, gzip total ≤ bundle_kb; null bundles or a glob matching nothing is red
+  gate.py performance --run --site S --url U [--json]   the deployed measurement (DEVOPS after a deploy): p95 per endpoint ≤ api_p95_ms, Lighthouse LCP/FCP/CLS per route, warm p50 and the hosting's start/cold figure ≤ the same site's last line × (1 + margin_pct); no line for the site → advisory and the first line written; a better run appends a line; --rebaseline ADR-NNN|<feature>/FDR-NNNN (an accepted record) appends the line even when worse, the thresholds still block; exit 1 red
   gate.py contracts --parity [--json]               EVOL-070, the loop member contract-parity (needs a build): the contract tests (the test files under contracts.tests_root, through seal --scoped's dispatch) record each answer to CONTRACT_OBSERVED — every status declared, every code in the catalog and the operation's x-error-codes, every operation answered; contracts.emit writes the code's OpenAPI and oasdiff diff --fail-on-diff compares each twin (shapes, constraints, security, responses, info.version); exit 1 red · n/a without an OpenAPI contract
   gate.py digests [--base B --branch B --control-point P] [--json]   the feature's planning artefacts carry a current, complete governance digest (fingerprint; every bound rule referenced as rules/<name>.md — the change on disk vs the merge-base); exit 1 stale/incomplete
   gate.py traceability [--json]                    every declared test case (docs/spec/*/test_plan.md) has a linking test at the ONE home (config: traceability); unknown or malformed links red; the baseline only shrinks; exit 1 red · n/a when not required
@@ -80,7 +83,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
-    from gates import agents as agents_mod, aligned as aligned_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, digests as digests_mod, discovery as discovery_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
+    from gates import agents as agents_mod, aligned as aligned_mod, branch as branch_mod, budget as budget_mod, canary as canary_mod, coherence, contracts as contracts_mod, corpus, data as data_mod, digests as digests_mod, performance as perf_mod, discovery as discovery_mod, freeze as freeze_mod, planning, profile as profile_mod, retired, runtime, scm as scm_mod, seal as seal_mod, traceability as trace_mod, train as train_mod, writes  # noqa: E402
     from gates.common import GateFault, clean, context, key, repo_root  # noqa: E402
 except Exception as e:  # missing OR broken package (SyntaxError included) — it ships next to this file (SETUP / factory-sync)
     print(f"gate: the scripts/gates package is missing or broken ({type(e).__name__}: {e}) — re-run SETUP --generate or factory-sync.sh", file=sys.stderr)
@@ -473,6 +476,25 @@ def cmd_data(repo, a):
     return 0 if r["ok"] else 1
 
 
+def cmd_performance(repo, a):
+    try:
+        if a.run and (a.site or a.url):
+            if not (a.site and a.url):
+                raise GateFault("--site and --url go together: the environment measured and its base URL")
+            r = perf_mod.measure(repo, a.site, a.url, rebaseline=a.rebaseline)
+        elif a.rebaseline is not None:
+            raise GateFault("--rebaseline belongs to the deployed measurement (--run --site --url)")
+        elif a.site or a.url:
+            raise GateFault("--site and --url belong to --run (the deployed measurement)")
+        else:
+            r = perf_mod.bundles(repo) if a.run else perf_mod.check(repo, _base(repo, a))
+    except (GateFault, branch_mod.UnknownBranch) as e:
+        print(f"performance: RED — {clean(e)}", file=sys.stderr)
+        return 1
+    print(json.dumps(r, default=sorted) if a.json else perf_mod.render(r))
+    return 0 if r["ok"] else 1
+
+
 def cmd_canary(repo, a):
     if a.fixture:
         print(canary_mod.fixture(), end=""); return 0
@@ -705,6 +727,7 @@ def build_parser():
     p = sub.add_parser("freeze"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_freeze)
     p = sub.add_parser("contracts"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--parity", action="store_true"); p.set_defaults(fn=cmd_contracts)
     p = sub.add_parser("data"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_data)
+    p = sub.add_parser("performance"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--json", action="store_true"); p.add_argument("--run", action="store_true"); p.add_argument("--site", default=""); p.add_argument("--url", default=""); p.add_argument("--rebaseline", default=None); p.set_defaults(fn=cmd_performance)
     p = sub.add_parser("digests"); p.add_argument("--base", default=None); p.add_argument("--branch", default=None); p.add_argument("--control-point", choices=("push", "ci", "static"), default="push"); p.add_argument("--json", action="store_true"); p.set_defaults(fn=cmd_digests)
     p = sub.add_parser("write-target"); p.add_argument("--hook-json", action="store_true", required=True); p.set_defaults(fn=cmd_write_target)
     p = sub.add_parser("plan"); p.add_argument("--path", default=None); p.add_argument("--branch", default=None); p.add_argument("--status", action="store_true"); p.add_argument("--enter", action="store_true"); p.add_argument("--record", action="store_true"); p.add_argument("--hook-json", action="store_true"); p.set_defaults(fn=cmd_plan)
