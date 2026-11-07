@@ -69,12 +69,12 @@ FUNCTION defect_discovery_hook(errors, task, attempt):
 
 **Rule:** When `IMPLEMENT --build` runs `full_verification_gate(FEATURE_ID)` AND the feature touches files matching the project's seed script pattern OR schema/migration files, the gate MUST run the **Seed Alignment Tests** (the `seed-alignment` gate of `verification.gates`, or the seed test files through `SCOPED_RUNS`).
 
-The test suite verifies:
-- Every column written by seed scripts exists in the target schema
-- Every NOT NULL column is provided by the seed generator
-- UNIQUE constraints are not violated by the generated row set
+The test suite verifies, through the owner the seed registry names (`seed_registry_v2`, rules/database.md § Seeds through the owner):
+- Every fixture field is a field the owner's create accepts
+- Every required field is provided by the fixture
+- UNIQUE constraints are not violated by the fixture set (the owner's create succeeds for every record)
 - CHECK constraints (enum-like) are honored
-- INSERT statements use schema-qualified table names
+- No seed writes a table directly (`gate.py data`, where the data pack landed)
 
 **Also runs Seed Deployment Isolation verification:**
 - Seed scripts are physically excluded from the production deployment artifact

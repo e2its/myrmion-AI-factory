@@ -238,8 +238,14 @@ VERIFY:
       BLOCKER [GOV-SEED-ALIGNMENT-REGISTRY]:
         "{new_seed} is not registered in config/seed_registry.json."
 
+  # Sub-check 4: seeds through the owner, migrations safe (EVOL-071) — where the data pack landed
+  RUN python3 scripts/gate.py data
+  IF red:
+    BLOCKER [GOV-SEED-ALIGNMENT-OWNER]: its lines — an entity with no owner, a seeder or fixture that writes a table,
+      a shipped migration changed, a destructive step without its accepted decision record (FDR or ADR), a connection outside the factory
+
 SEVERITY: BLOCKER — synthetic data integrity is a project-wide guarantee
-CONSTRAINT_IDS: [GOV-SEED-ALIGNMENT-{SCHEMA|DEPLOY|REGISTRY}-{N}]
+CONSTRAINT_IDS: [GOV-SEED-ALIGNMENT-{SCHEMA|DEPLOY|REGISTRY|OWNER}-{N}]
 ```
 
 ### Check #2d: [GOV-DEFECT-PREVENTION] Known Defect Pattern Scan
@@ -569,8 +575,9 @@ SEVERITY: BLOCKER for shell duplication, token hardcoding, component duplication
 ```yaml
 IF implementation includes database migrations:
   VERIFY:
-    - Migration is reversible (has down/rollback function)
-    - No data loss in migration
+    - An expand step carries its down; a contract step (drop, rename, truncate, unbounded delete) carries its decision
+      tag naming an accepted record and declares itself irreversible — never a fabricated down (rules/database.md § Expand and contract)
+    - `python3 scripts/gate.py data` green where the data pack landed (shipped migrations unchanged, tags, index discipline)
     - Large table migrations use batching
     - Indexes created before queries that need them
   

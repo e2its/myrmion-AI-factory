@@ -105,7 +105,8 @@
       "security_scan.secrets_command trufflehog (#189)",
       "contracts baseline (EVOL-072)",
       "contracts.emit (EVOL-070)",
-      "feature_map Version (EVOL-070)"
+      "feature_map Version (EVOL-070)",
+      "data (EVOL-071)"
     ],
     "templates_to_add": [
       "security/sast/python.yml",

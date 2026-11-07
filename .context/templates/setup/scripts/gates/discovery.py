@@ -4,6 +4,9 @@
 registry    `.context/templates/setup/setup/discovery_registry.json` — `questions[{id, tier, since, when?, keys}]`, a key
             spec is exactly one of `options` | `options_by {key, values}` | `free` (a closed kind), plus `record_only`
             (a reason) and, on `free: text` only, `suggestions` (the literals a condition may compare it to); top-level `derived {key: {from}}` — values earlier answers decide, never asked.
+            `decided_by {key, values: {<parent literal>: <value>}}` (EVOL-071): an asked key an earlier answer may decide —
+            when the parent's answer is listed the key is derived, never pending: resolve reports it in `derived_answers`
+            (materialisation writes it beside the answers), conditions and placeholders read it, and an answer must equal it.
 grammar     condition := conj (" OR " conj)* · conj := clause (" AND " clause)* (AND binds tighter, no parentheses) ·
             clause := KEY " exists" | KEY ("=="|"!=") VALUE | KEY (" IN "|" NOT IN ") "[" VALUE ("," VALUE)* "]" ·
             VALUE := "quoted" | null | true | false | number | bare token (spaces allowed: `Azure DevOps`).
@@ -271,6 +274,27 @@ def _offered(spec: dict) -> list[str] | None:
     return None
 
 
+def decided(reg: dict, ans: dict) -> dict:
+    """{key: value} — the asked keys an earlier answer decides (`decided_by`), for an answer set that leaves them null;
+    only where the key's question is owed (its `when` holds) — an engine the pack does not cover decides nothing."""
+    out = {}
+    owed = {k for q in _questions(reg) if not (isinstance(q.get("when"), str) and not evaluate(parse(q["when"]), ans))
+            for k in ((q.get("keys") or {}) if isinstance(q.get("keys"), dict) else {})}
+    for k, s in _specs(reg).items():
+        db = s.get("decided_by")
+        if k not in owed or not isinstance(db, dict) or not isinstance(db.get("values"), dict) or ans.get(db.get("key")) is None:
+            continue
+        v = db["values"].get(canon(ans.get(db["key"])))
+        if v is not None:
+            out[k] = v
+    return out
+
+
+def with_decided(reg: dict, ans: dict) -> dict:
+    """The answer set the conditions read: the answers plus every value they decide (an answered key keeps its answer)."""
+    return {**ans, **{k: v for k, v in decided(reg, ans).items() if ans.get(k) is None}}
+
+
 def load_manifest(repo: Path) -> dict:
     p = repo / MANIFEST
     try:
@@ -364,8 +388,15 @@ def _offered_for(spec: dict, ans: dict) -> list[str] | None:
 
 def _check_answers(reg: dict, ans: dict):
     """An answer outside its key's options is a fault naming the key — never a silent skip."""
+    dec = decided(reg, ans)
     for k, spec in _specs(reg).items():
         v = ans.get(k)
+        if k in dec:
+            if v is not None and canon(v) != canon(dec[k]):
+                db = spec["decided_by"]
+                raise GateFault(f"the answer `{k}` = `{canon(v)}` contradicts `{db['key']}` = `{canon(ans.get(db['key']))}`, which decides "
+                                f"`{canon(dec[k])}` — the key is derived, never answered; clear it or answer `{db['key']}` again")
+            continue
         offered = _offered_for(spec, ans)
         if v is None or offered is None:
             continue
@@ -425,6 +456,8 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
         if problems:
             raise GateFault(f"{where}: `{c}` does not hold to the registry: " + "; ".join(problems))
     _check_answers(reg, ans)
+    derived_answers = {k: v for k, v in decided(reg, ans).items() if ans.get(k) is None}
+    ans = {**ans, **derived_answers}
     qs = sorted(enumerate(_questions(reg)), key=lambda iq: (iq[1].get("tier") if isinstance(iq[1].get("tier"), int) else 99, iq[0]))
     pending = []
     for _, q in qs:
@@ -441,7 +474,7 @@ def resolve(repo: Path, ans: dict, project: bool = False) -> dict:
     since = {q.get("id"): q.get("since") for q in _questions(reg)}
     fills = {t: ans.get(k) for k, s in _specs(reg).items() for t in (s.get("fills") or [])}
     out = {"pending": pending, "pending_since": {q: since.get(q) for q in pending}, "landing": landing, "skipped": skipped,
-           "placeholders": fills, "configures": configures(reg, ans)}
+           "placeholders": fills, "derived_answers": derived_answers, "configures": configures(reg, ans)}
     out["defect_classes"] = defect_classes(repo, reg, out["configures"], ans, pending, project)
     lacking = _unverified_parts(reg, ans)
     if lacking:
@@ -501,7 +534,8 @@ def gates_upgrade(repo: Path, conf: dict) -> dict:
 
 
 def _tool_bound(reg: dict) -> dict[str, list[str]]:
-    """Every class id an option's `configures` names (a tool-bound row: it lands only where its tool is) → the keys that bind it."""
+    """Every class id an option's `configures` names (a tool-bound row: it lands only where its tool is), or a derived row
+    with `when` names, → the keys that bind it."""
     out: dict[str, list[str]] = {}
     for k, s in _specs(reg).items():
         for rows in (s.get("configures") or {}).values() if isinstance(s.get("configures"), dict) else []:
@@ -510,6 +544,14 @@ def _tool_bound(reg: dict) -> dict[str, list[str]]:
                 keys = out.setdefault(i, [])
                 if k not in keys:
                     keys.append(k)
+    for s in _derived(reg).values():   # a stack-bound derived row (EVOL-071): its classes bind to the keys its `when` reads
+        rows = s.get("configures") if isinstance(s, dict) else None
+        ids = rows.get(DC_POINTER) if isinstance(rows, dict) and isinstance(s.get("when"), str) else None
+        for i in (ids if isinstance(ids, list) else []):
+            keys = out.setdefault(i, [])
+            for c in (c for conj in parse(s["when"]) for c in conj):
+                if c["key"] not in keys:
+                    keys.append(c["key"])
     return out
 
 
@@ -601,7 +643,7 @@ def checked(repo: Path, cond: str) -> list[list[dict]]:
 
 
 def eval_condition(repo: Path, cond: str, ans: dict) -> bool:
-    return evaluate(checked(repo, cond), ans)
+    return evaluate(checked(repo, cond), with_decided(load_registry(repo), ans))
 
 
 def _unverified_parts(reg: dict, ans: dict) -> list[str]:
@@ -625,6 +667,8 @@ def render_resolve(r: dict) -> str:
     lines = [f"discovery: {len(r['pending'])} pending question(s)" + (f": {pend}" if r["pending"] else " — every question that applies is answered")]
     if r.get("stop"):
         lines.append(f"  stop: {r['stop']}")
+    if r.get("derived_answers"):
+        lines.append("  derived — an earlier answer decides them, never asked: " + ", ".join(f"{k} = {canon(v)}" for k, v in r["derived_answers"].items()))
     empty = sorted(t for t, v in r.get("placeholders", {}).items() if v is None)
     lines.append(f"  placeholders from answers: {len(r.get('placeholders', {})) - len(empty)} filled, {len(empty)} unanswered" + (f" ({', '.join(empty)})" if empty else ""))
     dc = r.get("defect_classes") or {}
@@ -697,8 +741,8 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
             if len(kinds) != 1:
                 out.append(f"V1 · `{k}`: a spec carries exactly one of options | options_by | free (it carries {', '.join(kinds) or 'none'})")
             for f in s:
-                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills", "configures"):
-                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills, configures)")
+                if f not in SPEC_KINDS + ("record_only", "suggestions", "fills", "configures", "decided_by"):
+                    out.append(f"V1 · `{k}`: `{f}` is not a key-spec field (options, options_by, free, record_only, suggestions, fills, configures, decided_by)")
             if "suggestions" in s and (s.get("free") != "text" or not isinstance(s["suggestions"], list) or not s["suggestions"]
                                        or len({canon(x) for x in s["suggestions"]}) != len(s["suggestions"])):
                 out.append(f"V1 · `{k}`: suggestions is a non-empty list of distinct literals on a `free: text` key only")
@@ -724,6 +768,19 @@ def _v1(reg: dict, fw: tuple | None) -> list[str]:
                 out.append(f"V1 · `{k}`: options_by literal `{lit}` is not one of `{ob['key']}`'s options ({' | '.join(offered)})")
             if not isinstance(vals, list) or not vals:
                 out.append(f"V1 · `{k}`: options_by `{lit}` is not a non-empty list")
+    for k, s in specs.items():
+        if "decided_by" not in s:
+            continue
+        db = s["decided_by"]
+        if not isinstance(db, dict) or set(db) != {"key", "values"} or not isinstance(db.get("values"), dict) or not db["values"] \
+                or not all(isinstance(v, str) and v.strip() for v in db["values"].values()):
+            out.append(f"V1 · `{k}`: decided_by is {{key, values: {{<parent literal>: \"<the value it decides>\"}}}}"); continue
+        parent = specs.get(db["key"])
+        offered = _offered(parent) if parent and db["key"] != k else None
+        if offered is None:
+            out.append(f"V1 · `{k}`: decided_by names `{db['key']}`, which is not another registry key with options"); continue
+        out += [f"V1 · `{k}`: decided_by literal `{lit}` is not one of `{db['key']}`'s options ({' | '.join(offered)})"
+                for lit in db["values"] if lit not in offered]
     d = reg.get("derived", {})
     if not isinstance(d, dict):
         out.append("V1 · `derived` is not an object")
@@ -1089,11 +1146,11 @@ def _v8(repo: Path, reg: dict, manifest: dict) -> list[str]:
         add(lab, [] if pat and any(fnmatch.fnmatch(r, pat.group(1)) for r in rules) else
             [f"lint-format.sh searches `.claude/rules` for `{pat.group(1) if pat else '?'}`; the rules land as {sorted(rules)[:4]}…"])
 
-    # 9 · migration layouts the validator scans
-    lab = "validate-migrations"
-    vm = read(lab, ".context/templates/setup/scripts/validate-migrations.sh")
+    # 9 · migration layouts the data reader scans (gate.py data, EVOL-071)
+    lab = "data layouts"
+    vm = read(lab, ".context/templates/setup/scripts/gates/data.py")
     if vm is not None:
-        add(lab, [f"validate-migrations.sh does not scan {w}" for w in ('--include="*.php"', '"supabase/migrations"', '"drizzle/migrations"') if w not in vm])
+        add(lab, [f"gates/data.py does not scan {w}" for w in ('".php"', '"supabase/migrations/**"', '"drizzle/migrations/**"') if w not in vm])
 
     # 10 · one definition: the milestone literals, the upgrade checksum algorithm
     lab = "one definition"

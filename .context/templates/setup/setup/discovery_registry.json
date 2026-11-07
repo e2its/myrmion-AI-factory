@@ -849,6 +849,76 @@
    }
   },
   {
+   "id": "Q15.1",
+   "tier": 2,
+   "since": "8.25.0",
+   "when": "database.primary.engine IN [PostgreSQL, MySQL, SQLite] AND backend.runtime exists",
+   "keys": {
+    "database.migrations_tool": {
+     "options_by": {
+      "key": "backend.runtime",
+      "values": {
+       "Node.js": [
+        "Prisma Migrate",
+        "Drizzle Kit",
+        "Knex",
+        "TypeORM",
+        "node-pg-migrate",
+        "Flyway"
+       ],
+       "Python": [
+        "Alembic",
+        "Flyway",
+        "Liquibase"
+       ],
+       "Java": [
+        "Flyway",
+        "Liquibase"
+       ],
+       "Go": [
+        "golang-migrate",
+        "goose",
+        "Atlas"
+       ],
+       ".NET": [
+        "EF Core migrations",
+        "Flyway",
+        "DbUp"
+       ],
+       "Ruby": [
+        "Active Record migrations",
+        "Sequel",
+        "Flyway"
+       ],
+       "PHP": [
+        "Doctrine Migrations",
+        "Phinx",
+        "Flyway"
+       ],
+       "Rust": [
+        "sqlx-cli",
+        "Diesel",
+        "refinery"
+       ],
+       "Elixir": [
+        "Ecto migrations",
+        "Flyway"
+       ]
+      }
+     },
+     "decided_by": {
+      "key": "backend.framework",
+      "values": {
+       "Django": "Django migrations"
+      }
+     },
+     "fills": [
+      "DB_MIGRATION_TOOL"
+     ]
+    }
+   }
+  },
+  {
    "id": "Q16",
    "tier": 2,
    "since": "1.0.0",
@@ -1681,6 +1751,17 @@
     }
    }
   },
+  "quality.data": {
+   "from": "the migration pack (EVOL-071): it lands where database.migrations_tool holds an answer — asked (Q15.1) or decided by the backend framework — and gate.py data is its light member; no answer → no pack, said in the setup report",
+   "when": "database.migrations_tool exists",
+   "configures": {
+    "defect_prevention.classes": [
+     "DC-40",
+     "DC-41",
+     "DC-42"
+    ]
+   }
+  },
   "verification.gates": {
    "from": "gate.py discovery --resolve → configures.verification.gates: the configures rows of the answered backend.runtime, frontend.framework, project_scope (contract-parity, EVOL-070) and the security scan, reads = surface.runtime_surface + the test roots (EVOL-067); each row's `was` (superseded template values) stays in the registry for the upgrade merge (EVOL-116); a stack with no rows declares its rows by RDR at discovery (§ verification coverage), recorded here",
    "fills": [
@@ -1883,7 +1964,6 @@
   "DATABASE_NOSQL": "unsourced",
   "DATABASE_RULES_COMPLIANCE": "unsourced",
   "DATABASE_SQL": "unsourced",
-  "DB_MIGRATION_TOOL": "pending #125",
   "DEPLOYMENT_ALT_1": "unsourced",
   "DEPLOYMENT_ALT_1_REASON": "unsourced",
   "DEPLOYMENT_ALT_2": "unsourced",
@@ -2130,6 +2210,12 @@
    "since": "8.24.0",
    "detect": "always",
    "apply": "feature_map Version (EVOL-070)"
+  },
+  {
+   "id": "data (EVOL-071)",
+   "since": "8.25.0",
+   "detect": "config/quality.json#/data",
+   "apply": "data (EVOL-071)"
   }
  ]
 }

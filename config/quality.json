@@ -301,6 +301,13 @@
         ".context/templates/setup/upgrade_safety_protocol.md",
         ".context/templates/setup/scripts/validate-upgrade-integrity.sh"
       ]
+    },
+    {
+      "term": "validate-migrations.sh",
+      "record": "ADR-EVOL-071 — gate.py data replaces the migration grep: the merge-base ledger, the ADR tag per step, the connection factory, the seed owners",
+      "exempt": [
+        ".claude/instructions/Factory-setup-upgrade.instructions.md"
+      ]
     }
   ],
   "coherence": {

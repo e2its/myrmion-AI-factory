@@ -1083,6 +1083,16 @@ RUN python3 scripts/gate.py contracts --parity   # the loop member contract-pari
   IF red: fix the code, or the contract through BLUEPRINT --refine — never a status or a code the contract does not declare
 ```
 
+#### Data pack (EVOL-071, DC-40..42 — where database.migrations_tool holds an answer)
+```yaml
+IF config/quality.json → data.connection_factory IS null AND this increment builds the backend's database access:
+  WRITE data.connection_factory — the path of the one module that builds connections; every other module asks it
+A schema change: an expand step (with its down) now; a contract step (drop, rename) in a later increment, tagged
+  `FDR: <feature>/FDR-NNNN` (or `ADR: ADR-NNN`) naming an accepted record — never edit a migration the base branch already carries (rules/database.md)
+RUN python3 scripts/gate.py data
+  IF red: fix with its lines — a new migration instead of an edit, the decision tag (FDR or ADR), CONCURRENTLY, the factory, the owner's create
+```
+
 #### Business Policies Enforcement
 ```yaml
 READ user_journey.md → § 7 Business Rules (When/Then rows)

@@ -66,7 +66,7 @@ These extend the generic hard blocks (`SKILL.md` Phase 4 in the upstream skill) 
 | 3 | Secrets in diff (regex patterns) | both | `scripts/detect_change_type.py` |
 | 4 | High-severity security vulnerability (SQLi, RCE, auth bypass, persistent XSS) | both | `references/code-review-criteria.md` § 4 |
 | 5 | Tests deleted without justification in PR description | both | `references/code-review-criteria.md` § 1 |
-| 6 | Irreversible DB migrations without rollback script | downstream | `references/code-review-criteria.md` § SQL |
+| 6 | Irreversible DB migration step without its decision tag (an expand without its down; a contract step without an accepted ADR/FDR — `gate.py data` where the data pack landed) | downstream | `references/code-review-criteria.md` § SQL |
 | 7 | **CIP violation**: new code artifact without `config/codebase_inventory.json` consultation | downstream | `factory-codebase-inventory/SKILL.md` |
 | 8 | **CVP violation**: spec-bearing change with broken upstream traceability (spec.feature ↔ user_journey ↔ slice_map ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan) | downstream | `factory-coherence-validation/SKILL.md` |
 | 9 | **IPP violation**: governance artifact written fully-formed on first write | both | `factory-incremental-persistence/SKILL.md` (covered by `check-ipp-compliance.sh` PreToolUse — push gate re-asserts as defence in depth) |

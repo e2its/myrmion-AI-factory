@@ -84,7 +84,7 @@ applicable_when:
 | DC | Family | Invariant | Gate | Paths | Applicable To | Severity |
 |---|---|---|---|---|---|---|
 | DC-18 | `runtime` | Unused imports are removed before commit. | `—` | `src/**` | IMPLEMENT, REVIEW | WARNING |
-| DC-27 | `data` | A migration ships with its down step. | `scripts/validate-migrations.sh` | `**/migrations/**` | IMPLEMENT | BLOCKER |
+| DC-27 | `data` | A migration ships with its down step. | `gate.py data` | `**/migrations/**` | IMPLEMENT | BLOCKER |
 | DC-29 | `runtime` | Build the least that satisfies the spec. | `—` | `*` | IMPLEMENT, BLUEPRINT | WARNING |
 EOF
 

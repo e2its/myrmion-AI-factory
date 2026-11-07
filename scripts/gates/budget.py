@@ -23,7 +23,7 @@ import uuid
 from pathlib import Path
 
 from .common import GateFault, any_glob, context, key
-from .corpus import catalog, laws
+from .corpus import catalog, laws, universe
 
 REQUIRED = ("session_start", "prompt_submit", "pre_edit", "snapshot", "law_sentence_max_chars", "dc_invariant_max_chars")
 MUST_EMIT = ("session_start", "prompt_submit", "pre_edit")   # an empty emission from these is a dead producer, never "within budget"
@@ -63,23 +63,39 @@ def _sample(glob: str) -> str:
     return path if "." in Path(path).name else path + "/x.py"
 
 
-def worst_case_path(cat: dict) -> str:
-    """The path that the most defect classes and families govern (sample paths derived from their globs).
-    Deterministic: candidates are sorted before the max."""
-    globs = [g for f in cat["families"] for g in f["surface"]] + [g for d in cat["dcs"] for g in d["paths"]]
+def worst_case_path(cat: dict, rules: list[list[str]] | None = None) -> str:
+    """The path that the most defect classes, families and path-bound rules govern — every one a line the pre-edit
+    delivery carries (sample paths derived from their globs); the shortest such path. `rules`: each path-bound rule's
+    `path_glob` list. Deterministic: candidates are sorted before the max."""
+    rules = [r for r in (rules or []) if r]
+    globs = [g for f in cat["families"] for g in f["surface"]] + [g for d in cat["dcs"] for g in d["paths"]] + [g for r in rules for g in r]
     candidates = {_sample(g) for g in globs if g != "*"}
     # a path can sit under several globs at once (src/** AND **/migrations/**): prepend literal directory
     # prefixes only — a wildcard prefix such as `**/migrations/` is not a directory to prepend
     prefixes = sorted({g[:-3] + "/" for g in globs if g.endswith("/**") and "*" not in g[:-3]})
-    for pre in prefixes:
-        candidates |= {pre + c for c in sorted(candidates) if not c.startswith(pre)}
     if not candidates:
         return "src/example.py"
 
     def score(p: str) -> int:
         return sum(1 for d in cat["dcs"] if d["paths"] == ["*"] or any_glob(p, d["paths"])) \
-            + sum(1 for f in cat["families"] if any_glob(p, f["surface"]))
-    return max(sorted(candidates), key=score)
+            + sum(1 for f in cat["families"] if any_glob(p, f["surface"])) + sum(1 for r in rules if any_glob(p, r))
+    # a glob matches at any depth, so a prepended prefix never loses a match: keep a prefix only when it adds
+    # one — one pass per candidate, never every combination of prefixes (2^prefixes candidates); then drop a
+    # kept prefix that a later one made redundant (`contracts/` under `contracts/openapi/`)
+    grown = set(candidates)
+    for c in sorted(candidates):
+        kept: list[str] = []
+        for pre in prefixes:
+            p = "".join(reversed(kept)) + c
+            if not p.startswith(pre) and score(pre + p) > score(p):
+                kept.append(pre)
+        best = score("".join(reversed(kept)) + c)
+        for pre in list(kept):
+            rest = [k for k in kept if k != pre]
+            if score("".join(reversed(rest)) + c) == best:
+                kept = rest
+        grown.add("".join(reversed(kept)) + c)
+    return max(sorted(grown), key=lambda p: (score(p), -len(p)))   # equal scores: the shortest, then the sorted-first
 
 
 def measure(repo: Path) -> dict:
@@ -111,7 +127,8 @@ def measure(repo: Path) -> dict:
     produce("prompt_submit", repo / "scripts/governance-onprompt.sh", ["bash", "scripts/governance-onprompt.sh"],
             "scripts/governance-onprompt.sh (worst case: snapshot reload + stale warning forced)",
             '{"session_id":"budget","prompt":"x"}', {"GOVERNANCE_ONPROMPT_WORST_CASE": "1"})
-    wpath = worst_case_path(cat)
+    pg = [r["applicable_when"].get("path_glob") for r in universe(repo)["rules"] if isinstance(r["applicable_when"], dict)]
+    wpath = worst_case_path(cat, [[g for g in v if isinstance(g, str)] for v in pg if isinstance(v, list)])
     session = f"budget-{uuid.uuid4().hex}"   # a fresh session per run: the dedupe pointer must never be what is measured
     try:
         produce("pre_edit", repo / ".claude/hooks/deliver-governance.sh", ["bash", ".claude/hooks/deliver-governance.sh"],

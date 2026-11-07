@@ -93,7 +93,7 @@ if (T / "setup/setup_master_template.md").is_file():
     from gates.common import FM_RE, parse_yaml
     text = (P / "docs/setup.md").read_text(encoding="utf-8"); fm_m = FM_RE.match(text)
     fm = parse_yaml(fm_m.group(1)) if fm_m else {}
-    for dotted, value in A.items():
+    for dotted, value in {**A, **RES.get("derived_answers", {})}.items():   # a value an earlier answer decides lands beside them (EVOL-071)
         node = fm
         *parents, leaf = dotted.split(".")
         for part in parents:
@@ -112,6 +112,8 @@ if (T / "setup/setup_master_template.md").is_file():
 # {{#if}}/{{#each}} blocks keep their content)
 NUM = {"MEASURE_RETENTION_DAYS": "90", "MEASURE_REPORT_INTERVAL_DAYS": "30", "SURFACE_CEILING_FILES": "3", "SURFACE_CEILING_LINES": "800", "RUNTIME_SURFACE": '["src/**", "scripts/**"]', "CI_WORKFLOW_PATHS": '[".github/workflows/**"]', "DEPLOYING_WORKFLOWS": '[".github/workflows/auto-tag.yml", ".github/workflows/deploy*.yml"]', "PLANNING_GOVERNED_PATHS": '["src/**", "scripts/**", ".claude/**", ".github/workflows/**", "config/**", "security/sast/**", ".semgrepignore", "docs/constitution.md", "docs/setup.md"]', "AGENT_WRITER_MODEL": "sonnet", "AGENT_CRITIC_MODEL": "opus", "TRACEABILITY_HOME": '{"kind": "pytest-marker"}', "SCM_PLATFORM": '"GitHub"', "SCM_REQUIRED_CHECKS": '["governance-check"]', "SCM_APPROVALS": "0"}
 NUM["VERIFICATION_GATES"] = json.dumps(GATES)
+if RES["placeholders"].get("DB_MIGRATION_TOOL"):   # Q15.1, or decided by backend.framework (EVOL-071)
+    NUM["DB_MIGRATION_TOOL"] = str(RES["placeholders"]["DB_MIGRATION_TOOL"])
 NUM["DC_ENTRIES"] = "| PDC-1 | `runtime` | sample project class. | — | `src/**` | IMPLEMENT, REVIEW | WARNING |"   # the seed, PDC-numbered (EVOL-066)
 NUM["TRACEABILITY_TEST_ROOTS"] = json.dumps(RES["configures"].get("traceability.test_roots", []))
 if isinstance(A.get("surface.runtime_surface"), list):
@@ -244,8 +246,8 @@ if "| DC-18 |" not in cat:
     cases = cases.rstrip("\n") + "\n\n" + case(tcases, "DC-18").group(0)
 (proj / "defect-prevention.md").write_text(cat, encoding="utf-8"); (proj / "defect-prevention-cases.md").write_text(cases, encoding="utf-8")
 PY
-  # the project's config predates 8.20.0: no `train` and no `contracts` block (EVOL-104, EVOL-115) — their migrations are owed
-  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
+  # the project's config predates 8.20.0: no `train`, no `contracts` and no `data` block (EVOL-104, EVOL-115, EVOL-071) — their migrations are owed
+  python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); [q.pop(k, None) for k in ("train", "contracts", "data")]; json.dump(q, open(p, "w"), indent=2)' "$P/config/quality.json"
   # its gate rows predate the per-file rows (EVOL-116): the template's old frontend scoped (a `was` value — replaced), a
   # tests command the project edited (kept), no red_reads (added); no `sast` row (EVOL-074 — added), no `contract-parity` row (EVOL-070 — added where Q4.5 selects it)
   python3 -c 'import json,sys; p=sys.argv[1]; q=json.load(open(p)); g=q["verification"]["gates"]

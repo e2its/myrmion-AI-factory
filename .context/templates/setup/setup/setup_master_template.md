@@ -1,5 +1,5 @@
 ---
-version: 2.17.0
+version: 2.18.0
 date: 2026-04-21
 changelog:
   - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
@@ -84,6 +84,7 @@ frontend:
 database:
   primary:
     engine: null
+  migrations_tool: null               # Q15.1, or decided by backend.framework (EVOL-071)
   secondary:
     engine: null
   cache:
@@ -126,6 +127,7 @@ quality:
     sca_threshold: null
     enabled: null
   sast: null                          # derived: the SAST packs that landed for the stack (EVOL-074)
+  data: null                          # derived: the migration pack, where database.migrations_tool holds an answer (EVOL-071)
 ai:
   training: null
   inference: null

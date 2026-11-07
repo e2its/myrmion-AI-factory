@@ -9,7 +9,7 @@ In Factory PR Review the rubric drives a **push gate**, not a merge gate. "🔴 
 Only mark as blocker if AT LEAST one of the following holds:
 
 - **High severity security**: SQLi, RCE, persistent XSS, insecure deserialization, auth bypass, secrets exposure, IDOR.
-- **Data loss**: deletion or overwrite of data without backup or rollback. Irreversible migration without a down script.
+- **Data loss**: deletion or overwrite of data without backup or rollback. An irreversible migration step without its accepted decision record (rules/database.md § Expand and contract: an expand carries its down, a contract step its tag).
 - **Undeclared breaking change**: change to a public API (OpenAPI/AsyncAPI/public SDK) without major version bump or migration note.
 - **Public endpoint modified without updating the corresponding spec**.
 - **Verified critical functional bug**: the code does not do what the PR description claims, demonstrable with a concrete input.

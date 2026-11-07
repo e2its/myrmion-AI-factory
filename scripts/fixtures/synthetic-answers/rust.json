@@ -7,6 +7,7 @@
     "backend.runtime": "Rust",
     "frontend.framework": "None",
     "database.primary.engine": "PostgreSQL",
+    "database.migrations_tool": "sqlx-cli",
     "hosting.provider": "AWS",
     "hosting.iac_tool": "Terraform",
     "ci_cd.platform": "GitHub Actions",
@@ -21,6 +22,7 @@
   },
   "expect": {
     "landed": [
+      ".claude/rules/database.md",
       "contracts/errors.yaml"
     ],
     "absent": [
@@ -28,6 +30,7 @@
     ],
     "defect_classes": {
       "present": [
+        "DC-40", "DC-41", "DC-42",
         "DC-36",
         "DC-37",
         "DC-39",

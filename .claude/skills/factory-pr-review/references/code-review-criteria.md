@@ -87,7 +87,7 @@ Only applies if the change is on a critical path or has scaling potential:
 
 ### SQL
 - No `SELECT *` in production.
-- Migrations with both up AND down scripts.
+- An expand migration carries its down; a contract step (drop, rename, truncate) carries its decision tag and no fabricated down (rules/database.md § Expand and contract).
 - Indexes declared with the migration that creates the query that needs them.
 - Transactions where multiple writes must be atomic.
 
