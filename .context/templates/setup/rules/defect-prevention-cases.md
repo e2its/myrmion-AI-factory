@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Cases — origin, story and detection narrative per DC id. Annex to defect-prevention.md; read on demand by id, never at session start."
-version: 1.5.0
+version: 1.6.0
 date: 2026-09-25
 changelog:
   - "1.0.0: feat(EVOL-043) — annex created; narratives moved out of the catalog prose columns into one case per DC"
@@ -148,3 +148,12 @@ One case per row of `defect-prevention.md § Defect Classes`. Read a case by id 
 **Story:** A repository class owns the database access. A handler opens its own connection for one quick query; a seed script inserts rows straight into the tables. Each skips the owner's validation and invariants. A baseline of those shortcuts, deleted and seeded again, quietly grows.
 
 **Detection:** The `data` member: a connection built outside `data.connection_factory` (the migrations and the test roots aside) is red; older ones sit in a baseline compared with its merge-base copy, so it only shrinks. Each seeded entity names its owner's create and delete, and a seeder or fixture that writes a table is red.
+
+### DC-43 — One site's figure scores another
+
+**Origin:** A generic class proven in a downstream instantiation (#127).
+
+**Story:** A latency reference was measured once, on one environment, and became the threshold for every environment. A slower environment looked like a regression on each deploy, and a real regression hid behind a faster one. Nobody could tell which figure belonged to which build.
+
+**Detection:** The `performance` member: every baseline line names its site, its measured commit and its date. The deployed measurement compares a figure only with the last line of the same site; a site with no line yet is advisory and writes its first line. The light member refuses a line with no site and an edited or removed line.
+

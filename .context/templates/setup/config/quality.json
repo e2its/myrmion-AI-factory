@@ -221,5 +221,16 @@
     "connection_factory": null,
     "baseline": "docs/project_log/data_baseline.json",
     "migrations_paths": null
+  },
+  "performance": {
+    "_doc": "Performance as law (EVOL-073), read by python3 scripts/gate.py performance. thresholds is the ONE home of every performance threshold — api_p95_ms (backend), lcp_ms, fcp_ms, cls and bundle_kb (frontend, gzip per route) — filled from the discovery answers (Q37, Q37.1), never the injection budgets. margin_pct bounds a regression of a ratcheted figure (warm p50 per endpoint, start_ms or cold_ms by hosting.type) against the last baseline line of the SAME site. baseline is append-only: one line per recorded measurement {site, sha, at, hosting, metrics}, written by the deployed measurement (gate.py performance --run --site --url, DEVOPS after a deploy) — the first one per site, then only a line at least as good. bundles ({route: [globs over the build output]}) is written by the first frontend increment, endpoints (the probed paths) by the first backend increment; null is red where its surface exists (cdn: endpoints opt-in). warmup and samples shape the probe; timeout_s bounds each request, the start poll and Lighthouse. Rules: rules/performance.md.",
+    "thresholds": {{PERFORMANCE_THRESHOLDS}},
+    "margin_pct": 10,
+    "baseline": "docs/project_log/performance_baseline.jsonl",
+    "bundles": null,
+    "endpoints": null,
+    "warmup": 5,
+    "samples": 30,
+    "timeout_s": 120
   }
 }

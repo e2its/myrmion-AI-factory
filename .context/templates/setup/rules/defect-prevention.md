@@ -1,6 +1,6 @@
 ---
 description: "Defect Prevention Catalog — families, defect classes, gates, governed paths. Cases annex: defect-prevention-cases.md"
-version: 3.7.0
+version: 3.8.0
 date: 2026-09-25
 changelog:
   - "3.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
@@ -51,6 +51,7 @@ Runtime defect patterns that pass every static gate (lint, typecheck, SAST, unit
 | DC-40 | `data` | A shipped migration never changes, and one version names one migration. | profile member `data` (merge-base migrations unchanged at HEAD; one version per directory, one Alembic head) | `**/migrations/**`, `**/Migrations/**`, `alembic/versions/**`, `db/migrate/**` | BLUEPRINT, IMPLEMENT, REVIEW | BLOCKER |
 | DC-41 | `data` | Every destructive or table-locking schema step carries a tag naming an accepted FDR or ADR; no automatic rollback reverses it. | profile member `data` (each new migration's up part; class `contract` in `--json` for the DEVOPS rollback) | `**/migrations/**`, `**/Migrations/**`, `alembic/versions/**`, `db/migrate/**` | BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS | BLOCKER |
 | DC-42 | `data` | The database is reached only through the one connection factory, and seeds write through the owning module. | profile member `data` (a connection outside `data.connection_factory`, shrink-only baseline; seed registry v2 owners) | `src/**`, `config/seed_registry.json`, `config/seed_fixtures/**` | BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS | BLOCKER |
+| DC-43 | `infra` | A performance figure is judged only against a reference measured on the same site; no site's figure sets another's threshold. | profile member `performance` (baseline per site) · `gate.py performance --run --site` | `docs/project_log/performance_baseline.jsonl` | BLUEPRINT, DEVOPS, QA | BLOCKER |
 {{DC_ENTRIES}}
 
 Columns. `DC`: `DC-NN` is a universal class, numbered by the framework (§ Promotion); `PDC-NN` is the project's own (§ Discovery Protocol). `Invariant`: one line, ≤ `budgets.dc_invariant_max_chars`. `Gate`: the mechanical check that proves the DC (`scripts/` script, BVL step, CVP check id, pr-review Block, named test) or `—`. `Paths`: globs the DC governs; `*` = universal — delivered everywhere and embedded in the governance snapshot. `Applicable To`: agents that MUST consult — CODESIGN, BLUEPRINT, IMPLEMENT, REVIEW, DEVOPS, QA, AUDIT (SETUP materialises, never consumes). `Severity`: BLOCKER or WARNING when a consumer finds the pattern.

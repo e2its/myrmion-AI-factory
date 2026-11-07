@@ -433,7 +433,12 @@ Phase 4: Deploy with Strategy
 
 Phase 5: Post-Deploy Verification
   RUN smoke tests (basic endpoint checks)
-  VERIFY metrics within normal range
+  # Performance (EVOL-073, rules/performance.md): one call, the same site's baseline
+  RUN python3 scripts/gate.py performance --run --site '{ENV}' --url '{deployed base URL}'   # single-quoted: each one argv element, never expanded
+  #   red (a threshold, the ratchet beyond margin, an unreadable value) → verification fails
+  #   advisory (no line for {ENV} yet) → passes; the run wrote the first line
+  #   a legitimate slowdown → only with an accepted ADR/FDR: add --rebaseline '<record id>' (thresholds still block; one record re-baselines a site once)
+  #   a written line (docs/project_log/performance_baseline.jsonl) is committed with this deploy's artefacts
   VERIFY no error spike in logs
   
   # Synthetic Data Seeding (non-production only — see Seed Pipeline Protocol)

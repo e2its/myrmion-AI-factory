@@ -76,7 +76,7 @@ LOAD (ALL required):
   .claude/rules/contract-first-policy.md → API contract compliance
   .claude/rules/database.md → Database naming, migration standards
   .claude/rules/observability.md → Logging, monitoring, alerting
-  .claude/rules/performance.md → Performance budgets
+  .claude/rules/performance.md → the deployed measurement (gate.py performance --run --site, thresholds in config/quality.json → performance)
   .claude/rules/immutability_policy.md → Immutable deployments
   .claude/rules/ai_budget_tracker.md → Budget tracking
   .claude/rules/ai_budget_governance.md → Budget governance

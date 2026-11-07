@@ -1,5 +1,5 @@
 ---
-version: 2.18.0
+version: 2.19.0
 date: 2026-04-21
 changelog:
   - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
@@ -97,6 +97,10 @@ hosting:
   provider: null
   iac_tool: null
   secrets_manager: null
+  type: null                          # Q20.3, or decided by hosting.provider (EVOL-073)
+performance:
+  api_p95: null                       # Q37, when a backend exists (EVOL-073)
+  web: null                           # Q37.1, when a frontend exists (EVOL-073)
 ci_cd:
   platform: null
   tier: null
@@ -128,6 +132,7 @@ quality:
     enabled: null
   sast: null                          # derived: the SAST packs that landed for the stack (EVOL-074)
   data: null                          # derived: the migration pack, where database.migrations_tool holds an answer (EVOL-071)
+  performance: null                   # derived: the performance thresholds landed, where a surface exists (EVOL-073)
 ai:
   training: null
   inference: null

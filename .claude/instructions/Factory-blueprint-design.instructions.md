@@ -944,7 +944,7 @@ FUNCTION generate_governance_constraints_digest(FEATURE_ID, stack_context, gover
     GOV-API:    api-standards.md → versioning, status codes, pagination, error format
     GOV-DB:     database.md → expand now, contract later: a drop or rename is its own task in a later increment, with its accepted FDR (or a project ADR); index discipline; one connection factory; seeds through the owner (if the data pack landed)
     GOV-OBS:    observability.md → required log fields, trace headers, metrics
-    GOV-PERF:   performance.md → SLA targets, caching rules, query limits
+    GOV-PERF:   performance.md → thresholds by key (performance.thresholds, no number copied), endpoints and routes measured, caching rules, query limits
     GOV-PRIV:   privacy.md → PII field handling, data retention, masking requirements
     GOV-STACK:  {stack-specific rule e.g. node.md, python.md} → key naming/lint rules
     GOV-REVIEW: review-policy.md → review criteria, approval policies, review checklist scope

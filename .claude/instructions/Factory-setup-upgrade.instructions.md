@@ -244,6 +244,14 @@ Migration anchors (registry `migrations`; a row is owed when the project is olde
 
 Run `python3 scripts/gate.py data`: green, or each finding named.
 
+**performance (EVOL-073).** Add the template's `performance` block to `config/quality.json` (`thresholds`, `margin_pct`, `baseline`, `bundles: null`, `endpoints: null`, `warmup`, `samples`, `timeout_s`, `_doc`). Then, in this order:
+
+1. **The answers.** `hosting.type` (Q20.3, unless `hosting.provider` decides it — write the `derived_answers` value), `performance.api_p95` (Q37, a backend exists) and `performance.web` (Q37.1, a frontend exists) unanswered → owed through `pending_since`. Each answer lands its thresholds in `performance.thresholds` (`--resolve` → `configures["performance.thresholds"]`); a frontend answer also adds the loop row `verification.gates.performance` (`gates_upgrade.added`).
+2. **The old numbers.** The refreshed rules carry none; a project rule or script that repeats a performance threshold now points to `performance.thresholds` instead.
+3. **No baseline.** Nothing writes `docs/project_log/performance_baseline.jsonl` here: the first deployed measurement writes it. Until then the deployed measurement is advisory on the ratchet and blocking on the thresholds.
+
+Run `python3 scripts/gate.py performance`: green, or each finding named.
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).

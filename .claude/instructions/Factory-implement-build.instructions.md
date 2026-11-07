@@ -1093,6 +1093,13 @@ RUN python3 scripts/gate.py data
   IF red: fix with its lines — a new migration instead of an edit, the decision tag (FDR or ADR), CONCURRENTLY, the factory, the owner's create
 ```
 
+#### Performance endpoints (EVOL-073, DC-43)
+```yaml
+IF config/quality.json → performance.endpoints IS null AND this increment builds the backend:
+  WRITE performance.endpoints — the paths DEVOPS probes after each deploy (a health path and the journey's read paths);
+        no number here: thresholds live in performance.thresholds (rules/performance.md)
+```
+
 #### Business Policies Enforcement
 ```yaml
 READ user_journey.md → § 7 Business Rules (When/Then rows)
@@ -1403,6 +1410,13 @@ FOR EACH frontend component/page:
   3. Write E2E test for user journey (from spec.feature scenarios)
   4. Run accessibility audit (axe-core or equivalent)
   5. Verify visual match to mock.html
+```
+
+#### Performance bundles (EVOL-073)
+```yaml
+IF config/quality.json → performance.bundles IS null AND this increment builds the frontend:
+  WRITE performance.bundles — {route: [globs over the build output]} for each route the journey opens
+RUN python3 scripts/gate.py performance --run   # after the build; a route over bundle_kb → split or lazy-load, never raise the threshold
 ```
 
 ### Worker Protocol — Phase C (Wiring — worker by file surface; e2e tests via `factory-dev-e2e`)

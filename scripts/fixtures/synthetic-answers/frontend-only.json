@@ -9,6 +9,7 @@
     "frontend.pattern": "F1",
     "database.primary.engine": "PostgreSQL",
     "hosting.provider": "AWS",
+    "hosting.type": "container",
     "hosting.iac_tool": "Terraform",
     "ci_cd.platform": "GitHub Actions",
     "scm.platform": "GitHub",
@@ -18,7 +19,8 @@
     "surface.runtime_surface": [
       "src/**",
       "scripts/**"
-    ]
+    ],
+    "performance.web": "standard"
   },
   "expect": {
     "landed": [
@@ -31,7 +33,8 @@
     ],
     "defect_classes": {
       "present": [
-        "DC-38"
+        "DC-38",
+        "DC-43"
       ],
       "absent": [
         "DC-36",
@@ -46,12 +49,14 @@
     },
     "pending_absent": [
       "Q15.1",
-      "Q36"
+      "Q36",
+      "Q37"
     ],
     "gates": {
       "frontend-tests": "npx ng test --no-watch",
       "secrets": "bash scripts/security-scan.sh --secrets --require-scanner",
-      "sast": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet ."
+      "sast": "semgrep scan --config security/sast --error --metrics=off --disable-version-check --quiet .",
+      "performance": "python3 scripts/gate.py performance --run"
     },
     "red": true,
     "red_sources": [

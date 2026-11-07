@@ -82,19 +82,19 @@ else
   echo "    Skipping accessibility audit."
 fi
 
-# 3. Lighthouse CI (Accessibility + Performance)
+# 3. Lighthouse CI (Accessibility; performance belongs to gate.py performance — rules/performance.md)
 echo ""
 echo "3️⃣  Running Lighthouse CI audits..."
 if command -v lhci &> /dev/null; then
   if [ "$DRY_RUN" = "1" ]; then
-    echo "[DRY_RUN] Would run: lhci autorun --collect.settings.preset=desktop"
+    echo "[DRY_RUN] Would run: lhci autorun --collect.settings.preset=desktop --collect.settings.onlyCategories=accessibility"
   else
-    if ! lhci autorun --collect.settings.preset=desktop 2>/dev/null; then
+    if ! lhci autorun --collect.settings.preset=desktop --collect.settings.onlyCategories=accessibility 2>/dev/null; then
       echo "❌ BLOCKED: Lighthouse CI thresholds not met"
-      echo "   Required: Accessibility ≥90, Performance ≥85"
+      echo "   Required: Accessibility ≥90"
       EXIT_CODE=1
     else
-      echo "✅ Lighthouse CI passed (Accessibility ≥90, Performance ≥85)"
+      echo "✅ Lighthouse CI passed (Accessibility ≥90)"
     fi
   fi
 else
@@ -249,7 +249,7 @@ else
   echo "Remediation steps:"
   echo "1. Replace hardcoded px values with Tailwind tokens"
   echo "2. Fix accessibility violations reported by Axe-core"
-  echo "3. Improve Lighthouse scores (target: A11y ≥90, Perf ≥85)"
+  echo "3. Improve the Lighthouse accessibility score (target ≥90)"
 fi
 
 exit $EXIT_CODE

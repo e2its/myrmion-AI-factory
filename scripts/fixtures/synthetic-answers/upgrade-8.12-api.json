@@ -45,6 +45,7 @@
       "Q18",
       "Q19",
       "Q20.2",
+      "Q20.3",
       "Q21.2",
       "Q21.1",
       "Q22",
@@ -68,7 +69,9 @@
       "Q33",
       "Q34",
       "Q35",
-      "Q36"
+      "Q36",
+      "Q37",
+      "Q37.1"
     ],
     "defect_classes": {
       "present": [
@@ -86,7 +89,8 @@
         "DC-36",
         "DC-37",
         "DC-38",
-        "DC-39"
+        "DC-39",
+        "DC-43"
       ],
       "collisions": [
         "DC-31"
@@ -106,7 +110,8 @@
       "contracts baseline (EVOL-072)",
       "contracts.emit (EVOL-070)",
       "feature_map Version (EVOL-070)",
-      "data (EVOL-071)"
+      "data (EVOL-071)",
+      "performance (EVOL-073)"
     ],
     "templates_to_add": [
       "security/sast/python.yml",

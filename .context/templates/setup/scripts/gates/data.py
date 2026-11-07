@@ -382,8 +382,8 @@ def _heads(texts: dict[str, str]) -> list[str]:
     return sorted(r for r in revs if r not in parents)
 
 
-def _accepted(repo: Path, adr: str, cache: dict) -> str | None:
-    """None when the decision record (FDR or ADR) exists and is accepted; else the reason."""
+def _accepted(repo: Path, adr: str, cache: dict, what: str = "a destructive step") -> str | None:
+    """None when the decision record (FDR or ADR) exists and is accepted; else the reason. `what` is the act it sanctions."""
     if adr in cache:
         return cache[adr]
     feature, _, rid = adr.rpartition("/")
@@ -392,8 +392,8 @@ def _accepted(repo: Path, adr: str, cache: dict) -> str | None:
     hits = sorted(p for p in d.glob(f"{rid}*.md") if re.fullmatch(re.escape(rid) + r"(?:[-_].*)?\.md", p.name)) if d.is_dir() else []
     why = None
     if not hits:
-        why = (f"names {adr}, and no {rel}/{rid}-*.md exists — record the decision before the step: a feature's FDR "
-               f"(written at BLUEPRINT, tag `FDR: <feature>/FDR-NNNN`) or a project ADR (tag `ADR: ADR-NNN`)")
+        why = (f"names {adr}, and no {rel}/{rid}-*.md exists — record the decision first: a feature's FDR "
+               f"(`<feature>/FDR-NNNN`, written at BLUEPRINT) or a project ADR (`ADR-NNN`)")
     else:
         try:
             m = FM_RE.match(hits[0].read_text(encoding="utf-8", errors="replace"))
@@ -405,7 +405,7 @@ def _accepted(repo: Path, adr: str, cache: dict) -> str | None:
             fm = {}
         status = str((fm or {}).get("status", "")).strip().lower() if isinstance(fm, dict) else ""
         if status != "accepted" and why is None:
-            why = f"names {adr}, which is `{status or 'without status'}` — only an accepted decision record sanctions a destructive step"
+            why = f"names {adr}, which is `{status or 'without status'}` — only an accepted decision record sanctions {what}"
     cache[adr] = why
     return why
 

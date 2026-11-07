@@ -1053,6 +1053,27 @@
    }
   },
   {
+   "id": "Q20.3",
+   "tier": 2,
+   "since": "8.26.0",
+   "keys": {
+    "hosting.type": {
+     "options": [
+      "container",
+      "function",
+      "cdn"
+     ],
+     "decided_by": {
+      "key": "hosting.provider",
+      "values": {
+       "Railway": "container",
+       "Fly.io": "container"
+      }
+     }
+    }
+   }
+  },
+  {
    "id": "Q21",
    "tier": 2,
    "since": "1.0.0",
@@ -1709,6 +1730,102 @@
      ]
     }
    }
+  },
+  {
+   "id": "Q37",
+   "tier": 2,
+   "since": "8.26.0",
+   "when": "backend.runtime exists",
+   "keys": {
+    "performance.api_p95": {
+     "options": [
+      "200 ms",
+      "100 ms",
+      "500 ms",
+      "1000 ms"
+     ],
+     "configures": {
+      "200 ms": {
+       "performance.thresholds": {
+        "api_p95_ms": 200
+       }
+      },
+      "100 ms": {
+       "performance.thresholds": {
+        "api_p95_ms": 100
+       }
+      },
+      "500 ms": {
+       "performance.thresholds": {
+        "api_p95_ms": 500
+       }
+      },
+      "1000 ms": {
+       "performance.thresholds": {
+        "api_p95_ms": 1000
+       }
+      }
+     },
+     "record_only": "the answer configures config/quality.json → performance.thresholds, which gate.py performance reads; nothing reads this copy"
+    }
+   }
+  },
+  {
+   "id": "Q37.1",
+   "tier": 2,
+   "since": "8.26.0",
+   "when": "frontend.framework exists",
+   "keys": {
+    "performance.web": {
+     "options": [
+      "standard",
+      "strict",
+      "relaxed"
+     ],
+     "configures": {
+      "standard": {
+       "performance.thresholds": {
+        "lcp_ms": 2500,
+        "fcp_ms": 1500,
+        "cls": 0.1,
+        "bundle_kb": 200
+       },
+       "verification.gates": {
+        "performance": {
+         "command": "python3 scripts/gate.py performance --run"
+        }
+       }
+      },
+      "strict": {
+       "performance.thresholds": {
+        "lcp_ms": 2000,
+        "fcp_ms": 1000,
+        "cls": 0.05,
+        "bundle_kb": 150
+       },
+       "verification.gates": {
+        "performance": {
+         "command": "python3 scripts/gate.py performance --run"
+        }
+       }
+      },
+      "relaxed": {
+       "performance.thresholds": {
+        "lcp_ms": 4000,
+        "fcp_ms": 3000,
+        "cls": 0.25,
+        "bundle_kb": 350
+       },
+       "verification.gates": {
+        "performance": {
+         "command": "python3 scripts/gate.py performance --run"
+        }
+       }
+      }
+     },
+     "record_only": "the answer configures config/quality.json → performance.thresholds, which gate.py performance reads; nothing reads this copy"
+    }
+   }
   }
  ],
  "derived": {
@@ -1759,6 +1876,18 @@
      "DC-40",
      "DC-41",
      "DC-42"
+    ]
+   }
+  },
+  "quality.performance": {
+   "from": "performance as law (EVOL-073): the thresholds the answered surfaces chose — Q37 (backend p95) and Q37.1 (frontend LCP, FCP, CLS, bundle per route) — merged into config/quality.json → performance.thresholds; gate.py performance is its light member, its loop member where a frontend exists, and DEVOPS's deployed measurement; no surface → {}",
+   "fills": [
+    "PERFORMANCE_THRESHOLDS"
+   ],
+   "when": "backend.runtime exists OR frontend.framework exists",
+   "configures": {
+    "defect_prevention.classes": [
+     "DC-43"
     ]
    }
   },
@@ -2216,6 +2345,12 @@
    "since": "8.25.0",
    "detect": "config/quality.json#/data",
    "apply": "data (EVOL-071)"
+  },
+  {
+   "id": "performance (EVOL-073)",
+   "since": "8.26.0",
+   "detect": "config/quality.json#/performance",
+   "apply": "performance (EVOL-073)"
   }
  ]
 }

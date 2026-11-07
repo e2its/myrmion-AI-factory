@@ -6,7 +6,7 @@ applicable_when:
     - "**/tests/**"
     - "**/*.test.*"
     - "**/*.spec.*"
-version: 1.9.0
+version: 1.10.0
 date: 2026-09-25
 changelog:
   - "1.5.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
@@ -92,7 +92,7 @@ changelog:
   - **Enforcement:** Blocked by `/REVIEW` ([PATH-XX]) and CI (`scripts/lint-format.sh`)
 
 ## Performance & Reliability
-- Define p95 latency targets per service; add load tests when breached
+- Latency and web-vital thresholds live in `config/quality.json → performance.thresholds`, measured by `gate.py performance` (`rules/performance.md`); add load tests when breached
 - Add resiliency tests (timeouts, retries, circuit breakers) for integrations
 - Run smoke tests post-deploy in each environment
 

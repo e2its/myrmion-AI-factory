@@ -23,7 +23,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RETIRED = "Governance Index (Auto-" + "Generated)"   # built at runtime: scripts/ is in the retired-terms scan set; a literal here turns gate.py retired-terms red
 sys.path.insert(0, str(HERE.parent))
-from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, data, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
+from gates import agents, aligned, branch, budget, canary, checklist, coherence, contracts, data, dependencies, corpus, digests, discovery, freeze, frontmatter, manifest, performance, planning, profile, retired, runtime, scm, seal, traceability, train  # noqa: E402
 from gates.common import GateFault, glob_match, key, read_frontmatter, resolve_pointer  # noqa: E402
 
 CLAUDE_MD = """# Project
@@ -6755,6 +6755,431 @@ class Data(unittest.TestCase):
                 with unittest.mock.patch.object(Path, "read_text", deny):
                     r, out = self._seed(repo, good)
                 self.assertFalse(r["ok"], out); self.assertIn(word, out, "an unreadable seed file is named, never skipped")
+
+
+class _Slow:
+    """A local server whose delay and status the test sets: the deployed build a measurement reads."""
+    delay, status = 0.0, 200
+
+    def __enter__(self):
+        import http.server
+        import threading
+        outer = self
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                time.sleep(outer.delay)
+                self.send_response(outer.status); self.send_header("Content-Length", "2"); self.end_headers(); self.wfile.write(b"ok")
+
+            def log_message(self, *a):
+                pass
+        self.srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.srv.server_address[1]}"
+        return self
+
+    def __exit__(self, *a):
+        self.srv.shutdown(); self.srv.server_close()
+
+
+class Performance(unittest.TestCase):
+    """EVOL-073, performance as law: one home for the thresholds, a dated append-only baseline per site that moves one
+    way, the bundle per route in the loop, the deployed measurement (p95, web vitals, warm p50, start / cold)."""
+    BL = "docs/project_log/performance_baseline.jsonl"
+    THR = {"api_p95_ms": 200, "lcp_ms": 2500, "fcp_ms": 1500, "cls": 0.1, "bundle_kb": 200}
+
+    def _git(self, repo, *c):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *c], check=True, capture_output=True)
+
+    def _repo(self, tmp, scope="backend-only", hosting="container", perf=None, frontend=False, backend=True):
+        repo = fixture_repo(Path(tmp))
+        write(repo / "docs/setup.md", "---\nproject_scope: " + scope + "\n" + ("backend:\n  runtime: Go\n" if backend else "")
+              + ("frontend:\n  framework: React\n" if frontend else "") + (f"hosting:\n  type: {hosting}\n" if hosting else "") + "---\n")
+        q = json.loads((repo / "config/quality.json").read_text())
+        if perf is not False:
+            q["performance"] = {"thresholds": dict(self.THR), "margin_pct": 10, "baseline": self.BL, "bundles": None,
+                                "endpoints": ["/health"], "warmup": 0, "samples": 3, "timeout_s": 5, **(perf or {})}
+        write(repo / "config/quality.json", json.dumps(q))
+        self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "base")
+        return repo
+
+    def _line(self, site="staging", p50=10.0, extra=None, sha="a" * 40):
+        return json.dumps({"site": site, "sha": sha, "at": "2026-11-07T10:00:00Z", "hosting": "container",
+                           "metrics": {"p50_ms": {"/health": p50}, "p95_ms": {"/health": p50}, **(extra or {})}}) + "\n"
+
+    def _lines(self, repo):
+        p = repo / self.BL
+        return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.is_file() else []
+
+    def test_na_in_meta_without_the_block_or_a_surface_and_the_member(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(performance.check(fixture_repo(Path(tmp), "meta"), "HEAD").get("na"))
+        with tempfile.TemporaryDirectory() as tmp:
+            r = performance.check(self._repo(tmp, perf=False), "HEAD"); self.assertTrue(r.get("na"), r)
+            self.assertIn("SETUP --upgrade adds it", performance.render(r))
+        with tempfile.TemporaryDirectory() as tmp:
+            r = performance.check(self._repo(tmp, backend=False), "HEAD"); self.assertTrue(r.get("na"), r)
+        self.assertIn("performance", [m[0] for m in profile.MEMBERS])
+        self.assertFalse(any(m[1] or m[2] for m in profile.MEMBERS if m[0] == "performance"), "the light member needs no build")
+        self.assertIn("performance-deployed", [m[0] for m in profile.MEMBERS])
+
+    def test_every_threshold_lives_once_and_is_complete_for_the_surfaces(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = performance.check(self._repo(tmp), "HEAD"); self.assertTrue(r["ok"], performance.render(r))
+        cases = (({"api_p95_ms": 200}, True, "`lcp_ms` is missing — the frontend exists"),
+                 ({k: v for k, v in self.THR.items() if k != "api_p95_ms"}, False, "`api_p95_ms` is missing — the backend exists"),
+                 ({**self.THR, "ttfb_ms": 9}, False, "`ttfb_ms` is not a performance threshold"),
+                 ({**self.THR, "api_p95_ms": "fast"}, False, "`api_p95_ms` must be a positive number"),
+                 ({**self.THR, "cls": 0}, True, "`cls` must be a positive number"),
+                 ({**self.THR, "api_p95_ms": float("inf")}, False, "`api_p95_ms` must be a positive number"))
+        for thr, fe, word in cases:
+            with tempfile.TemporaryDirectory() as tmp:
+                r = performance.check(self._repo(tmp, frontend=fe, perf={"thresholds": thr}), "HEAD")
+                self.assertFalse(r["ok"], word); self.assertIn(word, performance.render(r))
+        for m in (100, -1, "10", True):
+            with tempfile.TemporaryDirectory() as tmp:
+                out = performance.render(performance.check(self._repo(tmp, perf={"margin_pct": m}), "HEAD"))
+                self.assertIn("`performance.margin_pct` must be a number in [0, 100)", out, m)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = performance.render(performance.check(self._repo(tmp, perf={"thresholds": [200]}), "HEAD"))
+            self.assertIn("must be an object", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(performance.check(self._repo(tmp, perf={"margin_pct": 0}), "HEAD")["ok"], "a zero margin is a margin")
+        self.assertEqual(performance.surfaces({"backend.runtime": "Go", "frontend.framework": "None (API only)"}), ["backend"],
+                         "the API-only literal is no frontend")
+
+    def test_the_baseline_is_append_only_one_way_and_per_site(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.BL, self._line(p50=10)); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "b")
+            self.assertTrue(performance.check(repo, "HEAD")["ok"])
+            write(repo / self.BL, self._line(p50=9))
+            self.assertIn("edited, removed or moved away — the baseline is append-only", performance.render(performance.check(repo, "HEAD")))
+            write(repo / self.BL, "")
+            self.assertIn("edited, removed or moved away", performance.render(performance.check(repo, "HEAD")))
+            (repo / self.BL).unlink()
+            r = performance.check(repo, "HEAD"); self.assertFalse(r["ok"], "a deleted baseline is red, never a reset")
+            self.assertIn("edited, removed or moved away", performance.render(r))
+            q = json.loads((repo / "config/quality.json").read_text()); q["performance"]["baseline"] = "docs/other.jsonl"
+            write(repo / "config/quality.json", json.dumps(q))
+            self.assertIn("edited, removed or moved away", performance.render(performance.check(repo, "HEAD")), "a repointed baseline keeps its old lines")
+            write(repo / "docs/other.jsonl", self._line(p50=10))
+            self.assertTrue(performance.check(repo, "HEAD")["ok"], "moved with its lines: the prefix holds")
+            q["performance"]["baseline"] = self.BL; write(repo / "config/quality.json", json.dumps(q)); write(repo / self.BL, self._line(p50=10))
+            write(repo / self.BL, self._line(p50=10) + self._line(p50=9).replace('"/health"', '"/other"'))
+            self.assertIn("p50_ms:/health not measured", performance.render(performance.check(repo, "HEAD")), "a dropped figure never resets the bar")
+            write(repo / self.BL, self._line(p50=10) + self._line(p50=12))
+            out = performance.render(performance.check(repo, "HEAD"))
+            self.assertIn("line 2 (staging) is worse than the previous line of its site (p50_ms:/health 12 > 10)", out)
+            write(repo / self.BL, self._line(p50=10) + self._line(p50=9))
+            self.assertTrue(performance.check(repo, "HEAD")["ok"], "a better line moves the bar")
+            write(repo / self.BL, self._line(p50=10) + self._line(site="production", p50=50))
+            r = performance.check(repo, "HEAD"); self.assertTrue(r["ok"], "another site's line is never the reference (DC-43): " + performance.render(r))
+            self.assertTrue(performance.check(repo)["ok"], "without a base only the shape and the one-way rule are read")
+        for out_of in ("/tmp/x.jsonl", "../x.jsonl"):
+            with tempfile.TemporaryDirectory() as tmp:
+                out = performance.render(performance.check(self._repo(tmp, perf={"baseline": out_of}), "HEAD"))
+                self.assertIn("leaves the repository", out, out_of)
+        for bad, word in (('{"sha": "a"}\n', "has no site, at, hosting, metrics"), ("x\n", "line 1 is not JSON"),
+                          (self._line(sha="zz"), "`sha` must be the measured commit"), (self._line(site=" "), "`site` must name"),
+                          (self._line().replace("2026-11-07T10:00:00Z", "yesterday"), "`at` must be a UTC date"),
+                          (self._line().replace('"container"', '"vm"'), "`hosting` must be one of"),
+                          (self._line(extra={"start_ms": "slow"}), "`metrics` must hold numbers")):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = self._repo(tmp); write(repo / self.BL, bad)
+                out = performance.render(performance.check(repo, "HEAD")); self.assertIn(word, out)
+
+    def test_only_an_accepted_decision_record_re_baselines(self):
+        """RDR «1» (2026-11-07): a worse line is accepted only when it names an accepted ADR / FDR; the thresholds still block."""
+        adr = "docs/project_log/adr/ADR-001-slower-host.md"
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            write(repo / self.BL, self._line(p50=10)); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "b")
+            worse = json.loads(self._line(p50=40)); worse["rebaseline"] = "ADR-001"
+            write(repo / self.BL, self._line(p50=10) + json.dumps(worse) + "\n")
+            self.assertIn("no docs/project_log/adr/ADR-001-*.md exists", performance.render(performance.check(repo, "HEAD")))
+            write(repo / adr, "---\nstatus: proposed\n---\n")
+            self.assertIn("`proposed` — only an accepted decision record sanctions a re-baseline", performance.render(performance.check(repo, "HEAD")))
+            write(repo / adr, "---\nstatus: accepted\n---\n")
+            r = performance.check(repo, "HEAD"); self.assertTrue(r["ok"], performance.render(r))
+            again = dict(worse, metrics={"p50_ms": {"/health": 80}, "p95_ms": {"/health": 80}})
+            write(repo / self.BL, self._line(p50=10) + json.dumps(worse) + "\n" + json.dumps(again) + "\n")
+            self.assertIn("already re-baselined this site — one decision, one re-baseline", performance.render(performance.check(repo, "HEAD")))
+            write(repo / self.BL, self._line(p50=10) + self._line(p50=40))
+            self.assertIn("unless an accepted decision record re-baselines it", performance.render(performance.check(repo, "HEAD")))
+            worse["rebaseline"] = "../x"; write(repo / self.BL, self._line(p50=10) + json.dumps(worse) + "\n")
+            self.assertIn("`rebaseline` must name a decision record", performance.render(performance.check(repo, "HEAD")))
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp); s.delay = 0.03
+            write(repo / self.BL, self._line(p50=1, extra={"start_ms": 1})); self._git(repo, "add", "-A"); self._git(repo, "commit", "-qm", "b")
+            for rb, word in (("x/../y", "is not a decision record id"), ("ADR-001", "names ADR-001, and no docs/project_log/adr/ADR-001-*.md exists")):
+                with self.subTest(rb=rb), self.assertRaises(GateFault) as cm:
+                    performance.measure(repo, "staging", s.url, rebaseline=rb)
+                self.assertIn(word, str(cm.exception))
+            self.assertEqual(len(self._lines(repo)), 1, "a refused re-baseline measures nothing and writes nothing")
+            write(repo / adr, "---\nstatus: accepted\n---\n")
+            r = performance.measure(repo, "production", s.url, rebaseline="ADR-001")
+            self.assertTrue(r["recorded"]); self.assertNotIn("rebaseline", self._lines(repo)[-1], "a site's first line re-baselines nothing")
+            write(repo / self.BL, self._line(p50=1, extra={"start_ms": 1}))
+            write(repo / adr, "---\nstatus: accepted\n---\n")
+            self.assertFalse(performance.measure(repo, "staging", s.url)["ok"], "without the record the regression blocks")
+            r = performance.measure(repo, "staging", s.url, rebaseline="ADR-001")
+            self.assertTrue(r["ok"] and r["recorded"], performance.render(r)); self.assertIn("re-baselined by ADR-001", performance.render(r))
+            self.assertEqual(self._lines(repo)[-1]["rebaseline"], "ADR-001")
+            self.assertTrue(performance.check(repo, "HEAD")["ok"], "the light member accepts the line it wrote")
+            with self.assertRaises(GateFault) as cm:
+                performance.measure(repo, "staging", s.url, rebaseline="ADR-001")
+            self.assertIn("already re-baselined site `staging`", str(cm.exception))
+            write(repo / "docs/project_log/adr/ADR-002-x.md", "---\nstatus: accepted\n---\n")
+            q = json.loads((repo / "config/quality.json").read_text()); q["performance"]["thresholds"]["api_p95_ms"] = 1
+            write(repo / "config/quality.json", json.dumps(q))
+            r = performance.measure(repo, "staging", s.url, rebaseline="ADR-002")
+            self.assertFalse(r["ok"] or r["recorded"], "a re-baseline never passes a threshold"); self.assertEqual(len(self._lines(repo)), 2)
+            gate = [sys.executable, str(Path(__file__).resolve().parents[1] / "gate.py"), "--repo", str(repo), "performance"]
+            r = subprocess.run(gate + ["--rebaseline", "ADR-001"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1); self.assertIn("--rebaseline belongs to the deployed measurement", r.stderr)
+
+    def test_the_bundle_per_route_is_held_to_its_threshold(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertTrue(performance.bundles(self._repo(tmp)).get("na"), "no frontend, no bundle")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, frontend=True)
+            self.assertIn("declare `performance.bundles`", performance.render(performance.bundles(repo)))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, frontend=True, perf={"bundles": {"/": ["dist/assets/index-*.js"], "/admin": ["dist/assets/admin-*.js"]},
+                                                       "thresholds": {**self.THR, "bundle_kb": 1}})
+            write(repo / "dist/assets/index-ab12.js", "a" * 4000)
+            write(repo / "dist/assets/admin-cd34.js", os.urandom(4000).hex())
+            r = performance.bundles(repo); out = performance.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("✓ bundle /:", out); self.assertIn("✗ bundle /admin:", out); self.assertIn("KB gzip > 1 KB", out)
+            (repo / "dist/assets/admin-cd34.js").unlink()
+            self.assertIn("`dist/assets/admin-*.js` matches no file — build first", performance.render(performance.bundles(repo)))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, frontend=True, perf={"bundles": {"/": "dist/*.js"}})
+            self.assertIn("must be a list of globs", performance.render(performance.bundles(repo)))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp, frontend=True, perf={"bundles": {"/": ["/etc/*", "../*/x.js"]}})
+            out = performance.render(performance.bundles(repo))
+            self.assertIn("`/etc/*` leaves the build output", out); self.assertIn("`../*/x.js` leaves the build output", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = performance.render(performance.bundles(self._repo(tmp, frontend=True, perf={"bundles": {"/": [" "]}})))
+            self.assertIn("its value must be a list of globs", out, "an empty glob is red, never a traceback")
+
+    def test_a_regression_beyond_the_margin_blocks_and_no_baseline_is_advisory(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp)
+            r = performance.measure(repo, "staging", s.url)
+            self.assertTrue(r["ok"] and r["advisory"] and r["recorded"], performance.render(r))
+            self.assertIn("advisory — no baseline yet for site `staging`; the first line is written", performance.render(r))
+            first = self._lines(repo); self.assertEqual(len(first), 1); self.assertEqual(first[0]["sha"], subprocess.run(
+                ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip())
+            self.assertIn("start_ms", first[0]["metrics"])
+            s.delay = 0.05
+            r = performance.measure(repo, "staging", s.url); out = performance.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("regression beyond the margin: p50_ms:/health", out)
+            self.assertEqual(len(self._lines(repo)), 1, "a red run writes nothing")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, perf={"margin_pct": 50}); s.delay = 0.03
+            write(repo / self.BL, self._line(p50=25, extra={"start_ms": 1000}))
+            r = performance.measure(repo, "staging", s.url)
+            self.assertTrue(r["ok"] and not r["advisory"] and not r["recorded"], "worse within the margin: green, the bar stays — " + performance.render(r))
+            write(repo / self.BL, self._line(p50=1000, extra={"start_ms": 1000}))
+            r = performance.measure(repo, "staging", s.url)
+            self.assertTrue(r["ok"] and r["recorded"], performance.render(r)); self.assertIn("a better line is appended", performance.render(r))
+            write(repo / self.BL, self._line(p50=1000, extra={"start_ms": 1000}).rstrip("\n"))
+            performance.measure(repo, "staging", s.url)
+            self.assertEqual(len(self._lines(repo)), 2, "a baseline with no final newline still gets its own line")
+            write(repo / self.BL, self._line(p50=1000, extra={"start_ms": 1000}).replace('"/health"', '"/gone"'))
+            out = performance.render(performance.measure(repo, "staging", s.url))
+            self.assertIn("p50_ms:/gone not measured — the reference holds it", out)
+
+    def test_another_sites_figure_is_never_the_reference(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp); s.delay = 0.03
+            write(repo / self.BL, self._line(site="staging", p50=0.01))
+            r = performance.measure(repo, "production", s.url)
+            self.assertTrue(r["ok"] and r["advisory"], "staging's figure never judges production (DC-43): " + performance.render(r))
+            self.assertEqual([e["site"] for e in self._lines(repo)], ["staging", "production"])
+
+    def test_p95_over_its_threshold_and_an_unreadable_answer_are_red(self):
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, perf={"thresholds": {"api_p95_ms": 20}}); s.delay = 0.03
+            out = performance.render(performance.measure(repo, "staging", s.url))
+            self.assertIn("p95 /health", out); self.assertIn("> 20 ms", out); self.assertFalse(self._lines(repo))
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, hosting="function"); s.status = 500
+            r = performance.measure(repo, "staging", s.url); out = performance.render(r)
+            self.assertFalse(r["ok"]); self.assertIn("unreadable — " + s.url + "/health answered 500", out)
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, perf={"timeout_s": 0.5}); s.status = 503
+            out = performance.render(performance.measure(repo, "staging", s.url))
+            self.assertIn("never answered 2xx within 0.5 s", out, "a container that never starts is red, never a pass")
+        with tempfile.TemporaryDirectory() as tmp:
+            with _Slow() as s:
+                gone = s.url   # the server stops: its port refuses
+            repo = self._repo(tmp, hosting="function")
+            out = performance.render(performance.measure(repo, "staging", gone))
+            self.assertIn("/health could not be reached (", out, "a site that refuses is unreadable, never a pass")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, perf={"endpoints": None})
+            self.assertIn("declare `performance.endpoints`", performance.render(performance.measure(repo, "staging", s.url)))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / self.BL, "x\n")
+            with _Slow() as s:
+                self.assertIn("cannot be read as the performance baseline", performance.render(performance.measure(repo, "staging", s.url)))
+
+    def test_the_hosting_selects_what_is_measured(self):
+        for hosting, cold in (("container", "start_ms"), ("function", "cold_ms")):
+            with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+                repo = self._repo(tmp, hosting=hosting)
+                self.assertTrue(performance.measure(repo, "staging", s.url)["ok"])
+                m = self._lines(repo)[0]["metrics"]
+                self.assertIn(cold, m); self.assertNotIn({"start_ms": "cold_ms", "cold_ms": "start_ms"}[cold], m)
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, hosting="cdn", perf={"endpoints": None})
+            r = performance.measure(repo, "staging", s.url)
+            self.assertTrue(r["ok"], "cdn: the probe is opt-in"); self.assertIn("latency probe is opt-in", performance.render(r))
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp, hosting="cdn")
+            self.assertTrue(performance.measure(repo, "staging", s.url)["ok"])
+            m = self._lines(repo)[0]["metrics"]; self.assertNotIn("start_ms", m); self.assertNotIn("cold_ms", m)
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            out = performance.render(performance.measure(self._repo(tmp, hosting=None), "staging", s.url))
+            self.assertIn("`hosting.type` in docs/setup.md must be one of", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(GateFault):
+                performance.measure(self._repo(tmp), "staging", " ")
+        for bad in ("file:///etc/passwd", "http://u:p@host/", "-x", "http:///x", "ftp://host/", "http://h/?token=abc", "http://h/#f"):
+            with self.subTest(url=bad), self.assertRaises(GateFault) as cm:
+                performance.check_url(bad)
+            self.assertIn("http(s) base URL: a host, no credentials, no query or fragment", str(cm.exception))
+        self.assertEqual(performance.check_url(" https://h/base/ "), "https://h/base/")
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(GateFault) as cm:
+                performance.measure(self._repo(tmp), " ", "http://127.0.0.1:9")
+            self.assertIn("--site and --url name the environment", str(cm.exception))
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp); write(repo / "config/quality.json", json.dumps({"performance": [1]}))
+            with self.assertRaises(GateFault) as cm:
+                performance.check(repo)
+            self.assertIn("`performance` in config/quality.json is not an object", str(cm.exception))
+        with self.assertRaises(GateFault) as cm:
+            performance.parse_baseline("[1]\n")
+        self.assertIn("line 1 is not an object", str(cm.exception))
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as out:
+            write(Path(out) / "big.js", "x" * 10)
+            repo = self._repo(tmp, frontend=True, perf={"bundles": {"/": ["dist/*.js"]}})
+            (repo / "dist").mkdir(exist_ok=True); (repo / "dist/link.js").symlink_to(Path(out) / "big.js")
+            self.assertIn("`dist/*.js` matches no file", performance.render(performance.bundles(repo)), "a link out of the project is never read")
+        with tempfile.TemporaryDirectory() as tmp:
+            with _Slow() as s:
+                r = performance.measure(self._repo(tmp, perf={"baseline": "../out.jsonl"}), "staging", s.url)
+            self.assertFalse(r["ok"] or r["recorded"]); self.assertIn("leaves the repository", performance.render(r))
+            self.assertFalse((Path(tmp) / "out.jsonl").exists(), "nothing is written outside the project")
+        with tempfile.TemporaryDirectory() as tmp, _Slow() as s:
+            repo = self._repo(tmp); (repo / self.BL).mkdir(parents=True)
+            r = performance.measure(repo, "staging", s.url)
+            self.assertFalse(r["ok"] or r["recorded"]); self.assertIn("the line cannot be written (IsADirectoryError)", performance.render(r))
+
+    def test_web_vitals_come_from_lighthouse_and_an_absent_tool_is_red(self):
+        report = {"audits": {"largest-contentful-paint": {"numericValue": 3100}, "first-contentful-paint": {"numericValue": 900},
+                             "cumulative-layout-shift": {"numericValue": 0.02}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            bin_ = Path(tmp) / "bin"; bin_.mkdir()
+            write(bin_ / "npx", '#!/bin/sh\nenv > "$(dirname "$0")/env.txt"\npwd > "$(dirname "$0")/cwd.txt"\nd="$(dirname "$0")/../lh.json"\n[ -f "$d" ] && cat "$d" || exit 7\n')
+            (bin_ / "npx").chmod(0o755)
+            write(Path(tmp) / "lh.json", json.dumps(report))
+            repo = self._repo(tmp, scope="frontend-only", backend=False, frontend=True, hosting="cdn",
+                              perf={"bundles": {"/": ["dist/*.js"]}, "endpoints": None})
+            env = {"PATH": f"{bin_}:{os.environ['PATH']}", "SECRET_X": "s3cr3t", "npm_config_registry": "http://r",
+                   "npm_config__authToken": "t0k"}
+            with unittest.mock.patch.dict(os.environ, env):
+                r = performance.measure(repo, "staging", "http://127.0.0.1:9")
+            out = performance.render(r)
+            self.assertFalse(r["ok"], out); self.assertIn("lcp_ms / 3100 > 2500", out); self.assertNotIn("fcp_ms /", out)
+            seen = (bin_ / "env.txt").read_text()
+            self.assertNotIn("SECRET_X", seen, "the tool gets a minimal environment"); self.assertNotIn("t0k", seen, "never a registry token")
+            self.assertIn("npm_config_ignore_scripts=true", seen); self.assertIn("npm_config_registry=http://r", seen)
+            home = [ln.split("=", 1)[1] for ln in seen.splitlines() if ln.startswith("HOME=")]
+            self.assertTrue(home and "perf-lh-" in home[0], "a fresh HOME: no credential file of the runner")
+            self.assertIn("perf-lh-", (bin_ / "cwd.txt").read_text(), "a fresh working directory: no repo .npmrc")
+            report["audits"]["first-contentful-paint"]["numericValue"] = 1600; report["audits"]["cumulative-layout-shift"]["numericValue"] = 0.3
+            write(Path(tmp) / "lh.json", json.dumps(report))
+            with unittest.mock.patch.dict(os.environ, env):
+                out = performance.render(performance.measure(repo, "staging", "http://127.0.0.1:9"))
+            self.assertIn("fcp_ms / 1600 > 1500", out); self.assertIn("cls / 0.3 > 0.1", out)
+            report["audits"]["first-contentful-paint"]["numericValue"] = 900; report["audits"]["cumulative-layout-shift"]["numericValue"] = 0.02
+            write(Path(tmp) / "lh.json", json.dumps(report))
+            (Path(tmp) / "lh.json").rename(Path(tmp) / "lh.off")
+            with unittest.mock.patch.dict(os.environ, env):
+                out = performance.render(performance.measure(repo, "staging", "http://127.0.0.1:9"))
+            self.assertIn("unreadable — Lighthouse exited 7", out)
+            (Path(tmp) / "lh.off").rename(Path(tmp) / "lh.json")
+            write(Path(tmp) / "lh.json", json.dumps({"audits": {}}))
+            with unittest.mock.patch.dict(os.environ, env):
+                self.assertIn("Lighthouse gave no readable", performance.render(performance.measure(repo, "staging", "http://127.0.0.1:9")))
+            report["audits"]["largest-contentful-paint"]["numericValue"] = 2000; write(Path(tmp) / "lh.json", json.dumps(report))
+            with unittest.mock.patch.dict(os.environ, env):
+                r = performance.measure(repo, "staging", "http://127.0.0.1:9")
+            self.assertTrue(r["ok"] and r["recorded"], performance.render(r))
+            m = self._lines(repo)[0]["metrics"]
+            self.assertEqual((m["lcp_ms"], m["fcp_ms"], m["cls"]), ({"/": 2000.0}, {"/": 900.0}, {"/": 0.02}))
+            empty = Path(tmp) / "empty"; empty.mkdir()
+            with unittest.mock.patch.dict(os.environ, {"PATH": str(empty)}):
+                out = performance.render(performance.measure(repo, "staging", "http://127.0.0.1:9"))
+            self.assertIn("unreadable — Lighthouse could not run (FileNotFoundError)", out, "an absent tool is red, never a pass")
+        self.assertEqual(performance.LIGHTHOUSE[-1], "lighthouse@13.5.0", "the pin rules/performance.md names")
+
+    def test_an_unreadable_build_or_probe_shape_is_a_fault(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(GateFault) as cm:
+                performance._git_head(Path(tmp))
+            self.assertIn("the measured commit cannot be read", str(cm.exception))
+            for perf, word in (({"warmup": "x"}, "must be numbers"), ({"samples": 0}, "`performance.samples` ≥ 1"),
+                               ({"warmup": -1}, "`warmup` ≥ 0"), ({"timeout_s": 0}, "`timeout_s` > 0")):
+                with self.subTest(perf=perf), tempfile.TemporaryDirectory() as t2:
+                    with self.assertRaises(GateFault) as cm:
+                        performance.measure(self._repo(t2, perf=perf), "staging", "http://127.0.0.1:9")
+                    self.assertIn(word, str(cm.exception))
+
+    def test_the_cli_routes_the_three_modes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            gate = [sys.executable, str(Path(__file__).resolve().parents[1] / "gate.py"), "--repo", str(repo), "performance"]
+            r = subprocess.run(gate + ["--base", "HEAD"], capture_output=True, text=True); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            r = subprocess.run(gate + ["--site", "x"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1); self.assertIn("belong to --run", r.stderr)
+            r = subprocess.run(gate + ["--run", "--url", "http://x"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 1); self.assertIn("go together", r.stderr)
+            r = subprocess.run(gate + ["--run", "--json"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0); self.assertTrue(json.loads(r.stdout)["na"])
+
+    def test_the_shipped_discovery_rows(self):
+        """The shipped registry: Q20.3 decided for a one-type host and asked otherwise; Q37 and Q37.1 merge into one
+        thresholds object; DC-43 and the loop row land only with their surface."""
+        reg = next((p for p in (HERE.parents[1] / discovery.REGISTRY, HERE.parents[1] / "setup/discovery_registry.json") if p.is_file()), None)
+        if reg is None:
+            self.skipTest("the registry is not delivered beside these gates")
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = disc_repo(tmp); write(repo / discovery.REGISTRY, reg.read_text(encoding="utf-8"))
+            both = {"backend.runtime": "Python", "frontend.framework": "React", "surface.runtime_surface": ["src/**"]}
+            r = discovery.resolve(repo, {**both, "hosting.provider": "Railway", "performance.api_p95": "500 ms", "performance.web": "strict"})
+            self.assertEqual(r["derived_answers"].get("hosting.type"), "container"); self.assertNotIn("Q20.3", r["pending"])
+            self.assertEqual(r["configures"]["performance.thresholds"], {"api_p95_ms": 500, "lcp_ms": 2000, "fcp_ms": 1000, "cls": 0.05, "bundle_kb": 150})
+            self.assertIn("DC-43", r["configures"]["defect_prevention.classes"])
+            self.assertEqual(r["configures"]["verification.gates"]["performance"]["command"], "python3 scripts/gate.py performance --run")
+            a = discovery.resolve(repo, {**both, "hosting.provider": "AWS"})
+            self.assertTrue({"Q20.3", "Q37", "Q37.1"} <= set(a["pending"]), "a multi-type host and unanswered surfaces are asked")
+            be = discovery.resolve(repo, {**both, "frontend.framework": "None", "hosting.provider": "AWS", "hosting.type": "function", "performance.api_p95": "200 ms"})
+            self.assertEqual(be["configures"]["performance.thresholds"], {"api_p95_ms": 200}); self.assertNotIn("Q37.1", be["pending"])
+            self.assertNotIn("performance", be["configures"].get("verification.gates", {}), "no frontend: no loop row")
+            fe = discovery.resolve(repo, {**both, "backend.runtime": "None", "hosting.provider": "Vercel", "hosting.type": "cdn", "performance.web": "relaxed"})
+            self.assertIn("DC-43", fe["configures"]["defect_prevention.classes"], "a frontend alone selects the class")
+            self.assertNotIn("api_p95_ms", fe["configures"]["performance.thresholds"]); self.assertNotIn("Q37", fe["pending"])
+            n = discovery.resolve(repo, {"backend.runtime": "None", "frontend.framework": "None", "hosting.provider": "AWS", "hosting.type": "cdn"})
+            self.assertNotIn("DC-43", n["configures"].get("defect_prevention.classes", [])); self.assertIn("DC-43", n["defect_classes"]["drop"])
+            self.assertFalse({"Q37", "Q37.1"} & set(n["pending"])); self.assertEqual(n["configures"].get("performance.thresholds", {}), {})
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

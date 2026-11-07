@@ -220,7 +220,7 @@ infrastructure_needs:
 > Non-functional requirements that affect infrastructure decisions.
 
 - **Availability:** {SLA requirement, e.g., 99.9%}
-- **Latency:** {Max acceptable latency, e.g., <200ms p95}
+- **Latency:** {Max acceptable latency — the threshold lives in `config/quality.json → performance.thresholds` (rules/performance.md)}
 - **Throughput:** {Expected RPS/messages per second}
 - **Data Residency:** {Region constraints, e.g., EU-only}
 - **Compliance:** {Relevant standards, e.g., SOC2, HIPAA}
