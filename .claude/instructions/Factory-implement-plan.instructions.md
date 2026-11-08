@@ -539,7 +539,7 @@ FUNCTION generate_dev_plan_body(target_increments, fm_plan):
     WRITE "### Phase B: Frontend / UI"         + EXPAND_PHASE_B_TASKS(inc_scope, tag_prefix="INC-{N}.B") IF frontend.framework != "None"
     WRITE "### Phase C: Wiring / Integration"  + EXPAND_PHASE_C_TASKS(inc_scope, tag_prefix="INC-{N}.C")
     WRITE "### Increment {inc.id} Acceptance Gate"
-    FOR EACH item IN inc.acceptance_checklist:
+    FOR EACH item IN inc.exit_criteria:   # each names its measure in backticks (gate.py train (h))
       WRITE "- [ ] [INC-{N}.ACC.{k}] {item.description}"
     # EVOL-045 — sub-increment groups: every task of the increment under exactly one sub; task tags + Phase A/B/C sections unchanged
     IF inc.sub_increments:

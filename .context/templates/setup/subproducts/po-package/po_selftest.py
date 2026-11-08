@@ -411,6 +411,11 @@ CASES: list[Case] = [
          with_vision=False, outside=0, message="not allowed",
          mutate=_synced("mock.html", before=lambda r, t: _sub(_feat(t, "mock.html"), "<style>",
                                                               '<script src="https://cdn.example/x.js"></script><style>'))),
+    Case("D7 a synced copy that is a symlink is never followed — the finding is raised", "a11y-basics", "WARN",
+         with_vision=False, outside=0, message="alt", mutate=lambda r, t: (
+             _IMG(r, t), _write(r / "outside-mock.html", _feat(t, "mock.html").read_text(encoding="utf-8")),
+             (r / "docs" / "spec" / "FEAT-999").mkdir(parents=True, exist_ok=True),
+             (r / "docs" / "spec" / "FEAT-999" / "mock.html").symlink_to(r / "outside-mock.html"))),
     Case("D5 the return's own form is judged even when every file is unchanged", "erq-fields", "ERROR", with_vision=False,
          mutate=_synced("user_journey.md", "spec.feature", "mock.html",
                         then=lambda r, t: _sub(_feat(t, "ERQ.md"), 'classification: "delta"', 'classification: "maybe"'))),

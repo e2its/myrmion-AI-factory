@@ -84,7 +84,7 @@ The LAW-16 tripwire (§ 10) is unchanged. The messages carry business words only
 
 - **(h) exit criteria.**
   - Each INC's `**Acceptance` block carries at least one item of its own (`- [ ]` or `- [x]`).
-  - Each item names its measure in backticks: a scenario, a contract operation, a case id or a command.
+  - Each item names its measure in backticks: a scenario, a contract operation, a case id or a command. An empty span or a `{{placeholder}}` is no measure.
   - A scenario title or a contract operation in backticks must be the INC's own (`Scenarios covered`, `Contract surface`). An item that measures another INC's delivery is red.
 - **(i) surface declared** (the first RDR above). Unless the plan is `slicing_strategy: monolithic`, every INC carries `Estimated surface:` with `~files` and `~lines`, and every `SUB-` row its `~files · ~lines`.
 - **Every changed plan is judged**, with or without sub-increments. An INC whose `**Status:**` is BUILDING or MERGED is skipped: a frozen increment is never edited (second RDR above). Each problem opens with its clause, `(h)` or `(i)`.
@@ -109,7 +109,7 @@ The LAW-16 tripwire (§ 10) is unchanged. The messages carry business words only
 - **A measure is checked for its form, not its truth.** A backticked command that does not exist passes (h). The lens and the verify gate judge whether the criterion was met.
 - **The diagram match is positional per persona.** Two steps of one persona swapped in the diagram with equal scores pass. Labels are free text and are not compared.
 - **The diff is found by comparing findings, not text.** A step renumbered by an insert makes old findings look new. A file-level finding (an image without `alt`) the copy already carries hides a second one the return adds; both are warnings.
-- **A frozen increment is not re-measured.** One approved before 9.2.0 with prose criteria closes as it was written.
+- **A frozen increment is not re-measured.** One approved before 9.2.0 with prose criteria closes as it was written. The status is the plan's own word, as for clause (e): a new increment marked BUILDING dodges (h) and (i), and only the plan's review sees it.
 
 ## Alternatives considered
 

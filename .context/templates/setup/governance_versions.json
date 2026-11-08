@@ -1778,7 +1778,7 @@
       "path": ".claude/skills/factory-pr-review/references/code-review-criteria.md"
     },
     "skills/factory-pr-review/references/docs-sync-checklist.md": {
-      "version": "1.3.1",
+      "version": "1.4.0",
       "type": "skill-asset",
       "role": "Factory PR Review code↔docs sync matrix — three-tier matrix: Universal (any project: CLI flags, env vars, OpenAPI/AsyncAPI, README, CHANGELOG, ADR, runbooks, DB schema), Materialised Factory project (CVP-driven: spec.feature ↔ user_journey ↔ design ↔ test_plan ↔ dev_plan ↔ increment_plan, Per-Increment Immutability, Scope Compatibility Gate, CIP), Framework meta repo (governance-bump miss enforcing CLAUDE.md Generation Standards §2).",
       "path": ".claude/skills/factory-pr-review/references/docs-sync-checklist.md"

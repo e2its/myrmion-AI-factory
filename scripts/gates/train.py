@@ -259,8 +259,8 @@ def judge_exits(text: str) -> list[str]:
             spans = [s for s in (_measure(x) for x in SPAN_RE.findall(c)) if s and "{{" not in s]
             short = c if len(c) <= 70 else c[:67] + "…"
             if not spans:
-                problems.append(f"(h) {inc['id']}: exit criterion «{short}» names no measure — put the scenario, operation, "
-                                "case or command that decides it in backticks")
+                problems.append(f"(h) {inc['id']}: exit criterion «{short}» names no measure — put the real scenario, operation, "
+                                "case or command that decides it in backticks (a {{placeholder}} or an empty span is none)")
             for sp in spans:
                 mine = sp in inc["scenarios"] or sp in inc["operations"]
                 owner = next((o["id"] for o in others if sp in o["scenarios"] or sp in o["operations"]), None)

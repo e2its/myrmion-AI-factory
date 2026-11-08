@@ -823,9 +823,11 @@ FUNCTION check_increment_deployability(elements):
 
   # Exit criteria — one definition: gate.py train (h); this check yields its verdict, never re-implements it
   exits = [e FOR e IN run("python3 scripts/gate.py train --json").entries WHERE e.id ENDS WITH " exits"]
+  IF exits IS EMPTY:   # the plan is not in the diff: judged at the push that changed it, never re-judged here
+    YIELD { check: "increment_deployability", severity: PASS, source: "increment_plan.md", target: "exit criteria n/a — plan not in the diff" }
   FOR EACH problem IN exits[*].problems WHERE problem STARTS WITH "(h)":
     YIELD { check: "increment_deployability", severity: CRITICAL,
-            source: "increment_plan.md", gap: problem.message,
+            source: "increment_plan.md", gap: problem,
             remediation: "List each exit criterion under **Acceptance**, naming in backticks the scenario, operation, case or command that decides it" }
 
   # DAG acyclicity (Kahn's algorithm)
@@ -1249,9 +1251,11 @@ FUNCTION check_surface_declared(elements):
   problems = [p FOR p IN exits[*].problems WHERE p STARTS WITH "(i)"]
   FOR EACH p IN problems:
     YIELD { check: "surface_declared", severity: CRITICAL,
-            source: "increment_plan.md", gap: p.message,
+            source: "increment_plan.md", gap: p,
             remediation: "BLUEPRINT --refine {FEATURE_ID}: estimate the surface (Step B.4) and split into sub-increments when over the ceiling (config/quality.json surface.ceiling_*)" }
-  IF problems IS EMPTY:
+  IF exits IS EMPTY:   # the plan is not in the diff: judged at the push that changed it
+    YIELD { check: "surface_declared", severity: PASS, source: "increment_plan.md", target: "n/a — plan not in the diff" }
+  ELSE IF problems IS EMPTY:
     YIELD { check: "surface_declared", severity: PASS, source: "increment_plan.md", target: "every surface estimated" }
 ```
 
