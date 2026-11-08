@@ -2,10 +2,8 @@
 description: "Configuration standards — no hard-coded configuration, endpoints or credentials; system_resources.json, tiered secrets strategy (CI/CD vault, runtime vault, local .env), enforcement gates."
 applicable_when:
   always: true
-version: 1.0.0
+version: 1.0.1
 date: 2026-09-25
-changelog:
-  - "1.0.0: feat(EVOL-043) — body home of [PLAW-05] Configuration Hardcoding Prohibition, moved from the constitution template"
 ---
 
 # Configuration Hardcoding Prohibition

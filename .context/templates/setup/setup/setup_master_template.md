@@ -1,16 +1,6 @@
 ---
-version: 2.19.0
+version: 2.19.1
 date: 2026-04-21
-changelog:
-  - "2.12.0: feat(EVOL-054) — scm: platform / approvals / required_checks (Q21.2) frontmatter slot."
-  - "2.11.0: feat(EVOL-049)! — agents: writer_model / critic_model (Q34) + summary bullet."
-  - "2.10.0: feat(EVOL-047) — surface.runtime_surface slot (Q33) + summary bullet."
-  - "2.9.0: feat(EVOL-046) — delivery: mode frontmatter slot (Q32) + summary bullet."
-  - "2.8.0: feat(EVOL-045) — surface: frontmatter block (Q31) + § E summary bullet."
-  - "2.7.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
-  - "2.1.0: feat(EVOL-019): project_scope field added (dual-axis scope model) — full-stack | backend-only | frontend-only | integration"
-  - "2.0.0: Tripartite architecture support"
-  - "1.0.0: Initial template"
 phase: DISCOVERY | PLANNING | EXECUTION | COMPLETED
 status: NEEDS_INFO | READY
 retry_count: 0

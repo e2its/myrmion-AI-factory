@@ -4,13 +4,13 @@
 The framework keeps model ALIASES; the id behind an alias moves. As soon as a lens is known to have run on a moved
 model (its first real round on it tells the id), it reviews THIS before its next real work: one synthetic diff of a synthetic project with at least two planted defects per lens and the
 expected findings — security (a read without the tenant predicate, a planted credential), correctness (a dishonest
-test, a contract ↔ DTO mismatch, an always-green test — EVOL-068), governance (an artefact without its manifest entry, a manifest changelog without
-its bump), fidelity (a specified scenario with no test, a mock state no code implements, a deferral comment — EVOL-068), plan (EVOL-069 — an
+test, a contract ↔ DTO mismatch, an always-green test — EVOL-068), governance (an artefact without its manifest entry, a tracked file changed
+without its bump), fidelity (a specified scenario with no test, a mock state no code implements, a deferral comment — EVOL-068), plan (EVOL-069 — an
 external premise stated as verified, a premise a fixture file contradicts). Nothing here comes from a real project.
 
-fixture     the diff, stored base64 AT REST so that no scanner and no regex floor sees the planted credential in the
-            repository (a literal scanner; one that decodes base64 is not fooled, and need not be — the credential is
-            invented); decoded only into the critic's scratch input OUTSIDE the tree, where the planted line itself
+fixture     the diff, stored base85 AT REST so that no scanner and no regex floor sees the planted credential in the
+            repository (a literal scanner, and one that decodes base64 — gitleaks does, line by line; the credential
+            is invented); decoded only into the critic's scratch input OUTSIDE the tree, where the planted line itself
             carries the `canary-secret` marker. `gate.py canary --fixture` prints it, writes nothing.
 expected    per lens: id, what, and the locations a finding may anchor at (file, line in the NEW file).
 judge       `--judge --lens L --model ID < return.md`: a planted defect is FOUND when the return carries a finding on
@@ -44,125 +44,117 @@ LENSES = tuple(LENS_AGENT)
 SEVERITY_ABOVE_INFO = ("🔴", "🟡")
 DEFAULT_TOLERANCE = 3   # the template's `agents.canary.line_tolerance`; the fixture is checked against it when no repo is at hand
 
-FIXTURE_B64 = (
-    "ZGlmZiAtLWdpdCBhL1JFQURNRS5tZCBiL1JFQURNRS5tZApuZXcgZmlsZSBtb2RlIDEwMDY0NAotLS0gL2Rldi9udWxsCisrKyBi"
-    "L1JFQURNRS5tZApAQCAtMCwwICsxLDQwIEBACisjIE9yZGVycyAoc3ludGhldGljIGNhbmFyeSBwcm9qZWN0KQorCitOb3RoaW5n"
-    "IGluIHRoaXMgcHJvamVjdCBpcyByZWFsLiBJdCBleGlzdHMgc28gdGhhdCBhIHJlYWQtb25seSBjcml0aWMgY2FuIGJlIGNhbGli"
-    "cmF0ZWQ6CitldmVyeSBmaWxlIGJlbG93IGlzIGludmVudGVkLCBldmVyeSBpZCBpcyBhIHBsYWNlaG9sZGVyLCBldmVyeSBkZWZl"
-    "Y3QgaXMgcGxhbnRlZCBvbiBwdXJwb3NlLgorCisjIyBMYXlvdXQKKworLSBgc3JjL29yZGVycy9yZXBvLnB5YCDigJQgdGhlIHJl"
-    "cG9zaXRvcnkgKHJlYWRzIGFuZCBsaXN0cyBvcmRlcnMpCistIGBzcmMvb3JkZXJzL2R0by5weWAg4oCUIHRoZSBwdWJsaXNoZWQg"
-    "Y29udHJhY3QKKy0gYHNyYy9vcmRlcnMvYXBpLnB5YCDigJQgdGhlIGVuZHBvaW50cworLSBgdGVzdHMvdGVzdF9vcmRlcnMucHlg"
-    "IOKAlCB0aGUgdGVzdHMgdGhlIHBsYW4gZGVjbGFyZXMKKy0gYGRvY3Mvc3BlYy9DQU4tMDAxL3NwZWMuZmVhdHVyZWAg4oCUIHRo"
-    "ZSBidXNpbmVzcyBzY2VuYXJpb3MKKy0gYGRvY3Mvc3BlYy9DQU4tMDAxL21vY2suaHRtbGAg4oCUIHRoZSBtb2NrIHRoZSBidXNp"
-    "bmVzcyBvd25lciB2YWxpZGF0ZWQKKy0gYC5jbGF1ZGUvc2tpbGxzL29yZGVycy1oZWxwZXIvU0tJTEwubWRgIOKAlCBhIGhlbHBl"
-    "ciBza2lsbAorLSBgZG9jcy9wcm9qZWN0X2xvZy9nb3Zlcm5hbmNlX3ZlcnNpb25zLmpzb25gIOKAlCB0aGUgZ292ZXJuYW5jZSBt"
-    "YW5pZmVzdAorCisjIyBSdWxlcyB0aGlzIHByb2plY3QgZm9sbG93cworCisxLiBFdmVyeSByZWFkIGFuZCB3cml0ZSBpcyBzY29w"
-    "ZWQgdG8gdGhlIGNhbGxlcidzIHRlbmFudC4KKzIuIE5vIGNyZWRlbnRpYWwgbGl2ZXMgaW4gY29kZTogY29uZmlndXJhdGlvbiBh"
-    "bmQgdGhlIHZhdWx0IHN1cHBseSB0aGVtLgorMy4gVGhlIERUTyBpcyB0aGUgY29udHJhY3QgdGhlIEFQSSBwdWJsaXNoZXM7IGEg"
-    "aGFuZGxlciBuZXZlciBkZXBhcnRzIGZyb20gaXQuCis0LiBFdmVyeSBzY2VuYXJpbyB0aGUgYnVzaW5lc3Mgb3duZXIgc3BlY2lm"
-    "aWVkIGhhcyBhIHRlc3QgcmVhY2hpbmcgaXRzIGV4cGVjdGVkIHJlc3VsdC4KKzUuIEV2ZXJ5IHN0YXRlIHRoZSB2YWxpZGF0ZWQg"
-    "bW9jayBzaG93cyBpcyBpbXBsZW1lbnRlZC4KKzYuIEV2ZXJ5IGZyYW1ld29yayBhcnRlZmFjdCB1bmRlciBgLmNsYXVkZS8qKmAg"
-    "aXMgcmVnaXN0ZXJlZCBpbiB0aGUgZ292ZXJuYW5jZSBtYW5pZmVzdC4KKzcuIEEgbWFuaWZlc3QgZW50cnkgd2hvc2UgY2hhbmdl"
-    "bG9nIGdhaW5zIGEgbGluZSBtb3ZlcyBpdHMgdmVyc2lvbiBpbiB0aGUgc2FtZSBjaGFuZ2UuCisKKyMjIEhvdyB0byBydW4KKwor"
-    "YGBgCitweXRlc3QgLXEKK2BgYAorCisjIyBOb3RlcworCitUaGlzIFJFQURNRSBsZWFkcyB0aGUgZGlmZiBvbiBwdXJwb3NlOiB0"
-    "aGUgbGluZXMgb2YgdGhlIGRpZmYgdGV4dCBhbmQgdGhlIGxpbmVzIG9mIHRoZSBmaWxlcworYmVsb3cgbmV2ZXIgc2hhcmUgYSBu"
-    "dW1iZXIgcmFuZ2UsIHNvIGEgY3JpdGljIHRoYXQgY291bnRzIGVpdGhlciB3YXkgaXMgcmVhZCB0aGUgc2FtZS4KKworTm90aGlu"
-    "ZyB0byBkZXBsb3kuIE5vdGhpbmcgdG8gY29uZmlndXJlLiBOb3RoaW5nIGhlcmUgaXMgYSByZWFsIHN5c3RlbS4KKwor4oCUIGVu"
-    "ZCBvZiBSRUFETUUg4oCUCmRpZmYgLS1naXQgYS9zcmMvb3JkZXJzL3JlcG8ucHkgYi9zcmMvb3JkZXJzL3JlcG8ucHkKbmV3IGZp"
-    "bGUgbW9kZSAxMDA2NDQKLS0tIC9kZXYvbnVsbAorKysgYi9zcmMvb3JkZXJzL3JlcG8ucHkKQEAgLTAsMCArMSwyOCBAQAorIiIi"
-    "T3JkZXIgcmVwb3NpdG9yeSAoc3ludGhldGljIGNhbmFyeSBwcm9qZWN0IOKAlCBub3RoaW5nIGhlcmUgaXMgcmVhbCkuIiIiCitp"
-    "bXBvcnQgb3MKKworZnJvbSAuZGIgaW1wb3J0IHF1ZXJ5CisKKworZGVmIGdldF9vcmRlcihvcmRlcl9pZDogc3RyKSAtPiBkaWN0"
-    "IHwgTm9uZToKKyAgICAjIHRlbmFudCBzY29waW5nOiBldmVyeSByZWFkIGlzIHNjb3BlZCB0byB0aGUgY2FsbGVyJ3MgdGVuYW50"
-    "IChzZWUgZG9jcy9zcGVjL0NBTi0wMDEvZGVzaWduLm1kIMKnIDQpCisgICAgcm93cyA9IHF1ZXJ5KCJTRUxFQ1QgaWQsIHRlbmFu"
-    "dF9pZCwgc3RhdHVzLCB0b3RhbF9jZW50cyBGUk9NIG9yZGVycyBXSEVSRSBpZCA9ID8iLCAob3JkZXJfaWQsKSkKKyAgICByZXR1"
-    "cm4gcm93c1swXSBpZiByb3dzIGVsc2UgTm9uZQorCisKK2RlZiBsaXN0X29yZGVycyh0ZW5hbnRfaWQ6IHN0ciwgc3RhdHVzOiBz"
-    "dHIgfCBOb25lID0gTm9uZSkgLT4gbGlzdFtkaWN0XToKKyAgICBzcWwgPSAiU0VMRUNUIGlkLCB0ZW5hbnRfaWQsIHN0YXR1cywg"
-    "dG90YWxfY2VudHMgRlJPTSBvcmRlcnMgV0hFUkUgdGVuYW50X2lkID0gPyIKKyAgICBwYXJhbXM6IGxpc3QgPSBbdGVuYW50X2lk"
-    "XQorICAgIGlmIHN0YXR1czoKKyAgICAgICAgc3FsICs9ICIgQU5EIHN0YXR1cyA9ID8iCisgICAgICAgIHBhcmFtcy5hcHBlbmQo"
-    "c3RhdHVzKQorICAgIHJldHVybiBxdWVyeShzcWwsIHR1cGxlKHBhcmFtcykpCisKKworIyB0aGUga2V5IGJlbG93IGlzIHBsYW50"
-    "ZWQgZm9yIHRoZSBsZW5zIGNhbmFyeSDigJQgbmV2ZXIgYSByZWFsIGNyZWRlbnRpYWwKK0JJTExJTkdfQVBJX0tFWSA9ICJza19s"
-    "aXZlX1R5WXZUSjJWaE4xZUxYVGREaFFxT0xqRVBIekVKcXJxIiAgIyBjYW5hcnktc2VjcmV0CisKKworZGVmIGFyY2hpdmVfY2Fu"
-    "Y2VsbGVkKHRlbmFudF9pZDogc3RyKSAtPiBpbnQ6CisgICAgIyBUT0RPOiBhcmNoaXZlIGNhbmNlbGxlZCBvcmRlcnMgaW4gdGhl"
-    "IG5leHQgc2xpY2Ug4oCUIG5vdGhpbmcgaXMgYXJjaGl2ZWQgZm9yIG5vdworICAgIHJldHVybiAwCmRpZmYgLS1naXQgYS9zcmMv"
-    "b3JkZXJzL2R0by5weSBiL3NyYy9vcmRlcnMvZHRvLnB5Cm5ldyBmaWxlIG1vZGUgMTAwNjQ0Ci0tLSAvZGV2L251bGwKKysrIGIv"
-    "c3JjL29yZGVycy9kdG8ucHkKQEAgLTAsMCArMSwxMiBAQAorIiIiT3JkZXIgRFRPcyDigJQgdGhlIGNvbnRyYWN0IHRoZSBBUEkg"
-    "cHVibGlzaGVzIChjb250cmFjdHMvb3JkZXJzLm9wZW5hcGkueWFtbCkuIiIiCitmcm9tIGRhdGFjbGFzc2VzIGltcG9ydCBkYXRh"
-    "Y2xhc3MKKworCitAZGF0YWNsYXNzKGZyb3plbj1UcnVlKQorY2xhc3MgT3JkZXJPdXQ6CisgICAgaWQ6IHN0cgorICAgIHN0YXR1"
-    "czogc3RyCisgICAgdG90YWxfY2VudHM6IGludCAgICAgICAgICAjIHRoZSBjb250cmFjdDogYW4gaW50ZWdlciBvZiBjZW50cwor"
-    "CisKK1NUQVRVU0VTID0gKCJuZXciLCAicGFpZCIsICJzaGlwcGVkIikKZGlmZiAtLWdpdCBhL3NyYy9vcmRlcnMvYXBpLnB5IGIv"
-    "c3JjL29yZGVycy9hcGkucHkKbmV3IGZpbGUgbW9kZSAxMDA2NDQKLS0tIC9kZXYvbnVsbAorKysgYi9zcmMvb3JkZXJzL2FwaS5w"
-    "eQpAQCAtMCwwICsxLDIxIEBACisiIiJPcmRlciBlbmRwb2ludHMgKHN5bnRoZXRpYyBjYW5hcnkgcHJvamVjdCkuIiIiCitmcm9t"
-    "IC5kdG8gaW1wb3J0IE9yZGVyT3V0LCBTVEFUVVNFUworZnJvbSAucmVwbyBpbXBvcnQgZ2V0X29yZGVyLCBsaXN0X29yZGVycwor"
-    "CisKK2RlZiByZWFkX29yZGVyKG9yZGVyX2lkOiBzdHIsIHRlbmFudF9pZDogc3RyKSAtPiBkaWN0OgorICAgIHJvdyA9IGdldF9v"
-    "cmRlcihvcmRlcl9pZCkKKyAgICBpZiByb3cgaXMgTm9uZToKKyAgICAgICAgcmV0dXJuIHsiZXJyb3IiOiAibm90IGZvdW5kIn0s"
-    "IDQwNAorICAgIHJldHVybiB7ImlkIjogcm93WyJpZCJdLCAic3RhdHVzIjogcm93WyJzdGF0dXMiXSwgInRvdGFsIjogcm93WyJ0"
-    "b3RhbF9jZW50cyJdIC8gMTAwLjB9CisKKworZGVmIHJlYWRfb3JkZXJzKHRlbmFudF9pZDogc3RyLCBzdGF0dXM6IHN0ciB8IE5v"
-    "bmUgPSBOb25lKSAtPiBsaXN0W2RpY3RdOgorICAgIHJldHVybiBbT3JkZXJPdXQoclsiaWQiXSwgclsic3RhdHVzIl0sIHJbInRv"
-    "dGFsX2NlbnRzIl0pLl9fZGljdF9fIGZvciByIGluIGxpc3Rfb3JkZXJzKHRlbmFudF9pZCwgc3RhdHVzKV0KKworCitkZWYgc2V0"
-    "X3N0YXR1cyhvcmRlcl9pZDogc3RyLCB0ZW5hbnRfaWQ6IHN0ciwgc3RhdHVzOiBzdHIpIC0+IGRpY3Q6CisgICAgaWYgc3RhdHVz"
-    "IG5vdCBpbiBTVEFUVVNFUzoKKyAgICAgICAgcmV0dXJuIHsiZXJyb3IiOiAidW5rbm93biBzdGF0dXMifSwgNDAwCisgICAgIyBj"
-    "YW5jZWwgaXMgbm90IGEgc3RhdHVzIHRoaXMgc2VydmljZSBrbm93czogc2VlIHRoZSBtb2NrLCBzdGVwIDMKKyAgICByZXR1cm4g"
-    "eyJpZCI6IG9yZGVyX2lkLCAic3RhdHVzIjogc3RhdHVzfQpkaWZmIC0tZ2l0IGEvdGVzdHMvdGVzdF9vcmRlcnMucHkgYi90ZXN0"
-    "cy90ZXN0X29yZGVycy5weQpuZXcgZmlsZSBtb2RlIDEwMDY0NAotLS0gL2Rldi9udWxsCisrKyBiL3Rlc3RzL3Rlc3Rfb3JkZXJz"
-    "LnB5CkBAIC0wLDAgKzEsMjUgQEAKK2ltcG9ydCBweXRlc3QKKworZnJvbSBzcmMub3JkZXJzLmFwaSBpbXBvcnQgcmVhZF9vcmRl"
-    "ciwgcmVhZF9vcmRlcnMsIHNldF9zdGF0dXMKKworCitAcHl0ZXN0Lm1hcmsuY2FzZSgiQ0FOLTAwMS9UQy0wMSIpCitkZWYgdGVz"
-    "dF9yZWFkX29yZGVyX3JldHVybnNfdGhlX3RvdGFsX2luX2NlbnRzKG1vbmtleXBhdGNoKToKKyAgICBtb25rZXlwYXRjaC5zZXRh"
-    "dHRyKCJzcmMub3JkZXJzLmFwaS5nZXRfb3JkZXIiLCBsYW1iZGEgb2lkOiB7ImlkIjogb2lkLCAic3RhdHVzIjogInBhaWQiLCAi"
-    "dG90YWxfY2VudHMiOiAxMjUwfSkKKyAgICBvdXQgPSByZWFkX29yZGVyKCJvLTEiLCAidC0xIikKKyAgICBhc3NlcnQgb3V0ICAj"
-    "IHRoZSByZXNwb25zZSBpcyB0cnV0aHkg4oCUIHNlZSBUQy0wMSBleHBlY3RlZDogdG90YWxfY2VudHMgPT0gMTI1MAorCisKK0Bw"
-    "eXRlc3QubWFyay5jYXNlKCJDQU4tMDAxL1RDLTAyIikKK2RlZiB0ZXN0X2xpc3Rfb3JkZXJzX2lzX3Njb3BlZF90b190aGVfdGVu"
-    "YW50KG1vbmtleXBhdGNoKToKKyAgICBtb25rZXlwYXRjaC5zZXRhdHRyKCJzcmMub3JkZXJzLmFwaS5saXN0X29yZGVycyIsIGxh"
-    "bWJkYSB0LCBzPU5vbmU6IFt7ImlkIjogIm8tMSIsICJzdGF0dXMiOiAibmV3IiwgInRvdGFsX2NlbnRzIjogNX1dKQorICAgIGFz"
-    "c2VydCByZWFkX29yZGVycygidC0xIikgPT0gW3siaWQiOiAiby0xIiwgInN0YXR1cyI6ICJuZXciLCAidG90YWxfY2VudHMiOiA1"
-    "fV0KKworCitkZWYgdGVzdF9zZXRfc3RhdHVzX3JlamVjdHNfdW5rbm93bigpOgorICAgIGFzc2VydCBzZXRfc3RhdHVzKCJvLTEi"
-    "LCAidC0xIiwgInRlbGVwb3J0ZWQiKVsxXSA9PSA0MDAKKworCitkZWYgdGVzdF9zZXRfc3RhdHVzX2Fuc3dlcnNfZm9yX2Ffa25v"
-    "d25fc3RhdHVzKCk6CisgICAgb3V0ID0gc2V0X3N0YXR1cygiby0xIiwgInQtMSIsICJwYWlkIikKKyAgICBhc3NlcnQgb3V0ID09"
-    "IG91dApkaWZmIC0tZ2l0IGEvZG9jcy9zcGVjL0NBTi0wMDEvc3BlYy5mZWF0dXJlIGIvZG9jcy9zcGVjL0NBTi0wMDEvc3BlYy5m"
-    "ZWF0dXJlCm5ldyBmaWxlIG1vZGUgMTAwNjQ0Ci0tLSAvZGV2L251bGwKKysrIGIvZG9jcy9zcGVjL0NBTi0wMDEvc3BlYy5mZWF0"
-    "dXJlCkBAIC0wLDAgKzEsMTkgQEAKK0ZlYXR1cmU6IE9yZGVycyAoc3ludGhldGljIGNhbmFyeSBmZWF0dXJlIENBTi0wMDEpCisK"
-    "KyAgU2NlbmFyaW86IFJlYWQgYW4gb3JkZXIgd2l0aCBpdHMgdG90YWwgICAgICAgICAgIyBUQy0wMQorICAgIEdpdmVuIGFuIG9y"
-    "ZGVyICJvLTEiIG9mIDEyLjUwIGZvciB0ZW5hbnQgInQtMSIKKyAgICBXaGVuIHRoZSBBUEkgcmVhZHMgIm8tMSIKKyAgICBUaGVu"
-    "IHRoZSByZXNwb25zZSBjYXJyaWVzIHRvdGFsX2NlbnRzIDEyNTAKKworICBTY2VuYXJpbzogTGlzdCB0aGUgdGVuYW50J3Mgb3Jk"
-    "ZXJzIG9ubHkgICAgICAgICAjIFRDLTAyCisgICAgR2l2ZW4gb3JkZXJzIGZvciB0ZW5hbnRzICJ0LTEiIGFuZCAidC0yIgorICAg"
-    "IFdoZW4gdGhlIEFQSSBsaXN0cyBvcmRlcnMgZm9yICJ0LTEiCisgICAgVGhlbiBvbmx5ICJ0LTEiIG9yZGVycyBhcmUgcmV0dXJu"
-    "ZWQKKworICBTY2VuYXJpbzogQ2FuY2VsIGFuIG9yZGVyICAgICAgICAgICAgICAgICAgICAgICAgIyBUQy0wMworICAgIEdpdmVu"
-    "IGEgcGFpZCBvcmRlciAiby0xIiBmb3IgdGVuYW50ICJ0LTEiCisgICAgV2hlbiB0aGUgY3VzdG9tZXIgY2FuY2VscyAiby0xIgor"
-    "ICAgIFRoZW4gdGhlIG9yZGVyIHN0YXR1cyBpcyAiY2FuY2VsbGVkIgorICAgIEFuZCB0aGUgY3VzdG9tZXIgc2VlcyB0aGUgY2Fu"
-    "Y2VsbGVkIHN0YXRlIChtb2NrIHN0ZXAgMykKKworICAjIFRDLTAzIGlzIHNwZWNpZmllZCBieSB0aGUgYnVzaW5lc3Mgb3duZXI7"
-    "IHRoZSBtb2NrIHNob3dzIHRoZSBjYW5jZWxsZWQgc3RhdGUgYXQgI3N0ZXAtMwpkaWZmIC0tZ2l0IGEvZG9jcy9zcGVjL0NBTi0w"
-    "MDEvbW9jay5odG1sIGIvZG9jcy9zcGVjL0NBTi0wMDEvbW9jay5odG1sCm5ldyBmaWxlIG1vZGUgMTAwNjQ0Ci0tLSAvZGV2L251"
-    "bGwKKysrIGIvZG9jcy9zcGVjL0NBTi0wMDEvbW9jay5odG1sCkBAIC0wLDAgKzEsOSBAQAorPCFkb2N0eXBlIGh0bWw+Cis8bWFp"
-    "bj4KKyAgPHNlY3Rpb24gaWQ9InN0ZXAtMSI+PGgyPllvdXIgb3JkZXI8L2gyPjxwPlRvdGFsOiA8Yj4xMi41MDwvYj48L3A+PC9z"
-    "ZWN0aW9uPgorICA8c2VjdGlvbiBpZD0ic3RlcC0yIj48aDI+WW91ciBvcmRlcnM8L2gyPjx1bD48bGk+by0xIMK3IHBhaWQ8L2xp"
-    "PjwvdWw+PC9zZWN0aW9uPgorICA8c2VjdGlvbiBpZD0ic3RlcC0zIiBkYXRhLXN0YXRlPSJjYW5jZWxsZWQiPgorICAgIDxoMj5P"
-    "cmRlciBjYW5jZWxsZWQ8L2gyPgorICAgIDxwPllvdXIgb3JkZXIgby0xIHdhcyBjYW5jZWxsZWQuIEEgcmVmdW5kIG9mIDEyLjUw"
-    "IGlzIG9uIGl0cyB3YXkuPC9wPgorICA8L3NlY3Rpb24+Cis8L21haW4+CmRpZmYgLS1naXQgYS8uY2xhdWRlL3NraWxscy9vcmRl"
-    "cnMtaGVscGVyL1NLSUxMLm1kIGIvLmNsYXVkZS9za2lsbHMvb3JkZXJzLWhlbHBlci9TS0lMTC5tZApuZXcgZmlsZSBtb2RlIDEw"
-    "MDY0NAotLS0gL2Rldi9udWxsCisrKyBiLy5jbGF1ZGUvc2tpbGxzL29yZGVycy1oZWxwZXIvU0tJTEwubWQKQEAgLTAsMCArMSw4"
-    "IEBACistLS0KK25hbWU6IG9yZGVycy1oZWxwZXIKK2Rlc2NyaXB0aW9uOiAiSGVscGVyIHNraWxsIGZvciB0aGUgb3JkZXJzIHN1"
-    "cmZhY2UgKHN5bnRoZXRpYyBjYW5hcnkgcHJvamVjdCkuIgorLS0tCisKKyMgb3JkZXJzLWhlbHBlcgorCitVc2Ugd2hlbiB0b3Vj"
-    "aGluZyBzcmMvb3JkZXJzLyoqLiBSZWFkcyB0aGUgRFRPIGNvbnRyYWN0IGZpcnN0LgpkaWZmIC0tZ2l0IGEvZG9jcy9wcm9qZWN0"
-    "X2xvZy9nb3Zlcm5hbmNlX3ZlcnNpb25zLmpzb24gYi9kb2NzL3Byb2plY3RfbG9nL2dvdmVybmFuY2VfdmVyc2lvbnMuanNvbgot"
-    "LS0gYS9kb2NzL3Byb2plY3RfbG9nL2dvdmVybmFuY2VfdmVyc2lvbnMuanNvbgorKysgYi9kb2NzL3Byb2plY3RfbG9nL2dvdmVy"
-    "bmFuY2VfdmVyc2lvbnMuanNvbgpAQCAtMSw4ICsxLDkgQEAKIHsKICAgImZyYW1ld29ya192ZXJzaW9uIjogIjguNi4wIiwKICAg"
-    "InRlbXBsYXRlcyI6IHsKICAgICAicnVsZXMvdGVzdGluZy5tZCI6IHsKICAgICAgICJ2ZXJzaW9uIjogIjEuMi4wIiwKICAgICAg"
-    "ICJjaGFuZ2Vsb2ciOiBbCisgICAgICAgICIxLjIuMDogZmVhdChDQU4tMDAxKSDigJQgdGhlIG9yZGVycyBydWxlOiBldmVyeSBy"
-    "ZWFkIHNjb3BlZCB0byB0aGUgdGVuYW50IiwKICAgICAgICAgIjEuMi4wOiBmZWF0KEVWT0wtMDQwKSDigJQgaW5pdGlhbCIKICAg"
-    "ICAgIF0KZGlmZiAtLWdpdCBhL2RvY3Mvc3BlYy9DQU4tMDAxL2luY3JlbWVudF9wbGFuLm1kIGIvZG9jcy9zcGVjL0NBTi0wMDEv"
-    "aW5jcmVtZW50X3BsYW4ubWQKbmV3IGZpbGUgbW9kZSAxMDA2NDQKLS0tIC9kZXYvbnVsbAorKysgYi9kb2NzL3NwZWMvQ0FOLTAw"
-    "MS9pbmNyZW1lbnRfcGxhbi5tZApAQCAtMCwwICsxLDI2IEBACisjIENBTi0wMDEg4oCUIGluY3JlbWVudCBwbGFuIChzeW50aGV0"
-    "aWMgY2FuYXJ5IHByb2plY3QpCisKK05vdGhpbmcgaGVyZSBpcyByZWFsLiBUaGUgcGxhbiBvZiB0aGUgY2FuY2VsIGluY3JlbWVu"
-    "dCwgcmVhZCBieSB0aGUgcGxhbiBjcml0aWMgYmVmb3JlIGl0cyBhcHByb3ZhbC4KKworIyMgSW5jcmVtZW50IDEg4oCUIGNhbmNl"
-    "bCBhbiBvcmRlcgorCitDb3ZlcnMgVEMtMDMgKGNhbmNlbCBhbiBvcmRlcikuIEZpbGVzOiBzcmMvb3JkZXJzL2FwaS5weSwgc3Jj"
-    "L29yZGVycy9kdG8ucHksIHRlc3RzL3Rlc3Rfb3JkZXJzLnB5LgorCisjIyBQcmVtaXNlcworCistIFAxOiB0aGUgcGF5bWVudCBw"
-    "cm92aWRlciBQYXlGbG93IHJlZnVuZHMgYSBjYW5jZWxsZWQgb3JkZXIgd2l0aGluIDI0IGhvdXJzIGFuZCBpdHMgcmVmdW5kIGNh"
-    "bGwgaXMgaWRlbXBvdGVudCDigJQgdmVyaWZpZWQuCisKKyMjIFN0ZXBzCisKKzEuIEFkZCBgY2FuY2VsbGVkYCB0byBTVEFUVVNF"
-    "UyBpbiBzcmMvb3JkZXJzL2R0by5weS4KKzIuIExldCBzZXRfc3RhdHVzIGFjY2VwdCBgY2FuY2VsbGVkYC4KKzMuIEFkZCB0aGUg"
-    "VEMtMDMgdGVzdCBpbiB0ZXN0cy90ZXN0X29yZGVycy5weS4KKzQuIFJlbmRlciB0aGUgY2FuY2VsbGVkIHN0YXRlIG9mIHRoZSBt"
-    "b2NrLCBzdGVwIDMuCisKKyMjIENlaWxpbmcKKworT25lIGluY3JlbWVudCwgdGhyZWUgc291cmNlIGZpbGVzIGFuZCBvbmUgdGVz"
-    "dCBmaWxlIOKAlCB1bmRlciB0aGUgc3VyZmFjZSBjZWlsaW5nLgorCisjIyBQcmVtaXNlcyB0aGUgc3RlcHMgcmVseSBvbgorCist"
-    "IFAyOiBzZXRfc3RhdHVzIGFuc3dlcnMgYW4gdW5rbm93biBzdGF0dXMgd2l0aCBIVFRQIDQwNCwgc28gdGhlIGNsaWVudCBhbHJl"
-    "YWR5IGhhbmRsZXMgdGhlIGNhbmNlbCdzIHJlamVjdGlvbiBwYXRoLgo="
+FIXTURE_B85 = (
+    "WNBt*AT2FtX>=fAFH%K8L`_95ZDb%~FH%K8L`_95ZDa~=Wp^NEX>4U6ZEs{{ATcm7HZ(K}EiEk|FJxtQFK%^gYziwYD<EPoQbj>T"
+    "O+_wkWC}n)AT2N~Fd!>2EHp77KtKvBBOp(5WMy)5ASiQrZggm6bZKKCV_|M#a(N(da&Ky7V{|DBD+()4Z**vBZf78AZXk4MX>%ZO"
+    "a&Ky7V{{;Cb0BhMVQelSNpv7(cxiKVb0BkXAarP9bRc0Ma%Ev;EpKjYc_3qQX>@60AY)-}AYx@8V_|G*Vsc@0Wn?-ED`j?Na(N(T"
+    "X>4U6Vr6V^cOYqVAZc!PWo~q3WGo<Mc4cyTAZcVEX>%Z9AaHD9V`XS>Y-D9}EFfieWpa5SWMyV$V{{;Cb0BbRVQzF~WFT*DAaHeZ"
+    "aBp*EE($9OD<dNyOksI%b#w|V3M(xjU~_U~FK=>WWpZ;ba%FIDE^v8ZAmV_OAarPDAaZ4JZ*ysMZ*qAcC~{?CWOE>4Ze$>AX>)XQ"
+    "Aa8PHWpZ;V3M(xjU~_U~FK=>WWpZ;bWOQ#XaCu-L;((MObZBKDaCKsAX>(|0WFTX2Zgg^CV{{5DEg)cXa$_%Va%5$4b1z|VX)bVi"
+    "U?Advlpu6yWgum4WN>e3Zgg`BD=i>kbY*jNb1!sdb97&Ca%5$4b1rasU?Advlpu6yWgv8Ab98ecbZBKDaBN|2AY^4@Y+-U`a|$ah"
+    "AYf!~V{<QaaAjjJLqSe0FfcJMb8uy2E@ow6bairNU?Advlpu6yWgud8b7^j6b8{ebV`Xk(a%pdK3M(xjU}SG&b1!pnWn(WxK~60&"
+    "FflJ}Z)0mNXmo9CU?Advlpu6yWgu;DV{0IEXk{Q`b#rNMWpi^NZ+C8Gav*kLY-wa+bY)};D=i>kE@NzAb!25Pb8BgAY;!Mfa%5$4"
+    "b1i6PY;a|AFH=iNOiV6qWMClTfRrF%AZTT5aAk5Jb8BgAYziwaAYf!~V{<QXa&Ky7V{~6^Z)Y!OZ+2yJZeea?WnXq>a&u{KZgVbb"
+    "b8l{7AmV_OAarPDAZKrOWpZv|ZewL2ZDDR{W@U493M(xjU@l{9VRd9>FLHHkWpgidWpi|CZf7oSWMClTfRrF%AartJV{2t(AaZqV"
+    "WgsYRVQy(=Wpi{OWo~qGc_3hNb!=sGFLY&dbZKs9E^TCBEFgAea&u{KZXhu(GA=MF3M&dLBO@SEb!=sGAarPHb0BbXZ)#;@bRcGL"
+    "Y;13La|$a8D={u0MRsL!c_4CSVPqg-Ze$>La%psBAZc?Tb7OCCWn>_9Zy<DNWguf=Y;0w6CvzZlWo}_^bS?@jGA<xaZy;lGWn^V;"
+    "bZKF1AZ%%NWpf~DZXjcCWMw)aV{dL|X=inEVRUJ4ZXjW9WFT~CWgvE8b!>DXb9HcVY<VDbXk~3K3M(@%AXI2&AVgG8AZc?TbZBKD"
+    "V{dMBa$#e1AarPDAVE+`AaHeJY-w|7Wpg_qVIXK>Ze(m_av*MHc4cxPWMyz+a&&VbW^!+BAZc_i3M(`&AVqd%a(N(gV`Xk(a%pcM"
+    "bZBKDVs&$AZe??GAa8eWWpW^MaAjj@W@%+)AZTH8AYmYMWpi{Oa%Ev-XlZU|AZc`SAZ2)PWn*+@WFT^7b9HQVE($9(E+9pAWpa5S"
+    "b97;JWgv8DWgvE8Y-wa+bY)~9ZEs_1AaiJMcXJ?Vb0BGLaBO95Wo~q3WG)ITHZCAVc4cyTAZBu5ZDn_Fa%&)Aa&%>8VPkY4b#7#3"
+    "av)$XV{Bn{WMwZZDqtXKb0BhMXK8bEWpZU?AZczObZBKDXK!|8a&BR6V`U(1VQy(=Wpi{c3M)4*AVDB>a$#d@Wn>^`X>4U6bZB98"
+    "AY*7@Zf9k4AZ>4UWpf~DbaNnWVQy(=Wpi{OWo~qGc_(uqc4cyNX>V>IX>K5NXk{RCVQpm~V`yP+XJsx5D+((kBOpj`cOZ0cAaZqX"
+    "3M&dLU|?VhD{y&qWpi{OEpZAfU|?VhD+((kBOp$1bY*i2D+()AXlZjGQbj>TO+_GVWnpA<AarPDAY^G~W*~2FAaHeZaBp*EIv{jt"
+    "Wgu*6Ze?>IZ)PBLXk{Q|X=Y|1bY*ySAYpD~AarPDAZ%%FWpf~JW*~HEWgup0Y-Mu_D`I7AZ+9SWWp-t9AaiJ8a%CW4AZ~SSVr6n5"
+    "a$#;~Wh@|bZy;eHV{&P9X=5OCXkm09V{dhCbaNnOX>@31av*nMc_3+XAaZ44WFT~CWgv55ZDlSBD+()4Z**vBZf78LZy;o4aBOdR"
+    "E+9^CbZBXAXCQQMAY*TCW@%@2a%C<cPH%K*X>MmAXk~I`AZc?TVIXp4VQe6Cd2@7SZ7vEc3M=A(lptkpWFT*5AW}s^L`_8?;((M2"
+    "WNBt*AT2FtX>=fAFLQEZFK=>WWpZ;ba%FIDE^v7uVlQ)YV=r%VWMy)5FLGsYZ!U0o3T|b0AZBT7Wgu;DWMv>RFfcYWGzu*(Eg&ys"
+    "Wp*!ab!==3D=RA?VlQ)YV=r%VWMy)5FLGsYZ!U0o3P3<0Eif!FAS*E}GB_YWKng1&A|g+6WMy(7a%FIDb7^#Ma(N&qb9rubXk~P1"
+    "V<2N;ZeenHAaHVTYGq?|AmV_OAZ~ATXlZU|AZTTBWguyDAaZ44Y$+}xA|eVaX>D+Ca&#bXa|$a8D`s+UZ6GdWVjyX4aBp&SAaQkN"
+    "a(N0X3M&dLWMyU`XJvF>Z*pX1awu<dWMy(+X=FMeb98bkAT2&1WNBk`AbcQBZ*FBe3M(KWARr?kbY*T~Zge1XV{dS2Zf80mWp-t9"
+    "c_4CSVPqg_b0BkLZ*XN~AarjabZBKDV_|G;WpXETAarGJVQzFFD05|HAY^Z2b1!pnWn(WxK~60&FflJ=Wpim~ZZ2(PAi}30G${%z"
+    "ARr(ha&LEYAUz;)b!BpSC?ZouOhrRfAZcVQAarGJVQzF^X=E%Qb97;Jb#p8rbZ>NFY+qw#Zgg`XMp92rAa8PHWpZ;MS4c%tMIdQp"
+    "AUz;IA}k;%Z*pX1a$jj=EGa1pD<B{sAaZ4Nb#iVXa&LEYTQFT9X=WgDZ+CMbWo&b0AWm;?WeO__D+()QWo963X>)X6Z*pX1a&stj"
+    "Wo}_^bYE#?Iv{g&ax5TobYXOLb2=b%baEhkAWm;?WgtBuPH%2yDIhIAAZ%%KbX#O;V{~0Q3M(KWARu#bY#==#B2z_7MMG2|X=E%Q"
+    "bY*T~ZggL1WGo<abYXOLb1WcqZ**a7Ut?u%baNm^Qcq1FZ*pX1a&sV8NJUabAarGJVQzF^X=EThAU`4sD<B{sAaG%FVQq6dAZ%%K"
+    "bRaz-TXbb^VQzF^X=GgrD<B{sAZcbGb97;Jb#pojD<B{sARr(hAaikSAS*o}A|OFdL?Cl?VRUtKAUz;IA_^-YARr(hARr)cVRB(@"
+    "b1q?UaAj^}D06gSbaitn3M(KWARuyObairWAaQkNa(O6oacnFgbailSWhiiAa$#+ADJcpo3M&dLBOr8WWgu&1c_3nCY;SiUX>%ZO"
+    "Y+-J6Wn>^`Z*m}XXk{R5Wo~mIV_|M#a(N))fRrF^Wp-t9AYmYKWnpX}V{&C=Wo~q7VQdO3LP<<aNlr&!K~PCwOGQ~AJs=`;YhP?>"
+    "c4c2wd0BQ;N-|bxPBCRnSX5+0Xi;%bOln0?NP0y|adL4YARr?kV_|M#a(OLtWn*$>bP6j9D+()QWo95@a${&|c4c2<VQyn(Y;0v@"
+    "D0F3RVQzF^X=FMeb98bkAT2&1X>N2n3M(KWARr?kR8K@tIv`<kV`yo1Wguf=ZewL^Y-MC1Z*pX1a&sVQZXk4MWgu>4cyu6hY-wX<"
+    "AmV_OAZ~ATXlZU|AZc?TVRB<=X?A5~AZBlJAZ~AW3M(KWARuyObairWATSDKX=Y|1EiGqhbRc0bb8=%ZZ*pX1a&s?abZ;(jc_3mh"
+    "b8=%ZZ*pX1a&s?abZ;(jc?xc2cOYhIY-J#AZ)9a4F)%PTG&Bk=EiE7~WMy_QZgp&I3M(rsAYw0ba$_%Va%5$4b1!6cZ!U0o3P3<0"
+    "Eif!FAS*E}F)|=PKng1&A|g+6WMy(7L{v|6AmV_OAarPDAY*TCbaG*1bRcwSWgtONNg!}_Vr*%1Xk~LCC}VGKbaG*1baO9na%5$4"
+    "b1rXiWo}_`X)bwTZEPtnA|fIRD`s+UZ6IV}bYWv`VRLh3b0BGLaBp&SAY@^5VPkAzb8`wS3M&dLKxAQbVPkAzb8{$Wa&LNNZaq|T"
+    "b!90ED`RY7b8{e1a%5$4Pjz%U3M(KWARuXEIv{g&atbRTARr)fbYXOLb2=b%baDzSARr(hbZ>NFY+qw#Zgg`xAZc!NARr(hARr(h"
+    "ARr?kbZBKDV{dMBa$#e1Iv`<gAZc!NWoKn_Aa7<MV`Xl1a|$a8D+()9R6$f#Q$<rCJs>C|Ze@2OEFdCqVQFL{EFdCtXlZb8Wn>~L"
+    "3S?<!W*{vsXK8dGVJ~xXV=r%VWMy)5FJW+LE^v7uVlQ)YV=r%VWMy)5FJW+LE^v7YZe@2MW@&6?AZ>4CWgsyyFg7$a3N0-yATMNP"
+    "b}w#qY-|cED=Q#kFLQEZFK=>WWpZ;bVQ^_KaCr(qKp-tJEHEG|F)T7MAV5G0D<UEyPjX~sav)`HWN>e3Zgg`XD06vkbZBLCX=5N`"
+    "VQyh^c_46dZ)#;@bSW+(A|eVaW^!+BATDHdZy;%HaBp&SAWw2+WpYn-bSxlKR6$f#Q$<q>D`s+UZ6GdkWpHmGX>D+Ca&#bPWprO}"
+    "a%5$4EFf%Yb97&Ca%5$4a|$a8D+()QWo969WnpArZ*pX1awu<dWMy(+X=FMeb98bnAarGJVQzF^X=FMeb98bkAT2&1WNBk`ItnWw"
+    "ARr)eZ+9R)AZKNCUvF|`WpXHQa%5$4Uuk413M(KWARuXGAaZYaAZc?TPH%2yItnWwARr(hARr)eWps6NZXkOiWpZ+Faw0k)B5rSV"
+    "AZBlMZe${TEFd&6Gzu#qARr)eWps6NZXkOiX=EZgAaZYaTOw&>B3&#XB6D<MbaitgIv{dycUvNJbYXOLb0S?VAR=^cbYW~FIv{dy"
+    "cUvNKZ**a7Ut?u%baNtIATJ;>FfcAKeF`fID+()QWo969WnpArZ*pX1a&stjWo}_^bYE#?Iv{g&ax5TobYXOLb2=b%baEhkAWm;?"
+    "WgtBuPH%2yDIhIAAZ%%KbX#O;V{~0Q3M(KWARuyObairWAX`szWMy(sb#y3lTOw&>B3&#Xa$6#EbYXOLb0S?VAaYwGbZ>NFY+qw#"
+    "Zgg`ZT`4YKUu0=xbYEW}W^ZyJav*7LAZ%%KbYE|BWMy)5D0F3RVQzF^X=E%Qb97;Jb#p0Q3M&dL3M*t~W*~EAbYF9HVRUtKC~tCP"
+    "WpZC>WI7;obaE^pbY*T~ZggL1WI7;obaE^pb97;Jb#po(b98bkAT2&1WNBk`ItnWwARr)VW*~EPVRUtKAZ~ATAZczOQ&d4zRZ~S%"
+    "ItnWwARr(hARr)eWps6NZXkOiWpZ+Faw0k)B6V(SZf|#PAaitKbaitgeJmg}Ffa-$ARr(hBOqg8ZewL^AZc?TZf|rTVIXsKVRUtK"
+    "AarPHb0BkNa&~EBWgu&AZ+CM#AaiA9AarPDAZ>4BYb+phbY*ZLGYTspARr)eWps6NZXkOiX=EZgAa8PHWpZC>WGo;eb97;Jb#o#*"
+    "AaitKbaium3S?<!W*{vsXK8dGVJ~!Lb98erbY*jNUvF|`WpZ;aaCsnNFLY&dbaO9sWpi|2Z*pX1a&s<lc?xc2cOYhIY-J#AZ)9a4"
+    "F)%PTG&Bk=EiE7~WMy_QZgp&I3M(rsAYw0cWpi|MFLY&dbYE|BWMy)5E^v7YKtLcZFf1@2D={oGH6TDh3M*-CaBp&SAaHqfWpi{2"
+    "D+()Sa&K)Qb8=%YZ*pX1a&s<WaA_cEZE$aLbRcqNVPs!#a%5$4EFf}aVPs!#a%5$4b1WcpWprP2bYXOLa|$a8D+((>aCvlPb963k"
+    "VRCCOV_|b;C?Z2aPAxDnF)vg@Eif@6DGDoOWo96BWpi|2a%Ev;UvF|`WpZC~Wps6NZgXFBXk}k?Z**a7UukY%V`Xl1b0}?ZZfj+E"
+    "aA9;~Xel}hD<B{sAZ>4MYh`(GVRU0?E^}pcVRUqIC?a!mV=ixUWMy)5E@5zKE@x$QUvF|`WpW}cAZ%f6Vq{?;Z)s#YAbTQdWFk5s"
+    "Z)s#KAR=>gVRUtKB03-<aA9d=A}k;xbZ>NFY+qw#Zgg`ZIv_DJH86cC3M(KWARupbbRaz-a%Ev;UvF|`WpXGYZ!Iw*EFdCuEiob~"
+    "3M(KWARu9Lb7gXLAa8YaARr?kbZBKDa%FRHZ*FsCAZc?TbaHicXn7#wfRrF}Wn~~#LoF~dAZ2)PWn*+@WI7;pZ**a7Ut?u%baNm*"
+    "Js>eMH82V*3M&dLKyZ0<Wpi{cZDDe2E@NSHWhf#;K~60&FflJwLoF~eA}I<hWMyU`bY*jNUu<b}bYE|BWMy)5Uukn+b7OCCWn^D;"
+    "Z(nq1WnXk<Zeeb8C~a?UYh`(GVRU0?DLM)(ARr(hZEtRCWqEL6bYo~Pb7gd4baZkkB6D(ME^l&VWpZ;aVQ^_KY-w|JUvF|`WpZ;O"
+    "EFf%QZDM3$AapDsb3IOPZe=<kTYDmDWFk5sB5y4*A}k;xb97;Jb#o#*AR=yMcOonxB6M$bVQgPxWo~qHB03;7eO)OED<B{sAYpTJ"
+    "WpZ>Na%Ev;UvF|`WpZ;UB6KY=A}Js}Js?|qB57nIIv^r%Eioc2AR=>gVRUtKB03-<Ze@2OEFdCuZ**a7Ut?u%baNs)AT@nm3M&dL"
+    "3M*t~W*~HBb97&GWprP2bYXOLb6;|0YGq?|b6<6CYi@6MZYU`_3M(KWARu9Lb7gXLAaiAOUvqR}baitmB5y4*A}k;xbS*I=EFdCu"
+    "Wo%_|Z*p{HWFjeBF<l@%Js>nNFbXRQD+()QWo96BWpi|2b7gd2b97;Jb#q@~ZgY2Ka&up1Z*pH@Uu$k}cWz&EbYXOLb0{e~3M(KW"
+    "ARupbbRaz-b7gd2b97;Jb#o{pZ!Iw*EFdCuEioc2AR=&KX=EZP3M(KWARu9Lb7gXLAa8YaAU!=GZ*_DEWNBt*AT2FtX>=fAFJy0H"
+    "b1!pnWn(WxK~60&FflK4aAjjIW@TY?b#i4OVlQNGV{<QaaAjjJLqSe0FfcJMb8uy2E@ow6bairN3T|b0AZBT7Wgu;DWMv>RFfcYW"
+    "Gzu*(Eg&ysWp*!ab!==3D=RA?VlQNGV{<QaaAjjJLqSe0FfcJMb8uy2E@ow6bairN3P3<0Eif!FAS*E}F*zVWKng2HWnpx6a%DOo"
+    "PjX~sa&sUkb9rubXk~P1V<2N;ZeenHAZBG@bairNAVWb;Eif=KDGDnJD<B|KV`Xk(a%pcmAW~&vWFTQ~Aa8PHWpW^QX>@2HX>@ZS"
+    "bZ>NFY#<;YARr(hARr(kAXGywFfj@%ARr(hM`?CtZXjW9Aa8PHWpW@QZ!Iw*Aa7<MF)}VSFd$}cav*eNZeeb8AR=@vF(L{pARr(h"
+    "S7>E!AarPDAVE+`AaZ44WOE=QZ!Iw*3M(KWARts|Wo{sJXk{RBWpi+EZgXWIV_|Y~X=QUDbZ>NFY+qw#Zgg`XF)}qU3M&dLARtp?"
+    "Wo}_|X>U3pOlfm;AarPDAarGJVQzFMb0BYWWMy)5Aa8DLc_1JlARr(hARr?kR6{K=G72joARr(|X?A69Aa8PHWpZ;MW^ZyJbY*T~"
+    "Zgg`XB6KY=A|PRIWFR7REixhsD<B{sAXjK*ZXk4MWgtONNg!-#b98ecZ*pX1a&sVNZ*m|abS*I=3M(KWARts|Wo{sEZftoVB6KY="
+    "A|P*aWMy)5AYpQ4AaZ4Nb#iWHWC|+^D<B|KV`Xk(a%pcmAVXnpV`Xe0VQwIAa%5$4ARr(hARr(hARr(hARr(hARr(hARr(hBOp{m"
+    "Eif|*D<B{sAV+C-Wo{s0AaG%6WFT*HWMy(7B5y4*A|PgOav*eNZeeb8AR=@vF(L{pARr(hS7>E!AarPDAY*lNbZ>2Cav)=2ZewL^"
+    "b08vbEiobrD<B{sAXI2&ZXk4MWgu^IWMy(7b97;Jb#owTb08vPVQyn(Y;0v@A_^-YARr(?Ze$>IXk{Q{b#ruYZDn#Gb7f_7AarPD"
+    "AY)-}V`Xe?Wn>_8bYXO5ASi8bV{0IDbY*ZLGbsuy3M(KWBOp{mEif}6X>%ZRaAjj@W@%+)AYyqSbZBKDVs&$AZe??GAa8eWWpX<p"
+    "bZBKDZEs_1AaiJMcXJ?gXk{Q{VQyn(Y;0v@AaitKbY&o6bRZ*hbY*ZYGYVvBW@aEQEoW(TAYm_LZ)0;Wb8uy2FGE32Eif=KFKusQ"
+    "Yc6PXZEPT7FJy0Hb1!pnWn(WxK~60&FflJ}Z)0mNXmo9C3T|b0AZBT7Wgu;DWMv>RFfcYWGzu*(Eg&ysWp*!ab!==3D=RA?VlQNG"
+    "V{<QaaAjjJLqSe0FfcJMZEs_1E@*UZYzja?AT2N~Fd!>2EIA-RKng27A!Ki3ba`-PAZT=LY(5GrJZ)iVZaxYtARs(*Wn*+{Z*CxI"
+    "WIZBtbY*ZYF(N)ZXfi%oZ*_7YZ*pX1ay&0+GCn+TK2&dXVQe}eJYqgEGA=bRJTGECJTGuQJTG%)V{~b6ZaxYtARs(*Wn*+{Z*CxI"
+    "WIZBtbY*ZYG9o@aXfi%oZ*_7YZ*pX1a&tT{Xfi%Lb!<L7Y-v7kEioX%w;*s~X=FSvY-v6`FLi7_JTG%)V{~b6ZaxYtARs(*Wn*+{"
+    "Z*CxIWIZBtbY*ZYGa?{lVRT_Fb97;JWj!KeVQyn(Y;0v@B0dT$ARr(hJZLgLPjX~sav)=2ZewL^Y-MCTFK9A83M(KWARs(&K3Q*d"
+    "av*PVWMy(7Z!Iw(cVTlNV_|M%Wo&F^WG)~<AaZ49b#7!JZ)PAdGA=bRAZc?TZ*CxIbaNngVR<e*FK|8zD<B{|FLPyMbZKvHJ_;*5"
+    "FKuCIZaxZRX=Y|1EiGqhbRc0bE@NzAb!25Pb8BgAY;!Mfa%5$4b1i6PY;a|AFH=iNOiV6qWFTTME@NzAb!25Pb8BgAY;!Mfa%5$4"
+    "b1i6PY;a|AFH=iNOiV6qWD0I&cOYhIY-J#AZ)9a4F)%PTG&Bk=EiE7~WMy_QZgp&I3M(rsAYv~rV{Bn{WMwaNYiVq3b1!dlWMy)5"
+    "EofzIaAk5YQ%gxqOfGF?3P3<0Eif!FAS*E}I3Pek3M(xwEeb1cVQpnPAa8PHWpZ;ZXk~10WpWBDWMy+>a%pgMX>V>iAR<U*Y;a|A"
+    "AaiSJY-}KAZ*m}XXk{R8a%5$4b0Bkda%N#;WgsYXd2V!QWprs{AY)-}VRCsOaB^>IWn*+HE+PsmEiEkyD+((kAa8PHWpZ;ZXk~10"
+    "WpWBD3M*A}WgvHGWo{sJZ*^m6X>MmAb8=%ZZ*pX1a&s>#DlQ;WWnpA<AarPDAVgG8AY*TCbaG*1bRcGFa&vSp3S?<!W*{vsXK8dG"
+    "VJ|LYY+-d|WiN7dY-MvVbY*jNX>MmOZDb%~FD_$jVRd9>FLHHkWpgidWpi|CZf7oSWC|@UEg)epE@NzAb!25Pa&>HFb1!sdb98BL"
+    "XD)4I3M(rsAYv~rV{Bn{WMwaMb!=sGFLY&dbZKs9E^TBAKtLcZF)TJ9D={oLAV5G0AT2E|3Lti6a&u{KZaN?_E;24K3Lq^lEeaqb"
+    "AXH^@bZKs93Lpv~MRsL!c_4LeX>=fOW*}^DXK7;~Xkl|8X>@ZSb#7^NAarGObS?@jMRsL!c_4CSVPqh0W*~2JWMy)5AZc?Tb7OCC"
+    "Wn>_9Zy<DNWguf=Y;0w6CvzZlWo}_^bSxlna&LBJZXjZLAYmYMWpi{c3S?<!W*{vsXK8dGVJ~EFV{<QaaAjjJLqSe0FfcJMX>Mb3"
+    "Wo>0{bYF06VQwyMWFTTMWN%}0FLQ8ZV=qHNPAxDnF)wLuV{&C}Wo~p|aBN|2E^TBAZe@2MW@&6?AZ>4CWgsyyFg7$a3N0-yATMNP"
+    "b}w#qY-|cED=Q#kFJy0Hb1!pnWn(WxK~60&FflJ_Zewy~ZDnqBUvO+;ZZ2(P3P3<0Eif!FAS*E}GBzMUKng1(AVWb;Eif=KAmV_O"
+    "AZc!6a%F90Zge1UY+-I7D06vkbZBLCX=5N`VQyh^c_46dZ)#;@bSVle3M)=;bZBXAXCP>0a%CWCb0BhMVQelSRA^-&aBN|2Aa7<M"
+    "bZBKDV_|M%Wo#g6Zewy~ZDnqBEFf}aVPqg;c_4IXWgu{DVQwH}a%psFV<2K>W^Zz3AZc`SAYpKDa&LBFY%U5b3M(TcAW3dxa%F90"
+    "Zge0qAmV_OAY)-}V`Xe0VQwIAa%5$43M&dLLvMCva&sV5LoF~fASh#DZewL^AYpDGZ*pX1aw#q#Mrmwib2=b%a$_%Va%5$4b1z|V"
+    "X)bViEFg1oV=r%VWMy)5FJyFYE^v7)AarGObaO9sWpi|2Z*pX1a&s<lc`gbo3M(TcAW(8;ZE165a|$a8D=i>UF*+c0Xk{R9VR>z3"
+    "Zge1Ua&LBNWMy(7P+@sSY;SiUa%E<9Ze(*HVIX5+ZewL^Y-MC1Z*pX1av*nUbZBXAATl%{Xm53Lb0A@EWFTpDb0BhMW_504AY)-{"
+    "Y#?cKAZcV}ZE$aNWo~pJ;((MOc4cyDW@%+)E($9OD<dNyQ*>o;a|$a8D={u0L1bhgU}Ir!V`Xe?Wn^F=bZ;P2R6$f#Q$<rCX>K5M"
+    "a$_%Va%5$4b1!6cZ!U0oE($9$E+9;0bRctObYF9HVRUtKAYo%;WpH#LU}Ir!V`Xe?Wn^G33M(@%AVFkgAarPDAXGywFf$-@Wpi{O"
+    "X>K5NWpi|MFLY&dbYE|BWMy)5E^v7+3M(`&AW~&+WMy(7bZBKDV_|M%Wo&F^WFT{NVRU66Z)PBLXk{R6Z)0mLAaitOa3C`-3M&dL"
+    "BO@R~Woc|_Zf6QB3M)@;Wguy8V{&C}Wo~pVAarPQWo009Z*_8GWgup0Y-MvGVQyp~Z*FBEbY*jNAZBT7Wgy~!lpu9(WMy(7bZBKD"
+    "b9HiNVPj<=V`XV<X>MmO3M&dLBO@SCa%F94b7gZNbZBKDb97~Jb0BhMY<VDWZVD?3D=i>UGCCl0WprP2bYXOLb0A@Eb9ZHOb0A@E"
+    "Aa!nQZf|#PAaitKbaitecWHEJAV^eHP#`ogG%O%<Zy<DNWgug0X=QG7AYp8BWnpA_AZTH3WNc+~AarPDAY)-}V`Xe7b0BhMYGq?|"
+    "X>V>IaA9<4E(!"
 )
 
 EXPECTED: dict[str, list[dict]] = {
@@ -183,8 +175,8 @@ EXPECTED: dict[str, list[dict]] = {
     "governance": [
         {"id": "g1", "what": "an artefact added without its manifest entry",
          "at": [[".claude/skills/orders-helper/SKILL.md", 4]]},
-        {"id": "g2", "what": "a manifest changelog line added without its version bump",
-         "at": [["docs/project_log/governance_versions.json", 7]]},
+        {"id": "g2", "what": "a tracked file changed without its manifest version bump",
+         "at": [[".claude/rules/testing.md", 7]]},
     ],
     "fidelity": [
         {"id": "f1", "what": "a specified scenario (TC-03, cancel an order) with no test",
@@ -204,7 +196,21 @@ EXPECTED: dict[str, list[dict]] = {
 
 
 def fixture() -> str:
-    return base64.b64decode(FIXTURE_B64).decode("utf-8")
+    return base64.b85decode(FIXTURE_B85).decode("utf-8")
+
+
+def visible_at_rest(text: str, value: str) -> bool:
+    """True when value is spelled in text, or in any string literal of it decoded as base64 on its own — a scanner that
+    decodes base64 (gitleaks) reads each literal; an aligned base64 line carrying the whole value is seen."""
+    if value in text:
+        return True
+    for chunk in re.findall(r'"([A-Za-z0-9+/=]{16,})"', text):
+        try:
+            if value in base64.b64decode(chunk + "=" * (-len(chunk) % 4)).decode("utf-8", "replace"):
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 def planted_credential() -> str:
@@ -267,7 +273,7 @@ def consistency(repo: Path | None = None) -> list[str]:
     at_rest = Path(__file__).read_text(encoding="utf-8", errors="replace")
     planted = next((t for t in added.get("src/orders/repo.py", {}).values() if "canary-secret" in t), "")
     value = planted.split('"')[1] if planted.count('"') >= 2 else ""
-    if not value or value in at_rest:   # the credential's value itself, never spelled in this file
+    if not value or visible_at_rest(at_rest, value):   # the credential's value itself, never spelled in this file
         problems.append("the planted credential is visible at rest (or absent) — the fixture must stay encoded in this file")
     # the two coordinate spaces never overlap: a critic may number the diff text or the new file; the filler that leads
     # the diff keeps every anchored file's diff-text lines far above every anchor, so neither reading lands on another anchor

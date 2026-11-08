@@ -2351,6 +2351,12 @@
    "since": "8.26.0",
    "detect": "config/quality.json#/performance",
    "apply": "performance (EVOL-073)"
+  },
+  {
+   "id": "history-in-vcs (EVOL-118)",
+   "since": "9.0.0",
+   "detect": "always",
+   "apply": "history-in-vcs (EVOL-118)"
   }
  ]
 }

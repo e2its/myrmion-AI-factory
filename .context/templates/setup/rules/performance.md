@@ -2,12 +2,8 @@
 description: "Performance as law — one home for every threshold, a dated baseline per site, a regression beyond margin blocks; caching and load practice."
 applicable_when:
   always: true
-version: 1.3.0
+version: 1.3.1
 date: 2026-01-26
-changelog:
-  - "1.3.0: feat(EVOL-073) — the body of performance as law: one home, the baseline per site, the re-baseline by decision record."
-  - "1.2.1: feat(EVOL-044) — frontmatter `version` realigned to this manifest entry (manifest-parity gate); YAML made parseable where needed."
-  - "1.0.0: Initial template version"
 ---
 
 # Performance

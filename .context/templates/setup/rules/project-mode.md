@@ -2,10 +2,8 @@
 description: "Project mode & extension strategy — Greenfield vs Brownfield, extension strategy (E0 native / E1 wrapper / E2 strangler fig / E3 rewrite) and the rules for touching existing code."
 applicable_when:
   always: true
-version: 1.0.0
+version: 1.0.1
 date: 2026-09-25
-changelog:
-  - "1.0.0: feat(EVOL-043) — body home of [PLAW-03] Project Mode & Extension Strategy, moved from the constitution template"
 ---
 
 # Project Mode & Extension Strategy

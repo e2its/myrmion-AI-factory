@@ -1,15 +1,7 @@
 ---
 description: "Defect Prevention Catalog — families, defect classes, gates, governed paths. Cases annex: defect-prevention-cases.md"
-version: 3.8.0
+version: 3.8.1
 date: 2026-09-25
-changelog:
-  - "3.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
-  - "3.0.0: feat(EVOL-043) — families with surface globs; one-line invariant per DC; gate mark; governed paths; narratives moved to defect-prevention-cases.md"
-  - "2.3.0: feat(EVOL-037): DC-29 over-engineering / YAGNI minimalism (ponytail discipline). Single source for the do-less ladder + 4 over-engineering categories + how-not-what scope guardrail. Consumed at decision-time by factory-adversarial-reasoning (do-less AGAINST lens) and at build-time by BVL full_verification_gate step 8 (advisory, fail-open)."
-  - "2.2.0: feat(EVOL-019): feature_scope schema field added — entries can restrict to scope IN [full-stack, backend-only, frontend-only, integration]. consult_defect_catalog() gains a feature_context.feature_scope filter. Enables the 7 starter integration DCs shipped by EVOL-019 Phase 2."
-  - "2.1.0: feat(EVOL-016): rules relocated to .claude/rules/; protected-paths.json + allowlist.json relocated to config/."
-  - "2.0.0: Universal consumption — every SDLC agent consults the catalog filtered by applicable_to. Added applicable_to schema field, 8 consumer sections, expanded relationship table."
-  - "1.0.0: Initial — starter defect classes materialized from SETUP stack detection. Process integration: DEV pre-write check, REVIEW Check #2d, Discovery Protocol."
 applicable_when:
   always: true
 ---

@@ -96,7 +96,7 @@ CREDENTIAL_WORDS = {"password", "passwd", "secret", "token", "credential", "cred
 CREDENTIAL_PAIRS = {("api", "key"), ("private", "key")}
 CONSUMER_ROOTS = ("scripts/", ".claude/instructions/", ".claude/skills/", ".claude/commands/", ".claude/hooks/",
                   ".context/templates/", ".github/workflows/", "config/")
-# never a consumer: the writers (the instruction, the registry, the template), the manifest and its changelogs, the
+# never a consumer: the writers (the instruction, the registry, the template), the manifest, the
 # tests and the answer fixtures (a mention there proves no read)
 NOT_CONSUMERS = (INSTRUCTION, REGISTRY, TEMPLATE)
 NOT_CONSUMER_GLOBS = ("*governance_versions.json", "*/test_*.py", "*scripts/test-*.sh", "*scripts/fixtures/*")

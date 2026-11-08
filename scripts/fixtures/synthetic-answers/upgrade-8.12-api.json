@@ -111,7 +111,8 @@
       "contracts.emit (EVOL-070)",
       "feature_map Version (EVOL-070)",
       "data (EVOL-071)",
-      "performance (EVOL-073)"
+      "performance (EVOL-073)",
+      "history-in-vcs (EVOL-118)"
     ],
     "templates_to_add": [
       "security/sast/python.yml",

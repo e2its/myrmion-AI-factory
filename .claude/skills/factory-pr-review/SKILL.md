@@ -461,7 +461,7 @@ factory-pr-review/
 │   ├── docs-sync-checklist.md        ← code↔docs + framework artefact matrix
 │   ├── api-contract-rules.md         ← OpenAPI/AsyncAPI + breaking changes
 │   ├── adr-policy.md                 ← ADR location: docs/project_log/adr/
-│   └── changelog-policy.md           ← CHANGELOG + governance_versions.json (meta)
+│   └── changelog-policy.md           ← CHANGELOG + governance_versions.json bump (meta)
 ├── scripts/
 │   ├── preflight.sh                  ← orchestrator (push gate entry point — Step 0 coherence marker + Step 0-bis code-review marker)
 │   ├── detect_change_type.py         ← classifies the diff

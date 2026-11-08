@@ -297,7 +297,7 @@ done < <(git ls-files -- 'docs/project_log/adr/ADR-*.md' 'docs/project_log/evolu
 if [ ${#orphans[@]} -gt 0 ]; then
   echo "check-adr-constitution-sync: FAIL — an accepted decision record is named by no other tracked file, so nothing that applies the decision points back to it:" >&2
   for f in "${orphans[@]}"; do echo "  - $f" >&2; done
-  echo "Resolution: name the record (its id, e.g. ADR-0030 or EVOL-069) where its rule is stated or applied — the governance source, the rule, the skill or the changelog line." >&2
+  echo "Resolution: name the record (its id, e.g. ADR-0030 or EVOL-069) where its rule is stated or applied — the governance source, the rule, the skill or the script that applies it." >&2
   [ ${#offenders[@]} -eq 0 ] && exit 1
 fi
 

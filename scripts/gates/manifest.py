@@ -2,20 +2,19 @@
 
 One helper behind `python3 scripts/gate.py manifest`:
 
-bump    `--bump --entry <path> [--entry …] --level patch|minor|major --note "<what and why>" [--framework LEVEL] [--base REF | --no-base]`
-        moves each entry's version by the level, prepends the changelog line in the entry's shape (`"<version>: <note>"`), moves
-        the file's frontmatter `version:` when it carries one, and — with --framework — framework_version, last_updated and the
-        description prefix. Idempotent over an entry already moved on the branch (against the base manifest): the version stays,
-        the top changelog note is replaced only when it differs. Nothing is written until every entry resolved; the manifest is
-        written before the frontmatters, so a fault never leaves a file ahead of the manifest. The note is mandatory.
+bump    `--bump --entry <path> [--entry …] --level patch|minor|major [--framework LEVEL] [--base REF | --no-base]`
+        moves each entry's version by the level, the file's frontmatter `version:` when it carries one, and — with --framework —
+        framework_version and last_updated. State only (EVOL-118): no history line, no description prefix — the why lives in
+        the commit and the pull request. Idempotent over an entry already moved on the branch (against the base manifest): the
+        version stays. Nothing is written until every entry resolved; the manifest is written before the frontmatters, so a
+        fault never leaves a file ahead of the manifest.
 new     `--new <path> [--target T]` adds an entry at 1.0.0 in the section the path belongs to (the framework repo only; the file
         must exist); a template's target and delivery follow its nearest sibling's convention, or --target names it.
-check   `--check --entry <path> …`: verifies without writing — advanced against the base, the top line starts with the version,
-        the frontmatter in parity, framework_version advanced when entries moved; every reason listed; a base that cannot be read
+check   `--check --entry <path> …`: verifies without writing — advanced against the base, the frontmatter in parity, framework_version advanced when entries moved; every reason listed; a base that cannot be read
         is a fault, never a green over nothing compared.
 
-The governance check (validate-governance.sh CHECK 1b, gate.py manifest-parity) does not change: it verifies the same line
-whoever wrote it. The helper touches the manifest and the files' frontmatter `version:` lines, nothing else.
+The governance check reads state whoever wrote it: validate-governance.sh CHECK 1b (a changed file's entry advanced) and
+gate.py manifest-parity (the frontmatter in parity, no history key). The helper touches the manifest and the files' frontmatter `version:` lines, nothing else.
 """
 from __future__ import annotations
 
@@ -136,14 +135,6 @@ def base_manifest(repo: Path, p: Path, base: str | None, no_base: bool = False) 
         raise GateFault(f"the base manifest `{ref}:{rel}` is not JSON: {e}") from e
 
 
-def _branch(repo: Path) -> str:
-    try:
-        r = subprocess.run(["git", "-C", str(repo), "branch", "--show-current"], capture_output=True, text=True, timeout=10)
-        return r.stdout.strip() or "HEAD"
-    except (OSError, subprocess.TimeoutExpired):
-        return "HEAD"
-
-
 def _frontmatter(s: str) -> tuple[str, str] | None:
     if not s.startswith("---"):
         return None
@@ -247,11 +238,8 @@ def plan_new(repo: Path, m: dict, path: str, target: str | None) -> tuple[str, s
     return sec, key, extra
 
 
-def bump(repo: Path, entries: list[str], level: str | None, note: str, framework: str | None = None, base: str | None = None,
+def bump(repo: Path, entries: list[str], level: str | None, framework: str | None = None, base: str | None = None,
          new: list[str] | None = None, write: bool = True, no_base: bool = False, target: str | None = None) -> dict:
-    note = (note or "").strip()
-    if not note:
-        raise GateFault("--note is mandatory and never empty: the changelog keeps its why (what changed and why)")
     if entries and level not in LEVELS:
         raise GateFault(f"--level must be one of {', '.join(LEVELS)}, not `{level}`")
     if framework and framework not in LEVELS:
@@ -288,24 +276,17 @@ def bump(repo: Path, entries: list[str], level: str | None, note: str, framework
     # apply: the manifest in memory, the manifest on disk, then the frontmatters
     moved, kept, added, frontmatter, skipped = [], [], [], [], []
     for sec, key, extra in plan_added:
-        m.setdefault(sec, {})[key] = {"version": "1.0.0", **extra, "changelog": [f"1.0.0: {note}"]}
+        m.setdefault(sec, {})[key] = {"version": "1.0.0", **extra}
         added.append({"entry": f"{sec}:{key}", "target": extra.get("target") or extra.get("path")})
     for sec, key, cur, newv, already, base_v in plan_entries:
-        e = m[sec][key]; cl = e.setdefault("changelog", [])
+        e = m[sec][key]
         if already:
-            top = cl[0] if cl else ""; wanted = f"{cur}: {note}"; line = None
-            if top.startswith(cur + ":"):
-                if top != wanted:
-                    cl[0] = wanted; line = wanted
-            else:
-                cl.insert(0, wanted); line = wanted
-            kept.append({"entry": f"{sec}:{key}", "version": cur, "base": base_v, "line": line})
+            kept.append({"entry": f"{sec}:{key}", "version": cur, "base": base_v})
         else:
-            e["version"] = newv; cl.insert(0, f"{newv}: {note}")
+            e["version"] = newv
             moved.append({"entry": f"{sec}:{key}", "from": cur, "to": newv})
     if fw and not fw.get("kept"):
         m["framework_version"] = fw["to"]; m["last_updated"] = dt.date.today().isoformat()
-        m["description"] = f"v{fw['to']} ({_branch(repo)}): {note}. " + str(m.get("description", ""))
     if write:
         p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     for sec, key, cur, newv, already, base_v in plan_entries:
@@ -336,15 +317,10 @@ def check(repo: Path, entries: list[str], base: str | None = None, framework: bo
         except GateFault as e:
             problems.append(str(e)); continue
         e = m[sec][key]; cur = str(e["version"])
-        top = (e.get("changelog") or [""])[0]
-        if not top.startswith(cur + ":"):
-            problems.append(f"{sec}:{key}: the top changelog line does not start with `{cur}:` — the line names the version it describes")
-        elif not top[len(cur) + 1:].strip():
-            problems.append(f"{sec}:{key}: the changelog line carries no note")
         if basem is not None:
             base_v = ((basem.get(sec) or {}).get(key) or {}).get("version")
             if base_v is not None and not _semver(cur) > _semver(str(base_v)):
-                problems.append(f"{sec}:{key}: version {cur} did not advance against the base ({base_v}) — gate.py manifest --bump --entry {path} --level … --note …")
+                problems.append(f"{sec}:{key}: version {cur} did not advance against the base ({base_v}) — gate.py manifest --bump --entry {path} --level …")
             else:
                 any_moved = True
         f = file_of(repo, m, sec, key)
@@ -366,7 +342,7 @@ def render(r: dict) -> str:
     for x in r["moved"]:
         lines.append(f"  ↑ {x['entry']}: {x['from']} → {x['to']}")
     for x in r["kept"]:
-        lines.append(f"  = {x['entry']}: {x['version']} already moved on this branch (base {x['base'] or 'absent'})" + (" — the line written" if x["line"] else ""))
+        lines.append(f"  = {x['entry']}: {x['version']} already moved on this branch (base {x['base'] or 'absent'})")
     for x in r["added"]:
         lines.append(f"  + {x['entry']}: 1.0.0 → {x['target']}")
     if r["framework"]:

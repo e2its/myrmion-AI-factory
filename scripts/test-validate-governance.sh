@@ -58,7 +58,7 @@ make_sandbox() { # $1 dir
   "framework_version": "0.1.0", "last_updated": "2026-01-01",
   "framework_core": {
     "commands/x.md": { "version": "1.0.0", "type": "command", "role": "t",
-      "path": ".claude/commands/x.md", "changelog": ["1.0.0: init"] }
+      "path": ".claude/commands/x.md" }
   },
   "templates": {}, "agent_templates": {} }
 JSON
@@ -100,7 +100,7 @@ assert "duplicate source path detected" 1 "$(run_gate "$d")"
 # 4. templates entry without target (CHECK 1c)
 d="$TMP_ROOT/s4"; make_sandbox "$d"
 mkdir -p "$d/.context/templates/setup/rules"; echo r > "$d/.context/templates/setup/rules/r.md"
-manifest_edit "$d" "m['templates']['rules/r.md'] = {'version':'1.0.0','content_type':'universal','role':'t','changelog':['1.0.0: init']}"
+manifest_edit "$d" "m['templates']['rules/r.md'] = {'version':'1.0.0','content_type':'universal','role':'t'}"
 ( cd "$d" && git add -A && git commit -qm t )
 assert "target-less templates entry detected" 1 "$(run_gate "$d")"
 
@@ -108,7 +108,7 @@ assert "target-less templates entry detected" 1 "$(run_gate "$d")"
 d="$TMP_ROOT/s5"; make_sandbox "$d"
 mkdir -p "$d/.context/templates/setup/workflows"
 echo a > "$d/.context/templates/setup/workflows/a.yml"; echo b > "$d/.context/templates/setup/workflows/b.yml"
-manifest_edit "$d" "m['templates']['workflows/a.yml'] = {'version':'1.0.0','content_type':'universal','target':'pipe.yml','target_mode':'merge','role':'t','changelog':['1.0.0: init']}; m['templates']['workflows/b.yml'] = {'version':'1.0.0','content_type':'universal','target':'pipe.yml','target_mode':'merge','role':'t','changelog':['1.0.0: init']}"
+manifest_edit "$d" "m['templates']['workflows/a.yml'] = {'version':'1.0.0','content_type':'universal','target':'pipe.yml','target_mode':'merge','role':'t'}; m['templates']['workflows/b.yml'] = {'version':'1.0.0','content_type':'universal','target':'pipe.yml','target_mode':'merge','role':'t'}"
 ( cd "$d" && git add -A && git commit -qm t )
 assert "declared merge target collision tolerated" 0 "$(run_gate "$d")"
 
@@ -116,7 +116,7 @@ assert "declared merge target collision tolerated" 0 "$(run_gate "$d")"
 d="$TMP_ROOT/s5b"; make_sandbox "$d"
 mkdir -p "$d/.context/templates/setup/scm"
 echo a > "$d/.context/templates/setup/scm/p.github.md"; echo b > "$d/.context/templates/setup/scm/p.gitlab.md"
-manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}; m['templates']['scm/p.gitlab.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitLab','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}"
+manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t'}; m['templates']['scm/p.gitlab.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitLab','target':'docs/scm/p.md','role':'t'}"
 ( cd "$d" && git add -A && git commit -qm t )
 assert "exclusive stack-conditional target collision tolerated" 0 "$(run_gate "$d")"
 
@@ -124,7 +124,7 @@ assert "exclusive stack-conditional target collision tolerated" 0 "$(run_gate "$
 d="$TMP_ROOT/s5c"; make_sandbox "$d"
 mkdir -p "$d/.context/templates/setup/scm"
 echo a > "$d/.context/templates/setup/scm/p.github.md"; echo b > "$d/.context/templates/setup/scm/p.other.md"
-manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}; m['templates']['scm/p.other.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}"
+manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t'}; m['templates']['scm/p.other.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t'}"
 ( cd "$d" && git add -A && git commit -qm t )
 assert "same stack_conditional on two colliders is a violation" 1 "$(run_gate "$d")"
 
@@ -132,13 +132,13 @@ assert "same stack_conditional on two colliders is a violation" 1 "$(run_gate "$
 d="$TMP_ROOT/s5d"; make_sandbox "$d"
 mkdir -p "$d/.context/templates/setup/scm"
 echo a > "$d/.context/templates/setup/scm/p.github.md"; echo b > "$d/.context/templates/setup/scm/p.other.md"
-manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}; m['templates']['scm/p.other.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'ci_cd_platform == GitLab CI','target':'docs/scm/p.md','role':'t','changelog':['1.0.0: init']}"
+manifest_edit "$d" "m['templates']['scm/p.github.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'scm.platform == GitHub','target':'docs/scm/p.md','role':'t'}; m['templates']['scm/p.other.md'] = {'version':'1.0.0','content_type':'universal','stack_conditional':'ci_cd_platform == GitLab CI','target':'docs/scm/p.md','role':'t'}"
 ( cd "$d" && git add -A && git commit -qm t )
 assert "conditionals on different keys are not exclusive: violation" 1 "$(run_gate "$d")"
 
 # 6. stale entry → warning only (contract pin)
 d="$TMP_ROOT/s6"; make_sandbox "$d"
-manifest_edit "$d" "m['framework_core']['commands/ghost.md'] = {'version':'1.0.0','type':'command','role':'t','path':'.claude/commands/ghost.md','changelog':['1.0.0: init']}"
+manifest_edit "$d" "m['framework_core']['commands/ghost.md'] = {'version':'1.0.0','type':'command','role':'t','path':'.claude/commands/ghost.md'}"
 assert "stale entry is advisory (exit 0)" 0 "$(run_gate "$d")"
 
 # 8. membership is exact and pure bash (DC-13): a glob-named neighbour of a tracked file is an orphan (quoting), and an
@@ -161,7 +161,7 @@ fi
 # 9. an unresolvable diff base blocks when the reader is present (EVOL-065); --base wins; no reader → legacy main
 d="$TMP_ROOT/s10"; make_sandbox "$d"; mkdir -p "$d/scripts"
 printf 'import sys\nif sys.argv[1:2] == ["diff-base"]:\n    print("gate: unknown branch name"); sys.exit(1)\n' > "$d/scripts/gate.py"
-manifest_edit "$d" "m['framework_core']['gate.py'] = {'version': '1.0.0', 'type': 'script', 'role': 't', 'path': 'scripts/gate.py', 'changelog': ['1.0.0: init']}"
+manifest_edit "$d" "m['framework_core']['gate.py'] = {'version': '1.0.0', 'type': 'script', 'role': 't', 'path': 'scripts/gate.py'}"
 ( cd "$d" && git add -A && git commit -qm reader && git checkout -q -b nonsense ) >/dev/null
 rc=$( cd "$d" && CLAUDE_PROJECT_DIR="$d" bash "$GATE" >/dev/null 2>"$TMP_ROOT/s10.err"; echo $? )
 if [ "$rc" != "0" ] && grep -q "cannot be resolved" "$TMP_ROOT/s10.err"; then

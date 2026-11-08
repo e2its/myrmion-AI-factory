@@ -252,6 +252,38 @@ Run `python3 scripts/gate.py data`: green, or each finding named.
 
 Run `python3 scripts/gate.py performance`: green, or each finding named.
 
+**history-in-vcs (EVOL-118).** The operational files carry current state only; the history stays in version control. It drops every `changelog` key of the manifest and the inventory, and the frontmatter `changelog:` of every delivered Markdown target and every `.claude/rules/*.md`; a path outside the project, a symlink or a non-UTF-8 file is skipped; a Markdown file keeps its line endings, a rewritten JSON file is written with indent 2. Idempotent — a clean project changes nothing. Run:
+
+```bash
+python3 - <<'PY'
+import json, pathlib, re
+root = pathlib.Path.cwd().resolve()
+def strip(o):
+    if isinstance(o, dict): return {k: strip(v) for k, v in o.items() if k != "changelog"}
+    if isinstance(o, list): return [strip(x) for x in o]
+    return o
+def inside(f): return f.is_file() and not f.is_symlink() and f.resolve().is_relative_to(root)
+def read(f): return f.read_bytes().decode("utf-8")
+man = root / "docs/project_log/governance_versions.json"
+tpl = json.loads(read(man)).get("templates") if inside(man) else None
+targets = {e["target"] for e in (tpl.values() if isinstance(tpl, dict) else []) if isinstance(e, dict) and isinstance(e.get("target"), str)}
+for f in (man, root / "config/codebase_inventory.json"):
+    if inside(f):
+        d = json.loads(read(f)); c = strip(d)
+        if c != d: f.write_bytes((json.dumps(c, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
+for f in sorted({root / t for t in targets if t.endswith(".md")} | set((root / ".claude/rules").glob("*.md"))):
+    if not inside(f): continue
+    try: s = read(f)
+    except UnicodeDecodeError: print(f"skipped, not UTF-8: {f.relative_to(root)}"); continue
+    m = re.match(r"---\r?\n(.*?\r?\n)---\r?\n", s, re.S)
+    if m and re.search(r"^changelog:", m.group(1), re.M):
+        fm = re.sub(r"^changelog:[^\r\n]*\r?\n(?:(?:[ \t]+\S|-[ \t])[^\r\n]*\r?\n|[ \t]*\r?\n(?=[ \t]+\S|-[ \t]))*", "", m.group(1), flags=re.M)
+        f.write_bytes((s[:m.start(1)] + fm + s[m.end(1):]).encode("utf-8"))
+PY
+```
+
+Then regenerate the snapshot (`docs/constitution.md` may have moved) and run `python3 scripts/gate.py manifest-parity`: green, or each finding named. Bumps from now on: `gate.py manifest --bump` writes the version only; the why goes in the commit.
+
 **scm (EVOL-054).** Add the `scm` block from Q21.2's answer; deliver `docs/scm/protection.md` from the platform's template. Administrators apply it; CI verifies it.
 
 **verification.logs (EVOL-057).** Add the template's `verification.logs` block (`push`, `timings`, `max_kb`).
@@ -272,7 +304,7 @@ Run `python3 scripts/gate.py performance`: green, or each finding named.
 
 **security_scan.secrets_command trufflehog (#189).** When `config/quality.json → security_scan.secrets_command` is byte for byte `trufflehog git file://. --since-commit {{RANGE_BASE}} --fail` (the former template), replace it with `trufflehog git file://. --since-commit={{RANGE_BASE}} --branch={{RANGE_HEAD}} --fail --fail-on-scan-errors --no-update`; any other value is the project's — keep it and name it in the report; a kept value with a bare placeholder after a flag (`--since-commit {{RANGE_BASE}}`) is named with its `--flag={{X}}` form, since the dispatcher refuses it on a scan with no range. Nothing to write on a later upgrade.
 
-**train.close_ledgers (EVOL-104).** Add the template's `train` block (`close_ledgers`: the paths written once per train — the manifest, the changelog) to `config/quality.json`; `gate.py train` reads it.
+**train.close_ledgers (EVOL-104).** Add the template's `train` block (`close_ledgers`: the paths written once per train — the manifest, the inventory) to `config/quality.json`; `gate.py train` reads it.
 
 **contracts.outage_status (EVOL-115).** Add the template's `contracts` block (`outage_status`, default `503`) to `config/quality.json`; `gate.py freeze` is red on the first changed contract without it.
 
@@ -337,8 +369,7 @@ After ALL script files are merged, run 6 validation checks:
 ### Developer Workflow for Template Authors (4.4.5)
 When updating framework templates:
 - Follow SemVer bump rules (MAJOR: breaking, MINOR: additive, PATCH: fix)
-- Update changelog
-- Update `governance_versions.json` with new version + checksum
+- Update `governance_versions.json` with the new version (state only — the why in the commit, EVOL-118)
 - Give every new `{{TOKEN}}` one source in `discovery_registry.json` (a key's `fills`, a derived `fills`, `constants`) — `gate.py discovery` V10 holds it
 
 ---

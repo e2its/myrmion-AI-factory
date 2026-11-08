@@ -1,9 +1,6 @@
 ---
-version: 1.1.1
+version: 1.1.2
 date: 2026-01-26
-changelog:
-  - "1.1.0: feat(EVOL-049)! — the review-time hats retire; the lenses named."
-  - "1.0.0: Initial policy version"
 ---
 
 # DAST (Dynamic Application Security Testing) Policy

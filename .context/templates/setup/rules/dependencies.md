@@ -2,10 +2,8 @@
 description: "Dependency management — allowlist as the live source (config/allowlist.json), per-stack detail rules, allowlist validation script, license policy, ADR-gated exceptions."
 applicable_when:
   always: true
-version: 1.0.1
+version: 1.0.2
 date: 2026-09-25
-changelog:
-  - "1.0.0: feat(EVOL-043) — body home of [PLAW-10] Dependency Management and Allowlist, moved from the constitution template"
 ---
 
 # Dependency Management and Allowlist

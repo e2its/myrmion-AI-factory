@@ -32,8 +32,8 @@ printf 'Blocked: run `/setup --rollback-last`.\n' > "$SANDBOX/.context/templates
 expect 1 "the lowercase slash form is a citation too: red" "SETUP --rollback-last"
 
 printf 'Blocked: complete the increment first.\n' > "$SANDBOX/.context/templates/setup/policy.md"
-printf '{"changelog": ["1.0.0: IMPLEMENT --pause retired"]}\n' > "$SANDBOX/.context/templates/setup/governance_versions.json"; git -C "$SANDBOX" add -A
-expect 0 "history (the manifest changelog) is not rewritten: green"
+printf '{"templates": {"x.md": {"version": "1.0.0", "role": "IMPLEMENT --pause retired"}}}\n' > "$SANDBOX/.context/templates/setup/governance_versions.json"; git -C "$SANDBOX" add -A
+expect 0 "the manifest is not scanned (its roles name what was retired): green"
 
 rm -rf "$SANDBOX/.claude/commands"/*
 expect 2 "no command file: the check cannot judge (exit 2), never green"

@@ -2,17 +2,8 @@
 description: "Role agents and read-only critics — the class policy (tools per class, prompt budgets, model families as aliases, per-spawn resolution, fallback ladder, round caps) and the roster on two axes; the severity bar; the return contracts; no agent ratifies."
 applicable_when:
   always: true
-version: 1.11.0
+version: 1.11.1
 date: 2026-10-20
-changelog:
-  - "1.9.0: feat(EVOL-069) — the lens canary calibrates the plan critic too (the `plan` lens: a premise stated as verified with no source, a premise a fixture file contradicts)."
-  - "1.8.0: feat(EVOL-113) — the spawn hold: a work critic's prompt opens with effort, turn budget, probe budget, round and scope (diff <path> | files <glob>…); the PreToolUse hook re-measures the scope and refuses a budget that is not the resolver's; round 1 is recorded (.context/state/critic-round.json) and a round ≥2 that repeats a file the cure did not change, or is not smaller, is refused; round 2's tier is the cure's; the plan gate's second pass reads the whole plan."
-  - "1.7.0: feat(EVOL-062) — the context diet: worker_turn_cap (every worker definition declares maxTurns equal to it — the harness's hard stop; the resolver hands turn_cap; the return ends with ## Hand-off: Done, Remaining, State) and context_result_max_kb (a tool result above it goes to a file, the tail is read; the payload-verbatim invariant); § The context diet; a fresh session per sub-increment (the Stop hook session-handoff.sh records the hand-off, never holds the stop)."
-  - "1.4.0: feat(EVOL-059) — the lens canary: a critic's return carries its Model: line; a synthetic diff with planted defects per lens judged by gate.py canary; the plan owes a lens whose model moved; line_tolerance key; a red canary opens the spawn policy's review by RDR, never a block."
-  - "1.3.0: feat(EVOL-058) — turn_budget and probe_budget per size tier (medium explicit); every read-only definition declares the harness's hard stop (maxTurns = the large tier's turn_budget); the orchestrator owns the hand-back (one request on a partial return, then fully unverified); the correctness critic probes only what its finding names, never the suite."
-  - "1.2.0: feat(EVOL-056) — class `reader` (read-only, family critic, the harness matrix + the read operations of the [LAW-10] documentation servers: allow_mcp: docs_mcp_allowlist); roster entry factory-docs-reader; § Beat 0 — external facts before the design, the plan and the infrastructure; three spawn sites."
-  - "1.1.0: fix(EVOL-049) — review pass: dead critic rows dropped; phase spawn sites (the five commands); worktree guard; who spawns (the main session); allowlist matrix; vendored lenses; effort precedence; separation lost on the fallback; return contract shape."
-  - "1.0.0: feat(EVOL-049)! — initial: the one data home of the agent class policy and the roster (read by python3 scripts/gate.py agents)."
 agents:
   classes:
     phase:
