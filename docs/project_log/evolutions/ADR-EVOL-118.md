@@ -47,7 +47,8 @@ The history already lives in the commit, the pull request and, in an instantiate
    - the backlog and build instructions;
    - the inventory reconcile instruction: the trigger and the counts go in the commit message;
    - the upgrade instruction, the ADR skill and the PR-review skill;
-   - the budget doc in `config/quality.json`, the `validate-governance` ACTION message, the ADR-sync hint and the canary's governance fixture.
+   - the budget doc in `config/quality.json`, the `validate-governance` ACTION message, the ADR-sync hint and the canary's governance fixture;
+   - `frontmatter-lock`: a template under `.context/templates/` is never an artefact. The ADR setup template's `status: accepted` is the materialised ADR's default, and its frontmatter moves with its manifest bump, not through a refine.
 5. **Installed projects.**
    - `factory-sync.sh` brings the core.
    - `SETUP --upgrade` runs the migration `history-in-vcs (EVOL-118)`. The migration drops every `changelog` key from the project manifest and the inventory, and the frontmatter `changelog:` block from every Markdown file the manifest delivered and every `.claude/rules/*.md` (a stack rule generated without a template has no manifest entry).

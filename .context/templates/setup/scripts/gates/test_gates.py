@@ -5356,6 +5356,20 @@ class FrontmatterLock(unittest.TestCase):
             subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
         return repo
 
+    def test_a_template_is_never_an_artefact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = fixture_repo(Path(tmp))
+            write(repo / ".context/templates/setup/adr/t.md", "---\nversion: 1.2.1\nchangelog:\n  - x\nstatus: accepted\n---\n# {{TITLE}}\n")
+            write(repo / ".context/templates/po/gone.md", "---\nstatus: APPROVED\n---\n")
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: APPROVED\nscope: a\n---\n")
+            for c in (["add", "-A"], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"], ["branch", "-M", "main"], ["checkout", "-qb", "feature/F-001-x"]):
+                subprocess.run(["git", "-C", str(repo), *c], check=True, capture_output=True)
+            write(repo / ".context/templates/setup/adr/t.md", "---\nversion: 1.2.2\nstatus: accepted\n---\n# {{TITLE}}\n")
+            (repo / ".context/templates/po/gone.md").unlink()
+            self.assertEqual(frontmatter.check(repo, "main"), [], "a template's status is the materialised artefact's default, not an approval: its frontmatter moves with its manifest bump, a template may retire")
+            write(repo / "docs/spec/F-001/design.md", "---\nstatus: APPROVED\nscope: b\n---\n")
+            self.assertEqual([x["key"] for x in frontmatter.check(repo, "main")], ["scope"], "an artefact outside the template tree stays locked")
+
     def test_lock(self):
         base_fm = "---\nstatus: APPROVED\nscope: backend\niterations:\n  - id: 1\n---\n"
         with tempfile.TemporaryDirectory() as tmp:

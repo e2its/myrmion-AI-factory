@@ -866,7 +866,7 @@ invalidated_reason: "Upstream artifacts changed: [ui_restyling, schema_change]"
 
 ## Approved frontmatter is locked (EVOL-069)
 
-An artefact approved at the diff base changes its frontmatter only through its transitions: `gate.py frontmatter-lock` (a profile member) reds any other key added, removed or changed. The permitted keys are one constant, `PERMITTED` in `scripts/gates/frontmatter.py` (iteration state, build counters, persistence, approval); `status` moves only within `STATES` there. Any other edit goes through the phase's refine: an iteration appended — read through the one reader, `common.iteration_state` (§ Dual-format read in code) — lets the refine change any key, the status still within `STATES`.
+An artefact approved at the diff base changes its frontmatter only through its transitions: `gate.py frontmatter-lock` (a profile member) reds any other key added, removed or changed. The permitted keys are one constant, `PERMITTED` in `scripts/gates/frontmatter.py` (iteration state, build counters, persistence, approval); `status` moves only within `STATES` there. Any other edit goes through the phase's refine: an iteration appended — read through the one reader, `common.iteration_state` (§ Dual-format read in code) — lets the refine change any key, the status still within `STATES`. A template under `.context/templates/` is never an artefact: its `status` is the materialised default, and its frontmatter moves with its manifest bump.
 
 ---
 

@@ -148,7 +148,7 @@
       "target": ".claude/rules/contract-first-policy.md"
     },
     "rules/immutability_policy.md": {
-      "version": "1.8.0",
+      "version": "1.8.1",
       "content_type": "stack_configured",
       "target": ".claude/rules/immutability_policy.md"
     },
@@ -1215,7 +1215,7 @@
       "target": "scripts/hooks/pre-merge-commit"
     },
     "scripts/gates/frontmatter.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "content_type": "universal",
       "delivery": "both",
       "target": "scripts/gates/frontmatter.py"
@@ -1611,7 +1611,7 @@
       "path": ".claude/skills/factory-codebase-inventory/SKILL.md"
     },
     "skills/factory-iteration-model/SKILL.md": {
-      "version": "2.9.0",
+      "version": "2.9.1",
       "type": "skill",
       "path": ".claude/skills/factory-iteration-model/SKILL.md"
     },
@@ -2520,7 +2520,7 @@
       "path": "scripts/hooks/pre-merge-commit"
     },
     "scripts/gates/frontmatter.py": {
-      "version": "1.1.0",
+      "version": "1.1.1",
       "type": "script",
       "path": "scripts/gates/frontmatter.py"
     },
